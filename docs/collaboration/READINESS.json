@@ -1,0 +1,225 @@
+{
+  "recordedAt": "2026-10-05T16:54:30.403122+00:00",
+  "sourceRevision": 3,
+  "sourceSetSha256": "f1d7ce1d3cb2c73ccaae58744ef2ff2a34cef69070d098193b2cac86b7ae532c",
+  "uploadAuthorization": "conditional first clean source/test/docs private upload approved; root may execute after accurate-tree and write-route review",
+  "nightAutonomy": "ordinary reversible implementation may proceed; no new persistent auth, production role expansion, pricing policy or irreversible deletion",
+  "gitWrittenThisTask": false,
+  "rootFinalReviewPending": true,
+  "releaseReady": false,
+  "noNewUIOrNBARevision4": true,
+  "FCBusinessDecision": "ordinary FC users may see all FC business sales/cost/profit/product ranks; writes/admin only existing legitimate admins",
+  "FCImplementation": "four static aliases, fixed FC range/projection, real role and negative matrix not deployed/validated",
+  "NBA": "direction agreed, upgrade deferred; concrete automatic strategy/service actor/schedule/production not approved; C3 R3-01 stable UI ID+details and R3-02 directory durability/Linux validation open",
+  "testEvidence": {
+    "reportedPythonTargeted": 47,
+    "reportedPythonPass": 46,
+    "reportedWindowsSkip": 1,
+    "reportedNodeGroups": 3,
+    "reportedPythonAST": 182,
+    "reportedJSSyntax": 34,
+    "independentCandidateTestsRerun": false,
+    "allModulesRuntimeAccepted": false,
+    "old170PlusNew47MustNotSum": true
+  },
+  "modules": [
+    {
+      "moduleId": "home",
+      "owner": "吴律主导；陈超可参与迭代",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "existing nginx/portal",
+        "authenticated atomic business snapshots"
+      ]
+    },
+    {
+      "moduleId": "business-snapshot",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "Order/Admin safe existing sessions",
+        "server-owned private atomic version store",
+        "120min timer"
+      ]
+    },
+    {
+      "moduleId": "exact-range",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "existing range service/cache",
+        "current collector/readers",
+        "authenticated proxy"
+      ]
+    },
+    {
+      "moduleId": "fc-ops",
+      "owner": "吴律",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "existing ops/gate server",
+        "shared four static references pending scope",
+        "authenticated data/accurate ranges"
+      ]
+    },
+    {
+      "moduleId": "fc-coins",
+      "owner": "吴律",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "existing queue/price locks",
+        "rev25 external policy",
+        "CDP/container",
+        "safe backend sessions"
+      ]
+    },
+    {
+      "moduleId": "fc-players",
+      "owner": "吴律",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "cloud.9 effective container path",
+        "readonly price-lock bind",
+        "media/backend sessions",
+        "private DB"
+      ]
+    },
+    {
+      "moduleId": "google",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "private OAuth",
+        "daily09 timer",
+        "immutable business snapshot readonly"
+      ]
+    },
+    {
+      "moduleId": "weekly",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "Mon02 timer",
+        "authenticated exact-range consumer",
+        "private reports store"
+      ]
+    },
+    {
+      "moduleId": "taskboard",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "private SQLite",
+        "existing role proxy",
+        "three guard admins"
+      ]
+    },
+    {
+      "moduleId": "D4",
+      "owner": "陈超",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "operator runtime configuration",
+        "private upstream sessions",
+        "worker/service"
+      ]
+    },
+    {
+      "moduleId": "NBA",
+      "owner": "吴律",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "safe existing token/proxy identity",
+        "NBA_DATA_DIR receipts/lock",
+        "upstream session env",
+        "automatic confirmation decision"
+      ]
+    },
+    {
+      "moduleId": "MLB",
+      "owner": "吴律",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "trusted static root",
+        "nginx X-Remote-User identity",
+        "private runtime store"
+      ]
+    },
+    {
+      "moduleId": "IGGM",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "real TLS/DNS/pinned redirects compatibility",
+        "private cookie/config/runtime"
+      ]
+    },
+    {
+      "moduleId": "portal",
+      "owner": "吴律主导；陈超可参与迭代",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "existing signed secret/live registered groups",
+        "existing FC8896 gate external",
+        "nginx exact auth headers"
+      ]
+    },
+    {
+      "moduleId": "access-policy",
+      "owner": "共享协调；吴律主导，具体权限变更另批",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "effective role middleware/config",
+        "three-admin current source not live proof"
+      ]
+    },
+    {
+      "moduleId": "deploy-hub",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "outside-repo explicit credentials/config",
+        "trusted publisher identity",
+        "trusted site root"
+      ]
+    },
+    {
+      "moduleId": "release-gateway",
+      "owner": "待指派",
+      "releaseReady": false,
+      "runtimeValidatedThisTask": false,
+      "externalUnverifiedDependencies": [
+        "private version ledger/staging",
+        "exact seven actual dependencies",
+        "Unix lock",
+        "effective controlled uploader"
+      ]
+    }
+  ],
+  "additionalUnclosedModules": [
+    "FC gate/activity backends",
+    "Gallery",
+    "Madden",
+    "effective nginx/systemd/drop-ins",
+    "container/CDP/image/mounts",
+    "real read-only roles",
+    "private runtime credentials/state",
+    "actual external agents"
+  ]
+}

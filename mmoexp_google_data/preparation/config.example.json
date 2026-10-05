@@ -1,0 +1,12 @@
+{
+  "mode": "offline_mock_only",
+  "network_enabled": false,
+  "production_writes_enabled": false,
+  "cloud_project_id": "ecommerce-495601",
+  "cloud_project_number": "839381870611",
+  "execution": {"production_location": "server_only", "windows_role": "development_and_offline_tests_only", "historical_weekly_schedule_installed": "not_verified"},
+  "ga4": {"property_id": "541418940", "property_timezone": null, "currency": null, "scope": "https://www.googleapis.com/auth/analytics.readonly", "viewer_permission": "historically_reported_not_currently_verified"},
+  "gsc": {"property": "sc-domain:mmoexp.com", "source_timezone": "America/Los_Angeles", "scope": "https://www.googleapis.com/auth/webmasters.readonly", "restricted_permission": "historically_reported_not_currently_verified"},
+  "ads": {"customer_ids": [], "login_customer_id": "6039826478", "cloud_access_level": null, "customer_timezone": null, "currency": null, "scope": "https://www.googleapis.com/auth/adwords", "account_role_required": "read_only", "developer_token_status": "sunset_2026-09-09", "api_version": "v25"},
+  "dashboard": {"profile_key": "MMOEXP", "integration": "separate_marketing_snapshot", "order_source_timezone": "Asia/Shanghai"}
+}

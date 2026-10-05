@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IGGM 全站价格抓取</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="title">游戏价格抓取 · IGGM / AOEAH / U4GM</span>
+  <span class="pill" id="qStat">空闲</span>
+  <span class="spacer"></span>
+  <span class="who">我的名字（可选）</span>
+  <input type="text" id="who" class="whoInput" placeholder="匿名" maxlength="20">
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>① 填游戏地址，选品类，提交</h2>
+    <div class="row">
+      <input type="text" id="url" class="grow"
+             placeholder="https://www.iggm.com/arc-raiders 或 aoeah.com/u4gm.com 的游戏页"
+             value="https://www.iggm.com/arc-raiders">
+      <button class="primary" id="btnDiscover">解析品类</button>
+    </div>
+    <div class="hint">支持三个竞品站，按域名自动识别：iggm.com / aoeah.com / u4gm.com。
+      填游戏主页自动列出全部品类；也可以直接填某个品类页（如 .../arc-raiders/coins）。</div>
+    <div class="err" id="discoverErr"></div>
+
+    <div id="cateBox" style="display:none;margin-top:14px">
+      <div class="row" style="margin-bottom:2px">
+        <span class="sitebadge" id="siteBadge"></span>
+        <span class="gname" id="gameName"></span>
+        <span class="hint" style="margin:0" id="cateCount"></span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="small" id="btnAll">全选</button>
+        <button class="small" id="btnNone">全不选</button>
+      </div>
+      <div class="cates" id="cates"></div>
+      <button class="primary" id="btnStart">加入队列</button>
+      <span class="hint" style="display:inline;margin-left:10px">
+        提交后进入全局队列排队，同一时间只跑一个，避免请求过密被限流。
+      </span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 全局队列（所有人可见 · 串行执行）</h2>
+    <div id="qRunning"></div>
+    <div id="qWaiting"></div>
+    <div class="empty" id="qEmpty">当前没有任务，提交一个试试。</div>
+  </div>
+
+  <div class="card">
+    <h2>③ 历史记录（最近 40 条）</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:150px">游戏</th><th style="width:96px">提交人</th>
+          <th style="width:88px">品类</th><th style="width:92px">状态</th>
+          <th style="width:110px">进度</th><th style="width:66px">行数</th>
+          <th style="width:128px">提交时间</th><th style="width:170px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="taskRows"></tbody>
+    </table>
+    <div class="empty" id="emptyTip">暂无任务</div>
+  </div>
+
+  <div class="hint" style="text-align:center;margin-top:4px">
+    每次提交 = 一个任务，进入全局队列排队执行 · 队列对所有人可见 · 每个任务可独立下载 CSV
+  </div>
+
+</div>
+
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3>任务日志</h3>
+    <pre id="logBox">加载中…</pre>
+    <button class="close" id="btnCloseLog">关闭</button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html data-page-node-id="Xkd44SAQ32cFqbEw8COrB6" lang="zh-CN">
+<head data-page-node-id="hcDlcIQYdB9C7XPunKOxlx">
+<script data-page-node-id="AoBV7KzJQQDOKcoYGvOORU" src="/page/page_comm/inject.js"></script>
+<meta data-page-node-id="LIzeqvXy7DXnvIOs5aHl6d" charset="UTF-8">
+<meta data-page-node-id="go69PK0ZX3eHUA2x1Y2ROa" content="width=device-width, initial-scale=1.0" name="viewport">
+<title data-page-node-id="sg2FTwcWZKsP7FvnfENdyP" data-pnid-children="SXfc5otWoRHtEStrMxFg9s">NBA 2K27 自动改价控制台</title>
+<style data-page-node-id="xpDkr11hsqDC4HMOX4aoO5" data-pnid-children="5fx7U5TdkiUDDj6XBbbs2R">
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --border:#e5e7eb;
+    --text:#1f2937; --muted:#6b7280;
+    --primary:#2563eb; --primary-h:#1d4ed8;
+    --green:#16a34a; --red:#dc2626; --amber:#d97706;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    background:linear-gradient(135deg,#1e3a8a,#2563eb);
+    color:#fff; padding:20px 28px;
+  }
+  .topbar h1{font-size:20px;font-weight:700;letter-spacing:.5px}
+  .topbar p{font-size:13px;opacity:.85;margin-top:4px}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow);padding:22px 24px;margin-bottom:20px;
+  }
+  .card h2{
+    font-size:16px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .step{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;
+    font-size:13px;font-weight:700;flex:none;
+  }
+  .card .desc{font-size:13px;color:var(--muted);margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#374151}
+  .field input,.field select{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    font-size:14px;background:#fff;transition:border .15s,box-shadow .15s;
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:none;border-radius:8px;
+    font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--primary);color:#fff;
+  }
+  .btn:hover{background:var(--primary-h)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--primary);border:1px solid var(--primary)}
+  .btn.ghost:hover{background:#eff6ff}
+  .btn.green{background:var(--green)}
+  .btn.green:hover{background:#15803d}
+  .btn.warn{background:var(--amber)}
+  .btn.warn:hover{background:#b45309}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--border)}
+  th{background:#f9fafb;font-weight:600;color:#374151;font-size:13px}
+  tr:hover td{background:#fafbfc}
+  .tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}
+  .tag.green{background:#dcfce7;color:#15803d}
+  .tag.amber{background:#fef3c7;color:#b45309}
+  .tag.red{background:#fee2e2;color:#b91c1c}
+  .price{font-weight:700;font-variant-numeric:tabular-nums}
+  .price.usd{color:var(--red)}
+  .mono{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:13px}
+  .banner{
+    background:#fff8e1;border:1px solid #f0ad4e;border-left:4px solid #f0ad4e;
+    padding:14px 18px;border-radius:10px;margin-bottom:16px;
+  }
+  .banner h3{font-size:15px;color:#b45309;margin-bottom:8px}
+  .banner p{font-size:13px;color:#78350f}
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#9ca3af;flex:none}
+  .dot.ok{background:var(--green)}
+  .dot.run{background:var(--amber);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .formula{
+    background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 16px;
+    font-size:13px;color:#075985;margin-top:12px;
+  }
+  .formula code{background:#e0f2fe;padding:2px 6px;border-radius:5px;font-weight:600}
+  .log{
+    background:#0f172a;color:#cbd5e1;border-radius:10px;padding:14px 16px;
+    font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:12.5px;
+    max-height:220px;overflow-y:auto;white-space:pre-wrap;
+  }
+  .log .ok{color:#4ade80}.log .warn{color:#fbbf24}.log .info{color:#93c5fd}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
+
+  /* ===== 竞品价格对比模块 ===== */
+  .cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:4px 0 20px}
+  .cmp-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;border-top:4px solid #9ca3af}
+  .cmp-card.us{border-top-color:var(--red)}
+  .cmp-card.u4gm{border-top-color:#0d9488}
+  .cmp-card.iggm{border-top-color:var(--primary)}
+  .cmp-card.u7buy{border-top-color:var(--amber)}
+  .cmp-name{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cmp-name a{color:var(--primary);text-decoration:none;font-size:12px;font-weight:400}
+  .cmp-type{font-size:12px;color:var(--muted);margin:3px 0 10px}
+  .cmp-row{display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0}
+  .cmp-p{font-weight:700;font-variant-numeric:tabular-nums}
+  .cmp-note{font-size:12px;color:#8a93a8;margin-top:8px;line-height:1.5}
+  .sec-title{font-size:15px;font-weight:700;margin:22px 0 10px;color:#374151}
+  td.best{color:#0d8a4f;font-weight:800}
+  td.best::after{content:" ↓最低";font-size:11px;font-weight:600}
+  tr.ours-row td{background:#fff8f0}
+  .gap{display:inline-block;font-size:11.5px;color:#c1121f;background:#fee2e2;border-radius:9px;padding:1px 8px;margin-left:6px}
+  .gap.ok{color:#0d8a4f;background:#dcfce7}
+  .up{color:#c1121f;font-weight:700}
+  .down{color:#0d8a4f;font-weight:700}
+  .analysis{background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-top:14px}
+  .analysis li{margin:8px 0 8px 18px;font-size:13.5px;line-height:1.65}
+  .src{font-size:12.5px;color:var(--muted);line-height:1.8;background:#f9fafb;border-radius:10px;padding:12px 16px;margin-top:14px}
+  .src b{color:#44506a}
+  .topnav a{color:#fff;text-decoration:underline;font-weight:600}
+  .topnav a:hover{opacity:.85}
+
+  /* ===== 竞品价格对比（实时抓取由总开关联动）===== */
+  .cmp-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .cmp-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .switch-wrap{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;user-select:none}
+  .switch{position:relative;display:inline-block;width:44px;height:24px;flex:none}
+  .switch input{position:absolute;opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#cbd5e1;border-radius:24px;transition:.22s}
+  .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.22s;box-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .switch input:checked + .slider{background:var(--green)}
+  .switch input:checked + .slider::before{transform:translateX(20px)}
+  .switch input:focus-visible + .slider{box-shadow:0 0 0 3px rgba(22,163,74,.25)}
+  .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#f3f4f6;color:#6b7280;white-space:nowrap}
+  .live-badge.on{background:#dcfce7;color:#15803d}
+  .live-badge.run{background:#fef3c7;color:#b45309}
+  .live-badge.err{background:#fee2e2;color:#b91c1c}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+  .live-badge.on .live-dot{animation:pulse 1.5s infinite}
+  .live-badge.run .live-dot{animation:pulse .8s infinite}
+  .btn.tiny{padding:6px 12px;font-size:12.5px;border-radius:7px}
+  .field.mini label{font-size:12px;margin-bottom:4px}
+  .field.mini select{padding:6px 8px;font-size:12.5px}
+
+  /* ===== 流程门控：未完成上一步时锁住后续模块 ===== */
+  .card.locked{position:relative;background:#fff}
+  /* 底层内容彻底隐去：强模糊 + 极低透明 + 不可交互（三重保险，截图也不露出内容） */
+  .card.locked > *:not(.lockmask){filter:blur(10px) saturate(.3);opacity:0;pointer-events:none;user-select:none;visibility:hidden}
+  /* 遮罩用完全不透明底色盖死（原来是半透明，内容会隐隐透出来） */
+  .card.locked .lockmask{
+    position:absolute;inset:0;z-index:20;cursor:not-allowed;border-radius:14px;
+    background:linear-gradient(180deg,#f8fafc,#eef2f7);
+    border:1px dashed #d9e0ea;padding:10px;
+  }
+  .card.locked .lockmask .lockbox{position:sticky;top:16px;text-align:center;padding:8px 0 2px}
+  .card.locked .lockmask .lki{display:block;font-size:24px;line-height:1;opacity:.6;margin-bottom:9px}
+  .card.locked .lockmask .lkp{
+    display:inline-block;max-width:82%;text-align:center;line-height:1.5;
+    background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);
+    border-radius:999px;padding:9px 20px;font-size:13px;font-weight:600;color:#6b7280;
+  }
+  .topnav a.lockedlink{opacity:.4;text-decoration:none;pointer-events:none}
+  .gatebar{
+    display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;
+    background:#fff8e1;border:1px solid #f0ad4e;border-left:4px solid #f0ad4e;
+    color:#b45309;padding:12px 18px;border-radius:10px;margin-bottom:20px;
+  }
+</style>
+</head>
+<body data-page-node-id="zrKRyNIbu0zrWiQKJEBLye">
+  <div data-page-node-id="l1QsRGyYkivRNXSSWrFzGK" class="topbar">
+    <h1 data-page-node-id="0jN1mqlG1aCYQpDXO4guyJ"><!--pnid:DUO64PHpM5nL2tCZXJhMQ6-->🏀 NBA 2K27 自动改价控制台</h1>
+    <p data-page-node-id="N22zC3uraM4EGOkbdCigjA"><!--pnid:BDURRBHg3MQUYEedLaiuOp-->计算美元建议价 → 开总开关自动改价（读取采购价 → 比三家竞品 → 计算 → 真实写入） · 目标平台 admin.p2pah.cn</p>
+    <p data-page-node-id="ODrBg0VltpxDzGLMmw63E7" class="topnav" style="margin-top:8px">
+      <a data-page-node-id="S22qBVyxRNsLSwkGQZjnFR" href="#step3"><!--pnid:Anzihdf49BYP5S7Ht6cI9p-->计算建议价</a><!--pnid:GUfX4b8tu0S671nFltX7b1--> &nbsp;·&nbsp;
+      <a data-page-node-id="xDicKwEKPtujPOXDBK0eB5" href="#auto"><!--pnid:rOzclFK2NJkhprGxIzvxK8-->🔁 自动改价总开关</a><!--pnid:mrzyT7HmsIQTeJtvhRX955--> &nbsp;·&nbsp;
+      <a data-page-node-id="6grLMHpMgE6EjugjBa5EKx" href="#step2"><!--pnid:01bv7UfeEANFd3vCqgD9Ik-->① 读取采购价</a><!--pnid:Z15Ue7zDVAZ8jfHJdR1YzD--> &nbsp;·&nbsp;
+      <a data-page-node-id="gK8zmtzJikDTO5X0OBx3z6" href="#competitor"><!--pnid:egCwBgRANuOnQE7uGtl8x4-->📊 竞品价格对比</a><!--pnid:GSiFFZIUdvd4GiNs58EC6m--> &nbsp;·&nbsp;
+      <a data-page-node-id="Vkcb4Hd3bMONP6LoiiiMeq" href="#recommend"><!--pnid:N4jnbRzQOJuWgazLC10w4p-->💰 推荐定价</a><!--pnid:XXvTuNp0pjMI1qGr1ZMeYl--> &nbsp;·&nbsp;
+      <a data-page-node-id="Pz9S24j5DHPSwcOnbtsTTk" href="#log"><!--pnid:tBjDbLSgseHttHRg5SutCq-->🧾 运行日志</a>
+    </p>
+  </div>
+
+  <div data-page-node-id="y59wKB4DGE9dIDQ1bIqUef" class="wrap">
+
+    <!--pnid:7VNeTu4xJPgcTzkoiOoRid--><!-- 计算建议价（放顶部） -->
+    <div data-page-node-id="40pcRN0uo4tkw8R3ewfXXg" class="card" id="step3">
+      <h2 data-page-node-id="7h70T4gGhMkb2S0jXaRgtH"><span data-page-node-id="bEnENRqge4nmve5TRjVYgH" class="step"><!--pnid:niVO4MB0EzSNl2SIHJfhak-->②</span><!--pnid:D0WxPwbFfgZaY8tCnLAHSq--> 计算美元建议价（利润率区间 <span data-page-node-id="eMNeWr29snP3hSbGL2nevo" id="marginTitle"><!--pnid:fWTeC7Pj8Z8SNlhFMDkNhk-->25% ~ 35%</span><!--pnid:cMogt8JQvXox8I0RFZsmD8-->）</h2>
+      <p data-page-node-id="vLymNeTtGFYLNhvs1PqMnf" class="desc">
+        <b data-page-node-id="hflT9a1g9a9k5oOVGZuokC"><!--pnid:QHmzUA2mxoucrxRflx7q5F-->建议售价直接采用「💰 推荐定价方案」里的推荐单价</b><!--pnid:E3BUIkm5BXZmG3weJuNTbf-->——该价已<b data-page-node-id="njRXqbGAfRMzpjj6GTFVBd"><!--pnid:YIB2Sgg9cemCKPCOsXkMco-->先经过我方采购成本底线把关</b><!--pnid:jwTfBF8xSD031PuXn4xES3-->（= 成本底线价与竞品目标价取高），此处再按利润率区间做最终夹取。<br data-page-node-id="P2iEjfWdf7cPsArn7O5Es3">
+        <b data-page-node-id="icu9Pij81GbzVFTc4PNIhl"><!--pnid:XNWfnmq59U54grdvOFlwWn-->校正规则</b><!--pnid:HCiLrAAOJAdQpXdWRCv4V1-->：可接受价格区间 = <code data-page-node-id="e2obEH9LEJzOEZ7ualToZf" data-pnid-children="OlMuWAyGzGdYxdlKhGT2L2">成本 ÷ (1-最高利润率) ÷ 汇率</code><!--pnid:huHyAreYWJFPQXc9EEuHkz--> ~ <code data-page-node-id="psEmBqbdGB8rKoyWEl1Q9B" data-pnid-children="9KKE1TpxOjgfLKPtGB8m6W">成本 ÷ (1-最低利润率) ÷ 汇率</code><!--pnid:41kxyxQ3L9zT7AwrRc593S-->。
+        推荐单价低于下限（利润不达标）→ 上调到下限；高于上限（利润超额）→ 下调到上限；落在区间内 → 原样采用。<br data-page-node-id="NIkGuWuS6gxOspepY0w4ff"><!--pnid:f5UamnhA8lFL914VPYGzOU-->
+        「对比当前」= 建议价相对我方 mmoexp <b data-page-node-id="ldk3b6mO3UWnMab1cv0yy8"><!--pnid:HzR3Svg7FZrJooWU3gOfyp-->前台实时售价</b><!--pnid:OeaSMhVbAdhjkAaRu1toy2-->的涨跌。<br data-page-node-id="eTrRJeBPYzxB0CEImWHs0l">
+        <span data-page-node-id="ICOb1O6bx32jViKWN8BNO8" id="curSync" style="color:#6b7280"><!--pnid:FtAC1jHE7SZOyp0O1qbe3i-->现售价（页面维护值）：PS $0.1504 / Xbox $0.1504 / PC $0.0859</span>
+      </p>
+      <div data-page-node-id="8rdMUcnXYjJ6lTtZfcF5Iy" class="grid">
+        <div data-page-node-id="3hPnu59PtcGaWFezBs6lGR" class="field">
+          <label data-page-node-id="w3flZFVPdcO8qsIYuyimlv"><!--pnid:v6JqrxRZwngIIU1KYu1lmG-->汇率（¥/$）</label>
+          <input data-page-node-id="DWvldCOZyeTBGgOkbjzamd" id="rate" step="0.01" type="number" value="6.65">
+        </div>
+        <div data-page-node-id="IbqruZpQX7qlc3l6OPkrVJ" class="field">
+          <label data-page-node-id="UozjNZaNmMMlNAT61DwHtg"><!--pnid:f1ZGlYZknCCs3qZZndMjvH-->最低利润率（%）— 利润底线</label>
+          <input data-page-node-id="eB4NMWNTIcew41VXxh8ITu" id="marginMin" max="99" min="0" step="1" type="number" value="25">
+        </div>
+        <div data-page-node-id="c21cr5EpYbKfsCTLRWGUxF" class="field">
+          <label data-page-node-id="5rLkoFaNDLVjnHkWIBIa8l"><!--pnid:uerxj3ItjBQLnSeGDpDcBN-->最高利润率（%）— 利润上限</label>
+          <input data-page-node-id="2h9O2M9k6G1iFlIIiLNvPA" id="marginMax" max="99" min="0" step="1" type="number" value="35">
+        </div>
+        <div data-page-node-id="QEuYoWiiL5mGUwOuqrOy1x" class="field">
+          <label data-page-node-id="pfX8rgQmyygMJom3do3eub"><!--pnid:ix4pKWu2lAJ3gwvSZoSuSA-->建议价来源</label>
+          <select data-page-node-id="wx7YXzMngNsyJdLkbJBOUn" id="mode">
+            <option data-page-node-id="p69FTHjlwmAxNrNqBaisZs" selected value="rec"><!--pnid:aEEZLGlQZRQAgMal1K9VhM-->推荐单价（比竞品最低低约 1%）→ 按利润率区间校正</option>
+            <option data-page-node-id="M4YFn5dqRwZaHDd5odJZdv" value="margin"><!--pnid:1lwTyBnXwo5Yit2rpsf3XA-->成本公式：成本 ÷ (1-最低利润率) ÷ 汇率（保利润底价）</option>
+          </select>
+        </div>
+      </div>
+      <div data-page-node-id="tSOkBL3KgT2YOj0aURfGAB" class="row" style="margin-top:10px; gap:8px">
+        <span data-page-node-id="uTeHk30Ple50CeIZxO1ASK" style="font-size:12.5px; color:var(--muted); font-weight:600"><!--pnid:J8ncie5JK8qbHnU7glcJ0L-->常用区间：</span>
+        <button data-page-node-id="kv05ndLQyRU5XWKptGdZot" class="btn ghost tiny preset" data-max="35" data-min="25"><!--pnid:1cy7gJRVWtexh2KOJxjCfS-->25% ~ 35%</button>
+        <button data-page-node-id="1F0YYN3nPtEXeh2j3YKTKM" class="btn ghost tiny preset" data-max="32" data-min="28"><!--pnid:6JC0KGZ8iWmJ7QOcT3f5l5-->28% ~ 32%</button>
+        <button data-page-node-id="9nQDn3cNQSd72tHv6v5v91" class="btn ghost tiny preset" data-max="30" data-min="30"><!--pnid:vRldHJdX72ahTMcb4lrZBO-->30% 固定</button>
+        <button data-page-node-id="LYVXVr1g6xVzBHcJjcNAf1" class="btn ghost tiny preset" data-max="30" data-min="20"><!--pnid:DGSt35uEtRW4gg351kJeZX-->20% ~ 30%</button>
+      </div>
+      <table data-page-node-id="W48s1mSDjoADIw8zGZWEMS" style="margin-top:16px">
+        <thead data-page-node-id="4HJXAsohOj0DKYXlUNzRno">
+          <tr data-page-node-id="yC45WJn7ZNomCPbi3quR7n"><th data-page-node-id="YSsJ8B2iau0tV4s2jIVgr6"><!--pnid:NjIYj5TmKiDeSHuJTAKebM-->平台</th><th data-page-node-id="4ODge0UH5d3JqzjeLWedt5"><!--pnid:w5Y87fHd4WK1LVP4jpZVGF-->采购价（¥）</th><th data-page-node-id="uurJBIaGxGkcf2o8OrhPw4"><!--pnid:ljfzjboe4lUupl1Lw5FK4V-->推荐单价</th><th data-page-node-id="IU2S0jmJ6oz0phlVHTwORZ"><!--pnid:R4JvTIPd3gBF6qARVUTAK6-->建议售价（$）</th><th data-page-node-id="lgE7nTTll7gcldjzllnP6n"><!--pnid:dckg74ZnUGpw5fukxdHA7R-->该价利润率</th><th data-page-node-id="JTz8bgasWW1ruy7T6zjw6Z"><!--pnid:2HKRmZNCAlItuH8BqsDYgX-->对比当前</th></tr>
+        </thead>
+        <tbody data-page-node-id="R4vpjsKOCzHlVfApRUfaKf" id="priceTbody"></tbody>
+      </table>
+      <p data-page-node-id="DJ8uSbJvBtjh6rIAXCRbr0" class="desc" id="bandNote" style="margin-top:10px"></p>
+      <div data-page-node-id="0TdFpRoywAus6OdsJJ1tSn" class="row">
+        <button data-page-node-id="WRD90ZNgOCqQB6FeB1tj3N" class="btn" id="btnCalc"><!--pnid:2avtKvLr0q3JO9oxWiKpTl-->重新计算</button>
+      </div>
+    </div>
+
+    <!--pnid:6ud7ujkI4hzpmafXHLTAe4--><!-- 总开关：自动改价定时任务 -->
+    <div data-page-node-id="Bjumy1lIDcjuQlWtCVim9b" class="card" id="auto">
+      <div data-page-node-id="J7LaqMmULPZUjdGEDe64vY" class="cmp-head">
+        <h2 data-page-node-id="aAcsJmf0brAwjbMZIHbKSh"><span data-page-node-id="eNs3DRm7gVcrrpYzVDAnlM" class="step"><!--pnid:QGAF5l0HUa0iuFBhjMAPPs-->▸</span><!--pnid:mOMxmEWHFQs53c33a2bMdV--> 🔁 自动改价总开关（定时任务）</h2>
+        <div data-page-node-id="2AibAN0VngNyfvzOLu7n0i" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+          <span data-page-node-id="UDPiEmKXIyn88mBQ4gdAmk" class="live-badge" id="autoBadge"><span data-page-node-id="IZvsil1l06oiSTiZUOdUNM" class="live-dot"></span><!--pnid:34KrmtqjSDBakVciOKGvSk-->未开启</span>
+          <span data-page-node-id="FsR4LfhOHBeJDzdIGlllmj" class="field mini" id="autoIntervalWrap">
+            <select data-page-node-id="Z3D6pDsedpREQaztc4oUFi" id="autoInterval" title="自动执行间隔">
+              <option data-page-node-id="Nqet42mrbnNbRv0HNO5Lsn" selected value="360"><!--pnid:IKXWXe1VX0xMi3OfjolKDW-->每 6 小时</option>
+              <option data-page-node-id="w7POAX4kHASTpv4DIf55kO" value="720"><!--pnid:0BNhlvhpD9kUb0QlCSxrB9-->每 12 小时</option>
+              <option data-page-node-id="vKDuA4ZzLREgtIkVVfcU9P" value="1080"><!--pnid:XwS82bJxMcy9TOafwkX36d-->每 18 小时</option>
+              <option data-page-node-id="cITv6yy0IXo1oSF4OedON3" value="1440"><!--pnid:27EFj0gUOVkQekIw7chFk3-->每 24 小时</option>
+            </select>
+          </span>
+          <button data-page-node-id="jWviWUuLF8TKmvMjPwcEHC" class="btn ghost tiny" id="btnAutoRun" style="display:none"><!--pnid:DXII2JRimasoWcEkAxjeUf-->▶ 立即执行一次</button>
+          <button data-page-node-id="FJ7jexuujQfJoaocPR2tc3" class="btn ghost tiny" id="btnAutoStop" style="display:none"><!--pnid:MjCGyG4f3bW7es8fhy4kjj-->■ 停止</button>
+          <label data-page-node-id="mNt93sbDSaH1cnbeCoFy36" class="switch-wrap" title="开启后按设定间隔自动串行执行：读取采购价 → 计算建议售价 → 写入售价并提交">
+            <span data-page-node-id="WG1bpwGhJ3ieRxv5aMJKJo"><!--pnid:x4oyCqcPuP63ORPRNSIcTM-->自动改价</span>
+            <span data-page-node-id="U2mUI3Etn1Sbqsdxl5D27i" class="switch"><input data-page-node-id="rT7K0Zkk1R6PjsnFJIVESR" id="autoSwitch" type="checkbox"><span data-page-node-id="N3RyL8vU44siraTG8W2Hgk" class="slider"></span></span>
+          </label>
+        </div>
+      </div>
+      <p data-page-node-id="sF8EV59JmmZEXJCVX5bf0j" class="desc"><!--pnid:oW4ZWhl9pWc7tReEMJc7bc-->
+        开启后按<b data-page-node-id="V77sjl6YtAA17SYz8iMSjW"><!--pnid:wwPh7E1YIwLmIbEXDooTkk-->所选间隔（6 / 12 / 18 / 24 小时）</b><b data-page-node-id="TmMemExk6xZU5kyj4lGAKk"><!--pnid:vIfemaI3JhDoCRxKQOi9Us-->自动串行执行</b><!--pnid:4rfjjEiGbEe558X2CShBy7-->：① 读取最新采购单价 → 📊 抓取三家竞品价 → 💰 重算推荐单价 → ② 计算建议售价 → <b data-page-node-id="lw2OR5Vc0UvKlTLxNjJ9rj" style="color:#c1121f"><!--pnid:uLYjJcMGu099mPDAeXUPAM-->真实写入线上售价并提交</b><!--pnid:R9ennxDuB7Vppikzwh3e6z-->。<br data-page-node-id="uCLDd7ge2aShEqhfFYpEsY">
+        <b data-page-node-id="drqEDQ0SYWu4UrZEXZu0IT"><!--pnid:Q06uLSQvbvNtexsTJ2JErR-->只要「计算建议价」里的利润率区间保持不变，任务就会一直循环执行下去</b><!--pnid:m3BSBBBttr6bBATQGcfXz8-->；一旦你改动了利润率区间，任务会<b data-page-node-id="vhGjEYuHoazzuG6X7zOr03"><!--pnid:7V2BUPstzuHWsT3Ic5t6Yv-->自动暂停</b><!--pnid:ydXrAML5wVcfawbZieHwMj-->并提示你确认后再开。<br data-page-node-id="X9gh9ecWinUpr4lAxwBp18"><!--pnid:XAh5SzKY5Q3pb8JuoGT0wm-->
+        任务跑在本页面上，执行期间请保持页面打开（关闭或刷新页面即停止，刷新后总开关不会自动恢复）。
+      </p>
+      <div data-page-node-id="WzzahwqKQQ2AjQY3Xhaday" class="formula" id="autoStatus" style="margin-top:12px"><!--pnid:8qKuT8kj2ZejhCWM6QXsKn-->当前状态：未开启</div>
+      <div data-page-node-id="xdRAfc8tb3Y16yTS0TTSrj" class="src" style="margin-top:12px">
+        <b data-page-node-id="8gccIYP3nR8Y0GgFJ3YREt"><!--pnid:VyHixFYkBem8f7VbcAZLng-->安全护栏</b><!--pnid:0ZJ7ASaZu2DkXd4zSiMSBr-->：① 每轮执行前校验利润率区间是否被改动，改动即暂停；
+        ② 采购价缺失或异常（≤0）当轮跳过；③ 建议售价恒定被夹在利润率区间内，不会算出亏损价；
+        ④ 任一步骤失败自动暂停，不带错继续；⑤ 页面刷新后总开关不会自动恢复，需你重新开启。
+      </div>
+    </div>
+
+    <!--pnid:FlKZfd3yYaHSsnQykmZiyu--><!-- 流程进度提示（所有模块均已解锁，可自由操作） -->
+    <div data-page-node-id="NSmoanwvBstaGzz82PTjIF" class="gatebar" id="gateBar">
+      <span data-page-node-id="8Szd0I7ONZDOjPZR3fHObV"><!--pnid:x7i3QvJYub2KotNbolAFUF-->✅</span><span data-page-node-id="CM7Jm4Xzf9ZitlxnsxnneN" id="gateBarText"><!--pnid:h93NmwED1xSp1EYi9gFOsC-->所有模块均已解锁，可按任意顺序操作。</span>
+    </div>
+
+    <!--pnid:J27mO6b497qS1rbWOBlQCB--><!-- 步骤1 读取采购价 -->
+    <div data-page-node-id="PSBkwaagOUMUPhRMy1Nwlt" class="card" id="step2">
+      <h2 data-page-node-id="ka6uvWT35UkJ1WeZhXoKx4"><span data-page-node-id="klnwouG71BTlZlM6BHHx8d" class="step"><!--pnid:8BzhYzZqweSvvrXEjhP7ke-->①</span><!--pnid:YKj0yTDOcdPRCtruDH30um--> 读取最新采购单价</h2>
+      <p data-page-node-id="Y4IV4lGErJsYirmgeldLTS" class="desc"><!--pnid:7uopLBsQQmiLFbRu5yT0xC-->订单管理 → 发货记录 → 所属游戏「1306 NBA 2K27」→ 产品类型「1 Game Coins」，抓取最新采购单价。</p>
+      <div data-page-node-id="XkHhiAcdwD2qAS5U8W4EhG" class="banner" id="readBanner" style="display:none"></div>
+      <table data-page-node-id="bB1KBbNyqYgBLQqGrl75ce">
+        <thead data-page-node-id="NSBwalERx8ADF4F8O8xGqI">
+          <tr data-page-node-id="0KsBcCgkV02ETlZ1dpPgow"><th data-page-node-id="BM8IokRyVfV6EHox2NzRbX"><!--pnid:JGASQw9GR0V7XiL3kfgzL3-->平台</th><th data-page-node-id="n0EHrf0bNfVPYxmIOR82MU"><!--pnid:HdjKQBFlD2uCkFqiz273Tz-->最新采购单价（¥）</th><th data-page-node-id="JBgMKkyo7uEas28OtQJTKP"><!--pnid:OQvSBbuQasGxnL4eUIasoD-->数据时间</th><th data-page-node-id="m1RNM0kTb2lwnQNWiMRgq3"><!--pnid:1JzHAG3vWLLz8lLG8YyGZn-->状态</th></tr>
+        </thead>
+        <tbody data-page-node-id="7oQF56Cxp60Xe6dWUKQEid" id="readTbody"></tbody>
+      </table>
+      <div data-page-node-id="9WN2nhDhJGFaNRnnhtGJ6e" class="row">
+        <button data-page-node-id="oObhzXgEgYoJzJhG4lOZYR" class="btn" id="btnRead"><!--pnid:3MrXvt87wJejZTG1fn0yYc-->读取采购价</button>
+      </div>
+    </div>
+
+    <!--pnid:wAittYumLGVsvGjNLy8tOg--><!-- 竞品价格对比 -->
+    <div data-page-node-id="p0worBCTciuyE1wvhBwiz7" class="card" id="competitor">
+      <div data-page-node-id="pSpV4Jwk2gvSV3VAWY292H" class="cmp-head">
+        <h2 data-page-node-id="PqOO659yYhOQjk8B7iZSD7"><span data-page-node-id="f0jwFYt3RP5qpNZZHg35sn" class="step"><!--pnid:Rtk5FqNHwu3hVoy4AWzPZh-->▸</span><!--pnid:DF06jdsLRXxDadKLvxZfZW--> 竞品 VC 价格对比（$ / 1K VC）</h2>
+        <div data-page-node-id="MhPqrtq7ocRN1XHgqvH40b" class="cmp-tools">
+          <span data-page-node-id="m31rmj3SCwXCEwQInpYhjN" class="live-badge" id="cmpBadge"><span data-page-node-id="9n36BWauDk5qdtoDlNa3pv" class="live-dot"></span><!--pnid:BhD1dc1YDGHPiXlA0Ll0J0-->未开启</span>
+          <span data-page-node-id="q2KoF6E1ocv9uX3YTI6a7r" style="font-size:12.5px; color:var(--muted)"><!--pnid:zCqilcrQfwB2Hr1wX0lG4P-->刷新间隔跟随「🔁 自动改价总开关」</span>
+          <button data-page-node-id="iLGJPrejx223Ntjg6jxgGH" class="btn ghost tiny" id="btnCmpRefresh" style="display:none"><!--pnid:QrEqYI71QAnlJijY0l8LCH-->🔄 立即刷新</button>
+        </div>
+      </div>
+      <p data-page-node-id="avR8KOztlCm4fdquznsc7U" class="desc" id="cmpDesc"></p>
+
+      <div data-page-node-id="wU4Rt7r4b8NLZRaWJ9xv0Z" class="cmp-grid" id="cmpGrid"></div>
+
+      <div data-page-node-id="81NT9ObQNysTuBOISHNGtp" class="sec-title"><!--pnid:6no4Q3NidpwNGZULUhn4kQ-->分平台单价对比（$ / 1K VC）</div>
+      <table data-page-node-id="um1gxQvl81qqAtjG2auJXU">
+        <thead data-page-node-id="7wFMSZ3zUjRhkkojtiLwiN">
+          <tr data-page-node-id="Ex1CEl4UC3gXPwrseHrKyb"><th data-page-node-id="A5gxoWkgvkQk47oY14Vscp"><!--pnid:9Delo3w4VZPWIdgF0YG7fT-->网站</th><th data-page-node-id="cry7RrwWug1jxG9bpUwgyD"><!--pnid:E3lDVc8j2TIZbnVHo480p3-->PlayStation / PS5</th><th data-page-node-id="Hzh8zp6pfFZgB4Zl7iHnYv"><!--pnid:zvGqlMBABIVUbztmKL8F7N-->Xbox</th><th data-page-node-id="rU9PJCj2Ay4TE5nk4XwENk"><!--pnid:nQGBOiB5ayt2U2FEqoEgjP-->PC</th></tr>
+        </thead>
+        <tbody data-page-node-id="9jIE4I40aylfpXAhPpSisW" id="cmpTbody"></tbody>
+      </table>
+      <p data-page-node-id="CMJ7eXXDyzjXMDyWwdXByY" class="desc" id="cmpU7Note" style="margin-top:8px"></p>
+
+      <div data-page-node-id="cZrCRYZRHebLAsr06dR1Kp" class="sec-title"><!--pnid:hwPBe7KxGLEWoESdoWHQVy-->结论速读</div>
+      <div data-page-node-id="WBVF17rEQd0MSnBrXgB9Qm" class="analysis">
+        <ul data-page-node-id="IGccAKpCcrvx6sZ0BIvD2m" id="cmpConclusion"></ul>
+      </div>
+
+      <p data-page-node-id="0oCNoTu1DV1jid9pm5uD4K" style="font-size:12.5px; line-height:1.65; background:#fff8f0; border-left:3px solid var(--amber); padding:9px 13px; border-radius:6px; margin-top:14px; color:#44506a">
+        <b data-page-node-id="4seHp9NPhZPgU8dxLj0X2w"><!--pnid:afFvb7rT4yaZ5eL8NQM7TS-->说明</b><!--pnid:zhFlwjHYqpzYEkEytYYkos-->：以上为竞品比价参考，<b data-page-node-id="MqqOQRqdKZohJSfGFIR6It"><!--pnid:BUxjbwUpDMw25eG3NFb2ai-->本次未修改我方任何售价</b><!--pnid:asooo6uz0SKpvt8vLvg42J--> —— mmoexp / p2pah 三端价格保持改价后的现值（<span data-page-node-id="6dhywWf10qXqfXYNTa8HVE" id="cmpUsNow"><!--pnid:6LEHH5EC2bFKSFF1dzsk4c-->PS $0.1504 / Xbox $0.1504 / PC $0.0859</span><!--pnid:UCp1sCvaWhArVY8XLnIxcY-->）。
+        下方结论中的调价区间仅为推算参考，<b data-page-node-id="9rhqYStNgGczHiANQlRiuE"><!--pnid:rghgOE0KePyxp4T8TL8UHU-->任何调价动作都由你确认后另行执行</b><!--pnid:vzTbuFAi2trRVhsWwYmIYC-->。
+      </p>
+
+      <div data-page-node-id="qS7Tgs2iVKwEM8LXzJnmLt" class="src">
+        <b data-page-node-id="8NbF5vzSWaMmdW7Wrt7HU5"><!--pnid:OAV0sGh0WppF2C6Vg9t9T6-->数据来源</b><!--pnid:h22Z57hKWCDQPdSvooXjZ3-->：① 我们 = mmoexp 前台实时接口（<code data-page-node-id="owwnCzQwInP43341Aoxo6i" data-pnid-children="EaoweWuue4OxIAhJQNj48F">POST /ajax/goods</code><!--pnid:rzYqZTUOltTpFlVYqtH2Ib-->，按 aid 分平台取值，随竞价刷新一起更新）。
+        ② U4GM = 产品页 server_code=ps/xbox/pc 抓取 data-unit-price。
+        ③ IGGM = 官方 goods_ajax 接口（server_id 27443/27441/27439）。
+        ④ U7BUY = 官方 <code data-page-node-id="jpGttXtEQFyTFSwGjfOOWN" data-pnid-children="D4jawkQzmbR7ofqTDmEqjE">getFaceValueList</code><!--pnid:HEIfkJloxJDWOnzewWPA8N--> 接口按 areaId 分平台抓取（PS5 / PC / XBOX 三端各 10 档，100K~1000K，免登录）。
+        ⑤ 打开<b data-page-node-id="xQjYxjrBgONRa0pG2JaW1I"><!--pnid:kTGKJiQJzbIzkOM47ub8Cc-->「🔁 自动改价总开关」</b><!--pnid:RHPMtVNeYQ7JXEOuAEP6XB-->即调用后端 <code data-page-node-id="723rLvgoWtdjQsDtsThDze" data-pnid-children="CdGuwATwbvslepMkCqw4q7">GET /api/competitors</code><!--pnid:xsOYoNbv6fHUFRf4Tp69vX--> 现抓三家，并按总开关设定的间隔自动刷新；关闭则回落到静态快照。
+        命令行亦可用 <code data-page-node-id="nuESP9CCMBZBaKJ6VF5RxY" data-pnid-children="cmhu2Zv03Yf1NwTrzDVE2H">fetch_vc_prices.py</code><!--pnid:kclE2Q6koDl5E5AUqlAnzq--> 一键重抓（无依赖，无需登录）。
+      </div>
+    </div>
+
+    <!--pnid:XlMWMGBEJof93FOF2v37Ab--><!-- 推荐定价方案 -->
+    <div data-page-node-id="AAQTaRIBm8t9IQcBSZMAzY" class="card" id="recommend">
+      <h2 data-page-node-id="xs9Ynk8dZWq2Wpwky91BR9"><span data-page-node-id="PPVTmV1jpetWJH9R94oVKj" class="step"><!--pnid:1IEJmpJrs0g2SKMMZ1NaVH-->▸</span><!--pnid:EVDALxu0ALAqscuYTudQKA--> 推荐定价方案（先算我方采购成本底线 → 再比竞品最低低约 1%）</h2>
+      <p data-page-node-id="DMAsCM2QOOxt057pnYvisX" class="desc" id="recDesc">
+        <b data-page-node-id="9EJSiTF1K2ZvarveTqZlhP"><!--pnid:RsUjiREdXzWRHO4NQGDaJv-->生成顺序（硬性，不可颠倒）</b><!--pnid:8GIsY1nFfpvAHCunurZKqw-->：<br data-page-node-id="i973AF9L8ebikxNcrNtFx8">
+        <b data-page-node-id="1mGOOSbMGIuTeLfLGL43QJ"><!--pnid:WlfOeLAKrjb2OAQvIJ20Lf-->① 我方采购价</b><!--pnid:E8uEGLgGwxxSvukvEGTR5g--> → 成本底线价 = 成本 ÷ (1−最低利润率) ÷ 汇率（保利润的最低价，这是第一道关）；<br data-page-node-id="dJJghubzJI30K4SIDshMir">
+        <b data-page-node-id="1u1MAvTNOOmNjw4CD935iP"><!--pnid:tNlXtbWzhgXArO9m6xJ0MM-->② 竞品最低价</b><!--pnid:tnIAStTj8tJkBoaUWiH1cz--> → 竞品目标价 = u7buy / iggm / u4gm 三家最低 × 0.99（比最低再低约 1%）；<br data-page-node-id="8OlsfFdwHnzMoe11SMAxYG">
+        <b data-page-node-id="bg4Db40YjjMzEaQRNJIKsd"><!--pnid:a4hd6M2M6Sbrmbzvd0fMb6-->③ 推荐单价 = 两者取高</b><!--pnid:OBZqWWIt8MJ5hn54qMyd0s-->，再夹进利润率区间上限（不低于成本底线、也不超额定价）。<br data-page-node-id="ftNlI9a3qtOkSGLogTLnyV">
+        <b data-page-node-id="x9Mfx46jOuUykTd63hb0tz"><!--pnid:ZOmHW0QGp4AHWf2JTJrhNa-->没有采购价就不会出现推荐价</b><!--pnid:ZtfebkrgCqIgQe8OVcBmwv-->——「② 读取采购价」未完成时，本表不出任何数字。
+      </p>
+
+      <table data-page-node-id="Yju6QRqOSD1LWDHrKqVk9q">
+        <thead data-page-node-id="UUV8aPP9L6qdeCWQWckh1H">
+          <tr data-page-node-id="lki9CWi5FjbCHmVUB9IRlX"><th data-page-node-id="dlx9nETx2hGfcsQnBaHjTt"><!--pnid:2gLZekWtCjrS02ADE4zu4E-->平台</th><th data-page-node-id="7EXuFhFDzb47b8LKSYcTCl"><!--pnid:Gyg3yjIJrDWrF1XtZntIT9-->当前单价</th><th data-page-node-id="m2X1ILmVMnWESy1e2jMdVB"><!--pnid:Kd6E539kHFTHSMSO4viSQC-->竞品最低</th><th data-page-node-id="lwQwhi5SLh1QdgtTvzs5E5"><!--pnid:Dzo3VbBkMQQXNqhfiuNWVT-->竞品目标价（低 1%）</th><th data-page-node-id="2dhnQg854IoHwORs6LZ0ag"><!--pnid:VSk7BJ4oU8G6GUd4jSGDdP-->推荐单价（含成本底线）</th><th data-page-node-id="1agF351oI2M69msAk1RAhw"><!--pnid:iQAfg6GX5569PtlYy8sSRq-->该价利润率</th><th data-page-node-id="eQ3ZyUi4N6FGy1LDWKLRzn"><!--pnid:cn3tYvur2HGOkBP5wOZA6q-->结论</th></tr>
+        </thead>
+        <tbody data-page-node-id="fuqGLEvOgiGEKqjegdhVd2" id="recTbody"></tbody>
+      </table>
+      <p data-page-node-id="qyTB6CShHlbH5wwR2Yd4T9" class="desc" id="recNote" style="margin-top:8px"></p>
+
+      <div data-page-node-id="Tnqi3r5wRoubueobFLyvSL" class="sec-title" id="recWhyTitle"><!--pnid:xUqcVrhvZLLfERbmQD5rC1-->各平台推荐价可行性（先守成本底线，再比竞品）</div>
+      <div data-page-node-id="QjbLe1QpJaYViNLvDOLDAC" class="analysis" id="recWhy"></div>
+
+      <p data-page-node-id="PDy22kiOCjaaQLYcMm1sNm" style="font-size:12.5px; line-height:1.65; background:#fff8f0; border-left:3px solid var(--amber); padding:9px 13px; border-radius:6px; margin-top:14px; color:#44506a">
+        <b data-page-node-id="XMfugxVRW5yZFfad0BDuY3"><!--pnid:6CJ3ePFEwwmueOb8veUm2i-->说明</b><!--pnid:nEyZ50YBSgVgJNVb98adsn-->：本表为<b data-page-node-id="NPf950fDq0UvneeRi6OCvj"><!--pnid:v0GjSjTLiR79TQPUX3uGnQ-->定价建议</b><!--pnid:g7TdVVfds7RQZI43DKddVF-->，本表本身不会改价 —— <b data-page-node-id="SMisd1OBgUhLzihDFrc0B9"><!--pnid:V5V3L6ipIeZpJurCumu5ZH-->只有开启「🔁 自动改价总开关」才会真实写入线上售价</b><!--pnid:5BOmiawTfgA4ovoGyXtQad-->。「当前单价」为 mmoexp 前台实时售价（未取到时用页面维护值）。
+        本表会随「📊 竞品价格对比」的数据自动重算 —— <b data-page-node-id="C05S7rIImCoi47TwxUPdIj"><!--pnid:HeHZXVS3OY3picpgMiolqz-->竞品价一变，推荐单价跟着变</b><!--pnid:P8naTvYNmmU529B8qAtv9n-->。<br data-page-node-id="c8A2Ju1oe0g33LDOd3XyeT">
+        <b data-page-node-id="dpysFgYQFlxE8Yk7KHhazI"><!--pnid:9E1xGYzigF1N17nI7I3T1h-->流程位置</b><!--pnid:htI2EF2n5t5XQIvXi2ytfI-->：本表读取 ① 采购价 与 📊 竞品对比 数据后即可生成。<br data-page-node-id="mIO5GxUhpxxBxVvha5K5Ix">
+        <b data-page-node-id="63JDX1HVssiu7sMhwLLSQh"><!--pnid:dEvJ97Myc4DaxV9AdW1M3K-->成本优先保证</b><!--pnid:2mv5gBByvetydS5k6Fa0Ph-->：第 5 列「推荐单价」= 成本底线价与竞品目标价取高后、再夹进利润率区间的最终值，它<b data-page-node-id="4TtRGRFpGIgHHKTETmCi4d"><!--pnid:EBfBszLWUbnlz6gde9CxH0-->就是顶部「计算建议价」表里的建议售价，两处完全一致</b><!--pnid:wKOHwGDmDpbdyt8xAGJwD3-->；
+        也因此，任何被系统给出的推荐价<b data-page-node-id="Y2M5Mo5Yb2YWWEw6pNEiyQ"><!--pnid:Oiq8kOK6aEXbHICouPVf7y-->都不可能低于你设定的最低利润率</b><!--pnid:NCEIoTKw9akIsDEYp0scrQ-->。
+      </p>
+    </div>
+
+    <!--pnid:lLhhRtcSkFlBQNeGgNx6ry--><!-- 运行日志（放底部） -->
+    <div data-page-node-id="ZR0ZX4BXh7GHZ7YNGMEMCv" class="card" id="log">
+      <h2 data-page-node-id="GJgbYfgIXHLGhMgyj8FJRN"><span data-page-node-id="34uhPusGMtCasQk2RcZ9AG" class="step"><!--pnid:Xxv1gaLW7vQy3hL5lM7ssM-->▸</span><!--pnid:r8JO0Dg0IZqo90s9TpONFM--> 运行日志</h2>
+      <div data-page-node-id="2tCW2MHkWRo83cw741Lryg" class="log" id="logBody"><!--pnid:pTzDph0cWR8R2TYETWfBmk-->等待操作…</div>
+      <div data-page-node-id="Z1vE0UKHgwx9weKBiozi4A" class="row">
+        <button data-page-node-id="6daU0CLRj1joULpRPLc27h" class="btn ghost" id="btnClearLog"><!--pnid:QNN4yqTF8M9mM6PgftHU2u-->清空日志</button>
+      </div>
+    </div>
+
+    <div data-page-node-id="Ac61eMa3tEx2USKUjDE3y4" class="foot"><!--pnid:E2yO8EYMJ6AvPG5NZwpQMA-->WorkBuddy 改价程序 · 数据仅用于本地演示 · 实际改价请谨慎操作</div>
+  </div>
+
+<script data-page-node-id="1Q6VGOg9KNeDqZaWPjxcM4" data-pnid-children="p8fij2IBJVMnrsFaQmgWRW">
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var logEl=$('logBody');
+  var firstLog=true;   // 首次写日志时清掉占位文字
+  function log(msg,cls){
+    if(firstLog){ logEl.innerHTML=''; firstLog=false; }
+    var line=document.createElement('div');
+    if(cls) line.className=cls;
+    line.textContent='['+new Date().toLocaleTimeString()+'] '+msg;
+    logEl.appendChild(line);
+    logEl.scrollTop=logEl.scrollHeight;
+  }
+
+  // 后端服务地址 + 访问令牌（可配置：localStorage 或 URL ?api=&token=，未配置则用同域部署路径）
+  // 2026-09-30 部署到 FS 平台：默认走同域 /nba2k27（nginx 反代到 127.0.0.1:8765），页面由统一登录保护，无需再填令牌
+  var qs=(function(){var o={};location.search.slice(1).split('&').forEach(function(p){if(!p)return;var kv=p.split('=');o[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||'');});return o;})();
+  var API=localStorage.getItem('apiBase')||qs.api||'/nba2k27';
+  var ACCESS_TOKEN=localStorage.getItem('accessToken')||'';
+
+  // 给指向本后端的请求自动附加令牌（避免把令牌泄露给外部站点）
+  var _nativeFetch=window.fetch.bind(window);
+  window.fetch=function(url,opts){
+    opts=opts||{};
+    if(ACCESS_TOKEN && typeof url==='string' && (function(){try{var dest=new URL(url,location.href),base=new URL(API,location.href);return dest.origin===location.origin && base.origin===location.origin && (dest.pathname===base.pathname || dest.pathname.indexOf(base.pathname.replace(/\/$/,'')+'/')===0);}catch(_){return false;}})()){
+      var h={},k;
+      for(k in (opts.headers||{})){h[k]=opts.headers[k];}
+      h['X-Access-Token']=ACCESS_TOKEN;
+      opts=Object.assign({},opts,{headers:h});
+    }
+    return _nativeFetch(url,opts);
+  };
+
+  // 右下角注入最小设置条：填后端地址与令牌，保存后写入 localStorage 并刷新
+  (function(){
+    try{
+      var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+      var bar=document.createElement('div');
+      bar.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;box-shadow:0 2px 12px rgba(0,0,0,.12);font:12px/1.5 system-ui;color:#1f2937;';
+      bar.innerHTML='<div style="font-weight:600;margin-bottom:6px;">后端设置</div>'
+        +'<div style="margin-bottom:4px;">地址 <input id="cfgApi" style="width:210px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;" value="'+esc(API)+'"></div>'
+        +'<div style="margin-bottom:6px;">令牌 <input id="cfgTok" type="password" style="width:210px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;" value="'+esc(ACCESS_TOKEN)+'"></div>'
+        +'<button id="cfgSave" style="width:100%;padding:4px 0;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;">保存并刷新</button>';
+      document.body.appendChild(bar);
+      document.getElementById('cfgSave').addEventListener('click',function(){
+        localStorage.setItem('apiBase',document.getElementById('cfgApi').value.trim());
+        localStorage.setItem('accessToken',document.getElementById('cfgTok').value.trim());
+        location.reload();
+      });
+    }catch(e){}
+  })();
+  var DATA=[];   // 由后端实时返回的最新采购价
+
+  var RATE=6.65;
+  var MARGIN_MIN=0.25, MARGIN_MAX=0.35;   // 利润率区间（小数）：最低利润率 / 最高利润率
+
+  // 我方当前线上售价（$/1K VC）—— 页面维护的兜底值，页面加载后会尝试从 mmoexp 前台实时同步覆盖
+  var CURRENT_PRICE={ 'PS':0.1504, 'Xbox':0.1504, 'PC':0.0859 };
+  var hasRead=false;      // ① 读取采购价
+  var cmpReady=false;     // 📊 竞品价格已就绪
+  var recReady=false;     // 💰 推荐单价已就绪
+  var hasCalc=false;      // ② 建议价已计算
+  var hasApplied=false;   // ③ 已写入过
+
+  // ===== 流程链（所有模块均已解锁，CHAIN 仅保留用于导航链接高亮，不再做门控遮罩）=====
+  var CHAIN=[
+    { id:'step2',      nav:'#step2',      stage:1, name:'① 读取采购价',
+      hint:'请先完成「① 读取采购价」，读到底价后才能继续' },
+    { id:'competitor', nav:'#competitor', stage:2, name:'📊 竞品价格对比',
+      hint:'请先完成「① 读取采购价」，读到底价后才能核对竞品价格' },
+    { id:'recommend',  nav:'#recommend',  stage:3, name:'💰 推荐定价方案',
+      hint:'请先完成「📊 竞品价格对比」，竞品价就绪后才能生成推荐单价' },
+    { id:'step3',      nav:'#step3',      stage:4, name:'② 计算建议价',
+      hint:'请先完成「💰 推荐定价方案」，推荐单价就绪后才能计算建议售价' },
+    { id:'auto',       nav:'#auto',       stage:5, name:'🔁 自动改价总开关',
+      hint:'请先完成「② 计算建议价」（点一下「重新计算」确认建议售价）' }
+  ];
+  var STAGE_NAMES=['未开始','① 已读取采购价','📊 竞品价已就绪','💰 推荐价已就绪','② 建议价已计算'];
+
+  // 当前流程级别（已改为恒返回最高级 = 全部解锁，所有模块始终可用，不再有逐级门控）
+  function currentStage(){
+    return 5;
+  }
+
+  function refreshGate(){
+    var stage=currentStage();
+    CHAIN.forEach(function(g){
+      var card=$(g.id);
+      if(!card) return;
+      var unlocked=(stage>=g.stage);
+      var mask=card.querySelector('.lockmask');
+      if(unlocked){
+        if(mask) mask.parentNode.removeChild(mask);
+        card.classList.remove('locked');
+      }else{
+        card.classList.add('locked');
+        if(mask){
+          var p=mask.querySelector('.lkp');           // 已锁着：只更新提示文案
+          if(p) p.textContent=g.hint;
+        }else{
+          mask=document.createElement('div');
+          mask.className='lockmask';
+          mask.innerHTML='<div class="lockbox"><span class="lki">🔒</span><span class="lkp">'+g.hint+'</span></div>';
+          card.appendChild(mask);
+        }
+      }
+      var link=document.querySelector('.topnav a[href="'+g.nav+'"]');
+      if(link){ link.classList[unlocked?'remove':'add']('lockedlink'); }
+    });
+    // 进度条：全部解锁后显示绿色「已全部解锁」提示
+    var bar=$('gateBar');
+    if(bar){
+      bar.style.display='';
+      bar.style.background='#e7f7ee';
+      bar.style.border='1px solid #34d399';
+      bar.style.borderLeft='4px solid #10b981';
+      bar.style.color='#065f46';
+      $('gateBarText').innerHTML='<b>✅ 所有模块均已解锁</b> —— 可按任意顺序操作；「① 读取采购价」是计算建议价与改价的前置数据。';
+    }
+  }
+  // 兼容旧调用
+  function setGate(){ refreshGate(); }
+  function markChain(){ refreshGate(); }
+
+  // 竞品实时抓取已并入「自动改价总开关」联动，不再独立记忆开关状态
+
+  function onUnlocked(){
+    setGate(true);
+    syncCurrentPrice();                                   // 我方前台售价
+  }
+
+  // ===== 定价口径：建议售价 = 推荐单价，再按利润率区间校正 =====
+  function pct(v){ return (v*100).toFixed(1).replace(/\.0$/,'')+'%'; }
+  // 读利润率输入框（界面单位是 %，内部统一换算成小数）
+  function marginInput(id,dft){
+    var el=$(id); if(!el) return dft;
+    var v=parseFloat(el.value);
+    if(isNaN(v)) return dft;
+    v=v/100;
+    if(v<0) v=0;
+    if(v>0.95) v=0.95;
+    return v;
+  }
+  // ===== 推荐定价表 =====
+  // 口径（硬顺序，不可颠倒）：① 我方采购价 → 成本底线价（保利润率下限）
+  //                          ② 竞品最低 × 0.99 → 竞品目标价
+  //                          ③ 推荐单价 = 两者取高，再夹进利润率区间（不低于底线、也不超额）
+  // 硬约束：只要没有采购价（未读取 或 cost<=0），就【不给出推荐单价】——杜绝"不基于成本的推荐价"
+  var REC_DELTA=0.99;
+  // 竞品目标价（纯竞品口径）= 三家最低 × 0.99
+  function recTargetFor(area){
+    var low=cmpLow(cmpData||CMP_BASE,area);
+    return (typeof low==='number' && low>0) ? Number((low*REC_DELTA).toFixed(4)) : 0;
+  }
+  // 我方某平台的采购成本（¥）
+  function costOf(area){
+    for(var i=0;i<DATA.length;i++){ if(DATA[i].area===area) return DATA[i].cost||0; }
+    return 0;
+  }
+  // 最终推荐单价（含成本底线）：必须先有采购价，其次要有竞品价；两者缺一即不给价
+  function recPriceFor(area,P){
+    P=P||currentParams();
+    var cost=costOf(area);
+    if(!(cost>0)) return { ok:false, reason:'no-cost', cost:0, target:recTargetFor(area), price:0, margin:null };
+    var target=recTargetFor(area);
+    if(!(target>0)) return { ok:false, reason:'no-cmp', cost:cost, target:0, price:0, margin:null };
+    var s=resolveSuggest(cost,P.rate,P.mMin,P.mMax,'rec',target);
+    return { ok:true, reason:'', cost:cost, target:target, price:s.price, margin:s.margin,
+             note:s.note, clamped:s.clamped, pMin:s.pMin, pMax:s.pMax };
+  }
+  function recRender(){
+    var tbody=$('recTbody'); if(!tbody) return;
+    var P=currentParams(), rows='', why=[];
+    var d=cmpData||CMP_BASE;                 // 竞品数据未就绪时退回静态快照
+    var costMap={};
+    DATA.forEach(function(r){ costMap[r.area]=r.cost; });
+
+    PLATS.forEach(function(p){
+      var low=cmpLow(d,p);
+      var hasLow=(typeof low==='number' && low>0);
+      var cost=costMap[p]||0, hasCost=cost>0;
+      var r=recPriceFor(p,P);
+      var target=r.target||0;
+      var finalPrice=r.ok?r.price:0;
+      var m=r.ok?r.margin:null;
+      var diff=(hasLow&&finalPrice>0)?(finalPrice-low)/low*100:null;
+
+      var tag;
+      if(!hasCost)        tag='<span class="tag" style="background:#f3f4f6;color:#6b7280;">待读取采购价（不出推荐价）</span>';
+      else if(!hasLow)    tag='<span class="tag" style="background:#f3f4f6;color:#6b7280;">竞品价缺失</span>';
+      else if(diff<=0.05) tag='<span class="tag green">可比竞品更低 ✓</span>';
+      else if(m>0)        tag='<span class="tag amber">受成本限制</span>';
+      else                tag='<span class="tag red">该价亏损</span>';
+
+      var diffHtml = diff==null ? '—'
+        : (diff<=0.05 ? '<span class="down">↓ 低 '+Math.abs(diff).toFixed(1)+'%</span>'
+                      : '<span class="up">↑ 高 '+diff.toFixed(1)+'%</span>');
+      var cur=CURRENT_PRICE[p]||0;
+      // 推荐单价一律以采购成本为准：没有成本就不出数字；被成本底线抬高时标出被弃用的竞品目标价
+      var priceCell = !r.ok
+        ? '<span style="color:#9ca3af">待采购价</span>'
+        : cmpF4(finalPrice)
+          + ((r.clamped && /上调/.test(r.note||''))
+              ? '<br><span class="tag amber" style="margin-left:0;margin-top:4px;display:inline-block">成本底线 '+cmpF4(r.pMin)+' → 未采用目标价 '+cmpF4(target)+'</span>'
+              : '');
+      var marginCell = (m==null)
+        ? '<span style="color:#9ca3af">—</span>'
+        : '<span class="'+(m<P.mMin-1e-9?'tag red':'tag green')+'">'+pct(m)+'</span>';
+
+      rows+='<tr data-area="'+p+'" data-rec="'+(r.ok?finalPrice:'')+'">'
+        +'<td class="price">'+PLAT_SHORT[p]+'</td>'
+        +'<td class="mono">'+(cur>0?cmpF4(cur):'—')+'</td>'
+        +'<td class="mono">'+(hasLow?cmpF4(low):'—')+'</td>'
+        +'<td class="mono">'+(target>0?cmpF4(target):'—')+'</td>'
+        +'<td class="price usd">'+priceCell+'</td>'
+        +'<td>'+marginCell+'</td>'
+        +'<td>'+tag+'</td></tr>';
+
+      if(!hasCost){
+        why.push('<li><b>'+PLAT_SHORT[p]+' —— 暂不给推荐价</b>：尚未读取我方采购单价，'
+          +(hasLow?('竞品最低 '+cmpF4(low)+'、竞品目标价 '+cmpF4(target)+' 仅作参考。'):'竞品价亦缺失。')
+          +'<b>推荐价必须先经过采购成本这道关，请先完成「① 读取采购价」。</b></li>');
+      }else if(!hasLow){
+        why.push('<li><b>'+PLAT_SHORT[p]+'</b>：成本 ¥'+cost.toFixed(2)+'，但未取到竞品价，无法给出推荐单价。</li>');
+      }else if(diff<=0.05){
+        why.push('<li><b>'+PLAT_SHORT[p]+' —— 可行 ✓</b>：成本 ¥'+cost.toFixed(2)+' → 成本底线价 $'+r.pMin.toFixed(4)
+          +'（利润率 '+pct(P.mMin)+'）；竞品最低 '+cmpF4(low)+' × 0.99 = 目标价 '+cmpF4(target)+'；'
+          +'两者取高得推荐单价 <b>'+cmpF4(finalPrice)+'</b>（利润率 '+pct(m)+'）—— 既守住成本底线，又比竞品最低低 '
+          +Math.abs(diff).toFixed(1)+'%，可直接执行。</li>');
+      }else{
+        why.push('<li><b>'+PLAT_SHORT[p]+' —— 做不到「低 1%」✗</b>：成本 ¥'+cost.toFixed(2)+' → 成本底线价 $'+r.pMin.toFixed(4)
+          +'；竞品最低 '+cmpF4(low)+' 对应目标价仅 '+cmpF4(target)+'（利润率 '+pct(marginAtPrice(target,cost,P.rate))+'），低于底线。'
+          +'<b>已以采购成本为准上抬到 '+cmpF4(finalPrice)+'</b>（利润率 '+pct(m)+'），此时仍比竞品最低贵 '
+          +Math.abs(diff).toFixed(1)+'%。'
+          +(m<=0.05?' 该平台成本已接近或高于竞品售价，价格战无解，建议优先压低采购价。':'')+'</li>');
+      }
+    });
+
+    tbody.innerHTML=rows;
+    var src=cmpLive ? ('实时抓取 '+cmpLastAt) : ('静态快照 '+CMP_BASE.at);
+    $('recNote').innerHTML='推荐价生成顺序：<b>① 我方采购价 → 成本底线价</b>（利润率下限折算）→ '
+      +'<b>② 竞品最低 × 0.99 → 竞品目标价</b> → <b>③ 两者取高 = 推荐单价</b>，再夹进利润率区间 '
+      +pct(P.mMin)+' ~ '+pct(P.mMax)+'。第 5 列「推荐单价」就是下方 ③ 用的值（两处完全一致）。'
+      +'<b>没有采购价就不会出现推荐价。</b>竞品数据来源：'+src+'。';
+    $('recWhy').innerHTML='<ul>'+why.join('')+'</ul>';
+  }
+
+  // 推荐单价表（唯一数据源 = 「推荐定价方案」表格的 data-rec 属性）
+  function recPriceMap(){
+    var map={};
+    var rows=document.querySelectorAll('#recommend tbody tr[data-area]');
+    for(var i=0;i<rows.length;i++){
+      var a=rows[i].getAttribute('data-area');
+      var v=parseFloat(rows[i].getAttribute('data-rec'));
+      if(!v){                                   // 兜底：从单元格文字里取
+        var td=rows[i].querySelector('td.usd');
+        if(td) v=parseFloat(td.textContent.replace(/[^0-9.]/g,''));
+      }
+      if(a && v>0) map[a]=v;
+    }
+    return map;
+  }
+  // 按利润率反推价格：P = 成本¥ ÷ (1-利润率) ÷ 汇率（利润率越高 → 价格越高）
+  function priceAtMargin(cost,margin,rate){ return cost/(1-margin)/rate; }
+  // 由价格反推利润率：利润 ÷ 售价 = 1 - 成本($) / 售价
+  function marginAtPrice(price,cost,rate){ return price>0 ? 1-(cost/rate)/price : 0; }
+
+  // 核心：算某平台的建议售价（推荐单价 → 夹进利润率区间）
+  // EPS = 0.0001（小于显示精度 4 位小数的一半），避免四舍五入造成的假校正
+  var EPS=0.0001;
+  function resolveSuggest(cost,rate,mMin,mMax,mode,rec){
+    var pMin=priceAtMargin(cost,mMin,rate);   // 用最低利润率 → 价格下限（保利润底线）
+    var pMax=priceAtMargin(cost,mMax,rate);   // 用最高利润率 → 价格上限
+    var price, note, clamped=false;
+    if(mode==='margin'){
+      price=pMin; note='成本公式（最低利润率）';
+    }else{
+      if(rec>0){
+        price=rec; note='推荐单价，落在利润率区间内';
+        if(price<pMin-EPS){ price=pMin; clamped=true; note='推荐价利润不达标 → 上调至最低利润率'; }
+        else if(price>pMax+EPS){ price=pMax; clamped=true; note='推荐价利润超额 → 下调至最高利润率'; }
+      }else{
+        price=pMin; note='无推荐单价 → 回落成本公式';
+      }
+    }
+    return { price:price, margin:marginAtPrice(price,cost,rate), note:note, clamped:clamped, pMin:pMin, pMax:pMax };
+  }
+
+  // 当前生效参数（供渲染 / 计算 / 改价共用）
+  function currentParams(){
+    var rate=parseFloat($('rate').value)||RATE;
+    var mMin=marginInput('marginMin',MARGIN_MIN);
+    var mMax=marginInput('marginMax',MARGIN_MAX);
+    if(mMax<mMin){ var t=mMax; mMax=mMin; mMin=t; }   // 容错：写反了自动纠正
+    return { rate:rate, mMin:mMin, mMax:mMax, mode:$('mode').value, rec:recPriceMap() };
+  }
+
+  // ===== 可复用动作（手动按钮 / 自动任务共用，均返回 Promise）=====
+  // ① 读取最新采购单价
+  function doRead(){
+    log('正在从后台读取 NBA 2K27（1 Game Coins）最新采购单价…','info');
+    return fetch(API+'/api/read')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res || !res.ok) throw new Error(res.error||'读取失败');
+        // 更新汇率（若后端返回）
+        if(res.rate) $('rate').value=res.rate;
+        DATA=(res.platforms||[]).map(function(p){
+          return { area:p.area, cost:p.price, time:p.time, stale:!!p.stale };
+        });
+        var tbody=$('readTbody');
+        tbody.innerHTML='';
+        if(DATA.length===0){
+          var tr0=document.createElement('tr');
+          tr0.innerHTML='<td colspan="4" style="text-align:center;color:#9ca3af;padding:20px;">暂无数据</td>';
+          tbody.appendChild(tr0);
+          hasRead=false;
+          refreshGate();
+          log('⚠️ 未读取到数据（可能暂无 Game Coins 发货记录）','warn');
+          return false;
+        }
+        DATA.forEach(function(r){
+          var tr=document.createElement('tr');
+          var tag=r.stale
+            ? '<span class="tag" style="background:#fef3c7;color:#92400e;" title="该平台 48 小时内无新单，已自动回溯 7 天取最近一单">沿用旧单</span>'
+            : '<span class="tag green">已读取</span>';
+          tr.innerHTML='<td class="price">'+r.area+'</td>'+
+            '<td class="price">¥'+r.cost.toFixed(2)+'</td>'+
+            '<td class="mono">'+r.time+'</td>'+
+            '<td>'+tag+'</td>';
+          tbody.appendChild(tr);
+        });
+        hasRead=true;
+        var staleOnes=DATA.filter(function(r){return r.stale;});
+        var summary=DATA.map(function(r){return r.area+' ¥'+r.cost.toFixed(2)}).join('、');
+        log('读取完成（1 Game Coins）：'+summary+'，抓取时间 '+res.fetchedAt,'ok');
+        if(staleOnes.length){
+          log('⚠️ '+staleOnes.map(function(r){return r.area;}).join('/')+' 48 小时内无新采购单，已沿用最近一单（见「数据时间」列）—— 成本价可能偏旧','warn');
+        }
+        recRender();                 // 有了成本 → 先补齐推荐价（必须先算出成本底线）
+        renderPrice();               // 再据此算建议价 —— 两表必须一致
+        recReady=true;
+        refreshGate();
+        return true;
+      })
+      .catch(function(err){
+        log('❌ 读取失败：'+(err.message||err),'warn');
+        refreshGate();
+        throw err;
+      });
+  }
+
+  $('btnRead').addEventListener('click',function(){
+    doRead().catch(function(){});
+  });
+
+  function renderPrice(){
+    var tbody=$('priceTbody');
+    tbody.innerHTML='';
+    // 未读取单价：不显示建议价
+    if(!hasRead){
+      var tr2=document.createElement('tr');
+      tr2.innerHTML='<td colspan="6" style="text-align:center;color:#9ca3af;padding:20px;">请先点击「① 读取采购单价」，读取成功后方可计算建议售价</td>';
+      tbody.appendChild(tr2);
+      return;
+    }
+    var P=currentParams();
+    $('marginTitle').textContent=pct(P.mMin)+' ~ '+pct(P.mMax);
+
+    var bands=[];
+    DATA.forEach(function(r){
+      var rec=P.rec[r.area]||0;
+      var s=resolveSuggest(r.cost,P.rate,P.mMin,P.mMax,P.mode,rec);
+      var cur=CURRENT_PRICE[r.area]||0;   // 我方该平台当前售价（已从 exp 前台同步）
+      var diffHtml;
+      if(cur>0){
+        var diff=(s.price-cur)/cur*100;
+        var cls=diff>0?'tag amber':'tag green';
+        diffHtml='<span class="'+cls+'">'+(diff>=0?'+':'')+diff.toFixed(1)+'%</span>';
+      }else{
+        diffHtml='<span class="tag" style="background:#f3f4f6;color:#6b7280;">无参考价</span>';
+      }
+      var mCls = s.margin<P.mMin-1e-9 ? 'tag red' : (s.margin>P.mMax+1e-9 ? 'tag amber' : 'tag green');
+      var recHtml = rec>0 ? '$'+rec.toFixed(4) : '<span style="color:#9ca3af">—</span>';
+      var noteHtml = s.clamped ? '<br><span class="tag amber" style="margin-left:0;margin-top:4px;display:inline-block">'+s.note+'</span>' : '';
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td class="price">'+r.area+'</td>'+
+        '<td class="price">¥'+r.cost.toFixed(2)+'</td>'+
+        '<td class="mono">'+recHtml+'</td>'+
+        '<td class="price usd">$'+s.price.toFixed(4)+noteHtml+'</td>'+
+        '<td><span class="'+mCls+'">'+pct(s.margin)+'</span></td>'+
+        '<td>'+diffHtml+'</td>';
+      tbody.appendChild(tr);
+      bands.push(r.area+' $'+s.pMin.toFixed(4)+' ~ $'+s.pMax.toFixed(4));
+    });
+    var bn=$('bandNote');
+    if(bn && bands.length){
+      bn.innerHTML='<b>可接受价格区间</b>（利润率 '+pct(P.mMin)+' ~ '+pct(P.mMax)+' 折算）：'+bands.join('　·　') +
+        '<br>低于区间下限 = 利润不达标（会被上调）；高于区间上限 = 利润超额（会被下调）。';
+    }else if(bn){ bn.innerHTML=''; }
+  }
+
+  // 常用利润率区间快捷按钮
+  Array.prototype.forEach.call(document.querySelectorAll('.preset'),function(b){
+    b.addEventListener('click',function(){
+      $('marginMin').value=b.getAttribute('data-min');
+      $('marginMax').value=b.getAttribute('data-max');
+      recRender();
+      if(hasRead){ renderPrice(); }
+      log('利润率区间已设为 '+b.getAttribute('data-min')+'% ~ '+b.getAttribute('data-max')+'%','info');
+    });
+  });
+
+  $('btnCalc').addEventListener('click',function(){
+    if(!hasRead){
+      log('❌ 尚未读取采购单价，请先完成「① 读取采购单价」再计算建议价','warn');
+      return;
+    }
+    recRender();       // 先按「采购成本底线 + 竞品目标价」重算推荐价
+    renderPrice();     // 再据此算建议价（两表保持一致）
+    hasCalc=true;
+    refreshGate();                 // ② 完成（下一步由总开关真实写入）
+    var P=currentParams();
+    log('已重算建议价：汇率 '+$('rate').value+'、利润率区间 '+pct(P.mMin)+' ~ '+pct(P.mMax)+'、来源 '+(P.mode==='rec'?'推荐单价':'成本公式'),'info');
+  });
+
+  // ===== 写入售价（由「自动改价总开关」每轮自动执行，真实写入线上）=====
+  function doApply(){
+    if(!hasRead)     return Promise.reject(new Error('尚未读取采购单价'));
+    if(!DATA.length) return Promise.reject(new Error('无采购价数据'));
+    // 硬约束：任何平台缺采购成本都不允许生成/写入推荐价
+    var noCost=DATA.filter(function(r){ return !(r.cost>0); });
+    if(noCost.length) return Promise.reject(new Error('以下平台未读取到采购单价，不能据此给出推荐价：'+noCost.map(function(r){return r.area;}).join('/')));
+
+    var P=currentParams();
+    var items=DATA.map(function(r){
+      var s=resolveSuggest(r.cost,P.rate,P.mMin,P.mMax,P.mode,P.rec[r.area]||0);
+      return { area:r.area, cost:r.cost, price:Number(s.price.toFixed(4)), margin:s.margin };
+    });
+    var bad=items.filter(function(it){ return !(it.price>0); });
+    if(bad.length) return Promise.reject(new Error('售价计算异常：'+bad.map(function(b){return b.area}).join('/')));
+
+    var brief=items.map(function(it){return it.area+' $'+it.price.toFixed(4)+'（利润 '+pct(it.margin)+'）'}).join('、');
+
+    if(!window.confirm('确认本次 NBA 售价写入？\n'+brief)) return Promise.reject(new Error('本次写入未确认'));
+    log('正在写入线上售价（admin.p2pah.cn · NBA 2K27 VC · 三端）：'+brief,'info');
+    return fetch(API+'/api/apply',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ confirm:'NBA_PRICE_APPLY', rate:P.rate, marginMin:P.mMin, marginMax:P.mMax, mode:P.mode, platforms:items })
+      })
+      .then(function(r){ return r.json().then(function(j){ return { status:r.status, body:j||{} }; }); })
+      .then(function(res){
+        if(res.body.ok){
+          items.forEach(function(it){ log('  '+it.area+' 售价已更新为 $'+it.price.toFixed(4)+'（利润率 '+pct(it.margin)+'）','ok'); });
+          log('全部平台改价完成','ok');
+          hasApplied=true; refreshGate();
+          return { ok:true, items:items };
+        }
+        if(res.status===501){
+          log('⚠️ 后端 /api/apply 尚未实现（HTTP 501），本次未改动线上售价','warn');
+          return { ok:false, notImplemented:true, items:items };
+        }
+        throw new Error((res.body&&res.body.error)||('HTTP '+res.status));
+      })
+      .catch(function(err){
+        log('❌ 写入失败：'+(err.message||err),'warn');
+        throw err;
+      });
+  }
+
+  $('btnClearLog').addEventListener('click',function(){logEl.innerHTML='';log('日志已清空','info')});
+
+  // 从 mmoexp 前台同步我方现售价（失败则退回页面维护值）
+  function syncCurrentPrice(){
+    var el=$('curSync');
+    fetch(API+'/api/current')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res || !res.ok || !res.platforms || !res.platforms.length) throw new Error('前台无数据');
+        var got=[];
+        res.platforms.forEach(function(p){
+          if(p.price && p.price>0){
+            CURRENT_PRICE[p.area]=p.price;
+            got.push(p.area+' $'+p.price.toFixed(4));
+          }
+        });
+        if(!got.length) throw new Error('未取到有效价格');
+        var t=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+        el.textContent='已同步 mmoexp 前台实时售价（'+t+'）：'+got.join(' / ');
+        el.style.color='#16a34a';
+        recRender();
+        renderPrice();
+        cmpSyncUs();   // 同步刷新竞品模块里的「我们」一列
+      })
+      .catch(function(e){
+        el.textContent='未能读取 exp 前台售价（'+(e.message||e)+'），现使用页面维护值：PS $0.1504 / Xbox $0.1504 / PC $0.0859';
+        el.style.color='#b45309';
+      });
+  }
+
+  // ================= 竞品价格对比：静态快照 + 实时抓取（由总开关联动，间隔跟随总开关）=================
+  var PLATS=['PS','Xbox','PC'];
+  var PLAT_FULL={ 'PS':'PlayStation 5', 'Xbox':'Xbox Series X|S', 'PC':'PC Platform' };
+  var PLAT_SHORT={ 'PS':'PlayStation', 'Xbox':'Xbox', 'PC':'PC' };
+
+  // 静态基线快照（2026-09-30 11:30 抓取；开关关闭时展示）
+  var CMP_BASE={
+    at:'2026-09-30 11:30',
+    us:{ PS:0.1504, Xbox:0.1504, PC:0.0859 },
+    u4gm:{ PS:0.0999, Xbox:0.0999, PC:0.0859 },
+    iggm:{ PS:0.1190, Xbox:0.1090, PC:0.0899 },
+    u7buy:{ PS:0.1158, Xbox:0.1158, PC:0.0898 },
+    u7buyBest:{ PS:0.1158, Xbox:0.1158, PC:0.0861 },
+    u7buyBestFace:{ PS:'100K', Xbox:'100K', PC:'500K' },
+    u7buyEntryFace:{ PS:'100K', Xbox:'100K', PC:'100K' }
+  };
+  var CMP_SITES=[
+    { key:'u4gm',  name:'U4GM',  cls:'u4gm',  url:'https://www.u4gm.com/nba-2k27/vc',    type:'第一方 ｜ 三端单价已实测' },
+    { key:'iggm',  name:'IGGM',  cls:'iggm',  url:'https://www.iggm.com/nba-2k/2k27-vc', type:'第一方 ｜ 接口实测' },
+    { key:'u7buy', name:'U7BUY', cls:'u7buy', url:'https://www.u7buy.com/nba-2k27/vc',  type:'C2C 卖家市场 ｜ 接口实测' }
+  ];
+  var cmpData=null, cmpLive=false, cmpFetching=false, cmpTimer=null, cmpLastAt='';
+
+  function cmpClone(o){ return JSON.parse(JSON.stringify(o)); }
+  function cmpF4(v){ return (v==null||isNaN(v)) ? '—' : '$'+Number(v).toFixed(4); }
+  function cmpGap(a,b){ return (b>0) ? (a-b)/b*100 : 0; }
+  function cmpLow(d,plat){
+    var vs=[];
+    CMP_SITES.forEach(function(s){ var v=d[s.key]&&d[s.key][plat]; if(typeof v==='number'&&!isNaN(v)) vs.push(v); });
+    return vs.length ? Math.min.apply(null,vs) : null;
+  }
+  function cmpLowName(d,plat){
+    var low=cmpLow(d,plat), names=[];
+    if(low==null) return '—';
+    CMP_SITES.forEach(function(s){
+      var v=d[s.key]&&d[s.key][plat];
+      if(typeof v==='number' && Math.abs(v-low)<1e-9) names.push(s.name);
+    });
+    return names.join(' / ');
+  }
+
+  function cmpCardUs(d){
+    return '<div class="cmp-card us">'
+      +'<div class="cmp-name">我们 · MMOEXP <a href="https://www.mmoexp.com/Nba-2k27/Vc.html" target="_blank">前台↗</a></div>'
+      +'<div class="cmp-type">第一方 ｜ 后台改价实时生效</div>'
+      +PLATS.map(function(p){
+         return '<div class="cmp-row"><span>'+PLAT_FULL[p]+'</span><span class="cmp-p">'+cmpF4(d.us[p])+'</span></div>';
+       }).join('')
+      +'<div class="cmp-note">50K 总价：主机 $'+(d.us.PS*50).toFixed(2)+' / PC $'+(d.us.PC*50).toFixed(2)+'</div></div>';
+  }
+
+  function cmpCardSite(s,d){
+    var p0=d[s.key]||{};
+    var rows=PLATS.map(function(p){
+      return '<div class="cmp-row"><span>'+(s.key==='u7buy'?PLAT_FULL[p]:PLAT_SHORT[p])+'</span><span class="cmp-p">'+cmpF4(p0[p])+'</span></div>';
+    }).join('');
+
+    var note='';
+    if(s.key==='u4gm'){
+      note='50K 总价：主机 $'+(p0.PS*50).toFixed(2)+' / PC $'+(p0.PC*50).toFixed(2)+'。';
+      var dv=p0.PC-d.us.PC;
+      if(Math.abs(dv)<1e-9) note+='<b style="color:#c1121f">PC 现价 '+cmpF4(p0.PC)+' 已与我们持平。</b>';
+      else if(dv<0) note+='<b style="color:#c1121f">PC 现价 '+cmpF4(p0.PC)+' 比我们低 '+Math.abs(cmpGap(p0.PC,d.us.PC)).toFixed(1)+'%。</b>';
+      else note+='<b style="color:#0d8a4f">PC 现价 '+cmpF4(p0.PC)+' 比我们高 '+cmpGap(p0.PC,d.us.PC).toFixed(1)+'%。</b>';
+    }else if(s.key==='iggm'){
+      note='50K 总价：PS $'+(p0.PS*50).toFixed(2)+' / Xbox $'+(p0.Xbox*50).toFixed(2)+' / PC $'+(p0.PC*50).toFixed(2);
+    }else if(s.key==='u7buy'){
+      note='最小档 '+(d.u7buyEntryFace.PS||'100K')+'（PS $'+(p0.PS*100).toFixed(2)+'、Xbox $'+(p0.Xbox*100).toFixed(2)+'、PC $'+(p0.PC*100).toFixed(2)+'）。';
+      if(d.u7buyBest && d.u7buyBest.PC!=null && d.u7buyBest.PC<p0.PC-1e-9){
+        note+='PC 端 '+(d.u7buyBestFace.PC||'')+' 及以上大额档低至 '+cmpF4(d.u7buyBest.PC)+'/1K，与我们 PC 的 '+cmpF4(d.us.PC)+' 相差 '+Math.abs(cmpGap(d.u7buyBest.PC,d.us.PC)).toFixed(1)+'%。';
+      }
+    }
+    return '<div class="cmp-card '+s.cls+'">'
+      +'<div class="cmp-name">'+s.name+' <a href="'+s.url+'" target="_blank">产品页↗</a></div>'
+      +'<div class="cmp-type">'+s.type+'</div>'+rows+'<div class="cmp-note">'+note+'</div></div>';
+  }
+
+  function cmpTable(d){
+    var html='<tr class="ours-row"><td class="price">我们（mmoexp）<span class="tag red">我们</span></td>';
+    PLATS.forEach(function(p){
+      var v=d.us[p], low=cmpLow(d,p), tag, cls='gap';
+      if(low==null){ tag='无竞品数据'; }
+      else{
+        var g=cmpGap(v,low);
+        if(Math.abs(v-low)<1e-9){ tag='并列最低'; cls='gap ok'; }
+        else if(v<low){ tag='比最低低 '+Math.abs(g).toFixed(1)+'%'; cls='gap ok'; }
+        else { tag='比最低贵 +'+g.toFixed(1)+'%'; }
+      }
+      html+='<td class="price">'+d.us[p].toFixed(4)+' <span class="'+cls+'">'+tag+'</span></td>';
+    });
+    html+='</tr>';
+    CMP_SITES.forEach(function(s){
+      var p0=d[s.key]||{};
+      html+='<tr><td class="price">'+s.name+' <span class="tag" style="background:#eef4fb;color:#3b5b8c">竞品</span></td>';
+      PLATS.forEach(function(p){
+        var v=p0[p], low=cmpLow(d,p);
+        var best=(typeof v==='number' && low!=null && Math.abs(v-low)<1e-9);
+        html+='<td class="price'+(best?' best':'')+'">'+(v==null?'—':Number(v).toFixed(4))+'</td>';
+      });
+      html+='</tr>';
+    });
+    return html;
+  }
+
+  function cmpU7Note(d){
+    var t='U7BUY 最小档为 '+(d.u7buyEntryFace.PS||'100K')+'；';
+    if(d.u7buyBest && d.u7buyBest.PC!=null && d.u7buyBest.PC<d.u7buy.PC-1e-9){
+      t+='PC 端 '+(d.u7buyBestFace.PC||'500K')+' 以上大额档降至 <b>'+cmpF4(d.u7buyBest.PC)+'/1K</b>——与我们 PC 的 '+cmpF4(d.us.PC)+' 相差 '+Math.abs(cmpGap(d.u7buyBest.PC,d.us.PC)).toFixed(1)+'%。';
+    }else{
+      t+='PC 端大额档与最小档同价 '+cmpF4(d.u7buy.PC)+'。';
+    }
+    return t;
+  }
+
+  function cmpConclusion(d){
+    var out=[];
+    var lowPS=cmpLow(d,'PS'), lowXB=cmpLow(d,'Xbox'), lowPC=cmpLow(d,'PC');
+    var nPS=cmpLowName(d,'PS'), nPC=cmpLowName(d,'PC');
+    var gPS=cmpGap(d.us.PS,lowPS), gPC=cmpGap(d.us.PC,lowPC);
+
+    var b1='<b>PC 端：我们 '+cmpF4(d.us.PC)+'</b>——';
+    if(Math.abs(d.us.PC-lowPC)<1e-9){
+      b1+='与最低的 '+nPC+'（'+cmpF4(lowPC)+'）<b>并列全市场最低</b>，先发优势已被追平；再往下压会击穿 30% 利润线，建议维持观察而非跟降。';
+    }else if(d.us.PC<lowPC){
+      b1+='<b>仍为全市场最低</b>，比第二低的 '+nPC+'（'+cmpF4(lowPC)+'）低 '+Math.abs(gPC).toFixed(1)+'%。';
+    }else{
+      b1+='已被 '+nPC+' 的 '+cmpF4(lowPC)+' 反超，贵 <span class="up">+'+gPC.toFixed(1)+'%</span>。';
+    }
+    if(d.u7buyBest && d.u7buyBest.PC!=null && d.u7buyBest.PC<d.u7buy.PC-1e-9){
+      b1+='U7BUY 大额档 '+cmpF4(d.u7buyBest.PC)+'，与我们仅差 '+Math.abs(cmpGap(d.u7buyBest.PC,d.us.PC)).toFixed(1)+'%。';
+    }
+    out.push(b1);
+
+    var b2='<b>主机端（PS / Xbox）：我们 '+cmpF4(d.us.PS)+' / '+cmpF4(d.us.Xbox)+'</b>，';
+    if(d.us.PS>=lowPS && d.us.Xbox>=lowXB) b2+='<b>是全市场最高</b>，';
+    b2+='比最低的 '+nPS+'（'+cmpF4(lowPS)+'）贵 <span class="up">+'+gPS.toFixed(1)+'%</span>（买 50K 多花 $'+((d.us.PS-lowPS)*50).toFixed(2)+'）';
+    if(d.u7buy.PS) b2+='；比 U7BUY（'+cmpF4(d.u7buy.PS)+'）贵 '+cmpGap(d.us.PS,d.u7buy.PS).toFixed(1)+'%';
+    if(d.iggm.PS) b2+='；比 IGGM 贵 '+cmpGap(d.us.PS,d.iggm.PS).toFixed(1)+'%（PS '+cmpF4(d.iggm.PS)+'）~ '+cmpGap(d.us.Xbox,d.iggm.Xbox).toFixed(1)+'%（Xbox '+cmpF4(d.iggm.Xbox)+'）';
+    out.push(b2+'。');
+
+    var lo=Math.min(lowPS,lowXB);
+    var hi=Math.max(d.u4gm.PS,d.iggm.PS,d.u7buy.PS,d.u4gm.Xbox,d.iggm.Xbox,d.u7buy.Xbox);
+    out.push('主机端当前市场区间为 <b>'+cmpF4(lo)+' ~ '+cmpF4(hi)+'</b>。若主机端对标最低价打平（'+cmpF4(lo)+'），按「利润/售价=30%」口径倒推要求采购成本 ≤ ¥'+(lo*0.7*6.65).toFixed(3)+'（汇率 6.65）；当前 PS ¥0.60 / Xbox ¥0.70，<b>打平会击穿 30% 利润红线</b>，需权衡「利润率 vs 单量」。');
+
+    out.push('折中参考（按 PS 成本 ¥0.60 ≈ $0.0902）：主机端降到 <b>$0.1190</b>（与 IGGM PS 价持平）时利润率约 24.2%；降到 <b>$0.1299</b> 时约 30.6%，恰好守住 30% 红线。若按 Xbox 成本 ¥0.70（$0.1053）核算，则需 ≥$0.1504 才满足 30%——即当前 Xbox 价其实压线，PS 价有下调空间。');
+    out.push('交付方式同质：U7BUY（Login Top Up 代充，需提供 PSN / Steam / XBOX 账号密码）、U4GM、IGGM 与我们主机端走法一致，<b>价格是主要竞争变量</b>。');
+
+    return out.map(function(t){ return '<li>'+t+'</li>'; }).join('');
+  }
+
+  function cmpRender(d,live,at){
+    $('cmpGrid').innerHTML=cmpCardUs(d)+CMP_SITES.map(function(s){ return cmpCardSite(s,d); }).join('');
+    $('cmpTbody').innerHTML=cmpTable(d);
+    $('cmpU7Note').innerHTML=cmpU7Note(d);
+    $('cmpConclusion').innerHTML=cmpConclusion(d);
+    $('cmpUsNow').textContent='PS '+cmpF4(d.us.PS)+' / Xbox '+cmpF4(d.us.Xbox)+' / PC '+cmpF4(d.us.PC);
+    $('cmpDesc').innerHTML = live
+      ? '📡 <b>实时数据</b> · 最后更新 '+(at||'')+' · 「我们」= mmoexp 前台实时售价 · 三家竞品由后端接口现抓'
+      : '📌 静态快照 · 抓取时间 '+CMP_BASE.at+' (GMT+8) · 「我们」= mmoexp 前台价 · 打开「🔁 自动改价总开关」即现抓三家';
+    // 竞品价更新后 → 推荐定价表随之重算（流程：采购价 → 竞品 → 推荐）
+    cmpReady=true;
+    recRender();
+    if(hasRead) recReady=true;          // 硬约束：没有采购价时，推荐价不算就绪
+    if(hasRead) renderPrice();          // 竞品价一变，建议价同步跟着变
+    if(typeof refreshGate==='function') refreshGate();
+  }
+
+  function cmpBadge(text,cls){ $('cmpBadge').className='live-badge'+(cls?' '+cls:''); $('cmpBadge').innerHTML='<span class="live-dot"></span>'+text; }
+
+  // 我方售价同步后，让竞品模块里的「我们」也跟着更新
+  function cmpSyncUs(){
+    if(!cmpData) return;
+    PLATS.forEach(function(p){ if(CURRENT_PRICE[p]>0) cmpData.us[p]=CURRENT_PRICE[p]; });
+    cmpRender(cmpData,cmpLive,cmpLastAt);
+  }
+
+  function cmpFetch(quiet){
+    if(cmpFetching) return Promise.resolve(false);
+    cmpFetching=true;
+    var btn=$('btnCmpRefresh');
+    btn.disabled=true;
+    if(!quiet) cmpBadge('抓取中…','run');
+    log('正在实时抓取竞品价格（u4gm / iggm / u7buy）…','info');
+    return fetch(API+'/api/competitors')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res||!res.ok) throw new Error(res.error||'抓取失败');
+        var d=cmpClone(CMP_BASE);
+        PLATS.forEach(function(p){ if(CURRENT_PRICE[p]>0) d.us[p]=CURRENT_PRICE[p]; });
+        var okList=[], failList=[];
+        CMP_SITES.forEach(function(s){
+          var r=res.sites&&res.sites[s.key];
+          if(r && r.ok && r.price){
+            PLATS.forEach(function(p){ if(typeof r.price[p]==='number') d[s.key][p]=r.price[p]; });
+            if(s.key==='u7buy'){
+              if(r.entryFace) d.u7buyEntryFace=r.entryFace;
+              if(r.best) d.u7buyBest=r.best;
+              if(r.bestFace) d.u7buyBestFace=r.bestFace;
+            }
+            okList.push(s.name);
+          }else{
+            failList.push(s.name+(r&&r.error?'（'+r.error+'）':''));
+          }
+        });
+        cmpData=d;
+        cmpLastAt=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+        cmpRender(d,true,cmpLastAt);
+        if(failList.length===0){
+          cmpBadge('实时 · '+cmpLastAt,'on');
+          log('竞品实时抓取完成：'+okList.join(' / ')+' 三端均已取到最新价','ok');
+          return true;
+        }else{
+          cmpBadge('部分失败 · '+cmpLastAt,'err');
+          log('竞品抓取部分失败：'+failList.join('；')+'（该项沿用快照数据）','warn');
+          return true;
+        }
+      })
+      .catch(function(e){
+        cmpBadge('抓取失败','err');
+        log('❌ 竞品实时抓取失败：'+(e.message||e),'warn');
+        return false;
+      })
+      .then(function(r){ cmpFetching=false; btn.disabled=false; return r; });
+  }
+
+  // 间隔显示：分钟数 → 人话（整小时显示「X 小时」，否则「X 分钟」）
+  function fmtInterval(min){
+    min=parseInt(min,10)||0;
+    if(min>=60 && min%60===0) return (min/60)+' 小时';
+    return min+' 分钟';
+  }
+
+  function cmpStartTimer(){
+    cmpStopTimer();
+    // 刷新间隔统一跟随「🔁 自动改价总开关」的间隔设置（全页只有一个间隔）
+    var min=autoIntervalMin();
+    cmpTimer=setInterval(function(){ cmpFetch(true); }, min*60*1000);
+  }
+  function cmpStopTimer(){ if(cmpTimer){ clearInterval(cmpTimer); cmpTimer=null; } }
+
+  function cmpSetLive(on,fetchNow){
+    // 竞品实时抓取不再有独立开关，完全跟随「自动改价总开关」联动启停
+    cmpLive=on;
+    $('btnCmpRefresh').style.display=on?'':'none';
+    if(on){
+      cmpBadge('抓取中…','run');
+      if(fetchNow!==false) cmpFetch(false);
+      cmpStartTimer();
+    }else{
+      cmpStopTimer();
+      cmpBadge('未开启','');
+      cmpData=cmpClone(CMP_BASE);
+      cmpRender(cmpData,false);
+    }
+  }
+
+  $('btnCmpRefresh').addEventListener('click',function(){
+    if(!cmpLive){ log('请先打开「自动改价总开关」（竞品实时抓取已并入总开关）','warn'); return; }
+    cmpFetch(false);
+  });
+
+  // ===== 🔁 自动改价总开关（定时任务）=====
+  var autoOn=false, autoTimer=null, autoUiTimer=null, autoRunning=false;
+  var autoNextAt=null, autoLastTime='--', autoRound=0;
+  var autoSnapshot='', autoSnapshotText='';
+
+  function autoBadge(text,cls){
+    var b=$('autoBadge');
+    b.className='live-badge'+(cls?' '+cls:'');
+    b.innerHTML='<span class="live-dot"></span>'+text;
+  }
+  function autoStatusText(html){ $('autoStatus').innerHTML=html; }
+  function autoIntervalMin(){ return parseInt($('autoInterval').value,10)||360; }
+  function autoHHMMSS(d){
+    var p=function(n){ return (n<10?'0':'')+n; };
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  function autoHHMM(d){
+    var p=function(n){ return (n<10?'0':'')+n; };
+    return p(d.getHours())+':'+p(d.getMinutes());
+  }
+  // 策略指纹：利润率区间 + 建议价来源（汇率不进指纹，它会随后台自动更新）
+  function autoPolicySnapshot(){
+    var P=currentParams();
+    return P.mMin.toFixed(4)+'|'+P.mMax.toFixed(4)+'|'+P.mode;
+  }
+  function autoPolicyText(){
+    var P=currentParams();
+    return '利润率 '+pct(P.mMin)+'~'+pct(P.mMax)+'、来源 '+(P.mode==='rec'?'推荐单价':'成本公式');
+  }
+  function autoUi(){
+    if(!autoOn) return;
+    var mode='<b style="color:#c1121f">正式（会真实写入售价）</b>';
+    if(autoRunning){
+      autoStatusText('当前状态：<b style="color:#b45309">正在执行…</b> · 间隔 每 '+fmtInterval(autoIntervalMin())+' · 模式 '+mode+' · 策略 '+autoPolicyText());
+      return;
+    }
+    var next='--';
+    if(autoNextAt){
+      var left=Math.max(0,Math.round((autoNextAt-Date.now())/1000));
+      var lh=Math.floor(left/3600), lm=Math.floor((left%3600)/60), ls=left%60;
+      var leftTxt=(lh>0 ? lh+' 小时 '+(lm<10?'0':'')+lm+' 分' : lm+' 分 '+(ls<10?'0':'')+ls+' 秒')+'后';
+      next=autoHHMM(new Date(autoNextAt))+'（'+leftTxt+'）';
+    }
+    autoStatusText('当前状态：<b style="color:#15803d">运行中</b> · 间隔 每 '+fmtInterval(autoIntervalMin())+' · 模式 '+mode+
+      ' · 上次执行 '+autoLastTime+' · 下次执行 '+next+'<br>策略快照：'+autoPolicyText()+'（改动即自动暂停）');
+  }
+  function autoStopUi(){ if(autoUiTimer){ clearInterval(autoUiTimer); autoUiTimer=null; } }
+  function autoSchedule(){
+    if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; }
+    if(!autoOn) return;
+    var ms=autoIntervalMin()*60*1000;
+    autoNextAt=Date.now()+ms;
+    autoTimer=setTimeout(function(){ autoNextAt=null; autoCycle(false); }, ms);
+    autoUi();
+  }
+  function autoStop(reason,cls){
+    if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; }
+    autoStopUi();
+    autoNextAt=null;
+    autoOn=false;
+    autoRunning=false;
+    $('autoSwitch').checked=false;
+    $('btnAutoRun').style.display='none';
+    $('btnAutoStop').style.display='none';
+    autoBadge(reason?'已暂停':'未开启', reason?(cls||'err'):'');
+    if(reason) log('⏸ 自动改价已停止：'+reason,'warn');
+    autoStatusText('当前状态：<b>已暂停</b>'+(reason?'（'+reason+'）':''));
+    // 联动：总开关关闭 → 竞品实时抓取一并停止
+    if(cmpLive){
+      cmpSetLive(false);
+      log('已联动关闭竞品实时抓取，回落到静态快照（'+CMP_BASE.at+'）','info');
+    }
+  }
+  function autoStart(){
+    autoOn=true; autoRunning=false; autoRound=0;
+    autoSnapshot=autoPolicySnapshot();
+    autoSnapshotText=autoPolicyText();
+    $('autoIntervalWrap').style.display='';
+    $('btnAutoRun').style.display='';
+    $('btnAutoStop').style.display='';
+    autoBadge('启动中…','run');
+    log('🔁 自动改价总开关已开启 · 间隔 每 '+fmtInterval(autoIntervalMin())+' · 模式 正式（会真实写入线上售价）','ok');
+    log('策略快照已锁定：'+autoSnapshotText+'（此后你若改动利润率区间，任务会自动暂停）','info');
+    // 联动：总开关开启 → 竞品实时抓取一并开启
+    if(!cmpLive){
+      cmpSetLive(true);
+      log('已联动开启竞品实时抓取（间隔：每 '+fmtInterval(autoIntervalMin())+'自动刷新）','info');
+    }
+    autoStopUi(); autoUiTimer=setInterval(autoUi,1000); autoUi();
+    autoCycle(true);
+  }
+
+  // 单轮执行：读取 → 计算 → 写入
+  function autoCycle(manual){
+    if(!autoOn) return;
+    if(autoRunning){ log('⏭ 上一轮仍在执行中，本轮跳过','warn'); return; }
+    autoRunning=true;
+    var started=autoHHMMSS(new Date());
+    autoRound++;
+    autoBadge('执行中 '+started,'run'); autoUi();
+    log('── 自动改价第 '+autoRound+' 轮开始（'+started+'，'+(manual?'手动触发':'定时触发')+'）──','info');
+
+    // 护栏：策略指纹变了就不再执行
+    var snap=autoPolicySnapshot();
+    if(autoSnapshot && snap!==autoSnapshot){
+      autoStop('利润率区间 / 建议价来源已变动（'+autoSnapshotText+' → '+autoPolicyText()+'），需你确认后重新开启','err');
+      return;
+    }
+
+    var chain=Promise.resolve();
+    // 每轮串行执行：① 读取 → 📊 竞品 → 💰 推荐 → ② 计算 → 真实写入
+    chain
+      .then(function(){ log('【1/5】① 读取最新采购单价…','info'); return doRead(); })
+      .then(function(ok){
+        if(!ok) throw new Error('未读取到采购价数据');
+        var bad=DATA.filter(function(r){ return !(r.cost>0); });
+        if(bad.length) throw new Error('采购价异常：'+bad.map(function(b){return b.area}).join('/'));
+        log('采购价校验通过：'+DATA.map(function(r){return r.area+' ¥'+r.cost.toFixed(2)}).join('、'),'info');
+      })
+      .then(function(){
+        log('【2/5】📊 竞品价格对比：抓取 u4gm / iggm / u7buy 最新价…','info');
+        return cmpFetch(true);
+      })
+      .then(function(){
+        var P0=currentParams();
+        log('【3/5】💰 推荐定价：先取我方采购成本底线，再与竞品目标价（三家最低 × 0.99）取高 —— '
+          +PLATS.map(function(p){
+              var r=recPriceFor(p,P0);
+              return PLAT_SHORT[p]+' '+(r.ok?cmpF4(r.price):'待采购价');
+            }).join('、'),'info');
+        recRender(); recReady=true; refreshGate();
+      })
+      .then(function(){
+        log('【4/5】③ 计算建议价…','info');
+        renderPrice();
+        hasCalc=true; refreshGate();
+        var P=currentParams();
+        log('建议售价（经利润率区间 '+pct(P.mMin)+' ~ '+pct(P.mMax)+' 校正）：'+DATA.map(function(r){
+          var s=resolveSuggest(r.cost,P.rate,P.mMin,P.mMax,P.mode,P.rec[r.area]||0);
+          return r.area+' $'+s.price.toFixed(4)+'（利润 '+pct(s.margin)+'）';
+        }).join('、'),'info');
+      })
+      .then(function(){
+        log('【5/5】真实写入线上售价（admin.p2pah.cn · NBA 2K27 VC · 三端）…','info');
+        return doApply();
+      })
+      .then(function(res){
+        autoLastTime=autoHHMMSS(new Date());
+        autoRunning=false;
+        if(res && res.notImplemented){
+          autoBadge('已暂停（写入通道未接通）','err');
+          autoStop('后端 /api/apply 未实现，写入不会生效，为避免空转已暂停','err');
+          return;
+        }
+        autoBadge('运行中 · 上次 '+autoLastTime,'on');
+        log('✅ 自动改价本轮完成（'+autoLastTime+'），线上售价已更新','ok');
+        if(autoOn) autoSchedule();
+      })
+      .catch(function(err){
+        autoRunning=false;
+        var msg=(err&&err.message)||String(err);
+        log('❌ 自动改价本轮失败：'+msg,'warn');
+        autoStop('本轮执行失败（'+msg+'），已暂停以免带错继续','err');
+      });
+  }
+
+  $('rate').addEventListener('change',function(){
+    if(hasRead){ renderPrice(); }
+    recRender();
+  });
+
+  $('autoSwitch').addEventListener('change',function(){
+    var on=this.checked;
+    if(!on){ autoStop('手动关闭总开关'); return; }
+    // 开了就执行：不弹确认，每轮直接真实写入线上售价
+    log('🔁 自动改价总开关已开启（正式模式：每轮都会真实写入线上售价），立即执行第一轮','ok');
+    autoStart();
+  });
+  $('btnAutoRun').addEventListener('click',function(){ autoCycle(true); });
+  $('btnAutoStop').addEventListener('click',function(){ autoStop('手动点击停止'); });
+  $('autoInterval').addEventListener('change',function(){
+    if(!autoOn) return;
+    log('执行间隔已设为「每 '+fmtInterval(autoIntervalMin())+'」（竞品刷新同步跟随）','info');
+    autoSchedule();
+    if(cmpLive) cmpStartTimer();     // 竞品抓取间隔同步跟随总开关
+  });
+  // 利润率区间 / 建议价来源 一被改动 → 立即暂停（这就是「只要利润率不动就一直执行」的边界）
+  ['marginMin','marginMax','mode'].forEach(function(id){
+    $(id).addEventListener('change',function(){
+      recRender();
+      if(hasRead){ renderPrice(); }
+      if(!autoOn) return;
+      autoStop('你改动了'+autoPolicyText()+'，已自动暂停，确认策略后请重新开启','err');
+    });
+  });
+  // 任务在跑时离开页面 → 提醒
+  window.addEventListener('beforeunload',function(e){
+    if(!autoOn) return;
+    e.preventDefault();
+    e.returnValue='自动改价任务正在运行，离开页面会中断任务';
+    return e.returnValue;
+  });
+
+  // 竞品模块初始化：默认静态快照（未读取采购价时整块被门控遮罩挡住）
+  cmpData=cmpClone(CMP_BASE);
+  cmpRender(cmpData,false);
+
+  // 初始化：未读取采购价 → 锁住后续模块
+  setGate(false);
+  renderPrice();
+})();
+</script>
+</body>
+</html>

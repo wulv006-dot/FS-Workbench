@@ -1,0 +1,9 @@
+[Unit]
+Description=Unified business snapshot every 120 minutes
+[Timer]
+OnActiveSec=120min
+OnUnitActiveSec=120min
+AccuracySec=30s
+Unit=fs-transaction-collect.service
+[Install]
+WantedBy=timers.target

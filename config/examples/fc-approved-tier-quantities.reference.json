@@ -1,0 +1,62 @@
+{
+  "status": "dated existing approved read-only evidence; quantity vectors only; never an automatic restore policy",
+  "sourceEvidence": "docs/fc27-coins/readonly-inspection-20261005T1335Z/evidence/fc-inspection-1335-tiers.json",
+  "sourceSha256": "60ced04758beb08ce188dc15858c59a060ade14c34896fe3a3c077aeab0e1a2f",
+  "checkedAt": "2026-10-05T13:45:10.305188+00:00",
+  "quantitiesByPlatform": {
+    "PS": [
+      10,
+      50,
+      80,
+      100,
+      200,
+      300,
+      500,
+      600,
+      800,
+      1000,
+      1500,
+      1800,
+      2000,
+      3000,
+      5000
+    ],
+    "XBOX": [
+      10,
+      50,
+      80,
+      100,
+      200,
+      300,
+      500,
+      600,
+      800,
+      1000,
+      1500,
+      1800,
+      2000,
+      3000,
+      5000
+    ],
+    "PC": [
+      10,
+      50,
+      80,
+      100,
+      200,
+      300,
+      500,
+      600,
+      800,
+      1000,
+      1500,
+      1800,
+      2000,
+      3000,
+      5000
+    ]
+  },
+  "pricesIncluded": false,
+  "credentialsIncluded": false,
+  "productionRequestsThisTask": 0
+}

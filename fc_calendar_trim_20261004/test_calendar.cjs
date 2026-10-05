@@ -1,0 +1,19 @@
+const fs=require('fs'),assert=require('assert/strict'),vm=require('vm');
+const source=fs.readFileSync(__dirname+'/fc-analytics.js','utf8'),code=source.slice(source.indexOf('function calendarWindow('),source.indexOf('// End calendar model.'));
+const model=vm.runInNewContext(code+';calendarWindow'),shift=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+86400000*n).toISOString().slice(0,10);
+const period={start:'2026-07-06 00:00',end:'2026-10-04 00:00'},selection={start:'2026-07-06',end:'2026-10-03'};
+function data(){const m=new Map();for(let d=selection.start;d<=selection.end;d=shift(d,1))m.set(d,{amount:0,orders:0});return m;}
+let passed=0;function check(name,f){f();passed++;console.log('PASS '+name);}
+check('trims verified-zero leading months, keeps whole active month',()=>{const m=data();m.get('2026-09-20').amount=3;m.get('2026-09-20').orders=1;const r=model(m,period,selection);assert.deepEqual([...r.hiddenMonths],['2026-07','2026-08']);assert.equal(r.days[0].day,'2026-09-01');assert.equal(r.days.at(-1).day,'2026-10-03');assert.equal(r.days.length,33);});
+check('keeps zero days and later zero months within activity span',()=>{const m=data();m.get('2026-08-20').orders=1;const r=model(m,period,selection);assert.equal(r.days[0].day,'2026-08-01');assert.ok(r.days.some(d=>d.day==='2026-09-30'&&d.known&&!d.active));});
+check('missing leading day cannot be hidden as zero',()=>{const m=data();m.delete('2026-07-15');m.get('2026-09-20').orders=1;const r=model(m,period,selection);assert.equal(r.days[0].day,'2026-07-06');assert.equal(r.hiddenMonths.length,0);assert.equal(r.days.find(d=>d.day==='2026-07-15').known,false);});
+check('null amount and incomplete orders cannot be zero',()=>{for(const bad of [{amount:null,orders:0},{amount:0,orders:null},{amount:0,orders:-1}]){const m=data();m.set('2026-07-15',bad);assert.equal(model(m,period,selection).hiddenMonths.length,0);}});
+check('negative sales activity is preserved',()=>{const m=data();m.set('2026-07-06',{amount:-3,orders:0});const r=model(m,period,selection);assert.equal(r.hiddenMonths.length,0);assert.equal(r.days[0].active,true);});
+check('zero-value paid orders count as activity',()=>{const m=data();m.get('2026-07-06').orders=1;assert.equal(model(m,period,selection).hiddenMonths.length,0);});
+check('all known zeros return compact empty state',()=>{const r=model(data(),period,selection);assert.equal(r.status,'empty');assert.equal(r.days.length,0);});
+check('all missing remains partial and retains dates',()=>{const r=model(new Map(),period,selection);assert.equal(r.status,'partial');assert.equal(r.days.length,90);assert.equal(r.hiddenMonths.length,0);});
+check('selected range never expands outside boundaries',()=>{const m=data();m.get('2026-09-20').orders=1;const r=model(m,period,{start:'2026-09-15',end:'2026-09-22'});assert.equal(r.days[0].day,'2026-09-15');assert.equal(r.days.at(-1).day,'2026-09-22');});
+check('midnight endpoint is exclusive, partial today included',()=>{const m=data();m.get('2026-10-03').orders=1;const r=model(m,{start:'2026-10-01 00:00',end:'2026-10-03 17:19'},selection);assert.equal(r.days.at(-1).day,'2026-10-03');const q=model(m,{start:'2026-10-01 00:00',end:'2026-10-03 00:00'},selection);assert.equal(q.status,'empty');});
+check('no matching days is unavailable, not zero',()=>{const r=model(data(),period,{start:'2026-11-01',end:'2026-11-02'});assert.equal(r.status,'unavailable');});
+check('algorithm is not tied to July/August or current year',()=>{const s={start:'2028-12-01',end:'2029-02-05'},p={start:s.start+' 00:00',end:'2029-02-06 00:00'},m=new Map();for(let d=s.start;d<=s.end;d=shift(d,1))m.set(d,{amount:0,orders:0});m.get('2029-01-30').orders=2;const r=model(m,p,s);assert.deepEqual([...r.hiddenMonths],['2028-12']);assert.equal(r.days[0].day,'2029-01-01');});
+console.log(JSON.stringify({passed,fixtureOnly:true}));

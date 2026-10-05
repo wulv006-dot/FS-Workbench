@@ -1,0 +1,11 @@
+[Unit]
+Description=MMOEXP readonly complete-week operations report
+After=network-online.target fs-business-range.service
+Requires=fs-business-range.service
+[Service]
+Type=oneshot
+UMask=0077
+WorkingDirectory=/opt/mmoexp-weekly-report
+ExecStart=/opt/mmoexp-marketing/venv-ssl/bin/python /opt/mmoexp-weekly-report/src/run_weekly_exact.py --publish --not-before 2026-10-05T02:00:00+08:00
+TimeoutStartSec=1800
+NoNewPrivileges=true

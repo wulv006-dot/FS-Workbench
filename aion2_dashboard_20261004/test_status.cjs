@@ -1,0 +1,14 @@
+const assert=require('assert/strict');
+require('./aion2-status.js');const f=globalThis.FSAion2Status.classify;
+const q={start:'2026-10-03',end:'2026-10-03'},p={primary:{system:'order.p2pah.cn',status:'available',filters:{gid:'826',status:'3'},period:{start:'2026-10-03 00:00',end:'2026-10-04 00:00'},orders:44,revenueUsd:1225.93},supplement:{status:'available',filters:{game:891}}};
+assert.equal(f('FC27','available',p,q).state,'hidden');
+assert.equal(f('AION2','loading',p,q).state,'loading');
+assert.equal(f('AION2','error',p,q).state,'error');
+assert.equal(f('AION2','available',p,q).state,'available');
+for(const id of ['167','512','0'])assert.equal(f('AION2','available',{...p,primary:{...p.primary,filters:{gid:id,status:'3'}}},q).state,'unverified');
+assert.equal(f('AION2','available',{...p,supplement:{status:'available',filters:{game:167}}},q).state,'unverified');
+assert.equal(f('AION2','available',{...p,primary:{...p.primary,orders:0,revenueUsd:0}},q).state,'empty');
+assert.equal(f('AION2','available',{...p,primary:{...p.primary,orders:null}},q).state,'unavailable');
+assert.equal(f('AION2','available',p,{start:'2026-10-02',end:'2026-10-03'}).state,'loading');
+assert.equal(f('AION2','available',null,q).state,'unavailable');
+console.log(JSON.stringify({passed:true,cases:12,fixtureOnly:true}));

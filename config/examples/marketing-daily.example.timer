@@ -1,0 +1,10 @@
+# systemd219 uses server local time; deployment verifies /etc/localtime is Asia/Shanghai.
+# User final confirmation: daily 09:00 Asia/Shanghai. No 3-hour or 10:00 schedule.
+[Unit]
+Description=Google marketing daily at 09:00 Asia/Shanghai
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+Unit=mmoexp-marketing-daily.service
+[Install]
+WantedBy=timers.target

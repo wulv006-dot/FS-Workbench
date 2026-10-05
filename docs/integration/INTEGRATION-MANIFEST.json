@@ -1,0 +1,1615 @@
+{
+  "createdAt": "2026-10-05T13:07:41.414508+00:00",
+  "candidateRoot": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
+  "importedFiles": [
+    {
+      "candidatePath": "opt/d4follow/aion2_watch.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\aion2_watch.py",
+      "sourceSHA256": "18997bf016b45c8266fb23404df4123ea94ceff90f068830704c971982f2e475",
+      "candidateSHA256": "18997bf016b45c8266fb23404df4123ea94ceff90f068830704c971982f2e475",
+      "bytes": 14885,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/aion2_xlsx.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\aion2_xlsx.py",
+      "sourceSHA256": "f8fe06fd3cf8b7a2a52bb9d5d1c0e3e757984372201178a7e3eb56bcbbc5d824",
+      "candidateSHA256": "f8fe06fd3cf8b7a2a52bb9d5d1c0e3e757984372201178a7e3eb56bcbbc5d824",
+      "bytes": 9796,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/align_all.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\align_all.py",
+      "sourceSHA256": "0ebcaf58740f4ccf9df90ced6442369abe03a837310ed5c0521d170f85df8ad2",
+      "candidateSHA256": "0ebcaf58740f4ccf9df90ced6442369abe03a837310ed5c0521d170f85df8ad2",
+      "bytes": 15306,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/app.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\app.py",
+      "sourceSHA256": "dbbd5e2d76f224c73fbda0a9db0210d15310fcbf1a8265636e31e5bef72d9a14",
+      "candidateSHA256": "dbbd5e2d76f224c73fbda0a9db0210d15310fcbf1a8265636e31e5bef72d9a14",
+      "bytes": 166195,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/apply_price.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\apply_price.py",
+      "sourceSHA256": "b15a78208528fb91677a8fc7a4afc510d242de1887a53256edbda8ca57ba5fec",
+      "candidateSHA256": "b15a78208528fb91677a8fc7a4afc510d242de1887a53256edbda8ca57ba5fec",
+      "bytes": 9874,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_dd373_cost.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_dd373_cost.py",
+      "sourceSHA256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "candidateSHA256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "bytes": 20923,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_eld.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_eld.py",
+      "sourceSHA256": "c1242f2c6bee947fd6d1520ba266986b7bae30fc293d84a4fff37b993ea9395a",
+      "candidateSHA256": "c1242f2c6bee947fd6d1520ba266986b7bae30fc293d84a4fff37b993ea9395a",
+      "bytes": 9899,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_front.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_front.py",
+      "sourceSHA256": "2c923f35fe5fd3a614a48967027d8f2243ebf94a85ab968563445f2b5a127df8",
+      "candidateSHA256": "2c923f35fe5fd3a614a48967027d8f2243ebf94a85ab968563445f2b5a127df8",
+      "bytes": 37216,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_g2g.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_g2g.py",
+      "sourceSHA256": "c611e4ae6c72a72c74e1ac316cd3f5c4de01367cdb46d9538a27f418786df239",
+      "candidateSHA256": "c611e4ae6c72a72c74e1ac316cd3f5c4de01367cdb46d9538a27f418786df239",
+      "bytes": 12282,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_gold.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_gold.py",
+      "sourceSHA256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "candidateSHA256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "bytes": 60078,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_iggm.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_iggm.py",
+      "sourceSHA256": "81f24223009c84abf8309a98b3e97712c30cee214d2b6f14d7b7e168037ebf48",
+      "candidateSHA256": "81f24223009c84abf8309a98b3e97712c30cee214d2b6f14d7b7e168037ebf48",
+      "bytes": 17670,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_multi.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_multi.py",
+      "sourceSHA256": "d752468e8a35c75165fcafb19a64e2bcf2200f666e770d3f0f17a0388c9cc23d",
+      "candidateSHA256": "d752468e8a35c75165fcafb19a64e2bcf2200f666e770d3f0f17a0388c9cc23d",
+      "bytes": 12634,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_p2pah.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_p2pah.py",
+      "sourceSHA256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "candidateSHA256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "bytes": 28913,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/core_qd.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\core_qd.py",
+      "sourceSHA256": "eb416e0171b1e17de6e8f77dc3a445258b92f6e1a08566e27a4e5ebdfde40545",
+      "candidateSHA256": "eb416e0171b1e17de6e8f77dc3a445258b92f6e1a08566e27a4e5ebdfde40545",
+      "bytes": 37878,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/dingtalk_push.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\dingtalk_push.py",
+      "sourceSHA256": "72a11b0783e6c101a14742e67805c1a9209e1381ed2ab2b75129652baf7f5d4c",
+      "candidateSHA256": "72a11b0783e6c101a14742e67805c1a9209e1381ed2ab2b75129652baf7f5d4c",
+      "bytes": 16077,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/dispatch_align.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\dispatch_align.py",
+      "sourceSHA256": "eba500627426fd9f8eb8b551789b8c0cb510e452734524bbea04411d08925587",
+      "candidateSHA256": "eba500627426fd9f8eb8b551789b8c0cb510e452734524bbea04411d08925587",
+      "bytes": 5269,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/engine.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\engine.py",
+      "sourceSHA256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "candidateSHA256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "bytes": 90201,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/gates.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\gates.py",
+      "sourceSHA256": "c68c056f6b6522a0bff3762083e8170a14b3c055ef56a1a3bbdc06295ef8326c",
+      "candidateSHA256": "c68c056f6b6522a0bff3762083e8170a14b3c055ef56a1a3bbdc06295ef8326c",
+      "bytes": 14562,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/poe2_align.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\poe2_align.py",
+      "sourceSHA256": "75c8c2e6254f5b4643478554c5992e85603fda2a1e69ec3c39584224ff3ba420",
+      "candidateSHA256": "75c8c2e6254f5b4643478554c5992e85603fda2a1e69ec3c39584224ff3ba420",
+      "bytes": 9962,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/shelf_check.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\shelf_check.py",
+      "sourceSHA256": "5e5dde35fb2399eee848778b82ace3199e08f49558b03e00d0febc5fdbbe1868",
+      "candidateSHA256": "5e5dde35fb2399eee848778b82ace3199e08f49558b03e00d0febc5fdbbe1868",
+      "bytes": 9699,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/shelf_notify.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\shelf_notify.py",
+      "sourceSHA256": "2a4d305db304524dd3c37b4f758f27449d3b10ad8a9b4a109a04b0ba070f7eb0",
+      "candidateSHA256": "2a4d305db304524dd3c37b4f758f27449d3b10ad8a9b4a109a04b0ba070f7eb0",
+      "bytes": 4272,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/srv_exec.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\srv_exec.py",
+      "sourceSHA256": "ea0dc9fa6a8fe74eda4dc9f98885d94ddf7f0005473c917729e20b4574a97758",
+      "candidateSHA256": "ea0dc9fa6a8fe74eda4dc9f98885d94ddf7f0005473c917729e20b4574a97758",
+      "bytes": 14046,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/store.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\store.py",
+      "sourceSHA256": "b5f3fcc9899ca805ea6fd3dce162265377ead67f73bbeb930aee89bf05293e77",
+      "candidateSHA256": "b5f3fcc9899ca805ea6fd3dce162265377ead67f73bbeb930aee89bf05293e77",
+      "bytes": 54294,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/tracker.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\tracker.py",
+      "sourceSHA256": "38fadf1983897dd52924bf1556c3507c759c5a6d2eafc7f846eedf2fe94d2fa9",
+      "candidateSHA256": "38fadf1983897dd52924bf1556c3507c759c5a6d2eafc7f846eedf2fe94d2fa9",
+      "bytes": 14477,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/d4follow/templates/index.html",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\d4follow\\templates\\index.html",
+      "sourceSHA256": "0f395d968747db851475811873b78a75d92e0f4ffd0489fb2fac18c9ebbe95bf",
+      "candidateSHA256": "0f395d968747db851475811873b78a75d92e0f4ffd0489fb2fac18c9ebbe95bf",
+      "bytes": 130143,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/auth-portal/auth_portal.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\auth-portal\\auth_portal.py",
+      "sourceSHA256": "04376e4f904c800464fa461c2327ca947d160594b8dc1568ac00f28d173615ea",
+      "candidateSHA256": "ae6f58619c27b314a3b918dd3d95134bf63c7afca8a99b32bc65309ff2aeeba5",
+      "bytes": 29609,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": true
+    },
+    {
+      "candidatePath": "opt/auth-portal/login.html",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\auth-portal\\login.html",
+      "sourceSHA256": "786addbc6d699faf7bd4d0611046e670e1fae4b6797273995eafbe5c732a93ce",
+      "candidateSHA256": "786addbc6d699faf7bd4d0611046e670e1fae4b6797273995eafbe5c732a93ce",
+      "bytes": 19562,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/auth-portal/status.html",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\auth-portal\\status.html",
+      "sourceSHA256": "3ba158a0a6296174a76284ad121eff3af4315cf0940eef738f58b033f328e583",
+      "candidateSHA256": "3ba158a0a6296174a76284ad121eff3af4315cf0940eef738f58b033f328e583",
+      "bytes": 11823,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/deploy-hub/deploy_client.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\deploy-hub\\deploy_client.py",
+      "sourceSHA256": "f4b789c99b82cfc721bb66bd9aed80c7a473f0ba08796763e05e1c2c98b1e8bc",
+      "candidateSHA256": "bc84b5a21efc059538864ec49c74ff098ad2db92b4eb427c4460e36b1df154a4",
+      "bytes": 31870,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": true
+    },
+    {
+      "candidatePath": "opt/deploy-hub/deploy_server.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\deploy-hub\\deploy_server.py",
+      "sourceSHA256": "c63eec2a9d5ae12721df1119bb64c9c0bdd05f8cdc29bc8223b37a0bf169d164",
+      "candidateSHA256": "d73f318a89944cc078aae23f7907b98bc8c5ad7c6490ed1e76ec24622a071e7e",
+      "bytes": 33304,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/app.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\app.py",
+      "sourceSHA256": "185ff0c11ca825ea08bd7eefd22a72eeae6d5fa333db29f307e7ea6c4f7b3fab",
+      "candidateSHA256": "185ff0c11ca825ea08bd7eefd22a72eeae6d5fa333db29f307e7ea6c4f7b3fab",
+      "bytes": 8092,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/core.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\core.py",
+      "sourceSHA256": "212a793a2d51f1b5c4b8b2c21bb373e40216886218ba8ff7c1dea0e825d06c69",
+      "candidateSHA256": "4690ad679a56377dfceda6d893c9d5dd9b87f4eda5b5184179850d8e9ccd8935",
+      "bytes": 15721,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/core_aoeah.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\core_aoeah.py",
+      "sourceSHA256": "6da8d7a71469419155a9fd43084ff77d617e5b825fe310c3b247077734a012b1",
+      "candidateSHA256": "f0caf4e5d6d7226979d806adbb06149c12f6a1e37ae3752523a32775bf59cf5f",
+      "bytes": 9604,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/core_u4gm.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\core_u4gm.py",
+      "sourceSHA256": "dce63ade1a8b7dce108e219585c6a38c3e6161eaaabafc4aafed3109a7a86bdc",
+      "candidateSHA256": "af25e527d506bd5daf75d31196d99a0130c91ffe708a90479cdd2017cece7f4f",
+      "bytes": 16918,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/db.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\db.py",
+      "sourceSHA256": "a8661c89b749686b63d0f9e41d22efde2f39e7cadae88af19451ee6884fc24a1",
+      "candidateSHA256": "a8661c89b749686b63d0f9e41d22efde2f39e7cadae88af19451ee6884fc24a1",
+      "bytes": 4455,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/requirements.txt",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\requirements.txt",
+      "sourceSHA256": "58e787c93b2072a204dc98d0bf5ce4bd604f43c0e79c5814bc58ed0f01c200a4",
+      "candidateSHA256": "58e787c93b2072a204dc98d0bf5ce4bd604f43c0e79c5814bc58ed0f01c200a4",
+      "bytes": 30,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/runner.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\runner.py",
+      "sourceSHA256": "f6f97a812812155006ffa7bcdd0eaa8df86953fed5f94d8cda9988d4fc4be19b",
+      "candidateSHA256": "f6f97a812812155006ffa7bcdd0eaa8df86953fed5f94d8cda9988d4fc4be19b",
+      "bytes": 11284,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/sites.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\sites.py",
+      "sourceSHA256": "f2ea2f548016dd56971a6f84422d954688b2e733fc8b7ed209400927b32df405",
+      "candidateSHA256": "9d3fdb9f9e007261b83419f47859cc11a6eb0afaf31b83c709291a41f54bf339",
+      "bytes": 2238,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/static/app.js",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\static\\app.js",
+      "sourceSHA256": "102bf0a8501bf6e7fd9ee5ca2a3f2549f234e50b15babe0bab34cbd62bc0033b",
+      "candidateSHA256": "102bf0a8501bf6e7fd9ee5ca2a3f2549f234e50b15babe0bab34cbd62bc0033b",
+      "bytes": 10757,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/static/style.css",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\static\\style.css",
+      "sourceSHA256": "42e6f417fa9e28c07ac9353da6e69fed5a72c4d23a2b096dd1bc63532bb86387",
+      "candidateSHA256": "42e6f417fa9e28c07ac9353da6e69fed5a72c4d23a2b096dd1bc63532bb86387",
+      "bytes": 6497,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/templates/gate.html",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\templates\\gate.html",
+      "sourceSHA256": "d6672859a9a56503b91b59e20e01ed6ed94bea816ed7f4840ed624bc2984bb7c",
+      "candidateSHA256": "d6672859a9a56503b91b59e20e01ed6ed94bea816ed7f4840ed624bc2984bb7c",
+      "bytes": 721,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/iggm-web/templates/index.html",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\iggm-web\\templates\\index.html",
+      "sourceSHA256": "6b9f67236c9ddf4a3d2f7be324c09d835fb6390c0971a1cfbd65c8e1af17569c",
+      "candidateSHA256": "6b9f67236c9ddf4a3d2f7be324c09d835fb6390c0971a1cfbd65c8e1af17569c",
+      "bytes": 3278,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/mlb-online/mlb_server.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\mlb-online\\mlb_server.py",
+      "sourceSHA256": "d693cd2a0c77ba7e43f7165c752c83c1884f9d1832bd1a46b984a0d559cf8dd7",
+      "candidateSHA256": "552108bd89a240b58a7e1cde97c59cb0bd88fe8240141f665d86a4357e5ef838",
+      "bytes": 20586,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/nba-reprice/backend/ocr_captcha.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\nba-reprice\\backend\\ocr_captcha.py",
+      "sourceSHA256": "b426e1de9d4e8f43c3c0bf927b9cb791667cc843452d62c39298570f8e955230",
+      "candidateSHA256": "b426e1de9d4e8f43c3c0bf927b9cb791667cc843452d62c39298570f8e955230",
+      "bytes": 471,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/nba-reprice/backend/p2pah_api.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\nba-reprice\\backend\\p2pah_api.py",
+      "sourceSHA256": "ff2813767824273a7b2c0268ff63611188688e6d8ccd5836c974a2f6bc7db2e3",
+      "candidateSHA256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "bytes": 13641,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": true
+    },
+    {
+      "candidatePath": "opt/nba-reprice/backend/server.js",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\nba-reprice\\backend\\server.js",
+      "sourceSHA256": "49207e7f5a94d666dcc15d80c3a48a17c156c7d861f2d3aaeb828d4b012ef3a1",
+      "candidateSHA256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73",
+      "bytes": 31291,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": true,
+      "modifiedInRevision3": true
+    },
+    {
+      "candidatePath": "opt/nba-reprice/tools/fetch_vc_prices.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\nba-reprice\\tools\\fetch_vc_prices.py",
+      "sourceSHA256": "fad487f7283f7f7b8bf7706d8c9ced4dfa9c448a8ca7a7183d3fbc931f2bf9c2",
+      "candidateSHA256": "fad487f7283f7f7b8bf7706d8c9ced4dfa9c448a8ca7a7183d3fbc931f2bf9c2",
+      "bytes": 6738,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/mmoexp-taskboard/taskboard_server.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\opt\\mmoexp-taskboard\\taskboard_server.py",
+      "sourceSHA256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+      "candidateSHA256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+      "bytes": 40777,
+      "status": "static-reviewed source snapshot; runtime/security acceptance pending; no deployment authority",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    },
+    {
+      "candidatePath": "opt/fs-access-policy/access_policy.py",
+      "sourcePath": "E:\\WorkBuddy\\大超服务器\\fs_permissions_unification_20260930\\access_policy.py",
+      "sourceSHA256": "8220e177b4b87b83da304a7b3b9439f70c09c2606be0088975b3a3678c3786b7",
+      "candidateSHA256": "8220e177b4b87b83da304a7b3b9439f70c09c2606be0088975b3a3678c3786b7",
+      "bytes": 1259,
+      "status": "existing three-admin local contract retained; incoming four-admin policy rejected; no role action",
+      "modifiedInRevision2": false,
+      "modifiedInRevision3": false
+    }
+  ],
+  "exactDuplicateArchiveCopiesOmitted": [
+    {
+      "archivePath": "etc/systemd/system/fs-transaction-collect.service",
+      "canonicalCandidates": [
+        "config/examples/transaction-collect.example.service"
+      ],
+      "sha256": "8f494ab323f17c7a9534b24eee125a1c895c8f079bf4e596c1c7c84360d83852",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "etc/systemd/system/fs-transaction-collect.timer",
+      "canonicalCandidates": [
+        "config/examples/transaction-collect.example.timer"
+      ],
+      "sha256": "48cb510cb7b5270942d53271f1e6e452c9adc56f39f32c07a33ef77447efd72f",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "etc/systemd/system/mmoexp-marketing-daily.service",
+      "canonicalCandidates": [
+        "config/examples/marketing-daily.example.service"
+      ],
+      "sha256": "0b35017d97ce636ef94f076c4e20a3c1ec7aac8223aea5760bda71425f5586dc",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "etc/systemd/system/mmoexp-marketing-daily.timer",
+      "canonicalCandidates": [
+        "config/examples/marketing-daily.example.timer"
+      ],
+      "sha256": "133f98e7467c0507119e588128dcbf6856db58a7a34eb8887b3d9a5660f48188",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "etc/systemd/system/mmoexp-weekly-report.service",
+      "canonicalCandidates": [
+        "config/examples/weekly-report.example.service"
+      ],
+      "sha256": "1590aaada8f8c38a1974c3a64f59a61c467b29208d690c26f583929d5b8b9bd3",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "etc/systemd/system/mmoexp-weekly-report.timer",
+      "canonicalCandidates": [
+        "config/examples/weekly-report.example.timer"
+      ],
+      "sha256": "99f7efb6367dbb21789de5143c09def50ec4a206db92f40c1a163a866b5a1867",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/activity_log_store.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/activity_log_store.py"
+      ],
+      "sha256": "b2ddc56ec9029cf4f6e66edb47358e6620cd6226c5e181b549f82effcc04a082",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/automation_policy.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/automation_policy.py"
+      ],
+      "sha256": "ddcb47a09f0fc35600ad3d86408018b7fd39395c9f114cf61c9c5cc1f53a0611",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/automation_tick.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/automation_tick.py"
+      ],
+      "sha256": "f7486520712b9c1fbb9dc4c82bba19646951b2404b6a32a569970257be4a10e5",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/clear_cache_after_write.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/clear_cache_after_write.py"
+      ],
+      "sha256": "efbebcde58125d1e8191115c8dc8ea252e3835da8fcc21652a66d7f85e1f8729",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/coin_all_sync_job.py"
+      ],
+      "sha256": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collector/collect_competitor_browser.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_competitor_browser.py"
+      ],
+      "sha256": "13691edfef8f739c33f37566a75cc6fd7ec8ef88b1ae5e7f334b5acd06383c8c",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collector/collect_fx_browser.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_fx_browser.py"
+      ],
+      "sha256": "1db6e09d8159abb9bf51e68d83a9cbdd86da4d5752164f7ab3510c6dec205be1",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collector/lootbar_server_collector.py",
+      "canonicalCandidates": [
+        "fc27_chrome_collector/lootbar_server_collector.py"
+      ],
+      "sha256": "8f98ac8a495c6e9ca8d853f9fbd7b6bb578e057752717f76fc40fb0f7f1dbc5d",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collect_competitor.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_competitor.sh"
+      ],
+      "sha256": "4cf7f79ccade73e5bd76f3d321d63b9fbae778ec599723b4295472bca8c22c0a",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collect_fx.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_fx.sh"
+      ],
+      "sha256": "4cc6af1846dca74d20478cd6f4f8fb1cba0a47062580fdc3ad8dc39454832457",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collect_lootbar.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_lootbar.sh"
+      ],
+      "sha256": "21dcec3f8dcae2dd034355d3dfa9fdc1b497601a23cd8f1ef221ef7504b03dc3",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collect_p2pah_cost.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_p2pah_cost.py"
+      ],
+      "sha256": "455767a6678da6cdbcd2a83ef66d1fb11860d6498e91762e9ed6484ffa465321",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/collect_p2pah_cost.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/collect_p2pah_cost.sh"
+      ],
+      "sha256": "68be8db78bd7dbb8db29bedb9cadaca3993d3f252c3e1b0705709b7fdd08edd5",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/execute_price.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/execute_price.sh"
+      ],
+      "sha256": "daa521f7e1c1bea0b5b7777077ea0615f9476d2aac56c4bef0d60aab0200c73c",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/fc27_cloud_api.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/fc27_cloud_api.py"
+      ],
+      "sha256": "6fe9f1db75450892f9035ca81278378b5d6beda15c002bfca76a39a72a531e05",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/fc27_cloud_worker.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/fc27_cloud_worker.py"
+      ],
+      "sha256": "88a46710fae62950cac549a2cc97e59cfb55fc236ab01c0fa513a077e64cf620",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/fc27_quote_engine.py",
+      "canonicalCandidates": [
+        "fc27_quote_engine.py"
+      ],
+      "sha256": "45cdb611c3090e821b155fa97450c677776c21088170af3b08dce0e5fcb71924",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/player_sync_job.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/player_sync_job.py"
+      ],
+      "sha256": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/player_sync_policy.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/player_sync_policy.py"
+      ],
+      "sha256": "0264e8d661a5fe9cdcef8618698061883401235d26aafd94e3a5aa3cdd4e6ecf",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/price_writer.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/price_writer.py"
+      ],
+      "sha256": "c5fb077f5dc85c93f3b5b9221bb3e216db32d7ffa67946ac878216fd2f559bc3",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/repricing_logic.js",
+      "canonicalCandidates": [
+        "fc27_chrome_collector/repricing_logic.js"
+      ],
+      "sha256": "8f2a28b92e24cf225632635343dff141d1f83cd10d17ca86ada448fa858fba91",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/restore_price.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/restore_price.py"
+      ],
+      "sha256": "7967a2019756c854c36b399670e5b56f812da002e5346f2489f45b960b727b8f",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/restore_price.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/restore_price.sh"
+      ],
+      "sha256": "c1b8e7d18778850ae9a7bc2f728b5f514c841a3be53947e8c188898448bb0988",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/server_quote_job.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/server_quote_job.py"
+      ],
+      "sha256": "68f7c083237c26ca5ebe9cfcaba419e82160befe0f922e6b90e78390fdf33fa0",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/snapshot_layer.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/snapshot_layer.py"
+      ],
+      "sha256": "b91dbbbf7c53ba7ef3f6bd1d1226a0b4fb1c3af541855c2914b57fe9c97c4f46",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/storefront_monitor.py",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/storefront_monitor.py"
+      ],
+      "sha256": "0948228673725afd48781a493dc5f2cbe94be927a0236f671d92e55996cb1b3c",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fc27-cloud-browser/sync_players.sh",
+      "canonicalCandidates": [
+        "fc27_cloud_browser/sync_players.sh"
+      ],
+      "sha256": "5018c5d8db1f812310ef4a6211a0f2a22eb1a9434ab5e543c1f671a4c6330ca8",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-dashboard-release/release_gateway.py",
+      "canonicalCandidates": [
+        "fs_dashboard_overwrite_20261003/release_gateway.py"
+      ],
+      "sha256": "90cf84524aabcaa13c54aef7f7256fa9ef46a1d9f53eb0fe6165270c5dcbf5e2",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-date-theme-fix-20261001/business-range.js",
+      "canonicalCandidates": [
+        "fs_date_theme_fix_20261001/business-range.js"
+      ],
+      "sha256": "15ca27648c154bbaf9868a614e8099625b23ec75ae838c810271ede43885bf83",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-date-theme-fix-20261001/business-theme.css",
+      "canonicalCandidates": [
+        "fs_date_theme_fix_20261001/business-theme.css"
+      ],
+      "sha256": "29565308b445531fc34b492c93785e54d2d6975921c776d93bebecb167a1df4b",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-date-theme-fix-20261001/business-theme.js",
+      "canonicalCandidates": [
+        "fs_date_theme_fix_20261001/business-theme.js"
+      ],
+      "sha256": "99b05fd8b4b764b6ce73b8fca27a6a68acc5360abc831fc32f06b717fe6f30cb",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-date-theme-fix-20261001/test_range.cjs",
+      "canonicalCandidates": [
+        "fs_date_theme_fix_20261001/test_range.cjs"
+      ],
+      "sha256": "f4cde374f8141c5ce756dcc96dfbdebdf06223befa3d467d1193dcbcce04c310",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-exact-range-20261001/patch-backups/weekly-timer-20261005T003240Z/range_api.before.py",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/baseline/range_api.py"
+      ],
+      "sha256": "be8ff8342fc5229cf73934f0bb0dfbe05aff707b443b7b9fbb2d1ccac646ddc2",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-exact-range-20261001/range_api.py",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/candidate/range_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py"
+      ],
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-exact-range-20261001/range_primary_reader.py",
+      "canonicalCandidates": [
+        "fs_exact_range_20261001/range_primary_reader.py"
+      ],
+      "sha256": "433e8f3f8491cbe6b08eba53f415a679ee726e0b1a7cbbf6a919166c093981c1",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-range-read-state-20261001/exact-range-client.js",
+      "canonicalCandidates": [
+        "fs_range_read_state_20261001/exact-range-client.js"
+      ],
+      "sha256": "b95d0cfef53a4eeb56eefc55dbb038e35dbf1370f8a03a8ffa3c506f9a53615d",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-range-read-state-20261001/supplement-insights.js",
+      "canonicalCandidates": [
+        "fc27_ops_cloud/data/supplement-insights.js"
+      ],
+      "sha256": "57f163a9cbfb15318f1b61f751648df36c4aa91db873aeaca2ce30f3d25f2c3c",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/atomic_snapshot.py",
+      "canonicalCandidates": [
+        "fs_transaction_snapshot_20260930/atomic_snapshot.py"
+      ],
+      "sha256": "6469b77dd518d3da6f30ff5ecba73cb6291ea764f0223dae2ee186d76ffc9949",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/primary_fields.py",
+      "canonicalCandidates": [
+        "fs_transaction_snapshot_20260930/primary_fields.py"
+      ],
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/primary_reader.py",
+      "canonicalCandidates": [
+        "fs_transaction_snapshot_20260930/primary_reader.py"
+      ],
+      "sha256": "c246da9acd7b6b75bc41b79564b39a532b286eb3bf109598e6825738bdcb8f30",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/supplement-insights.css",
+      "canonicalCandidates": [
+        "fc27_ops_cloud/data/supplement-insights.css",
+        "fs_transaction_snapshot_20260930/supplement-insights.css"
+      ],
+      "sha256": "976dea341e7dcbe3d9c0feca3290cf15af485d2f0d0450d83096d2f23b004e74",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/supplement_fields.py",
+      "canonicalCandidates": [
+        "fs_transaction_snapshot_20260930/supplement_fields.py"
+      ],
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/fs-supplement-release-20260930/supplement_reader.py",
+      "canonicalCandidates": [
+        "fs_transaction_snapshot_20260930/supplement_reader.py"
+      ],
+      "sha256": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/public/index.html",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/index.html"
+      ],
+      "sha256": "6bc0d92cda7031261bb76c059d2ee5be8df3fa85c554960381704f67109c409e",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/public/weekly-business-core.js",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/weekly-business-core.js"
+      ],
+      "sha256": "bbc68e6eafd02d00912adae53a0365afeecbd4daa8d22749fcc997bc127b5777",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/public/weekly-charts.js",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/weekly-charts.js"
+      ],
+      "sha256": "9c97204bc200ccf8646a504ffdc53128228cc36981d59ff3572d2d84700e2518",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/public/weekly-report.css",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/weekly-report.css"
+      ],
+      "sha256": "7c2564e966d7059aad54e0df6d045dec882d2b87d4163b2449a39e3af459359f",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/public/weekly-report.js",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/weekly-report.js"
+      ],
+      "sha256": "590f26a09cf0fe6ea9264087888f06b5dc80a5050d4a9491af93b244ddac4c58",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/src/range_adapter.py",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/range_adapter.py"
+      ],
+      "sha256": "3789df4d9e7535465d6e375158e1651ee73d2157cb02bbf3bd223bf8715c1390",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/src/run_weekly_exact.py",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/run_weekly_exact.py"
+      ],
+      "sha256": "d68bcf6911bc4c55d202fa1ce339fe92899008c432dca55202d9768d7eb8f5a9",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "opt/mmoexp-weekly-report/src/weekly_report.py",
+      "canonicalCandidates": [
+        "mmoexp_google_data/weekly_report/weekly_report.py"
+      ],
+      "sha256": "2cf96a6821c10eeb0864d074d6d93b9c4289917ad2d5114163a74fe4577d5eb3",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    },
+    {
+      "archivePath": "var/www/sites/wulv/fc27-ops/index.html",
+      "canonicalCandidates": [
+        "fc27_ops_cloud/index.html"
+      ],
+      "sha256": "40ecdc65870f338948cdb0a0e1ee9d97d12d696e722ea6701278fd3ae420882d",
+      "action": "no repeated file copy; path mapping retained; deployment alias mapping requires separate validated manifest"
+    }
+  ],
+  "activeCanonicalPaths": {
+    "range": "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py",
+    "gateway": "fs_dashboard_overwrite_20261003/release_gateway.py",
+    "collector": "fs_transaction_snapshot_20260930/collector.py",
+    "businessTemplate": "共享资源/MMOEXP统一看板/dashboard.template.html",
+    "home": "fs_home_live_20260930/app.js",
+    "fcOps": "fc27_ops_cloud/index.html",
+    "fcQuote": "fc27_quote_engine.py",
+    "fcCompetitorCollector": "fc27_cloud_browser/collect_competitor_browser.py",
+    "fcFXCollector": "fc27_cloud_browser/collect_fx_browser.py"
+  },
+  "retiredPublisher": "excluded; do not restore old pipeline",
+  "productionWrites": false,
+  "pushApproved": false,
+  "releaseReady": false,
+  "unreviewedRuntimeInputs": "not included; current server path/state must be verified separately",
+  "revision": 3,
+  "updatedAt": "2026-10-05T15:15:14.794368+00:00",
+  "baseFilesUnchangedAtRevision1": 171,
+  "revision2Dependencies": [
+    {
+      "source": "opt/d4follow/shelf_patch.py",
+      "candidate": "opt/d4follow/shelf_patch.py",
+      "sha256": "7fd04726a5bb97becf04121808207737673a9b22a8ff5421dafe8bab387b0e9d",
+      "contract": "D4 pure diff dependency; no app startup",
+      "execution": "not executed"
+    },
+    {
+      "source": "opt/d4follow/build_dashboard.py",
+      "candidate": "opt/d4follow/build_dashboard.py",
+      "sha256": "e5c30f581716d52994d078ed21dc8a34e203d5f0c28d8f5af5dfd676c4fb6107",
+      "contract": "D4 offline SVG generator; distinct from retired dashboard publisher; static review only",
+      "execution": "not executed"
+    },
+    {
+      "source": "opt/fc27-cloud-browser/repricing_dom.js",
+      "candidate": "fc27_cloud_browser/repricing_dom.js",
+      "sha256": "b704dd1764144e29304b7c1ceb078438badb0b23c80981fb341cad50e8d53aca",
+      "contract": "/opt/fc27-cloud-browser/repricing_dom.js -> container /opt/repricing_dom.js",
+      "execution": "not executed"
+    },
+    {
+      "source": "opt/fc27-cloud-browser/preview_backend.py",
+      "candidate": "fc27_cloud_browser/preview_backend.py",
+      "sha256": "9fd82551c660daf5bdf25cdc5ec85094a14151e2e901784a063a769b0583c79d",
+      "contract": "Container /opt/preview.py; requires existing Playwright/CDP, not exercised",
+      "execution": "not executed"
+    },
+    {
+      "source": "opt/fc27-cloud-browser/preview_backend.sh",
+      "candidate": "fc27_cloud_browser/preview_backend.sh",
+      "sha256": "a90bc0c17b2a4676d161da13a01adaf3a499e5925670420cfaf04042d5919bd3",
+      "contract": "Source closure; script not executed; existing runtime permissions/credentials external",
+      "execution": "not executed"
+    },
+    {
+      "source": "opt/fc27-cloud-browser/clear_cache_after_write.sh",
+      "candidate": "fc27_cloud_browser/clear_cache_after_write.sh",
+      "sha256": "30b4ad3932d606f423cb4e3cfeae501e327e8d6891dfd32b08c13d50e06625e6",
+      "contract": "Source closure only; never invoked cache/write operation",
+      "execution": "not executed"
+    }
+  ],
+  "revision2ModuleAdditions": [
+    {
+      "candidate": "fc27_players_cloud/VERSION",
+      "source": "fc27_players_cloud\\VERSION",
+      "sourceSha256": "112d2b7f6455a186363ea366e6603769ead6cbe91311d33cf06c7e1eae623329",
+      "candidateSha256": "112d2b7f6455a186363ea366e6603769ead6cbe91311d33cf06c7e1eae623329",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/__init__.py",
+      "source": "fc27_players_cloud\\player_web\\__init__.py",
+      "sourceSha256": "81ea19257665430e41cb6eb69fa47f6c63dbf97702f2a90eb4ae7e000d998e7c",
+      "candidateSha256": "81ea19257665430e41cb6eb69fa47f6c63dbf97702f2a90eb4ae7e000d998e7c",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/cli.py",
+      "source": "fc27_players_cloud\\player_web\\cli.py",
+      "sourceSha256": "404652e305c36f5ccd240bb6caf42ba1abc79f6de9d7a5411312afae65e5329b",
+      "candidateSha256": "404652e305c36f5ccd240bb6caf42ba1abc79f6de9d7a5411312afae65e5329b",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/client_factory.py",
+      "source": "fc27_players_cloud\\player_web\\client_factory.py",
+      "sourceSha256": "466696752fa56e329f54d0ea23b198e048c915a6f7045788d03811cd53585581",
+      "candidateSha256": "466696752fa56e329f54d0ea23b198e048c915a6f7045788d03811cd53585581",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/collection.py",
+      "source": "fc27_players_cloud\\player_web\\collection.py",
+      "sourceSha256": "c759ee202546f3a3b4ae5e8e92af29bfa1de12d89ab48a84f9574f5bfd473ead",
+      "candidateSha256": "c759ee202546f3a3b4ae5e8e92af29bfa1de12d89ab48a84f9574f5bfd473ead",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/existing_action_service.py",
+      "source": "fc27_players_cloud\\player_web\\existing_action_service.py",
+      "sourceSha256": "3d832fd164ba6f9421fa4f36eede03efbd30c003545a7974f343a66d8dcc5b69",
+      "candidateSha256": "3d832fd164ba6f9421fa4f36eede03efbd30c003545a7974f343a66d8dcc5b69",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/main.py",
+      "source": "fc27_players_cloud\\player_web\\main.py",
+      "sourceSha256": "d202b73c48488fd5b3bd0c3a51f27307a2af9ebae19c95fafe99e59994447b4c",
+      "candidateSha256": "d202b73c48488fd5b3bd0c3a51f27307a2af9ebae19c95fafe99e59994447b4c",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/model_service.py",
+      "source": "fc27_players_cloud\\player_web\\model_service.py",
+      "sourceSha256": "80bb7d1463d0ff2b500f74c0c6c02eacdb08a7a8e565049f51609726f061963f",
+      "candidateSha256": "80bb7d1463d0ff2b500f74c0c6c02eacdb08a7a8e565049f51609726f061963f",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/new_card_service.py",
+      "source": "fc27_players_cloud\\player_web\\new_card_service.py",
+      "sourceSha256": "ee523ab232e8007169e17e1fcd38c6582d58a22af9be489cc23c9a3e2d0c25ae",
+      "candidateSha256": "ee523ab232e8007169e17e1fcd38c6582d58a22af9be489cc23c9a3e2d0c25ae",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/price_lock.py",
+      "source": "fc27_players_cloud\\player_web\\price_lock.py",
+      "sourceSha256": "2ae15833cf33ddb144a4d0b5b1a7f6813a6d357bfccb9519c2718ca15c7b0778",
+      "candidateSha256": "2ae15833cf33ddb144a4d0b5b1a7f6813a6d357bfccb9519c2718ca15c7b0778",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/repository.py",
+      "source": "fc27_players_cloud\\player_web\\repository.py",
+      "sourceSha256": "bd93cc2a13d0b69ddf6f42b70798c0b9e55fc2828bbcef711be80fba4839be31",
+      "candidateSha256": "bd93cc2a13d0b69ddf6f42b70798c0b9e55fc2828bbcef711be80fba4839be31",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/settings.py",
+      "source": "fc27_players_cloud\\player_web\\settings.py",
+      "sourceSha256": "f910bfd09ed6c1a4a114e3425dd05eb6dadca2af1066dcc8ff921b0d979cce5b",
+      "candidateSha256": "f910bfd09ed6c1a4a114e3425dd05eb6dadca2af1066dcc8ff921b0d979cce5b",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/static/app.css",
+      "source": "fc27_players_cloud\\player_web\\static\\app.css",
+      "sourceSha256": "e6c8788119aea1558520f002d01f33214fcbdcfa9d81ad2843ca82f9c7264087",
+      "candidateSha256": "e6c8788119aea1558520f002d01f33214fcbdcfa9d81ad2843ca82f9c7264087",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/static/app.js",
+      "source": "fc27_players_cloud\\player_web\\static\\app.js",
+      "sourceSha256": "121cd41043753332fb14cc9d4ac140a56282e8f994be700462f0d3013417f3e5",
+      "candidateSha256": "121cd41043753332fb14cc9d4ac140a56282e8f994be700462f0d3013417f3e5",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/static/index.html",
+      "source": "fc27_players_cloud\\player_web\\static\\index.html",
+      "sourceSha256": "4eb99b14f36076878669782974730378efff822e72be7022cc7ba7ae656c86c9",
+      "candidateSha256": "4eb99b14f36076878669782974730378efff822e72be7022cc7ba7ae656c86c9",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/static/models.html",
+      "source": "fc27_players_cloud\\player_web\\static\\models.html",
+      "sourceSha256": "73e04ae4f8e0d789e3cbca62b7c8104ae7cf93ee4514c2eb1030cb72e532516a",
+      "candidateSha256": "73e04ae4f8e0d789e3cbca62b7c8104ae7cf93ee4514c2eb1030cb72e532516a",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/requirements.lock",
+      "source": "fc27_players_cloud\\requirements.lock",
+      "sourceSha256": "034baf43f01db4418243a2d55d69cb89ccb6362c69c1c1a4b4d3b2f8e6277ea4",
+      "candidateSha256": "034baf43f01db4418243a2d55d69cb89ccb6362c69c1c1a4b4d3b2f8e6277ea4",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/__init__.py",
+      "source": "fc27_players_cloud\\球员维护工具\\__init__.py",
+      "sourceSha256": "5b3cad86ccf0c577bd59c5644978cd5820cb11ea8dc3eca4c1cc65ad2726f5e0",
+      "candidateSha256": "5b3cad86ccf0c577bd59c5644978cd5820cb11ea8dc3eca4c1cc65ad2726f5e0",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/adapters.py",
+      "source": "fc27_players_cloud\\球员维护工具\\adapters.py",
+      "sourceSha256": "2625c932f3cd2bf9a84f11d8a97fef6f03db7a08a4b1c33d0a9057cc1557f3a4",
+      "candidateSha256": "2625c932f3cd2bf9a84f11d8a97fef6f03db7a08a4b1c33d0a9057cc1557f3a4",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/admin_adapter.py",
+      "source": "fc27_players_cloud\\球员维护工具\\admin_adapter.py",
+      "sourceSha256": "cee63f0f24d1bfe429d9d41a84359988d5ca76cd0aade865735f1721461b2c4a",
+      "candidateSha256": "cee63f0f24d1bfe429d9d41a84359988d5ca76cd0aade865735f1721461b2c4a",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "source": "fc27_players_cloud\\球员维护工具\\admin_client.py",
+      "sourceSha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "candidateSha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app.py",
+      "sourceSha256": "213d3d5037164caffd6dd2d14325786bb3bdb4b80c998ef94a36a5e57350ac7e",
+      "candidateSha256": "213d3d5037164caffd6dd2d14325786bb3bdb4b80c998ef94a36a5e57350ac7e",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_config.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_config.py",
+      "sourceSha256": "495d58c81b5bd72a839c4732243a0dc3afa99139d3c013dff57af08a88a42a14",
+      "candidateSha256": "495d58c81b5bd72a839c4732243a0dc3afa99139d3c013dff57af08a88a42a14",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_constants.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_constants.py",
+      "sourceSha256": "f5a3e53a8a055e55f9cbaac1d1a43dd578f094cbde10e2d7f78f6b9b415f15ef",
+      "candidateSha256": "f5a3e53a8a055e55f9cbaac1d1a43dd578f094cbde10e2d7f78f6b9b415f15ef",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_existing_models.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_existing_models.py",
+      "sourceSha256": "8ea46a539aeb8e7ae2e5b007838990a4eea1a64f3bc74a2f9e568dcbf7034d44",
+      "candidateSha256": "8ea46a539aeb8e7ae2e5b007838990a4eea1a64f3bc74a2f9e568dcbf7034d44",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_formatters.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_formatters.py",
+      "sourceSha256": "1a0ce40a17851bd87c5f2bed965b1b7e5d6808653879bb823870e1fac8cd035b",
+      "candidateSha256": "1a0ce40a17851bd87c5f2bed965b1b7e5d6808653879bb823870e1fac8cd035b",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_login.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_login.py",
+      "sourceSha256": "ee8444f09d0809bda9695f707b15a5f764e47c9baaea40fedafb8db8f3f56144",
+      "candidateSha256": "ee8444f09d0809bda9695f707b15a5f764e47c9baaea40fedafb8db8f3f56144",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_new_card.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_new_card.py",
+      "sourceSha256": "efaa10e6f3436a4b3debdd219b5e148ab570efb9da54ee4a8bf28a455f16e9f0",
+      "candidateSha256": "efaa10e6f3436a4b3debdd219b5e148ab570efb9da54ee4a8bf28a455f16e9f0",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/app_pipeline.py",
+      "source": "fc27_players_cloud\\球员维护工具\\app_pipeline.py",
+      "sourceSha256": "47bbe3a91353a9cfb46762030d6e0787ba9cd7b2c0738a9bd635af5e8e7ec71e",
+      "candidateSha256": "47bbe3a91353a9cfb46762030d6e0787ba9cd7b2c0738a9bd635af5e8e7ec71e",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/existing_model_domain.py",
+      "source": "fc27_players_cloud\\球员维护工具\\existing_model_domain.py",
+      "sourceSha256": "fad54f74efdd639bc35ae9157aed08c97f047c7b6c0a34f4b53d50f28d407d95",
+      "candidateSha256": "fad54f74efdd639bc35ae9157aed08c97f047c7b6c0a34f4b53d50f28d407d95",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/existing_model_ui.py",
+      "source": "fc27_players_cloud\\球员维护工具\\existing_model_ui.py",
+      "sourceSha256": "9522b55bcfc430e7e70ef7cd892e74c4185ae41770ce4e4088198bcfaf91422a",
+      "candidateSha256": "9522b55bcfc430e7e70ef7cd892e74c4185ae41770ce4e4088198bcfaf91422a",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/login_dialog.py",
+      "source": "fc27_players_cloud\\球员维护工具\\login_dialog.py",
+      "sourceSha256": "00fadd0df1b67bb01700d38481ffb145e9379723f183995b48cc4423fbc36e25",
+      "candidateSha256": "00fadd0df1b67bb01700d38481ffb145e9379723f183995b48cc4423fbc36e25",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/models.py",
+      "source": "fc27_players_cloud\\球员维护工具\\models.py",
+      "sourceSha256": "cbe5876f1523bf84f1d8574cb109204899950f5ff253b323c9ca7772d525a90c",
+      "candidateSha256": "cbe5876f1523bf84f1d8574cb109204899950f5ff253b323c9ca7772d525a90c",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/new_card_recovery.py",
+      "source": "fc27_players_cloud\\球员维护工具\\new_card_recovery.py",
+      "sourceSha256": "3e77bfbff67df2c461cfae48b2090c435d3270d4a1db108db684aba6cb3a88db",
+      "candidateSha256": "3e77bfbff67df2c461cfae48b2090c435d3270d4a1db108db684aba6cb3a88db",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/new_card_selection.py",
+      "source": "fc27_players_cloud\\球员维护工具\\new_card_selection.py",
+      "sourceSha256": "aa56e6673e0a0ee222f130297474dcbb351c0488e4686d58515b9c47d007e600",
+      "candidateSha256": "aa56e6673e0a0ee222f130297474dcbb351c0488e4686d58515b9c47d007e600",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/pipeline.py",
+      "source": "fc27_players_cloud\\球员维护工具\\pipeline.py",
+      "sourceSha256": "a8cc4729183b8be0953ee006200513277767f684979302c307d3c8c944340c79",
+      "candidateSha256": "a8cc4729183b8be0953ee006200513277767f684979302c307d3c8c944340c79",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/player_database.py",
+      "source": "fc27_players_cloud\\球员维护工具\\player_database.py",
+      "sourceSha256": "f39a3d1772bfa04280c7435ef1db3cca29b5df9a629499483a113a715ea91026",
+      "candidateSha256": "f39a3d1772bfa04280c7435ef1db3cca29b5df9a629499483a113a715ea91026",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/player_db_cli.py",
+      "source": "fc27_players_cloud\\球员维护工具\\player_db_cli.py",
+      "sourceSha256": "9834fd91ec7cbbc4d7b5a4a68943517b0d77eb73fa655599a73f2bb79425900d",
+      "candidateSha256": "9834fd91ec7cbbc4d7b5a4a68943517b0d77eb73fa655599a73f2bb79425900d",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/rating_rules.py",
+      "source": "fc27_players_cloud\\球员维护工具\\rating_rules.py",
+      "sourceSha256": "79c7e536b68bc221890697b500e03b8c231f7cea494320d9d1373a18ca929354",
+      "candidateSha256": "79c7e536b68bc221890697b500e03b8c231f7cea494320d9d1373a18ca929354",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/selection.py",
+      "source": "fc27_players_cloud\\球员维护工具\\selection.py",
+      "sourceSha256": "f6c911d8df1ededc2c7d0efbb32ef3f3762a2e7a1d41ce7ca56f2cfe0e44c730",
+      "candidateSha256": "f6c911d8df1ededc2c7d0efbb32ef3f3762a2e7a1d41ce7ca56f2cfe0e44c730",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/storage.py",
+      "source": "fc27_players_cloud\\球员维护工具\\storage.py",
+      "sourceSha256": "e8cdaa9a004b5dce066bb39506b1ee74fb631a5d8ff0149f27d16a4e3a1dfa0f",
+      "candidateSha256": "e8cdaa9a004b5dce066bb39506b1ee74fb631a5d8ff0149f27d16a4e3a1dfa0f",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/球员维护工具/transformer.py",
+      "source": "fc27_players_cloud\\球员维护工具\\transformer.py",
+      "sourceSha256": "c6d3b0e7d8dc64a58b13e271800b623097fbafb92ba865bc35d57903cfa9cff7",
+      "candidateSha256": "c6d3b0e7d8dc64a58b13e271800b623097fbafb92ba865bc35d57903cfa9cff7",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/model_image_service.py",
+      "source": "fc27_players_cloud\\player_web\\model_image_service.py",
+      "sourceSha256": "68dba2deca7c35095a54282d4a74f71a8baa32858888d11db245d37781957d40",
+      "candidateSha256": "68dba2deca7c35095a54282d4a74f71a8baa32858888d11db245d37781957d40",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/media_client.py",
+      "source": "fc27_players_cloud\\player_web\\media_client.py",
+      "sourceSha256": "1c49773baa25862ebf513acaf1cb9c5cca2fb4c2e84f0aec1d0b22ea9f267751",
+      "candidateSha256": "1c49773baa25862ebf513acaf1cb9c5cca2fb4c2e84f0aec1d0b22ea9f267751",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/player_web/static/images.js",
+      "source": "fc27_players_cloud\\player_web\\static\\images.js",
+      "sourceSha256": "9fb3fe95365dea189460bb21dd79ff17e66adc590251751bc641166b4ae99312",
+      "candidateSha256": "9fb3fe95365dea189460bb21dd79ff17e66adc590251751bc641166b4ae99312",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "fc27_players_cloud/source_manifest.json",
+      "source": "fc27_players_cloud\\source_manifest.json",
+      "sourceSha256": "d13b12d1671d07f86e82cb476b43847464157adc593804d9d5e68e0cc924521e",
+      "candidateSha256": "d13b12d1671d07f86e82cb476b43847464157adc593804d9d5e68e0cc924521e",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "opt/mmoexp-taskboard/web/app.js",
+      "source": "taskboard_module_20261001\\web\\app.js",
+      "sourceSha256": "392dd2b813689da580d42d84a0e6c48dbc829f0a9398efb32ae89f43cbeeadfe",
+      "candidateSha256": "392dd2b813689da580d42d84a0e6c48dbc829f0a9398efb32ae89f43cbeeadfe",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "opt/mmoexp-taskboard/web/index.html",
+      "source": "taskboard_module_20261001\\web\\index.html",
+      "sourceSha256": "b7570335c5e7e0ae2a8fcd8f3103378d668c8a746806e4093c7b737fec9ec4d0",
+      "candidateSha256": "b7570335c5e7e0ae2a8fcd8f3103378d668c8a746806e4093c7b737fec9ec4d0",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "opt/mmoexp-taskboard/web/styles.css",
+      "source": "taskboard_module_20261001\\web\\styles.css",
+      "sourceSha256": "eb1d37714a4fbc31f3cb70c88ebbb3e4944945ce4c1e289d2a72b078a7558d63",
+      "candidateSha256": "eb1d37714a4fbc31f3cb70c88ebbb3e4944945ce4c1e289d2a72b078a7558d63",
+      "modified": false,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "var/www/mlb-online/index.html",
+      "source": "fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\var\\www\\mlb-online\\index.html",
+      "sourceSha256": "8960fd5a77f6da09479e359491c48751c9653978efbadeed6af41611856bc60a",
+      "candidateSha256": "8f3bd75a00f043455b7f1e9ed27b4f2e6789709bee1a8248274a3fe827ad3d84",
+      "modified": true,
+      "execution": "not executed; static provenance only"
+    },
+    {
+      "candidate": "var/www/nba2k27/index.html",
+      "source": "fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\var\\www\\nba2k27\\index.html",
+      "sourceSha256": "87b5481d9e2ee0271e88d10fe1cef492e5f3190298c9354c420aeea4ecf77db8",
+      "candidateSha256": "16c57e78c436eff759794cac6fa65e220773688c7c3a7d26965eee55c83d7405",
+      "modified": true,
+      "execution": "not executed; static provenance only"
+    }
+  ],
+  "status": "isolated candidate only; delta review/runtime acceptance pending; no production/Git authority",
+  "revision2ChangeSummary": {
+    "oldFiles": 227,
+    "newFiles": 301,
+    "removed": [],
+    "modified": [
+      {
+        "path": ".gitignore"
+      },
+      {
+        "path": "AGENTS.md"
+      },
+      {
+        "path": "README.md"
+      },
+      {
+        "path": "docs/DEPENDENCIES-AND-OTHER-MACHINE.md"
+      },
+      {
+        "path": "docs/DEVELOPMENT.md"
+      },
+      {
+        "path": "docs/SOURCE-MAP.md"
+      },
+      {
+        "path": "docs/integration/INTEGRATION-MANIFEST.json"
+      },
+      {
+        "path": "docs/integration/MODULE-MATRIX.md"
+      },
+      {
+        "path": "docs/integration/README.md"
+      },
+      {
+        "path": "docs/integration/TEST-STATUS.json"
+      },
+      {
+        "path": "docs/integration/UPLOAD-ALLOWLIST.json"
+      },
+      {
+        "path": "fs_dashboard_overwrite_20261003/release_gateway.py"
+      },
+      {
+        "path": "fs_dashboard_overwrite_20261003/test_release_gateway.py"
+      },
+      {
+        "path": "fs_dashboard_overwrite_20261003/test_reviewed_recovery.py"
+      },
+      {
+        "path": "fs_range_read_state_20261001/exact-range-client.js"
+      },
+      {
+        "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_range_api.py"
+      },
+      {
+        "path": "opt/auth-portal/auth_portal.py"
+      },
+      {
+        "path": "opt/deploy-hub/deploy_client.py"
+      },
+      {
+        "path": "opt/deploy-hub/deploy_server.py"
+      },
+      {
+        "path": "opt/iggm-web/core.py"
+      },
+      {
+        "path": "opt/iggm-web/core_aoeah.py"
+      },
+      {
+        "path": "opt/iggm-web/core_u4gm.py"
+      },
+      {
+        "path": "opt/iggm-web/sites.py"
+      },
+      {
+        "path": "opt/mlb-online/mlb_server.py"
+      },
+      {
+        "path": "opt/nba-reprice/backend/p2pah_api.py"
+      },
+      {
+        "path": "opt/nba-reprice/backend/server.js"
+      },
+      {
+        "path": "tools/check_candidate.py"
+      }
+    ]
+  },
+  "revision2CanonicalAdditionPaths": [
+    "config/examples/fc-approved-tier-quantities.reference.json",
+    "config/examples/taskboard-empty-seed.example.json",
+    "docs/integration/FC-MIGRATION.md",
+    "docs/integration/REVISION-2-REMEDIATION.md",
+    "docs/integration/RUNTIME-CONTRACTS.md",
+    "fc27_cloud_browser/clear_cache_after_write.sh",
+    "fc27_cloud_browser/preview_backend.py",
+    "fc27_cloud_browser/preview_backend.sh",
+    "fc27_cloud_browser/repricing_dom.js",
+    "fc27_players_cloud/VERSION",
+    "fc27_players_cloud/player_web/__init__.py",
+    "fc27_players_cloud/player_web/cli.py",
+    "fc27_players_cloud/player_web/client_factory.py",
+    "fc27_players_cloud/player_web/collection.py",
+    "fc27_players_cloud/player_web/existing_action_service.py",
+    "fc27_players_cloud/player_web/main.py",
+    "fc27_players_cloud/player_web/media_client.py",
+    "fc27_players_cloud/player_web/model_image_service.py",
+    "fc27_players_cloud/player_web/model_service.py",
+    "fc27_players_cloud/player_web/new_card_service.py",
+    "fc27_players_cloud/player_web/price_lock.py",
+    "fc27_players_cloud/player_web/repository.py",
+    "fc27_players_cloud/player_web/settings.py",
+    "fc27_players_cloud/player_web/static/app.css",
+    "fc27_players_cloud/player_web/static/app.js",
+    "fc27_players_cloud/player_web/static/images.js",
+    "fc27_players_cloud/player_web/static/index.html",
+    "fc27_players_cloud/player_web/static/models.html",
+    "fc27_players_cloud/requirements.lock",
+    "fc27_players_cloud/source_manifest.json",
+    "fc27_players_cloud/球员维护工具/__init__.py",
+    "fc27_players_cloud/球员维护工具/adapters.py",
+    "fc27_players_cloud/球员维护工具/admin_adapter.py",
+    "fc27_players_cloud/球员维护工具/admin_client.py",
+    "fc27_players_cloud/球员维护工具/app.py",
+    "fc27_players_cloud/球员维护工具/app_config.py",
+    "fc27_players_cloud/球员维护工具/app_constants.py",
+    "fc27_players_cloud/球员维护工具/app_existing_models.py",
+    "fc27_players_cloud/球员维护工具/app_formatters.py",
+    "fc27_players_cloud/球员维护工具/app_login.py",
+    "fc27_players_cloud/球员维护工具/app_new_card.py",
+    "fc27_players_cloud/球员维护工具/app_pipeline.py",
+    "fc27_players_cloud/球员维护工具/existing_model_domain.py",
+    "fc27_players_cloud/球员维护工具/existing_model_ui.py",
+    "fc27_players_cloud/球员维护工具/login_dialog.py",
+    "fc27_players_cloud/球员维护工具/models.py",
+    "fc27_players_cloud/球员维护工具/new_card_recovery.py",
+    "fc27_players_cloud/球员维护工具/new_card_selection.py",
+    "fc27_players_cloud/球员维护工具/pipeline.py",
+    "fc27_players_cloud/球员维护工具/player_database.py",
+    "fc27_players_cloud/球员维护工具/player_db_cli.py",
+    "fc27_players_cloud/球员维护工具/rating_rules.py",
+    "fc27_players_cloud/球员维护工具/selection.py",
+    "fc27_players_cloud/球员维护工具/storage.py",
+    "fc27_players_cloud/球员维护工具/transformer.py",
+    "fs_dashboard_overwrite_20261003/test_exact_dependencies.py",
+    "opt/d4follow/build_dashboard.py",
+    "opt/d4follow/shelf_patch.py",
+    "opt/deploy-hub/bundle_policy.py",
+    "opt/iggm-web/url_guard.py",
+    "opt/mlb-online/static_path.py",
+    "opt/mmoexp-taskboard/web/app.js",
+    "opt/mmoexp-taskboard/web/index.html",
+    "opt/mmoexp-taskboard/web/styles.css",
+    "opt/nba-reprice/backend/api_security.js",
+    "tests/integration/test_fc_migration_contract.py",
+    "tests/integration/test_nba_pure_guards.cjs",
+    "tests/integration/test_nba_wired_routes.cjs",
+    "tests/integration/test_pure_revision2_guards.py",
+    "tests/integration/test_range_async_contract.cjs",
+    "tests/integration/test_wired_revision2_guards.py",
+    "tools/fc_migration_contract.py",
+    "var/www/mlb-online/index.html",
+    "var/www/nba2k27/index.html"
+  ],
+  "revision3Status": "finite fixes; independent delta review plus FC static dependency/NBA automation decisions and runtime validation pending",
+  "revision3AddedSourcePaths": [
+    "opt/auth-portal/fc_read_scope.py",
+    "opt/nba-reprice/backend/write_contract.py"
+  ],
+  "_firstUploadCorrection": {
+    "currentState": "docs/collaboration/READINESS.json",
+    "originalFieldsAreHistorical": true,
+    "releaseReady": false,
+    "conditionalSourceUploadApproved": true,
+    "ownerTable": "docs/collaboration/OWNERS.json",
+    "effectiveRuntimeNotVerified": true
+  }
+}

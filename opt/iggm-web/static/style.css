@@ -1,0 +1,131 @@
+:root{
+  --bg:#1e1e2e; --bg2:#181825; --surface:#313244; --surface2:#45475a;
+  --text:#cdd6f4; --sub:#a6adc8; --accent:#89b4fa;
+  --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8; --mauve:#cba6f7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text); min-height:100vh;
+  font:14px/1.6 "Microsoft YaHei UI","PingFang SC",system-ui,sans-serif;
+}
+a{color:var(--accent);text-decoration:none}
+
+/* ---------- 登录页 ---------- */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-card{width:360px;background:var(--bg2);border:1px solid var(--surface);
+  border-radius:14px;padding:32px 28px}
+.login-card h1{font-size:20px;font-weight:600;margin-bottom:6px}
+.login-card .sub{color:var(--sub);font-size:12px;margin-bottom:22px}
+
+/* ---------- 通用控件 ---------- */
+input[type=text],input[type=password]{
+  width:100%;background:var(--surface);color:var(--text);border:1px solid var(--surface2);
+  border-radius:8px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit;
+}
+input[type=text]:focus,input[type=password]:focus{border-color:var(--accent)}
+button{
+  background:var(--surface);color:var(--text);border:none;border-radius:8px;
+  padding:9px 18px;font-size:14px;cursor:pointer;font-family:inherit;transition:background .15s;
+}
+button:hover{background:var(--surface2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:#11111b;font-weight:600}
+button.primary:hover{background:#b4befe}
+button.danger{background:var(--surface);color:var(--red)}
+button.danger:hover{background:var(--surface2)}
+button.small{padding:5px 12px;font-size:12px}
+
+/* ---------- 布局 ---------- */
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 24px;
+  background:var(--bg2);border-bottom:1px solid var(--surface)}
+.topbar .title{font-size:16px;font-weight:600}
+.topbar .spacer{flex:1}
+.topbar .who{color:var(--sub);font-size:12px}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 24px 60px}
+.card{background:var(--bg2);border:1px solid var(--surface);border-radius:12px;
+  padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.row{display:flex;gap:10px;align-items:center}
+.row .grow{flex:1}
+.hint{color:var(--sub);font-size:12px;margin-top:8px}
+.err{color:var(--red);font-size:12px;margin-top:8px}
+
+/* ---------- 品类勾选 ---------- */
+.cates{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.cate{display:flex;align-items:center;gap:6px;background:var(--surface);
+  border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
+.cate input{accent-color:var(--accent);cursor:pointer}
+.cate.sel{background:var(--surface2)}
+
+/* ---------- 进度 ---------- */
+.pbar{height:16px;background:var(--surface);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar > div{height:100%;width:0;background:var(--accent);border-radius:8px;
+  transition:width .3s ease}
+.pbar.done > div{background:var(--green)}
+.pbar.fail > div{background:var(--red)}
+.prow{display:flex;align-items:center;gap:12px}
+.prow .pct{font:600 15px Consolas,monospace;color:var(--accent);min-width:52px;text-align:right}
+.prow .detail{color:var(--sub);font-size:12px;flex:1}
+.prow .etime{color:var(--sub);font:12px Consolas,monospace}
+
+/* ---------- 顶栏 ---------- */
+.topbar .who{color:var(--sub);font-size:12px}
+.topbar .whoInput{width:150px;padding:5px 10px;font-size:12px;border-radius:6px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;
+  background:var(--surface);color:var(--sub)}
+.pill.on{background:#1e3350;color:var(--accent)}
+
+/* ---------- 站点徽章 ---------- */
+.sitebadge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;
+  border-radius:6px;letter-spacing:.5px;vertical-align:middle}
+.site-iggm{background:#2b3a67;color:#89b4fa}
+.site-aoeah{background:#274a33;color:#a6e3a1}
+.site-u4gm{background:#4a3a1e;color:#f9e2af}
+.site-x{background:var(--surface);color:var(--sub)}
+
+/* ---------- 游戏名 ---------- */
+.gname{font-size:19px;font-weight:700;letter-spacing:.3px;color:var(--text)}
+.gname.sm{font-size:14px;font-weight:600}
+.anon{color:var(--surface2)}
+
+/* ---------- 队列 ---------- */
+.qtitle{color:var(--sub);font-size:12px;margin:14px 0 8px}
+.qtitle:first-child{margin-top:0}
+.qitem{display:flex;flex-direction:column;gap:0;background:var(--surface);
+  border-radius:10px;padding:10px 14px;margin-bottom:8px}
+.qitem.run{background:var(--surface);border:1px solid var(--surface2)}
+.qhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qbadge{font-size:11px;padding:2px 9px;border-radius:6px;
+  background:var(--bg);color:var(--sub);white-space:nowrap}
+.qbadge.now{background:var(--accent);color:#11111b;font-weight:600}
+.qmeta{color:var(--sub);font-size:12px}
+.qtime{color:var(--sub);font:12px Consolas,monospace}
+/* 排队中的条目改为单行横向排布 */
+#qWaiting .qitem{flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
+#qWaiting .qitem .qbadge{background:var(--bg)}
+
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--surface)}
+th{color:var(--sub);font-weight:500;font-size:12px}
+td.mono{font-family:Consolas,monospace;font-size:12px}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px}
+.tag.queued{background:var(--surface);color:var(--sub)}
+.tag.running{background:var(--surface);color:var(--accent)}
+.tag.done{background:#1e3a2a;color:var(--green)}
+.tag.failed{background:#3a1e28;color:var(--red)}
+.tag.cancelled{background:var(--surface);color:var(--yellow)}
+.mini{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;width:90px}
+.mini > div{height:100%;background:var(--accent)}
+
+/* ---------- 日志弹层 ---------- */
+.mask{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;
+  align-items:center;justify-content:center;z-index:50}
+.mask.show{display:flex}
+.modal{width:720px;max-height:70vh;background:var(--bg2);border:1px solid var(--surface);
+  border-radius:12px;padding:18px 20px;display:flex;flex-direction:column}
+.modal h3{font-size:14px;margin-bottom:12px}
+.modal pre{flex:1;overflow:auto;background:var(--bg);border-radius:8px;padding:12px;
+  font:12px/1.7 Consolas,monospace;color:var(--sub);white-space:pre-wrap}
+.modal .close{margin-top:12px;align-self:flex-end}
+.empty{color:var(--sub);font-size:13px;padding:18px 0;text-align:center}

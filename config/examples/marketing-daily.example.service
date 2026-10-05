@@ -1,0 +1,15 @@
+[Unit]
+Description=Google marketing read-only reporting for two selected brands
+After=network-online.target
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+WorkingDirectory=/opt/mmoexp-marketing
+Environment=MMOEXP_MARKETING_LIVE=approved
+Environment=MMOEXP_MARKETING_PUBLISH=approved
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/etc/mmoexp-marketing/service-account.json
+Environment=PYTHONWARNINGS=ignore
+Environment=TZ=Asia/Shanghai
+ExecStart=/opt/mmoexp-marketing/venv-ssl/bin/python /opt/mmoexp-marketing/deployment/server_run_integrated.py
+TimeoutStartSec=10min

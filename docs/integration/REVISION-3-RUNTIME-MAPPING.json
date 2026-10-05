@@ -1,0 +1,29 @@
+{
+  "status": "planned candidate mapping only; not production verified/applied",
+  "files": [
+    {
+      "candidate": "opt/auth-portal/fc_read_scope.py",
+      "plannedTarget": "/opt/auth-portal/fc_read_scope.py",
+      "existingConsumer": "/opt/auth-portal/auth_portal.py",
+      "identity": "FC-only verified by existing8896; no portal group/header"
+    },
+    {
+      "candidate": "opt/nba-reprice/backend/write_contract.py",
+      "plannedTarget": "/opt/nba-reprice/backend/write_contract.py",
+      "existingConsumer": "/opt/nba-reprice/backend/p2pah_api.py",
+      "state": "NBA_DATA_DIR external receipts and writer.lock; never clear existing business locks"
+    }
+  ],
+  "notMapped": [
+    "FC shared four static aliases need scope decision",
+    "NBA automatic policy confirmation option not selected"
+  ],
+  "_firstUploadCorrection": {
+    "currentState": "docs/collaboration/READINESS.json",
+    "originalFieldsAreHistorical": true,
+    "releaseReady": false,
+    "conditionalSourceUploadApproved": true,
+    "ownerTable": "docs/collaboration/OWNERS.json",
+    "effectiveRuntimeNotVerified": true
+  }
+}

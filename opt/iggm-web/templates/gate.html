@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IGGM 抓取工具 · 访问口令</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" method="post" action="/gate">
+    <h1>IGGM 全站价格抓取</h1>
+    <div class="sub">请输入团队访问口令（记住 30 天）</div>
+    <input type="password" name="code" placeholder="访问口令" autofocus>
+    {% if bad %}<div class="err">口令不对，再试一次</div>{% endif %}
+    <button class="primary" type="submit" style="width:100%;margin-top:16px">进入</button>
+  </form>
+</div>
+</body>
+</html>

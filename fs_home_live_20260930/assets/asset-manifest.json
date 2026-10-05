@@ -1,0 +1,36 @@
+{
+  "assets": [
+    {
+      "file": "fs-mmoexp-data-statistics.png",
+      "libraryId": "libfile_45fe2abc86dc8191a505f5d9ba4a0cdb",
+      "width": 1672,
+      "height": 941,
+      "sha256": "5b741c980449f180860256bcea7c2e5b0d992694e7d85b932119f8a32e488bc9",
+      "crop": "16:9; preserve right subject and left title space"
+    },
+    {
+      "file": "fs-mmoexp-automation-workspace.png",
+      "libraryId": "libfile_60534d4707188191b4301a341167836c",
+      "width": 1672,
+      "height": 941,
+      "sha256": "d3c1dffbfdeae91dbcaafd7827896816e22a785b44d846e4fbacc639899c8865",
+      "crop": "16:9; preserve right subject and left title space"
+    },
+    {
+      "file": "fs-mmoexp-business-tools.png",
+      "libraryId": "libfile_6857be0db6ec819197b8885390256a41",
+      "width": 1672,
+      "height": 941,
+      "sha256": "d88e0aac76a53e0847a55154e54ebdae5623bcf03ac8812903da9aefab839bfe",
+      "crop": "16:9; preserve right subject and left title space"
+    },
+    {
+      "file": "fs-mmoexp-members-permissions.png",
+      "libraryId": "libfile_c576f839c5a4819199992e7a5f876f04",
+      "width": 1672,
+      "height": 941,
+      "sha256": "f251458c428abbf227c1aecbf7198e80d8ef0dd334cdf3cb086d7b4aeb6fe885",
+      "crop": "16:9; preserve right subject and left title space"
+    }
+  ]
+}

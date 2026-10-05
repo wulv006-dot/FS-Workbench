@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FC27 运营数据看板 · mmoexp</title>
+<style>
+:root{
+  --bg:#080d1a; --card:#111c33; --card2:#16233b; --line:#1f2f4d; --line2:#2b4066;
+  --tx:#e9f0ff; --tx2:#93a8cb; --tx3:#64799e;
+  --up:#ff4d4f; --down:#12c47a;
+  --blue:#4d7cff; --purple:#9d5cff; --cyan:#22d3ee; --gold:#f5a623; --orange:#ff7a45;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:
+    radial-gradient(1100px 620px at 10% -10%, rgba(77,124,255,.15), transparent 62%),
+    radial-gradient(900px 520px at 94% -4%, rgba(157,92,255,.13), transparent 64%),
+    var(--bg);
+  color:var(--tx); min-height:100vh; padding:24px 20px 56px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:1280px;margin:0 auto}
+
+/* ---------- 头部 ---------- */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:24px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+.sub{margin-top:7px;font-size:12.5px;color:var(--tx2);line-height:1.7}
+.sub b{color:var(--tx);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;border:1px solid var(--line2);color:var(--tx2);background:rgba(77,124,255,.08)}
+.btns{display:flex;gap:9px;flex-wrap:wrap}
+button{
+  font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  padding:9px 15px;border-radius:9px;border:1px solid var(--line2);
+  background:linear-gradient(180deg,#1a2942,#152238);color:var(--tx);transition:.16s;
+}
+button:hover{border-color:#3f5c8f;background:linear-gradient(180deg,#22345a,#1a2942);transform:translateY(-1px)}
+button.primary{background:linear-gradient(180deg,#4d7cff,#3560e0);border-color:#5f89ff;box-shadow:0 6px 18px -8px rgba(77,124,255,.9)}
+button.primary:hover{background:linear-gradient(180deg,#5d89ff,#4470f0)}
+button.ghost{background:transparent}
+
+/* ---------- 日期筛选 ---------- */
+.filterbar{
+  display:flex;align-items:center;gap:13px;margin-bottom:14px;padding:9px 14px;
+  background:linear-gradient(90deg,rgba(77,124,255,.1),rgba(157,92,255,.05) 60%,transparent);
+  border:1px solid var(--line);border-radius:12px;
+  position:relative;z-index:50;   /* 抬升整条筛选栏，避免展开的日历被下方 KPI/图表卡片盖住 */
+}
+.flabel{font-size:12px;color:var(--tx2);font-weight:600;letter-spacing:.4px;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.flabel::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+.fsplit{flex:1}
+/* 全部日期按钮 */
+.chip{
+  flex:0 0 auto;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;
+  padding:6px 15px;border-radius:9px;border:1px solid var(--line2);
+  background:#152238;color:var(--tx2);transition:.15s;line-height:1.35;
+}
+.chip:hover{background:#1c2c49;border-color:#3f5c8f;color:var(--tx);transform:none}
+.chip.all.on{background:linear-gradient(180deg,#22d3ee,#0ea5c4);border-color:#38d9f0;color:#04222b;box-shadow:0 4px 14px -6px rgba(34,211,238,.9)}
+.chip.all.on:hover{background:linear-gradient(180deg,#3adbf1,#12b6d4);border-color:#4de0f5}
+
+/* 日历选择器 */
+.calwrap{position:relative;flex:0 0 auto}
+.calbtn{
+  display:flex;align-items:center;gap:8px;padding:6px 11px;border-radius:9px;
+  border:1px solid var(--line2);background:#152238;color:var(--tx2);
+  font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;line-height:1.35;
+}
+.calbtn:hover{background:#1c2c49;border-color:#3f5c8f;color:var(--tx);transform:none}
+.calbtn.on{border-color:#5f89ff;color:var(--tx);background:#1b2c4c}
+.calbtn .ci{width:13px;height:13px;flex:0 0 auto;opacity:.8}
+.calbtn .cd{font-variant-numeric:tabular-nums}
+.calbtn .caret{font-size:9px;opacity:.6;transition:.2s}
+.calbtn.on .caret{transform:rotate(180deg)}
+.calbtn .mut{color:var(--tx3);font-weight:500}
+
+.calpop{
+  position:absolute;top:calc(100% + 9px);left:0;z-index:70;width:300px;
+  background:linear-gradient(170deg,#152340,#0c1424);border:1px solid var(--line2);
+  border-radius:14px;padding:12px;box-shadow:0 26px 60px -22px #000;
+  display:none;
+}
+.calpop.on{display:block;animation:calin .16s ease-out}
+@keyframes calin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calhead .mt{font-size:12.5px;font-weight:700;color:var(--tx);letter-spacing:.3px}
+.calhead .mt em{font-style:normal;color:var(--tx3);font-weight:500;font-size:11px;margin-left:6px}
+.navbtn{
+  width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;border:1px solid var(--line2);background:#152238;color:var(--tx2);
+  font-size:14px;line-height:1;cursor:pointer;transition:.14s;
+}
+.navbtn:hover:not(:disabled){background:#1f3055;border-color:#3f5c8f;color:var(--tx);transform:none}
+.navbtn:disabled{opacity:.26;cursor:not-allowed;transform:none}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:5px}
+.dow span{text-align:center;font-size:10.5px;color:var(--tx3);font-weight:600}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cel{
+  height:38px;padding:0;border-radius:9px;border:1px solid transparent;background:transparent;
+  color:#42557a;font-size:12px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;cursor:default;transition:.13s;transform:none;
+}
+.cel .cn{font-weight:700;font-size:12.5px;line-height:1;font-variant-numeric:tabular-nums}
+.cel .cbar{width:68%;height:3px;border-radius:2px;background:#26364f;display:block;overflow:hidden}
+.cel .cbar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#22d3ee,#4d7cff)}
+.cel.has{background:#16233b;border-color:#243653;color:#c3d4f0;cursor:pointer}
+.cel.has:hover{background:#1f3055;border-color:#4a6fae;transform:none}
+.cel.on{background:linear-gradient(180deg,#4d7cff,#3560e0);border-color:#5f89ff;color:#fff;box-shadow:0 4px 14px -6px rgba(77,124,255,.95)}
+.cel.on:hover{background:linear-gradient(180deg,#5d89ff,#4470f0)}
+.cel.on .cbar{background:rgba(255,255,255,.3)}
+.cel.on .cbar i{background:#fff}
+.cel.void{visibility:hidden}
+.calfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px;padding-top:10px;border-top:1px solid #1c2b47}
+.callegend{font-size:10.5px;color:var(--tx3);display:flex;align-items:center;gap:6px}
+.callegend i{display:block;width:22px;height:4px;border-radius:2px;background:linear-gradient(90deg,#22304a,#22d3ee,#4d7cff)}
+.linkbtn{
+  padding:4px 10px;font-size:11.5px;font-weight:600;border-radius:7px;cursor:pointer;
+  border:1px solid var(--line2);background:#152238;color:var(--tx2);transition:.14s;
+}
+.linkbtn:hover{background:#1f3055;border-color:#3f5c8f;color:var(--tx);transform:none}
+.calempty{padding:20px 10px;text-align:center;color:var(--tx3);font-size:12px}
+.fstat{font-size:11.5px;color:var(--tx3);white-space:nowrap;padding-left:13px;border-left:1px solid var(--line)}
+.fstat b{color:var(--cyan);font-weight:700}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.kpi{
+  background:linear-gradient(160deg,var(--card),#0e1729);border:1px solid var(--line);
+  border-radius:13px;padding:14px 15px;position:relative;overflow:hidden;
+}
+.kpi::after{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple));opacity:.75}
+.kpi .lb{font-size:11.5px;color:var(--tx2);letter-spacing:.4px;margin-bottom:8px}
+.kpi .vl{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.15}
+.kpi .vl small{font-size:12px;font-weight:600;color:var(--tx2);margin-left:3px}
+.kpi .ft{margin-top:8px;font-size:11.5px;color:var(--tx3);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kpi.hl{border-color:#2f4a7d;background:linear-gradient(160deg,#152344,#0e1729)}
+
+/* ---------- 卡片/图区 ---------- */
+.card{background:linear-gradient(170deg,var(--card),#0d1626);border:1px solid var(--line);border-radius:14px;padding:16px 18px 14px;margin-bottom:14px}
+.card h2{font-size:13.5px;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+.card h2 .lg{font-size:11px;font-weight:500;color:var(--tx3);display:flex;gap:12px;flex-wrap:wrap}
+.card h2 .lg i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+.sw{width:9px;height:9px;border-radius:3px;display:inline-block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.axis{font-size:10.5px;fill:#64799e}
+.gl{stroke:#1b2a44;stroke-width:1}
+.dlab{font-size:10.5px;font-weight:700}
+.xlb{font-size:11px;fill:#8fa3c7}
+
+/* ---------- 表格 ---------- */
+.tbwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:640px}
+th,td{padding:9px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid #17243c}
+th{
+  background:#0f1a2e;color:var(--tx2);font-weight:600;font-size:11.5px;letter-spacing:.4px;
+  position:sticky;top:0;border-bottom:1px solid var(--line2);z-index:2;
+}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#0f1a2e;z-index:1}
+th:first-child{z-index:3}
+/* 品类表列数多，单独收紧保证一屏放下 */
+#t2{font-size:12px}
+#t2 th,#t2 td{padding:8px 8px}
+tbody tr:hover td{background:rgba(77,124,255,.06)}
+tbody tr:hover td:first-child{background:#14203a}
+tbody tr:last-child td{border-bottom:none}
+tr.total td{background:#101c31;font-weight:700;border-top:1px solid var(--line2);color:#dbe7ff}
+tr.total td:first-child{background:#101c31}
+/* 单日聚焦：选中行高亮，其余行灰化 */
+tbody tr.dimrow td{opacity:.32}
+tbody tr.dimrow:hover td{opacity:.72}
+tbody tr.selrow td{background:rgba(77,124,255,.15);box-shadow:inset 0 1.5px 0 rgba(77,124,255,.5),inset 0 -1.5px 0 rgba(77,124,255,.5)}
+tbody tr.selrow td:first-child{background:#1b2d52}
+td.dim,.dimv{color:var(--tx3)}
+/* 断档日：环比不可比时的提示态 */
+.gapwarn{color:var(--tx3);border-bottom:1px dotted #3a4c6e;cursor:help}
+td.gapna{border-bottom:1px dotted #3a4c6e;cursor:help}
+.sec{color:var(--gold)} .scr{color:var(--blue)} .sot{color:var(--tx3)}
+.up{color:var(--up)} .down{color:var(--down)} .na{color:#4c5f80;font-size:11.5px}
+.pill{display:inline-block;padding:1.5px 7px;border-radius:20px;font-size:11.5px;font-weight:700}
+.pill.up{background:rgba(255,77,79,.13);border:1px solid rgba(255,77,79,.3)}
+.pill.down{background:rgba(18,196,122,.13);border:1px solid rgba(18,196,122,.3)}
+.note{font-size:11.5px;color:var(--tx3);line-height:1.85;margin-top:11px;padding-top:11px;border-top:1px dashed #1c2b47}
+.note b{color:var(--tx2);font-weight:600}
+.note code{background:#0e1a2e;border:1px solid #1d2c48;border-radius:5px;padding:1px 6px;font-size:11px;color:#8fb4ff;font-family:Consolas,Monaco,monospace}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--tx2);background:rgba(157,92,255,.1);border:1px solid rgba(157,92,255,.3);padding:3px 10px;border-radius:20px}
+
+/* ---------- AI 运营分析（仅内部账号可见） ---------- */
+.card.ai{border-color:#31497c;background:linear-gradient(170deg,#152344,#0c1526);position:relative;overflow:hidden}
+.card.ai::before{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:linear-gradient(90deg,#9d5cff,#4d7cff,#22d3ee);opacity:.9}
+.aibadge{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:2px 9px;border-radius:20px;color:#cdb6ff;border:1px solid rgba(157,92,255,.45);background:rgba(157,92,255,.15)}
+.aihint{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:2px 9px;border-radius:20px;color:#8fa3c7;border:1px solid var(--line2);background:rgba(77,124,255,.08)}
+.aimeta{font-size:11px;color:var(--tx3);font-weight:400}
+.aihl{font-size:14.5px;font-weight:700;line-height:1.8;color:#eaf1ff;margin-top:13px;padding-left:13px;border-left:3px solid #9d5cff}
+.aitags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.aitag{font-size:11.5px;padding:3px 11px;border-radius:20px;background:rgba(77,124,255,.12);border:1px solid rgba(77,124,255,.32);color:#a8c2ff}
+.aigrid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:15px}
+.aiblk{background:rgba(12,21,38,.62);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+.aiblk h4{font-size:12px;font-weight:700;color:#cfe0ff;letter-spacing:.4px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.aiblk h4::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple);flex:0 0 auto}
+.aiblk ul{list-style:none}
+.aiblk li{font-size:12px;line-height:1.9;color:#a9bcd8;padding-left:13px;position:relative;margin-bottom:8px}
+.aiblk li:last-child{margin-bottom:0}
+.aiblk li::before{content:"";position:absolute;left:2px;top:8.5px;width:4px;height:4px;border-radius:50%;background:#3f5c8f}
+.aiblk li b{color:#dde9ff;font-weight:700}
+.aimets{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px}
+.aimet{background:rgba(12,21,38,.62);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.aimet .k{font-size:10.5px;color:var(--tx3);letter-spacing:.3px}
+.aimet .v{font-size:14.5px;font-weight:800;color:#eaf1ff;margin-top:4px;letter-spacing:-.2px}
+.aiful{font-size:11.5px;color:var(--tx3);line-height:1.95;margin-top:14px;padding-top:12px;border-top:1px dashed #1c2b47}
+.aiful b{color:var(--tx2)}
+.aivoid{font-size:12.5px;color:var(--tx3);line-height:1.95;padding:12px 0 4px}
+.aivoid code{background:#0e1a2e;border:1px solid #1d2c48;border-radius:5px;padding:1px 6px;color:#8fb4ff;font-family:Consolas,Monaco,monospace}
+
+/* AI 卡片附加区块（内容与口径由服务端按角色下发，非 200 一律不渲染） */
+.aiext{background:rgba(12,21,38,.62);border:1px solid var(--line);border-left:3px solid #4d7cff;border-radius:11px;padding:13px 14px;margin-top:14px}
+.aiext .ct{font-size:12px;font-weight:700;color:#cfe0ff;letter-spacing:.4px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.aiext .ct::before{content:"";width:5px;height:5px;border-radius:50%;background:#4d7cff;box-shadow:0 0 8px #4d7cff;flex:0 0 auto}
+.aiextg{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.aiexti{background:rgba(9,16,30,.6);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.aiexti .k{font-size:10.5px;color:var(--tx3);letter-spacing:.3px}
+.aiexti .v{font-size:13.5px;font-weight:800;color:#eaf1ff;margin-top:4px;letter-spacing:-.2px}
+.aiexti .v.good{color:#34d399}
+.aiexti .v.warn{color:#fbbf24}
+.aiexti .v.bad{color:#f87171}
+.aiextv{font-size:12px;line-height:1.9;color:#a9bcd8;margin-top:11px;padding-top:10px;border-top:1px dashed #1c2b47}
+.aiextv b{color:#dde9ff}
+
+/* ---------- 弹窗 ---------- */
+.mask{position:fixed;inset:0;background:rgba(4,8,17,.82);backdrop-filter:blur(5px);display:none;align-items:flex-start;justify-content:center;padding:56px 20px;z-index:99;overflow-y:auto}
+.mask.on{display:flex}
+.modal{width:100%;max-width:680px;background:linear-gradient(170deg,#13203a,#0c1424);border:1px solid var(--line2);border-radius:15px;padding:22px 24px;box-shadow:0 30px 80px -30px #000}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.modal .hint{font-size:12px;color:var(--tx2);line-height:1.8;margin-bottom:14px}
+textarea{
+  width:100%;height:216px;resize:vertical;background:#0a1220;color:#cfe0ff;
+  border:1px solid var(--line2);border-radius:10px;padding:13px 14px;font-size:12.5px;line-height:1.85;
+  font-family:Consolas,Monaco,"Microsoft YaHei",monospace;outline:none;
+}
+textarea:focus{border-color:#4a6fae;box-shadow:0 0 0 3px rgba(77,124,255,.14)}
+.modal .row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+.prev{margin-top:13px;font-size:12px;line-height:2}
+.prev .ok{color:var(--down)} .prev .bad{color:var(--up)}
+.prev code{background:#0e1a2e;border:1px solid #1d2c48;border-radius:5px;padding:1px 6px;color:#8fb4ff;font-size:11.5px}
+@media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}.aigrid{grid-template-columns:1fr}.aimets{grid-template-columns:repeat(3,1fr)}.aiextg{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){
+  /* 筛选栏窄屏换行：总额提示移到第二行，避免把日历按钮挤出去 */
+  .filterbar{flex-wrap:wrap;gap:9px;padding:9px 11px}
+  .fsplit{display:none}
+  .fstat{padding-left:0;border-left:none;font-size:11px;width:100%}
+}
+@media(max-width:660px){.kpis{grid-template-columns:repeat(2,1fr)}.aimets{grid-template-columns:repeat(2,1fr)}.aiextg{grid-template-columns:repeat(2,1fr)}h1{font-size:19px}.calpop{width:270px;padding:10px}.cel{height:34px}}
+</style>
+<script src="data/snapshot-client.js?v=20260930tx1"></script><link rel="stylesheet" href="data/supplement-insights.css?v=20261001-range"><script src="data/supplement-insights.js?v=20261001-readstate"></script><link rel="stylesheet" href="/dashboard/fs-home/transactions/business-theme.css?v=20261001"><script src="/dashboard/fs-home/transactions/business-theme.js?v=20261001"></script><script src="/dashboard/fs-home/transactions/business-range.js?v=20261001"></script><script src="/dashboard/fs-home/transactions/exact-range-client.js?v=20261001-readstate" defer></script>
+<link rel="stylesheet" href="data/fc-analytics.css?v=fc27-calendar-v3"><script src="data/fc-analytics.js?v=fc27-calendar-v3" defer></script>
+<link rel="stylesheet" href="data/fc-products.css?v=fc-products-v1"><script src="data/fc-products.js?v=fc-products-v1" defer></script>
+</head>
+<body class="fc-ops">
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1><span class="dot"></span>FC27 运营数据看板</h1>
+      <div class="sub">
+        范围 <b>FC27 · 所有网站合计</b> ｜ 阶段 <span class="tag" id="phase">—</span> ｜ 覆盖 <b id="range">—</b> ｜
+        最新更新 <b id="lastUp">—</b>
+      </div>
+    </div>
+    <div class="btns"><a class="fc-home-link" href="/dashboard/">返回主页</a>
+      <input id="collectDate" type="date" aria-label="采集日期" style="background:#101d34;color:#e7f0ff;border:1px solid #314362;border-radius:8px;padding:8px">
+      <button class="primary" id="collectBtn" onclick="startCollect()">采集最新数据</button>
+      <button onclick="exportCSV()">导出 CSV</button>
+      <button class="ghost" onclick="openData()">查看数据源</button>
+    </div>
+  </div>
+  <div id="collectStatus" role="status" aria-live="polite" style="font-size:12px;color:#a9bad5;margin:-8px 0 16px"></div>
+
+  <div class="fc-range-controls"><label>开始 <input type="date" id="fcStart"></label><label>结束 <input type="date" id="fcEnd"></label><button id="fcApply" type="button">应用区间</button><span id="fcRangeHint" role="status"></span></div>
+  <div class="filterbar">
+    <span class="flabel">日期筛选</span>
+    <button class="chip all" id="chipAll">全部日期</button>
+    <div class="calwrap" id="calwrap">
+      <button class="calbtn" id="calbtn"></button>
+      <div class="calpop" id="calpop"></div>
+    </div>
+    <span class="fsplit"></span>
+    <span class="fstat" id="fstat">—</span>
+  </div>
+
+  <section id="fc-classification" class="fc-analytics" aria-label="FC27分类经营分析"></section>
+  <section id="fc-products" class="fc-products" aria-label="Admin原生产品销量与订单量排行"></section>
+  <div class="kpis" id="kpis"></div>
+
+  <!-- AI 运营分析：内容由服务端按权限下发，非内部账号整块不渲染 -->
+  <div class="fc-project-heading"><h2>FC27全部品类 · 所选日期项目指标</h2><button type="button" id="fc-project-more" aria-expanded="false">展开客户与履约指标</button></div>
+  <section id="supplement-insights" aria-label="FC27客户付款利润及来源分布"></section>
+  <div class="card ai" id="aiCard" style="display:none">
+    <h2>
+      <span>AI 运营分析</span>
+      <span class="lg"><i class="aibadge" id="aiBadge">登录可读</i><i class="aimeta" id="aiMeta"></i></span>
+    </h2>
+    <div id="aiBody"></div>
+  </div>
+
+  <div class="card fc-legacy-chart">
+    <h2>销售额与订单量走势<span class="lg"><i><span class="sw" style="background:#4d7cff"></span>销售额（左轴）</i><i><span class="sw" style="background:#9d5cff"></span>订单量（右轴）</i></span></h2>
+    <div id="c1"></div>
+  </div>
+
+  <div class="grid2 fc-legacy-chart">
+    <div class="card">
+    <h2>单量结构<span class="lg"><i><span class="sw" style="background:#f5a623"></span>金币</i><i><span class="sw" style="background:#4d7cff"></span>Items</i><i><span class="sw" style="background:#44506b"></span>其他类型（含Boosting）</i></span></h2>
+      <div id="c2"></div>
+    </div>
+    <div class="card">
+      <h2>每单均额走势<span class="lg"><i><span class="sw" style="background:#22d3ee"></span>整体</i><i><span class="sw" style="background:#f5a623"></span>金币</i><i><span class="sw" style="background:#4d7cff"></span>Items</i></span></h2>
+      <div id="c3"></div>
+    </div>
+  </div>
+
+  <details class="fca-history-details"><summary class="fca-summary">历史明细 · 三表默认最近7日（可扩至30/60日）</summary>
+  <div class="card">
+    <h2>核心指标明细<span class="lg"><i>同比对照 FC26 同日</i></span></h2>
+    <div class="tbwrap"><table id="t1"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>历史品类拆分 · Coins / Items<span class="lg"><i>金额单位 USD</i></span></h2>
+    <div class="tbwrap"><table id="t2"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>派生指标<span class="lg"><i>由原始数据计算，非原始上报值</i></span></h2>
+    <div class="tbwrap"><table id="t3"></table></div>
+    <div class="note">
+      <b>口径说明：</b><br>
+      · <b>每单均额</b> = 销售额 ÷ 订单量；<b>金币每单均额</b> = 金币销售额 ÷ 金币单量（同理Items）。<br>
+      · <b>其他类型（含Boosting）</b> = 全部产品 − Gold − Items，仅为算术差额，不代表经验证的独立品类。<br>
+      · Items列对应Order原始类型2，尚未把其细拆为Players/Packs/SBC。<br>
+      · <b>新客占比</b> = admin新客人数 ÷ admin订单数；分母0时不可计算，详见快照当日客户统计。<br>
+      · 销售额采用 order.p2pah.cn 的<b>订单金额</b>；所有网站合计，FC27=1322、FC26=824；Coins=1、Items=2。单均价与利润率采用Order主源原值；admin补主源缺失的客户、付款与维度字段。历史每单均额为Order金额/订单数；历史缺少同日Admin分母时，新客占比显示未提供，不混源计算。<br>
+      · <b>环比</b>为与前一日对比；<b>同比</b>为 FC26 主源同日同筛选对比，缺失标「缺数据」。<br>
+      · 颜色遵循涨红跌绿（中国惯例）。
+    </div>
+  </div>
+
+  </details>
+  <div class="note" style="padding-left:2px">
+    所有经营数据仅从服务器统一交易快照读取；服务器每120分钟生成，页面每60秒检查版本；手动回填保留，点「导出 CSV」归档。
+  </div>
+</div>
+
+<!-- 追加数据 -->
+<div class="mask" id="mAdd">
+  <div class="modal">
+    <h3>追加当日数据</h3>
+    <div class="hint">直接粘贴原始文本（与之前发给我的格式一致即可），系统会自动识别日期与各项指标。</div>
+    <textarea id="src" placeholder="FC27 9月23日运营销售数据&#10;订单量　511　　同比 FC26 +88.6%&#10;销售额　$26,376.06　同比 +39.2%&#10;新客人数　251　同比 缺数据&#10;金币单量　443　　同比 +77.2%&#10;金币销售额　$22,898.88　同比 +25.1%&#10;Items单量　62　　同比 +148.0%&#10;Items销售额　$3,241.92　同比 +218.9%"></textarea>
+    <div class="prev" id="prev"></div>
+    <div class="row">
+      <div style="font-size:11.5px;color:#64799e">已有 <b id="cnt">0</b> 天数据</div>
+      <div class="btns">
+        <button class="ghost" onclick="parsePreview()">解析预览</button>
+        <button class="primary" onclick="doAdd()">确认追加</button>
+        <button class="ghost" onclick="closeAll()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 数据源 -->
+<div class="mask" id="mData">
+  <div class="modal">
+    <h3>数据源</h3>
+    <div class="hint">下方为当前生效的完整数据数组，可直接复制归档。</div>
+    <textarea id="dump" readonly></textarea>
+    <div class="row">
+      <div style="font-size:11.5px;color:#64799e" id="dcount"></div>
+      <div class="btns">
+        <button onclick="copyDump()">复制</button>
+        <button class="ghost" onclick="closeAll()">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 唯一正式来源：服务器发布的 schema=2 Es 快照。禁止内置旧口径回退。 */
+
+/* ---------------- 工具 ---------------- */
+const $ = s => document.querySelector(s);
+const money = n => '$' + (+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0 = n => '$' + Math.round(+n).toLocaleString('en-US');
+const int = n => n==null?'—':(+n).toLocaleString('en-US');
+const num2 = n => (+n).toFixed(2);
+const md = s => { const p = s.split('-'); return (+p[1]) + '/' + (+p[2]); };
+const aov = (s,o) => o ? s/o : 0;
+const otherO = r => r.orders - r.coinO - r.cardO;
+const otherS = r => r.sales - r.coinS - r.cardS;
+
+function pct(v, wantSign){
+  if (v === null || v === undefined) return null;
+  const a = Math.abs(v);
+  const s = (Math.round(a*100) % 10 === 0) ? a.toFixed(1) : a.toFixed(2);
+  return (wantSign === false ? '' : (v >= 0 ? '+' : '\u2212')) + s + '%';
+}
+function yoyCell(v){
+  if (v === null || v === undefined) return '<td class="na">缺数据</td>';
+  const cls = v >= 0 ? 'up' : 'down';
+  const arw = v >= 0 ? '\u25B2' : '\u25BC';
+  return '<td class="' + cls + '">' + arw + ' ' + Math.abs(v).toFixed(Math.round(Math.abs(v)*100)%10===0?1:2) + '%</td>';
+}
+/* 涨红跌绿：v>0 红，v<0 绿 */
+/* gapDays：两个日期的天数差（用于断档守卫） */
+function gapDays(a, b){
+  if (!a || !b) return Infinity;
+  return Math.round(Math.abs(new Date(a+'T00:00:00').getTime() - new Date(b+'T00:00:00').getTime()) / 86400000);
+}
+/* 环比单元格。curD/prevD 传入日期；**只有相邻日才算环比**，
+   断档时显示 — 并加 title 说明间隔，避免把跨多天的变化误读成日环比。 */
+function deltaCell(cur, prev, curD, prevD){
+  if (prev === null || prev === undefined || prev === 0) return '<td class="na">—</td>';
+  const gap = gapDays(curD, prevD);
+  if (gap !== 1) return '<td class="na gapna" title="与上一次有数据的日期相隔 ' + gap + ' 天，非相邻日，不作环比">—</td>';
+  const v = (cur - prev) / prev * 100;
+  const cls = v >= 0 ? 'up' : 'down';
+  return '<td class="' + cls + '">' + (v >= 0 ? '+' : '\u2212') + Math.abs(v).toFixed(1) + '%</td>';
+}
+
+/* ---------------- 数据装载 ---------------- */
+let ROWS = [];
+let LAST_SUCCESS = null;
+let fcTransactionWatcher=null;
+async function load(){
+ if(!fcTransactionWatcher)fcTransactionWatcher=new FSBusinessSnapshots('data/transactions/',data=>{
+   if(data.fcOps.schema!==3)throw Error('运营快照合同不符');ROWS=[...data.fcOps.rows];
+   LAST_SUCCESS={date:ROWS.at(-1)?.d,published_at:data.generatedAt,snapshotId:data.snapshotId};render();
+ },state=>{$('#collectStatus').textContent=(state.status==='fresh'?'':'⚠ 过期/不可用 · ')+
+ '所有网站FC业务 · order主源 / admin新客补源 · 更新 '+(state.generatedAt?new Date(state.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'—')+' 北京时间 · 120分钟采集/60秒检查 · '+(state.snapshotId||'');});
+ await fcTransactionWatcher.check();fcTransactionWatcher.start();
+}
+function save(){ /* 正式数据由服务器发布；页面不再以浏览器缓存作为数据源。 */ }
+
+function yesterdayShanghai(){
+  return new Date(Date.now() + 8*3600000 - 86400000).toISOString().slice(0,10);
+}
+async function startCollect(){
+  const button = $('#collectBtn');
+  const target = $('#collectDate').value || yesterdayShanghai();
+  button.disabled = true;
+  $('#collectStatus').textContent = '正在提交 ' + target + ' 的采集任务…';
+  try {
+    const submitted = await fetch('api/collect', {
+      method:'POST', credentials:'same-origin', cache:'no-store',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({date:target})
+    });
+    if (!submitted.ok) throw new Error('任务提交失败（HTTP ' + submitted.status + '）');
+    const job = await submitted.json();
+    if (!/^[0-9a-f]{32}$/.test(job.run_id || '')) throw new Error('任务编号无效');
+    for (let i=0; i<160; i++) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch('api/jobs/' + job.run_id, {cache:'no-store',credentials:'same-origin'});
+      if (!response.ok) throw new Error('任务状态读取失败');
+      const state = await response.json();
+      if (state.status === 'success') {
+        await load(); SEL = target; render(); loadAnalysis();
+        $('#collectStatus').textContent = '采集完成：' + target + ' ｜ 更新时间 ' +
+          new Date(state.finished_at).toLocaleString('zh-CN') +
+          (state.analysis_status === 'success' ? ' ｜ 自动分析已更新' :
+           ' ｜ 自动分析未更新，请稍后重试采集');
+        return;
+      }
+      if (state.status === 'failed' || state.status === 'partial') {
+        $('#collectStatus').textContent = '采集失败：' + (state.error_code || '未知原因') +
+          '；旧数据未覆盖。上次成功：' + (LAST_SUCCESS?.date || '暂无');
+        return;
+      }
+      $('#collectStatus').textContent = '正在采集 ' + target + '：' +
+        (state.current_query || state.status || '等待中');
+    }
+    throw new Error('等待超时，可稍后刷新页面查看任务状态');
+  } catch (error) {
+    $('#collectStatus').textContent = String(error.message || error);
+  } finally { button.disabled = false; }
+}
+
+/* ---------------- 单日筛选状态 ---------------- */
+let FC_RANGE=null;const TABLE_DAYS={t1:7,t2:7,t3:7};let TABLE_RANGE_KEY='';
+function selectedFcRows(){return ROWS.filter(r=>!FC_RANGE||(r.d>=FC_RANGE.start&&r.d<=FC_RANGE.end));}
+function fcSelectedRange(){return FC_RANGE||{start:ROWS[0]?.d||'',end:ROWS.at(-1)?.d||''};}
+let SEL = null;     // null = 全期累计；否则为选中日期 'YYYY-MM-DD'
+let CAL_M = null;   // 日历当前展示月份 'YYYY-MM'
+const selIdx = () => SEL === null ? -1 : ROWS.findIndex(r => r.d === SEL);
+const rowCls = d => SEL === null ? '' : (d === SEL ? ' class="selrow"' : ' class="dimrow"');
+const DOW  = ['日','一','二','三','四','五','六'];
+const DOWF = ['周日','周一','周二','周三','周四','周五','周六'];
+const monthOf = d => String(d).slice(0, 7);
+const isMonth = s => /^\d{4}-\d{2}$/.test(String(s || ''));
+const dowOf = d => new Date(d + 'T00:00:00').getDay();
+const dayLabel = d => (+d.slice(5,7)) + '月' + (+d.slice(8,10)) + '日 ' + DOWF[dowOf(d)];
+
+/* 月份加减：k 为 +1 / -1 */
+function shiftMonth(m, k){
+  const y = +m.slice(0,4), mo = +m.slice(5,7);
+  const t = y * 12 + (mo - 1) + k;
+  return String(Math.floor(t / 12)).padStart(4,'0') + '-' + String(t % 12 + 1).padStart(2,'0');
+}
+
+function openCal(){
+  const pop = $('#calpop');
+  if (SEL !== null) CAL_M = monthOf(SEL);       // 打开时对齐到选中月
+  renderCalPop();
+  pop.classList.add('on');
+  $('#calbtn').classList.add('on');
+}
+function closeCal(){
+  $('#calpop').classList.remove('on');
+  $('#calbtn').classList.remove('on');
+}
+function toggleCal(){
+  $('#calpop').classList.contains('on') ? closeCal() : openCal();
+}
+
+/* 日历面板：格子里只放「日 + 当日销售额量级条」，完整数值走悬浮提示（不做 k 缩写） */
+function renderCalPop(){
+  const pop = $('#calpop');
+  if (!ROWS.length){ pop.innerHTML = '<div class="calempty">暂无数据</div>'; return; }
+
+  const first = ROWS[0].d, last = ROWS[ROWS.length-1].d;
+  const minM = monthOf(first), maxM = monthOf(last);
+  if (!isMonth(CAL_M)) CAL_M = maxM;
+  if (CAL_M < minM) CAL_M = minM;
+  if (CAL_M > maxM) CAL_M = maxM;
+
+  const y = +CAL_M.slice(0,4), mo = +CAL_M.slice(5,7);
+  const lead = new Date(y, mo-1, 1).getDay();          // 0 = 周日
+  const dnum = new Date(y, mo, 0).getDate();           // 当月天数
+  const byDate = {}; ROWS.forEach(r => byDate[r.d] = r);
+  const mx = Math.max.apply(null, ROWS.map(r => r.sales)) || 1;
+  const cnt = ROWS.filter(r => monthOf(r.d) === CAL_M).length;
+
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += '<span class="cel void"></span>';
+  for (let d = 1; d <= dnum; d++){
+    const ds = CAL_M + '-' + String(d).padStart(2,'0');
+    const r = byDate[ds];
+    if (!r || (FC_RANGE&&(ds<FC_RANGE.start||ds>FC_RANGE.end))){ cells += '<span class="cel"><span class="cn">' + d + '</span></span>'; continue; }
+    const w = Math.max(12, Math.round(r.sales / mx * 100));
+    const tip = ds + '（' + DOWF[dowOf(ds)] + '）\n销售额 ' + money(r.sales) +
+                '\n订单 ' + int(r.orders) + ' 单\n新客 ' + int(r.newU) + ' 人' +
+                '\n每单均额 ' + money(aov(r.sales, r.orders));
+    cells += '<button class="cel has' + (ds === SEL ? ' on' : '') + '" data-d="' + ds + '" title="' + tip + '">' +
+             '<span class="cn">' + d + '</span><span class="cbar"><i style="width:' + w + '%"></i></span></button>';
+  }
+
+  pop.innerHTML =
+    '<div class="calhead">' +
+      '<button class="navbtn" data-mv="-1"' + (CAL_M > minM ? '' : ' disabled') + '>\u2039</button>' +
+      '<span class="mt">' + y + ' 年 ' + mo + ' 月<em>有数据 ' + cnt + ' 天</em></span>' +
+      '<button class="navbtn" data-mv="1"' + (CAL_M < maxM ? '' : ' disabled') + '>\u203A</button>' +
+    '</div>' +
+    '<div class="dow">' + DOW.map(d => '<span>' + d + '</span>').join('') + '</div>' +
+    '<div class="calgrid">' + cells + '</div>' +
+    '<div class="calfoot">' +
+      '<span class="callegend"><i></i>当日销售额量级</span>' +
+      '<button class="linkbtn" id="calLast">跳到最新一天</button>' +
+    '</div>';
+
+  Array.prototype.forEach.call(pop.querySelectorAll('.navbtn'), b => {
+    b.onclick = e => { e.stopPropagation(); CAL_M = shiftMonth(CAL_M, +b.getAttribute('data-mv')); renderCalPop(); };
+  });
+  Array.prototype.forEach.call(pop.querySelectorAll('.cel.has'), c => {
+    c.onclick = e => { e.stopPropagation(); SEL = c.getAttribute('data-d'); closeCal(); render(); };
+  });
+  const tl = pop.querySelector('#calLast');
+  if (tl) tl.onclick = e => {
+    e.stopPropagation(); const available=selectedFcRows();if(!available.length)return;SEL = available.at(-1).d; CAL_M = monthOf(SEL); closeCal(); render();
+  };
+}
+
+function renderFilter(){
+  const range=fcSelectedRange();$('#fcStart').value=range.start;$('#fcEnd').value=range.end;
+  $('#fcApply').onclick=()=>{let start=$('#fcStart').value,end=$('#fcEnd').value;if(!start||!end)return;if(start>end)[start,end]=[end,start];FC_RANGE={start,end};SEL=null;render();};
+  $('#fcRangeHint').textContent=range.start+' 至 '+range.end+' · 北京时间';
+  $('#chipAll').className = 'chip all' + (SEL === null ? ' on' : '');
+
+  $('#calbtn').innerHTML =
+    '<svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">' +
+    '<rect x="1.7" y="3" width="12.6" height="11.3" rx="2.3"/><path d="M1.7 6.6h12.6M5.3 1.5v2.7M10.7 1.5v2.7"/></svg>' +
+    '<span class="cd">' + (SEL === null ? '<span class="mut">按日期查看</span>' : dayLabel(SEL)) + '</span>' +
+    '<span class="caret">\u25BC</span>';
+
+  renderCalPop();
+
+  $('#fstat').innerHTML = SEL === null
+    ? '当前：<b>所选区间累计</b>（' + selectedFcRows().length + ' 天）'
+    : '当前：<b>' + md(SEL) + ' ' + DOWF[dowOf(SEL)] + '</b> 单日视图';
+
+  // 日历未展开时，跟随选中日期换月；展开中不打断用户手动翻月
+  if (SEL !== null && !$('#calpop').classList.contains('on')) CAL_M = monthOf(SEL);
+}
+
+/* ---------------- KPI ---------------- */
+function fcExactSelection(){return {...(SEL?{start:SEL,end:SEL}:fcSelectedRange()),grain:'day'};}
+function fcExact(){const d=fcTransactionWatcher?.current;if(!d)return null;const s=fcExactSelection(),cached=window.FSExactRange?.peek(d,'FC27',s);if(cached)return cached;
+ const p=d.profiles.FC27;return FSBusinessRange.matches(p.period,s)&&FSBusinessRange.matches(p.supplement?.period,s)?{profile:p,baseSnapshotId:d.snapshotId}:null;}
+function renderKPI(){
+  const n = ROWS.length, last = ROWS[n-1];
+  const sum = ROWS.reduce((a,r) => ({
+    orders:a.orders + r.orders, sales:a.sales + r.sales, newU:null,
+    coinO:a.coinO + r.coinO, coinS:a.coinS + r.coinS,
+    cardO:a.cardO + r.cardO, cardS:a.cardS + r.cardS
+  }), {orders:0,sales:0,newU:0,coinO:0,coinS:0,cardO:0,cardS:0});
+
+  /* 涨红跌绿；缺数据 → 占位符。同比原样保留精度（15.23% 不压成 15.2%） */
+  const fmtP = v => { const a = Math.abs(v); return (Math.round(a * 100) % 10 === 0) ? a.toFixed(1) : a.toFixed(2); };
+  const arrow = v => (v === null || v === undefined)
+    ? '<span class="dimv">—</span>'
+    : '<span class="' + (v >= 0 ? 'up' : 'down') + '">' + (v >= 0 ? '\u25B2' : '\u25BC') + ' ' + fmtP(v) + '%</span>';
+  const ride = (cur, prev) => (prev === null || prev === undefined || prev === 0) ? null : (cur - prev) / prev * 100;
+  /* 数据断档守卫：只有两个日期**相邻**才叫「环比」。
+     隔了 1 天以上（如 9/23 → 10/01）不算环比，否则会把 8 天的变化误报成日环比。 */
+  const dayGap = (a, b) => {
+    if (!a || !b) return Infinity;
+    const t1 = new Date(a + 'T00:00:00').getTime();
+    const t2 = new Date(b + 'T00:00:00').getTime();
+    return Math.round(Math.abs(t1 - t2) / 86400000);
+  };
+  const isAdj = (a, b) => dayGap(a, b) === 1;
+  /* 环比文案：相邻 → 正常箭头；不相邻 → 明说「较 X/X 非相邻」，不静默当日内比 */
+  const rideCell = (cur, curD, prev, prevD) => {
+    if (prev === null || prev === undefined) return '<span class="dimv">—</span>';
+    if (!isAdj(curD, prevD)) {
+      return '<span class="gapwarn" title="与上一次有数据的日期相隔 ' + dayGap(curD, prevD) +
+             ' 天，非相邻日，不作日环比">较 ' + md(prevD) + ' <span class="dimv">非相邻</span></span>';
+    }
+    return arrow(ride(cur, prev));
+  };
+  const yoyTxt = (y, k) => (y[k] === null || y[k] === undefined) ? '同比 <span class="dimv">缺数据</span>' : '同比 ' + arrow(y[k]);
+
+  const exact=fcExact();if(exact){sum.orders=exact.profile.metrics.orders.value;sum.sales=exact.profile.metrics.revenueUsd.value;sum.newU=exact.profile.supplement?.metrics?.newCustomers?.value??null;}
+  let cards;
+  if (SEL !== null){
+    /* ===== 单日视图 ===== */
+    const i = selIdx(), r = ROWS[i], p = ROWS[i-1] || null;
+    const pd = p ? p.d : null;
+    cards = [
+      { lb: md(r.d) + ' 销售额', vl: money(r.sales),
+        ft: yoyTxt(r.yoy,'sales') + ' ｜ 环比 ' + rideCell(r.sales, r.d, p && p.sales, pd), hl:true },
+      { lb: '订单量', vl: int(r.orders),
+        ft: yoyTxt(r.yoy,'orders') + ' ｜ 环比 ' + rideCell(r.orders, r.d, p && p.orders, pd) },
+      { lb: '新客人数', vl: int(exact?.profile.supplement?.metrics?.newCustomers?.value??r.newU),
+        ft: yoyTxt(r.yoy,'newU') + ' ｜ admin补源 · 不计算混源比例' },
+      { lb: '每单均额', vl: money(aov(r.sales, r.orders)),
+        ft: '环比 ' + rideCell(aov(r.sales,r.orders), r.d, p ? aov(p.sales,p.orders) : null, pd) + ' ｜ 金币 ' + money(aov(r.coinS, r.coinO)) },
+      { lb: '金币销售额', vl: money(r.coinS),
+        ft: r.coinO + ' 单 ｜ 占比 ' + (r.coinS / r.sales * 100).toFixed(1) + '%' },
+      { lb: 'Items销售额', vl: money(r.cardS),
+        ft: r.cardO + ' 单 ｜ 占比 ' + (r.cardS / r.sales * 100).toFixed(1) + '%' }
+    ];
+  } else {
+    /* ===== 全期视图 ===== */
+    const prev = ROWS[n-2], pd = prev ? prev.d : null;
+    const coinShare = sum.sales ? sum.coinS / sum.sales * 100 : 0;
+    cards = [
+      { lb:'累计销售额', vl:money(sum.sales), ft: n + ' 天累计' },
+      { lb:'累计订单量', vl:int(sum.orders), ft:'日均 ' + Math.round(sum.orders/n) + ' 单' },
+      { lb:'累计新客', vl:int(sum.newU), ft:exact?'Admin后台准确区间原值':'区间去重聚合读取中；不累加每日人数' },
+      { lb:'整体每单均额', vl:money(aov(sum.sales,sum.orders)),
+        ft:'最新日 ' + money(aov(last.sales,last.orders)) + ' ' + rideCell(aov(last.sales,last.orders), last.d, prev ? aov(prev.sales,prev.orders) : null, pd) },
+      { lb:'金币销售额占比', vl:coinShare.toFixed(1) + '<small>%</small>', ft:'金币 ' + money(sum.coinS) },
+      { lb:'最新一日 ' + md(last.d), vl:money(last.sales),
+        ft:'环比 ' + rideCell(last.sales, last.d, prev && prev.sales, pd) + ' ｜ 订单 ' + rideCell(last.orders, last.d, prev && prev.orders, pd), hl:true }
+    ];
+  }
+  $('#kpis').innerHTML = cards.map(c =>
+    '<div class="kpi' + (c.hl ? ' hl' : '') + '">' +
+      '<div class="lb">' + c.lb + '</div>' +
+      '<div class="vl">' + c.vl + '</div>' +
+      '<div class="ft">' + c.ft + '</div>' +
+    '</div>').join('');
+
+  $('#range').textContent = md(ROWS[0].d) + ' – ' + md(last.d) + '（' + n + ' 天）';
+  const t = new Date();
+  $('#lastUp').textContent = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0') + ' ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  const ph = last.d >= '2026-09-25' ? '全球首发期' : (last.d >= '2026-09-18' ? '抢先体验期' : '预热期');
+  $('#phase').textContent = ph;
+  $('#cnt').textContent = n;
+  $('#dcount').textContent = '共 ' + n + ' 天';
+}
+
+/* ---------------- 图表 ---------------- */
+function svgWrap(inner, w, h){
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' + inner + '</svg>';
+}
+
+/* 图1 销售额 + 订单量 双轴 */
+function chart1(hi){
+  const W = 1240, H = 300, P = {l:78, r:78, t:34, b:44};
+  const n = ROWS.length;
+  const X = i => P.l + (n <= 1 ? (W-P.l-P.r)/2 : i/(n-1) * (W-P.l-P.r));
+  const sMax = Math.max(...ROWS.map(r => r.sales)) * 1.18;
+  const oMax = Math.max(...ROWS.map(r => r.orders)) * 1.30;
+  const SY = v => H-P.b - v/sMax * (H-P.t-P.b);
+  const OY = v => H-P.b - v/oMax * (H-P.t-P.b);
+  let g = '';
+
+  // 网格 + 左轴刻度
+  for (let i = 0; i <= 4; i++){
+    const y = P.t + i/4 * (H-P.t-P.b);
+    const sv = sMax * (1 - i/4), ov = oMax * (1 - i/4);
+    g += '<line class="gl" x1="' + P.l + '" y1="' + y + '" x2="' + (W-P.r) + '" y2="' + y + '"' + (i===4?' style="stroke:#2b4066"':'') + '/>';
+    g += '<text class="axis" x="' + (P.l-11) + '" y="' + (y+3.5) + '" text-anchor="end" fill="#4d7cff">$' + Math.round(sv).toLocaleString('en-US') + '</text>';
+    g += '<text class="axis" x="' + (W-P.r+11) + '" y="' + (y+3.5) + '" text-anchor="start" fill="#9d5cff">' + Math.round(ov) + '</text>';
+  }
+
+  // 选中日垂直参考线（画在折线之下）
+  if (hi >= 0){
+    g += '<line x1="' + X(hi) + '" y1="' + P.t + '" x2="' + X(hi) + '" y2="' + (H-P.b) + '" stroke="#4d7cff" stroke-width="1.5" stroke-dasharray="5 4" opacity=".5"/>';
+  }
+
+  // 面积 + 折线（销售额）
+  const pts = ROWS.map((r,i) => [X(i), SY(r.sales)]);
+  const line = pts.map(p => p[0] + ',' + p[1]).join(' ');
+  const area = P.l + ',' + (H-P.b) + ' ' + line + ' ' + pts[n-1][0] + ',' + (H-P.b);
+  g += '<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">' +
+       '<stop offset="0%" stop-color="#4d7cff" stop-opacity=".42"/>' +
+       '<stop offset="100%" stop-color="#4d7cff" stop-opacity="0"/></linearGradient></defs>';
+  g += '<polygon points="' + area + '" fill="url(#ga)"/>';
+  g += '<polyline points="' + line + '" fill="none" stroke="#4d7cff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>';
+
+  // 订单量虚线
+  const opt = ROWS.map((r,i) => X(i) + ',' + OY(r.orders)).join(' ');
+  g += '<polyline points="' + opt + '" fill="none" stroke="#9d5cff" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>';
+
+  // 数据点 + 数值（选中日突出，其余淡出）
+  ROWS.forEach((r,i) => {
+    const x = X(i), ys = SY(r.sales), yo = OY(r.orders);
+    const on = (hi < 0 || i === hi), op = on ? 1 : 0.24;
+    if (hi === i){
+      g += '<circle cx="' + x + '" cy="' + ys + '" r="11" fill="#4d7cff" opacity=".2"/>';
+      g += '<circle cx="' + x + '" cy="' + yo + '" r="10" fill="#9d5cff" opacity=".18"/>';
+    }
+    g += '<circle cx="' + x + '" cy="' + ys + '" r="' + (hi===i?5.4:4.2) + '" fill="#0b1224" stroke="#4d7cff" stroke-width="2.4" opacity="' + op + '"/>';
+    g += '<circle cx="' + x + '" cy="' + yo + '" r="' + (hi===i?4.6:3.6) + '" fill="#0b1224" stroke="#9d5cff" stroke-width="2.2" opacity="' + op + '"/>';
+    g += '<text class="dlab" x="' + x + '" y="' + (ys-13) + '" text-anchor="middle" fill="#9fc0ff" opacity="' + op + '">' + money0(r.sales) + '</text>';
+    g += '<text class="dlab" x="' + x + '" y="' + (yo+19) + '" text-anchor="middle" fill="#c4a6ff" font-size="10" opacity="' + op + '">' + r.orders + '</text>';
+    g += '<text class="xlb" x="' + x + '" y="' + (H-P.b+22) + '" text-anchor="middle"' + (hi===i?' fill="#e9f0ff" font-weight="700"':'') + '>' + md(r.d) + '</text>';
+  });
+  return svgWrap(g, W, H);
+}
+
+/* 图2 单量结构堆叠柱 */
+function chart2(hi){
+  const W = 600, H = 268, P = {l:52, r:20, t:26, b:42};
+  const n = ROWS.length;
+  const max = Math.max(...ROWS.map(r => r.orders)) * 1.22;
+  const bw = Math.min(58, (W-P.l-P.r)/n * 0.52);
+  const Y = v => H-P.b - v/max * (H-P.t-P.b);
+  let g = '';
+  for (let i = 0; i <= 4; i++){
+    const y = P.t + i/4 * (H-P.t-P.b);
+    g += '<line class="gl" x1="' + P.l + '" y1="' + y + '" x2="' + (W-P.r) + '" y2="' + y + '"' + (i===4?' style="stroke:#2b4066"':'') + '/>';
+    g += '<text class="axis" x="' + (P.l-9) + '" y="' + (y+3.5) + '" text-anchor="end">' + Math.round(max*(1-i/4)) + '</text>';
+  }
+  const step = (W-P.l-P.r)/n;
+  ROWS.forEach((r,i) => {
+    const cx = P.l + step*(i+0.5);
+    const x = cx - bw/2;
+    const on = (hi < 0 || i === hi), op = on ? 0.94 : 0.26;
+    let base = H-P.b;
+    const segs = [
+      { v:r.coinO, c:'#f5a623' },
+      { v:r.cardO, c:'#4d7cff' },
+      { v:otherO(r), c:'#44506b' }
+    ];
+    segs.forEach(s => {
+      const h = s.v/max * (H-P.t-P.b);
+      if (h > 0){
+        g += '<rect x="' + x + '" y="' + (base-h) + '" width="' + bw + '" height="' + h + '" fill="' + s.c + '" rx="2.5" opacity="' + op + '"/>';
+        if (h > 15 && on) g += '<text x="' + cx + '" y="' + (base-h/2+3.5) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0b1224">' + s.v + '</text>';
+      }
+      base -= h;
+    });
+    g += '<text class="dlab" x="' + cx + '" y="' + (Y(r.orders)-9) + '" text-anchor="middle" fill="#dbe7ff" font-size="11" opacity="' + (on?1:0.28) + '">' + r.orders + '</text>';
+    g += '<text class="xlb" x="' + cx + '" y="' + (H-P.b+22) + '" text-anchor="middle"' + (hi===i?' fill="#e9f0ff" font-weight="700"':'') + '>' + md(r.d) + '</text>';
+  });
+  return svgWrap(g, W, H);
+}
+
+/* 图3 每单均额走势 */
+function chart3(hi){
+  const W = 600, H = 268, P = {l:52, r:54, t:26, b:42};
+  const n = ROWS.length;
+  const series = [
+    { k:'整体', c:'#22d3ee', f:r => aov(r.sales, r.orders) },
+    { k:'金币', c:'#f5a623', f:r => aov(r.coinS, r.coinO) },
+    { k:'Items', c:'#4d7cff', f:r => aov(r.cardS, r.cardO) }
+  ];
+  const all = ROWS.flatMap(r => series.map(s => s.f(r)));
+  const yLo = Math.min(...all) * 0.86, yHi = Math.max(...all) * 1.10;
+  const X = i => P.l + (n <= 1 ? (W-P.l-P.r)/2 : i/(n-1) * (W-P.l-P.r));
+  const Y = v => H-P.b - (v-yLo)/(yHi-yLo) * (H-P.t-P.b);
+  let g = '';
+  for (let i = 0; i <= 4; i++){
+    const y = P.t + i/4 * (H-P.t-P.b);
+    g += '<line class="gl" x1="' + P.l + '" y1="' + y + '" x2="' + (W-P.r) + '" y2="' + y + '"' + (i===4?' style="stroke:#2b4066"':'') + '/>';
+    g += '<text class="axis" x="' + (P.l-9) + '" y="' + (y+3.5) + '" text-anchor="end">$' + Math.round(yHi-(yHi-yLo)*i/4) + '</text>';
+  }
+  // 选中日垂直参考线（画在折线之下）
+  if (hi >= 0){
+    g += '<line x1="' + X(hi) + '" y1="' + P.t + '" x2="' + X(hi) + '" y2="' + (H-P.b) + '" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 4" opacity=".5"/>';
+  }
+  series.forEach(s => {
+    const pts = ROWS.map((r,i) => X(i) + ',' + Y(s.f(r))).join(' ');
+    g += '<polyline points="' + pts + '" fill="none" stroke="' + s.c + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity=".95"/>';
+    ROWS.forEach((r,i) => {
+      const on = (hi < 0 || i === hi);
+      if (hi === i) g += '<circle cx="' + X(i) + '" cy="' + Y(s.f(r)) + '" r="9" fill="' + s.c + '" opacity=".2"/>';
+      g += '<circle cx="' + X(i) + '" cy="' + Y(s.f(r)) + '" r="' + (hi===i?4.8:3.8) + '" fill="#0b1224" stroke="' + s.c + '" stroke-width="2.2" opacity="' + (on?1:0.22) + '"/>';
+    });
+  });
+  /* 末端数值标签：仅全期视图显示；自动上下错开，避免三条线收拢时互相压字 */
+  if (hi < 0){
+    const ends = series.map(s => ({ c:s.c, v:s.f(ROWS[n-1]), y:Y(s.f(ROWS[n-1])) })).sort((a,b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i-1].y < 14) ends[i].y = ends[i-1].y + 14;
+    ends.forEach(e => {
+      g += '<text x="' + (X(n-1)+10) + '" y="' + (e.y+4) + '" font-size="10.5" font-weight="700" fill="' + e.c + '">$' + e.v.toFixed(2) + '</text>';
+    });
+  }
+  ROWS.forEach((r,i) => {
+    g += '<text class="xlb" x="' + X(i) + '" y="' + (H-P.b+22) + '" text-anchor="middle"' + (hi===i?' fill="#e9f0ff" font-weight="700"':'') + '>' + md(r.d) + '</text>';
+  });
+  return svgWrap(g, W, H);
+}
+
+/* ---------------- 表格 ---------------- */
+function renderTables(){
+   const selected=SEL?ROWS.filter(r=>r.d===SEL):selectedFcRows(),range=SEL?{start:SEL,end:SEL}:fcSelectedRange();
+   const rangeKey=range.start+'|'+range.end;if(rangeKey!==TABLE_RANGE_KEY){Object.keys(TABLE_DAYS).forEach(k=>TABLE_DAYS[k]=7);TABLE_RANGE_KEY=rangeKey;}
+   const windows=Object.fromEntries(['t1','t2','t3'].map(k=>[k,FSBusinessRange.tableWindow(selected,range,TABLE_DAYS[k])]));
+   const sumRows=rows=>rows.reduce((a,r)=>({orders:a.orders+r.orders,sales:a.sales+r.sales,newU:null,coinO:a.coinO+r.coinO,coinS:a.coinS+r.coinS,cardO:a.cardO+r.cardO,cardS:a.cardS+r.cardS}),{orders:0,sales:0,newU:null,coinO:0,coinS:0,cardO:0,cardS:0});
+  let sum=sumRows(windows.t1.rows);
+
+  /* 表1 核心指标 */
+  let h1 = '<thead><tr><th>日期</th><th>订单量</th><th>同比</th><th>销售额</th><th>同比</th><th>新客人数</th><th>同比</th></tr></thead><tbody>';
+  windows.t1.rows.slice().reverse().forEach(r => {
+    h1 += '<tr' + rowCls(r.d) + '><td><b>' + md(r.d) + '</b> <span class="dim">(' + DOW[new Date(r.d+'T00:00:00').getDay()] + ')</span></td>' +
+      '<td>' + int(r.orders) + '</td>' + yoyCell(r.yoy.orders) +
+      '<td><b>' + money(r.sales) + '</b></td>' + yoyCell(r.yoy.sales) +
+      '<td>' + int(r.newU) + '</td>' + yoyCell(r.yoy.newU) + '</tr>';
+  });
+  h1 += '<tr class="total' + (SEL !== null ? ' dimrow' : '') + '"><td>已展示日期合计</td><td>' + int(sum.orders) + '</td><td class="dim">—</td>' +
+        '<td>' + money(sum.sales) + '</td><td class="dim">—</td><td>' + int(sum.newU) + '</td><td class="dim">—</td></tr>';
+  h1 += '</tbody>';
+  $('#t1').innerHTML = h1;
+
+  /* 表2 品类拆分 */
+  let h2 = '<thead><tr><th>日期</th>' +
+    '<th class="sec">金币单量</th><th>同比</th><th class="sec">金币销售额</th><th>同比</th>' +
+    '<th class="scr">Items单量</th><th>同比</th><th class="scr">Items销售额</th><th>同比</th>' +
+    '<th class="sot">其他类型（含Boosting）单量</th><th class="sot">其他类型（含Boosting）金额</th></tr></thead><tbody>';
+  sum=sumRows(windows.t2.rows);
+  windows.t2.rows.slice().reverse().forEach(r => {
+    h2 += '<tr' + rowCls(r.d) + '><td><b>' + md(r.d) + '</b></td>' +
+      '<td>' + r.coinO + '</td>' + yoyCell(r.yoy.coinO) +
+      '<td><b>' + money(r.coinS) + '</b></td>' + yoyCell(r.yoy.coinS) +
+      '<td>' + r.cardO + '</td>' + yoyCell(r.yoy.cardO) +
+      '<td><b>' + money(r.cardS) + '</b></td>' + yoyCell(r.yoy.cardS) +
+      '<td class="dimv">' + otherO(r) + '</td><td class="dimv">' + money(otherS(r)) + '</td></tr>';
+  });
+  h2 += '<tr class="total' + (SEL !== null ? ' dimrow' : '') + '"><td>已展示日期合计</td>' +
+        '<td>' + int(sum.coinO) + '</td><td class="dim">—</td><td>' + money(sum.coinS) + '</td><td class="dim">—</td>' +
+        '<td>' + int(sum.cardO) + '</td><td class="dim">—</td><td>' + money(sum.cardS) + '</td><td class="dim">—</td>' +
+        '<td>' + int(sum.orders - sum.coinO - sum.cardO) + '</td><td>' + money(sum.sales - sum.coinS - sum.cardS) + '</td></tr>';
+  h2 += '</tbody>';
+  $('#t2').innerHTML = h2;
+
+  /* 表3 派生指标 */
+  let h3 = '<thead><tr><th>日期</th><th>每单均额</th><th>环比</th><th class="sec">金币每单均额</th><th class="scr">Items每单均额</th>' +
+           '<th>金币额占比</th><th>Items额占比</th><th>新客占比</th><th>订单环比</th></tr></thead><tbody>';
+  windows.t3.rows.slice().reverse().forEach(r => {
+    const i=ROWS.findIndex(v=>v.d===r.d),p = ROWS[i-1];
+    const cShare = r.sales ? r.coinS/r.sales*100 : 0;
+    const kShare = r.sales ? r.cardS/r.sales*100 : 0;
+    h3 += '<tr' + rowCls(r.d) + '><td><b>' + md(r.d) + '</b></td>' +
+      '<td><b>' + money(aov(r.sales,r.orders)) + '</b></td>' +
+      deltaCell(aov(r.sales,r.orders), p ? aov(p.sales,p.orders) : null, r.d, p ? p.d : null) +
+      '<td class="sec">' + money(aov(r.coinS,r.coinO)) + '</td>' +
+      '<td class="scr">' + money(aov(r.cardS,r.cardO)) + '</td>' +
+      '<td>' + cShare.toFixed(1) + '%</td>' +
+      '<td>' + kShare.toFixed(1) + '%</td>' +
+      '<td class="dim">未提供</td>' +
+      deltaCell(r.orders, p ? p.orders : null, r.d, p ? p.d : null) + '</tr>';
+  });
+  h3 += '</tbody>';
+  $('#t3').innerHTML = h3;
+  for(const id of ['t1','t2','t3']){let box=document.getElementById(id+'-more');if(!box){box=document.createElement('div');box.id=id+'-more';box.className='detail-more';$('#'+id).closest('.card').append(box);}box.replaceChildren();
+    const status=document.createElement('span');status.textContent='最近 '+TABLE_DAYS[id]+' 个自然日内 · '+windows[id].rows.length+' 条 · 剩余 '+windows[id].remaining+' 条';box.append(status);
+    const button=document.createElement('button');button.type='button';button.disabled=!windows[id].remaining;button.textContent=windows[id].remaining?'展示更多（最近 '+(TABLE_DAYS[id]===7?30:TABLE_DAYS[id]+30)+' 日）':'没有更多数据';button.onclick=()=>{TABLE_DAYS[id]=TABLE_DAYS[id]===7?30:TABLE_DAYS[id]+30;renderTables();};box.append(button);
+   }
+}
+
+/* ---------------- AI 运营分析（仅内部账号可见） ----------------
+   ⚠️ 内容为什么不写在本文档里：看板是静态文件，源码对每个登录用户都可见。
+   把经营判断（含定价策略）嵌进 HTML，等于对外部自注册用户公开。
+   所以内容放服务端，走 /fc27/analysis 按角色下发；
+   非 200（未登录 401 / 外部账号 403 / 未生成 404）一律整块不渲染，
+   外部用户连"这里有块内容"都看不到。 */
+const AI_EP = '/fc27/analysis';
+let AI = null;
+
+function aiSections(secs){
+  return '<div class="aigrid">' + secs.map(s =>
+    '<div class="aiblk"><h4>' + s.title + '</h4><ul>' +
+      s.items.map(t => '<li>' + t + '</li>').join('') +
+    '</ul></div>').join('') + '</div>';
+}
+function aiTags(tags){
+  if (!tags || !tags.length) return '';
+  return '<div class="aitags">' + tags.map(t => '<span class="aitag">' + t + '</span>').join('') + '</div>';
+}
+/* AI 卡片附加区块渲染：内容与口径一律由服务端下发，非 200 时整块不渲染 */
+function aiExtra(c){
+  if (!c || !c.lines) return '';
+  return '<div class="aiext"><div class="ct">' + c.title + '</div>' +
+    '<div class="aiextg">' + c.lines.map(l =>
+      '<div class="aiexti"><div class="k">' + l.k + '</div>' +
+      '<div class="v' + (l.t ? ' ' + l.t : '') + '">' + l.v + '</div></div>').join('') +
+    '</div>' +
+    (c.verdict ? '<div class="aiextv">' + c.verdict + '</div>' : '') + '</div>';
+}
+function aiNote(badge, html){
+  $('#aiCard').style.display = '';
+  $('#aiBadge').textContent = badge;
+  $('#aiMeta').textContent = '';
+  $('#aiBody').innerHTML = '<div class="aivoid">' + html + '</div>';
+}
+
+function renderAICard(){
+  if (!AI || !ROWS.length) return;
+  if (LAST_SUCCESS && AI.sourceRunId && AI.sourceRunId !== LAST_SUCCESS.run_id) {
+    aiNote('待重算', '当前经营数据与自动分析的数据版本不同，等待重新生成。');
+    return;
+  }
+  if (LAST_SUCCESS && !AI.sourceRunId && AI.dataThrough && AI.generatedAt &&
+      LAST_SUCCESS.date >= AI.dataThrough) {
+    const published = Date.parse(LAST_SUCCESS.published_at);
+    const analysis = Date.parse(String(AI.generatedAt).replace(' ', 'T') + '+08:00');
+    if (Number.isFinite(published) && Number.isFinite(analysis) && published > analysis) {
+      aiNote('待重算', '服务器经营数据已于 ' +
+        new Date(published).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) +
+        ' 更新；原分析基于更新前数据，等待重新生成。');
+      return;
+    }
+  }
+  $('#aiCard').style.display = '';
+  $('#aiBadge').textContent = AI.badge || '登录可读';
+
+  if (SEL !== null){
+    const day = AI.days[SEL];
+    $('#aiMeta').textContent = dayLabel(SEL) + ' ｜ 生成于 ' + AI.generatedAt;
+    if (!day){
+      aiNote(AI.badge || '登录可读',
+        '该日期（' + SEL + '）的分析尚未生成。<br>' +
+        '分析随数据入库一并更新，当前已覆盖至 <b>' + AI.dataThrough + '</b>。');
+      return;
+    }
+    $('#aiBody').innerHTML =
+      '<div class="aihl">' + day.headline + '</div>' + aiTags(day.tags) +
+      aiExtra(day.cost) + aiSections(day.sections);
+  } else {
+    $('#aiMeta').textContent = '全期总览 ｜ 数据截至 ' + AI.dataThrough + ' ｜ 生成于 ' + AI.generatedAt;
+    $('#aiBody').innerHTML =
+      '<div class="aihl">' + AI.overall.headline + '</div>' +
+      '<div class="aimets">' + AI.overall.metrics.map(m =>
+        '<div class="aimet"><div class="k">' + m.k + '</div><div class="v">' + m.v + '</div></div>').join('') + '</div>' +
+      aiExtra(AI.overall.cost) +
+      aiSections(AI.overall.sections) +
+      '<div class="aiful"><b>数据边界（务必知悉）：</b><br>' +
+        AI.boundaries.map(b => '· ' + b).join('<br>') + '</div>';
+  }
+}
+
+function loadAnalysis(){AI=null;renderAICard();}
+
+function render(){
+  renderFilter();const all=ROWS,selected=SEL?ROWS.filter(r=>r.d===SEL):selectedFcRows();
+  if(!selected.length){const exact=fcExact();const fields=exact?[["Order区间销售额",money(exact.profile.metrics.revenueUsd.value)],["Order区间订单",int(exact.profile.metrics.orders.value)],["Admin区间新客",int(exact.profile.supplement?.metrics?.newCustomers?.value)],["Order单均价原值",exact.profile.metrics.averageOrderUsd?.value==null?'未提供':money(exact.profile.metrics.averageOrderUsd.value)],["Order利润率原值",exact.profile.metrics.profitMarginPct?.value==null?'未提供':exact.profile.metrics.profitMarginPct.value.toFixed(2)+'%']]:[];$('#kpis').innerHTML=fields.length?fields.map(([label,value])=>'<div class="kpi"><div class="lb">'+label+'</div><div class="vl">'+value+'</div><div class="ft">准确区间原值 · 品类逐日明细尚未发布</div></div>').join(''):'<div class="card">所选区间暂无数据。</div>';$('#range').textContent=fcSelectedRange().start+' 至 '+fcSelectedRange().end;['c1','c2','c3','t1','t2','t3'].forEach(id=>$('#'+id).innerHTML='');$('#aiCard').style.display='none';}
+  else{ROWS=selected;try{renderKPI();const hi=selIdx();$('#c1').innerHTML=chart1(hi);$('#c2').innerHTML=chart2(hi);$('#c3').innerHTML=chart3(hi);renderAICard();}finally{ROWS=all;}}
+  renderTables();
+  if(fcTransactionWatcher?.current)FSSupplementInsights.render(document.getElementById('supplement-insights'),fcTransactionWatcher.current,'FC27',fcExactSelection());
+  $('#lastUp').textContent=LAST_SUCCESS?.published_at?new Date(LAST_SUCCESS.published_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+' 北京时间':'未提供';
+  if(fcTransactionWatcher?.current)window.dispatchEvent(new CustomEvent('fc27-selection',{detail:{data:fcTransactionWatcher.current,selection:fcExactSelection()}}));
+}
+
+/* ---------------- 追加数据 ---------------- */
+function openAdd(){ $('#src').value = ''; $('#prev').innerHTML = ''; $('#mAdd').classList.add('on'); }
+function openData(){ $('#dump').value = JSON.stringify(ROWS, null, 2); $('#mData').classList.add('on'); }
+function closeAll(){ document.querySelectorAll('.mask').forEach(m => m.classList.remove('on')); }
+document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeAll(); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+
+const KEYS = {
+  '订单量':'orders', '销售额':'sales', '新客人数':'newU',
+  '金币单量':'coinO', '金币销售额':'coinS', 'Items单量':'cardO', 'Items销售额':'cardS', '球员单量':'cardO', '球员销售额':'cardS'
+};
+function parseText(raw){
+  const rec = { d:null, orders:null, sales:null, newU:null, coinO:null, coinS:null, cardO:null, cardS:null,
+                yoy:{ orders:null, sales:null, newU:null, coinO:null, coinS:null, cardO:null, cardS:null } };
+  const year = new Date().getFullYear();
+  let hit = 0;
+  raw.split(/\r?\n/).forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    if (!rec.d){
+      let m = t.match(/(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})/);
+      if (m) rec.d = m[1] + '-' + String(m[2]).padStart(2,'0') + '-' + String(m[3]).padStart(2,'0');
+      else {
+        m = t.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+        if (m) rec.d = year + '-' + String(m[1]).padStart(2,'0') + '-' + String(m[2]).padStart(2,'0');
+      }
+      if (rec.d) return;
+    }
+    const parts = t.split(/[\s\u3000]+/).filter(Boolean);
+    if (!parts.length) return;
+    const key = KEYS[parts[0]];
+    if (!key) return;
+    // 数值：第 2 个 token
+    const vRaw = (parts[1] || '').replace(/[\$,]/g, '').replace(/\u2212/g, '-').replace(/[^\d.\-]/g, '');
+    const v = parseFloat(vRaw);
+    if (!isNaN(v)){ rec[key] = v; hit++; }
+    // 同比：含 % 的 token
+    const pTok = parts.slice(2).find(x => x.includes('%'));
+    if (pTok){
+      const pv = parseFloat(pTok.replace(/[%\s]/g,'').replace(/\u2212/g,'-').replace(/[^\d.\-]/g,''));
+      if (!isNaN(pv)) rec.yoy[key] = pv;
+    }
+  });
+  rec._hit = hit;
+  return rec;
+}
+function parsePreview(){
+  const rec = parseText($('#src').value);
+  const need = ['d','orders','sales','newU','coinO','coinS','cardO','cardS'];
+  const miss = need.filter(k => rec[k] === null || rec[k] === undefined);
+  const dup = rec.d && ROWS.some(r => r.d === rec.d);
+  if (miss.length){
+    $('#prev').innerHTML = '<span class="bad">\u2716 解析未通过</span>：缺少 ' + miss.join(' / ') +
+      '<br><span class="dimv">请确认格式为「指标名　数值　同比 XX%」，每行一项。</span>';
+    return null;
+  }
+  $('#prev').innerHTML = '<span class="ok">\u2714 解析成功</span> ' + (dup ? '<span class="bad">（该日期已存在，追加将覆盖）</span>' : '') +
+    '<br>日期 <code>' + rec.d + '</code> ｜ 订单 <code>' + rec.orders + '</code> ｜ 销售额 <code>' + money(rec.sales) + '</code>' +
+    '<br>新客 <code>' + rec.newU + '</code> ｜ 金币 <code>' + rec.coinO + ' 单 / ' + money(rec.coinS) + '</code>' +
+    '<br>Items <code>' + rec.cardO + ' 单 / ' + money(rec.cardS) + '</code>' +
+    '<br>其他（倒算）<code>' + (rec.orders - rec.coinO - rec.cardO) + ' 单 / ' + money(rec.sales - rec.coinS - rec.cardS) + '</code>';
+  return rec;
+}
+function doAdd(){
+  $('#prev').textContent = '正式看板只接受服务器统一采集，手工追加已停用。';
+}
+function copyDump(){
+  const ta = $('#dump'); ta.select(); ta.setSelectionRange(0, 99999);
+  try { document.execCommand('copy'); } catch(e){}
+  alert('已复制到剪贴板');
+}
+function exportCSV(){
+  if (!ROWS.length) return;
+  const head = ['日期','订单量','订单同比','销售额','销售额同比','新客人数','新客同比',
+                '金币单量','金币单量同比','金币销售额','金币销售额同比',
+                'Items单量','Items单量同比','Items销售额','Items销售额同比',
+                '其他类型（含Boosting）单量','其他类型（含Boosting）金额','每单均额','金币每单均额','Items每单均额','金币额占比','Items额占比','新客占比'];
+  const c = v => v === null || v === undefined ? '' : (v + '%');
+  const lines = [head.join(',')];
+  ROWS.forEach(r => {
+    lines.push([r.d, r.orders, c(r.yoy.orders), r.sales, c(r.yoy.sales), r.newU, c(r.yoy.newU),
+      r.coinO, c(r.yoy.coinO), r.coinS, c(r.yoy.coinS),
+      r.cardO, c(r.yoy.cardO), r.cardS, c(r.yoy.cardS),
+      otherO(r), otherS(r).toFixed(2),
+      aov(r.sales,r.orders).toFixed(2), aov(r.coinS,r.coinO).toFixed(2), aov(r.cardS,r.cardO).toFixed(2),
+      (r.coinS/r.sales*100).toFixed(1), (r.cardS/r.sales*100).toFixed(1), ''
+    ].join(','));
+  });
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'FC27运营数据_' + ROWS[0].d + '_' + ROWS[ROWS.length-1].d + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+/* ---------------- 筛选栏事件绑定 ---------------- */
+$('#chipAll').onclick = () => { SEL = null; FC_RANGE=null; closeCal(); render(); };
+$('#calbtn').onclick = e => { e.stopPropagation(); toggleCal(); };
+$('#calpop').onclick = e => e.stopPropagation();
+document.addEventListener('click', e => {
+  const w = $('#calwrap');
+  if ($('#calpop').classList.contains('on') && w && !w.contains(e.target)) closeCal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCal(); });
+
+window.addEventListener('fs-exact-ready',()=>{if(fcTransactionWatcher?.current)render();});
+window.addEventListener('fs-exact-range',e=>{if(e.detail.key==='FC27')render();});
+$('#collectDate').value = yesterdayShanghai();
+window.FCAnalyticsBridge={current:()=>fcTransactionWatcher?.current,selection:fcExactSelection,applyRange:(start,end)=>{FC_RANGE={start,end};SEL=null;render();},check:()=>fcTransactionWatcher?.check()};
+$('#fc-project-more').onclick=()=>{const expanded=document.body.dataset.fcExtended!=='true';document.body.dataset.fcExtended=String(expanded);$('#fc-project-more').setAttribute('aria-expanded',String(expanded));$('#fc-project-more').textContent=expanded?'收起客户与履约指标':'展开客户与履约指标';};
+load().then(() => { render(); loadAnalysis(); });
+</script>
+</body>
+</html>

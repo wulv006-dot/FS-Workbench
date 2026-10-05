@@ -1,0 +1,1 @@
+{"metricHeaders":[{"name":"sessions"},{"name":"activeUsers"},{"name":"ecommercePurchases"},{"name":"purchaseRevenue"}],"rows":[{"dimensionValues":[{"value":"20260929"}],"metricValues":[{"value":"100"},{"value":"80"},{"value":"5"},{"value":"150.00"}]}],"rowCount":1,"metadata":{"timeZone":"Asia/Shanghai","currencyCode":"USD"},"isMock":true}

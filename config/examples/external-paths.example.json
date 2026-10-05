@@ -1,0 +1,11 @@
+{
+  "exampleOnly": true,
+  "productionWritesEnabled": false,
+  "credentialFiles": "REPLACE_WITH_EXISTING_CONTROLLED_PATH_OUTSIDE_REPOSITORY",
+  "businessDataRoot": "REPLACE_WITH_CONTROLLED_DATA_DIRECTORY",
+  "authBackend": "existing external auth; no new account",
+  "businessRefreshMinutes": 120,
+  "businessFrontendCheckSeconds": 60,
+  "googleSchedule": "09:00 Asia/Shanghai",
+  "weeklySchedule": "Monday 02:00 Asia/Shanghai"
+}

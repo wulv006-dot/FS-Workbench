@@ -1,0 +1,5804 @@
+{
+  "read_only_offline": true,
+  "current_engine_sha256": "c100a257e9e34e4fa18f98d4f1d451ad44ee49cd4f9a6f30c7ae73f04ddf411a",
+  "cases": [
+    {
+      "name": "exact40",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.6"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.6"
+          },
+          "PC": {
+            "cny_per_1k": "0.6"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9000",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "just_below40",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.600001"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.600001"
+          },
+          "PC": {
+            "cny_per_1k": "0.600001"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.600001",
+            "cost_cny": "0.600001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "35.14",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.600001",
+            "cost_cny": "0.600001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "35.14",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9250",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.600001",
+            "cost_cny": "0.600001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "35.14",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "exact30",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.7"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.7"
+          },
+          "PC": {
+            "cny_per_1k": "0.7"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "24.32",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "24.32",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9250",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "92.50",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9250",
+            "proposal": "0.9250",
+            "quote_manual": false,
+            "gross_margin_pct": "24.32",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "just_below30",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.700001"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.700001"
+          },
+          "PC": {
+            "cny_per_1k": "0.700001"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.700001",
+            "cost_cny": "0.700001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "26.32",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.700001",
+            "cost_cny": "0.700001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "26.32",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9500",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.700001",
+            "cost_cny": "0.700001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "26.32",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "exact20",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.8"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.8"
+          },
+          "PC": {
+            "cny_per_1k": "0.8"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.8",
+            "cost_cny": "0.8",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "15.79",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.8",
+            "cost_cny": "0.8",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "15.79",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9500",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.8",
+            "cost_cny": "0.8",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "95.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "20_to_30",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "5.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "5.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "0.9500",
+            "proposal": "0.9500",
+            "quote_manual": false,
+            "gross_margin_pct": "15.79",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "just_below20",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.800001"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.800001"
+          },
+          "PC": {
+            "cny_per_1k": "0.800001"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.800001",
+            "cost_cny": "0.800001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "20.00",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.800001",
+            "cost_cny": "0.800001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "20.00",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "1.0000",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.800001",
+            "cost_cny": "0.800001",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "20.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.8889",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "20.00",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "negative_margin",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "1.1"
+          },
+          "XBOX": {
+            "cny_per_1k": "1.1"
+          },
+          "PC": {
+            "cny_per_1k": "1.1"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "1.1",
+            "cost_cny": "1.1",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "122.23",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "-10.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-22.23",
+            "floor_usd_per_1k": "1.2223",
+            "auto_proposal": "1.2223",
+            "proposal": "1.2223",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 0.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -22.23%\uff0c\u6807\u4ef7 $122.23\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "1.1",
+            "cost_cny": "1.1",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "122.23",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "-10.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-22.23",
+            "floor_usd_per_1k": "1.2223",
+            "auto_proposal": "1.2223",
+            "proposal": "1.2223",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 0.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -22.23%\uff0c\u6807\u4ef7 $122.23\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "1.2223",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "1.1",
+            "cost_cny": "1.1",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "122.23",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "below_20",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "-10.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-22.23",
+            "floor_usd_per_1k": "1.2223",
+            "auto_proposal": "1.2223",
+            "proposal": "1.2223",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 0.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -22.23%\uff0c\u6807\u4ef7 $122.23\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "average3",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.6"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.6"
+          },
+          "PC": {
+            "cny_per_1k": "0.6"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "98",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "96",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "98",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "96",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "98",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "96",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "98",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "96",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.9600",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "97.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "3.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "2.00",
+            "iggm_gap_pct": "4.00",
+            "lootbar_reduction_pct": "3.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9700",
+            "proposal": "0.9700",
+            "quote_manual": false,
+            "gross_margin_pct": "38.14",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "98",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "96",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.9600",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "97.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "3.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "2.00",
+            "iggm_gap_pct": "4.00",
+            "lootbar_reduction_pct": "3.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9700",
+            "proposal": "0.9700",
+            "quote_manual": false,
+            "gross_margin_pct": "38.14",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9700",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "98",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "96",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.9600",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "97.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "3.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "2.00",
+            "iggm_gap_pct": "4.00",
+            "lootbar_reduction_pct": "3.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9700",
+            "proposal": "0.9700",
+            "quote_manual": false,
+            "gross_margin_pct": "38.14",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "asymmetric30_and0",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.6"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.6"
+          },
+          "PC": {
+            "cny_per_1k": "0.6"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "70",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "70",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "70",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "70",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "U4GM",
+            "lowest_usd_per_1k": "0.7000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "30.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "70",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "U4GM",
+            "lowest_usd_per_1k": "0.7000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "30.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9000",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "70",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "U4GM",
+            "lowest_usd_per_1k": "0.7000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "30.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "both_competitors_higher",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.6"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.6"
+          },
+          "PC": {
+            "cny_per_1k": "0.6"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "120",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "120",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "110",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "120",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "120",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.2000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "Lootbar",
+            "lowest_usd_per_1k": "1.0000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "0.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "40.00",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "120",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.2000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "Lootbar",
+            "lowest_usd_per_1k": "1.0000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "0.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "40.00",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "1.0000",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "110",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.1000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "120",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.2000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "Lootbar",
+            "lowest_usd_per_1k": "1.0000",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "100.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "0.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "0.00",
+            "iggm_gap_pct": "0.00",
+            "lootbar_reduction_pct": "0.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "1.0000",
+            "proposal": "1.0000",
+            "quote_manual": false,
+            "gross_margin_pct": "40.00",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "floor_overrides_target",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.85"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.85"
+          },
+          "PC": {
+            "cny_per_1k": "0.85"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "76",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "68",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "76",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "68",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "76",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "68",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "80",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "200"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "200"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "200"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.85",
+            "cost_cny": "0.85",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "76",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "68",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.6800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.6800",
+            "lootbar_usd_per_1k": "0.8000",
+            "lootbar_page_usd": "80.00",
+            "target_page_usd": "94.45",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "57.50",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-18.06",
+            "floor_usd_per_1k": "0.9445",
+            "auto_proposal": "0.9445",
+            "proposal": "0.9445",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 10.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -18.06%\uff0c\u6807\u4ef7 $94.45\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.85",
+            "cost_cny": "0.85",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "76",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "68",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.6800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.6800",
+            "lootbar_usd_per_1k": "0.8000",
+            "lootbar_page_usd": "80.00",
+            "target_page_usd": "94.45",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "57.50",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-18.06",
+            "floor_usd_per_1k": "0.9445",
+            "auto_proposal": "0.9445",
+            "proposal": "0.9445",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 10.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -18.06%\uff0c\u6807\u4ef7 $94.45\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.9445",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.85",
+            "cost_cny": "0.85",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "76",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.7600",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "68",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.6800",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "80",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.6800",
+            "lootbar_usd_per_1k": "0.8000",
+            "lootbar_page_usd": "80.00",
+            "target_page_usd": "94.45",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": true,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "57.50",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "-18.06",
+            "floor_usd_per_1k": "0.9445",
+            "auto_proposal": "0.9445",
+            "proposal": "0.9445",
+            "quote_manual": false,
+            "gross_margin_pct": "10.01",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "\u6700\u4f4e 10% \u6bdb\u5229\u4fdd\u62a4\u8986\u76d6\u76ee\u6807\u964d\u5e45 10.00%\uff1b\u5b9e\u9645\u91c7\u7528\u964d\u5e45 -18.06%\uff0c\u6807\u4ef7 $94.45\uff0c\u8d60\u9001\u8ba1\u5165\u91c7\u8d2d\u6210\u672c\u3002",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "xbox_floor_blocks_follow",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.6"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.99"
+          },
+          "PC": {
+            "cny_per_1k": "0.6"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "0",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.99",
+            "cost_cny": "0.99",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "1.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "1.1000",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "-10.00",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": true,
+            "auto_blocked_reason": null,
+            "warning": "PS \u5efa\u8bae\u4ef7\u4f4e\u4e8e Xbox \u6700\u4f4e\u6bdb\u5229\u8981\u6c42\uff0cXbox \u672c\u8f6e\u4e0d\u6267\u884c\u81ea\u52a8\u6539\u4ef7\u3002",
+            "status": "\u8ddf\u968f PS \u5efa\u8bae\u4ef7 \u00b7 Xbox \u6bdb\u5229\u4e0d\u8db3\uff0c\u81ea\u52a8\u6539\u4ef7\u62e6\u622a",
+            "independent_auto_proposal": "1.1000",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.6",
+            "cost_cny": "0.6",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.9500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "0.8500",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "0",
+                "usd_per_1k": "1.0000",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8500",
+            "lootbar_usd_per_1k": "1.0000",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "90.00",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "at_least_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "10.00",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "40.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "10.00",
+            "floor_usd_per_1k": "0.6667",
+            "auto_proposal": "0.9000",
+            "proposal": "0.9000",
+            "quote_manual": false,
+            "gross_margin_pct": "33.33",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "competitor_gift",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.7"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.7"
+          },
+          "PC": {
+            "cny_per_1k": "0.7"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "0",
+              "package_usd": "100"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "20.54",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "20.54",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.8810",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "0",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.7778",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "20.54",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    },
+    {
+      "name": "own_gift_cost_only_same_band",
+      "evidence": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "costs": {
+          "PS": {
+            "cny_per_1k": "0.7"
+          },
+          "XBOX": {
+            "cny_per_1k": "0.7"
+          },
+          "PC": {
+            "cny_per_1k": "0.7"
+          }
+        },
+        "offers": {
+          "PS": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "XBOX": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          },
+          "PC": {
+            "Lootbar": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U4GM": {
+              "usd_price": "95",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "IGGM": {
+              "usd_price": "85",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            },
+            "U7Buy": {
+              "usd_price": "100",
+              "base_k": "100",
+              "bonus_k": "5",
+              "comparable": true,
+              "conditional": false
+            }
+          }
+        },
+        "storefront": {
+          "rows": {
+            "PS": {
+              "base_k": "100",
+              "bonus_k": "5",
+              "package_usd": "105"
+            },
+            "XBOX": {
+              "base_k": "100",
+              "bonus_k": "5",
+              "package_usd": "105"
+            },
+            "PC": {
+              "base_k": "100",
+              "bonus_k": "5",
+              "package_usd": "105"
+            }
+          }
+        }
+      },
+      "expected": {
+        "checked_at": "2026-10-05T01:00:00+00:00",
+        "fx": {
+          "cny_per_usd": "1"
+        },
+        "minimum_gross_margin_pct": "10",
+        "rows": [
+          {
+            "platform": "PS",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "5",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.8167",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "16.57",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          },
+          {
+            "platform": "XBOX",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "5",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.8167",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "16.57",
+            "pricing_mode": "ps_shared_market",
+            "benchmark_site": "PS",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u4e0e PS \u7edf\u4e00\u81ea\u52a8\u552e\u4ef7 \u00b7 \u5f85\u5ba1\u6838",
+            "independent_auto_proposal": "0.8810",
+            "auto_price_source": "PS"
+          },
+          {
+            "platform": "PC",
+            "raw_cost_cny": "0.7",
+            "cost_cny": "0.7",
+            "cost_manual": false,
+            "cost_record_id": null,
+            "cost_trade_at": null,
+            "offers": [
+              {
+                "site": "Lootbar",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U4GM",
+                "usd_price": "95",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9048",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "IGGM",
+                "usd_price": "85",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.8095",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              },
+              {
+                "site": "U7Buy",
+                "usd_price": "100",
+                "base_k": "100",
+                "bonus_k": "5",
+                "usd_per_1k": "0.9524",
+                "comparable": true,
+                "conditional": false,
+                "manual": false,
+                "url": "",
+                "checked_at": null,
+                "status": "\u5df2\u6838\u5bf9"
+              }
+            ],
+            "missing": [],
+            "lowest_site": "IGGM",
+            "lowest_usd_per_1k": "0.8095",
+            "lootbar_usd_per_1k": "0.9524",
+            "lootbar_page_usd": "100.00",
+            "target_page_usd": "88.10",
+            "pricing_basis": "page_total_100k",
+            "pricing_tier": "30_to_40",
+            "pricing_quantity_basis": "own_base_competitor_delivered",
+            "requested_discount_pct": "7.50",
+            "profit_floor_applied": false,
+            "own_bonus_k": "5",
+            "pre_change_margin_pct": "30.00",
+            "u4gm_gap_pct": "5.00",
+            "iggm_gap_pct": "15.00",
+            "lootbar_reduction_pct": "7.50",
+            "floor_usd_per_1k": "0.8167",
+            "auto_proposal": "0.8810",
+            "proposal": "0.8810",
+            "quote_manual": false,
+            "gross_margin_pct": "16.57",
+            "pricing_mode": "lootbar_anchor",
+            "benchmark_site": "Lootbar",
+            "minimum_gross_margin_pct": "10",
+            "margin_below_minimum": false,
+            "auto_blocked_reason": null,
+            "warning": "",
+            "status": "\u6309 Lootbar \u542b\u8d60\u9001\u5b9e\u9645\u5355\u4ef7\u5bf9\u6807 \u00b7 \u5f85\u5ba1\u6838"
+          }
+        ]
+      }
+    }
+  ],
+  "passed": true,
+  "production_writes": 0
+}

@@ -1,0 +1,14 @@
+{
+  "releaseId": "20261005-restore-v7",
+  "source": "共享资源/MMOEXP统一看板/dashboard.html",
+  "server": "/var/www/dashboard/index.html",
+  "restoredHtmlSha256": "1d6a6084d9c505f19cb12c9e856c652feb53af9a2f2f54e61c9a638b6e416f5a",
+  "previousApprovedHtmlSha256": "4d8477ecfe73015207370ad5fd5c033f5d34bf9a29d88c5ea216394677d37f84",
+  "template": "共享资源/MMOEXP统一看板/dashboard.template.html",
+  "templateSha256": "bf4b9a19af8c7d99f66998310cdaa850326891ed8b2693dd76e218d5a5cc1414",
+  "privatePayloadSha256": "f7dc7b227ac280bc6b1b7b73d8cef9d64790bf5f2c3e5fe3919837acf785b56d",
+  "privatePayloadBytes": 82318,
+  "transformation": "exactly one PROFIT JSON literal replaced; DATA is empty; no private literal included",
+  "deployableWithoutExternalPayload": false,
+  "networkOrDeploymentByBuilder": false
+}

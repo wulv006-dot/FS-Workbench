@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MLB 新卡上架工作台 · MMOEXP</title>
+<style>
+:root{
+  --bg:#f5f5f7; --card:#ffffff; --card2:#fafafa; --line:#e5e5ea; --line2:#d2d2d7;
+  --tx:#1d1d1f; --tx2:#6e6e73; --tx3:#a1a1a6;
+  --ac:#0071e3; --ac2:#7c3aed; --ok:#0a8f4d; --warn:#b25000; --bad:#d70015;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1000px 560px at 8% -12%, rgba(0,113,227,.07), transparent 60%),
+    radial-gradient(820px 480px at 96% -6%, rgba(124,58,237,.06), transparent 62%),
+    var(--bg);
+  color:var(--tx); min-height:100vh; padding:26px 22px 60px;
+  font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:23px;font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--ac);box-shadow:0 0 12px var(--ac)}
+.sub{margin-top:6px;font-size:12.5px;color:var(--tx2)}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;border:1px solid var(--line2);
+  color:var(--tx2);background:rgba(0,113,227,.08);margin-left:6px}
+
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.card{background:linear-gradient(170deg,var(--card),#fbfbfd);border:1px solid var(--line);
+  border-radius:14px;padding:17px 18px 16px;margin-bottom:14px}
+.card h2{font-size:13.5px;font-weight:700;letter-spacing:.3px;margin-bottom:13px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h2 .n{color:var(--tx3);font-weight:600;font-size:11.5px}
+
+label{display:block;font-size:12px;color:var(--tx2);margin:11px 0 5px}
+label:first-of-type{margin-top:0}
+input[type=text],input[type=number],input[type=password],input[type=file],select{
+  width:100%;background:#fafafa;border:1px solid var(--line2);color:var(--tx);
+  border-radius:9px;padding:9px 11px;font-size:13px;font-family:inherit;outline:none;transition:.15s}
+input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(0,113,227,.07)}
+input::placeholder{color:var(--tx3)}
+.hint{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.55}
+
+button{font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:10px 16px;
+  border-radius:9px;border:1px solid var(--line2);background:linear-gradient(180deg,#ffffff,#f0f0f3);
+  color:var(--tx);transition:.16s}
+button:hover:not(:disabled){border-color:#a8c7ec;transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:linear-gradient(180deg,#0071e3,#0060c7);border-color:#4a9eff;
+  box-shadow:0 6px 18px -8px rgba(0,113,227,.45)}
+button.primary:hover:not(:disabled){background:linear-gradient(180deg,#1a7fe8,#0060c7)}
+button.sm{padding:6px 11px;font-size:12px}
+button.danger{color:#d70015;border-color:#f0c2c4}
+.full{width:100%;margin-top:14px}
+
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+.rowline:last-child{border-bottom:0}
+.rowline .k{color:var(--tx2);font-size:12.5px}
+.rowline .v{font-weight:600;font-variant-numeric:tabular-nums}
+
+.pill{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--line2);color:var(--tx2);background:rgba(0,0,0,.025)}
+.pill.on{color:var(--ok);border-color:#a8e0c0;background:rgba(10,143,77,.10)}
+.pill.off{color:var(--tx3)}
+.pill.run{color:var(--ac);border-color:#a8cdf5;background:rgba(0,113,227,.10)}
+.pill.done{color:var(--ok);border-color:#a8e0c0;background:rgba(10,143,77,.10)}
+.pill.fail{color:var(--bad);border-color:#f0c2c4;background:rgba(215,0,21,.08)}
+.pill.pend{color:var(--warn);border-color:#e8cfa8;background:rgba(178,80,0,.09)}
+
+.prog{height:6px;border-radius:99px;background:#fafafa;overflow:hidden;margin-top:9px}
+.prog i{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .35s}
+.pgtxt{font-size:11.5px;color:var(--tx2);margin-top:6px;display:flex;justify-content:space-between;gap:8px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--tx3);font-weight:600;font-size:11.5px;padding:7px 9px;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 9px;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:rgba(0,113,227,.045)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty{padding:30px;text-align:center;color:var(--tx3);font-size:12.5px}
+.tblwrap{max-height:460px;overflow:auto;border-radius:10px}
+
+.log{background:#f7f7f9;border:1px solid var(--line);border-radius:10px;padding:12px 13px;
+  font:12px/1.72 Consolas,"Cascadia Mono",monospace;color:#4a4a4f;max-height:270px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all}
+.log .ok{color:var(--ok)} .log .bad{color:var(--bad)} .log .warn{color:var(--warn)}
+
+.dl{display:flex;align-items:center;gap:11px;background:rgba(10,143,77,.07);
+  border:1px solid #a8e0c0;border-radius:11px;padding:12px 14px;margin-top:12px}
+.dl a{color:var(--ok);font-weight:700;text-decoration:none;font-size:13.5px}
+.dl a:hover{text-decoration:underline}
+.dl .meta{color:var(--tx3);font-size:11.5px}
+
+.banner{border-radius:11px;padding:12px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.7}
+.banner.info{background:rgba(0,113,227,.08);border:1px solid #a8cdf5;color:#0a4f9c}
+.banner.warnb{background:rgba(178,80,0,.08);border:1px solid #e8cfa8;color:#8a4b00}
+.banner code{background:#f7f7f9;padding:1.5px 6px;border-radius:5px;color:#0a7a41;font-family:Consolas,monospace}
+details summary{cursor:pointer;color:var(--ac);font-size:12.5px;outline:none;margin-top:10px}
+details .in{margin-top:9px;font-size:12px;color:var(--tx2);line-height:1.75}
+details ol{padding-left:19px} details li{margin:4px 0}
+.steps{counter-reset:s}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat .b{background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+.stat .b .l{font-size:11.5px;color:var(--tx2);margin-bottom:6px}
+.stat .b .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+@media(max-width:900px){.stat{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== 2026-09-23 统一亮色主题（与 /dashboard/ 经营数据看板同一套令牌）===== */
+.card{box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -14px rgba(16,24,40,.14)}
+button:not(.primary):not(.danger){color:#1d1d1f}
+/* 主按钮是深蓝底，文字必须反白：原本取 var(--tx)，深色主题下恰好是浅色，
+   换亮色主题后 var(--tx) 被映射为深色，深蓝底 + 深字会不可读，这里显式纠正 */
+button.primary{color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1><span class="dot"></span>MLB 新卡上架工作台</h1>
+      <div class="sub">MLB The Show 26 · 自动采集新卡 → 三轮比价 → 生成商品导入表
+        <span class="tag" id="verTag">v1.0</span>
+      </div>
+    </div>
+    <div>
+      <button class="sm" onclick="refreshAll(true)">刷新</button>
+    </div>
+  </div>
+
+  <div class="banner info">
+    采集由<b>你自己的电脑</b>上的执行器完成（那台机器的网络能正常访问 showdd）。
+    这里只负责排队、看进度、下载结果。<br>
+    执行器没启动的话，任务会一直「排队中」——
+    按左侧「没装执行器？」的说明在本机跑一条命令即可。
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ 左栏 ============ -->
+    <div>
+      <div class="card">
+        <h2>新建采集任务 <span class="n">必填：金币售价</span></h2>
+
+        <label>当期金币售价（USD / 100K Stub）</label>
+        <input type="text" id="rate" placeholder="例如 2.65" autocomplete="off">
+        <div class="hint">每次都要填当期值。<b>不会</b>沿用上次的数值，也不会自动猜。</div>
+
+        <label>更新批次（留空 = 自动取最新）</label>
+        <input type="text" id="batch" placeholder="例如 9-22-26" autocomplete="off">
+        <div class="hint">留空则自动从 showdd 更新列表识别最新有效批次。</div>
+
+        <label>采样间隔（秒，默认 120）</label>
+        <input type="number" id="interval" value="120" min="120" step="10">
+
+        <button class="primary full" id="btnNew" onclick="createTask()">提交采集任务</button>
+        <div class="hint" id="msgNew" style="margin-top:9px"></div>
+
+        <details>
+          <summary>没装执行器？点这里看怎么装</summary>
+          <div class="in">
+            <ol>
+              <li>下载 <a href="/mlb/files/agent.zip" style="color:var(--ac)">执行器压缩包</a>，解压到任意目录</li>
+              <li>装依赖（需要 Python 3.8+）：<br>
+                <code>pip install -r requirements.txt</code><br>
+                <code>python -m playwright install chromium</code></li>
+              <li>起一个常驻进程（Windows 也可直接双击 <code>启动执行器.bat</code>）：<br>
+                <code>python mlb_agent.py --server http://47.85.224.112 --user wulv --agent 我的电脑 --show</code>；启动时输入工作台密码。</li>
+              <li>首次遇到 Cloudflare 验证会出现浏览器窗口，手动点一下通过即可（之后会记住登录态）</li>
+              <li>把这个窗口挂着别关，回来刷本页就能看到任务被领走</li>
+            </ol>
+            <p style="margin-top:8px">换电脑只用把上面第 2~3 步再跑一遍，<code>--agent</code> 名换掉即可（可以多台一起挂）。<br>
+            压缩包内附 <code>README.md</code>，含完整参数说明与常见问题排查。</p>
+            <p style="margin-top:8px">⚠️ 价格口径：成本取 showdd 的 <code>Sell</code>（官方 Buy Now），<strong>不要用</strong> <code>Buy</code>（Sell Now）。</p></p>
+            <p style="margin-top:6px">第一次遇到网页验证拦住了，加 <code>--show</code> 手动点一次，
+              之后 profile 会记住。</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>执行器状态</h2>
+        <div id="agents"><div class="empty">加载中…</div></div>
+        <div class="hint" style="margin-top:10px">90 秒内有心跳算在线。掉线的执行器不接任务。</div>
+      </div>
+    </div>
+
+    <!-- ============ 右栏 ============ -->
+    <div>
+      <div class="stat">
+        <div class="b"><div class="l">累计完成任务</div><div class="v" id="sDone">0</div></div>
+        <div class="b"><div class="l">排队中</div><div class="v" id="sPend">0</div></div>
+        <div class="b"><div class="l">执行中</div><div class="v" id="sRun">0</div></div>
+        <div class="b"><div class="l">执行器在线</div><div class="v" id="sAgent">0</div></div>
+      </div>
+
+      <div class="card">
+        <h2>当前任务</h2>
+        <div id="current"><div class="empty">还没有任务。左边提交一个试试。</div></div>
+      </div>
+
+      <div class="card">
+        <h2>新卡清单 <span class="n" id="cardCount"></span></h2>
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th>球员</th><th class="num">OVR</th><th>位置</th><th>球队</th><th>系列</th>
+              <th class="num">三次采样 / 中位数</th><th class="num">售价</th><th>状态</th>
+            </tr></thead>
+            <tbody id="cards"><tr><td colspan="8" class="empty">等待任务结果…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>运行日志</h2>
+        <div class="log" id="log">（执行器的输出会显示在这里）</div>
+      </div>
+
+      <div class="card">
+        <h2>历史任务</h2>
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th>时间</th><th>提交人</th><th>批次</th><th class="num">新增</th>
+              <th>状态</th><th>结果</th><th></th>
+            </tr></thead>
+            <tbody id="hist"><tr><td colspan="7" class="empty">暂无记录</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = './api';
+let CURRENT = null;
+let LAST_LOG_TASK = null;
+// Authentication is supplied by the existing same-origin portal session.
+
+
+async function api(path, opt){
+  const r = await fetch(API + path, Object.assign({
+    credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'}
+  }, opt || {}));
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN = n => (n==null||n==='')?'-':Number(n).toLocaleString('en-US');
+const fmtTime = s => s || '-';
+
+const ST = {pending:['pend','排队中'], running:['run','执行中'],
+            done:['done','已完成'], failed:['fail','失败']};
+
+/* ---------------- 新建任务 ---------------- */
+async function createTask(){
+  const rate = document.getElementById('rate').value.trim();
+  const batch = document.getElementById('batch').value.trim();
+  const interval = parseInt(document.getElementById('interval').value || '120', 10);
+  const msg = document.getElementById('msgNew');
+  const btn = document.getElementById('btnNew');
+
+  if(!rate || isNaN(parseFloat(rate))){
+    msg.innerHTML = '<span style="color:var(--bad)">请先填当期金币售价（数字）</span>';
+    return;
+  }
+  if(interval < 120){
+    msg.innerHTML = '<span style="color:var(--warn)">采样间隔不能小于 120 秒（规则要求相邻两次至少隔 120 秒）</span>';
+    return;
+  }
+  btn.disabled = true;
+  msg.textContent = '提交中…';
+  try{
+    const r = await api('/tasks', {method:'POST', body: JSON.stringify({
+      kind:'collect', rate: rate, batch: batch, interval: interval
+    })});
+    msg.innerHTML = '<span style="color:var(--ok)">已排队：任务 ' + esc(r.id) + '</span>';
+    refreshAll();
+  }catch(e){
+    msg.innerHTML = '<span style="color:var(--bad)">提交失败：' + esc(e.message) + '</span>';
+  }finally{ btn.disabled = false; }
+}
+
+/* ---------------- 统计 ---------------- */
+async function refreshStats(){
+  try{
+    const s = await api('/stats');
+    document.getElementById('sDone').textContent = fmtN(s.done_total||0);
+    document.getElementById('sPend').textContent = fmtN((s.tasks||{}).pending||0);
+    document.getElementById('sRun').textContent  = fmtN((s.tasks||{}).running||0);
+  }catch(e){}
+}
+
+/* ---------------- 执行器 ---------------- */
+async function refreshAgents(){
+  const box = document.getElementById('agents');
+  try{
+    const rows = await api('/agents');
+    let online = 0;
+    if(!rows.length){
+      box.innerHTML = '<div class="empty" style="padding:18px">还没有执行器接入过</div>';
+    }else{
+      box.innerHTML = rows.map(a=>{
+        if(a.online) online++;
+        return '<div class="rowline"><div>' +
+          '<div style="font-weight:600">' + esc(a.name) + ' ' +
+          '<span class="pill ' + (a.online?'on':'off') + '">' + (a.online?'在线':'离线') + '</span></div>' +
+          '<div class="hint" style="margin-top:3px">' + esc(a.host||'-') + ' · ' +
+          esc(a.ip||'-') + '</div></div>' +
+          '<div class="num" style="font-size:11.5px;color:var(--tx3)">成功 ' +
+          fmtN(a.tasks_done) + '</div></div>';
+      }).join('');
+    }
+    document.getElementById('sAgent').textContent = online;
+  }catch(e){
+    box.innerHTML = '<div class="empty" style="padding:18px">读取失败</div>';
+  }
+}
+
+/* ---------------- 当前任务 ---------------- */
+function renderProgress(t){
+  const p = t.progress || {};
+  const pct = p.pct == null ? 0 : p.pct;
+  return '<div class="prog"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="pgtxt"><span>' + esc(p.text || '等待执行器领取…') + '</span>' +
+    '<span>' + pct + '%</span></div>';
+}
+
+function renderResult(t){
+  const r = t.result || {};
+  const c = r.cards || [];
+  if(c.length){
+    document.getElementById('cardCount').textContent =
+      c.length + ' 张 · 可上架 ' + (r.eligible||0);
+    document.getElementById('cards').innerHTML = c.map(x=>{
+      const sp = (x.samples||[]).join(' / ');
+      const cls = x.include ? 'done' : 'off';
+      return '<tr>' +
+        '<td><b>' + esc(x.name) + '</b></td>' +
+        '<td class="num">' + esc(x.ovr) + '</td>' +
+        '<td>' + esc(x.position) + '</td>' +
+        '<td>' + esc(x.team) + '</td>' +
+        '<td>' + esc(x.series) + '</td>' +
+        '<td class="num">' + (sp ? esc(sp) + ' → <b>' + fmtN(x.median) + '</b>' : '-') + '</td>' +
+        '<td class="num">' + (x.sale_price ? '$' + esc(x.sale_price) : '-') + '</td>' +
+        '<td><span class="pill ' + cls + '">' + esc(x.status) + '</span></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  let html = '';
+  if(t.status === 'running') html += '<div class="rowline"><span class="k">状态</span>' +
+    '<span class="pill run">执行中</span></div>' + renderProgress(t);
+  if(t.status === 'done'){
+    html = '<div class="rowline"><span class="k">完成时间</span><span class="v">' +
+      fmtTime(t.finished_at_str) + '</span></div>' +
+      '<div class="rowline"><span class="k">批次</span><span class="v">' +
+      esc((r.batch||'').split('/').pop()||'-') + '</span></div>' +
+      '<div class="rowline"><span class="k">页面解析 / 可上架</span><span class="v">' +
+      fmtN(r.parsed) + ' / ' + fmtN(r.eligible) + '</span></div>' +
+      '<div class="rowline"><span class="k">新增 / 重复跳过</span><span class="v">' +
+      fmtN(r.added) + ' / ' + fmtN(r.duplicates) + '</span></div>' +
+      '<div class="rowline"><span class="k">过滤</span><span class="v" style="font-weight:400;font-size:12px;color:var(--tx2)">' +
+      'Live ' + fmtN(r.filtered_live) + ' · 低价 ' + fmtN(r.filtered_low_price) +
+      ' · 采样不足 ' + fmtN(r.filtered_not_tradable) + '</span></div>';
+    if(r.file_url){
+      html += '<div class="dl"><div style="flex:1">' +
+        '<a href="' + esc(r.file_url) + '" download>下载商品导入表</a>' +
+        '<div class="meta">' + esc(r.file_name) + ' · ' +
+        (r.file_size ? (r.file_size/1024).toFixed(0) + ' KB' : '') + '</div></div></div>';
+    }
+    if(r.file_error) html += '<div class="banner warnb" style="margin-top:12px">' +
+      esc(r.file_error) + '</div>';
+  }
+  if(t.status === 'failed'){
+    html = '<div class="rowline"><span class="k">状态</span><span class="pill fail">失败</span></div>' +
+      '<div class="log" style="max-height:200px;margin-top:10px">' + esc(t.error||'无错误信息') + '</div>';
+  }
+  if(t.status === 'pending'){
+    html = '<div class="rowline"><span class="k">状态</span><span class="pill pend">排队中</span></div>' +
+      '<div class="hint" style="margin-top:10px">等执行器来领。如果一直不动，' +
+      '检查左边「执行器状态」是不是没人在线。</div>';
+  }
+  return html;
+}
+
+async function refreshCurrent(){
+  try{
+    const list = await api('/tasks?limit=1');
+    if(!list.length){
+      CURRENT = null;
+      return;
+    }
+    const full = await api('/tasks/' + list[0].id);
+    CURRENT = full;
+    document.getElementById('current').innerHTML = renderResult(full);
+
+    // 日志只在任务切换或进度变化时重绘，避免滚动位置乱跳
+    const key = full.id + '|' + full.status + '|' +
+                JSON.stringify(full.progress||{});
+    if(key !== LAST_LOG_TASK){
+      LAST_LOG_TASK = key;
+      const p = full.progress || {};
+      const lines = [];
+      lines.push('任务 ' + full.id + ' · ' + (ST[full.status]||['',''])[1]);
+      if(p.text) lines.push('  ' + p.text);
+      if(full.agent) lines.push('  执行器：' + full.agent);
+      if(full.error) lines.push('  错误：' + full.error);
+      document.getElementById('log').textContent = lines.join('\n');
+    }
+  }catch(e){}
+}
+
+/* ---------------- 历史 ---------------- */
+async function refreshHistory(){
+  const box = document.getElementById('hist');
+  try{
+    const list = await api('/tasks?limit=40');
+    if(!list.length){
+      box.innerHTML = '<tr><td colspan="7" class="empty">暂无记录</td></tr>';
+      return;
+    }
+    box.innerHTML = list.map(t=>{
+      const r = t.result || {};
+      const st = ST[t.status] || ['','' + t.status];
+      const batch = (r.batch||'').split('/').pop() || '-';
+      let act = '';
+      if(t.status==='done' && r.file_url)
+        act = '<a href="' + esc(r.file_url) + '" download style="color:var(--ok)">下载</a>';
+      else if(t.status==='failed' || t.status==='pending')
+        act = '<a href="#" onclick="requeue(\'' + t.id + '\');return false" ' +
+              'style="color:var(--ac)">重跑</a>';
+      return '<tr>' +
+        '<td>' + esc(t.created_at_str) + '</td>' +
+        '<td>' + esc(t.submitter) + '</td>' +
+        '<td>' + esc(batch) + '</td>' +
+        '<td class="num">' + (t.status==='done' ? fmtN(r.added) : '-') + '</td>' +
+        '<td><span class="pill ' + st[0] + '">' + esc(st[1]) + '</span></td>' +
+        '<td style="color:var(--tx2)">' +
+          (t.status==='done' ? esc(r.eligible) + ' 张可上架' :
+           t.status==='failed' ? '<span style="color:var(--bad)">出错</span>' : '-') + '</td>' +
+        '<td>' + act + '</td>' +
+      '</tr>';
+    }).join('');
+  }catch(e){
+    box.innerHTML = '<tr><td colspan="7" class="empty">读取失败</td></tr>';
+  }
+}
+
+async function requeue(id){
+  try{
+    await api('/tasks/requeue', {method:'POST', body: JSON.stringify({id: id})});
+    refreshAll(true);
+  }catch(e){ alert('重跑失败：' + e.message); }
+}
+
+/* ---------------- 总刷新 ---------------- */
+async function refreshAll(manual){
+  await Promise.all([refreshStats(), refreshAgents(), refreshCurrent(), refreshHistory()]);
+}
+
+refreshAll(true);
+setInterval(refreshAll, 5000);
+</script>
+</body>
+</html>

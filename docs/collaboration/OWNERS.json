@@ -1,0 +1,536 @@
+{
+  "status": "explicit business allocation; unassigned remains unassigned",
+  "isTechnicalACL": false,
+  "repositoryWriteIsRepoWide": true,
+  "modules": [
+    {
+      "moduleId": "home",
+      "fileCount": 10,
+      "businessOwner": "吴律主导；陈超可参与迭代",
+      "candidatePaths": [
+        "fs_home_live_20260930/app.js",
+        "fs_home_live_20260930/assets/asset-manifest.json",
+        "fs_home_live_20260930/assets/fs-mmoexp-automation-workspace.png",
+        "fs_home_live_20260930/assets/fs-mmoexp-business-tools.png",
+        "fs_home_live_20260930/assets/fs-mmoexp-data-statistics.png",
+        "fs_home_live_20260930/assets/fs-mmoexp-members-permissions.png",
+        "fs_home_live_20260930/index.html",
+        "fs_home_live_20260930/metrics.js",
+        "fs_home_live_20260930/module-registry.json",
+        "fs_home_live_20260930/styles.css"
+      ],
+      "externalDependencies": [
+        "existing nginx/portal",
+        "authenticated atomic business snapshots"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "business-snapshot",
+      "fileCount": 14,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "fs_transaction_snapshot_20260930/atomic_snapshot.py",
+        "fs_transaction_snapshot_20260930/collector.py",
+        "fs_transaction_snapshot_20260930/fc_category_contract.py",
+        "fs_transaction_snapshot_20260930/fc_category_reader.py",
+        "fs_transaction_snapshot_20260930/fc_product_contract.py",
+        "fs_transaction_snapshot_20260930/fc_product_reader.py",
+        "fs_transaction_snapshot_20260930/primary_fields.py",
+        "fs_transaction_snapshot_20260930/primary_reader.py",
+        "fs_transaction_snapshot_20260930/snapshot-client.js",
+        "fs_transaction_snapshot_20260930/supplement-insights.css",
+        "fs_transaction_snapshot_20260930/supplement_fields.py",
+        "fs_transaction_snapshot_20260930/supplement_reader.py",
+        "fs_transaction_snapshot_20260930/test_atomic_snapshot.py",
+        "fs_transaction_snapshot_20260930/today_api.py"
+      ],
+      "externalDependencies": [
+        "Order/Admin safe existing sessions",
+        "server-owned private atomic version store",
+        "120min timer"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "exact-range",
+      "fileCount": 2,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "fs_range_read_state_20261001/exact-range-client.js",
+        "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py"
+      ],
+      "externalDependencies": [
+        "existing range service/cache",
+        "current collector/readers",
+        "authenticated proxy"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "fc-ops",
+      "fileCount": 8,
+      "businessOwner": "吴律",
+      "candidatePaths": [
+        "fc27_ops_cloud/data/fc-analytics.css",
+        "fc27_ops_cloud/data/fc-analytics.js",
+        "fc27_ops_cloud/data/fc-products.css",
+        "fc27_ops_cloud/data/fc-products.js",
+        "fc27_ops_cloud/data/snapshot-client.js",
+        "fc27_ops_cloud/data/supplement-insights.css",
+        "fc27_ops_cloud/data/supplement-insights.js",
+        "fc27_ops_cloud/index.html"
+      ],
+      "externalDependencies": [
+        "existing ops/gate server",
+        "shared four static references pending scope",
+        "authenticated data/accurate ranges"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "fc-coins",
+      "fileCount": 52,
+      "businessOwner": "吴律",
+      "candidatePaths": [
+        "fc27_chrome_collector/lootbar_server_collector.py",
+        "fc27_chrome_collector/repricing_logic.js",
+        "fc27_cloud_browser/activity_log_store.py",
+        "fc27_cloud_browser/automation_policy.py",
+        "fc27_cloud_browser/automation_tick.py",
+        "fc27_cloud_browser/clear_cache_after_write.py",
+        "fc27_cloud_browser/clear_cache_after_write.sh",
+        "fc27_cloud_browser/coin_all_once.py",
+        "fc27_cloud_browser/coin_all_resume_once.py",
+        "fc27_cloud_browser/coin_all_sync_job.py",
+        "fc27_cloud_browser/collect_competitor.sh",
+        "fc27_cloud_browser/collect_competitor_browser.py",
+        "fc27_cloud_browser/collect_fx.sh",
+        "fc27_cloud_browser/collect_fx_browser.py",
+        "fc27_cloud_browser/collect_lootbar.sh",
+        "fc27_cloud_browser/collect_p2pah_cost.py",
+        "fc27_cloud_browser/collect_p2pah_cost.sh",
+        "fc27_cloud_browser/execute_price.sh",
+        "fc27_cloud_browser/fc27_cloud_api.py",
+        "fc27_cloud_browser/fc27_cloud_worker.py",
+        "fc27_cloud_browser/player_sync_job.py",
+        "fc27_cloud_browser/player_sync_policy.py",
+        "fc27_cloud_browser/player_verify_once.py",
+        "fc27_cloud_browser/preview_backend.py",
+        "fc27_cloud_browser/preview_backend.sh",
+        "fc27_cloud_browser/price_writer.py",
+        "fc27_cloud_browser/repricing_dom.js",
+        "fc27_cloud_browser/restore_price.py",
+        "fc27_cloud_browser/restore_price.sh",
+        "fc27_cloud_browser/server_quote_job.py",
+        "fc27_cloud_browser/snapshot_layer.py",
+        "fc27_cloud_browser/storefront_monitor.py",
+        "fc27_cloud_browser/sync_players.sh",
+        "fc27_cloud_browser/test_all_sync_writer_integration.py",
+        "fc27_cloud_browser/test_automation_api.py",
+        "fc27_cloud_browser/test_automation_cycle.py",
+        "fc27_cloud_browser/test_automation_policy.py",
+        "fc27_cloud_browser/test_automation_writer_gate.py",
+        "fc27_cloud_browser/test_clear_cache_after_write.py",
+        "fc27_cloud_browser/test_cloud_activity_feed.py",
+        "fc27_cloud_browser/test_coin_all_sync.py",
+        "fc27_cloud_browser/test_cost_delivery_types.py",
+        "fc27_cloud_browser/test_iggm_price_precision.py",
+        "fc27_cloud_browser/test_keyword_resume.py",
+        "fc27_cloud_browser/test_monitor_api.py",
+        "fc27_cloud_browser/test_once_entries.py",
+        "fc27_cloud_browser/test_player_sync_bulk.py",
+        "fc27_cloud_browser/test_player_sync_flow.py",
+        "fc27_cloud_browser/test_player_sync_recovery.py",
+        "fc27_cloud_browser/test_source_confirmation.py",
+        "fc27_cloud_browser/test_storefront_monitor.py",
+        "fc27_quote_engine.py"
+      ],
+      "externalDependencies": [
+        "existing queue/price locks",
+        "rev25 external policy",
+        "CDP/container",
+        "safe backend sessions"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "fc-players",
+      "fileCount": 46,
+      "businessOwner": "吴律",
+      "candidatePaths": [
+        "fc27_players_cloud/VERSION",
+        "fc27_players_cloud/player_web/__init__.py",
+        "fc27_players_cloud/player_web/cli.py",
+        "fc27_players_cloud/player_web/client_factory.py",
+        "fc27_players_cloud/player_web/collection.py",
+        "fc27_players_cloud/player_web/existing_action_service.py",
+        "fc27_players_cloud/player_web/main.py",
+        "fc27_players_cloud/player_web/media_client.py",
+        "fc27_players_cloud/player_web/model_image_service.py",
+        "fc27_players_cloud/player_web/model_service.py",
+        "fc27_players_cloud/player_web/new_card_service.py",
+        "fc27_players_cloud/player_web/price_lock.py",
+        "fc27_players_cloud/player_web/repository.py",
+        "fc27_players_cloud/player_web/settings.py",
+        "fc27_players_cloud/player_web/static/app.css",
+        "fc27_players_cloud/player_web/static/app.js",
+        "fc27_players_cloud/player_web/static/images.js",
+        "fc27_players_cloud/player_web/static/index.html",
+        "fc27_players_cloud/player_web/static/models.html",
+        "fc27_players_cloud/requirements.lock",
+        "fc27_players_cloud/source_manifest.json",
+        "fc27_players_cloud/球员维护工具/__init__.py",
+        "fc27_players_cloud/球员维护工具/adapters.py",
+        "fc27_players_cloud/球员维护工具/admin_adapter.py",
+        "fc27_players_cloud/球员维护工具/admin_client.py",
+        "fc27_players_cloud/球员维护工具/app.py",
+        "fc27_players_cloud/球员维护工具/app_config.py",
+        "fc27_players_cloud/球员维护工具/app_constants.py",
+        "fc27_players_cloud/球员维护工具/app_existing_models.py",
+        "fc27_players_cloud/球员维护工具/app_formatters.py",
+        "fc27_players_cloud/球员维护工具/app_login.py",
+        "fc27_players_cloud/球员维护工具/app_new_card.py",
+        "fc27_players_cloud/球员维护工具/app_pipeline.py",
+        "fc27_players_cloud/球员维护工具/existing_model_domain.py",
+        "fc27_players_cloud/球员维护工具/existing_model_ui.py",
+        "fc27_players_cloud/球员维护工具/login_dialog.py",
+        "fc27_players_cloud/球员维护工具/models.py",
+        "fc27_players_cloud/球员维护工具/new_card_recovery.py",
+        "fc27_players_cloud/球员维护工具/new_card_selection.py",
+        "fc27_players_cloud/球员维护工具/pipeline.py",
+        "fc27_players_cloud/球员维护工具/player_database.py",
+        "fc27_players_cloud/球员维护工具/player_db_cli.py",
+        "fc27_players_cloud/球员维护工具/rating_rules.py",
+        "fc27_players_cloud/球员维护工具/selection.py",
+        "fc27_players_cloud/球员维护工具/storage.py",
+        "fc27_players_cloud/球员维护工具/transformer.py"
+      ],
+      "externalDependencies": [
+        "cloud.9 effective container path",
+        "readonly price-lock bind",
+        "media/backend sessions",
+        "private DB"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "google",
+      "fileCount": 15,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "mmoexp_google_data/dashboard_module/build_module.py",
+        "mmoexp_google_data/dashboard_module/business-module.js",
+        "mmoexp_google_data/dashboard_module/index.html",
+        "mmoexp_google_data/dashboard_module/marketing-module.css",
+        "mmoexp_google_data/dashboard_module/marketing-module.js",
+        "mmoexp_google_data/details/collect_details.py",
+        "mmoexp_google_data/details/detail_model.py",
+        "mmoexp_google_data/details/test_details.py",
+        "mmoexp_google_data/implementation/collector.py",
+        "mmoexp_google_data/implementation/fixtures/ads.json",
+        "mmoexp_google_data/implementation/fixtures/ga4.json",
+        "mmoexp_google_data/implementation/fixtures/gsc.json",
+        "mmoexp_google_data/implementation/requirements.txt",
+        "mmoexp_google_data/implementation/server_run_daily.py",
+        "mmoexp_google_data/implementation/test_collector.py"
+      ],
+      "externalDependencies": [
+        "private OAuth",
+        "daily09 timer",
+        "immutable business snapshot readonly"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "weekly",
+      "fileCount": 19,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "mmoexp_google_data/weekly_report/index.html",
+        "mmoexp_google_data/weekly_report/range_adapter.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/baseline/range_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/candidate/range_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/fc_category_contract.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/fc_product_contract.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/profiles.json",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_category_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_category_contract.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_product_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_range_api.py",
+        "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_timer_parser.py",
+        "mmoexp_google_data/weekly_report/run_weekly_exact.py",
+        "mmoexp_google_data/weekly_report/test_weekly_contracts.py",
+        "mmoexp_google_data/weekly_report/weekly-business-core.js",
+        "mmoexp_google_data/weekly_report/weekly-charts.js",
+        "mmoexp_google_data/weekly_report/weekly-report.css",
+        "mmoexp_google_data/weekly_report/weekly-report.js",
+        "mmoexp_google_data/weekly_report/weekly_report.py"
+      ],
+      "externalDependencies": [
+        "Mon02 timer",
+        "authenticated exact-range consumer",
+        "private reports store"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "taskboard",
+      "fileCount": 4,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "opt/mmoexp-taskboard/taskboard_server.py",
+        "opt/mmoexp-taskboard/web/app.js",
+        "opt/mmoexp-taskboard/web/index.html",
+        "opt/mmoexp-taskboard/web/styles.css"
+      ],
+      "externalDependencies": [
+        "private SQLite",
+        "existing role proxy",
+        "three guard admins"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "D4",
+      "fileCount": 27,
+      "businessOwner": "陈超",
+      "candidatePaths": [
+        "opt/d4follow/aion2_watch.py",
+        "opt/d4follow/aion2_xlsx.py",
+        "opt/d4follow/align_all.py",
+        "opt/d4follow/app.py",
+        "opt/d4follow/apply_price.py",
+        "opt/d4follow/build_dashboard.py",
+        "opt/d4follow/core_dd373_cost.py",
+        "opt/d4follow/core_eld.py",
+        "opt/d4follow/core_front.py",
+        "opt/d4follow/core_g2g.py",
+        "opt/d4follow/core_gold.py",
+        "opt/d4follow/core_iggm.py",
+        "opt/d4follow/core_multi.py",
+        "opt/d4follow/core_p2pah.py",
+        "opt/d4follow/core_qd.py",
+        "opt/d4follow/dingtalk_push.py",
+        "opt/d4follow/dispatch_align.py",
+        "opt/d4follow/engine.py",
+        "opt/d4follow/gates.py",
+        "opt/d4follow/poe2_align.py",
+        "opt/d4follow/shelf_check.py",
+        "opt/d4follow/shelf_notify.py",
+        "opt/d4follow/shelf_patch.py",
+        "opt/d4follow/srv_exec.py",
+        "opt/d4follow/store.py",
+        "opt/d4follow/templates/index.html",
+        "opt/d4follow/tracker.py"
+      ],
+      "externalDependencies": [
+        "operator runtime configuration",
+        "private upstream sessions",
+        "worker/service"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "businessScope": "D4 / PoE2 / Aion2；保留d4follow中的全部已列分支，无运行配置入库",
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "NBA",
+      "fileCount": 7,
+      "businessOwner": "吴律",
+      "candidatePaths": [
+        "opt/nba-reprice/backend/api_security.js",
+        "opt/nba-reprice/backend/ocr_captcha.py",
+        "opt/nba-reprice/backend/p2pah_api.py",
+        "opt/nba-reprice/backend/server.js",
+        "opt/nba-reprice/backend/write_contract.py",
+        "opt/nba-reprice/tools/fetch_vc_prices.py",
+        "var/www/nba2k27/index.html"
+      ],
+      "externalDependencies": [
+        "safe existing token/proxy identity",
+        "NBA_DATA_DIR receipts/lock",
+        "upstream session env",
+        "automatic confirmation decision"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "MLB",
+      "fileCount": 3,
+      "businessOwner": "吴律",
+      "candidatePaths": [
+        "opt/mlb-online/mlb_server.py",
+        "opt/mlb-online/static_path.py",
+        "var/www/mlb-online/index.html"
+      ],
+      "externalDependencies": [
+        "trusted static root",
+        "nginx X-Remote-User identity",
+        "private runtime store"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "IGGM",
+      "fileCount": 13,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "opt/iggm-web/app.py",
+        "opt/iggm-web/core.py",
+        "opt/iggm-web/core_aoeah.py",
+        "opt/iggm-web/core_u4gm.py",
+        "opt/iggm-web/db.py",
+        "opt/iggm-web/requirements.txt",
+        "opt/iggm-web/runner.py",
+        "opt/iggm-web/sites.py",
+        "opt/iggm-web/static/app.js",
+        "opt/iggm-web/static/style.css",
+        "opt/iggm-web/templates/gate.html",
+        "opt/iggm-web/templates/index.html",
+        "opt/iggm-web/url_guard.py"
+      ],
+      "externalDependencies": [
+        "real TLS/DNS/pinned redirects compatibility",
+        "private cookie/config/runtime"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "portal",
+      "fileCount": 4,
+      "businessOwner": "吴律主导；陈超可参与迭代",
+      "candidatePaths": [
+        "opt/auth-portal/auth_portal.py",
+        "opt/auth-portal/fc_read_scope.py",
+        "opt/auth-portal/login.html",
+        "opt/auth-portal/status.html"
+      ],
+      "externalDependencies": [
+        "existing signed secret/live registered groups",
+        "existing FC8896 gate external",
+        "nginx exact auth headers"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "access-policy",
+      "fileCount": 1,
+      "businessOwner": "共享协调；吴律主导，具体权限变更另批",
+      "candidatePaths": [
+        "opt/fs-access-policy/access_policy.py"
+      ],
+      "externalDependencies": [
+        "effective role middleware/config",
+        "three-admin current source not live proof"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "deploy-hub",
+      "fileCount": 3,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "opt/deploy-hub/bundle_policy.py",
+        "opt/deploy-hub/deploy_client.py",
+        "opt/deploy-hub/deploy_server.py"
+      ],
+      "externalDependencies": [
+        "outside-repo explicit credentials/config",
+        "trusted publisher identity",
+        "trusted site root"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    },
+    {
+      "moduleId": "release-gateway",
+      "fileCount": 4,
+      "businessOwner": "待指派",
+      "candidatePaths": [
+        "fs_dashboard_overwrite_20261003/release_gateway.py",
+        "fs_dashboard_overwrite_20261003/test_exact_dependencies.py",
+        "fs_dashboard_overwrite_20261003/test_release_gateway.py",
+        "fs_dashboard_overwrite_20261003/test_reviewed_recovery.py"
+      ],
+      "externalDependencies": [
+        "private version ledger/staging",
+        "exact seven actual dependencies",
+        "Unix lock",
+        "effective controlled uploader"
+      ],
+      "runtimeValidatedThisRound": false,
+      "releaseReady": false,
+      "pathPermissionIsPolicyNotTechnicalACL": true,
+      "approvalScope": "module code/business responsibility; no automatic production permission"
+    }
+  ],
+  "sharedLoginHomeNavigation": {
+    "lead": "吴律",
+    "participant": "陈超可参与特殊情况及升级迭代",
+    "exclusivePermission": false
+  },
+  "otherBallGames": {
+    "owner": "吴律",
+    "scope": "existing business scope; no new project expansion"
+  },
+  "ARPG": {
+    "owner": "陈超",
+    "scope": "D4 / PoE2 / Aion2业务；经营供数里的Aion2不因此改变数据owner；d4follow全部已列源码保留"
+  },
+  "crossModule": "precise paths/reason/consumers/tests/rollback; each affected owner confirms; unresolved owner blocks production",
+  "githubUsers": {
+    "吴律": "wulv006-dot",
+    "陈超": "dachao1997"
+  },
+  "productionAdminsUnchanged": [
+    "wulv",
+    "chenchao",
+    "DY"
+  ]
+}

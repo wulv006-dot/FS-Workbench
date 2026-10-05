@@ -1,0 +1,221 @@
+{
+  "revision": 3,
+  "recordedAt": "2026-10-05T15:15:14.794368+00:00",
+  "executionTimestamp": "prior tool results observed in this turn; not reconstructed to exact seconds",
+  "productionChanges": false,
+  "targetedResults": [
+    {
+      "check": "revision3-contracts",
+      "testsRun": 12,
+      "passed": true,
+      "skipped": 0
+    },
+    {
+      "check": "migration",
+      "testsRun": 8,
+      "passed": true,
+      "skipped": 0
+    },
+    {
+      "check": "rev25-matrix",
+      "testsRun": 6,
+      "passed": true,
+      "skipped": 0
+    },
+    {
+      "check": "existing-wiring",
+      "testsRun": 12,
+      "passed": true,
+      "skipped": 0
+    },
+    {
+      "check": "existing-pure-guards",
+      "testsRun": 9,
+      "passed": true,
+      "skipped": 1
+    }
+  ],
+  "targetedPythonRun": 47,
+  "targetedPythonPassed": 46,
+  "targetedPythonSkipped": 1,
+  "nodeGroups": [
+    "nba-bound",
+    "nba-routes",
+    "nba-pure"
+  ],
+  "nodePure": "passed: 28 pure assertions; no server/network/process",
+  "coreHistoricalRevision2": {
+    "testedAt": "2026-10-05T14:20:00.755800+00:00",
+    "productionChanges": false,
+    "scope": "isolated Windows source checks and synthetic fixtures; no live account, sampling or price writes",
+    "passed": true,
+    "results": [
+      {
+        "check": "python-parse",
+        "files": 178,
+        "passed": true
+      },
+      {
+        "check": "javascript-parse",
+        "files": 32,
+        "passed": true
+      },
+      {
+        "check": "parser",
+        "testsRun": 59,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "engine",
+        "testsRun": 24,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "discount-pure",
+        "testsRun": 12,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "failureTypes": []
+      },
+      {
+        "check": "weekly",
+        "testsRun": 11,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "google-collector",
+        "testsRun": 7,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "google-details",
+        "testsRun": 14,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "integration",
+        "testsRun": 21,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "failureTypes": []
+      },
+      {
+        "check": "gateway",
+        "testsRun": 17,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": []
+      },
+      {
+        "check": "migration",
+        "testsRun": 5,
+        "passed": true,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failureTypes": [],
+        "retestedAt": "2026-10-05T14:24:38.401272+00:00",
+        "delta": "one added dated quantity-only fixture; all five migration tests rerun successfully"
+      },
+      {
+        "check": "date-range",
+        "passed": true,
+        "returncode": 0
+      },
+      {
+        "check": "calendar",
+        "passed": true,
+        "returncode": 0
+      },
+      {
+        "check": "aion2-state",
+        "passed": true,
+        "returncode": 0
+      },
+      {
+        "check": "nba-pure",
+        "passed": true,
+        "returncode": 0
+      },
+      {
+        "check": "nba-routes",
+        "passed": true,
+        "returncode": 0
+      },
+      {
+        "check": "range-async",
+        "passed": true,
+        "returncode": 0
+      }
+    ],
+    "notExercised": [
+      "real Unix flock/concurrent production jobs",
+      "real production account login/save",
+      "excluded raw-business-data fixture suites",
+      "deployment",
+      "other computer merge",
+      "real Linux symlink creation/static root TOCTOU",
+      "NBA trusted proxy/operator runtime configuration",
+      "FC current-time quantity recheck and 3 public storefronts in this integration task",
+      "Players 45 current source only, no browser/CDP/media/task runtime test",
+      "all package modules end-to-end",
+      "independent delta review of revision2 bytes"
+    ],
+    "inlineScriptsParsed": 8,
+    "literalScan": {
+      "count": 8,
+      "unclassified": 0,
+      "valuesPrinted": false,
+      "heuristicOnly": true
+    },
+    "pythonTotalRun": 170,
+    "pythonSkipped": 2,
+    "pythonPassed": 168,
+    "testEvidenceRoot": "docs/planning/fs-platform-integration-20261005/revision2/test-evidence",
+    "compositeEvidence": "Full core/candidate run at 14:20UTC:169 tests; migration-only after dated quantity fixture:5 tests replaces previous4; no redundant full rerun."
+  },
+  "notExercised": [
+    "full revision3 regression suite",
+    "real account/FC session/proxy/nginx",
+    "Linux lock/multiprocess/ACL/TOCTOU",
+    "actual upstream price write",
+    "deployment/natural timers",
+    "all platform modules/Ponytail"
+  ],
+  "scope": "synthetic identities/archives/quotes; temp filesystem and fake subprocess only; no actual writer/credentials/production",
+  "lastFCQueryDelta": "12 contracts rechecked after restricting percent-encoding refusal to routing path; encoded read filters remain supported",
+  "_firstUploadCorrection": {
+    "currentState": "docs/collaboration/READINESS.json",
+    "originalFieldsAreHistorical": true,
+    "releaseReady": false,
+    "conditionalSourceUploadApproved": true,
+    "ownerTable": "docs/collaboration/OWNERS.json",
+    "effectiveRuntimeNotVerified": true
+  }
+}

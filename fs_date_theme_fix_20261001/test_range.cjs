@@ -1,0 +1,12 @@
+const assert=require('assert/strict');require('./business-range.js');const R=globalThis.FSBusinessRange;
+const primary={period:{start:'2026-10-01 00:00',end:'2026-10-01 09:16'},orders:10,revenueUsd:100,metrics:{profitMarginPct:{value:-4},averageOrderUsd:{value:10}}};
+const data={profiles:{MMOEXP:{period:primary.period,primary,metrics:{orders:{value:10},revenueUsd:{value:100},averageOrderUsd:{value:10},profitMarginPct:{value:-4}},supplement:{period:primary.period,metrics:{orders:{value:7},newCustomers:{value:2},newCustomerSharePct:{value:200/7}}}}},dashboard:{profiles:{MMOEXP:{series:[{date:'2026-09-29',orders:5,amount:20},{date:'2026-09-30',orders:6,amount:30},{date:'2026-10-01',orders:10,amount:100}]}}},rangeMeta:{MMOEXP:{primaryHistory:{period:{start:'2026-09-29 00:00',end:'2026-10-01 00:00'},orders:11,revenueUsd:50,metrics:{profitMarginPct:{value:28},averageOrderUsd:{value:4.55}}}}}};
+const select=(start,end)=>R.select(data,{start,end,grain:'day'}).profiles.MMOEXP;
+let p=select('2026-10-01','2026-10-01');assert.equal(p.metrics.profitMarginPct.value,-4);assert.equal(p.supplement.metrics.newCustomerSharePct.value,200/7);
+p=select('2026-09-29','2026-09-30');assert.equal(p.metrics.profitMarginPct.value,28);assert.equal(p.metrics.averageOrderUsd.value,4.55);assert.equal(p.supplement.metrics.newCustomers.value,null);
+p=select('2026-09-30','2026-10-01');assert.equal(p.metrics.orders.value,16);assert.equal(p.metrics.revenueUsd.value,130);assert.equal(p.metrics.profitMarginPct.value,null);assert.equal(p.metrics.averageOrderUsd.value,null);assert.equal(p.supplement.metrics.newCustomers.value,null);
+p=select('2026-01-01','2026-10-01');assert.equal(p.metrics.orders.value,null);assert.equal(p.rangeCovered,false);
+p=select('2030-01-01','2030-01-07');assert.equal(p.metrics.revenueUsd.value,null);
+const sparse=[{d:'2026-09-01'},{d:'2026-09-25'},{d:'2026-09-29'},{d:'2026-09-30'},{d:'2026-10-01'}];let w=R.tableWindow(sparse,{start:'2026-09-01',end:'2026-10-01'},7);assert.equal(w.rows.length,4);assert.equal(w.remaining,1);
+w=R.tableWindow(sparse,{start:'2026-09-01',end:'2026-10-01'},30);assert.equal(w.rows.length,4);w=R.tableWindow(sparse,{start:'2026-09-01',end:'2026-10-01'},60);assert.equal(w.rows.length,5);
+assert.equal(data.profiles.MMOEXP.metrics.orders.value,10);console.log('Range contracts passed: exact boundaries, primary priorities, nonadditive null, immutable input, sparse natural-day windows');
