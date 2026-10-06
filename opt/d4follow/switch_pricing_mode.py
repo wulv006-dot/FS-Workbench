@@ -3,7 +3,7 @@
 """金币定价策略切换器（dd373_only ⇄ g2g_cheapold ⇄ dd373_markup ⇄ multisrc）—— 幂等、只改一个字段。
 
 用法（服务器上）：
-    # 切到「只跟 DD373 进货成本 +20%」（老板 2026-10-07 起的现行策略）
+    # 切到「只跟 DD373 进货成本 +25%」（老板 2026-10-07 起的现行策略）
     python3 /opt/d4follow/switch_pricing_mode.py dd373_only
 
     # 切回「G2G cheapold 跟价」（2026-10-05 策略）
