@@ -1,29 +1,8 @@
 from pathlib import Path
-import sys,json,ast,subprocess,re,hashlib,datetime,os
-
+import sys,json,ast,subprocess,re,hashlib,datetime,os,argparse
 import tempfile,shutil
-REPO=Path(__file__).resolve().parents[1]
-ROOT=Path(tempfile.mkdtemp(prefix='fs-candidate-check-'))
-C=ROOT/'candidate';R=ROOT/'review';R.mkdir()
-allow=json.loads((REPO/'docs/integration/UPLOAD-ALLOWLIST.json').read_text(encoding='utf-8'))
-expected={row['path'] for row in allow['files']} | {'docs/integration/UPLOAD-ALLOWLIST.json'}
-actual={p.relative_to(REPO).as_posix() for p in REPO.rglob('*') if p.is_file() and not any(x in ('__pycache__','.git','.venv','.testdeps','.checks') for x in p.relative_to(REPO).parts)}
-if actual!=expected:raise RuntimeError('candidate allowlist differs: '+str(sorted(actual^expected)))
-for row in allow['files']:
- source=REPO/row['path'];target=C/row['path']
- if source.is_symlink() or not source.resolve().is_relative_to(REPO.resolve()) or not target.resolve().is_relative_to(C.resolve()):raise RuntimeError('invalid candidate path')
- target.parent.mkdir(parents=True,exist_ok=True)
- if hashlib.sha256(source.read_bytes()).hexdigest()!=row['sha256']:raise RuntimeError('candidate changed: '+row['path'])
- shutil.copyfile(source,target)
-results=[]
-pyfiles=list(C.rglob('*.py'));jsfiles=list(C.rglob('*.js'))+list(C.rglob('*.cjs'))
-for p in pyfiles:ast.parse(p.read_text(encoding='utf-8-sig'),filename=str(p.relative_to(C)))
-results.append({'check':'python-parse','files':len(pyfiles),'passed':True})
-for p in jsfiles:
- r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True,timeout=20)
- if r.returncode:raise RuntimeError('JS syntax failed: '+str(p.relative_to(C)))
-results.append({'check':'javascript-parse','files':len(jsfiles),'passed':True})
-
+sys.dont_write_bytecode=True
+from candidate_tree_contract import validate_tree,decode_unit_result,result_exit_code,source_bytes
 unit_code=r'''
 from pathlib import Path
 import sys,json,unittest,unittest.mock,asyncio,io,socket,subprocess,types,os
@@ -71,39 +50,69 @@ output=io.StringIO();r=unittest.TextTestRunner(stream=output,verbosity=2).run(su
 print(json.dumps({'check':group,'testsRun':r.testsRun,'passed':r.wasSuccessful(),'failures':len(r.failures),'errors':len(r.errors),'skipped':len(r.skipped),'failureTypes':[type(e).__name__ for e in []],'output':output.getvalue()}))
 sys.exit(0 if r.wasSuccessful() else 1)
 '''
-for group in ['parser','engine','discount-pure','weekly','google-collector','google-details','integration','gateway','migration','revision3-contracts']:
- env=os.environ.copy();env['PYTHONIOENCODING']='utf-8'
- r=subprocess.run([sys.executable,'-B','-c',unit_code,str(C),group],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=60,cwd=C,env=env)
- try:obj=json.loads(r.stdout.strip().splitlines()[-1])
- except Exception:obj={'check':group,'passed':False,'returncode':r.returncode,'output':r.stderr}
- (R/('test-'+group+'.json')).write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
- results.append({k:v for k,v in obj.items() if k!='output'})
+REPO=Path(__file__).resolve().parents[1]
 
-# Dedicated pure Node child for the real Python/JS rev25 matrix; no writer is imported/executed.
-matrix=subprocess.run([sys.executable,'-B',str(C/'tests/integration/test_fc_rev25_matrix.py')],
- capture_output=True,text=True,encoding='utf-8',timeout=30,cwd=C)
-obj={'check':'rev25-matrix','passed':matrix.returncode==0,'output':matrix.stdout,'error':matrix.stderr}
-(R/'test-rev25-matrix.json').write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-results.append({k:v for k,v in obj.items() if k not in ('output','error')})
+def main():
+ parser=argparse.ArgumentParser()
+ parser.add_argument('--tree-only',action='store_true',help='Read-only exact manifest/path/hash validation; do not run candidate suites')
+ args=parser.parse_args()
+ rows=validate_tree(REPO)
+ if args.tree_only:
+  print(json.dumps({'passed':True,'contentFiles':len(rows),'treeFiles':len(rows)+2,'scope':'manifest/path/hash/link validation only; no candidate code executed','gitModeValidation':{'promisedFiles':sum('gitMode' in row for row in rows),'status':'POSIX executable bits checked for promised gitMode; absent modes not promised' if os.name=='posix' else 'Windows executable bits unverified; promised gitMode syntax checked only'}}))
+  return 0
+ ROOT=Path(tempfile.mkdtemp(prefix='fs-candidate-check-'))
+ C=ROOT/'candidate';R=ROOT/'review';R.mkdir()
+ for row in rows:
+  target=C/row['path']
+  target.parent.mkdir(parents=True,exist_ok=True)
+  target.write_bytes(source_bytes(REPO,row))
+ results=[]
+ pyfiles=list(C.rglob('*.py'));jsfiles=list(C.rglob('*.js'))+list(C.rglob('*.cjs'))
+ for p in pyfiles:ast.parse(p.read_text(encoding='utf-8-sig'),filename=str(p.relative_to(C)))
+ results.append({'check':'python-parse','files':len(pyfiles),'passed':True})
+ for p in jsfiles:
+  r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True,timeout=20)
+  if r.returncode:raise RuntimeError('JS syntax failed: '+str(p.relative_to(C)))
+ results.append({'check':'javascript-parse','files':len(jsfiles),'passed':True})
+ 
+ 
+ for group in ['parser','engine','discount-pure','weekly','google-collector','google-details','integration','gateway','migration','revision3-contracts']:
+  env=os.environ.copy();env['PYTHONIOENCODING']='utf-8'
+  r=subprocess.run([sys.executable,'-B','-c',unit_code,str(C),group],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=60,cwd=C,env=env)
+  obj=decode_unit_result(r,group)
+  (R/('test-'+group+'.json')).write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+  results.append({k:v for k,v in obj.items() if k!='output'})
+ 
+ # Dedicated pure Node child for the real Python/JS rev25 matrix; no writer is imported/executed.
+ matrix=subprocess.run([sys.executable,'-B',str(C/'tests/integration/test_fc_rev25_matrix.py')],
+  capture_output=True,text=True,encoding='utf-8',timeout=30,cwd=C)
+ obj={'check':'rev25-matrix','passed':matrix.returncode==0,'output':matrix.stdout,'error':matrix.stderr}
+ (R/'test-rev25-matrix.json').write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+ results.append({k:v for k,v in obj.items() if k not in ('output','error')})
+ 
+ js_tests=[('date-range','fs_date_theme_fix_20261001/test_range.cjs'),
+           ('calendar','fc_calendar_trim_20261004/test_calendar.cjs'),
+           ('aion2-state','aion2_dashboard_20261004/test_status.cjs'),
+           ('nba-pure','tests/integration/test_nba_pure_guards.cjs'),
+           ('nba-routes','tests/integration/test_nba_wired_routes.cjs'),
+           ('range-async','tests/integration/test_range_async_contract.cjs'),
+           ('nba-bound','tests/integration/test_nba_bound_writer.cjs')]
+ for group,rel in js_tests:
+  p=C/rel
+  if group=='calendar':
+   source=C/'fc27_ops_cloud/data/fc-analytics.js'
+   (p.parent/'fc-analytics.js').write_bytes(source.read_bytes())
+  r=subprocess.run(['node',str(p)],capture_output=True,text=True,timeout=20,cwd=p.parent)
+  results.append({'check':group,'passed':r.returncode==0,'returncode':r.returncode})
+  (R/('test-'+group+'.json')).write_text(json.dumps({'passed':r.returncode==0,'output':r.stdout,'error':r.stderr},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+ report={'testedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'productionChanges':False,
+  'scope':'isolated Windows source checks and synthetic fixtures; no live account, sampling or price writes',
+  'passed':result_exit_code(results)==0,'results':results,
+  'notExercised':['real Unix flock/concurrent production jobs','real production account login/save','excluded raw-business-data fixture suites','deployment','other computer merge']}
+ (R/'test-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+ sys.stdout.reconfigure(encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2))
+ 
+ return result_exit_code(results)
 
-js_tests=[('date-range','fs_date_theme_fix_20261001/test_range.cjs'),
-          ('calendar','fc_calendar_trim_20261004/test_calendar.cjs'),
-          ('aion2-state','aion2_dashboard_20261004/test_status.cjs'),
-          ('nba-pure','tests/integration/test_nba_pure_guards.cjs'),
-          ('nba-routes','tests/integration/test_nba_wired_routes.cjs'),
-          ('range-async','tests/integration/test_range_async_contract.cjs'),
-          ('nba-bound','tests/integration/test_nba_bound_writer.cjs')]
-for group,rel in js_tests:
- p=C/rel
- if group=='calendar':
-  source=C/'fc27_ops_cloud/data/fc-analytics.js'
-  (p.parent/'fc-analytics.js').write_bytes(source.read_bytes())
- r=subprocess.run(['node',str(p)],capture_output=True,text=True,timeout=20,cwd=p.parent)
- results.append({'check':group,'passed':r.returncode==0,'returncode':r.returncode})
- (R/('test-'+group+'.json')).write_text(json.dumps({'passed':r.returncode==0,'output':r.stdout,'error':r.stderr},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-report={'testedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'productionChanges':False,
- 'scope':'isolated Windows source checks and synthetic fixtures; no live account, sampling or price writes',
- 'passed':all(x['passed'] for x in results),'results':results,
- 'notExercised':['real Unix flock/concurrent production jobs','real production account login/save','excluded raw-business-data fixture suites','deployment','other computer merge']}
-(R/'test-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-sys.stdout.reconfigure(encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2))
+if __name__=='__main__':
+ sys.exit(main())

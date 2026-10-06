@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-10-05T16:54:30.403122+00:00",
-  "status": "prepared final content allowlist; root review pending; no Git writes",
+  "recordedAt": "2026-10-06T01:29:50.733083+00:00",
+  "status": "checker-only v2 links/enumeration/mode candidate based on accepted bc3; root integration review pending; no Git/production/workflow actions",
   "conditionalUserSourceUploadApproved": true,
   "releaseReady": false,
   "source311SetSha256": "f1d7ce1d3cb2c73ccaae58744ef2ff2a34cef69070d098193b2cac86b7ae532c",
@@ -9,10 +9,10 @@
     "docs/provenance/UPLOAD-ALLOWLIST.json"
   ],
   "externalAuthoritativeFullTree": "final-target-inventory.json outside ZIP",
-  "contentFiles": 321,
-  "contentBytes": 12322200,
-  "contentSetSha256": "71e21d6fce209198350d2c2f9328858d3b66fd6d9beb9e8cb428c0234fd386dc",
-  "digestContract": "sha256 UTF8 json.dumps(files sorted path,ensure_ascii=False,sort_keys=True,separators=(comma,colon))",
+  "contentFiles": 324,
+  "contentBytes": 12350253,
+  "contentSetSha256": "797e1ed0d05adeb0ea6ea402ead37efb844b06105e8c81da152b04c3a8553750",
+  "digestContract": "sha256 UTF8 json.dumps(files in recorded Windows pathlib order,ensure_ascii=False,sort_keys=True,separators=(comma,colon))",
   "unverifiedAndBusinessBlocked": "docs/collaboration/READINESS.json",
   "moduleReadiness": [
     {
@@ -904,6 +904,20 @@
       "sourcePath": "candidate_revision3/docs/PIPELINE-INCIDENT.md",
       "sourceSha256": "5ccbaf6173616a187898bc189c057a762999acee0bf1dca0885f17fea607f931",
       "change": "governance-replacement"
+    },
+    {
+      "path": "docs/planning/candidate-checker-contract-fix-20261006/README.md",
+      "moduleId": "support",
+      "owner": "根协调审核",
+      "category": "checker-contract-helper-or-test",
+      "releaseReady": false,
+      "sourcePath": "independent-checker-contract-v2-links-20261006",
+      "sourceSha256": null,
+      "change": "checker-contract-addition",
+      "bytes": 5625,
+      "sha256": "887ff9821c0ea6bb3c7a4d1b5d9274715f94d604d5286af6ac729fd7706c7df2",
+      "gitBlobSha1": "1057950775164b91dbcb753b3eb1380a9c50d365",
+      "gitMode": "100644"
     },
     {
       "path": "docs/provenance/restored-v7.json",
@@ -4476,6 +4490,20 @@
       "change": "unchanged-frozen-source"
     },
     {
+      "path": "tests/integration/test_candidate_checker_contract.py",
+      "moduleId": "support",
+      "owner": "根协调审核",
+      "category": "checker-contract-helper-or-test",
+      "releaseReady": false,
+      "sourcePath": "independent-checker-contract-v2-links-20261006",
+      "sourceSha256": null,
+      "change": "checker-contract-addition",
+      "bytes": 15671,
+      "sha256": "67e89522fd4d0af7a286150de835824cd6ba5daaf5fcbe26768845aac506d5cd",
+      "gitBlobSha1": "b15e37bc37d4808d41dee47d0e4ec5e0fe330108",
+      "gitMode": "100644"
+    },
+    {
       "path": "tests/integration/test_fc_migration_contract.py",
       "bytes": 4130,
       "sha256": "6b451ea14726633d33a3b800b45850b3457dd9a83b3d3887823841cb0d68691d",
@@ -4616,18 +4644,32 @@
       "change": "unchanged-frozen-source"
     },
     {
+      "path": "tools/candidate_tree_contract.py",
+      "moduleId": "support",
+      "owner": "根协调审核",
+      "category": "checker-contract-helper-or-test",
+      "releaseReady": false,
+      "sourcePath": "independent-checker-contract-v2-links-20261006",
+      "sourceSha256": null,
+      "change": "checker-contract-addition",
+      "bytes": 6593,
+      "sha256": "c7aeb19a538539e9fc57180b5b0173f3f410390ce9e18978275a16e41de6f362",
+      "gitBlobSha1": "44579b2389fdfa1ad421758156be544f8a24e112",
+      "gitMode": "100644"
+    },
+    {
       "path": "tools/check_candidate.py",
-      "bytes": 7902,
-      "sha256": "cc23efd8c4e7ca360f42e4a524bebf93bdfc177d0281468e43ef479643e09cc4",
-      "gitBlobSha1": "4a62196dd2dfb588ada727d68786b45561bb8154",
+      "bytes": 8066,
+      "sha256": "8a824ded3080b4b2855b83d7925f4944f5113b89e16219c5573a348b5178a3c0",
+      "gitBlobSha1": "b53d3f514b647e1ea20922e8277d3237e2089e50",
       "gitMode": "100644",
       "moduleId": "support",
       "owner": "待指派；本批根协调准入",
       "category": "source-or-reviewed-helper",
       "releaseReady": false,
-      "sourcePath": "candidate_revision3/tools/check_candidate.py",
+      "sourcePath": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7/tools/check_candidate.py",
       "sourceSha256": "cc23efd8c4e7ca360f42e4a524bebf93bdfc177d0281468e43ef479643e09cc4",
-      "change": "unchanged-frozen-source"
+      "change": "checker-contract-fix"
     },
     {
       "path": "tools/fc_migration_contract.py",
@@ -4713,5 +4755,8 @@
       "sourceSha256": "bf4b9a19af8c7d99f66998310cdaa850326891ed8b2693dd76e218d5a5cc1414",
       "change": "unchanged-frozen-source"
     }
-  ]
+  ],
+  "checkerOnlyBaseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "integrationRequiresRefreshIfBaseChanged": true,
+  "gitModeValidationContract": "Explicit gitMode100644/100755: POSIX executable bits required; Windows syntax only/unverified; absent gitMode no promise"
 }
