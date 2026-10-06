@@ -152,6 +152,37 @@ td.num,th.num{text-align:right}
 .t-sug-down{background:#e9f2f9;color:var(--sky)}
 .up{color:var(--red)} .dn{color:var(--green)}
 
+/* ===== 2026-10-06 · AION2 金币汇总表易用化 =====
+   需求（用户原话）：「看板看起来太费劲了，给表头冻结一下，最好按区搞点筛选」。
+   实现：① 表格放进 72vh 的滚动容器 ⇒ 原有的 th{position:sticky} 才真正生效
+        （原来容器写的是 max-height:none，sticky 表头等于没开）；
+        ② 第一列（服务区）也横向冻结，横滚时不丢「这是哪台服务器」；
+        ③ 顶部一排筛选：大区下拉 / 服务器搜索 / 只看亏损 / 只看有变动。
+   ⚠ 筛选控件**必须放在表格容器之外**（#gcsTable 每次重绘换 innerHTML），
+     否则在搜索框里输一个字就会失焦。 */
+.gcs-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.gcs-bar select,.gcs-bar input[type=text]{background:var(--mantle);border:1px solid var(--s2);
+  color:var(--text);border-radius:7px;padding:5px 9px;font-size:12.5px;font-family:inherit}
+.gcs-bar input[type=text]{min-width:200px}
+.gcs-bar label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--sub);
+  background:var(--s0);border-radius:7px;padding:5px 9px;cursor:pointer;user-select:none}
+.gcs-bar label input{margin:0}
+.gcs-bar .gcs-cnt{font-size:12px;color:var(--ov0);margin-left:auto;white-space:nowrap}
+.gcs-bar .gcs-btn{background:var(--mantle);border:1px solid var(--s2);color:var(--sub);
+  border-radius:7px;padding:5px 10px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.gcs-wrap{overflow:auto;max-height:72vh;border:1px solid var(--s1);border-radius:9px}
+.gcs-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.gcs-wrap th,.gcs-wrap td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--s0);
+  white-space:nowrap}
+.gcs-wrap thead th{position:sticky;top:0;z-index:3;background:var(--crust);color:var(--sub);
+  font-size:11.5px;font-weight:600;box-shadow:inset 0 -1px 0 var(--s1)}
+.gcs-wrap thead th:first-child{left:0;z-index:4}
+.gcs-wrap th:first-child,.gcs-wrap td:first-child{position:sticky;left:0;background:var(--base);
+  box-shadow:1px 0 0 var(--s1)}
+.gcs-wrap tbody tr:hover td{background:#f0f0f3}
+.gcs-wrap tbody tr:hover td:first-child{background:#f0f0f3}
+.gcs-empty{padding:22px;text-align:center;color:var(--ov0);font-size:13px}
+
 /* 日志（2026-09-24 第十五轮：从右侧边栏改为整宽独立一行，高度相应收窄） */
 .logbox{height:420px;overflow:auto;background:var(--crust);padding:11px 13px;font-size:12px;
   line-height:1.65;font-family:"Cascadia Mono",Consolas,monospace;border-radius:0 0 11px 11px}
@@ -1629,6 +1660,58 @@ async function renderGold(pre){
    利润率 = (售价 − 成本) / 售价，**可以为负**（负数 = 亏，如实显示，不截断）。
    成本与售价统一折成 $/M 再比（成本原始口径 元/万基纳 同时给出）。
    ====================================================================== */
+/* ===== 2026-10-06 · AION2 金币汇总表的「筛选 + 局部重绘」 =====
+   数据（GCS_ROWS）、行渲染函数（GCS_ROW）、表头（GCS_THEAD）由 renderGoldCostSum
+   每轮刷新到这里；筛选只在已加载的这一批数据上过滤，**不重新请求接口**（快照本就是一整批）。
+   筛选条件存 GCS_FILTER，切换游戏 / 新一轮采集后重建控件时按它回填，不丢用户的筛选。 */
+let GCS_ROWS = null, GCS_ROW = null, GCS_THEAD = '';
+let GCS_FILTER = {kw: '', region: '', loss: false, move: false};
+function gcsApply(){
+  const host = document.getElementById('gcsTable');
+  if(!host || !GCS_ROW) return;
+  const kwEl = document.getElementById('gcsKw');
+  const rgEl = document.getElementById('gcsRegion');
+  const lossEl = document.getElementById('gcsLoss');
+  const moveEl = document.getElementById('gcsMove');
+  GCS_FILTER = {
+    kw: (kwEl ? String(kwEl.value || '').trim() : ''),
+    region: (rgEl ? String(rgEl.value || '') : ''),
+    loss: !!(lossEl && lossEl.checked),
+    move: !!(moveEl && moveEl.checked)
+  };
+  const kw = GCS_FILTER.kw.toLowerCase();
+  const hit = (GCS_ROWS || []).filter(function(x){
+    if(GCS_FILTER.region && String(x.大区中文||x.DD区||'') !== GCS_FILTER.region) return false;
+    if(kw){
+      const hay = ((x.服务器名||'')+' '+(x.DD游戏区||'')+' '+(x.种族||'')+' '
+                   +(x.key||'')+' '+(x.依据||'')).toLowerCase();
+      if(hay.indexOf(kw) < 0) return false;
+    }
+    /* 只看亏损行：利润率 < 0（真实结论，不淡化） */
+    if(GCS_FILTER.loss && !(x.利润率 != null && Number(x.利润率) < 0)) return false;
+    /* 只看有变动：动作是 跟涨 / 跟降（持平行 = 不需要动手） */
+    if(GCS_FILTER.move){
+      const a = ((x.定价||{}).action) || '';
+      if(a !== 'follow_up' && a !== 'follow_down') return false;
+    }
+    return true;
+  });
+  host.innerHTML = '<div class="gcs-wrap"><table class="tbl">'
+    + '<thead>'+GCS_THEAD+'</thead><tbody>'+hit.map(GCS_ROW).join('')+'</tbody></table>'
+    + (hit.length ? '' : '<div class="gcs-empty">没有符合当前筛选条件的服务区</div>')
+    + '</div>';
+  const cnt = document.getElementById('gcsCnt');
+  if(cnt) cnt.textContent = '显示 '+hit.length+' / '+(GCS_ROWS||[]).length+' 个服务区';
+}
+function gcsReset(){
+  ['gcsKw','gcsRegion'].forEach(function(id){
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  ['gcsLoss','gcsMove'].forEach(function(id){
+    const el = document.getElementById(id); if(el) el.checked = false;
+  });
+  gcsApply();
+}
 async function renderGoldCostSum(){  const box = $('#goldCostSum');
   if(!box) return;
   const g = curGameObj();
@@ -1684,18 +1767,21 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
           +Number(P.gap_comp).toFixed(2)+'</div>' : '')
       + '</td>';
   };
-  const body = rows.map(function(x){
+  /* 行渲染函数（供筛选后重绘复用）：吃一条 api/gold_cost 的 item，吐一个 <tr>。 */
+  const rowHTML = function(x){
     const noCost = !x.ok;
     /* 无报价 / 被风控：不编数，直接留空 + 说明原因（用户口径 2026-10-02）。
        ⚠ 注意：dd373_markup 下「无 DD373 报价」≠「不定价」——
          第2级会用 G2G、第3级用默认售价 9.9 顶上，售价列照样有数。 */
+    /* 2026-10-06 用户口径：「咱们的进货价和标价都用同一种单位来显示，方便我看」——
+       进货价原列显示的是「元/万基纳」，与售价的 $/M 不是一个单位，没法直接比。
+       现在主数字统一成 **$/M**（与售价同单位），原始 元/万基纳 降为小字留证；
+       原来重复的「成本 $/M」列并入本列（12 列 → 11 列）。 */
     const costCell = noCost
       ? '<td class="num" style="color:var(--sub)">无报价</td>'
-      : '<td class="num mono">'+f6(x.成本_元每万基纳)
-        + '<div class="small" style="color:var(--sub)">元/万基纳</div></td>';
-    const usdCell = noCost
-      ? '<td class="num" style="color:var(--sub)">--</td>'
-      : '<td class="num mono">$'+f4(x.成本_USD每M)+'/M</td>';
+      : '<td class="num mono"><b>$'+f4(x.成本_USD每M)+'/M</b>'
+        + '<div class="small" style="color:var(--sub)">'
+        + f6(x.成本_元每万基纳)+' 元/万基纳</div></td>';
     const stockTip = (x.库存? (' · 库存 '+esc(x.库存)) : '')
       + (x.挂单数? (' · '+x.挂单数+' 条挂单') : '');
     /* 2026-10-02：定价级别（第1/2/3 级）—— 这一列是本次改动的核心可见性 */
@@ -1751,7 +1837,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
          该列用成本除数换算，与 MMOEXP 前台口径重复且易误读，直接移除。
          「改价操作」列里的新价已改用真实除数（5.32），与前台一致。 */
       + cCell(P.g2g) + cCell(P.eld) + cCell(P.iggm)
-      + costCell + usdCell
+      + costCell
       + mCell(x.利润率)
       + gapCellSum(P)
       + '<td style="color:var(--sub);font-size:12px">'
@@ -1759,7 +1845,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                    : esc(x.依据||''))
         + '</td>'
       + gaCell + '</tr>';
-  }).join('');
+  };
   const sumBits = [];
   if(S.服务区数!=null) sumBits.push('服务区 '+S.服务区数);
   if(S.有成本!=null)    sumBits.push('有成本 '+S.有成本);
@@ -1770,7 +1856,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
   const _dist = {1:0, 2:0, 3:0};
   rows.forEach(function(x){
     const P2 = x['定价']||{};
-    if(P2.mode==='dd373_markup' && P2.tier!=null){
+    if((P2.mode==='dd373_markup' || P2.mode==='dd373_only' || P2.mode==='g2g_cheapold')
+       && P2.tier!=null){
       const tt = Number(P2.tier); if(_dist[tt]!=null) _dist[tt]++;
     }
   });
@@ -1779,18 +1866,52 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
   }
+  if(_pol2['模式']==='dd373_only'){
+    /* 只跟 DD373：第1级 = 买满 2 亿按成本×加价；第3级 = 无货统一挂兜底价 */
+    sumBits.push('有货照成本加价 '+_dist[1]
+      + ' ｜ <span style="color:var(--yellow)">无货兜底 $'
+      + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_dist[3]+'</span>');
+  }
   const thead = '<tr><th>服务区 / 货源</th><th class="num">定价级别</th>'
-    + '<th class="num">售价（改价后最终）</th>'
+    + '<th class="num">售价 $/M<br><span class="small" style="color:var(--sub);font-weight:400">改价后最终</span></th>'
     /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列，与「售价」列口径重复。 */
-    + '<th class="num">G2G $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
-    + '<th class="num">ELD $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    /* 2026-10-06 用户口径：「只关注 G2G最低价、ELD最低价、IGGM价」——
+       G2G 列由子服务器 cheapold 改为**三源里的 G2G 最低价**（见 app.py api_gold_cost）。 */
+    + '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
-    + '<th class="num">进货成本 DD373</th><th class="num">成本 $/M</th>'
+    /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
+    + '<th class="num">进货价 DD373<br><span class="small" style="color:var(--sub);font-weight:400">$/M（与售价同单位）</span></th>'
     + '<th class="num">利润率</th>'
     /* 2026-10-02 用户要求：金币监控主表已隐藏，把它的「差距对比」并到这里 */
     + '<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">vs 竞品最低价</span></th>'
     + '<th>依据</th><th>改价操作</th></tr>';
   const _isDD2 = _pol2['模式']==='dd373_markup';
+  const _isOnly = _pol2['模式']==='dd373_only';
+  /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
+     ⚠ 必须放在 #gcsTable **之外**：表格每次重绘都换 innerHTML，控件在里面会失焦。
+     控件的初值从 GCS_FILTER 回填（新一轮采集重建后不丢用户已选的筛选）。 */
+  const _regions = [];
+  rows.forEach(function(x){
+    const rg = x.大区中文 || x.DD区 || '';
+    if(rg && _regions.indexOf(rg) < 0) _regions.push(rg);
+  });
+  const _sel = function(v){ return String(v)===GCS_FILTER.region ? ' selected' : ''; };
+  const bar = '<div class="gcs-bar">'
+    + '<select id="gcsRegion" onchange="gcsApply()">'
+    + '<option value="">全部大区</option>'
+    + _regions.map(function(rg){
+        return '<option value="'+esc(rg)+'"'+_sel(rg)+'>'+esc(rg)+'</option>';}).join('')
+    + '</select>'
+    + '<input type="text" id="gcsKw" value="'+esc(GCS_FILTER.kw)
+    + '" placeholder="搜服务器名 / 种族（如 Siel / Elyos）" oninput="gcsApply()">'
+    + '<label><input type="checkbox" id="gcsLoss" onchange="gcsApply()"'
+    + (GCS_FILTER.loss?' checked':'')+'>只看亏损行</label>'
+    + '<label><input type="checkbox" id="gcsMove" onchange="gcsApply()"'
+    + (GCS_FILTER.move?' checked':'')+'>只看有变动</label>'
+    + '<button class="gcs-btn" onclick="gcsReset()">重置</button>'
+    + '<span class="gcs-cnt" id="gcsCnt"></span>'
+    + '</div>';
   box.innerHTML =
       '<h4 class="gd-t" style="margin-top:14px">售价 · 进货成本 · 利润率'
     + '<span class="sub" style="margin-left:auto">'+sumBits.join(' ｜ ')+'</span></h4>'
@@ -1801,10 +1922,17 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + (_pol2['次源']||'G2G')+'兜底 → 再无则默认 $'
                  + (Number(_pol2['默认售价_USD每M'])||9.9).toFixed(2)
                  + '/M</b>')
-              : ' ｜ <b>成本不参与改价</b>，仅监控参考。')
+              : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ×'
+                 + (Math.round(Number(_pol2['加价比例']||0)*1000)/10)+'%'
+                 + '；无报价或可买量 < 2 亿 ⇒ 统一挂 $'
+                 + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
+              : ' ｜ <b>成本不参与改价</b>，仅监控参考。'))
     + '</div>'
-    + '<div style="overflow:auto;max-height:none"><table class="tbl">'
-    + thead + body + '</table></div>';
+    + bar
+    + '<div id="gcsTable"></div>';
+  /* 把这一轮的数据与行渲染函数交给筛选器，然后首绘 */
+  GCS_ROWS = rows; GCS_ROW = rowHTML; GCS_THEAD = thead;
+  gcsApply();
 }
 function openGoldApply(){
   const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};

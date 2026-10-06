@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""金币定价策略切换器（dd373_markup ⇄ multisrc）—— 幂等、只改一个字段。
+"""金币定价策略切换器（dd373_only ⇄ g2g_cheapold ⇄ dd373_markup ⇄ multisrc）—— 幂等、只改一个字段。
 
 用法（服务器上）：
-    # 切到「DD373 推荐价 +5%」三级顺延（老板 2026-10-02 起的现行策略）
-    python3 /opt/d4follow/switch_pricing_mode.py dd373_markup
+    # 切到「只跟 DD373 进货成本 +7%」（老板 2026-10-06 起的现行策略）
+    python3 /opt/d4follow/switch_pricing_mode.py dd373_only
+
+    # 切回「G2G cheapold 跟价」（2026-10-05 策略）
+    python3 /opt/d4follow/switch_pricing_mode.py g2g_cheapold
 
     # 一键复活旧三源比价（基准=min(G2G,ELD)，让价 2%）
     python3 /opt/d4follow/switch_pricing_mode.py multisrc
 
     # 只看当前状态，不改
     python3 /opt/d4follow/switch_pricing_mode.py --show
+
+⚠ 本脚本用 json.dumps 整份重写 config ⇒ **行尾会从 CRLF 全变 LF**（diff 出几万行）。
+  只切换模式时用它没问题；**要在原文件上做定点改动，请用字节级补丁脚本**（读 rb / 写 wb）。
 
 为什么单独一个脚本：
   patch_pricing_mode.py 是**首次上线时**用的补丁（硬编码写 dd373_markup，
@@ -32,7 +38,7 @@ import time
 
 CFG = os.environ.get("D4_CFG", "/opt/d4follow/config.json")
 BACKUP_DIR = "/opt/d4follow/_rollback_20261002_DD373定价"
-VALID = ("dd373_markup", "multisrc", "g2g_cheapold")
+VALID = ("dd373_only", "g2g_cheapold", "dd373_markup", "multisrc")
 
 
 def show(c):
@@ -43,6 +49,10 @@ def show(c):
     print("定价策略.模式    : %s" % p.get("模式"))
     print("适用游戏        : %s" % (p.get("适用游戏") or []))
     print("加价比例        : %s" % p.get("加价比例"))
+    print("无货兜底售价    : %s USD/M（dd373_only：无报价或可买量 < 无货最小可买万基纳）"
+          % (p.get("无货兜底售价_USD每M") if p.get("无货兜底售价_USD每M") is not None else 19.9))
+    print("无货最小可买    : %s 万基纳（默认 20000 = 2 亿）"
+          % (p.get("无货最小可买万基纳") if p.get("无货最小可买万基纳") is not None else 20000))
     print("下浮比例        : %s（g2g_cheapold 用）" % p.get("下浮比例"))
     print("利润率下限      : %s（g2g_cheapold 兜底；低于它就把目标抬到 成本÷(1+下限)）"
           % (p.get("利润率下限") if p.get("利润率下限") is not None else -0.1))
@@ -111,6 +121,11 @@ def main():
     if mode == "g2g_cheapold":
         print("提示：新口径 = 每个子服务器 G2G cheapold 价（无则推荐前二较低者）"
               "× (1−下浮比例，默认 3%%)；需 config.金币.服务区[].g2g_dataset 已填。")
+    if mode == "dd373_only":
+        print("提示：新口径 = DD373 该区进货成本（买满 2 亿订单簿加权）× (1+加价比例，默认 7%%)；"
+              "DD373 无报价或可买量 < 2 亿的区统一挂 $19.9/M。"
+              "需 app 每轮注入 DD373 成本（进货成本.启用=true），且"
+              "config.金币.定价策略 里有 加价比例 / 无货兜底售价_USD每M / 无货最小可买万基纳。")
     if mode == "dd373_markup":
         print("提示：DD373 口径需 app 每轮注入 DD373 成本（进货成本.启用=true）。")
     print("提示：config 改动需重启 d4follow 才生效：systemctl restart d4follow")
