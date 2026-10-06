@@ -299,9 +299,21 @@ def _crawl_tree(log=None):
                     "our_name": nm,
                 }
                 _n += 1
-            _ok_race += 1
-            if log:
-                log("  [DD373] 区服树 %s/%s → %d 个游戏区" % (dd_area, r_name, _n))
+            # 🔴 2026-10-06：只有**真解析出游戏区**才算这个种族抓到了。
+            #    `_get()` 成功 ≠ 页面正常 —— 被阿里云 ESA 软拦时返回 HTTP 200 + 滑块页，
+            #    解析出 0 个区。原实现照样 `_ok_race += 1`，于是一整片大区被标成
+            #    「本轮抓全」→ `zone_tree()` 把快照里该大区的键**全过滤掉**；
+            #    5 个大区都被软拦时 out 为空 ⇒ 返回空树 ⇒ 86 区全判「无对应区」
+            #    全挂 $19.9。实测复现：10 个种族页全报「0 个游戏区」、ok_areas 却
+            #    收了 5 个大区、合并后 out = 0 键。
+            #    ⇒ `_n == 0` 一律**不采信**，交上轮快照兜底。
+            if _n:
+                _ok_race += 1
+                if log:
+                    log("  [DD373] 区服树 %s/%s → %d 个游戏区" % (dd_area, r_name, _n))
+            elif log:
+                log("  [DD373] 区服树 %s/%s → 0 个游戏区（疑似风控/页面异常，"
+                    "本轮不采信，交快照兜底）" % (dd_area, r_name))
             time.sleep(1.1)          # 分册 17：限流约 200 次/短窗口，这里很安全
         if _ok_race >= len(races):
             ok_areas.add(dd_area)
@@ -325,6 +337,14 @@ def zone_tree(max_age=21600, log=None):
     _filled = len(out)
     out.update(fresh)
     if not out:
+        if disk:
+            # 双保险：合并后为空（本轮把所有大区都判成「抓全」、实际却 0 个区）时，
+            #   直接用上次快照 —— **宁可用旧树，也绝不返回空树**（空树 = 86 区
+            #   全判「无对应区」全挂 $19.9）。上一处修复已让这种组合不出现，
+            #   这行是兜底，防止以后再从别的路径踩同一个坑。
+            if log:
+                log("  [DD373] ⚠ 本轮合并结果为空，改用上次快照兜底（%d 键）" % len(disk))
+            return disk
         if log:
             log("  [DD373] 区服树本轮抓空且无快照 —— 返回空（本轮不产出成本）")
         return out
