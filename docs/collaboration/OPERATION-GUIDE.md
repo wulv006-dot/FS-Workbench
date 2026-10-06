@@ -1,3 +1,51 @@
+## 2026-10-07 治理文档合并准备：当前状态优先于下文历史快照
+
+用户本轮明确指示“那你检查完就合并吧”，授权检查完成后合并PR #6治理文档；不包含其它PR、服务器部署或业务变更。草稿原head ac2866c40b883d3084e28fbf02818a71fe46bcbf/tree e6ac6f494509070b60e33b4e0c3380fb37c2a2b3 已入库；下文“远端尚未更新/写入或合并批准待补”仅为冻结时点。当前候选补充这次状态及准确清单，最终head/tree和merge结果以GitHub PR #6与merge读回为准，不在文件内自引用最终commit。
+
+本次只有治理文档/JSON及两活动清单，308份其它文件原字节、size、Git mode保持；业务源码未变。吴律当前直接授权文档合并，不替代陈超的ARPG业务批准。PR #2的NBA候选与PR #3的检查器都仍独立draft，不顺带合并：先集成本治理文档，后续PR需基于新main协调其7治理路径/2活动清单重叠，重生成活动清单并检查新的组合树。原分支/历史证据不改，不声称未来组合树已经验收。
+
+最新协调交接记录注册PR #5 d9dd533008fe298946eadd9e4bfea3a294aec111/tree d30ccde1e6551cd8ef6228a55d6629b7d603b84f 的Linux43=43pass/0skip、14.164秒，B-CL-01已关闭；原证据Library id libfile_c091fb7f82648191886848703a72e0ed、SHA256 34b8d9c0b7eac08ea5acce513a54b81ef47ab4ba0bb89a4f730c045dcea1398c。本治理轮只读交接，未独立获取原始证据或复跑。Python3.9目标环境、真实角色/Nginx与另4项多进程验收仍待，不能把43项通过当注册合并/生产批准。旧Windows错误、取消上传和原冻结对象保留。
+
+利润补采首新版自然主体成功、补采12项失败；两既存cache已定位严格右端次日00双零占位兼容缺陷，独立最小修复尚待审查，不声称12项全因一致或已修复。120分钟/60秒、业务口径/价格/账号不变。本治理合并不发布业务模块，所有模块releaseReady=false、未接管映射继续legacy-unreconciled。
+
+来源：已读取的本机CURRENT-QA-HANDOFF.md脱敏摘要，仅作协作记录；该原工程全平台文件不复制进本仓，也不建立新部署绝对路径依赖。空GitHub checks不代表CI通过；本PR按实际最终树作文档/清单/原字节检查及隔离合成检查，合并后读回实际集成树。生产、自然验收和各业务PR未决门槛保持独立。
+
+## 当前流程 governance-20261007-v1（2026-10-07）
+
+本段是当前流程修订候选；远端尚未更新。本仓 main 已有323文件，commit `bc3b29531cec2fab3fc090385f3d7d126eb9ada7`，tree `a4140280619771e9240e15340b0c452ab8ba9ef8`。历史“EMPTY／未入库／今晚”仅代表原任务时点，不提供未来写入授权。
+
+1. 开始任务读取适用AGENTS、gitignore、HANDOFF、CURRENT-STATUS、OWNERS、SOURCE-MAP、未决项和模块合同；输出精确路径、owner、授权、依赖、未提交保护与基线的范围卡。
+2. 代码依据、协作记录、责任映射、运行证据分别记录。模块接管标git-canonical／legacy-unreconciled／unknown；仓库路径不自动等于生产路径，PR是候选，main是集成基线。未迁移的原工程全平台HANDOFF保留，只作脱敏关联。
+3. 独立分支／工作目录开发；合并前冻结commit/tree，隔离QA、契约和受影响消费者回归，必要时测候选与最新main组合树。负责人确认绑定确切head；新增提交重新评估受影响检查与确认。
+4. 明确合并批准后才merge；随后读回最终merge/squash SHA、树、内容和集成产物。另获module＋source commit＋artifact SHA＋现场基线批准，才能受控单模块发布；自然周期另验。
+5. 正常流向是开发→GitHub→候选/产物→QA/生产。发现漂移标drift/unknown并暂停相关写入，查部署记录与最小证据；不按mtime选源，不自动反向覆盖或销毁修复证据。
+6. 共享模块列消费者、兼容方案和逐owner确认；仓库所有者权限不是全部业务批准权。D4/PoE2/Aion2归陈超，FC/NBA/MLB归吴律；其它待指派项保持待指派。共享规则由Work整合，Git写入及共享发布串行，不stash/reset/clean他人文件。
+7. 代码发布与采集、价格写入、通知分别授权。不更改定价/赠送/成本/all-sites/Order主源Admin补缺/调度，不恢复退役publisher，不停正常采集。回滚保留DB、撤销状态、队列、锁、回执、策略和审计；unknown先查原ID，不换ID再写。
+8. QA仅用已批准来源和生产外已获准环境；合成与真实身份分层，不复制生产凭据、用户库或上游写权限，不购资源/建长期凭据/开未知workflow。缺环境继续静态准备，必要门槛标BLOCKED。
+9. 原服务器QA传输拒绝及取消继续有效；不改名、分包、编码、换工具/连接/审批机制绕过。具体动作方向以原拒绝记录为准，合法替代架构仍须独立授权。
+10. 历史原字节manifest/checker仅证明原冻结对象；新候选另生成精确活动清单，两checker清单一致，不删检查或放宽秘密拒绝项。Git SHA、产物SHA256、测试输入哈希分别记录，避免文件记录自身最终commit造成自引用。
+11. AI review、测试、owner业务确认、合并、上线是不同事件。规则说明与技术保护分开；空checks、200、语法或MD不能证明正式CI/真实权限通过。真实env、账号库、经营实值、订单、DB/WAL、密钥、Cookie、运行日志/锁/回执/缓存/备份不得入Git。
+12. 三/四管理员为历史代码、候选政策及现场身份的待核对差异；本修订不新增、删除或降级账号，不根据旧三管理员代码覆盖已有政策，不据PR文案扩展NBA等模块写权限。最新授权及合法现场证据须分项关联。
+
+本次GitHub治理写入尚未取得覆盖该精确载荷的授权；已准备可审阅差异。merge、保护设置、权限、生产停启、上线/回滚均另核授权。已有具体批准适用时直接推进普通步骤，不重复索取。
+
+## 当前人类六步与AI执行模板
+
+1. 指定模块和目标，AI先核实来源、owner、实际main/PR及范围卡。
+2. 审核行为影响和共享消费者；已明确授权的普通步骤继续。
+3. AI在独立候选中实现、隔离测试并冻结commit/tree；必要时验证最新main组合树，报告pass/fail/skip/未验。
+4. 查看PR差异和合并前QA；各受影响owner针对确切head确认，合并另批。
+5. 合并后读回最终SHA/tree，校验集成产物及依赖；源或构建输入变化重新评估。
+6. 指定module、source commit、artifact SHA、现场基线另批上线；锁内重读，漂移即停，发布/读回/自然周期分别记录。
+
+AI开始模板：读取当前入口→填写owner/允许路径/base与head/保护差异/授权层→核实source-artifact-runtime映射→在独立候选开发→冻结候选及测试输入→合并前QA和消费者回归→提交精确审阅包→另核Git写入/owner/合并授权→合并后产物校验→生产另批。
+
+## 历史完整手册与双方模板
+
+> **2026-10-06当前合同（优先于本文历史段落）：** 首批干净源码已入私库 main bc3b29531cec2fab3fc090385f3d7d126eb9ada7。本批只增加文档与已独立复核 NBA receipts 候选；未提交、推送或部署。FC使用既有全局登录与角色，旧FC-only独立资格/fallback已被最新用户决定退役；当前已观察全局门户策略4管理员为wulv/chenchao/DY/fstech，来源为统一auth独立审阅及policy SHA b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017，不是本次新增账号。仓库旧C3政策/部分模块仍有三管理员代码，未随本批改动，禁止部署它覆盖四管理员现场。NBA api_security.js仍保留原三管理员模块守卫，其真实代理/角色适配未验，不因此擅授fstech NBA写权限。D4/PoE2/Aion2归陈超；球类归吴律；共享入口吴律主导陈超协作；其它owner待定。NBA R3-01/R3-02只在指定候选/合成证据层关闭，真实运行未验，releaseReady=false。D4/UI/auth源码均不在本批。文中旧权限、未push、FC专用桥与readiness状态是历史依据，不能作为当前发布指令。自助注册默认介绍/申请的业务方向已批准，实际入口/审批未实现。
+
+当前本批读我与测试闭包见 [BATCH README](../planning/fs-docs-nba-batch-20261006/README.md) 和 [TEST REPRODUCTION](../planning/fs-docs-nba-batch-20261006/TEST-REPRODUCTION.md)。以下首次准备阶段叙述保留上下文，模板继续按当前SHA/授权使用，首批已成功入库。
+
 # FS GitHub协作：两位用户操作手册
 
 版本：2026-10-06准备稿；仓库：[FS-Workbench](https://github.com/wulv006-dot/FS-Workbench)（private）。项目是MMOEXP游戏运营Agent，原工程为 `E:\WorkBuddy\大超服务器`。
@@ -8,7 +56,7 @@
 
 ## 一、你们只需要做这六步
 
-1. **告诉自己的AI做哪个模块、要改什么。** 开头复制下方“开始同步”模板；吴律处理FC/NBA/MLB等球类，陈超处理D4/Aion。
+1. **告诉自己的AI做哪个模块、要改什么。** 开头复制下方“开始同步”模板；吴律处理FC/NBA/MLB等球类，陈超处理D4/PoE2/Aion2。
 2. **看AI给的范围卡。** 只核对“目标模块、会改变的功能、影响其它模块吗、需要谁确认”。范围不明先停止；不需要自己敲Git命令。
 3. **让AI在自己的独立分支做。** 分支可以理解成自己的工作副本；别人没提交的内容必须保留。改完让AI给一页中文结果：改了什么、通过哪些测试、哪些未验、回退怎么做。
 4. **查看合并申请（PR）。** GitHub里可以点仓库的 `Pull requests`，打开AI提供的那一条，看 `Conversation` 中文说明、`Files changed` 文件列表和 `Checks` 检查结果。PR是“把我的改动加入共同版本”的申请。
@@ -58,8 +106,8 @@ FC/NBA/MLB问吴律；D4/PoE2/Aion2问陈超。共享登录、首页、导航由
 - 禁止force push（包括force-with-lease）、reset远端main、旧包覆盖、重写公共历史、直接从原工程push。需要处理冲突就人工可审阅地合并；无法判断语义交对应owner。
 - 不以CI绿色、页面200、静态解析、源文件存在或归档unit声明冒充实际运行、自然周期、角色或业务验收。缺现有只读角色就标未验；不新建账号/降级管理员补测。
 - 源码协作不触生产。默认不启用Actions部署、cron/timer、价格自动写、权限、真实订单操作或新长期访问。只用已核实工具；不安装软件/执行未知候选代码来“完善手册”。
-- NBA升级后置不拖其它模块：可独立审阅合并其它模块，但不把NBA未验修改打入其发布包。若共享认证/接口实际受影响，仍要跨模块审批与回归。NBA候选R3-01 UI稳定ID/结果核对、R3-02目录持久化及Linux验收未闭合，不能标可发布。
-- FC普通同事读取全部FC经营数据（销售额、成本、利润、商品排行）已获业务批准；四静态别名、限定FC准确区间/投影、真实会话与负向角色矩阵尚未部署/验收。不开放内部全站range或其它业务；写价/上架/权限仍仅既有合法管理员。
+- NBA后续业务升级不拖其它模块。本批独立NBA r4候选的R3-01/R3-02仅在指定源码/合成证据层关闭；真实Linux、浏览器/角色/代理及写回未验，不标可发布，不启用自动策略，unknown先核对原requestId。
+- FC沿用现有全局账号/角色，旧FC独立资格和fallback被最新决定退役；普通同事已批准读取全部FC经营字段，实际范围依合法global成员及中央策略；真实角色/frame/CAS未验。当前global门户4管理员来自已观察policy，既有合法成员不新增不迁移；本批不改旧三管理员模块守卫，不扩大NBA写权限。
 - 生产部署与回滚必须另批指定模块和commit/产物；保留数据、队列、锁、回执、价格策略与审计。不回滚整个数据库撤销上游副作用；unknown先核对，不能生成新ID再写。
 
 ## 五、可复制给双方AI的任务模板
@@ -160,7 +208,7 @@ review包括source-map真源、变更路径、合同、权限/负向、共享消
 
 ## 六、规则和实际保护要分开
 
-本轮只读确认私库为private、吴律连接有admin/push、大超write，远端分支列表为空。没有核实本账号套餐、branch protection/rulesets/CI/CODEOWNERS强制配置；本轮也没有启用它们。write是仓库级能力，不是“只准改自己的目录”。规则依赖AI范围守卫、review和双方执行，不能宣称GitHub已经强制锁死跨模块修改。
+现私库首批main bc3b295...已读回323文件；本批源码/文档冻结待draft PR，远端再变必须重读。Rulesets API当前返回升级Pro或公开私库403，branch protection接口返回integration无访问权限403；无法宣称保护已强制生效，也不能凭后者证明保护不存在。无需公开库、购买套餐、改权限或新凭据；write仍是仓库级能力。
 
 官方说明：私库保护分支和branch/tag rulesets支持GitHub Pro及相应Team/Enterprise方案；本账号是否有套餐和有效配置仍待核实，不购套餐。CODEOWNERS指定审阅者，需要配合要求owner审阅的有效规则；多个owner同一行通常任一人批准即可，不能自动代表双方都确认。以上不提供模块级代码阅读隔离。[保护分支](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)、[CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)。
 
