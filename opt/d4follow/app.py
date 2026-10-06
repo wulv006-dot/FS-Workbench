@@ -888,6 +888,25 @@ class Task(object):
             return 0
         cc = (cfg.get("金币") or {}).get("进货成本") or {}
         game = str(cc.get("游戏") or "AION2")
+        # ── 本机代抓优先（2026-10-06）：服务器出口 IP 已被 DD373 WAF 风控，
+        #    自抓恒失败。若本机（dd373_local_collect.py）刚推过成本，本轮直接沿用，
+        #    既保证数据新鲜，也**不再用被拦的 IP 去撞**（少一个持续触发风控的源头）。
+        #    本机没跑 / 推送过期 ⇒ 照旧自抓（风控解除后自然切回）。
+        if not force:
+            try:
+                _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
+                if os.path.exists(_lp):
+                    with open(_lp, encoding="utf-8") as _f:
+                        _j = json.load(_f)
+                    _t = dt.datetime.fromisoformat(str(_j.get("pushed_at") or ""))
+                    _age = (dt.datetime.now() - _t).total_seconds() / 60.0
+                    if _age < 20:
+                        log("  [成本] 本机 %.1f 分钟前刚推送 %d 条 DD373 成本"
+                            "（有效 %d）—— 本轮跳过服务器自抓（避免继续撞风控）"
+                            % (_age, _j.get("saved") or 0, _j.get("ok_rows") or 0))
+                        return 0
+            except Exception:
+                pass
         rate = core_gold.rate_of(cfg)
         gap = float(cc.get("请求间隔秒") or 1.3)
         svs = [s for s in ((cfg.get("金币") or {}).get("服务区") or [])
@@ -3264,6 +3283,58 @@ def api_our():
     try:
         n = store.save_our(con, ts, rows)
         return jsonify({"ok": True, "saved": n, "ts": ts})
+    finally:
+        con.close()
+
+
+@app.route("/api/dd373_cost", methods=["POST"])
+def api_dd373_cost():
+    """本机推送 DD373 基纳进货成本（**本机代抓**）。
+
+    为什么走本机：服务器出口 IP 已被 DD373 的阿里云 WAF 打进风控（无痕验证滑块页），
+    服务器侧 fetch_costs 恒被判风控 ⇒ 成本冻结、AION2 不出单。实测本机 IP **未**被打，
+    只需带浏览器 cookie 就能正常抓（见 dd373_local_collect.py）。
+
+    ⛔ 与 collect_gold_cost 走**同一条落库路径**（store.save_gold_cost）：
+       只写 gold_cost 表，**绝不写 gold_price / plan / 目标价**（用户口径：
+       成本仅作监控与定价输入，写入由 build_plan 统一负责）。
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    costs = body.get("costs") or {}
+    if not costs:
+        return jsonify({"ok": False, "error": "costs 为空"}), 400
+    ts = str(body.get("ts") or dt.datetime.now().isoformat(timespec="seconds"))
+    game = str(body.get("game") or "AION2")
+    cfg = load_cfg()
+    con = open_db()
+    try:
+        # 与本机同口径：最终售价优先取当前目标价，没有就退回我方现价（仅用于 margin 展示）
+        _price = {}
+        try:
+            for r in (store.gold_latest(con)[0] or []):
+                if engine.game_of(cfg, r.get("key")) != game:
+                    continue
+                tgt = None
+                if r.get("tgt_big") is not None and r.get("big_tier"):
+                    tgt = float(r["tgt_big"]) / float(r["big_tier"])
+                elif r.get("cost_target") is not None and r.get("divisor"):
+                    tgt = float(r["cost_target"]) / float(r["divisor"])
+                _price[r.get("key")] = tgt if tgt is not None else r.get("our_per_m")
+        except Exception:
+            pass
+        n = store.save_gold_cost(con, ts, costs, _price, game=game)
+        n_ok = sum(1 for v in costs.values() if v.get("ok"))
+        # 留痕：给 collect_gold_cost 判断「本机刚推过、本轮不必再自抓」用
+        try:
+            _p = os.path.join(ROOT, "data", "dd373_local_push.json")
+            with open(_p, "w", encoding="utf-8") as f:
+                json.dump({"ts": ts, "saved": n, "ok_rows": n_ok,
+                           "pushed_at": dt.datetime.now().isoformat(timespec="seconds"),
+                           "src": str(body.get("src") or "local")},
+                          f, ensure_ascii=False)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "saved": n, "ok_rows": n_ok, "ts": ts})
     finally:
         con.close()
 
