@@ -1,0 +1,1 @@
+{"passed":true,"scope":"actual adminWrite isolated temp files and delayed fake execFile; no child process/upstream write"}

@@ -1,3 +1,5 @@
+> **2026-10-06当前合同（优先于本文历史段落）：** 首批干净源码已入私库 main bc3b29531cec2fab3fc090385f3d7d126eb9ada7。本批只增加文档与已独立复核 NBA receipts 候选；未提交、推送或部署。FC使用既有全局登录与角色，旧FC-only独立资格/fallback已被最新用户决定退役；当前已观察全局门户策略4管理员为wulv/chenchao/DY/fstech，来源为统一auth独立审阅及policy SHA b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017，不是本次新增账号。仓库旧C3政策/部分模块仍有三管理员代码，未随本批改动，禁止部署它覆盖四管理员现场。NBA api_security.js仍保留原三管理员模块守卫，其真实代理/角色适配未验，不因此擅授fstech NBA写权限。D4/PoE2/Aion2归陈超；球类归吴律；共享入口吴律主导陈超协作；其它owner待定。NBA R3-01/R3-02只在指定候选/合成证据层关闭，真实运行未验，releaseReady=false。D4/UI/auth源码均不在本批。文中旧权限、未push、FC专用桥与readiness状态是历史依据，不能作为当前发布指令。自助注册默认介绍/申请的业务方向已批准，实际入口/审批未实现。
+
 # 双方AI协作硬规则（首次干净私库基线）
 
 本文件仅适用于独立FS-Workbench源码协作目录。原E工程继续本机Git、无remote、禁推原历史；不得复制其.git或整份含运行资料的HANDOFF。本首批由用户条件批准，今晚根协调可自主推进普通实现；本分工仍等待根核对最终清单和写入口，不自行push。
@@ -10,9 +12,9 @@
 4. 逐路径stage，核对index/commit树、白名单和敏感内容。不git add .或-A，不Web整目录上传。禁止force push（含force-with-lease）、重写公共历史、旧ZIP/旧整包盖源码或服务器。main变化后重读差异，PR批准绑定确切head SHA，新commit使旧确认失效。
 5. 用户和对应owner的业务确认、AI review、测试、合并、部署分开。已有具体授权可继续，不反复问普通步骤；尚未覆盖的重大事项/业务范围不可自行放行。未指派owner不猜归属。跨模块确认不能被一次CI绿色代替。
 6. 私钥、token、密码、OAuth/会话/Cookie/Basic、真实env/config/账号库、订单/客户/经营实值、PROFIT JSON、db/WAL、receipt/locks/队列/cache/log/备份不入Git。先核对ignore与准入清单；只报告秘密类别/位置，不输出值，不测试凭据有效性。example必须是占位，不是改名真实配置。
-7. 不创建新持久token/OAuth/SSHkey、不扩生产权限、不改变定价策略、不做不可恢复删除。保持三admin wulv/chenchao/DY，不新增fstech或伪造身份。缺现有只读角色就标未验，不能新账号或降级admin补测。
-8. 源码入库不等releaseReady。FC普通同事FC经营字段已业务批准，限定投影/四静态/真实身份负向未验未部署；不得开放内部全站range。NBA方向认可、升级后置；C3 UI稳定ID/结果核对与目录持久性/Linux及自动策略未闭合，unknown先核对旧ID，不能新ID再写。
-9. 新UI/NBArev4及其它进行中任务不属首批，不按最新mtime复制。后续独立分支/PR。其它模块可独立推进，不将危险NBA候选捎带部署；共享影响仍需批准和回归。
+7. 不创建新持久token/OAuth/SSHkey、不扩生产权限、不改变定价策略、不做不可恢复删除。现有global门户4管理员wulv/chenchao/DY/fstech保持；旧候选3管理员不得覆盖现场，不新增账号或伪造身份。本批NBA guard仍按原3管理员源码不扩权。缺现有只读角色就标未验，不能新账号或降级admin补测。
+8. 源码入库不等releaseReady。FC使用现全局登录/角色，旧独立资格/fallback已退役；真实角色/frame/当前CAS未验，不能用旧FC-only门槛替代最新批准范围。NBA方向认可、升级后置；NBA r4稳定ID/回执与目录同步仅代码/合成层复核通过；Linux真运行与自动策略未闭合，unknown先核对旧ID，不能新ID再写。
+9. 本批纳NBArev4精确7差异；新UI/auth/D4增量仍独立，不能按mtime复制。后续独立分支/PR。其它模块可独立推进，不将危险NBA候选捎带部署；共享影响仍需批准和回归。
 10. 不执行未知候选代码、安装依赖或启用自动workflow来掩盖未验。仅在已核实隔离测试入口、任务授权、现有runtime下运行所需检查。静态AST/页面200/归档unit/主方摘要都不代表全运行闭包/自然周期/真实角色通过。
 11. 保持Order主源/Admin补缺、all-sites、FC15档/rev25四档/赠送成本/Xbox护栏；经营120min/前端60s、Google09上海/300s、周报Mon02上海不变，旧publisher/旧采集链不恢复，Ponytail不动。
 12. 上线按确切module/commit/产物及依赖/现场SHA、release锁和受控入口；受影响范围单独发布，保留DB/锁/receipt/策略/审计。经营模板不能直接发布，仍需私有PROFIT输入与网关双SHA/版本/依赖合同。代码回滚不倒退业务数据，不撤销上游写。

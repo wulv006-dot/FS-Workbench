@@ -1,0 +1,568 @@
+{
+  "schemaVersion": 1,
+  "root": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
+  "evidence": {
+    "S001": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\primary_reader.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/primary_reader.py",
+      "sha256": "c246da9acd7b6b75bc41b79564b39a532b286eb3bf109598e6825738bdcb8f30",
+      "lineStart": 20,
+      "lineEnd": 56,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S002": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\primary_fields.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/primary_fields.py",
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+      "lineStart": 1,
+      "lineEnd": 38,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S003": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\supplement_reader.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/supplement_reader.py",
+      "sha256": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38",
+      "lineStart": 6,
+      "lineEnd": 30,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S004": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\supplement_fields.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "lineStart": 1,
+      "lineEnd": 73,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S005": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\collector.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/collector.py",
+      "sha256": "5a22b0dfbceeba5e49d6c2be6252761be1c6e91c6c4a83af5074ff6868efb8e9",
+      "lineStart": 10,
+      "lineEnd": 47,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S006": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\fc_product_contract.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/fc_product_contract.py",
+      "sha256": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+      "lineStart": 1,
+      "lineEnd": 106,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S007": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\fc_product_reader.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/fc_product_reader.py",
+      "sha256": "86356f8f940626925177aea582a441562e8e21c9a28ef353c16374bc283bfc57",
+      "lineStart": 10,
+      "lineEnd": 46,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S008": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_players_cloud\\球员维护工具\\admin_client.py",
+      "candidateRelativePath": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "sha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "lineStart": 325,
+      "lineEnd": 421,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S009": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_players_cloud\\球员维护工具\\admin_client.py",
+      "candidateRelativePath": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "sha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "lineStart": 424,
+      "lineEnd": 549,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S010": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_players_cloud\\球员维护工具\\admin_client.py",
+      "candidateRelativePath": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "sha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "lineStart": 553,
+      "lineEnd": 641,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S011": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_players_cloud\\球员维护工具\\admin_client.py",
+      "candidateRelativePath": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "sha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "lineStart": 643,
+      "lineEnd": 740,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S012": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_players_cloud\\player_web\\media_client.py",
+      "candidateRelativePath": "fc27_players_cloud/player_web/media_client.py",
+      "sha256": "1c49773baa25862ebf513acaf1cb9c5cca2fb4c2e84f0aec1d0b22ea9f267751",
+      "lineStart": 15,
+      "lineEnd": 70,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S013": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\collect_p2pah_cost.py",
+      "candidateRelativePath": "fc27_cloud_browser/collect_p2pah_cost.py",
+      "sha256": "455767a6678da6cdbcd2a83ef66d1fb11860d6498e91762e9ed6484ffa465321",
+      "lineStart": 18,
+      "lineEnd": 88,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S014": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\collect_p2pah_cost.py",
+      "candidateRelativePath": "fc27_cloud_browser/collect_p2pah_cost.py",
+      "sha256": "455767a6678da6cdbcd2a83ef66d1fb11860d6498e91762e9ed6484ffa465321",
+      "lineStart": 112,
+      "lineEnd": 179,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S015": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\repricing_dom.js",
+      "candidateRelativePath": "fc27_cloud_browser/repricing_dom.js",
+      "sha256": "b704dd1764144e29304b7c1ceb078438badb0b23c80981fb341cad50e8d53aca",
+      "lineStart": 115,
+      "lineEnd": 216,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S016": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\preview_backend.py",
+      "candidateRelativePath": "fc27_cloud_browser/preview_backend.py",
+      "sha256": "9fd82551c660daf5bdf25cdc5ec85094a14151e2e901784a063a769b0583c79d",
+      "lineStart": 15,
+      "lineEnd": 84,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S017": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\coin_all_sync_job.py",
+      "candidateRelativePath": "fc27_cloud_browser/coin_all_sync_job.py",
+      "sha256": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d",
+      "lineStart": 17,
+      "lineEnd": 98,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S018": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\clear_cache_after_write.py",
+      "candidateRelativePath": "fc27_cloud_browser/clear_cache_after_write.py",
+      "sha256": "efbebcde58125d1e8191115c8dc8ea252e3835da8fcc21652a66d7f85e1f8729",
+      "lineStart": 20,
+      "lineEnd": 65,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S019": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\player_sync_job.py",
+      "candidateRelativePath": "fc27_cloud_browser/player_sync_job.py",
+      "sha256": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7",
+      "lineStart": 99,
+      "lineEnd": 169,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S020": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fc27_cloud_browser\\player_sync_job.py",
+      "candidateRelativePath": "fc27_cloud_browser/player_sync_job.py",
+      "sha256": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7",
+      "lineStart": 522,
+      "lineEnd": 573,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S021": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_p2pah.py",
+      "candidateRelativePath": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "lineStart": 17,
+      "lineEnd": 32,
+      "verification": "源码含2026-09-23历史实测说明；本轮只读代码，未复验线上"
+    },
+    "S022": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_p2pah.py",
+      "candidateRelativePath": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "lineStart": 329,
+      "lineEnd": 389,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S023": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_p2pah.py",
+      "candidateRelativePath": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "lineStart": 474,
+      "lineEnd": 529,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S024": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_p2pah.py",
+      "candidateRelativePath": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "lineStart": 535,
+      "lineEnd": 590,
+      "verification": "源码明确清缓存GET/POST触发方式未完全验证"
+    },
+    "S025": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\p2pah_api.py",
+      "candidateRelativePath": "opt/nba-reprice/backend/p2pah_api.py",
+      "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "lineStart": 10,
+      "lineEnd": 33,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S026": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\p2pah_api.py",
+      "candidateRelativePath": "opt/nba-reprice/backend/p2pah_api.py",
+      "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "lineStart": 132,
+      "lineEnd": 214,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S027": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\server.js",
+      "candidateRelativePath": "opt/nba-reprice/backend/server.js",
+      "sha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73",
+      "lineStart": 226,
+      "lineEnd": 335,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S028": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\server.js",
+      "candidateRelativePath": "opt/nba-reprice/backend/server.js",
+      "sha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73",
+      "lineStart": 338,
+      "lineEnd": 398,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S029": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\server.js",
+      "candidateRelativePath": "opt/nba-reprice/backend/server.js",
+      "sha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73",
+      "lineStart": 52,
+      "lineEnd": 57,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S030": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\mlb-online\\mlb_server.py",
+      "candidateRelativePath": "opt/mlb-online/mlb_server.py",
+      "sha256": "552108bd89a240b58a7e1cde97c59cb0bd88fe8240141f665d86a4357e5ef838",
+      "lineStart": 3,
+      "lineEnd": 28,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S031": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\fs_transaction_snapshot_20260930\\atomic_snapshot.py",
+      "candidateRelativePath": "fs_transaction_snapshot_20260930/atomic_snapshot.py",
+      "sha256": "6469b77dd518d3da6f30ff5ecba73cb6291ea764f0223dae2ee186d76ffc9949",
+      "lineStart": 85,
+      "lineEnd": 132,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S032": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\mmoexp_google_data\\weekly_report\\range_parser_release_20261005\\source\\range_api.py",
+      "candidateRelativePath": "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py",
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea",
+      "lineStart": 30,
+      "lineEnd": 57,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S033": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\mmoexp_google_data\\weekly_report\\range_parser_release_20261005\\source\\range_api.py",
+      "candidateRelativePath": "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py",
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea",
+      "lineStart": 110,
+      "lineEnd": 180,
+      "verification": "代码静态核实；本轮未请求生产接口"
+    },
+    "S034": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\docs\\integration\\RUNTIME-CONTRACTS.md",
+      "candidateRelativePath": "docs/integration/RUNTIME-CONTRACTS.md",
+      "sha256": "17da7e5624e3bfda5fc37f6973a5b3023b7b0b9e68f152f0b845ff3dda800c3b",
+      "lineStart": 3,
+      "lineEnd": 23,
+      "verification": "候选运行合同，明示不是已验证生产映射"
+    },
+    "S035": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_gold.py",
+      "candidateRelativePath": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "lineStart": 54,
+      "lineEnd": 151,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S036": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_gold.py",
+      "candidateRelativePath": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "lineStart": 317,
+      "lineEnd": 369,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S037": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_gold.py",
+      "candidateRelativePath": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "lineStart": 580,
+      "lineEnd": 586,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S038": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_gold.py",
+      "candidateRelativePath": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "lineStart": 695,
+      "lineEnd": 770,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S039": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_gold.py",
+      "candidateRelativePath": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "lineStart": 466,
+      "lineEnd": 507,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S040": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\poe2_align.py",
+      "candidateRelativePath": "opt/d4follow/poe2_align.py",
+      "sha256": "75c8c2e6254f5b4643478554c5992e85603fda2a1e69ec3c39584224ff3ba420",
+      "lineStart": 76,
+      "lineEnd": 116,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S041": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 168,
+      "lineEnd": 194,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S042": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 257,
+      "lineEnd": 270,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S043": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 48,
+      "lineEnd": 96,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S044": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 484,
+      "lineEnd": 510,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S045": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 895,
+      "lineEnd": 918,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S046": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_front.py",
+      "candidateRelativePath": "opt/d4follow/core_front.py",
+      "sha256": "2c923f35fe5fd3a614a48967027d8f2243ebf94a85ab968563445f2b5a127df8",
+      "lineStart": 348,
+      "lineEnd": 397,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S047": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_p2pah.py",
+      "candidateRelativePath": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "lineStart": 30,
+      "lineEnd": 43,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S048": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\app.py",
+      "candidateRelativePath": "opt/d4follow/app.py",
+      "sha256": "dbbd5e2d76f224c73fbda0a9db0210d15310fcbf1a8265636e31e5bef72d9a14",
+      "lineStart": 2399,
+      "lineEnd": 2493,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S049": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\app.py",
+      "candidateRelativePath": "opt/d4follow/app.py",
+      "sha256": "dbbd5e2d76f224c73fbda0a9db0210d15310fcbf1a8265636e31e5bef72d9a14",
+      "lineStart": 535,
+      "lineEnd": 617,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S050": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\aion2_watch.py",
+      "candidateRelativePath": "opt/d4follow/aion2_watch.py",
+      "sha256": "18997bf016b45c8266fb23404df4123ea94ceff90f068830704c971982f2e475",
+      "lineStart": 1,
+      "lineEnd": 22,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S051": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_dd373_cost.py",
+      "candidateRelativePath": "opt/d4follow/core_dd373_cost.py",
+      "sha256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "lineStart": 64,
+      "lineEnd": 78,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S052": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_dd373_cost.py",
+      "candidateRelativePath": "opt/d4follow/core_dd373_cost.py",
+      "sha256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "lineStart": 270,
+      "lineEnd": 280,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S053": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_dd373_cost.py",
+      "candidateRelativePath": "opt/d4follow/core_dd373_cost.py",
+      "sha256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "lineStart": 391,
+      "lineEnd": 409,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S054": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_qd.py",
+      "candidateRelativePath": "opt/d4follow/core_qd.py",
+      "sha256": "eb416e0171b1e17de6e8f77dc3a445258b92f6e1a08566e27a4e5ebdfde40545",
+      "lineStart": 153,
+      "lineEnd": 192,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S055": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\tracker.py",
+      "candidateRelativePath": "opt/d4follow/tracker.py",
+      "sha256": "38fadf1983897dd52924bf1556c3507c759c5a6d2eafc7f846eedf2fe94d2fa9",
+      "lineStart": 169,
+      "lineEnd": 194,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S056": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_g2g.py",
+      "candidateRelativePath": "opt/d4follow/core_g2g.py",
+      "sha256": "c611e4ae6c72a72c74e1ac316cd3f5c4de01367cdb46d9538a27f418786df239",
+      "lineStart": 17,
+      "lineEnd": 48,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S057": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_eld.py",
+      "candidateRelativePath": "opt/d4follow/core_eld.py",
+      "sha256": "c1242f2c6bee947fd6d1520ba266986b7bae30fc293d84a4fff37b993ea9395a",
+      "lineStart": 16,
+      "lineEnd": 66,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S058": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\core_multi.py",
+      "candidateRelativePath": "opt/d4follow/core_multi.py",
+      "sha256": "d752468e8a35c75165fcafb19a64e2bcf2200f666e770d3f0f17a0388c9cc23d",
+      "lineStart": 18,
+      "lineEnd": 42,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S059": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\srv_exec.py",
+      "candidateRelativePath": "opt/d4follow/srv_exec.py",
+      "sha256": "ea0dc9fa6a8fe74eda4dc9f98885d94ddf7f0005473c917729e20b4574a97758",
+      "lineStart": 20,
+      "lineEnd": 60,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S060": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\p2pah_api.py",
+      "candidateRelativePath": "opt/nba-reprice/backend/p2pah_api.py",
+      "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "lineStart": 57,
+      "lineEnd": 61,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S061": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\nba-reprice\\backend\\p2pah_api.py",
+      "candidateRelativePath": "opt/nba-reprice/backend/p2pah_api.py",
+      "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "lineStart": 181,
+      "lineEnd": 214,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S062": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\mlb-online\\mlb_server.py",
+      "candidateRelativePath": "opt/mlb-online/mlb_server.py",
+      "sha256": "552108bd89a240b58a7e1cde97c59cb0bd88fe8240141f665d86a4357e5ef838",
+      "lineStart": 3,
+      "lineEnd": 28,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S063": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\etc\\systemd\\system\\d4follow-collect.timer",
+      "candidateRelativePath": "etc/systemd/system/d4follow-collect.timer",
+      "sha256": "e3835241083e6b7fe882b6fe12181ef3656afd2516bb309c4c43a74c864c0ac6",
+      "lineStart": 1,
+      "lineEnd": 15,
+      "sourceClass": "archived-unit-not-live",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S064": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src\\etc\\systemd\\system\\aion2-watch.timer",
+      "candidateRelativePath": "etc/systemd/system/aion2-watch.timer",
+      "sha256": "91d68465c926df6a4218f4516f32d000c5d27ed651e34e536a740c2cd630af4b",
+      "lineStart": 1,
+      "lineEnd": 14,
+      "sourceClass": "archived-unit-not-live",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S065": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 971,
+      "lineEnd": 977,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    },
+    "S066": {
+      "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3\\opt\\d4follow\\engine.py",
+      "candidateRelativePath": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "lineStart": 1208,
+      "lineEnd": 1216,
+      "sourceClass": "frozen-candidate-source",
+      "verification": "static read only; not executing configuration/client or claiming current production state"
+    }
+  },
+  "documentVersion": "1.1",
+  "updatedAt": "2026-10-05T17:02:39.681921+00:00"
+}

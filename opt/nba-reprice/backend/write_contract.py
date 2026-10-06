@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import threading
+import sys
 
 _mutex=threading.RLock()
 _state=threading.local()
@@ -21,7 +22,7 @@ def serialized_runtime(root):
             try:yield
             finally:_state.depth-=1
             return
-        root=Path(root);root.mkdir(mode=0o700,parents=True,exist_ok=True)
+        root=Path(root);_ensure_directory(root)
         fd=os.open(root/'writer.lock',os.O_RDWR|os.O_CREAT,0o600)
         stream=os.fdopen(fd,'r+b')
         locked=False
@@ -81,6 +82,24 @@ def validate_envelope(envelope):
             raise ValueError('INVALID_PRICE')
     return request_id,plan_hash,plan
 
+def persistence_capability():
+    return 'linux-directory-fsync' if sys.platform=='linux' else 'file-fsync-only-no-power-loss-guarantee'
+
+def _sync_directory(path):
+    # Windows/other platforms do not claim Linux directory-entry durability.
+    if sys.platform!='linux':return
+    fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY)
+    try:os.fsync(fd)
+    finally:os.close(fd)
+
+def _ensure_directory(path):
+    if not path.exists():
+        _ensure_directory(path.parent)
+        path.mkdir(mode=0o700,exist_ok=True)
+    # Also retry a previous failed mkdir sync before allowing a write.
+    _sync_directory(path.parent)
+    _sync_directory(path)
+
 def _persist(path,value):
     # Directory is trusted operator-owned runtime, outside source. Atomic same-directory replacement.
     import tempfile
@@ -89,22 +108,30 @@ def _persist(path,value):
         with os.fdopen(fd,'w',encoding='utf-8') as f:
             json.dump(value,f,separators=(',',':'));f.flush();os.fsync(f.fileno())
         os.replace(name,path)
+        _sync_directory(path.parent)
     finally:
         if os.path.exists(name):os.unlink(name)
 
 def execute_bound_plan(root,envelope,execute):
     request_id,plan_hash,plan=validate_envelope(envelope)
-    identity={'requestId':request_id,'planSha256':plan_hash,'operator':plan['operator']}
+    identity={'requestId':request_id,'planSha256':plan_hash,'operator':plan['operator'],
+              'persistence':persistence_capability()}
     with serialized_runtime(root):
-        folder=Path(root)/'receipts';folder.mkdir(mode=0o700,exist_ok=True)
+        folder=Path(root)/'receipts';_ensure_directory(folder)
         path=folder/(request_id+'.json')
         if path.exists():
-            old=json.loads(path.read_text(encoding='utf-8'))
-            if any(old.get(k)!=v for k,v in identity.items()):raise ValueError('REQUEST_ID_CONFLICT')
-            if old.get('state')!='completed':
+            try:old=json.loads(path.read_text(encoding='utf-8'))
+            except (OSError,ValueError):
+                return {**identity,'ok':False,'error':'RECEIPT_READ_FAILED','state':'unknown'}
+            if not isinstance(old,dict):
+                return {**identity,'ok':False,'error':'RECEIPT_READ_FAILED','state':'unknown'}
+            if any(old.get(k)!=identity[k] for k in ('requestId','planSha256','operator')):raise ValueError('REQUEST_ID_CONFLICT')
+            if old.get('state')!='completed' or type(old.get('ok')) is not bool:
                 return {**identity,'ok':False,'error':'WRITE_OUTCOME_UNKNOWN','state':'unknown'}
-            return {**old,'replayedReceipt':True}
-        _persist(path,{**identity,'state':'pending','ok':False})  # durable before first upstream effect
+            return {**old,'persistence':old.get('persistence','unrecorded-no-power-loss-guarantee'),'replayedReceipt':True}
+        try:_persist(path,{**identity,'state':'pending','ok':False})
+        except OSError:
+            return {**identity,'state':'rejected','ok':False,'error':'PENDING_PERSIST_FAILED'}
         try:
             result=execute(plan)
         except Exception:
@@ -113,5 +140,7 @@ def execute_bound_plan(root,envelope,execute):
         if not isinstance(result,dict) or type(result.get('ok')) is not bool:
             return {**identity,'ok':False,'error':'WRITE_OUTCOME_UNKNOWN','state':'unknown'}
         receipt={**result,**identity,'state':'completed'}
-        _persist(path,receipt)
+        try:_persist(path,receipt)
+        except OSError:
+            return {**identity,'state':'unknown','ok':False,'error':'WRITE_OUTCOME_UNKNOWN'}
         return receipt

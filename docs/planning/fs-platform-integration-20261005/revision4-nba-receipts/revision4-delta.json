@@ -1,0 +1,79 @@
+{
+  "changed": [
+    {
+      "before": {
+        "path": "opt/nba-reprice/backend/p2pah_api.py",
+        "bytes": 13641,
+        "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7"
+      },
+      "after": {
+        "path": "opt/nba-reprice/backend/p2pah_api.py",
+        "bytes": 14054,
+        "sha256": "3118c6c5c7a54ebfe7a490d9886a106293402e76d280ce3f3d3eac1d82b3358d"
+      }
+    },
+    {
+      "before": {
+        "path": "opt/nba-reprice/backend/server.js",
+        "bytes": 31291,
+        "sha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73"
+      },
+      "after": {
+        "path": "opt/nba-reprice/backend/server.js",
+        "bytes": 34654,
+        "sha256": "8fcb6bca74c304894efe2f8b9c8df218e08e1c12995b0170425a79289f131080"
+      }
+    },
+    {
+      "before": {
+        "path": "opt/nba-reprice/backend/write_contract.py",
+        "bytes": 5336,
+        "sha256": "d1257ae5110de8b0c3466c8235293d5268752b71949831efbaf382f85a2d5299"
+      },
+      "after": {
+        "path": "opt/nba-reprice/backend/write_contract.py",
+        "bytes": 6660,
+        "sha256": "aa57cbc73b0baee03635d1f4ac3df35ca31c4f35bcc9e518461e8758a1df3728"
+      }
+    },
+    {
+      "before": {
+        "path": "tests/integration/test_nba_bound_writer.cjs",
+        "bytes": 2614,
+        "sha256": "ae26e5ac7f69ad919ff6e5c8dbabc32f40aa3db750f801af941dfaa02c0d4981"
+      },
+      "after": {
+        "path": "tests/integration/test_nba_bound_writer.cjs",
+        "bytes": 2616,
+        "sha256": "5d0e4f307195c532cc026e8f21a6b30e0c1c36ade15e2536370fc299e1830772"
+      }
+    },
+    {
+      "before": {
+        "path": "var/www/nba2k27/index.html",
+        "bytes": 86171,
+        "sha256": "16c57e78c436eff759794cac6fa65e220773688c7c3a7d26965eee55c83d7405"
+      },
+      "after": {
+        "path": "var/www/nba2k27/index.html",
+        "bytes": 89785,
+        "sha256": "709d41474ae623a479431d719003cffdf04abd6563abb4186d787b71a99f5df8"
+      }
+    }
+  ],
+  "added": [
+    {
+      "path": "tests/integration/test_nba_receipt_durability.py",
+      "bytes": 7115,
+      "sha256": "bc5f47a52eabc23f020b885702b496263ff96d6acc80e20cf34d775c0b86f058"
+    },
+    {
+      "path": "tests/integration/test_nba_ui_receipts.cjs",
+      "bytes": 11534,
+      "sha256": "e6874f90add053905ec5145e4c7039a6465b104911cf7671f7e1a4e54dd6ea7e"
+    }
+  ],
+  "deleted": [],
+  "unchanged": 306,
+  "frozenRevision3VerifiedUnchanged": true
+}

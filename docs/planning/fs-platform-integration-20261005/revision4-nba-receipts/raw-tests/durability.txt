@@ -1,0 +1,13 @@
+test_actual_cli_bound_setup_failure_keeps_unknown_identity (__main__.Durability.test_actual_cli_bound_setup_failure_keeps_unknown_identity) ... ok
+test_completed_failed_receipt_replayed_and_corrupt_receipt_blocks_effect (__main__.Durability.test_completed_failed_receipt_replayed_and_corrupt_receipt_blocks_effect) ... ok
+test_completion_sync_failure_unknown_and_restart_never_reexecutes (__main__.Durability.test_completion_sync_failure_unknown_and_restart_never_reexecutes) ... ok
+test_linux_syscall_contract_and_unsupported_platform_boundary (__main__.Durability.test_linux_syscall_contract_and_unsupported_platform_boundary) ... ok
+test_new_receipts_parent_sync_failure_prevents_effect (__main__.Durability.test_new_receipts_parent_sync_failure_prevents_effect) ... ok
+test_pending_and_completed_order_including_new_receipts_parent (__main__.Durability.test_pending_and_completed_order_including_new_receipts_parent) ... ok
+test_pending_file_sync_replace_and_directory_failures_prevent_effect (__main__.Durability.test_pending_file_sync_replace_and_directory_failures_prevent_effect) ... ok
+test_same_id_concurrent_one_fake_effect_and_changed_hash_refused (__main__.Durability.test_same_id_concurrent_one_fake_effect_and_changed_hash_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.028s
+
+OK

@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "name": "original-linux-branch-reproduction",
+      "run": 1,
+      "errors": 1,
+      "failures": 0,
+      "passed": false,
+      "emulatedDirectorySyncCalls": 6,
+      "nativeLinux": false
+    },
+    {
+      "name": "fixed-linux-branch-emulation",
+      "run": 9,
+      "errors": 0,
+      "failures": 0,
+      "passed": true,
+      "emulatedDirectorySyncCalls": 74,
+      "nativeLinux": false
+    },
+    {
+      "name": "fixed-windows-native",
+      "exitCode": 0,
+      "run": 9,
+      "nativeLinux": false
+    }
+  ],
+  "originalFailureReproduced": true,
+  "fixedChecksPassed": true,
+  "runtimeSourceChanged": false,
+  "nativeLinuxExecuted": false,
+  "nativeLinuxRetestRequired": true,
+  "noUpstreamEffect": "Each initialization/pending failure case asserts zero fake-effect calls",
+  "scope": "Synthetic only, local temp dirs, no production credentials/network/subprocess in tested functions"
+}

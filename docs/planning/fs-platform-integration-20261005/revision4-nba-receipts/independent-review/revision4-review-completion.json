@@ -1,0 +1,20 @@
+{
+  "checked_at_utc": "2026-10-05T16:59:52.234512+00:00",
+  "snapshots": [
+    {
+      "snapshot": "revision3-security-evidence.json",
+      "file_count": 311,
+      "changes": []
+    },
+    {
+      "snapshot": "revision4-security-evidence.json",
+      "file_count": 313,
+      "changes": []
+    }
+  ],
+  "report_sha256": "2ffab40ca86a8ceb5663610085a534ab82b0c1a33c920d7f7eb08f34ece989fb",
+  "candidate_files_written": false,
+  "candidate_code_executed": false,
+  "real_secret_access": false,
+  "production_actions": false
+}

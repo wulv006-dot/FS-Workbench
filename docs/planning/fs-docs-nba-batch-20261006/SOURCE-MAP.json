@@ -1,0 +1,78 @@
+{
+  "baseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "sourceNBARevision": 4,
+  "reviewReportSha256": "2ffab40ca86a8ceb5663610085a534ab82b0c1a33c920d7f7eb08f34ece989fb",
+  "reviewedCandidateSetSha256": "1b89d8184c1be9034d56479b96554d1127a7cee10b1ce3525b2f5e3bfffbe06f",
+  "frozen": true,
+  "releaseReady": false,
+  "nbaChanges": [
+    {
+      "path": "opt/nba-reprice/backend/p2pah_api.py",
+      "sourceSha256": "3118c6c5c7a54ebfe7a490d9886a106293402e76d280ce3f3d3eac1d82b3358d",
+      "baseSha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7"
+    },
+    {
+      "path": "opt/nba-reprice/backend/server.js",
+      "sourceSha256": "8fcb6bca74c304894efe2f8b9c8df218e08e1c12995b0170425a79289f131080",
+      "baseSha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73"
+    },
+    {
+      "path": "opt/nba-reprice/backend/write_contract.py",
+      "sourceSha256": "aa57cbc73b0baee03635d1f4ac3df35ca31c4f35bcc9e518461e8758a1df3728",
+      "baseSha256": "d1257ae5110de8b0c3466c8235293d5268752b71949831efbaf382f85a2d5299"
+    },
+    {
+      "path": "tests/integration/test_nba_bound_writer.cjs",
+      "sourceSha256": "5d0e4f307195c532cc026e8f21a6b30e0c1c36ade15e2536370fc299e1830772",
+      "baseSha256": "ae26e5ac7f69ad919ff6e5c8dbabc32f40aa3db750f801af941dfaa02c0d4981"
+    },
+    {
+      "path": "var/www/nba2k27/index.html",
+      "sourceSha256": "709d41474ae623a479431d719003cffdf04abd6563abb4186d787b71a99f5df8",
+      "baseSha256": "16c57e78c436eff759794cac6fa65e220773688c7c3a7d26965eee55c83d7405"
+    },
+    {
+      "path": "tests/integration/test_nba_receipt_durability.py",
+      "sourceSha256": "bc5f47a52eabc23f020b885702b496263ff96d6acc80e20cf34d775c0b86f058",
+      "baseSha256": null
+    },
+    {
+      "path": "tests/integration/test_nba_ui_receipts.cjs",
+      "sourceSha256": "e6874f90add053905ec5145e4c7039a6465b104911cf7671f7e1a4e54dd6ea7e",
+      "baseSha256": null
+    }
+  ],
+  "unchangedTestDependencies": [
+    {
+      "path": "opt/nba-reprice/backend/api_security.js",
+      "sha256": "bfad326caeec41c0ed13cf022d071a4ea0af23fe61b980c89534e4befb61b1b1",
+      "requiredFromBaseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7"
+    },
+    {
+      "path": "tests/integration/test_nba_wired_routes.cjs",
+      "sha256": "6135886567fc60e79add57bb2129787023596831eb83b45957ccaca8a8834d5f",
+      "requiredFromBaseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7"
+    },
+    {
+      "path": "tests/integration/test_nba_pure_guards.cjs",
+      "sha256": "554a3d284f3273a31d7f185cc35cabedbd316a4442a48e1aead5eebe4eef2448",
+      "requiredFromBaseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7"
+    }
+  ],
+  "codeModulesExcluded": [
+    "D4",
+    "UI",
+    "auth"
+  ],
+  "testClosure": "10 NBA files in this ZIP; Python standard library and existing Node22+ only",
+  "globalPolicyEvidence": {
+    "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+    "admins": [
+      "wulv",
+      "chenchao",
+      "DY",
+      "fstech"
+    ],
+    "source": "unified-fc-auth independent review; no auth source included"
+  }
+}

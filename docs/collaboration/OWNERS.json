@@ -311,7 +311,7 @@
       "externalDependencies": [
         "private SQLite",
         "existing role proxy",
-        "three guard admins"
+        "legacy module guard, not proof of current global roles"
       ],
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
@@ -462,7 +462,7 @@
       ],
       "externalDependencies": [
         "effective role middleware/config",
-        "three-admin current source not live proof"
+        "historical three-admin candidate; current observed global portal policy has four admins and is excluded from this batch"
       ],
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
@@ -528,9 +528,17 @@
     "吴律": "wulv006-dot",
     "陈超": "dachao1997"
   },
-  "productionAdminsUnchanged": [
+  "observedGlobalPortalAdmins": [
+    "wulv",
+    "chenchao",
+    "DY",
+    "fstech"
+  ],
+  "globalPolicySha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+  "NBAUnchangedSourceGuard": [
     "wulv",
     "chenchao",
     "DY"
-  ]
+  ],
+  "rolesRuntimeUnverified": true
 }

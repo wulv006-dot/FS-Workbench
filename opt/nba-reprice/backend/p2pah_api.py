@@ -27,7 +27,7 @@ import sys
 import time
 import uuid
 import tempfile
-from write_contract import serialized, execute_bound_plan
+from write_contract import serialized, execute_bound_plan, validate_envelope, persistence_capability
 from pathlib import Path
 
 BASE = "https://admin-api.p2pah.cn"
@@ -296,15 +296,20 @@ def _write_prices(data):
 
 
 def write_from_file(path_in):
+    identity={}
     try:
         if os.environ.get("WRITE_READY") != "true":
             raise RuntimeError("WRITE_DISABLED")
         with open(path_in, encoding="utf-8") as source:
             envelope=json.load(source)
+        request_id,plan_hash,plan=validate_envelope(envelope)
+        identity={'requestId':request_id,'planSha256':plan_hash,'operator':plan['operator'],
+                  'persistence':persistence_capability()}
         result=execute_bound_plan(DATA_DIR,envelope,_write_prices)
     except (ValueError,RuntimeError,OSError):
         # No raw file, credential, upstream response or exception text in output.
-        result={"ok":False,"error":"BOUND_WRITE_REFUSED"}
+        # A lock/read/setup failure may concern an existing in-flight request.
+        result={**identity,"ok":False,"error":"BOUND_WRITE_REFUSED","state":"unknown" if identity else "rejected"}
     print(json.dumps(result,ensure_ascii=False))
 
 

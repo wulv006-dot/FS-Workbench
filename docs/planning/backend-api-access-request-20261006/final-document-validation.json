@@ -1,0 +1,38 @@
+{
+  "documentVersion": "1.1",
+  "interfaces": 36,
+  "sourceFiles": 37,
+  "evidenceRanges": 66,
+  "checks": [
+    "all interfaces/project evidence references",
+    "source SHA stable",
+    "36 full table+parameter entries",
+    "D4/PoE2/Aion2/FC/NBA/MLB source differences",
+    "no FC K/gift/genre cost generalisation",
+    "Order four core/Admin supplement remains",
+    "source/archive timer declaration vs live unverified",
+    "safe machine scopes / no official endpoint invention",
+    "no token literal/private key/absolute Windows path in doc"
+  ],
+  "limits": "static source/archive review only; no current config/production auth/timers/API calls; heuristic doc scan",
+  "files": {
+    "Admin与Order后台接口及机器访问需求.md": {
+      "bytes": 61594,
+      "sha256": "de386f8278d6303b62a86812c6870910075ff3486ebbc277dbd08cb622f78ea4"
+    },
+    "author-summary.md": {
+      "bytes": 10253,
+      "sha256": "694d3e572a8ea07e9b403cf70ce5c142b2bdf1551997a393a02eb5e8892769d2"
+    },
+    "interface-matrix.json": {
+      "bytes": 72107,
+      "sha256": "2bbf877925043b0999d8d27e2779d36a6432ae27036c17114c4b5475f7e1d7d8"
+    },
+    "source-evidence-index.json": {
+      "bytes": 32445,
+      "sha256": "1450e1143e1bd1b1084a7849e4da47876ddefa525951397b3737ff4ef142b988"
+    }
+  },
+  "historicalOriginalValidation": true,
+  "currentDocumentAnnotation": "Current contract note added; original interface/source evidence retained; no candidate/API execution"
+}

@@ -1,0 +1,13 @@
+{
+  "candidateVerifiedExact": true,
+  "frozenRevision3VerifiedUnchanged": true,
+  "files": 313,
+  "bytes": 12138621,
+  "setSha256": "1b89d8184c1be9034d56479b96554d1127a7cee10b1ce3525b2f5e3bfffbe06f",
+  "changed": 5,
+  "added": 2,
+  "unchanged": 306,
+  "releaseReady": false,
+  "uploadApproved": false,
+  "productionOrGitActions": false
+}

@@ -1,0 +1,77 @@
+{
+  "checks": [
+    {
+      "name": "durability",
+      "command": [
+        "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "tests/integration/test_nba_receipt_durability.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ui-http",
+      "command": [
+        "node",
+        "tests/integration/test_nba_ui_receipts.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "bound-writer",
+      "command": [
+        "node",
+        "tests/integration/test_nba_bound_writer.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "wired-routes",
+      "command": [
+        "node",
+        "tests/integration/test_nba_wired_routes.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "pure-guards",
+      "command": [
+        "node",
+        "tests/integration/test_nba_pure_guards.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "revision3-contracts",
+      "command": [
+        "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "tests/integration/test_revision3_contracts.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "server-syntax",
+      "command": [
+        "node",
+        "--check",
+        "opt/nba-reprice/backend/server.js"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "edited-python-ast",
+      "passed": true
+    },
+    {
+      "name": "ui-inline-syntax",
+      "command": [
+        "node",
+        "--check",
+        "stdin inline scripts"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "allPassed": true,
+  "host": "Windows; Linux syscalls mocked; no real Linux crash/power-loss injection",
+  "upstream": "mock only, no HTTP sockets or production secrets"
+}

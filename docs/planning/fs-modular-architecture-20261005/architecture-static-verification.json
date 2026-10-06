@@ -1,0 +1,4037 @@
+{
+  "observedAt": "2026-10-05T15:34:44.370457+00:00",
+  "machine": "PC-20260909OJLI",
+  "root": "E:\\WorkBuddy\\大超服务器",
+  "candidate": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
+  "rawRoot": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\data\\raw\\chenchao-source\\fs-platform-src",
+  "candidateCount": 311,
+  "candidateBytes": 12111256,
+  "inventoryMismatches": [],
+  "extraPaths": [],
+  "rawFileCount": 778,
+  "codeRecords": [
+    {
+      "path": "aion2_dashboard_20261004/aion2-status.js",
+      "sha256": "0d711e037bdc6d0e78089f75c50e856dd53e94ac4a9989fc83fac281ef0996c1",
+      "imports": [],
+      "tables": [],
+      "lines": 42
+    },
+    {
+      "path": "docs/fc27-coins/discount-config-release-20261005/tests/before_engine.py",
+      "sha256": "c100a257e9e34e4fa18f98d4f1d451ad44ee49cd4f9a6f30c7ae73f04ddf411a",
+      "imports": [
+        "__future__",
+        "decimal",
+        "fractions"
+      ],
+      "tables": [],
+      "lines": 341
+    },
+    {
+      "path": "docs/fc27-coins/discount-config-release-20261005/tests/test_discount_config.py",
+      "sha256": "eae26bdc9fc0d31456c5ca4d50c13193065f34b900eb273fbe7a5a805b48ecf3",
+      "imports": [
+        "automation_policy",
+        "automation_tick",
+        "copy",
+        "datetime",
+        "fc27_cloud_api",
+        "fc27_quote_engine",
+        "hashlib",
+        "http.server",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "server_quote_job",
+        "tempfile",
+        "threading",
+        "unittest",
+        "unittest.mock",
+        "urllib.error",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 314
+    },
+    {
+      "path": "docs/fc27-coins/discount-config-release-20261005/tests/test_fc27_quote_engine.py",
+      "sha256": "6d170e7f3b3e116d690cea104ca432bb08d210084279a0cf064eb6d27032b686",
+      "imports": [
+        "decimal",
+        "fc27_quote_engine",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 275
+    },
+    {
+      "path": "fc27_chrome_collector/lootbar_server_collector.py",
+      "sha256": "8f98ac8a495c6e9ca8d853f9fbd7b6bb578e057752717f76fc40fb0f7f1dbc5d",
+      "imports": [
+        "__future__",
+        "argparse",
+        "datetime",
+        "decimal",
+        "json",
+        "os",
+        "pathlib",
+        "playwright.sync_api",
+        "queue",
+        "re",
+        "threading",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 346
+    },
+    {
+      "path": "fc27_chrome_collector/repricing_logic.js",
+      "sha256": "8f2a28b92e24cf225632635343dff141d1f83cd10d17ca86ada448fa858fba91",
+      "imports": [],
+      "tables": [],
+      "lines": 665
+    },
+    {
+      "path": "fc27_cloud_browser/activity_log_store.py",
+      "sha256": "b2ddc56ec9029cf4f6e66edb47358e6620cd6226c5e181b549f82effcc04a082",
+      "imports": [
+        "__future__",
+        "contextlib",
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "sqlite3"
+      ],
+      "tables": [
+        "events"
+      ],
+      "lines": 107
+    },
+    {
+      "path": "fc27_cloud_browser/automation_policy.py",
+      "sha256": "ddcb47a09f0fc35600ad3d86408018b7fd39395c9f114cf61c9c5cc1f53a0611",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "fc27_quote_engine",
+        "fcntl",
+        "fractions",
+        "json",
+        "os",
+        "pathlib",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 318
+    },
+    {
+      "path": "fc27_cloud_browser/automation_tick.py",
+      "sha256": "f7486520712b9c1fbb9dc4c82bba19646951b2404b6a32a569970257be4a10e5",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "contextlib",
+        "datetime",
+        "fcntl",
+        "json",
+        "os",
+        "pathlib",
+        "player_sync_policy",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 292
+    },
+    {
+      "path": "fc27_cloud_browser/clear_cache_after_write.py",
+      "sha256": "efbebcde58125d1e8191115c8dc8ea252e3835da8fcc21652a66d7f85e1f8729",
+      "imports": [
+        "__future__",
+        "datetime",
+        "json",
+        "p2pah_session_service",
+        "pathlib",
+        "sys",
+        "time",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 82
+    },
+    {
+      "path": "fc27_cloud_browser/clear_cache_after_write.sh",
+      "sha256": "30b4ad3932d606f423cb4e3cfeae501e327e8d6891dfd32b08c13d50e06625e6",
+      "imports": [],
+      "tables": [],
+      "lines": 16
+    },
+    {
+      "path": "fc27_cloud_browser/coin_all_once.py",
+      "sha256": "92edeb22481da95f7b66723d7bfd8609b4be2d56bae26b5aa6af6a6f6aa3b25b",
+      "imports": [
+        "coin_all_sync_job",
+        "copy",
+        "datetime",
+        "hashlib",
+        "json",
+        "p2pah_session_service",
+        "pathlib",
+        "re",
+        "sys",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 101
+    },
+    {
+      "path": "fc27_cloud_browser/coin_all_resume_once.py",
+      "sha256": "2ac660cb35ba3f59e0a5719a3f0ea7b09716df418f6ce09920b6201c821f1de2",
+      "imports": [
+        "coin_all_once",
+        "coin_all_sync_job",
+        "copy",
+        "datetime",
+        "hashlib",
+        "json",
+        "p2pah_session_service",
+        "pathlib",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 74
+    },
+    {
+      "path": "fc27_cloud_browser/coin_all_sync_job.py",
+      "sha256": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal",
+        "hashlib",
+        "json",
+        "os",
+        "p2pah_session_service",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "time"
+      ],
+      "tables": [],
+      "lines": 370
+    },
+    {
+      "path": "fc27_cloud_browser/collect_competitor.sh",
+      "sha256": "4cf7f79ccade73e5bd76f3d321d63b9fbae778ec599723b4295472bca8c22c0a",
+      "imports": [],
+      "tables": [],
+      "lines": 29
+    },
+    {
+      "path": "fc27_cloud_browser/collect_competitor_browser.py",
+      "sha256": "13691edfef8f739c33f37566a75cc6fd7ec8ef88b1ae5e7f334b5acd06383c8c",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "json",
+        "os",
+        "playwright.sync_api",
+        "re",
+        "sys",
+        "time"
+      ],
+      "tables": [],
+      "lines": 248
+    },
+    {
+      "path": "fc27_cloud_browser/collect_fx.sh",
+      "sha256": "4cc6af1846dca74d20478cd6f4f8fb1cba0a47062580fdc3ad8dc39454832457",
+      "imports": [],
+      "tables": [],
+      "lines": 26
+    },
+    {
+      "path": "fc27_cloud_browser/collect_fx_browser.py",
+      "sha256": "1db6e09d8159abb9bf51e68d83a9cbdd86da4d5752164f7ab3510c6dec205be1",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "json",
+        "os",
+        "playwright.sync_api"
+      ],
+      "tables": [],
+      "lines": 64
+    },
+    {
+      "path": "fc27_cloud_browser/collect_lootbar.sh",
+      "sha256": "21dcec3f8dcae2dd034355d3dfa9fdc1b497601a23cd8f1ef221ef7504b03dc3",
+      "imports": [],
+      "tables": [],
+      "lines": 46
+    },
+    {
+      "path": "fc27_cloud_browser/collect_p2pah_cost.py",
+      "sha256": "455767a6678da6cdbcd2a83ef66d1fb11860d6498e91762e9ed6484ffa465321",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "json",
+        "os",
+        "p2pah_browser_login",
+        "p2pah_session_service",
+        "playwright.sync_api",
+        "re",
+        "urllib.parse",
+        "zoneinfo"
+      ],
+      "tables": [],
+      "lines": 204
+    },
+    {
+      "path": "fc27_cloud_browser/collect_p2pah_cost.sh",
+      "sha256": "68be8db78bd7dbb8db29bedb9cadaca3993d3f252c3e1b0705709b7fdd08edd5",
+      "imports": [],
+      "tables": [],
+      "lines": 51
+    },
+    {
+      "path": "fc27_cloud_browser/execute_price.sh",
+      "sha256": "daa521f7e1c1bea0b5b7777077ea0615f9476d2aac56c4bef0d60aab0200c73c",
+      "imports": [],
+      "tables": [],
+      "lines": 33
+    },
+    {
+      "path": "fc27_cloud_browser/fc27_cloud_api.py",
+      "sha256": "6fe9f1db75450892f9035ca81278378b5d6beda15c002bfca76a39a72a531e05",
+      "imports": [
+        "__future__",
+        "activity_log_store",
+        "automation_policy",
+        "automation_tick",
+        "datetime",
+        "decimal",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "player_sync_policy",
+        "re",
+        "server_quote_job",
+        "shutil",
+        "sqlite3",
+        "subprocess",
+        "sys",
+        "time",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 751
+    },
+    {
+      "path": "fc27_cloud_browser/fc27_cloud_worker.py",
+      "sha256": "88a46710fae62950cac549a2cc97e59cfb55fc236ab01c0fa513a077e64cf620",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "automation_tick",
+        "datetime",
+        "decimal",
+        "fc27_cloud_api",
+        "json",
+        "os",
+        "pathlib",
+        "player_sync_policy",
+        "server_quote_job",
+        "snapshot_layer",
+        "subprocess",
+        "threading",
+        "time",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 496
+    },
+    {
+      "path": "fc27_cloud_browser/player_sync_job.py",
+      "sha256": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "hashlib",
+        "json",
+        "os",
+        "p2pah_session_service",
+        "pathlib",
+        "random",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 605
+    },
+    {
+      "path": "fc27_cloud_browser/player_sync_policy.py",
+      "sha256": "0264e8d661a5fe9cdcef8618698061883401235d26aafd94e3a5aa3cdd4e6ecf",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "datetime",
+        "fcntl",
+        "json",
+        "os",
+        "pathlib",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 67
+    },
+    {
+      "path": "fc27_cloud_browser/player_verify_once.py",
+      "sha256": "f8640079a0037c50f1a1ef955906253a043842e3818a898a779af11bd5b7671f",
+      "imports": [
+        "coin_all_once",
+        "coin_all_sync_job",
+        "copy",
+        "datetime",
+        "decimal",
+        "json",
+        "pathlib",
+        "player_sync_job",
+        "sys",
+        "time",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 148
+    },
+    {
+      "path": "fc27_cloud_browser/preview_backend.py",
+      "sha256": "9fd82551c660daf5bdf25cdc5ec85094a14151e2e901784a063a769b0583c79d",
+      "imports": [
+        "__future__",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "playwright.sync_api",
+        "sys",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 95
+    },
+    {
+      "path": "fc27_cloud_browser/preview_backend.sh",
+      "sha256": "a90bc0c17b2a4676d161da13a01adaf3a499e5925670420cfaf04042d5919bd3",
+      "imports": [],
+      "tables": [],
+      "lines": 54
+    },
+    {
+      "path": "fc27_cloud_browser/price_writer.py",
+      "sha256": "c5fb077f5dc85c93f3b5b9221bb3e216db32d7ffa67946ac878216fd2f559bc3",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "coin_all_sync_job",
+        "datetime",
+        "decimal",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "playwright.sync_api",
+        "re",
+        "sys",
+        "tempfile",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 304
+    },
+    {
+      "path": "fc27_cloud_browser/repricing_dom.js",
+      "sha256": "b704dd1764144e29304b7c1ceb078438badb0b23c80981fb341cad50e8d53aca",
+      "imports": [],
+      "tables": [],
+      "lines": 315
+    },
+    {
+      "path": "fc27_cloud_browser/restore_price.py",
+      "sha256": "7967a2019756c854c36b399670e5b56f812da002e5346f2489f45b960b727b8f",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "playwright.sync_api",
+        "re",
+        "sys",
+        "uuid",
+        "writer"
+      ],
+      "tables": [],
+      "lines": 228
+    },
+    {
+      "path": "fc27_cloud_browser/restore_price.sh",
+      "sha256": "c1b8e7d18778850ae9a7bc2f728b5f514c841a3be53947e8c188898448bb0988",
+      "imports": [],
+      "tables": [],
+      "lines": 24
+    },
+    {
+      "path": "fc27_cloud_browser/server_quote_job.py",
+      "sha256": "68f7c083237c26ca5ebe9cfcaba419e82160befe0f922e6b90e78390fdf33fa0",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "datetime",
+        "decimal",
+        "fc27_quote_engine",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "snapshot_layer",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 216
+    },
+    {
+      "path": "fc27_cloud_browser/snapshot_layer.py",
+      "sha256": "b91dbbbf7c53ba7ef3f6bd1d1226a0b4fb1c3af541855c2914b57fe9c97c4f46",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "fcntl",
+        "glob",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 292
+    },
+    {
+      "path": "fc27_cloud_browser/storefront_monitor.py",
+      "sha256": "0948228673725afd48781a493dc5f2cbe94be927a0236f671d92e55996cb1b3c",
+      "imports": [
+        "__future__",
+        "datetime",
+        "decimal",
+        "html.parser",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 179
+    },
+    {
+      "path": "fc27_cloud_browser/sync_players.sh",
+      "sha256": "5018c5d8db1f812310ef4a6211a0f2a22eb1a9434ab5e543c1f671a4c6330ca8",
+      "imports": [],
+      "tables": [],
+      "lines": 27
+    },
+    {
+      "path": "fc27_cloud_browser/test_all_sync_writer_integration.py",
+      "sha256": "e5b6b9923bad7b6a7ebbd74cb850e95de5ba2f3cf121a4aa64f6c47d897af70d",
+      "imports": [
+        "contextlib",
+        "copy",
+        "json",
+        "pathlib",
+        "price_writer",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 76
+    },
+    {
+      "path": "fc27_cloud_browser/test_automation_api.py",
+      "sha256": "0cdf15446582b8ed75ef1ff41814dd5f766c1c3aaf67c04b4147db1ba3e41909",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "fc27_cloud_api",
+        "http.server",
+        "json",
+        "pathlib",
+        "sys",
+        "threading",
+        "unittest",
+        "unittest.mock",
+        "urllib.error",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 90
+    },
+    {
+      "path": "fc27_cloud_browser/test_automation_cycle.py",
+      "sha256": "11d80aafd936b09f1948472c5e426ed0c4fff7bb55782c293d7b5ccc286cfa69",
+      "imports": [
+        "__future__",
+        "fc27_cloud_worker",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "test_automation_policy",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 233
+    },
+    {
+      "path": "fc27_cloud_browser/test_automation_policy.py",
+      "sha256": "796eac5cf7e1dc1c48add724c996b7493d8276b8b45651536e5b81cf407cfeaa",
+      "imports": [
+        "__future__",
+        "automation_policy",
+        "automation_tick",
+        "datetime",
+        "decimal",
+        "fc27_quote_engine",
+        "pathlib",
+        "sys",
+        "test_fc27_quote_engine",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 275
+    },
+    {
+      "path": "fc27_cloud_browser/test_automation_writer_gate.py",
+      "sha256": "36899d80565372f5ba35f770aef0de30475eed771185a257955ba33381cdb5e9",
+      "imports": [
+        "__future__",
+        "datetime",
+        "hashlib",
+        "json",
+        "pathlib",
+        "price_writer",
+        "sys",
+        "tempfile",
+        "test_automation_policy",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 80
+    },
+    {
+      "path": "fc27_cloud_browser/test_clear_cache_after_write.py",
+      "sha256": "e22c6375a1860b9c2757f18dd7ceaf61d68910c8dc920a6303ded1ee71aba658",
+      "imports": [
+        "__future__",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "sys",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 76
+    },
+    {
+      "path": "fc27_cloud_browser/test_cloud_activity_feed.py",
+      "sha256": "1665c0cfb252a17357d06c490f8e813fd883e0e62afd468966530d12ef74a36f",
+      "imports": [
+        "datetime",
+        "fc27_cloud_api",
+        "http.server",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "threading",
+        "unittest",
+        "unittest.mock",
+        "urllib.error",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 123
+    },
+    {
+      "path": "fc27_cloud_browser/test_coin_all_sync.py",
+      "sha256": "400a8e7bd4b78498cadfc06df49ea7e4b827a491639a1b84e91036c01b20d936",
+      "imports": [
+        "coin_all_sync_job",
+        "copy",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 148
+    },
+    {
+      "path": "fc27_cloud_browser/test_cost_delivery_types.py",
+      "sha256": "abb988ad1e367f9c1caa49332e0653744c89793660c05d612d21bbd5bcb85b76",
+      "imports": [
+        "collect_p2pah_cost",
+        "datetime",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "playwright.sync_api",
+        "snapshot_layer",
+        "sys",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 119
+    },
+    {
+      "path": "fc27_cloud_browser/test_iggm_price_precision.py",
+      "sha256": "5828027fed67ae8f5692b63b201247f8503c07e955b8e446c20ddcd1868e4d20",
+      "imports": [
+        "__future__",
+        "collect_competitor_browser",
+        "pathlib",
+        "playwright.sync_api",
+        "sys",
+        "types",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 51
+    },
+    {
+      "path": "fc27_cloud_browser/test_keyword_resume.py",
+      "sha256": "05c1e30f6e2e350a914cb36834bd1fd4c9727a08923d8e38d8afa3e853667596",
+      "imports": [
+        "coin_all_sync_job",
+        "copy",
+        "test_coin_all_sync",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 64
+    },
+    {
+      "path": "fc27_cloud_browser/test_monitor_api.py",
+      "sha256": "1823f610d07b894ed4732bf2a1147611226d4ab6fa8b0bfd1ee9edb9787b6611",
+      "imports": [
+        "datetime",
+        "fc27_cloud_api",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "threading",
+        "unittest",
+        "unittest.mock",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 118
+    },
+    {
+      "path": "fc27_cloud_browser/test_once_entries.py",
+      "sha256": "5c798387fb4de3c4f80e06881b857fce26da7e78062668d2a56829fd1334f1b0",
+      "imports": [
+        "coin_all_once",
+        "coin_all_sync_job",
+        "copy",
+        "datetime",
+        "json",
+        "pathlib",
+        "player_verify_once",
+        "tempfile",
+        "test_coin_all_sync",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 118
+    },
+    {
+      "path": "fc27_cloud_browser/test_player_sync_bulk.py",
+      "sha256": "bbc9fee32384c621449460ae770e901589be5e9ec3c7f4f6792d50547ff11663",
+      "imports": [
+        "__future__",
+        "contextlib",
+        "importlib.util",
+        "io",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 196
+    },
+    {
+      "path": "fc27_cloud_browser/test_player_sync_flow.py",
+      "sha256": "e70560c022e0a9795e7792abd0a58812899467cfd34218298b4ca256bbdbda1b",
+      "imports": [
+        "__future__",
+        "automation_tick",
+        "datetime",
+        "fc27_cloud_api",
+        "fc27_cloud_worker",
+        "http.server",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "test_automation_policy",
+        "threading",
+        "types",
+        "unittest",
+        "unittest.mock",
+        "urllib.error",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 164
+    },
+    {
+      "path": "fc27_cloud_browser/test_player_sync_recovery.py",
+      "sha256": "7500eae4c9cdc6b3ffe2e5565cd99c273c593f6486f1d673011d266772b09b35",
+      "imports": [
+        "__future__",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "sys",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 66
+    },
+    {
+      "path": "fc27_cloud_browser/test_source_confirmation.py",
+      "sha256": "33203c47677a1c52b8eb75f2f5577882b9a352cc6b3b0db18bfbd3a112a83ecf",
+      "imports": [
+        "coin_all_sync_job",
+        "copy",
+        "json",
+        "test_coin_all_sync",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 88
+    },
+    {
+      "path": "fc27_cloud_browser/test_storefront_monitor.py",
+      "sha256": "efc23453eb079805d27d2bfd18e43c4819526092855bb4af31bc9f346ab1e791",
+      "imports": [
+        "json",
+        "pathlib",
+        "storefront_monitor",
+        "sys",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 79
+    },
+    {
+      "path": "fc27_ops_cloud/data/fc-analytics.js",
+      "sha256": "9ec3be72c92025456ec4572bd447afc615d14fced57f8e7dfbedf2dbcad3ab71",
+      "imports": [],
+      "tables": [],
+      "lines": 114
+    },
+    {
+      "path": "fc27_ops_cloud/data/fc-products.js",
+      "sha256": "816cad1570cdf5d1a66aa01f6165690cd1aeeecaa50139dd5d29027daeb1851a",
+      "imports": [],
+      "tables": [],
+      "lines": 34
+    },
+    {
+      "path": "fc27_ops_cloud/data/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e",
+      "imports": [],
+      "tables": [],
+      "lines": 13
+    },
+    {
+      "path": "fc27_ops_cloud/data/supplement-insights.js",
+      "sha256": "57f163a9cbfb15318f1b61f751648df36c4aa91db873aeaca2ce30f3d25f2c3c",
+      "imports": [],
+      "tables": [],
+      "lines": 72
+    },
+    {
+      "path": "fc27_players_cloud/player_web/__init__.py",
+      "sha256": "81ea19257665430e41cb6eb69fa47f6c63dbf97702f2a90eb4ae7e000d998e7c",
+      "imports": [],
+      "tables": [],
+      "lines": 1
+    },
+    {
+      "path": "fc27_players_cloud/player_web/cli.py",
+      "sha256": "404652e305c36f5ccd240bb6caf42ba1abc79f6de9d7a5411312afae65e5329b",
+      "imports": [
+        ".collection",
+        ".repository",
+        ".settings",
+        "__future__",
+        "argparse",
+        "json"
+      ],
+      "tables": [],
+      "lines": 41
+    },
+    {
+      "path": "fc27_players_cloud/player_web/client_factory.py",
+      "sha256": "466696752fa56e329f54d0ea23b198e048c915a6f7045788d03811cd53585581",
+      "imports": [
+        ".settings",
+        "__future__",
+        "球员维护工具.admin_client",
+        "球员维护工具.player_database"
+      ],
+      "tables": [],
+      "lines": 16
+    },
+    {
+      "path": "fc27_players_cloud/player_web/collection.py",
+      "sha256": "c759ee202546f3a3b4ae5e8e92af29bfa1de12d89ab48a84f9574f5bfd473ead",
+      "imports": [
+        ".client_factory",
+        ".repository",
+        ".settings",
+        "__future__",
+        "contextlib",
+        "fcntl",
+        "hashlib",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "typing",
+        "球员维护工具.models",
+        "球员维护工具.selection"
+      ],
+      "tables": [],
+      "lines": 133
+    },
+    {
+      "path": "fc27_players_cloud/player_web/existing_action_service.py",
+      "sha256": "3d832fd164ba6f9421fa4f36eede03efbd30c003545a7974f343a66d8dcc5b69",
+      "imports": [
+        ".repository",
+        ".settings",
+        "__future__",
+        "typing",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.existing_model_domain"
+      ],
+      "tables": [],
+      "lines": 214
+    },
+    {
+      "path": "fc27_players_cloud/player_web/main.py",
+      "sha256": "d202b73c48488fd5b3bd0c3a51f27307a2af9ebae19c95fafe99e59994447b4c",
+      "imports": [
+        ".client_factory",
+        ".collection",
+        ".existing_action_service",
+        ".model_image_service",
+        ".model_service",
+        ".new_card_service",
+        ".repository",
+        ".settings",
+        "__future__",
+        "concurrent.futures",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "secrets",
+        "socketserver",
+        "threading",
+        "time",
+        "typing",
+        "urllib.parse",
+        "wsgiref.simple_server",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.existing_model_domain"
+      ],
+      "tables": [],
+      "lines": 504
+    },
+    {
+      "path": "fc27_players_cloud/player_web/media_client.py",
+      "sha256": "1c49773baa25862ebf513acaf1cb9c5cca2fb4c2e84f0aec1d0b22ea9f267751",
+      "imports": [
+        "__future__",
+        "hashlib",
+        "json",
+        "pathlib",
+        "re",
+        "time",
+        "typing",
+        "urllib.error",
+        "urllib.request",
+        "球员维护工具.admin_client"
+      ],
+      "tables": [],
+      "lines": 70
+    },
+    {
+      "path": "fc27_players_cloud/player_web/model_image_service.py",
+      "sha256": "68dba2deca7c35095a54282d4a74f71a8baa32858888d11db245d37781957d40",
+      "imports": [
+        ".media_client",
+        ".repository",
+        ".settings",
+        "PIL",
+        "__future__",
+        "datetime",
+        "hashlib",
+        "io",
+        "json",
+        "pathlib",
+        "re",
+        "typing",
+        "uuid",
+        "球员维护工具.admin_adapter"
+      ],
+      "tables": [],
+      "lines": 221
+    },
+    {
+      "path": "fc27_players_cloud/player_web/model_service.py",
+      "sha256": "80bb7d1463d0ff2b500f74c0c6c02eacdb08a7a8e565049f51609726f061963f",
+      "imports": [
+        ".client_factory",
+        ".collection",
+        ".repository",
+        ".settings",
+        "__future__",
+        "collections",
+        "typing",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.existing_model_domain",
+        "球员维护工具.player_database",
+        "球员维护工具.selection"
+      ],
+      "tables": [],
+      "lines": 124
+    },
+    {
+      "path": "fc27_players_cloud/player_web/new_card_service.py",
+      "sha256": "ee523ab232e8007169e17e1fcd38c6582d58a22af9be489cc23c9a3e2d0c25ae",
+      "imports": [
+        ".client_factory",
+        ".price_lock",
+        ".repository",
+        ".settings",
+        "__future__",
+        "hashlib",
+        "pathlib",
+        "typing",
+        "uuid",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.models",
+        "球员维护工具.new_card_selection",
+        "球员维护工具.player_database",
+        "球员维护工具.rating_rules",
+        "球员维护工具.transformer"
+      ],
+      "tables": [],
+      "lines": 245
+    },
+    {
+      "path": "fc27_players_cloud/player_web/price_lock.py",
+      "sha256": "2ae15833cf33ddb144a4d0b5b1a7f6813a6d357bfccb9519c2718ca15c7b0778",
+      "imports": [
+        "__future__",
+        "contextlib",
+        "fcntl",
+        "os",
+        "pathlib",
+        "stat",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 40
+    },
+    {
+      "path": "fc27_players_cloud/player_web/repository.py",
+      "sha256": "bd93cc2a13d0b69ddf6f42b70798c0b9e55fc2828bbcef711be80fba4839be31",
+      "imports": [
+        "__future__",
+        "collections",
+        "contextlib",
+        "datetime",
+        "hashlib",
+        "json",
+        "pathlib",
+        "sqlite3",
+        "typing",
+        "uuid",
+        "球员维护工具.selection"
+      ],
+      "tables": [
+        "active_scope",
+        "audit",
+        "candidate_rows_v2",
+        "candidates",
+        "collection_meta",
+        "collections",
+        "events",
+        "execution_items",
+        "executions",
+        "legacy_unresolved",
+        "meta",
+        "model_snapshot_rows",
+        "model_snapshots",
+        "plans"
+      ],
+      "lines": 490
+    },
+    {
+      "path": "fc27_players_cloud/player_web/settings.py",
+      "sha256": "f910bfd09ed6c1a4a114e3425dd05eb6dadca2af1066dcc8ff921b0d979cce5b",
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "os",
+        "pathlib",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 85
+    },
+    {
+      "path": "fc27_players_cloud/player_web/static/app.js",
+      "sha256": "121cd41043753332fb14cc9d4ac140a56282e8f994be700462f0d3013417f3e5",
+      "imports": [],
+      "tables": [],
+      "lines": 105
+    },
+    {
+      "path": "fc27_players_cloud/player_web/static/images.js",
+      "sha256": "9fb3fe95365dea189460bb21dd79ff17e66adc590251751bc641166b4ae99312",
+      "imports": [],
+      "tables": [],
+      "lines": 22
+    },
+    {
+      "path": "fc27_players_cloud/requirements.lock",
+      "sha256": "034baf43f01db4418243a2d55d69cb89ccb6362c69c1c1a4b4d3b2f8e6277ea4",
+      "imports": [],
+      "tables": [],
+      "lines": 3
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/__init__.py",
+      "sha256": "5b3cad86ccf0c577bd59c5644978cd5820cb11ea8dc3eca4c1cc65ad2726f5e0",
+      "imports": [
+        ".player_database"
+      ],
+      "tables": [],
+      "lines": 11
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/adapters.py",
+      "sha256": "2625c932f3cd2bf9a84f11d8a97fef6f03db7a08a4b1c33d0a9057cc1557f3a4",
+      "imports": [
+        ".admin_adapter",
+        ".models",
+        ".player_database",
+        ".storage",
+        ".transformer",
+        "__future__",
+        "abc",
+        "dataclasses",
+        "json",
+        "pathlib",
+        "shutil",
+        "threading",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 487
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/admin_adapter.py",
+      "sha256": "cee63f0f24d1bfe429d9d41a84359988d5ca76cd0aade865735f1721461b2c4a",
+      "imports": [
+        ".admin_client",
+        ".player_database",
+        ".storage",
+        "__future__",
+        "contextlib",
+        "copy",
+        "dataclasses",
+        "datetime",
+        "decimal",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "shutil",
+        "time",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 1533
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/admin_client.py",
+      "sha256": "c34e7479ba2b7aaafbb5292e165ed094886d25c76747dc8c45ec3342a9eaff3d",
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "json",
+        "mimetypes",
+        "os",
+        "pathlib",
+        "re",
+        "secrets",
+        "time",
+        "typing",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 781
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app.py",
+      "sha256": "213d3d5037164caffd6dd2d14325786bb3bdb4b80c998ef94a36a5e57350ac7e",
+      "imports": [
+        ".adapters",
+        ".admin_adapter",
+        ".admin_client",
+        ".app_config",
+        ".app_constants",
+        ".app_existing_models",
+        ".app_formatters",
+        ".app_login",
+        ".app_new_card",
+        ".app_pipeline",
+        ".existing_model_ui",
+        ".login_dialog",
+        ".models",
+        ".new_card_recovery",
+        ".new_card_selection",
+        ".pipeline",
+        ".player_database",
+        ".selection",
+        ".storage",
+        "base64",
+        "contextlib",
+        "dataclasses",
+        "datetime",
+        "json",
+        "openpyxl",
+        "os",
+        "pathlib",
+        "queue",
+        "secrets",
+        "sys",
+        "tempfile",
+        "threading",
+        "tkinter",
+        "tkinter.scrolledtext",
+        "typing",
+        "zipfile",
+        "球员维护工具.adapters",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.admin_client",
+        "球员维护工具.app_config",
+        "球员维护工具.app_constants",
+        "球员维护工具.app_existing_models",
+        "球员维护工具.app_formatters",
+        "球员维护工具.app_login",
+        "球员维护工具.app_new_card",
+        "球员维护工具.app_pipeline",
+        "球员维护工具.existing_model_ui",
+        "球员维护工具.login_dialog",
+        "球员维护工具.models",
+        "球员维护工具.new_card_recovery",
+        "球员维护工具.new_card_selection",
+        "球员维护工具.pipeline",
+        "球员维护工具.player_database",
+        "球员维护工具.selection",
+        "球员维护工具.storage"
+      ],
+      "tables": [],
+      "lines": 364
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_config.py",
+      "sha256": "495d58c81b5bd72a839c4732243a0dc3afa99139d3c013dff57af08a88a42a14",
+      "imports": [
+        ".app_constants",
+        ".transformer",
+        "__future__",
+        "json",
+        "pathlib",
+        "sys",
+        "threading",
+        "tkinter",
+        "typing",
+        "球员维护工具.app_constants",
+        "球员维护工具.models",
+        "球员维护工具.player_database",
+        "球员维护工具.selection",
+        "球员维护工具.transformer"
+      ],
+      "tables": [],
+      "lines": 308
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_constants.py",
+      "sha256": "f5a3e53a8a055e55f9cbaac1d1a43dd578f094cbde10e2d7f78f6b9b415f15ef",
+      "imports": [
+        "__future__",
+        "pathlib",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 39
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_existing_models.py",
+      "sha256": "8ea46a539aeb8e7ae2e5b007838990a4eea1a64f3bc74a2f9e568dcbf7034d44",
+      "imports": [
+        ".app_formatters",
+        "__future__",
+        "os",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "threading",
+        "tkinter",
+        "typing",
+        "球员维护工具.app_formatters",
+        "球员维护工具.existing_model_ui",
+        "球员维护工具.storage"
+      ],
+      "tables": [],
+      "lines": 460
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_formatters.py",
+      "sha256": "1a0ce40a17851bd87c5f2bed965b1b7e5d6808653879bb823870e1fac8cd035b",
+      "imports": [
+        ".app_constants",
+        "__future__",
+        "pathlib",
+        "sys",
+        "typing",
+        "球员维护工具.app_constants",
+        "球员维护工具.new_card_recovery",
+        "球员维护工具.storage"
+      ],
+      "tables": [],
+      "lines": 228
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_login.py",
+      "sha256": "ee8444f09d0809bda9695f707b15a5f764e47c9baaea40fedafb8db8f3f56144",
+      "imports": [
+        ".login_dialog",
+        "PIL",
+        "__future__",
+        "base64",
+        "io",
+        "pathlib",
+        "sys",
+        "threading",
+        "tkinter",
+        "typing",
+        "球员维护工具.adapters",
+        "球员维护工具.login_dialog"
+      ],
+      "tables": [],
+      "lines": 99
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_new_card.py",
+      "sha256": "efaa10e6f3436a4b3debdd219b5e148ab570efb9da54ee4a8bf28a455f16e9f0",
+      "imports": [
+        ".app_constants",
+        ".app_formatters",
+        ".selection",
+        ".transformer",
+        "__future__",
+        "datetime",
+        "json",
+        "pathlib",
+        "sys",
+        "threading",
+        "tkinter",
+        "typing",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.app_constants",
+        "球员维护工具.app_formatters",
+        "球员维护工具.models",
+        "球员维护工具.new_card_recovery",
+        "球员维护工具.new_card_selection",
+        "球员维护工具.player_database",
+        "球员维护工具.selection",
+        "球员维护工具.storage",
+        "球员维护工具.transformer"
+      ],
+      "tables": [],
+      "lines": 1023
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/app_pipeline.py",
+      "sha256": "47bbe3a91353a9cfb46762030d6e0787ba9cd7b2c0738a9bd635af5e8e7ec71e",
+      "imports": [
+        ".app_constants",
+        ".app_formatters",
+        ".login_dialog",
+        "__future__",
+        "contextlib",
+        "dataclasses",
+        "json",
+        "pathlib",
+        "queue",
+        "sys",
+        "threading",
+        "time",
+        "tkinter",
+        "typing",
+        "球员维护工具.admin_adapter",
+        "球员维护工具.admin_client",
+        "球员维护工具.app_constants",
+        "球员维护工具.app_formatters",
+        "球员维护工具.existing_model_ui",
+        "球员维护工具.login_dialog",
+        "球员维护工具.models",
+        "球员维护工具.storage"
+      ],
+      "tables": [],
+      "lines": 823
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/existing_model_domain.py",
+      "sha256": "fad54f74efdd639bc35ae9157aed08c97f047c7b6c0a34f4b53d50f28d407d95",
+      "imports": [
+        ".admin_adapter",
+        ".admin_client",
+        "__future__",
+        "dataclasses",
+        "decimal",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 586
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/existing_model_ui.py",
+      "sha256": "9522b55bcfc430e7e70ef7cd892e74c4185ae41770ce4e4088198bcfaf91422a",
+      "imports": [
+        ".existing_model_domain",
+        "__future__",
+        "tkinter",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 353
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/login_dialog.py",
+      "sha256": "00fadd0df1b67bb01700d38481ffb145e9379723f183995b48cc4423fbc36e25",
+      "imports": [
+        ".app_constants",
+        "__future__",
+        "os",
+        "pathlib",
+        "secrets",
+        "sys",
+        "tkinter",
+        "typing",
+        "zipfile",
+        "球员维护工具.adapters",
+        "球员维护工具.admin_client",
+        "球员维护工具.app_constants",
+        "球员维护工具.storage"
+      ],
+      "tables": [],
+      "lines": 106
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/models.py",
+      "sha256": "cbe5876f1523bf84f1d8574cb109204899950f5ff253b323c9ca7772d525a90c",
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "datetime",
+        "enum",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 222
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/new_card_recovery.py",
+      "sha256": "3e77bfbff67df2c461cfae48b2090c435d3270d4a1db108db684aba6cb3a88db",
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "json",
+        "pathlib",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 294
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/new_card_selection.py",
+      "sha256": "aa56e6673e0a0ee222f130297474dcbb351c0488e4686d58515b9c47d007e600",
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "json",
+        "openpyxl",
+        "pathlib",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 296
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/pipeline.py",
+      "sha256": "a8cc4729183b8be0953ee006200513277767f684979302c307d3c8c944340c79",
+      "imports": [
+        ".adapters",
+        ".models",
+        ".storage",
+        "__future__",
+        "pathlib",
+        "threading",
+        "traceback",
+        "typing",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 239
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/player_database.py",
+      "sha256": "f39a3d1772bfa04280c7435ef1db3cca29b5df9a629499483a113a715ea91026",
+      "imports": [
+        ".models",
+        "__future__",
+        "collections",
+        "dataclasses",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "typing",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request",
+        "xml.etree",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 523
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/player_db_cli.py",
+      "sha256": "9834fd91ec7cbbc4d7b5a4a68943517b0d77eb73fa655599a73f2bb79425900d",
+      "imports": [
+        ".models",
+        ".player_database",
+        "__future__",
+        "argparse",
+        "json",
+        "pathlib",
+        "sys",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 130
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/rating_rules.py",
+      "sha256": "79c7e536b68bc221890697b500e03b8c231f7cea494320d9d1373a18ca929354",
+      "imports": [
+        ".app_formatters"
+      ],
+      "tables": [],
+      "lines": 4
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/selection.py",
+      "sha256": "f6c911d8df1ededc2c7d0efbb32ef3f3762a2e7a1d41ce7ca56f2cfe0e44c730",
+      "imports": [
+        ".admin_adapter",
+        ".models",
+        "__future__",
+        "dataclasses",
+        "typing"
+      ],
+      "tables": [],
+      "lines": 248
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/storage.py",
+      "sha256": "e8cdaa9a004b5dce066bb39506b1ee74fb631a5d8ff0149f27d16a4e3a1dfa0f",
+      "imports": [
+        ".models",
+        "__future__",
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "typing",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 141
+    },
+    {
+      "path": "fc27_players_cloud/球员维护工具/transformer.py",
+      "sha256": "c6d3b0e7d8dc64a58b13e271800b623097fbafb92ba865bc35d57903cfa9cff7",
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataclasses",
+        "datetime",
+        "json",
+        "math",
+        "openpyxl",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "typing",
+        "xml.sax.saxutils",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 1163
+    },
+    {
+      "path": "fc27_quote_cloud.js",
+      "sha256": "f80cda7dd1a406f58bd84e7912c08534bb2aaa4b85621d46c78bd019771f1791",
+      "imports": [],
+      "tables": [],
+      "lines": 1044
+    },
+    {
+      "path": "fc27_quote_engine.py",
+      "sha256": "45cdb611c3090e821b155fa97450c677776c21088170af3b08dce0e5fcb71924",
+      "imports": [
+        "__future__",
+        "decimal",
+        "fractions",
+        "hashlib",
+        "json",
+        "re"
+      ],
+      "tables": [],
+      "lines": 397
+    },
+    {
+      "path": "fc_calendar_trim_20261004/fc-analytics.js",
+      "sha256": "9ec3be72c92025456ec4572bd447afc615d14fced57f8e7dfbedf2dbcad3ab71",
+      "imports": [],
+      "tables": [],
+      "lines": 114
+    },
+    {
+      "path": "fs_dashboard_overwrite_20261003/release_gateway.py",
+      "sha256": "92340c043292fe52598f16e29bd9c542d637ac2f618c96c90251241e06289be5",
+      "imports": [
+        "argparse",
+        "datetime",
+        "fcntl",
+        "hashlib",
+        "json",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 120
+    },
+    {
+      "path": "fs_dashboard_overwrite_20261003/test_exact_dependencies.py",
+      "sha256": "90ecf0b8302b4342710f451f9ebb3d6a7a929afe51157e7a6e12fb3bf61bb6b1",
+      "imports": [
+        "json",
+        "release_gateway",
+        "test_release_gateway",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 25
+    },
+    {
+      "path": "fs_dashboard_overwrite_20261003/test_release_gateway.py",
+      "sha256": "aefb45ed893a74f7ea268f19c2ba3e0bdf9d8a78b0e04c1ab9ace6ae679a0d60",
+      "imports": [
+        "hashlib",
+        "json",
+        "pathlib",
+        "release_gateway",
+        "tempfile",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 57
+    },
+    {
+      "path": "fs_dashboard_overwrite_20261003/test_reviewed_recovery.py",
+      "sha256": "c55cafe5568a78baf71e2c2c94a343bc6e0c89d1ae9e6e30cf5d9d6eb78aced2",
+      "imports": [
+        "hashlib",
+        "json",
+        "pathlib",
+        "release_gateway",
+        "shutil",
+        "test_release_gateway",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 65
+    },
+    {
+      "path": "fs_date_theme_fix_20261001/business-range.js",
+      "sha256": "15ca27648c154bbaf9868a614e8099625b23ec75ae838c810271ede43885bf83",
+      "imports": [],
+      "tables": [],
+      "lines": 29
+    },
+    {
+      "path": "fs_date_theme_fix_20261001/business-theme.js",
+      "sha256": "99b05fd8b4b764b6ce73b8fca27a6a68acc5360abc831fc32f06b717fe6f30cb",
+      "imports": [],
+      "tables": [],
+      "lines": 5
+    },
+    {
+      "path": "fs_exact_range_20261001/range_primary_reader.py",
+      "sha256": "433e8f3f8491cbe6b08eba53f415a679ee726e0b1a7cbbf6a919166c093981c1",
+      "imports": [
+        "datetime",
+        "decimal",
+        "json",
+        "playwright.sync_api",
+        "primary_fields",
+        "re",
+        "sys",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 59
+    },
+    {
+      "path": "fs_home_live_20260930/app.js",
+      "sha256": "e3373785a0bfe1279905892893758f6589aef73440677c196f91b8b0267a4137",
+      "imports": [],
+      "tables": [],
+      "lines": 76
+    },
+    {
+      "path": "fs_home_live_20260930/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324",
+      "imports": [],
+      "tables": [],
+      "lines": 15
+    },
+    {
+      "path": "fs_range_read_state_20261001/exact-range-client.js",
+      "sha256": "4c036d4bd203a3d2f58ecfd67b4a12c82b67de40e480b7f4f34ffa2a5239ec05",
+      "imports": [],
+      "tables": [],
+      "lines": 58
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/atomic_snapshot.py",
+      "sha256": "6469b77dd518d3da6f30ff5ecba73cb6291ea764f0223dae2ee186d76ffc9949",
+      "imports": [
+        "datetime",
+        "fcntl",
+        "hashlib",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 132
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/collector.py",
+      "sha256": "5a22b0dfbceeba5e49d6c2be6252761be1c6e91c6c4a83af5074ff6868efb8e9",
+      "imports": [
+        "atomic_snapshot",
+        "copy",
+        "datetime",
+        "fc_category_contract",
+        "fc_product_contract",
+        "hashlib",
+        "json",
+        "pathlib",
+        "subprocess",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 188
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/fc_category_contract.py",
+      "sha256": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal",
+        "math"
+      ],
+      "tables": [],
+      "lines": 106
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/fc_category_reader.py",
+      "sha256": "2dc8f805386f4bde5a3927a6a6e31275ae25349d7d4ca9490e480a922ef597c6",
+      "imports": [
+        "datetime",
+        "decimal",
+        "json",
+        "playwright.sync_api",
+        "primary_fields",
+        "re",
+        "sys",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 66
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/fc_product_contract.py",
+      "sha256": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal"
+      ],
+      "tables": [],
+      "lines": 117
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/fc_product_reader.py",
+      "sha256": "86356f8f940626925177aea582a441562e8e21c9a28ef353c16374bc283bfc57",
+      "imports": [
+        "datetime",
+        "fc_product_contract",
+        "json",
+        "p2pah_session_service",
+        "signal",
+        "sys",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 46
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/primary_fields.py",
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+      "imports": [
+        "decimal"
+      ],
+      "tables": [],
+      "lines": 38
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/primary_reader.py",
+      "sha256": "c246da9acd7b6b75bc41b79564b39a532b286eb3bf109598e6825738bdcb8f30",
+      "imports": [
+        "datetime",
+        "decimal",
+        "json",
+        "playwright.sync_api",
+        "primary_fields",
+        "re",
+        "sys",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 58
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e",
+      "imports": [],
+      "tables": [],
+      "lines": 13
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "imports": [
+        "decimal"
+      ],
+      "tables": [],
+      "lines": 73
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/supplement_reader.py",
+      "sha256": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38",
+      "imports": [
+        "datetime",
+        "decimal",
+        "json",
+        "p2pah_session_service",
+        "supplement_fields",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 30
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/test_atomic_snapshot.py",
+      "sha256": "09321c54efd091fcbe8058a03dc011fba2fc4cad61f48bf81545ce1b584e9f67",
+      "imports": [
+        "atomic_snapshot",
+        "copy",
+        "json",
+        "pathlib",
+        "tempfile",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 46
+    },
+    {
+      "path": "fs_transaction_snapshot_20260930/today_api.py",
+      "sha256": "0498fc48ab6c3b2d6594d1890f991042b54848eae8097e0b56301c9b13a433c0",
+      "imports": [
+        "datetime",
+        "hashlib",
+        "http.server",
+        "json",
+        "pathlib"
+      ],
+      "tables": [],
+      "lines": 32
+    },
+    {
+      "path": "mmoexp_google_data/dashboard_module/build_module.py",
+      "sha256": "74a9910779ffdab650c6f25efb37469bb033a95f9f58f3865f669a9be612310d",
+      "imports": [
+        "argparse",
+        "datetime",
+        "decimal",
+        "json",
+        "pathlib",
+        "re",
+        "shutil"
+      ],
+      "tables": [],
+      "lines": 90
+    },
+    {
+      "path": "mmoexp_google_data/dashboard_module/business-module.js",
+      "sha256": "d942771371b353faee2061448bd209e3c35526b03ece6e5ac7ccfe6a4d55bcd8",
+      "imports": [],
+      "tables": [],
+      "lines": 120
+    },
+    {
+      "path": "mmoexp_google_data/dashboard_module/marketing-module.js",
+      "sha256": "e04f3ca3a0447a52753e54c27f0ca5d44d32d39c69e277a52b981400472c7aa9",
+      "imports": [],
+      "tables": [],
+      "lines": 31
+    },
+    {
+      "path": "mmoexp_google_data/deployment/server_collect_selected_ads.py",
+      "sha256": "a252a035e87776a944970040284bda2b6d6230f9b15ea8e32ab04357817eeb48",
+      "imports": [
+        "ads_selected_account_check",
+        "argparse",
+        "collector",
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "sqlite3",
+        "sys",
+        "zoneinfo"
+      ],
+      "tables": [],
+      "lines": 46
+    },
+    {
+      "path": "mmoexp_google_data/deployment/server_collect_verified.py",
+      "sha256": "499ae42da48b19fa7a1340ecfcb0a96edeb2e5284a2cbfc9f139db9c831aa477",
+      "imports": [
+        "collector",
+        "datetime",
+        "decimal",
+        "json",
+        "os",
+        "pathlib",
+        "server_run_daily",
+        "sqlite3",
+        "subprocess",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 59
+    },
+    {
+      "path": "mmoexp_google_data/deployment/server_publish_module.py",
+      "sha256": "560e8a94ab1a9bba03924a962f7d066f145e6f431eb4cff1655de445747c87d2",
+      "imports": [
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "shutil",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 44
+    },
+    {
+      "path": "mmoexp_google_data/deployment/server_run_integrated.py",
+      "sha256": "a1174defb5db8405624f87b89d40e700bfceed6160ae004363fe913a0cd439e7",
+      "imports": [
+        "datetime",
+        "fcntl",
+        "json",
+        "os",
+        "pathlib",
+        "subprocess",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 35
+    },
+    {
+      "path": "mmoexp_google_data/details/collect_details.py",
+      "sha256": "6e9a5d1f4c6a27640a06cec60b5a847558cd7dcf21c6083826495379ca785c1c",
+      "imports": [
+        "argparse",
+        "datetime",
+        "decimal",
+        "fcntl",
+        "google.auth.transport.requests",
+        "google.oauth2.credentials",
+        "google.oauth2.service_account",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "sqlite3",
+        "stat",
+        "sys",
+        "time",
+        "urllib.parse",
+        "zoneinfo"
+      ],
+      "tables": [
+        "detail_attempts",
+        "detail_reports"
+      ],
+      "lines": 211
+    },
+    {
+      "path": "mmoexp_google_data/details/detail_model.py",
+      "sha256": "9c9592549fa2162adda7ea8cb590ce2bf4bf95a7b8ce7ccb28ecdfc4e8326dc2",
+      "imports": [
+        "argparse",
+        "datetime",
+        "decimal",
+        "json",
+        "pathlib",
+        "re",
+        "sqlite3"
+      ],
+      "tables": [],
+      "lines": 161
+    },
+    {
+      "path": "mmoexp_google_data/details/test_details.py",
+      "sha256": "355ca6ecf9bc290c819aa2b774fd774f2f6a3c454f28851b2e5957ce507be149",
+      "imports": [
+        "datetime",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "sqlite3",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 60
+    },
+    {
+      "path": "mmoexp_google_data/implementation/collector.py",
+      "sha256": "0415a0ceea92039ea06bd7eb4afb331a31abf327c2a20f5e283bb1061e66a05e",
+      "imports": [
+        "__future__",
+        "argparse",
+        "datetime",
+        "decimal",
+        "google.auth",
+        "google.auth.transport.requests",
+        "html",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "sqlite3",
+        "urllib.parse",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 168
+    },
+    {
+      "path": "mmoexp_google_data/implementation/requirements.txt",
+      "sha256": "a0d6911c4c63741649f56e6ce1277acddaab30434c5121c23c825f6a13e962df",
+      "imports": [],
+      "tables": [],
+      "lines": 3
+    },
+    {
+      "path": "mmoexp_google_data/implementation/server_run_daily.py",
+      "sha256": "80927d3c8335bfb205a8a28da8292cdf8e72e210e460a9e2ed608b892aad1d4f",
+      "imports": [
+        "argparse",
+        "collector",
+        "copy",
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "sqlite3",
+        "zoneinfo"
+      ],
+      "tables": [],
+      "lines": 53
+    },
+    {
+      "path": "mmoexp_google_data/implementation/test_collector.py",
+      "sha256": "2ba9170f484c60cc990f1401a03b5fdad47f6a2714a2504bcf5c33de56d57930",
+      "imports": [
+        "collector",
+        "copy",
+        "datetime",
+        "json",
+        "pathlib",
+        "server_run_daily",
+        "sqlite3",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 61
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_adapter.py",
+      "sha256": "3789df4d9e7535465d6e375158e1651ee73d2157cb02bbf3bd223bf8715c1390",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "tempfile",
+        "time",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request",
+        "weekly_report"
+      ],
+      "tables": [],
+      "lines": 95
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/baseline/range_api.py",
+      "sha256": "be8ff8342fc5229cf73934f0bb0dfbe05aff707b443b7b9fbb2d1ccac646ddc2",
+      "imports": [
+        "atomic_snapshot",
+        "collector",
+        "concurrent.futures",
+        "datetime",
+        "fc_category_contract",
+        "fc_product_contract",
+        "fcntl",
+        "hashlib",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 170
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/candidate/range_api.py",
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea",
+      "imports": [
+        "atomic_snapshot",
+        "collector",
+        "concurrent.futures",
+        "datetime",
+        "fc_category_contract",
+        "fc_product_contract",
+        "fcntl",
+        "hashlib",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 180
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/fc_category_contract.py",
+      "sha256": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal",
+        "math"
+      ],
+      "tables": [],
+      "lines": 106
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/fc_product_contract.py",
+      "sha256": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+      "imports": [
+        "copy",
+        "datetime",
+        "decimal"
+      ],
+      "tables": [],
+      "lines": 117
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_category_api.py",
+      "sha256": "2f0cc212745dd5721694a55e59013be37acfcd18d54ae5d6ad6a7bc1e7d26eb4",
+      "imports": [
+        "hashlib",
+        "json",
+        "pathlib",
+        "tempfile",
+        "test_category_contract",
+        "test_range_api",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 41
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_category_contract.py",
+      "sha256": "632c2a89112d17a22f635486843a4d0a596337fcd0dedc4589a2e0b9f6da569b",
+      "imports": [
+        "copy",
+        "datetime",
+        "fc_category_contract",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 47
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_product_api.py",
+      "sha256": "c34c398df6eb2793c474ba03a113078b229d4555d7bd7188c68c0b1dd12ae2c1",
+      "imports": [
+        "copy",
+        "fc_product_contract",
+        "hashlib",
+        "json",
+        "pathlib",
+        "tempfile",
+        "test_range_api",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 43
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_range_api.py",
+      "sha256": "1a229b20503aa3fb809af70e56acb0a90e3fd41ac639e4824dd127749e480c68",
+      "imports": [
+        "datetime",
+        "hashlib",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "types",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 58
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_fix_20261005/tests/test_timer_parser.py",
+      "sha256": "f5b094f803ec249bd406e9da19fa1d14d51eb6ff3099f01de8349647ba738c6d",
+      "imports": [
+        "ast",
+        "hashlib",
+        "json",
+        "pathlib",
+        "tempfile",
+        "test_range_api",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 110
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py",
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea",
+      "imports": [
+        "atomic_snapshot",
+        "collector",
+        "concurrent.futures",
+        "datetime",
+        "fc_category_contract",
+        "fc_product_contract",
+        "fcntl",
+        "hashlib",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 180
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/run_weekly_exact.py",
+      "sha256": "d68bcf6911bc4c55d202fa1ce339fe92899008c432dca55202d9768d7eb8f5a9",
+      "imports": [
+        "argparse",
+        "datetime",
+        "fcntl",
+        "json",
+        "pathlib",
+        "range_adapter",
+        "sys",
+        "types",
+        "weekly_report"
+      ],
+      "tables": [],
+      "lines": 39
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/test_weekly_contracts.py",
+      "sha256": "e100cfca9e70ccafe5833f4101d3f7f06ff1fb7fa524ebd9ffdc48592ab59aec",
+      "imports": [
+        "copy",
+        "datetime",
+        "range_adapter",
+        "unittest",
+        "weekly_report"
+      ],
+      "tables": [],
+      "lines": 53
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/weekly-business-core.js",
+      "sha256": "bbc68e6eafd02d00912adae53a0365afeecbd4daa8d22749fcc997bc127b5777",
+      "imports": [],
+      "tables": [],
+      "lines": 80
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/weekly-charts.js",
+      "sha256": "9c97204bc200ccf8646a504ffdc53128228cc36981d59ff3572d2d84700e2518",
+      "imports": [],
+      "tables": [],
+      "lines": 26
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/weekly-report.js",
+      "sha256": "590f26a09cf0fe6ea9264087888f06b5dc80a5050d4a9491af93b244ddac4c58",
+      "imports": [],
+      "tables": [],
+      "lines": 37
+    },
+    {
+      "path": "mmoexp_google_data/weekly_report/weekly_report.py",
+      "sha256": "2cf96a6821c10eeb0864d074d6d93b9c4289917ad2d5114163a74fe4577d5eb3",
+      "imports": [
+        "argparse",
+        "copy",
+        "datetime",
+        "decimal",
+        "fcntl",
+        "hashlib",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 225
+    },
+    {
+      "path": "opt/auth-portal/auth_portal.py",
+      "sha256": "ae6f58619c27b314a3b918dd3d95134bf63c7afca8a99b32bc65309ff2aeeba5",
+      "imports": [
+        "base64",
+        "crypt",
+        "fc_read_scope",
+        "hashlib",
+        "hmac",
+        "html",
+        "http.client",
+        "http.server",
+        "importlib.util",
+        "json",
+        "os",
+        "re",
+        "socket",
+        "subprocess",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 794
+    },
+    {
+      "path": "opt/auth-portal/fc_read_scope.py",
+      "sha256": "4f1e3c265490b5565cf268cdc6dd8d8d4d88b1cac477561ee8ca54bf263f7b05",
+      "imports": [
+        "re",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 33
+    },
+    {
+      "path": "opt/d4follow/aion2_watch.py",
+      "sha256": "18997bf016b45c8266fb23404df4123ea94ceff90f068830704c971982f2e475",
+      "imports": [
+        "__future__",
+        "aion2_xlsx",
+        "core_gold",
+        "core_multi",
+        "dingtalk_push",
+        "json",
+        "os",
+        "shutil",
+        "statistics",
+        "sys",
+        "time",
+        "traceback"
+      ],
+      "tables": [],
+      "lines": 357
+    },
+    {
+      "path": "opt/d4follow/aion2_xlsx.py",
+      "sha256": "f8fe06fd3cf8b7a2a52bb9d5d1c0e3e757984372201178a7e3eb56bcbbc5d824",
+      "imports": [
+        "__future__",
+        "openpyxl",
+        "openpyxl.styles",
+        "openpyxl.utils",
+        "os",
+        "time"
+      ],
+      "tables": [],
+      "lines": 242
+    },
+    {
+      "path": "opt/d4follow/align_all.py",
+      "sha256": "0ebcaf58740f4ccf9df90ced6442369abe03a837310ed5c0521d170f85df8ad2",
+      "imports": [
+        "argparse",
+        "core_front",
+        "core_iggm",
+        "datetime",
+        "engine",
+        "io",
+        "json",
+        "os",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 331
+    },
+    {
+      "path": "opt/d4follow/app.py",
+      "sha256": "dbbd5e2d76f224c73fbda0a9db0210d15310fcbf1a8265636e31e5bef72d9a14",
+      "imports": [
+        "build_dashboard",
+        "copy",
+        "core_dd373_cost",
+        "core_front",
+        "core_gold",
+        "core_iggm",
+        "core_qd",
+        "datetime",
+        "engine",
+        "flask",
+        "json",
+        "os",
+        "queue",
+        "re",
+        "shelf_check",
+        "shelf_notify",
+        "shelf_patch",
+        "store",
+        "sys",
+        "threading",
+        "time",
+        "traceback",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 3400
+    },
+    {
+      "path": "opt/d4follow/apply_price.py",
+      "sha256": "b15a78208528fb91677a8fc7a4afc510d242de1887a53256edbda8ca57ba5fec",
+      "imports": [
+        "argparse",
+        "core_p2pah",
+        "datetime",
+        "engine",
+        "json",
+        "os",
+        "store",
+        "sys",
+        "time"
+      ],
+      "tables": [],
+      "lines": 227
+    },
+    {
+      "path": "opt/d4follow/build_dashboard.py",
+      "sha256": "e5c30f581716d52994d078ed21dc8a34e203d5f0c28d8f5af5dfd676c4fb6107",
+      "imports": [
+        "core_gold",
+        "datetime",
+        "engine",
+        "json",
+        "os",
+        "re"
+      ],
+      "tables": [],
+      "lines": 965
+    },
+    {
+      "path": "opt/d4follow/core_dd373_cost.py",
+      "sha256": "8a77cb47b97c4d55016fdcafaf695b84142ab8366cddf9be56536dbc22a10476",
+      "imports": [
+        "gzip",
+        "json",
+        "os",
+        "re",
+        "ssl",
+        "sys",
+        "time",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 424
+    },
+    {
+      "path": "opt/d4follow/core_eld.py",
+      "sha256": "c1242f2c6bee947fd6d1520ba266986b7bae30fc293d84a4fff37b993ea9395a",
+      "imports": [
+        "argparse",
+        "json",
+        "time",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 240
+    },
+    {
+      "path": "opt/d4follow/core_front.py",
+      "sha256": "2c923f35fe5fd3a614a48967027d8f2243ebf94a85ab968563445f2b5a127df8",
+      "imports": [
+        "html",
+        "json",
+        "os",
+        "re",
+        "time",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 751
+    },
+    {
+      "path": "opt/d4follow/core_g2g.py",
+      "sha256": "c611e4ae6c72a72c74e1ac316cd3f5c4de01367cdb46d9538a27f418786df239",
+      "imports": [
+        "argparse",
+        "json",
+        "time",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 289
+    },
+    {
+      "path": "opt/d4follow/core_gold.py",
+      "sha256": "1dd7f0fb8d6afe47ae24f0f9ef8510038461172b6b7691cf406311ddd88fdef3",
+      "imports": [
+        "argparse",
+        "core_multi",
+        "datetime",
+        "http.cookiejar",
+        "json",
+        "os",
+        "sqlite3",
+        "sys",
+        "time",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 1087
+    },
+    {
+      "path": "opt/d4follow/core_iggm.py",
+      "sha256": "81f24223009c84abf8309a98b3e97712c30cee214d2b6f14d7b7e168037ebf48",
+      "imports": [
+        "http.cookiejar",
+        "json",
+        "os",
+        "time",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 382
+    },
+    {
+      "path": "opt/d4follow/core_multi.py",
+      "sha256": "d752468e8a35c75165fcafb19a64e2bcf2200f666e770d3f0f17a0388c9cc23d",
+      "imports": [
+        "core_eld",
+        "core_g2g",
+        "json",
+        "os",
+        "time"
+      ],
+      "tables": [],
+      "lines": 304
+    },
+    {
+      "path": "opt/d4follow/core_p2pah.py",
+      "sha256": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+      "imports": [
+        "argparse",
+        "base64",
+        "engine",
+        "http.cookiejar",
+        "json",
+        "os",
+        "re",
+        "ssl",
+        "sys",
+        "time",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 631
+    },
+    {
+      "path": "opt/d4follow/core_qd.py",
+      "sha256": "eb416e0171b1e17de6e8f77dc3a445258b92f6e1a08566e27a4e5ebdfde40545",
+      "imports": [
+        "datetime",
+        "json",
+        "os",
+        "playwright.sync_api",
+        "time",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 901
+    },
+    {
+      "path": "opt/d4follow/dingtalk_push.py",
+      "sha256": "72a11b0783e6c101a14742e67805c1a9209e1381ed2ab2b75129652baf7f5d4c",
+      "imports": [
+        "__future__",
+        "base64",
+        "hashlib",
+        "hmac",
+        "json",
+        "os",
+        "ssl",
+        "time",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 335
+    },
+    {
+      "path": "opt/d4follow/dispatch_align.py",
+      "sha256": "eba500627426fd9f8eb8b551789b8c0cb510e452734524bbea04411d08925587",
+      "imports": [
+        "argparse",
+        "io",
+        "json",
+        "os",
+        "re",
+        "store",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 132
+    },
+    {
+      "path": "opt/d4follow/engine.py",
+      "sha256": "71762e037a2ce1c5dae5d7c8e02738fa8c3b93d209cfc92b39d24ee70f7b7340",
+      "imports": [
+        "gates",
+        "json",
+        "math",
+        "os",
+        "re"
+      ],
+      "tables": [],
+      "lines": 1625
+    },
+    {
+      "path": "opt/d4follow/gates.py",
+      "sha256": "c68c056f6b6522a0bff3762083e8170a14b3c055ef56a1a3bbdc06295ef8326c",
+      "imports": [
+        "re"
+      ],
+      "tables": [],
+      "lines": 326
+    },
+    {
+      "path": "opt/d4follow/poe2_align.py",
+      "sha256": "75c8c2e6254f5b4643478554c5992e85603fda2a1e69ec3c39584224ff3ba420",
+      "imports": [
+        "argparse",
+        "core_front",
+        "core_iggm",
+        "datetime",
+        "engine",
+        "io",
+        "json",
+        "os",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 222
+    },
+    {
+      "path": "opt/d4follow/shelf_check.py",
+      "sha256": "5e5dde35fb2399eee848778b82ace3199e08f49558b03e00d0febc5fdbbe1868",
+      "imports": [
+        "json",
+        "os",
+        "re",
+        "store"
+      ],
+      "tables": [],
+      "lines": 254
+    },
+    {
+      "path": "opt/d4follow/shelf_notify.py",
+      "sha256": "2a4d305db304524dd3c37b4f758f27449d3b10ad8a9b4a109a04b0ba070f7eb0",
+      "imports": [
+        "json",
+        "re",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 107
+    },
+    {
+      "path": "opt/d4follow/shelf_patch.py",
+      "sha256": "7fd04726a5bb97becf04121808207737673a9b22a8ff5421dafe8bab387b0e9d",
+      "imports": [
+        "copy",
+        "json",
+        "re"
+      ],
+      "tables": [],
+      "lines": 211
+    },
+    {
+      "path": "opt/d4follow/srv_exec.py",
+      "sha256": "ea0dc9fa6a8fe74eda4dc9f98885d94ddf7f0005473c917729e20b4574a97758",
+      "imports": [
+        "datetime",
+        "fcntl",
+        "json",
+        "os",
+        "shutil",
+        "signal",
+        "store",
+        "subprocess",
+        "sys",
+        "time"
+      ],
+      "tables": [],
+      "lines": 344
+    },
+    {
+      "path": "opt/d4follow/store.py",
+      "sha256": "b5f3fcc9899ca805ea6fd3dce162265377ead67f73bbeb930aee89bf05293e77",
+      "imports": [
+        "datetime",
+        "json",
+        "os",
+        "sqlite3"
+      ],
+      "tables": [
+        "alert_state",
+        "decisions",
+        "gold_action",
+        "gold_cost",
+        "gold_price",
+        "gold_state",
+        "iggm_price",
+        "local_agent",
+        "local_job",
+        "manual_override",
+        "our_price",
+        "qd_cost",
+        "runs",
+        "shelf_drift"
+      ],
+      "lines": 1140
+    },
+    {
+      "path": "opt/d4follow/tracker.py",
+      "sha256": "38fadf1983897dd52924bf1556c3507c759c5a6d2eafc7f846eedf2fe94d2fa9",
+      "imports": [
+        "argparse",
+        "build_dashboard",
+        "core_front",
+        "core_gold",
+        "core_iggm",
+        "core_p2pah",
+        "core_qd",
+        "datetime",
+        "engine",
+        "json",
+        "os",
+        "store",
+        "sys",
+        "time",
+        "traceback",
+        "webbrowser"
+      ],
+      "tables": [],
+      "lines": 349
+    },
+    {
+      "path": "opt/deploy-hub/bundle_policy.py",
+      "sha256": "07a9d053f769d9488bbf9b1c98cc1106c81a042bc619c7fe3370a0ae72dee722",
+      "imports": [
+        "html",
+        "io",
+        "json",
+        "pathlib",
+        "re",
+        "stat",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 139
+    },
+    {
+      "path": "opt/deploy-hub/deploy_client.py",
+      "sha256": "bc84b5a21efc059538864ec49c74ff098ad2db92b4eb427c4460e36b1df154a4",
+      "imports": [
+        "argparse",
+        "ctypes",
+        "html",
+        "io",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "stat",
+        "sys",
+        "time",
+        "traceback",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 715
+    },
+    {
+      "path": "opt/deploy-hub/deploy_server.py",
+      "sha256": "d73f318a89944cc078aae23f7907b98bc8c5ad7c6490ed1e76ec24622a071e7e",
+      "imports": [
+        "argparse",
+        "base64",
+        "bundle_policy",
+        "http.server",
+        "io",
+        "json",
+        "os",
+        "re",
+        "shutil",
+        "sqlite3",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse",
+        "uuid",
+        "zipfile"
+      ],
+      "tables": [
+        "logs",
+        "sites"
+      ],
+      "lines": 820
+    },
+    {
+      "path": "opt/fs-access-policy/access_policy.py",
+      "sha256": "8220e177b4b87b83da304a7b3b9439f70c09c2606be0088975b3a3678c3786b7",
+      "imports": [
+        "re",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 29
+    },
+    {
+      "path": "opt/iggm-web/app.py",
+      "sha256": "185ff0c11ca825ea08bd7eefd22a72eeae6d5fa333db29f307e7ea6c4f7b3fab",
+      "imports": [
+        "core",
+        "csv",
+        "db",
+        "flask",
+        "os",
+        "re",
+        "runner",
+        "sites"
+      ],
+      "tables": [],
+      "lines": 238
+    },
+    {
+      "path": "opt/iggm-web/core.py",
+      "sha256": "4690ad679a56377dfceda6d893c9d5dd9b87f4eda5b5184179850d8e9ccd8935",
+      "imports": [
+        "html",
+        "http.cookiejar",
+        "json",
+        "re",
+        "time",
+        "url_guard",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 359
+    },
+    {
+      "path": "opt/iggm-web/core_aoeah.py",
+      "sha256": "f0caf4e5d6d7226979d806adbb06149c12f6a1e37ae3752523a32775bf59cf5f",
+      "imports": [
+        "html",
+        "http.cookiejar",
+        "json",
+        "re",
+        "time",
+        "url_guard",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 223
+    },
+    {
+      "path": "opt/iggm-web/core_u4gm.py",
+      "sha256": "af25e527d506bd5daf75d31196d99a0130c91ffe708a90479cdd2017cece7f4f",
+      "imports": [
+        "html",
+        "http.cookiejar",
+        "json",
+        "re",
+        "time",
+        "url_guard",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 408
+    },
+    {
+      "path": "opt/iggm-web/db.py",
+      "sha256": "a8661c89b749686b63d0f9e41d22efde2f39e7cadae88af19451ee6884fc24a1",
+      "imports": [
+        "datetime",
+        "os",
+        "sqlite3",
+        "threading"
+      ],
+      "tables": [
+        "tasks"
+      ],
+      "lines": 133
+    },
+    {
+      "path": "opt/iggm-web/requirements.txt",
+      "sha256": "58e787c93b2072a204dc98d0bf5ce4bd604f43c0e79c5814bc58ed0f01c200a4",
+      "imports": [],
+      "tables": [],
+      "lines": 2
+    },
+    {
+      "path": "opt/iggm-web/runner.py",
+      "sha256": "f6f97a812812155006ffa7bcdd0eaa8df86953fed5f94d8cda9988d4fc4be19b",
+      "imports": [
+        "csv",
+        "datetime",
+        "db",
+        "os",
+        "queue",
+        "re",
+        "sites",
+        "threading",
+        "time",
+        "uuid"
+      ],
+      "tables": [],
+      "lines": 329
+    },
+    {
+      "path": "opt/iggm-web/sites.py",
+      "sha256": "9d3fdb9f9e007261b83419f47859cc11a6eb0afaf31b83c709291a41f54bf339",
+      "imports": [
+        "core",
+        "core_aoeah",
+        "core_u4gm",
+        "url_guard"
+      ],
+      "tables": [],
+      "lines": 64
+    },
+    {
+      "path": "opt/iggm-web/static/app.js",
+      "sha256": "102bf0a8501bf6e7fd9ee5ca2a3f2549f234e50b15babe0bab34cbd62bc0033b",
+      "imports": [],
+      "tables": [],
+      "lines": 257
+    },
+    {
+      "path": "opt/iggm-web/url_guard.py",
+      "sha256": "454d69adda237a8d12b5fd835019f78716c98285230ce14f28172d25a56e1291",
+      "imports": [
+        "http.client",
+        "ipaddress",
+        "socket",
+        "ssl",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 79
+    },
+    {
+      "path": "opt/mlb-online/mlb_server.py",
+      "sha256": "552108bd89a240b58a7e1cde97c59cb0bd88fe8240141f665d86a4357e5ef838",
+      "imports": [
+        "argparse",
+        "base64",
+        "http.server",
+        "io",
+        "json",
+        "mimetypes",
+        "os",
+        "sqlite3",
+        "static_path",
+        "sys",
+        "threading",
+        "time",
+        "urllib.parse",
+        "uuid"
+      ],
+      "tables": [
+        "agents",
+        "kv",
+        "tasks"
+      ],
+      "lines": 498
+    },
+    {
+      "path": "opt/mlb-online/static_path.py",
+      "sha256": "52b5eea9e61b2f9989f7ccdcae7d70fe1c6d9cd32a059d876ad47dedb850f0d6",
+      "imports": [
+        "pathlib",
+        "urllib.parse"
+      ],
+      "tables": [],
+      "lines": 27
+    },
+    {
+      "path": "opt/mmoexp-taskboard/taskboard_server.py",
+      "sha256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+      "imports": [
+        "__future__",
+        "datetime",
+        "http.server",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "sqlite3",
+        "sys",
+        "threading",
+        "time",
+        "traceback",
+        "urllib.parse"
+      ],
+      "tables": [
+        "checks",
+        "depts",
+        "members",
+        "projects",
+        "task_events",
+        "tasks"
+      ],
+      "lines": 976
+    },
+    {
+      "path": "opt/mmoexp-taskboard/web/app.js",
+      "sha256": "392dd2b813689da580d42d84a0e6c48dbc829f0a9398efb32ae89f43cbeeadfe",
+      "imports": [],
+      "tables": [],
+      "lines": 817
+    },
+    {
+      "path": "opt/nba-reprice/backend/api_security.js",
+      "sha256": "bfad326caeec41c0ed13cf022d071a4ea0af23fe61b980c89534e4befb61b1b1",
+      "imports": [],
+      "tables": [],
+      "lines": 43
+    },
+    {
+      "path": "opt/nba-reprice/backend/ocr_captcha.py",
+      "sha256": "b426e1de9d4e8f43c3c0bf927b9cb791667cc843452d62c39298570f8e955230",
+      "imports": [
+        "ddddocr",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 17
+    },
+    {
+      "path": "opt/nba-reprice/backend/p2pah_api.py",
+      "sha256": "2f5cb4759e3239efec95b2c7032d8d092040bbdbb3d73758dbf360d2c3c6eba7",
+      "imports": [
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "uuid",
+        "write_contract"
+      ],
+      "tables": [],
+      "lines": 333
+    },
+    {
+      "path": "opt/nba-reprice/backend/server.js",
+      "sha256": "cd2deebecde1b9db3342bf228d5ccb07b27fd2903b6460a8d53103c08967dd73",
+      "imports": [],
+      "tables": [],
+      "lines": 722
+    },
+    {
+      "path": "opt/nba-reprice/backend/write_contract.py",
+      "sha256": "d1257ae5110de8b0c3466c8235293d5268752b71949831efbaf382f85a2d5299",
+      "imports": [
+        "contextlib",
+        "fcntl",
+        "functools",
+        "hashlib",
+        "json",
+        "math",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "threading"
+      ],
+      "tables": [],
+      "lines": 117
+    },
+    {
+      "path": "opt/nba-reprice/tools/fetch_vc_prices.py",
+      "sha256": "fad487f7283f7f7b8bf7706d8c9ced4dfa9c448a8ca7a7183d3fbc931f2bf9c2",
+      "imports": [
+        "datetime",
+        "json",
+        "re",
+        "subprocess",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 168
+    },
+    {
+      "path": "requirements-dev.txt",
+      "sha256": "d6033e9c387c0e403778606625b41c2d5459d01582124a8ec87173a3ee310c47",
+      "imports": [],
+      "tables": [],
+      "lines": 1
+    },
+    {
+      "path": "test_fc27_quote_engine.py",
+      "sha256": "6d170e7f3b3e116d690cea104ca432bb08d210084279a0cf064eb6d27032b686",
+      "imports": [
+        "decimal",
+        "fc27_quote_engine",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 275
+    },
+    {
+      "path": "tests/integration/test_fc_migration_contract.py",
+      "sha256": "6b451ea14726633d33a3b800b45850b3457dd9a83b3d3887823841cb0d68691d",
+      "imports": [
+        "copy",
+        "importlib.util",
+        "json",
+        "pathlib",
+        "sys",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 55
+    },
+    {
+      "path": "tests/integration/test_fc_rev25_matrix.py",
+      "sha256": "2e7aacedc838f77e5045576aa0528928004a3154b140ed94e6f775cb4080e718",
+      "imports": [
+        "automation_policy",
+        "copy",
+        "decimal",
+        "fc27_quote_engine",
+        "fc_migration_contract",
+        "importlib.util",
+        "json",
+        "os",
+        "pathlib",
+        "socket",
+        "subprocess",
+        "sys",
+        "unittest",
+        "unittest.mock"
+      ],
+      "tables": [],
+      "lines": 89
+    },
+    {
+      "path": "tests/integration/test_pure_revision2_guards.py",
+      "sha256": "6b89fa630cb3965b1b1ad5ea3805f1717c24a5945fb4047ab59b7c98b8117de6",
+      "imports": [
+        "importlib.util",
+        "io",
+        "json",
+        "pathlib",
+        "socket",
+        "sys",
+        "tempfile",
+        "unittest",
+        "unittest.mock",
+        "urllib.request"
+      ],
+      "tables": [],
+      "lines": 66
+    },
+    {
+      "path": "tests/integration/test_revision3_contracts.py",
+      "sha256": "9df8dc52488c8762ae466abae301e9b4b1a55d49c28a97233e0c46bde88b3aaa",
+      "imports": [
+        "ast",
+        "contextlib",
+        "hashlib",
+        "http.client",
+        "importlib.util",
+        "io",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "socket",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "threading",
+        "types",
+        "unittest",
+        "unittest.mock",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 149
+    },
+    {
+      "path": "tests/integration/test_wired_revision2_guards.py",
+      "sha256": "217c047aea0cd65a27ae69ec89cc74b74959de670fbcc220528fd514a58af32a",
+      "imports": [
+        "ast",
+        "contextlib",
+        "hashlib",
+        "html",
+        "importlib.util",
+        "io",
+        "json",
+        "mimetypes",
+        "os",
+        "pathlib",
+        "sites",
+        "socket",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "types",
+        "unittest",
+        "unittest.mock",
+        "urllib.parse",
+        "zipfile"
+      ],
+      "tables": [],
+      "lines": 136
+    },
+    {
+      "path": "tools/build_business_html.py",
+      "sha256": "f49137f9fd07247329b218d8ae3a252b3ac4087670b32541555a633cf9343fe5",
+      "imports": [
+        "argparse",
+        "hashlib",
+        "json",
+        "pathlib"
+      ],
+      "tables": [],
+      "lines": 58
+    },
+    {
+      "path": "tools/check_candidate.py",
+      "sha256": "cc23efd8c4e7ca360f42e4a524bebf93bdfc177d0281468e43ef479643e09cc4",
+      "imports": [
+        "ast",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tempfile"
+      ],
+      "tables": [],
+      "lines": 109
+    },
+    {
+      "path": "tools/fc_migration_contract.py",
+      "sha256": "bf733862cd1f6426bff6f711beaf106eab3359d3a0cb0f3365f9c72c4f2fb9b3",
+      "imports": [
+        "decimal"
+      ],
+      "tables": [],
+      "lines": 65
+    },
+    {
+      "path": "tools/scan_candidate.py",
+      "sha256": "11f811f7304103b7753453ada2048031c0ba1c20a370893fb6396aedb6928a31",
+      "imports": [
+        "json",
+        "pathlib",
+        "re",
+        "sys"
+      ],
+      "tables": [],
+      "lines": 36
+    },
+    {
+      "path": "tools/test_business_html_build.py",
+      "sha256": "1ffdbcccf2e9e6e6d7f83381c26927cd1b5f268c72fe4f416bdac652d950e084",
+      "imports": [
+        "build_business_html",
+        "hashlib",
+        "json",
+        "pathlib",
+        "tempfile",
+        "unittest"
+      ],
+      "tables": [],
+      "lines": 72
+    }
+  ],
+  "archiveUnits": [
+    {
+      "path": "etc/systemd/system/aegis.service",
+      "sha256": "4a3c795cd0e4a30093ad92cb53208eb1105352b4b5b9d00018ffc5626ae3b70a",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/aion2-watch.service",
+      "sha256": "176310c50bf37f0553c5e717fe4e7b6fcdd48cab792e2e9e9f3225e7a509527b",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/d4follow"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/aion2-watch.timer",
+      "sha256": "91d68465c926df6a4218f4516f32d000c5d27ed651e34e536a740c2cd630af4b",
+      "declarations": {
+        "OnBootSec": [
+          "2min"
+        ],
+        "OnUnitActiveSec": [
+          "15min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/aliyun.service",
+      "sha256": "671e5db85f475e7536c1f9f8654f3648c37d19975feb475d70dd5b6533366d8e",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/AssistDaemon.service",
+      "sha256": "d37f7f64d60df28d82e94c20f5c60e1fc3d2f906320ad0411b0f21ef8ac1bf28",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/auth-portal.service",
+      "sha256": "c27c52ca0e2aba8feb1b85924f3ece739368e40befc36d90ebcbd2112226c381",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/auth-portal"
+        ],
+        "ReadWriteDirectories": [
+          "/opt/auth-portal/data"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/cloudmonitor.service",
+      "sha256": "c55052f0e9a835d7778bab7be261a31db36673647829b00320279357899717cc",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/d4follow-collect.service",
+      "sha256": "8f01b236056c96d8f0ebe08885d2a6198db5d17d6793a2961c28c6809288c7d5",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/d4follow"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/d4follow-collect.timer",
+      "sha256": "e3835241083e6b7fe882b6fe12181ef3656afd2516bb309c4c43a74c864c0ac6",
+      "declarations": {
+        "OnBootSec": [
+          "5min"
+        ],
+        "OnUnitActiveSec": [
+          "15min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/d4follow.service",
+      "sha256": "4abaeb0c91fbac6459fbe7e4635dd9bdf9536292271e17ac524910a0184318fd",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/d4follow"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/dashboard-collect.service",
+      "sha256": "4ebcebdfc27bc2f029a127f280b6a6389db711c38bc2538c029c0f27530c7fe4",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/dashboard-collect"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/dashboard-fallback.timer",
+      "sha256": "2400f420549d98f39e4d4935794cf820ced54fe7f19247e438969af46a423740",
+      "declarations": {
+        "OnCalendar": [
+          "*-*-* 18:15:00"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/dashboard-pipeline.timer",
+      "sha256": "9d7a0f08eedc0563d0de11a519299b86d73cf79d4dee9db61bf4dfe371cb38db",
+      "declarations": {
+        "OnCalendar": [
+          "*-*-* 12:15:00"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/deploy-hub.service",
+      "sha256": "d72fca2f937416d6ef79fb6eda5372671e36767fc7b5c57b4af61d2fe7e1dc13",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/deploy-hub"
+        ],
+        "User": [
+          "root"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-activity-api.service",
+      "sha256": "680a33023e4ca95014abf3ad54cac6cc1308692671f15f7587679c98a1113339",
+      "declarations": {
+        "User": [
+          "fc27audit"
+        ],
+        "Group": [
+          "fc27audit"
+        ],
+        "ReadWriteDirectories": [
+          "/var/lib/fc27-activity"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-activity-maintenance.service",
+      "sha256": "65837c36a087d3908b024beb6f23f8be6bdcda79d084cd3d6b5b745faa3b0099",
+      "declarations": {
+        "User": [
+          "fc27api"
+        ],
+        "Group": [
+          "fc27cloud"
+        ],
+        "WorkingDirectory": [
+          "/opt/fc27-cloud-browser"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-activity-maintenance.timer",
+      "sha256": "479f6f4f93275a3b8e532a5861678a3daa08a6c4c722903b2283932deaad662f",
+      "declarations": {
+        "OnBootSec": [
+          "2min"
+        ],
+        "OnUnitActiveSec": [
+          "1h"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-automation-tick.service",
+      "sha256": "5ff776530e276789a330393986b4356c1eb8ae7e37134bfeb1f5d4e654208cd1",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fc27-cloud-browser"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-automation-tick.timer",
+      "sha256": "6b8a61c643f4d0d2c675cb07259c32deb3de6b87c05c13d1304382ba5bebe927",
+      "declarations": {
+        "OnBootSec": [
+          "1min"
+        ],
+        "OnUnitActiveSec": [
+          "1min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-cloud-api.service",
+      "sha256": "120bdceefbd6e698e51a905222816604d5fff76819e5dc1635a50786fc890344",
+      "declarations": {
+        "User": [
+          "fc27api"
+        ],
+        "Group": [
+          "fc27cloud"
+        ],
+        "WorkingDirectory": [
+          "/opt/fc27-cloud-browser"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-cloud-worker.service",
+      "sha256": "43b5680a4999b6cf1bdb5704793d577f2d269a7385fdadc9bac2edf86f84fc7f",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fc27-cloud-browser"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-gallery.service",
+      "sha256": "d61452e484bc3b461e1819b2ef877c8b3cf35349cba5b5d5de7f5bc6a189d860",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fc27-gallery"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-gate.service",
+      "sha256": "60474edc224e276e50682bd6ae7cb5bb6f0baa6dc9020433e8f2f5f97506c39d",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fc27-gate"
+        ],
+        "ReadWriteDirectories": [
+          "/opt/fc27-gate/data"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-ip-certificate.service",
+      "sha256": "181b156e4302ad909e4bb68a77173bc7a1ff199f70fca24da1edf31878d0b603",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/fc27-ip-certificate.timer",
+      "sha256": "bb727014de8d06edf296c795ac202e2cab80db69b6ca6d276b1704e234c7bb25",
+      "declarations": {
+        "OnBootSec": [
+          "10min"
+        ],
+        "OnUnitActiveSec": [
+          "12h"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-ops-api.service",
+      "sha256": "fd2e049654a55bc5d8a2dafd51cd6ff5781674003984b64cbad9e8e5b663664e",
+      "declarations": {
+        "User": [
+          "fc27ops"
+        ],
+        "Group": [
+          "fc27ops"
+        ],
+        "WorkingDirectory": [
+          "/opt/fc27-ops"
+        ],
+        "ReadWritePaths": [
+          "/var/lib/fc27-ops/jobs /var/lib/fc27-ops"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-ops-collect.service",
+      "sha256": "b18382664f657742b33e88e30121c8cc39a93b8e8068935eca97e6452999aada",
+      "declarations": {
+        "User": [
+          "fc27ops"
+        ],
+        "Group": [
+          "fc27ops"
+        ],
+        "WorkingDirectory": [
+          "/opt/fc27-ops"
+        ],
+        "ReadWritePaths": [
+          "/var/lib/fc27-ops/jobs /var/lib/fc27-ops"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-ops-collect.timer",
+      "sha256": "fe09753c9d91e6feec44182cd2dcc3764ecd176bb46b080880241856f0c29792",
+      "declarations": {
+        "OnCalendar": [
+          "*-*-* 04:00:00"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-ops-worker.service",
+      "sha256": "95f7cde38d451ebdd30e2c9193f00c9671da49859e6a3e46a66e4dba27428c72",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fc27-ops"
+        ],
+        "ReadWritePaths": [
+          "/var/lib/fc27-ops /var/www/sites/wulv/fc27-ops/data /opt/fc27-gate/data"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "36a9cee51162e6e26670f6ecbb2bae33c438baa6117b75bc62fcdd342f0cb31e",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/fc27-player-collect.service",
+      "sha256": "652fae8b1bd2be74a2e362643810a0bd5c1e4c3f05bb517fcf4c5f9fc42b9e09",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/fc27-player-collect.timer",
+      "sha256": "8bd4d964f5a64e6dfe2576e42fa2a3fcbf5dd891712eea1b87542a75ff684ede",
+      "declarations": {
+        "OnBootSec": [
+          "5min"
+        ],
+        "OnUnitActiveSec": [
+          "60min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-player-tool.service",
+      "sha256": "ca0a9ec3d14358e6b811e9a88d3139b97e2caab447f90911dc98fad95a4ca1a6",
+      "declarations": {}
+    },
+    {
+      "path": "etc/systemd/system/fc27-storefront-monitor.service",
+      "sha256": "3ab9009cc130f39a920938ca575e8e09ee4a95b5c0c0a8de2bc314573d50fefa",
+      "declarations": {
+        "User": [
+          "fc27api"
+        ],
+        "Group": [
+          "fc27cloud"
+        ],
+        "WorkingDirectory": [
+          "/opt/fc27-cloud-browser"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fc27-storefront-monitor.timer",
+      "sha256": "516a93f48e4415188ae5cf8415ebdc67753c86684f50b4c3ef9c31d2d23341dd",
+      "declarations": {
+        "OnBootSec": [
+          "1min"
+        ],
+        "OnUnitActiveSec": [
+          "1min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fs-business-range.service",
+      "sha256": "87b1eafebc1a01179bb50f77e05b04364c3cb3cc784e706b9dcc0f1f87497439",
+      "declarations": {
+        "User": [
+          "root"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fs-home-readonly.service",
+      "sha256": "a65424a9d6f03e7422b43367ba864473d2bf0e7e1568a497ae40baa6cafb8d08",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fs-home-readonly"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fs-transaction-collect.service",
+      "sha256": "8f494ab323f17c7a9534b24eee125a1c895c8f079bf4e596c1c7c84360d83852",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/fs-transaction-snapshot"
+        ],
+        "ReadWritePaths": [
+          "/var/www/dashboard/fs-home/transactions"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/fs-transaction-collect.timer",
+      "sha256": "48cb510cb7b5270942d53271f1e6e452c9adc56f39f32c07a33ef77447efd72f",
+      "declarations": {
+        "OnUnitActiveSec": [
+          "120min"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/iggm-web.service",
+      "sha256": "a8ccd729c29661a844f5830579813994413c1e1f128ad627f2e550eeae633c3b",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/iggm-web"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/madden-workbench.service",
+      "sha256": "84b94f2606df42805a13e1a9cef1499b84acb67cbbc06ff695d0e8b75e3d9b54",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/madden-workbench"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mlb-online.service",
+      "sha256": "484e4b63b908209cba976fc245aff283ed0ec0da952943d0b64124b4d444b263",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/mlb-online"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mmoexp-marketing-daily.service",
+      "sha256": "0b35017d97ce636ef94f076c4e20a3c1ec7aac8223aea5760bda71425f5586dc",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/mmoexp-marketing"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mmoexp-marketing-daily.timer",
+      "sha256": "133f98e7467c0507119e588128dcbf6856db58a7a34eb8887b3d9a5660f48188",
+      "declarations": {
+        "OnCalendar": [
+          "*-*-* 09:00:00"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mmoexp-taskboard.service",
+      "sha256": "cc453d0d3921350a74637de229b8eb68fb5aa7dcfd331567d8c6b5c47e2a96ab",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/mmoexp-taskboard"
+        ],
+        "ReadWritePaths": [
+          "/opt/mmoexp-taskboard/data"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mmoexp-weekly-report.service",
+      "sha256": "1590aaada8f8c38a1974c3a64f59a61c467b29208d690c26f583929d5b8b9bd3",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/mmoexp-weekly-report"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/mmoexp-weekly-report.timer",
+      "sha256": "99f7efb6367dbb21789de5143c09def50ec4a206db92f40c1a163a866b5a1867",
+      "declarations": {
+        "OnCalendar": [
+          "Mon *-*-* 02:00:00"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/nba-reprice.service",
+      "sha256": "75cf1c894ec72048dac98fd6f8ab6aa675e67289e9c8181a29f94f32fa50fef6",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/nba-reprice/backend"
+        ],
+        "User": [
+          "root"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/p2pah-srv-exec.service",
+      "sha256": "d2dfea5281855222e92dc2539d5eaf40595fe47e5088854f5cdc0814cb891600",
+      "declarations": {
+        "User": [
+          "root"
+        ],
+        "WorkingDirectory": [
+          "/opt/d4follow"
+        ]
+      }
+    },
+    {
+      "path": "etc/systemd/system/steam-web.service",
+      "sha256": "855fe20436413ba8829991b6d0791d90ab0034ac0b4631b34855023d1433aa1e",
+      "declarations": {
+        "WorkingDirectory": [
+          "/opt/steam_web"
+        ]
+      }
+    }
+  ],
+  "runtimeBuildFiles": [
+    "opt/fc27-cloud-browser/Dockerfile",
+    "opt/fc27-cloud-browser/Dockerfile.auth",
+    "opt/fc27-cloud-browser/Dockerfile.cost",
+    "opt/fc27-cloud-browser/Dockerfile.session",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.2/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.3/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.4/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.5/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.6/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.09.28-cloud.7/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.10.03-cloud.8/Dockerfile",
+    "opt/fc27-player-tool/releases/2026.10.03-cloud.9/Dockerfile"
+  ],
+  "scope": "trusted stdlib static parse/hash only; no candidate execution or production access"
+}

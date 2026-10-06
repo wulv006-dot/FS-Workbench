@@ -1,13 +1,8 @@
-# 当前批准与readiness
+# 当前协作状态：文档＋NBA候选增量
 
-本页更正旧冻结文档的时间顺序，不改冻结C3。首批是干净协作源码基线；rootReviewPending=true、未commit/push、releaseReady=false。
+> **2026-10-06当前合同（优先于本文历史段落）：** 首批干净源码已入私库 main bc3b29531cec2fab3fc090385f3d7d126eb9ada7。本批只增加文档与已独立复核 NBA receipts 候选；未提交、推送或部署。FC使用既有全局登录与角色，旧FC-only独立资格/fallback已被最新用户决定退役；当前已观察全局门户策略4管理员为wulv/chenchao/DY/fstech，来源为统一auth独立审阅及policy SHA b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017，不是本次新增账号。仓库旧C3政策/部分模块仍有三管理员代码，未随本批改动，禁止部署它覆盖四管理员现场。NBA api_security.js仍保留原三管理员模块守卫，其真实代理/角色适配未验，不因此擅授fstech NBA写权限。D4/PoE2/Aion2归陈超；球类归吴律；共享入口吴律主导陈超协作；其它owner待定。NBA R3-01/R3-02只在指定候选/合成证据层关闭，真实运行未验，releaseReady=false。D4/UI/auth源码均不在本批。文中旧权限、未push、FC专用桥与readiness状态是历史依据，不能作为当前发布指令。自助注册默认介绍/申请的业务方向已批准，实际入口/审批未实现。
 
-- 用户已条件批准首批合格源码/测试/文档入现private库；今晚根可自主推进普通实现及合格入库。新持久认证、生产权限扩展、定价策略、不可恢复删除不能从广授权推导。
-- 吴律负责FC/NBA/MLB等球类；陈超D4/PoE2/Aion2。共享登录首页导航吴律主导发布，陈超可参与；其它owner待定，不猜、不把仓库write当模块ACL。保留d4follow全部27条白名单源码，不按PoE2未在目录名出现而遗漏分支，实际ARPG逐功能运行仍未验。
-- FC普通同事全部FC经营销售额/成本/利润/商品排行的业务类别已批准；四静态、固定FC数据投影/准确区间、真实会话/负向权限未实施验收，仍阻断候选发布，不开放内部全站range。
-- NBA自动方向认可但非P0，后续升级规划，近期稳定基本可用。具体策略/服务身份/调度/生产未批，C3 R3-01 UI稳定请求ID/响应详情和R3-02目录持久性/Linux门槛开放。unknown停写先核对旧ID，不用新ID重写。新NBArev4不含本批。
-- 旧publisher根因和退役/恢复后自然验收已有主工程后续证据；旧incident保留历史，不能据历史文档恢复退役链。旧归档unit不是有效配置。
-- 主方有限47Python（46pass/1Windows skip）、3Node组、182AST/34JS语法；独立review未重跑候选、未验全平台。不能把旧170与47相加称新版全套，不能把进程退出/语法可解析称全部生产通过。
-- NBA源码升级后置不拖其它模块独立开发；危险候选不捎带上线。所有module的运行闭包/角色/具体发布产物另验，详见READINESS.json。
 
-历史OPEN-DECISIONS/manifest的uploadApproved=false与owner待定只描述冻结时点；新的入库许可由本页记录，不将其改成生产许可。原E工程主HANDOFF仍是唯一全平台事实源，本仓只保留干净协作记录。
+本批已冻结，待根协调使用既有连接器提交draft PR。源7项均与独立NBA revision4审阅准确SHA相同；3个不变依赖也和远端基线相同。本任务未commit/push/merge/deploy。D4数值增量和UI/auth源独立批次，不依赖它们生产验收阻塞本批文档/候选入库；也不能因本批通过放行那些源码。
+
+阅读 docs/planning/fs-docs-nba-batch-20261006/README.md 与 TEST-REPRODUCTION.md。unknown保留旧requestId核对，不新ID重写；NBA无人值守方向后置，具体策略/调度/生产未启用。当前普通全局账号范围依已授权global政策，不用旧FC-only规则拒绝合理任务。新注册仅介绍/申请方向，实际入口未实现。Git write是仓库能力，owner/path范围卡为协作规则，不能宣称目录ACL或保护已强制启用。

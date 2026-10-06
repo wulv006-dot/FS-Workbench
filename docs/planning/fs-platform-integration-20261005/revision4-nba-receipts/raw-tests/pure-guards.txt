@@ -1,0 +1,1 @@
+{"passed":true,"scope":"pure NBA identity/method/write/confirmation/price guards; no server/app/network/process","assertions":28}

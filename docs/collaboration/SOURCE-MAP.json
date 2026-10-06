@@ -1,6 +1,6 @@
 {
   "recordedAt": "2026-10-05T16:37:07.843320+00:00",
-  "status": "source-inventory-and-plan-only; no final target-tree approval",
+  "status": "historical first-source snapshot; latest docs/NBA increment is separately frozen",
   "projectRoot": "E:\\WorkBuddy\\大超服务器",
   "frozenCandidateRoot": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
   "sourceInventoryFile": "E:\\WorkBuddy\\大超服务器\\docs\\planning\\fs-platform-integration-20261005\\revision3\\revision3-exact-inventory.json",
@@ -3994,5 +3994,8 @@
       "purpose": "source/test/document/template; classification must be reviewed before staging",
       "releaseReady": false
     }
-  ]
+  ],
+  "firstUploadCompletedCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "latestIncrementManifest": "docs/planning/fs-docs-nba-batch-20261006/SOURCE-MAP.json",
+  "currentRolesContract": "existing global portal; four observed admins; legacy candidate code excluded from deployment"
 }

@@ -1,0 +1,3 @@
+PASS actual doApply: stable payload, same-plan clicks/tabs/refresh, changed plans, disconnect, same-ID lookup, partial/errors, capability refusal
+PASS actual HTTP handler: success/partial/timeout bindings; admin-owned GET receipt; readonly/other actor/method/path/corrupt/missing matrix; no lookup effect
+{"passed":true,"scope":"actual doApply and HTTP handler in VM, synthetic browser/identities/receipts; all upstream and HTTP sockets forbidden"}

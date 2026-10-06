@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-10-05T16:54:30.403122+00:00",
+  "recordedAt": "2026-10-06T00:40:48.511479+00:00",
   "sourceRevision": 3,
   "sourceSetSha256": "f1d7ce1d3cb2c73ccaae58744ef2ff2a34cef69070d098193b2cac86b7ae532c",
   "uploadAuthorization": "conditional first clean source/test/docs private upload approved; root may execute after accurate-tree and write-route review",
@@ -7,10 +7,9 @@
   "gitWrittenThisTask": false,
   "rootFinalReviewPending": true,
   "releaseReady": false,
-  "noNewUIOrNBARevision4": true,
-  "FCBusinessDecision": "ordinary FC users may see all FC business sales/cost/profit/product ranks; writes/admin only existing legitimate admins",
-  "FCImplementation": "four static aliases, fixed FC range/projection, real role and negative matrix not deployed/validated",
-  "NBA": "direction agreed, upgrade deferred; concrete automatic strategy/service actor/schedule/production not approved; C3 R3-01 stable UI ID+details and R3-02 directory durability/Linux validation open",
+  "FCBusinessDecision": "existing global login/roles; FC independent qualification/fallback retired by latest user decision",
+  "FCImplementation": "current global auth candidate static-reviewed separately; real roles/frame/CAS unverified; no auth/UI source in this batch",
+  "NBA": "R3-01/R3-02 closed only at reviewed revision4 code/synthetic evidence; production unverified; no automatic deployment or strategy activation",
   "testEvidence": {
     "reportedPythonTargeted": 47,
     "reportedPythonPass": 46,
@@ -221,5 +220,20 @@
     "real read-only roles",
     "private runtime credentials/state",
     "actual external agents"
+  ],
+  "baseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "containsNBARevision4Candidate": true,
+  "observedGlobalPortalAdmins": [
+    "wulv",
+    "chenchao",
+    "DY",
+    "fstech"
+  ],
+  "nbaModuleGuardStillBaselineThreeAdmins": true,
+  "firstUploadCompletedCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "excludedCodeModules": [
+    "D4",
+    "UI",
+    "auth"
   ]
 }

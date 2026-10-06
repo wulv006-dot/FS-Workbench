@@ -1,0 +1,1916 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-05T16:22:33.586990+00:00",
+  "purpose": "sanitized backend API access request evidence; not configuration or deployment",
+  "sourceBaseline": {
+    "path": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
+    "frozenFiles": 311,
+    "setSha256": "f1d7ce1d3cb2c73ccaae58744ef2ff2a34cef69070d098193b2cac86b7ae532c",
+    "currentRound": "static-read-only; not current live endpoint/permission verification"
+  },
+  "policy": {
+    "primary": "Order orders/revenue/averageOrder/profitMargin; other overlapping fields prefer Order",
+    "supplement": "Admin missing fields; source/date retained; cross-source total difference does not block display",
+    "overall": "all websites; category views own explicit filters",
+    "customerShare": "Admin new_people/Admin total*100 only",
+    "frequency": "business server7200s/client60s; Google daily09Shanghai/client300s independent",
+    "fcRead": "existing FC authenticated ordinary colleague can read all FC sales/cost/profit/rank; FC-only does not extend other business/anonymous; preserve existing legitimate other permissions",
+    "writes": "existing admin only plus approved operation scope; no current role changes",
+    "nbaPriority": "basic stability first; advanced approved-policy automation later; safety gates remain",
+    "costBoundary": "Only actual Order delivery procurement uses genre1; D4 pricing cost fields / QD DWC / DD373 reference costs stay distinct with project-specific units; no universal FC K/gift formula",
+    "businessCoverage": "FS all existing businesses including D4/PoE2/Aion2 and FC/NBA/MLB; common APIs + project differences, not FC-only"
+  },
+  "interfaces": [
+    {
+      "id": "ORDER-STATS",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/stats/admin_order/index.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "经营统一主源：全站/ARPG/球类/FC准确区间统计；当前读取HTML DOM和图表，不是已公开JSON API",
+      "responseFields": [
+        "订单数量→orders",
+        "订单金额→revenueUsd",
+        "单均价→averageOrderUsd",
+        "利润率→profitMarginPct",
+        "发货完成率",
+        "最小/最大订单金额",
+        "收款总额(CNY)",
+        "货款总额(CNY)",
+        "图表订单数/订单金额、来源、订单状态、产品类型"
+      ],
+      "filters": {
+        "status": "all:空；ARPG现用3，枚举含义待确认",
+        "gid": "0=当前代码全站；各游戏见gameMappings",
+        "tid": "空或Order产品类型；FC coins1/items2/boosting4",
+        "start_paytime": "Asia/Shanghai 本地分钟字符串",
+        "end_paytime": "分钟字符串；边界含义需官方确认",
+        "aid": "FC分类reader显式0；通用reader未显式传aid",
+        "site": "当前reader无独立站点参数；all-sites语义需正式字典"
+      },
+      "pagination": "整页原生区间汇总；曲线可能小时/日/周/月，保留原生桶，不伪造日颗粒",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S001",
+        "S002",
+        "S005",
+        "S032"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "请提供与原页面完全同口径的稳定JSON读取合同，具体新URL由后台指定",
+        "利润率毛/净、收入/成本/汇率/手续费/退款定义",
+        "status/gid=0和站点全集定义、缺省aid语义",
+        "原生各区间边界/数据一致性时间/币种/精度/历史覆盖"
+      ]
+    },
+    {
+      "id": "ADMIN-ORDER-SUPPLEMENT",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/order.Order/orderStaticsDetailByEs",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "inferred-from-manager-data-call; official-confirmation-required",
+      "purpose": "Order未提供字段的补源；不替换Order四核心、不在Order失败时静默切源",
+      "responseFields": [
+        "total",
+        "amount",
+        "paid_payments",
+        "new_people",
+        "new_amount",
+        "repeat_rete",
+        "pure_amount",
+        "refund_order_num",
+        "refund_amount",
+        "deducted_amount",
+        "shipped_rate",
+        "payment_rate",
+        "customer_price",
+        "min_order_amount",
+        "max_order_amount",
+        "site_rank",
+        "country_rank",
+        "game_rank",
+        "chart_pay_device",
+        "chart_pay_style"
+      ],
+      "filters": {
+        "order_status": "空或ARPG101；与Order3对应需字典",
+        "pay_status": 1,
+        "game": "空=当前全站，或Admin游戏ID",
+        "site": "空",
+        "country_code": "空",
+        "client": "空",
+        "date": "[start,end] Shanghai本地时间",
+        "pay_type": "空",
+        "time_unit": 1,
+        "cid": "空",
+        "discount_code": "空",
+        "product_type": "空/明确类型"
+      },
+      "pagination": "原生准确区间聚合，不把日去重人数/比例相加；维度未证实分页",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S003",
+        "S004",
+        "S005"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "SessionManager受控实现不在冻结包；data调用推断POST，正式HTTP method/JSON或form编码待后台确认",
+        "支付人数去重ID/新客首付判定/复购率明确分子分母",
+        "site_rank是网站来源，不等于UTM/广告归因；country/device字典",
+        "pay_status=1与Order订单状态/支付时间共同语义",
+        "new_amount币种/是否仅新客已付金额/退款扣除规则"
+      ]
+    },
+    {
+      "id": "ADMIN-PRODUCT-RANK",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/stats.productSalesByEs/index",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC原生商品销售分组排行，不能用Order曲线代替",
+      "responseFields": [
+        "data.total",
+        "data.list.pid/gid/cid/title/sale_total/order_count/paytime",
+        "goods.id/cid"
+      ],
+      "filters": {
+        "page": 1,
+        "limit": "1000起，total不足重取；最大10000",
+        "order": "order_count,descending",
+        "search": "gid=1327；paytime RANGE [start,end-1秒]，render=datetime",
+        "site/platform/status": "接口当前源默认，独立含义未核实"
+      },
+      "pagination": "当前一次完整批量+total一致/去重验证；旧offset排序同值不稳定且pid排序未生效，需稳定cursor/snapshot及total",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S006",
+        "S007"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "sale_total是原生销售量，单位未核实，不当作USD或到账金币",
+        "order_count是商品分组内次数，不等于全站distinct订单",
+        "代表行paytime/标题不能代表所有订单平台/SKU",
+        "平台/站点/支付状态精确筛选官方支持情况"
+      ]
+    },
+    {
+      "id": "ADMIN-CATEGORY",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsCategory/categorySelect",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC商品分类树及跨源类型映射",
+      "responseFields": [
+        "data.list.id/children",
+        "分类祖先路径"
+      ],
+      "filters": {
+        "gid": 1327
+      },
+      "pagination": "树返回；无分页证据",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S006",
+        "S007"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "树版本、撤销/变更通知",
+        "Players9627/Packs9629/SBC9625不是Order tid，不合并命名空间"
+      ]
+    },
+    {
+      "id": "ORDER-COST-FC",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/order/admin_delivery/index.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC三平台最近有效订单发货采购成本；需要后台JSON替代DOM",
+      "responseFields": [
+        "record_id",
+        "delivery_type",
+        "trade_at",
+        "platform",
+        "cny_per_1k"
+      ],
+      "filters": {
+        "gid": 1322,
+        "aid": 0,
+        "cid": 1,
+        "genre": 1,
+        "status": -1,
+        "op_id": 0,
+        "show_ccy": -1,
+        "is_stock": "",
+        "keyword": "",
+        "sn": "",
+        "start": "今天前7天00:00",
+        "end": "明天00:00",
+        "page": "1..15当前上限"
+      },
+      "pagination": "逐页直到空；无官方total证据；取平台最新有效行并校验类型/时间",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S013",
+        "S014"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "genre=1确切枚举与订单发货字段；排除采购打款/销售补发/销售赠送",
+        "成本金额含税/手续费/赠送单位、结算时间/平台历史覆盖",
+        "是否可原生按最新记录+稳定排序+total查询"
+      ]
+    },
+    {
+      "id": "ORDER-PRICE-FC",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/game/admin_game_price/index.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC成本价/售价/折扣/汇率/赠送档位的只读预览和独立写后回读",
+      "responseFields": [
+        "row id/gid/platform",
+        "costprice",
+        "b2c",
+        "lirunlv",
+        "exchange_rate[rmb]",
+        "网站/B2C筛选"
+      ],
+      "filters": {
+        "gid": 1322,
+        "rows": "PS21942/XBOX21944/PC21946",
+        "allserver": "必须false",
+        "websites": "预览默认无特定网站选中",
+        "B2C": "必须选择"
+      },
+      "pagination": "三已核对行，不猜其它游戏写范围",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S015",
+        "S016"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "稳定JSON明细及版本/etag",
+        "页面内成本保存的实际XHR接口未由本轮源码定位，不能编造URL",
+        "6.65是现后台定价汇率守卫，不是已证明实时外汇"
+      ]
+    },
+    {
+      "id": "ORDER-PRICE-SYNC-FC",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/game/admin_game_price/saveprice.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "历史表单同步价格有业务副作用；HTTP GET不得按只读授权",
+      "responseFields": [
+        "页面新同步反馈；之后Order/Admin/public多层独立回读"
+      ],
+      "filters": {
+        "server_id": "1322",
+        "selected_web": "b2c",
+        "getweb": "0",
+        "site": "只允许已确认mmoexp.com/既有明确范围"
+      },
+      "pagination": "表单操作，不是正式JSON批量合同",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S015"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "历史GET副作用应由后台给正式受控POST替代及鉴权",
+        "原子/部分成功范围、requestId/CAS/状态查询、public价格可见时间；不在本轮调用",
+        "ARPG Gold同saveprice路径采用getweb1，与现FCgetweb0合同不同，不互换；后台提供正式分项目同步能力"
+      ]
+    },
+    {
+      "id": "ORDER-D4-LIST",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/game/admin_game_price/index_item.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "D4/PoE2物品/货币SKU列表、套餐/区服价格与成本字段；不是Gold每服务区价行",
+      "responseFields": [
+        "id/gid/name/pack/min_qty/unit_price/sale_price/cprice/discount"
+      ],
+      "filters": {
+        "gid": "D4默认456/POE2默认552；官方字典待定",
+        "aid": "受控配置",
+        "cid": "受控配置",
+        "keyword": "受控配置",
+        "page": "显式页面"
+      },
+      "pagination": "当前HTML行解析，total/稳定排序待正式API",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S022",
+        "S023",
+        "S040",
+        "S041",
+        "S042",
+        "S046"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "此为源代码默认路径，可由配置覆盖；现场有效路径未核实",
+        "稳定JSON及游戏/区域/数量/售价vs标价单位字典"
+      ]
+    },
+    {
+      "id": "ORDER-D4-EDIT",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/game/admin_game_price/goodsEdit",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "D4/PoE2明确游戏与SKU ID的物品标价受控写；与Gold costprice分开",
+      "responseFields": [
+        "code/msg/wait"
+      ],
+      "filters": {
+        "body": "rows[{id,gid,min_qty,unit_price,cprice}]",
+        "unit_price": "已有写器五位小数标价，不二次除折扣"
+      },
+      "pagination": "显式有限rows；服务端上限/原子性未公开",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S021",
+        "S023",
+        "S040",
+        "S047",
+        "S043"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "默认路径可被配置覆盖，需官方确认",
+        "项目和字段级scope/CAS/idempotency/readback/public缓存传播",
+        "cprice:null是否保持原值必须明确"
+      ]
+    },
+    {
+      "id": "ORDER-LOGIN",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/admin/public/dologin.html",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "现有人类登录协议证据，作为机器认证升级背景，不请求共享管理员凭据",
+      "responseFields": [
+        "code=1",
+        "三会话Cookie名称；不含任何值"
+      ],
+      "filters": {
+        "username": "人自行输入",
+        "password": "绝不在文档或聊天提供",
+        "captcha": "图形码、同会话"
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "验证码与Cookie绑定；PHPSESSID/user/admin_username；长期复用无法证明官方无人值守适配",
+      "evidence": [
+        "S021"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "官方机器身份及安全可撤销续期替代方案；现会话TTL/失效原因/并发限制"
+      ]
+    },
+    {
+      "id": "ORDER-CAPTCHA",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/new_captcha.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "现Order人类登录图形验证码",
+      "responseFields": [
+        "image PNG"
+      ],
+      "filters": {
+        "height": 32,
+        "width": 150,
+        "font_size": 18
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "登录前同Cookie jar；不请求绕过验证码",
+      "evidence": [
+        "S021"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "与session绑定；不是长期机器认证方案"
+      ]
+    },
+    {
+      "id": "ADMIN-LOGIN-CONFIG",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/index/login",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "Players官方客户端登录配置",
+      "responseFields": [
+        "data.captcha"
+      ],
+      "filters": {},
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "登录前请求，不含Admin token",
+      "evidence": [
+        "S008"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "配置/验证码启用语义"
+      ]
+    },
+    {
+      "id": "ADMIN-LOGIN-PLAYERS",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/index/login",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "Players人类登录响应合同",
+      "responseFields": [
+        "data.userInfo.token",
+        "data.userInfo.refreshToken或data.refreshToken"
+      ],
+      "filters": {
+        "json": "username/password/captcha/captcha_id/keep"
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S008",
+        "S011"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "与NBA /admin/login 别名和不同响应结构的正式版本关系",
+        "短token TTL/refresh TTL及rotation/revoke规则；不把当前refresh默认认成机器服务支持"
+      ]
+    },
+    {
+      "id": "ADMIN-LOGIN-NBA",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/login",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "NBA客户端采用的另一登录路径",
+      "responseFields": [
+        "data.token"
+      ],
+      "filters": {
+        "body": "username/password/captcha/captcha_id/keep"
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S025",
+        "S026"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "与/admin/index/login的权威统一登录合同及版本兼容"
+      ]
+    },
+    {
+      "id": "ADMIN-CAPTCHA",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/api/common/captcha",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "Admin现有图形验证码",
+      "responseFields": [
+        "PNG/JPEG/GIF/WEBP实际签名检查"
+      ],
+      "filters": {
+        "server": 1,
+        "id": "captcha_id"
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "current-mechanism-not-new-grant",
+      "currentAuthentication": "登录前请求",
+      "evidence": [
+        "S008",
+        "S025"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "一次性绑定与失效规则"
+      ]
+    },
+    {
+      "id": "ADMIN-REFRESH",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/api/common/refreshToken",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "Players源码已有刷新原语；本轮未请求/未验证当前有效性",
+      "responseFields": [
+        "data.token",
+        "data.refreshToken"
+      ],
+      "filters": {
+        "json": "refresh_token"
+      },
+      "pagination": "无",
+      "access": "authentication",
+      "priority": "P0-official-machine-auth-requirement",
+      "currentAuthentication": "当前refresh凭据单次提交，值不收集；返回code409不自动刷新/重放写操作",
+      "evidence": [
+        "S008",
+        "S011"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "可否官方用于受限服务主体而非管理员浏览器会话",
+        "TTL/rotation/revoke/reuse detection/异常和并发续期",
+        "候选 OAuth client_credentials/受控refresh或等价方案由后台选择，无已知OAuth URL"
+      ]
+    },
+    {
+      "id": "ADMIN-IDENTITY",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/index/index",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "验证真实服务身份与有效scope；现读返回不同user结构",
+      "responseFields": [
+        "adminInfo.username或客户端权威身份结构"
+      ],
+      "filters": {},
+      "pagination": "无",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S018",
+        "S017",
+        "S008"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "官方可稳定读取subject/scopes/roles/expiry；机器身份与人类批准者分开记审计"
+      ]
+    },
+    {
+      "id": "ADMIN-MODELS",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/index",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC Players模型列表/筛选/标签与现有价格同步前置读取",
+      "responseFields": [
+        "data.list",
+        "data.total",
+        "模型id/gid/cid/status/定价输入"
+      ],
+      "filters": {
+        "page": ">=1",
+        "limit": "1..200",
+        "order": "sort,desc当前批量同步",
+        "search": "gid1327/cid9627；额外合法筛选；禁扩大scope"
+      },
+      "pagination": "完整页total一致，唯一ID，当前同步最多100页/10000模型",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S009",
+        "S019"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "变更版本/稳定游标、更新时间、删除增量、分页一致性"
+      ]
+    },
+    {
+      "id": "ADMIN-MODEL-DETAIL",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/edit",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "模型明细与写后独立回读；不是用模型默认price替代真实商品价",
+      "responseFields": [
+        "data.row；id/gid/cid/status/more/auto_off/tid/icon及原生定价输入"
+      ],
+      "filters": {
+        "id": "明确正整数"
+      },
+      "pagination": "无",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S009",
+        "S010",
+        "S012"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "模型/产品/附件关联、版本、字段字典"
+      ]
+    },
+    {
+      "id": "ADMIN-TAGS",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsTag/tagSelect",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC Players标签字典",
+      "responseFields": [
+        "data.list.id及标签明细"
+      ],
+      "filters": {
+        "gid": 1327,
+        "cid": 9627
+      },
+      "pagination": "list；无分页证据",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S009"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "标签生命周期/用途/排序；跨业务scope"
+      ]
+    },
+    {
+      "id": "ADMIN-GOODS",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.Goods/index",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC Coins/Players/NBA真实商品列表；按各自id/gid/cid/mid/site_id/aid范围读取",
+      "responseFields": [
+        "data.list/data.total",
+        "商品id/gid/cid/mid/site_id/aid/unit/unit_price/more/status/total"
+      ],
+      "filters": {
+        "page": ">=1",
+        "limit": "Players<=200；NBA当前50",
+        "search": "field/operator/val；具体scope见gameMappings/coinProducts"
+      },
+      "pagination": "total跨页一致，唯一ID；服务端应提供稳定游标/批次版本",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S009",
+        "S019",
+        "S026",
+        "S017"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "价格单位/折扣/赠送/库存/状态字段明确关系；模型price不是SKU实际售价"
+      ]
+    },
+    {
+      "id": "ADMIN-GOODS-DETAIL",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.Goods/edit",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "商品身份校验与独立写后回读",
+      "responseFields": [
+        "data.row及完整允许/保护字段"
+      ],
+      "filters": {
+        "id": "有限白名单商品ID"
+      },
+      "pagination": "无",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S017",
+        "S026"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "响应版本/CAS及规范化副作用；零库存与下架区别"
+      ]
+    },
+    {
+      "id": "ADMIN-GOODS-EDIT",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.Goods/edit",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "有界商品价格/库存写：Coins保护档位向量；Players仅total；NBA有限unit_price",
+      "responseFields": [
+        "code及写回结果，必须再GET验证"
+      ],
+      "filters": {
+        "id": "已读身份一致",
+        "allowed": "按模块/操作字段scope分离，禁整行任意写"
+      },
+      "pagination": "当前部分客户端全row提交，建议官方最小PATCH式合同，方法URL由后台定",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S017",
+        "S010",
+        "S026"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "字段CAS/idempotent requestId/batch partial/status查；写前保护非目标字段",
+        "NBA高级策略后续，但当前写安全门槛不能省"
+      ]
+    },
+    {
+      "id": "ADMIN-MODEL-EDIT",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/edit",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC模型上架/下架/标签/图片最小字段写，管理员批准计划",
+      "responseFields": [
+        "code；GET详情回读"
+      ],
+      "filters": {
+        "body": "id + more/status/auto_off/tid；图片专用id+icon=attachment_id"
+      },
+      "pagination": "有限模型列表，现客户端不同操作白名单",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S010",
+        "S012"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "上下架状态具体枚举、more完整保护、tid清空语义、附件scope/CAS；不能顺带编辑价格"
+      ]
+    },
+    {
+      "id": "ADMIN-IMPORT",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/importPlayers",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC手动批准新卡Excel导入",
+      "responseFields": [
+        "导入作业job_id及结果需后台正式字典"
+      ],
+      "filters": {
+        "multipart": "gid1327/cid9627/xlsFile"
+      },
+      "pagination": "批量文件/限制/幂等性待正式合同",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S010"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "Excel列schema/大小/数量限制、部分成功清单、去重FUTBIN ID、异常未知禁止重传"
+      ]
+    },
+    {
+      "id": "ADMIN-IMPORT-PROGRESS",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/importPlayersProgress",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "已批准导入作业只读进度和最终结果",
+      "responseFields": [
+        "data进度结构，未在此客户端固定字段"
+      ],
+      "filters": {
+        "job_id": "已提交作业ID"
+      },
+      "pagination": "无",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S009"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "明确状态枚举/百分比/成功失败模型ID/错误码/最终回执保存期"
+      ]
+    },
+    {
+      "id": "ADMIN-SINGLE-EDIT",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/singleEdit",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "现有FC模型单字段/批量编辑原语；最小正式字段清单需要后台核准",
+      "responseFields": [
+        "code；明细独立GET回读"
+      ],
+      "filters": {
+        "params/json": "非空payload；实际业务允许字段由上层适配器与后台共同定义"
+      },
+      "pagination": "未确定批量范围",
+      "access": "write",
+      "priority": "P1-later-detail-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S010"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "不得因源码有原语授予任意模型编辑；字段/ID/scope正式契约"
+      ]
+    },
+    {
+      "id": "ADMIN-RECALC",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/goods.GoodsMould/recalcFc27Price",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC指定模型重算商品价格；区分类目级历史函数与当前明确ID逐模型工作流",
+      "responseFields": [
+        "code及真实商品列表独立回读"
+      ],
+      "filters": {
+        "json": "gid1327/cid9627/id:[明确model IDs]；禁止未批准id=[]全类目"
+      },
+      "pagination": "后台批量上限/原子性未明确；客户端每模型回读",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S010",
+        "S019",
+        "S020"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "现源码同时有id=[]类目级函数，不默认授予或执行；正式scope应拒空ID",
+        "cost/discount/give与Coins已确认价格版本绑定；不可仅HTTP成功认改价生效"
+      ]
+    },
+    {
+      "id": "MEDIA-UPLOAD",
+      "system": "Media",
+      "host": "https://b2c-api.p2pah.cn",
+      "path": "/upload/file",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "FC已批准PNG上传并取得附件ID；要官方有限上传权限/安全签名替代客户端公共签名依赖",
+      "responseFields": [
+        "upload.picture.code=200",
+        "file.id/full_url"
+      ],
+      "filters": {
+        "multipart": "file + token/timestamp/id/view/type/watermark，签名值不写文档"
+      },
+      "pagination": "单图；PNG文件名FUTBIN ID映射；attachment_id用于icon",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "独立上传签名；使用官方页面模块但其公共签名材料不属于长期安全机器授权",
+      "evidence": [
+        "S012"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "官方上传授权scope/有效期/撤销/文件哈希幂等/附件读写归属",
+        "现公开signer JS固定SHA，不作为机器长期认证方案；不输出签名素材"
+      ]
+    },
+    {
+      "id": "ADMIN-CACHE-CLEAR",
+      "system": "Admin",
+      "host": "https://admin-api.p2pah.cn",
+      "path": "/admin/tools.Caches/clear",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "inferred-from-manager-data-call; official-confirmation-required",
+      "purpose": "现FC已确认改价后清缓存，影响公共价格一致性；需要缩小范围",
+      "responseFields": [
+        "code=1；code0操作过于频繁；401/403拒绝"
+      ],
+      "filters": {
+        "server": 1,
+        "body": "type=all,file=空"
+      },
+      "pagination": "全局副作用；官方请求定商品/网站scope及传播状态",
+      "access": "write",
+      "priority": "P0-controlled-write-contract",
+      "currentAuthentication": "既有Admin batoken；server/think-lang等头；非已核准机器身份",
+      "evidence": [
+        "S018"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "SessionManager body推断POST；HTTP编码待官方确认",
+        "限流/幂等与前台读回，禁止普通采集角色清缓存"
+      ]
+    },
+    {
+      "id": "ORDER-CACHE-LEGACY",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/admin/setting/clearcache.html",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "历史D4源码仅尝试的清缓存路径；不能当已验证API",
+      "responseFields": [
+        "页面文本，无可靠结果合同"
+      ],
+      "filters": {},
+      "pagination": "无",
+      "access": "write-or-side-effect-unknown",
+      "priority": "P1-later-official-replacement",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S024"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "源码明确触发method/登录机制未验证；禁止将GET视只读",
+        "另一源码注释clearcachepost.html不是本轮完整验证endpoint，待后台指定"
+      ]
+    },
+    {
+      "id": "ORDER-COST-NBA",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/order/admin_delivery/index.html",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "NBA现读取采购单价；记录现实现与genre1目标合同差异",
+      "responseFields": [
+        "id/aid/area/time/price/qty"
+      ],
+      "filters": {
+        "gid": 1306,
+        "cid": 1,
+        "genre": 0,
+        "aid": "0/21764/21766/21768",
+        "status": -1,
+        "op_id": 0,
+        "is_stock": "",
+        "show_ccy": -1,
+        "start/end": "48h或7d，当前JS宿主本地时区格式"
+      },
+      "pagination": "当前一页，未核total/分页；缺平台后历史补取",
+      "access": "read",
+      "priority": "P0-minimal-with-definition-gap",
+      "currentAuthentication": "既有Order浏览器/表单会话；非机器身份",
+      "evidence": [
+        "S027"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "genre0未明确保证只订单发货；需后台以genre1/明确deliveryType返回有效成本",
+        "时区/单位/去重/排序/total；不能以过滤qty1price>=10替代业务字典"
+      ]
+    },
+    {
+      "id": "PUBLIC-NBA-PRICE",
+      "system": "PublicMMOEXP",
+      "host": "https://www.mmoexp.com",
+      "path": "/ajax/goods",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "公开商品实际售价只读核对；POST不等于敏感写",
+      "responseFields": [
+        "goods.index.list[0].unit_price/game_area_format/goods_list"
+      ],
+      "filters": {
+        "form": "Game_id1329/top_cid1/aid21595或21591或21597/cid9633/site_id266"
+      },
+      "pagination": "当前只读第一个商品对象；全部档位数量与正确选择待合同",
+      "access": "read",
+      "priority": "P0-minimal",
+      "currentAuthentication": "公开价格只读",
+      "evidence": [
+        "S028",
+        "S046",
+        "S039"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "公开价缓存更新时间/站点货币/折扣赠送换算/实际下单价一致性；其它游戏官方公共价格路径未独立核实"
+      ],
+      "sharedCapability": "Same /ajax/goods used by ARPG; project variants in projectDifferences; this existing row remains NBA-specific params"
+    },
+    {
+      "id": "LOCAL-VERSIONED-SNAPSHOT",
+      "system": "Internal",
+      "host": "existing protected deployment; not an upstream P2PAH API",
+      "path": "/dashboard/fs-home/transactions/current.json",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "本站消费接口，非申请Admin/Order新授权；同一不可变快照+SHA版本",
+      "responseFields": [
+        "snapshotId/path/sha256/generatedAt/timezone/serverIntervalSeconds/clientCheckSeconds/staleAfterSeconds"
+      ],
+      "filters": {},
+      "pagination": "path固定snapshots/{id}/snapshot.json",
+      "access": "read",
+      "priority": "existing-consumer-contract",
+      "currentAuthentication": "同源登录保护",
+      "evidence": [
+        "S031"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "FC-only需精确FC投影新接口（URL未定），不能放整个transactions目录；现场auth仍需验"
+      ]
+    },
+    {
+      "id": "LOCAL-EXACT-RANGE",
+      "system": "Internal",
+      "host": "existing protected deployment; not an upstream P2PAH API",
+      "path": "/range (loopback:8931; existing public adapter /dashboard/fs-home/range.json)",
+      "methods": [
+        "GET"
+      ],
+      "methodConfidence": "explicit-client-method",
+      "purpose": "本站按快照cutoff钉住原生准确区间，Order+Admin各自capturedAt；不是跨系统事务同一时点保证",
+      "responseFields": [
+        "status/query/baseSnapshotId/rangeId/generatedAt/profile/consistentPeriod/resultSha256"
+      ],
+      "filters": {
+        "profile": "当前白名单",
+        "start/end": "day含所选最后日，内部转[start,end+1day)；hour转最后小时+1",
+        "snapshotId": "必须当前版本",
+        "grain": "day/hour",
+        "analysis": "仅FC27 fc27-categories/fc27-products"
+      },
+      "pagination": "202 pending/429 busy；单worker最多4 pending，每60s最多6启动；cache按query/baseSnapshotId确定hash",
+      "access": "read",
+      "priority": "existing-consumer-contract",
+      "currentAuthentication": "同源登录保护",
+      "evidence": [
+        "S032",
+        "S033",
+        "S034"
+      ],
+      "verification": "static-source-only-this-round",
+      "backendQuestions": [
+        "普通FC登录需要仅FC范围投影与缓存隔离，不允许直接开放内部allsite range",
+        "同date区间不意味着读自同一上游业务水位；需官方asOf/watermark"
+      ]
+    },
+    {
+      "id": "ORDER-GOLD-EDIT",
+      "system": "Order",
+      "host": "https://order.p2pah.cn",
+      "path": "/game/admin_game_price/itemEdit",
+      "methods": [
+        "POST"
+      ],
+      "methodConfidence": "documented-in-ticket-builder; actual executor not in candidate",
+      "purpose": "D4/Aion2金币服务区costprice写；不是物品goodsEdit或FC赠送规则",
+      "responseFields": [
+        "实际响应/保存版本需正式后台确认；不得仅凭工单文案称写成功"
+      ],
+      "filters": {
+        "query": "ids=<同游戏后台价行ID>",
+        "body": "data_type=costprice；数值字段/完整form实际writer未定位",
+        "game": "D4 456/Aion2 826，一单一游戏",
+        "sync": "既有saveprice.html getweb=1/selected_web=b2c/server_id=<该游戏>，allserver不选；具体协议后台确认"
+      },
+      "pagination": "有限区服行ID；默认成本6位但正式scale/tick需按项目确认",
+      "access": "write",
+      "priority": "existing-ARPG-controlled-write-contract",
+      "currentAuthentication": "既有Order会话；请求官方限定机器写scope",
+      "evidence": [
+        "S035",
+        "S048"
+      ],
+      "verification": "static-ticket-documentation-only; no live call/executor validation",
+      "backendQuestions": [
+        "真实method/form值字段/旧值CAS/幂等回执/精度与正价",
+        "独立readback及公开价更新传播；getweb1历史说明不当即时保证",
+        "同game只允许核准server rows；禁止allserver批量误改"
+      ]
+    }
+  ],
+  "metricMapping": [
+    {
+      "target": "orders",
+      "source": "Order",
+      "nativeField": "订单数量",
+      "unit": "orders",
+      "priority": "primary",
+      "evidence": [
+        "S001"
+      ]
+    },
+    {
+      "target": "revenueUsd",
+      "source": "Order",
+      "nativeField": "订单金额",
+      "unit": "USD",
+      "priority": "primary",
+      "evidence": [
+        "S001"
+      ]
+    },
+    {
+      "target": "averageOrderUsd",
+      "source": "Order",
+      "nativeField": "单均价",
+      "unit": "USD",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "profitMarginPct",
+      "source": "Order",
+      "nativeField": "利润率",
+      "unit": "percent",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": "原生准确区间值；利润率不日求和、不平均，不推算利润金额"
+    },
+    {
+      "target": "fulfillmentRatePct",
+      "source": "Order",
+      "nativeField": "发货完成率",
+      "unit": "percent",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "minOrderAmountUsd",
+      "source": "Order",
+      "nativeField": "最小订单金额",
+      "unit": "USD",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "maxOrderAmountUsd",
+      "source": "Order",
+      "nativeField": "最大订单金额",
+      "unit": "USD",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "receiptsCny",
+      "source": "Order",
+      "nativeField": "收款总额",
+      "unit": "CNY",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "goodsPaymentCny",
+      "source": "Order",
+      "nativeField": "货款总额",
+      "unit": "CNY",
+      "priority": "primary-if-present",
+      "evidence": [
+        "S002"
+      ],
+      "notes": ""
+    },
+    {
+      "target": "orders",
+      "source": "Admin",
+      "nativeField": "total",
+      "unit": "orders",
+      "priority": "comparison-and-same-source-denominator-only",
+      "definition": "补源订单统计原值",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "revenueUsd",
+      "source": "Admin",
+      "nativeField": "amount",
+      "unit": "USD",
+      "priority": "comparison-and-same-source-denominator-only",
+      "definition": "补源订单金额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "payingCustomers",
+      "source": "Admin",
+      "nativeField": "paid_payments",
+      "unit": "people",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "付款总人数，按补源原字段",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "newCustomers",
+      "source": "Admin",
+      "nativeField": "new_people",
+      "unit": "people",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源新客户人数",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "newCustomerRevenueUsd",
+      "source": "Admin",
+      "nativeField": "new_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源新客户总额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "repeatRatePct",
+      "source": "Admin",
+      "nativeField": "repeat_rete",
+      "unit": "percent",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "后台复购率原值；上游未公开分子分母，不在本系统推算",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "pureSalesUsd",
+      "source": "Admin",
+      "nativeField": "pure_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "纯销售额；不是利润",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "refundOrders",
+      "source": "Admin",
+      "nativeField": "refund_order_num",
+      "unit": "orders",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源退款订单数",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "refundAmountUsd",
+      "source": "Admin",
+      "nativeField": "refund_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源退款金额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "deductedAmountUsd",
+      "source": "Admin",
+      "nativeField": "deducted_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源扣除金额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "fulfillmentRatePct",
+      "source": "Admin",
+      "nativeField": "shipped_rate",
+      "unit": "percent",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源发货完成率原值",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "paymentSuccessRatePct",
+      "source": "Admin",
+      "nativeField": "payment_rate",
+      "unit": "percent",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源支付成功率原值",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "averageCustomerUsd",
+      "source": "Admin",
+      "nativeField": "customer_price",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源客单价原值",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "minOrderAmountUsd",
+      "source": "Admin",
+      "nativeField": "min_order_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源最小订单金额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "maxOrderAmountUsd",
+      "source": "Admin",
+      "nativeField": "max_order_amount",
+      "unit": "USD",
+      "priority": "supplement-only-if-primary-missing",
+      "definition": "补源最大订单金额",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "newCustomerSharePct",
+      "source": "Admin",
+      "nativeField": "new_people / total * 100",
+      "unit": "percent",
+      "priority": "explicit-user-formula",
+      "notes": "同Admin日期/网站/游戏/状态；total=0不可计算；不除Order订单数",
+      "evidence": [
+        "S004"
+      ]
+    },
+    {
+      "target": "profitUsd/costUsd",
+      "source": "unknown",
+      "nativeField": null,
+      "unit": "USD",
+      "priority": "requested-backend-definition",
+      "notes": "Admin补源未提供；Order收款CNY/货款CNY不直接当USD净/毛利润；须官方利润金额和成本/汇率定义",
+      "evidence": [
+        "S002",
+        "S004"
+      ]
+    }
+  ],
+  "gameMappings": [
+    {
+      "key": "MMOEXP",
+      "name": "所有网站合计",
+      "orderGameId": 0,
+      "adminGameId": "",
+      "group": "mmoexp",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "POE2",
+      "name": "Path Of Exile 2",
+      "orderGameId": 552,
+      "adminGameId": 552,
+      "group": "rpg",
+      "currentOrderStatus": "3",
+      "currentAdminStatus": "101",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "D4",
+      "name": "Diablo 4",
+      "orderGameId": 456,
+      "adminGameId": 456,
+      "group": "rpg",
+      "currentOrderStatus": "3",
+      "currentAdminStatus": "101",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "AION2",
+      "name": "Aion 2",
+      "orderGameId": 826,
+      "adminGameId": 891,
+      "group": "rpg",
+      "currentOrderStatus": "3",
+      "currentAdminStatus": "101",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "FC27",
+      "name": "FC27",
+      "orderGameId": 1322,
+      "adminGameId": 1327,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "NBA2K27",
+      "name": "NBA2K27",
+      "orderGameId": 1306,
+      "adminGameId": 1329,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "NFL27",
+      "name": "Madden NFL27",
+      "orderGameId": 1258,
+      "adminGameId": 1309,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "MLB26",
+      "name": "MLB26",
+      "orderGameId": 922,
+      "adminGameId": 927,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "CFB27",
+      "name": "CFB27",
+      "orderGameId": 1256,
+      "adminGameId": 1307,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    },
+    {
+      "key": "FC26",
+      "name": "FC26",
+      "orderGameId": 824,
+      "adminGameId": 833,
+      "group": "sports",
+      "currentOrderStatus": "",
+      "currentAdminStatus": "",
+      "mappingEvidence": "S005"
+    }
+  ],
+  "dimensionAvailability": {
+    "Order": "来源图表amountUsd；订单状态/产品类型原生series；country/coupon/payment未提供正式读取字段",
+    "Admin": "site_rank=网站来源(不是已证实投放渠道)；country_rank/name/num/amount；game_rank/gid/gname/gcnname；chart_pay_device[name,value]只有订单数；chart_pay_style付款方式/单数/金额；coupon结果未提供，虽然discount_code输入存在",
+    "FC native": "pid商品目录聚合、goods.cid祖先分类；sale_total单位未知、order_count不是全局distinct订单；不从代表行按平台分组"
+  },
+  "coinProducts": {
+    "Order": "gid1322 rows21942/21944/21946; tid1/2/4 are separate from Admin categories",
+    "Admin": "gid1327 mid41217957 cid9623; PS aid21587 all163329309/MMOEXP163329311; XBOX21585 all163329275/MMOEXP163329277; PC21589 all163329343/MMOEXP163329345; site0/266; unitK,titlecoins,status1; preserve existing15 tiers/give vectors, not restore20/30/40K"
+  },
+  "fx": {
+    "currentEvidence": [
+      "S015",
+      "S029"
+    ],
+    "observed": "Order price form guarded exchange_rate[rmb]=6.65; NBA env RATE defaults6.65; no verified live FX API",
+    "request": "official provenance/source, currency pair/direction, effectiveAt/fetchedAt/expiry, fee/rounding, historic settled vs pricing rate; do not use default constant as live market FX"
+  },
+  "moduleCoverage": {
+    "sharedP0": "Order aggregates/accurate periods, Admin supplements/dictionary, machine read auth, snapshot watermarks, controlled FC writes with safe readback",
+    "FC": "正式读写需求保留P0，不因NBA后置降低；普通已登录同事FC全经营只读/写admin",
+    "D4/Aion": "Order item list/controlled item price writes; Aion stats mapping826/891; no verified Aion dedicated product listing/write endpoint",
+    "NBA": "existing Order costs/Admin goods/public readback verified in source; advanced automatic policy approval lifecycle later; do not deploy unsafe candidate or stop existing production",
+    "MLB": "candidate server queues tasks and Excel; no verified Admin/Order product create endpoint or full local agent closure; request official goods/model import capability only after schema mapping, do not invent URL",
+    "owners": "吴律球类FC/NBA/MLB；陈超D4/Aion；共享登录首页导航吴律主导、陈超可协作；供数/Google/其它未定",
+    "excluded": "Ponytail unchanged; Gallery/Madden full runtime closure unverified; no raw orders/customer identities requested by FC-read decision"
+  },
+  "authenticationRequirements": {
+    "required": "official service/machine identity; least scope with read collection separated from controlled writers; short-lived access tokens plus secure revocable renewable credentials; no permanent Cookie/shared root-admin",
+    "protocolOptions": "backend chooses supported OAuth client_credentials, approved rotating refresh, signed short-lived service tokens or equivalent; no invented OAuth discovery/token URLs or real scope names",
+    "lifecycle": [
+      "explicit TTL/rotation/revocation/disabled identity and expiry errors",
+      "secure server-side secret store outside repo/reports/frontend; no tokens in URLs/logs",
+      "single-flight renewal; retry readonly after renewal once within bounded policy; writes reconcile by same requestId, never blind replay",
+      "approved human actor and machine executor separately audited; identities/scopes no username-only trust"
+    ],
+    "existingGaps": [
+      "Order captcha-bound Cookie session and browser dependency",
+      "Admin batoken variants /admin/login vs /admin/index/login and token response shape",
+      "Players refresh原语有源码，但无人值守服务适配/当前有效性未核实",
+      "SessionManager受控运行实现/配置不在此冻结源码，不据代码调用声称生产长期认证已保障"
+    ]
+  },
+  "backendContractRequests": [
+    {
+      "id": "R01",
+      "priority": "P0",
+      "request": "正式版本化接口文档/OpenAPI或等价、授权白名单、字典和迁移兼容；由后台给真实URL方法，不由客户端猜"
+    },
+    {
+      "id": "R02",
+      "priority": "P0",
+      "request": "准确start-inclusive/end-exclusive或正式明确边界、Asia/Shanghai、支付/创建/结算时间字段、状态/网站/平台/游戏/类型命名空间；各字段source/sourceCapturedAt/asOf/watermark"
+    },
+    {
+      "id": "R03",
+      "priority": "P0",
+      "request": "准确整区间去重人数、新客定义和金额、复购原生分子分母、利润率/金额/成本/退款/手续费/汇率口径；missing/null/zero区别"
+    },
+    {
+      "id": "R04",
+      "priority": "P0",
+      "request": "只读聚合最少个人信息；stable total/cursor/sort/duplicates、bounded batch、history coverage、asOf固定批次或水位；迟到退款/更正机制"
+    },
+    {
+      "id": "R05",
+      "priority": "P0",
+      "request": "官方机器身份读scope与写scope分离、账号可撤销/轮换、服务端每次真实授权、测试环境访问；不请求全后台超级管理员"
+    },
+    {
+      "id": "R06",
+      "priority": "P0-controlled-write",
+      "request": "限ID/字段/网站/游戏/金额/数量的批准计划；requestId唯一+payloadHash；旧version/expectedBefore CAS；持久回执pending/confirmed/partial/unknown；unknown只读查状态不换ID重写"
+    },
+    {
+      "id": "R07",
+      "priority": "P0-controlled-write",
+      "request": "写前dry-run无副作用、独立GET回读，部分成功逐项返回；后台价→同步→指定缓存→公开售价格各阶段版本与可见时间；不要GET承载写副作用"
+    },
+    {
+      "id": "R08",
+      "priority": "P0",
+      "request": "结构化错误码、HTTP401/403/409/422/429/5xx语义；Retry-After/配额/并发限制、超时、限量指数退避+jitter；写失败不能无条件自动重试"
+    },
+    {
+      "id": "R09",
+      "priority": "P0",
+      "request": "审计subject/approvedBy/requestId/operation/范围/前后值/时间/结果，敏感值脱敏；无密码token原始客户日志"
+    },
+    {
+      "id": "R10",
+      "priority": "P0",
+      "request": "云服务器出口白名单/TLS证书链/主机名校验/网络超时/计划维护信息；现D4历史CacheRefresher禁TLS校验不能作为新官方API默认"
+    },
+    {
+      "id": "R11",
+      "priority": "P0",
+      "request": "sandbox合成订单/退款/新客/复购/跨日/负利润/分页同值/权限拒绝/断线unknown等验收；证据与生产部署分开"
+    },
+    {
+      "id": "R12",
+      "priority": "P1",
+      "request": "可选签名callback或稳定作业status查询；重放/重复事件幂等；认证失效、采集过期、分页变化、未知写和公共价不一致告警；无callback支持时不虚构"
+    },
+    {
+      "id": "R13",
+      "priority": "later-NBA-upgrade",
+      "request": "NBA管理员有限策略审批→既有云执行器→每计划受控范围/回执状态；方向已认可、具体策略/服务认证/持久化和生产启用未完成，不列P0整个平台阻断"
+    }
+  ],
+  "backendQuestions": [
+    "请给现接口method及body编码权威版本，尤其orderStaticsDetailByEs/缓存manager代理调用",
+    "Order all-sites/gid0和status3 vsAdmin101映射，网站全集与新增站点处理",
+    "Order利润净/毛及收款/货款、定价汇率与历史成本/财务汇率关系",
+    "Admin付款人数/新客金额/复购定义；site_rank不是流量UTM渠道，是否另有真正渠道字段",
+    "FC sale_total单位、native商品分组order_count、原生类别根和站点/平台过滤",
+    "Order genre1订单发货正式成本合同；NBA genre0的历史用途不能套FC语义",
+    "Admin两登录变体与refresh正式长期机器支持、官方服务身份最小授权",
+    "创建商品/模型/标签/上下架/图像上传的字段scope及Excel schema；MLB/Aion专属能力当前未定位真实API",
+    "逐游戏确认Order/Admin/public游戏/模型/SKU/区服/region/server/platform/league/season/version IDs映射、生命周期与允许写字段",
+    "D4 item/gold、PoE2 currency/package、Aion2 Kinah的数量/赠送/币种/单位/precision/tick/舍入合同，不能泛化FC K",
+    "D4/Aion2 itemEdit金币实际请求schema和独立读回；PoE2/Aion/MLB部署闭包与实际scope需大超/开发确认",
+    "实际Order genre1成本与第三方参考成本分开；利润统计与定价marginRate不同，定价策略/频率不在本轮修改"
+  ],
+  "executionBoundary": {
+    "productionRequests": 0,
+    "productionWrites": 0,
+    "credentialsRead": 0,
+    "rolesAccountsTokensCreated": 0,
+    "gitCommitPush": false,
+    "candidateModified": false,
+    "note": "requirements preparation only; parent coordinates author and final first-upload eligibility separately"
+  },
+  "documentVersion": "1.1",
+  "updatedAt": "2026-10-05T17:02:39.681921+00:00",
+  "projectDifferences": [
+    {
+      "project": "D4",
+      "statsIds": {
+        "order": 456,
+        "admin": 456
+      },
+      "products": "物品商品/包装规格与Gold服务区价行分离；Admin独立模型ID未从所读源码确认",
+      "dimensions": "Gold源码默认S15 Softcore/Hardcore、Eternal Softcore/Hardcore；为历史默认，真实赛季/区服由大超和后台确认；Items配置gid/aid/cid/keyword/ID，platform无统一字段证据",
+      "unitsPrecision": "Items USD标价/包价→实时折扣后公开价；core_p2pah写5位，engine另按tick/dec限制，需官方精度合同；Gold CNY/M成本字段与USD/M售价，展示倍率100000M，成本dec配置默认6",
+      "cost": "Items千岛DWC订单簿成本×刻度/USDCNY，降级区服成本不可信冻结跟价；Gold costprice定价参数不等于已发生订单成本；Order真实采购记录另外只genre1",
+      "pricing": "Items竞品真价×计数×让价/实测折扣；Gold成本反推目标前端每M×rate×(1-marginRate)/frontFactor；D4内置frontFactor1.052631579仅源码默认",
+      "readWrite": "Items共用Order index_item/goodsEdit；Gold itemEdit?ids价行costprice，再getweb=1更新b2c，禁止allserver；角色/scopes限D4/ID/字段；实际容器写器与读回闭包未纳候选",
+      "cadence": "source默认due1h；归档心跳15min，不等于现live配置",
+      "evidence": [
+        "S035",
+        "S036",
+        "S037",
+        "S047",
+        "S046",
+        "S044",
+        "S045",
+        "S054",
+        "S055",
+        "S048",
+        "S049",
+        "S063",
+        "S065",
+        "S066"
+      ]
+    },
+    {
+      "project": "PoE2",
+      "statsIds": {
+        "order": 552,
+        "admin": 552
+      },
+      "products": "存在专用poe2_align与通用engine/core_front/core_p2pah；不是完全无实现。后台模型/全量当前映射及部署闭包未确认",
+      "dimensions": "源码标签样例Standard/Hardcore/Forbidden Rites SC/Runes of Aldur SC；league/server不得混比；前台aid与后台aid分系统；真实league IDs/版本/赛季/区服大超与后台确认",
+      "unitsPrecision": "每件/每包/货币种类按SKU；Divine Orb(1000+50 Free)源码按付费1000计数、赠送50不计价，仅该映射规则，非FC到账成本公式；目标标价5位，另需tick/最小正价/折扣/单位字典",
+      "cost": "未定位PoE2专属采购成本源完整链；engine有通用千岛成本函数不能据此声称PoE2已接千岛；Order genre1若提供须按SKU/league实际单位，不套CNY/K",
+      "pricing": "IGGM真实单件价×计数×让价系数/折扣；源码折扣需实测优先，不固定100；同游戏+区服+商品族才联动",
+      "readWrite": "共用index_item与goodsEdit；公开ajax/goods当前cid1338/4459为POE2回退值，top_cid按游戏/类型；批量ID白名单/旧值/独立回读是需求，不能声称现已完成",
+      "cadence": "source默认due1h；实际有效配置、写开关、真实合约待大超确认",
+      "evidence": [
+        "S040",
+        "S041",
+        "S042",
+        "S043",
+        "S044",
+        "S045",
+        "S046",
+        "S049"
+      ]
+    },
+    {
+      "project": "Aion2",
+      "statsIds": {
+        "order": 826,
+        "admin": 891
+      },
+      "products": "Kinah金币服务区行；Order826/Admin及公开Game_id891、公开cid6527/site266；具体后台row/aid/模型ID需正式映射",
+      "dimensions": "region NA West/NA East/EU/South America/Asia；server与race(天族/魔族)组合，别名Nezekan/Nezakan；不把大区报价分摊到所有小服，不套PS/XBOX/PC；赛季/联盟无已确认字段",
+      "unitsPrecision": "DD373 CNY/万Kinah×100/USDCNY=USD/M(百万)；ELD USD/K×1000；G2G Mil Kinah直接USD/M；IGGM与公开价USD/M；前端展示每M，Gold成本dec默认6可配置",
+      "cost": "DD373综合排序推荐第1条是报价/参考成本，不是实际订单结算成本；参考毛利(售价−DD报价)/售价与Order经营利润率分别标识；Order采购genre1若用则需Aion真实单位",
+      "pricing": "源码有dd373_markup与multisrc；执行分支前者DD推荐价+加价→G2G次源→配置默认价，旧多源min及地区均价分支并存；注释有旧口径冲突，当前模式/加价/兜底必须大超确认；不在本轮切换策略或采用默认价当实际成交",
+      "readWrite": "Gold工单按游戏拆开826与456不能混；itemEdit+getweb1已在ticket文本找到，实际executor不在候选；Admin GoodsMould FC专用scope不得套Aion；正式字段/精度/读回待后台",
+      "cadence": "code选择.25/.5/1/3/6/12/24h；注释Aion.5h、watch15min，归档timer15min；实时频率/配置未核实且本轮不改变",
+      "evidence": [
+        "S035",
+        "S036",
+        "S038",
+        "S039",
+        "S051",
+        "S052",
+        "S053",
+        "S056",
+        "S057",
+        "S058",
+        "S048",
+        "S049",
+        "S050",
+        "S063",
+        "S064"
+      ]
+    },
+    {
+      "project": "FC",
+      "statsIds": {
+        "order": 1322,
+        "admin": 1327
+      },
+      "products": "Coins+Players/Packs/SBC/其它；现Admin专用Goods/GoodsMould合同",
+      "dimensions": "PS/XBOX/PC及原生目录，ID分系统",
+      "unitsPrecision": "Coins K/赠送向量/有限档位按既有FC合同；不向ARPG推广1K或赠送模型",
+      "cost": "Order genre1有效订单发货CNY/K；准确Order经营利润率原值",
+      "readWrite": "原FC普通合法登录全FC经营只读，admin最小计划控写；FC-only不扩其它业务",
+      "cadence": "经营7200s/60s；Coins原自动执行频率独立，不改",
+      "evidence": [
+        "S014",
+        "S015",
+        "S017"
+      ]
+    },
+    {
+      "project": "NBA2K27",
+      "statsIds": {
+        "order": 1306,
+        "admin": 1329
+      },
+      "products": "Admin VC mid42278471；PS165466527/aid21595、Xbox165466561/21591、PC165466595/21597，site0；公开site266/cid9633",
+      "dimensions": "Order成本aid21764/21766/21768与Admin平台aid不是同一空间",
+      "unitsPrecision": "商品unit_price实际VC单位/包装/赠送/小数位尚无官方字典，不能因FC用K而套用；当前正有限价格守卫，配置RATE默认6.65不是实时报价",
+      "cost": "现Node源genre0与宿主时区是待核实差异；需求有效订单成本genre1或正式等价deliveryType，单位按VC原生合同",
+      "readWrite": "共用Admin有限Goods读/edit+公开价核对；高阶批准策略自动写后续非P0，现安全/未知写门槛不省",
+      "cadence": "当前候选UI默认360min只是源码；实际线上频率未复验，不调整",
+      "evidence": [
+        "S060",
+        "S061",
+        "S027",
+        "S028",
+        "S029"
+      ]
+    },
+    {
+      "project": "MLB26",
+      "statsIds": {
+        "order": 922,
+        "admin": 927
+      },
+      "products": "现候选工作台队列/Excel与ShowDD外部卡片数据；完整agent、Admin商品模型/建商品/写价映射未定位",
+      "dimensions": "卡片ID/年份版本26、平台/品类/模型/后台ID关联由业务与开发确认，不能凭FC类别或标题推测",
+      "unitsPrecision": "卡片数量/币种单位/模型价格/小数位未证实正式后台合同",
+      "cost": "未定位MLB采购成本专用接口；经营4核心与Admin补字段可复用已知映射，其它成本请求具体能力而不编端点",
+      "readWrite": "现工作台只是任务/Excel服务；不声称已实现上架后台；后续共用官方商品能力但先核模型/范围",
+      "cadence": "任务按请求触发；heartbeat非经营采集/写价周期",
+      "evidence": [
+        "S062",
+        "S005"
+      ]
+    },
+    {
+      "project": "其它现有球类",
+      "statsIds": "NFL27 Order1258/Admin1309；CFB27 1256/1307；FC26 824/833",
+      "products": "已知经营统计profile，专属商品写/模型/成本闭包未在本轮确定",
+      "dimensions": "要求官方game/platform/category/version字典",
+      "unitsPrecision": "不套FC27 K/赠送/利润公式",
+      "readWrite": "本次最小共同经营只读；专属写授权需业务确认",
+      "cadence": "统一经营120min/60s；不新增价任务",
+      "evidence": [
+        "S005"
+      ]
+    }
+  ],
+  "externalSourceBoundary": {
+    "backend": "Order/Admin official aggregate/catalogue/price/write/actual delivery cost APIs only",
+    "publicOwn": "MMOEXP /ajax/goods readonly price consistency; current item category_id for D4, cid forPoE2; gold parameterspergame",
+    "external": "QD/IGGM/DD373/G2G/ELD/ShowDD and Google are separate sources; no external secret/partner credentials requested from Order/Admin",
+    "strategy": "Source branches/old comments do not establish live mode. Do not replace existing pricing/cost contracts with generic FC logic or change schedules."
+  },
+  "currentCollaborationContract20261006": {
+    "fcIdentity": "existing signed global portal and current members; independent FC qualification/fallback retired",
+    "observedGlobalPortalAdmins": [
+      "wulv",
+      "chenchao",
+      "DY",
+      "fstech"
+    ],
+    "policySha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+    "newAccountsCreated": false,
+    "realRolesTested": false,
+    "upstreamApiImplemented": false,
+    "scope": "API v1.1 request/static evidence; prior FC-only descriptions are historical, not current portal role contract"
+  }
+}

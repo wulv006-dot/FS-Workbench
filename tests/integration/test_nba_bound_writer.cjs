@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),path=require('path'),os=require('os'),crypto=require('crypto'),vm=require('vm');
 const source=fs.readFileSync(path.join(__dirname,'../../opt/nba-reprice/backend/server.js'),'utf8');
-const code=source.slice(source.indexOf('function adminWrite('),source.indexOf('\nfunction appendApplyLog'));
+const code=source.slice(source.indexOf('function planIdentity('),source.indexOf('\nfunction appendApplyLog'));
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'nba-bound-mock-'));
 const pending=[];
 const context=vm.createContext({fs,path,crypto,Promise,Error,JSON,Object,String,WRITE_READY:true,WORK_DIR:root,PYTHON:'SYNTHETIC_NOT_EXECUTED',P2PAH_SCRIPT:'SYNTHETIC_NOT_EXECUTED',

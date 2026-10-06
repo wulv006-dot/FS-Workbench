@@ -370,6 +370,8 @@
       <h2 data-page-node-id="GJgbYfgIXHLGhMgyj8FJRN"><span data-page-node-id="34uhPusGMtCasQk2RcZ9AG" class="step"><!--pnid:Xxv1gaLW7vQy3hL5lM7ssM-->▸</span><!--pnid:r8JO0Dg0IZqo90s9TpONFM--> 运行日志</h2>
       <div data-page-node-id="2tCW2MHkWRo83cw741Lryg" class="log" id="logBody"><!--pnid:pTzDph0cWR8R2TYETWfBmk-->等待操作…</div>
       <div data-page-node-id="Z1vE0UKHgwx9weKBiozi4A" class="row">
+        <button class="btn ghost" id="btnCheckReceipt">核对原请求回执</button>
+        <span id="applyReceipt" style="overflow-wrap:anywhere">尚无写入请求</span>
         <button data-page-node-id="6daU0CLRj1joULpRPLc27h" class="btn ghost" id="btnClearLog"><!--pnid:QNN4yqTF8M9mM6PgftHU2u-->清空日志</button>
       </div>
     </div>
@@ -803,7 +805,72 @@
     log('已重算建议价：汇率 '+$('rate').value+'、利润率区间 '+pct(P.mMin)+' ~ '+pct(P.mMax)+'、来源 '+(P.mode==='rec'?'推荐单价':'成本公式'),'info');
   });
 
-  // ===== 写入售价（由「自动改价总开关」每轮自动执行，真实写入线上）=====
+  // One exact confirmed plan survives refresh; unknown results only use receipt lookup.
+  var applyKey='nba-confirmed-plan:'+API;
+  function savedApply(){
+    var raw=localStorage.getItem(applyKey);
+    if(!raw) return null;
+    var record=JSON.parse(raw);
+    if(!record || !/^[0-9a-f]{32}$/.test(record.requestId) || typeof record.fingerprint!=='string') throw new Error('本地计划记录异常，需人工核对');
+    return record;
+  }
+  function saveApply(record){localStorage.setItem(applyKey,JSON.stringify(record));}
+  function showReceipt(record){
+    $('applyReceipt').textContent='请求 '+record.requestId+' · 状态 '+record.state+' · 操作人 '+(record.operator||'待服务确认')+' · 计划SHA '+(record.planSha256||'待核对');
+  }
+  function keepReceipt(record,body){
+    if(body.requestId!==record.requestId || (record.planSha256 && body.planSha256 && record.planSha256!==body.planSha256) || (record.operator && body.operator && record.operator!==body.operator)) throw new Error('回执身份不匹配，需人工核对');
+    record.planSha256=body.planSha256||record.planSha256;
+    record.operator=body.operator||record.operator;
+    record.state=body.state||'unknown';record.receipt=body;
+    saveApply(record);showReceipt(record);
+    return body;
+  }
+  function receiptFetch(url,opts){
+    var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},185000);
+    return fetch(url,Object.assign({},opts,{signal:controller.signal})).then(function(r){return r.json();}).finally(function(){clearTimeout(timer);});
+  }
+  function checkReceipt(record){
+    showReceipt(record);
+    return receiptFetch(API+'/api/receipt?requestId='+record.requestId,{cache:'no-store'})
+      .then(function(body){return keepReceipt(record,body);});
+  }
+  function applyLock(work){
+    if(!navigator.locks) return Promise.reject(new Error('浏览器不支持安全计划锁，请使用支持 Web Locks 的浏览器'));
+    return navigator.locks.request(applyKey,work);
+  }
+  function submitPlan(payload,brief){
+    return applyLock(function(){
+      var fingerprint=JSON.stringify(payload),record=savedApply();
+      var unresolved=record && !['completed','rejected'].includes(record.state);
+      if(unresolved || (record && record.fingerprint===fingerprint && record.state==='completed')){
+        return checkReceipt(record).then(function(body){
+          if(body.state!=='completed') throw new Error('写入结果未知，仅可核对原请求 '+record.requestId);
+          if(unresolved && record.fingerprint!==fingerprint) throw new Error('原请求已核对，请重新确认变更后的计划');
+          return body;
+        });
+      }
+      if(!window.confirm('确认本次 NBA 售价写入？\n'+brief)) throw new Error('本次写入未确认');
+      if(!record || record.fingerprint!==fingerprint){
+        var bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
+        record={requestId:Array.from(bytes,function(b){return b.toString(16).padStart(2,'0');}).join(''),fingerprint:fingerprint};
+      }
+      record.state='unknown';record.payload=payload;saveApply(record);showReceipt(record);
+      return receiptFetch(API+'/api/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},payload,{requestId:record.requestId}))})
+        .then(function(body){
+          // Pre-write refusal may have no server binding; retain the locally saved request.
+          if(body.state==='rejected' && body.requestId===null) body=Object.assign({},body,{requestId:record.requestId});
+          return keepReceipt(record,body);
+        });
+    });
+  }
+  $('btnCheckReceipt').addEventListener('click',function(){
+    applyLock(function(){var record=savedApply();if(!record) throw new Error('尚无待核对请求');return checkReceipt(record);})
+      .catch(function(err){log('核对暂停：'+err.message,'warn');});
+  });
+  try{var restored=savedApply();if(restored) showReceipt(restored);}catch(err){log(err.message,'warn');}
+
+  // ===== 写入售价（每轮保持人工确认）=====
   function doApply(){
     if(!hasRead)     return Promise.reject(new Error('尚未读取采购单价'));
     if(!DATA.length) return Promise.reject(new Error('无采购价数据'));
@@ -821,26 +888,16 @@
 
     var brief=items.map(function(it){return it.area+' $'+it.price.toFixed(4)+'（利润 '+pct(it.margin)+'）'}).join('、');
 
-    if(!window.confirm('确认本次 NBA 售价写入？\n'+brief)) return Promise.reject(new Error('本次写入未确认'));
-    log('正在写入线上售价（admin.p2pah.cn · NBA 2K27 VC · 三端）：'+brief,'info');
-    return fetch(API+'/api/apply',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ confirm:'NBA_PRICE_APPLY', rate:P.rate, marginMin:P.mMin, marginMax:P.mMax, mode:P.mode, platforms:items })
-      })
-      .then(function(r){ return r.json().then(function(j){ return { status:r.status, body:j||{} }; }); })
-      .then(function(res){
-        if(res.body.ok){
+    items.sort(function(a,b){return a.area.localeCompare(b.area);});
+    return submitPlan({confirm:'NBA_PRICE_APPLY',rate:P.rate,marginMin:P.mMin,marginMax:P.mMax,mode:P.mode,platforms:items},brief)
+      .then(function(body){
+        if(body.ok && body.state==='completed'){
           items.forEach(function(it){ log('  '+it.area+' 售价已更新为 $'+it.price.toFixed(4)+'（利润率 '+pct(it.margin)+'）','ok'); });
-          log('全部平台改价完成','ok');
+          log('本计划完成回执已确认','ok');
           hasApplied=true; refreshGate();
-          return { ok:true, items:items };
+          return { ok:true, items:items, receipt:body };
         }
-        if(res.status===501){
-          log('⚠️ 后端 /api/apply 尚未实现（HTTP 501），本次未改动线上售价','warn');
-          return { ok:false, notImplemented:true, items:items };
-        }
-        throw new Error((res.body&&res.body.error)||('HTTP '+res.status));
+        var error=new Error(body.error||'写入结果待核对');error.receipt=body;throw error;
       })
       .catch(function(err){
         log('❌ 写入失败：'+(err.message||err),'warn');

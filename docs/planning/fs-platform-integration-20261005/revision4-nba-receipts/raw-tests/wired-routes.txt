@@ -1,0 +1,1 @@
+{"passed":true,"scope":"actual candidate HTTP handler in VM; synthetic identities; socket/listen/fs/process forbidden; positive writer replaced by mock"}

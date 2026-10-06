@@ -545,21 +545,26 @@ const AREA_TO_PRODUCT = {
 };
 
 // 调 Python 写入（复用已验证的 curl + batoken 通道）
+function planIdentity(priceMap, operator, suppliedId) {
+  const requestId = suppliedId || crypto.randomUUID().replace(/-/g, '');
+  if (!/^[0-9a-f]{32}$/.test(requestId)) throw new Error('INVALID_REQUEST_ID');
+  const ordered = Object.fromEntries(Object.keys(priceMap).sort().map(key => [key, priceMap[key]]));
+  const planJson = JSON.stringify({confirm:'NBA_PRICE_APPLY',operator,prices:ordered});
+  const planSha256 = crypto.createHash('sha256').update(planJson, 'utf8').digest('hex');
+  return {requestId,planSha256,operator,planJson};
+}
+
 function adminWrite(priceMap, operator, suppliedId) {
   return new Promise((resolve, reject) => {
     if (!WRITE_READY) return reject(new Error('WRITE_DISABLED'));
-    const requestId = suppliedId || crypto.randomUUID().replace(/-/g, '');
-    if (!/^[0-9a-f]{32}$/.test(requestId)) return reject(new Error('INVALID_REQUEST_ID'));
-    const ordered = Object.fromEntries(Object.keys(priceMap).sort().map(key => [key, priceMap[key]]));
-    const planJson = JSON.stringify({confirm:'NBA_PRICE_APPLY',operator,prices:ordered});
-    const planSha256 = crypto.createHash('sha256').update(planJson, 'utf8').digest('hex');
+    const {requestId,planSha256,planJson} = planIdentity(priceMap,operator,suppliedId);
     // A repeated client request ID still uses a distinct transport file; Python deduplicates the receipt.
     const planPath = path.join(WORK_DIR, '.plan-' + crypto.randomUUID().replace(/-/g, '') + '.json');
     prepareRuntime();
     fs.writeFileSync(planPath, JSON.stringify({requestId,planSha256,planJson}), {encoding:'utf8',mode:0o600,flag:'wx'});
     const done = (err, stdout) => {
       try { fs.unlinkSync(planPath); } catch (_) { /* no recursive deletion */ }
-      const fail = code => { const error = new Error(code); error.requestId=requestId; error.planSha256=planSha256; reject(error); };
+      const fail = code => { const error = new Error(code); Object.assign(error,{requestId,planSha256,operator,state:'unknown'}); reject(error); };
       if (err) return fail('WRITE_OUTCOME_UNKNOWN');
       let receipt;
       try { receipt=JSON.parse(String(stdout).trim().split('\n').filter(Boolean).pop()); }
@@ -609,13 +614,15 @@ async function applyPrices(payload, operator) {
     if (!t) throw new Error('未知平台：' + p.area);
     priceMap[t.platform] = Number(p.price);
   }
+  const binding=planIdentity(priceMap,operator,payload.requestId);
+  payload={...payload,requestId:binding.requestId};
 
   let write = { ok: false, error: 'WRITE_READY=false，未执行' };
   if (WRITE_READY) {
     try { write = await adminWrite(priceMap, operator, payload.requestId); }
     catch (error) {
       write={ok:false,error:'WRITE_OUTCOME_UNKNOWN',state:'unknown',
-        requestId:error.requestId,planSha256:error.planSha256,operator};
+        requestId:binding.requestId,planSha256:binding.planSha256,operator};
     }
   }
 
@@ -641,8 +648,25 @@ async function applyPrices(payload, operator) {
   return { ok: true, entry, write };
 }
 
+function readReceipt(requestId, operator) {
+  if (!/^[0-9a-f]{32}$/.test(requestId)) return {ok:false,error:'INVALID_REQUEST_ID',requestId:null,planSha256:null,operator,state:'rejected'};
+  const identity={requestId,planSha256:null,operator};
+  try {
+    const receipt=JSON.parse(fs.readFileSync(path.join(WORK_DIR,'receipts',requestId+'.json'),'utf8'));
+    // Only the authenticated administrator who owns this receipt can inspect it.
+    if (receipt.operator!==operator) return {...identity,ok:false,error:'RECEIPT_NOT_FOUND',state:'unknown'};
+    if (receipt.requestId!==requestId || !/^[0-9a-f]{64}$/.test(receipt.planSha256) || !['pending','completed'].includes(receipt.state) || (receipt.state==='completed' && typeof receipt.ok!=='boolean'))
+      throw new Error('INVALID_RECEIPT');
+    receipt.persistence=receipt.persistence||'unrecorded-no-power-loss-guarantee';
+    return receipt.state==='completed' ? receipt : {...receipt,ok:false,state:'unknown',error:'WRITE_OUTCOME_UNKNOWN'};
+  } catch (error) {
+    return {...identity,ok:false,state:'unknown',error:error.code==='ENOENT'?'RECEIPT_NOT_FOUND':'RECEIPT_READ_FAILED'};
+  }
+}
+
 // ===== HTTP 服务 =====
 const server = http.createServer(async (req, res) => {
+  let requestContext={requestId:null,planSha256:null,operator:null,state:'rejected'};
   // Emit CORS only for an explicitly configured origin.
   if (req.headers.origin && ALLOWED_ORIGINS.includes(req.headers.origin)) {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
@@ -667,9 +691,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { ok: true });
     }
     const identity = apiSecurity.resolveIdentity(req, AUTH_CONFIG);
-    if (!identity) return sendJson(401, {ok:false, error:'AUTH_REQUIRED'});
+    if (!identity) return sendJson(401, {ok:false, error:'AUTH_REQUIRED',...requestContext});
     const operator = identity.user;
+    requestContext.operator=operator;
     if (url.pathname !== '/api/apply' && req.method !== 'GET') return sendJson(405, {ok:false, error:'GET_REQUIRED'});
+    if (url.pathname === '/api/receipt') {
+      if (!identity.admin) return sendJson(403,{ok:false,error:'ADMIN_REQUIRED'});
+      const receipt=readReceipt(url.searchParams.get('requestId')||'',operator);
+      return sendJson(receipt.error==='INVALID_REQUEST_ID'?400:200,receipt);
+    }
     if (url.pathname === '/api/read') {
       const data = await readLatestPrice();
       return sendJson(200, { ok: true, ...data });
@@ -692,23 +722,40 @@ const server = http.createServer(async (req, res) => {
     // 改价写入（真实写入 admin-api.p2pah.cn 三端 VC 售价；全过程审计留痕）
     if (url.pathname === '/api/apply') {
       const refused = apiSecurity.checkApply(req, identity, WRITE_READY, ALLOWED_ORIGINS);
-      if (refused) return sendJson(refused.status, {ok:false, error:refused.code});
+      if (refused) {
+        // An authenticated administrator's valid POST still gets a bound refusal.
+        // This does not authorize a write or disclose identity to another actor.
+        if (identity.admin && req.method==='POST' && /^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type']||''))) {
+          try {
+            const deniedPayload=await readBody(req);apiSecurity.validateApply(deniedPayload);
+            const prices=Object.fromEntries(deniedPayload.platforms.map(p=>[AREA_TO_PRODUCT[p.area].platform,p.price]));
+            const binding=planIdentity(prices,operator,deniedPayload.requestId);
+            requestContext={requestId:binding.requestId,planSha256:binding.planSha256,operator,state:'rejected'};
+          } catch (_) { /* invalid/unbound requests have no valid plan hash */ }
+        }
+        return sendJson(refused.status, {ok:false, error:refused.code,...requestContext});
+      }
       const payload = await readBody(req);
-      try { apiSecurity.validateApply(payload); } catch (_) { return sendJson(400, {ok:false, error:'INVALID_APPLY_REQUEST'}); }
+      try { apiSecurity.validateApply(payload); } catch (_) { return sendJson(400, {ok:false, error:'INVALID_APPLY_REQUEST',requestId:payload && typeof payload.requestId==='string' && /^[0-9a-f]{32}$/.test(payload.requestId)?payload.requestId:null,planSha256:null,operator,state:'rejected'}); }
+      const prices=Object.fromEntries(payload.platforms.map(p=>[AREA_TO_PRODUCT[p.area].platform,p.price]));
+      const binding=planIdentity(prices,operator,payload.requestId);
+      requestContext={requestId:binding.requestId,planSha256:binding.planSha256,operator,state:'unknown'};
+      payload.requestId=binding.requestId;
       const r = await applyPrices(payload, operator);
       if (!r.ok) {
         return sendJson(502, {
           ok: false,
           error: r.error,
           detail: r.detail,
+          requestId:r.detail.requestId,planSha256:r.detail.planSha256,operator:r.detail.operator,state:r.detail.state,
         });
       }
-      return sendJson(200, { ok: true, results: r.write.results, verify: r.write.verify });
+      return sendJson(200, { ...r.write, ok: true, results: r.write.results, verify: r.write.verify });
     }
     sendJson(404, { ok: false, error: 'not found' });
   } catch (e) {
     console.error('[错误] NBA_REQUEST_FAILED');
-    sendJson(500, { ok: false, error: 'NBA_REQUEST_FAILED' });
+    sendJson(500, { ok: false, error: 'NBA_REQUEST_FAILED',...requestContext });
   }
 });
 

@@ -1,3 +1,7 @@
+> **2026-10-06当前合同（优先于本文历史段落）：** 首批干净源码已入私库 main bc3b29531cec2fab3fc090385f3d7d126eb9ada7。本批只增加文档与已独立复核 NBA receipts 候选；未提交、推送或部署。FC使用既有全局登录与角色，旧FC-only独立资格/fallback已被最新用户决定退役；当前已观察全局门户策略4管理员为wulv/chenchao/DY/fstech，来源为统一auth独立审阅及policy SHA b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017，不是本次新增账号。仓库旧C3政策/部分模块仍有三管理员代码，未随本批改动，禁止部署它覆盖四管理员现场。NBA api_security.js仍保留原三管理员模块守卫，其真实代理/角色适配未验，不因此擅授fstech NBA写权限。D4/PoE2/Aion2归陈超；球类归吴律；共享入口吴律主导陈超协作；其它owner待定。NBA R3-01/R3-02只在指定候选/合成证据层关闭，真实运行未验，releaseReady=false。D4/UI/auth源码均不在本批。文中旧权限、未push、FC专用桥与readiness状态是历史依据，不能作为当前发布指令。自助注册默认介绍/申请的业务方向已批准，实际入口/审批未实现。
+
+当前本批读我与测试闭包见 [BATCH README](../planning/fs-docs-nba-batch-20261006/README.md) 和 [TEST REPRODUCTION](../planning/fs-docs-nba-batch-20261006/TEST-REPRODUCTION.md)。以下首次准备阶段叙述保留上下文，模板继续按当前SHA/授权使用，首批已成功入库。
+
 # FS GitHub协作：两位用户操作手册
 
 版本：2026-10-06准备稿；仓库：[FS-Workbench](https://github.com/wulv006-dot/FS-Workbench)（private）。项目是MMOEXP游戏运营Agent，原工程为 `E:\WorkBuddy\大超服务器`。
@@ -8,7 +12,7 @@
 
 ## 一、你们只需要做这六步
 
-1. **告诉自己的AI做哪个模块、要改什么。** 开头复制下方“开始同步”模板；吴律处理FC/NBA/MLB等球类，陈超处理D4/Aion。
+1. **告诉自己的AI做哪个模块、要改什么。** 开头复制下方“开始同步”模板；吴律处理FC/NBA/MLB等球类，陈超处理D4/PoE2/Aion2。
 2. **看AI给的范围卡。** 只核对“目标模块、会改变的功能、影响其它模块吗、需要谁确认”。范围不明先停止；不需要自己敲Git命令。
 3. **让AI在自己的独立分支做。** 分支可以理解成自己的工作副本；别人没提交的内容必须保留。改完让AI给一页中文结果：改了什么、通过哪些测试、哪些未验、回退怎么做。
 4. **查看合并申请（PR）。** GitHub里可以点仓库的 `Pull requests`，打开AI提供的那一条，看 `Conversation` 中文说明、`Files changed` 文件列表和 `Checks` 检查结果。PR是“把我的改动加入共同版本”的申请。
@@ -58,8 +62,8 @@ FC/NBA/MLB问吴律；D4/PoE2/Aion2问陈超。共享登录、首页、导航由
 - 禁止force push（包括force-with-lease）、reset远端main、旧包覆盖、重写公共历史、直接从原工程push。需要处理冲突就人工可审阅地合并；无法判断语义交对应owner。
 - 不以CI绿色、页面200、静态解析、源文件存在或归档unit声明冒充实际运行、自然周期、角色或业务验收。缺现有只读角色就标未验；不新建账号/降级管理员补测。
 - 源码协作不触生产。默认不启用Actions部署、cron/timer、价格自动写、权限、真实订单操作或新长期访问。只用已核实工具；不安装软件/执行未知候选代码来“完善手册”。
-- NBA升级后置不拖其它模块：可独立审阅合并其它模块，但不把NBA未验修改打入其发布包。若共享认证/接口实际受影响，仍要跨模块审批与回归。NBA候选R3-01 UI稳定ID/结果核对、R3-02目录持久化及Linux验收未闭合，不能标可发布。
-- FC普通同事读取全部FC经营数据（销售额、成本、利润、商品排行）已获业务批准；四静态别名、限定FC准确区间/投影、真实会话与负向角色矩阵尚未部署/验收。不开放内部全站range或其它业务；写价/上架/权限仍仅既有合法管理员。
+- NBA后续业务升级不拖其它模块。本批独立NBA r4候选的R3-01/R3-02仅在指定源码/合成证据层关闭；真实Linux、浏览器/角色/代理及写回未验，不标可发布，不启用自动策略，unknown先核对原requestId。
+- FC沿用现有全局账号/角色，旧FC独立资格和fallback被最新决定退役；普通同事已批准读取全部FC经营字段，实际范围依合法global成员及中央策略；真实角色/frame/CAS未验。当前global门户4管理员来自已观察policy，既有合法成员不新增不迁移；本批不改旧三管理员模块守卫，不扩大NBA写权限。
 - 生产部署与回滚必须另批指定模块和commit/产物；保留数据、队列、锁、回执、价格策略与审计。不回滚整个数据库撤销上游副作用；unknown先核对，不能生成新ID再写。
 
 ## 五、可复制给双方AI的任务模板
@@ -160,7 +164,7 @@ review包括source-map真源、变更路径、合同、权限/负向、共享消
 
 ## 六、规则和实际保护要分开
 
-本轮只读确认私库为private、吴律连接有admin/push、大超write，远端分支列表为空。没有核实本账号套餐、branch protection/rulesets/CI/CODEOWNERS强制配置；本轮也没有启用它们。write是仓库级能力，不是“只准改自己的目录”。规则依赖AI范围守卫、review和双方执行，不能宣称GitHub已经强制锁死跨模块修改。
+现私库首批main bc3b295...已读回323文件；本批源码/文档冻结待draft PR，远端再变必须重读。Rulesets API当前返回升级Pro或公开私库403，branch protection接口返回integration无访问权限403；无法宣称保护已强制生效，也不能凭后者证明保护不存在。无需公开库、购买套餐、改权限或新凭据；write仍是仓库级能力。
 
 官方说明：私库保护分支和branch/tag rulesets支持GitHub Pro及相应Team/Enterprise方案；本账号是否有套餐和有效配置仍待核实，不购套餐。CODEOWNERS指定审阅者，需要配合要求owner审阅的有效规则；多个owner同一行通常任一人批准即可，不能自动代表双方都确认。以上不提供模块级代码阅读隔离。[保护分支](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)、[CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)。
 

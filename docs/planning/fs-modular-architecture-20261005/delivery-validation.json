@@ -1,0 +1,36 @@
+{
+  "validatedAt": "2026-10-05T15:47:36.021043+00:00",
+  "report": "当前架构评估与模块化改造方案.md",
+  "reportBytes": 59416,
+  "reportSha256": "fea0bb63e93f3b8b7fa439a08892006645cf1d0b27600e5a1220499bb6c423c1",
+  "candidateFiles": 311,
+  "candidateBytes": 12111256,
+  "candidateUnchanged": true,
+  "reviews": [
+    {
+      "path": "D:\\codex\\2026-10-05\\task-5\\revision3-independent-security-review.md",
+      "sha256": "bdfcbeb3589b98ee12a1597b155bccdd8649887f5ae433d9fd1d579dc22ebcc2"
+    },
+    {
+      "path": "D:\\codex\\2026-10-05\\task-6\\fs-revision3-final-review.md",
+      "sha256": "8a7e0231a2b4bdf33d93a7f2046bd2109164af37e713f2715f41fffd8ea317af"
+    }
+  ],
+  "checks": [
+    "12 main sections",
+    "closed Markdown fences",
+    "required business constraints present",
+    "known private download token excluded",
+    "no private-key marker",
+    "311 source hashes unchanged"
+  ],
+  "limits": [
+    "not a complete secret detector",
+    "no candidate code executed",
+    "no live runtime validation",
+    "no deployment or git operation"
+  ],
+  "historicalOriginalValidation": true,
+  "originalReportSha256": "3bbf41d3bcb3a8b796793682d929dd130ceac747397f8567805f64f3c07e7312",
+  "currentAnnotationOnly": "Added current contract note, original source analysis retained; current runtime/roles not validated"
+}
