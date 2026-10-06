@@ -1786,18 +1786,30 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + (x.挂单数? (' · '+x.挂单数+' 条挂单') : '');
     /* 2026-10-02：定价级别（第1/2/3 级）—— 这一列是本次改动的核心可见性 */
     const P = x['定价'] || {};
-    const tier = P.mode==='dd373_markup' ? (P.tier!=null?Number(P.tier):null) : null;
+    /* 2026-10-06：dd373_only 也有 1/2/3 级（1=DD373进货×(1+加价)，3=无货兜底），
+       原判断只认 dd373_markup ⇒ 新模式下整列误显示「旧口径」，这里一并认。 */
+    const _pmode = P.mode || '';
+    const tier = (_pmode==='dd373_markup' || _pmode==='dd373_only')
+      ? (P.tier!=null?Number(P.tier):null) : null;
     const tcol = {1:'var(--green)',2:'var(--yellow)',3:'var(--red)'}[tier] || 'var(--sub)';
     const _pol = d['定价策略'] || {};
     const _pct = function(v){ if(v==null) return '--';
       return (Math.round(Number(v)*1000)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
+    const _isDDonly = (_pmode==='dd373_only');
+    const _ddMkNum = Number(_pol['加价比例']);
+    const _ddMk = isNaN(_ddMkNum) ? 0.07 : _ddMkNum;
+    const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
+    const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
     const tierCell = (tier==null)
-      ? '<td class="num" style="color:var(--sub)">旧口径</td>'
+      ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
       : '<td class="num" style="color:'+tcol+';font-weight:600">第'+tier+'级'
         + '<div class="small" style="color:var(--sub);font-weight:400">'
-        + (tier===1? ('DD373+'+_pct(_pol['加价比例']))
-          : (tier===2? ((_pol['次源']||'G2G')+'兜底')
-                     : ('默认 $'+(Number(_pol['默认售价_USD每M'])||9.9).toFixed(2))))
+        + (_isDDonly
+            ? (tier===1? ('DD373进货 ×'+(1+_ddMk).toFixed(2))
+                       : ('无货兜底 $'+_ddPark.toFixed(2)))
+            : (tier===1? ('DD373+'+_pct(_pol['加价比例']))
+              : (tier===2? ((_pol['次源']||'G2G')+'兜底')
+                         : ('默认 $'+(Number(_pol['默认售价_USD每M'])||9.9).toFixed(2)))))
         + '</div></td>';
     /* 竞品三源（仅采集监控，不参与定价）—— 用户要求汇总区也能一眼看到 */
     const cCell = function(v){ return (v==null||v==='')
