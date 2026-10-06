@@ -1,0 +1,44 @@
+test_all_four_admins_and_registered_readonly (test_consumers.ConsumerTests.test_all_four_admins_and_registered_readonly) ... ok
+test_invalid_or_unverified_fc_never_admin (test_consumers.ConsumerTests.test_invalid_or_unverified_fc_never_admin) ... ok
+test_native_existing_member_semantics_preserved (test_consumers.ConsumerTests.test_native_existing_member_semantics_preserved) ... ok
+test_actual_main_boot_failure_never_opens_listener (test_direct_calls.DirectTests.test_actual_main_boot_failure_never_opens_listener) ... ok
+test_actual_taskboard_context_caller_enforces_verified_role (test_direct_calls.DirectTests.test_actual_taskboard_context_caller_enforces_verified_role) ... ok
+test_exact_source_cas_for_three_actual_callers (test_direct_calls.DirectTests.test_exact_source_cas_for_three_actual_callers) ... ok
+test_fc_retired_direct_handler_routes_do_not_call_legacy_db (test_direct_calls.DirectTests.test_fc_retired_direct_handler_routes_do_not_call_legacy_db) ... ok
+test_real_portal_handler_http (test_direct_calls.DirectTests.test_real_portal_handler_http) ... ok
+test_hardlink_and_symlink_rejected_without_repair (test_posix_runtime.PosixStorageTests.test_hardlink_and_symlink_rejected_without_repair) ... skipped 'POSIX private Linux runner required'
+test_private_modes_uid_and_nonprivate_rejection (test_posix_runtime.PosixStorageTests.test_private_modes_uid_and_nonprivate_rejection) ... skipped 'POSIX private Linux runner required'
+test_corruption_rejects_without_rebuild (test_restart.RestartTests.test_corruption_rejects_without_rebuild) ... ok
+test_first_initialization_crash_cannot_auto_retry (test_restart.RestartTests.test_first_initialization_crash_cannot_auto_retry) ... ok
+test_https_insecure_binding_rejected_before_storage_write (test_restart.RestartTests.test_https_insecure_binding_rejected_before_storage_write) ... ok
+test_old_backup_cannot_restore_logged_out_token (test_restart.RestartTests.test_old_backup_cannot_restore_logged_out_token) ... ok
+test_pending_and_committed_crash_restarts_fail_closed (test_restart.RestartTests.test_pending_and_committed_crash_restarts_fail_closed) ... ok
+test_registered_revocation_cannot_rollback_epoch (test_restart.RestartTests.test_registered_revocation_cannot_rollback_epoch) ... ok
+test_registration_directory_loss_rejects_reinit (test_restart.RestartTests.test_registration_directory_loss_rejects_reinit) ... ok
+test_repeated_init_never_overwrites_existing_ledger (test_restart.RestartTests.test_repeated_init_never_overwrites_existing_ledger) ... ok
+test_true_process_logout_restart_then_missing_db (test_restart.RestartTests.test_true_process_logout_restart_then_missing_db) ... ok
+test_uninitialized_build_does_not_create_storage (test_restart.RestartTests.test_uninitialized_build_does_not_create_storage) ... ok
+test_approval_readonly_revocation (test_runtime.RuntimeTests.test_approval_readonly_revocation) ... ok
+test_boot_hook_native_denylist_visible_to_old_parser (test_runtime.RuntimeTests.test_boot_hook_native_denylist_visible_to_old_parser) ... ok
+test_boot_hook_replaces_fallback_and_old_logout (test_runtime.RuntimeTests.test_boot_hook_replaces_fallback_and_old_logout) ... ok
+test_canonical_read_guard (test_runtime.RuntimeTests.test_canonical_read_guard) ... ok
+test_csrf_and_failed_registration_no_user (test_runtime.RuntimeTests.test_csrf_and_failed_registration_no_user) ... ok
+test_db_missing_does_not_create_empty (test_runtime.RuntimeTests.test_db_missing_does_not_create_empty) ... ok
+test_duplicate_approval_and_concurrent_registration (test_runtime.RuntimeTests.test_duplicate_approval_and_concurrent_registration) ... ok
+test_explicit_temp_boundary (test_runtime.RuntimeTests.test_explicit_temp_boundary) ... ok
+test_four_admins_custom_cookie_preserved (test_runtime.RuntimeTests.test_four_admins_custom_cookie_preserved) ... ok
+test_https_origin_only (test_runtime.RuntimeTests.test_https_origin_only) ... ok
+test_import_inert (test_runtime.RuntimeTests.test_import_inert) ... ok
+test_insecure_native_configuration_cannot_issue_unsafe_cookie (test_runtime.RuntimeTests.test_insecure_native_configuration_cannot_issue_unsafe_cookie) ... ok
+test_native_logout_ledger_all_verifiers (test_runtime.RuntimeTests.test_native_logout_ledger_all_verifiers) ... ok
+test_old_fc_cookie_never_identity (test_runtime.RuntimeTests.test_old_fc_cookie_never_identity) ... ok
+test_pending_cannot_read (test_runtime.RuntimeTests.test_pending_cannot_read) ... ok
+test_registration_never_grants_admin (test_runtime.RuntimeTests.test_registration_never_grants_admin) ... ok
+test_reserved_native_name_no_upgrade (test_runtime.RuntimeTests.test_reserved_native_name_no_upgrade) ... ok
+test_restart_preserves_registration_and_epoch (test_runtime.RuntimeTests.test_restart_preserves_registration_and_epoch) ... ok
+test_unknown_schema_not_repaired (test_runtime.RuntimeTests.test_unknown_schema_not_repaired) ... ok
+
+----------------------------------------------------------------------
+Ran 39 tests in 13.505s
+
+OK (skipped=2)

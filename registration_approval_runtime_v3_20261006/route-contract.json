@@ -1,0 +1,100 @@
+{
+  "releaseReady": false,
+  "userSecurityApproval": true,
+  "productionAdapterComplete": false,
+  "admins": [
+    "DY",
+    "chenchao",
+    "fstech",
+    "wulv"
+  ],
+  "exact_reads": [
+    "/dashboard/",
+    "/dashboard/fs-home/transactions/aion2-status.js",
+    "/dashboard/fs-home/transactions/business-range.js",
+    "/dashboard/fs-home/transactions/business-theme.css",
+    "/dashboard/fs-home/transactions/business-theme.js",
+    "/dashboard/fs-home/transactions/current.json",
+    "/dashboard/fs-home/transactions/exact-range-client.js",
+    "/dashboard/fs-home/transactions/snapshot-client.js",
+    "/dashboard/fs-home/transactions/supplement-insights.css",
+    "/dashboard/index.html",
+    "/dashboard/marketing/",
+    "/dashboard/marketing/business-module.js",
+    "/dashboard/marketing/data.json",
+    "/dashboard/marketing/marketing-module.css",
+    "/dashboard/marketing/marketing-module.js",
+    "/dashboard/marketing/weekly/",
+    "/dashboard/marketing/weekly/current.json",
+    "/dashboard/marketing/weekly/history.json",
+    "/dashboard/marketing/weekly/weekly-business-core.js",
+    "/dashboard/marketing/weekly/weekly-charts.js",
+    "/dashboard/marketing/weekly/weekly-report.css",
+    "/dashboard/marketing/weekly/weekly-report.js",
+    "/dashboard/tasks/",
+    "/dashboard/tasks/api/board",
+    "/dashboard/tasks/api/session",
+    "/dashboard/tasks/app.js",
+    "/dashboard/tasks/styles.css",
+    "/fc27/analysis",
+    "/s/wulv/fc27-ops/",
+    "/s/wulv/fc27-ops/api/health",
+    "/s/wulv/fc27-ops/data/fc-analytics.css",
+    "/s/wulv/fc27-ops/data/fc-analytics.js",
+    "/s/wulv/fc27-ops/data/fc-products.css",
+    "/s/wulv/fc27-ops/data/fc-products.js",
+    "/s/wulv/fc27-ops/data/snapshot-client.js",
+    "/s/wulv/fc27-ops/data/supplement-insights.css",
+    "/s/wulv/fc27-ops/data/supplement-insights.js",
+    "/tools/fc27-players/",
+    "/tools/fc27-players/api/bootstrap",
+    "/tools/fc27-players/api/status",
+    "/tools/fc27-players/app.css",
+    "/tools/fc27-players/app.js",
+    "/tools/fc27-players/models"
+  ],
+  "read_patterns": [
+    "/dashboard/fs-home/transactions/snapshots/[A-Za-z0-9_-]{1,96}/snapshot\\.json",
+    "/dashboard/marketing/weekly/reports/[A-Za-z0-9_-]{1,96}/report\\.json",
+    "/dashboard/tasks/api/tasks/[1-9][0-9]{0,11}",
+    "/dashboard/tasks/api/tasks/[1-9][0-9]{0,11}/events",
+    "/s/wulv/fc27-ops/api/jobs/[0-9a-f]{32}"
+  ],
+  "query_keys": {
+    "static_assets": [
+      "v"
+    ],
+    "business": [
+      "mode",
+      "brand",
+      "days",
+      "scope",
+      "period",
+      "category"
+    ]
+  },
+  "admin_only": [
+    "/dashboard/tasks/api/members",
+    "/s/wulv/fc27-ops/api/collect",
+    "/__auth/access/api/requests",
+    "/__auth/access/api/audit",
+    "/__auth/access/api/decision",
+    "/__auth/access/api/revoke"
+  ],
+  "blocked_pending_consumer_contract": [
+    "/dashboard/api/* (existing API-key boundary retained)",
+    "/dashboard/fc27-quote-api/*",
+    "/dashboard/fc27-activity-api/*",
+    "/api/fc27/cloud/*",
+    "/tools/fc27-players/api/candidates and per-model/backend session reads",
+    "/dashboard/analytics/* (separate frontend owner; no dependency for this module)",
+    "RPG/NBA consumers (owner-supplied auth contract only; no source/price changes)"
+  ],
+  "notes": [
+    "proposal; no current user grant",
+    "native existing roles/groups remain; no automatic FC account/session migration",
+    "native authorizer continues current policy; strict read additions apply only approved reg:UUID",
+    "public read paths proven by source/config or local reference; consumers not production-role tested",
+    "Consolidated boundaries confirmed by user2026-10-06 09:09:28UTC; production action/review/consumer gates remain pending."
+  ]
+}

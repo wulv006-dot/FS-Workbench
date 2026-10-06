@@ -1,0 +1,14 @@
+{
+  "zip_sha256": "08c092e359205e00aa24f4746448402bc0931dd7209b45af6cb78b7904e14763",
+  "payload_files": 37,
+  "archive_entries": 38,
+  "local_candidate_bytes_match": true,
+  "credential_signature_findings": [],
+  "exit_code": 1,
+  "tests_run": 39,
+  "skipped": 2,
+  "os": "win32",
+  "linux_executed": false,
+  "production_changed": false,
+  "releaseReady": false
+}

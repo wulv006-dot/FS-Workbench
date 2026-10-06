@@ -1,0 +1,8 @@
+{
+  "auth_candidate.py": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+  "native_access_policy.py": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+  "native_integration.py": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+  "native_portal_functions.py": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+  "native_taskboard_member.py": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+  "schema_contract.py": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101"
+}

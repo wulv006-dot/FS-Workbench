@@ -1,0 +1,267 @@
+class ApiError(Exception):
+    def __init__(self, status: int, message: str, detail=None):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+        self.detail = detail
+
+class Ctx:
+    __slots__ = ("user", "role", "ip", "ua", "registered")
+
+    def __init__(self, user: str, role: str, ip: str = "", ua: str = "", registered: bool = True):
+        self.user = user
+        self.role = role
+        self.ip = ip
+        self.ua = ua
+        self.registered = registered
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
+
+    def to_json(self) -> dict:
+        return {"user": self.user, "role": self.role, "isAdmin": self.is_admin,
+                "registered": self.registered,
+                "canEditAll": self.is_admin, "canEditOwn": self.is_admin or self.role == "editor"}
+
+def member_state(conn, username: str):
+    """返回 (role, registered)。
+
+    守护管理员恒定 admin 且视为已登记；未在 members 表出现的账号一律 (viewer, False)，
+    由路由层按 CFG['unregistered'] 决定拒绝还是只读放行。
+    """
+    if not username:
+        return "anonymous", False
+    if username in GUARD_ADMINS:
+        return "admin", True
+    row = q(conn, "SELECT role,active FROM members WHERE username=?", (username,), one=True)
+    if not row:
+        return "viewer", False
+    if not row["active"]:
+        return "viewer", True          # 已登记但被停用：降级只读，不再具备写权限
+    return (row["role"] if row["role"] in ROLES else "viewer"), True
+
+def require_admin(ctx: Ctx) -> None:
+    if not ctx.is_admin:
+        raise ApiError(403, "需要管理员权限")
+
+def can_edit_task(ctx: Ctx, task) -> bool:
+    if ctx.is_admin:
+        return True
+    if ctx.role == "editor" and task["assignee"] and task["assignee"] == ctx.user:
+        return True
+    return False
+
+def require_task_edit(ctx: Ctx, task) -> None:
+    if not can_edit_task(ctx, task):
+        raise ApiError(403, "只能修改自己名下的任务")
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "MMOEXPTaskboard/" + VERSION
+    protocol_version = "HTTP/1.1"
+
+    # ---- 基础工具
+    def _send(self, code: int, body=b"", ctype="application/json; charset=utf-8", headers=None):
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
+        self.send_header("Referrer-Policy", "same-origin")
+        for k, v in (headers or []):
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD" and body:
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+    def _json(self, code: int, payload):
+        self._send(code, json.dumps(payload, ensure_ascii=False))
+
+    def _error(self, code: int, message: str, detail=None):
+        self._json(code, {"error": message, "detail": detail})
+
+    def _ctx(self) -> Ctx:
+        user = (self.headers.get("X-Auth-User") or "").strip()
+        ip = (self.headers.get("X-Real-IP") or self.client_address[0] or "")
+        ua = self.headers.get("User-Agent") or ""
+        conn = db_connect()
+        try:
+            role, registered = member_state(conn, user)
+            return Ctx(user, role, ip, ua, registered)
+        finally:
+            conn.close()
+
+    def _body(self) -> dict:
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ApiError(400, "Content-Length 非法")
+        if n <= 0:
+            return {}
+        if n > CFG["max_body"]:
+            raise ApiError(413, "请求体过大")
+        raw = self.rfile.read(n)
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            raise ApiError(400, "请求体不是合法 JSON")
+        if not isinstance(data, dict):
+            raise ApiError(400, "请求体必须是 JSON 对象")
+        return data
+
+    # ---- 路由
+    def do_GET(self):
+        self._route("GET")
+
+    def do_HEAD(self):
+        self._route("HEAD")
+
+    def do_POST(self):
+        self._route("POST")
+
+    def do_PATCH(self):
+        self._route("PATCH")
+
+    def do_DELETE(self):
+        self._route("DELETE")
+
+    def _route(self, method: str):
+        parsed = urllib.parse.urlsplit(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        try:
+            if path == "/health":
+                conn = db_connect()
+                try:
+                    n = q(conn, "SELECT COUNT(*) AS n FROM tasks", one=True)["n"]
+                finally:
+                    conn.close()
+                return self._json(200, {"ok": True, "version": VERSION, "tasks": n,
+                                        "dbWritable": os.access(str(CFG["data_dir"]), os.W_OK),
+                                        "time": now_iso()})
+
+            ctx = self._ctx()
+            if not ctx.user:
+                return self._error(401, "未取得登录身份，请通过统一门户登录后再访问")
+            if not ctx.registered and CFG["unregistered"] == "deny":
+                # 统一门户 /verify 在门户会话失效时会回退到 FC27 只读门禁，并把 FC27 认可的
+                # 账号也标记成 dashboard 组成员。若不在这里显式拦截，FC27 的外部自注册用户
+                # 就能读到内部任务、接手人与人员安排。默认严格拒绝，要放行请把
+                # config.env 的 TASKBOARD_UNREGISTERED 改为 readonly。
+                log("拦截未登记账号：%s（来源 %s）" % (ctx.user, ctx.ip), "warn")
+                return self._error(403, "该账号尚未在任务台登记，请联系管理员开通后再访问")
+
+            if path == "/api/session" and method in ("GET", "HEAD"):
+                conn = db_connect()
+                try:
+                    return self._json(200, {"viewer": ctx.to_json(), "serverTime": now_iso(),
+                                            "structure": structure_json(conn)})
+                finally:
+                    conn.close()
+
+            if path == "/api/board" and method in ("GET", "HEAD"):
+                conn = db_connect()
+                try:
+                    return self._json(200, board_json(conn, ctx))
+                finally:
+                    conn.close()
+
+            if path == "/api/members" and method in ("GET", "HEAD"):
+                conn = db_connect()
+                try:
+                    return self._json(200, {"members": members_json(conn), "viewer": ctx.to_json()})
+                finally:
+                    conn.close()
+
+            if path == "/api/members" and method == "POST":
+                if not ctx.is_admin:
+                    raise ApiError(403, "需要管理员权限")
+                return self._json(200, op_upsert_member(ctx, self._body()))
+
+            if path == "/api/tasks" and method == "POST":
+                return self._json(200, op_create_task(ctx, self._body()))
+
+            m = re.match(r"^/api/tasks/(\d+)$", path)
+            if m:
+                tid = int(m.group(1))
+                if method == "GET" or method == "HEAD":
+                    conn = db_connect()
+                    try:
+                        return self._json(200, task_json(conn, load_task(conn, tid), ctx, events=40))
+                    finally:
+                        conn.close()
+                if method == "PATCH":
+                    return self._json(200, op_patch_task(ctx, tid, self._body()))
+                if method == "DELETE":
+                    return self._json(200, op_delete_task(ctx, tid))
+
+            m = re.match(r"^/api/tasks/(\d+)/(ack|submit)$", path)
+            if m and method == "POST":
+                tid = int(m.group(1))
+                body = self._body()
+                if m.group(2) == "ack":
+                    return self._json(200, op_ack(ctx, tid, bool(body.get("on", True))))
+                return self._json(200, op_submit(ctx, tid))
+
+            m = re.match(r"^/api/tasks/(\d+)/checks$", path)
+            if m and method == "POST":
+                body = self._body()
+                idx = body.get("idx")
+                if not isinstance(idx, int) or idx < 0:
+                    raise ApiError(400, "idx 必须是非负整数")
+                return self._json(200, op_check(ctx, int(m.group(1)), idx, bool(body.get("done", True))))
+
+            m = re.match(r"^/api/tasks/(\d+)/events$", path)
+            if m and method in ("GET", "HEAD"):
+                conn = db_connect()
+                try:
+                    load_task(conn, int(m.group(1)))
+                    rows = q(conn, "SELECT * FROM task_events WHERE task_id=? ORDER BY id DESC LIMIT 200",
+                             (int(m.group(1)),))
+                    return self._json(200, {"events": [
+                        {"ts": e["ts"], "actor": e["actor"], "action": e["action"], "field": e["field"],
+                         "oldValue": e["old_value"], "newValue": e["new_value"], "note": e["note"]}
+                        for e in rows]})
+                finally:
+                    conn.close()
+
+            return self._error(404, "接口不存在：" + path)
+
+        except ApiError as e:
+            return self._error(e.status, e.message, e.detail)
+        except Exception:
+            log("未处理异常：" + traceback.format_exc(), "error")
+            return self._error(500, "服务内部错误")
+
+    def log_message(self, fmt, *args):
+        if os.environ.get("TASKBOARD_QUIET"):
+            return
+        log("%s %s" % (self.address_string(), fmt % args), "access")
+
+def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--init-only" in argv:
+        info = init_db()
+        print(json.dumps({"init": info, "db": str(CFG["db"])}, ensure_ascii=False))
+        return 0
+    if "--selftest" in argv:
+        return selftest()
+
+    info = init_db()
+    log("任务台服务启动 version=%s db=%s" % (VERSION, CFG["db"]))
+    log("初始化：%s" % json.dumps(info, ensure_ascii=False))
+    srv = ThreadingHTTPServer((CFG["bind"], CFG["port"]), Handler)
+    srv.daemon_threads = True
+    log("监听 http://%s:%d （仅本机；身份由 nginx 注入 X-Auth-User）" % (CFG["bind"], CFG["port"]))
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        log("收到中断，正在退出")
+    finally:
+        srv.server_close()
+    return 0

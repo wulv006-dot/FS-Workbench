@@ -1,0 +1,153 @@
+{
+  "files": {
+    "docs/planning/registration-approval-runtime-v3-20261006/INTERFACES-MIGRATION.md": {
+      "sha256": "19e303f6ed572e685a18637bfe94f8e35b4bc0201ce684b4879c5160ad094b55",
+      "bytes": 3790
+    },
+    "docs/planning/registration-approval-runtime-v3-20261006/RECOVERY.md": {
+      "sha256": "5eccfc75631996d12da8c5fa9d6ee9a3ab3b5569f3416d4a7551a9ed737e66f7",
+      "bytes": 3003
+    },
+    "docs/planning/registration-approval-runtime-v3-20261006/REVIEW.md": {
+      "sha256": "4e8b6ec2b5d0352a38832111046ffb20ff94259e51c95c1dad3aaa2d690d49d5",
+      "bytes": 4778
+    },
+    "docs/planning/registration-approval-runtime-v3-20261006/portal-bridge-v2-v3.diff": {
+      "sha256": "5e62c9450a16ef29fbb84feba3fe8848fcac3f10927b701cbd7372f67c94dc02",
+      "bytes": 2113
+    },
+    "docs/planning/registration-approval-runtime-v3-20261006/unit-tests.txt": {
+      "sha256": "3cc5732bdc823937a9fbcada0cd02a38856a3b8ed1db2247d6cf88bf7d09d521",
+      "bytes": 5048
+    },
+    "docs/planning/registration-approval-runtime-v3-20261006/validation.json": {
+      "sha256": "6caabc88945a5a69dac4c0f868d767dd4a543c345cf4d8349b4b0c4f280aa972",
+      "bytes": 5968
+    },
+    "registration_approval_runtime_v3_20261006/archive.py": {
+      "sha256": "63df29c9dd27063b329d3b94e0a491c7937311d74520579530e7f639db31308f",
+      "bytes": 2545
+    },
+    "registration_approval_runtime_v3_20261006/consumer_seams.py": {
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "bytes": 4857
+    },
+    "registration_approval_runtime_v3_20261006/fixtures/fc_gate.py.txt": {
+      "sha256": "8504d677f2c1160949cdee92f8b44873b128a46719126fa00969c7cf03d3d13a",
+      "bytes": 14258
+    },
+    "registration_approval_runtime_v3_20261006/fixtures/portal.py.txt": {
+      "sha256": "496367367990c34115776854318dead41445eb0741ccb9639c100314d72820fc",
+      "bytes": 15635
+    },
+    "registration_approval_runtime_v3_20261006/fixtures/references.json": {
+      "sha256": "fa37d00df1447f004da12444617bd3e91073f5deb7a5bb32704ee96e5f985edc",
+      "bytes": 926
+    },
+    "registration_approval_runtime_v3_20261006/fixtures/taskboard.py.txt": {
+      "sha256": "7bbb5dbe39bd5f61974fce759acff87f8a3be58dad65424a6409699e82258b31",
+      "bytes": 11075
+    },
+    "registration_approval_runtime_v3_20261006/frozen-runtime-v1.json": {
+      "sha256": "b5d7c568ed0c5c93fe92aaa9d7daaa82cefc2e60ffbd41d7edd7a3053c6c09dc",
+      "bytes": 1778
+    },
+    "registration_approval_runtime_v3_20261006/frozen-runtime-v2.json": {
+      "sha256": "8079332be42c8793bf3bce0e201579d34aa1e234f0f0cb5ba54497606a2e63bb",
+      "bytes": 2729
+    },
+    "registration_approval_runtime_v3_20261006/frozen-vendor.json": {
+      "sha256": "187ad4c9bbb89c2d924aace8110a056c5f0fe780ac4dc71be246b850639cbbfd",
+      "bytes": 584
+    },
+    "registration_approval_runtime_v3_20261006/portal_bridge.py": {
+      "sha256": "95e3d21deaa099cfc19df01d7d3ae9507c2377f0dbc12e5f8fd41933e41bab7f",
+      "bytes": 5230
+    },
+    "registration_approval_runtime_v3_20261006/process_probe.py": {
+      "sha256": "ffe94ddcd938310c3d0e7110118d0f4e9b4a37e000f873c09bd7e3cbddc7a1a5",
+      "bytes": 3489
+    },
+    "registration_approval_runtime_v3_20261006/qa.py": {
+      "sha256": "af499c58abb6aab581f6b62765284aa26d19a32e7a7600049a05850b8fa0fd04",
+      "bytes": 3131
+    },
+    "registration_approval_runtime_v3_20261006/route-contract.json": {
+      "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b",
+      "bytes": 3825
+    },
+    "registration_approval_runtime_v3_20261006/runtime.py": {
+      "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "bytes": 12958
+    },
+    "registration_approval_runtime_v3_20261006/source_cas.py": {
+      "sha256": "1a78ff4f0a9155e6e62b5bbd2940d30ddd3317183d1b312a33897a53e4696a05",
+      "bytes": 3071
+    },
+    "registration_approval_runtime_v3_20261006/storage_checkpoint.py": {
+      "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "bytes": 1869
+    },
+    "registration_approval_runtime_v3_20261006/test_consumers.py": {
+      "sha256": "1e08cafcf3ac3764b2f414f583ec480e6485babe2a3264b34949c4124a746991",
+      "bytes": 2727
+    },
+    "registration_approval_runtime_v3_20261006/test_direct_calls.py": {
+      "sha256": "854131169073f950dfbf62c83af750a1cc4cd8c0445a93fbc87cb2f819664572",
+      "bytes": 15296
+    },
+    "registration_approval_runtime_v3_20261006/test_posix_runtime.py": {
+      "sha256": "9db6711621b41df7809711d00ed34d85a1b6ceaf2b9a7364b1d91b2f6acb09ac",
+      "bytes": 2017
+    },
+    "registration_approval_runtime_v3_20261006/test_restart.py": {
+      "sha256": "053601fffc38c054e0df98ebd912ce6ce6b90ea3f830d2a63b929c254873d808",
+      "bytes": 5825
+    },
+    "registration_approval_runtime_v3_20261006/test_runtime.py": {
+      "sha256": "787678f140514d37cdb6f6973ef8c7f26dca5245c3ffad337ca5e7289b75d8e4",
+      "bytes": 10743
+    },
+    "registration_approval_runtime_v3_20261006/vendor/auth_candidate.py": {
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "bytes": 28877
+    },
+    "registration_approval_runtime_v3_20261006/vendor/native_access_policy.py": {
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "bytes": 1269
+    },
+    "registration_approval_runtime_v3_20261006/vendor/native_integration.py": {
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "bytes": 10041
+    },
+    "registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py": {
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "bytes": 5741
+    },
+    "registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py": {
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "bytes": 825
+    },
+    "registration_approval_runtime_v3_20261006/vendor/schema_contract.py": {
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "bytes": 2719
+    },
+    "registration_approval_runtime_v3_20261006/web/access.css": {
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "bytes": 1065
+    },
+    "registration_approval_runtime_v3_20261006/web/app.js": {
+      "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "bytes": 4654
+    },
+    "registration_approval_runtime_v3_20261006/web/base.css": {
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "bytes": 7581
+    },
+    "registration_approval_runtime_v3_20261006/web/index.html": {
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+      "bytes": 4089
+    }
+  },
+  "releaseReady": false
+}

@@ -1,0 +1,369 @@
+def safe_next(raw, fallback="/dashboard/"):
+    """只接受站内绝对路径，杜绝开放重定向（//evil.com、http://…、\… 全部拒绝）。"""
+    if not raw:
+        return fallback
+    raw = raw.strip()
+    if len(raw) > 512:
+        return fallback
+    if not _SAFE_NEXT_RE.match(raw):
+        return fallback
+    return raw
+
+def health_line():
+    """真实运行状态：任一 htpasswd 读不到就示警，而不是永远显示"一切正常"。"""
+    bad = [g for g, p in GROUPS.items() if not load_htpasswd(p)]
+    if bad:
+        return "认证数据源异常（%s）· 请联系管理员" % "、".join(bad), "warn"
+    return "服务运行正常 · 安全连接已建立", ""
+
+def _local(ts):
+    """按配置时区偏移格式化（服务器本身可能是 UTC，直接显示会让人困惑）。"""
+    return time.gmtime(int(ts) + CFG["tz_offset"] * 3600)
+
+def fmt_ts(ts, pattern="%Y-%m-%d %H:%M"):
+    return time.strftime(pattern, _local(ts))
+
+def humanize(secs):
+    secs = int(secs)
+    if secs <= 0:
+        return "已过期"
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
+    m = rem // 60
+    if d:
+        return "%d 天 %d 小时" % (d, h)
+    if h:
+        return "%d 小时 %d 分" % (h, m)
+    return "%d 分钟" % max(m, 1)
+
+def _load_tpl(path):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except OSError as exc:
+        log("模板读取失败 %s: %s" % (path, exc), "error")
+        return ("<!doctype html><meta charset=utf-8><title>登录</title>"
+                "<body style=\"font-family:sans-serif;padding:40px;line-height:1.7\">"
+                "<h2>页面模板缺失</h2><p>请检查 %s</p></body>" % html.escape(path))
+
+def _fill(path, vals):
+    tpl = _load_tpl(path)
+    for k, v in vals.items():
+        tpl = tpl.replace("{{%s}}" % k, v)
+    return tpl
+
+def _render_page(**kw):
+    status_text, status_cls = health_line()
+    return _fill(CFG["template"], {
+        "U_LOGIN":  CFG["prefix"] + "/login",
+        "U_LOGOUT": CFG["prefix"] + "/logout",
+        "STATUS":       html.escape(status_text),
+        "STATUS_CLASS": status_cls,
+        "NEXT":     html.escape(kw.get("next") or "/dashboard/", quote=True),
+        "MSG":      html.escape(kw.get("msg") or ""),
+        "MSG_KIND": kw.get("msg_kind") or "",
+        "THEME":    kw.get("theme") or "light",
+        "HINT":     html.escape(kw.get("hint") or ""),
+        "FOOT_L":   html.escape(kw.get("foot_l") or ("v" + VERSION)),
+    })
+
+def _render_status(pl, ip, theme="light"):
+    user = pl.get("u") or ""
+    live = groups_of(user)
+    tags = "".join(
+        '<span class="tag g%d">%s</span>' % (1 if i == 0 else 2, html.escape(g))
+        for i, g in enumerate(live)
+    ) or '<span class="tag">—</span>'
+    exp = int(pl.get("e") or 0)
+    now = time.time()
+    return _fill(CFG["status_tpl"], {
+        "THEME":      theme,
+        "USER":       html.escape(user),
+        "GROUP_TAGS": tags,
+        "EXP":        html.escape(fmt_ts(exp)),
+        "LEFT":       html.escape(humanize(exp - now)),
+        "IP":         html.escape(ip),
+        "U_HOME":     "/dashboard/",
+        "U_LOGOUT":   CFG["prefix"] + "/logout",
+        "VER":        "v" + VERSION,
+        "NOW":        html.escape(fmt_ts(now)),
+    })
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "MMOEXPAuthPortal/" + VERSION
+    protocol_version = "HTTP/1.1"
+
+    # ---- 基础工具 ----
+    def log_message(self, fmt, *args):
+        pass  # 交给 log()，避免默认访问日志刷屏
+
+    def _send(self, code, body=b"", ctype="text/plain; charset=utf-8", headers=None):
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
+        self.send_header("Referrer-Policy", "same-origin")
+        for k, v in (headers or []):
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD" and body:
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+    def _redirect(self, location, extra_headers=None):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extra_headers or []):
+            self.send_header(k, v)
+        self.end_headers()
+
+    def _cookie_header(self, token, max_age):
+        bits = ["%s=%s" % (CFG["cookie"], token), "Path=/", "HttpOnly", "SameSite=Lax"]
+        if CFG["secure"]:
+            bits.append("Secure")
+        bits.append("Max-Age=%d" % int(max_age))
+        return "Set-Cookie", "; ".join(bits)
+
+    def _clear_cookie_header(self):
+        bits = ["%s=" % CFG["cookie"], "Path=/", "HttpOnly", "SameSite=Lax",
+                "Max-Age=0", "Expires=Thu, 01 Jan 1970 00:00:00 GMT"]
+        if CFG["secure"]:
+            bits.append("Secure")
+        return "Set-Cookie", "; ".join(bits)
+
+    @property
+    def ip(self):
+        """真实客户端 IP。
+
+        本服务只监听 127.0.0.1、由 nginx 反代，所以 client_address 恒为 127.0.0.1，
+        直接用它会让审计日志与状态页的"来源 IP"全部失效。
+        nginx 侧已配 proxy_set_header X-Real-IP $remote_addr，这里优先取它。
+        """
+        for h in ("X-Real-IP", "X-Forwarded-For"):
+            v = (self.headers.get(h) or "").strip()
+            if v:
+                return v.split(",")[0].strip()[:64]
+        return self.client_address[0] if self.client_address else "?"
+
+    def _uaprefix(self):
+        return (self.headers.get("User-Agent") or "")[:120]
+
+    # ---- 路由 ----
+    def do_GET(self):
+        self._route()
+
+    def do_HEAD(self):
+        self._route()
+
+    def do_POST(self):
+        self._route()
+
+    def _route(self):
+        parsed = urllib.parse.urlsplit(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+
+        def q(name, default=""):
+            v = qs.get(name)
+            return v[0] if v else default
+
+        try:
+            if path in ("/", "/login"):
+                if self.command == "POST":
+                    return self._do_login(q("next"))
+                return self._page_login(next_url=q("next"), err=q("err"),
+                                        msg=q("msg"), theme=q("theme"))
+            if path == "/status":
+                return self._page_status(q("theme"))
+            if path == "/logout":
+                return self._do_logout(q("next"))
+            if path == "/verify":
+                return self._do_verify(q("group"))
+            if path == "/health":
+                return self._send(200, json.dumps({
+                    "ok": True, "version": VERSION, "groups": list(GROUPS.keys()),
+                    "time": int(time.time()),
+                }), "application/json; charset=utf-8")
+            return self._send(404, "not found")
+        except Exception as exc:            # 任何异常都不能把服务打挂
+            log("未捕获异常 %s: %r" % (path, exc), "error")
+            return self._send(500, "internal error")
+
+    # ---- 登录页 ----
+    def _page_login(self, next_url=None, err="", msg="", theme="light"):
+        nxt = safe_next(next_url)
+        kind, text, foot = "", "", ""
+
+        if err == "noperm":
+            bad = ""
+            tok = parse_cookies(self.headers.get("Cookie")).get(CFG["cookie"])
+            pl = read_token(tok)
+            if pl:
+                bad = pl.get("u") or ""
+            kind, text = "err", ("账号 %s 没有访问该模块的权限，请换一个有权限的账号登录。" % bad) if bad \
+                else "当前账号没有访问该模块的权限。"
+            foot = "权限不足"
+        elif err == "expired":
+            kind, text = "err", "登录状态已过期，请重新登录。"
+        elif err == "bad":
+            kind, text = "err", "账号或密码不正确，请重试。"
+        elif err == "locked":
+            kind, text = "err", "尝试次数过多，该账号已被临时锁定，请稍后再试。"
+        elif err == "csrf" or err == "badreq":
+            kind, text = "err", "请求格式不正确，请重新提交。"
+        elif msg:
+            kind, text = "ok", msg
+
+        page = _render_page(next=nxt, msg=text, msg_kind=kind, theme=theme,
+                            hint=("" if not foot else foot), foot_l=("v" + VERSION))
+        return self._send(200, page, "text/html; charset=utf-8",
+                          headers=[("X-Frame-Options", "DENY")])
+
+    # ---- 登录状态页 ----
+    def _page_status(self, theme="light"):
+        tok = parse_cookies(self.headers.get("Cookie")).get(CFG["cookie"])
+        pl = read_token(tok)
+        if not pl or not groups_of(pl.get("u") or ""):
+            return self._redirect(
+                CFG["prefix"] + "/login?err=expired&next=" +
+                urllib.parse.quote(CFG["prefix"] + "/status"))
+        page = _render_status(pl, self.ip, theme or "light")
+        return self._send(200, page, "text/html; charset=utf-8",
+                          headers=[("X-Frame-Options", "DENY")])
+
+    # ---- 提交登录 ----
+    def _do_login(self, next_q):
+        # 表单体
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 8192:
+            return self._redirect(CFG["prefix"] + "/login?err=badreq")
+        raw = self.rfile.read(length).decode("utf-8", "replace")
+        form = urllib.parse.parse_qs(raw, keep_blank_values=True)
+
+        def f(name, default=""):
+            v = form.get(name)
+            return (v[0] if v else default)
+
+        username = f("username").strip()
+        password = f("password")
+        nxt = safe_next(f("next") or next_q)
+        remember = f("remember") in ("1", "on", "true", "yes")
+
+        if not username or not password:
+            return self._redirect(CFG["prefix"] + "/login?err=bad&next=" + urllib.parse.quote(nxt))
+
+        left = locked_for(self.ip, username)
+        if left:
+            log("登录被拒(锁定中 %ds) user=%s ip=%s" % (left, username, self.ip), "warn")
+            return self._redirect(CFG["prefix"] + "/login?err=locked&next=" + urllib.parse.quote(nxt))
+
+        hits = authenticate(username, password)
+        if not hits:
+            n = note_fail(self.ip, username)
+            log("登录失败 user=%s ip=%s 累计失败=%d ua=%s" % (username, self.ip, n, self._uaprefix()), "warn")
+            bad = "locked" if n >= CFG["max_fails"] else "bad"
+            return self._redirect(CFG["prefix"] + "/login?err=%s&next=" % bad + urllib.parse.quote(nxt))
+
+        clear_fail(self.ip, username)
+        ttl = (CFG["ttl_days"] * 86400) if remember else (CFG["sess_hours"] * 3600)
+        token = make_token(username, hits, ttl)
+        log("登录成功 user=%s 组=%s ip=%s ttl=%ds remember=%s" %
+            (username, ",".join(hits), self.ip, ttl, remember), "info")
+        return self._redirect(nxt, [self._cookie_header(token, ttl)])
+
+    # ---- 登出 ----
+    def _do_logout(self, next_q):
+        tok = parse_cookies(self.headers.get("Cookie")).get(CFG["cookie"])
+        pl = read_token(tok)
+        if pl:
+            log("登出 user=%s ip=%s" % (pl.get("u"), self.ip), "info")
+        dest = safe_next(next_q) if next_q else (CFG["prefix"] + "/login")
+        if not dest.startswith(CFG["prefix"]):
+            dest = CFG["prefix"] + "/login"
+        conn = http.client.HTTPConnection("127.0.0.1", 8896, timeout=3)
+        try:
+            conn.request("POST", "/logout", body=b"", headers={"Cookie": self.headers.get("Cookie", ""), "Content-Length": "0"})
+            response = conn.getresponse()
+            response.read()
+        except (OSError, http.client.HTTPException):
+            pass
+        finally:
+            conn.close()
+        return self._redirect(dest, [self._clear_cookie_header(),
+            ("Set-Cookie", "fc27sess=; Path=/; HttpOnly; Secure; Max-Age=0")])
+
+    # ---- 供 nginx auth_request 调用 ----
+    def _do_verify(self, group):
+        tok = parse_cookies(self.headers.get("Cookie")).get(CFG["cookie"])
+        pl = read_token(tok)
+        user = pl.get("u") if pl else None
+        live = groups_of(user) if user else []
+        if not live:
+            user = None
+            conn = http.client.HTTPConnection("127.0.0.1", 8896, timeout=3)
+            try:
+                conn.request("GET", "/verify", headers={"Cookie": self.headers.get("Cookie", "")})
+                response = conn.getresponse()
+                if response.status == 200:
+                    user = response.getheader("X-Fc27-User")
+                    live = ["dashboard"] if user else []
+                response.read()
+            except (OSError, http.client.HTTPException):
+                user = None
+            finally:
+                conn.close()
+        if not user or not live:
+            return self._send(401, "unauthorized")
+        if group and group not in live and group != "deploy":
+            return self._send(403, "forbidden")
+        code = _fs_policy.authorize(user, self.headers.get("X-Original-Method", "GET"),
+                                    self.headers.get("X-Original-URI", "/"), group)
+        if code != 200:
+            return self._send(code, "forbidden")
+        admin = user in _fs_policy.ADMINS
+        role = "admin" if admin else "readonly"
+        groups = sorted(set(live + (["deploy"] if admin else [])))
+        return self._send(200, "OK", headers=[("X-Auth-User", user),
+            ("X-Auth-Groups", ",".join(groups)), ("X-Auth-Role", role),
+            ("X-Fc27-User", user), ("X-Fc27-Role", role)])
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
+
+    if not CFG["secret"] or len(CFG["secret"]) < 16:
+        sys.stderr.write("致命错误：AUTH_SECRET 缺失或过短（<16 字符），拒绝启动。\n"
+                         "请在 config.env 中设置，例如：\n"
+                         "  AUTH_SECRET=$(openssl rand -hex 32)\n")
+        sys.exit(1)
+    if not GROUPS:
+        sys.stderr.write("致命错误：AUTH_GROUPS 未解析出任何组。\n")
+        sys.exit(1)
+    if not os.path.exists(CFG["template"]):
+        sys.stderr.write("致命错误：登录页模板不存在 %s\n" % CFG["template"])
+        sys.exit(1)
+
+    os.makedirs(CFG["data_dir"], exist_ok=True)
+
+    srv = ThreadingHTTPServer((CFG["bind"], CFG["port"]), Handler)
+    srv.daemon_threads = True
+    log("auth-portal v%s 启动 bind=%s:%d prefix=%s 组=%s secure_cookie=%s"
+        % (VERSION, CFG["bind"], CFG["port"], CFG["prefix"],
+           ",".join("%s(%d人)" % (g, len(load_htpasswd(p))) for g, p in GROUPS.items()),
+           CFG["secure"]))
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        srv.server_close()
