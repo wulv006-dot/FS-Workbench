@@ -110,8 +110,13 @@ KINAH_GUID = "76c9f6b688934f8283dae5e643c2da99"    # 基纳
 KINAH_SEG = "2c2xs4"                                 # 基纳的 URL 段名
 
 # 我方大区名 → DD373 区名 + 区段
+# ⚠ 这里的第二项只是**看板展示名**（我们自己的口径）；**匹配一律只认第 3 项的 Identify 段**，
+#   绝不按 DD373 的显示名去匹配 —— DD373 会改名：
+#     · 2026-10-06 实测：日服这一层 DD373 现在显示为 **「亚服」**（Identify 仍是 `heft1r`）；
+#     · 同一时期第三层「游戏区」被加上「（天4）/（魔1）」后缀（见 _norm）。
+#   因为按 Identify 匹配，DD373 再怎么改显示名都不影响我方映射。
 AREA_MAP = {
-    "Asia":          ("日服",   "heft1r"),
+    "Asia":          ("日服",   "heft1r"),      # DD373 现显示为「亚服」
     "NA West":       ("北美西", "vshs5k"),
     "NA East":       ("北美东", "6hw3s0"),
     "South America": ("南美",   "72kds4"),
@@ -409,6 +414,38 @@ def _page_urls(html):
     return out
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 站点权威统计（只认第 1 页）
+#   ⚠ 2026-10-06 老板反馈「明明有很多人挂，怎么只显示 1000万1单」→ 实测定位到两个坑：
+#     ① 该区取错了**别的大区**同名服（南美 Zikel 的 1 条 1000万）—— 已由 _norm/同大区
+#        fallback 修掉；
+#     ② 列表**固定 20 条/页**，而分页**只有长 URL 一种形态**
+#        /s-{sid}-{区}-{种族}-{游戏区}-0-0-{品类}-0-0-0-0-0-{页}-0-0-0.html，
+#        长 URL 被阿里云 ESA **按 URL 形态无条件拦**：
+#          · 换大区不行（南美 Zikel 的长 URL 一样拦）
+#          · 换 Referer 不行（带短页 Referer 仍拦）
+#          · 短前缀 + 页码段 / m. 子域 一样拦
+#          · ?page=N / -N.html / ?pageSize=100 全部被站点**忽略**（返回的仍是第 1 页，
+#            「当前页」标记恒为 1，内容逐条相同）
+#        ⇒ **第 2 页起读不到**（返回 11956 字节 acw_sc__v2 挑战页）。
+#     所以「挂单数」只能取**站点自己在第 1 页给出的权威总数**（为您找到 N 条记录），
+#     而「可买量」只能算首屏可见部分 —— 两处都在面板里标明口径，绝不把首屏量
+#     冒充满市场量。
+# ═══════════════════════════════════════════════════════════════════════════
+_RE_SITE_TOTAL = re.compile(r"为您找到\s*<span[^>]*>\s*(\d+)\s*</span>\s*条记录")
+_RE_SITE_PAGES = re.compile(r'hot-sum">\s*(\d+)\s*<')
+_RE_SITE_PER = re.compile(r"(\d+)\s*条/页")
+
+
+def _site_stat(html):
+    """第 1 页里的站点权威统计 {总数, 页数, 每页}；取不到给 None（**不编数**）。"""
+    def _one(rx):
+        m = rx.search(html or "")
+        return int(m.group(1)) if m else None
+    return {"总数": _one(_RE_SITE_TOTAL), "页数": _one(_RE_SITE_PAGES),
+            "每页": _one(_RE_SITE_PER)}
+
+
 def _parse_quotes(html):
     """把一页里的**全部可买挂单**解析出来（散单 + 热卖商城）。
 
@@ -544,9 +581,14 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                ok            布尔
               成本_元每万基纳  **1 亿订单簿加权均价**（元/万基纳，面板主显）
               成本_USD每M     折算后（算利润率、做成本兜底都用它）
-              可供量_万基纳   该区全部挂单可买总量（判断够不够 1 亿）
+              可供量_万基纳   该区**首屏可见**挂单的可买总量（判断够不够 1 亿）
               够量           布尔（可供量 ≥ 1 亿）
                参与条数       被吃进订单簿的档位数
+               商品条数       **站点权威挂单总数**（第 1 页「为您找到 N 条记录」）
+                              ⚠ 面板「挂单数」= 这个；第 2 页起长 URL 被 WAF 拦读不到，
+                              所以它 > 本页解析条数是正常现象（见 _site_stat 注释）
+               本页条数       本页实际解析到的挂单条数（诊断用）
+               站点页数       站点给出的总页数
                依据/备注/URL
     ⚠ 本函数仍**只读**；但 2026-10-06 起它的产物是定价输入（成本兜底 + 利润率下限）。
     """
@@ -567,10 +609,23 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
         tk = "%s|%s" % (area, _norm(nm))
         info = tree.get(tk)
         if not info:
-            # 退一步：只按名字找（万一大区名写法有出入）
-            cand = [v for k, v in tree.items() if k.split("|", 1)[1] == _norm(nm)]
+            # 退一步：**同一大区内**只按名字找（万一大区名写法有出入）。
+            # 🔴 2026-10-06 实测踩过，这里**必须限定同一大区**：
+            #   DD373 列表页里有「裸名」重复条目（如 `EU|azphel`、`South America|zikel`），
+            #   旧版 fallback 不限大区 ⇒「唯一同名候选」会跨大区命中 ⇒
+            #   日服 / 北美东 / 南美的 Azphel 全部被套上**欧服** Azphel 的进货价、
+            #   其余 Zikel 全被套上**南美** Zikel 的价 —— 实测 7 行错配**并已出单改价**。
+            #   宁可判成「无对应区」（→ 走 $19.9 兜底），也绝不取错大区的价。
+            cand = [v for k, v in tree.items()
+                    if k.split("|", 1)[0] == area and k.split("|", 1)[1] == _norm(nm)]
             if len(cand) == 1:
                 info = cand[0]
+                if log:
+                    log("  [DD373] %-24s · 精确键未命中，用同大区同名兜底 → %s"
+                        % (key, info["url_seg"]))
+            elif log:
+                log("  [DD373] %-24s · 精确键未命中；同大区同名候选 %d 个 "
+                    "（拒绝跨大区兜底）" % (key, len(cand)))
         if not info:
             out[key] = {"ok": False, "依据": "DD373 无对应区（游戏区×大区）",
                         "备注": "区服名 %s 在 DD373 专区里找不到" % nm}
@@ -652,17 +707,29 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                     break
                 time.sleep(gap)
         if not ob:
+            _st0 = _site_stat(html)
             out[key] = {"ok": False, "依据": "DD373 该游戏区暂无在售商品",
-                        "备注": "页面正常渲染（未被风控），第 1~%d 页 0 条挂单" % _pages,
+                        "备注": "页面正常渲染（未被风控），站点共 %s 条记录"
+                                % (_st0["总数"] if _st0["总数"] is not None else "0"),
                         "URL": url}
             if log:
                 log("  [DD373] %-24s · 无报价（0 条挂单，非风控）" % key)
             time.sleep(gap)
             continue
         _pr = ob["均价"]
+        # 站点权威统计（第 1 页就有）：挂单总数 / 总页数。第 2 页起长 URL 被 WAF 拦，
+        #   所以「挂单数」取站点总数，「可买量」只能算首屏 —— 口径写进 备注 与 依据。
+        _st = _site_stat(html)
+        _tot_n = _st["总数"] if _st["总数"] is not None else ob["报价条数"]
+        _pgs_n = _st["页数"]
+        _pgs_s = "%d" % _pgs_n if _pgs_n is not None else "?"
+        _site_note = "·站点%d单/%s页" % (_tot_n, _pgs_s)
         _short_note = (None if ob["够量"] else
                        "该区挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
                        % ob["可供量"])
+        _cap_note = ("口径：挂单数=站点总数；可买量=**首屏可见**"
+                     "（站点 %d 单 / %s 页，第 2 页起为长 URL 被 WAF 拦，读不到）"
+                     % (_tot_n, _pgs_s))
         rec = {
             "ok": True,
             "成本_元每万基纳": _pr,
@@ -670,25 +737,30 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
             "成本_USD每M": to_usd_per_m(_pr, rate),
             "可供量_万基纳": ob["可供量"], "够量": ob["够量"],
             "参与条数": ob["参与条数"],
-            # 兼容旧字段（面板 / gold_cost 表沿用）：库存改为「可买多少」
-            "库存": "可买%.0f万基纳" % ob["可供量"], "起售": None,
-            "商品条数": ob["报价条数"],
+            # 兼容旧字段（面板 / gold_cost 表沿用）：
+            #   stock 文本里的「可买X万基纳」被 app.py._avail_wan() 正则读取 → 保留字样
+            "库存": "首屏可买%.0f万基纳" % ob["可供量"], "起售": None,
+            # 面板「挂单数」= 站点权威总数（不再是「本页解析到的条数」）
+            "商品条数": _tot_n,
+            "本页条数": ob["报价条数"],          # 本页实际解析到的（诊断用）
+            "站点页数": _pgs_n,
             "DD区": info["dd_area"], "DD种族": info["dd_race"], "DD游戏区": info["dd_name"],
             # 依据列保持简短（太长会把右侧「改价操作」挤出可视区）：只留 区/种族/游戏区 + 口径
-            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·翻%d页%s)"
+            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·翻%d页%s%s)"
                     % (info["dd_area"], info["dd_race"], info["dd_name"],
-                       ob["参与条数"], ob["报价条数"], _pages, _page_note),
+                       ob["参与条数"], ob["报价条数"], _pages, _page_note, _site_note),
             "URL": url,
         }
-        _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short_note) if x)
+        _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short_note, _cap_note) if x)
         if _own:
             rec["备注"] = _own
         out[key] = rec
         if log:
             log("  [DD373] %-24s %-10s %.6f 元/万基纳 → $%.4f/M  "
-                "(1亿订单簿 %d 条%s，可买 %.0f万基纳)"
+                "(1亿订单簿 吃%d/%d条·站点%d单/%s页，首屏可买 %.0f万基纳%s)"
                 % (key, rec["DD游戏区"], _pr, rec["成本_USD每M"] or 0,
-                   ob["参与条数"], "" if ob["够量"] else "·不足1亿", ob["可供量"]))
+                   ob["参与条数"], ob["报价条数"], _tot_n, _pgs_s, ob["可供量"],
+                   "" if ob["够量"] else "·不足1亿"))
         time.sleep(gap)
     return out
 
