@@ -453,7 +453,8 @@ def _page_url(short_url, n):
 #          全部拿到，无一条重复）。
 #        ⚠ 但**只许带这一个参数**：再加 PageSize / Order / Issearch 立刻变 11956 拦页。
 #          ⇒ _page_url() 里绝不能塞第二个键。
-#   结论：**全量翻页**（MAX_PAGES 上限 12），可买量 / 挂单数 / 成本都按全市场口径算。
+#   结论：**翻页到「够 1 亿」即停**（MAX_PAGES 上限 12 仅作兜底），省请求、降风控风险；
+#         挂单数仍取站点权威总数（第 1 页「为您找到 N 条」）。
 # ═══════════════════════════════════════════════════════════════════════════
 _RE_CUR_PAGE = re.compile(r'hot-current-page">\s*(\d+)\s*<')
 _RE_SITE_TOTAL = re.compile(r"为您找到\s*<span[^>]*>\s*(\d+)\s*</span>\s*条记录")
@@ -605,15 +606,15 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                ok            布尔
               成本_元每万基纳  **1 亿订单簿加权均价**（元/万基纳，面板主显）
               成本_USD每M     折算后（算利润率、做成本兜底都用它）
-              可供量_万基纳   该区**全市场**挂单的可买总量（翻完全部页；判断够不够 1 亿）
+              可供量_万基纳   已翻页码内可买总量（判断够不够 1 亿；**够 1 亿即停翻页**）
               够量           布尔（可供量 ≥ 1 亿）
                参与条数       被吃进订单簿的档位数
                商品条数       **站点权威挂单总数**（第 1 页「为您找到 N 条记录」，只数散单）
                               ⚠ 面板「挂单数」= 这个；它不含热卖商城，故可能**小于**「解析条数」
                本页条数       第 1 页解析到的挂单条数（诊断用）
-               解析条数       翻完全部页去重后解析到的挂单条数（诊断用）
+               解析条数       已翻页去重后解析到的挂单条数（诊断用）
                站点页数       站点给出的总页数
-               翻页数         本轮实际翻到的页数
+               翻页数         本轮实际翻到的页数（**够 1 亿即停**，多数区为 1）
                依据/备注/URL
     ⚠ 本函数仍**只读**；但 2026-10-06 起它的产物是定价输入（成本兜底 + 利润率下限）。
     """
@@ -696,11 +697,15 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                 log("  [DD373] %-24s ✗ 单位异常：%s" % (key, _chk.get("自校验")))
             time.sleep(gap)
             continue
-        # ── 订单簿：**翻完全部页**再算（2026-10-06 第三次修订）────────────────
-        #    旧版只读第 1 页（且只在不足 1 亿时才去翻长 URL 页，而长 URL 必被 WAF 拦），
-        #    导致「可买量 / 挂单数」系统性偏小 —— 老板看到的就是这个。
-        #    现在：第 1 页走短页，第 2 页起走 `?PageIndex=N`（不被拦，见 _page_url 注释），
-        #    一直翻到「站点总页数」或 MAX_PAGES 上限，按 (可供量, 单价) 去重后统一算订单簿。
+        # ── 订单簿：**够 1 亿就停**（2026-10-06 第四次修订，老板要求省请求）────────
+        #    历史两版：
+        #      ① 旧版只读第 1 页 ⇒ 可买量 / 挂单数系统性偏小（老板看到的「挂得少」）；
+        #      ② 打通 `?PageIndex=N` 后改成**翻完站点全部页** ⇒ 拿到全市场最便宜的 1 亿，
+        #         但每轮请求从 86 涨到约 162 次，紧贴站点「约 200 次/短窗口」的限流线
+        #         （实测已撞过一次风控，整轮采集中止）。
+        #    现在：**边翻边算，一旦累计可买量 ≥ 1 亿（够量）立即停止翻页**。
+        #      绝大多数区第 1 页就有几十亿 ⇒ 停在 1 页（省掉一半以上请求）；
+        #      只有真正的薄区才继续翻，翻到够量或站点页数用完为止。
         #    任何一页被拦/失败 ⇒ **只停翻页**，已翻到的照常用（绝不把整区作废）。
         _q1 = _parse_quotes(html)
         quotes = list(_q1)
@@ -708,7 +713,11 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
         _short = _short_url(info["url_seg"])
         _seen = {"%.0f|%.5f" % (q_, p_) for q_, p_, _s in _q1}
         _pages, _page_note = 1, ""
+        ob = orderbook_avg(quotes)
         for _n in range(2, MAX_PAGES + 1):
+            if ob and ob["够量"]:                 # ★ 够 1 亿即停（省请求）
+                _page_note = "·够1亿即停"
+                break
             if _site.get("页数") and _n > int(_site["页数"]):
                 _page_note = "·已翻完%s页" % _site["页数"]
                 break
@@ -747,11 +756,11 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                 quotes.append(_it)
                 _new += 1
             _pages = _n
+            ob = orderbook_avg(quotes)      # ← 每翻一页重算；下一轮开头判「够量即停」
             if not _q2 or _new == 0:
                 _page_note = "·第%d页无新增" % _n
                 break
             time.sleep(gap)
-        ob = orderbook_avg(quotes)
         if not ob:
             _n0 = _site["总数"] if _site["总数"] is not None else 0
             out[key] = {"ok": False, "依据": "DD373 该游戏区暂无在售商品",
@@ -769,10 +778,11 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
         _pgs_n = _site["页数"]
         _pgs_s = "%d" % _pgs_n if _pgs_n is not None else "?"
         _short_note = (None if ob["够量"] else
-                       "该区全市场挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
+                       "该区挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
                        % ob["可供量"])
-        _cap_note = ("口径：可买量/挂单数均为全市场（已翻 %d/%s 页、解析 %d 条；"
-                     "站点「为您找到 %d 条」只数散单、不含热卖商城%s）"
+        _cap_note = ("口径：可买量=已翻页码内合计（**够 1 亿即停**，不翻多余页）；"
+                     "挂单数=站点权威总数。已翻 %d/%s 页、解析 %d 条；"
+                     "站点「为您找到 %d 条」只数散单、不含热卖商城%s"
                      % (_pages, _pgs_s, ob["报价条数"], _tot_n, _page_note))
         rec = {
             "ok": True,
@@ -787,7 +797,7 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
             # 面板「挂单数」= 站点权威总数
             "商品条数": _tot_n,
             "本页条数": len(_q1),                # 第 1 页解析到的条数（诊断用）
-            "解析条数": ob["报价条数"],           # 全部页去重后解析到的条数（诊断用）
+            "解析条数": ob["报价条数"],           # 已翻页去重后解析到的条数（诊断用）
             "站点页数": _pgs_n,
             "翻页数": _pages,
             "DD区": info["dd_area"], "DD种族": info["dd_race"], "DD游戏区": info["dd_name"],
