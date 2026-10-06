@@ -1,9 +1,33 @@
-# FS-Workbench 干净源码协作记录
+# FS-Workbench 干净源码协作记录
+
+2026-10-06标签：从冻结C3准确311白名单生成独立首次入库目录，仅更正治理文档及加入最新操作规则/决定/有限review。未触原工程、冻结候选、生产或任何GitHub写；commit/push由根核对准确最终树与原子写入口后执行。
+
+原E工程主HANDOFF仍是全平台唯一协作事实源；它含其它业务运行记录，不整体复制。本文件只记录本私库干净源码协作，不宣称原主事实源已迁移。根负责关联入库commit与原主记录。
+
+当前用户条件批准首批源码/测试/文档入私库，今晚普通实现可由根自主推进。FC经营字段/owner与NBA后置方向已补录，生产运行门槛保持。新UI/NBArev4不在首批，后续独立PR。文件diff/目标SHA见外部final-target-inventory与governance-diff报告。
+
+入库状态：prepared / root review pending / no commit or push。生产状态：releaseReady=false。后续每次只追加范围、exact head/merge SHA、owner确认、实跑测试/未验、读回和回退结果；不写真实秘密/订单/运行数据。
 
-2026-10-06标签：从冻结C3准确311白名单生成独立首次入库目录，仅更正治理文档及加入最新操作规则/决定/有限review。未触原工程、冻结候选、生产或任何GitHub写；commit/push由根核对准确最终树与原子写入口后执行。
 
-原E工程主HANDOFF仍是全平台唯一协作事实源；它含其它业务运行记录，不整体复制。本文件只记录本私库干净源码协作，不宣称原主事实源已迁移。根负责关联入库commit与原主记录。
+## 2026-10-07 流程修订候选
 
-当前用户条件批准首批源码/测试/文档入私库，今晚普通实现可由根自主推进。FC经营字段/owner与NBA后置方向已补录，生产运行门槛保持。新UI/NBArev4不在首批，后续独立PR。文件diff/目标SHA见外部final-target-inventory与governance-diff报告。
+## 当前流程 governance-20261007-v1（2026-10-07）
 
-入库状态：prepared / root review pending / no commit or push。生产状态：releaseReady=false。后续每次只追加范围、exact head/merge SHA、owner确认、实跑测试/未验、读回和回退结果；不写真实秘密/订单/运行数据。
+本段是当前流程修订候选；远端尚未更新。本仓 main 已有323文件，commit `bc3b29531cec2fab3fc090385f3d7d126eb9ada7`，tree `a4140280619771e9240e15340b0c452ab8ba9ef8`。历史“EMPTY／未入库／今晚”仅代表原任务时点，不提供未来写入授权。
+
+1. 开始任务读取适用AGENTS、gitignore、HANDOFF、CURRENT-STATUS、OWNERS、SOURCE-MAP、未决项和模块合同；输出精确路径、owner、授权、依赖、未提交保护与基线的范围卡。
+2. 代码依据、协作记录、责任映射、运行证据分别记录。模块接管标git-canonical／legacy-unreconciled／unknown；仓库路径不自动等于生产路径，PR是候选，main是集成基线。未迁移的原工程全平台HANDOFF保留，只作脱敏关联。
+3. 独立分支／工作目录开发；合并前冻结commit/tree，隔离QA、契约和受影响消费者回归，必要时测候选与最新main组合树。负责人确认绑定确切head；新增提交重新评估受影响检查与确认。
+4. 明确合并批准后才merge；随后读回最终merge/squash SHA、树、内容和集成产物。另获module＋source commit＋artifact SHA＋现场基线批准，才能受控单模块发布；自然周期另验。
+5. 正常流向是开发→GitHub→候选/产物→QA/生产。发现漂移标drift/unknown并暂停相关写入，查部署记录与最小证据；不按mtime选源，不自动反向覆盖或销毁修复证据。
+6. 共享模块列消费者、兼容方案和逐owner确认；仓库所有者权限不是全部业务批准权。D4/PoE2/Aion2归陈超，FC/NBA/MLB归吴律；其它待指派项保持待指派。共享规则由Work整合，Git写入及共享发布串行，不stash/reset/clean他人文件。
+7. 代码发布与采集、价格写入、通知分别授权。不更改定价/赠送/成本/all-sites/Order主源Admin补缺/调度，不恢复退役publisher，不停正常采集。回滚保留DB、撤销状态、队列、锁、回执、策略和审计；unknown先查原ID，不换ID再写。
+8. QA仅用已批准来源和生产外已获准环境；合成与真实身份分层，不复制生产凭据、用户库或上游写权限，不购资源/建长期凭据/开未知workflow。缺环境继续静态准备，必要门槛标BLOCKED。
+9. 原服务器QA传输拒绝及取消继续有效；不改名、分包、编码、换工具/连接/审批机制绕过。具体动作方向以原拒绝记录为准，合法替代架构仍须独立授权。
+10. 历史原字节manifest/checker仅证明原冻结对象；新候选另生成精确活动清单，两checker清单一致，不删检查或放宽秘密拒绝项。Git SHA、产物SHA256、测试输入哈希分别记录，避免文件记录自身最终commit造成自引用。
+11. AI review、测试、owner业务确认、合并、上线是不同事件。规则说明与技术保护分开；空checks、200、语法或MD不能证明正式CI/真实权限通过。真实env、账号库、经营实值、订单、DB/WAL、密钥、Cookie、运行日志/锁/回执/缓存/备份不得入Git。
+12. 三/四管理员为历史代码、候选政策及现场身份的待核对差异；本修订不新增、删除或降级账号，不根据旧三管理员代码覆盖已有政策，不据PR文案扩展NBA等模块写权限。最新授权及合法现场证据须分项关联。
+
+本次GitHub治理写入尚未取得覆盖该精确载荷的授权；已准备可审阅差异。merge、保护设置、权限、生产停启、上线/回滚均另核授权。已有具体批准适用时直接推进普通步骤，不重复索取。
+
+本轮保留PR2治理约定，逐blob核实main323；PR5最新d9dd5330/tree d30ccde1分层记录。陈超AI配套要求尚无本輪可观察的完成交付，未向其发送消息。规则修订仅本地候选，双方远端共同入口待具体写入批准及merge读回；生产未变。

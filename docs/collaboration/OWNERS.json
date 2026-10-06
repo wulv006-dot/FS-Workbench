@@ -26,7 +26,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "business-snapshot",
@@ -56,7 +59,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "exact-range",
@@ -74,7 +80,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "fc-ops",
@@ -98,7 +107,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "fc-coins",
@@ -167,7 +179,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "fc-players",
@@ -230,7 +245,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "google",
@@ -261,7 +279,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "weekly",
@@ -296,7 +317,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "taskboard",
@@ -311,12 +335,15 @@
       "externalDependencies": [
         "private SQLite",
         "existing role proxy",
-        "three guard admins"
+        "legacy module guard, not proof of current global roles"
       ],
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "D4",
@@ -360,7 +387,15 @@
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
       "businessScope": "D4 / PoE2 / Aion2；保留d4follow中的全部已列分支，无运行配置入库",
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null,
+      "businessGames": [
+        "D4",
+        "PoE2",
+        "Aion2"
+      ]
     },
     {
       "moduleId": "NBA",
@@ -384,7 +419,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "MLB",
@@ -403,7 +441,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "IGGM",
@@ -431,7 +472,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "portal",
@@ -451,7 +495,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "access-policy",
@@ -462,12 +509,15 @@
       ],
       "externalDependencies": [
         "effective role middleware/config",
-        "three-admin current source not live proof"
+        "historical three-admin candidate; current observed global portal policy has four admins and is excluded from this batch"
       ],
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "deploy-hub",
@@ -486,7 +536,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     },
     {
       "moduleId": "release-gateway",
@@ -507,7 +560,10 @@
       "runtimeValidatedThisRound": false,
       "releaseReady": false,
       "pathPermissionIsPolicyNotTechnicalACL": true,
-      "approvalScope": "module code/business responsibility; no automatic production permission"
+      "approvalScope": "module code/business responsibility; no automatic production permission",
+      "adoptionStatus": "legacy-unreconciled",
+      "coordinator": "Work",
+      "ownerConfirmationAtCandidateSha": null
     }
   ],
   "sharedLoginHomeNavigation": {
@@ -528,9 +584,24 @@
     "吴律": "wulv006-dot",
     "陈超": "dachao1997"
   },
-  "productionAdminsUnchanged": [
+  "observedGlobalPortalAdmins": [
+    "wulv",
+    "chenchao",
+    "DY",
+    "fstech"
+  ],
+  "globalPolicySha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+  "NBAUnchangedSourceGuard": [
     "wulv",
     "chenchao",
     "DY"
-  ]
+  ],
+  "rolesRuntimeUnverified": true,
+  "_currentGovernance": {
+    "revision": "governance-20261007-v1",
+    "time": "2026-10-07T01:42:43.895157+08:00",
+    "scope": "local governance candidate; no directory ACL or runtime role change",
+    "sharedCoordination": "Work integrates; affected business owners confirm exact SHA",
+    "unassignedRemainsUnassigned": true
+  }
 }

@@ -1,13 +1,18 @@
-# FS-Workbench 首批协作源码基线
+# FS-Workbench 协作入口
 
-MMOEXP 游戏运营Agent。首批准备于2026-10-06标签任务，来源是冻结revision3准确311文件，保留原源码相对路径；只更新治理文档并加入最新决定与操作材料。未纳入正在开发的新UI或NBA revision4。
+当前修订候选：governance-20261007-v1，日期2026-10-07。首批已入私库 main `bc3b29531cec2fab3fc090385f3d7d126eb9ada7`，323文件；不是全平台已接管或可部署证明。本地候选未提交、未上传、未合并。
 
-**可协作源码基线，不是可部署全平台包。** 用户条件批准符合标准的白名单源码/测试/文档入私库，后续今晚允许根协调自主推进普通实现。本目录待根核对最终清单与写入口，尚未commit/push。releaseReady=false，未验模块不得上线。
+人类读[操作手册](docs/collaboration/OPERATION-GUIDE.md)；AI先读[AGENTS](AGENTS.md)、[当前状态](docs/collaboration/CURRENT-STATUS.md)、[负责人](docs/collaboration/OWNERS.json)、[来源与活动映射](docs/collaboration/SOURCE-MAP.json)、[就绪状态](docs/collaboration/READINESS.json)及模块合同。
 
-- 两位用户先读 [人类操作手册和AI模板](docs/collaboration/OPERATION-GUIDE.md)。
-- AI每次先读 [AGENTS.md](AGENTS.md)、[OWNERS](docs/collaboration/OWNERS.json)、[当前状态](docs/collaboration/CURRENT-STATUS.md)、[SOURCE-MAP](docs/collaboration/SOURCE-MAP.json) 和现有模块合同。
-- 首次上传准备与排除范围：[FIRST-UPLOAD-PLAN](docs/collaboration/FIRST-UPLOAD-PLAN.md)。后续完成情况以入库清单和根协调读回记录为准，历史准备计划中的“尚待生成”已由本目录的清单补齐。
-- 最新有限复审：[FINAL-INTEGRATION-STATUS](docs/collaboration/FINAL-INTEGRATION-STATUS.md)。旧docs记录保留历史，开头更正指向当前状态；不能按旧日期宣称仍未选owner或把合成检查当生产通过。
-- 完整实际上传树清单由交付方保存在ZIP外 `final-target-inventory.json`，包含所有文件和自身文档manifest的SHA。仓内两个UPLOAD-ALLOWLIST只列除这两个生成manifest外的内容集合，避免自引用哈希。
+核实来源/owner→独立候选→合并前QA/消费者回归→确切SHA确认与合并→合并后产物校验→独立上线批准/受控发布/读回。代码、协作、责任映射、运行证据分开；上线及自然验收分开。
 
-没有自动部署workflow、运行凭据、订单/实报表/私有PROFIT JSON、数据库、会话、旧Git历史。代码/配置schema/运行状态/业务授权分别管理。Git合并不自动上线；确切模块、commit与产物、现场基线、安全运行门槛和受控发布合同必须齐全。
+[首次入库计划](docs/collaboration/FIRST-UPLOAD-PLAN.md)是历史初始化材料。[HANDOFF](HANDOFF.md)只记录本私库源码协作；原工程未迁移全平台记录保留。每模块接管需来源/构建/依赖核验，不依赖个人电脑绝对路径作为新部署合同。
+
+## 历史介绍和PR2候选约定
+
+# FS-Workbench 干净协作源码
+
+> **2026-10-06当前合同（优先于本文历史段落）：** 首批干净源码已入私库 main bc3b29531cec2fab3fc090385f3d7d126eb9ada7。本批只增加文档与已独立复核 NBA receipts 候选；未提交、推送或部署。FC使用既有全局登录与角色，旧FC-only独立资格/fallback已被最新用户决定退役；当前已观察全局门户策略4管理员为wulv/chenchao/DY/fstech，来源为统一auth独立审阅及policy SHA b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017，不是本次新增账号。仓库旧C3政策/部分模块仍有三管理员代码，未随本批改动，禁止部署它覆盖四管理员现场。NBA api_security.js仍保留原三管理员模块守卫，其真实代理/角色适配未验，不因此擅授fstech NBA写权限。D4/PoE2/Aion2归陈超；球类归吴律；共享入口吴律主导陈超协作；其它owner待定。NBA R3-01/R3-02只在指定候选/合成证据层关闭，真实运行未验，releaseReady=false。D4/UI/auth源码均不在本批。文中旧权限、未push、FC专用桥与readiness状态是历史依据，不能作为当前发布指令。自助注册默认介绍/申请的业务方向已批准，实际入口/审批未实现。
+
+
+当前文档/NBA候选批次：[准备读我](docs/planning/fs-docs-nba-batch-20261006/README.md)、[测试复现](docs/planning/fs-docs-nba-batch-20261006/TEST-REPRODUCTION.md)、[AI操作手册](docs/collaboration/OPERATION-GUIDE.md)、[状态](docs/collaboration/CURRENT-STATUS.md)。首批已入库，本批尚未提交。无需等D4/UI生产验收才审阅此增量；它们不纳本批，不被放行。所有releaseReady=false；无workflow/自动部署、凭据/运行数据/旧Git历史。

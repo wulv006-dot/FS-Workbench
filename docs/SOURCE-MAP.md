@@ -1,3 +1,5 @@
+> 当前流程修订见 [协作状态](collaboration/CURRENT-STATUS.md) 与 [规则入口](../AGENTS.md)；下文冻结测试/映射为历史证据。新候选合并前QA、合并后产物、生产基线与独立批准分别核验；不把旧失败/通过复制为新树结果。
+
 > 首次入库更正：以下为冻结候选的历史记录；当前批准/owner/FC业务类别/NBA后置与未验状态见 `docs/collaboration/CURRENT-STATUS.md` 和 `READINESS.json`。旧upload声明不代表当前条件授权，静态/合成记录不代表生产放行。
 
 > 当前revision 2覆盖及外部依赖以 [integration/README.md](integration/README.md) 为准。下文保留v2阶段历史背景；portal/任务台/Players/NBA/MLB已补源码，不等于运行验收通过。
