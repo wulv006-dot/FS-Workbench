@@ -21,7 +21,6 @@ deploy_server.py —— 自助部署通道（服务器端）
 - 服务以 root 跑，但落地文件 chmod 755/644 —— nginx 可读不可写
 """
 
-from bundle_policy import validated_zip_members, escaped_text
 import io
 import json
 import os
@@ -45,7 +44,7 @@ DEFAULT_CFG = {
     # 站点根目录（对外 /s/ 映射到这里）
     "sites_dir": "/var/www/sites",
     # 服务自己的工作目录
-    "work_dir": "/var/lib/deploy-hub",
+    "work_dir": "/opt/deploy-hub",
     # 上传上限（字节）。nginx 的 client_max_body_size 要 >= 这个值
     "max_upload": 100 * 1024 * 1024,
     # 解压后总大小上限（防 zip bomb）
@@ -125,13 +124,13 @@ def human(n):
 def load_cfg():
     global CFG
     CFG = dict(DEFAULT_CFG)
-    p = os.environ.get("P2PAH_HUB_CONFIG", "")
+    p = os.path.join(HERE, "hub_config.json")
     if os.path.exists(p):
         try:
             with open(p, encoding="utf-8") as f:
                 CFG.update(json.load(f))
         except Exception as e:
-            safe("[!] P2PAH_HUB_CONFIG_INVALID")
+            safe("[!] hub_config.json 读取失败：%s" % e)
     return CFG
 
 
@@ -253,25 +252,65 @@ def normalize_rel(name):
 # ----------------------------------------------------------------- 解包
 
 def safe_extract(data, dest):
-    """Reject all disallowed members/content before the first filesystem write."""
+    """把 zip 字节流传到 dest。返回 (文件数, 字节数)。
+
+    拒绝：路径穿越 / 绝对路径 / 符号链接 / 加密项 / 超量（体积、数量）。
+    """
     try:
-        members = validated_zip_members(data, CFG["max_files"], CFG["max_unzip"])
-    except ValueError as exc:
-        raise HubError(str(exc)) from None
-    root = os.path.realpath(dest)
-    outputs = []
-    for name, payload in members:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as e:
+        raise HubError("这不是一个有效的 zip 压缩包（%s）。"
+                       "如果是单个 HTML 文件，直接上传 .html 即可。" % e)
+
+    infos = zf.infolist()
+    if len(infos) > CFG["max_files"]:
+        raise HubError("压缩包内条目过多（%d > %d），请检查是否误打包了依赖目录"
+                       % (len(infos), CFG["max_files"]))
+
+    total = 0
+    for i in infos:
+        total += i.file_size
+        if total > CFG["max_unzip"]:
+            raise HubError("解压后体积过大（超过 %s），请精简后再传"
+                           % human(CFG["max_unzip"]))
+
+    n_file = 0
+    n_bytes = 0
+    written = []          # 已落地文件的真实路径，用于最后统一 chmod
+    for info in infos:
+        name = normalize_rel(decode_zip_name(info.filename))
+        if not name:
+            continue
+        if info.is_dir():
+            continue
+        # 加密项：读出来是乱码，直接拒
+        if info.flag_bits & 0x1:
+            raise HubError("压缩包里有加密文件，不支持：%s" % info.filename)
+        # 符号链接：external_attr 高位是 unix mode
+        if (info.external_attr >> 16) & 0xF000 == 0xA000:
+            raise HubError("压缩包里有符号链接，拒绝：%s" % info.filename)
+
         out = os.path.join(dest, *name.split("/"))
+        # 双保险：解析后的真实路径必须在 dest 里
         real = os.path.realpath(out)
-        if not real.startswith(root + os.sep) or os.path.lexists(out):
-            raise HubError("STATIC_TARGET_REFUSED")
-        outputs.append((out, payload))
-    for out, payload in outputs:
+        if not (real == os.path.realpath(dest)
+                or real.startswith(os.path.realpath(dest) + os.sep)):
+            raise HubError("压缩包内有文件会解压到目标目录之外，拒绝：%s" % info.filename)
         os.makedirs(os.path.dirname(out), exist_ok=True)
-        # Exclusive create refuses a pre-existing final symlink/file.
-        with open(out, "xb") as target:
-            target.write(payload)
-    return len(outputs), sum(len(payload) for _, payload in outputs)
+        with zf.open(info) as src, open(out, "wb") as dst:
+            while True:
+                chunk = src.read(1 << 18)
+                if not chunk:
+                    break
+                dst.write(chunk)
+        n_file += 1
+        n_bytes += os.path.getsize(out)
+        written.append(out)
+
+    zf.close()
+    if n_file == 0:
+        raise HubError("压缩包里没有文件（只有空目录？）")
+    return n_file, n_bytes
 
 
 def strip_single_root(dest):
@@ -504,16 +543,16 @@ def render_page(owner, is_admin):
             return u'<div class="empty">还没有任何工具</div>'
         h = [u"<table><tr><th>工具</th><th>链接</th><th>大小</th><th>版本</th><th>更新时间</th></tr>"]
         for r in rs:
-            url = escaped_text("%s%s/%s/" % (CFG["url_prefix"], quote(r["owner"], safe=""), quote(r["name"], safe="")))
-            owner_tag = u' <span class="u">%s</span>' % escaped_text(r["owner"]) if show_owner else u""
-            note = u'<div class="u">%s</div>' % escaped_text(r["note"]) if r["note"] else u""
+            url = "%s%s/%s/" % (CFG["url_prefix"], quote(r["owner"]), quote(r["name"]))
+            owner_tag = u' <span class="u">%s</span>' % r["owner"] if show_owner else u""
+            note = u'<div class="u">%s</div>' % (r["note"] or "") if r["note"] else u""
             h.append(
                 u'<tr><td><b>%s</b>%s%s</td>'
                 u'<td><a href="%s" target="_blank">%s</a></td>'
                 u'<td class="u">%s · %d 个文件</td>'
                 u'<td><span class="pill">v%d</span></td>'
                 u'<td class="u">%s</td></tr>'
-                % (escaped_text(r["name"]), owner_tag, note, url, url,
+                % (r["name"], owner_tag, note, url, url,
                    human(r["bytes"]), r["files"], r["version"],
                    time.strftime("%m-%d %H:%M", time.localtime(r["updated_at"]))))
         h.append("</table>")
@@ -542,7 +581,7 @@ def render_page(owner, is_admin):
         u'站点名只能用英文小写字母、数字、下划线、短横线。'
         u'链接需要登录：2026-09-30 起全站改用统一登录页（Cookie 会话，不再弹系统密码框），'
         u'账号和以前一样；客户端会自己登录，你只要按上面写账号密码。</div></div>')
-    body.append(cmds.replace("%ME%", escaped_text(owner)))
+    body.append(cmds.replace("%ME%", owner))
 
     if logs:
         h = [u'<div class="card"><h2>最近操作</h2><table class="log">']
@@ -550,11 +589,11 @@ def render_page(owner, is_admin):
             act = {"publish": u"发布", "delete": u"下线"}.get(r["action"], r["action"])
             h.append(u'<tr><td>%s</td><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>'
                      % (time.strftime("%m-%d %H:%M", time.localtime(r["ts"])),
-                        escaped_text(r["owner"]), escaped_text(act), escaped_text(r["site"] or "-"), escaped_text(r["detail"])))
+                        r["owner"], act, r["site"] or "-", r["detail"] or ""))
         h.append("</table></div>")
         body.append("".join(h))
 
-    html = PAGE.replace("__ME__", escaped_text(owner)).replace("__BODY__", "".join(body))
+    html = PAGE.replace("__ME__", owner).replace("__BODY__", "".join(body))
     # 用请求里的 Host 拼出可直接复制的下载地址
     return html
 

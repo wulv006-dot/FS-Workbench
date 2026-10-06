@@ -56,7 +56,6 @@ import sys
 import threading
 import time
 import urllib.parse
-from fc_read_scope import allowed_fc_read
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 VERSION = "1.0.0"
@@ -684,41 +683,28 @@ class Handler(BaseHTTPRequestHandler):
         return self._redirect(dest, [self._clear_cookie_header(),
             ("Set-Cookie", "fc27sess=; Path=/; HttpOnly; Secure; Max-Age=0")])
 
-    def _verify_fc_read(self, group):
-        # Only the existing FC-specific ungrouped nginx verifier may bridge FC cookies.
-        # No X-Auth-* header is issued, even if the FC username equals an internal admin.
-        uri=self.headers.get("X-Original-URI", "")
-        method=self.headers.get("X-Original-Method", "GET")
-        if group or not allowed_fc_read(uri,method):
-            return self._send(401,"unauthorized")
-        token=parse_cookies(self.headers.get("Cookie")).get("fc27sess","")
-        if not isinstance(token,str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,256}",token):
-            return self._send(401,"unauthorized")
-        conn=http.client.HTTPConnection("127.0.0.1",8896,timeout=3)
-        try:
-            conn.request("GET","/verify",headers={"Cookie":"fc27sess="+token})
-            response=conn.getresponse()
-            status=response.status
-            user=response.getheader("X-Fc27-User","")
-            body=response.read(1025)
-            if status!=200 or len(body)>1024 or not re.fullmatch(r"[A-Za-z0-9_.-]{1,60}",user):
-                return self._send(401,"unauthorized")
-            return self._send(200,"OK",headers=[("X-Fc27-User",user),("X-Fc27-Role","readonly")])
-        except (OSError,http.client.HTTPException):
-            return self._send(401,"unauthorized")
-        finally:
-            conn.close()
-
     # ---- 供 nginx auth_request 调用 ----
     def _do_verify(self, group):
         tok = parse_cookies(self.headers.get("Cookie")).get(CFG["cookie"])
         pl = read_token(tok)
         user = pl.get("u") if pl else None
         live = groups_of(user) if user else []
-        # Internal portal identity requires its own valid signed session and live registration.
-        # External FC sessions retain their own gate; never promote them to dashboard membership.
+        if not live:
+            user = None
+            conn = http.client.HTTPConnection("127.0.0.1", 8896, timeout=3)
+            try:
+                conn.request("GET", "/verify", headers={"Cookie": self.headers.get("Cookie", "")})
+                response = conn.getresponse()
+                if response.status == 200:
+                    user = response.getheader("X-Fc27-User")
+                    live = ["dashboard"] if user else []
+                response.read()
+            except (OSError, http.client.HTTPException):
+                user = None
+            finally:
+                conn.close()
         if not user or not live:
-            return self._verify_fc_read(group)
+            return self._send(401, "unauthorized")
         if group and group not in live and group != "deploy":
             return self._send(403, "forbidden")
         code = _fs_policy.authorize(user, self.headers.get("X-Original-Method", "GET"),

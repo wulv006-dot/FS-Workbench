@@ -22,7 +22,6 @@ import re
 import time
 import urllib.parse
 import urllib.request
-from url_guard import safe_opener, parsed_destination
 from html import unescape as _unescape
 
 BASE = "https://www.u4gm.com"
@@ -39,12 +38,12 @@ class U4gmCrawler:
         self.progress = progress
         self.cancel = cancel
         self.cj = http.cookiejar.CookieJar()
-        self.op = safe_opener(self.cj)
+        self.op = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.cj))
         self.op.addheaders = [("User-Agent", UA)]
 
     # ---------- 基础请求 ----------
     def get(self, url, tries=4):
-        parsed_destination(url)
         last = None
         for i in range(tries):
             try:

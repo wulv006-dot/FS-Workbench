@@ -19,7 +19,6 @@ import re
 import time
 import urllib.parse
 import urllib.request
-from url_guard import safe_opener, parsed_destination
 
 BASE = "https://www.iggm.com"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -40,12 +39,12 @@ class IGGMCrawler:
         self.progress = progress
         self.cancel = cancel
         self.cj = http.cookiejar.CookieJar()
-        self.opener = safe_opener(self.cj)
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.cj))
         self.opener.addheaders = [("User-Agent", UA)]
 
     # ---------- 基础请求 ----------
     def get(self, url, referer=None, ajax=False):
-        parsed_destination(url)
         headers = {}
         if referer:
             headers["Referer"] = referer

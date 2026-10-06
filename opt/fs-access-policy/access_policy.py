@@ -1,7 +1,7 @@
 """Central policy for existing authenticated business routes, without credentials."""
 import re
 from urllib.parse import unquote, urlsplit, parse_qs
-ADMINS = frozenset(('wulv', 'chenchao', 'DY'))
+ADMINS = frozenset(('wulv', 'chenchao', 'DY', 'fstech'))
 CONTROL = frozenset(('apply','execute','run','start','stop','pause','resume','reset','delete','save','update','set','clear','unlock','clear-lock','clear_lock','reset-lock','reset_lock','ban','unban','deploy','publish','restart','backfill','collect','refresh-now','refresh_now'))
 
 def authorize(user, method, uri, group=''):

@@ -7,7 +7,6 @@
   discover(url, log) -> {"site", "game", "categories": [...]}
   scrape(url, log, progress, cancel) -> rows
 """
-from url_guard import parsed_destination
 from core import IGGMCrawler
 from core_aoeah import AoeahCrawler
 from core_u4gm import U4gmCrawler
@@ -20,9 +19,9 @@ SITES = {
 
 
 def detect_site(url):
-    _, host, _ = parsed_destination(url)
+    u = url.lower()
     for key, s in SITES.items():
-        if any(host == h or host.endswith("." + h) for h in s["hosts"]):
+        if any(h in u for h in s["hosts"]):
             return key
     return None
 

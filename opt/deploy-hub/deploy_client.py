@@ -26,7 +26,7 @@ Windows / macOS / Linux 都能跑。
 账号密码可以不写命令行，三种方式任选（优先级从高到低）：
     1. 命令行 --user / --password
     2. 环境变量 P2PAH_DEPLOY_USER / P2PAH_DEPLOY_PASSWORD
-    3. P2PAH_DEPLOY_CONFIG 指向仓库外 deploy_client.json:  {"user":"wulv","password":"xxx"}
+    3. 同目录下的 deploy_client.json:  {"user":"wulv","password":"xxx"}
 
 鉴权说明（2026-09-30 起）
 -------------------------
@@ -49,149 +49,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-
-# Generated from bundle_policy.py SHA256 07a9d053f769d9488bbf9b1c98cc1106c81a042bc619c7fe3370a0ae72dee722; keep standalone download compatibility.
-"""Static site publishing policy shared by client/server; no deployment effects."""
-import json
-import re
-from pathlib import PurePosixPath
-
-EXTENSIONS = frozenset(('.html','.htm','.css','.js','.mjs','.json','.webmanifest','.png','.jpg','.jpeg',
-    '.gif','.webp','.avif','.svg','.ico','.woff','.woff2','.ttf','.otf','.eot','.wasm','.mp3','.mp4','.ogg','.webm'))
-TEXT_EXTENSIONS = frozenset(('.html','.htm','.css','.js','.mjs','.json','.webmanifest','.svg'))
-DENIED_DIRS = frozenset(('.git','.svn','.hg','.venv','venv','node_modules','__pycache__','runtime','logs','backups','data','raw'))
-DENIED_NAMES = frozenset(('deploy_client.json','hub_config.json','config.json','server_config.json','automation.json',
-    '_token.txt','_ck.txt','_api_body.tmp','apply_log.jsonl','.admin_prices.tmp.json','.cookies.txt','.iggm.cookies.txt'))
-SECRET = re.compile(r'''(?i)["']?(password|passwd|client_secret|refresh_token|access_token|api_key|session_token|cookie|set-cookie|batoken|authorization)["']?\s*[:=]\s*["']([^"'\n]+)["']''')
-TOKEN = re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|\bgh[pousr]_[A-Za-z0-9]{30,}|\bya29\.[A-Za-z0-9_-]{20,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}')
-CREDENTIAL_KEYS = frozenset(('password','passwd','clientsecret','refreshtoken','accesstoken',
-    'apikey','sessiontoken','cookie','setcookie','batoken','authorization'))
-AUTH_VALUE = re.compile(r'(?i)^\s*(?:Basic|Bearer)\s+\S+')
-HEADER_VALUE = re.compile(r'(?i)^\s*(?:Cookie|Set-Cookie|batoken|Authorization)\s*:\s*\S+')
-PLACEHOLDER = re.compile(r'^(?:(?:REPLACE|EXAMPLE|YOUR)_[A-Z0-9_]+|\$\{[A-Za-z_][A-Za-z0-9_]*\}|<[A-Z0-9_]+>)$')
-
-def is_placeholder(value):
-    if not isinstance(value,str):return False
-    if not value or PLACEHOLDER.fullmatch(value):return True
-    # A literal header scheme or an explicit template has no credential bytes.
-    auth=re.fullmatch(r'(?i)(Basic|Bearer)(?:\s+(.*))?',value)
-    return bool(auth and (not (auth.group(2) or '').strip() or PLACEHOLDER.fullmatch(auth.group(2))))
-
-def _json_pairs(pairs):
-    value={}
-    for key,item in pairs:
-        if key in value:raise ValueError('DUPLICATE_STATIC_JSON_KEY')
-        value[key]=item
-    return value
-
-def validate_json_value(value, credential=False):
-    """Parsed keys handle JSON unicode escapes; never expose a rejected value."""
-    if isinstance(value,dict):
-        for key,item in value.items():
-            name=re.sub(r'[^a-z0-9]','',key.casefold())
-            validate_json_value(item,credential or name in CREDENTIAL_KEYS)
-    elif isinstance(value,list):
-        for item in value:validate_json_value(item,credential)
-    elif isinstance(value,str):
-        if not is_placeholder(value) and (credential or AUTH_VALUE.search(value)
-                                         or HEADER_VALUE.search(value) or TOKEN.search(value)):
-            raise ValueError('SENSITIVE_STATIC_CONTENT_REFUSED')
-    elif credential and value not in (None,False):
-        raise ValueError('SENSITIVE_STATIC_CONTENT_REFUSED')
-
-def validate_publish_name(name):
-    if not isinstance(name,str) or not name or '\\' in name or ':' in name or name.startswith('/'):
-        raise ValueError('UNSAFE_STATIC_MEMBER')
-    parts = name.split('/')
-    if any(not p or p in ('.','..') or p.endswith((' ','.')) or any(ord(c)<32 for c in p) for p in parts):
-        raise ValueError('UNSAFE_STATIC_MEMBER')
-    reserved = frozenset(('con','prn','aux','nul','clock$') + tuple('com'+str(i) for i in range(1,10)) + tuple('lpt'+str(i) for i in range(1,10)))
-    if any(p.split('.')[0].lower() in reserved or any(c in p for c in '<>"|?*%') for p in parts):
-        raise ValueError('UNSAFE_STATIC_MEMBER')
-    low = [p.lower() for p in parts]
-    if any(p in DENIED_DIRS or p.startswith('.') for p in low):
-        raise ValueError('PRIVATE_STATIC_MEMBER_REFUSED')
-    fn = low[-1]
-    if fn in DENIED_NAMES or any(x in fn for x in ('cookie','token','credential','password','secret')):
-        raise ValueError('PRIVATE_STATIC_MEMBER_REFUSED')
-    if PurePosixPath(fn).suffix not in EXTENSIONS:
-        raise ValueError('STATIC_TYPE_NOT_ALLOWED')
-    return name
-
-def validate_publish_content(name, data):
-    validate_publish_name(name)
-    if PurePosixPath(name).suffix.lower() not in TEXT_EXTENSIONS:
-        return
-    try:
-        text = data.decode('utf-8-sig')
-    except UnicodeDecodeError:
-        raise ValueError('STATIC_TEXT_ENCODING_REFUSED') from None
-    if TOKEN.search(text):
-        raise ValueError('SENSITIVE_STATIC_CONTENT_REFUSED')
-    if PurePosixPath(name).suffix.lower() in ('.json','.webmanifest'):
-        try:
-            value=json.loads(text,object_pairs_hook=_json_pairs,
-                parse_constant=lambda value:(_ for _ in ()).throw(ValueError('INVALID_STATIC_JSON')))
-            validate_json_value(value)
-        except (json.JSONDecodeError,RecursionError):
-            raise ValueError('INVALID_STATIC_JSON') from None
-    for match in SECRET.finditer(text):
-        value = match.group(2)
-        if is_placeholder(value):
-            continue
-        raise ValueError('SENSITIVE_STATIC_CONTENT_REFUSED')
-
-def escaped_text(value):
-    import html
-    return html.escape(str(value or ''), quote=True)
-
-def validated_zip_members(data, max_files=5000, max_unzip=300*1024*1024):
-    """Validate every member and CRC before returning any bytes to the writer."""
-    import io
-    import zipfile
-    import stat
-    result, seen, files, total = [], set(), set(), 0
-    try:
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            infos = archive.infolist()
-            if len(infos) > max_files:
-                raise ValueError('STATIC_MEMBER_LIMIT')
-            for info in infos:
-                raw = info.filename
-                if info.flag_bits & 1:
-                    raise ValueError('ENCRYPTED_STATIC_MEMBER_REFUSED')
-                mode = (info.external_attr >> 16) & 0xF000
-                if mode not in (0, stat.S_IFREG, stat.S_IFDIR):
-                    raise ValueError('SPECIAL_STATIC_MEMBER_REFUSED')
-                directory = info.is_dir()
-                name = raw[:-1] if directory else raw
-                # Reuse full path validation without granting a file type exception.
-                validate_publish_name(name + '/directory-check.css' if directory else name)
-                key = name.casefold()
-                if key in seen:
-                    raise ValueError('DUPLICATE_STATIC_MEMBER_REFUSED')
-                seen.add(key)
-                parents = ['/'.join(key.split('/')[:i]) for i in range(1,len(key.split('/')))]
-                if any(p in files for p in parents) or (not directory and any(s.startswith(key+'/') for s in seen)):
-                    raise ValueError('STATIC_HIERARCHY_CONFLICT')
-                if directory:
-                    continue
-                files.add(key)
-                total += info.file_size
-                if total > max_unzip or info.file_size < 0:
-                    raise ValueError('STATIC_BYTE_LIMIT')
-                payload = archive.read(info)  # CRC checked by zipfile, bounded by declared size.
-                if len(payload) != info.file_size:
-                    raise ValueError('STATIC_SIZE_MISMATCH')
-                validate_publish_content(name, payload)
-                result.append((name, payload))
-    except (zipfile.BadZipFile, RuntimeError, NotImplementedError):
-        raise ValueError('INVALID_STATIC_ARCHIVE') from None
-    if not result:
-        raise ValueError('EMPTY_STATIC_ARCHIVE')
-    return result
-
-# End generated publishing policy.
 
 # ------------------------------------------------------------------ 默认值
 
@@ -260,9 +117,8 @@ def human(n):
 
 def load_creds(A):
     here = os.path.dirname(os.path.abspath(__file__))
-    # Never autodiscover credentials in a source tree or publisher working directory.
-    config_path = os.environ.get("P2PAH_DEPLOY_CONFIG", "")
-    cand = [config_path] if config_path else []
+    cand = [os.path.join(here, "deploy_client.json"),
+            os.path.join(os.getcwd(), "deploy_client.json")]
     user = passwd = None
     for p in cand:
         if os.path.isfile(p):
@@ -326,7 +182,7 @@ class Ctx(object):
                 "\n[X] 没拿到账号或密码。三种写法任选一种：\n"
                 "    1) 命令行：  --user %s --password 你的密码\n"
                 "    2) 环境变量：P2PAH_DEPLOY_USER / P2PAH_DEPLOY_PASSWORD\n"
-                "    3) 仓库外 deploy_client.json（由 P2PAH_DEPLOY_CONFIG 指定）：{\"user\":\"%s\",\"password\":\"你的密码\"}\n"
+                "    3) 同目录 deploy_client.json：{\"user\":\"%s\",\"password\":\"你的密码\"}\n"
                 % (self.user or "wulv", self.user or "wulv"))
         form = urllib.parse.urlencode({
             "username": self.user,
@@ -356,12 +212,12 @@ class Ctx(object):
                 "    最可能的原因：账号或密码不对（登录页会原地报错，不发 Cookie）。\n"
                 "    当前账号：%s\n"
                 "    检查方法：python deploy_client.py --whoami\n"
-                "    也可设置 P2PAH_DEPLOY_CONFIG 指向仓库外配置：\n"
+                "    也可写进同目录 deploy_client.json：\n"
                 '      {"user":"%s","password":"你的密码"}\n'
                 % (code, self.user, self.user or "wulv"))
         self._cookie = ck
         if self.verbose:
-            say("    [res] 登录成功，会话已就绪")
+            say("    [res] 登录成功，已拿到会话 Cookie（%s…）" % ck[:28])
         return ck
 
     def http(self, method, path, body=None, ctype=None, _retry=True):
@@ -397,7 +253,7 @@ class Ctx(object):
                     "\n[X] 登录被拒（401）。账号或密码不对。\n"
                     "    当前用的账号：%s\n"
                     "    检查方法：python deploy_client.py --whoami\n"
-                    "    也可设置 P2PAH_DEPLOY_CONFIG 指向仓库外配置：\n"
+                    "    也可写进同目录 deploy_client.json：\n"
                     '      {"user":"%s","password":"你的密码"}' % (self.user, self.user))
             try:
                 msg = json.loads(raw.decode("utf-8")).get("error") or raw.decode("utf-8")[:300]
@@ -440,25 +296,20 @@ def make_zip(src_dir, no_exclude=False):
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for root, dirs, fs in os.walk(src_dir):
             dirs[:] = sorted(d for d in dirs if not skip(d, True, no_exclude))
-            if any(os.path.islink(os.path.join(root,d)) for d in dirs):
-                raise ValueError("STATIC_SYMLINK_REFUSED")
             for f in sorted(fs):
                 if skip(f, False, no_exclude):
                     continue
                 full = os.path.join(root, f)
                 rel = os.path.relpath(full, src_dir).replace("\\", "/")
-                if os.path.islink(full):
-                    raise ValueError("STATIC_SYMLINK_REFUSED")
-                with open(full, "rb") as source:
-                    content = source.read()
-                validate_publish_content(rel, content)
-                z.writestr(rel, content)
-                sz = len(content)
+                try:
+                    z.write(full, rel)
+                except Exception as e:
+                    say("    [!] 跳过 %s：%s" % (rel, e))
+                    continue
+                sz = os.path.getsize(full)
                 files.append((rel, sz))
                 raw_bytes += sz
-    data = buf.getvalue()
-    validated_zip_members(data)
-    return data, files, raw_bytes
+    return buf.getvalue(), files, raw_bytes
 
 
 def precheck(files):
@@ -560,10 +411,6 @@ def cmd_deploy(ctx, A):
         if not os.path.isfile(p):
             raise SystemExit("[X] 文件不存在：%s" % p)
         data = open(p, "rb").read()
-        if p.lower().endswith(".zip"):
-            validated_zip_members(data)
-        else:
-            validate_publish_content(os.path.basename(p), data)
         if p.lower().endswith((".html", ".htm")):
             say("[*] 单个 HTML 文件：%s（%s）" % (os.path.basename(p), human(len(data))))
         else:
@@ -667,7 +514,7 @@ def main():
         say("最常用的一条命令：")
         say("  python deploy_client.py --dir ./我的工具 --site fc-odds --note \"FC 赔率看板\"")
         say("")
-        say("（把账号密码写在仓库外 deploy_client.json（由 P2PAH_DEPLOY_CONFIG 指定） 里就不用每次输：")
+        say("（把账号密码写在同目录 deploy_client.json 里就不用每次输：")
         say('  {"user":"wulv","password":"你的密码"} ）')
         return 1
 

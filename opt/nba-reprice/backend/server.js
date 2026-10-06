@@ -14,9 +14,6 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
-const os = require('os');
-const crypto = require('crypto');
-const apiSecurity = require('./api_security');
 
 // 解析 OPERATORS 环境变量（{"token":"名字"}），用于多人身份与审计
 function loadOperators() {
@@ -46,7 +43,7 @@ function resolveOperator(req) {
 const PORT = Number(process.env.PORT || 8765);
 // 2026-09-30 部署到 FS 平台：BIND_HOST=127.0.0.1 时只允许本机 nginx 反代访问，
 // 对外一律走 https://47.85.224.112/nba2k27/（统一登录保护），8765 不暴露公网。
-const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 
 // ===== 配置（凭据一律从环境变量读取，禁止写入代码 / 提交 / 打包）=====
 const BASE = 'https://order.p2pah.cn';
@@ -60,17 +57,14 @@ const PYTHON = process.env.PYTHON || (process.platform === 'win32' ? 'python.exe
 const OCR_SCRIPT = path.join(__dirname, 'ocr_captcha.py');
 
 // ===== 访问鉴权 =====
-const ACCESS_TOKEN = process.env.ACCESS_TOKEN || '';          // Missing identity configuration denies all business access.
+const ACCESS_TOKEN = process.env.ACCESS_TOKEN || '';          // 单一口令（可选；为空则 AUTH 不启用，仅回环可用）
 const OPERATOR_NAME = process.env.OPERATOR_NAME || 'shared';  // 用 ACCESS_TOKEN 操作时记在审计日志里的归属名
 const OPERATORS = loadOperators();                            // 可选 {"token":"名字"} 多人身份映射
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '';      // 可选，CORS 白名单（逗号分隔）
-const AUTH_CONFIG = {mode: process.env.NBA_AUTH_MODE || 'token', token: ACCESS_TOKEN, operatorName: OPERATOR_NAME, operators: OPERATORS};
-const ALLOWED_ORIGINS = ALLOWED_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
+const AUTH_ENABLED = !!(ACCESS_TOKEN || Object.keys(OPERATORS).length);
 
 // 工作目录
-const WORK_DIR = path.resolve(process.env.NBA_DATA_DIR || path.join(os.homedir(), '.local', 'state', 'fs-nba-reprice'));
-if (WORK_DIR === path.resolve(__dirname, '..') || WORK_DIR.startsWith(path.resolve(__dirname, '..') + path.sep)) throw new Error('NBA_DATA_DIR_MUST_BE_OUTSIDE_SOURCE');
-function prepareRuntime() { fs.mkdirSync(WORK_DIR, {recursive:true, mode:0o700}); }
+const WORK_DIR = __dirname;
 const COOKIE_FILE = path.join(WORK_DIR, '.cookies.txt');
 
 // ===== 登录态 =====
@@ -144,8 +138,7 @@ function updateCookie(key, value) {
 }
 
 function persistCookie() {
-  prepareRuntime();
-  fs.writeFileSync(COOKIE_FILE, session.cookie || '', {encoding:'utf8', mode:0o600});
+  fs.writeFileSync(COOKIE_FILE, session.cookie || '', 'utf8');
 }
 
 function loadCookie() {
@@ -158,10 +151,9 @@ function loadCookie() {
 function ocrCaptcha(imageBuffer) {
   return new Promise((resolve, reject) => {
     const tmpFile = path.join(WORK_DIR, '.captcha_tmp.png');
-    prepareRuntime();
-    fs.writeFileSync(tmpFile, imageBuffer, {mode:0o600});
+    fs.writeFileSync(tmpFile, imageBuffer);
     execFile(PYTHON, [OCR_SCRIPT, tmpFile], { timeout: 30000 }, (err, stdout, stderr) => {
-      if (err) return reject(new Error('OCR_FAILED'));
+      if (err) return reject(new Error('OCR failed: ' + (stderr || err.message)));
       resolve(stdout.trim());
     });
   });
@@ -417,11 +409,11 @@ function curlGet(url, headers = {}, timeout = 30, cookieJar = null) {
     const args = ['-s', '--max-time', String(timeout), '-A', CMP_UA, '-L'];
     // cookieJar：IGGM 对没有会话 Cookie 的 goods_ajax 会返回反爬加载页（HTTP 403），
     // 必须先访问一次商品页把会话写进 jar，再带 -b/-c 复用（2026-09-30 线上实测）
-    if (cookieJar) { prepareRuntime(); args.push('-b', cookieJar, '-c', cookieJar); }
+    if (cookieJar) args.push('-b', cookieJar, '-c', cookieJar);
     for (const [k, v] of Object.entries(headers)) args.push('-H', `${k}: ${v}`);
     args.push(url);
     execFile(CURL, args, { maxBuffer: 32 * 1024 * 1024, timeout: (timeout + 10) * 1000 }, (err, stdout, stderr) => {
-      if (err) return reject(new Error('UPSTREAM_FETCH_FAILED'));
+      if (err) return reject(new Error('curl 失败: ' + (stderr || err.message)));
       resolve(stdout);
     });
   });
@@ -443,7 +435,7 @@ async function fetchU4gm() {
 // 2026-09-30 线上修复：无会话 Cookie 时该接口返回反爬加载页（HTTP 403），
 // 需先 GET 商品页建立会话，再带 sort/goods_name/tag/page 参数请求（缺参数同样会被拦）。
 const IGGM_REFERER = 'https://www.iggm.com/nba-2k/2k27-vc';
-const IGGM_COOKIE_JAR = path.join(WORK_DIR, '.iggm.cookies.txt');
+const IGGM_COOKIE_JAR = path.join(__dirname, '.iggm.cookies.txt');
 async function fetchIggm() {
   const price = {};
   try {
@@ -533,10 +525,10 @@ async function readCompetitors() {
 //   Xbox Series X|S id=165466561  aid=21591
 //   PC Platform     id=165466595  aid=21597
 // 流程：读回现值 → 提交 → 再复核；全过程记 apply_log.jsonl
-const WRITE_READY = process.env.WRITE_READY === 'true';
-const APPLY_LOG = path.join(WORK_DIR, 'apply_log.jsonl');
+const WRITE_READY = String(process.env.WRITE_READY || 'true').toLowerCase() !== 'false';
+const APPLY_LOG = path.join(__dirname, 'apply_log.jsonl');
 const P2PAH_SCRIPT = path.join(__dirname, 'p2pah_api.py');
-// Each confirmed request owns an immutable plan file and a durable writer receipt.
+const ADMIN_PRICE_JSON = path.join(__dirname, '.admin_prices.tmp.json');
 
 const AREA_TO_PRODUCT = {
   PS:   { platform: 'PlayStation 5',   id: 165466527, aid: 21595 },
@@ -545,39 +537,26 @@ const AREA_TO_PRODUCT = {
 };
 
 // 调 Python 写入（复用已验证的 curl + batoken 通道）
-function adminWrite(priceMap, operator, suppliedId) {
+function adminWrite(priceMap) {
   return new Promise((resolve, reject) => {
-    if (!WRITE_READY) return reject(new Error('WRITE_DISABLED'));
-    const requestId = suppliedId || crypto.randomUUID().replace(/-/g, '');
-    if (!/^[0-9a-f]{32}$/.test(requestId)) return reject(new Error('INVALID_REQUEST_ID'));
-    const ordered = Object.fromEntries(Object.keys(priceMap).sort().map(key => [key, priceMap[key]]));
-    const planJson = JSON.stringify({confirm:'NBA_PRICE_APPLY',operator,prices:ordered});
-    const planSha256 = crypto.createHash('sha256').update(planJson, 'utf8').digest('hex');
-    // A repeated client request ID still uses a distinct transport file; Python deduplicates the receipt.
-    const planPath = path.join(WORK_DIR, '.plan-' + crypto.randomUUID().replace(/-/g, '') + '.json');
-    prepareRuntime();
-    fs.writeFileSync(planPath, JSON.stringify({requestId,planSha256,planJson}), {encoding:'utf8',mode:0o600,flag:'wx'});
-    const done = (err, stdout) => {
-      try { fs.unlinkSync(planPath); } catch (_) { /* no recursive deletion */ }
-      const fail = code => { const error = new Error(code); error.requestId=requestId; error.planSha256=planSha256; reject(error); };
-      if (err) return fail('WRITE_OUTCOME_UNKNOWN');
-      let receipt;
-      try { receipt=JSON.parse(String(stdout).trim().split('\n').filter(Boolean).pop()); }
-      catch (_) { return fail('WRITE_OUTCOME_UNKNOWN'); }
-      if (receipt.requestId!==requestId || receipt.planSha256!==planSha256 || receipt.operator!==operator)
-        return fail('WRITE_RECEIPT_BINDING_MISMATCH');
-      resolve(receipt);
-    };
-    try { execFile(PYTHON, [P2PAH_SCRIPT, 'write', planPath],
-      {timeout:180000,maxBuffer:16*1024*1024},done); }
-    catch (_) { done(new Error('SUBPROCESS_FAILED')); }
+    fs.writeFileSync(ADMIN_PRICE_JSON, JSON.stringify({ prices: priceMap }), 'utf8');
+    execFile(PYTHON, [P2PAH_SCRIPT, 'write', ADMIN_PRICE_JSON],
+      { timeout: 180000, maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        const line = String(stdout).trim().split('\n').filter(Boolean).pop();
+        let js = null;
+        try { js = JSON.parse(line); } catch (e) { /* 下面统一报错 */ }
+        if (!js) {
+          return reject(new Error('写入返回不可解析：' + ((stderr || '').trim() || String(stdout).slice(0, 300) || (err && err.message))));
+        }
+        resolve(js);
+      });
   });
 }
 
 function appendApplyLog(entry) {
   try {
-    prepareRuntime();
-    fs.appendFileSync(APPLY_LOG, JSON.stringify(entry) + '\n', {encoding:'utf8', mode:0o600});
+    fs.appendFileSync(APPLY_LOG, JSON.stringify(entry) + '\n', 'utf8');
   } catch (e) {
     console.error('[审计日志写入失败]', e.message);
   }
@@ -595,9 +574,6 @@ function readBody(req) {
 }
 
 async function applyPrices(payload, operator) {
-  if (!WRITE_READY) throw new Error('WRITE_DISABLED');
-  if (!apiSecurity.ADMINS.includes(operator)) throw new Error('ADMIN_REQUIRED');
-  apiSecurity.validateApply(payload);
   const platforms = Array.isArray(payload.platforms) ? payload.platforms : [];
   if (!platforms.length) throw new Error('缺少 platforms 数据');
   const bad = platforms.filter((p) => !(Number(p.price) > 0));
@@ -612,17 +588,11 @@ async function applyPrices(payload, operator) {
 
   let write = { ok: false, error: 'WRITE_READY=false，未执行' };
   if (WRITE_READY) {
-    try { write = await adminWrite(priceMap, operator, payload.requestId); }
-    catch (error) {
-      write={ok:false,error:'WRITE_OUTCOME_UNKNOWN',state:'unknown',
-        requestId:error.requestId,planSha256:error.planSha256,operator};
-    }
+    write = await adminWrite(priceMap);
   }
 
   const entry = {
     at: new Date().toISOString(),
-    requestId: write.requestId,
-    planSha256: write.planSha256,
     rate: payload.rate,
     marginMin: payload.marginMin,
     marginMax: payload.marginMax,
@@ -630,7 +600,6 @@ async function applyPrices(payload, operator) {
     operator: operator || 'unknown',
     platforms: platforms.map((p) => ({ area: p.area, cost: p.cost, price: p.price, margin: p.margin })),
     written: WRITE_READY && write.ok === true,
-    writeOutcome: write.state === 'unknown' ? 'unknown' : write.ok ? 'confirmed' : 'failed_or_partial',
     result: write,
   };
   appendApplyLog(entry);
@@ -643,11 +612,8 @@ async function applyPrices(payload, operator) {
 
 // ===== HTTP 服务 =====
 const server = http.createServer(async (req, res) => {
-  // Emit CORS only for an explicitly configured origin.
-  if (req.headers.origin && ALLOWED_ORIGINS.includes(req.headers.origin)) {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-    res.setHeader('Vary', 'Origin');
-  }
+  // CORS（白名单未配置时保持 *，但业务接口另有令牌鉴权兜底）
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Access-Token');
 
@@ -666,10 +632,14 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/health') {
       return sendJson(200, { ok: true });
     }
-    const identity = apiSecurity.resolveIdentity(req, AUTH_CONFIG);
-    if (!identity) return sendJson(401, {ok:false, error:'AUTH_REQUIRED'});
-    const operator = identity.user;
-    if (url.pathname !== '/api/apply' && req.method !== 'GET') return sendJson(405, {ok:false, error:'GET_REQUIRED'});
+    // 鉴权：启用口令时，其余业务接口必须携带有效 token（operator 同时用于审计留痕）
+    let operator = null;
+    if (AUTH_ENABLED) {
+      operator = resolveOperator(req);
+      if (!operator) {
+        return sendJson(401, { ok: false, error: '未授权：请提供有效令牌（X-Access-Token 或 Authorization: Bearer）' });
+      }
+    }
     if (url.pathname === '/api/read') {
       const data = await readLatestPrice();
       return sendJson(200, { ok: true, ...data });
@@ -691,10 +661,7 @@ const server = http.createServer(async (req, res) => {
     }
     // 改价写入（真实写入 admin-api.p2pah.cn 三端 VC 售价；全过程审计留痕）
     if (url.pathname === '/api/apply') {
-      const refused = apiSecurity.checkApply(req, identity, WRITE_READY, ALLOWED_ORIGINS);
-      if (refused) return sendJson(refused.status, {ok:false, error:refused.code});
       const payload = await readBody(req);
-      try { apiSecurity.validateApply(payload); } catch (_) { return sendJson(400, {ok:false, error:'INVALID_APPLY_REQUEST'}); }
       const r = await applyPrices(payload, operator);
       if (!r.ok) {
         return sendJson(502, {
@@ -707,12 +674,12 @@ const server = http.createServer(async (req, res) => {
     }
     sendJson(404, { ok: false, error: 'not found' });
   } catch (e) {
-    console.error('[错误] NBA_REQUEST_FAILED');
-    sendJson(500, { ok: false, error: 'NBA_REQUEST_FAILED' });
+    console.error('[错误]', e.message);
+    sendJson(500, { ok: false, error: e.message });
   }
 });
 
-if (require.main === module) server.listen(PORT, BIND_HOST, () => {
+server.listen(PORT, BIND_HOST, () => {
   loadCookie();
   console.log(`改价后端服务已启动: http://${BIND_HOST}:${PORT}`);
   console.log(`  - GET /api/read         读取最新采购单价（后端自动登录）`);

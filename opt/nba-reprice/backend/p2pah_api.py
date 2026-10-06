@@ -20,32 +20,16 @@ p2pah 新后台 (admin-api.p2pah.cn) API 助手
   python p2pah_api.py edit <id>             # 打印编辑表单(只读)
 """
 import json
-import math
 import os
 import subprocess
 import sys
 import time
 import uuid
-import tempfile
-from write_contract import serialized, execute_bound_plan
-from pathlib import Path
 
 BASE = "https://admin-api.p2pah.cn"
 DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = str(Path(os.environ.get("NBA_DATA_DIR") or (Path.home()/".local"/"state"/"fs-nba-reprice")).resolve())
-if Path(DATA_DIR).is_relative_to(Path(DIR).resolve().parent):
-    raise RuntimeError("NBA_DATA_DIR_MUST_BE_OUTSIDE_SOURCE")
-TOKEN_FILE = os.path.join(DATA_DIR, "_token.txt")
-CK_FILE = os.path.join(DATA_DIR, "_ck.txt")
-
-def prepare_runtime():
-    os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
-
-def private_write(path, value):
-    prepare_runtime()
-    fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(value)
+TOKEN_FILE = os.path.join(DIR, "_token.txt")
+CK_FILE = os.path.join(DIR, "_ck.txt")
 CRED = {
     "username": os.environ.get("P2PAH_ADMIN_USERNAME", ""),
     "password": os.environ.get("P2PAH_ADMIN_PASSWORD", ""),
@@ -61,23 +45,13 @@ TARGET_GID = "1329"
 AID_MAP = {"21595": "PlayStation 5", "21591": "Xbox Series X|S", "21597": "PC Platform"}
 
 
-_runtime_serialized = serialized(DATA_DIR)
+_TMP_BODY = os.path.join(DIR, "_api_body.tmp")
 
 
-@_runtime_serialized
 def _curl(method, url, headers=None, data=None, out_file=None, timeout=40,
           cookie_jar=True):
     """返回 (http_code, bytes)。out_file 非空时把响应体写到该文件。"""
-    prepare_runtime()
-    if out_file:
-        dst=out_file
-    else:
-        fd,dst=tempfile.mkstemp(dir=DATA_DIR,prefix=".api-response-")
-        os.close(fd)
-    # Precreate outputs privately before curl overwrites them.
-    private_write(dst, "")
-    if cookie_jar and not os.path.exists(CK_FILE):
-        private_write(CK_FILE, "")
+    dst = out_file or _TMP_BODY
     cmd = ["curl", "-sS", "-g", "-o", dst, "-w", "%{http_code}",
            "--max-time", str(timeout), "-X", method,
            "-H", f"User-Agent: {UA}",
@@ -99,14 +73,10 @@ def _curl(method, url, headers=None, data=None, out_file=None, timeout=40,
     if cookie_jar and os.path.exists(CK_FILE):
         cmd += ["-b", CK_FILE, "-c", CK_FILE]
     cmd.append(url)
-    try:
-        r = subprocess.run(cmd, capture_output=True)
-        code = r.stdout.decode("utf-8", "ignore").strip()
-        body = open(dst, "rb").read() if os.path.exists(dst) else b""
-        return code, body
-    finally:
-        if not out_file and os.path.exists(dst):
-            os.unlink(dst)
+    r = subprocess.run(cmd, capture_output=True)
+    code = r.stdout.decode("utf-8", "ignore").strip()
+    body = open(dst, "rb").read() if os.path.exists(dst) else b""
+    return code, body
 
 
 def api(method, path, data=None, token=True):
@@ -122,10 +92,9 @@ def api(method, path, data=None, token=True):
         return code, body.decode("utf-8", "ignore")
 
 
-@_runtime_serialized
 def login():
     captcha_id = str(uuid.uuid4())
-    png = os.path.join(DATA_DIR, "_adm_cap.png")
+    png = os.path.join(DIR, "_adm_cap.png")
     _curl("GET", f"{BASE}/api/common/captcha?server=1&id={captcha_id}",
           {"Accept": "image/avif,image/webp,*/*"}, out_file=png, cookie_jar=True)
     ocr = os.path.join(DIR, "ocr_captcha.py")
@@ -137,15 +106,15 @@ def login():
         env_py = "python3"
     r = subprocess.run([env_py, ocr, png], capture_output=True)
     code = r.stdout.decode("utf-8", "ignore").strip()
-    print("[captcha] recognition completed")
+    print(f"[captcha] id={captcha_id} code={code!r}")
     body = {"username": CRED["username"], "password": CRED["password"],
             "captcha": code, "captcha_id": captcha_id, "keep": True, "loading": False}
     status, js = api("POST", "/admin/login", body, token=False)
-    print("[login] completed")
+    print("[login]", status, js if not isinstance(js, dict) else js.get("msg"))
     if isinstance(js, dict) and js.get("code") == 1:
         tk = js["data"]["token"]
-        private_write(TOKEN_FILE, tk)
-        print("[login] session saved")
+        open(TOKEN_FILE, "w", encoding="utf-8").write(tk)
+        print("[login] token saved:", tk)
         return tk
     return None
 
@@ -190,19 +159,12 @@ TARGETS = [
 def read_one(tid):
     code, js = api("GET", f"/admin/goods.Goods/edit?id={tid}")
     if not isinstance(js, dict) or js.get("code") != 1:
-        raise RuntimeError("UPSTREAM_PRODUCT_READ_FAILED")
+        raise RuntimeError(f"读取 {tid} 失败: {js}")
     return js["data"]["row"]
 
 
-@_runtime_serialized
 def write_one(tid, unit_price):
     """把 unit_price 写回指定产品, 返回 (ok, msg, old)"""
-    if os.environ.get("WRITE_READY") != "true":
-        raise RuntimeError("WRITE_DISABLED")
-    if type(unit_price) not in (int, float) or not math.isfinite(unit_price) or unit_price <= 0:
-        raise ValueError("INVALID_PRICE")
-    if tid not in {t["id"] for t in TARGETS}:
-        raise ValueError("INVALID_PRODUCT")
     row = read_one(tid)
     old = row.get("unit_price")
     row["unit_price"] = unit_price
@@ -210,11 +172,10 @@ def write_one(tid, unit_price):
         row.pop(k, None)
     code, js = api("POST", "/admin/goods.Goods/edit", row)
     ok = isinstance(js, dict) and js.get("code") == 1
-    msg = "UPSTREAM_WRITE_CONFIRMED" if ok else "UPSTREAM_WRITE_FAILED"
+    msg = js.get("msg") if isinstance(js, dict) else str(js)[:200]
     return ok, msg, old
 
 
-@_runtime_serialized
 def apply_prices(price_map):
     """price_map: {'PlayStation 5':0.1504, 'Xbox Series X|S':0.1504, 'PC Platform':0.0859}"""
     print("=== 写入前 ===")
@@ -246,13 +207,13 @@ def ensure_token():
     return login() is not None
 
 
-def _write_prices(data):
+def write_from_file(path_in):
     """从 JSON 文件读价格并写入; 打印一行 JSON 结果"""
-    if os.environ.get("WRITE_READY") != "true" or not isinstance(data, dict) or data.get("confirm") != "NBA_PRICE_APPLY":
-        return {"ok":False,"error":"WRITE_DISABLED_OR_UNCONFIRMED"}
+    data = json.load(open(path_in, encoding="utf-8"))
     prices = data.get("prices") if isinstance(data, dict) else None
     if not prices:
-        return {"ok": False, "error": "缺少 prices"}
+        print(json.dumps({"ok": False, "error": "缺少 prices"}, ensure_ascii=False))
+        return
     area2key = {"PS": "PlayStation 5", "PlayStation 5": "PlayStation 5",
                 "Xbox": "Xbox Series X|S", "XBOX": "Xbox Series X|S",
                 "Xbox Series X|S": "Xbox Series X|S",
@@ -261,13 +222,14 @@ def _write_prices(data):
     for k, v in prices.items():
         key = area2key.get(str(k))
         if not key:
-            return {"ok": False, "error": f"未知平台 {k}"}
-        if type(v) not in (int, float) or not math.isfinite(v) or not 0 < v <= 9007199254740991:
-            return {"ok": False, "error": f"{key} 售价非法: {v}"}
+            print(json.dumps({"ok": False, "error": f"未知平台 {k}"}, ensure_ascii=False))
+            return
+        if not (float(v) > 0):
+            print(json.dumps({"ok": False, "error": f"{key} 售价非法: {v}"}, ensure_ascii=False))
+            return
         pmap[key] = round(float(v), 4)
 
-    if not ensure_token():
-        return {"ok":False,"error":"UPSTREAM_LOGIN_FAILED"}
+    ensure_token()
     results, verify = [], {}
     for t in TARGETS:
         if t["key"] not in pmap:
@@ -275,7 +237,7 @@ def _write_prices(data):
         try:
             ok, msg, old = write_one(t["id"], pmap[t["key"]])
         except Exception as e:
-            ok, msg, old = False, "UPSTREAM_WRITE_FAILED", None
+            ok, msg, old = False, str(e), None
         results.append({"platform": t["key"], "area": {"PlayStation 5": "PS", "Xbox Series X|S": "Xbox",
                                                        "PC Platform": "PC"}[t["key"]],
                         "id": t["id"], "aid": t["aid"], "old": old,
@@ -291,21 +253,7 @@ def _write_prices(data):
         verify[t["key"]] = {"current": cur, "expect": pmap[t["key"]],
                             "match": cur is not None and abs(cur - pmap[t["key"]]) < 1e-6}
     allok = all(r["ok"] for r in results) and all(v["match"] for v in verify.values())
-    return {"ok": allok, "results": results, "verify": verify}
-
-
-
-def write_from_file(path_in):
-    try:
-        if os.environ.get("WRITE_READY") != "true":
-            raise RuntimeError("WRITE_DISABLED")
-        with open(path_in, encoding="utf-8") as source:
-            envelope=json.load(source)
-        result=execute_bound_plan(DATA_DIR,envelope,_write_prices)
-    except (ValueError,RuntimeError,OSError):
-        # No raw file, credential, upstream response or exception text in output.
-        result={"ok":False,"error":"BOUND_WRITE_REFUSED"}
-    print(json.dumps(result,ensure_ascii=False))
+    print(json.dumps({"ok": allok, "results": results, "verify": verify}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

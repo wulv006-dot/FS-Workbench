@@ -27,7 +27,6 @@ mlb_server.py —— MLB 新卡上架「在线工作台」服务端
 启动：
     python3 mlb_server.py --port 8897 --root /var/www/mlb-online
 """
-from static_path import safe_static_path
 import os
 import sys
 import io
@@ -456,11 +455,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------------- 静态 ----------------
     def _static(self, rel):
-        try:
-            fp = str(safe_static_path(ARGS.root, rel))
-        except ValueError:
+        fp = os.path.normpath(os.path.join(ARGS.root, rel))
+        if not fp.startswith(os.path.abspath(ARGS.root)):
             return self._send(403, {"error": "forbidden"})
-        except OSError:
+        if not os.path.isfile(fp):
             return self._send(404, {"error": "not found"})
         ctype, _ = mimetypes.guess_type(fp)
         if fp.endswith(".js"):
