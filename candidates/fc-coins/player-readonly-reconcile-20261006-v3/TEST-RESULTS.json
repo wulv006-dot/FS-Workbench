@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "tests_run": 76,
+  "synthetic_passed": 63,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 13,
+  "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+  "ast_python39": [
+    "player_readonly_reconcile_guard.py",
+    "probe.py",
+    "reconcile.py",
+    "runner.py",
+    "secure_fs.py",
+    "storage.py",
+    "test_candidate.py",
+    "test_native_linux.py"
+  ],
+  "native_linux_qa": "NOT_RUN;13 native cases skipped on Windows",
+  "production_probe": "NOT_RUN",
+  "production_writes": 0,
+  "elapsed_seconds": 0.219,
+  "new_synthetic_tests": 5,
+  "new_native_tests": 3,
+  "unchanged_contract_files": {
+    "runner.py": "338601acda231c80deafb13889c8751ed9da93a2596a0a88f5bd5d6a75102a78",
+    "probe.py": "329c3bd28c7222a0a5639106d59bbdb7426a797557c84ef3b607d2daaed059b5",
+    "scope.json": "dabe12eb976ca86a3e0d4d57eb35a0a4f848697daaf08ec896b4c3604919d585",
+    "player_readonly_reconcile_guard.py": "0756d29518adbeb0846431f03ce47933377ad5af2c5867cae7f326be1bb3eec4"
+  }
+}

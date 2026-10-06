@@ -1,0 +1,176 @@
+--- v2/reconcile.py
++++ v3/reconcile.py
+@@ -136,8 +136,9 @@
+             if index:self.wait(5)
+             proofs.append(self.probe(json.loads(originals[self.targets[0]]),originals[self.targets[0]]))
+         def checkpoint():
++            self.context(self.allowed(state))
++            self.validate_batch(originals,proofs,self.now())
+             if self.monotonic()-started>160:fail('reconcile_total_budget_exceeded')
+-            self.validate_batch(originals,proofs,self.now());self.context(self.allowed(state))
+         checkpoint()
+         if not apply:return {'status':'reconcile_preflight_ready','business_posts':0,'two_stable_rounds':proofs,'metadata_targets':self.targets}
+         if not state:
+@@ -149,6 +150,7 @@
+         self.save_proofs(state,proofs);self.event('prepared');checkpoint()
+         ledger=self.targets[0]
+         if digest(self.store.read_live(ledger))!=state['after_sha256'][ledger]:self.store.publish(ledger,self.store.tx_read(self.after_names[ledger]),self.allowed(state)[ledger],checkpoint)
++        else:self.store.sync_visible(ledger)
+         state['phase']='ledger_installed';self.store.tx_write('transaction.json',encode(state));self.event('ledger_installed');checkpoint()
+         # Durable receipt and all evidence/ledger are complete BEFORE the gate-readable job.
+         state['phase']='evidence_committed';self.store.tx_write('transaction.json',encode(state));self.event('evidence_committed');checkpoint()
+--- v2/secure_fs.py
++++ v3/secure_fs.py
+@@ -121,22 +121,27 @@
+         self.check();target,name=self.split(target_path)
+         if digest(target.read(name,metadata)) not in expected_current:fail('publication_cas_changed')
+         self.tx.name_check(source_name)
+-        if self.tx.exists(source_name):
++        existing=self.tx.exists(source_name)
++        if existing:
+             if digest(self.tx.read(source_name,metadata))!=digest(raw):fail('leftover_publication_bytes_changed')
+-            fd,st=self.tx.open_file(source_name,metadata);staged=identity(st);os.close(fd)
++            fd,_=self.tx.open_file(source_name,metadata)
+         else:
+             fd=os.open(source_name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=self.tx.fd)
+-            os.fchown(fd,metadata['uid'],metadata['gid']);os.fchmod(fd,int(metadata['mode'],8))
+-            with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno());staged=identity(os.fstat(stream.fileno()))
+-            self.tx.fsync()
+         try:
++            if not existing:
++                os.fchown(fd,metadata['uid'],metadata['gid']);os.fchmod(fd,int(metadata['mode'],8))
++                with os.fdopen(fd,'wb',closefd=False) as stream:stream.write(raw);stream.flush()
++            staged_stat=os.fstat(fd);validate_stat(staged_stat,metadata,'file');staged=identity(staged_stat)
++            # Both new and leftover staging require successful data and source-dir sync.
++            os.fsync(fd);self.tx.fsync()
+             self.check();self.tx.check()
+             if identity(os.stat(source_name,dir_fd=self.tx.fd,follow_symlinks=False))!=staged:fail('publication_staging_inode_changed')
+             if digest(target.read(name,metadata)) not in expected_current:fail('publication_final_cas_changed')
+             before_replace()
+-            os.replace(source_name,name,src_dir_fd=self.tx.fd,dst_dir_fd=target.fd);target.fsync()
++            os.replace(source_name,name,src_dir_fd=self.tx.fd,dst_dir_fd=target.fd);target.fsync();self.tx.fsync()
+             if identity(os.stat(name,dir_fd=target.fd,follow_symlinks=False))!=staged:fail('published_file_inode_changed')
+         finally:
++            os.close(fd)
+             # A leftover staging file is evidence; never unlink it on error.
+             self.check()
+     def close(self):
+--- v2/storage.py
++++ v3/storage.py
+@@ -27,7 +27,7 @@
+         self.fs.publish(names[key],self.path(key),raw,allowed,self.metadata(key),checkpoint)
+     def sync_visible(self,key):
+         directory,name=self.fs.split(self.path(key));fd,_=directory.open_file(name,self.metadata(key))
+-        try:os.fsync(fd);directory.fsync();self.fs.check()
++        try:os.fsync(fd);directory.fsync();self.fs.tx.fsync();self.fs.check()
+         finally:os.close(fd)
+     def json_directory(self,name):
+         directory=self.fs.dirs[self.root+'/'+name];directory.check();out=[]
+--- v2/test_candidate.py
++++ v3/test_candidate.py
+@@ -79,12 +79,14 @@
+         jobs=[json.loads(raw) for k,raw in self.store.live.items() if k.startswith('jobs/')]+self.other_jobs
+         executions=[json.loads(raw) for k,raw in self.store.live.items() if k.startswith('executions/')]+self.other_executions
+         validate_context(self.scope,self.store.live,self.monitor,self.gallery,jobs,executions,self.queue,self.scope['expected_sources'],allowed)
++        if self.store.log and self.store.log[-1]==('stage_fsync',getattr(self,'slow_context_target',None)):
++            self.wait(getattr(self,'slow_context_seconds',0));self.monotonic_offset=getattr(self,'slow_context_monotonic',0)
+     def probe(self,ledger,raw):
+         self.calls+=1;proof=copy.deepcopy(self.proof);proof['started_at']=self.now.isoformat();proof['checked_at']=self.now.isoformat()
+         if self.proof_mutation:self.proof_mutation(proof,self.calls)
+         return proof
+     def wait(self,seconds):self.now+=timedelta(seconds=seconds)
+-    def recovery(self,event=None):return Recovery(self.store,self.scope,'a'*64,self.context,self.probe,now=lambda:self.now,wait=self.wait,event=event,monotonic=lambda:self.now.timestamp())
++    def recovery(self,event=None):return Recovery(self.store,self.scope,'a'*64,self.context,self.probe,now=lambda:self.now,wait=self.wait,event=event,monotonic=lambda:self.now.timestamp()+getattr(self,'monotonic_offset',0))
+     def guard(self):return validate_round(self.scope,self.ledger,self.job,self.audit,self.policy,self.proof,self.now,approved_tiers(self.all_ledger,self.audit,self.scope))
+     def bad(self,change,message):change();self.assertRaisesRegex(ValueError,message,self.guard)
+     def test_positive_exact_synthetic_proof(self):self.assertTrue(self.guard())
+@@ -166,7 +168,30 @@
+         ledger,job=self.scope['allowed_metadata_targets'];self.store.delays[job]=61
+         self.assertEqual(self.recovery().run(True)['status'],'metadata_may_be_committed_needs_readback');self.assertEqual(json.loads(self.store.live[job])['status'],'failed')
+     def test_160s_budget_includes_backup(self):
+-        self.store.delays['before-0.json']=161;self.assertRaisesRegex(ValueError,'total_budget',self.recovery().run,True)
++        self.store.delays['before-0.json']=161;self.assertRaisesRegex(ValueError,'expired|total_budget',self.recovery().run,True)
++    def test_slow_context_crosses60s_before_final_job_rename(self):
++        job=self.scope['allowed_metadata_targets'][1];self.store.delays[job]=54
++        self.slow_context_target=job;self.slow_context_seconds=2
++        self.assertEqual(self.recovery().run(True)['status'],'metadata_may_be_committed_needs_readback')
++        self.assertEqual(json.loads(self.store.live[job])['status'],'failed');self.assertNotIn(('rename',job),self.store.log)
++    def test_slow_context_crosses160s_before_final_job_rename(self):
++        job=self.scope['allowed_metadata_targets'][1];self.slow_context_target=job;self.slow_context_monotonic=161
++        result=self.recovery().run(True);self.assertEqual(result['status'],'metadata_may_be_committed_needs_readback');self.assertEqual(result['reason'],'reconcile_total_budget_exceeded')
++        self.assertEqual(json.loads(self.store.live[job])['status'],'failed');self.assertNotIn(('rename',job),self.store.log)
++    def test_slow_context_before_ledger_keeps_both_originals(self):
++        ledger,job=self.scope['allowed_metadata_targets'];before=copy.deepcopy(self.store.live)
++        self.store.delays[ledger]=54;self.slow_context_target=ledger;self.slow_context_seconds=2
++        self.assertRaisesRegex(ValueError,'expired',self.recovery().run,True)
++        self.assertEqual(self.store.live[ledger],before[ledger]);self.assertEqual(self.store.live[job],before[job])
++    def test_partial_ledger_rename_retry_synchronizes_before_job(self):
++        ledger,job=self.scope['allowed_metadata_targets'];self.store.failure=ledger
++        self.assertRaises(OSError,self.recovery().run,True);self.assertEqual(json.loads(self.store.live[job])['status'],'failed')
++        self.store.failure=None;self.recovery().run(True)
++        self.assertLess(self.store.log.index(('sync_visible',ledger)),self.store.log.index(('rename',job)))
++    def test_partial_ledger_retry_sync_failure_keeps_job_failed(self):
++        ledger,job=self.scope['allowed_metadata_targets'];self.store.failure=ledger
++        self.assertRaises(OSError,self.recovery().run,True);self.store.failure='sync_visible'
++        self.assertRaises(OSError,self.recovery().run,True);self.assertEqual(json.loads(self.store.live[job])['status'],'failed')
+     def interrupt(self,stage):
+         def event(actual):
+             if actual==stage:raise RuntimeError('synthetic interruption')
+--- v2/test_native_linux.py
++++ v3/test_native_linux.py
+@@ -73,5 +73,55 @@
+                 with self.assertRaises(OSError):fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
+             self.assertEqual(p.read_bytes(),b'{"after":true}');self.assertTrue(Path(fs.tx.path).exists())
+         finally:fs.tx.close()
++    def test_leftover_stage_retries_file_fsync_twice_then_succeeds(self):
++        from secure_fs import digest
++        p=self.newfile();fs=self.fs();fs.open_transaction(True);attempts=[];remaining=[2];real=os.fsync
++        try:
++            def injected(fd):
++                if stat.S_ISREG(os.fstat(fd).st_mode):
++                    attempts.append('file_fsync')
++                    if remaining[0]:remaining[0]-=1;raise OSError('synthetic staging file fsync failure')
++                return real(fd)
++            with patch('secure_fs.os.fsync',injected):
++                for _ in range(2):
++                    with self.assertRaises(OSError):fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
++                    self.assertEqual(p.read_bytes(),b'{}');self.assertEqual((Path(fs.tx.path)/'publish-job.json').read_bytes(),b'{"after":true}')
++                fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
++            self.assertEqual(attempts,['file_fsync']*3);self.assertEqual(p.read_bytes(),b'{"after":true}')
++        finally:fs.tx.close()
++    def test_leftover_stage_retries_tx_dir_fsync_twice_then_succeeds(self):
++        from secure_fs import digest
++        p=self.newfile();fs=self.fs();fs.open_transaction(True);attempts=[];remaining=[2];real=Directory.fsync
++        try:
++            def injected(directory):
++                if directory is fs.tx:
++                    attempts.append('tx_dir_fsync')
++                    if remaining[0]:remaining[0]-=1;raise OSError('synthetic source directory fsync failure')
++                return real(directory)
++            with patch.object(Directory,'fsync',injected):
++                for _ in range(2):
++                    with self.assertRaises(OSError):fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
++                    self.assertEqual(p.read_bytes(),b'{}');self.assertTrue((Path(fs.tx.path)/'publish-job.json').exists())
++                fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
++            self.assertEqual(len(attempts),4);self.assertEqual(p.read_bytes(),b'{"after":true}')
++        finally:fs.tx.close()
++    def test_source_dir_fsync_after_rename_failure_exact_retry_syncs_both(self):
++        from secure_fs import digest
++        from storage import Storage
++        p=self.newfile();fs=self.fs();fs.open_transaction(True);attempts=[];real=Directory.fsync
++        try:
++            def injected(directory):
++                attempts.append(directory.path)
++                if directory is fs.tx and attempts.count(directory.path)==2:raise OSError('synthetic post-rename source fsync failure')
++                return real(directory)
++            with patch.object(Directory,'fsync',injected):
++                with self.assertRaises(OSError):fs.publish('publish-job.json',str(p),b'{"after":true}',{digest(b'{}')},{'uid':0,'gid':0,'mode':'0o600'},lambda:None)
++            self.assertEqual(p.read_bytes(),b'{"after":true}');self.assertFalse((Path(fs.tx.path)/'publish-job.json').exists())
++            storage=Storage.__new__(Storage);storage.fs=fs;storage.root=str(self.root);storage.scope={'expected_files':{p.name:'synthetic'},'file_metadata':{p.name:{'uid':0,'gid':0,'mode':'0o600'}}}
++            syncs=[]
++            def recorded(directory):syncs.append(directory.path);return real(directory)
++            with patch.object(Directory,'fsync',recorded):storage.sync_visible(p.name)
++            self.assertEqual(syncs,[str(self.root),fs.tx.path])
++        finally:fs.tx.close()
+ 
+ if __name__=='__main__':unittest.main(verbosity=2)

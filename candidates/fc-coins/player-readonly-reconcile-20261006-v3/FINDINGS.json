@@ -1,0 +1,30 @@
+{
+  "v2_review_manifest_sha256": "8e306f656b39259bb726c35e5fab641fb0ff229ce160e250550eb9fd73423f68",
+  "v2_review_sha256": "557b98adab7aac7b7d523b71e91fac2e33f7769120642d8a162415d71bfdb4e1",
+  "carry_forward_static_closed": [
+    "FC-RC-01",
+    "FC-RC-02",
+    "FC-RC-04",
+    "FC-RC-05"
+  ],
+  "accepted_direction": "final_job_rename_single_gate_visible_publication_point",
+  "review_scope": [
+    "FC-RC-03-v2",
+    "FC-RC-06-v2-A",
+    "FC-RC-06-v2-B"
+  ],
+  "v3_review": "PENDING_THREE_ITEM_REVIEW",
+  "production_approval": false,
+  "releaseReady": false,
+  "code_changes": [
+    "reconcile.py",
+    "secure_fs.py",
+    "storage.py"
+  ],
+  "unchanged_contract_files": {
+    "runner.py": "338601acda231c80deafb13889c8751ed9da93a2596a0a88f5bd5d6a75102a78",
+    "probe.py": "329c3bd28c7222a0a5639106d59bbdb7426a797557c84ef3b607d2daaed059b5",
+    "scope.json": "dabe12eb976ca86a3e0d4d57eb35a0a4f848697daaf08ec896b4c3604919d585",
+    "player_readonly_reconcile_guard.py": "0756d29518adbeb0846431f03ce47933377ad5af2c5867cae7f326be1bb3eec4"
+  }
+}
