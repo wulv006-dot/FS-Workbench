@@ -1,0 +1,186 @@
+--- v4/archive.py
++++ v5/archive.py
+@@ -9,19 +9,21 @@
+ 
+ def main():
+     source=Path(__file__).resolve().parent;root=source.parent
+-    docs=root/'docs/planning/registration-approval-candidate-v4-20261006'
+-    baseline=json.loads((docs/'v3-baseline.json').read_text(encoding='utf-8'))
++    docs=root/'docs/planning/registration-approval-candidate-v5-20261006'
++    baseline=json.loads((docs/'v4-baseline.json').read_text(encoding='utf-8'))
+     def info(path):
+         content=path.read_bytes();return {'bytes':len(content),'sha256':hashlib.sha256(content).hexdigest()}
+     files={str(p.relative_to(source)).replace('\\','/'):info(p) for p in source.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix in ('.py','.json','.html','.js','.css')}
+     old_v2=json.loads((docs/'v2-baseline.json').read_text(encoding='utf-8'))
+     for name,item in old_v2['files'].items():assert info(root/old_v2['source']/name)==item,name
++    old_v3=json.loads((docs/'v3-baseline.json').read_text(encoding='utf-8'))
++    for name,item in old_v3['files'].items():assert info(root/old_v3['source']/name)==item,name
+     diff=[]
+     for name,item in baseline['files'].items():
+         old=root/baseline['source']/name;assert info(old)==item,name
+         a=old.read_text(encoding='utf-8');b=(source/name).read_text(encoding='utf-8')
+-        if a!=b:diff.extend(difflib.unified_diff(a.splitlines(True),b.splitlines(True),fromfile='v3/'+name,tofile='v4/'+name))
+-    (docs/'v3-to-v4.diff').write_text(''.join(diff),encoding='utf-8')
++        if a!=b:diff.extend(difflib.unified_diff(a.splitlines(True),b.splitlines(True),fromfile='v4/'+name,tofile='v5/'+name))
++    (docs/'v4-to-v5.diff').write_text(''.join(diff),encoding='utf-8')
+     provenance=json.loads((docs/'native-source-provenance.json').read_text(encoding='utf-8'))
+     for path,item in provenance['inputs'].items():assert info(root/path)==item,path
+     portal_path='ui_shell_20261006/navigation/auth_unification/auth_portal.py'
+@@ -34,7 +36,7 @@
+     board_path='taskboard_module_20261001/server/taskboard_server.py'
+     assert functions((root/board_path).read_text(encoding='utf-8'))['member_state']==functions((source/'native_taskboard_member.py').read_text(encoding='utf-8'))['member_state']
+     inventory={'at':datetime.now(timezone.utc).isoformat(),'source':source.name,'releaseReady':False,'uploadApproved':False,'productionActions':[],
+-        'files':files,'v3_baseline':baseline,'changed_files':[n for n in baseline['files'] if files[n]!=baseline['files'][n]],
++        'files':files,'v4_baseline':baseline,'changed_files':[n for n in baseline['files'] if files[n]!=baseline['files'][n]],
+         'new_files':sorted(set(files)-set(baseline['files'])),'source_provenance':provenance,'native_functions_exact':True,
+         'central_policy_exact':True,'taskboard_member_function_exact':True,
+         'notes':['local approved references; not current production SHA','synthetic authentication inputs/business payload only','no runtime credentials/group records/databases in inventory']}
+@@ -42,7 +44,7 @@
+     assert source.name not in json.dumps(manifest,ensure_ascii=False)
+     content=json.dumps(inventory,ensure_ascii=False,indent=2)+'\n'
+     (docs/'manifest.json').write_text(content,encoding='utf-8');(docs/'inventory.json').write_text(content,encoding='utf-8')
+-    print(json.dumps({'files':len(files),'v3_16_SHA_preserved':True,'native_source_exact':True,'releaseReady':False}))
++    print(json.dumps({'files':len(files),'v4_18_SHA_preserved':True,'native_source_exact':True,'releaseReady':False}))
+ 
+ 
+ if __name__=='__main__':main()
+--- v4/auth_candidate.py
++++ v5/auth_candidate.py
+@@ -13,6 +13,7 @@
+ from urllib.parse import unquote, urlsplit, parse_qs
+ import uuid
+ import native_access_policy as _native_policy
++from schema_contract import validate as validate_schema
+ 
+ ADMINS = _native_policy.ADMINS  # Compatibility export; live checks use the source policy below.
+ ITERATIONS = 600_000
+@@ -132,10 +133,10 @@
+             raise ValueError('candidate requires a new database')
+         with self.connection() as db:
+             if exists:
+-                if db.execute('PRAGMA user_version').fetchone()[0] not in (2, 3):
+-                    raise ValueError('unsupported candidate database version')
++                validate_schema(db, SCHEMA, db.execute('PRAGMA user_version').fetchone()[0])
+             else:
+                 db.executescript(SCHEMA)
++                validate_schema(db, SCHEMA, 2)
+         # Never uses real account hash for missing-user timing work.
+         self.dummy = password_hash('Synthetic-only-dummy-42')
+ 
+--- v4/bootstrap_local.py
++++ v5/bootstrap_local.py
+@@ -7,6 +7,7 @@
+ import tempfile
+ from contextlib import closing
+ from auth_candidate import SCHEMA
++from schema_contract import validate as validate_schema
+ 
+ 
+ def atomic_write(path, content, staged=lambda: None):
+@@ -71,6 +72,7 @@
+         elif version not in (2,3): raise ValueError('unknown partial database; no overwrite')
+         elif not {'users','requests','sessions','audit','limits'} <= {row[0] for row in tables}:
+             raise ValueError('incomplete database schema; no overwrite')
++        validate_schema(db, SCHEMA, db.execute('PRAGMA user_version').fetchone()[0])
+     checkpoint('schema_committed')
+     return True
+ 
+--- v4/candidate-contract.json
++++ v5/candidate-contract.json
+@@ -38,10 +38,19 @@
+   "nativeSourceAdapterImplemented": true,
+   "adminRoleSource": "native_access_policy.ADMINS and authorize; original b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017 source, live interface checks",
+   "administratorUi": "real local API / native-source login; synthetic credentials/business payload only, no route.fulfill",
+-  "candidate": "registration_approval_candidate_v4_20261006",
++  "candidate": "registration_approval_candidate_v5_20261006",
+   "recovery": {
+     "fileFence": "reset depth on open/acquire/unlock/close failure; only reentrant after OS acquire",
+     "syntheticInitialization": "journal+atomic files+transactional DDL; known partial only; no ready reseed",
+     "logout": "session+Origin+CSRF+signed token; membership-independent atomic session delete + native denylist; 503 rollback without cookie clearing"
++  },
++  "schema_contract": {
++    "supported_versions": [
++      2,
++      3
++    ],
++    "extra_triggers": "reject",
++    "extra_tables_indexes_views": "reject",
++    "unknown_existing_structure": "fail closed; explicit migration; no automatic repair"
+   }
+ }
+--- v4/native_integration.py
++++ v5/native_integration.py
+@@ -12,7 +12,8 @@
+ import native_access_policy as policy
+ import native_portal_functions as functions
+ import native_taskboard_member as board_source
+-from auth_candidate import Adapter, Denied, LegacyIdentity, Store, readonly_allowed
++from auth_candidate import Adapter, Denied, LegacyIdentity, Store, readonly_allowed, SCHEMA
++from schema_contract import validate as validate_schema, NATIVE_SCHEMA
+ 
+ PORTAL_COOKIE = 'MMOEXP_AUTH'
+ 
+@@ -117,8 +118,10 @@
+         namespace.store = self
+         with self.transaction() as db:
+             # Additive candidate schema2→3 migration, preserving users/epochs/history.
+-            db.execute('CREATE TABLE IF NOT EXISTS native_revocations(token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL)')
+-            db.execute('PRAGMA user_version=3')
++            if db.execute('PRAGMA user_version').fetchone()[0] == 2:
++                db.execute(NATIVE_SCHEMA)
++                db.execute('PRAGMA user_version=3')
++            validate_schema(db, SCHEMA, 3)
+ 
+     def register(self, *args, **kw):
+         with self.namespace.fence():
+--- v4/qa.py
++++ v5/qa.py
+@@ -13,6 +13,8 @@
+ import test_candidate
+ import test_integration
+ import test_recovery
++import test_schema
++import test_posix
+ 
+ 
+ def browser_qa(out):
+@@ -75,11 +77,12 @@
+     parser.add_argument('--browser', action='store_true')
+     args=parser.parse_args()
+     out=Path(args.output).resolve(); out.mkdir(parents=True, exist_ok=True)
+-    suite=unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromModule(m) for m in (test_candidate,test_integration,test_recovery)])
++    suite=unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromModule(m) for m in (test_candidate,test_integration,test_recovery,test_schema,test_posix)])
+     with (out/'unit-tests.txt').open('w', encoding='utf-8') as stream:
+         result=unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+     evidence={'at':datetime.now(timezone.utc).isoformat(),'scope':'local synthetic only',
+               'tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),
++              'skipped':[{'test':str(t),'reason':reason} for t,reason in result.skipped],
+               'production_connected':False,'deployed':False,'browser':None}
+     if args.browser:
+         try:
+@@ -91,6 +94,7 @@
+         hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.rglob('*')
+         if p.is_file() and '__pycache__' not in p.parts and p.suffix in ('.py','.js','.html','.css')}
+     (out/'recovery-events.json').write_text(json.dumps(test_recovery.EVIDENCE,indent=2)+'\n',encoding='utf-8')
++    (out/'schema-events.json').write_text(json.dumps(test_schema.EVIDENCE,indent=2)+'\n',encoding='utf-8')
+     (out/'validation.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+     print(json.dumps({k:v for k,v in evidence.items() if k!='source_sha256'},ensure_ascii=True))
+     return 0 if result.wasSuccessful() and (not args.browser or evidence['browser']['passed']) else 1
+--- v4/test_recovery.py
++++ v5/test_recovery.py
+@@ -30,6 +30,7 @@
+         return subprocess.run([sys.executable,'-c',script,str(root),*extra],cwd=Path(__file__).parent,
+                               capture_output=True,text=True,timeout=25)
+ 
++    @unittest.skipUnless(os.name == 'nt','Windows msvcrt branch only; POSIX separately tested')
+     def test_real_open_failure_same_thread_reacquires_os_lock(self):
+         lock=Path(self.tmp.name)/'namespace.lock';lock.unlink();lock.mkdir()
+         with self.assertRaises(OSError):
+@@ -46,6 +47,7 @@
+             result=self.child(self.tmp.name,"import os,msvcrt,sys; f=os.open(sys.argv[1]+'/namespace.lock',os.O_RDWR);\ntry: msvcrt.locking(f,msvcrt.LK_NBLCK,1); print('BAD')\nexcept OSError: print('blocked')\nfinally: os.close(f)")
+             self.assertEqual(result.stdout.strip(),'blocked',result.stderr)
+ 
++    @unittest.skipUnless(os.name == 'nt','Windows msvcrt branch only; POSIX separately tested')
+     def test_acquire_unlock_close_failures_never_leave_reentrant_marker(self):
+         import msvcrt
+         real=msvcrt.locking

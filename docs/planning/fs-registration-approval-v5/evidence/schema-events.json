@@ -1,0 +1,121 @@
+[
+  {
+    "case": "extra-index",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "d25fc9617d38b2148e90872da3bc7536386262a95d39617820e5175b4fe24563"
+  },
+  {
+    "case": "extra-table",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "796e87c29ec067b56e2776a97e1fe284cd4f72d5b0dda4e8764dc88ba5cc953b"
+  },
+  {
+    "case": "extra-view",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "0f11982d78a684c3fb389875a0827ce5265a55ea6ac2cdbd9339ad6bf47d15b4"
+  },
+  {
+    "case": "default",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "aa091d85384f92b3133844730953b1c42857a48a6bb8b09c40eeef65c2b050f8"
+  },
+  {
+    "case": "partial-index",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "44e6e62c18c2b4efd35a8fdf7d3041f4033d476ef3940c423d8c638031d0d995"
+  },
+  {
+    "case": "extra-trigger",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "38cc79e8081ef883ef91785296c6732592556bef17cf11048c9e9b11f608d299"
+  },
+  {
+    "case": "missing-column",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "0c4a14e6a72680e3f78074835c552faf437934a240af738e1c00bd853609a5a5"
+  },
+  {
+    "case": "pending-index",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "7e1d7056b226404ef98bf0c485db6a55a5322b185dda64bc763dd7ef88e8e022"
+  },
+  {
+    "case": "missing-trigger",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "14df6ea4487ed6de346dd7ae199ecdda8bd0206bee12dd0bae8ff48c6bd885de"
+  },
+  {
+    "case": "modified-trigger",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "17c205f83b30c6e6c3d9bfc9fe9c8149a594d61190fb8f3ea65ae4b9c5b1651a"
+  },
+  {
+    "case": "check",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "5a70db2a22eb143a9ff7cbc6a2e4d06843db2a5dcbc9e16ace664b2380667118"
+  },
+  {
+    "case": "foreign-key",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "c6a4ad2d57ee3fa1a1357c21041ab9a82b01c95b88f13baa182b7d637f8f67df"
+  },
+  {
+    "case": "notnull",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "942aebc31ad35d3dbced9cc031577a5cdff737bc73b73647e4cb54eed3144ad1"
+  },
+  {
+    "case": "primary-key",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "0c7b3c9aff40f47c751ca68ebbb6789cb875d3cdf7e5a42fbf3e27003808b385"
+  },
+  {
+    "case": "unique",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "2215feaa4c88fbe465af6ca8900f38eafdd264fa32e32b5e4afa4e8d0066c96b"
+  },
+  {
+    "case": "column-type",
+    "version": 3,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "a507bfd998b073e3fe6aa98bc56b1d942f738d197653bd1b1de7fe012ae01ed5"
+  },
+  {
+    "case": "schema2-unknown-trigger",
+    "version": 2,
+    "reopen": "rejected",
+    "database_bytes_preserved": true,
+    "synthetic_database_sha256": "9a4424e4aff947c4c52702078785661c2f3f20b6ad235826f65c35fbb60c61d2"
+  }
+]

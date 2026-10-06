@@ -1,0 +1,57 @@
+[
+  {
+    "initialization_phase": "journal_staged",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "journal",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "group_dashboard_staged",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "group_dashboard",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "group_deploy_staged",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "group_deploy",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "database_opened",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "schema_before_commit",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "schema_committed",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "registry",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  },
+  {
+    "initialization_phase": "ready",
+    "child_exit": 77,
+    "restart": "ready schema3; zero registered users; source admin authenticates"
+  }
+]

@@ -1,0 +1,79 @@
+{
+  "created_at": "2026-10-06T05:02:04.064194+00:00",
+  "scope": "Independent isolated Linux candidate validation; no production certification",
+  "result": "core_passed_browser_environment_blocked",
+  "runtime": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "sqlite": "3.53.1",
+    "playwright": "1.62.0",
+    "installations_performed": false
+  },
+  "core": {
+    "tests_discovered": 81,
+    "passed": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": [
+      {
+        "test": "test_acquire_unlock_close_failures_never_leave_reentrant_marker (test_recovery.RecoveryTests.test_acquire_unlock_close_failures_never_leave_reentrant_marker)",
+        "reason": "Windows msvcrt branch only; POSIX separately tested"
+      },
+      {
+        "test": "test_real_open_failure_same_thread_reacquires_os_lock (test_recovery.RecoveryTests.test_real_open_failure_same_thread_reacquires_os_lock)",
+        "reason": "Windows msvcrt branch only; POSIX separately tested"
+      }
+    ],
+    "by_file_inventory": {
+      "test_recovery.py": 10,
+      "test_candidate.py": 40,
+      "test_posix.py": 2,
+      "test_integration.py": 12,
+      "test_schema.py": 17
+    },
+    "linux_fcntl_cases": "both passed",
+    "schema_negative_cases_with_byte_preservation": 17,
+    "process_death_initialization_checkpoints": 11,
+    "core_command_exit": 0,
+    "rerun_consistent": true
+  },
+  "independent_probes": {
+    "scope": "independent Linux synthetic probes only",
+    "checks": [
+      "active modules import without opening a SQLite connection or listening socket",
+      "four administrators preserved; existing-name and case-folded native-name registrations denied",
+      "pending registration denied GET and HEAD on all 14 business route contracts",
+      "approved UUID readonly on 14 routes; 70 non-read combinations, deploy and control/unknown routes denied",
+      "missing native source denies both approved and native identities with 503; source restoration recovers",
+      "fresh names snapshot rejects a later case-folded native-name collision",
+      "revocation invalidates old session for all 14 routes and preserves register/approve/revoke history"
+    ],
+    "assertions": 172,
+    "passed": true,
+    "external_connections": false,
+    "production_actions": false
+  },
+  "reproducibility": [
+    "Core runs from unchanged standalone package on installed Python/SQLite stdlib; no pip packages required for core",
+    "Python 3.10 minimum documented but only Python 3.12.14 independently executed here",
+    "Optional browser dependencies are not self-contained or pinned in the package; Playwright Python package exists but matching browser executable is absent",
+    "No dependency installation, candidate mutation or browser executable substitution used"
+  ],
+  "limits": [
+    "Synthetic candidate only. Four policy administrators preserved; no real account data tested",
+    "Fourteen explicit read route contracts tested at adapter boundary; only three synthetic HTTP business routes are implemented. This is not complete production consumer coverage",
+    "No production Nginx/TLS/cookie Secure/ACL/directory-fsync acceptance, external account creator coordination, original-portal global logout denylist wiring, or real migration/restore tested",
+    "Original full-source hashes remain producer references, not newly checked live production hashes",
+    "releaseReady and productionAction remain false"
+  ],
+  "browser": {
+    "status": "blocked_before_browser_launch",
+    "new_browser_checks_passed": 0,
+    "reason": "Installed Playwright lacks matching Chromium executable",
+    "combined_browser_command_exit": 1,
+    "historical_windows_browser_checks": 10,
+    "historical_evidence_is_not_independent_linux_result": true
+  },
+  "releaseReady": false,
+  "provenance": "Selected facts from SHA-frozen independent evidence; environment-specific browser path omitted; original full package hash in source map."
+}

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 3,
+  "status": "local-test-candidate",
+  "releaseReady": false,
+  "uploadApproved": false,
+  "productionAdapterImplemented": false,
+  "storage": "schema2-to3 additive migration and reopen in dedicated fs-registration-* temp directory only",
+  "prefix": "/__auth/access",
+  "cookie": "FS_ACCESS_CANDIDATE",
+  "sessionSeconds": 43200,
+  "passwordHash": "PBKDF2-HMAC-SHA256 / 600000 / random 128-bit salt",
+  "newUserStates": [
+    "pending",
+    "readonly",
+    "rejected",
+    "revoked"
+  ],
+  "approvalGrant": "global readonly identity contract with 14 explicit local integration read routes; remaining production consumers/routes not certified",
+  "existingIdentitySource": "exact native portal read_token / groups_of / authenticate bound in same runtime; no identity resolver mock",
+  "reservedUsernameSource": "source load_htpasswd names-only result behind shared native/registered creator file fence; complete fresh runtime snapshot, no names export",
+  "existingCredentialsCopied": false,
+  "legacyFcMigration": false,
+  "immutableApplicationSnapshot": [
+    "applicant_name",
+    "team",
+    "purpose"
+  ],
+  "readonlyQueryKeysSyntheticOnly": [
+    "mode",
+    "brand",
+    "days",
+    "scope",
+    "period",
+    "category"
+  ],
+  "emailOrOAuth": false,
+  "productionActions": [],
+  "nativeSourceAdapterImplemented": true,
+  "adminRoleSource": "native_access_policy.ADMINS and authorize; original b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017 source, live interface checks",
+  "administratorUi": "real local API / native-source login; synthetic credentials/business payload only, no route.fulfill",
+  "candidate": "registration_approval_candidate_v5_20261006",
+  "recovery": {
+    "fileFence": "reset depth on open/acquire/unlock/close failure; only reentrant after OS acquire",
+    "syntheticInitialization": "journal+atomic files+transactional DDL; known partial only; no ready reseed",
+    "logout": "session+Origin+CSRF+signed token; membership-independent atomic session delete + native denylist; 503 rollback without cookie clearing"
+  },
+  "schema_contract": {
+    "supported_versions": [
+      2,
+      3
+    ],
+    "extra_triggers": "reject",
+    "extra_tables_indexes_views": "reject",
+    "unknown_existing_structure": "fail closed; explicit migration; no automatic repair"
+  }
+}

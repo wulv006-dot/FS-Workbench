@@ -1,0 +1,16 @@
+{
+  "scope": "independent Linux synthetic probes only",
+  "checks": [
+    "active modules import without opening a SQLite connection or listening socket",
+    "four administrators preserved; existing-name and case-folded native-name registrations denied",
+    "pending registration denied GET and HEAD on all 14 business route contracts",
+    "approved UUID readonly on 14 routes; 70 non-read combinations, deploy and control/unknown routes denied",
+    "missing native source denies both approved and native identities with 503; source restoration recovers",
+    "fresh names snapshot rejects a later case-folded native-name collision",
+    "revocation invalidates old session for all 14 routes and preserves register/approve/revoke history"
+  ],
+  "assertions": 172,
+  "passed": true,
+  "external_connections": false,
+  "production_actions": false
+}

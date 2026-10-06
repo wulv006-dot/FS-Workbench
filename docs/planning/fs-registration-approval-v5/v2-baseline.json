@@ -1,0 +1,45 @@
+{
+  "source": "registration_approval_candidate_v2_20261006",
+  "files": {
+    "auth_candidate.py": {
+      "bytes": 26136,
+      "sha256": "62386084124fc6947e20e0c2ce1fff920ba48f33a8af0c598d136e934741ae37"
+    },
+    "preview.py": {
+      "bytes": 4575,
+      "sha256": "f155aa505c886cd864609679ff101058361fadde657d3886f73ccb4ed328f253"
+    },
+    "qa.py": {
+      "bytes": 7549,
+      "sha256": "332b4db61a98481f81d721283af74f2d0d285423f5183d79249c78493f4307bc"
+    },
+    "test_candidate.py": {
+      "bytes": 33066,
+      "sha256": "6f3629b2be806d79061fbae1c6cdbad97f246442510d8e78d1660e0872bfa737"
+    },
+    "archive.py": {
+      "bytes": 3117,
+      "sha256": "96153fc83e3af4d1bd915e012b7e2cba9d5cc9a42bc59f5b21bfd9e8879d4f6b"
+    },
+    "candidate-contract.json": {
+      "bytes": 1163,
+      "sha256": "d4b71f9f39b503025f830de4766886c721bf531adf29ea3724c3b230387eecd4"
+    },
+    "web/index.html": {
+      "bytes": 3537,
+      "sha256": "2259ad855e06cb3619b431d7a75a90583583dc2c3d66fa5ca5c62e21fcde53e6"
+    },
+    "web/app.js": {
+      "bytes": 4557,
+      "sha256": "25c4585b399f8e7955ed1d6340bbc6581ba443f8cd1f75519611080b2d57cb36"
+    },
+    "web/access.css": {
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+    },
+    "web/base.css": {
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+    }
+  }
+}

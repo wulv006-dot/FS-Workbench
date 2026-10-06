@@ -1,0 +1,194 @@
+{
+  "package": "FS-Workbench-registration-approval-v5-review-20261006",
+  "baseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "baseFreshlyRead": false,
+  "existingDraftsReported": 3,
+  "releaseReady": false,
+  "uploadApproved": false,
+  "gitMutation": false,
+  "productionAction": false,
+  "tests": {
+    "passed": 79,
+    "linuxSkipped": 2,
+    "browserPassed": 10
+  },
+  "files": {
+    "candidates/fs-registration-approval/v5/archive.py": {
+      "bytes": 3862,
+      "sha256": "8a9fc89e9d9beab87e62a94ab7fd2fbd727823213f89a24feb9cb036a3e73bfe"
+    },
+    "candidates/fs-registration-approval/v5/auth_candidate.py": {
+      "bytes": 28877,
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492"
+    },
+    "candidates/fs-registration-approval/v5/bootstrap_local.py": {
+      "bytes": 4374,
+      "sha256": "778e20cd8a75c66a07ca37307f98da83588b6be364b5a4c6dacc20453563de7b"
+    },
+    "candidates/fs-registration-approval/v5/candidate-contract.json": {
+      "bytes": 2393,
+      "sha256": "27a3ec7bcc24a0a5156614a2e5c4a975fc1847dc8bb924bd8cc7d4c752171a02"
+    },
+    "candidates/fs-registration-approval/v5/integrated_server.py": {
+      "bytes": 5896,
+      "sha256": "40932193ef398c10b25a364ebceb6955ae58084dd1a33d68f9995ca8ee436d14"
+    },
+    "candidates/fs-registration-approval/v5/linux_validation.py": {
+      "bytes": 317,
+      "sha256": "8e3c5210fa6afd4ab0c7efcb8f70a6272c751c1fd7043fd35cc320b5ef2a9fb6"
+    },
+    "candidates/fs-registration-approval/v5/native_access_policy.py": {
+      "bytes": 1269,
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+    },
+    "candidates/fs-registration-approval/v5/native_integration.py": {
+      "bytes": 10041,
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f"
+    },
+    "candidates/fs-registration-approval/v5/native_portal_functions.py": {
+      "bytes": 5741,
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be"
+    },
+    "candidates/fs-registration-approval/v5/native_taskboard_member.py": {
+      "bytes": 825,
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1"
+    },
+    "candidates/fs-registration-approval/v5/preview.py": {
+      "bytes": 1039,
+      "sha256": "673693cfc8b505b7a3c332aee5b2b3c67888907db61f804f04a2a0c4312ec1ab"
+    },
+    "candidates/fs-registration-approval/v5/qa.py": {
+      "bytes": 7418,
+      "sha256": "cefdd9e729131a5d68d40c4fcf45f3a1413b2688b2e427797ad8b14a02b52636"
+    },
+    "candidates/fs-registration-approval/v5/schema_contract.py": {
+      "bytes": 2719,
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101"
+    },
+    "candidates/fs-registration-approval/v5/test_candidate.py": {
+      "bytes": 33669,
+      "sha256": "1d515bf393c955dfd60ba812d13d8e106c536173f2a25eec031d99370cd8b325"
+    },
+    "candidates/fs-registration-approval/v5/test_integration.py": {
+      "bytes": 13484,
+      "sha256": "22e3e0d4fb4de0bac26c0dae31bcc1ade82925b40b2d2402bd8d6c399c8fa27d"
+    },
+    "candidates/fs-registration-approval/v5/test_posix.py": {
+      "bytes": 2996,
+      "sha256": "71e4700837811f79ace8442bde4896e6bbffb1a2f27139f9d9532c3baf29cdb5"
+    },
+    "candidates/fs-registration-approval/v5/test_recovery.py": {
+      "bytes": 10728,
+      "sha256": "d1b904bc844e21a4565c14822e046f5147cf71914bba5bf6be71f7ef2ca90cff"
+    },
+    "candidates/fs-registration-approval/v5/test_schema.py": {
+      "bytes": 6478,
+      "sha256": "68927a4515bc9e24793fc80b2f6cf50cb9e6e58044348e8c8d623f58c74ca1d2"
+    },
+    "candidates/fs-registration-approval/v5/web/access.css": {
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+    },
+    "candidates/fs-registration-approval/v5/web/app.js": {
+      "bytes": 4682,
+      "sha256": "74a7366c06ac0d6c91b8bf7e82307f49d37c1b9e108799fbf6efa2e3d5253104"
+    },
+    "candidates/fs-registration-approval/v5/web/base.css": {
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+    },
+    "candidates/fs-registration-approval/v5/web/index.html": {
+      "bytes": 4089,
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/approved-mobile-real-local.png": {
+      "bytes": 38192,
+      "sha256": "94dbbc6121ef414431e889bfbd19872c1d71341ab1d2ca312e4e68c075fd29fd"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/guest-mobile.png": {
+      "bytes": 67636,
+      "sha256": "55238dfaaf1979cb1a5484a7db618a8ab0eb75d76467dbbb800efc4e9f5c34af"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/native-admin-real-local.png": {
+      "bytes": 48351,
+      "sha256": "8d9ad9d31efe0c2b3bf3d2545ce1d9c44e0d2900148dde4a54da7ac231bd4d8f"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/recovery-events.json": {
+      "bytes": 1808,
+      "sha256": "31c73eb3500f8944c41a01e03145ac2a059284f359cb6990471d5c3d52cbc0a3"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/schema-events.json": {
+      "bytes": 3840,
+      "sha256": "8e93bc4d7001994c10176662fd6878ab233a2b0e49fa257cb20bcc6c392fbdb2"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/unit-tests.txt": {
+      "bytes": 11869,
+      "sha256": "ec628d84e94519cea6ad76be331be61eca44b5a20c49128ef99fb757e738e3ec"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/validation.json": {
+      "bytes": 3418,
+      "sha256": "ca75fd83924f183a95e98202c313d7e7cf884a4a5178bb17b23ef18df85962cb"
+    },
+    "docs/planning/fs-registration-approval-v5/expected-schema.json": {
+      "bytes": 38388,
+      "sha256": "f8d9a14094be625397fa44e696e3806b3ea76fcd50696e1adca4e62d23a400dd"
+    },
+    "docs/planning/fs-registration-approval-v5/inventory.json": {
+      "bytes": 17890,
+      "sha256": "f1e16e6b0b61e667d2937b00949a32837974a4a2a8be939bc44d350da47609fc"
+    },
+    "docs/planning/fs-registration-approval-v5/manifest.json": {
+      "bytes": 17890,
+      "sha256": "f1e16e6b0b61e667d2937b00949a32837974a4a2a8be939bc44d350da47609fc"
+    },
+    "docs/planning/fs-registration-approval-v5/native-source-provenance.json": {
+      "bytes": 1463,
+      "sha256": "1704a2b4f74130aa28621156a72ceeaffb31bd0439cd2e4e18bdbaa5f0da8210"
+    },
+    "docs/planning/fs-registration-approval-v5/REVIEW.md": {
+      "bytes": 5008,
+      "sha256": "e8c5bbb6e8aafb1f78d6ff3cedfccdb229708b1ec36e164b0dfe5dbd4f1ee5b6"
+    },
+    "docs/planning/fs-registration-approval-v5/v2-baseline.json": {
+      "bytes": 1468,
+      "sha256": "f731799b2d8a5d9c3f2ad611911f2650b7bcfbe1c52d3fc0f5df6b0da1dfdc53"
+    },
+    "docs/planning/fs-registration-approval-v5/v3-baseline.json": {
+      "bytes": 6365,
+      "sha256": "57f0e7e4507af8ba7bc1aabf4fa27b31881f59443f9f135b9c4b92c2200936e0"
+    },
+    "docs/planning/fs-registration-approval-v5/v4-baseline.json": {
+      "bytes": 11666,
+      "sha256": "a53a40f5aeb6a62dc2da4a77a117773a585954d10350b4fe552be976046d0e25"
+    },
+    "docs/planning/fs-registration-approval-v5/v4-to-v5.diff": {
+      "bytes": 10903,
+      "sha256": "008117492047ae1eed5e847aace21dd0d6cc740aa414e952404924f4f4109679"
+    },
+    "docs/planning/fs-registration-approval-v5/VERIFIED.json": {
+      "bytes": 549,
+      "sha256": "def400444aa99f67899834b125dca7cfe1e592e08a9cf8050c214aa9f57697b3"
+    },
+    "INTERFACES.md": {
+      "bytes": 2944,
+      "sha256": "47d9c1fefb5bfba281136d3fe0110a9cc079938f2792f5bd84e7aa12778a215d"
+    },
+    "README.md": {
+      "bytes": 3503,
+      "sha256": "591f006f1888f270c99907afe72fc23d2d75fe0e77b70727042f19b86f5e6dbc"
+    },
+    "REPOSITORY-PLAN.md": {
+      "bytes": 2879,
+      "sha256": "8a1b9dd12f207cb5f190b70fd41457a265ea75bf7cb4081f8d3adbb09b39b2a7"
+    },
+    "verify_package.py": {
+      "bytes": 943,
+      "sha256": "51de87fafb3aea10d14e36e11cbcfe597a26baf48be021d25be65f33485dbc37"
+    }
+  },
+  "sourceSHAUnchanged": true,
+  "sourceRoot": "candidates/fs-registration-approval/v5",
+  "docsRoot": "docs/planning/fs-registration-approval-v5",
+  "runtimeDatabasesSessionsRostersHashesIncluded": false,
+  "newRootPolicyFiles": false
+}

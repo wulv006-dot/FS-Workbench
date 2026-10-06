@@ -1,0 +1,331 @@
+{
+  "at": "2026-10-06T04:28:18.757647+00:00",
+  "source": "registration_approval_candidate_v4_20261006",
+  "releaseReady": false,
+  "uploadApproved": false,
+  "productionActions": [],
+  "files": {
+    "archive.py": {
+      "bytes": 3687,
+      "sha256": "3e4d3a34c18dea0b42a5e47e1baaf6db6138ea6f27b6f8a91bfece694ac25880"
+    },
+    "auth_candidate.py": {
+      "bytes": 28848,
+      "sha256": "048f06e317532fc2acb617ecea30d7d41c34bc32e6a2fedaba6a38e0782fea29"
+    },
+    "bootstrap_local.py": {
+      "bytes": 4233,
+      "sha256": "1f56361e2780cea6f2f88b3a15e3787ca089c2753241ec5aa9e433f7ae07948c"
+    },
+    "candidate-contract.json": {
+      "bytes": 2139,
+      "sha256": "bfa4755433586b70939945b260db43a0a7b24ac60b2570e6dc1891eb6d714fb6"
+    },
+    "integrated_server.py": {
+      "bytes": 5896,
+      "sha256": "40932193ef398c10b25a364ebceb6955ae58084dd1a33d68f9995ca8ee436d14"
+    },
+    "native_access_policy.py": {
+      "bytes": 1269,
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+    },
+    "native_integration.py": {
+      "bytes": 9933,
+      "sha256": "d06d5f1a4f76f3ba3a34e63275e2e372de86a8c1c232561168661ad19fef8376"
+    },
+    "native_portal_functions.py": {
+      "bytes": 5741,
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be"
+    },
+    "native_taskboard_member.py": {
+      "bytes": 825,
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1"
+    },
+    "preview.py": {
+      "bytes": 1039,
+      "sha256": "673693cfc8b505b7a3c332aee5b2b3c67888907db61f804f04a2a0c4312ec1ab"
+    },
+    "qa.py": {
+      "bytes": 7162,
+      "sha256": "c8648b458ec6bab30e0977d95eb82b4a429dfab36d7ba769f9626e8aa44334e8"
+    },
+    "test_candidate.py": {
+      "bytes": 33669,
+      "sha256": "1d515bf393c955dfd60ba812d13d8e106c536173f2a25eec031d99370cd8b325"
+    },
+    "test_integration.py": {
+      "bytes": 13484,
+      "sha256": "22e3e0d4fb4de0bac26c0dae31bcc1ade82925b40b2d2402bd8d6c399c8fa27d"
+    },
+    "test_recovery.py": {
+      "bytes": 10536,
+      "sha256": "c0ad06b7c0540fae40f8e6a94ba616d3fd92faefac6837d9cb402e7010207d49"
+    },
+    "web/access.css": {
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+    },
+    "web/app.js": {
+      "bytes": 4682,
+      "sha256": "74a7366c06ac0d6c91b8bf7e82307f49d37c1b9e108799fbf6efa2e3d5253104"
+    },
+    "web/base.css": {
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+    },
+    "web/index.html": {
+      "bytes": 4089,
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+    }
+  },
+  "v3_baseline": {
+    "at": "2026-10-06T04:13:37.733330+00:00",
+    "source": "registration_approval_candidate_v3_20261006",
+    "releaseReady": false,
+    "uploadApproved": false,
+    "productionActions": [],
+    "files": {
+      "archive.py": {
+        "bytes": 3513,
+        "sha256": "d40b8120f28ac0902049d0d0564865f7b27686b01a49b6e8a6ad77328f4e8a23"
+      },
+      "auth_candidate.py": {
+        "bytes": 28661,
+        "sha256": "0bb3fab1417184649bd23c679d0caca2c0f355bb27344fe57d9b69cf68f01d21"
+      },
+      "candidate-contract.json": {
+        "bytes": 1687,
+        "sha256": "c1c285c1416a2fe66725b9006fa5fa28e35e87439bbd780c8897dbb8ffdb2911"
+      },
+      "integrated_server.py": {
+        "bytes": 6036,
+        "sha256": "e0a7d2e8d17e1d898a6c0f410b114390cef8ed1e58c1dd403b2ebb2b24393b70"
+      },
+      "native_access_policy.py": {
+        "bytes": 1269,
+        "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+      },
+      "native_integration.py": {
+        "bytes": 9219,
+        "sha256": "a018d83f9aee63410707c6b349e6bc9be7ce49717a1818c76663632a5fab6ab4"
+      },
+      "native_portal_functions.py": {
+        "bytes": 5741,
+        "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be"
+      },
+      "native_taskboard_member.py": {
+        "bytes": 825,
+        "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1"
+      },
+      "preview.py": {
+        "bytes": 1039,
+        "sha256": "673693cfc8b505b7a3c332aee5b2b3c67888907db61f804f04a2a0c4312ec1ab"
+      },
+      "qa.py": {
+        "bytes": 7020,
+        "sha256": "ce5fa422602333467823b811624592b96b85ccabbc2b6fc8c59fd6aad308f17a"
+      },
+      "test_candidate.py": {
+        "bytes": 33669,
+        "sha256": "1d515bf393c955dfd60ba812d13d8e106c536173f2a25eec031d99370cd8b325"
+      },
+      "test_integration.py": {
+        "bytes": 13484,
+        "sha256": "22e3e0d4fb4de0bac26c0dae31bcc1ade82925b40b2d2402bd8d6c399c8fa27d"
+      },
+      "web/access.css": {
+        "bytes": 1065,
+        "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+      },
+      "web/app.js": {
+        "bytes": 4682,
+        "sha256": "74a7366c06ac0d6c91b8bf7e82307f49d37c1b9e108799fbf6efa2e3d5253104"
+      },
+      "web/base.css": {
+        "bytes": 7581,
+        "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+      },
+      "web/index.html": {
+        "bytes": 4089,
+        "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+      }
+    },
+    "v2_baseline": {
+      "source": "registration_approval_candidate_v2_20261006",
+      "files": {
+        "auth_candidate.py": {
+          "bytes": 26136,
+          "sha256": "62386084124fc6947e20e0c2ce1fff920ba48f33a8af0c598d136e934741ae37"
+        },
+        "preview.py": {
+          "bytes": 4575,
+          "sha256": "f155aa505c886cd864609679ff101058361fadde657d3886f73ccb4ed328f253"
+        },
+        "qa.py": {
+          "bytes": 7549,
+          "sha256": "332b4db61a98481f81d721283af74f2d0d285423f5183d79249c78493f4307bc"
+        },
+        "test_candidate.py": {
+          "bytes": 33066,
+          "sha256": "6f3629b2be806d79061fbae1c6cdbad97f246442510d8e78d1660e0872bfa737"
+        },
+        "archive.py": {
+          "bytes": 3117,
+          "sha256": "96153fc83e3af4d1bd915e012b7e2cba9d5cc9a42bc59f5b21bfd9e8879d4f6b"
+        },
+        "candidate-contract.json": {
+          "bytes": 1163,
+          "sha256": "d4b71f9f39b503025f830de4766886c721bf531adf29ea3724c3b230387eecd4"
+        },
+        "web/index.html": {
+          "bytes": 3537,
+          "sha256": "2259ad855e06cb3619b431d7a75a90583583dc2c3d66fa5ca5c62e21fcde53e6"
+        },
+        "web/app.js": {
+          "bytes": 4557,
+          "sha256": "25c4585b399f8e7955ed1d6340bbc6581ba443f8cd1f75519611080b2d57cb36"
+        },
+        "web/access.css": {
+          "bytes": 1065,
+          "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+        },
+        "web/base.css": {
+          "bytes": 7581,
+          "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+        }
+      }
+    },
+    "changed_files": [
+      "auth_candidate.py",
+      "preview.py",
+      "qa.py",
+      "test_candidate.py",
+      "archive.py",
+      "candidate-contract.json",
+      "web/index.html",
+      "web/app.js"
+    ],
+    "new_files": [
+      "integrated_server.py",
+      "native_access_policy.py",
+      "native_integration.py",
+      "native_portal_functions.py",
+      "native_taskboard_member.py",
+      "test_integration.py"
+    ],
+    "source_provenance": {
+      "inputs": {
+        "ui_shell_20261006/navigation/auth_unification/auth_portal.py": {
+          "sha256": "001c1a609f703bed9d003740123cc2a9bec2ea6be496fa814f07921215b70bd0",
+          "bytes": 29411
+        },
+        "fs_platform_integration_20261005/data/raw/chenchao-source/fs-platform-src/opt/fs-access-policy/access_policy.py": {
+          "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+          "bytes": 1269
+        },
+        "taskboard_module_20261001/server/taskboard_server.py": {
+          "sha256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+          "bytes": 40777
+        },
+        "ui_shell_20261006/navigation/auth_unification/nginx-fc-routes.conf": {
+          "sha256": "ad425ff98b3770ae309e3a659f376abe55fca2dd31375deb6f5eea2da93dd206",
+          "bytes": 3650
+        },
+        "ui_shell_20261006/navigation/auth_unification/gate_identity.py": {
+          "sha256": "68ca19d7c49246da92bc426920361b219206ca4d572b3b95a4b028155e537bba",
+          "bytes": 726
+        }
+      },
+      "portal_functions": [
+        "_b64d",
+        "_b64e",
+        "_sign",
+        "_to64",
+        "apr1_md5",
+        "authenticate",
+        "check_hash",
+        "groups_of",
+        "load_htpasswd",
+        "make_token",
+        "parse_cookies",
+        "read_token"
+      ],
+      "notes": [
+        "no complete native module import or config.env read",
+        "only source functions and non-secret policy copied",
+        "source hashes are local approved references, not current production SHA"
+      ]
+    },
+    "native_functions_exact": true,
+    "central_policy_exact": true,
+    "taskboard_member_function_exact": true,
+    "notes": [
+      "local approved references; not current production SHA",
+      "synthetic authentication inputs/business payload only",
+      "no runtime credentials/group records/databases in inventory"
+    ]
+  },
+  "changed_files": [
+    "archive.py",
+    "auth_candidate.py",
+    "candidate-contract.json",
+    "integrated_server.py",
+    "native_integration.py",
+    "qa.py"
+  ],
+  "new_files": [
+    "bootstrap_local.py",
+    "test_recovery.py"
+  ],
+  "source_provenance": {
+    "inputs": {
+      "ui_shell_20261006/navigation/auth_unification/auth_portal.py": {
+        "sha256": "001c1a609f703bed9d003740123cc2a9bec2ea6be496fa814f07921215b70bd0",
+        "bytes": 29411
+      },
+      "fs_platform_integration_20261005/data/raw/chenchao-source/fs-platform-src/opt/fs-access-policy/access_policy.py": {
+        "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+        "bytes": 1269
+      },
+      "taskboard_module_20261001/server/taskboard_server.py": {
+        "sha256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+        "bytes": 40777
+      },
+      "ui_shell_20261006/navigation/auth_unification/nginx-fc-routes.conf": {
+        "sha256": "ad425ff98b3770ae309e3a659f376abe55fca2dd31375deb6f5eea2da93dd206",
+        "bytes": 3650
+      },
+      "ui_shell_20261006/navigation/auth_unification/gate_identity.py": {
+        "sha256": "68ca19d7c49246da92bc426920361b219206ca4d572b3b95a4b028155e537bba",
+        "bytes": 726
+      }
+    },
+    "portal_functions": [
+      "_b64d",
+      "_b64e",
+      "_sign",
+      "_to64",
+      "apr1_md5",
+      "authenticate",
+      "check_hash",
+      "groups_of",
+      "load_htpasswd",
+      "make_token",
+      "parse_cookies",
+      "read_token"
+    ],
+    "notes": [
+      "no complete native module import or config.env read",
+      "only source functions and non-secret policy copied",
+      "source hashes are local approved references, not current production SHA"
+    ]
+  },
+  "native_functions_exact": true,
+  "central_policy_exact": true,
+  "taskboard_member_function_exact": true,
+  "notes": [
+    "local approved references; not current production SHA",
+    "synthetic authentication inputs/business payload only",
+    "no runtime credentials/group records/databases in inventory"
+  ]
+}

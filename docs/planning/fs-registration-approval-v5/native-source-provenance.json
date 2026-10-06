@@ -1,0 +1,43 @@
+{
+  "inputs": {
+    "ui_shell_20261006/navigation/auth_unification/auth_portal.py": {
+      "sha256": "001c1a609f703bed9d003740123cc2a9bec2ea6be496fa814f07921215b70bd0",
+      "bytes": 29411
+    },
+    "fs_platform_integration_20261005/data/raw/chenchao-source/fs-platform-src/opt/fs-access-policy/access_policy.py": {
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "bytes": 1269
+    },
+    "taskboard_module_20261001/server/taskboard_server.py": {
+      "sha256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+      "bytes": 40777
+    },
+    "ui_shell_20261006/navigation/auth_unification/nginx-fc-routes.conf": {
+      "sha256": "ad425ff98b3770ae309e3a659f376abe55fca2dd31375deb6f5eea2da93dd206",
+      "bytes": 3650
+    },
+    "ui_shell_20261006/navigation/auth_unification/gate_identity.py": {
+      "sha256": "68ca19d7c49246da92bc426920361b219206ca4d572b3b95a4b028155e537bba",
+      "bytes": 726
+    }
+  },
+  "portal_functions": [
+    "_b64d",
+    "_b64e",
+    "_sign",
+    "_to64",
+    "apr1_md5",
+    "authenticate",
+    "check_hash",
+    "groups_of",
+    "load_htpasswd",
+    "make_token",
+    "parse_cookies",
+    "read_token"
+  ],
+  "notes": [
+    "no complete native module import or config.env read",
+    "only source functions and non-secret policy copied",
+    "source hashes are local approved references, not current production SHA"
+  ]
+}

@@ -1,0 +1,389 @@
+{
+  "moduleId": "fs-registration-approval",
+  "baseCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
+  "branch": "wulv/fs-registration-approval-v5-20261006",
+  "allowedRoots": [
+    "candidates/fs-registration-approval/v5",
+    "docs/planning/fs-registration-approval-v5"
+  ],
+  "releaseReady": false,
+  "productionAction": false,
+  "sourcePackageSHA256": "a58f55731b1f3dfc1654d218f0a57823c3762b40100ae91d1db5e7a1583e9dbf",
+  "sourceManifestSHA256": "a7fb9b017f5ebf57c467d838fe3ef3cefe117e5576ec399414f05b37ac76b1da",
+  "sourceCanonicalFileSetSHA256": "6e16c774c972de8841a22e6aa3a14435a2480e3e976497ec0bd261e834a3dba0",
+  "independentEvidencePackageSHA256": "95f0c0f774c29beb78ecddb9cb8d1ea840da44c9642d412a666ac0c6775ade72",
+  "sourceFiles": 22,
+  "frozenPackageEntries": 44,
+  "batchFilesIncludingThisMap": 54,
+  "files": {
+    "candidates/fs-registration-approval/v5/archive.py": {
+      "bytes": 3862,
+      "sha256": "8a9fc89e9d9beab87e62a94ab7fd2fbd727823213f89a24feb9cb036a3e73bfe",
+      "gitBlob": "01f8a25198cdfb42e44c511a419e037bd8135704",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/archive.py"
+    },
+    "candidates/fs-registration-approval/v5/auth_candidate.py": {
+      "bytes": 28877,
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "gitBlob": "c06ff108989d6adf05f2fb033e47c162f00aefbc",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/auth_candidate.py"
+    },
+    "candidates/fs-registration-approval/v5/bootstrap_local.py": {
+      "bytes": 4374,
+      "sha256": "778e20cd8a75c66a07ca37307f98da83588b6be364b5a4c6dacc20453563de7b",
+      "gitBlob": "b62612a4dc795a1e51c47888bcf57368ef30bb15",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/bootstrap_local.py"
+    },
+    "candidates/fs-registration-approval/v5/candidate-contract.json": {
+      "bytes": 2393,
+      "sha256": "27a3ec7bcc24a0a5156614a2e5c4a975fc1847dc8bb924bd8cc7d4c752171a02",
+      "gitBlob": "9734279569185fa6647f73c9bad9ee962c73f94a",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/candidate-contract.json"
+    },
+    "candidates/fs-registration-approval/v5/integrated_server.py": {
+      "bytes": 5896,
+      "sha256": "40932193ef398c10b25a364ebceb6955ae58084dd1a33d68f9995ca8ee436d14",
+      "gitBlob": "453aff75fecf478e74a2029fbd45c3110ba7b646",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/integrated_server.py"
+    },
+    "candidates/fs-registration-approval/v5/linux_validation.py": {
+      "bytes": 317,
+      "sha256": "8e3c5210fa6afd4ab0c7efcb8f70a6272c751c1fd7043fd35cc320b5ef2a9fb6",
+      "gitBlob": "e59d7c8e1358c97ab1e72af6df7325bd4c7608ca",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/linux_validation.py"
+    },
+    "candidates/fs-registration-approval/v5/native_access_policy.py": {
+      "bytes": 1269,
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "gitBlob": "026ae12ff671d1cbbd94f01b96b7ae169dba2355",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/native_access_policy.py"
+    },
+    "candidates/fs-registration-approval/v5/native_integration.py": {
+      "bytes": 10041,
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "gitBlob": "153db519ae6cac45dfb66abf017a2bdbefccf98e",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/native_integration.py"
+    },
+    "candidates/fs-registration-approval/v5/native_portal_functions.py": {
+      "bytes": 5741,
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "gitBlob": "b573f8cff226315dbc4949359df4b28f0c98a417",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/native_portal_functions.py"
+    },
+    "candidates/fs-registration-approval/v5/native_taskboard_member.py": {
+      "bytes": 825,
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "gitBlob": "79dab08fa330706a485109ac5ccc13df35351b83",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/native_taskboard_member.py"
+    },
+    "candidates/fs-registration-approval/v5/preview.py": {
+      "bytes": 1039,
+      "sha256": "673693cfc8b505b7a3c332aee5b2b3c67888907db61f804f04a2a0c4312ec1ab",
+      "gitBlob": "88b8a23494f3cfec63194b48b16f941442fa5ed0",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/preview.py"
+    },
+    "candidates/fs-registration-approval/v5/qa.py": {
+      "bytes": 7418,
+      "sha256": "cefdd9e729131a5d68d40c4fcf45f3a1413b2688b2e427797ad8b14a02b52636",
+      "gitBlob": "054b8759b0212a4efa4de19a359ff1b75920c62b",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/qa.py"
+    },
+    "candidates/fs-registration-approval/v5/schema_contract.py": {
+      "bytes": 2719,
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "gitBlob": "ee654b7d480759e5b60ad0530babc4836067d78b",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/schema_contract.py"
+    },
+    "candidates/fs-registration-approval/v5/test_candidate.py": {
+      "bytes": 33669,
+      "sha256": "1d515bf393c955dfd60ba812d13d8e106c536173f2a25eec031d99370cd8b325",
+      "gitBlob": "64a12ceebd73cd232879bbe4c4ca4bc7eda9c852",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/test_candidate.py"
+    },
+    "candidates/fs-registration-approval/v5/test_integration.py": {
+      "bytes": 13484,
+      "sha256": "22e3e0d4fb4de0bac26c0dae31bcc1ade82925b40b2d2402bd8d6c399c8fa27d",
+      "gitBlob": "26395a68d80a4e32590a06f02a318fbb391f03c2",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/test_integration.py"
+    },
+    "candidates/fs-registration-approval/v5/test_posix.py": {
+      "bytes": 2996,
+      "sha256": "71e4700837811f79ace8442bde4896e6bbffb1a2f27139f9d9532c3baf29cdb5",
+      "gitBlob": "d7bc796ce6b5e519bf5f8296a02aafa197ef0f72",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/test_posix.py"
+    },
+    "candidates/fs-registration-approval/v5/test_recovery.py": {
+      "bytes": 10728,
+      "sha256": "d1b904bc844e21a4565c14822e046f5147cf71914bba5bf6be71f7ef2ca90cff",
+      "gitBlob": "405d2b00cdf482a7b1514ba1cd70a3505f6426a6",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/test_recovery.py"
+    },
+    "candidates/fs-registration-approval/v5/test_schema.py": {
+      "bytes": 6478,
+      "sha256": "68927a4515bc9e24793fc80b2f6cf50cb9e6e58044348e8c8d623f58c74ca1d2",
+      "gitBlob": "00b158d02d714ef26eba3eba9a15305430e5b403",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/test_schema.py"
+    },
+    "candidates/fs-registration-approval/v5/web/access.css": {
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "gitBlob": "1f77e03d86eedd21bedbc900763e6c27d1de9dd4",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/web/access.css"
+    },
+    "candidates/fs-registration-approval/v5/web/app.js": {
+      "bytes": 4682,
+      "sha256": "74a7366c06ac0d6c91b8bf7e82307f49d37c1b9e108799fbf6efa2e3d5253104",
+      "gitBlob": "af89385096226d8302424b81a224992ca9b45ebb",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/web/app.js"
+    },
+    "candidates/fs-registration-approval/v5/web/base.css": {
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "gitBlob": "1f2d31c72edad5d4b580230441cbe83594d3afd6",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/web/base.css"
+    },
+    "candidates/fs-registration-approval/v5/web/index.html": {
+      "bytes": 4089,
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+      "gitBlob": "0eb030a708fd645389c7c50401a6905511fd1ed7",
+      "kind": "frozen-source-package",
+      "sourcePath": "candidates/fs-registration-approval/v5/web/index.html"
+    },
+    "docs/planning/fs-registration-approval-v5/README.md": {
+      "bytes": 5756,
+      "sha256": "5be2f5c288a7558d44db656b7b6366fb6f05a5d7d9669eb6df2e8ec5cb65f74e",
+      "gitBlob": "981f191ab485490acd3086755f9f5eee94abbe26",
+      "kind": "repository-review-metadata"
+    },
+    "docs/planning/fs-registration-approval-v5/REVIEW.md": {
+      "bytes": 5008,
+      "sha256": "e8c5bbb6e8aafb1f78d6ff3cedfccdb229708b1ec36e164b0dfe5dbd4f1ee5b6",
+      "gitBlob": "4598eaf8429342e0e3da7bb0ca2f55a7ee0e09dd",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/REVIEW.md"
+    },
+    "docs/planning/fs-registration-approval-v5/VERIFIED.json": {
+      "bytes": 549,
+      "sha256": "def400444aa99f67899834b125dca7cfe1e592e08a9cf8050c214aa9f57697b3",
+      "gitBlob": "a43d78926d4cfa56c79866ab13b9388540fbdba0",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/VERIFIED.json"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/approved-mobile-real-local.png": {
+      "bytes": 38192,
+      "sha256": "94dbbc6121ef414431e889bfbd19872c1d71341ab1d2ca312e4e68c075fd29fd",
+      "gitBlob": "ac20ddb4f1c0213d2f4f559241d7974fcdee3bb2",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/approved-mobile-real-local.png"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/guest-mobile.png": {
+      "bytes": 67636,
+      "sha256": "55238dfaaf1979cb1a5484a7db618a8ab0eb75d76467dbbb800efc4e9f5c34af",
+      "gitBlob": "5f5b393a379f1091074c5a0f8a55c0a70ebb6b00",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/guest-mobile.png"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/native-admin-real-local.png": {
+      "bytes": 48351,
+      "sha256": "8d9ad9d31efe0c2b3bf3d2545ce1d9c44e0d2900148dde4a54da7ac231bd4d8f",
+      "gitBlob": "73bf860191085674660c7f3742dd7cc0051c0e43",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/native-admin-real-local.png"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/recovery-events.json": {
+      "bytes": 1808,
+      "sha256": "31c73eb3500f8944c41a01e03145ac2a059284f359cb6990471d5c3d52cbc0a3",
+      "gitBlob": "3f6925e7b50a6c45f7689b610842341ddcb2e13c",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/recovery-events.json"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/schema-events.json": {
+      "bytes": 3840,
+      "sha256": "8e93bc4d7001994c10176662fd6878ab233a2b0e49fa257cb20bcc6c392fbdb2",
+      "gitBlob": "07aa1f21a94d408b94472bc1a806a231a4d8bd12",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/schema-events.json"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/unit-tests.txt": {
+      "bytes": 11869,
+      "sha256": "ec628d84e94519cea6ad76be331be61eca44b5a20c49128ef99fb757e738e3ec",
+      "gitBlob": "07f744c1224f2cd3d68344e7ec7f6b88212cc513",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/unit-tests.txt"
+    },
+    "docs/planning/fs-registration-approval-v5/evidence/validation.json": {
+      "bytes": 3418,
+      "sha256": "ca75fd83924f183a95e98202c313d7e7cf884a4a5178bb17b23ef18df85962cb",
+      "gitBlob": "e9f4fe264aecb2e3a837618c6637a6b72be83140",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/evidence/validation.json"
+    },
+    "docs/planning/fs-registration-approval-v5/expected-schema.json": {
+      "bytes": 38388,
+      "sha256": "f8d9a14094be625397fa44e696e3806b3ea76fcd50696e1adca4e62d23a400dd",
+      "gitBlob": "32cdbc9ef58ea8f58cbd3eba74ddd945a8b4bf1b",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/expected-schema.json"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/SUMMARY.json": {
+      "bytes": 4016,
+      "sha256": "f754fb80741ae354520cb515febc855d484221c2d21eac8465cdb2074715e82f",
+      "gitBlob": "a7a65567c02d91e1fc6dca30ac3836cf6f3d51ba",
+      "kind": "repository-review-summary"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/independent-probes.json": {
+      "bytes": 852,
+      "sha256": "ca1d53515f41818da508492b61506091c4de2e52587b697f2a1f9ab9e5105d76",
+      "gitBlob": "a8237bf55a2d5c46fc8719ea0532232e93021d65",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "independent-probes.json"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/independent_probes.py": {
+      "bytes": 6124,
+      "sha256": "ebe2e27da8bbd4d86f2d9c1c3b25c8e0133f4e2f7c29d7e354d8a5648a7b35bc",
+      "gitBlob": "512cf952600a0d35841c5b87fd880b3d93dc6b55",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "independent_probes.py"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/recovery-events.json": {
+      "bytes": 1751,
+      "sha256": "a239a70047754c3547e22de5ded34eb89a297c5ff8f439bd5280e6adfce4fe69",
+      "gitBlob": "6eeeba091d6f4a53a2dcd3c467ba49540741eea4",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "evidence-core/recovery-events.json"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/schema-events.json": {
+      "bytes": 3719,
+      "sha256": "8ccd1bcd79db96463d1a07fe1afa6c9073cbe98cad676eabed6bb5ce0275d79b",
+      "gitBlob": "1bcade009567d7bee8a3653900fa2ec7d47f200a",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "evidence-core/schema-events.json"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/unit-tests.txt": {
+      "bytes": 11811,
+      "sha256": "3e0acf8a6f9765760564d514701c739192e52b1c7e64c6ee833dd49b9d21c385",
+      "gitBlob": "02b7ffb252a84794ba00650d3493bc0aa9cb5e53",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "evidence-core/unit-tests.txt"
+    },
+    "docs/planning/fs-registration-approval-v5/independent-linux/validation.json": {
+      "bytes": 2680,
+      "sha256": "e50176f3de2933923127c10512e0347166b00b5df4e4d4b044ca79228aa069c9",
+      "gitBlob": "9f6069dfb0954635fbcec93bd20c8065ec7911e6",
+      "kind": "independent-linux-evidence-package",
+      "sourcePath": "evidence-core/validation.json"
+    },
+    "docs/planning/fs-registration-approval-v5/inventory.json": {
+      "bytes": 17890,
+      "sha256": "f1e16e6b0b61e667d2937b00949a32837974a4a2a8be939bc44d350da47609fc",
+      "gitBlob": "001344cb699181febbac67067d4249f0e97900de",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/inventory.json"
+    },
+    "docs/planning/fs-registration-approval-v5/manifest.json": {
+      "bytes": 17890,
+      "sha256": "f1e16e6b0b61e667d2937b00949a32837974a4a2a8be939bc44d350da47609fc",
+      "gitBlob": "001344cb699181febbac67067d4249f0e97900de",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/manifest.json"
+    },
+    "docs/planning/fs-registration-approval-v5/native-source-provenance.json": {
+      "bytes": 1463,
+      "sha256": "1704a2b4f74130aa28621156a72ceeaffb31bd0439cd2e4e18bdbaa5f0da8210",
+      "gitBlob": "2e5c55f60de48418aefb961c6f784134b171b4d5",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/native-source-provenance.json"
+    },
+    "docs/planning/fs-registration-approval-v5/package/INTERFACES.md": {
+      "bytes": 2944,
+      "sha256": "47d9c1fefb5bfba281136d3fe0110a9cc079938f2792f5bd84e7aa12778a215d",
+      "gitBlob": "f1c19c40e423cddf69eb4c3998e274a48b7982db",
+      "kind": "frozen-source-package",
+      "sourcePath": "INTERFACES.md"
+    },
+    "docs/planning/fs-registration-approval-v5/package/README.md": {
+      "bytes": 3503,
+      "sha256": "591f006f1888f270c99907afe72fc23d2d75fe0e77b70727042f19b86f5e6dbc",
+      "gitBlob": "d22eea0bd6d04b9a8417913a41859857405de558",
+      "kind": "frozen-source-package",
+      "sourcePath": "README.md"
+    },
+    "docs/planning/fs-registration-approval-v5/package/REPOSITORY-PLAN.md": {
+      "bytes": 2879,
+      "sha256": "8a1b9dd12f207cb5f190b70fd41457a265ea75bf7cb4081f8d3adbb09b39b2a7",
+      "gitBlob": "18ab19638251289481b06e82511cb620c692b2ec",
+      "kind": "frozen-source-package",
+      "sourcePath": "REPOSITORY-PLAN.md"
+    },
+    "docs/planning/fs-registration-approval-v5/package/package-manifest.json": {
+      "bytes": 8396,
+      "sha256": "a7fb9b017f5ebf57c467d838fe3ef3cefe117e5576ec399414f05b37ac76b1da",
+      "gitBlob": "384da8976db4b55c9a352e18010832d0f81e6f4f",
+      "kind": "frozen-source-package",
+      "sourcePath": "package-manifest.json"
+    },
+    "docs/planning/fs-registration-approval-v5/package/verify_package.py": {
+      "bytes": 943,
+      "sha256": "51de87fafb3aea10d14e36e11cbcfe597a26baf48be021d25be65f33485dbc37",
+      "gitBlob": "08f753c662922b0a85c129849f367d1b9569ea3a",
+      "kind": "frozen-source-package",
+      "sourcePath": "verify_package.py"
+    },
+    "docs/planning/fs-registration-approval-v5/v2-baseline.json": {
+      "bytes": 1468,
+      "sha256": "f731799b2d8a5d9c3f2ad611911f2650b7bcfbe1c52d3fc0f5df6b0da1dfdc53",
+      "gitBlob": "a1c55f5d0171b064ff47e0f2a267fc833d29170e",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/v2-baseline.json"
+    },
+    "docs/planning/fs-registration-approval-v5/v3-baseline.json": {
+      "bytes": 6365,
+      "sha256": "57f0e7e4507af8ba7bc1aabf4fa27b31881f59443f9f135b9c4b92c2200936e0",
+      "gitBlob": "532afa6132f470125be873f36dffb6a8f3544124",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/v3-baseline.json"
+    },
+    "docs/planning/fs-registration-approval-v5/v4-baseline.json": {
+      "bytes": 11666,
+      "sha256": "a53a40f5aeb6a62dc2da4a77a117773a585954d10350b4fe552be976046d0e25",
+      "gitBlob": "75510979fd0cb9cbfcfe3ec14077e9f18db59768",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/v4-baseline.json"
+    },
+    "docs/planning/fs-registration-approval-v5/v4-to-v5.diff": {
+      "bytes": 10903,
+      "sha256": "008117492047ae1eed5e847aace21dd0d6cc740aa414e952404924f4f4109679",
+      "gitBlob": "fe323e1113c703323c4b46c379a6eedfa672017c",
+      "kind": "frozen-source-package",
+      "sourcePath": "docs/planning/fs-registration-approval-v5/v4-to-v5.diff"
+    },
+    "docs/planning/fs-registration-approval-v5/verify_repository_batch.py": {
+      "bytes": 1640,
+      "sha256": "8f9fb9296329ca17cff6a5053ade90de375d2372a3aa8c1a080d00789ebd1cc3",
+      "gitBlob": "1d74bc2242c738abdaa796b741747d145e5ec902",
+      "kind": "repository-review-metadata"
+    }
+  },
+  "selfHashPolicy": "This map excludes itself; its blob is bound by the Git commit tree."
+}

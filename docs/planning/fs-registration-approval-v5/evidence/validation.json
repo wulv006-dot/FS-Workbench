@@ -1,0 +1,58 @@
+{
+  "at": "2026-10-06T04:39:33.243626+00:00",
+  "scope": "local synthetic only",
+  "tests": 81,
+  "failures": 0,
+  "errors": 0,
+  "skipped": [
+    {
+      "test": "test_acquire_unlock_close_exceptions_reset_before_next_actual_lock (test_posix.PosixTests.test_acquire_unlock_close_exceptions_reset_before_next_actual_lock)",
+      "reason": "requires existing local Linux runtime"
+    },
+    {
+      "test": "test_open_failure_same_thread_reacquires_and_real_process_cannot_enter (test_posix.PosixTests.test_open_failure_same_thread_reacquires_and_real_process_cannot_enter)",
+      "reason": "requires existing local Linux runtime"
+    }
+  ],
+  "production_connected": false,
+  "deployed": false,
+  "browser": {
+    "checks": [
+      "real_local_guest_mobile_dark_layout",
+      "real_local_pending_registration_login",
+      "native_source_password_signature_live_group_admin_ui",
+      "real_admin_api_approval_no_route_fulfill",
+      "registered_uuid_trusted_proxy_native_consumer_viewer",
+      "registered_write_denied_before_consumer",
+      "real_admin_revoke_existing_user_cookie_rejected",
+      "revoked_ui_requires_login",
+      "native_and_registration_logout_cookies_cleared",
+      "no_javascript_errors"
+    ],
+    "passed": true,
+    "admin": "real local native-source authentication and real approval API; synthetic credentials and business payload only; no route.fulfill"
+  },
+  "source_sha256": {
+    "archive.py": "8a9fc89e9d9beab87e62a94ab7fd2fbd727823213f89a24feb9cb036a3e73bfe",
+    "auth_candidate.py": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+    "bootstrap_local.py": "778e20cd8a75c66a07ca37307f98da83588b6be364b5a4c6dacc20453563de7b",
+    "integrated_server.py": "40932193ef398c10b25a364ebceb6955ae58084dd1a33d68f9995ca8ee436d14",
+    "linux_validation.py": "8e3c5210fa6afd4ab0c7efcb8f70a6272c751c1fd7043fd35cc320b5ef2a9fb6",
+    "native_access_policy.py": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+    "native_integration.py": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+    "native_portal_functions.py": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+    "native_taskboard_member.py": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+    "preview.py": "673693cfc8b505b7a3c332aee5b2b3c67888907db61f804f04a2a0c4312ec1ab",
+    "qa.py": "cefdd9e729131a5d68d40c4fcf45f3a1413b2688b2e427797ad8b14a02b52636",
+    "schema_contract.py": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+    "test_candidate.py": "1d515bf393c955dfd60ba812d13d8e106c536173f2a25eec031d99370cd8b325",
+    "test_integration.py": "22e3e0d4fb4de0bac26c0dae31bcc1ade82925b40b2d2402bd8d6c399c8fa27d",
+    "test_posix.py": "71e4700837811f79ace8442bde4896e6bbffb1a2f27139f9d9532c3baf29cdb5",
+    "test_recovery.py": "d1b904bc844e21a4565c14822e046f5147cf71914bba5bf6be71f7ef2ca90cff",
+    "test_schema.py": "68927a4515bc9e24793fc80b2f6cf50cb9e6e58044348e8c8d623f58c74ca1d2",
+    "web/access.css": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+    "web/app.js": "74a7366c06ac0d6c91b8bf7e82307f49d37c1b9e108799fbf6efa2e3d5253104",
+    "web/base.css": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+    "web/index.html": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+  }
+}

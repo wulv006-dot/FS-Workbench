@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-06T04:41:33.599855+00:00",
+  "source_files": 22,
+  "test_SHA_matches": true,
+  "v2_v3_v4_frozen": true,
+  "schema_negative_cases": 17,
+  "database_bytes_preserved": true,
+  "tests_passed": 79,
+  "linux_tests_skipped": 2,
+  "browser_checks": 10,
+  "runtime_databases_archived": false,
+  "manifest_sha256": "f1e16e6b0b61e667d2937b00949a32837974a4a2a8be939bc44d350da47609fc",
+  "raw_log_sha256": "ec628d84e94519cea6ad76be331be61eca44b5a20c49128ef99fb757e738e3ec",
+  "releaseReady": false,
+  "uploadApproved": false
+}
