@@ -1,0 +1,417 @@
+{
+  "auditedAtUtc": "2026-10-06T16:54:15.043732+00:00",
+  "scope": "B-CL-01 only plus direct deadline/response/auth context",
+  "verdict": "B-CL-01-closed-new-two-file-freeze-and-Linux43-eligible",
+  "closedFinding": "B-CL-01",
+  "newConfirmedBlockingFindings": [],
+  "productionReleaseApproved": false,
+  "productionReady": false,
+  "candidateExecuted": false,
+  "candidateImported": false,
+  "candidateTestsRun": false,
+  "httpStarted": false,
+  "productionAccess": false,
+  "candidateModified": false,
+  "originalFreezeModified": false,
+  "checks": {
+    "incrementalDiffMatches": true,
+    "fullDiffMatches": true,
+    "changedBridgeMethods": [
+      "Bridge.legacy_logout"
+    ],
+    "all32PayloadsMatch": true,
+    "original31FrozenMatch": true,
+    "twoMergeCopiesMatch": true,
+    "rawlogShaMatches": true,
+    "rawlogPassed": 41,
+    "rawlogSkipped": 2,
+    "rawlogTotal": 43,
+    "rawlogEndsOk": true,
+    "globalIntLimitSetterAdded": false
+  },
+  "payloadResults": [
+    {
+      "path": "registration_approval_runtime_v3_20261006/archive.py",
+      "sha256": "63df29c9dd27063b329d3b94e0a491c7937311d74520579530e7f639db31308f",
+      "bytes": 2545,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/consumer_seams.py",
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "bytes": 4857,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/fc_gate.py.txt",
+      "sha256": "8504d677f2c1160949cdee92f8b44873b128a46719126fa00969c7cf03d3d13a",
+      "bytes": 14258,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/portal.py.txt",
+      "sha256": "496367367990c34115776854318dead41445eb0741ccb9639c100314d72820fc",
+      "bytes": 15635,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/references.json",
+      "sha256": "fa37d00df1447f004da12444617bd3e91073f5deb7a5bb32704ee96e5f985edc",
+      "bytes": 926,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/taskboard.py.txt",
+      "sha256": "7bbb5dbe39bd5f61974fce759acff87f8a3be58dad65424a6409699e82258b31",
+      "bytes": 11075,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-runtime-v1.json",
+      "sha256": "b5d7c568ed0c5c93fe92aaa9d7daaa82cefc2e60ffbd41d7edd7a3053c6c09dc",
+      "bytes": 1778,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-runtime-v2.json",
+      "sha256": "8079332be42c8793bf3bce0e201579d34aa1e234f0f0cb5ba54497606a2e63bb",
+      "bytes": 2729,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-vendor.json",
+      "sha256": "187ad4c9bbb89c2d924aace8110a056c5f0fe780ac4dc71be246b850639cbbfd",
+      "bytes": 584,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/portal_bridge.py",
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "bytes": 7466,
+      "matches": true,
+      "change": "modified",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": false
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/process_probe.py",
+      "sha256": "ffe94ddcd938310c3d0e7110118d0f4e9b4a37e000f873c09bd7e3cbddc7a1a5",
+      "bytes": 3489,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/qa.py",
+      "sha256": "af499c58abb6aab581f6b62765284aa26d19a32e7a7600049a05850b8fa0fd04",
+      "bytes": 3131,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/route-contract.json",
+      "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b",
+      "bytes": 3825,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/runtime.py",
+      "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "bytes": 12958,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/source_cas.py",
+      "sha256": "1a78ff4f0a9155e6e62b5bbd2940d30ddd3317183d1b312a33897a53e4696a05",
+      "bytes": 3071,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/storage_checkpoint.py",
+      "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "bytes": 1869,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_consumers.py",
+      "sha256": "1e08cafcf3ac3764b2f414f583ec480e6485babe2a3264b34949c4124a746991",
+      "bytes": 2727,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_direct_calls.py",
+      "sha256": "854131169073f950dfbf62c83af750a1cc4cd8c0445a93fbc87cb2f819664572",
+      "bytes": 15296,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_posix_runtime.py",
+      "sha256": "9db6711621b41df7809711d00ed34d85a1b6ceaf2b9a7364b1d91b2f6acb09ac",
+      "bytes": 2017,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_restart.py",
+      "sha256": "053601fffc38c054e0df98ebd912ce6ce6b90ea3f830d2a63b929c254873d808",
+      "bytes": 5825,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_runtime.py",
+      "sha256": "787678f140514d37cdb6f6973ef8c7f26dca5245c3ffad337ca5e7289b75d8e4",
+      "bytes": 10743,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/auth_candidate.py",
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "bytes": 28877,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_access_policy.py",
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "bytes": 1269,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_integration.py",
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "bytes": 10041,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py",
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "bytes": 5741,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py",
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "bytes": 825,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/schema_contract.py",
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "bytes": 2719,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/access.css",
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "bytes": 1065,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/app.js",
+      "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "bytes": 4654,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/base.css",
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "bytes": 7581,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/index.html",
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+      "bytes": 4089,
+      "matches": true,
+      "change": "unchanged",
+      "originalFrozenMatches": true,
+      "unchangedFromFrozen": true
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_http_content_length.py",
+      "sha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398",
+      "bytes": 4985,
+      "matches": true,
+      "change": "added"
+    }
+  ],
+  "mergeFileResults": [
+    {
+      "repoPath": "registration_approval_runtime_v3_20261006/portal_bridge.py",
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "bytes": 7466,
+      "matches": true
+    },
+    {
+      "repoPath": "registration_approval_runtime_v3_20261006/test_http_content_length.py",
+      "sha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398",
+      "bytes": 4985,
+      "matches": true
+    }
+  ],
+  "portalSha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+  "newTestSha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398",
+  "newTestMethods": [
+    "ContentLengthTests.test_long_leading_zeroes_reach_real_header_limit",
+    "ContentLengthTests.test_small_legal_values_and_4096_boundary",
+    "ContentLengthTests.test_large_values_reject_without_body_read",
+    "ContentLengthTests.test_duplicate_negative_and_malformed_lengths"
+  ],
+  "newHttpSubcasesStaticallyCounted": 24,
+  "newHttpSubcaseGroups": {
+    "longZero": 4,
+    "legal": 6,
+    "large": 5,
+    "malformed": 9
+  },
+  "savedWindowsSummary": {
+    "candidate_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+    "exit_code": 0,
+    "total": 43,
+    "passed": 41,
+    "skipped": 2,
+    "original_contract_total": 39,
+    "new_header_methods": 4,
+    "new_header_cases": 24,
+    "duration_seconds": 14.748,
+    "rawlog_sha256": "37b8e874511ac6eb02080517859f3ebbef8f7f7cfe2756e4217886b89eb56149",
+    "exact_candidate_full_runs": 1,
+    "retry": false,
+    "linux_run": false,
+    "production_ready": false
+  },
+  "savedDeadlineSample": {
+    "source": "candidate-v4",
+    "candidate_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+    "single_sample": true,
+    "purpose": "check whether claimed 1-second total body bound holds under progress every0.6s",
+    "client_timeout_unchanged": 3,
+    "rows": [
+      {
+        "event": "client-byte-sent",
+        "index": 0,
+        "relative_seconds": 0.00036
+      },
+      {
+        "event": "client-byte-sent",
+        "index": 1,
+        "relative_seconds": 0.608117
+      },
+      {
+        "event": "server-response-start",
+        "status": 400,
+        "relative_seconds": 1.008985
+      },
+      {
+        "event": "client-response",
+        "status": 400,
+        "will_close": true,
+        "relative_seconds": 1.009663
+      }
+    ],
+    "server_thread_joined": true,
+    "production_contacted": false,
+    "full_suite_executed": false
+  },
+  "codeEvidence": {
+    "parser": "portal_bridge.py:30-38",
+    "deadline": "portal_bridge.py:42-58",
+    "response": "portal_bridge.py:15-19,25,37,60-61",
+    "tests": "test_http_content_length.py:78-122",
+    "unchangedMethods": [
+      "Bridge.send",
+      "Bridge.verify",
+      "Bridge.route",
+      "Bridge.__init__"
+    ]
+  },
+  "expectedGitBase": "64028127dddd4b78e8ec1c0531a78c929f35c925",
+  "expectedOriginalPortalSha256": "95e3d21deaa099cfc19df01d7d3ae9507c2377f0dbc12e5f8fd41933e41bab7f",
+  "newGitCommitVerified": false,
+  "newGitTreeVerified": false,
+  "newLinux43Passed": false,
+  "historical10054ExactAliasOrPacketCauseProved": false,
+  "operationalBoundary": "Can freeze/merge only exact two reviewed files into new commit after actual base verification; then new-SHA Linux43 including both POSIX checks; old Linux39 does not substitute. No production/upload/service/permission actions authorized or performed here."
+}

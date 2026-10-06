@@ -1,0 +1,16 @@
+{
+  "candidate_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+  "exit_code": 0,
+  "total": 43,
+  "passed": 41,
+  "skipped": 2,
+  "original_contract_total": 39,
+  "new_header_methods": 4,
+  "new_header_cases": 24,
+  "duration_seconds": 14.748,
+  "rawlog_sha256": "37b8e874511ac6eb02080517859f3ebbef8f7f7cfe2756e4217886b89eb56149",
+  "exact_candidate_full_runs": 1,
+  "retry": false,
+  "linux_run": false,
+  "production_ready": false
+}

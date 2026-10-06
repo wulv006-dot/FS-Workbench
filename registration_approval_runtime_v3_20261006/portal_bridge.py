@@ -1,5 +1,6 @@
 """Explicit boot hook for native Handler. Import does not import/start the portal."""
 import json
+import time
 from pathlib import Path
 import types
 from urllib.parse import parse_qs, urlsplit
@@ -10,12 +11,54 @@ class Bridge:
     def __init__(self, app, adapter, portal):
         self.app, self.adapter, self.portal = app, adapter, portal
 
+    @staticmethod
+    def send(handler, code, body=b'', ctype='text/plain; charset=utf-8', headers=None):
+        output = list(headers or [])
+        if getattr(handler, 'close_connection', False) and not any(k.lower() == 'connection' for k, v in output):
+            output.append(('Connection', 'close'))
+        return handler._send(code, body, ctype, headers=output)
+
     def legacy_logout(self, handler):
         """Confirmation only; the sole mutating logout is Origin+CSRF API logout."""
         if handler.command in ('GET', 'HEAD'):
             return handler._redirect(core.PREFIX + '/')
         handler.close_connection = True
-        return handler._send(405, 'Use CSRF protected /__auth/access/api/logout')
+        # A refusal must not race closing TCP against the legitimate request
+        # body. Drain only an unambiguous, bounded Content-Length; never use
+        # the body for authentication or dispatch the historical logout.
+        headers = getattr(handler, 'headers', {})
+        lengths = headers.get_all('Content-Length', []) if hasattr(headers, 'get_all') else [headers.get('Content-Length', '0')]
+        if not lengths:
+            lengths = ['0']
+        if headers.get('Transfer-Encoding') or len(lengths) != 1 or not str(lengths[0]).isascii() or not str(lengths[0]).isdecimal():
+            return self.send(handler, 400, 'invalid framing')
+        digits = str(lengths[0]).lstrip('0') or '0'
+        if len(digits) > 4 or (len(digits) == 4 and digits > '4096'):
+            return self.send(handler, 400, 'invalid framing')
+        length = int(digits)
+        if length:
+            connection = handler.connection
+            previous_timeout = connection.gettimeout()
+            deadline = time.monotonic() + 1.0
+            remaining = length
+            complete = True
+            try:
+                while remaining:
+                    budget = deadline - time.monotonic()
+                    if budget <= 0:
+                        raise TimeoutError('request body deadline')
+                    connection.settimeout(budget)
+                    chunk = handler.rfile.read1(remaining)
+                    if not chunk:
+                        raise ValueError('incomplete request body')
+                    remaining -= len(chunk)
+            except (OSError, ValueError):
+                complete = False
+            finally:
+                connection.settimeout(previous_timeout)
+            if not complete:
+                return self.send(handler, 400, 'incomplete request body')
+        return self.send(handler, 405, 'Use CSRF protected /__auth/access/api/logout')
 
     def verify(self, handler, group=''):
         try:
@@ -23,9 +66,9 @@ class Bridge:
             code, headers = self.adapter.verify(cookies,
                 handler.headers.get('X-Original-Method', 'GET'),
                 handler.headers.get('X-Original-URI', '/'), group)
-            return handler._send(code, 'OK' if code == 200 else 'access denied', headers=list(headers.items()))
+            return self.send(handler, code, 'OK' if code == 200 else 'access denied', headers=list(headers.items()))
         except Exception:
-            return handler._send(503, 'verification unavailable')
+            return self.send(handler, 503, 'verification unavailable')
 
     def route(self, handler, old_route):
         if handler.command not in ('GET', 'HEAD'):
@@ -51,15 +94,15 @@ class Bridge:
             '/access/access.css': ('access.css', 'text/css; charset=utf-8')}
         if path in static and handler.command in ('GET', 'HEAD'):
             name, mime = static[path]
-            return handler._send(200, (HERE / 'web' / name).read_bytes(), mime,
+            return self.send(handler, 200, (HERE / 'web' / name).read_bytes(), mime,
                 headers=[('X-Content-Type-Options', 'nosniff'), ('Content-Security-Policy',
                     "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")])
         if not path.startswith('/access/api/'):
-            return handler._send(404, 'not found')
+            return self.send(handler, 404, 'not found')
         try:
             length = int(handler.headers.get('Content-Length', '0'))
             if not 0 <= length <= 4096 or handler.headers.get('Transfer-Encoding'):
-                return handler._send(400, 'invalid framing')
+                return self.send(handler, 400, 'invalid framing')
             cookies = self.portal.parse_cookies(handler.headers.get('Cookie', ''))
             code, result, headers = self.app.dispatch(handler.command,
                 handler.path[len('/access'):], headers=dict(handler.headers), cookies=cookies,
@@ -68,10 +111,10 @@ class Bridge:
             for key, value in headers.items():
                 for item in value if isinstance(value, list) else [value]:
                     output.append((key, item))
-            return handler._send(code, json.dumps(result, ensure_ascii=False),
+            return self.send(handler, code, json.dumps(result, ensure_ascii=False),
                 'application/json; charset=utf-8', headers=output)
         except Exception:
-            return handler._send(503, 'access service unavailable')
+            return self.send(handler, 503, 'access service unavailable')
 
 
 def install(portal, origin, *, isolated=False):
