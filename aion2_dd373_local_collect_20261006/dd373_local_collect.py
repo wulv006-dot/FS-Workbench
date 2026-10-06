@@ -35,7 +35,11 @@ for _k in ("http_proxy", "https_proxy", "all_proxy",
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SRC = os.path.join(ROOT, "改前源")
+# 解析模块 core_dd373_cost.py：优先用**本目录的副本**（run_collect.py 每轮会从服务器
+# scp 同步最新版，保证口径与线上一致）；没有副本时退回归档目录的「改前源」。
+SRC = HERE
+if not os.path.exists(os.path.join(SRC, "core_dd373_cost.py")):
+    SRC = os.path.join(ROOT, "改前源")
 sys.path.insert(0, SRC)
 
 import core_dd373_cost as dd          # noqa: E402
@@ -157,18 +161,25 @@ def make_get(cookie):
 
 
 def push_to_server(js_path, key, host, verbose=True):
-    """把采集结果推给服务器 /api/dd373_cost（经 SSH：scp 上传 + 本机回环 POST）。
+    """把采集结果推给服务器 /api/dd373_cost（经 SSH：ssh+cat 上传 + 本机回环 POST）。
 
     为什么不用 HTTP 直连：服务器的 8900 只监听回环，公网不可达（实测
     `curl http://47.85.224.112:8900/api/health` = 000）。SSH 已经是通的，最省事。
+
+    为什么不用 scp：本机**自带的 `C:\\Windows\\System32\\OpenSSH\\scp.exe` 不可用**
+    （2026-10-06 实测恒报 `scp: pipe: Unknown error`；同目录的 ssh.exe 正常）。
+    所以改成 `ssh host "cat > 远端"`，用标准输入把文件内容喂过去。
     """
     import subprocess
     remote = "/tmp/dd373_push.json"
     _b = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=25"]
-    r1 = subprocess.run(["scp", "-i", key] + _b + [js_path, "%s:%s" % (host, remote)],
-                        capture_output=True)
+    with open(js_path, "rb") as _f:
+        _data = _f.read()
+    r1 = subprocess.run(["ssh", "-i", key] + _b + [host, "cat > %s" % remote],
+                        input=_data, capture_output=True)
     if r1.returncode != 0:
-        print("[push] scp 失败：%s" % r1.stderr.decode("utf-8", "ignore")[-300:])
+        print("[push] 上传失败（ssh cat）：%s"
+              % (r1.stderr or b"").decode("utf-8", "ignore")[-300:])
         return False
     cmd = ("curl -s -m 60 -X POST http://127.0.0.1:8900/api/dd373_cost"
            " -H 'Content-Type: application/json; charset=utf-8'"

@@ -900,7 +900,10 @@ class Task(object):
                         _j = json.load(_f)
                     _t = dt.datetime.fromisoformat(str(_j.get("pushed_at") or ""))
                     _age = (dt.datetime.now() - _t).total_seconds() / 60.0
-                    if _age < 20:
+                    # 2026-10-06：本机采集已挂 Windows 计划任务（每 20 分钟一次），
+                    # 窗口必须 **大于** 20 分钟，否则边界上会判「过期」→ 服务器去自抓
+                    # → 撞风控（既浪费又持续给风控续命）。取 25 分钟留 5 分钟余量。
+                    if _age < 25:
                         log("  [成本] 本机 %.1f 分钟前刚推送 %d 条 DD373 成本"
                             "（有效 %d）—— 本轮跳过服务器自抓（避免继续撞风控）"
                             % (_age, _j.get("saved") or 0, _j.get("ok_rows") or 0))
