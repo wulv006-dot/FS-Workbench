@@ -1,14 +1,14 @@
 {
-  "revision": "governance-20261007-v1",
-  "status": "local active candidate; not historical frozen allowlist",
+  "revision": "governance-20261007-merge",
+  "status": "active PR6 merge candidate; historical candidate unchanged",
   "releaseReady": false,
   "manifestSelfExclusions": [
     "docs/integration/UPLOAD-ALLOWLIST.json",
     "docs/provenance/UPLOAD-ALLOWLIST.json"
   ],
   "contentFiles": 321,
-  "contentBytes": 12386477,
-  "contentSetSha256": "0131e734fc8bd311d6f6c3a68b3887e0c55f3b86e4edcbcb03c180470e6c7614",
+  "contentBytes": 12396068,
+  "contentSetSha256": "4eda9611a34d593cbb9da1a5610a8d4fb521fc99c9a4893c662fae3ac8ee9a57",
   "files": [
     {
       "path": ".gitignore",
@@ -19,10 +19,24 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 9803,
-      "sha256": "9361389f0bc0ab8b949ffbc2ffda4702bc3a5911bf8578ff6fed528dfc644604",
+      "bytes": 12217,
+      "sha256": "eab06230da6db91f2f41973b6e6cff0fe7111c1c6755a788cc32ca172f6df027",
       "gitMode": "100644",
-      "gitBlobSha1": "f3117ed3d9860b7609d5fc8e60e4d928330a2e74"
+      "gitBlobSha1": "d95cf9a96358f2004d8afcd3132bc007a6c5cebe"
+    },
+    {
+      "path": "HANDOFF.md",
+      "bytes": 7588,
+      "sha256": "e489f3b50edcc7202734065999bfa49ca3b69cf3e397944fd499e3255cd688ac",
+      "gitMode": "100644",
+      "gitBlobSha1": "55109d0c2a10c4fca90849bd062bfdb04c21d803"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5369,
+      "sha256": "c7bf75a6014e4db6e02bfcdcbe38526dd5a9b2d61014728efb420493543b5d31",
+      "gitMode": "100644",
+      "gitBlobSha1": "f83d9d68cf6a61ea0f267f425c00d06c122abef1"
     },
     {
       "path": "aion2_dashboard_20261004/aion2-status.js",
@@ -102,6 +116,76 @@
       "gitBlobSha1": "98c460561a80fa38947571638606231ae2fca3c9"
     },
     {
+      "path": "docs/DATA-CONTRACT.md",
+      "bytes": 1713,
+      "sha256": "5def06c0c93d77f66100cbb18d33217dee731accd50493e1a6f1dd4722afcfe9",
+      "gitMode": "100644",
+      "gitBlobSha1": "b06cb6d9e352af102b5ff1cbd611a6e39e42e25d"
+    },
+    {
+      "path": "docs/DEPENDENCIES-AND-OTHER-MACHINE.md",
+      "bytes": 3872,
+      "sha256": "8d06b9237fe6a32eb7b0803f741ae04fc48efe6b79577dcbcc7cfc445482b295",
+      "gitMode": "100644",
+      "gitBlobSha1": "8904d6a0c67673f46bc493ee83115f8955ff0e7c"
+    },
+    {
+      "path": "docs/DEVELOPMENT.md",
+      "bytes": 2087,
+      "sha256": "28568de2df4e3e7ee9b9cdf23fdc2e18c451b0aafbe1c79bae4eb34daf6d72dc",
+      "gitMode": "100644",
+      "gitBlobSha1": "f55f4039524bc1aa91cc56e74f53a14ff0bb1976"
+    },
+    {
+      "path": "docs/FC-DISCOUNT-CONTRACT.md",
+      "bytes": 1401,
+      "sha256": "e68cb325224136a707e568d66e730ea2fb4d72cfd7d1623bfa828df9abec1266",
+      "gitMode": "100644",
+      "gitBlobSha1": "48037764c84f5fcac9823e69bca58f5a4a266551"
+    },
+    {
+      "path": "docs/OPEN-DECISIONS.md",
+      "bytes": 1410,
+      "sha256": "18ca3b3c940d3501868b018494df6faa128185dc4497cd6a77380b9130a11ea9",
+      "gitMode": "100644",
+      "gitBlobSha1": "4c8ee4812f5be4645ab0e294bab8815e82947dad"
+    },
+    {
+      "path": "docs/OPERATIONS-ROLLBACK.md",
+      "bytes": 2000,
+      "sha256": "876c51631503579ec962f29430d3bec96238fe9258b637a6630d31711f0a7fb5",
+      "gitMode": "100644",
+      "gitBlobSha1": "dcfc92fdc139402bc83b9bb82afb192bdd95dc16"
+    },
+    {
+      "path": "docs/PIPELINE-INCIDENT.md",
+      "bytes": 3659,
+      "sha256": "f865e6605c716dfcdc1ff26f9bac001ecfb008d376a76dcb410af9b4081266c4",
+      "gitMode": "100644",
+      "gitBlobSha1": "80192f5a2fa3ded3c98f91d7fcac9107b113564f"
+    },
+    {
+      "path": "docs/RESTORED-V7.md",
+      "bytes": 2098,
+      "sha256": "ed99b4677c7d1d82ad497be67ebab003e2055f6f29f1a19410432d81b280af90",
+      "gitMode": "100644",
+      "gitBlobSha1": "1ac470d5d3cd6a1e97ece0a6dbde097946a8e4ac"
+    },
+    {
+      "path": "docs/SOURCE-MAP.md",
+      "bytes": 3467,
+      "sha256": "3a4a5211017aac7fbe2de1e2733328d678d4804e6ccbd9ca810341bc17811c8e",
+      "gitMode": "100644",
+      "gitBlobSha1": "144938ff7a376aca83d371a21ca2e244cdb625c4"
+    },
+    {
+      "path": "docs/TESTING.md",
+      "bytes": 4857,
+      "sha256": "7be0196831ad76dc748b37e0daddaa247e04e8a5020cff365d67f078cab5abb7",
+      "gitMode": "100644",
+      "gitBlobSha1": "7314fdb9615b8576e7e0a2aea0fe5fc28888f37c"
+    },
+    {
       "path": "docs/collaboration/CONNECTOR-HANDOFF.md",
       "bytes": 2273,
       "sha256": "6035c826aab97319aa7b77d06c67e7d295c62c3ef158f61cbbd070b8a43999ff",
@@ -110,10 +194,10 @@
     },
     {
       "path": "docs/collaboration/CURRENT-STATUS.md",
-      "bytes": 4797,
-      "sha256": "c83145d255ef974f4775f0f8c4159104d13a558b733e269dac619fbb4d4d2226",
+      "bytes": 8260,
+      "sha256": "673ca06f9d0ee50c953563bda6a365b23e4950433db9a3b1e07dd3e83804fd5b",
       "gitMode": "100644",
-      "gitBlobSha1": "a75f3f8802d0669ad4d459f85a1c6e337dd764d3"
+      "gitBlobSha1": "8630448e76817c6abcbc139155b8c359ee54e42d"
     },
     {
       "path": "docs/collaboration/FC-READ-DECISION.md",
@@ -159,59 +243,31 @@
     },
     {
       "path": "docs/collaboration/OPERATION-GUIDE.md",
-      "bytes": 23799,
-      "sha256": "47904ae878847b284693956f82f55834aa6310f55cebd6ae7079f38e49c4377c",
+      "bytes": 26213,
+      "sha256": "797c3c1ed736b6df586119e46cd469541cfc30a5c8b3bc9c9423b9fe131ee09c",
       "gitMode": "100644",
-      "gitBlobSha1": "c80aa627936a1fbca0412b956c18d6d6d7ee7776"
+      "gitBlobSha1": "350cd9ca73b7a55cbc13d431814fff2873275544"
     },
     {
       "path": "docs/collaboration/OWNERS.json",
-      "bytes": 25939,
-      "sha256": "ad523324a7fb74d7d27357090604404749bf3de5867d5484963ee40ce6231417",
+      "bytes": 25354,
+      "sha256": "d5bac481a53190f74020562040abe89a5e310e3ca7c59fec9ba60edf392da2ff",
       "gitMode": "100644",
-      "gitBlobSha1": "019ac365852c6dcbf3a6b92c6e51404a99728c7b"
+      "gitBlobSha1": "99a6aea06a93fbbe2d97ca850f1a39cbbcf45b33"
     },
     {
       "path": "docs/collaboration/READINESS.json",
-      "bytes": 8303,
-      "sha256": "3d7fba8fde0c713ac24fdab6a410a8ab117c069003ddcf34b0b0c1b79cb0845e",
+      "bytes": 9076,
+      "sha256": "b03e5f7743c0fba3a501d67517c5a052532f9c1b56eea3b74ad5a84b6f39249d",
       "gitMode": "100644",
-      "gitBlobSha1": "0947d353e1ae543e5cccea93157177c83f6d7e8e"
+      "gitBlobSha1": "5a7ae71ea61a3cdc0f71e827c84c3daac62d9564"
     },
     {
       "path": "docs/collaboration/SOURCE-MAP.json",
-      "bytes": 226323,
-      "sha256": "ae7bd2fabcac4d5fe2fbce6fe0d54d7e14d3870985148251b8a82455948ab78e",
+      "bytes": 221556,
+      "sha256": "1a142338a8592459c92db86fad6866f4f2091e7d2a2f15981303762a9b52815b",
       "gitMode": "100644",
-      "gitBlobSha1": "69abeabc4061905930cde0f3f3649e89eb7d4fca"
-    },
-    {
-      "path": "docs/DATA-CONTRACT.md",
-      "bytes": 1713,
-      "sha256": "5def06c0c93d77f66100cbb18d33217dee731accd50493e1a6f1dd4722afcfe9",
-      "gitMode": "100644",
-      "gitBlobSha1": "b06cb6d9e352af102b5ff1cbd611a6e39e42e25d"
-    },
-    {
-      "path": "docs/DEPENDENCIES-AND-OTHER-MACHINE.md",
-      "bytes": 3872,
-      "sha256": "8d06b9237fe6a32eb7b0803f741ae04fc48efe6b79577dcbcc7cfc445482b295",
-      "gitMode": "100644",
-      "gitBlobSha1": "8904d6a0c67673f46bc493ee83115f8955ff0e7c"
-    },
-    {
-      "path": "docs/DEVELOPMENT.md",
-      "bytes": 2087,
-      "sha256": "28568de2df4e3e7ee9b9cdf23fdc2e18c451b0aafbe1c79bae4eb34daf6d72dc",
-      "gitMode": "100644",
-      "gitBlobSha1": "f55f4039524bc1aa91cc56e74f53a14ff0bb1976"
-    },
-    {
-      "path": "docs/FC-DISCOUNT-CONTRACT.md",
-      "bytes": 1401,
-      "sha256": "e68cb325224136a707e568d66e730ea2fb4d72cfd7d1623bfa828df9abec1266",
-      "gitMode": "100644",
-      "gitBlobSha1": "48037764c84f5fcac9823e69bca58f5a4a266551"
+      "gitBlobSha1": "e63fa2a287110bb4bf65b448cbc59b7f1295a795"
     },
     {
       "path": "docs/fc27-coins/discount-config-release-20261005/tests/audit-vectors.json",
@@ -333,27 +389,6 @@
       "gitBlobSha1": "badfce83d5ca15ec1a76a052a79732d6c643c09d"
     },
     {
-      "path": "docs/OPEN-DECISIONS.md",
-      "bytes": 1410,
-      "sha256": "18ca3b3c940d3501868b018494df6faa128185dc4497cd6a77380b9130a11ea9",
-      "gitMode": "100644",
-      "gitBlobSha1": "4c8ee4812f5be4645ab0e294bab8815e82947dad"
-    },
-    {
-      "path": "docs/OPERATIONS-ROLLBACK.md",
-      "bytes": 2000,
-      "sha256": "876c51631503579ec962f29430d3bec96238fe9258b637a6630d31711f0a7fb5",
-      "gitMode": "100644",
-      "gitBlobSha1": "dcfc92fdc139402bc83b9bb82afb192bdd95dc16"
-    },
-    {
-      "path": "docs/PIPELINE-INCIDENT.md",
-      "bytes": 3659,
-      "sha256": "f865e6605c716dfcdc1ff26f9bac001ecfb008d376a76dcb410af9b4081266c4",
-      "gitMode": "100644",
-      "gitBlobSha1": "80192f5a2fa3ded3c98f91d7fcac9107b113564f"
-    },
-    {
       "path": "docs/provenance/restored-v7.json",
       "bytes": 835,
       "sha256": "599359f7c530a7c27bbe2f58c5c1a7b6a8ee3bc75969bddd0ad3ac28e57ab1a8",
@@ -366,27 +401,6 @@
       "sha256": "704f033ecf08b42b6f59f96c90c782d651400910d20f96ba7333ee124acba91e",
       "gitMode": "100644",
       "gitBlobSha1": "0f29e4e8da0eaa48fec6be306ea014ea7c466585"
-    },
-    {
-      "path": "docs/RESTORED-V7.md",
-      "bytes": 2098,
-      "sha256": "ed99b4677c7d1d82ad497be67ebab003e2055f6f29f1a19410432d81b280af90",
-      "gitMode": "100644",
-      "gitBlobSha1": "1ac470d5d3cd6a1e97ece0a6dbde097946a8e4ac"
-    },
-    {
-      "path": "docs/SOURCE-MAP.md",
-      "bytes": 3467,
-      "sha256": "3a4a5211017aac7fbe2de1e2733328d678d4804e6ccbd9ca810341bc17811c8e",
-      "gitMode": "100644",
-      "gitBlobSha1": "144938ff7a376aca83d371a21ca2e244cdb625c4"
-    },
-    {
-      "path": "docs/TESTING.md",
-      "bytes": 3808,
-      "sha256": "557d556375e8aff5a6f9e0637f429a0b0adfffb71ec88231c95c97ff85885fe9",
-      "gitMode": "100644",
-      "gitBlobSha1": "d566b09ce1caaea06b5d6443a08a99bbdb4e40ce"
     },
     {
       "path": "fc27_chrome_collector/lootbar_server_collector.py",
@@ -809,6 +823,13 @@
       "gitBlobSha1": "079bb1fbe5146f90601aee3aaf5bf1b6a93f7534"
     },
     {
+      "path": "fc27_players_cloud/VERSION",
+      "bytes": 19,
+      "sha256": "112d2b7f6455a186363ea366e6603769ead6cbe91311d33cf06c7e1eae623329",
+      "gitMode": "100644",
+      "gitBlobSha1": "f1052a511f06f8d9e9a357900379dfe6b925f9a6"
+    },
+    {
       "path": "fc27_players_cloud/player_web/__init__.py",
       "bytes": 38,
       "sha256": "81ea19257665430e41cb6eb69fa47f6c63dbf97702f2a90eb4ae7e000d998e7c",
@@ -947,13 +968,6 @@
       "sha256": "d13b12d1671d07f86e82cb476b43847464157adc593804d9d5e68e0cc924521e",
       "gitMode": "100644",
       "gitBlobSha1": "263f28800e5d5f60ce86119241e0ebda6e27326e"
-    },
-    {
-      "path": "fc27_players_cloud/VERSION",
-      "bytes": 19,
-      "sha256": "112d2b7f6455a186363ea366e6603769ead6cbe91311d33cf06c7e1eae623329",
-      "gitMode": "100644",
-      "gitBlobSha1": "f1052a511f06f8d9e9a357900379dfe6b925f9a6"
     },
     {
       "path": "fc27_players_cloud/球员维护工具/__init__.py",
@@ -1395,13 +1409,6 @@
       "sha256": "0498fc48ab6c3b2d6594d1890f991042b54848eae8097e0b56301c9b13a433c0",
       "gitMode": "100644",
       "gitBlobSha1": "ef819b493f7fa0d17a0af673e316d77ff0dd97d1"
-    },
-    {
-      "path": "HANDOFF.md",
-      "bytes": 5172,
-      "sha256": "c89d145b127a229d1decf0a979f7225676f193a91853e84d999935d2c1392553",
-      "gitMode": "100644",
-      "gitBlobSha1": "8679592a2cdec11271e4ff93ae46a20e17cd976a"
     },
     {
       "path": "mmoexp_google_data/dashboard_module/build_module.py",
@@ -2109,13 +2116,6 @@
       "sha256": "fad487f7283f7f7b8bf7706d8c9ced4dfa9c448a8ca7a7183d3fbc931f2bf9c2",
       "gitMode": "100644",
       "gitBlobSha1": "b8082f5861f0ff9ac3f9d9c05642965538690bd9"
-    },
-    {
-      "path": "README.md",
-      "bytes": 2955,
-      "sha256": "16fcad83d918e6c85cb197e5addfbc8760c73caeffe388b1006b8a034ded349e",
-      "gitMode": "100644",
-      "gitBlobSha1": "1cea7725410644f6249aeaed3b795be62e4c1be4"
     },
     {
       "path": "requirements-dev.txt",

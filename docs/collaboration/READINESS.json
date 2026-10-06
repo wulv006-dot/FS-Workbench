@@ -239,17 +239,40 @@
   "_currentGovernance": {
     "revision": "governance-20261007-v1",
     "sourceBaselineObserved": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
-    "governanceRemoteWritten": false,
+    "governanceRemoteWritten": true,
     "ownerConfirmed": false,
-    "mergeApproved": false,
+    "mergeApproved": true,
     "productionApproved": false,
     "releaseReady": false,
     "registrationCandidateHead": "d9dd533008fe298946eadd9e4bfea3a294aec111",
     "registrationCandidateTree": "d30ccde1e6551cd8ef6228a55d6629b7d603b84f",
-    "registrationLinux43": "NOT_RUN",
+    "registrationLinux43": "HANDOFF_REPORTED_PASS43_SKIP0; raw Library artifact not independently verified in this governance round",
     "roleConflict": "three-admin historical vs four-admin candidate; no account writes",
     "effectiveRulesets": "UNKNOWN/403",
     "effectiveCI": "UNKNOWN; main tree has no workflow",
-    "moduleAdoption": "legacy-unreconciled pending actual source/build/dependency verification"
+    "moduleAdoption": "legacy-unreconciled pending actual source/build/dependency verification",
+    "statusAt": "2026-10-07T02:14:27.945965+08:00",
+    "mergeAuthorizationScope": "PR6 governance docs only; user: check then merge",
+    "governanceDocumentOwnerAuthorization": "current user wulv; no ARPG/runtime business edits",
+    "registrationRemainingGates": [
+      "exact Python3.9 target",
+      "real roles and Nginx",
+      "four separate multiprocess tests"
+    ],
+    "mergeResult": "pending actual GitHub merge readback",
+    "governanceChecks": {
+      "pythonMethods": 185,
+      "passedMethods": 184,
+      "WindowsOwnershipSkipped": 1,
+      "failures": 0,
+      "errors": 0,
+      "pythonAST": 182,
+      "javascriptSyntax": 34,
+      "nodeGroups": 7,
+      "rev25Matrix": true,
+      "scope": "main business source plus governance docs; not PR2/5 runtime",
+      "initialMissingTimezoneFailurePreserved": true,
+      "timezoneDataSource": "existing bundled tzdata/zoneinfo; test-process PYTHONTZPATH only"
+    }
   }
 }

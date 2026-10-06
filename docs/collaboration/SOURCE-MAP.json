@@ -4000,7 +4000,7 @@
   "currentRolesContract": "existing global portal; four observed admins; legacy candidate code excluded from deployment",
   "_currentGovernance": {
     "revision": "governance-20261007-v1",
-    "time": "2026-10-07T01:42:43.895157+08:00",
+    "time": "2026-10-07T02:14:27.945965+08:00",
     "repository": "wulv006-dot/FS-Workbench",
     "mainCommit": "bc3b29531cec2fab3fc090385f3d7d126eb9ada7",
     "mainTree": "a4140280619771e9240e15340b0c452ab8ba9ef8",
@@ -4769,8 +4769,8 @@
     ],
     "supportPaths": "files outside module paths remain source/test/support, owner unassigned; not new runtime modules",
     "candidateSourceCommit": null,
-    "sourceRefResolution": "resolve final candidate commit/tree externally after approved commit; no self-reference",
+    "sourceRefResolution": "resolve latest PR6 head/tree and final merge result externally; original head retained in history",
     "remoteBranchPlan": "codex/fs-governance-20261007",
-    "remoteBranchCreated": false
+    "remoteBranchCreated": true
   }
 }
