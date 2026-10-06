@@ -394,8 +394,10 @@ _RE_MIN = re.compile(r'起售：<span[^>]*>([^<]+)</span>')
 #     配套的「无货兜底」阈值见 config `金币.定价策略.无货最小可买万基纳`（同为 10000）。
 # ═══════════════════════════════════════════════════════════════════════════
 TARGET_WAN = 10000.0        # 目标采购量：1 亿基纳 = 10000 万基纳
-MAX_PAGES = 3               # 单区最多翻 MAX_PAGES 页散单（首屏通常是 20 条/页）
-REQ_BUDGET = 150            # 单轮总请求预算（含首屏）；用尽则剩余区沿用上一轮快照
+MAX_PAGES = 12              # 单区最多翻 MAX_PAGES 页（站点固定 20 条/页 ⇒ 上限 240 条/区）
+REQ_BUDGET = 400            # 单轮总请求预算（含首屏 + 翻页）；用尽则剩余区沿用上一轮快照
+                            #   2026-10-06 实测：全量翻页 = 86(首屏) + 76(补页) ≈ 162 次，
+                            #   故 150 不够、会有一批区被「预算用尽」跳过 ⇒ 提到 400 留足余量
 
 # 散单列表的「下一页」链接（分页条）；第 1 页是短页，不带这个格式
 _RE_PAGE = re.compile(
@@ -403,35 +405,37 @@ _RE_PAGE = re.compile(
     r'-0-0-0-0-0-(\d+)-0-0-0\.html)"' % GAME_SID)
 
 
-def _page_urls(html):
-    """从分页条里取 {页码: 完整URL}（第 1 页不含在内）。"""
-    out = {}
-    for href, pg in _RE_PAGE.findall(html or ""):
-        try:
-            out[int(pg)] = BASE + href
-        except ValueError:
-            continue
-    return out
+def _page_url(short_url, n):
+    """第 n 页 URL（n=1 即短页本身）。
+
+    ⚠ 只能加 **PageIndex 这一个** query 键（详见下方分页注释：多一个键立刻被 WAF 拦）。
+    """
+    n = int(n)
+    return short_url if n <= 1 else "%s?PageIndex=%d" % (short_url, n)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 站点权威统计（只认第 1 页）
-#   ⚠ 2026-10-06 老板反馈「明明有很多人挂，怎么只显示 1000万1单」→ 实测定位到两个坑：
-#     ① 该区取错了**别的大区**同名服（南美 Zikel 的 1 条 1000万）—— 已由 _norm/同大区
-#        fallback 修掉；
-#     ② 列表**固定 20 条/页**，而分页**只有长 URL 一种形态**
-#        /s-{sid}-{区}-{种族}-{游戏区}-0-0-{品类}-0-0-0-0-0-{页}-0-0-0.html，
-#        长 URL 被阿里云 ESA **按 URL 形态无条件拦**：
-#          · 换大区不行（南美 Zikel 的长 URL 一样拦）
-#          · 换 Referer 不行（带短页 Referer 仍拦）
-#          · 短前缀 + 页码段 / m. 子域 一样拦
-#          · ?page=N / -N.html / ?pageSize=100 全部被站点**忽略**（返回的仍是第 1 页，
-#            「当前页」标记恒为 1，内容逐条相同）
-#        ⇒ **第 2 页起读不到**（返回 11956 字节 acw_sc__v2 挑战页）。
-#     所以「挂单数」只能取**站点自己在第 1 页给出的权威总数**（为您找到 N 条记录），
-#     而「可买量」只能算首屏可见部分 —— 两处都在面板里标明口径，绝不把首屏量
-#     冒充满市场量。
+# 分页（2026-10-06 第三次修订 —— 终于打穿）
+#   起因：老板反馈「明明有很多人挂，怎么只显示 1000万1单」→ 定位到两个坑：
+#     ① 该区取错了**别的大区**同名服（南美 Zikel 的 1 条 1000 万）—— 已由 _norm +
+#        同大区 fallback 修掉；
+#     ② 列表**固定 20 条/页**，只读第 1 页 ⇒ 可买量 / 挂单数系统性偏小。
+#   分页形态实测（同一区、同一时刻，逐个试，**结论可直接复用**）：
+#     · 长 URL（页面分页条给出的 href）：
+#         /s-{sid}-{区}-{种族}-{游戏区}-0-0-{品类}-0-0-0-0-0-{页}-0-0-0.html
+#       ⇒ 被阿里云 ESA **按 URL 形态无条件拦**：换大区 / 带短页 Referer / 短前缀+页码段 /
+#         m. 子域 / http / 加 ?_=1 全拦；返回 11956 字节的 AliyunCaptcha 无痕验证页
+#         （CF_APP_WAF / aliyunCaptcha，sceneId 19x5u7lo，region sgp —— 硬解不现实）。
+#     · ?page=N / -N.html / ?pageSize=100 ⇒ 站点**忽略**（「当前页」标记恒为 1、内容逐条相同）
+#     · ✅ 短 URL + 单个 query 参数 **`?PageIndex=N`**（PageIndex 是站点真实模型字段名，
+#          从页面内嵌 `#invisibleData` 的 requestModel 挖到）
+#        ⇒ **不被拦**，且「当前页」标记 = N、各页内容逐页不同（实测 Zikel 5 页 / Israphel 8 页
+#          全部拿到，无一条重复）。
+#        ⚠ 但**只许带这一个参数**：再加 PageSize / Order / Issearch 立刻变 11956 拦页。
+#          ⇒ _page_url() 里绝不能塞第二个键。
+#   结论：**全量翻页**（MAX_PAGES 上限 12），可买量 / 挂单数 / 成本都按全市场口径算。
 # ═══════════════════════════════════════════════════════════════════════════
+_RE_CUR_PAGE = re.compile(r'hot-current-page">\s*(\d+)\s*<')
 _RE_SITE_TOTAL = re.compile(r"为您找到\s*<span[^>]*>\s*(\d+)\s*</span>\s*条记录")
 _RE_SITE_PAGES = re.compile(r'hot-sum">\s*(\d+)\s*<')
 _RE_SITE_PER = re.compile(r"(\d+)\s*条/页")
@@ -581,14 +585,15 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                ok            布尔
               成本_元每万基纳  **1 亿订单簿加权均价**（元/万基纳，面板主显）
               成本_USD每M     折算后（算利润率、做成本兜底都用它）
-              可供量_万基纳   该区**首屏可见**挂单的可买总量（判断够不够 1 亿）
+              可供量_万基纳   该区**全市场**挂单的可买总量（翻完全部页；判断够不够 1 亿）
               够量           布尔（可供量 ≥ 1 亿）
                参与条数       被吃进订单簿的档位数
-               商品条数       **站点权威挂单总数**（第 1 页「为您找到 N 条记录」）
-                              ⚠ 面板「挂单数」= 这个；第 2 页起长 URL 被 WAF 拦读不到，
-                              所以它 > 本页解析条数是正常现象（见 _site_stat 注释）
-               本页条数       本页实际解析到的挂单条数（诊断用）
+               商品条数       **站点权威挂单总数**（第 1 页「为您找到 N 条记录」，只数散单）
+                              ⚠ 面板「挂单数」= 这个；它不含热卖商城，故可能**小于**「解析条数」
+               本页条数       第 1 页解析到的挂单条数（诊断用）
+               解析条数       翻完全部页去重后解析到的挂单条数（诊断用）
                站点页数       站点给出的总页数
+               翻页数         本轮实际翻到的页数
                依据/备注/URL
     ⚠ 本函数仍**只读**；但 2026-10-06 起它的产物是定价输入（成本兜底 + 利润率下限）。
     """
@@ -671,65 +676,84 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                 log("  [DD373] %-24s ✗ 单位异常：%s" % (key, _chk.get("自校验")))
             time.sleep(gap)
             continue
-        # ── 订单簿：本页 + （不足 1 亿时）后续页，按单价升序吃满 1 亿基纳 ──────
-        quotes = _parse_quotes(html)
+        # ── 订单簿：**翻完全部页**再算（2026-10-06 第三次修订）────────────────
+        #    旧版只读第 1 页（且只在不足 1 亿时才去翻长 URL 页，而长 URL 必被 WAF 拦），
+        #    导致「可买量 / 挂单数」系统性偏小 —— 老板看到的就是这个。
+        #    现在：第 1 页走短页，第 2 页起走 `?PageIndex=N`（不被拦，见 _page_url 注释），
+        #    一直翻到「站点总页数」或 MAX_PAGES 上限，按 (可供量, 单价) 去重后统一算订单簿。
+        #    任何一页被拦/失败 ⇒ **只停翻页**，已翻到的照常用（绝不把整区作废）。
+        _q1 = _parse_quotes(html)
+        quotes = list(_q1)
+        _site = _site_stat(html)
+        _short = _short_url(info["url_seg"])
+        _seen = {"%.0f|%.5f" % (q_, p_) for q_, p_, _s in _q1}
+        _pages, _page_note = 1, ""
+        for _n in range(2, MAX_PAGES + 1):
+            if _site.get("页数") and _n > int(_site["页数"]):
+                _page_note = "·已翻完%s页" % _site["页数"]
+                break
+            if _budget["n"] <= 0:
+                _page_note = "·预算用尽(仅%d页)" % _pages
+                break
+            _budget["n"] -= 1
+            try:
+                _h2 = _get(_page_url(_short, _n), referer=_short, tries=1)
+            except Exception as _e2:                       # noqa: BLE001
+                _page_note = "·第%d页抓取失败(用%d页)" % (_n, _pages)
+                if log:
+                    log("  [DD373] %-24s ⚠ 翻第 %d 页失败 %r —— 用已翻到的 %d 页继续"
+                        % (key, _n, _e2, _pages))
+                break
+            if _blocked(_h2):
+                _page_note = "·第%d页被拦(用%d页)" % (_n, _pages)
+                if log:
+                    log("  [DD373] %-24s ⚠ 翻第 %d 页被拦（风控）—— 本区改用已翻到的 "
+                        "%d 页订单簿，继续采集其余区" % (key, _n, _pages))
+                break
+            _m2 = _RE_CUR_PAGE.search(_h2)
+            if not _m2 or int(_m2.group(1)) != _n:
+                _page_note = "·第%d页未生效(用%d页)" % (_n, _pages)
+                if log:
+                    log("  [DD373] %-24s ⚠ 第 %d 页未生效（站点忽略 PageIndex）—— "
+                        "用已翻到的 %d 页继续" % (key, _n, _pages))
+                break
+            _q2 = _parse_quotes(_h2)
+            _new = 0
+            for _it in _q2:
+                _k2 = "%.0f|%.5f" % (_it[0], _it[1])
+                if _k2 in _seen:
+                    continue
+                _seen.add(_k2)
+                quotes.append(_it)
+                _new += 1
+            _pages = _n
+            if not _q2 or _new == 0:
+                _page_note = "·第%d页无新增" % _n
+                break
+            time.sleep(gap)
         ob = orderbook_avg(quotes)
-        _pages = 1
-        _page_note = ""
-        if ob and not ob["够量"]:
-            _pg = _page_urls(html)
-            for _n in range(2, MAX_PAGES + 1):
-                if _n not in _pg or _budget["n"] <= 0:
-                    break
-                _budget["n"] -= 1
-                try:
-                    _h2 = _get(_pg[_n])
-                except Exception:
-                    break
-                if _blocked(_h2):
-                    # 🔴 2026-10-06 改：翻页用的是**长 URL**（分页条链接），比首屏短页
-                    #    更容易被阿里云 ESA 软拦，且长页 DOM 与短页不同、_blocked()
-                    #    那条判据（无 goods-list-item 且无 sell-btn-box ⇒ 判拦）在长页上
-                    #    极易**误判**。上一版这里是 `return out`（整轮中止），实测一误判
-                    #    就把整轮 86 区的成本全废掉（2026-10-06 11:56 那轮即是）。
-                    #    ⇒ 改为**只放弃本区补页**，用首屏已拿到的订单簿（可能 < 1 亿，
-                    #    按现有挂单加权），继续跑其余区。首屏被拦才整轮中止（那才是真 IP 封锁）。
-                    _page_note = "·第%d页被拦(用首屏)" % _n
-                    if log:
-                        log("  [DD373] %-24s ⚠ 翻第 %d 页被拦（长URL/风控）—— "
-                            "本区改用首屏订单簿（可能不足 1 亿），继续采集其余区"
-                            % (key, _n))
-                    break
-                quotes += _parse_quotes(_h2)
-                _pages = _n
-                ob = orderbook_avg(quotes)
-                if ob and ob["够量"]:
-                    break
-                time.sleep(gap)
         if not ob:
-            _st0 = _site_stat(html)
+            _n0 = _site["总数"] if _site["总数"] is not None else 0
             out[key] = {"ok": False, "依据": "DD373 该游戏区暂无在售商品",
-                        "备注": "页面正常渲染（未被风控），站点共 %s 条记录"
-                                % (_st0["总数"] if _st0["总数"] is not None else "0"),
+                        "备注": "页面正常渲染（未被风控），站点共 %s 条记录" % _n0,
                         "URL": url}
             if log:
                 log("  [DD373] %-24s · 无报价（0 条挂单，非风控）" % key)
             time.sleep(gap)
             continue
         _pr = ob["均价"]
-        # 站点权威统计（第 1 页就有）：挂单总数 / 总页数。第 2 页起长 URL 被 WAF 拦，
-        #   所以「挂单数」取站点总数，「可买量」只能算首屏 —— 口径写进 备注 与 依据。
-        _st = _site_stat(html)
-        _tot_n = _st["总数"] if _st["总数"] is not None else ob["报价条数"]
-        _pgs_n = _st["页数"]
+        # 站点权威统计（第 1 页就有）：挂单总数 / 总页数。
+        #   注意：「为您找到 N 条」**只统计散单**（不含热卖商城那一块），所以它小于我们
+        #   的「解析条数」是**正常**的（解析条数 ≥ 站点总数），不是 bug。
+        _tot_n = _site["总数"] if _site["总数"] is not None else ob["报价条数"]
+        _pgs_n = _site["页数"]
         _pgs_s = "%d" % _pgs_n if _pgs_n is not None else "?"
-        _site_note = "·站点%d单/%s页" % (_tot_n, _pgs_s)
         _short_note = (None if ob["够量"] else
-                       "该区挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
+                       "该区全市场挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
                        % ob["可供量"])
-        _cap_note = ("口径：挂单数=站点总数；可买量=**首屏可见**"
-                     "（站点 %d 单 / %s 页，第 2 页起为长 URL 被 WAF 拦，读不到）"
-                     % (_tot_n, _pgs_s))
+        _cap_note = ("口径：可买量/挂单数均为全市场（已翻 %d/%s 页、解析 %d 条；"
+                     "站点「为您找到 %d 条」只数散单、不含热卖商城%s）"
+                     % (_pages, _pgs_s, ob["报价条数"], _tot_n, _page_note))
         rec = {
             "ok": True,
             "成本_元每万基纳": _pr,
@@ -739,16 +763,19 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
             "参与条数": ob["参与条数"],
             # 兼容旧字段（面板 / gold_cost 表沿用）：
             #   stock 文本里的「可买X万基纳」被 app.py._avail_wan() 正则读取 → 保留字样
-            "库存": "首屏可买%.0f万基纳" % ob["可供量"], "起售": None,
-            # 面板「挂单数」= 站点权威总数（不再是「本页解析到的条数」）
+            "库存": "可买%.0f万基纳" % ob["可供量"], "起售": None,
+            # 面板「挂单数」= 站点权威总数
             "商品条数": _tot_n,
-            "本页条数": ob["报价条数"],          # 本页实际解析到的（诊断用）
+            "本页条数": len(_q1),                # 第 1 页解析到的条数（诊断用）
+            "解析条数": ob["报价条数"],           # 全部页去重后解析到的条数（诊断用）
             "站点页数": _pgs_n,
+            "翻页数": _pages,
             "DD区": info["dd_area"], "DD种族": info["dd_race"], "DD游戏区": info["dd_name"],
-            # 依据列保持简短（太长会把右侧「改价操作」挤出可视区）：只留 区/种族/游戏区 + 口径
-            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·翻%d页%s%s)"
+            # 依据列保持简短（太长会把右侧「改价操作」挤出可视区）：区/种族/游戏区 + 口径
+            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·翻%d/%s页%s·站点%d单)"
                     % (info["dd_area"], info["dd_race"], info["dd_name"],
-                       ob["参与条数"], ob["报价条数"], _pages, _page_note, _site_note),
+                       ob["参与条数"], ob["报价条数"], _pages, _pgs_s,
+                       _page_note, _tot_n),
             "URL": url,
         }
         _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short_note, _cap_note) if x)
@@ -757,10 +784,10 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
         out[key] = rec
         if log:
             log("  [DD373] %-24s %-10s %.6f 元/万基纳 → $%.4f/M  "
-                "(1亿订单簿 吃%d/%d条·站点%d单/%s页，首屏可买 %.0f万基纳%s)"
+                "(1亿订单簿 吃%d/%d条·翻%d/%s页·站点%d单，可买 %.0f万基纳%s)"
                 % (key, rec["DD游戏区"], _pr, rec["成本_USD每M"] or 0,
-                   ob["参与条数"], ob["报价条数"], _tot_n, _pgs_s, ob["可供量"],
-                   "" if ob["够量"] else "·不足1亿"))
+                   ob["参与条数"], ob["报价条数"], _pages, _pgs_s, _tot_n,
+                   ob["可供量"], "" if ob["够量"] else "·不足1亿"))
         time.sleep(gap)
     return out
 
