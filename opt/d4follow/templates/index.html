@@ -1738,9 +1738,11 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                + esc(String(ga['单号']))+'</div>':'')
             + '</td>';
         })();
+    /* 2026-10-06 展示名统一：优先用后端补的 服务器名/大区中文/种族（DD373 优先、
+       config 兜底），避免新子服务器在 DD373 无挂单时掉成裸 key AION2_XXX_E。 */
     return '<tr>'
-      + '<td><b>'+esc(x.DD游戏区||x.key)+'</b>'
-        + '<div class="small" style="color:var(--sub)">'+esc(x.DD区||'')+' / '+esc(x.DD种族||'')
+      + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
+        + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
         + (stockTip? esc(stockTip):'')+'</div></td>'
       + tierCell
       + '<td class="num mono">'+(x.售价_USD每M!=null?('$'+f4(x.售价_USD每M)+'/M') : '--')

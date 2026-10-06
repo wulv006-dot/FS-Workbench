@@ -34,6 +34,8 @@
 import html
 import json
 import re
+import sys   # 2026-10-06 补：_audit_pack_conflicts 的每轮自检用到 sys.modules，
+            # 原先漏 import，NameError 被 try 吞掉 ⇒ 自检静默失效（现已在轮次里真正生效）
 
 # ── 装量解耦 2026-10-05 ──
 def _audit_pack_conflicts(cfg):

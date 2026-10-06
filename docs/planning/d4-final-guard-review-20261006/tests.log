@@ -1,0 +1,32 @@
+<unknown>:87: SyntaxWarning: "\[" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\["? A raw string is also an option.
+test_actual_summary_endpoint_without_db (final_review_harness.Synthetic.test_actual_summary_endpoint_without_db) ... ok
+test_binding_missing_qty_and_amount_isolation (final_review_harness.Synthetic.test_binding_missing_qty_and_amount_isolation) ... ok
+test_cheapold_and_fallback (final_review_harness.Synthetic.test_cheapold_and_fallback) ... ok
+test_dispatch_rejects_snapshot_invalid_cost_without_ticket_io (final_review_harness.Synthetic.test_dispatch_rejects_snapshot_invalid_cost_without_ticket_io) ... ok
+test_game_policy_isolation (final_review_harness.Synthetic.test_game_policy_isolation) ... ok
+test_helper_static_only_and_sha_boundaries (final_review_harness.Synthetic.test_helper_static_only_and_sha_boundaries) ... ok
+test_invalid_base_policy_threshold_cost_fail_closed (final_review_harness.Synthetic.test_invalid_base_policy_threshold_cost_fail_closed) ... ok
+test_invalid_preferred_quote_real_function_composition (final_review_harness.Synthetic.test_invalid_preferred_quote_real_function_composition) ... ok
+test_matching_pack_not_unit_and_conflicts (final_review_harness.Synthetic.test_matching_pack_not_unit_and_conflicts) ... ok
+test_pack_audit_and_preserved_safety (final_review_harness.Synthetic.test_pack_audit_and_preserved_safety) ... ok
+test_pack_precision_and_missing (final_review_harness.Synthetic.test_pack_precision_and_missing) ... ok
+test_poe2_d4_item_targets_and_no_missing_as_zero (final_review_harness.Synthetic.test_poe2_d4_item_targets_and_no_missing_as_zero) ... ok
+test_real_plan_cheapold_hold_and_no_cross_game (final_review_harness.Synthetic.test_real_plan_cheapold_hold_and_no_cross_game) ... ok
+test_scrape_query_is_synthetic (final_review_harness.Synthetic.test_scrape_query_is_synthetic) ... ok
+test_zero_discount_whole_plan_and_summary_display (final_review_harness.Synthetic.test_zero_discount_whole_plan_and_summary_display) ... ok
+test_actual_dispatch_rechecks_old_tiny_and_bool_snapshot (__main__.Closure.test_actual_dispatch_rechecks_old_tiny_and_bool_snapshot) ... ok
+test_actual_executor_rejects_stale_plan_before_docker (__main__.Closure.test_actual_executor_rejects_stale_plan_before_docker) ... ok
+test_dispatch_nonfinite_metadata_does_not_emit_partial_ticket (__main__.Closure.test_dispatch_nonfinite_metadata_does_not_emit_partial_ticket) ... ok
+test_existing_confirm_detect_only_and_switch_gates (__main__.Closure.test_existing_confirm_detect_only_and_switch_gates) ... ok
+test_full_dispatch_serializes_cost_and_keeps_loss (__main__.Closure.test_full_dispatch_serializes_cost_and_keeps_loss) ... ok
+test_legal_zero_discount_and_loss_real_plan_still_passes (__main__.Closure.test_legal_zero_discount_and_loss_real_plan_still_passes) ... ok
+test_precision_exact_existing_round_and_writer_format (__main__.Closure.test_precision_exact_existing_round_and_writer_format) ... ok
+test_raw_declared_cost_fields_invalid_hold_without_exception (__main__.Closure.test_raw_declared_cost_fields_invalid_hold_without_exception) ... ok
+test_raw_front_and_quantity_bool_before_legacy_normalization (__main__.Closure.test_raw_front_and_quantity_bool_before_legacy_normalization) ... ok
+test_real_front_decoder_does_not_erase_bool (__main__.Closure.test_real_front_decoder_does_not_erase_bool) ... ok
+test_supported_app_executor_recorded_writer_closure (__main__.Closure.test_supported_app_executor_recorded_writer_closure) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.072s
+
+OK

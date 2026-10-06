@@ -1,0 +1,114 @@
+[
+  {
+    "writerWireValues": [
+      "15.960000"
+    ],
+    "game": [
+      "AION2"
+    ],
+    "synthetic": true,
+    "logs": [
+      [
+        "待改 1 个服务区的采购成本："
+      ],
+      [
+        "  SYNTH_A      Synthetic                行SYNTHROW None → 15.960000"
+      ],
+      [
+        "金币价格管理列表 gid=826（游戏：AION2）"
+      ],
+      [
+        "  改前核对 SYNTH_A      行SYNTHROW 采购成本 = 0.25（利润率 -0.2 / b2c 1）"
+      ],
+      [
+        "  ✓ SYNTH_A 行SYNTHROW 采购成本 → 15.960000（synthetic）"
+      ],
+      [
+        "写请求完成：成功 1 / 失败 0。复核…"
+      ],
+      [
+        "  ✓ 复核 SYNTH_A      行SYNTHROW 采购成本 = 15.96（b2c 1）"
+      ],
+      [
+        "点后台右上角「更新b2c网站」刷新图标（= saveprice getweb=1，保证不勾『所有区』）…"
+      ],
+      [
+        "  ✓ 已推送前端：（getweb=1）"
+      ],
+      [
+        "  实际请求：-"
+      ],
+      [
+        "补写后台「修改价格日志」（= saveprice getweb=0，点按钮「同步价格」）…"
+      ],
+      [
+        "  ✓ 日志已补写：（getweb=0）"
+      ],
+      [
+        "  实际请求：-"
+      ],
+      [
+        "（本次跳过清缓存 —— synthetic cache disabled）"
+      ],
+      [
+        "结果已存：/synthetic/results\\p2pah_writegold_result_20261006_083810.json"
+      ]
+    ]
+  },
+  {
+    "writerWireValues": [
+      "15.481200"
+    ],
+    "game": [
+      "AION2"
+    ],
+    "synthetic": true,
+    "logs": [
+      [
+        "待改 1 个服务区的采购成本："
+      ],
+      [
+        "  SYNTH_A      Synthetic                行SYNTHROW None → 15.481200"
+      ],
+      [
+        "金币价格管理列表 gid=826（游戏：AION2）"
+      ],
+      [
+        "  改前核对 SYNTH_A      行SYNTHROW 采购成本 = 0.25（利润率 -0.2 / b2c 1）"
+      ],
+      [
+        "  ✓ SYNTH_A 行SYNTHROW 采购成本 → 15.481200（synthetic）"
+      ],
+      [
+        "写请求完成：成功 1 / 失败 0。复核…"
+      ],
+      [
+        "  ✓ 复核 SYNTH_A      行SYNTHROW 采购成本 = 15.4812（b2c 1）"
+      ],
+      [
+        "点后台右上角「更新b2c网站」刷新图标（= saveprice getweb=1，保证不勾『所有区』）…"
+      ],
+      [
+        "  ✓ 已推送前端：（getweb=1）"
+      ],
+      [
+        "  实际请求：-"
+      ],
+      [
+        "补写后台「修改价格日志」（= saveprice getweb=0，点按钮「同步价格」）…"
+      ],
+      [
+        "  ✓ 日志已补写：（getweb=0）"
+      ],
+      [
+        "  实际请求：-"
+      ],
+      [
+        "（本次跳过清缓存 —— synthetic cache disabled）"
+      ],
+      [
+        "结果已存：/synthetic/results\\p2pah_writegold_result_20261006_083810.json"
+      ]
+    ]
+  }
+]

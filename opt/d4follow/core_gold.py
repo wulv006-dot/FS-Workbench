@@ -96,6 +96,60 @@ def server_game(cfg, sv):
     return (sv or {}).get("游戏") or DEFAULT_GAME
 
 
+def finite_number(value):
+    """Reject invalid numeric inputs without converting missing values to zero."""
+    import math
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def positive_number(value):
+    number = finite_number(value)
+    return number if number is not None and number > 0 else None
+
+
+def discount_display(value):
+    """Missing display value defaults to 3%; an explicit 0% stays zero."""
+    return 0.03 if value is None else value
+
+
+def gold_cost_for_dispatch(cfg, value):
+    from gold_numeric_guard import write_cost
+    return write_cost(value, cfg)
+
+
+def raw_cost_inputs_valid(cfg, sv, game):
+    """Check declared numeric types before legacy normalization erases bools."""
+    g = cfg_gold(cfg)
+    over = (g.get("游戏参数") or {}).get(game) or {}
+    values = [g.get("成本除数"), g.get("汇率"),
+              ((cfg or {}).get("汇率") or {}).get("USDCNY"),
+              g.get("前台系数"), over.get("前台系数"), sv.get("利润率")]
+    return all(v in (None, "") or finite_number(v) is not None for v in values)
+
+
+def _tier_values(tier, field):
+    count = _tier_count(tier.get("num"))
+    price = positive_number(tier.get(field))
+    return (count, price) if count is not None and price is not None else (None, None)
+
+
+def _tier_count(raw):
+    number = positive_number(raw)
+    if number is None:
+        return None
+    try:
+        count = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return count if count == number else None
+
+
 def pricing_policy(cfg, game=None):
     """⭐ 定价策略解析（2026-10-02 老板定案）—— **唯一入口**，别在业务代码里自己读 config。
 
@@ -116,6 +170,11 @@ def pricing_policy(cfg, game=None):
     ┌ multisrc（2026-10-01 旧策略，已归档，需要时可一键切回）──────────┐
     │ 基准 = min(G2G, ELD)，IGGM 更低则取 IGGM，两站无数据用同大区均价  │
     │ 兜底；目标 = 基准 × (1 − 让价百分比)                              │
+    └─────────────────────────────────────────────────────────────────┘
+    ┌ g2g_cheapold（2026-10-05 起，老板定案 A「永远优先 cheapold」）────┐
+    │ 每个子服务器进 G2G：有卖家 cheapold → 目标 = cheapold价×(1−3%)；  │
+    │ 无 → 目标 = min(推荐第1位, 推荐第2位) × (1−3%)。                  │
+    │ DD373 / ELD / IGGM 照旧采集监控，不参与定价。                     │
     └─────────────────────────────────────────────────────────────────┘
 
     ⚠ **DD373 无报价的区不推算、不兜底**（沿用 2026-10-02 用户口径）——
@@ -149,6 +208,22 @@ def pricing_policy(cfg, game=None):
         return {"模式": mode, "加价比例": None, "成本源": "",
                 "口径": "基准 = min(G2G, ELD)，IGGM 更低则取 IGGM，"
                         "两站无数据用同大区均价兜底；目标 = 基准 × (1−让价百分比)"}
+    if mode == "g2g_cheapold":
+        disc = finite_number(p.get("下浮比例", 0.03))
+        if disc is None:
+            return {"模式": mode, "下浮比例": None, "乘数": None,
+                    "错误": "下浮比例必须为有限数值", "口径": "参数无效：不出目标价"}
+        if disc < 0:
+            disc = 0.0
+        if positive_number(1.0 - disc) is None:
+            return {"模式": mode, "下浮比例": disc, "乘数": None,
+                    "错误": "策略乘数必须为有限正数", "口径": "参数无效：不出目标价"}
+        _cn = str(p.get("cheapold卖家") or "cheapold")
+        return {"模式": mode, "下浮比例": disc, "乘数": 1.0 - disc, "成本源": "",
+                "cheapold卖家": _cn,
+                "口径": ("每个子服务器进 G2G 取价：有卖家 %s → 目标 = %s价 × (1−%.1f%%)；"
+                        "无 → 目标 = min(推荐第1, 推荐第2) × (1−%.1f%%)"
+                        % (_cn, _cn, disc * 100, disc * 100))}
     return None
 
 
@@ -206,10 +281,10 @@ def _f(v):
     """安全转 float。⚠ 不要用「str 再正则」的写法：科学计数法会被截断
     （str(3.09e-05) 会被匹配成 3.09）。IGGM 的 unit_price 正是科学计数法。"""
     try:
-        if v is None or v == "":
+        if isinstance(v, bool) or v is None or v == "":
             return None
         return float(v)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -492,9 +567,10 @@ def fetch_front_gold(cfg, aid, game=None, log=print, retry=4, timeout=45):
             if not lst:
                 return []
             gl = lst[0].get("goods_list") or {}
-            out = [{"num": int(v.get("num") or k), "unit": lst[0].get("unit") or "M",
+            out = [{"num": _tier_count(v.get("num") if v.get("num") not in (None, "") else k), "unit": lst[0].get("unit") or "M",
                     "price": _f(v.get("price")), "price_discount": _f(v.get("price_discount")),
                     "discount": v.get("discount")} for k, v in gl.items()]
+            out = [v for v in out if v["num"] is not None]
             out.sort(key=lambda x: x["num"])
             return out
         except Exception as e:
@@ -511,7 +587,7 @@ def per_m(tiers, target, field="price_discount"):
     """
     best = None
     for t in tiers or []:
-        n, p = int(t.get("num") or 0), _f(t.get(field))
+        n, p = _tier_values(t, field)
         if not n or p is None:
             continue
         d = abs(n - int(target))
@@ -533,7 +609,7 @@ def biggest_tier(tiers, field="price_discount"):
     """
     best = None
     for t in tiers or []:
-        n, p = int(t.get("num") or 0), _f(t.get(field))
+        n, p = _tier_values(t, field)
         if not n or p is None:
             continue
         if best is None or n > best[0]:
@@ -547,7 +623,7 @@ def iggm_biggest_tier(tiers):
     """IGGM 侧最大档：(M数, 该档总价, 每M价)。IGGM 每M价是线性的，取总价/档位即可。"""
     best = None
     for t in tiers or []:
-        n, a = int(t.get("num") or 0), _f(t.get("all"))
+        n, a = _tier_values(t, "all")
         if not n or a is None:
             continue
         if best is None or n > best[0]:
@@ -613,6 +689,19 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 % (len(_costs), sum(1 for v in _costs.values() if (v or {}).get("ok"))))
     elif _pricing_mode == "multisrc":
         log("  [金币/定价] AION2 走「三源比价 multisrc」模式（2026-10-01 旧策略）")
+    elif _pricing_mode == "g2g_cheapold":
+        _pol_a = _pol_by_game.get("AION2") or {}
+        log("  [金币/定价] AION2 走「G2G cheapold 跟价」模式（下浮 %.1f%%）：%s"
+            % (discount_display(_pol_a.get("下浮比例")) * 100, _pol_a.get("口径")))
+    # G2G cheapold 模式的子服务器抓取器（懒加载；失败不致命，逐区 hold）
+    _g2gcb = None
+    if _pricing_mode == "g2g_cheapold":
+        try:
+            import core_g2g as _cg
+            _g2gcb = _cg.cheapold_base
+        except Exception as _e:                    # noqa: BLE001
+            log("  [金币/G2G] ⚠ core_g2g 载入失败：%r → 本轮全部 AION2 区不出目标价" % _e)
+
     # ── 2026-10-01：AION2 三源基准（G2G / ELD / IGGM）─────────────────────
     # 只对配置了 `金币.多源基准` 的游戏生效（当前 = AION2）；暗黑4 拿到 None，行为不变。
     # ⚠ 2026-10-02 起即使定价改用 DD373，本段**仍然要跑**：G2G/ELD 继续采集并展示，
@@ -626,7 +715,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         if _ms_need:
             log("  [金币/多源] AION2 采集三源价（G2G/ELD/IGGM），覆盖 %d 个服务区"
                 "（%s）" % (len(_ms_need),
-                          "仅监控展示，不参与定价" if _pricing_mode == "dd373_markup"
+                          "仅监控展示，不参与定价" if _pricing_mode in ("dd373_markup", "g2g_cheapold")
                           else "参与定价"))
             _ms.refresh()
         else:
@@ -768,6 +857,70 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["基准来源"] = "默认售价"
                 rec["说明_顺延"] = ("DD373 无报价且 %s 无数据 → 用默认售价 $%.2f/M"
                                     % (_sec_src, _def_m))
+        # ①' 2026-10-05 新模式：G2G cheapold 跟价（**永远优先 cheapold**，用户定案 A）
+        #     · 有 cheapold ⇒ 目标 = cheapold 价 × (1−下浮%)
+        #     · 无 cheapold ⇒ 目标 = min(推荐第1, 推荐第2) × (1−下浮%)
+        #     · 抓不到 / 无报价 ⇒ 本轮不出目标价，**绝不回落旧口径**（同 DD373 口径）
+        #     · G2G/ELD/IGGM 三源照旧采集展示（多源明细），只是不再喂目标价。
+        elif _row_mode == "g2g_cheapold":
+            _mode_used = "g2g_cheapold"
+            rec["定价模式"] = "g2g_cheapold"
+            _disc = _row_pol.get("下浮比例")
+            if _disc is None:
+                _disc = 0.03
+            _mult = _row_pol.get("乘数")
+            if _mult is None:
+                _mult = 1.0 - _disc
+            rec["下浮比例"] = _disc
+            # 三源明细照旧（看板继续显示 G2G/ELD/IGGM + 差距对比）
+            if _ms and sv.get("key") in _ms_need:
+                try:
+                    _bv_ms, _bd_ms, _bdet_ms = _ms.resolve_base(sv, iggm_price=igp, apo=apo)
+                    rec["多源明细"] = _bdet_ms
+                    rec["竞品基准价"] = _bv_ms
+                    rec["竞品基准来源"] = _bdet_ms.get("取谁") or "-"
+                    rec["G2G_USD每M"] = _f(_bdet_ms.get("G2G"))
+                except Exception as _e:            # noqa: BLE001
+                    log("  [金币/多源] %s 三源解析失败：%r" % (sv.get("中文名"), _e))
+            # 子服务器 G2G 取价（cheapold 优先）
+            _ds = str(sv.get("g2g_dataset") or "").strip()
+            _cb = None
+            if _row_pol.get("错误"):
+                rec["G2G跟价错误"] = _row_pol["错误"]
+            elif not _g2gcb:
+                rec["G2G跟价错误"] = "core_g2g 不可用"
+            elif not _ds:
+                rec["G2G跟价错误"] = "config 缺 g2g_dataset（无法定位 G2G 子服务器入口）"
+            else:
+                try:
+                    _cb = _g2gcb(_ds, sv.get("大区") or "", log=None)
+                except Exception as _e:            # noqa: BLE001
+                    rec["G2G跟价错误"] = "抓取失败：%r" % _e
+                    log("  [金币/G2G] %s 抓取失败：%r" % (sv.get("中文名"), _e))
+            if _cb:
+                rec["G2G_cheapold价"] = _cb.get("cheapold")
+                rec["G2G_推荐1"] = _cb.get("t1")
+                rec["G2G_推荐1卖家"] = _cb.get("t1_u")
+                rec["G2G_推荐2"] = _cb.get("t2")
+                rec["G2G_推荐2卖家"] = _cb.get("t2_u")
+                rec["G2G_卖家数"] = _cb.get("n")
+                rec["G2G_取价卖家"] = _cb.get("who")
+                _valid_base = positive_number(_cb.get("base"))
+                if _valid_base is not None and positive_number(_mult) is not None:
+                    _issrc = (_cb.get("src") == "cheapold")
+                    _base_src = "G2G·cheapold" if _issrc else "G2G·推荐前二"
+                    rec["基准价"] = _valid_base
+                    rec["基准来源"] = _base_src
+                    rec["定价来源级别"] = 1 if _issrc else 2
+                    _tgt_from_base = positive_number(_valid_base * _mult)
+                    _base_detail = (
+                        "G2G %s %s：$%.4f/M × (1−%.1f%%)"
+                        % (sv.get("大区") or "",
+                           ("cheapold 卖家" if _issrc
+                            else "推荐前二较低者(%s)" % _cb.get("who")),
+                           _valid_base, _disc * 100))
+                else:
+                    rec["G2G跟价错误"] = "该子服务器本轮 0 条有效报价"
         # ② 旧策略：三源比价（保留，可通过 config 一键切回）
         elif _ms and sv.get("key") in _ms_need and _row_mode != "dd373_markup":
             _mode_used = "multisrc"
@@ -788,12 +941,20 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["目标前端每M_口径"] = "%s $%.4f/M × (1 + %.1f%%)" % (
                     {"DD373": "DD373推荐价"}.get(_base_src, _base_src),
                     rec.get("基准价") or 0.0, (_mk or 0) * 100)
+            elif _mode_used == "g2g_cheapold":
+                rec["目标前端每M_口径"] = "%s $%.4f/M × (1 − %.1f%%)" % (
+                    _base_src, rec.get("基准价") or 0.0, discount_display(_disc) * 100)
             else:
                 rec["目标前端每M_口径"] = "基准(%s) × 让价系数 %.4f" % (_base_src, apo)
         elif _mode_used == "dd373_markup":
             # DD373 无报价 → **明确不退回旧口径**（否则会拿 IGGM 定价，与新策略冲突）
             tgt_m = None
             rec["目标前端每M_口径"] = "DD373 无报价 → 本轮不出目标价（不推算、不兜底）"
+        elif _mode_used == "g2g_cheapold":
+            # G2G 抓不到/无报价 → **明确不退回旧口径**（绝不拿 IGGM 顶价）
+            tgt_m = None
+            rec["目标前端每M_口径"] = ("G2G 无报价/抓取失败 → 本轮不出目标价"
+                                       "（不回落旧口径）")
         else:
             # 退回旧口径（纯 IGGM × 让价系数）—— D4 走这条
             tgt_m = (igp * apo) if igp else None
@@ -827,9 +988,21 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         #    不能再用 汇率×(1−利润率)（= 5.32）。原因见 front_factor_of 的注释：
         #    前台还比 b2c 高 5.26%，按 5.32 写采购成本会把这份溢价留在价上，
         #    正好把「让价 5%」整条吃掉（实测 3/4 服务区我方前端价 = IGGM 折算后价）。
-        _div = cost_divisor_of(cfg, rl, gm)
+        _raw_valid = raw_cost_inputs_valid(cfg, sv, gm)
+        _div = (None if _mode_used == "g2g_cheapold" and not _raw_valid
+                else cost_divisor_of(cfg, rl, gm))
         rec["成本除数"] = _div
         oup = _f(rec.get("我方前端每M"))
+        if _mode_used == "g2g_cheapold":
+            _thr_valid = finite_number(cfg_gold(cfg).get("持平阈值", 0.005))
+            _cost_valid = (positive_number(tgt_m * _div)
+                           if positive_number(tgt_m) is not None and positive_number(_div) is not None
+                           else None)
+            if (positive_number(oup) is None or _thr_valid is None or _cost_valid is None
+                    or gold_cost_for_dispatch(cfg, round(_cost_valid, dec)) is None):
+                tgt_m = None
+                rec["目标前端每M"] = None
+                rec["G2G跟价错误"] = "目标/现价/成本/阈值无效：本轮不出目标价"
         if tgt_m and oup:
             rec["差距倍数"] = oup / tgt_m
             _thr = float(cfg_gold(cfg).get("持平阈值", 0.005))
@@ -944,6 +1117,28 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                             if rec.get("DD373挂单数") is not None else "?")
                     else:
                         rec["说明"] += "｜%s" % (rec.get("说明_顺延") or "")
+            # ── 2026-10-05：G2G cheapold 模式下把「说明」改写成 G2G 口径 ──────
+            if _mode_used == "g2g_cheapold":
+                _lvl = rec.get("定价来源级别")
+                if _lvl == 1:
+                    _lbl = "cheapold 卖家"
+                else:
+                    _lbl = "推荐前二较低者(%s)" % (rec.get("G2G_取价卖家") or "-")
+                _pre = ("目标 $%s/%s（G2G %s $%s/%s × (1−%.1f%%)）｜我方 $%s/%s（%+.2f%%）"
+                        % (fmt_money(per_100k(tgt_m, _dm)), _ul, _lbl,
+                           fmt_money(per_100k(rec.get("基准价"), _dm)), _ul,
+                           discount_display(_disc) * 100,
+                           fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                _gz = ("｜cheapold $%s｜推荐1 $%s(%s)｜推荐2 $%s(%s)｜卖家 %s 家"
+                       % (fmt_money(rec.get("G2G_cheapold价")), fmt_money(rec.get("G2G_推荐1")),
+                          rec.get("G2G_推荐1卖家") or "-", fmt_money(rec.get("G2G_推荐2")),
+                          rec.get("G2G_推荐2卖家") or "-", rec.get("G2G_卖家数")))
+                if rec["动作"] == "hold":
+                    rec["说明"] = _pre + "（在 ±%.1f%% 持平区间内）→ 不动%s" % (_thr * 100, _gz)
+                else:
+                    rec["说明"] = (_pre + "→ 采购成本应改为 ￥%.6f/M"
+                                          "（= 目标每M × 成本除数 %.4f）%s"
+                                   % (rec["采购成本_新"], _div, _gz))
         else:
             rec["差距倍数"] = None
             rec["动作"] = "hold"
@@ -953,6 +1148,10 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["错误"] = None
                 rec["说明"] = ("DD373 无报价（%s）且兜底链也未取到价 → 本轮不出目标价"
                                % (rec.get("DD373依据") or rec.get("说明_顺延") or "该区无挂单"))
+            elif _mode_used == "g2g_cheapold":
+                rec["错误"] = None
+                rec["说明"] = ("G2G 未取到价（%s）→ 本轮不出目标价"
+                               % (rec.get("G2G跟价错误") or "该子服务器无有效报价"))
             elif not rec.get("错误"):
                 rec["错误"] = "双方价有一侧没抓到，无法算目标价"
         _ko = _known.get(sv.get("key"))
@@ -984,11 +1183,17 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 # **按游戏**给，别只给 AION2 —— 暗黑4 必须是 None（默认口径）
                 "按游戏": {g: p for g, p in _pol_by_game.items() if p},
                 "AION2": _pol_by_game.get("AION2"),
-                "说明": ("当前 AION2 走「DD373 推荐价 + 加价%」；G2G/ELD/IGGM 继续采集监控并展示，"
-                         "但不参与定价。旧策略（三源比价 multisrc）已归档，"
-                         "改 config.金币.定价策略.模式 即可切回。"
-                         if _pricing_mode == "dd373_markup" else "默认口径（纯 IGGM × 让价系数）"),
-                "可切换": ["dd373_markup（当前·DD373 推荐价加价）", "multisrc（旧·三源比价）"],
+                "说明": ("当前 AION2 走「G2G cheapold 跟价」；G2G/ELD/IGGM 继续采集监控并展示，"
+                         "定价只取该子服务器的 cheapold（无则推荐前二较低者）×(1−下浮%)。"
+                         "改 config.金币.定价策略.模式 即可切回 DD373 或三源比价。"
+                         if _pricing_mode == "g2g_cheapold" else
+                         ("当前 AION2 走「DD373 推荐价 + 加价%」；G2G/ELD/IGGM 继续采集监控并展示，"
+                          "但不参与定价。旧策略（三源比价 multisrc）已归档，"
+                          "改 config.金币.定价策略.模式 即可切回。"
+                          if _pricing_mode == "dd373_markup" else "默认口径（纯 IGGM × 让价系数）")),
+                "可切换": ["dd373_markup（DD373 推荐价加价）",
+                           "multisrc（旧·三源比价）",
+                           "g2g_cheapold（G2G cheapold 跟价）"],
             },
             "口径": "我方前端每M价 = IGGM 每M价 × (1 − 让价百分比)；"
                     "目标采购成本 = 目标每M价 × 成本除数；"
@@ -997,11 +1202,13 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     "展示倍率按游戏取（D4 = 每 100000M，Aion 2 = 每 M）",
             "多源基准": ({
                 "启用": True,
-                "参与定价": (_pricing_mode != "dd373_markup"),
-                "口径": ("⚠ 仅监控展示，**不参与定价**（当前策略 = DD373 推荐价加价）"
-                         if _pricing_mode == "dd373_markup" else
-                         "基准 = min(G2G, ELD)，IGGM 更低则取 IGGM；"
-                         "两站都没数据的区用同大区均价兜底；目标 = 基准 × (1−让价百分比)"),
+                "参与定价": (_pricing_mode not in ("dd373_markup", "g2g_cheapold")),
+                "口径": ("⚠ 仅监控展示，**不参与定价**（当前策略 = G2G cheapold 跟价）"
+                         if _pricing_mode == "g2g_cheapold" else
+                         ("⚠ 仅监控展示，**不参与定价**（当前策略 = DD373 推荐价加价）"
+                          if _pricing_mode == "dd373_markup" else
+                          "基准 = min(G2G, ELD)，IGGM 更低则取 IGGM；"
+                          "两站都没数据的区用同大区均价兜底；目标 = 基准 × (1−让价百分比)")),
                 "明细": {it.get("key"): {"基准来源": it.get("基准来源"),
                                         "基准价": it.get("基准价"),
                                         "竞品最低价": it.get("竞品最低价"),

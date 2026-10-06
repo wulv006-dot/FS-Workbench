@@ -1,0 +1,29 @@
+{
+  "sourceFiles": 29,
+  "baseCandidateFiles": 28,
+  "baseCandidateAllUnchanged": true,
+  "changedFiles": [
+    "opt/d4follow/app.py",
+    "opt/d4follow/core_gold.py",
+    "opt/d4follow/gold_numeric_guard.py",
+    "opt/d4follow/srv_exec.py"
+  ],
+  "testMethods": 26,
+  "testExitCode": 0,
+  "patchCheckExitCode": 0,
+  "patchCheckOutput": "",
+  "patchSHA256": "93fcb11f2922b581746f671b9203deb5f5b967120a22ba6b697da65ec0c6bf14",
+  "testSHA256": {
+    "test_isolated.py": "2790db595a5729761fbc9e9ddceb81e25efe458cf9647a356eedde68ae29c45e",
+    "test_closure.py": "d55992b1e0a34e5cd92234e4801cbc69b2a0354a1484749297c2ad934ce1d366"
+  },
+  "independentInputSHA256": {
+    "REVIEW.md": "8329ae2dbc63dffdaeffd1ed0590590b00858e83665a1663af496a7d93510605",
+    "independent-evidence.json": "95485521b103ca8de90d8bbf500db82df48c10ffcdcd638f4a5e9e692afe34a1"
+  },
+  "recordedWriterSHA256": "5765f759bf4e8e2e8ca27856270e01aef2228c8e11bc6dfcaa4b8ec35ffbceec",
+  "strongSecretFindings": [],
+  "productionContactedThisIncrement": false,
+  "runtimeConfigIncluded": false,
+  "releaseReady": false
+}

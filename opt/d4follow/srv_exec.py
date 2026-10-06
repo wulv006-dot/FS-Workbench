@@ -191,6 +191,21 @@ def run_once():
         log("  ⏸ 系统总开关=关 → 工单退回排队，未发任何写请求")
         return False
 
+    # Gold numeric and serialization guard before any executor side effect.
+    if kind == "writegold":
+        from gold_numeric_guard import validate_ticket
+        try:
+            _gold_plan = json.loads(job.get("plan_json") or "{}")
+            _gold_encoded = json.dumps(_gold_plan, allow_nan=False)
+            if not validate_ticket(json.loads(_gold_encoded), cfg):
+                raise ValueError("gold target cost invalid at configured/writer precision")
+        except (TypeError, ValueError, OverflowError):
+            S.local_job_finish(con, jid, ok=False,
+                               log="金币工单目标成本/序列化无效，未调用执行器", agent="srv-exec")
+            ST.update({"state": "idle", "job": None, "kind": None,
+                       "failed": ST["failed"] + 1, "note": "金币无效工单已拒绝"})
+            return False
+
     # 闸门④：docker 可用性
     try:
         chk = subprocess.run([DOCKER, "info"], capture_output=True, timeout=30)

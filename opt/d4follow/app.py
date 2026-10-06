@@ -1829,6 +1829,11 @@ def task_collect(t, opts):
                              it.get("DD373挂单数"),
                              (it.get("加价比例") or 0) * 100,
                              it.get("采购成本_新"), it.get("动作") or "-"))
+                elif it.get("定价模式") == "g2g_cheapold":
+                    t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s"
+                          % (it.get("中文名"), it.get("基准来源") or "-",
+                             it.get("基准价"), core_gold.discount_display(it.get("下浮比例")) * 100,
+                             it.get("采购成本_新"), it.get("动作") or "-"))
                 else:
                     t.log("  [金币] %-22s 利润率 %s ｜ 我方每M %s ｜ IGGM每M %s ｜ 目标采购成本 %s ｜ %s"
                           % (it.get("中文名"), it.get("利润率"),
@@ -2368,8 +2373,8 @@ def task_gold_apply(t, opts):
                 _why = "前端显示价无差别（改了看不出，已省单）"
             skipped.append((r, _why))
             continue
-        if r.get("cost_target") is None:
-            skipped.append((r, "缺目标采购成本"))
+        if core_gold.gold_cost_for_dispatch(cfg, r.get("cost_target")) is None:
+            skipped.append((r, "目标采购成本须在配置及执行精度下为有限正数"))
             continue
         keep.append(r)
 
@@ -2492,8 +2497,12 @@ def task_gold_apply(t, opts):
                     "服务器可自行登录改价；换机需重新申请。",
             "skipped": [{"key": r.get("key"), "why": w} for r, w in skipped],
         }
+        encoded_payload = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
+        if any(core_gold.gold_cost_for_dispatch(cfg, item.get("采购成本_新")) is None
+               for item in json.loads(encoded_payload)["items"]):
+            raise RuntimeError("金币工单序列化后目标成本无效，拒绝派单")
         with open(fp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write(encoded_payload)
         t.log("── 小结 · %s ──" % _gname)
         t.log("  金币工单已生成：%s" % fp)
         t.log("  清缓存意图：%s" % ("清" if _want_cache else "不清（config 里已关）"))
@@ -2639,7 +2648,11 @@ def api_gold():
                      "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
                      % ((_pol_a.get("加价比例") or 0) * 100)
                      if _pol_a.get("模式") == "dd373_markup" else
-                     ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")),
+                     ("AION2 售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）"
+                      "× (1−%.1f%%)；DD373/ELD/IGGM 继续采集监控但不参与定价。"
+                      % (core_gold.discount_display(_pol_a.get("下浮比例")) * 100)
+                      if _pol_a.get("模式") == "g2g_cheapold" else
+                      ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径"))),
         },
         "items": rows,
     })
@@ -2710,6 +2723,32 @@ def api_gold_cost():
         costs = store.gold_cost_latest(con, game=game)
     except Exception:
         costs = []
+    # 2026-10-06 展示名统一（用户要求）：
+    #   汇总表「服务区」列原先只取 DD373 的游戏区名，而本轮新增的 52 个子服务器在
+    #   DD373 没有挂单 → 回落成内部主键 AION2_XXX_E，与老 34 区的「Siel / Zikel」
+    #   两种格式并存。这里给每条补 服务器名 / 大区中文 / 种族：
+    #     · DD373 有数据的区 → 沿用原值（老区外观零变化）
+    #     · 新区 → 取 config 金币.服务区（86 区全都有 g2g_服务区/中文名）
+    #   前端第一列改用这三个字段，86 行格式统一。
+    _REGION_CN = {"EU": "欧服", "NA West": "北美西", "NA East": "北美东",
+                  "Asia": "日服", "South America": "南美", "SAM": "南美", "Latin": "南美"}
+    _names = {}
+    for _s in ((cfg.get("金币") or {}).get("服务区") or []):
+        _k = _s.get("key")
+        if not _k:
+            continue
+        _g2g = str(_s.get("g2g_服务区") or "")
+        # 只处理「带 G2G 子服务器名」的区（= AION2 这 86 个）。暗黑4 的 4 个金币区没有
+        # 该字段，直接跳过 → 仍走 DD373 原名，外观零影响。
+        if " - " not in _g2g:
+            continue
+        _cn = str(_s.get("中文名") or "")
+        _serv = _g2g.split(" - ")[0].strip()
+        _race = ("天族" if ("（天族）" in _cn or _g2g.endswith("Elyos"))
+                 else ("魔族" if ("（魔族）" in _cn or _g2g.endswith("Asmodian")) else ""))
+        _names[_k] = {"服务器名": _serv,
+                      "大区中文": _REGION_CN.get(_s.get("大区")) or (_s.get("大区") or ""),
+                      "种族": _race}
     out = []
     for c in costs:
         k = c.get("key")
@@ -2735,6 +2774,14 @@ def api_gold_cost():
             "挂单数": c.get("n_items"),
             "DD区": c.get("dd_area"), "DD种族": c.get("dd_race"),
             "DD游戏区": c.get("dd_zone"),
+            # 2026-10-06：展示名（DD373 优先，缺失回落 config）——见上方 _names。
+            #   前端汇总表第一列用这三个字段，替代原来的 DD游戏区||key 兜底。
+            # ⚠ config 优先、DD373 兜底（2026-10-06）：DD373 的区名有个别笔误
+            #   （如 Asia 的 Nezekan 被拼成 Nezekan/Nezakan 两种），两个源混用会让
+            #   同一台服务器在表里出现两种拼写。统一以 config（站内权威名）为准。
+            "服务器名": (_names.get(k) or {}).get("服务器名") or c.get("dd_zone") or "",
+            "大区中文": (_names.get(k) or {}).get("大区中文") or c.get("dd_area") or "",
+            "种族": (_names.get(k) or {}).get("种族") or c.get("dd_race") or "",
             "依据": c.get("basis"), "备注": c.get("note"),
             "url": c.get("url"), "ts": c.get("ts"),
             "对照档位M": _tier.get(k),
@@ -2768,13 +2815,18 @@ def api_gold_cost():
     return jsonify({
         "ok": True, "game": game, "rate": rate,
         "ts": (out[0]["ts"] if out else None),
-        "口径": ("售价 = DD373 该区推荐价（综合排序第 1 条）折 $/M × %.1f%%；"
-                 "成本 = 同一条挂单的单价；利润率 = (售价 − 成本) / 售价，可为负。"
-                 "G2G/ELD/IGGM 仅监控展示，不参与定价。"
-                 % ((_pol.get("加价比例") or 0) * 100)
-                 if _pol.get("模式") == "dd373_markup" else
-                 "成本 = DD373 永恒之塔2国际服·基纳·各区·综合排序第 1 条单价；"
-                 "利润率 = (售价 − 成本) / 售价，可为负。"),
+        "口径": ("售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）× (1−%.1f%%)；"
+                 "成本 = DD373 综合排序第 1 条单价（监控口径）；"
+                 "利润率 = (售价 − 成本) / 售价，可为负。DD373/ELD/IGGM 仅监控展示。"
+                 % (core_gold.discount_display(_pol.get("下浮比例")) * 100)
+                 if _pol.get("模式") == "g2g_cheapold" else
+                 ("售价 = DD373 该区推荐价（综合排序第 1 条）折 $/M × %.1f%%；"
+                  "成本 = 同一条挂单的单价；利润率 = (售价 − 成本) / 售价，可为负。"
+                  "G2G/ELD/IGGM 仅监控展示，不参与定价。"
+                  % ((_pol.get("加价比例") or 0) * 100)
+                  if _pol.get("模式") == "dd373_markup" else
+                  "成本 = DD373 永恒之塔2国际服·基纳·各区·综合排序第 1 条单价；"
+                  "利润率 = (售价 − 成本) / 售价，可为负。")),
         "定价策略": _pol,
         "汇总": {
             "服务区数": len(out),
