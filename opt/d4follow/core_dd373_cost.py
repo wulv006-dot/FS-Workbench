@@ -4,14 +4,28 @@
 用户口径
 ------------------------------------------------
 【2026-10-02】「成本 = 综合排序后展示的第一条商品价格」—— 已废弃。
-【2026-10-06 · 现行】老板原话：「你选择 2 亿数量的金币，然后算均价来定价格」。
+【2026-10-06 上午】老板原话：「你选择 2 亿数量的金币，然后算均价来定价格」。
+【2026-10-06 晚 · 现行】老板改为 **1 亿** —— 「把 2 亿兜底改成 1 亿」。
+   ⇒ 目标量 TARGET_WAN 2 亿（20000 万基纳）→ **1 亿（10000 万基纳）**；
+     对应的「无货兜底」阈值（config `金币.定价策略.无货最小可买万基纳`）同步 20000 → 10000。
 
-⇒ 成本口径 = **「买满 2 亿基纳」的订单簿加权均价**（不是最小那一笔散单的单价）：
+⇒ 成本口径 = **「买满 1 亿基纳」的订单簿加权均价**（不是最小那一笔散单的单价）：
      · 收集该区**全部可买挂单**：散单（单笔不拆，可供量 = max）+
        热卖商城（数量行 data-max，单位万基纳）；
-     · 按**单价从低到高**逐条「吃」，吃到 2 亿基纳（= 20000 万基纳）为止；
+     · 按**单价从低到高**逐条「吃」，吃到 1 亿基纳（= 10000 万基纳）为止；
      · 成本单价 = Σ(吃掉的数量 × 该条单价) ÷ Σ(吃掉的数量)。
-   「够不够 2 亿」由整页（+不足时的后续页）可买总量判断，缺口写进备注。
+   「够不够 1 亿」由整页（+不足时的后续页）可买总量判断，缺口写进备注。
+
+【2026-10-06 晚 · 匹配修复】DD373 把第三层「游戏区」名改成了 **「Kaisinel（天4）」**
+   这种带全角括号后缀的写法（此前是裸名 `Kaisinel`）。旧 `_norm()` 只比对裸名，
+   ⇒ 归一化后变成 `kaisinel（天4）`，与我方 `Kaisinel` 对不上，
+   **86 个区里 70 个被判「DD373 无对应区（游戏区×大区）」→ 全部误挂 $19.9 兜底**。
+   本次三处修复：
+     ① `_norm()` 先**剥掉括号后缀**（全角/半角 + 中间空格）再比对；
+     ② 补别名表 `NAME_ALIAS`（DD373 拼写 ↔ 游戏内拼写）；
+     ③ `zone_tree()` 抓失败的**种族页/区服页要重试**，并把成功的树**落盘缓存**，
+        本轮漏抓的条目用上次快照补齐 —— 原来一次 `_get` 失败就静默丢掉整个种族的
+        全部游戏区（实测 NA East 天族 8 个区整批消失，且日志里一个字都没有）。
 
 ⚠ 2026-10-06 起成本**参与定价**（不再只是监控）：
    core_gold.build_plan 在 AION2 线上模式（g2g_cheapold）里读它做两件事 ——
@@ -26,8 +40,10 @@
 商品类型  基纳  GUID = 76c9f6b688934f8283dae5e643c2da99（Property=游戏币）
 区（5）    日服 heft1r / 北美西 vshs5k / 北美东 6hw3s0 / 南美 72kds4 / 欧服 n98us6
 种族（2）  天族 / 魔族，每区各一套
-游戏区     区+种族之下还有第三层（Siel / Azphel / Nezekan / Zikel …），
-          全站共 36 个，正好一一对应我方 34 个服务区（日服多 Vaizel/Triniel/Nezakan）
+游戏区     区+种族之下还有第三层（Siel / Azphel / Nezekan / Zikel …）。
+          2026-10-06 起 DD373 把这一层改写成 **「Kaisinel（天4）」这种带全角括号
+          后缀的形态**（括号里 = 天/魔族 + 序号），全站约 97 条；我方是 86 个服务区，
+          靠「剥括号 + 别名表」对齐（见下面 `_norm()` / `NAME_ALIAS`）。
 
 商品页 URL（三段 seg，**不是**两段 —— 这是最容易写错的地方）
 ------------------------------------------------
@@ -72,7 +88,7 @@
    ⛔ **必须靠「带不带小数点」把金额行剔掉**，否则 5000「元」会被当成 5000「万基纳」，
       把可买量算小、单价算错。
 
-③ 数量单位换算：`1 亿基纳 = 10000 万基纳`；本模块目标量 2 亿 = **20000 万基纳**。
+③ 数量单位换算：`1 亿基纳 = 10000 万基纳`；本模块目标量 1 亿 = **10000 万基纳**。
 """
 import gzip
 import json
@@ -102,36 +118,63 @@ AREA_MAP = {
     "EU":            ("欧服",   "n98us6"),
 }
 
-# ⛔ 别名表：DD373 上有拼写与游戏内名不一致的，**必须靠它对齐**，别改我方命名。
-#     日服天族 DD373 写「Nezakan」（缺 e），游戏内是「Nezekan」。2026-10-02 实测。
+# ⛔ 别名表：DD373 上的拼写与我方（游戏内）不一致时，**以我方为准**，别去改我方命名。
+#     键 = DD373 名剥掉括号后缀后的小写；值 = 我方小写名。
+#     2026-10-02 实测 Nezakan；2026-10-06 实测 Fregio / Mumin
+#     （DD373 自己各区还不一致：欧服写 Fregion，北美东写 Fregio）。
 NAME_ALIAS = {
-    ("Asia", "Nezekan"): "Nezakan",
+    "nezakan": "nezekan",     # 日服 / 北美东 / 南美：DD373 少一个 e
+    "fregio":  "fregion",     # 北美东（天7）：DD373 少一个 n
+    "mumin":   "munin",       # 欧服（魔13）：DD373 写成 Mumin
 }
 
-# 归一化：把 DD373 的游戏区名统一成我方命名（含大小写与拼写差异）
+# DD373「区+种族」列表页里会混进「区名 / 种族名」自身（点进去是本组合的父页，
+#   url_seg 与某个真游戏区相同）—— 这些不是游戏区，进树只会造成脏匹配，直接丢。
+_JUNK_NAMES = {"天族", "魔族", "亚服", "欧服", "北美东", "北美西", "日服", "南美",
+               "基纳", "国际服"}
+
+# 「Kaisinel（天4）」这种全角/半角括号后缀（可能带前置空格）
+_RE_BRACKET = re.compile(r"\s*[（(][^（()）]*[）)]")
+
+
 def _norm(nm):
-    n = (nm or "").strip().lower()
-    for canon in ("nezekan", "siel", "vaizel", "kaisinel", "meslamtaeda", "fregion",
-                  "yustiel", "ariel", "israphel", "zikel", "triniel", "lumiel",
-                  "azphel", "beritra", "ereshkigal", "marchutan"):
-        if n == canon:
-            return canon
-    if n in ("nezakan",):            # DD373 日服拼写
-        return "nezekan"
-    return n
+    """把 DD373 的游戏区名归一成「我方小写名」，供 `大区|名字` 做键。
+
+    2026-10-06 起 DD373 的第三层名变成了「Kaisinel（天4）」，所以必须：
+      ① 剥掉括号后缀（含括号前的空格）；
+      ② 压掉残留空白（欧服有条目写成「Azphel （魔6）」，括号前带空格）；
+      ③ 查别名表对齐拼写差异。
+    """
+    n = _RE_BRACKET.sub("", nm or "").strip().lower()
+    n = re.sub(r"\s+", "", n)
+    return NAME_ALIAS.get(n, n)
 
 
-def _get(url, referer=BASE + "/", timeout=25):
-    """GET + 手工 gzip 解压（这个站的坑，见模块 docstring 第 2 条）。"""
-    req = urllib.request.Request(url, headers={
-        "User-Agent": UA, "Referer": referer, "Accept-Encoding": "identity",
-        "Accept": "text/html,application/json,*/*",
-    })
-    with urllib.request.urlopen(req, timeout=timeout, context=_sslctx) as f:
-        raw = f.read()
-        if f.headers.get("Content-Encoding") == "gzip" or raw[:2] == b"\x1f\x8b":
-            raw = gzip.decompress(raw)
-    return raw.decode("utf-8", "ignore")
+def _get(url, referer=BASE + "/", timeout=25, tries=2):
+    """GET + 手工 gzip 解压（这个站的坑，见模块 docstring 第 2 条）。
+
+    `tries` 次重试（线性退避）—— 2026-10-06 实测：单次网络抖动会让区服树
+    **静默丢掉一整个种族的全部游戏区**（NA East 天族 8 个区整批消失、日志里
+    一个字都没有），所以「拿不到就少一块数据」的调用一律走这个重试。
+    """
+    last = None
+    _t = max(1, int(tries))
+    for _i in range(_t):
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": UA, "Referer": referer, "Accept-Encoding": "identity",
+                "Accept": "text/html,application/json,*/*",
+            })
+            with urllib.request.urlopen(req, timeout=timeout, context=_sslctx) as f:
+                raw = f.read()
+                if f.headers.get("Content-Encoding") == "gzip" or raw[:2] == b"\x1f\x8b":
+                    raw = gzip.decompress(raw)
+            return raw.decode("utf-8", "ignore")
+        except Exception as e:                      # noqa: BLE001
+            last = e
+            if _i < _t - 1:
+                time.sleep(2.0 + 2.0 * _i)
+    raise last
 
 
 def _api_list(parent_id):
@@ -154,46 +197,139 @@ def _api_list(parent_id):
 # ---------------------------------------------------------------------------
 _TREE_CACHE = {"ts": 0, "data": None}
 
+# 磁盘快照：进程内存缓存只活一次（重启即失），而 DD373 偶发抽风会让**整批区**丢失。
+#   所以每次抓到就落盘；本轮没完整抓到的区，用上次快照补齐 —— 宁可用旧快照，
+#   也别把一个真有货的区判成「DD373 无对应区」→ 误挂 $19.9 兜底。
+_TREE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "data", "dd373_zone_tree.json")
 
-def zone_tree(max_age=21600, log=None):
-    """返回 {"<我方大区>|<归一化名>": {"url_seg":..., "dd_area":..., "dd_race":...,
-                                       "dd_name":..., "our_name":...}}"""
-    if _TREE_CACHE["data"] and time.time() - _TREE_CACHE["ts"] < max_age:
-        return _TREE_CACHE["data"]
+
+def _tree_disk_load():
+    try:
+        with open(_TREE_FILE, encoding="utf-8") as f:
+            j = json.load(f)
+        t = j.get("tree") if isinstance(j, dict) else None
+        return t if isinstance(t, dict) else {}
+    except Exception:
+        return {}
+
+
+def _tree_disk_save(tree):
+    try:
+        _d = os.path.dirname(_TREE_FILE)
+        if _d and not os.path.isdir(_d):
+            os.makedirs(_d)
+        _tmp = _TREE_FILE + ".tmp"
+        with open(_tmp, "w", encoding="utf-8") as f:
+            json.dump({"ts": time.time(), "tree": tree}, f, ensure_ascii=False, indent=1)
+        os.replace(_tmp, _TREE_FILE)
+    except Exception:
+        pass
+
+
+def _is_br(name):
+    return ("（" in (name or "")) or ("(" in (name or ""))
+
+
+def _crawl_tree(log=None):
+    """真抓一次区服树。
+
+    返回 (tree, ok_areas)：
+        tree     {"<我方大区>|<归一化名>": {...}}
+        ok_areas 本轮**两个种族都抓到**的大区名集合（这些区完全以本轮为准，
+                 没抓全的区交给上轮快照兜底 —— 见 zone_tree()）。
+
+    ⚠ 2026-10-06：第三层名带「（天4）」括号后缀 → 靠 _norm() 剥掉再建键；
+       抓失败的种族页**重试 3 次**，不再静默丢一整个种族。
+    """
     out = {}
+    ok_areas = set()
     for our_area, (dd_area, area_seg) in AREA_MAP.items():
         try:
             areas = _api_list(GAME_GUID)
-        except Exception as e:
+        except Exception as e:                      # noqa: BLE001
             if log:
-                log("  [DD373] 区服树失败: %r" % (e,))
-            return out
+                log("  [DD373] 区服树（区列表）失败: %r" % (e,))
+            continue
         hit = next((a for a in areas if a.get("Identify") == area_seg), None)
         if not hit:
+            if log:
+                log("  [DD373] 区服树里找不到「%s」（seg=%s）" % (dd_area, area_seg))
             continue
-        for race in _api_list(hit["Id"]):
+        races = _api_list(hit["Id"])
+        if not races:
+            if log:
+                log("  [DD373] %s 拿不到种族列表（API 返回空），本区跳过" % dd_area)
+            continue
+        _ok_race = 0
+        for race in races:
             r_seg, r_name = race.get("Identify"), race.get("Name")
-            # 区+种族 页里列出了该组合下的全部游戏区（第三层）
+            page = "%s/s-%s-c-%s-%s-%s.html" % (BASE, GAME_SID, KINAH_SEG, area_seg, r_seg)
             try:
-                h = _get("%s/s-%s-c-%s-%s-%s.html" % (BASE, GAME_SID, KINAH_SEG, area_seg, r_seg))
-            except Exception:
+                h = _get(page, tries=3)
+            except Exception as e:                  # noqa: BLE001
+                if log:
+                    log("  [DD373] %s/%s 第三层页抓取失败（已重试 3 次）: %r"
+                        % (dd_area, r_name, e))
                 continue
             pat = r"/s-%s-c-%s-[a-z0-9]{6}-[a-z0-9]{6}-([a-z0-9]{6})\.html\"[^>]*>([^<]+)<" % (
                 GAME_SID, KINAH_SEG)
+            _n = 0
             for m in re.finditer(pat, h):
                 lv3_seg, dd_name = m.group(1), m.group(2).strip()
-                if not dd_name or dd_name == "基纳":
+                if not dd_name or dd_name in _JUNK_NAMES:
                     continue
                 nm = _norm(dd_name)
-                out["%s|%s" % (our_area, nm)] = {
+                if not nm:
+                    continue
+                k = "%s|%s" % (our_area, nm)
+                old = out.get(k)
+                # DD373 列表页里同一条目会以「裸名」和「带括号名」各出现一次
+                #   ⇒ **带括号的（DD373 现行正式命名）优先**，别被裸名覆盖。
+                if old and _is_br(old["dd_name"]) and not _is_br(dd_name):
+                    continue
+                out[k] = {
                     "url_seg": "%s-%s-%s" % (area_seg, r_seg, lv3_seg),
                     "dd_area": dd_area, "dd_race": r_name, "dd_name": dd_name,
                     "our_name": nm,
                 }
+                _n += 1
+            _ok_race += 1
+            if log:
+                log("  [DD373] 区服树 %s/%s → %d 个游戏区" % (dd_area, r_name, _n))
             time.sleep(1.1)          # 分册 17：限流约 200 次/短窗口，这里很安全
+        if _ok_race >= len(races):
+            ok_areas.add(dd_area)
         time.sleep(1.1)
+    return out, ok_areas
+
+
+def zone_tree(max_age=21600, log=None):
+    """返回 {"<我方大区>|<归一化名>": {"url_seg":..., "dd_area":..., "dd_race":...,
+                                       "dd_name":..., "our_name":...}}
+
+    合并策略（2026-10-06）：
+      · 本轮**两个种族都抓到**的大区 → 完全以本轮为准（DD373 真下架的区会随之消失）；
+      · 本轮没抓全的大区 → 用磁盘快照补齐，并在日志里点名（看到它 = 本轮抓取不完整）。
+    """
+    if _TREE_CACHE["data"] and time.time() - _TREE_CACHE["ts"] < max_age:
+        return _TREE_CACHE["data"]
+    disk = _tree_disk_load()
+    fresh, ok_areas = _crawl_tree(log=log)
+    out = {k: v for k, v in disk.items() if v.get("dd_area") not in ok_areas}
+    _filled = len(out)
+    out.update(fresh)
+    if not out:
+        if log:
+            log("  [DD373] 区服树本轮抓空且无快照 —— 返回空（本轮不产出成本）")
+        return out
+    if log and _filled:
+        log("  [DD373] ⚠ 本轮有 %d 个键没抓全，已用上次快照补齐（%d 个区完全以本轮为准）"
+            % (_filled, len(ok_areas)))
     _TREE_CACHE["ts"] = time.time()
     _TREE_CACHE["data"] = out
+    if ok_areas:
+        _tree_disk_save(out)
     return out
 
 
@@ -248,9 +384,11 @@ _RE_STOCK = re.compile(r'库存：<span[^>]*>([^<]+)</span>')
 _RE_MIN = re.compile(r'起售：<span[^>]*>([^<]+)</span>')
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 2026-10-06 · 成本口径改为「买满 2 亿基纳的订单簿加权均价」
+# 2026-10-06 · 成本口径 = 「买满 TARGET_WAN 万基纳的订单簿加权均价」
+#   ⚠ 当天晚些时候老板把目标量从 2 亿改成 **1 亿**（「把 2 亿兜底改成 1 亿」）。
+#     配套的「无货兜底」阈值见 config `金币.定价策略.无货最小可买万基纳`（同为 10000）。
 # ═══════════════════════════════════════════════════════════════════════════
-TARGET_WAN = 20000.0        # 目标采购量：2 亿基纳 = 20000 万基纳
+TARGET_WAN = 10000.0        # 目标采购量：1 亿基纳 = 10000 万基纳
 MAX_PAGES = 3               # 单区最多翻 MAX_PAGES 页散单（首屏通常是 20 条/页）
 REQ_BUDGET = 150            # 单轮总请求预算（含首屏）；用尽则剩余区沿用上一轮快照
 
@@ -404,10 +542,10 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
     rate    : 汇率（USD→CNY），用于折成 $/M
     返回   : {key: {...}}，每条含
                ok            布尔
-               成本_元每万基纳  **2 亿订单簿加权均价**（元/万基纳，面板主显）
-               成本_USD每M     折算后（算利润率、做成本兜底都用它）
-               可供量_万基纳   该区全部挂单可买总量（判断够不够 2 亿）
-               够量           布尔（可供量 ≥ 2 亿）
+              成本_元每万基纳  **1 亿订单簿加权均价**（元/万基纳，面板主显）
+              成本_USD每M     折算后（算利润率、做成本兜底都用它）
+              可供量_万基纳   该区全部挂单可买总量（判断够不够 1 亿）
+              够量           布尔（可供量 ≥ 1 亿）
                参与条数       被吃进订单簿的档位数
                依据/备注/URL
     ⚠ 本函数仍**只读**；但 2026-10-06 起它的产物是定价输入（成本兜底 + 利润率下限）。
@@ -478,7 +616,7 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                 log("  [DD373] %-24s ✗ 单位异常：%s" % (key, _chk.get("自校验")))
             time.sleep(gap)
             continue
-        # ── 订单簿：本页 + （不足 2 亿时）后续页，按单价升序吃满 2 亿基纳 ──────
+        # ── 订单簿：本页 + （不足 1 亿时）后续页，按单价升序吃满 1 亿基纳 ──────
         quotes = _parse_quotes(html)
         ob = orderbook_avg(quotes)
         _pages = 1
@@ -499,12 +637,12 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
                     #    那条判据（无 goods-list-item 且无 sell-btn-box ⇒ 判拦）在长页上
                     #    极易**误判**。上一版这里是 `return out`（整轮中止），实测一误判
                     #    就把整轮 86 区的成本全废掉（2026-10-06 11:56 那轮即是）。
-                    #    ⇒ 改为**只放弃本区补页**，用首屏已拿到的订单簿（可能 < 2 亿，
+                    #    ⇒ 改为**只放弃本区补页**，用首屏已拿到的订单簿（可能 < 1 亿，
                     #    按现有挂单加权），继续跑其余区。首屏被拦才整轮中止（那才是真 IP 封锁）。
                     _page_note = "·第%d页被拦(用首屏)" % _n
                     if log:
                         log("  [DD373] %-24s ⚠ 翻第 %d 页被拦（长URL/风控）—— "
-                            "本区改用首屏订单簿（可能不足 2 亿），继续采集其余区"
+                            "本区改用首屏订单簿（可能不足 1 亿），继续采集其余区"
                             % (key, _n))
                     break
                 quotes += _parse_quotes(_h2)
@@ -523,7 +661,7 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
             continue
         _pr = ob["均价"]
         _short_note = (None if ob["够量"] else
-                       "该区挂单仅可买 %.0f 万基纳（< 2 亿），均价按现有挂单加权"
+                       "该区挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
                        % ob["可供量"])
         rec = {
             "ok": True,
@@ -537,7 +675,7 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
             "商品条数": ob["报价条数"],
             "DD区": info["dd_area"], "DD种族": info["dd_race"], "DD游戏区": info["dd_name"],
             # 依据列保持简短（太长会把右侧「改价操作」挤出可视区）：只留 区/种族/游戏区 + 口径
-            "依据": "%s / %s / %s · 买满2亿订单簿加权(吃%d/%d条·翻%d页%s)"
+            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·翻%d页%s)"
                     % (info["dd_area"], info["dd_race"], info["dd_name"],
                        ob["参与条数"], ob["报价条数"], _pages, _page_note),
             "URL": url,
@@ -548,9 +686,9 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
         out[key] = rec
         if log:
             log("  [DD373] %-24s %-10s %.6f 元/万基纳 → $%.4f/M  "
-                "(2亿订单簿 %d 条%s，可买 %.0f万基纳)"
+                "(1亿订单簿 %d 条%s，可买 %.0f万基纳)"
                 % (key, rec["DD游戏区"], _pr, rec["成本_USD每M"] or 0,
-                   ob["参与条数"], "" if ob["够量"] else "·不足2亿", ob["可供量"]))
+                   ob["参与条数"], "" if ob["够量"] else "·不足1亿", ob["可供量"]))
         time.sleep(gap)
     return out
 
@@ -588,5 +726,5 @@ if __name__ == "__main__":
     res = fetch_costs(svs, rate, log=print, refresh_tree=True)
     ok = sum(1 for v in res.values() if v.get("ok"))
     _full = sum(1 for v in res.values() if v.get("ok") and v.get("够量"))
-    print("\n成功 %d / %d（其中可买满 2 亿 %d 个区）" % (ok, len(svs), _full))
+    print("\n成功 %d / %d（其中可买满 1 亿 %d 个区）" % (ok, len(svs), _full))
     print(json.dumps(summarize(res, {}), ensure_ascii=False, indent=1))

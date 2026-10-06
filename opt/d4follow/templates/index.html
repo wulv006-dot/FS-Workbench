@@ -1879,7 +1879,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
   }
   if(_pol2['模式']==='dd373_only'){
-    /* 只跟 DD373：第1级 = 买满 2 亿按成本×加价；第3级 = 无货统一挂兜底价 */
+    /* 只跟 DD373：第1级 = 买满 1 亿按成本×加价；第3级 = 无货统一挂兜底价 */
     sumBits.push('有货照成本加价 '+_dist[1]
       + ' ｜ <span style="color:var(--yellow)">无货兜底 $'
       + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_dist[3]+'</span>');
@@ -1936,7 +1936,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + '/M</b>')
               : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ×'
                  + (Math.round(Number(_pol2['加价比例']||0)*1000)/10)+'%'
-                 + '；无报价或可买量 < 2 亿 ⇒ 统一挂 $'
+                 + '；无报价或可买量 < 1 亿 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
               : ' ｜ <b>成本不参与改价</b>，仅监控参考。'))
     + '</div>'
