@@ -3039,13 +3039,18 @@ def api_schedule():
             if g not in games:
                 return jsonify({"ok": False, "error": "未知游戏：%s" % g}), 400
             try:
-                iv = int(v)
+                iv = float(v)
             except (TypeError, ValueError):
-                return jsonify({"ok": False, "error": "%s 的周期需要整数小时" % g}), 400
+                return jsonify({"ok": False, "error": "%s 的周期需要数字小时" % g}), 400
+            # ⚠ 必须按 float 比较：SCHED_CHOICES 含 0.25/0.5 两个小数档。
+            #   旧代码用 `int(v)` 会把 0.5→0、0.25→0 ⇒ 页面上选「30 分钟」必被拒
+            #   （报「只能是 0.25/0.5/1/3/6/12/24 小时」，自相矛盾）。
             if iv not in SCHED_CHOICES:
                 return jsonify({"ok": False,
                                 "error": "%s 的周期只能是 %s 小时"
                                          % (g, "/".join(str(x) for x in SCHED_CHOICES))}), 400
+            if float(iv).is_integer():      # 整数档存 int，config 更干净；0.25/0.5 保留 float
+                iv = int(iv)
             cur[g] = iv
             applied[g] = iv
         for g in games:                      # 没提到的游戏补齐默认值（新游戏也能用）
