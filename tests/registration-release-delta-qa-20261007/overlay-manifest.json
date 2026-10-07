@@ -14,8 +14,8 @@
   "files": [
     {
       "path": "linux_delta_entry.py",
-      "bytes": 43103,
-      "sha256": "dff356e2ed0cb9dbc99cb54d217f6e7b0beb271446f1bb4a1261c8f9368c18c9"
+      "bytes": 43695,
+      "sha256": "b2e2c0f0068680a658b819313e617b4bbb8c0e77343faba6d7c0af615d966cab"
     },
     {
       "path": "EXECUTE.md",
@@ -41,6 +41,21 @@
   "production_nginx_verified": false,
   "production_ready": false,
   "integration_executed": false,
-  "manifest_self_hash": "Provided in external five-path inventory; excluded here to avoid recursion",
-  "integration_namespace": "network loopback-only + PID/fork/mount-proc/kill-child lifecycle; runner UID/GID"
+  "manifest_self_hash": "Excluded to avoid recursion; recorded in this revision external inventory and Git readback",
+  "integration_namespace": "network loopback-only + PID/fork/mount-proc/kill-child lifecycle; runner UID/GID",
+  "query_fixture_correction": {
+    "base_commit": "c4f0f8aa6be2a43b537009a231dedf551abaa33e",
+    "preserved_failed_run": 37623684963,
+    "positive_uri": "/dashboard/tasks/api/session?mode=%76iew",
+    "negative_uri": "/dashboard/tasks/api/session?probe=%2F",
+    "negative_expected_status": 403,
+    "receipt_fields": [
+      "case",
+      "uri",
+      "status",
+      "role"
+    ],
+    "business_policy_changed": false,
+    "target_reexecution_pending": true
+  }
 }

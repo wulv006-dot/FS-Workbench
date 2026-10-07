@@ -105,6 +105,8 @@ http {
 RUNTIME_PATH = '/opt/auth-portal/registration-runtime/20261007-ca6258ad'
 ORIGIN = 'https://47.85.224.112'
 PASSWORD = 'Synthetic-password-42'
+SESSION_READ_URI = '/dashboard/tasks/api/session?mode=%76iew'
+SESSION_REJECT_URI = '/dashboard/tasks/api/session?probe=%2F'
 
 
 def sha(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -585,7 +587,7 @@ def run(args):
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);context.check_hostname=False;context.verify_mode=ssl.CERT_NONE
             def request_http(path,method='GET',cookie='',headers=None,tls=True,port=None):
                 if time.monotonic()>deadline:raise TimeoutError('bounded QA request deadline')
-                if path not in ('/__auth/access/','/__auth/access/api/bootstrap','/dashboard/tasks/api/session?probe=%2F',
+                if path not in ('/__auth/access/','/__auth/access/api/bootstrap',SESSION_READ_URI,SESSION_REJECT_URI,
                                 '/dashboard/tasks/api/members','/fc27/verify','/fc27/analysis','/api/session','/__auth/logout'):
                     raise ValueError('request outside finite synthetic route allowlist')
                 target=port or ports['https' if tls else 'http']
@@ -600,19 +602,27 @@ def run(args):
             check('HTTPS access static200',request_http('/__auth/access/')[0]==200)
             check('legacy GET logout confirmation only',request_http('/__auth/logout')[0]==302)
             check('legacy POST logout rejected',request_http('/__auth/logout','POST')[0]==405)
-            status,headers,_=request_http('/dashboard/tasks/api/session?probe=%2F')
+            status,headers,_=request_http(SESSION_READ_URI)
             check('no-cookie business redirects new access entry',status==302 and '/__auth/access/' in headers.get('Location',''))
             for name in policy.ADMINS:
                 cookie=portal.CFG['cookie']+'='+native[name]
-                status,_,body=request_http('/dashboard/tasks/api/session?probe=%2F',cookie=cookie,
+                status,_,body=request_http(SESSION_READ_URI,cookie=cookie,
                     headers={'X-Auth-User':'forged','X-Auth-Role':'readonly','X-Auth-Groups':'forged'})
                 viewer=json.loads(body)['viewer'] if status==200 else {}
                 check('real Nginx four-admin '+name,status==200 and viewer.get('role')=='admin' and viewer.get('user')==name)
-            status,_,body=request_http('/dashboard/tasks/api/session?probe=%2F',cookie=portal.CFG['cookie']+'='+native['oldreader'])
+            status,_,body=request_http(SESSION_READ_URI,cookie=portal.CFG['cookie']+'='+native['oldreader'])
             check('native readonly keeps existing board editor',status==200 and json.loads(body)['viewer']['role']=='editor')
             cookie=runtime.core.COOKIE+'='+registered
-            status,_,body=request_http('/dashboard/tasks/api/session?probe=%2F',cookie=cookie)
-            check('registered readonly real taskboard viewer',status==200 and json.loads(body)['viewer']['role']=='viewer')
+            status,_,body=request_http(SESSION_READ_URI,cookie=cookie)
+            positive={'case':'allowed-query','uri':SESSION_READ_URI,'status':status,'role':None}
+            receipt['registered_readonly_probes']=[positive]
+            if status==200:positive['role']=json.loads(body)['viewer']['role']
+            check('registered readonly real taskboard viewer',status==200 and positive['role']=='viewer')
+            status,_,body=request_http(SESSION_REJECT_URI,cookie=cookie)
+            negative={'case':'forbidden-query','uri':SESSION_REJECT_URI,'status':status,'role':None}
+            receipt['registered_readonly_probes'].append(negative)
+            if status==200:negative['role']=json.loads(body)['viewer']['role']
+            check('registered readonly forbidden query rejected',status==403)
             check('readonly actual POST denied',request_http('/dashboard/tasks/api/members','POST',cookie)[0]==403)
             check('direct forged board headers denied',request_http('/api/session',headers={'X-Auth-User':'fstech','X-Auth-Role':'admin'},tls=False,port=ports['board'])[0]==401)
             check('oldFC cookie retired',request_http('/fc27/verify',cookie='fc27sess=synthetic-old')[0]==401)
@@ -624,7 +634,7 @@ def run(args):
             db=data/'registration-approval/registration.sqlite3';anchor=data/'.registration-checkpoint/state.json'
             moved=db.with_suffix('.unavailable-QA');db.rename(moved)
             try:
-                status=request_http('/dashboard/tasks/api/session?probe=%2F',cookie=cookie)[0]
+                status=request_http(SESSION_READ_URI,cookie=cookie)[0]
                 observed=[json.loads(line) for line in tracefile.read_text().splitlines()]
                 check('actual verifier503 fails closed through Nginx',status>=500 and any(row.get('kind')=='portal-verify-wire' and row.get('status')==503 for row in observed))
             finally:moved.rename(db)
@@ -634,7 +644,7 @@ def run(args):
             check('synthetic native logout fixture',app.dispatch('POST','/api/logout',cookies={runtime.core.COOKIE:session,portal.CFG['cookie']:native['fstech']},body=b'{}',headers={'Origin':ORIGIN,'X-CSRF-Token':csrf,'Content-Type':'application/json'})[0]==200)
             before=(sha(db),sha(anchor));recovery=start('recovery');ready(recovery,ports['portal'])
             for label,old in (('native',portal.CFG['cookie']+'='+native['fstech']),('registered',cookie)):
-                status,headers,_=request_http('/dashboard/tasks/api/session?probe=%2F',cookie=old)
+                status,headers,_=request_http(SESSION_READ_URI,cookie=old)
                 check('recovery old '+label+' token denied',status==302 and '/__auth/access/' in headers.get('Location',''))
             check('recovery access bootstrap503',request_http('/__auth/access/api/bootstrap')[0]==503)
             check('recovery retained exact latest DB + witness',before==(sha(db),sha(anchor)))
