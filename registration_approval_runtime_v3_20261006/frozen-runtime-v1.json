@@ -1,0 +1,21 @@
+{
+  "archive.py": "9b30197e38bdabc89c592060e0c0012a81c18d44ab32f7988086b8466049237b",
+  "consumer_seams.py": "fe280711c28773d3ffd9253d277f22f3a41241810084e3a2d5db0548a2999247",
+  "frozen-vendor.json": "187ad4c9bbb89c2d924aace8110a056c5f0fe780ac4dc71be246b850639cbbfd",
+  "portal_bridge.py": "c1b1729df495bd45796174ab02fab306cd2e36da3edfaefe53788bae5c93cbbb",
+  "qa.py": "94b43d2ab30e6e2cc0abf58b4680e1dada535d5af4476f82453613102d0422d3",
+  "route-contract.json": "c98ec4759ae70ab11a1d19be19bc6f9fa95ee83f40955780a0a247bda17e1673",
+  "runtime.py": "3c03c8b2e4b99a313aa52c6a41911e0a2e95036ab3b7448a5dae4f2c8a373ad8",
+  "test_consumers.py": "1e08cafcf3ac3764b2f414f583ec480e6485babe2a3264b34949c4124a746991",
+  "test_runtime.py": "307ac2db88f65f8e2229573ead672e6ede2a1919a01046efb37677f240a94d98",
+  "vendor/auth_candidate.py": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+  "vendor/native_access_policy.py": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+  "vendor/native_integration.py": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+  "vendor/native_portal_functions.py": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+  "vendor/native_taskboard_member.py": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+  "vendor/schema_contract.py": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+  "web/access.css": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+  "web/app.js": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+  "web/base.css": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+  "web/index.html": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+}

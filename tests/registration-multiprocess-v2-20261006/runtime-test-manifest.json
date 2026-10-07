@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "kind": "B-v4 complete runtime/test input; source identity independent of evidence and Git commit metadata",
+  "baseline_commit": "64028127dddd4b78e8ec1c0531a78c929f35c925",
+  "baseline_tree": "6633d00bb96f6dc08ea5a3aaee2da660be1436b8",
+  "original_zip_sha256": "08c092e359205e00aa24f4746448402bc0931dd7209b45af6cb78b7904e14763",
+  "portal_bridge_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+  "test_http_content_length_sha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398",
+  "payload_count": 32,
+  "payloads": [
+    {
+      "path": "registration_approval_runtime_v3_20261006/archive.py",
+      "mode": "100644",
+      "bytes": 2545,
+      "sha256": "63df29c9dd27063b329d3b94e0a491c7937311d74520579530e7f639db31308f"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/consumer_seams.py",
+      "mode": "100644",
+      "bytes": 4857,
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/fc_gate.py.txt",
+      "mode": "100644",
+      "bytes": 14258,
+      "sha256": "8504d677f2c1160949cdee92f8b44873b128a46719126fa00969c7cf03d3d13a"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/portal.py.txt",
+      "mode": "100644",
+      "bytes": 15635,
+      "sha256": "496367367990c34115776854318dead41445eb0741ccb9639c100314d72820fc"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/references.json",
+      "mode": "100644",
+      "bytes": 926,
+      "sha256": "fa37d00df1447f004da12444617bd3e91073f5deb7a5bb32704ee96e5f985edc"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/fixtures/taskboard.py.txt",
+      "mode": "100644",
+      "bytes": 11075,
+      "sha256": "7bbb5dbe39bd5f61974fce759acff87f8a3be58dad65424a6409699e82258b31"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-runtime-v1.json",
+      "mode": "100644",
+      "bytes": 1778,
+      "sha256": "b5d7c568ed0c5c93fe92aaa9d7daaa82cefc2e60ffbd41d7edd7a3053c6c09dc"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-runtime-v2.json",
+      "mode": "100644",
+      "bytes": 2729,
+      "sha256": "8079332be42c8793bf3bce0e201579d34aa1e234f0f0cb5ba54497606a2e63bb"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/frozen-vendor.json",
+      "mode": "100644",
+      "bytes": 584,
+      "sha256": "187ad4c9bbb89c2d924aace8110a056c5f0fe780ac4dc71be246b850639cbbfd"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/portal_bridge.py",
+      "mode": "100644",
+      "bytes": 7466,
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/process_probe.py",
+      "mode": "100644",
+      "bytes": 3489,
+      "sha256": "ffe94ddcd938310c3d0e7110118d0f4e9b4a37e000f873c09bd7e3cbddc7a1a5"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/qa.py",
+      "mode": "100644",
+      "bytes": 3131,
+      "sha256": "af499c58abb6aab581f6b62765284aa26d19a32e7a7600049a05850b8fa0fd04"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/route-contract.json",
+      "mode": "100644",
+      "bytes": 3825,
+      "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/runtime.py",
+      "mode": "100644",
+      "bytes": 12958,
+      "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/source_cas.py",
+      "mode": "100644",
+      "bytes": 3071,
+      "sha256": "1a78ff4f0a9155e6e62b5bbd2940d30ddd3317183d1b312a33897a53e4696a05"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/storage_checkpoint.py",
+      "mode": "100644",
+      "bytes": 1869,
+      "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_consumers.py",
+      "mode": "100644",
+      "bytes": 2727,
+      "sha256": "1e08cafcf3ac3764b2f414f583ec480e6485babe2a3264b34949c4124a746991"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_direct_calls.py",
+      "mode": "100644",
+      "bytes": 15296,
+      "sha256": "854131169073f950dfbf62c83af750a1cc4cd8c0445a93fbc87cb2f819664572"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_posix_runtime.py",
+      "mode": "100644",
+      "bytes": 2017,
+      "sha256": "9db6711621b41df7809711d00ed34d85a1b6ceaf2b9a7364b1d91b2f6acb09ac"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_restart.py",
+      "mode": "100644",
+      "bytes": 5825,
+      "sha256": "053601fffc38c054e0df98ebd912ce6ce6b90ea3f830d2a63b929c254873d808"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_runtime.py",
+      "mode": "100644",
+      "bytes": 10743,
+      "sha256": "787678f140514d37cdb6f6973ef8c7f26dca5245c3ffad337ca5e7289b75d8e4"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/auth_candidate.py",
+      "mode": "100644",
+      "bytes": 28877,
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_access_policy.py",
+      "mode": "100644",
+      "bytes": 1269,
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_integration.py",
+      "mode": "100644",
+      "bytes": 10041,
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py",
+      "mode": "100644",
+      "bytes": 5741,
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py",
+      "mode": "100644",
+      "bytes": 825,
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/vendor/schema_contract.py",
+      "mode": "100644",
+      "bytes": 2719,
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/access.css",
+      "mode": "100644",
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/app.js",
+      "mode": "100644",
+      "bytes": 4654,
+      "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/base.css",
+      "mode": "100644",
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/web/index.html",
+      "mode": "100644",
+      "bytes": 4089,
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293"
+    },
+    {
+      "path": "registration_approval_runtime_v3_20261006/test_http_content_length.py",
+      "mode": "100644",
+      "bytes": 4985,
+      "sha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398"
+    }
+  ],
+  "suite": {
+    "original_methods": 39,
+    "new_header_methods": 4,
+    "total_methods": 43,
+    "posix_methods_required_on_linux": 2
+  },
+  "linux43_execution": false,
+  "supplemental_multiprocess4_is_separate": true,
+  "production_ready": false
+}

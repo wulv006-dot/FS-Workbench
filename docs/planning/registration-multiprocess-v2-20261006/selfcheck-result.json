@@ -1,0 +1,23 @@
+{
+  "kind": "portable selfcheck; byte binding and control-flow/unit stubs only",
+  "total": 14,
+  "passed": 14,
+  "errors": 0,
+  "failures": 0,
+  "skipped": 0,
+  "exit_code": 0,
+  "duration_seconds": 0.304,
+  "platform": "Windows",
+  "python": "3.14.7",
+  "exact_frozen_harness_sha256": "5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb",
+  "selfcheck_sha256": "2da32107b9851eadcfade59081da5fdb558b631ae3c0c0308fa766be7dc5c189",
+  "fourteen_original_test_assertions_ast_identical": true,
+  "fixture_change": "read exact32 from verified explicit/default repository stage; no developer workspace or40-blob readback dependency",
+  "candidate_imported": false,
+  "real_harness_children_spawned": false,
+  "real_linux_lock_executed": false,
+  "linux_four_passed": false,
+  "linux43_reused_as_four": false,
+  "raw_output_sha256": "9b66debc4ba949cb3e025758ea4c18a657e3f442a8375833f0ab8e99b7067b5d",
+  "raw_output_not_uploaded": true
+}

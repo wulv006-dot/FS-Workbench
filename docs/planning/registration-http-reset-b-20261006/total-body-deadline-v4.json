@@ -1,0 +1,33 @@
+{
+  "source": "candidate-v4",
+  "candidate_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+  "single_sample": true,
+  "purpose": "check whether claimed 1-second total body bound holds under progress every0.6s",
+  "client_timeout_unchanged": 3,
+  "rows": [
+    {
+      "event": "client-byte-sent",
+      "index": 0,
+      "relative_seconds": 0.00036
+    },
+    {
+      "event": "client-byte-sent",
+      "index": 1,
+      "relative_seconds": 0.608117
+    },
+    {
+      "event": "server-response-start",
+      "status": 400,
+      "relative_seconds": 1.008985
+    },
+    {
+      "event": "client-response",
+      "status": 400,
+      "will_close": true,
+      "relative_seconds": 1.009663
+    }
+  ],
+  "server_thread_joined": true,
+  "production_contacted": false,
+  "full_suite_executed": false
+}

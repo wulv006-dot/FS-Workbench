@@ -1,0 +1,298 @@
+{
+  "scope": "limited static closure of harness v2; no reviewed code execution/import",
+  "verdict": "PASS_AS_ISOLATED_LINUX_FOUR_INPUT_NOT_EXECUTION_ACCEPTANCE",
+  "confirmed_blockers": [],
+  "harness_sha256": "5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb",
+  "harness_bytes": 14724,
+  "pinned_identity": {
+    "COMMIT": "d9dd533008fe298946eadd9e4bfea3a294aec111",
+    "TREE": "d30ccde1e6551cd8ef6228a55d6629b7d603b84f",
+    "SUBTREE": "790c5ec62472c12950e6652c5b3c4760a36df7f2",
+    "MANIFEST_SHA": "c1c545b142cb8c5e838f71d0dcd6dbb43507f4b0f6487fcf0ecdf69ff093aa95"
+  },
+  "saved_commit_record_consistent": true,
+  "saved_recursive_git_root_recomputed": true,
+  "saved_git_root_boundary": "saved object identifiers; no live Git/API authentication; non-payload blob content not fetched",
+  "payload_32_bytes_and_git_blobs_verified": [
+    {
+      "path": "archive.py",
+      "bytes": 2545,
+      "sha256": "63df29c9dd27063b329d3b94e0a491c7937311d74520579530e7f639db31308f",
+      "git_blob_sha1": "9f7cfafc99a85ebcf7551da96bba08123cc4b1be",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "consumer_seams.py",
+      "bytes": 4857,
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "git_blob_sha1": "734e3d7387909ca6df66c9b543da2c9b64c8a826",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "fixtures/fc_gate.py.txt",
+      "bytes": 14258,
+      "sha256": "8504d677f2c1160949cdee92f8b44873b128a46719126fa00969c7cf03d3d13a",
+      "git_blob_sha1": "b5b6c6c6f9bda21db192ff90fb8e3e39121e83da",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "fixtures/portal.py.txt",
+      "bytes": 15635,
+      "sha256": "496367367990c34115776854318dead41445eb0741ccb9639c100314d72820fc",
+      "git_blob_sha1": "539d862c6290d7ed5dddf6a1fecbaed16936ea93",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "fixtures/references.json",
+      "bytes": 926,
+      "sha256": "fa37d00df1447f004da12444617bd3e91073f5deb7a5bb32704ee96e5f985edc",
+      "git_blob_sha1": "80ea0a28884010f557d5d66318c5f29f42673f38",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "fixtures/taskboard.py.txt",
+      "bytes": 11075,
+      "sha256": "7bbb5dbe39bd5f61974fce759acff87f8a3be58dad65424a6409699e82258b31",
+      "git_blob_sha1": "b0b2873614c0ca0928f67419ddca42eb520306fe",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "frozen-runtime-v1.json",
+      "bytes": 1778,
+      "sha256": "b5d7c568ed0c5c93fe92aaa9d7daaa82cefc2e60ffbd41d7edd7a3053c6c09dc",
+      "git_blob_sha1": "d9c8043a3b9b20f1e18eb1ac515fa1d273e29ac1",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "frozen-runtime-v2.json",
+      "bytes": 2729,
+      "sha256": "8079332be42c8793bf3bce0e201579d34aa1e234f0f0cb5ba54497606a2e63bb",
+      "git_blob_sha1": "d187e87011f6537ca78df975731cf7c79f43f1f8",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "frozen-vendor.json",
+      "bytes": 584,
+      "sha256": "187ad4c9bbb89c2d924aace8110a056c5f0fe780ac4dc71be246b850639cbbfd",
+      "git_blob_sha1": "0324cea1178f27ff61564c34261395f297782f92",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "portal_bridge.py",
+      "bytes": 7466,
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "git_blob_sha1": "22820573d6a0141c5837680d36c45e6e9fc316d6",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "process_probe.py",
+      "bytes": 3489,
+      "sha256": "ffe94ddcd938310c3d0e7110118d0f4e9b4a37e000f873c09bd7e3cbddc7a1a5",
+      "git_blob_sha1": "3eee0dfda2ac8de81617e0805cf9c7726c9d0ac2",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "qa.py",
+      "bytes": 3131,
+      "sha256": "af499c58abb6aab581f6b62765284aa26d19a32e7a7600049a05850b8fa0fd04",
+      "git_blob_sha1": "879a1d522d28d27cf60f56ef80fa750a2e5b8e02",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "route-contract.json",
+      "bytes": 3825,
+      "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b",
+      "git_blob_sha1": "772d8abcd89b663bc8d392aede67440cdf250251",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "runtime.py",
+      "bytes": 12958,
+      "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "git_blob_sha1": "ca6e7f82b8805320a62aac3a40be39ac4b2bdbb0",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "source_cas.py",
+      "bytes": 3071,
+      "sha256": "1a78ff4f0a9155e6e62b5bbd2940d30ddd3317183d1b312a33897a53e4696a05",
+      "git_blob_sha1": "680f2e918a0f520fb566ed89b92a70ceffccbd72",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "storage_checkpoint.py",
+      "bytes": 1869,
+      "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "git_blob_sha1": "65e4aedfb1032f7d11af0beac68590bb1f845754",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_consumers.py",
+      "bytes": 2727,
+      "sha256": "1e08cafcf3ac3764b2f414f583ec480e6485babe2a3264b34949c4124a746991",
+      "git_blob_sha1": "6602e85ca06ebbf73ad672690690f95fbb06feb0",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_direct_calls.py",
+      "bytes": 15296,
+      "sha256": "854131169073f950dfbf62c83af750a1cc4cd8c0445a93fbc87cb2f819664572",
+      "git_blob_sha1": "25234dbda7c4f6d7155c040fb62b37ef0a366fef",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_posix_runtime.py",
+      "bytes": 2017,
+      "sha256": "9db6711621b41df7809711d00ed34d85a1b6ceaf2b9a7364b1d91b2f6acb09ac",
+      "git_blob_sha1": "a27a90c62eff36b0c1080479747b407e1b6d0c5c",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_restart.py",
+      "bytes": 5825,
+      "sha256": "053601fffc38c054e0df98ebd912ce6ce6b90ea3f830d2a63b929c254873d808",
+      "git_blob_sha1": "7c35be93876d2402ed55978f1e4fbac7ba5d071b",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_runtime.py",
+      "bytes": 10743,
+      "sha256": "787678f140514d37cdb6f6973ef8c7f26dca5245c3ffad337ca5e7289b75d8e4",
+      "git_blob_sha1": "15cc6605f3f45d6bd7fa4c58e6534943017bffa5",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/auth_candidate.py",
+      "bytes": 28877,
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "git_blob_sha1": "c06ff108989d6adf05f2fb033e47c162f00aefbc",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/native_access_policy.py",
+      "bytes": 1269,
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "git_blob_sha1": "026ae12ff671d1cbbd94f01b96b7ae169dba2355",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/native_integration.py",
+      "bytes": 10041,
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "git_blob_sha1": "153db519ae6cac45dfb66abf017a2bdbefccf98e",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/native_portal_functions.py",
+      "bytes": 5741,
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "git_blob_sha1": "b573f8cff226315dbc4949359df4b28f0c98a417",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/native_taskboard_member.py",
+      "bytes": 825,
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "git_blob_sha1": "79dab08fa330706a485109ac5ccc13df35351b83",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "vendor/schema_contract.py",
+      "bytes": 2719,
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "git_blob_sha1": "ee654b7d480759e5b60ad0530babc4836067d78b",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "web/access.css",
+      "bytes": 1065,
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "git_blob_sha1": "1f77e03d86eedd21bedbc900763e6c27d1de9dd4",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "web/app.js",
+      "bytes": 4654,
+      "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "git_blob_sha1": "9670d5d4d908f32261eca84da04fcefb44497984",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "web/base.css",
+      "bytes": 7581,
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "git_blob_sha1": "1f2d31c72edad5d4b580230441cbe83594d3afd6",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 4089,
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+      "git_blob_sha1": "0eb030a708fd645389c7c50401a6905511fd1ed7",
+      "local_equals_saved_readback": true
+    },
+    {
+      "path": "test_http_content_length.py",
+      "bytes": 4985,
+      "sha256": "94c80e65408e84eac666c9c90ce6d76e088a25d357e18155f9ae632b82a50398",
+      "git_blob_sha1": "efc0c5840cc9fe179630618e51ca36318505cb3d",
+      "local_equals_saved_readback": true
+    }
+  ],
+  "saved_source_subtree_recomputed": true,
+  "original_harness_sha256": "9baade1b8b8163c41b3bbb387ca6425b580b7190cbbdedf666988f87a7d16955",
+  "exact_diff_verified": true,
+  "python39_ast": true,
+  "author_selfcheck_log_only": {
+    "tests": 14,
+    "reported_seconds": 0.204,
+    "sha256": "ff6728cf1c42ea552de77fafaa1f60356db68eb842bc04c1514fcf7d25aa961e",
+    "rerun_by_reviewer": false
+  },
+  "candidate_imported": false,
+  "harness_imported": false,
+  "tests_executed": false,
+  "linux_four_executed": false,
+  "production_contact": false,
+  "static_findings": {
+    "same_process_reentry": "Namespace.fence depth set only after actual OS acquisition; constructor first contend lock uses fresh Namespace and fd; nested connection reuses depth without flock",
+    "kill_scope": "only Popen objects registered by Children.start; no pid enumeration/group kill/shell subprocess",
+    "bytecode": "sys.dont_write_bytecode before imports; children -B plus PYTHONDONTWRITEBYTECODE; pre/post exact32 rejects __pycache__",
+    "origins": "all nine candidate module __file__ paths compared to verified source stage; preloaded candidate names rejected",
+    "readiness": "actual same-inode LOCK_NB busy result then original blocking lock; register-a and register-b ready after build and alive before common start"
+  },
+  "supporting_files": [
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\multiprocess_probe.py",
+      "sha256": "5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\runtime-test-manifest.json",
+      "sha256": "c1c545b142cb8c5e838f71d0dcd6dbb43507f4b0f6487fcf0ecdf69ff093aa95"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\harness-minimal.diff",
+      "sha256": "fbf33fdc7505bad4435171209cdf8a97d41c988a9aee04c4114bdd17274d9822"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\test_harness_selfcheck.py",
+      "sha256": "e5bc5946e04ab6c3062d72cd5f46f0064e750df0c3dca9c0597f9bd0e06962e8"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\selfcheck-output.log",
+      "sha256": "ff6728cf1c42ea552de77fafaa1f60356db68eb842bc04c1514fcf7d25aa961e"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\SHA256SUMS",
+      "sha256": "6ca9c90102ae221ce5642ea947bd244a2b53c827566422c77489c39b1fc48e64"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\README.md",
+      "sha256": "4565dfb7d8d5c6ea02984d77e7f971cc38bc797bf47db6b02350b54707f4cc54"
+    },
+    {
+      "path": "D:\\codex\\2026-10-06\\task-9\\multiprocess-harness-v2-20261006\\freeze-status.json",
+      "sha256": "e76dcf4eb5f3482e8f5266eef57b6c8e6fb7e85b721d88b4989083af9fdf3e0c"
+    }
+  ]
+}

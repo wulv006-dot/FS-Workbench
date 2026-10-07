@@ -1,0 +1,41 @@
+--- frozen-v2/portal_bridge.py
++++ v3/portal_bridge.py
+@@ -9,6 +9,13 @@
+ class Bridge:
+     def __init__(self, app, adapter, portal):
+         self.app, self.adapter, self.portal = app, adapter, portal
++
++    def legacy_logout(self, handler):
++        """Confirmation only; the sole mutating logout is Origin+CSRF API logout."""
++        if handler.command in ('GET', 'HEAD'):
++            return handler._redirect(core.PREFIX + '/')
++        handler.close_connection = True
++        return handler._send(405, 'Use CSRF protected /__auth/access/api/logout')
+ 
+     def verify(self, handler, group=''):
+         try:
+@@ -28,10 +35,10 @@
+         parsed = urlsplit(handler.path)
+         path = parsed.path
+         # Current nginx strips /__auth/, public JS URLs keep that prefix.
+-        if path == '/logout':
+-            if handler.command in ('GET', 'HEAD'):
+-                return handler._redirect(core.PREFIX + '/')
+-            return handler._send(405, 'Use CSRF protected /__auth/access/api/logout')
++        # Match the actual old _route rstrip('/') normalization ONLY for legacy
++        # logout. Keep the fixed static/API path matching exact and unchanged.
++        if (path.rstrip('/') or '/') == '/logout':
++            return self.legacy_logout(handler)
+         if path == '/status' and core.COOKIE in self.portal.parse_cookies(handler.headers.get('Cookie', '')):
+             return handler._redirect(core.PREFIX + '/')
+         if path == '/access':
+@@ -81,6 +88,9 @@
+     old_route = portal.Handler._route
+     portal.Handler._route = lambda handler: bridge.route(handler, old_route)
+     portal.Handler._do_verify = lambda handler, group='': bridge.verify(handler, group)
++    # Defense in depth for every old _route alias or any internal direct caller;
++    # the historical cookie-clear/FC logout implementation is never reachable.
++    portal.Handler._do_logout = lambda handler, next_q='': bridge.legacy_logout(handler)
+     portal.read_token = adapter.ledger_read_token
+     portal._registration_bridge = bridge
+     return store, adapter, app

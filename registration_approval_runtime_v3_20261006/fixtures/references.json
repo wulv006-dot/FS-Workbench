@@ -1,0 +1,17 @@
+{
+  "portal": {
+    "source_sha256": "04376e4f904c800464fa461c2327ca947d160594b8dc1568ac00f28d173615ea",
+    "source_path": "fs_platform_integration_20261005/data/raw/chenchao-source/fs-platform-src/opt/auth-portal/auth_portal.py",
+    "scope": "verbatim functions/classes only; never execute original module/config"
+  },
+  "taskboard": {
+    "source_sha256": "289006fcaf2a85a603e52f6c2f56c653ee5676d32b719c66f38218c3077fb5b1",
+    "source_path": "taskboard_module_20261001/server/taskboard_server.py",
+    "scope": "verbatim functions/classes only; never execute original module/config"
+  },
+  "fc_gate": {
+    "source_sha256": "53e32c5de0de29e9a27f185b0df29f37371d8973acf64491983327e9b54240a9",
+    "source_path": "fs_platform_integration_20261005/data/raw/chenchao-source/fs-platform-src/opt/fc27-gate/fc27_gate.py",
+    "scope": "verbatim functions/classes only; never execute original module/config"
+  }
+}

@@ -1,0 +1,290 @@
+class Handler(BaseHTTPRequestHandler):
+    server_version = "fc27-gate/1.0"
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write("[%s] %s - %s\n" % (
+            time.strftime("%Y-%m-%d %H:%M:%S"), self.address_string(), fmt % args))
+
+    # ---- 工具
+    def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None,
+              close=False):
+        """close=True 时显式关连接。
+
+        必要性：HTTP/1.1 默认 keep-alive。若某个分支在**没读完请求体**的情况下
+        直接回错（例如权限不足提前返回 403），socket 里会残留未读字节，
+        下一条请求的报文就错位了 —— 客户端表现为"卡住/超时"。
+        凡是提前拒绝的分支，一律 close=True。
+        """
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if close:
+            self.send_header("Connection", "close")
+            self.close_connection = True
+        for k, v in (extra or {}).items():
+            for header_value in (v if isinstance(v, list) else [v]):
+                self.send_header(k, header_value)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _redirect(self, url, extra=None):
+        self.send_response(302)
+        self.send_header("Location", url)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            for header_value in (v if isinstance(v, list) else [v]):
+                self.send_header(k, header_value)
+        self.end_headers()
+        # 302 响应带 body（表单纯属浪费），且此时请求体可能没读完。
+        # 沿用 keep-alive 会让残留字节污染下一条请求，客户端表现为"提交后卡住"。
+        self.close_connection = True
+
+    def _current_identity(self):
+        conn = http.client.HTTPConnection("127.0.0.1", 8895, timeout=3)
+        try:
+            conn.request("GET", "/verify", headers={"Cookie": self.headers.get("Cookie", ""),
+                "X-Original-Method": self.command, "X-Original-URI": self.path})
+            response = conn.getresponse()
+            user = response.getheader("X-Auth-User") if response.status == 200 else None
+            response.read()
+            return user, user in ("wulv", "chenchao", "DY") if user else False
+        except (OSError, http.client.HTTPException):
+            return None, False
+        finally:
+            conn.close()
+
+    def _cookie_token(self):
+        raw = self.headers.get("Cookie") or ""
+        for part in raw.split(";"):
+            part = part.strip()
+            if part.startswith(COOKIE_NAME + "="):
+                return urllib.parse.unquote(part[len(COOKIE_NAME) + 1:])
+        return ""
+
+    def _set_cookie(self, token):
+        c = "%s=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (
+            COOKIE_NAME, urllib.parse.quote(token), SESSION_DAYS * 86400)
+        if COOKIE_SECURE:
+            c += "; Secure"
+        return {"Set-Cookie": c}
+
+    def _clear_cookie(self):
+        return {"Set-Cookie": ["%s=; Path=/; HttpOnly; Max-Age=0" % COOKIE_NAME, "MMOEXP_AUTH=; Path=/; HttpOnly; Secure; Max-Age=0"]}
+
+    def _form(self):
+        """读并**完整消费**请求体。
+
+        必须读完：否则 keep-alive 复用同一连接时，残留字节会被当成下一条请求的
+        起始行，服务端解析错乱、客户端一直等响应（表现为"提交后卡住"）。
+        """
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0:
+            return {}
+        if n > 64 * 1024:
+            # 过大就丢弃并断开，避免占着连接
+            try:
+                self.rfile.read(n)
+            except Exception:
+                pass
+            self.close_connection = True
+            return {}
+        raw = self.rfile.read(n).decode("utf-8", "replace")
+        return {k: v[0] for k, v in urllib.parse.parse_qs(raw, keep_blank_values=True).items()}
+
+    def _client_ip(self):
+        # nginx 会注入真实来源；没走 nginx 时退回 socket
+        xff = self.headers.get("X-Real-IP") or ""
+        if not xff:
+            xff = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return xff or self.client_address[0]
+
+    def _safe_next(self, nxt):
+        """只允许跳回本站路径，防开放重定向。"""
+        nxt = (nxt or "").strip()
+        if not nxt.startswith("/") or nxt.startswith("//"):
+            return DASH
+        # 登录/注册/校验这类功能性路径不作为回跳目标（否则会绕圈）
+        for pre in (U("/login"), U("/register"), U("/verify"), U("/logout"), U("/")):
+            if pre != U("/") and nxt.startswith(pre):
+                return DASH
+        return nxt
+
+    def _norm(self, raw_path):
+        """剥掉对外前缀，得到服务内部路径。
+
+        nginx 有两种接法，都得兼容：
+          A) location /fc27/ { proxy_pass http://...:8896/; }  -> 后端收到 /login
+          B) location /fc27/ { proxy_pass http://...:8896; }   -> 后端收到 /fc27/login
+        所以这里统一：若以 BASE 开头就剥掉。
+        """
+        path = raw_path or "/"
+        if BASE and (path == BASE or path.startswith(BASE + "/")):
+            path = path[len(BASE):] or "/"
+        return path.rstrip("/") or "/"
+
+    # ---- 路由
+    def do_GET(self):
+        p = urllib.parse.urlparse(self.path)
+        path = self._norm(p.path)
+        qs = urllib.parse.parse_qs(p.query)
+
+        if path == "/verify":
+            # nginx auth_request 子请求：200 放行，401 拦截
+            user, adm = check_session(self._cookie_token())
+            if user:
+                return self._send(200, "OK", "text/plain; charset=utf-8",
+                                  {"X-Fc27-User": user.encode("ascii", "replace").decode(),
+                                   "X-Fc27-Role": "admin" if adm else "readonly"})
+            return self._send(401, "unauthorized", "text/plain; charset=utf-8")
+
+        if path == "/healthz":
+            return self._send(200, json.dumps({"ok": True, "t": int(time.time())}),
+                              "application/json; charset=utf-8")
+
+        if path == "/analysis":
+            # AI 运营分析：仅内部账号可取。
+            # 判据见 is_internal()；外部账号拿到的只有 403，内容不落任何一次响应体。
+            user, _adm = self._current_identity()
+            if not user:
+                return self._send(401, json.dumps({"ok": False, "reason": "unauthenticated"}),
+                                  "application/json; charset=utf-8", close=True)
+            try:
+                with open(ANALYSIS_PATH, "r", encoding="utf-8") as f:
+                    payload = f.read()
+                json.loads(payload)      # 先校验合法，坏文件不至于把前端渲染搞白
+            except FileNotFoundError:
+                return self._send(404, json.dumps({"ok": False, "reason": "not_generated"}),
+                                  "application/json; charset=utf-8", close=True)
+            except Exception:
+                return self._send(500, json.dumps({"ok": False, "reason": "bad_content"}),
+                                  "application/json; charset=utf-8", close=True)
+            return self._send(200, payload, "application/json; charset=utf-8")
+
+        if path in ("/", "/login"):
+            if self._current_identity()[0]:
+                return self._redirect(self._safe_next(qs.get("next", [""])[0]))
+            return self._send(200, page_login(err=qs.get("err", [""])[0],
+                                              next_url=self._safe_next(qs.get("next", [""])[0])))
+        if path == "/register":
+            return self._send(403, "self registration disabled", "text/plain; charset=utf-8", close=True)
+
+        if path == "/logout":
+            logout(self._cookie_token())
+            return self._redirect(U("/login"), self._clear_cookie())
+
+        if path == "/admin":
+            user, adm = self._current_identity()
+            if not user:
+                return self._redirect(U("/login") + "?next=" + urllib.parse.quote("/admin"))
+            if not adm:
+                return self._send(403, page_login(err="该账号没有管理权限"),
+                                  extra={}, close=True)
+            users = _q("SELECT * FROM users ORDER BY created_at DESC")
+            return self._send(200, page_admin(user, users,
+                                              ok=qs.get("ok", [""])[0],
+                                              err=qs.get("err", [""])[0]))
+
+        if path == "/admin/audit":
+            user, adm = self._current_identity()
+            if not (user and adm):
+                return self._send(403, "forbidden", "text/plain; charset=utf-8",
+                                  close=True)
+            rows = _q("SELECT * FROM audit ORDER BY ts DESC LIMIT 200")
+            return self._send(200, json.dumps([dict(r) for r in rows], ensure_ascii=False),
+                              "application/json; charset=utf-8")
+
+        return self._send(404, page_login(err="页面不存在"))
+
+
+    def do_HEAD(self):
+        return self.do_GET()
+
+    def do_POST(self):
+        path = self._norm(urllib.parse.urlparse(self.path).path)
+        ip = self._client_ip()
+        ua = self.headers.get("User-Agent") or ""
+
+        if path == "/login":
+            f = self._form()
+            token, err = login((f.get("username") or "").strip(), f.get("password") or "", ip, ua)
+            if err:
+                return self._send(401, page_login(err=err,
+                                                  next_url=self._safe_next(f.get("next"))))
+            nxt = self._safe_next(f.get("next"))
+            return self._redirect(nxt, self._set_cookie(token))
+
+        if path == "/register":
+            return self._send(403, "self registration disabled", "text/plain; charset=utf-8", close=True)
+
+        if path == "/logout":
+            logout(self._cookie_token())
+            return self._redirect(U("/login"), self._clear_cookie())
+
+        if path == "/admin/action":
+            user, adm = self._current_identity()
+            if not (user and adm):
+                return self._send(403, "forbidden", "text/plain; charset=utf-8",
+                                  close=True)
+            f = self._form()
+            op = f.get("op") or ""
+            target = (f.get("target") or "").strip()
+            tgt = _q("SELECT * FROM users WHERE username=?", (target,), one=True)
+            if not tgt:
+                return self._redirect(U("/admin") + "?err=" + urllib.parse.quote("找不到该账号"))
+            if tgt["is_admin"] and op in ("ban", "delete"):
+                return self._redirect(U("/admin") + "?err=" + urllib.parse.quote("不能对管理员执行该操作"))
+
+            if op == "ban":
+                _q("UPDATE users SET is_banned=1 WHERE username=?", (target,))
+                _q("DELETE FROM sessions WHERE username=?", (target,))
+                audit(user, "ban", target, ip)
+                return self._redirect(U("/admin") + "?ok=" + urllib.parse.quote("已停用 " + target))
+            if op == "unban":
+                _q("UPDATE users SET is_banned=0 WHERE username=?", (target,))
+                audit(user, "unban", target, ip)
+                return self._redirect(U("/admin") + "?ok=" + urllib.parse.quote("已解封 " + target))
+            if op == "reset":
+                newpw = secrets.token_urlsafe(9)
+                salt, h = _hash_pw(newpw)
+                # 一并把 pw_scheme 改成 pbkdf2：管理员既然手动指定了新密码，
+                # 就以新密码为准（内部账号由此"转正"为普通账号，脱离 htpasswd）
+                _q("UPDATE users SET salt=?, pwhash=?, pw_scheme='pbkdf2' WHERE username=?",
+                   (salt, h, target))
+                _q("DELETE FROM sessions WHERE username=?", (target,))
+                audit(user, "reset", target, ip)
+                tip = ""
+                if tgt["pw_scheme"] == "apr1":
+                    tip = "（该账号原为内部账号，重置后已改用独立密码，不再跟随 htpasswd）"
+                return self._redirect(U("/admin") + "?ok=" + urllib.parse.quote(
+                    "已重置 %s 的密码为：%s （请立即转告，刷新后不再显示）%s" % (target, newpw, tip)))
+            if op == "delete":
+                _q("DELETE FROM users WHERE username=?", (target,))
+                _q("DELETE FROM sessions WHERE username=?", (target,))
+                audit(user, "delete", target, ip)
+                tip = ""
+                if target in LEGACY_ROLES:
+                    tip = "（注意：该账号在内部账号配置里仍有登记，服务重启或他下次登录时会被重新预置；要长期停用请改用『停用』）"
+                return self._redirect(U("/admin") + "?ok=" + urllib.parse.quote(
+                    "已删除 " + target + tip))
+            return self._redirect(U("/admin") + "?err=" + urllib.parse.quote("未知操作"))
+
+        return self._send(404, "not found", "text/plain; charset=utf-8")
+
+def main():
+    init_db()
+    purge_expired()
+    threading.Thread(target=janitor, daemon=True).start()
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    srv.daemon_threads = True
+    print("[+] FC27 门禁服务已启动 http://127.0.0.1:%d  DB=%s" % (PORT, DB_PATH))
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[*] 收到中断，退出")
