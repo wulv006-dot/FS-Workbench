@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "supplemental four-check QA input only; not a deployment artifact",
+  "runtime_origin_commit": "d9dd533008fe298946eadd9e4bfea3a294aec111",
+  "runtime_origin_tree": "d30ccde1e6551cd8ef6228a55d6629b7d603b84f",
+  "runtime_source_subtree": "790c5ec62472c12950e6652c5b3c4760a36df7f2",
+  "runtime_payloads": 32,
+  "runtime_manifest_sha256": "c1c545b142cb8c5e838f71d0dcd6dbb43507f4b0f6487fcf0ecdf69ff093aa95",
+  "harness_sha256": "5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb",
+  "inputs": [
+    {
+      "path": "tests/registration-multiprocess-v2-20261006/multiprocess_probe.py",
+      "sha256": "5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb",
+      "bytes": 14724
+    },
+    {
+      "path": "tests/registration-multiprocess-v2-20261006/runtime-test-manifest.json",
+      "sha256": "c1c545b142cb8c5e838f71d0dcd6dbb43507f4b0f6487fcf0ecdf69ff093aa95",
+      "bytes": 7908
+    },
+    {
+      "path": "tests/registration-multiprocess-v2-20261006/test_harness_selfcheck.py",
+      "sha256": "2da32107b9851eadcfade59081da5fdb558b631ae3c0c0308fa766be7dc5c189",
+      "bytes": 9783
+    }
+  ],
+  "independent_harness_rereview": {
+    "accepted_limited_static": true,
+    "report_sha256": "a5e95843143e75bea81573a46891c216eff547de5a44285544a831d9ecb0077e",
+    "evidence_sha256": "45c9d51a8c0fe4e9588db1fd7470ba18f0e561fbc84a9b7c34a8f52026d75541"
+  },
+  "portable_selfcheck_adaptation": {
+    "assertions_unchanged": true,
+    "new14_control_checks_passed": true,
+    "independent_rereview_of_portable_fixture_adaptation": false
+  },
+  "counting": {
+    "candidate_unittest_methods": 43,
+    "supplemental_multiprocess_checks": 4,
+    "portable_selfcheck_tests": 14,
+    "counts_never_combined": true
+  },
+  "current_main_readonly_baseline": "5ed20c515dc2523fc9dd532e151a3afac4c43258",
+  "current_main_tree": "fb4dfa1c125b1ca5c0736aa9836d0fa7f77dd47d",
+  "new_candidate_commit_resolved_in_external_post_write_record_only": true,
+  "shared_checker_manifests_and_combination_tree": "not changed or executed here; coordinate exact active lists/combined latest-main before merge",
+  "linux_four_executed": false,
+  "owner_confirmation_at_new_head": false,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_ready": false
+}
