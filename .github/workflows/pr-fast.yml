@@ -1,0 +1,42 @@
+name: PR fast
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: pr-fast-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  pr-fast:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        id: python
+        with:
+          python-version: '3.9.18'
+          architecture: x64
+          check-latest: false
+      - name: Diff and isolated affected checks
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git diff --name-only -z "$PR_BASE" "$PR_HEAD" > "$RUNNER_TEMP/pr-paths"
+          QA_PYTHON="${{ steps.python.outputs.python-path }}"
+          QA_LIBRARY="$(dirname "$QA_PYTHON")/../lib"
+          sudo unshare --net -- bash -c '
+            set -euo pipefail
+            ip link set lo up
+            exec env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
+          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD"
