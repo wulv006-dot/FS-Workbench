@@ -1,0 +1,73 @@
+{
+  "scope": "SYNTHETIC_ONLY",
+  "player_job_id": "00000000-0000-4000-8000-000000000001",
+  "coin_execution_id": "00000000-0000-4000-8000-000000000002",
+  "expected_sources": {
+    "/opt/fc27-cloud-browser/player_sync_job.py": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "sample_model_ids": [],
+  "sample_product_ids": {},
+  "expected_files": {},
+  "tier_gold": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15"
+  ],
+  "tier_give": [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0"
+  ],
+  "tier_discount": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1"
+  ],
+  "allowed_metadata_targets": [
+    "player-sync/00000000-0000-4000-8000-000000000001.json",
+    "jobs/00000000-0000-4000-8000-000000000001.json"
+  ],
+  "proof_provenance": {
+    "python": "synthetic",
+    "executable": "/synthetic/python",
+    "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "modules": {},
+    "loader": "sealed-memory-v1"
+  }
+}
