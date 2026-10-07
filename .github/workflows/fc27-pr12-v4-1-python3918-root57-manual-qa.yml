@@ -1,0 +1,63 @@
+{
+  "name": "FC PR12 v4.1 Python3.9.18 Linux root57",
+  "run-name": "FC PR12 v4.1 09fb6231 / Python3.9.18 / manual root57",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "本次运行前已复核免费分钟足够、超额预算0美元且到额停止；只运行固定PR12 v4.1合成57，不是旧v3/76",
+          "required": true,
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "fc-pr12-v4-1-09fb6231-manual-python3918-root57",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "synthetic_root57": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed == true }}",
+      "runs-on": "ubuntu-22.04",
+      "timeout-minutes": 7,
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "steps": [
+        {
+          "name": "Checkout immutable PR12 v4.1 new inputs",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "09fb6231de6137798a1e1183811aef792b98f6a0",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Select verified registered Ubuntu22.04 x64 Python3.9.18",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false
+          }
+        },
+        {
+          "name": "Verify exact new input; execute57 with Linux root; reject every skip",
+          "shell": "bash",
+          "run": "set -euo pipefail\nQA_PYTHON=\"${{ steps.python.outputs.python-path }}\"\nQA_LIBRARY=\"$(dirname \"$QA_PYTHON\")/../lib\"\nset +e\nsudo env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH=\"$QA_LIBRARY\" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \"$QA_PYTHON\" -I -B - \"$GITHUB_WORKSPACE\" \"$RUNNER_TEMP/fc12-v4.1-result.json\" > \"$RUNNER_TEMP/fc12-v4.1.log\" 2>&1 <<'PY'\nimport ast, hashlib, json, os, platform, subprocess, sys, unittest\nfrom pathlib import Path\nrepo = Path(sys.argv[1]).resolve()\nout = Path(sys.argv[2])\nroot = repo / \"candidates/fc-coins/player-readonly-reconcile-20261007-v4-1\"\nassert sys.version_info[:3] == (3, 9, 18), sys.version\nassert sys.platform == \"linux\" and platform.machine() == \"x86_64\"\nassert os.geteuid() == 0 and os.getegid() == 0\nrelease = dict(line.split(\"=\", 1) for line in Path(\"/etc/os-release\").read_text().splitlines() if \"=\" in line)\nassert release[\"ID\"].strip('\"') == \"ubuntu\" and release[\"VERSION_ID\"].strip('\"') == \"22.04\"\ndef git(value):\n    return subprocess.check_output([\"git\", \"-c\", \"safe.directory=\" + str(repo), \"-C\", str(repo), \"rev-parse\", value], text=True).strip()\nassert git(\"HEAD\") == \"09fb6231de6137798a1e1183811aef792b98f6a0\"\nassert git(\"HEAD^{tree}\") == \"c7020bcc76be06f0f1755feb9565727ce5586129\"\ndigest = lambda raw: hashlib.sha256(raw).hexdigest()\nraw = (root / \"GIT-INPUT-MANIFEST.json\").read_bytes()\nassert digest(raw) == \"ba55bd25bab54876d134f9fce684db2dda41d106aab0fd7c1e00d930171628fc\"\nmanifest = json.loads(raw)\nassert len(manifest[\"files\"]) == 33\napproved = set(manifest[\"files\"]) | {\"GIT-INPUT-MANIFEST.json\"}\nactual = {f.relative_to(root).as_posix() for f in root.rglob(\"*\") if f.is_file()}\nassert actual == approved, \"candidate_extra_or_missing_file\"\nbefore = {}\nfor name in sorted(approved):\n    file = root / name\n    assert file.is_file() and not file.is_symlink() and file.stat().st_nlink == 1\n    assert file.resolve().is_relative_to(root.resolve())\n    before[name] = digest(file.read_bytes())\n    if name != \"GIT-INPUT-MANIFEST.json\":\n        assert before[name] == manifest[\"files\"][name], name\nassert before[\"source/SOURCE-MANIFEST.json\"] == \"206efa4613ae3b12f5fdfd7df04cfee85f1a50b861ebdd985c0233ce14872398\"\nsource = json.loads((root / \"source/SOURCE-MANIFEST.json\").read_bytes())\nassert len(source[\"files\"]) == 23\nassert {f.relative_to(root / \"source\").as_posix() for f in (root / \"source\").rglob(\"*\") if f.is_file()} == set(source[\"files\"]) | {\"SOURCE-MANIFEST.json\"}\nfor name, wanted in source[\"files\"].items():\n    assert digest((root / \"source\" / name).read_bytes()) == wanted\nfor file in (root / \"source\").rglob(\"*.py\"):\n    ast.parse(file.read_text(encoding=\"utf-8\"), feature_version=(3, 9))\nprint(json.dumps({\"phase\":\"before\", \"python\":sys.version, \"executable\":sys.executable,\n    \"executable_sha256\":digest(Path(sys.executable).resolve().read_bytes()), \"uid\":os.geteuid(),\n    \"gid\":os.getegid(), \"os\":\"ubuntu-22.04-x64\", \"head\":git(\"HEAD\"), \"tree\":git(\"HEAD^{tree}\"),\n    \"verified_files\":len(before), \"source_sha256\":{k:v for k,v in before.items() if k.startswith(\"source/\")}}, sort_keys=True))\nsuite = unittest.defaultTestLoader.discover(start_dir=str(root / \"tests\"), pattern=\"test_v4.py\")\ndef flatten(s):\n    for item in s:\n        if isinstance(item, unittest.TestSuite):\n            yield from flatten(item)\n        else:\n            yield item\ncases = list(flatten(suite))\nnames = [case.id() for case in cases]\nnative = [name for name in names if \".NativeMutexTests.\" in name]\nassert len(cases) == 57 and len(native) == 9 and len(set(names)) == 57\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\nafter = {name:digest((root / name).read_bytes()) for name in approved}\nunchanged = before == after\nno_extra = {f.relative_to(root).as_posix() for f in root.rglob(\"*\") if f.is_file()} == approved\nsummary = {\"phase\":\"after\", \"head\":git(\"HEAD\"), \"tree\":git(\"HEAD^{tree}\"), \"python\":platform.python_version(),\n    \"tests_run\":result.testsRun, \"failures\":len(result.failures), \"errors\":len(result.errors),\n    \"skipped\":len(result.skipped), \"native_root_test_count\":len(native), \"test_names\":names,\n    \"native_root_test_names\":native, \"all_frozen_inputs_unchanged\":unchanged and no_extra,\n    \"source_sha256\":{k:v for k,v in after.items() if k.startswith(\"source/\")},\n    \"production_access\":False, \"real_runtime_receipts\":False}\nout.write_text(json.dumps(summary, sort_keys=True, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(json.dumps(summary, sort_keys=True))\nassert result.wasSuccessful() and result.testsRun == 57 and not result.skipped\nassert not result.expectedFailures and not result.unexpectedSuccesses\nassert unchanged and no_extra, \"frozen_input_mutation\"\nPY\nqa_status=$?\nset -e\ncat \"$RUNNER_TEMP/fc12-v4.1.log\"\nif [ -f \"$RUNNER_TEMP/fc12-v4.1-result.json\" ]; then cat \"$RUNNER_TEMP/fc12-v4.1-result.json\"; fi\nexit \"$qa_status\"\n"
+        }
+      ]
+    }
+  }
+}
