@@ -1,0 +1,261 @@
+--- v3/runner.py
++++ v4.1/runner.py
+@@ -1,5 +1,7 @@
+ """Future approved native execution only; bootstrap frozen root-private artifact first."""
+-import argparse,json,os,stat,sys,hashlib,subprocess,tempfile,importlib
++import json,os,sys,hashlib,subprocess,tempfile,importlib,base64
++from datetime import datetime,timezone
++from verified_loader import install,record,read_verified_sources
+ from pathlib import Path
+ 
+ def sha(raw):return hashlib.sha256(raw).hexdigest()
+@@ -25,74 +27,89 @@
+     latest=max((j for j in job_rows if j.get('kind')=='auto_cycle'),key=lambda j:j['created_at'])
+     if latest['status']!='ready' or latest.get('error') or latest.get('error_detail'):fail('latest_cycle_needs_separate_audit')
+ 
+-def bootstrap(folder,manifest_sha):
+-    if os.name!='posix' or os.geteuid()!=0:fail('native_existing_root_access_required')
+-    if str(folder)!='/opt/fc27-player-reconcile-20261006-v2':fail('artifact_path_outside_approved_scope')
+-    fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);fds=[fd]
+-    try:
+-        root_stat=os.fstat(fd)
+-        if root_stat.st_uid!=0 or stat.S_IMODE(root_stat.st_mode)&0o022:fail('root_parent_owner_mode_untrusted')
+-        for segment in ['opt','fc27-player-reconcile-20261006-v2']:
+-            nextfd=os.open(segment,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);fds.append(nextfd);st=os.fstat(nextfd)
+-            if st.st_uid!=0 or stat.S_IMODE(st.st_mode)&0o022:fail('artifact_parent_owner_mode_untrusted')
+-            if segment.endswith('-v2') and (st.st_gid!=0 or stat.S_IMODE(st.st_mode)!=0o700):fail('artifact_not_root_private')
+-            if (st.st_dev,st.st_ino)!=(os.stat(segment,dir_fd=fd,follow_symlinks=False).st_dev,os.stat(segment,dir_fd=fd,follow_symlinks=False).st_ino):fail('artifact_parent_inode_changed')
+-            fd=nextfd
+-        def read_one(name):
+-            if '/' in name or name in ['.','..']:fail('candidate_file_path_invalid')
+-            filefd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd)
+-            try:
+-                st=os.fstat(filefd)
+-                if not stat.S_ISREG(st.st_mode) or st.st_nlink!=1 or st.st_uid!=0 or st.st_gid!=11028 or stat.S_IMODE(st.st_mode)!=0o640:fail('candidate_file_owner_mode_untrusted')
+-                with os.fdopen(filefd,'rb',closefd=False) as stream:raw=stream.read(32000000)
+-                current=os.stat(name,dir_fd=fd,follow_symlinks=False)
+-                if (current.st_dev,current.st_ino)!=(st.st_dev,st.st_ino):fail('candidate_file_inode_changed')
+-                return raw
+-            finally:os.close(filefd)
+-        raw=read_one('CANDIDATE-MANIFEST.json')
+-        if sha(raw)!=manifest_sha:fail('candidate_manifest_changed')
+-        manifest=json.loads(raw)
+-        for name,expected in manifest['files'].items():
+-            if sha(read_one(name))!=expected:fail('candidate_input_changed')
+-        return json.loads(read_one('scope.json'))
+-    finally:
+-        for descriptor in reversed(fds):os.close(descriptor)
++def process_identity(pid):
++    return Path('/proc/'+str(pid)+'/stat').read_text('utf-8').rsplit(')',1)[1].split()[19]
+ 
+-def main():
+-    parser=argparse.ArgumentParser();parser.add_argument('--manifest-sha',required=True);parser.add_argument('--apply',action='store_true');args=parser.parse_args()
+-    folder=Path(__file__).absolute().parent;scope=bootstrap(folder,args.manifest_sha)
++def validate_writers(scope,storage,adoption_validator):
++    # Approved inline launch supplies its already reviewed receipt validator.
++    # Private binding SHA approval authenticates receipts; process continuity and
++    # worker live heartbeat remain checked here before any metadata publication.
++    adoption_validator(scope)
++    evidence=scope['writer_protocol_evidence']
++    for role in ['api','worker']:
++        bound=evidence[role]
++        if bound['protocol']!='existing-tick-inode-v4' or process_identity(bound['pid'])!=str(bound['start_ticks']):fail('active_writer_protocol_not_proven:'+role)
++        command=Path('/proc/'+str(bound['pid'])+'/cmdline').read_bytes().split(b'\x00')
++        if ('/opt/fc27-cloud-browser/fc27_cloud_'+role+'.py').encode() not in command:fail('active_writer_command_changed:'+role)
++    if evidence['timer']['protocol']!='existing-tick-inode-v4':fail('timer_protocol_not_proven')
++    heartbeat=json.loads(storage.fs.read_path(storage.root+'/state/worker-heartbeat.json',{'uid':0,'gid':11028,'mode':'0o640'}))
++    age=(datetime.now(timezone.utc)-datetime.fromisoformat(heartbeat['at'])).total_seconds()
++    if not 0<=age<=15 or heartbeat.get('queue_protocol')!='existing-tick-inode-v4' or heartbeat.get('pid')!=evidence['worker']['pid']:fail('live_worker_protocol_not_proven')
++
++# Executed as inline bytes in the fixed image with -I; all input SHA checks occur
++# before executing even the candidate loader. The image owns stdlib/site packages.
++PROBE_BOOTSTRAP="""import os,sys,json,hashlib,base64
++fd=os.open('/run/reconcile-input.json',os.O_RDONLY|os.O_NOFOLLOW)
++try:
++ st=os.fstat(fd)
++ if st.st_uid!=0 or st.st_gid!=0 or (st.st_mode&0o777)!=0o600 or st.st_nlink!=1:raise ValueError('probe_input_untrusted')
++ with os.fdopen(fd,'rb',closefd=False) as f:raw=f.read(32000001)
++ if len(raw)>32000000 or hashlib.sha256(raw).hexdigest()!=sys.argv[1]:raise ValueError('probe_input_changed')
++finally:os.close(fd)
++bundle=json.loads(raw)
++if set(bundle['candidate'])!={'probe','verified_loader'}:raise ValueError('probe_candidate_closure_invalid')
++sources={k:base64.b64decode(v,validate=True) for k,v in bundle['candidate'].items()}
++for k,v in sources.items():
++ if hashlib.sha256(v).hexdigest()!=bundle['candidate_sha256'][k]:raise ValueError('probe_candidate_hash_changed')
++loader=type(sys)('verified_loader');loader.__file__='verified-memory:verified_loader.py'
++exec(compile(sources['verified_loader'],loader.__file__,'exec'),loader.__dict__);sys.modules['verified_loader']=loader
++loader.install({'probe':sources['probe']},{'probe':bundle['candidate_sha256']['probe']},{'probe':'verified candidate probe'}, {'probe'})
++import probe
++probe.main(bundle['scope'])
++"""
++
++def run(scope,manifest_sha,binding_sha,candidate,apply=False,adoption_validator=None):
++    if not callable(adoption_validator):fail('approved_writer_receipt_validator_required')
+     if sys.version!=scope['host_python']['version'] or sha(Path(sys.executable).resolve().read_bytes())!=scope['host_python']['executable_sha256']:fail('host_interpreter_changed')
+-    sys.dont_write_bytecode=True;sys.path.insert(0,str(folder));from storage import Storage;from reconcile import Recovery
++    if scope['proof_provenance'].get('loader')!='sealed-memory-v1':fail('sealed_proof_binding_required')
++    sys.dont_write_bytecode=True
++    from storage import Storage
++    from reconcile import Recovery
+     storage=Storage(scope)
+     try:
+         storage.fs.lock('automation-tick.lock');storage.fs.lock('price-writer.lock')
+-        for path,expected in scope['expected_sources'].items():
+-            if sha(storage.source_bytes(path))!=expected:fail('runtime_source_changed_before_import')
+-        sys.path.insert(0,'/opt/fc27-cloud-browser');import fc27_cloud_api as api
++        sources,expected,origins=read_verified_sources(scope)
++        for name in sources:
++            if sha(candidate['app/'+name+'.py'])!=expected[name]:fail('approved_source_artifact_mismatch')
++        names={Path(path).stem for path in scope['expected_sources']}
++        if names!={'fc27_cloud_api','fc27_cloud_worker','player_sync_job','automation_tick','coin_all_sync_job','automation_policy','player_sync_policy','server_quote_job','activity_log_store','fc27_quote_engine','snapshot_layer','storefront_monitor'}:fail('runtime_closure_allowlist_changed')
++        install(sources,expected,origins,names)
++        import fc27_cloud_api as api
++        validate_writers(scope,storage,adoption_validator)
+         def context(allowed):
+-            storage.fs.check()
++            storage.fs.check();validate_writers(scope,storage,adoption_validator)
+             for name in scope['lock_metadata']:
+                 if name not in storage.fs.locks:storage.fs.lock_free(name)
+-            snapshots={key:storage.read_live(key) for key in scope['expected_files']};source_shas={path:sha(storage.source_bytes(path)) for path in scope['expected_sources']}
++            snapshots={key:storage.read_live(key) for key in scope['expected_files']}
++            source_shas={path:sha(storage.source_bytes(path)) for path in scope['expected_sources']}
+             validate_context(scope,snapshots,api.monitor_view(),json.loads(snapshots['/var/lib/fc27-gallery/settings.json']),storage.json_directory('jobs'),storage.json_directory('executions'),storage.json_directory('queue'),source_shas,allowed)
+-            for path,expected in scope['expected_sources'].items():
+-                module_name=Path(path).stem
+-                if module_name in sys.modules:
+-                    actual=Path(sys.modules[module_name].__file__).resolve()
+-                    if str(actual)!=path or sha(actual.read_bytes())!=expected:fail('loaded_host_module_origin_changed')
++            for path,wanted in scope['expected_sources'].items():
++                name=Path(path).stem
++                if name in sys.modules and record(sys.modules[name])!={'path':path,'sha256':wanted}:fail('loaded_host_module_origin_changed')
+         def probe(ledger,raw_ledger):
+-            with tempfile.TemporaryDirectory(prefix='fc27-reconcile-v2-input-') as tmp:
++            with tempfile.TemporaryDirectory(prefix='fc27-reconcile-v4-input-') as tmp:
+                 source=Path(tmp)/'ledger.json';source.write_bytes(raw_ledger);os.chown(source,0,11028);os.chmod(source,0o640)
++                bundle={'scope':scope,'candidate':{n:base64.b64encode(candidate[n+'.py']).decode('ascii') for n in ['probe','verified_loader']},'candidate_sha256':{n:sha(candidate[n+'.py']) for n in ['probe','verified_loader']}}
++                raw=json.dumps(bundle,separators=(',',':')).encode();input_file=Path(tmp)/'input.json';input_file.write_bytes(raw);os.chmod(input_file,0o600)
+                 cmd=['timeout','70s','docker','run','--rm','--network','fc27-cloud-net','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=64m','--cap-drop','ALL','--security-opt','no-new-privileges','--group-add','11028']
+-                for src,dst in [('/etc/fc27-cloud/fc27.env','/run/secrets/fc27.env'),('/var/lib/fc27-cloud','/var/lib/fc27-cloud'),('/opt/fc27-cloud-browser','/opt/fc27-cloud-browser'),(folder/'probe.py','/opt/probe.py'),(folder/'scope.json','/run/reconcile-scope.json'),(source,'/run/reconcile-original-ledger.json')]:cmd+=['--mount','type=bind,src='+str(src)+',dst='+dst+',readonly']
+-                cmd+=['--entrypoint','python3',scope['container_image_id'],'-B','/opt/probe.py'];result=subprocess.run(cmd,capture_output=True,timeout=75)
++                for src,dst in [('/etc/fc27-cloud/fc27.env','/run/secrets/fc27.env'),('/var/lib/fc27-cloud','/var/lib/fc27-cloud'),('/opt/fc27-cloud-browser','/opt/fc27-cloud-browser'),(input_file,'/run/reconcile-input.json'),(source,'/run/reconcile-original-ledger.json')]:cmd+=['--mount','type=bind,src='+str(src)+',dst='+dst+',readonly']
++                cmd+=['--entrypoint','python3',scope['container_image_id'],'-I','-B','-c',PROBE_BOOTSTRAP,sha(raw)]
++                result=subprocess.run(cmd,capture_output=True,timeout=75)
+                 if result.returncode:fail('fresh_readback_unavailable')
+                 return json.loads(result.stdout)
+-        result=Recovery(storage,scope,args.manifest_sha,context,probe).run(apply=args.apply);print(json.dumps(result))
++        result=Recovery(storage,scope,manifest_sha,context,probe).run(apply=apply)
++        result['runtime_binding_sha256']=binding_sha;print(json.dumps(result))
+         if result['status']=='metadata_may_be_committed_needs_readback':raise SystemExit(3)
+     finally:storage.close()
+ 
+-if __name__=='__main__':
+-    try:main()
+-    except Exception as exc:
+-        print(json.dumps({'status':'stopped_without_business_replay','reason':str(exc)[:120] if isinstance(exc,ValueError) else type(exc).__name__,'business_posts':0}));raise SystemExit(2)
++if __name__=='__main__':fail('use_approved_inline_isolated_launcher')
+--- v3/probe.py
++++ v4.1/probe.py
+@@ -3,18 +3,23 @@
+ from pathlib import Path
+ from datetime import datetime,timezone
+ from decimal import Decimal as D
++from verified_loader import install,record,read_verified_sources
+ 
+-def main():
++def main(scope):
+     started=datetime.now(timezone.utc).isoformat()
+-    sys.dont_write_bytecode=True;sys.path[:0]=['/opt/fc27-cloud-browser','/usr/local/bin']
++    sys.dont_write_bytecode=True
++    base={'python':sys.version,'executable':sys.executable,'executable_sha256':hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),'loader':'sealed-memory-v1'}
++    if base!={k:v for k,v in scope['proof_provenance'].items() if k!='modules'}:raise ValueError('proof_interpreter_changed_before_import')
++    sources,expected,origins=read_verified_sources(scope,include_image_helper=True)
++    allowed={'fc27_cloud_api','fc27_cloud_worker','player_sync_job','automation_tick','coin_all_sync_job','automation_policy','player_sync_policy','server_quote_job','activity_log_store','fc27_quote_engine','snapshot_layer','storefront_monitor','p2pah_session_service'}
++    install(sources,expected,origins,allowed)
+     import player_sync_job as player,coin_all_sync_job as coins,storefront_monitor as sf
+     from p2pah_session_service import SessionManager,read_private_config
+-    scope=json.loads(Path('/run/reconcile-scope.json').read_text('utf-8'))
+     root=Path('/var/lib/fc27-cloud');pid=scope['player_job_id'];cid=scope['coin_execution_id']
+     ledger=json.loads(Path('/run/reconcile-original-ledger.json').read_text('utf-8'));audit=json.loads((root/'executions'/(cid+'.json')).read_text('utf-8'))
+-    provenance={'python':sys.version,'executable':sys.executable,'executable_sha256':hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),'modules':{}}
++    provenance={'python':sys.version,'executable':sys.executable,'executable_sha256':hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),'modules':{},'loader':'sealed-memory-v1'}
+     for name in scope['proof_provenance']['modules']:
+-        module=importlib.import_module(name);path=Path(module.__file__).resolve();provenance['modules'][name]={'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
++        module=importlib.import_module(name);provenance['modules'][name]=record(module)
+     if provenance!=scope['proof_provenance']:raise ValueError('proof_dependency_origin_changed')
+     manager=SessionManager(read_private_config())
+     if not manager.ensure():raise ValueError('session_unavailable')
+@@ -48,7 +53,7 @@
+            'ledger_sha256':hashlib.sha256(Path('/run/reconcile-original-ledger.json').read_bytes()).hexdigest(),
+            'expected_rates':{p:str(v) for p,v in rates.items()},'coin_readbacks':coin_reads,'samples':samples,'coins_public':public_coins,
+            'sample_model_ids':ledger['sample_model_ids'],'player_policy':json.loads((root/'config/player-sync.json').read_text('utf-8')),
+-           'source_sha256':hashlib.sha256(Path('/opt/fc27-cloud-browser/player_sync_job.py').read_bytes()).hexdigest()}
++            'source_sha256':expected['player_sync_job']}
+     print(json.dumps(proof))
+ 
+-if __name__=='__main__':main()
++if __name__=='__main__':raise ValueError('use_sealed_probe_bundle')
+--- v3/storage.py
++++ v4.1/storage.py
+@@ -24,7 +24,10 @@
+     def publish(self,key,raw,allowed,checkpoint):
+         names={self.scope['allowed_metadata_targets'][0]:'publish-ledger.json',self.scope['allowed_metadata_targets'][1]:'publish-job.json'}
+         if key not in names:fail('publication_target_outside_scope')
+-        self.fs.publish(names[key],self.path(key),raw,allowed,self.metadata(key),checkpoint)
++        with self.fs.policy_guard() as policy_check:
++            def protected_checkpoint():
++                policy_check();checkpoint();policy_check()
++            self.fs.publish(names[key],self.path(key),raw,allowed,self.metadata(key),protected_checkpoint)
+     def sync_visible(self,key):
+         directory,name=self.fs.split(self.path(key));fd,_=directory.open_file(name,self.metadata(key))
+         try:os.fsync(fd);directory.fsync();self.fs.tx.fsync();self.fs.check()
+@@ -32,7 +35,9 @@
+     def json_directory(self,name):
+         directory=self.fs.dirs[self.root+'/'+name];directory.check();out=[]
+         for filename in os.listdir(directory.fd):
+-            if not filename.endswith('.json'):continue
++            if not filename.endswith('.json'):
++                if name=='queue':fail('queue_non_json_record_needs_audit')
++                continue
+             st=os.stat(filename,dir_fd=directory.fd,follow_symlinks=False)
+             if st.st_uid not in self.scope['trusted_service_uids'] or st.st_gid not in [0,self.scope['service_gid']] or stat.S_IMODE(st.st_mode)&0o022:fail('runtime_record_owner_mode_untrusted')
+             raw=directory.read(filename,{'uid':st.st_uid,'gid':st.st_gid,'mode':oct(stat.S_IMODE(st.st_mode)),'device':st.st_dev,'inode':st.st_ino})
+--- v3/secure_fs.py
++++ v4.1/secure_fs.py
+@@ -1,5 +1,6 @@
+ """POSIX descriptor-relative access within explicitly frozen trusted directories."""
+ import os,stat,re,hashlib,secrets
++from contextlib import contextmanager
+ 
+ def fail(reason):raise ValueError(reason)
+ def digest(raw):return hashlib.sha256(raw).hexdigest()
+@@ -101,6 +102,30 @@
+         directory=self.dirs[self.scope['state_root']];fd,_=directory.open_file(name,self.scope['lock_metadata'][name])
+         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);self.check()
+         finally:os.close(fd)
++    @contextmanager
++    def policy_guard(self):
++        """Only the short metadata commit blocks OFF saves; never wait for a lock."""
++        import fcntl
++        paths=[self.scope['state_root'].rsplit('/',1)[0]+'/config/automation.lock',
++               self.scope['state_root'].rsplit('/',1)[0]+'/config/player-sync.lock']
++        expected=self.scope['policy_lock_metadata'];held=[]
++        if set(expected)!=set(paths):fail('policy_lock_binding_incomplete')
++        def check():
++            self.check()
++            for directory,name,fd,metadata in held:
++                current=os.stat(name,dir_fd=directory.fd,follow_symlinks=False)
++                validate_stat(current,metadata,'file')
++                if identity(current)!=identity(os.fstat(fd)):fail('policy_lock_inode_replaced')
++        try:
++            for path in paths:
++                metadata=expected[path]
++                if metadata['uid']!=0 or int(metadata['mode'],8)&0o002:fail('policy_lock_untrusted')
++                directory,name=self.split(path);fd,_=directory.open_file(name,metadata)
++                held.append((directory,name,fd,metadata))
++                fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
++            check();yield check;check()
++        finally:
++            for directory,name,fd,metadata in reversed(held):os.close(fd)
+     def open_transaction(self,create=False):
+         parent=self.dirs[self.scope['rollback_root']];name='player-reconcile-v2-'+self.scope['player_job_id'];parent.check()
+         if self.tx:

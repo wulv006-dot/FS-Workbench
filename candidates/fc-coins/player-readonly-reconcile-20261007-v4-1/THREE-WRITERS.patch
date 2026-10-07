@@ -1,0 +1,366 @@
+--- before/fc27_cloud_api.py
++++ after/fc27_cloud_api.py
+@@ -20,7 +20,7 @@
+ 
+ from automation_policy import load_policy, save_policy, save_discount_rules
+ from server_quote_job import preview_discount_rules
+-from automation_tick import latest_cycle, due, player_sync_gate, retry_plan
++from automation_tick import latest_cycle, due, player_sync_gate, retry_plan, queue_mutation, QueueBusy, sync_directory
+ from player_sync_policy import load_policy as load_player_sync_policy, save_policy as save_player_sync_policy
+ import activity_log_store
+ 
+@@ -97,6 +97,8 @@
+               "queue_depth": 0, "tab_count": None, "disk_free_gb": None,
+               "sources": {name: "missing" for name in ("lootbar", "iggm", "u4gm", "u7buy", "p2pah_cost", "fx")},
+               "last_successful_run": None, "incomplete_executions": 0}
++    result['queue_protocol'] = 'existing-tick-inode-v4'
++    result['api_pid'] = os.getpid()
+     heartbeat = ROOT / "state/worker-heartbeat.json"
+     if heartbeat.exists():
+         try:
+@@ -516,13 +518,21 @@
+             raise ValueError("request_size_invalid")
+         return json.loads(self.rfile.read(length))
+ 
+-    def enqueue(self, kind, actor, payload, job_id=None):
++    def enqueue(self, kind, actor, payload, job_id=None, *, idempotent=False):
+         job_id = job_id or str(uuid.uuid4())
+         record = {"job_id": job_id, "kind": kind, "actor": actor,
+                   "created_at": datetime.now(timezone.utc).isoformat(),
+                   "status": "queued", "request": payload}
+-        exclusive_json(ROOT / "queue" / f"{job_id}.json", record)
+-        return job_id
++        with queue_mutation():
++            # Check jobs under the same mutex as worker claim/unlink.
++            if ((ROOT / "jobs" / f"{job_id}.json").exists()
++                    or (ROOT / "queue" / f"{job_id}.json").exists()):
++                if idempotent:
++                    return job_id, False
++                raise FileExistsError('duplicate_job')
++            exclusive_json(ROOT / "queue" / f"{job_id}.json", record)
++            sync_directory(ROOT / "queue")
++        return (job_id, True) if idempotent else job_id
+ 
+     def do_GET(self):
+         actor = self.actor()
+@@ -690,14 +700,12 @@
+                          or not isinstance(confirmed, list) or any(x not in selected for x in confirmed)
+                          or not isinstance(margin_reason, str) or len(margin_reason.strip()) > 200):
+                     raise ValueError("execute_invalid")
+-                if (ROOT / "queue" / f"{event_id}.json").exists() or (ROOT / "jobs" / f"{event_id}.json").exists():
+-                    self.respond(200, {"job_id": event_id, "status": "already_submitted"})
+-                    return
+-                self.enqueue("execute", actor, {"preview_id": preview_id,
++                job_id, accepted = self.enqueue("execute", actor, {"preview_id": preview_id,
+                               "platforms": selected, "margin_confirmed_platforms": confirmed,
+                               "margin_exception_reason": margin_reason.strip(),
+-                              "policy_revision": load_policy()["revision"]}, event_id)
+-                self.respond(202, {"job_id": event_id, "status": "queued"})
++                              "policy_revision": load_policy()["revision"]}, event_id, idempotent=True)
++                self.respond(202 if accepted else 200,
++                             {"job_id": job_id, "status": "queued" if accepted else "already_submitted"})
+                 return
+             if len(parts) == 4 and parts[0] == "reprice" and valid_id(parts[1]) and parts[2:] == ["restore", "preview"]:
+                 if data:
+@@ -721,15 +729,16 @@
+                         or len(selected) != len(set(selected))
+                         or any(x not in {"PS", "XBOX", "PC"} for x in selected)):
+                     raise ValueError("restore_invalid")
+-                if (ROOT / "queue" / f"{event_id}.json").exists() or (ROOT / "jobs" / f"{event_id}.json").exists():
+-                    self.respond(200, {"job_id": event_id, "status": "already_submitted"})
+-                    return
+-                self.enqueue("restore", actor, {"source_execution_id": parts[1],
++                job_id, accepted = self.enqueue("restore", actor, {"source_execution_id": parts[1],
+                              "restore_preview_id": restore_preview_id,
+-                             "platforms": selected}, event_id)
+-                self.respond(202, {"job_id": event_id, "status": "queued"})
++                              "platforms": selected}, event_id, idempotent=True)
++                self.respond(202 if accepted else 200,
++                             {"job_id": job_id, "status": "queued" if accepted else "already_submitted"})
+                 return
+             self.respond(404, {"error": "not_found"})
++        except QueueBusy:
++            self.respond(503, {"error": "queue_mutation_busy", "retryable": True,
++                               "accepted": False})
+         except FileExistsError:
+             self.respond(409, {"error": "duplicate_job"})
+         except (ValueError, TypeError, json.JSONDecodeError) as exc:
+--- before/fc27_cloud_worker.py
++++ after/fc27_cloud_worker.py
+@@ -15,7 +15,7 @@
+ from server_quote_job import quote_for_run
+ from automation_policy import load_policy, check_write
+ from player_sync_policy import load_policy as load_player_sync_policy
+-from automation_tick import player_sync_gate
++from automation_tick import player_sync_gate, queue_mutation, QueueBusy, sync_directory
+ from fc27_cloud_api import writer_status
+ 
+ 
+@@ -227,6 +227,11 @@
+ 
+ 
+ def enqueue_player_sync(coin_job, config=None):
++    with queue_mutation():
++        return _enqueue_player_sync_locked(coin_job, config)
++
++
++def _enqueue_player_sync_locked(coin_job, config=None):
+     """One durable follow-up job per confirmed automatic coin execution."""
+     config = config or load_player_sync_policy()
+     if not config["enabled"]:
+@@ -247,6 +252,7 @@
+         stream.flush()
+         os.fsync(stream.fileno())
+     os.chown(path, 0, 11028)
++    sync_directory(QUEUE)
+     return {"status": "queued", "job_id": job_id}
+ 
+ 
+@@ -391,7 +397,8 @@
+ 
+ def heartbeat():
+     atomic_json(ROOT / "state/worker-heartbeat.json",
+-                {"at": datetime.now(timezone.utc).isoformat()})
++                {"at": datetime.now(timezone.utc).isoformat(), "pid": os.getpid(),
++                 "queue_protocol": "existing-tick-inode-v4"})
+     # Health is read by the unprivileged API.
+     path = ROOT / "state/worker-heartbeat.json"
+     os.chown(path.parent, -1, 11028)
+@@ -400,7 +407,12 @@
+     os.chmod(path, 0o640)
+ 
+ 
+-def main():
++def recover_running_jobs():
++    with queue_mutation():
++        _recover_running_jobs_locked()
++
++
++def _recover_running_jobs_locked():
+     for path in JOBS.glob("*.json"):
+         try:
+             job = json.loads(path.read_text(encoding="utf-8"))
+@@ -411,6 +423,12 @@
+                 save_job(job)
+         except (OSError, ValueError):
+             pass
++def retry_player_followups():
++    with queue_mutation():
++        _retry_player_followups_locked()
++
++
++def _retry_player_followups_locked():
+     for path in JOBS.glob("*.json"):
+         try:
+             job = json.loads(path.read_text(encoding="utf-8"))
+@@ -422,30 +440,50 @@
+                 continue
+             config = load_player_sync_policy()
+             if config["enabled"] and config["revision"] == intent.get("revision"):
+-                job["player_sync"] = enqueue_player_sync(job, config)
++                job["player_sync"] = _enqueue_player_sync_locked(job, config)
+                 save_job(job)
+         except (OSError, ValueError, KeyError):
+             pass
++def claim_next_job():
++    with queue_mutation():
++        queued = sorted(QUEUE.glob("*.json"), key=lambda p: p.stat().st_mtime)
++        if not queued:
++            return None
++        path = queued[0]
++        job = json.loads(path.read_text(encoding="utf-8"))
++        if job.get("status") != "queued" or job.get("job_id") != path.stem:
++            path.rename(path.with_suffix(".invalid"))
++            return None
++        if (JOBS / (path.stem + '.json')).exists():
++            # A previous claim may have persisted running before unlink failed.
++            # Preserve both records; never replay uncertain accepted work.
++            raise ValueError('queue_claim_needs_reconcile')
++        job["status"] = "running"
++        job["started_at"] = datetime.now(timezone.utc).isoformat()
++        save_job(job)
++        sync_directory(JOBS)
++        path.unlink()
++        sync_directory(QUEUE)
++        return job
++
++
++def main():
+     def pulse():
+         while True:
+             heartbeat()
+             time.sleep(5)
+     threading.Thread(target=pulse, daemon=True).start()
++    startup_recovered = False
+     while True:
+-        queued = sorted(QUEUE.glob("*.json"), key=lambda p: p.stat().st_mtime)
+-        if not queued:
+-            time.sleep(2)
+-            continue
+-        path = queued[0]
+         try:
+-            job = json.loads(path.read_text(encoding="utf-8"))
+-            if job.get("status") != "queued" or job.get("job_id") != path.stem:
+-                path.rename(path.with_suffix(".invalid"))
++            if not startup_recovered:
++                recover_running_jobs()
++                startup_recovered = True
++            retry_player_followups()
++            job = claim_next_job()
++            if job is None:
++                time.sleep(2)
+                 continue
+-            job["status"] = "running"
+-            job["started_at"] = datetime.now(timezone.utc).isoformat()
+-            save_job(job)
+-            path.unlink()
+             try:
+                 job["result"] = handle(job)
+                 job["status"] = "ready"
+@@ -479,15 +517,11 @@
+             if (job["kind"] == "auto_cycle" and job["status"] == "ready"
+                     and (job.get("result") or {}).get("status") == "confirmed"):
+                 try:
+-                    intent = job.get("player_sync_intent") or {}
+-                    config = load_player_sync_policy()
+-                    job["player_sync"] = (enqueue_player_sync(job, config)
+-                                          if intent.get("enabled") and intent.get("revision") == config["revision"]
+-                                          else {"status": "disabled_or_changed"})
+-                except (OSError, ValueError) as exc:
+-                    job["player_sync"] = {"status": "enqueue_failed",
+-                                          "reason": str(exc) if isinstance(exc, ValueError) else type(exc).__name__}
+-                save_job(job)
++                    # Re-read durable parent + policy inside the queue mutex.
++                    # If busy, durable intent remains pending for the next poll.
++                    retry_player_followups()
++                except (OSError, ValueError):
++                    pass
+         except (OSError, ValueError):
+             time.sleep(2)
+ 
+--- before/automation_tick.py
++++ after/automation_tick.py
+@@ -6,9 +6,63 @@
+ import os
+ from pathlib import Path
+ import uuid
++import stat
++import sys
++from contextlib import contextmanager
+ 
+ from automation_policy import ROOT, POLICY_FILE, load_policy
+ from player_sync_policy import load_policy as load_player_sync_policy
++
++
++class QueueBusy(BlockingIOError):
++    """No queue mutation was accepted; the caller may retry."""
++
++
++@contextmanager
++def queue_mutation():
++    """Use the existing tick inode for all queue mutations, without creating it.
++
++    The common inode is acquired first; nested config/business locks are NB.
++    Worker releases queue
++    before business execution. Reads and OFF saves do not acquire this mutex.
++    Reconcile retains it until the final metadata publication.
++    """
++    import fcntl
++    descriptors = []
++    lock = None
++    try:
++        parent = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
++        descriptors.append(parent)
++        for segment in (ROOT / 'state').parts[1:]:
++            parent = os.open(segment, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
++                             dir_fd=parent)
++            descriptors.append(parent)
++            current = os.fstat(parent)
++            if current.st_uid != 0 or stat.S_IMODE(current.st_mode) & 0o022:
++                raise OSError('queue_lock_parent_untrusted')
++        lock = os.open('automation-tick.lock', os.O_RDONLY | os.O_NOFOLLOW,
++                       dir_fd=parent)
++        before = os.fstat(lock)
++        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
++                or before.st_uid != 0 or before.st_gid != 0
++                or stat.S_IMODE(before.st_mode) != 0o644):
++            raise OSError('queue_lock_metadata_untrusted')
++        try:
++            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        except BlockingIOError:
++            raise QueueBusy('queue_mutation_busy') from None
++        current = os.stat('automation-tick.lock', dir_fd=parent, follow_symlinks=False)
++        if (current.st_dev, current.st_ino) != (before.st_dev, before.st_ino):
++            raise OSError('queue_lock_inode_changed')
++        yield
++        current = os.stat('automation-tick.lock', dir_fd=parent, follow_symlinks=False)
++        if (current.st_dev, current.st_ino) != (before.st_dev, before.st_ino):
++            raise OSError('queue_lock_inode_changed')
++    finally:
++        if lock is not None:
++            os.close(lock)
++        for descriptor in reversed(descriptors):
++            os.close(descriptor)
+ 
+ 
+ def player_sync_gate():
+@@ -46,6 +100,15 @@
+         json.dump(payload, stream, ensure_ascii=False, separators=(",", ":"))
+         stream.flush()
+         os.fsync(stream.fileno())
++    sync_directory(path.parent)
++
++
++def sync_directory(path):
++    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
++    try:
++        os.fsync(descriptor)
++    finally:
++        os.close(descriptor)
+ 
+ 
+ def utc(value):
+@@ -245,15 +308,13 @@
+     return "due" if now - completed >= timedelta(minutes=policy["interval_minutes"]) else "waiting"
+ 
+ 
+-def tick():
++def _tick_locked():
+     import fcntl  # Linux timer; due() can also be verified on Windows.
+-    (ROOT / "state").mkdir(parents=True, exist_ok=True)
+-    with (ROOT / "state/automation-tick.lock").open("a+b") as stream:
+-        fcntl.flock(stream, fcntl.LOCK_EX)
++    with queue_mutation():
+         # Serialize timer queue publication with range-only configuration saves.
+         POLICY_FILE.parent.mkdir(parents=True, exist_ok=True)
+         with POLICY_FILE.with_suffix(".lock").open("a+b") as config_lock:
+-            fcntl.flock(config_lock, fcntl.LOCK_EX)
++            fcntl.flock(config_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+             policy = load_policy()
+             last = latest_cycle()
+             status = due(policy, last)
+@@ -288,5 +349,23 @@
+                 return {"status": "queued", "job_id": job_id, "collection_retry": request.get("collection_retry_attempt")}
+ 
+ 
++def tick():
++    try:
++        result = _tick_locked()
++        result['queue_protocol'] = 'existing-tick-inode-v4'
++        return result
++    except BlockingIOError:
++        return {"status": "retry_blocked", "reason": "queue_or_policy_busy", "retryable": True,
++                "queue_protocol": "existing-tick-inode-v4"}
++
++
+ if __name__ == "__main__":
+-    print(json.dumps(tick()))
++    if sys.argv[1:] == ['--queue-protocol']:
++        try:
++            with queue_mutation():
++                result={'status':'ready','read_only':True,'queue_protocol':'existing-tick-inode-v4'}
++        except QueueBusy:
++            result={'status':'busy','read_only':True,'queue_protocol':'existing-tick-inode-v4'}
++        print(json.dumps(result))
++    else:
++        print(json.dumps(tick()))

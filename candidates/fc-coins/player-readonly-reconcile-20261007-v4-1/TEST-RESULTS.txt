@@ -1,0 +1,62 @@
+test_api_old_resident_with_new_disk_rejected_before_storage_access (test_v4.AdoptionReceiptTests.test_api_old_resident_with_new_disk_rejected_before_storage_access) ... ok
+test_api_receipt_missing_even_with_new_disk_and_declared_protocol (test_v4.AdoptionReceiptTests.test_api_receipt_missing_even_with_new_disk_and_declared_protocol) ... ok
+test_api_receipt_wrong_pid (test_v4.AdoptionReceiptTests.test_api_receipt_wrong_pid) ... ok
+test_api_receipt_wrong_start (test_v4.AdoptionReceiptTests.test_api_receipt_wrong_start) ... ok
+test_api_self_pid_refused (test_v4.AdoptionReceiptTests.test_api_self_pid_refused) ... ok
+test_api_selftest_origin_refused (test_v4.AdoptionReceiptTests.test_api_selftest_origin_refused) ... ok
+test_api_stale_receipt_refused (test_v4.AdoptionReceiptTests.test_api_stale_receipt_refused) ... ok
+test_receipt_continuity_revalidated_each_context (test_v4.AdoptionReceiptTests.test_receipt_continuity_revalidated_each_context) ... ok
+test_runner_refuses_missing_approved_validator_before_runtime (test_v4.AdoptionReceiptTests.test_runner_refuses_missing_approved_validator_before_runtime) ... ok
+test_timer_dropin_provenance_required (test_v4.AdoptionReceiptTests.test_timer_dropin_provenance_required) ... ok
+test_timer_missing_effective_unit_even_with_new_probe (test_v4.AdoptionReceiptTests.test_timer_missing_effective_unit_even_with_new_probe) ... ok
+test_timer_missing_probe (test_v4.AdoptionReceiptTests.test_timer_missing_probe) ... ok
+test_timer_old_effective_unit_with_new_script_rejected_before_storage_access (test_v4.AdoptionReceiptTests.test_timer_old_effective_unit_with_new_script_rejected_before_storage_access) ... ok
+test_timer_old_probe_protocol (test_v4.AdoptionReceiptTests.test_timer_old_probe_protocol) ... ok
+test_timer_probe_uses_different_interpreter (test_v4.AdoptionReceiptTests.test_timer_probe_uses_different_interpreter) ... ok
+test_timer_stale_effective_unit (test_v4.AdoptionReceiptTests.test_timer_stale_effective_unit) ... ok
+test_timer_stale_protocol_probe (test_v4.AdoptionReceiptTests.test_timer_stale_protocol_probe) ... ok
+test_binding_cannot_approve_different_source_than_frozen_artifact (test_v4.LoaderTests.test_binding_cannot_approve_different_source_than_frozen_artifact) ... ok
+test_binding_is_schema_plus_exact_cas_not_placeholder_runtime (test_v4.LoaderTests.test_binding_is_schema_plus_exact_cas_not_placeholder_runtime) ... ok
+test_changed_candidate_before_exec (test_v4.LoaderTests.test_changed_candidate_before_exec) ... ok
+test_draft_binding_refused (test_v4.LoaderTests.test_draft_binding_refused) ... ok
+test_exact_source_closure (test_v4.LoaderTests.test_exact_source_closure) ... ok
+test_extra_directory_rejected (test_v4.LoaderTests.test_extra_directory_rejected) ... ok
+test_extra_shadow_file_rejected (test_v4.LoaderTests.test_extra_shadow_file_rejected) ... ok
+test_missing_policy_inode_refused (test_v4.LoaderTests.test_missing_policy_inode_refused) ... ok
+test_missing_runtime_cas_refused (test_v4.LoaderTests.test_missing_runtime_cas_refused) ... ok
+test_mutable_file_entrypoint_refused_before_artifact_access (test_v4.LoaderTests.test_mutable_file_entrypoint_refused_before_artifact_access) ... ok
+test_omitted_probe_transitive_origin_refused (test_v4.LoaderTests.test_omitted_probe_transitive_origin_refused) ... ok
+test_preloaded_dependency_rejected (test_v4.LoaderTests.test_preloaded_dependency_rejected) ... ok
+test_probe_refuses_runtime_drift_before_business_import (test_v4.LoaderTests.test_probe_refuses_runtime_drift_before_business_import) ... ok
+test_probe_refuses_wrong_interpreter_before_source_read (test_v4.LoaderTests.test_probe_refuses_wrong_interpreter_before_source_read) ... ok
+test_sealed_bytes_survive_input_mutation (test_v4.LoaderTests.test_sealed_bytes_survive_input_mutation) ... ok
+test_transitive_hash_failure_executes_nothing (test_v4.LoaderTests.test_transitive_hash_failure_executes_nothing) ... ok
+test_unproven_resident_writer_refused (test_v4.LoaderTests.test_unproven_resident_writer_refused) ... ok
+test_api_actual_uid_994_flocks_existing_root_readonly_inode (test_v4.NativeMutexTests.test_api_actual_uid_994_flocks_existing_root_readonly_inode) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_api_uid_publishes_after_release_then_worker_claims (test_v4.NativeMutexTests.test_real_api_uid_publishes_after_release_then_worker_claims) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_candidate_hardlink_rejected_before_execution (test_v4.NativeMutexTests.test_real_candidate_hardlink_rejected_before_execution) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_candidate_symlink_rejected_before_execution (test_v4.NativeMutexTests.test_real_candidate_symlink_rejected_before_execution) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_final_policy_locks_serialize_off_and_release (test_v4.NativeMutexTests.test_real_final_policy_locks_serialize_off_and_release) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_lock_inode_replacement_rejected (test_v4.NativeMutexTests.test_real_lock_inode_replacement_rejected) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_threads_and_nested_flock_do_not_bypass (test_v4.NativeMutexTests.test_real_threads_and_nested_flock_do_not_bypass) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_timer_returns_without_deadlock (test_v4.NativeMutexTests.test_real_timer_returns_without_deadlock) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_real_worker_claim_and_followup_blocked (test_v4.NativeMutexTests.test_real_worker_claim_and_followup_blocked) ... skipped 'requires real Linux root; Windows/model tests cannot certify flock or API uid'
+test_final_publication_checkpoint_runs_under_policy_guard_and_aborts_off (test_v4.PolicyTests.test_final_publication_checkpoint_runs_under_policy_guard_and_aborts_off) ... ok
+test_invalid_queue_record_cannot_manufacture_empty_queue (test_v4.PolicyTests.test_invalid_queue_record_cannot_manufacture_empty_queue) ... ok
+test_all_six_api_entrypoints_busy_without_accepted_job (test_v4.QueueTests.test_all_six_api_entrypoints_busy_without_accepted_job) ... ok
+test_claim_persists_running_before_queue_unlink (test_v4.QueueTests.test_claim_persists_running_before_queue_unlink) ... ok
+test_claim_unknown_keeps_queue_and_never_replays (test_v4.QueueTests.test_claim_unknown_keeps_queue_and_never_replays) ... ok
+test_event_dedup_after_worker_claim_preserves_response_and_job (test_v4.QueueTests.test_event_dedup_after_worker_claim_preserves_response_and_job) ... ok
+test_followup_busy_retains_parent_and_retries_without_nested_lock (test_v4.QueueTests.test_followup_busy_retains_parent_and_retries_without_nested_lock) ... ok
+test_nested_mutex_fails_without_waiting (test_v4.QueueTests.test_nested_mutex_fails_without_waiting) ... ok
+test_reconcile_holds_mutex_across_two_proofs_and_unknown_terminal (test_v4.QueueTests.test_reconcile_holds_mutex_across_two_proofs_and_unknown_terminal) ... ok
+test_timer_busy_is_bounded_retryable (test_v4.QueueTests.test_timer_busy_is_bounded_retryable) ... ok
+test_timer_due_and_retry_due_publish_inside_shared_mutex (test_v4.QueueTests.test_timer_due_and_retry_due_publish_inside_shared_mutex) ... ok
+test_two_threads_cannot_bypass_same_process_mutex (test_v4.QueueTests.test_two_threads_cannot_bypass_same_process_mutex) ... ok
+test_user_off_prevents_pending_followup (test_v4.QueueTests.test_user_off_prevents_pending_followup) ... ok
+test_worker_claim_busy_preserves_accepted_task (test_v4.QueueTests.test_worker_claim_busy_preserves_accepted_task) ... ok
+
+----------------------------------------------------------------------
+Ran 57 tests in 0.102s
+
+OK (skipped=9)

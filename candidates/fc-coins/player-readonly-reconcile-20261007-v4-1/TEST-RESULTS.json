@@ -1,0 +1,33 @@
+{
+  "recorded_at": "2026-10-07T02:19:59.891451+00:00",
+  "status": "LOCAL_REVIEW_CANDIDATE_DO_NOT_DEPLOY",
+  "releaseReady": false,
+  "candidate_version": "v4.1",
+  "review_scope": "FC-V4-ADOPT-01 only",
+  "source_manifest_sha256": "206efa4613ae3b12f5fdfd7df04cfee85f1a50b861ebdd985c0233ce14872398",
+  "source_file_count": 23,
+  "source_closure_with_manifest": 24,
+  "test_total": 57,
+  "test_pass": 48,
+  "test_skip_native": 9,
+  "test_fail": 0,
+  "test_exit_code": 0,
+  "environment": {
+    "platform": "win32",
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]"
+  },
+  "python39_AST_parse": "PASS_NOT_NATIVE_EXECUTION",
+  "v4_33_files_unchanged": true,
+  "old_76_rerun": false,
+  "git_writes": false,
+  "production_writes": false,
+  "actual_runtime_receipts_collected": false,
+  "missing": [
+    "Independent P1-only v4.1 re-review",
+    "Exact v4.1 native Linux QA",
+    "Approved private runtime binding with real receipts",
+    "Actual API/worker/timer adoption",
+    "Approved deployment/restart window",
+    "Independent readback and natural terminal acceptance"
+  ]
+}
