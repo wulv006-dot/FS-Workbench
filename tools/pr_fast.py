@@ -53,7 +53,7 @@ def select(paths):
     for name in paths:
         suffix=Path(name).suffix
         if suffix not in (".py",".js",".cjs",".sh"):continue
-        if name.startswith("tools/pr_fast"):groups.update(("self","engine","supersession","players","rpg","aion","nba","fc-control"))
+        if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":groups.update(("self","engine","supersession","players","rpg","aion","nba","fc-control"))
         elif name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
@@ -95,7 +95,7 @@ def main():
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="fc-control":
-            units(".",["test_fc27_quote_engine"])
+            if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
         elif group=="builder":units("tools",["test_business_html_build"])
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
