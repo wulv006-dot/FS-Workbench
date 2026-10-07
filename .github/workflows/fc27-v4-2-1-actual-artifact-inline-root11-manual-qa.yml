@@ -1,0 +1,62 @@
+{
+  "name": "FC v4.2.1 real artifact inline Python3.9.18 Linux root11",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "Confirm existing free Actions quota; zero paid spend. Only actual artifact contract11; no historical57/41.",
+          "required": true,
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "fc-v4-2-1-real-artifact-inline-contract-root11",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "actual_artifact_contract11": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed == true }}",
+      "runs-on": "ubuntu-22.04",
+      "timeout-minutes": 7,
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "steps": [
+        {
+          "name": "Checkout immutable reviewed v4.2.1 candidate",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "96531763b181d25379f8e53431ce839824bc4b75",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Select registered Ubuntu22.04 x64 Python3.9.18",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false
+          }
+        },
+        {
+          "name": "Verify actual inputs and exercise real isolated inline entry",
+          "shell": "bash",
+          "run": "set -euo pipefail\nQA_PYTHON=\"${{ steps.python.outputs.python-path }}\"\nQA_LIBRARY=\"$(dirname \"$QA_PYTHON\")/../lib\"\nset +e\nsudo env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH=\"$QA_LIBRARY\" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \"$QA_PYTHON\" -I -B - \"$GITHUB_WORKSPACE\" \"$RUNNER_TEMP/fc421-contract-result.json\" > \"$RUNNER_TEMP/fc421-contract.log\" 2>&1 <<'PY'\nimport ast, hashlib, importlib.util, json, os, platform, subprocess, sys, unittest\nfrom pathlib import Path\nrepo=Path(sys.argv[1]).resolve()\nout=Path(sys.argv[2])\nroot=repo/'candidates/fc-coins/player-supersession-20261007-v4-2-1'\nold=root.parent/'player-supersession-20261007-v4-2'/'source'\nassert sys.platform=='linux' and platform.machine()=='x86_64'\nassert sys.version_info[:3]==(3,9,18)\nassert os.geteuid()==0 and os.getegid()==0\nrelease=dict(line.split('=',1) for line in Path('/etc/os-release').read_text().splitlines() if '=' in line)\nassert release['ID'].strip('\"')=='ubuntu' and release['VERSION_ID'].strip('\"')=='22.04'\ndef git(value):\n    return subprocess.check_output(['git','-c','safe.directory='+str(repo),'-C',str(repo),'rev-parse',value],text=True).strip()\nassert git('HEAD')=='96531763b181d25379f8e53431ce839824bc4b75'\nassert git('HEAD^{tree}')=='370c085eb6b86510609b6933ba67d33a12569a98'\ndigest=lambda raw:hashlib.sha256(raw).hexdigest()\nraw=(root/'GIT-INPUT-MANIFEST.json').read_bytes()\nassert digest(raw)=='dc4de504a1702f124b75c92c79da5673c5dbec8b87296a304d480586e56cb540'\nmanifest=json.loads(raw)\nassert len(manifest['files'])==29\napproved=set(manifest['files'])|{'GIT-INPUT-MANIFEST.json'}\nassert {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}==approved\nbefore={}\nfor name in sorted(approved):\n    file=root/name\n    assert file.is_file() and not file.is_symlink() and file.stat().st_nlink==1\n    assert file.resolve().is_relative_to(root)\n    before[name]=digest(file.read_bytes())\n    if name!='GIT-INPUT-MANIFEST.json':\n        assert before[name]==manifest['files'][name],name\nassert before['source/SOURCE-MANIFEST.json']=='8f97e23b3a63480fd8fd142ab977a85558203a7c7400739cb31186120b50c90f'\nold_raw=(old/'SOURCE-MANIFEST.json').read_bytes()\nassert digest(old_raw)=='540e45f50ec2357943fb5ffa5ffbeda349fe47546241198212b99a7c56ef147f'\nold_manifest=json.loads(old_raw)\nold_names=set(old_manifest['files'])|{'SOURCE-MANIFEST.json'}\nassert len(old_names)==26\nassert {p.relative_to(old).as_posix() for p in old.rglob('*') if p.is_file()}==old_names\nold_before={name:digest((old/name).read_bytes()) for name in old_names}\nfor name,wanted in old_manifest['files'].items():\n    assert old_before[name]==wanted,name\nfor file in root.rglob('*.py'):\n    ast.parse(file.read_text(encoding='utf-8'),feature_version=(3,9))\nprint(json.dumps({'phase':'before','head':git('HEAD'),'tree':git('HEAD^{tree}'),\n    'python':sys.version,'uid':os.geteuid(),'gid':os.getegid(),'os':'ubuntu-22.04-x64',\n    'candidate_files_verified':len(before),'historical_source_dependency_files_verified':len(old_before),\n    'input_manifest_sha256':digest(raw),'source_manifest_sha256':before['source/SOURCE-MANIFEST.json'],\n    'production_access':False,'old57_rerun':False,'old41_rerun':False},sort_keys=True))\nspec=importlib.util.spec_from_file_location('actual_artifact_contract',root/'tests/test_actual_artifact_contract.py')\nmodule=importlib.util.module_from_spec(spec)\nspec.loader.exec_module(module)\nsuite=unittest.defaultTestLoader.loadTestsFromTestCase(module.ActualArtifactContractTests)\nassert suite.countTestCases()==11\ndef flatten(suite):\n    for item in suite:\n        if isinstance(item,unittest.TestSuite):\n            yield from flatten(item)\n        else:\n            yield item\nnames=[case.id() for case in flatten(suite)]\nassert len(names)==11 and len(set(names))==11\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nafter={name:digest((root/name).read_bytes()) for name in approved}\nold_after={name:digest((old/name).read_bytes()) for name in old_names}\nunchanged=before==after and old_before==old_after\nno_extra={p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}==approved\nsummary={'phase':'after','head':git('HEAD'),'tree':git('HEAD^{tree}'),\n    'python':platform.python_version(),'uid':os.geteuid(),'gid':os.getegid(),\n    'tests_run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),\n    'skipped':len(result.skipped),'native_root_test_count':11,'test_names':names,\n    'negative_schema_subcases':15,'all_frozen_inputs_unchanged':unchanged and no_extra,\n    'source_manifest_sha256':before['source/SOURCE-MANIFEST.json'],\n    'input_manifest_sha256':digest(raw),'production_access':False,\n    'real_runtime_binding_validated':False,'full_runtime_preflight_completed':False,\n    'business_posts':0,'old57_rerun':False,'old41_rerun':False}\nout.write_text(json.dumps(summary,sort_keys=True,indent=2)+'\\n',encoding='utf-8')\nprint(json.dumps(summary,sort_keys=True))\nassert result.wasSuccessful() and result.testsRun==11 and not result.skipped\nassert not result.expectedFailures and not result.unexpectedSuccesses\nassert unchanged and no_extra,'frozen_input_mutation'\nPY\nqa_status=$?\nset -e\ncat \"$RUNNER_TEMP/fc421-contract.log\"\nif [ -f \"$RUNNER_TEMP/fc421-contract-result.json\" ]; then cat \"$RUNNER_TEMP/fc421-contract-result.json\"; fi\nexit \"$qa_status\"\n"
+        }
+      ]
+    }
+  }
+}
