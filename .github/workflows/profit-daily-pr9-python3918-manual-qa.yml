@@ -1,0 +1,64 @@
+{
+  "name": "Profit daily fixed PR9 Python3.9.18 Linux90",
+  "run-name": "Profit PR9 6a9440c7 / Python3.9.18 / manual Linux90",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "本次运行前已复核免费分钟仍足够、超额预算0美元且到额停止；仅固定合成QA",
+          "required": true,
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "profit-pr9-6a9440c7-manual-python3918",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "synthetic90": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed == true }}",
+      "runs-on": "ubuntu-22.04",
+      "timeout-minutes": 7,
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "steps": [
+        {
+          "name": "Checkout the immutable approved PR9 inputs",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "6a9440c7785d81bc53647f618faea80557489927",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Select verified Ubuntu22.04 x64 Python3.9.18",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false
+          }
+        },
+        {
+          "name": "Verify manifest and exact90 zero-skip offline tests",
+          "working-directory": "candidates/business-snapshot/order-endpoint-padding-20261007",
+          "shell": "bash",
+          "run": "set -euo pipefail\nQA_PYTHON=\"${{ steps.python.outputs.python-path }}\"\n\"$QA_PYTHON\" -B - <<'PY'\nimport hashlib, json, os, platform, subprocess, sys\nfrom pathlib import Path\nassert sys.version_info[:3] == (3, 9, 18), sys.version\nassert sys.platform == \"linux\" and platform.machine() == \"x86_64\"\nos_release = dict(line.split(\"=\", 1) for line in Path(\"/etc/os-release\").read_text().splitlines() if \"=\" in line)\nassert os_release[\"ID\"].strip('\"') == \"ubuntu\"\nassert os_release[\"VERSION_ID\"].strip('\"') == \"22.04\"\nrepo = Path(os.environ[\"GITHUB_WORKSPACE\"])\nassert subprocess.check_output([\"git\", \"-C\", str(repo), \"rev-parse\", \"HEAD\"], text=True).strip() == \"6a9440c7785d81bc53647f618faea80557489927\"\nassert subprocess.check_output([\"git\", \"-C\", str(repo), \"rev-parse\", \"HEAD^{tree}\"], text=True).strip() == \"e3e1df11d710a900a52f7e42fa83d522d89a53e8\"\nroot = Path.cwd()\nmanifest_path = root / \"INPUT-MANIFEST.json\"\nassert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == \"945ee9da3f3ae793d00fb6223f91335a5de2c11ef3f1fdfa65f250ac159bfab5\"\nmanifest = json.loads(manifest_path.read_text(encoding=\"utf-8\"))\npaths = [row[\"path\"] for row in manifest[\"files\"]] + [\"INPUT-MANIFEST.json\"]\nassert len(paths) == 23 and len(set(paths)) == 23\nhashes = {}\nfor row in manifest[\"files\"]:\n    path = root / row[\"path\"]\n    assert path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(root.resolve())\n    data = path.read_bytes()\n    digest = hashlib.sha256(data).hexdigest()\n    assert len(data) == row[\"bytes\"] and digest == row[\"sha256\"], row[\"path\"]\n    hashes[row[\"path\"]] = digest\nhashes[\"INPUT-MANIFEST.json\"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()\nassert len([name for name in hashes if name.startswith(\"source/\")]) == 9\nPath(os.environ[\"RUNNER_TEMP\"], \"profit90-before.json\").write_text(json.dumps(hashes, sort_keys=True), encoding=\"utf-8\")\nprint(json.dumps({\"phase\":\"before\", \"python\":platform.python_version(), \"os\":\"ubuntu-22.04-x64\", \"gitHead\":\"6a9440c7785d81bc53647f618faea80557489927\", \"gitTree\":\"e3e1df11d710a900a52f7e42fa83d522d89a53e8\", \"verifiedInputFiles\":len(hashes), \"sourceSha256\":{k:v for k,v in hashes.items() if k.startswith(\"source/\")}}, sort_keys=True))\nPY\nset +e\n\"$QA_PYTHON\" -B run_offline_tests.py > \"$RUNNER_TEMP/profit90.log\" 2>&1\nqa_status=$?\nset -e\ncat \"$RUNNER_TEMP/profit90.log\"\nQA_EXIT_STATUS=\"$qa_status\" \"$QA_PYTHON\" -B - <<'PY'\nimport hashlib, json, os, re\nfrom pathlib import Path\nroot = Path.cwd()\ntemp = Path(os.environ[\"RUNNER_TEMP\"])\nbefore = json.loads((temp / \"profit90-before.json\").read_text(encoding=\"utf-8\"))\nafter = {name:hashlib.sha256((root / name).read_bytes()).hexdigest() for name in before}\nassert before == after, \"frozen_input_changed_during_tests\"\ntext = (temp / \"profit90.log\").read_text(encoding=\"utf-8\")\nassert os.environ[\"QA_EXIT_STATUS\"] == \"0\", \"offline_runner_failed\"\nassert len(re.findall(r\"^Ran 90 tests in \", text, flags=re.MULTILINE)) == 1, \"expected_exactly_90_methods\"\nassert re.search(r\"^OK\\s*$\", text, flags=re.MULTILINE), \"unittest_summary_not_ok\"\nassert not re.search(r\"\\.\\.\\. skipped|^OK \\(.*skipped=|^FAILED\", text, flags=re.MULTILINE), \"skip_or_failure_detected\"\nprint(json.dumps({\"phase\":\"after\", \"passed\":True, \"tests\":90, \"skipped\":0, \"frozenInputsUnchanged\":True, \"sourceSha256\":{k:v for k,v in after.items() if k.startswith(\"source/\")}}, sort_keys=True))\nPY\n"
+        }
+      ]
+    }
+  }
+}
