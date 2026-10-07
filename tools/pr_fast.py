@@ -63,7 +63,11 @@ def frontend_structure(name,text):
             if self.stack and self.stack[-1]=="p" and tag in self.blocks:self.stack.pop()
             if self.stack and tag in self.optional and self.stack[-1]==tag:self.stack.pop()
             if tag not in self.void:self.stack.append(tag)
-        def handle_startendtag(self,tag,attrs):pass
+        def handle_startendtag(self,tag,attrs):
+            if tag in self.void:return
+            # Foreign-content self-closing syntax is valid; HTML non-void slash is ignored.
+            if tag in ("svg","math") or any(t in ("svg","math") for t in self.stack):return
+            self.handle_starttag(tag,attrs)
         def handle_endtag(self,tag):
             if tag in self.void:return
             while self.stack and self.stack[-1]!=tag and self.stack[-1] in self.optional:self.stack.pop()
@@ -75,6 +79,10 @@ def frontend_structure(name,text):
     tags.close()
     if any(tag not in tags.optional for tag in tags.stack):raise RuntimeError("html_unclosed_tag")
     for style in tags.styles:css_structure(style)
+
+def require_changed_file(name,exists):
+    if not exists and Path(name).suffix in (".html",".css"):
+        raise RuntimeError("UNMAPPED_DELETION: register an affected consumer check before removing "+name)
 
 def selfcheck():
     class Good(unittest.TestCase):
@@ -97,27 +105,45 @@ def selfcheck():
         raise RuntimeError("mixed_frontend_path_not_checked")
     for name,text in (("ok.html","<main><p>ok</p><input><br/></main>"),
                       ("ok.html","<ul><li>a<li>b</ul>"),
+                      ("ok.html","<div/></div>"),
+                      ("ok.html","<svg><path d='M0 0'/></svg>"),
                       ("ok.css",'a{content:"}";color:var(--color)}'),
                       ("ok.css","/* { */ @media (width > 10px){a:hover{color:red}}")):
         frontend_structure(name,text)
     for name,text in (("bad.html","<div>"),("bad.html","<div></span>"),
+                      ("bad.html","<div/>"),
                       ("bad.html","<style>a{color:red</style>"),
                       ("bad.css","a{color:red"),("bad.css","a{content:'oops}"),
                       ("bad.css","a{} /* unfinished")):
         try:frontend_structure(name,text)
         except RuntimeError:continue
         else:raise RuntimeError("malformed_frontend_structure_allowed")
+    for name in ("schema.sql","worker.service","worker.timer",".github/workflows/new.yml",".github/workflows/new.yaml"):
+        try:select([name])
+        except RuntimeError as error:
+            if "UNMAPPED" not in str(error):raise
+        else:raise RuntimeError("unchecked_runtime_format_allowed:"+name)
+    for name in ("removed.html","removed.css"):
+        try:require_changed_file(name,False)
+        except RuntimeError as error:
+            if "UNMAPPED_DELETION" not in str(error):raise
+        else:raise RuntimeError("unchecked_frontend_deletion_allowed")
+        require_changed_file(name,True)
+    require_changed_file("old-record.md",False)
     for name in ("fc27_ops_cloud/index.html","fc27_ops_cloud/data/fc-analytics.css"):
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
+    print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
+            unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
             groups.add("self");continue
         if suffix not in (".py",".js",".cjs",".sh",".html",".css"):continue
@@ -146,6 +172,7 @@ def main():
     for name in paths:
         p=ROOT/name
         if p.is_symlink() or not p.resolve().is_relative_to(ROOT):raise RuntimeError("invalid_diff_path")
+        require_changed_file(name,p.exists())
         if not p.exists():continue
         if p.suffix==".py":ast.parse(p.read_text(encoding="utf-8-sig"),filename=name,feature_version=(3,9))
         elif p.suffix in (".js",".cjs"):subprocess.run(["node","--check",str(p)],check=True,timeout=20)
