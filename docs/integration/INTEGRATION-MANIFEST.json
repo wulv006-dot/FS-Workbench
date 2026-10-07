@@ -1,4 +1,5 @@
 {
+  "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "createdAt": "2026-10-05T13:07:41.414508+00:00",
   "candidateRoot": "E:\\WorkBuddy\\大超服务器\\fs_platform_integration_20261005\\candidate_revision3",
   "importedFiles": [
