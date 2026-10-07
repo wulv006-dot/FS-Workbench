@@ -1,0 +1,927 @@
+--- v4.1/source/app/automation_tick.py
++++ v4.2/source/app/automation_tick.py
+@@ -65,6 +65,87 @@
+             os.close(descriptor)
+ 
+ 
++def supersession_bytes(key):
++    """Bound existing records through stable descriptors; never follow links."""
++    import stat
++    import re
++    if key!='state/worker-heartbeat.json' and not re.fullmatch(r'(jobs|player-sync|executions|all-coin-sync|runs|quotes|previews)/[0-9a-f-]{36}\.json',key):raise ValueError('supersession_record_path_invalid')
++    path=ROOT/key;fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
++    try:
++        for index,part in enumerate(path.parent.parts[1:],1):
++            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
++            st=os.fstat(child);current=os.stat(part,dir_fd=fd,follow_symlinks=False)
++            group_dir=st.st_gid==11028 and stat.S_IMODE(st.st_mode)==0o2770 and Path('/').joinpath(*path.parent.parts[1:index+1]) in {ROOT/'executions',ROOT/'all-coin-sync',ROOT/'player-sync',ROOT/'runs',ROOT/'quotes',ROOT/'previews'}
++            if st.st_uid!=0 or (stat.S_IMODE(st.st_mode)&0o022 and not group_dir) or (st.st_dev,st.st_ino)!=(current.st_dev,current.st_ino):
++                os.close(child);raise ValueError('supersession_record_parent_untrusted')
++            os.close(fd);fd=child
++        record=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd)
++        try:
++            st=os.fstat(record)
++            if not stat.S_ISREG(st.st_mode) or st.st_uid not in {0,994,11027} or st.st_gid not in {0,11028} or stat.S_IMODE(st.st_mode)&0o022 or st.st_nlink!=1:raise ValueError('supersession_record_untrusted')
++            if key=='state/worker-heartbeat.json' and (st.st_uid!=0 or st.st_gid!=11028 or stat.S_IMODE(st.st_mode)!=0o640):raise ValueError('supersession_heartbeat_untrusted')
++            with os.fdopen(record,'rb',closefd=False) as stream:raw=stream.read(32000001)
++            after=os.fstat(record);current=os.stat(path.name,dir_fd=fd,follow_symlinks=False)
++            if len(raw)>32000000 or (st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or (current.st_dev,current.st_ino)!=(st.st_dev,st.st_ino):raise ValueError('supersession_record_changed')
++            return raw
++        finally:os.close(record)
++    finally:os.close(fd)
++
++
++def latest_confirmed_coin():
++    rows=[json.loads(supersession_bytes('executions/'+p.name)) for p in (ROOT/'executions').glob('*.json')]
++    rows=[r for r in rows if r.get('status')=='CONFIRMED' and r.get('sync_confirmed') is True]
++    return max(rows,key=lambda r:utc(r['created_at'])) if rows else None
++
++
++def supersession_receipt(job_id):
++    """Only a root-private controlled transaction can authorize supersession."""
++    import stat
++    if str(uuid.UUID(job_id))!=job_id:raise ValueError('supersession_job_identity_invalid')
++    path=ROOT/'rollback'/('player-reconcile-v2-'+job_id+'-supersession')/'supersession-receipt.json'
++    fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
++    try:
++        for part in path.parent.parts[1:]:
++            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
++            st=os.fstat(child);current=os.stat(part,dir_fd=fd,follow_symlinks=False)
++            if st.st_uid!=0 or stat.S_IMODE(st.st_mode)&0o022 or (st.st_dev,st.st_ino)!=(current.st_dev,current.st_ino):
++                os.close(child);raise ValueError('supersession_parent_untrusted')
++            os.close(fd);fd=child
++        record=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd)
++        try:
++            st=os.fstat(record)
++            if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_gid!=0 or stat.S_IMODE(st.st_mode)!=0o600 or st.st_nlink!=1:raise ValueError('supersession_receipt_untrusted')
++            with os.fdopen(record,'rb',closefd=False) as stream:raw=stream.read(32000001)
++            after=os.fstat(record);current=os.stat(path.name,dir_fd=fd,follow_symlinks=False)
++            if len(raw)>32000000 or (st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or (current.st_dev,current.st_ino)!=(st.st_dev,st.st_ino):raise ValueError('supersession_receipt_changed')
++        finally:os.close(record)
++        return json.loads(raw)
++    finally:os.close(fd)
++
++
++def superseded_basis(record=None):
++    """A historical failure is superseded, never confirmed for a new price."""
++    import hashlib
++    if record is None:
++        rows=[json.loads(supersession_bytes('jobs/'+p.name)) for p in (ROOT/'jobs').glob('*.json')]
++        rows=[r for r in rows if r.get('kind')=='player_sync']
++        record=max(rows,key=lambda r:utc(r['created_at'])) if rows else None
++    if not record or record.get('status')!='superseded':return None
++    pid=record['job_id'];receipt=supersession_receipt(pid)
++    if receipt.get('status')!='superseded' or receipt.get('player_job_id')!=pid:raise ValueError('supersession_receipt_incomplete')
++    for key in ['jobs/'+pid+'.json','player-sync/'+pid+'.json']:
++        raw=supersession_bytes(key);value=json.loads(raw)
++        if hashlib.sha256(raw).hexdigest()!=receipt['after_sha256'][key] or value.get('status')!='superseded' or value.get('supersession')!=receipt['marker']:raise ValueError('supersession_partial_or_changed')
++    marker=receipt['marker'];cid=marker['superseding_coin_execution_id'];current=latest_confirmed_coin()
++    if not current or current.get('execution_id')!=cid:raise ValueError('supersession_current_coin_changed')
++    for key,wanted in receipt['basis_sha256'].items():
++        if hashlib.sha256(supersession_bytes(key)).hexdigest()!=wanted:raise ValueError('supersession_coin_basis_changed')
++    config=load_player_sync_policy()
++    if not config['enabled'] or config['revision']!=marker['player_revision']:raise ValueError('supersession_policy_changed')
++    return {'old_player_job_id':pid,'coin_execution_id':cid,'coin_execution_sha256':receipt['basis_sha256']['executions/'+cid+'.json'],
++            'supersession_proof_sha256':marker['readback_proof_sha256']}
++
++
+ def player_sync_gate():
+     """Pause further automatic coin writes while an enabled player sync is unresolved."""
+     config = load_player_sync_policy()
+@@ -74,7 +155,8 @@
+         record = json.loads(path.read_text(encoding="utf-8"))
+         intent = record.get("player_sync_intent") or {}
+         if (record.get("kind") == "auto_cycle" and record.get("status") == "ready"
+-                and (record.get("result") or {}).get("status") == "confirmed"
++                and ((record.get("result") or {}).get("status") == "confirmed"
++                     or ((record.get("result") or {}).get("status") == "no_price_change" and record.get('player_sync_basis')))
+                 and intent.get("enabled") and intent.get("revision") == config["revision"]
+                 and (record.get("player_sync") or {}).get("status") not in {"queued", "already_queued"}):
+             return "needs_reconcile"
+@@ -90,6 +172,21 @@
+     last = max(records, key=lambda row: utc(row["created_at"]))
+     if last.get("status") in {"queued", "running"}:
+         return "in_progress"
++    if last.get('status')=='superseded':
++        try:
++            if os.geteuid()==0:return 'ready' if superseded_basis(last) else 'needs_reconcile'
++            # API is unprivileged. A fresh root-owned heartbeat reports the
++            # worker's private validation; only root producers can act on it.
++            import hashlib
++            pulse=json.loads(supersession_bytes('state/worker-heartbeat.json'));approval=pulse.get('supersession_gate') or {}
++            if not 0<=(datetime.now(timezone.utc)-utc(pulse['at'])).total_seconds()<=15 or approval.get('player_job_id')!=last['job_id']:return 'needs_reconcile'
++            current=latest_confirmed_coin()
++            if not current or current['execution_id']!=approval.get('coin_execution_id'):return 'needs_reconcile'
++            for key,wanted in approval['after_sha256'].items():
++                if key not in ['jobs/'+last['job_id']+'.json','player-sync/'+last['job_id']+'.json'] or hashlib.sha256(supersession_bytes(key)).hexdigest()!=wanted:return 'needs_reconcile'
++            if len(approval['after_sha256'])!=2:return 'needs_reconcile'
++            return 'ready'
++        except (OSError,ValueError,KeyError,TypeError):return 'needs_reconcile'
+     if last.get("status") != "ready" or (last.get("result") or {}).get("status") != "confirmed":
+         return "needs_reconcile"
+     return "ready"
+--- v4.1/source/app/fc27_cloud_worker.py
++++ v4.2/source/app/fc27_cloud_worker.py
+@@ -4,6 +4,7 @@
+ from datetime import datetime, timezone
+ from decimal import Decimal
+ import json
++import hashlib
+ import os
+ from pathlib import Path
+ import subprocess
+@@ -11,11 +12,11 @@
+ import time
+ import uuid
+ 
+-from snapshot_layer import ROOT, PLATFORMS, atomic_json
+-from server_quote_job import quote_for_run
++from snapshot_layer import ROOT, PLATFORMS, SITES, atomic_json
++from server_quote_job import quote_for_run, age_ok
+ from automation_policy import load_policy, check_write
+ from player_sync_policy import load_policy as load_player_sync_policy
+-from automation_tick import player_sync_gate, queue_mutation, QueueBusy, sync_directory
++from automation_tick import player_sync_gate, queue_mutation, QueueBusy, sync_directory, superseded_basis, supersession_bytes, supersession_receipt, utc
+ from fc27_cloud_api import writer_status
+ 
+ 
+@@ -231,21 +232,79 @@
+         return _enqueue_player_sync_locked(coin_job, config)
+ 
+ 
++def parent_fields_hash(parent):
++    fields={k:parent.get(k) for k in ['job_id','kind','actor','status','request','run_id','result','completed_at','player_sync_basis','player_sync_intent']}
++    return hashlib.sha256(json.dumps(fields,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
++
++
++def validate_nochange_sources(jid,preview_id,raws,policy):
++    snapshot=json.loads(raws['runs/'+jid+'.json']);quote=json.loads(raws['quotes/'+jid+'.json']);preview=json.loads(raws['previews/'+preview_id+'.json']);now=datetime.now(timezone.utc)
++    if snapshot.get('run_id')!=jid or snapshot.get('status')!='ready_for_quote' or not age_ok(snapshot['created_at'],now) or quote.get('run_id')!=jid or quote.get('snapshot_sha256')!=hashlib.sha256(raws['runs/'+jid+'.json']).hexdigest() or not age_ok(quote['created_at'],now):raise ValueError('player_basis_collection_changed')
++    costs=snapshot.get('costs',[]);offers=snapshot.get('competitors',[]);fx=snapshot.get('fx') or {};sf=snapshot.get('storefront') or {}
++    if len(costs)!=3 or {r.get('platform') for r in costs}!=set(PLATFORMS) or any(r.get('status')!='valid' or r.get('run_id')!=jid or not age_ok(r['checked_at'],now) for r in costs):raise ValueError('player_basis_costs_incomplete')
++    if len(offers)!=12 or {(r.get('platform'),r.get('source')) for r in offers}!={(p,s) for p in PLATFORMS for s in SITES} or any(r.get('status')!='valid' or r.get('run_id')!=jid or not age_ok(r['captured_at'],now) for r in offers):raise ValueError('player_basis_competitors_incomplete')
++    if fx.get('status')!='valid' or not age_ok(fx['checked_at'],now) or sf.get('collection_run_id')!=jid or sf.get('status')!='ok' or set(sf.get('rows') or {})!=set(PLATFORMS) or any(r.get('status')!='ok' or not age_ok(r['checked_at'],now) for r in sf['rows'].values()):raise ValueError('player_basis_fx_or_public_source_incomplete')
++    if preview.get('preview_id')!=preview_id or preview.get('run_id')!=jid or preview.get('status')!='review_only' or changed_auto_platforms(preview,list(PLATFORMS))[0]:raise ValueError('player_basis_preview_changed')
++    check_write(policy,quote,list(PLATFORMS),automatic=True)
++
++
++def prepare_nochange_basis(job,preview_id,unchanged,blocked):
++    """Record a pending intent only after this natural cycle passes every existing rule."""
++    if set(unchanged)!=set(PLATFORMS) or blocked:return None
++    with queue_mutation():
++        pending=superseded_basis()
++        if not pending:return None
++        policy=load_policy();config=load_player_sync_policy()
++        if not policy['system_enabled'] or policy['mode']!='auto' or policy['revision']!=job['request']['policy_revision'] or not config['enabled']:raise ValueError('player_basis_policy_changed')
++        jid=job['job_id'];keys=['runs/'+jid+'.json','quotes/'+jid+'.json','previews/'+preview_id+'.json']
++        raws={k:supersession_bytes(k) for k in keys};quote=json.loads(raws[keys[1]]);preview=json.loads(raws[keys[2]])
++        validate_nochange_sources(jid,preview_id,raws,policy)
++        cid=pending['coin_execution_id'];audit=json.loads(supersession_bytes('executions/'+cid+'.json'))
++        rates={r['platform']:Decimal(str(r['b2c'])) for r in audit['after']['rows']}
++        if len(rates)!=3 or set(rates)!=set(PLATFORMS):raise ValueError('player_basis_rates_incomplete')
++        for section,key in [('backend_before','b2c'),('targets','quote')]:
++            rows=preview[section]['rows'] if section=='backend_before' else preview[section]
++            if len(rows)!=3 or {r['platform']:Decimal(str(r[key])) for r in rows}!=rates:raise ValueError('player_basis_preview_not_current')
++        job['player_sync_basis']={**pending,'all_ledger_sha256':hashlib.sha256(supersession_bytes('all-coin-sync/'+cid+'.json')).hexdigest(),'source_sha256':{k:hashlib.sha256(v).hexdigest() for k,v in raws.items()},'preview_id':preview_id,'coin_revision':policy['revision'],'player_revision':config['revision']}
++        job['player_sync_intent']={'enabled':True,'revision':config['revision']}
++        save_job(job)
++        return job['player_sync_basis']
++
++
++def validate_nochange_parent(parent,config):
++    basis=parent.get('player_sync_basis') or {};policy=load_policy()
++    if parent.get('kind')!='auto_cycle' or parent.get('actor')!='system-automation' or parent.get('status')!='ready' or (parent.get('result') or {}).get('status')!='no_price_change' or parent.get('player_sync_intent')!={'enabled':True,'revision':config['revision']}:raise ValueError('player_basis_parent_invalid')
++    if not 0<=(datetime.now(timezone.utc)-utc(parent['completed_at'])).total_seconds()<=300:raise ValueError('player_basis_parent_expired')
++    if not policy['system_enabled'] or policy['mode']!='auto' or policy['revision']!=basis.get('coin_revision') or not config['enabled'] or config['revision']!=basis.get('player_revision'):raise ValueError('player_basis_policy_changed')
++    old=json.loads(supersession_bytes('jobs/'+basis['old_player_job_id']+'.json'));current=superseded_basis(old)
++    if not current or any(current[k]!=basis[k] for k in current):raise ValueError('player_basis_supersession_changed')
++    cid=basis['coin_execution_id']
++    if hashlib.sha256(supersession_bytes('all-coin-sync/'+cid+'.json')).hexdigest()!=basis['all_ledger_sha256']:raise ValueError('player_basis_all_changed')
++    jid=parent['job_id'];expected={'runs/'+jid+'.json','quotes/'+jid+'.json','previews/'+basis['preview_id']+'.json'}
++    if set(basis['source_sha256'])!=expected:raise ValueError('player_basis_source_scope_changed')
++    raws={k:supersession_bytes(k) for k in expected}
++    if any(hashlib.sha256(raw).hexdigest()!=basis['source_sha256'][k] for k,raw in raws.items()):raise ValueError('player_basis_source_changed')
++    validate_nochange_sources(jid,basis['preview_id'],raws,policy)
++    return {'parent_id':jid,'parent_fields_sha256':parent_fields_hash(parent),'basis':basis}
++
++
+ def _enqueue_player_sync_locked(coin_job, config=None):
+     """One durable follow-up job per confirmed automatic coin execution."""
+     config = config or load_player_sync_policy()
+     if not config["enabled"]:
+         return {"status": "disabled"}
+-    coin_id = coin_job["job_id"]
+-    if coin_job.get("kind") != "auto_cycle" or (coin_job.get("result") or {}).get("status") != "confirmed":
+-        raise ValueError("player_sync_coin_not_confirmed")
++    nochange=(coin_job.get('result') or {}).get('status')=='no_price_change' and bool(coin_job.get('player_sync_basis'))
++    coin_id=coin_job['player_sync_basis']['coin_execution_id'] if nochange else coin_job['job_id']
++    if coin_job.get('kind')!='auto_cycle' or (not nochange and (coin_job.get('result') or {}).get('status')!='confirmed'):raise ValueError('player_sync_coin_not_confirmed')
+     job_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "fc27-player-sync:" + coin_id))
+     path = QUEUE / (job_id + ".json")
+     if path.exists() or (JOBS / (job_id + ".json")).exists():
+         return {"status": "already_queued", "job_id": job_id}
++    automatic_basis=validate_nochange_parent(coin_job,config) if nochange else None
+     record = {"job_id": job_id, "kind": "player_sync", "actor": "system-automation",
+               "created_at": datetime.now(timezone.utc).isoformat(), "status": "queued",
+               "request": {"coin_execution_id": coin_id, "config_revision": config["revision"]}}
++    if automatic_basis:record["request"]["automatic_basis"]=automatic_basis
+     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+         json.dump(record, stream, ensure_ascii=False, separators=(",", ":"))
+@@ -308,6 +367,7 @@
+         job["unchanged_platforms"] = unchanged
+         save_job(job)
+         if not selected:
++            prepare_nochange_basis(job,preview["preview_id"],unchanged,blocked)
+             return {**collected, "status": "no_price_change", "platforms": [],
+                     "unchanged_platforms": unchanged, "blocked_platforms": blocked}
+         current = load_policy()
+@@ -386,6 +446,13 @@
+         request = {"job_id": job["job_id"], "coin_execution_id": coin_id,
+                    "config_revision": config["revision"],
+                    "resume": job["request"].get("resume") is True}
++        if job['request'].get('automatic_basis'):
++            with queue_mutation():
++                parent_id=job['request']['automatic_basis']['parent_id']
++                parent=json.loads(supersession_bytes('jobs/'+parent_id+'.json'))
++                current=validate_nochange_parent(parent,load_player_sync_policy())
++                if current!=job['request']['automatic_basis'] or current['basis']['coin_execution_id']!=coin_id or str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id))!=job['job_id']:raise ValueError('player_basis_request_changed')
++                request['automatic_basis']=current
+         code, result = run_writer_request(job, "sync_players.sh", request, 3700)
+         if code or result.get("status") != "confirmed":
+             job["sync_result"] = result
+@@ -396,9 +463,16 @@
+ 
+ 
+ def heartbeat():
+-    atomic_json(ROOT / "state/worker-heartbeat.json",
+-                {"at": datetime.now(timezone.utc).isoformat(), "pid": os.getpid(),
+-                 "queue_protocol": "existing-tick-inode-v4"})
++    payload={"at": datetime.now(timezone.utc).isoformat(), "pid": os.getpid(),
++             "queue_protocol": "existing-tick-inode-v4"}
++    try:
++        basis=superseded_basis()
++        if basis:
++            receipt=supersession_receipt(basis['old_player_job_id'])
++            payload['supersession_gate']={'player_job_id':basis['old_player_job_id'],
++                'coin_execution_id':basis['coin_execution_id'],'after_sha256':receipt['after_sha256']}
++    except (OSError,ValueError,KeyError,TypeError):pass
++    atomic_json(ROOT / "state/worker-heartbeat.json",payload)
+     # Health is read by the unprivileged API.
+     path = ROOT / "state/worker-heartbeat.json"
+     os.chown(path.parent, -1, 11028)
+@@ -434,7 +508,7 @@
+             job = json.loads(path.read_text(encoding="utf-8"))
+             intent = job.get("player_sync_intent") or {}
+             if (job.get("kind") != "auto_cycle" or job.get("status") != "ready"
+-                    or (job.get("result") or {}).get("status") != "confirmed"
++                    or not ((job.get("result") or {}).get("status")=="confirmed" or ((job.get("result") or {}).get("status")=="no_price_change" and job.get("player_sync_basis")))
+                     or not intent.get("enabled")
+                     or (job.get("player_sync") or {}).get("status") in {"queued", "already_queued"}):
+                 continue
+@@ -515,7 +589,7 @@
+             job["completed_at"] = datetime.now(timezone.utc).isoformat()
+             save_job(job)
+             if (job["kind"] == "auto_cycle" and job["status"] == "ready"
+-                    and (job.get("result") or {}).get("status") == "confirmed"):
++                    and ((job.get("result") or {}).get("status")=="confirmed" or ((job.get("result") or {}).get("status")=="no_price_change" and job.get("player_sync_basis")))):
+                 try:
+                     # Re-read durable parent + policy inside the queue mutex.
+                     # If busy, durable intent remains pending for the next poll.
+--- v4.1/source/app/player_sync_job.py
++++ v4.2/source/app/player_sync_job.py
+@@ -335,6 +335,74 @@
+     return details
+ 
+ 
++def basis_parent_hash(parent):
++    fields={k:parent.get(k) for k in ['job_id','kind','actor','status','request','run_id','result','completed_at','player_sync_basis','player_sync_intent']}
++    return hashlib.sha256(json.dumps(fields,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
++
++
++def trusted_basis_bytes(path):
++    import stat
++    descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
++    try:
++        before=os.fstat(descriptor)
++        if not stat.S_ISREG(before.st_mode) or before.st_uid!=0 or before.st_gid not in {0,11028} or stat.S_IMODE(before.st_mode)!=0o640 or before.st_nlink!=1:raise ValueError('player_automatic_basis_file_untrusted')
++        with os.fdopen(descriptor,'rb',closefd=False) as stream:raw=stream.read(32000001)
++        after=os.fstat(descriptor);current=os.stat(path,follow_symlinks=False)
++        if len(raw)>32000000 or (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or (current.st_dev,current.st_ino)!=(before.st_dev,before.st_ino):raise ValueError('player_automatic_basis_file_changed')
++        return raw
++    finally:os.close(descriptor)
++
++
++def validate_automatic_basis(request,execution,policy,parent,coin_policy,execution_raw,ledger_raw,at=None):
++    import uuid
++    receipt=request.get('automatic_basis') or {};basis=receipt.get('basis') or {};cid=request['coin_execution_id'];jid=request['job_id']
++    if set(receipt)!={'parent_id','parent_fields_sha256','basis'} or str(uuid.UUID(receipt['parent_id']))!=receipt['parent_id'] or parent.get('job_id')!=receipt['parent_id'] or parent.get('run_id')!=parent['job_id'] or parent.get('kind')!='auto_cycle' or parent.get('actor')!='system-automation' or parent.get('status')!='ready' or (parent.get('result') or {}).get('status')!='no_price_change' or parent.get('error') or parent.get('error_detail'):raise ValueError('player_automatic_basis_parent_invalid')
++    if parent.get('player_sync_basis')!=basis or basis_parent_hash(parent)!=receipt['parent_fields_sha256'] or parent.get('player_sync_intent')!={'enabled':True,'revision':policy['revision']}:raise ValueError('player_automatic_basis_parent_changed')
++    end=datetime.fromisoformat(parent['completed_at'].replace('Z','+00:00'));at=at or datetime.now(timezone.utc)
++    if end.tzinfo is None or not 0<=(at-end).total_seconds()<=300:raise ValueError('player_automatic_basis_expired')
++    if not coin_policy.get('system_enabled') or coin_policy.get('mode')!='auto' or coin_policy.get('revision')!=basis.get('coin_revision') or (parent.get('request') or {}).get('policy_revision')!=coin_policy['revision'] or not policy.get('enabled') or policy.get('revision')!=basis.get('player_revision') or request.get('config_revision')!=policy['revision']:raise ValueError('player_automatic_basis_policy_changed')
++    if execution.get('execution_id')!=cid or execution.get('status')!='CONFIRMED' or execution.get('sync_confirmed') is not True or execution.get('all_baseline',{}).get('status')!='confirmed' or basis.get('coin_execution_id')!=cid or hashlib.sha256(execution_raw).hexdigest()!=basis.get('coin_execution_sha256') or hashlib.sha256(ledger_raw).hexdigest()!=basis.get('all_ledger_sha256') or str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+cid))!=jid:raise ValueError('player_automatic_basis_coin_changed')
++    return json.loads(ledger_raw)
++
++
++def validate_basis_prices(manager,execution,ledger):
++    """Independent typed GETs: both sites and all 45 public quantities, before POST."""
++    import coin_all_sync_job as coins,storefront_monitor as sf
++    rates={r['platform']:decimal(r['b2c'],'coin_sale_price') for r in execution['after']['rows']}
++    steps=ledger.get('steps',[])
++    if ledger.get('status')!='confirmed' or len(steps)!=3 or {x.get('platform') for x in steps}!=set(rates) or any(x.get('status')!='confirmed' for x in steps):raise ValueError('player_automatic_basis_all_incomplete')
++    backend={}
++    for step in steps:
++        platform=step['platform'];source=step['source'];target=step['payload']
++        if decimal(source['unit_price'],'coin_sale_price')!=rates[platform] or decimal(target['unit_price'],'coin_sale_price')!=rates[platform]:raise ValueError('player_automatic_basis_all_rate_changed')
++        for key in ['gold','give','discount','price']:
++            if len(source['more'][key])!=15 or [Decimal(str(x)) for x in source['more'][key]]!=[Decimal(str(x)) for x in target['more'][key]]:raise ValueError('player_automatic_basis_all_vector_changed')
++        for site in (0,266):
++            row=coins.read_row(manager,platform,site)
++            if decimal(row['unit_price'],'coin_sale_price')!=rates[platform]:raise ValueError('player_automatic_basis_backend_changed')
++            for key in ['gold','give','discount','price']:
++                if [Decimal(str(x)) for x in row['more'][key]]!=[Decimal(str(x)) for x in source['more'][key]]:raise ValueError('player_automatic_basis_backend_tiers_changed')
++            if site==266:backend[platform]=row
++    with tempfile.TemporaryDirectory(prefix='fc27-player-basis-public-') as folder:
++        jar=Path(folder)/'public-cookie.txt';mapping=sf.page_mapping(sf.fetch(sf.PAGE_URL,cookie_jar=jar))
++        for key,platform in sf.PLATFORMS.items():
++            payload=json.loads(sf.fetch(sf.GOODS_URL,{'Game_id':'1327','top_cid':'1','aid':mapping['servers'][key],'cid':mapping['cid'],'site_id':mapping['site_id']},100000,jar))
++            rows=payload['goods']['index']['list'];row=backend[platform]
++            if len(rows)!=1 or rows[0]['unit']!='K' or int(rows[0]['id'])!=int(row['id']) or len(rows[0]['goods_list'])!=15:raise ValueError('player_automatic_basis_public_scope_changed')
++            for i,tier in enumerate(rows[0]['goods_list'].values()):
++                for public_key,backend_key in [('num','gold'),('give','give'),('discount','discount'),('price','price'),('price_discount','price')]:
++                    if Decimal(str(tier[public_key]))!=Decimal(str(row['more'][backend_key][i])):raise ValueError('player_automatic_basis_public_tier_changed')
++
++
++def current_automatic_basis(request,execution,policy,manager=None):
++    eraw=trusted_basis_bytes(EXECUTION);lraw=trusted_basis_bytes(Path('/run/coin-all-ledger.json'))
++    parent=json.loads(trusted_basis_bytes(Path('/run/automatic-parent.json')))
++    current=json.loads(eraw)
++    if current!=execution:raise ValueError('player_automatic_basis_execution_changed')
++    ledger=validate_automatic_basis(request,current,policy,parent,read(Path('/run/config/automation.json')),eraw,lraw)
++    if manager is not None:validate_basis_prices(manager,current,ledger)
++
++
+ def bulk_main():
+     """Match the admin page's unselected 'all in category' action, then audit five."""
+     request, execution, policy = read(REQUEST), read(EXECUTION), read(POLICY)
+@@ -343,8 +411,10 @@
+     if ((not policy.get("enabled") and not dry_run)
+             or policy.get("revision") != request.get("config_revision")
+             or execution.get("execution_id") != coin_id
+-            or execution.get("status") != "CONFIRMED" or execution.get("automatic") is not True):
++            or execution.get("status") != "CONFIRMED"
++            or (execution.get("automatic") is not True and not request.get("automatic_basis"))):
+         raise ValueError("player_sync_preflight_changed")
++    if request.get('automatic_basis'):current_automatic_basis(request,execution,policy)
+     rate_rows = execution.get("after", {}).get("rows") or []
+     rates = {row["platform"]: decimal(row.get("b2c"), "coin_sale_price") for row in rate_rows}
+     if set(rates) != {"PS", "XBOX", "PC"} or len(rate_rows) != 3:
+@@ -355,6 +425,7 @@
+     identity = api(manager, "/admin/index/index")
+     if not isinstance(identity, dict) or identity.get("adminInfo", {}).get("username") != "chenchao":
+         raise ValueError("chenchao_identity_invalid")
++    if request.get('automatic_basis'):current_automatic_basis(request,execution,policy,manager)
+     models = list_models(manager)
+     samples = category_samples(manager, models)
+     sample_before = {}
+@@ -387,6 +458,7 @@
+         current_policy = read(POLICY)
+         if not current_policy.get("enabled") or current_policy.get("revision") != request["config_revision"]:
+             raise ValueError("player_sync_switch_changed")
++        if request.get('automatic_basis'):current_automatic_basis(request,execution,current_policy,manager)
+         ledger.update({"stage": "category_dispatch_intent", "updated_at": now()})
+         atomic(ledger_path, ledger)
+         # The live admin button submits an empty selection to recalculate gid/cid in one call.
+--- v4.1/source/app/sync_players.sh
++++ v4.2/source/app/sync_players.sh
+@@ -0,0 +1,41 @@
++#!/bin/sh
++set -eu
++umask 077
++request=${1:?request_json_required}
++case "$request" in /var/lib/fc27-cloud/requests/*) ;; *) exit 2;; esac
++[ -f "$request" ] && [ ! -L "$request" ] || exit 2
++job_id=$(python3 -c 'import json,sys,uuid; x=json.load(open(sys.argv[1])); print(uuid.UUID(x["job_id"]))' "$request")
++coin_id=$(python3 -c 'import json,sys,uuid; x=json.load(open(sys.argv[1])); print(uuid.UUID(x["coin_execution_id"]))' "$request")
++audit="/var/lib/fc27-cloud/executions/$coin_id.json"
++[ -f "$audit" ] && [ ! -L "$audit" ] || exit 2
++policy=/var/lib/fc27-cloud/config/player-sync.json
++[ -f "$policy" ] && [ ! -L "$policy" ] || exit 2
++state=/var/lib/fc27-cloud/state
++exec 9>>"$state/price-writer.lock"
++flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
++ledger=/var/lib/fc27-cloud/player-sync
++install -d -o root -g 11028 -m 2770 "$ledger"
++set --
++parent_id=$(python3 -c 'import json,sys,uuid; x=json.load(open(sys.argv[1])); b=x.get("automatic_basis"); print(str(uuid.UUID(b["parent_id"])) if b else "")' "$request")
++if [ -n "$parent_id" ]; then
++  parent="/var/lib/fc27-cloud/jobs/$parent_id.json"
++  coin_ledger="/var/lib/fc27-cloud/all-coin-sync/$coin_id.json"
++  [ -f "$parent" ] && [ ! -L "$parent" ] || exit 2
++  [ -f "$coin_ledger" ] && [ ! -L "$coin_ledger" ] || exit 2
++  set -- --mount type=bind,src="$parent",dst=/run/automatic-parent.json,readonly \
++    --mount type=bind,src="$coin_ledger",dst=/run/coin-all-ledger.json,readonly \
++    --mount type=bind,src=/opt/fc27-cloud-browser/coin_all_sync_job.py,dst=/opt/coin_all_sync_job.py,readonly \
++    --mount type=bind,src=/opt/fc27-cloud-browser/storefront_monitor.py,dst=/opt/storefront_monitor.py,readonly
++fi
++timeout 3600s docker run --rm --network fc27-cloud-net --read-only \
++  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
++  --cap-drop ALL --security-opt no-new-privileges --group-add 11028 \
++  --mount type=bind,src=/etc/fc27-cloud/fc27.env,dst=/run/secrets/fc27.env,readonly \
++  --mount type=bind,src=/var/lib/fc27-cloud/config,dst=/run/config,readonly \
++  --mount type=bind,src="$audit",dst=/run/coin-execution.json,readonly \
++  --mount type=bind,src="$request",dst=/run/request.json,readonly \
++  --mount type=bind,src="$ledger",dst=/run/player-sync \
++  --mount type=bind,src=/opt/fc27-cloud-browser/player_sync_job.py,dst=/opt/player_sync_job.py,readonly \
++  "$@" \
++  --entrypoint python3 fc27-cloud-session:1 /opt/player_sync_job.py
++
+--- v4.1/source/BINDING-SCHEMA.json
++++ v4.2/source/BINDING-SCHEMA.json
+@@ -1,50 +1,52 @@
+-{
+-  "version": 4,
+-  "description": "Structure only; exact runtime binding is a separate controlled artifact",
+-  "required_types": {
+-    "scope": "str",
+-    "player_job_id": "str",
+-    "coin_execution_id": "str",
+-    "expected_files": "dict",
+-    "expected_sources": "dict",
+-    "coin_revision": "int",
+-    "schedule_revision": "int",
+-    "interval_minutes": "int",
+-    "player_revision": "int",
+-    "gallery_revision": "int",
+-    "sample_model_ids": "list",
+-    "tier_gold": "list",
+-    "tier_give": "list",
+-    "tier_discount": "list",
+-    "allowed_metadata_targets": "list",
+-    "coin_job_public_unconfirmed_preserved": "bool",
+-    "production_approval": "bool",
+-    "sample_product_ids": "dict",
+-    "source_metadata": "dict",
+-    "file_metadata": "dict",
+-    "trusted_directories": "dict",
+-    "artifact_root": "str",
+-    "state_root": "str",
+-    "rollback_root": "str",
+-    "lock_metadata": "dict",
+-    "trusted_service_uids": "list",
+-    "service_gid": "int",
+-    "container_image_id": "str",
+-    "host_python": "dict",
+-    "proof_provenance": "dict",
+-    "existing_service_owners": "list",
+-    "binding_version": "int",
+-    "binding_status": "str",
+-    "source_manifest_sha256": "str",
+-    "policy_lock_metadata": "dict",
+-    "writer_protocol_evidence": "dict"
+-  },
+-  "writer_receipt_contract": {
+-    "approval_boundary": "Independent approved controller collects actual receipts and approves exact private binding SHA. No real receipts in Git.",
+-    "enforced_by": "launch.validate_writer_receipts before candidate exec and every runner context",
+-    "max_age_seconds": 300,
+-    "api_required": "resident-api-http GET /health 200, captured_at, bound PID/start, response queue_protocol and api_pid; self PID rejected",
+-    "timer_required": "systemd-effective-unit captured_at loaded exact unit/ExecStart, fragment/drop-in path SHA, bound source/interpreter SHA; matching effective-unit-readonly-probe argv/result/read_only/captured_at",
+-    "worker": "Existing /proc continuity and actual trusted-path heartbeat within 15 seconds unchanged"
+-  }
+-}
++{
++  "version": 4,
++  "description": "Structure only; exact runtime binding is a separate controlled artifact",
++  "required_types": {
++    "scope": "str",
++    "player_job_id": "str",
++    "coin_execution_id": "str",
++    "expected_files": "dict",
++    "expected_sources": "dict",
++    "coin_revision": "int",
++    "schedule_revision": "int",
++    "interval_minutes": "int",
++    "player_revision": "int",
++    "gallery_revision": "int",
++    "sample_model_ids": "list",
++    "tier_gold": "list",
++    "tier_give": "list",
++    "tier_discount": "list",
++    "allowed_metadata_targets": "list",
++    "coin_job_public_unconfirmed_preserved": "bool",
++    "production_approval": "bool",
++    "sample_product_ids": "dict",
++    "source_metadata": "dict",
++    "file_metadata": "dict",
++    "trusted_directories": "dict",
++    "artifact_root": "str",
++    "state_root": "str",
++    "rollback_root": "str",
++    "lock_metadata": "dict",
++    "trusted_service_uids": "list",
++    "service_gid": "int",
++    "container_image_id": "str",
++    "host_python": "dict",
++    "proof_provenance": "dict",
++    "existing_service_owners": "list",
++    "binding_version": "int",
++    "binding_status": "str",
++    "source_manifest_sha256": "str",
++    "policy_lock_metadata": "dict",
++    "writer_protocol_evidence": "dict",
++    "supersession": "dict",
++    "shell_source": "dict"
++  },
++  "writer_receipt_contract": {
++    "approval_boundary": "Independent approved controller collects actual receipts and approves exact private binding SHA. No real receipts in Git.",
++    "enforced_by": "launch.validate_writer_receipts before candidate exec and every runner context",
++    "max_age_seconds": 300,
++    "api_required": "resident-api-http GET /health 200, captured_at, bound PID/start, response queue_protocol and api_pid; self PID rejected",
++    "timer_required": "systemd-effective-unit captured_at loaded exact unit/ExecStart, fragment/drop-in path SHA, bound source/interpreter SHA; matching effective-unit-readonly-probe argv/result/read_only/captured_at",
++    "worker": "Existing /proc continuity and actual trusted-path heartbeat within 15 seconds unchanged"
++  }
++}
+--- v4.1/source/launch.py
++++ v4.2/source/launch.py
+@@ -15,7 +15,7 @@
+ from datetime import datetime, timezone
+ from pathlib import PurePosixPath
+ 
+-CANDIDATE_MODULES = {'runner', 'probe', 'reconcile', 'secure_fs', 'storage', 'verified_loader', 'player_readonly_reconcile_guard'}
++CANDIDATE_MODULES = {'runner', 'probe', 'reconcile', 'secure_fs', 'storage', 'verified_loader', 'player_readonly_reconcile_guard', 'supersede'}
+ APP_MODULES = {'fc27_cloud_api', 'fc27_cloud_worker', 'player_sync_job', 'automation_tick',
+     'coin_all_sync_job', 'automation_policy', 'player_sync_policy', 'server_quote_job',
+     'activity_log_store', 'fc27_quote_engine', 'snapshot_layer', 'storefront_monitor',
+@@ -40,7 +40,7 @@
+     py = {name for name in names if name.endswith('.py')}
+     expected_py = {name + '.py' for name in CANDIDATE_MODULES | {'launch'}} | {
+         'app/' + name + '.py' for name in APP_MODULES}
+-    if py != expected_py or names != expected_py | {'README.md','BINDING-SCHEMA.json'}:
++    if py != expected_py or names != expected_py | {'README.md','BINDING-SCHEMA.json','app/sync_players.sh'}:
+         raise ValueError('artifact_python_closure_changed')
+ 
+ 
+@@ -218,7 +218,19 @@
+     expected_files={'player-sync/'+pid+'.json','jobs/'+pid+'.json','executions/'+cid+'.json',
+         'jobs/'+cid+'.json','all-coin-sync/'+cid+'.json','config/automation.json',
+         'config/player-sync.json','/var/lib/fc27-gallery/settings.json'}
++    extra=scope['supersession']
++    if extra:
++        if set(extra)!={'mode','old_coin_execution_id'} or extra['mode']!='later_confirmed_coin':raise ValueError('binding_supersession_mode_invalid')
++        old=extra['old_coin_execution_id']
++        if not isinstance(old,str) or not re.fullmatch('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',old) or old==cid:raise ValueError('binding_supersession_identity_invalid')
++        expected_files|={'executions/'+old+'.json','jobs/'+old+'.json','all-coin-sync/'+old+'.json'}
+     if set(scope['expected_files'])!=expected_files:raise ValueError('binding_cas_closure_incomplete')
++    shell=scope['shell_source']
++    if scope.get('supersession') or shell:
++        if set(shell)!={'path','sha256','metadata'} or shell['path']!='/opt/fc27-cloud-browser/sync_players.sh' or not re.fullmatch('[0-9a-f]{64}',shell['sha256']):raise ValueError('binding_shell_source_invalid')
++        meta=shell['metadata']
++        if meta.get('uid')!=0 or meta.get('gid') not in [0,11028] or int(meta['mode'],8)&0o022:raise ValueError('binding_shell_metadata_untrusted')
++        if files is not None and sha(files['app/sync_players.sh'])!=shell['sha256']:raise ValueError('binding_shell_artifact_mismatch')
+     if set(scope['source_metadata']) != set(scope['expected_sources']) or set(scope['expected_sources']) != {'/opt/fc27-cloud-browser/'+name+'.py' for name in APP_MODULES-{'p2pah_session_service'}}:
+         raise ValueError('binding_source_closure_incomplete')
+     if set(scope['file_metadata']) != set(scope['expected_files']):
+@@ -228,12 +240,25 @@
+     policy_root=scope['state_root'].rsplit('/',1)[0]+'/config/'
+     if set(scope['policy_lock_metadata']) != {policy_root+'automation.lock',policy_root+'player-sync.lock'}:
+         raise ValueError('binding_policy_locks_incomplete')
+-    for metadata in list(scope['lock_metadata'].values())+list(scope['policy_lock_metadata'].values()):
++    for metadata in scope['lock_metadata'].values():
+         if (any(type(metadata.get(k)) is not int for k in ['uid','gid','device','inode'])
+                 or metadata['uid']!=0 or metadata['gid'] not in [0,scope['service_gid']]
+                 or metadata['device']<0 or metadata['inode']<=0
+                 or int(metadata['mode'],8)&0o002 or metadata.get('nlink',1)!=1):
+             raise ValueError('binding_lock_metadata_invalid')
++    for metadata in scope['policy_lock_metadata'].values():
++        if (any(type(metadata.get(k)) is not int for k in ['uid','gid','device','inode'])
++                or metadata['device']<0 or metadata['inode']<=0 or metadata.get('nlink',1)!=1):
++            raise ValueError('binding_policy_lock_metadata_invalid')
++        # Preserve the previously approved root branch; add only the exact
++        # existing dedicated service identity, never arbitrary trusted owners.
++        root_owned=(metadata['uid']==0 and metadata['gid'] in [0,scope['service_gid']]
++                    and not int(metadata['mode'],8)&0o002)
++        service_owned=(metadata['uid']==994 and metadata['gid']==11028
++                       and int(metadata['mode'],8)==0o660 and scope['service_gid']==11028
++                       and 994 in scope['trusted_service_uids'])
++        if not (root_owned or service_owned):
++            raise ValueError('binding_policy_lock_metadata_invalid')
+     evidence=scope['writer_protocol_evidence']
+     if set(evidence) != {'api','worker','timer'}:raise ValueError('binding_writer_evidence_incomplete')
+     for role in ['api','worker','timer']:
+--- v4.1/source/README.md
++++ v4.2/source/README.md
+@@ -1,67 +1,11 @@
+-# FC v4.1 source artifact — DO NOT DEPLOY
++# FC Player supersession v4.2
+ 
+-This is a local repair candidate, not production authorization or Linux acceptance.
+-Runtime identities, CAS digests, inodes, process evidence and one-time approval
+-belong in a separately controlled binding, never this source directory or Git.
++This candidate retains the frozen v4.1 kernel and introduces a separate metadata-only supersession operation for a historical failed Player job when a later real CONFIRMED coin execution has changed its basis. It never confirms the historical task for the newer price, never writes coin prices, and never clears locks.
+ 
+-Only three application files change: API, worker and automation tick. They share
+-the existing automation-tick inode with reconcile; no new lock or permission
+-change is proposed. API dedup/publication, worker claim/invalid handling, startup
+-recovery and follow-up queue/parent update, and timer due/retry all acquire it
+-nonblocking. Busy API requests return 503/retryable/accepted=false. Worker retains
+-durable pending intent; no queued record is dropped to manufacture an empty queue.
+-Claim persists running and fsyncs the job directory before unlinking the queue;
+-ambiguous claim is preserved and refuses replay. Business handling runs after
+-queue release. OFF saves and reads do not acquire the queue mutex.
++The binding explicitly includes both old and new coin execution/job/ALL records and the exact installed sync_players.sh bytes. Private before-images and the root-only supersession receipt become durable before the final gate-readable job. Both metadata files must match the receipt's intended SHA before producers accept the historical supersession. Original errors, result and completion timestamps remain unchanged.
+ 
+-Lock boundaries: acquire the common tick inode before any other recovery lock.
+-Reconcile then holds price-writer through both proof rounds, CAS and final job
+-publication. Existing timer policy/retry lock order stays intact; all its nested
+-flock acquisition is nonblocking. Worker claim/follow-up holds only queue and
+-never calls handle/subprocess while holding it. Reconcile briefly acquires the
+-automation then player configuration locks around each metadata publication;
+-busy policy locks abort rather than wait. Existing policy saves acquire only
+-their policy lock, never queue. No participant waits for queue while holding
+-price/config locks, and there is no blocking flock edge inside queue. Each API
+-thread opens its own descriptor; no shared process-global flock descriptor.
++The next ordinary automatic cycle uses existing collection, cost, FX and pricing checks. A confirmed coin change follows the existing path. Only a pending supersession intent permits a no_price_change cycle to enqueue a Player refresh against the latest actual confirmed coin basis. UUID5 is based on that coin execution, so separate parent cycles resume the same durable identity. Queued, claimed, failed or interrupted tasks cannot be replayed. A failed new task keeps the existing protective gate.
+ 
+-The approved controller invokes the exact reviewed launch.py bytes inline with
+-Python -I -S -B and independently approved source-manifest and runtime-binding
+-SHA256. Executing launch.py from a mutable artifact file is not an approved
+-entrypoint. Launcher walks trusted descriptors, rejects every unlisted entry,
+-checks all bytes, then validates the private binding and interpreter before the
+-first candidate execution. Runtime modules are read/hashed as one full closure
+-before any module import and executed from sealed byte snapshots. No live APP
+-path is added to sys.path. __file__/spec.origin report verified-memory, while
+-separate verified_origin records the original checked source. The read-only
+-fixed-image probe uses an independently SHA-bound sealed input bundle and -I;
+-immutable image stdlib/site packages are its third-party dependency boundary.
++The special Player path requires a root-owned durable fresh automatic no-change parent, exact parent field hash, source closure, ON policy versions, confirmed coin and ALL audit hashes, and independent typed GET readback of both backend sites plus all 45 public tiers immediately before category dispatch. The ordinary automatic-only guard remains unchanged for requests without the narrow automatic_basis capsule. Docker adds only specific readonly files and unchanged GET helpers; no credential, permission, unit or pricing policy change.
+ 
+-Admission requires fresh, approved evidence that the API health response and
+-worker heartbeat contain the v4 protocol and their actual PID/start identity;
+-timer's --queue-protocol read-only mode and deployed unit/source must be checked.
+-Disk SHA alone is insufficient for resident Python processes. Runner checks PID
+-continuity and the actual fresh worker heartbeat throughout recovery. Production
+-restarts/deployment and gathering this evidence require their own exact window.
+-
+-v4.1 enforces the receipts in launch before the first candidate execution and
+-again through the approved inline validator at every runner context check.
+-The independently approved private binding SHA authenticates the controller's
+-actual resident GET /health response, PID/start, collection time and HTTP origin.
+-Candidate API functions or reconcile's own PID cannot supply that receipt.
+-Timer evidence must include the effective fc27-automation-tick.service command
+-(/usr/bin/python3 /opt/fc27-cloud-browser/automation_tick.py), loaded unit,
+-fragment/drop-in path hashes, matching interpreter/source hashes, and the actual
+-read-only protocol result using that same command plus --queue-protocol.
+-All these receipts require timezone-aware collection times within 300 seconds;
+-expiry, missing fields, old protocol, or mismatch stops recovery. The controller
+-must collect from actual HTTP/systemd/probe, approve the exact binding SHA, and
+-never synthesize receipts from strings or disk hashes. No actual receipt is
+-included in this source artifact. The 300-second limit is an admission proof
+-lifetime, not a pricing, collection, schedule, or public-readback policy change.
+-
+-The original recovery/proof guard remains unchanged: original failure evidence,
+-bounded fresh two-round readback, all CAS/source checks, no business POST or price
+-replay, and unknown terminal status after uncertain final publication. Gallery
+-and pricing policy are untouched. Nine new native tests are prepared but skipped
+-on Windows; old v3 76/76 does not cover this new input. releaseReady=false.
++Only dedicated UID994/GID11028/0660 existing policy locks are additionally accepted; no chown/chmod is introduced. Original reconcile.py and player_readonly_reconcile_guard.py are byte-identical to v4.1. Actual private production binding/receipts and diagnostic data are excluded from Git. New 41-test matrix requires Linux root Python3.9.18 and zero skips; historical57/76 are not rerun. This source freeze does not claim review, deployment or production acceptance.
+--- v4.1/source/runner.py
++++ v4.2/source/runner.py
+@@ -20,10 +20,15 @@
+     players=[j for j in job_rows if j.get('kind')=='player_sync']
+     if not players or max(players,key=lambda j:j['created_at'])['job_id']!=scope['player_job_id']:fail('newer_player_job')
+     if any(e.get('status') in ['RUNNING','PARTIAL','UNCERTAIN'] for e in execution_rows):fail('unconfirmed_execution_exists')
+-    cid=scope['coin_execution_id'];audit=json.loads(snapshots['executions/'+cid+'.json']);coin_job=json.loads(snapshots['jobs/'+cid+'.json']);all_ledger=json.loads(snapshots['all-coin-sync/'+cid+'.json'])
++    cid=(scope.get('supersession') or {}).get('old_coin_execution_id',scope['coin_execution_id']);audit=json.loads(snapshots['executions/'+cid+'.json']);coin_job=json.loads(snapshots['jobs/'+cid+'.json']);all_ledger=json.loads(snapshots['all-coin-sync/'+cid+'.json'])
+     if audit['status']!='CONFIRMED' or audit.get('automatic') is not True or audit['automation_policy_revision']!=28 or audit['all_baseline']['status']!='confirmed':fail('coin_execution_unconfirmed')
+     if coin_job['status']!='ready' or coin_job['result']['status']!='confirmed' or coin_job['player_sync']['job_id']!=scope['player_job_id'] or coin_job['player_sync_intent']!={'enabled':True,'revision':8}:fail('coin_job_intent_changed')
+     if all_ledger['status']!='confirmed' or len(all_ledger['steps'])!=3 or any(s['status']!='confirmed' for s in all_ledger['steps']):fail('associated_all_writes_unconfirmed')
++    if scope.get('supersession'):
++        fresh=scope['coin_execution_id'];new=json.loads(snapshots['executions/'+fresh+'.json']);nj=json.loads(snapshots['jobs/'+fresh+'.json']);nl=json.loads(snapshots['all-coin-sync/'+fresh+'.json'])
++        if new.get('execution_id')!=fresh or new.get('status')!='CONFIRMED' or new.get('sync_confirmed') is not True or new['created_at']<=audit['created_at'] or new['all_baseline']['status']!='confirmed':fail('superseding_coin_unconfirmed')
++        if nj.get('status')!='ready' or (nj.get('result') or {}).get('status') not in ['confirmed','CONFIRMED']:fail('superseding_coin_job_unconfirmed')
++        if nl.get('status')!='confirmed' or len(nl.get('steps',[]))!=3 or any(s.get('status')!='confirmed' for s in nl['steps']):fail('superseding_all_unconfirmed')
+     latest=max((j for j in job_rows if j.get('kind')=='auto_cycle'),key=lambda j:j['created_at'])
+     if latest['status']!='ready' or latest.get('error') or latest.get('error_detail'):fail('latest_cycle_needs_separate_audit')
+ 
+@@ -90,6 +95,9 @@
+             storage.fs.check();validate_writers(scope,storage,adoption_validator)
+             for name in scope['lock_metadata']:
+                 if name not in storage.fs.locks:storage.fs.lock_free(name)
++            if scope.get('shell_source'):
++                shell=scope['shell_source']
++                if sha(storage.fs.read_path(shell['path'],shell['metadata']))!=shell['sha256']:fail('runtime_shell_source_changed')
+             snapshots={key:storage.read_live(key) for key in scope['expected_files']}
+             source_shas={path:sha(storage.source_bytes(path)) for path in scope['expected_sources']}
+             validate_context(scope,snapshots,api.monitor_view(),json.loads(snapshots['/var/lib/fc27-gallery/settings.json']),storage.json_directory('jobs'),storage.json_directory('executions'),storage.json_directory('queue'),source_shas,allowed)
+@@ -107,7 +115,11 @@
+                 result=subprocess.run(cmd,capture_output=True,timeout=75)
+                 if result.returncode:fail('fresh_readback_unavailable')
+                 return json.loads(result.stdout)
+-        result=Recovery(storage,scope,manifest_sha,context,probe).run(apply=apply)
++        if scope.get('supersession'):
++            from supersede import Supersession
++            operation=Supersession
++        else:operation=Recovery
++        result=operation(storage,scope,manifest_sha,context,probe).run(apply=apply)
+         result['runtime_binding_sha256']=binding_sha;print(json.dumps(result))
+         if result['status']=='metadata_may_be_committed_needs_readback':raise SystemExit(3)
+     finally:storage.close()
+--- v4.1/source/secure_fs.py
++++ v4.2/source/secure_fs.py
+@@ -119,7 +119,12 @@
+         try:
+             for path in paths:
+                 metadata=expected[path]
+-                if metadata['uid']!=0 or int(metadata['mode'],8)&0o002:fail('policy_lock_untrusted')
++                root_owned=(metadata['uid']==0 and not int(metadata['mode'],8)&0o002)
++                service_owned=(metadata['uid']==994 and metadata['gid']==11028
++                               and int(metadata['mode'],8)==0o660
++                               and self.scope.get('service_gid')==11028
++                               and 994 in self.scope.get('trusted_service_uids',[]))
++                if not (root_owned or service_owned):fail('policy_lock_untrusted')
+                 directory,name=self.split(path);fd,_=directory.open_file(name,metadata)
+                 held.append((directory,name,fd,metadata))
+                 fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+@@ -127,7 +132,7 @@
+         finally:
+             for directory,name,fd,metadata in reversed(held):os.close(fd)
+     def open_transaction(self,create=False):
+-        parent=self.dirs[self.scope['rollback_root']];name='player-reconcile-v2-'+self.scope['player_job_id'];parent.check()
++        parent=self.dirs[self.scope['rollback_root']];name='player-reconcile-v2-'+self.scope['player_job_id']+('-supersession' if self.scope.get('supersession') else '');parent.check()
+         if self.tx:
+             self.tx.check();return True
+         if not parent.exists(name):
+--- v4.1/source/storage.py
++++ v4.2/source/storage.py
+@@ -5,7 +5,7 @@
+ class Storage:
+     def __init__(self,scope):
+         self.scope=scope;self.fs=SecureFS(scope);self.root=scope['state_root'].rsplit('/',1)[0]
+-        self.backup_path=scope['rollback_root']+'/player-reconcile-v2-'+scope['player_job_id']
++        self.backup_path=scope['rollback_root']+'/player-reconcile-v2-'+scope['player_job_id']+('-supersession' if scope.get('supersession') else '')
+     def path(self,key):
+         if key not in self.scope['expected_files']:fail('live_key_outside_scope')
+         return key if key.startswith('/') else self.root+'/'+key
+--- v4.1/source/supersede.py
++++ v4.2/source/supersede.py
+@@ -0,0 +1,159 @@
++"""Read-only proof and CAS metadata supersession. No business price writer."""
++import copy,json,time
++from datetime import datetime,timezone
++from decimal import Decimal as D
++from reconcile import digest,encode,fail,approved_tiers,stable
++
++def validate_supersession_round(scope,ledger,job,audit,policy,proof,now,approved):
++    old=scope['supersession']['old_coin_execution_id'];cid=scope['coin_execution_id']
++    if ledger.get('status')!='needs_reconcile' or ledger.get('stage')!='stopped' or ledger.get('mode')!='category_all' or ledger.get('error')!='player_sample_readback_timeout' or ledger.get('coin_execution_id')!=old:fail('historical_failure_changed')
++    if job.get('kind')!='player_sync' or job.get('status')!='failed' or job.get('error_detail')!='player_sample_readback_timeout' or job.get('job_id')!=scope['player_job_id'] or ledger.get('job_id')!=job['job_id']:fail('historical_job_changed')
++    if proof.get('job_id')!=job['job_id'] or proof.get('coin_execution_id')!=cid or audit.get('execution_id')!=cid or audit.get('status')!='CONFIRMED' or audit.get('sync_confirmed') is not True:fail('supersession_current_basis_changed')
++    if not policy.get('enabled') or policy['revision']!=job['request']['config_revision'] or proof['player_policy']!=policy:fail('supersession_player_policy_changed')
++    start=datetime.fromisoformat(proof['started_at']);end=datetime.fromisoformat(proof['checked_at'])
++    if not start<=end<=now or not 0<=(now-start).total_seconds()<=60:fail('supersession_proof_expired')
++    if proof.get('provenance')!=scope['proof_provenance'] or proof.get('read_only') is not True or proof.get('business_posts')!=0:fail('supersession_proof_origin_changed')
++    if proof.get('ledger_sha256')!=scope['expected_files']['player-sync/'+scope['player_job_id']+'.json'] or proof.get('source_sha256')!=scope['expected_sources']['/opt/fc27-cloud-browser/player_sync_job.py']:fail('supersession_proof_source_changed')
++    if proof.get('model_count')!=ledger['model_count'] or proof.get('model_scope_digest')!=ledger['model_ids_sha256'] or proof.get('sample_model_ids')!=scope['sample_model_ids'] or len(proof.get('samples',[]))!=5:fail('supersession_model_scope_changed')
++    rates={r['platform']:D(str(r['b2c'])) for r in audit['after']['rows']}
++    if set(rates)!={'PS','XBOX','PC'} or {p:D(v) for p,v in proof['expected_rates'].items()}!=rates:fail('supersession_rates_changed')
++    reads=proof['coin_readbacks']
++    if len(reads)!=6 or {(r['platform'],r['site_id']) for r in reads}!={(p,s) for p in rates for s in (0,266)}:fail('supersession_coin_scope_changed')
++    if any(r['http_status']!=200 or r['response_code']!=1 or D(str(r['actual_unit_price']))!=rates[r['platform']] for r in reads):fail('supersession_coin_price_changed')
++    if len(proof.get('coins_public',[]))!=3:fail('coin_public_scope_incomplete')
++    for row in proof['coin_readbacks']:
++        expected_id={'PS':{0:163329309,266:163329311},'XBOX':{0:163329275,266:163329277},'PC':{0:163329343,266:163329345}}[row['platform']][row['site_id']]
++        if row.get('product_id')!=expected_id:fail('coin_product_identity_changed')
++        identity=row['identity']
++        if any(int(identity[k])!=v for k,v in {'id':expected_id,'mid':41217957,'gid':1327,'cid':9623,'aid':{'PS':21587,'XBOX':21585,'PC':21589}[row['platform']],'site_id':row['site_id'],'status':1}.items()):fail('coin_backend_identity_changed')
++        if row.get('tier_gold')!=scope['tier_gold'] or row.get('tier_give')!=scope['tier_give'] or row.get('tier_discount')!=scope['tier_discount']:fail('coin_quantity_vector_changed')
++        if len(row.get('tier_price',[]))!=15:fail('coin_price_vector_incomplete')
++        expected=approved[row['platform']]
++        if [D(str(x)) for x in row['tier_price']]!=[D(str(x)) for x in expected['price']]:fail('coin_approved_tier_target_changed')
++    public_platforms=set()
++    for public in proof['coins_public']:
++        platform=public['platform'];public_platforms.add(platform)
++        backend=next(x for x in proof['coin_readbacks'] if x['platform']==platform and x['site_id']==266)
++        if public.get('sku_id')!=backend['product_id'] or len(public.get('tiers',[]))!=15:fail('coin_public_identity_changed')
++        for i,tier in enumerate(public['tiers']):
++            if (tier['num']!=backend['tier_gold'][i] or tier['give']!=backend['tier_give'][i] or tier['discount']!=backend['tier_discount'][i]
++                or D(str(tier['price']))!=D(str(backend['tier_price'][i])) or D(str(tier['price_discount']))!=D(str(backend['tier_price'][i]))):fail('coin_public_price_or_quantity_mismatch')
++    if public_platforms!=set(rates):fail('coin_public_platforms_changed')
++    if [s['model_id'] for s in proof['samples']]!=ledger['sample_model_ids']:fail('supersession_samples_changed')
++    for sample in proof['samples']:
++        mid=sample['model_id'];model=sample['model'];products=sample['products'];parts=sample['public_readback']
++        if int(model['id'])!=mid or int(model['gid'])!=1327 or int(model['cid'])!=9627 or str(model['status'])!='1':fail('supersession_model_identity_changed')
++        if len(products)!=6 or sorted(int(p['id']) for p in products)!=scope['sample_product_ids'][str(mid)] or {(p['platform'],int(p['site_id'])) for p in products}!={(p,s) for p in rates for s in (0,266)}:fail('supersession_linked_identity_changed')
++        for p in products:
++            if int(p['mid'])!=mid or int(p['gid'])!=1327 or int(p['cid'])!=9627 or int(p['aid'])!={'PS':21587,'XBOX':21585,'PC':21589}[p['platform']] or str(p['status'])!='1' or int(p['total'])<0:fail('supersession_linked_scope_changed')
++        before=ledger['sample_before'][str(mid)]
++        if len(parts)!=3 or {p['platform'] for p in parts}!=set(rates) or {p['product_id'] for p in parts}!={p['product_id'] for p in before}:fail('supersession_public_identity_changed')
++        for part in parts:
++            prior=next(p for p in before if p['product_id']==part['product_id']);p=part['platform']
++            if part['our_price_coins']!=prior['our_price_coins'] or part['coefficient']!=prior['coefficient'] or D(sample['model_inputs'][p])!=D(part['our_price_coins']) or D(sample['model_inputs']['coefficient'])!=D(part['coefficient']):fail('supersession_player_inputs_changed')
++            target=D(part['our_price_coins'])/1000*rates[p]*D(part['coefficient'])
++            if D(part['target_usd'])!=target or type(part['backend_match']) is not bool or type(part['public_match']) is not bool or part['backend_match']!=(abs(D(part['backend_usd'])-target)<=D('.001')) or part['public_match']!=(abs(D(part['public_usd'])-target)<=D('.001')):fail('supersession_player_observation_inconsistent')
++    return True
++
++def supersession_after(scope,originals,proofs,stamp,manifest_sha,backup):
++    marker={'old_coin_execution_id':scope['supersession']['old_coin_execution_id'],'superseding_coin_execution_id':scope['coin_execution_id'],'player_revision':scope['player_revision'],'reason':'later_confirmed_coin_execution','needs_fresh_auto_cycle':True,'readback_proof_sha256':digest(encode(proofs)),'at':stamp}
++    out={}
++    for key in scope['allowed_metadata_targets']:
++        value=json.loads(originals[key]);value['status']='superseded';value['supersession']=marker
++        # Preserve error, error_detail, result, stage and original completion timestamps.
++        out[key]=encode(value)
++    return out
++
++class Supersession:
++    """All backup/receipt/ledger state is durable before final job publication."""
++    def __init__(self,store,scope,manifest_sha,context,probe,now=None,wait=None,event=None,monotonic=None):
++        self.store=store;self.scope=scope;self.manifest_sha=manifest_sha;self.context=context;self.probe=probe
++        self.now=now or (lambda:datetime.now(timezone.utc));self.wait=wait or time.sleep;self.event=event or (lambda stage:None);self.monotonic=monotonic or time.monotonic
++        self.targets=scope['allowed_metadata_targets']
++        if self.targets!=['player-sync/'+scope['player_job_id']+'.json','jobs/'+scope['player_job_id']+'.json']:fail('metadata_scope_changed')
++        self.keys=list(scope['expected_files']);self.before_names={key:'before-'+str(i)+'.json' for i,key in enumerate(self.keys)};self.after_names={self.targets[0]:'after-ledger.json',self.targets[1]:'after-job.json'}
++    def load_state(self):
++        if not self.store.tx_exists():return None
++        try:state=json.loads(self.store.tx_read('transaction.json'))
++        except FileNotFoundError:fail('incomplete_backup_requires_review')
++        if state['scope_sha256']!=digest(encode(self.scope)) or state['candidate_manifest_sha256']!=self.manifest_sha:fail('transaction_scope_changed')
++        if state['phase'] not in ['prepared','ledger_installed','evidence_committed']:fail('transaction_phase_invalid')
++        originals=self.originals(state)
++        if not state['proof_history']:fail('backup_proof_missing')
++        for index,record in enumerate(state['proof_history']):
++            if record['name']!='proofs-'+str(index)+'.json':fail('proof_record_path_changed')
++            if digest(self.store.tx_read(record['name']))!=record['sha256']:fail('backup_proof_changed')
++        first=json.loads(self.store.tx_read('proofs-0.json'));self.validate_batch(originals,first,datetime.fromisoformat(first[-1]['checked_at']))
++        after=supersession_after(self.scope,originals,first,state['created_at'],self.manifest_sha,self.store.backup_path)
++        if {k:digest(v) for k,v in after.items()}!=state['after_sha256']:fail('intended_metadata_not_proof_driven')
++        for key,raw in after.items():
++            if self.store.tx_read(self.after_names[key])!=raw:fail('backup_intended_changed')
++        if state['phase']=='evidence_committed':
++            receipt=json.loads(self.store.tx_read('supersession-receipt.json'))
++            marker=json.loads(after[self.targets[0]])['supersession']
++            basis={k:v for k,v in self.scope['expected_files'].items() if k.startswith(('executions/','all-coin-sync/'))}
++            if receipt!={'status':'superseded','player_job_id':self.scope['player_job_id'],'marker':marker,'after_sha256':state['after_sha256'],'basis_sha256':basis}:fail('supersession_receipt_changed')
++        return state
++    def originals(self,state):
++        out={key:self.store.tx_read(self.before_names[key]) if state else self.store.read_live(key) for key in self.keys}
++        if any(digest(raw)!=self.scope['expected_files'][key] for key,raw in out.items()):fail('original_scope_changed')
++        return out
++    def allowed(self,state):return {key:{self.scope['expected_files'][key]}|({state['after_sha256'][key]} if state else set()) for key in self.targets}
++    def validate_batch(self,originals,proofs,now):
++        if len(proofs)!=2:fail('two_proof_rounds_required')
++        ledger=json.loads(originals[self.targets[0]]);job=json.loads(originals[self.targets[1]]);audit=json.loads(originals['executions/'+self.scope['coin_execution_id']+'.json']);policy=json.loads(originals['config/player-sync.json'])
++        approved=approved_tiers(json.loads(originals['all-coin-sync/'+self.scope['coin_execution_id']+'.json']),audit,self.scope)
++        for proof in proofs:validate_supersession_round(self.scope,ledger,job,audit,policy,proof,now,approved)
++        if stable(proofs[0])!=stable(proofs[1]):fail('readback_not_stable')
++        if datetime.fromisoformat(proofs[1]['started_at'])<datetime.fromisoformat(proofs[0]['checked_at']):fail('proof_round_order_changed')
++    def save_proofs(self,state,proofs):
++        name='proofs-'+str(len(state['proof_history']))+'.json';raw=encode(proofs);self.store.tx_write(name,raw)
++        state['proof_history'].append({'name':name,'sha256':digest(raw),'started_at':proofs[0]['started_at'],'checked_at':proofs[-1]['checked_at']})
++        self.store.tx_write('transaction.json',encode(state))
++    def run(self,apply=False):
++        state=self.load_state();self.context(self.allowed(state));originals=self.originals(state)
++        if state and state['phase']=='evidence_committed' and all(digest(self.store.read_live(k))==state['after_sha256'][k] for k in self.targets):
++            if apply:
++                try:self.store.sync_visible(self.targets[1]);self.context(self.allowed(state))
++                except Exception:return {'status':'metadata_may_be_committed_needs_readback','business_posts':0,'backup':self.store.backup_path}
++            return {'status':'already_superseded_exact_publication' if apply else 'superseded_metadata_visible_durability_unclaimed','business_posts':0,'backup':self.store.backup_path}
++        started=self.monotonic();proofs=[]
++        for index in range(2):
++            if index:self.wait(5)
++            proofs.append(self.probe(json.loads(originals[self.targets[0]]),originals[self.targets[0]]))
++        def checkpoint():
++            self.context(self.allowed(state))
++            self.validate_batch(originals,proofs,self.now())
++            if self.monotonic()-started>160:fail('reconcile_total_budget_exceeded')
++        checkpoint()
++        if not apply:return {'status':'supersession_preflight_ready','business_posts':0,'two_stable_rounds':proofs,'metadata_targets':self.targets}
++        if not state:
++            self.store.create_tx()
++            for key,raw in originals.items():self.store.tx_write(self.before_names[key],raw)
++            stamp=self.now().isoformat();after=supersession_after(self.scope,originals,proofs,stamp,self.manifest_sha,self.store.backup_path)
++            for key,raw in after.items():self.store.tx_write(self.after_names[key],raw)
++            state={'phase':'prepared','created_at':stamp,'scope_sha256':digest(encode(self.scope)),'candidate_manifest_sha256':self.manifest_sha,'after_sha256':{key:digest(raw) for key,raw in after.items()},'proof_history':[]}
++        self.save_proofs(state,proofs);self.event('prepared');checkpoint()
++        ledger=self.targets[0]
++        if digest(self.store.read_live(ledger))!=state['after_sha256'][ledger]:self.store.publish(ledger,self.store.tx_read(self.after_names[ledger]),self.allowed(state)[ledger],checkpoint)
++        else:self.store.sync_visible(ledger)
++        state['phase']='ledger_installed';self.store.tx_write('transaction.json',encode(state));self.event('ledger_installed');checkpoint()
++        # Durable receipt and all evidence/ledger are complete BEFORE the gate-readable job.
++        marker=json.loads(self.store.tx_read(self.after_names[self.targets[0]]))['supersession']
++        basis={k:v for k,v in self.scope['expected_files'].items() if k.startswith(('executions/','all-coin-sync/'))}
++        receipt={'status':'superseded','player_job_id':self.scope['player_job_id'],'marker':marker,'after_sha256':state['after_sha256'],'basis_sha256':basis}
++        self.store.tx_write('supersession-receipt.json',encode(receipt))
++        state['phase']='evidence_committed';self.store.tx_write('transaction.json',encode(state));self.event('evidence_committed');checkpoint()
++        job=self.targets[1]
++        try:
++            self.store.publish(job,self.store.tx_read(self.after_names[job]),self.allowed(state)[job],checkpoint)
++        except Exception as exc:
++            return {'status':'metadata_may_be_committed_needs_readback','business_posts':0,'backup':self.store.backup_path,'reason':str(exc)[:100] if isinstance(exc,ValueError) else type(exc).__name__}
++        # No state/receipt/metadata write follows the final job publication commit point.
++        try:
++            self.context(self.allowed(state))
++            if digest(self.store.read_live(job))!=state['after_sha256'][job]:fail('final_job_readback_changed')
++        except Exception:
++            return {'status':'metadata_may_be_committed_needs_readback','business_posts':0,'backup':self.store.backup_path}
++        return {'status':'historical_failure_superseded_current_coin_readback','business_posts':0,'job_id':self.scope['player_job_id'],'backup':self.store.backup_path,'two_stable_rounds':proofs}
++
