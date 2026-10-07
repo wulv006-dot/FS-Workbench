@@ -7,6 +7,7 @@ Source bytes remain unchanged. Actual production systemd/TLS/UID are separate ga
 """
 import argparse
 import ast
+import errno
 import hashlib
 import http.client
 import importlib.util
@@ -22,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.parse import urlsplit
 
 SOURCE_COMMIT = '2152c8c9ea2fd68be3876349299d490d38903404'
 SOURCE_MANIFEST = 'candidates/registration-import-20261007/candidate-manifest.json'
@@ -849,6 +851,49 @@ def validate_contract_plan():
             'contract_phases':list(PHASES),'contract_dependencies_valid':True}
 
 
+def access_redirect_matches(location, request_uri=None, https_port=None):
+    """Allow only this fixture's exact relative or trusted HTTPS redirect.
+
+    For an edge row, pass the original finite-plan request_uri and the actual
+    owned HTTPS port. For portal/FC redirects, omit both: only the exact relative
+    '/__auth/access/' with no query is permitted. No URL is followed.
+    """
+    if not isinstance(location, str) or not location:
+        return False
+    if any(ord(c) <= 32 or ord(c) >= 127 for c in location) or '\\' in location or '#' in location:
+        return False
+    path = '/__auth/access/'
+    if request_uri is None:
+        return https_port is None and location == path
+    if (not isinstance(request_uri, str) or not request_uri.startswith('/')
+            or request_uri.startswith('//') or '\\' in request_uri or '#' in request_uri
+            or any(ord(c) <= 32 or ord(c) >= 127 for c in request_uri)
+            or type(https_port) is not int or not 1 <= https_port <= 65535):
+        return False
+    query = 'next=' + request_uri
+    relative = path + '?' + query
+    try:
+        parsed = urlsplit(location)
+        if parsed.path != path or parsed.query != query or parsed.fragment:
+            return False
+        if not parsed.scheme and not parsed.netloc:
+            return location == relative
+        host = '47.85.224.112'
+        authorities = {host + ':' + str(https_port)}
+        if https_port == 443:
+            authorities.add(host)
+        if (parsed.scheme != 'https' or parsed.hostname != host
+                or parsed.username is not None or parsed.password is not None
+                or parsed.netloc not in authorities
+                or (parsed.port if parsed.port is not None else 443) != https_port):
+            return False
+        # Compare the original suffix as well: no parser-induced stripping,
+        # empty query/fragment delimiter or path/query normalization is allowed.
+        return location == 'https://' + parsed.netloc + relative
+    except (ValueError, TypeError):
+        return False
+
+
 def response_cookie_jar(response, previous=None):
     """Preserve every Set-Cookie field; jars and exact tokens stay only in memory."""
     result = dict(previous or {})
@@ -960,7 +1005,9 @@ class ContractRunner:
             elif condition=='no_registered_members':
                 members=document.get('members')
                 value=isinstance(members,list) and all(isinstance(member,dict) and not str(member.get('username','')).startswith('reg:') and member.get('username') not in ('newreader','otherreader') for member in members)
-            elif condition=='access_redirect':value=lookup.get('location','').startswith('/__auth/access/')
+            elif condition=='access_redirect':
+                value=(access_redirect_matches(lookup.get('location'),row['path'],ctx['https_port'])
+                       if row['service']=='edge' else access_redirect_matches(lookup.get('location')))
             elif condition=='login_redirect':value=lookup.get('location','').startswith('/__auth/login')
             elif condition=='fixed_https_redirect':value=lookup.get('location')==ORIGIN+'/__auth/access/'
             else:raise ValueError('unknown response assertion')
@@ -996,6 +1043,52 @@ class ContractRunner:
         for row in self.plan:
             if row['id'] not in self.by_id:
                 self.record(row,'NOT_RUN',reason=reason)
+
+
+
+def stop_upstream_listener(child, listener, port, children, stop, deadline):
+    """Make the owned verifier genuinely unavailable, not silently still listening.
+
+    listen() on the worker's inherited socket also changes the parent's socket.
+    The controller retains that FD for the formal-to-recovery handover, so it must
+    release it when no further portal worker will start. Never accept a timeout
+    as evidence of an unavailable listener or as an HTTP result.
+    """
+    inode = os.readlink('/proc/self/fd/' + str(listener.fileno()))
+    stop(child)
+    if child.poll() is None:
+        raise RuntimeError('owned upstream child was not reaped')
+    listener.close()
+    holders = 0
+    for process in children:
+        if process.poll() is not None:
+            continue
+        for descriptor in Path('/proc/%d/fd' % process.pid).iterdir():
+            try:
+                if os.readlink(descriptor) == inode:
+                    holders += 1
+            except FileNotFoundError:
+                pass
+    # Kernel LISTEN state covers every holder, including Nginx grandchildren;
+    # direct child descriptor inspection additionally checks inheritance scope.
+    listeners = 0
+    for line in Path('/proc/net/tcp').read_text().splitlines()[1:]:
+        fields = line.split()
+        if int(fields[1].split(':')[1], 16) == port and fields[3] == '0A':
+            listeners += 1
+    remaining = min(0.25, deadline-time.monotonic())
+    if remaining <= 0:
+        raise TimeoutError('upstream shutdown verification deadline')
+    probe = socket.socket()
+    try:
+        probe.settimeout(remaining)
+        code = probe.connect_ex(('127.0.0.1', port))
+    finally:
+        probe.close()
+    return {'ok': holders == 0 and listeners == 0 and code == errno.ECONNREFUSED,
+            'facts': {'upstream_child_reaped': True, 'controller_listener_closed': True,
+                      'owned_live_child_inode_holders': holders,
+                      'remaining_listener_count': listeners, 'connect_errno': code}}
 
 
 def run(args):
@@ -1048,6 +1141,7 @@ def run(args):
     tracefile=scratch/'trace.jsonl';tracefile.touch(mode=0o600)
     for name in ('portal','fc','board','http','https','blocked'):sockets[name]=port_socket()
     ports={name:sock.getsockname()[1] for name,sock in sockets.items()}
+    ctx['https_port']=ports['https']
     db=data/'registration-approval/registration.sqlite3'
     anchor=data/'.registration-checkpoint/state.json'
     moved=db.with_suffix('.unavailable-QA')
@@ -1253,7 +1347,9 @@ def run(args):
         elif op=='recovery-retention':
             current=storage_hashes();ok=current==state['recovery_before']
             receipt['recovery_retained_after']={'db_sha256':current[0],'witness_sha256':current[1]}
-        elif op=='upstream-stop':stop(state['recovery_child']);ok=state['recovery_child'].poll() is not None
+        elif op=='upstream-stop':
+            return stop_upstream_listener(state['recovery_child'],sockets['portal'],ports['portal'],
+                                          children,stop,deadline)
         elif op=='old-fc-db-absent':ok=not (scratch/'never-create-old-FC.sqlite3').exists()
         elif op=='worker-versions':
             workers=[json.loads(path.read_text(encoding='utf-8').splitlines()[0]) for path in worker_logs]
