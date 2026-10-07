@@ -1,0 +1,82 @@
+{
+  "name": "Registration target3.9.18 + SQLite3.53.4 manual QA",
+  "run-name": "Registration fixedca6258ad / target3.9.18+3.53.4 /43+4",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "Root verified at least10 free Actions minutes; only this registered single run, stop if zero/unknown",
+          "type": "boolean",
+          "required": true,
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "registration-target39-manual-qa",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "target39": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed }}",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 10,
+      "steps": [
+        {
+          "name": "Checkout fixed merged source; never execute FC candidate",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "ca6258ad9cdb80e7c2428731cb796de20303f4c1",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Official exact Python3.9.18 Ubuntu24.04 x64",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false,
+            "update-environment": false,
+            "allow-prereleases": false
+          }
+        },
+        {
+          "name": "Verify official SQLite3.53.4 source and build private library",
+          "id": "sqlite",
+          "shell": "bash",
+          "run": "set -euo pipefail\numask 077\nfor tool in gcc curl tar sha256sum; do command -v \"$tool\" >/dev/null; done\n[[ \"$(uname -m)\" = x86_64 ]]\n. /etc/os-release\n[[ \"$ID\" = ubuntu && \"$VERSION_ID\" = 24.04 ]]\nBASE=\"$(mktemp -d /tmp/registration-target39-XXXXXXXX)\"\nprintf 'base=%s\nlib=%s\n' \"$BASE\" \"$BASE/sqlite/lib\" >> \"$GITHUB_OUTPUT\"\nmkdir -p \"$BASE/sqlite/lib\" \"$BASE/src\"\ncurl --fail --location --connect-timeout 10 --max-time 90 --retry 0 --output \"$BASE/source.tgz\" https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz\nprintf '0e9483900e92cd5de8fd48d16bf9200145a61f7fd5be542a5ac81d8a9516eb9c  %s\n' \"$BASE/source.tgz\" | sha256sum --check --strict -\ntar --extract --gzip --file \"$BASE/source.tgz\" --directory \"$BASE/src\" --no-same-owner --no-same-permissions sqlite-autoconf-3530400/sqlite3.c sqlite-autoconf-3530400/sqlite3.h\nprintf 'b1dd5d74ec7f29055a6684fa06fb3c2f6821c87dd38f9a458dfd2e8a1db28189  %s\n' \"$BASE/src/sqlite-autoconf-3530400/sqlite3.c\" | sha256sum --check --strict -\ngcc -Os -fPIC -shared -DSQLITE_THREADSAFE=1 -Wl,-soname,libsqlite3.so.0 \"$BASE/src/sqlite-autoconf-3530400/sqlite3.c\" -o \"$BASE/sqlite/lib/libsqlite3.so.3.53.4\" -lpthread -ldl -lm\nln -s libsqlite3.so.3.53.4 \"$BASE/sqlite/lib/libsqlite3.so.0\"\ngcc --version | head -n 1\nsha256sum \"$BASE/sqlite/lib/libsqlite3.so.3.53.4\"\n"
+        },
+        {
+          "name": "One target native43 and separately counted multiprocess4",
+          "shell": "bash",
+          "env": {
+            "QA_PY": "${{ steps.python.outputs.python-path }}",
+            "QA_BASE": "${{ steps.sqlite.outputs.base }}",
+            "QA_LIB": "${{ steps.sqlite.outputs.lib }}",
+            "PYTHONDONTWRITEBYTECODE": "1"
+          },
+          "run": "set -euo pipefail\n[[ \"$QA_PY\" = /* && -x \"$QA_PY\" ]]\n[[ \"$QA_BASE\" = /tmp/registration-target39-* && \"$QA_LIB\" = \"$QA_BASE/sqlite/lib\" ]]\nLD_LIBRARY_PATH=\"$QA_LIB\" \"$QA_PY\" -I -B - <<'PY'\n\"\"\"Workflow-inline QA only; never run in this Windows preparation task.\"\"\"\nimport hashlib\nimport io\nimport json\nimport os\nfrom pathlib import Path\nimport platform\nimport signal\nimport sqlite3\nimport subprocess\nimport sys\nimport tempfile\nimport time\n\nCOMMIT = 'ca6258ad9cdb80e7c2428731cb796de20303f4c1'\nTREE = 'e4f2ec0f93d4c72e362fff61f7ebb830d2a55638'\nSUBTREE = '790c5ec62472c12950e6652c5b3c4760a36df7f2'\nPREFIX = 'registration_approval_runtime_v3_20261006/'\nHELPER = 'tests/registration-multiprocess-v2-20261006/'\nMANIFEST_SHA = 'c1c545b142cb8c5e838f71d0dcd6dbb43507f4b0f6487fcf0ecdf69ff093aa95'\nNINE = {\n 'docs/planning/registration-multiprocess-v2-20261006/evidence.json':'45c9d51a8c0fe4e9588db1fd7470ba18f0e561fbc84a9b7c34a8f52026d75541',\n 'docs/planning/registration-multiprocess-v2-20261006/independent-review.md':'a5e95843143e75bea81573a46891c216eff547de5a44285544a831d9ecb0077e',\n 'docs/planning/registration-multiprocess-v2-20261006/qa-input-binding.json':'02b3e04ab36a5c7d5acd2e0bcc5c44edb082cc1c72446c6e26970253fc2657c8',\n 'docs/planning/registration-multiprocess-v2-20261006/README.md':'950c601c32cb14f5ca48281d5cdf1d60e0f8e7cb8cbf029cbef20cbd21e008e8',\n 'docs/planning/registration-multiprocess-v2-20261006/selfcheck-result.json':'4a595bae00e2b1b3cf32366f3665e34e67038c041223e216a78eba4bce1cbb09',\n HELPER+'multiprocess_probe.py':'5436f1eeb4f66977d7b88ae337a3520e1b7e90902a512425f47220a9b1b2b1bb',\n HELPER+'runtime-test-manifest.json':MANIFEST_SHA,\n HELPER+'SHA256SUMS':'57f44c24e32d52d987fb57a222cdafcf713f27ec733398fb6a369e8c454a142c',\n HELPER+'test_harness_selfcheck.py':'2da32107b9851eadcfade59081da5fdb558b631ae3c0c0308fa766be7dc5c189',\n}\n\ndef sha(path):\n    return hashlib.sha256(path.read_bytes()).hexdigest()\n\ndef regular(path):\n    assert path.is_file() and not any(p.is_symlink() for p in (path,*path.parents))\n    return path.read_bytes()\n\ndef source_tree(rows):\n    node = {}\n    for row in rows:\n        parts = row['path'][len(PREFIX):].split('/')\n        at = node\n        for part in parts[:-1]:\n            at = at.setdefault(part,{})\n        at[parts[-1]] = bytes.fromhex(row['git_blob_sha1'])\n    def digest(at):\n        raw = b''\n        for name,value in sorted(at.items(),key=lambda p:(p[0]+('/' if isinstance(p[1],dict) else '')).encode()):\n            raw += (b'40000' if isinstance(value,dict) else b'100644')+b' '+name.encode()+b'\\0'+(digest(value) if isinstance(value,dict) else value)\n        return hashlib.sha1(b'tree '+str(len(raw)).encode()+b'\\0'+raw).digest()\n    return digest(node).hex()\n\ndef verify32(source,rows):\n    expected = set()\n    git_rows = []\n    for row in rows:\n        rel = row['path'][len(PREFIX):]\n        assert row['path'].startswith(PREFIX) and row['mode']=='100644'\n        assert all(p not in ('','.','..') for p in rel.split('/')) and rel not in expected\n        path = source/rel\n        raw = regular(path)\n        assert len(raw)==row['bytes'] and sha(path)==row['sha256']\n        assert not path.stat().st_mode & 0o111\n        git_rows.append({'path':row['path'],'git_blob_sha1':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest()})\n        expected.add(rel)\n    assert len(expected)==32 and source_tree(git_rows)==SUBTREE\n    assert {p.relative_to(source).as_posix() for p in source.rglob('*') if p.is_file()}==expected\n\n# The suite worker is a fresh interpreter. The separate harness worker must not\n# inherit suite-imported runtime modules. No other repository suite is discovered.\nSUITE_CODE = r'''\nimport hashlib,io,json,os,platform,signal,socket,sqlite3,subprocess,sys,time,unittest\nfrom pathlib import Path\nassert sys.version_info[:3]==(3,9,18) and sqlite3.sqlite_version=='3.53.4'\nsource=Path(sys.argv[1]);sys.path.insert(0,str(source))\nconnections=[];children=[]\nreal_connect=socket.socket.connect\ndef connect(self,address):\n if isinstance(address,tuple):\n  assert address[0] in ('127.0.0.1','::1','localhost'),'non-loopback QA connection'\n  connections.append(address[0])\n return real_connect(self,address)\nsocket.socket.connect=connect\nreal_popen=subprocess.Popen\ndef owned_popen(*args,**kwargs):\n command=args[0] if args else kwargs['args']\n assert isinstance(command,(list,tuple)) and Path(command[0]).resolve()==Path(sys.executable).resolve(),'unexpected QA executable'\n child=real_popen(*args,**kwargs);children.append(child);return child\nsubprocess.Popen=owned_popen\nsuite=unittest.defaultTestLoader.discover(str(source),pattern='test_*.py',top_level_dir=str(source))\nassert suite.countTestCases()==43\nstarted=time.monotonic()\nresult=None\ntry:\n result=unittest.TextTestRunner(stream=io.StringIO(),verbosity=2).run(suite)\n exited=all(child.poll() is not None for child in children)\n summary={'suite':'target39-native43','tests_run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'skipped':len(result.skipped),\n  'failure_test_names':[test.id() for test,_ in result.failures+result.errors],\n  'seconds':round(time.monotonic()-started,3),'python':platform.python_version(),'sqlite':sqlite3.sqlite_version,\n  'loopback_connects':len(connections),'all_connections_loopback':True,\n  'child_count':len(children),'child_returncodes':[child.returncode for child in children],'all_children_exited':exited}\n print(json.dumps(summary),flush=True)\n assert result.wasSuccessful() and result.testsRun==43 and not result.skipped and exited\nfinally:\n for child in children:\n  if child.poll() is None:\n   child.terminate()\n   try:child.communicate(timeout=5)\n   except subprocess.TimeoutExpired:child.kill();child.communicate(timeout=5)\n'''\n\ndef run_owned(command,env):\n    child = subprocess.Popen(command,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)\n    try:\n        out,err = child.communicate(timeout=180)\n    except subprocess.TimeoutExpired:\n        # This group was created for this QA child only, never a service group.\n        assert child.pid>1 and child.pid!=os.getpgrp()\n        os.killpg(child.pid,signal.SIGTERM)\n        try:child.communicate(timeout=5)\n        except subprocess.TimeoutExpired:os.killpg(child.pid,signal.SIGKILL);child.communicate(timeout=5)\n        raise RuntimeError('own QA worker exceeded180s')\n    if child.returncode:\n        # Do not emit raw synthetic tokens or traceback locals from failed tests.\n        print(json.dumps({'own_worker_exit':child.returncode,'stderr_sha256':hashlib.sha256(err.encode()).hexdigest()}),flush=True)\n        if out:\n            try:print(json.dumps(json.loads(out)))\n            except ValueError:pass\n        raise RuntimeError('own QA worker failed; no acceptance')\n    return json.loads(out)\n\ndef main():\n    assert __debug__ and sys.platform=='linux' and sys.version_info[:3]==(3,9,18)\n    assert sqlite3.sqlite_version=='3.53.4' and platform.machine()=='x86_64'\n    root = Path.cwd()\n    assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==COMMIT\n    assert subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()==TREE\n    base = Path(os.environ['QA_BASE']).resolve()\n    lib = Path(os.environ['QA_LIB']).resolve()\n    assert base.parent==Path('/tmp') and base.name.startswith('registration-target39-')\n    assert lib==base/'sqlite/lib' and os.environ['LD_LIBRARY_PATH']==str(lib)\n    mapped = sorted({line.split()[-1] for line in Path('/proc/self/maps').read_text().splitlines() if '/libsqlite3.so' in line})\n    assert len(mapped)==1 and Path(mapped[0]).resolve()==lib/'libsqlite3.so.3.53.4'\n    import _sqlite3\n    try:\n        import ssl\n        ssl_state = ssl.OPENSSL_VERSION\n    except ImportError:\n        ssl_state = 'unavailable'\n    with sqlite3.connect(':memory:') as probe:\n        options=[row[0] for row in probe.execute('PRAGMA compile_options')]\n        source_id=probe.execute('SELECT sqlite_source_id()').fetchone()[0]\n        assert 'THREADSAFE=1' in options\n    print(json.dumps({'source_commit':COMMIT,'source_tree':TREE,'runtime_origin_commit':'d9dd533008fe298946eadd9e4bfea3a294aec111',\n     'runtime32_subtree':SUBTREE,'harness_origin_commit':'7e3384a2b48c07ab72ee2a911e26b65879d6b5c0',\n     'python':platform.python_version(),'python_executable':sys.executable,'python_sha256':sha(Path(sys.executable).resolve()),\n     'sqlite':sqlite3.sqlite_version,'sqlite_extension_sha256':sha(Path(_sqlite3.__file__)),\n     'sqlite_library_sha256':sha(Path(mapped[0])),'sqlite_source_id':source_id,'sqlite_compile_options':options,\n     'ssl':ssl_state,'kernel':platform.release(),'libc':platform.libc_ver(),'uid':os.getuid(),'gid':os.getgid(),\n     'centos_kernel_glibc_crypto_equivalent':False,'production_credentials_or_state':False}),flush=True)\n    for rel,expected in NINE.items():\n        assert sha(root/rel)==expected,rel\n    manifest = root/(HELPER+'runtime-test-manifest.json')\n    assert sha(manifest)==MANIFEST_SHA\n    rows = json.loads(manifest.read_bytes())['payloads']\n    original = root/PREFIX\n    verify32(original,rows)\n    os.umask(0o077)\n    with tempfile.TemporaryDirectory(prefix='input-',dir=str(base)) as temporary:\n        qa = Path(temporary)\n        stage = qa/'source32';stage.mkdir()\n        tools = qa/'external-harness';tools.mkdir()\n        synthetic = qa/'synthetic';synthetic.mkdir()\n        for row in rows:\n            rel=row['path'][len(PREFIX):]\n            target=stage/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes((original/rel).read_bytes())\n        for rel in NINE:\n            if rel.startswith(HELPER):\n                (tools/Path(rel).name).write_bytes((root/rel).read_bytes())\n        verify32(stage,rows)\n        env={k:v for k,v in os.environ.items() if k not in ('PYTHONPATH','PYTHONHOME','PYTHONOPTIMIZE')}\n        env.update(PYTHONDONTWRITEBYTECODE='1',TMPDIR=str(synthetic),LD_LIBRARY_PATH=str(lib))\n        started=time.monotonic()\n        suite=run_owned([sys.executable,'-I','-B','-c',SUITE_CODE,str(stage)],env)\n        print(json.dumps(suite),flush=True)\n        assert suite['tests_run']==43 and not suite['failures'] and not suite['errors'] and not suite['skipped']\n        verify32(stage,rows)\n        four=run_owned([sys.executable,'-I','-B',str(tools/'multiprocess_probe.py'),str(stage)],env)\n        print(json.dumps(four),flush=True)\n        checks=['cross_process_exclusion_and_release','crashed_holder_kernel_lock_release','two_process_same_name_single_commit','consistent_checkpoint_after_concurrent_commits']\n        assert four['status']=='passed' and four['checks']==checks and four['source_pre_post_unchanged']\n        assert four['python']=='3.9.18' and four['sqlite_version']=='3.53.4'\n        assert len(four['children'])==7 and all(type(child['returncode']) is int for child in four['children'])\n        assert len(four['child_module_provenance'])==7\n        for provenance in four['child_module_provenance']:\n            assert provenance['python']=='3.9.18' and provenance['sqlite_version']=='3.53.4'\n        verify32(stage,rows)\n        for rel in NINE:\n            if rel.startswith(HELPER):assert sha(tools/Path(rel).name)==NINE[rel]\n    verify32(original,rows)\n    for rel,expected in NINE.items():assert sha(root/rel)==expected\n    print(json.dumps({'target39_native43_passed':43,'target39_separate_multiprocess4_passed':4,'skipped':0,\n     'seconds':round(time.monotonic()-started,3),'source32_harness9_pre_post_unchanged':True,\n     'prior_python312_suite_rerun':False,'portable_selfcheck14_rerun':False,\n     'centos_actual_loader_filesystem_nginx_roles_validated':False,'production_deployment':False,\n     'power_loss_tested':False,'production_ready':False}),flush=True)\n\nif __name__=='__main__':\n    main()\n\nPY\n"
+        },
+        {
+          "name": "Remove only this disposable private prefix",
+          "if": "${{ always() && steps.sqlite.outputs.base != '' }}",
+          "shell": "bash",
+          "env": {
+            "QA_BASE": "${{ steps.sqlite.outputs.base }}"
+          },
+          "run": "set -euo pipefail\n/usr/bin/python3 -I -B - <<'PY'\nimport os,shutil\nfrom pathlib import Path\npath=Path(os.environ['QA_BASE'])\nassert path.is_absolute() and path.parent==Path('/tmp') and path.name.startswith('registration-target39-')\nassert not path.is_symlink() and path.resolve()==path\nif path.exists():shutil.rmtree(path)\nPY\n"
+        }
+      ]
+    }
+  }
+}

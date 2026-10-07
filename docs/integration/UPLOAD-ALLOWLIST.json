@@ -1,14 +1,14 @@
 {
-  "revision": "profit-endpoint-reviewed-two-existing-publisher-20261007",
-  "status": "exact combined Git tree; unchanged business90 source/test bytes; clean synthetic publisher support added; not production canonical adoption",
+  "revision": "profit-endpoint-final-main78765b91-20261007",
+  "status": "exact combined Git tree; approved PR10/PR11 QA entries preserved; source/test byte evidence unchanged; no production canonical adoption",
   "releaseReady": false,
   "manifestSelfExclusions": [
     "docs/integration/UPLOAD-ALLOWLIST.json",
     "docs/provenance/UPLOAD-ALLOWLIST.json"
   ],
-  "contentFiles": 425,
-  "contentBytes": 13083718,
-  "contentSetSha256": "b527c8dc6886be1d09660249db0030e44beba6136aa218095641540ed5b64326",
+  "contentFiles": 426,
+  "contentBytes": 13100137,
+  "contentSetSha256": "76a6dd480483d1f5221e505a6bcbb81f18eb90b362e1e2ed8107286fc43d5f88",
   "files": [
     {
       "path": ".github/workflows/fc27-reconcile-v3-manual-qa.yml",
@@ -23,6 +23,13 @@
       "sha256": "a3eb5c922f57fe274a2c7a4692f27fe51592d4dde162c7d1207b8d294466a52f",
       "gitMode": "100644",
       "gitBlobSha1": "7b913ebee8f27ceb84d61666f4b17dba9530e454"
+    },
+    {
+      "path": ".github/workflows/registration-target39-manual-qa.yml",
+      "bytes": 16419,
+      "sha256": "047785fb78b5596167c5d706c986c0180fa52ad031859b4c6149cc2257662356",
+      "gitMode": "100644",
+      "gitBlobSha1": "db43a1b0b2b48811c162d3ccb3c32ec8aa3afbfb"
     },
     {
       "path": ".gitignore",
