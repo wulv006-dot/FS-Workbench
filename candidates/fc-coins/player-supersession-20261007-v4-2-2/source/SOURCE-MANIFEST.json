@@ -1,0 +1,32 @@
+{
+  "business_replay": false,
+  "files": {
+    "BINDING-SCHEMA.json": "aa83459881152ddb704e483dc5b0df8edb30cba0c87b669dfde9d338273d0853",
+    "README.md": "98d32055dd30a9c5029d3165bf2ec1cf1f85332243e6b87c849895cdd27ec741",
+    "app/activity_log_store.py": "b2ddc56ec9029cf4f6e66edb47358e6620cd6226c5e181b549f82effcc04a082",
+    "app/automation_policy.py": "ddcb47a09f0fc35600ad3d86408018b7fd39395c9f114cf61c9c5cc1f53a0611",
+    "app/automation_tick.py": "4cdbbe99d750f157d31c363739485803ea9b0607106d0cff359ab4db448e88b1",
+    "app/coin_all_sync_job.py": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d",
+    "app/fc27_cloud_api.py": "f311742d7338cc97ad616666b4da06fa451a4a48713428306cf306774c871cc4",
+    "app/fc27_cloud_worker.py": "6b5ba249e2d78ae06edf04085ced8bb057d4f6d3c308aecda9c78b8c0159a13d",
+    "app/fc27_quote_engine.py": "45cdb611c3090e821b155fa97450c677776c21088170af3b08dce0e5fcb71924",
+    "app/p2pah_session_service.py": "04af4317072ad565dbbf4efeed63db4ee21ccb73bafebd043012f6878e1d0bb0",
+    "app/player_sync_job.py": "76df2803cb4e047a529302ae5caecb060a98776e4ca9932423da82c6c321027b",
+    "app/player_sync_policy.py": "0264e8d661a5fe9cdcef8618698061883401235d26aafd94e3a5aa3cdd4e6ecf",
+    "app/server_quote_job.py": "68f7c083237c26ca5ebe9cfcaba419e82160befe0f922e6b90e78390fdf33fa0",
+    "app/snapshot_layer.py": "b91dbbbf7c53ba7ef3f6bd1d1226a0b4fb1c3af541855c2914b57fe9c97c4f46",
+    "app/storefront_monitor.py": "0948228673725afd48781a493dc5f2cbe94be927a0236f671d92e55996cb1b3c",
+    "app/sync_players.sh": "28e4eae3f851b474de60d85d7acae3d978b759a41603a0de0064049499ca0a8a",
+    "launch.py": "874c0f6efba568a4068bb3fe9a4e3bde97189efe0ece166ed2b0aed1f72fc4d3",
+    "player_readonly_reconcile_guard.py": "0756d29518adbeb0846431f03ce47933377ad5af2c5867cae7f326be1bb3eec4",
+    "probe.py": "11e02258661253590cd19cf49675cc871f9bf0a6b5650b17e0cb4be17b35ccc1",
+    "reconcile.py": "f1080c48a8252036eade870695b42c44c6bbe6f4387a563ca1d48f3f2f7421ca",
+    "runner.py": "c896137f14cea2bbdfc4f50d3b091090962f3664de8e39274f221f9f9a3bbaee",
+    "secure_fs.py": "4149af9bc6f7e5627b42f92fbebd1f5c58eb5bcdcd00e5246b7dc79cf6167326",
+    "storage.py": "ac77e05033b93eb14f465fd0161639280bec7564054b23ec3bf8e3bf5d764507",
+    "supersede.py": "2d0f4188fd74c4b359c9855e3a8e5835cbf528284e252c63cb7032c4884abb8c",
+    "verified_loader.py": "dd94da45901c1bd65997b775e24e20e816b8d5659f3c6804666d41d9fef72ea3"
+  },
+  "operation": "historical_failure_supersession_with_current_basis_followup",
+  "version": 4
+}
