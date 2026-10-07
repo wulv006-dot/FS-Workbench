@@ -31,6 +31,51 @@ sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
 def node(path):
     subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=30)
 
+def css_structure(text):
+    # Structural sanity only, not CSS standards validation or visual acceptance.
+    stack=[];quote=None;comment=False;escape=False;i=0
+    while i<len(text):
+        char=text[i];pair=text[i:i+2]
+        if comment:
+            if pair=="*/":comment=False;i+=2;continue
+        elif quote:
+            if escape:escape=False
+            elif char=="\\":escape=True
+            elif char==quote:quote=None
+        elif pair=="/*":comment=True;i+=2;continue
+        elif char in ("'",'"'):quote=char
+        elif char in "({[":stack.append(char)
+        elif char in ")}]":
+            if not stack or stack.pop()!=dict(zip(")}]","({["))[char]:
+                raise RuntimeError("css_unbalanced_delimiter")
+        i+=1
+    if stack or quote or comment:raise RuntimeError("css_unclosed_structure")
+
+def frontend_structure(name,text):
+    if Path(name).suffix==".css":css_structure(text);return
+    from html.parser import HTMLParser
+    class Tags(HTMLParser):
+        void=set("area base br col embed hr img input link meta param source track wbr".split())
+        optional=set("li p dt dd rt rp optgroup option thead tbody tfoot tr td th colgroup".split())
+        blocks=set("address article aside blockquote div dl fieldset footer form h1 h2 h3 h4 h5 h6 header hr main nav ol p pre section table ul".split())
+        def __init__(self):super().__init__();self.stack=[];self.styles=[]
+        def handle_starttag(self,tag,attrs):
+            if self.stack and self.stack[-1]=="p" and tag in self.blocks:self.stack.pop()
+            if self.stack and tag in self.optional and self.stack[-1]==tag:self.stack.pop()
+            if tag not in self.void:self.stack.append(tag)
+        def handle_startendtag(self,tag,attrs):pass
+        def handle_endtag(self,tag):
+            if tag in self.void:return
+            while self.stack and self.stack[-1]!=tag and self.stack[-1] in self.optional:self.stack.pop()
+            if not self.stack or self.stack.pop()!=tag:raise RuntimeError("html_tag_mismatch:"+tag)
+        def handle_data(self,data):
+            if self.stack and self.stack[-1]=="style":self.styles.append(data)
+    tags=Tags();tags.feed(text)
+    if tags.rawdata.startswith("<"):raise RuntimeError("html_incomplete_tag")
+    tags.close()
+    if any(tag not in tags.optional for tag in tags.stack):raise RuntimeError("html_unclosed_tag")
+    for style in tags.styles:css_structure(style)
+
 def selfcheck():
     class Good(unittest.TestCase):
         def runTest(self):self.assertTrue(True)
@@ -46,16 +91,27 @@ def selfcheck():
         try:require_success(runner.run(suite))
         except RuntimeError:continue
         raise RuntimeError("failure_propagation_selfcheck_failed")
-    # HTML/CSS must not get a green gate from selfcheck alone.
-    for paths in (["index.html"], ["styles.css"], ["index.html","README.md"],
-                  ["styles.css","fc27_quote_engine.py"]):
-        try:select(paths)
-        except RuntimeError as exc:
-            if "UNMAPPED:" not in str(exc):raise
-        else:raise RuntimeError("unmapped_frontend_path_was_allowed")
+    for paths in (["index.html"],["styles.css"],["index.html","README.md"]):
+        if select(paths)!=["frontend"]:raise RuntimeError("frontend_path_not_checked")
+    if select(["styles.css","fc27_quote_engine.py"])!=["engine","frontend"]:
+        raise RuntimeError("mixed_frontend_path_not_checked")
+    for name,text in (("ok.html","<main><p>ok</p><input><br/></main>"),
+                      ("ok.html","<ul><li>a<li>b</ul>"),
+                      ("ok.css",'a{content:"}";color:var(--color)}'),
+                      ("ok.css","/* { */ @media (width > 10px){a:hover{color:red}}")):
+        frontend_structure(name,text)
+    for name,text in (("bad.html","<div>"),("bad.html","<div></span>"),
+                      ("bad.html","<style>a{color:red</style>"),
+                      ("bad.css","a{color:red"),("bad.css","a{content:'oops}"),
+                      ("bad.css","a{} /* unfinished")):
+        try:frontend_structure(name,text)
+        except RuntimeError:continue
+        else:raise RuntimeError("malformed_frontend_structure_allowed")
+    for name in ("fc27_ops_cloud/index.html","fc27_ops_cloud/data/fc-analytics.css"):
+        frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
-    print("path selfcheck: HTML/CSS-only and mixed code reject UNMAPPED; docs-only and dispatcher scope verified")
+    print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
@@ -66,7 +122,7 @@ def select(paths):
             groups.add("self");continue
         if suffix not in (".py",".js",".cjs",".sh",".html",".css"):continue
         if suffix in (".html",".css"):
-            unmapped.append(name);continue
+            groups.add("frontend");continue
         if name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
@@ -95,12 +151,13 @@ def main():
         elif p.suffix in (".js",".cjs"):subprocess.run(["node","--check",str(p)],check=True,timeout=20)
         elif p.suffix==".sh":subprocess.run(["bash","-n",str(p)],check=True,timeout=20)
         elif p.suffix==".json":json.loads(p.read_text(encoding="utf-8-sig"))
+        elif p.suffix in (".html",".css"):frontend_structure(name,p.read_text(encoding="utf-8-sig"))
     groups=select(paths)
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
         print("affected group:",group,flush=True)
-        if group=="self":continue
+        if group in ("self","frontend"):continue
         if group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
