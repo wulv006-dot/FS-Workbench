@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "PREPARED_NOT_INTEGRATION_RUN",
+  "status": "PREPARED_NOT_TARGET_INTEGRATION_RUN",
   "source_commit": "2152c8c9ea2fd68be3876349299d490d38903404",
   "source_manifest_path": "candidates/registration-import-20261007/candidate-manifest.json",
   "source_manifest_sha256": "6a1391e26013415e1f1f68d858ce25715e47ee6e56f83c2a9ec726713ec8aef0",
@@ -14,18 +14,18 @@
   "files": [
     {
       "path": "linux_delta_entry.py",
-      "bytes": 43695,
-      "sha256": "b2e2c0f0068680a658b819313e617b4bbb8c0e77343faba6d7c0af615d966cab"
+      "bytes": 84845,
+      "sha256": "38fd7c5a745b5bd0231890f1a4a36ef66f0b11c631f704209aa183698fdcd4a4"
     },
     {
       "path": "EXECUTE.md",
-      "bytes": 4154,
-      "sha256": "6eb0f026cf921e5d9503920bf9399634949dd0bffb7fc2dfa424bda1a487bb64"
+      "bytes": 6305,
+      "sha256": "3cf0026caa5fcbf11f390ebd92feb646e4f2f64b594500f596980a9fffc14175"
     }
   ],
   "workflow_path": ".github/workflows/registration-target39-manual-qa.yml",
   "workflow_sha256": "845015d9b428a05bae8baf16930906d6d17b4dc1295056316ea7d43176d92650",
-  "baseline_main": "06263cbab5febe138d32c68b42c78aa192ea32a8",
+  "baseline_main": "9ea86d8d49c38ddb9e1ef97e1cb46d05273229cc",
   "required_environment": {
     "platform": "Linux",
     "python": "3.9.18",
@@ -43,19 +43,57 @@
   "integration_executed": false,
   "manifest_self_hash": "Excluded to avoid recursion; recorded in this revision external inventory and Git readback",
   "integration_namespace": "network loopback-only + PID/fork/mount-proc/kill-child lifecycle; runner UID/GID",
-  "query_fixture_correction": {
-    "base_commit": "c4f0f8aa6be2a43b537009a231dedf551abaa33e",
-    "preserved_failed_run": 37623684963,
-    "positive_uri": "/dashboard/tasks/api/session?mode=%76iew",
-    "negative_uri": "/dashboard/tasks/api/session?probe=%2F",
-    "negative_expected_status": 403,
+  "contract_revision": {
+    "kind": "Unified permission contract; predeclared granular assertions, not independent test count",
+    "contract_cases": 311,
+    "contract_sha256": "a4de433041d6b9cebcd8ca9ea113d4d43aab71750c0297c5c3c3f2e99841c836",
+    "contract_phases": [
+      "startup",
+      "native-roles",
+      "http-login",
+      "legacy-logout",
+      "registration",
+      "reapply",
+      "readonly",
+      "negative-identities",
+      "retired-fc",
+      "logout-controls",
+      "nginx-contract",
+      "storage-loss",
+      "revocation",
+      "recovery",
+      "upstream-loss",
+      "assurance"
+    ],
+    "contract_dependencies_valid": true,
+    "outcomes": [
+      "PASS",
+      "FAIL",
+      "BLOCKED",
+      "NOT_RUN"
+    ],
+    "all_planned_checks_required_for_pass": true,
     "receipt_fields": [
       "case",
-      "uri",
-      "status",
-      "role"
+      "phase",
+      "outcome",
+      "expected_status",
+      "actual_status",
+      "expected_role",
+      "actual_role",
+      "assertions"
     ],
+    "native_logout": "Revoke exact HTTP-issued native signed token only; retain independent sessions",
+    "registered_revoke": "Advance account epoch and invalidate all account sessions",
+    "fc_analysis": "Global readonly GET/HEAD permitted; retired FC writes/admin endpoints remain closed",
+    "native_editor": "Retain existing metadata and member read; global non-admin writes rejected",
+    "registered_viewer": "reg:UUID viewer, no native-member insertion, member read and writes rejected",
     "business_policy_changed": false,
-    "target_reexecution_pending": true
+    "workflow_changed": false,
+    "target_reexecution_pending": true,
+    "preserved_failed_runs": [
+      37623684963,
+      37630588766
+    ]
   }
 }

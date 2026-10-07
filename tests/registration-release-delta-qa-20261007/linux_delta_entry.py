@@ -126,23 +126,26 @@ def safe_source_file(root, relative):
     return resolved
 
 
-def source_git(root, arguments):
+def source_git(root, arguments, deadline=None):
     # Local metadata reads only. No fetch, credential lookup or Git mutation.
     env = {key: value for key, value in os.environ.items() if key in ('PATH', 'LANG', 'LC_ALL')}
     env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
                GIT_TERMINAL_PROMPT='0', GIT_OPTIONAL_LOCKS='0')
+    timeout = 5.0 if deadline is None else min(5.0, deadline-time.monotonic())
+    if timeout <= 0:
+        raise TimeoutError('source Git verification budget exhausted')
     result = subprocess.run(['git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-C', str(root), *arguments], env=env,
-                            capture_output=True, text=True, timeout=5)
+                            capture_output=True, text=True, timeout=timeout)
     if result.returncode:
         raise ValueError('source checkout Git identity unavailable')
     return result.stdout.strip()
 
 
-def verify_inputs(root):
+def verify_inputs(root, deadline=None):
     if not root.is_absolute() or any(p.is_symlink() for p in (root, *root.parents)):
         raise ValueError('absolute nonlinked source checkout required')
     root = root.resolve(strict=True)
-    if source_git(root, ['rev-parse', 'HEAD']) != SOURCE_COMMIT:
+    if source_git(root, ['rev-parse', 'HEAD'], deadline) != SOURCE_COMMIT:
         raise ValueError('source checkout must be the exact frozen commit')
     manifest = safe_source_file(root, SOURCE_MANIFEST)
     if sha(manifest) != SOURCE_MANIFEST_SHA:
@@ -189,10 +192,10 @@ def verify_inputs(root):
             raise ValueError('frozen runtime input drift: ' + name)
         dependency_names.add(name)
         hashes[name] = row['sha256']
-    if source_git(root, ['rev-parse', 'HEAD:' + RUNTIME_DIRECTORY]) != RUNTIME_SUBTREE:
+    if source_git(root, ['rev-parse', 'HEAD:' + RUNTIME_DIRECTORY], deadline) != RUNTIME_SUBTREE:
         raise ValueError('runtime subtree identity mismatch')
     scoped = [CANDIDATE_DIRECTORY, ORIGINAL_TEST_DIRECTORY, RUNTIME_DIRECTORY]
-    if source_git(root, ['status', '--porcelain', '--untracked-files=all', '--ignored', '--', *scoped]):
+    if source_git(root, ['status', '--porcelain', '--untracked-files=all', '--ignored', '--', *scoped], deadline):
         raise ValueError('modified/untracked/ignored files in source inputs')
     recovery = next(row for row in rows if row['path'] == CANDIDATE_DIRECTORY + '/recovery/auth_portal.py')
     return {'source_commit': SOURCE_COMMIT, 'source_manifest_sha256': SOURCE_MANIFEST_SHA,
@@ -363,6 +366,7 @@ def driver_check():
     source = Path(__file__).read_text(encoding='utf-8')
     ast.parse(source, feature_version=(3, 9))
     fixture = validate_fixture()
+    contract = validate_contract_plan()
     workflow = here.parents[1] / WORKFLOW_PATH
     if workflow.is_symlink() or sha(workflow) != manifest['workflow_sha256']:
         raise ValueError('workflow differs from reviewed driver manifest')
@@ -441,7 +445,7 @@ def driver_check():
         raise ValueError('owned-prefix cleanup missing')
     print(json.dumps({'status': 'DRIVER_STATIC_ONLY', 'python39_syntax': True,
                       'driver_manifest_verified': True, 'workflow_controls_verified': True,
-                      **fixture, 'source_checkout_read': False, 'candidate_imported': False,
+                      **fixture, **contract, 'source_checkout_read': False, 'candidate_imported': False,
                       'integration_executed': False, 'production_nginx_verified': False,
                       'production_ready': False}))
     return 0
@@ -470,223 +474,848 @@ def reap_owned(children):
     return all(child.poll() is not None for child in children)
 
 
+# This is the single executable contract. Building/validating it is pure: no
+# candidate imports, checkout reads, listeners or secret/session material.
+ADMINS = ('DY', 'chenchao', 'fstech', 'wulv')
+PHASES = ('startup', 'native-roles', 'http-login', 'legacy-logout',
+          'registration', 'reapply', 'readonly', 'negative-identities',
+          'retired-fc', 'logout-controls', 'nginx-contract', 'storage-loss',
+          'revocation', 'recovery', 'upstream-loss', 'assurance')
+
+
+def build_contract_plan():
+    rows = []
+    def local(case, phase, operation, requires=(), **options):
+        rows.append(dict(id=case, phase=phase, operation=operation,
+                         requires=list(requires), expected_status=None,
+                         expected_role=None, expected_value=True, **options))
+    def http(case, phase, service, path, status, session='anonymous',
+             method='GET', role=None, requires=(), **options):
+        base = 'nginx' if service in ('access', 'edge', 'http') else 'services'
+        rows.append(dict(id=case, phase=phase, operation='http', service=service,
+                         path=path, method=method, session=session,
+                         expected_status=status, expected_role=role,
+                         requires=list(dict.fromkeys((base,) + tuple(requires))), **options))
+    def verify(case, phase, session, status=200, role=None, requires=(),
+               uri=SESSION_READ_URI, actual_method='GET', **options):
+        http(case, phase, 'portal', '/verify', status, session, role=role,
+             requires=requires, headers={'X-Original-URI':uri,
+             'X-Original-Method':actual_method}, **options)
+    def bootstrap(case, phase, save, session='anonymous', requires=(), role='guest'):
+        http(case, phase, 'access', '/access/api/bootstrap', 200, session,
+             role=role, requires=requires, save_session=save)
+    def post(case, phase, route, session, payload, status=200, requires=(), **options):
+        http(case, phase, 'access', '/access/api/'+route, status, session,
+             method='POST', requires=requires, api=True, payload=payload, **options)
+    def login(case, phase, guest, save, name, native=False, requires=(), role=None):
+        bootstrap(case+'.bootstrap', phase, guest, requires=requires)
+        post(case, phase, 'native-login' if native else 'login', guest,
+             {'username':name,'password':PASSWORD}, requires=(case+'.bootstrap',),
+             save_session=save, role=role, checks=['secure_two'] if native else [])
+
+    local('missing-store', 'startup', 'missing-store')
+    local('initialize', 'startup', 'initialize', ('missing-store',))
+    local('insecure-cookie', 'startup', 'insecure-cookie', ('initialize',))
+    local('services', 'startup', 'services', ('initialize',))
+    local('tls', 'startup', 'tls', ('services',))
+    local('nginx', 'startup', 'nginx', ('tls',))
+    http('http-upgrade', 'native-roles', 'http', '/__auth/access/', 308,
+         checks=['fixed_https_redirect'])
+    for path in ('/access/', '/access/app.js', '/access/base.css', '/access/access.css'):
+        http('static'+path, 'native-roles', 'access', path, 200)
+    for name in ADMINS:
+        label = 'native.'+name
+        verify(label+'.verify', 'native-roles', label, role='admin')
+        http(label+'.board', 'native-roles', 'board', '/api/session?mode=%76iew',
+             200, label, role='admin', subject=name)
+        for method in ('GET','HEAD'):
+            http(label+'.fc.'+method, 'native-roles', 'fc', '/analysis', 200,
+                 label, method, checks=['head_empty'] if method=='HEAD' else ['analysis_marker'])
+        bootstrap(label+'.bootstrap', 'native-roles', label+'.combined', label, role='admin')
+        for route in ('requests','audit'):
+            http(label+'.'+route, 'native-roles', 'access', '/access/api/'+route,
+                 200, label+'.combined', requires=(label+'.bootstrap',))
+    verify('editor.verify', 'native-roles', 'native.oldreader', role='readonly')
+    http('editor.board', 'native-roles', 'board', '/api/session', 200,
+         'native.oldreader', role='editor', subject='oldreader')
+    http('editor.members.read', 'native-roles', 'board', '/api/members', 200,
+         'native.oldreader', role='editor')
+    for method, path in (('POST','/api/members'),('PATCH','/api/tasks/1'),('DELETE','/api/tasks/1')):
+        http('editor.write.'+method, 'native-roles', 'board', path, 403,
+             'native.oldreader', method, payload={})
+    for method in ('GET','HEAD'):
+        http('editor.fc.'+method, 'native-roles', 'fc', '/analysis', 200,
+             'native.oldreader', method, checks=['head_empty'] if method=='HEAD' else ['analysis_marker'])
+
+    login('editor.http-login', 'http-login', 'guest.editor', 'http.editor',
+          'oldreader', native=True, role='readonly')
+    verify('editor.http-verify', 'http-login', 'http.editor', role='readonly',
+           requires=('editor.http-login',))
+    http('editor.http-board', 'http-login', 'board', '/api/session', 200,
+         'http.editor', role='editor', requires=('editor.http-login',))
+    login('admin.http-login', 'http-login', 'guest.admin', 'http.admin',
+          'fstech', native=True, role='admin')
+    login('independent.http-login', 'http-login', 'guest.independent', 'http.independent',
+          'fstech', native=True, role='admin')
+    local('native-token-distinction', 'http-login', 'native-token-distinction',
+          ('admin.http-login','independent.http-login'))
+    verify('admin.http-verify', 'http-login', 'http.admin', role='admin',
+           requires=('admin.http-login',))
+    http('status.raw-native', 'http-login', 'access', '/status', 200,
+         'http.admin.native-only', requires=('admin.http-login',))
+    http('status.combined', 'http-login', 'access', '/status', 302,
+         'http.admin', requires=('admin.http-login',), checks=['access_redirect'])
+
+    for index, alias in enumerate(('/logout','/logout/','/logout//?next=/dashboard/')):
+        for method in ('GET','HEAD','POST'):
+            case='legacy-logout.%d.%s'%(index,method)
+            http(case, 'legacy-logout', 'access', alias, 405 if method=='POST' else 302,
+                 'http.admin', method, requires=('admin.http-login',),
+                 payload={} if method=='POST' else None,
+                 checks=['no_set_cookie'], unchanged=True)
+            verify(case+'.still-live', 'legacy-logout', 'http.admin.native-only',
+                   role='admin', requires=('admin.http-login',))
+
+    bootstrap('registration.bootstrap','registration','guest.reg')
+    post('registration.create','registration','register','guest.reg',
+         {'username':'newreader','password':PASSWORD,'team':'QA','purpose':'Synthetic HTTP registration'},
+         requires=('registration.bootstrap',), save_request='primary', json_fields={'state':'pending'})
+    post('registration.login','registration','login','guest.reg',
+         {'username':'newreader','password':PASSWORD}, role='pending',
+         requires=('registration.create',),save_session='reg.primary')
+    for service,path,status in (('board','/api/session',403),('fc','/analysis',401)):
+        http('pending.'+service,'registration',service,path,status,'reg.primary',
+             requires=('registration.login',),checks=['no_analysis_marker'])
+    verify('pending.verify','registration','reg.primary',403,requires=('registration.login',))
+    decision={'request_id':'@primary','version':0,'action':'approve','reason':'Synthetic HTTP approval'}
+    post('registration.approve','registration','decision','http.admin',decision,
+         requires=('admin.http-login','registration.login'),json_fields={'state':'readonly','version':1})
+    post('registration.stale-version','registration','decision','http.admin',decision,409,
+         requires=('registration.approve',),unchanged=True)
+
+    bootstrap('other.bootstrap','reapply','guest.other')
+    post('other.register','reapply','register','guest.other',
+         {'username':'otherreader','password':PASSWORD,'team':'QA','purpose':'Synthetic rejection fixture'},
+         requires=('other.bootstrap',),save_request='other',json_fields={'state':'pending'})
+    post('other.login','reapply','login','guest.other',
+         {'username':'otherreader','password':PASSWORD},requires=('other.register',),
+         role='pending',save_session='reg.other')
+    post('other.reject','reapply','decision','http.admin',
+         {'request_id':'@other','version':0,'action':'reject','reason':'Synthetic reject'},
+         requires=('admin.http-login','other.login'),json_fields={'state':'rejected','version':1})
+    verify('other.rejected','reapply','reg.other',403,requires=('other.reject',))
+    post('other.reapply','reapply','apply','reg.other',{'purpose':'Synthetic reapplication'},
+         requires=('other.reject',),save_request='reapplied',json_fields={'state':'pending'})
+    post('other.approve','reapply','decision','http.admin',
+         {'request_id':'@reapplied','version':0,'action':'approve','reason':'Synthetic reapproval'},
+         requires=('other.reapply','admin.http-login'),json_fields={'state':'readonly','version':1})
+    verify('other.readonly','reapply','reg.other',role='readonly',requires=('other.approve',))
+
+    approved=('registration.approve',)
+    verify('registered.verify','readonly','reg.primary',role='readonly',requires=approved,subject='registered')
+    http('registered.board','readonly','board','/api/session?mode=%76iew',200,
+         'reg.primary',role='viewer',requires=approved,subject='registered')
+    http('registered.board.read','readonly','board','/api/board',200,'reg.primary',requires=approved)
+    http('registered.board.head','readonly','board','/api/session',200,'reg.primary','HEAD',
+         requires=approved,checks=['head_empty'])
+    for suffix,query in (('combined','probe=%2F'),('unknown-key','probe=view'),('forbidden-value','mode=%2F')):
+        verify('registered.query.'+suffix,'readonly','reg.primary',403,
+               requires=approved,uri='/dashboard/tasks/api/session?'+query)
+        http('registered.board.query.'+suffix,'readonly','board','/api/session?'+query,403,
+             'reg.primary',requires=approved)
+        http('registered.fc.query.'+suffix,'readonly','fc','/analysis?'+query,401,
+             'reg.primary',requires=approved,checks=['no_analysis_marker'])
+    for method,path,suffix in (('GET','/analysis','get'),('HEAD','/analysis','head'),
+                               ('GET','/analysis?mode=%76iew','allowed-query')):
+        http('registered.fc.'+suffix,'readonly','fc',path,200,'reg.primary',method,
+             requires=approved,checks=['head_empty'] if method=='HEAD' else ['analysis_marker'])
+    for label,session,req in (('registered','reg.primary',approved),('editor','native.oldreader',())):
+        bootstrap(label+'.admin-bootstrap','readonly',label+'.admin-session',session,req,role='readonly')
+        for route in ('requests','audit'):
+            http(label+'.deny.'+route,'readonly','access','/access/api/'+route,403,
+                 label+'.admin-session',requires=(label+'.admin-bootstrap',))
+        for route in ('decision','revoke'):
+            form={'request_id':'@primary','version':1,'reason':'Synthetic negative control'}
+            if route=='decision':form['action']='approve'
+            post(label+'.deny.'+route,'readonly',route,label+'.admin-session',form,403,
+                 requires=(label+'.admin-bootstrap','registration.approve'),unchanged=True)
+    for method,path in (('POST','/api/members'),('POST','/api/tasks'),
+                        ('PATCH','/api/tasks/1'),('DELETE','/api/tasks/1'),('GET','/api/members')):
+        http('registered.deny.'+method+path,'readonly','board',path,403,'reg.primary',method,
+             requires=approved,payload={} if method!='GET' else None)
+    http('registered.header-conflict','readonly','board','/api/session',403,'reg.primary',
+         requires=approved,headers={'X-Auth-User':'fstech','X-Auth-Role':'admin'})
+    http('native.header-conflict','readonly','board','/api/session',403,'native.fstech',
+         headers={'X-Auth-User':'fstech','X-Auth-Role':'readonly'})
+    http('direct.method-spoof','readonly','board','/api/members',403,'reg.primary','POST',
+         requires=approved,payload={},headers={'X-Original-URI':SESSION_READ_URI,'X-Original-Method':'GET'})
+    http('registered.no-native-membership','readonly','board','/api/members',200,'native.fstech',
+         requires=approved,checks=['no_registered_members'])
+    local('expired-fixtures','negative-identities','expired-fixtures',approved)
+    for label,req in (('anonymous',()),('invalid',()),('old-FC',()),('forged',()),
+                      ('expired-native',()),('expired-registered',('expired-fixtures',))):
+        verify(label+'.verify','negative-identities',label,401,requires=req)
+        for service,path in (('board','/api/session'),('fc','/analysis')):
+            http(label+'.'+service,'negative-identities',service,path,401,label,requires=req,
+                 headers={'X-Auth-User':'fstech','X-Auth-Role':'admin'},checks=['no_analysis_marker'])
+    verify('mixed.verify','negative-identities','mixed',403,requires=approved)
+    http('mixed.board','negative-identities','board','/api/session',403,'mixed',requires=approved)
+    http('mixed.fc','negative-identities','fc','/analysis',401,'mixed',requires=approved,
+         checks=['no_analysis_marker'])
+
+    for label,session,req in (('anonymous','anonymous',()),('registered','reg.primary',approved),
+                              ('native-admin','native.fstech',())):
+        for path in ('/verify','/admin','/admin/audit','/unknown'):
+            http('retired.'+label+'.GET'+path,'retired-fc','fc',path,401 if path=='/verify' else 403,
+                 session,requires=req,checks=['no_analysis_marker'])
+        for path in ('/login','/register','/logout','/admin/action','/analysis'):
+            http('retired.'+label+'.POST'+path,'retired-fc','fc',path,405,session,'POST',
+                 requires=req,payload={},checks=['no_set_cookie','no_analysis_marker'])
+    for path in ('/','/login','/register','/logout'):
+        http('retired.redirect'+path,'retired-fc','fc',path,302,checks=['access_redirect'])
+
+    for label,session,req in (('native','http.admin',('admin.http-login',)),
+                              ('registered','reg.primary',approved)):
+        for fault in ('csrf','origin'):
+            case=label+'.logout-deny.'+fault
+            post(case,'logout-controls','logout',session,{},403,requires=req,
+                 auth_fault=fault,checks=['no_set_cookie'],unchanged=True)
+            verify(case+'.still-live','logout-controls',session,
+                   role='admin' if label=='native' else 'readonly',requires=req)
+    post('registered.logout-extra-field','logout-controls','logout','reg.primary',{'role':'admin'},400,
+         requires=approved,checks=['no_set_cookie'],unchanged=True)
+    login('registered.logout-login','logout-controls','guest.logout','reg.logout','newreader',
+          requires=approved,role='readonly')
+    post('registered.logout','logout-controls','logout','reg.logout',{},
+         requires=('registered.logout-login',),checks=['clear_two'])
+    verify('registered.logged-out','logout-controls','reg.logout',401,requires=('registered.logout',))
+    http('registered.logged-out.fc','logout-controls','fc','/analysis',401,'reg.logout',
+         requires=('registered.logout',),checks=['no_analysis_marker'])
+    verify('registered.independent-retained','logout-controls','reg.primary',role='readonly',
+           requires=approved)
+    login('registered.multi-login','logout-controls','guest.multi','reg.multi','newreader',
+          requires=approved,role='readonly')
+    local('registered-session-distinction','logout-controls','registered-session-distinction',
+          ('registered.multi-login','registration.login','registered.logout-login'))
+
+    for name in ADMINS:
+        http('edge.admin.'+name,'nginx-contract','edge',SESSION_READ_URI,200,'native.'+name,
+             role='admin',subject=name,headers={'X-Auth-User':'forged','X-Auth-Role':'readonly','X-Auth-Groups':'forged'},
+             trace_check='admin-overwrite')
+    http('edge.editor','nginx-contract','edge',SESSION_READ_URI,200,'native.oldreader',role='editor',subject='oldreader')
+    http('edge.registered','nginx-contract','edge',SESSION_READ_URI,200,'reg.primary',role='viewer',
+         requires=approved,subject='registered',headers={'X-Auth-User':'fstech','X-Auth-Role':'admin','X-Auth-Groups':'deploy'},
+         trace_check='registered-overwrite')
+    http('edge.anonymous','nginx-contract','edge',SESSION_READ_URI,302,checks=['access_redirect'])
+    http('edge.query-denied','nginx-contract','edge',SESSION_REJECT_URI,403,'reg.primary',requires=approved)
+    for method,path in (('POST','/dashboard/tasks/api/members'),('PATCH','/dashboard/tasks/api/tasks/1'),
+                        ('DELETE','/dashboard/tasks/api/tasks/1')):
+        http('edge.actual-method.'+method,'nginx-contract','edge',path,403,'reg.primary',method,
+             requires=approved,payload={},headers={'X-Original-URI':SESSION_READ_URI,'X-Original-Method':'GET'},
+             trace_check='actual-method')
+    for label,session,status,req in (('registered','reg.primary',200,approved),
+                                    ('editor','native.oldreader',200,()),('admin','native.fstech',200,()),
+                                    ('anonymous','anonymous',401,()),('expired','expired-native',401,())):
+        for method in ('GET','HEAD'):
+            http('edge.fc.'+label+'.'+method,'nginx-contract','edge','/fc27/analysis',status,session,method,
+                 requires=req,checks=['head_empty'] if method=='HEAD' else ['analysis_marker' if status==200 else 'no_analysis_marker'])
+    http('edge.fc.query-denied','nginx-contract','edge','/fc27/analysis?probe=%2F',401,'reg.primary',requires=approved)
+
+    local('db-hide','storage-loss','db-hide',('initialize',))
+    for label,session in (('registered','reg.primary'),('native','http.admin.native-only')):
+        dep=('db-hide','registration.approve' if label=='registered' else 'admin.http-login')
+        verify('db-loss.'+label,'storage-loss',session,503,requires=dep)
+    http('db-loss.board','storage-loss','board','/api/session',503,'reg.primary',requires=('db-hide','registration.approve'))
+    http('db-loss.edge','storage-loss','edge',SESSION_READ_URI,'5xx','reg.primary',
+         requires=('db-hide','registration.approve'),trace_check='verifier-unavailable')
+    http('db-loss.fc','storage-loss','fc','/analysis',401,'reg.primary',
+         requires=('db-hide','registration.approve'),checks=['no_analysis_marker'])
+    http('db-loss.bootstrap','storage-loss','access','/access/api/bootstrap',503,requires=('db-hide',),checks=['no_set_cookie'])
+    post('db-loss.logout','storage-loss','logout','http.admin',{},503,
+         requires=('db-hide','admin.http-login'),checks=['no_set_cookie'])
+    local('db-not-recreated','storage-loss','db-not-recreated',('db-hide',))
+    local('db-restore','storage-loss','db-restore',('db-hide',),always=True)
+    verify('db-restored.registered','storage-loss','reg.primary',role='readonly',
+           requires=('db-restore','registration.approve'))
+    verify('db-restored.native','storage-loss','http.admin.native-only',role='admin',
+           requires=('db-restore','admin.http-login'))
+
+    post('registered.revoke','revocation','revoke','http.admin',
+         {'request_id':'@primary','version':1,'reason':'Synthetic HTTP account revoke'},
+         requires=('registration.approve','admin.http-login','db-restore'),
+         json_fields={'state':'revoked','version':2})
+    for label,session,dep in (('primary','reg.primary','registration.login'),('second','reg.multi','registered.multi-login')):
+        verify('revoked.'+label,'revocation',session,401,requires=('registered.revoke',dep))
+        http('revoked.'+label+'.board','revocation','board','/api/session',401,session,requires=('registered.revoke',dep))
+        http('revoked.'+label+'.fc','revocation','fc','/analysis',401,session,requires=('registered.revoke',dep),checks=['no_analysis_marker'])
+    http('revoked.edge','revocation','edge',SESSION_READ_URI,302,'reg.primary',
+         requires=('registered.revoke',),checks=['access_redirect'])
+    http('revoked.edge.fc','revocation','edge','/fc27/analysis',401,'reg.primary',requires=('registered.revoke',))
+    local('account-revoke-epoch','revocation','account-revoke-epoch',('registered.revoke','registered.multi-login','expired-fixtures'))
+    post('native.exact-logout','revocation','logout','http.admin',{},
+         requires=('admin.http-login','db-restore'),checks=['clear_two'])
+    for label,session in (('raw','http.admin.native-only'),('combined','http.admin')):
+        verify('native.logged-out.'+label,'revocation',session,401,requires=('native.exact-logout',))
+    http('native.logged-out.status','revocation','access','/status',302,'http.admin.native-only',
+         requires=('native.exact-logout',),checks=['login_redirect'])
+    for service,path,status in (('board','/api/session',401),('fc','/analysis',401),('edge',SESSION_READ_URI,302)):
+        http('native.logged-out.'+service,'revocation',service,path,status,'http.admin.native-only',
+             requires=('native.exact-logout',))
+    for label in ('http.independent','native.fstech','native.wulv','native.oldreader'):
+        dep=('native.exact-logout',)+(('independent.http-login',) if label=='http.independent' else ())
+        verify('native.retained.'+label,'revocation',label,role='readonly' if label.endswith('oldreader') else 'admin',requires=dep)
+
+    local('recovery-start','recovery','recovery-start',('services','db-restore'))
+    for label,session,dep in (('native','http.admin.native-only','native.exact-logout'),
+                              ('registered','reg.primary','registered.revoke'),
+                              ('registered-second','reg.multi','registered.revoke'),
+                              ('registered-logout','reg.logout','registered.logout')):
+        req=('recovery-start',dep)+(('registered.multi-login',) if label=='registered-second' else ())
+        verify('recovery.denied.'+label,'recovery',session,401,requires=req)
+        for service,path,status in (('board','/api/session',401),('fc','/analysis',401),('edge',SESSION_READ_URI,302)):
+            http('recovery.denied.'+label+'.'+service,'recovery',service,path,status,session,requires=req)
+    http('recovery.native-status','recovery','access','/status',302,'http.admin.native-only',
+         requires=('recovery-start','native.exact-logout'),checks=['login_redirect'])
+    for label,session,role,boardrole,req in (
+            ('registered','reg.other','readonly','viewer',('other.approve',)),
+            ('independent','http.independent','admin','admin',('independent.http-login',)),
+            ('initial-admin','native.fstech','admin','admin',()),
+            ('admin','native.wulv','admin','admin',()),
+            ('editor','native.oldreader','readonly','editor',())):
+        needs=('recovery-start',)+req
+        verify('recovery.retained.'+label,'recovery',session,role=role,requires=needs)
+        http('recovery.retained.'+label+'.board','recovery','board','/api/session',200,session,role=boardrole,requires=needs)
+        http('recovery.retained.'+label+'.fc','recovery','fc','/analysis',200,session,requires=needs,checks=['analysis_marker'])
+    http('recovery.bootstrap','recovery','access','/access/api/bootstrap',503,'native.wulv',
+         requires=('recovery-start',),checks=['no_set_cookie'])
+    for route in ('register','login','native-login','apply','decision','revoke','logout'):
+        http('recovery.api.'+route,'recovery','access','/access/api/'+route,503,'native.wulv','POST',
+             requires=('recovery-start',),payload={},checks=['no_set_cookie'])
+    for route in ('requests','audit'):
+        http('recovery.api.'+route,'recovery','access','/access/api/'+route,503,'native.wulv',requires=('recovery-start',))
+    http('recovery.static','recovery','access','/access/',200,requires=('recovery-start',))
+    local('recovery-retention','recovery','recovery-retention',('recovery-start',))
+    http('recovery.legacy-login','recovery','access','/login',302,method='POST',
+         requires=('recovery-start',),form_login=True,save_native='recovery.legacy-native')
+    verify('recovery.legacy-verify','recovery','recovery.legacy-native',role='readonly',
+           requires=('recovery.legacy-login',))
+    local('recovery-retention-after-login','recovery','recovery-retention',('recovery.legacy-login',))
+    local('upstream-stop','upstream-loss','upstream-stop',('recovery-start',))
+    http('upstream-loss.board','upstream-loss','board','/api/session',503,'native.wulv',requires=('upstream-stop',))
+    http('upstream-loss.fc','upstream-loss','fc','/analysis',401,'native.wulv',requires=('upstream-stop',),checks=['no_analysis_marker'])
+    http('upstream-loss.edge','upstream-loss','edge',SESSION_READ_URI,'5xx','native.wulv',requires=('upstream-stop',))
+    local('old-fc-db-absent','assurance','old-fc-db-absent')
+    local('worker-versions','assurance','worker-versions',('recovery-start',))
+    local('owned-cleanup','assurance','owned-cleanup',finalize=True)
+    local('source-post','assurance','source-post',finalize=True)
+    local('temp-cleanup','assurance','temp-cleanup',finalize=True)
+    return rows
+
+
+CONTRACT_PLAN = build_contract_plan()
+
+
+def validate_contract_plan():
+    ids = set()
+    methods = {'GET','HEAD','POST','PATCH','DELETE'}
+    services = {'portal','access','board','fc','edge','http'}
+    allowed_checks = {'head_empty','analysis_marker','no_analysis_marker','no_set_cookie',
+                      'secure_two','clear_two','no_registered_members','access_redirect','login_redirect','fixed_https_redirect'}
+    for row in CONTRACT_PLAN:
+        if row['id'] in ids or row['phase'] not in PHASES:
+            raise ValueError('duplicate/unrecognized contract case')
+        if any(dep not in ids for dep in row['requires']):
+            raise ValueError('forward/missing contract prerequisite')
+        ids.add(row['id'])
+        if row['operation']=='http':
+            if (row['service'] not in services or row['method'] not in methods
+                    or not row['path'].startswith('/') or any(c in row['path'] for c in '\r\n#')
+                    or row['expected_status'] not in (200,302,308,400,401,403,405,409,503,'5xx')
+                    or row['expected_role'] not in (None,'guest','pending','readonly','admin','editor','viewer')
+                    or set(row.get('checks',()))-allowed_checks):
+                raise ValueError('invalid HTTP contract row')
+    required = {'missing-store','insecure-cookie','admin.http-login','native-token-distinction',
+                'registration.create','registration.login','registration.approve','other.reject','other.reapply',
+                'registered.fc.get','registered.fc.head','editor.members.read','status.raw-native','status.combined',
+                'native.exact-logout','registered.revoke','account-revoke-epoch','db-loss.edge',
+                'db-loss.logout','recovery-retention','recovery.legacy-login','worker-versions','owned-cleanup'}
+    if not required.issubset(ids) or len(CONTRACT_PLAN)<250:
+        raise ValueError('incomplete release contract coverage')
+    for name in ADMINS:
+        if 'edge.admin.'+name not in ids or 'native.'+name+'.verify' not in ids:
+            raise ValueError('four retained native admins must all be exercised')
+    digest = hashlib.sha256(json.dumps(CONTRACT_PLAN,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    return {'contract_cases':len(CONTRACT_PLAN),'contract_sha256':digest,
+            'contract_phases':list(PHASES),'contract_dependencies_valid':True}
+
+
+def response_cookie_jar(response, previous=None):
+    """Preserve every Set-Cookie field; jars and exact tokens stay only in memory."""
+    result = dict(previous or {})
+    for name, value in response['pairs']:
+        if name.lower()=='set-cookie':
+            key, separator, token = value.split(';',1)[0].partition('=')
+            if not separator or not key:
+                raise ValueError('malformed response cookie')
+            if token: result[key]=token
+            else: result.pop(key,None)
+    return result
+
+
+class ControllerTermination(BaseException):
+    """A controller signal must escape case-level Exception handling."""
+
+
+class ContractRunner:
+    """Importable scenario engine. No interpreter guard bypass or alternate CLI.
+
+    A caller may use this pure engine for an explicitly separate source-HTTP
+    diagnostic with its own transport. Only run() establishes target assurance.
+    Exceptions are failures, unmet prerequisites are BLOCKED, deadline omissions
+    are NOT_RUN. Tokens, headers and bodies are never copied to result rows.
+    """
+    def __init__(self, transport, actions, context, deadline, plan=None):
+        self.transport=transport; self.actions=actions; self.context=context
+        self.deadline=deadline; self.plan=CONTRACT_PLAN if plan is None else plan
+        self.results=[]; self.by_id={}
+
+    def record(self, row, outcome, status=None, role=None, **facts):
+        result={'case':row['id'],'phase':row['phase'],'outcome':outcome,
+                'expected_status':row['expected_status'],'actual_status':status,
+                'expected_role':row['expected_role'],'actual_role':role}
+        if row['operation']=='http':
+            result.update(service=row['service'],method=row['method'],path=row['path'],
+                          session_label=row['session'])
+        else:
+            result['expected_value']=True
+        result.update(facts)
+        self.results.append(result);self.by_id[row['id']]=result
+        return result
+
+    def perform(self, row):
+        if row['id'] in self.by_id:raise ValueError('contract case already recorded')
+        blocked=[dep for dep in row['requires'] if self.by_id.get(dep,{}).get('outcome')!='PASS']
+        if blocked:
+            return self.record(row,'BLOCKED',blocked_by=blocked)
+        if time.monotonic()>self.deadline and not row.get('always') and not row.get('finalize'):
+            return self.record(row,'NOT_RUN',reason='120-second execution budget exhausted')
+        try:
+            if row['operation']=='http':return self.http(row)
+            result=self.actions[row['operation']](row)
+            return self.record(row,'PASS' if result.get('ok') is True else 'FAIL',
+                               actual_value=result.get('ok') is True,**result.get('facts',{}))
+        except Exception as exc:
+            # Exception strings can include response bodies, SQL or cookie values.
+            return self.record(row,'FAIL',error_type=type(exc).__name__)
+
+    def http(self, row):
+        ctx=self.context
+        label=row['session']
+        if label=='mixed':
+            jar=dict(ctx['sessions']['reg.primary']);jar.update(ctx['sessions']['native.fstech'])
+        else:jar=dict(ctx['sessions'][label])
+        headers=dict(row.get('headers',{}));payload=row.get('payload');body=None
+        if payload is not None:
+            payload={key:ctx['requests'][value[1:]] if isinstance(value,str) and value.startswith('@') else value
+                     for key,value in payload.items()}
+            body=json.dumps(payload,separators=(',',':')).encode()
+            headers['Content-Type']='application/json'
+        if row.get('api'):
+            headers.update({'Origin':ORIGIN,'X-CSRF-Token':ctx['csrf'][label],
+                            'Content-Type':'application/json'})
+            if row.get('auth_fault')=='csrf':headers['X-CSRF-Token']='synthetic-wrong-csrf'
+            if row.get('auth_fault')=='origin':headers['Origin']='https://synthetic.invalid'
+        if row.get('form_login'):
+            body=b'username=oldreader&password=Synthetic-password-42&next=%2Fdashboard%2F'
+            headers['Content-Type']='application/x-www-form-urlencoded'
+        before=ctx['storage_hashes']() if row.get('unchanged') else None
+        trace_offset=ctx['trace_offset']() if row.get('trace_check') else None
+        response=self.transport(row['service'],row['path'],row['method'],jar,headers,body)
+        status=response['status'];document=response.get('json')
+        document=document if isinstance(document,dict) else {}
+        pairs=response['pairs'];lookup={key.lower():value for key,value in pairs}
+        viewer=document.get('viewer');viewer=viewer if isinstance(viewer,dict) else {}
+        account=document.get('account');account=account if isinstance(account,dict) else {}
+        role=viewer.get('role') or account.get('role') or lookup.get('x-auth-role')
+        # Never emit arbitrary server-controlled role/body strings in a receipt.
+        actual_role=role if role in ('guest','pending','readonly','admin','editor','viewer') else ('unexpected' if role is not None else None)
+        subject=viewer.get('user') or lookup.get('x-auth-user')
+        wanted=row['expected_status']
+        checks={'status':500<=status<=599 if wanted=='5xx' else status==wanted,
+                'role':row['expected_role'] is None or role==row['expected_role']}
+        if 'subject' in row:
+            wanted_subject=row['subject']
+            checks['subject']=(bool(re.fullmatch(r'reg:[a-f0-9-]{36}',subject or ''))
+                               if wanted_subject=='registered' else subject==wanted_subject)
+        setcookies=[value for key,value in pairs if key.lower()=='set-cookie']
+        cookie_names={value.split('=',1)[0] for value in setcookies}
+        expected_cookie_names={ctx['native_cookie'],ctx['registered_cookie']}
+        for condition in row.get('checks',()):
+            if condition=='head_empty':value=response['body']==b''
+            elif condition=='analysis_marker':value=document.get('synthetic') is True
+            elif condition=='no_analysis_marker':value=document.get('synthetic') is not True and b'"synthetic":true' not in response['body'].replace(b' ',b'')
+            elif condition=='no_set_cookie':value=len(setcookies)==0
+            elif condition=='secure_two':value=len(setcookies)==2 and cookie_names==expected_cookie_names and all('secure' in [part.strip().lower() for part in v.split(';')] for v in setcookies)
+            elif condition=='clear_two':value=len(setcookies)==2 and cookie_names==expected_cookie_names and all('max-age=0' in [part.strip().lower() for part in v.split(';')] for v in setcookies)
+            elif condition=='no_registered_members':
+                members=document.get('members')
+                value=isinstance(members,list) and all(isinstance(member,dict) and not str(member.get('username','')).startswith('reg:') and member.get('username') not in ('newreader','otherreader') for member in members)
+            elif condition=='access_redirect':value=lookup.get('location','').startswith('/__auth/access/')
+            elif condition=='login_redirect':value=lookup.get('location','').startswith('/__auth/login')
+            elif condition=='fixed_https_redirect':value=lookup.get('location')==ORIGIN+'/__auth/access/'
+            else:raise ValueError('unknown response assertion')
+            checks[condition]=value
+        for key,value in row.get('json_fields',{}).items():checks['json_'+key]=document.get(key)==value
+        if row.get('unchanged'):checks['storage_unchanged']=before==ctx['storage_hashes']()
+        if row.get('trace_check'):checks['correlated_trace']=ctx['trace_check'](row,trace_offset)
+        updated=response_cookie_jar(response,jar)
+        if row.get('save_session'):
+            checks['session_cookie_present']=bool(updated.get(ctx['registered_cookie']))
+            checks['csrf_present']=isinstance(document.get('csrf'),str) and bool(document['csrf'])
+        if row.get('save_request'):
+            checks['request_id_present']=bool(re.fullmatch(r'[a-f0-9-]{36}',str(document.get('request_id',''))))
+        if row.get('save_native'):checks['native_cookie_present']=bool(updated.get(ctx['native_cookie']))
+        passed=all(value is True for value in checks.values())
+        if passed:
+            if row.get('save_session'):
+                name=row['save_session'];ctx['sessions'][name]=updated;ctx['csrf'][name]=document['csrf']
+                if ctx['native_cookie'] in updated:
+                    ctx['sessions'][name+'.native-only']={ctx['native_cookie']:updated[ctx['native_cookie']]}
+            if row.get('save_request'):ctx['requests'][row['save_request']]=document['request_id']
+            if row.get('save_native'):ctx['sessions'][row['save_native']]={ctx['native_cookie']:updated[ctx['native_cookie']]}
+        return self.record(row,'PASS' if passed else 'FAIL',status,actual_role,
+                           assertions=checks,expected_subject=row.get('subject'),
+                           subject_matches=checks.get('subject'),set_cookie_count=len(setcookies))
+
+    def execute(self):
+        for row in self.plan:
+            if not row.get('finalize'):self.perform(row)
+        return self.results
+
+    def finish_unrecorded(self, reason):
+        for row in self.plan:
+            if row['id'] not in self.by_id:
+                self.record(row,'NOT_RUN',reason=reason)
+
+
 def run(args):
     if args.source_root is None or args.nginx is None or args.openssl is None or args.output is None:
         raise ValueError('source-root, nginx, openssl and fresh output paths required')
-    root = args.source_root
-    release = verify_inputs(root)
-    if sys.platform != 'linux' or sys.version_info[:3] != (3,9,18) or sqlite3.sqlite_version != '3.53.4':
+    root=args.source_root
+    release=verify_inputs(root)
+    # This guard is unconditional. Importing the contract engine is not a target run.
+    if sys.platform!='linux' or sys.version_info[:3]!=(3,9,18) or sqlite3.sqlite_version!='3.53.4':
         raise ValueError('requires existing authorized Linux Python3.9.18 + SQLite3.53.4')
-    nginx = args.nginx.resolve(strict=True)
-    version = subprocess.run([str(nginx),'-V'],capture_output=True,text=True,timeout=5)
-    if 'nginx/1.26.1' not in version.stderr or '--with-http_auth_request_module' not in version.stderr or '--with-http_ssl_module' not in version.stderr:
+    nginx=args.nginx.resolve(strict=True)
+    openssl=args.openssl.resolve(strict=True)
+    version=subprocess.run([str(nginx),'-V'],capture_output=True,text=True,timeout=5)
+    if (version.returncode or 'nginx/1.26.1' not in version.stderr
+            or '--with-http_auth_request_module' not in version.stderr
+            or '--with-http_ssl_module' not in version.stderr):
         raise ValueError('requires existing Nginx1.26.1 auth_request + ssl modules')
-    if not args.openssl: raise ValueError('existing openssl path required; no dependency install')
-    output = args.output.resolve()
-    if output.exists(): raise ValueError('fresh QA receipt path required')
-    children=[]; handles=[]; worker_logs=[]; checks=[]; receipt={'status':'RUNNING','synthetic_only':True,'production_write':False,'old43plus4_rerun':False,
-        'source_commit':SOURCE_COMMIT,'source_manifest_sha256':SOURCE_MANIFEST_SHA,
-        'runtime_subtree':RUNTIME_SUBTREE,'driver_sha256':sha(__file__),
-        'driver_commit':os.environ.get('DRIVER_COMMIT'),
-        'production_nginx_verified':False,'production_ready':False,
-        'python':sys.version,'sqlite':sqlite3.sqlite_version,
-        'kernel':os.uname().release,'nginx':'1.26.1','source_modified':False}
-    deadline = time.monotonic()+120
-    def check(name,condition):
-        if not condition: raise AssertionError(name)
-        checks.append(name)
+    output=args.output.resolve()
+    if output.exists():raise ValueError('fresh QA receipt path required')
+    contract=validate_contract_plan()
+    receipt={'status':'RUNNING','synthetic_only':True,'production_write':False,
+             'old43plus4_rerun':False,'source_commit':SOURCE_COMMIT,
+             'source_manifest_sha256':SOURCE_MANIFEST_SHA,'runtime_subtree':RUNTIME_SUBTREE,
+             'driver_sha256':sha(__file__),'driver_commit':os.environ.get('DRIVER_COMMIT'),
+             'production_nginx_verified':False,'production_ready':False,
+             'production_systemd_or_real_roles_verified':False,'source_modified':False,
+             'python':sys.version,'sqlite':sqlite3.sqlite_version,'nginx':'1.26.1',
+             'kernel':os.uname().release,'recovery_sha256':release['recovery']['sha256'],
+             'source_pre_sha256':release['verified_file_sha256'],**contract,
+             'receipt_policy':'No cookie values, token hashes, CSRF values, request/response bodies or raw logs',
+             'session_tracking':'Exact HTTP-issued tokens retained in named in-memory jars; logout never substitutes fixture tokens',
+             'QA_projection':['synthetic data, credentials and local TLS certificate',
+                              'owned loopback sockets and finite route allowlist',
+                              'runtime path/native-policy loader mapping and isolated store boundary',
+                              'sanitized per-request header/method/URI observers',
+                              'fixed minimal Nginx fixture without live includes; not production Nginx']}
+    deadline=time.monotonic()+120
+    children=[];handles=[];worker_logs=[];sockets={};state={}
+    ctx={'sessions':{'anonymous':{},'old-FC':{'fc27sess':'synthetic-old'},
+                     'forged':{'MMOEXP_AUTH':'synthetic-forged'}},'csrf':{},'requests':{}}
+    tmp=tempfile.TemporaryDirectory(prefix='fs-registration-seamqa-')
+    scratch=Path(tmp.name);os.chmod(scratch,0o700)
+    data=scratch/'fs-registration-data';data.mkdir(mode=0o700)
+    (scratch/'board').mkdir()
+    (scratch/'login.html').write_text('Synthetic native login template',encoding='utf-8')
+    (scratch/'status.html').write_text('Synthetic native status {{USER}}',encoding='utf-8')
+    (scratch/'analysis.json').write_text('{"synthetic":true}',encoding='utf-8')
+    (scratch/'board-seed.json').write_text(json.dumps({'groups':[],'depts':[],'tasks':[],
+        'members':[{'username':'oldreader','role':'editor','displayName':'Synthetic reader'}]}),encoding='utf-8')
+    tracefile=scratch/'trace.jsonl';tracefile.touch(mode=0o600)
+    for name in ('portal','fc','board','http','https','blocked'):sockets[name]=port_socket()
+    ports={name:sock.getsockname()[1] for name,sock in sockets.items()}
+    db=data/'registration-approval/registration.sqlite3'
+    anchor=data/'.registration-checkpoint/state.json'
+    moved=db.with_suffix('.unavailable-QA')
+    env={key:value for key,value in os.environ.items() if key in ('PATH','LD_LIBRARY_PATH','LANG','LC_ALL','TMPDIR')}
+    env.update({'HOME':str(scratch),'AUTH_DATA_DIR':str(data),
+        'AUTH_SECRET':'Synthetic-secret-for-isolated-seam-QA',
+        'AUTH_GROUPS':'dashboard='+str(scratch/'synthetic-members'),'AUTH_COOKIE_SECURE':'1',
+        'AUTH_TEMPLATE':str(scratch/'login.html'),'AUTH_STATUS_TEMPLATE':str(scratch/'status.html'),
+        'AUTH_PORT':str(ports['portal']),'AUTH_BIND':'127.0.0.1',
+        'FC27_PORT':str(ports['fc']),'FC27_DB':str(scratch/'never-create-old-FC.sqlite3'),
+        'FC27_ANALYSIS':str(scratch/'analysis.json'),'TASKBOARD_PORT':str(ports['board']),
+        'TASKBOARD_BIND':'127.0.0.1','TASKBOARD_DATA':str(scratch/'board'),
+        'TASKBOARD_SEED':str(scratch/'board-seed.json'),'TASKBOARD_QUIET':'1',
+        'FS_QA_TRACE':str(tracefile),'FS_QA_PORTAL_PORT':str(ports['portal']),
+        'PYTHONDONTWRITEBYTECODE':'1'})
+
+    def remaining(cap=5):
+        left=deadline-time.monotonic()
+        if left<=0:raise TimeoutError('bounded QA execution deadline')
+        return min(cap,left)
+    def start(kind,secure=True):
+        key='portal' if kind=='recovery' else kind
+        log=scratch/(kind+'-'+str(len(worker_logs))+'.log')
+        handle=open(log,'wb');handles.append(handle)
+        child=subprocess.Popen([sys.executable,'-I','-B',str(Path(__file__).resolve()),
+            '--source-root',str(root),'--worker',kind,'--fd',str(sockets[key].fileno())],
+            env=dict(env,AUTH_COOKIE_SECURE='1' if secure else '0'),stdout=handle,stderr=handle,
+            pass_fds=(sockets[key].fileno(),),start_new_session=True)
+        children.append(child);worker_logs.append(log)
+        return child
     def stop(child):
         if child.poll() is None:
-            try: os.killpg(child.pid,signal.SIGTERM)
-            except ProcessLookupError: pass
-            try: child.wait(timeout=5)
+            try:os.killpg(child.pid,signal.SIGTERM)
+            except ProcessLookupError:pass
+            try:child.wait(timeout=remaining())
             except subprocess.TimeoutExpired:
-                try: os.killpg(child.pid,signal.SIGKILL)
-                except ProcessLookupError: pass
-                child.wait(timeout=5)
-    with tempfile.TemporaryDirectory(prefix='fs-registration-seamqa-') as temp:
-        scratch=Path(temp); os.chmod(scratch,0o700)
-        data=scratch/'fs-registration-data';data.mkdir(mode=0o700)
-        (scratch/'empty-web').mkdir();(scratch/'board').mkdir()
-        (scratch/'login.html').write_text('Synthetic native login template',encoding='utf-8')
-        (scratch/'analysis.json').write_text('{"synthetic":true}',encoding='utf-8')
-        (scratch/'board-seed.json').write_text(json.dumps({'groups':[],'depts':[],'tasks':[],
-            'members':[{'username':'oldreader','role':'editor','displayName':'Synthetic reader'}]}),encoding='utf-8')
-        tracefile=scratch/'trace.jsonl';tracefile.touch(mode=0o600)
-        sockets={name:port_socket() for name in ('portal','fc','board','http','https','blocked')}
-        ports={name:s.getsockname()[1] for name,s in sockets.items()}
-        env={k:v for k,v in os.environ.items() if k in ('PATH','LD_LIBRARY_PATH','LANG','LC_ALL','TMPDIR')}
-        env.update({'AUTH_DATA_DIR':str(data),'AUTH_SECRET':'Synthetic-secret-for-isolated-seam-QA',
-            'AUTH_GROUPS':'dashboard='+str(scratch/'synthetic-members'),'AUTH_COOKIE_SECURE':'1',
-            'AUTH_TEMPLATE':str(scratch/'login.html'),'AUTH_PORT':str(ports['portal']),
-            'AUTH_BIND':'127.0.0.1','FC27_PORT':str(ports['fc']),'FC27_DB':str(scratch/'never-create-old-FC.sqlite3'),
-            'FC27_ANALYSIS':str(scratch/'analysis.json'),'TASKBOARD_PORT':str(ports['board']),
-            'TASKBOARD_BIND':'127.0.0.1','TASKBOARD_DATA':str(scratch/'board'),
-            'TASKBOARD_SEED':str(scratch/'board-seed.json'),
-            'FS_QA_TRACE':str(tracefile),'FS_QA_PORTAL_PORT':str(ports['portal']),'PYTHONDONTWRITEBYTECODE':'1'})
-        def start(kind, secure=True):
-            log=scratch/(kind+'-'+str(len(children))+'.log')
-            handle=open(log,'wb'); handles.append(handle)
-            childenv=dict(env,AUTH_COOKIE_SECURE='1' if secure else '0')
-            child=subprocess.Popen([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--source-root',str(root),
-                '--worker',kind,'--fd',str(sockets['portal' if kind=='recovery' else kind].fileno())],env=childenv,
-                stdout=handle,stderr=handle,pass_fds=(sockets['portal' if kind=='recovery' else kind].fileno(),),start_new_session=True)
-            children.append(child);worker_logs.append(log); return child
-        old_handlers={sig:signal.getsignal(sig) for sig in (signal.SIGTERM,signal.SIGINT)}
-        def terminated(signum,frame):
-            raise TimeoutError('owned QA controller termination requested')
-        for sig in old_handlers:signal.signal(sig,terminated)
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                child.wait(timeout=remaining())
+    def owned_listener(child,port):
+        if child.poll() is not None:return False
+        descriptors=[]
+        for path in Path('/proc/%d/fd'%child.pid).iterdir():
+            try:descriptors.append(os.readlink(path))
+            except OSError:pass
+        for line in Path('/proc/net/tcp').read_text().splitlines()[1:]:
+            fields=line.split()
+            if (int(fields[1].split(':')[1],16)==port and fields[3]=='0A'
+                    and 'socket:['+fields[9]+']' in descriptors):return True
+        return False
+    def ready(child,port):
+        until=time.monotonic()+remaining(8)
+        while time.monotonic()<until:
+            if owned_listener(child,port):return
+            if child.poll() is not None:raise RuntimeError('owned QA service failed startup')
+            time.sleep(0.025)
+        raise TimeoutError('owned QA service readiness deadline')
+    def storage_hashes():return (sha(db),sha(anchor))
+    ctx['storage_hashes']=storage_hashes
+    ctx['trace_offset']=lambda:tracefile.stat().st_size
+    def trace_check(row,offset):
+        with tracefile.open('r',encoding='utf-8') as stream:
+            stream.seek(offset)
+            records=[json.loads(line) for line in stream if line.strip()]
+        method=row['method'];uri=row['path'];mode=row['trace_check']
+        verified=[r for r in records if r.get('kind')=='verify' and r.get('method')==method and r.get('uri')==uri]
+        wire=[r for r in records if r.get('kind')=='portal-verify-wire' and r.get('method')==method and r.get('uri')==uri]
+        if mode=='verifier-unavailable':return any(r.get('status')==503 for r in wire)
+        if mode=='actual-method':return any(r.get('status')==403 for r in wire) and any(r.get('status')==403 for r in verified)
+        inputs=[r for r in records if r.get('kind')=='board-input' and r.get('method')==method
+                and r.get('path')==uri[len('/dashboard/tasks'):]]
+        if mode=='admin-overwrite':
+            name=row['session'].split('.',1)[1]
+            return any(r.get('status')==200 and r.get('role')=='admin' for r in verified) and any(
+                r.get('user')==name and r.get('role')=='admin'
+                and 'deploy' in (r.get('groups') or '').split(',')
+                and 'forged' not in (r.get('groups') or '').split(',') for r in inputs)
+        if mode=='registered-overwrite':
+            return any(r.get('status')==200 and r.get('role')=='readonly' for r in verified) and any(
+                re.fullmatch(r'reg:[a-f0-9-]{36}',r.get('user') or '') and r.get('role')=='readonly'
+                and 'deploy' not in (r.get('groups') or '').split(',')
+                and 'forged' not in (r.get('groups') or '').split(',') for r in inputs)
+        raise ValueError('unknown trace assertion')
+    ctx['trace_check']=trace_check
+    context=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname=False;context.verify_mode=ssl.CERT_NONE
+    allowed={(r['service'],r['path'],r['method']) for r in CONTRACT_PLAN if r['operation']=='http'}
+    def transport(service,path,method,jar,headers,body):
+        if (service,path,method) not in allowed:raise ValueError('request outside finite contract routes')
+        target={'access':'https','edge':'https','http':'http'}.get(service,service)
+        public='/__auth'+path if service=='access' else path
+        timeout=remaining(3)
+        conn=(http.client.HTTPSConnection('127.0.0.1',ports[target],context=context,timeout=timeout)
+              if target=='https' else http.client.HTTPConnection('127.0.0.1',ports[target],timeout=timeout))
+        values={'Host':'47.85.224.112','Cookie':'; '.join(key+'='+value for key,value in jar.items()),'Connection':'close'}
+        values.update(headers)
         try:
-            missing=start('portal');check('missing-store process exits before listen',missing.wait(timeout=5)!=0)
-            check('missing-store boot never first-initializes',not (data/'registration-approval').exists() and not (data/'.registration-checkpoint').exists())
-            previous=dict(os.environ);os.environ.clear();os.environ.update(env)
-            portal,runtime,policy=load_candidate(root,'portal')
-            encoded=portal.apr1_md5(PASSWORD,'qa123456')
-            (scratch/'synthetic-members').write_text('\n'.join(n+':'+encoded for n in (*policy.ADMINS,'oldreader'))+'\n',encoding='utf-8')
-            runtime.RuntimeStore.initialize_fresh(data,portal,isolated=True)
-            store,adapter,app=runtime.build(data,portal,ORIGIN,isolated=True)
-            native={n:adapter.native_login(n,PASSWORD)[0] for n in (*policy.ADMINS,'oldreader')}
-            _,proof=adapter.native_login('fstech',PASSWORD)
-            request=store.register('newreader',PASSWORD,'QA','Synthetic seam fixture')
-            store.decide(proof,request['request_id'],0,'approve','Synthetic seam approval')
-            registered,_=store.login('newreader',PASSWORD)
-            os.environ.clear();os.environ.update(previous)
-            insecure=start('portal',False);check('insecure-cookie process exits before listen',insecure.wait(timeout=5)!=0)
-            portal_child=start('portal');fc_child=start('fc');board_child=start('board')
-            def owned_listener(child,port):
-                if child.poll() is not None:return False
-                fds=[]
-                for p in Path('/proc/%d/fd'%child.pid).iterdir():
-                    try:fds.append(os.readlink(p))
-                    except OSError:pass
-                for line in Path('/proc/net/tcp').read_text().splitlines()[1:]:
-                    fields=line.split()
-                    if int(fields[1].split(':')[1],16)==port and fields[3]=='0A' and 'socket:['+fields[9]+']' in fds:return True
-                return False
-            def ready(child,port):
-                while time.monotonic()<deadline:
-                    if owned_listener(child,port):return
-                    if child.poll() is not None:raise RuntimeError('owned QA service failed to start')
-                    time.sleep(0.05)
-                raise TimeoutError('bounded QA startup deadline')
-            for child,name in ((portal_child,'portal'),(fc_child,'fc'),(board_child,'board')):ready(child,ports[name])
-            cert=subprocess.run([str(args.openssl), 'req','-x509','-newkey','rsa:2048','-nodes','-days','1',
+            conn.request(method,public,body=body,headers=values)
+            response=conn.getresponse();payload=response.read(1048577)
+            if len(payload)>1048576:raise ValueError('response exceeds bounded allowance')
+            pairs=response.getheaders()
+            try:document=json.loads(payload)
+            except (ValueError,UnicodeError):document=None
+            return {'status':response.status,'pairs':pairs,'body':payload,'json':document}
+        finally:conn.close()
+
+    def action(row):
+        op=row['operation'];facts={};ok=False
+        if op=='missing-store':
+            child=start('portal');code=child.wait(timeout=remaining())
+            text=worker_logs[-1].read_text(encoding='utf-8',errors='replace')
+            ok=(code!=0 and 'FileNotFoundError' in text and 'registration-approval' in text
+                and not (data/'registration-approval').exists() and not (data/'.registration-checkpoint').exists())
+            facts={'returncode':code,'never_initialized':not (data/'registration-approval').exists()}
+        elif op=='initialize':
+            previous=dict(os.environ)
+            try:
+                os.environ.clear();os.environ.update(env)
+                portal,runtime,policy=load_candidate(root,'portal')
+                if tuple(sorted(policy.ADMINS))!=ADMINS:raise ValueError('frozen native admin list differs')
+                encoded=portal.apr1_md5(PASSWORD,'qa123456')
+                (scratch/'synthetic-members').write_text('\n'.join(name+':'+encoded for name in (*ADMINS,'oldreader'))+'\n',encoding='utf-8')
+                runtime.RuntimeStore.initialize_fresh(data,portal,isolated=True)
+                store,adapter,app=runtime.build(data,portal,ORIGIN,isolated=True)
+                state.update(portal=portal,runtime=runtime,store=store,adapter=adapter)
+                ctx['native_cookie']=portal.CFG['cookie'];ctx['registered_cookie']=runtime.core.COOKIE
+                for name in (*ADMINS,'oldreader'):
+                    token,_=adapter.native_login(name,PASSWORD)
+                    ctx['sessions']['native.'+name]={portal.CFG['cookie']:token}
+                ctx['sessions']['invalid']={runtime.core.COOKIE:'synthetic-invalid-session'}
+                ctx['sessions']['expired-native']={portal.CFG['cookie']:portal.make_token('fstech',['dashboard'],-60)}
+                ok=True
+            finally:os.environ.clear();os.environ.update(previous)
+        elif op=='insecure-cookie':
+            child=start('portal',False);code=child.wait(timeout=remaining())
+            text=worker_logs[-1].read_text(encoding='utf-8',errors='replace')
+            ok=code!=0 and 'HTTPS runtime refuses insecure native cookie configuration' in text
+            facts={'returncode':code}
+        elif op=='services':
+            for name in ('portal','fc','board'):
+                state[name+'_child']=start(name);ready(state[name+'_child'],ports[name])
+            ok=True
+        elif op=='tls':
+            result=subprocess.run([str(openssl),'req','-x509','-newkey','rsa:2048','-nodes','-days','1',
                 '-subj','/CN=synthetic.invalid','-keyout',str(scratch/'key.pem'),'-out',str(scratch/'cert.pem')],
-                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
-            check('synthetic TLS fixture created',cert.returncode==0)
-            config=synthetic_nginx(scratch,ports); configfile=scratch/'nginx.conf';configfile.write_text(config,encoding='utf-8')
-            parsed=subprocess.run([str(nginx),'-e','stderr','-p',str(scratch)+'/', '-c',str(configfile),'-t'],
-                capture_output=True,timeout=10)
-            check('synthetic fixture native Nginx parse',parsed.returncode==0)
-            receipt['synthetic_fixture_sha256']=NGINX_FIXTURE_SHA;receipt['QA_projection_sha256']=sha(configfile)
+                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=remaining(10))
+            ok=result.returncode==0
+        elif op=='nginx':
+            config=synthetic_nginx(scratch,ports);configfile=scratch/'nginx.conf'
+            configfile.write_text(config,encoding='utf-8')
+            result=subprocess.run([str(nginx),'-e','stderr','-p',str(scratch)+'/', '-c',str(configfile),'-t'],
+                                  capture_output=True,timeout=remaining(10))
+            if result.returncode:return {'ok':False,'facts':{'native_parse_returncode':result.returncode}}
+            receipt.update(synthetic_fixture_sha256=NGINX_FIXTURE_SHA,QA_projection_sha256=sha(configfile),
+                           synthetic_nginx_parse_performed=True)
             sockets['http'].close();sockets['https'].close()
             handle=open(scratch/'nginx.log','wb');handles.append(handle)
-            proxy=subprocess.Popen([str(nginx),'-e','stderr','-p',str(scratch)+'/', '-c',str(configfile)],
-                stdout=handle,stderr=handle,start_new_session=True);children.append(proxy)
-            ready(proxy,ports['http']);ready(proxy,ports['https'])
-            context=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);context.check_hostname=False;context.verify_mode=ssl.CERT_NONE
-            def request_http(path,method='GET',cookie='',headers=None,tls=True,port=None):
-                if time.monotonic()>deadline:raise TimeoutError('bounded QA request deadline')
-                if path not in ('/__auth/access/','/__auth/access/api/bootstrap',SESSION_READ_URI,SESSION_REJECT_URI,
-                                '/dashboard/tasks/api/members','/fc27/verify','/fc27/analysis','/api/session','/__auth/logout'):
-                    raise ValueError('request outside finite synthetic route allowlist')
-                target=port or ports['https' if tls else 'http']
-                conn=http.client.HTTPSConnection('127.0.0.1',target,context=context,timeout=3) if tls else http.client.HTTPConnection('127.0.0.1',target,timeout=3)
-                values={'Host':'47.85.224.112','Cookie':cookie};values.update(headers or {})
-                try:
-                    conn.request(method,path,headers=values);response=conn.getresponse();body=response.read(1048576)
-                    return response.status,dict(response.getheaders()),body
-                finally:conn.close()
-            status,headers,_=request_http('/__auth/access/',tls=False)
-            check('HTTP auth entry 308 fixed HTTPS',status==308 and headers.get('Location')==ORIGIN+'/__auth/access/')
-            check('HTTPS access static200',request_http('/__auth/access/')[0]==200)
-            check('legacy GET logout confirmation only',request_http('/__auth/logout')[0]==302)
-            check('legacy POST logout rejected',request_http('/__auth/logout','POST')[0]==405)
-            status,headers,_=request_http(SESSION_READ_URI)
-            check('no-cookie business redirects new access entry',status==302 and '/__auth/access/' in headers.get('Location',''))
-            for name in policy.ADMINS:
-                cookie=portal.CFG['cookie']+'='+native[name]
-                status,_,body=request_http(SESSION_READ_URI,cookie=cookie,
-                    headers={'X-Auth-User':'forged','X-Auth-Role':'readonly','X-Auth-Groups':'forged'})
-                viewer=json.loads(body)['viewer'] if status==200 else {}
-                check('real Nginx four-admin '+name,status==200 and viewer.get('role')=='admin' and viewer.get('user')==name)
-            status,_,body=request_http(SESSION_READ_URI,cookie=portal.CFG['cookie']+'='+native['oldreader'])
-            check('native readonly keeps existing board editor',status==200 and json.loads(body)['viewer']['role']=='editor')
-            cookie=runtime.core.COOKIE+'='+registered
-            status,_,body=request_http(SESSION_READ_URI,cookie=cookie)
-            positive={'case':'allowed-query','uri':SESSION_READ_URI,'status':status,'role':None}
-            receipt['registered_readonly_probes']=[positive]
-            if status==200:positive['role']=json.loads(body)['viewer']['role']
-            check('registered readonly real taskboard viewer',status==200 and positive['role']=='viewer')
-            status,_,body=request_http(SESSION_REJECT_URI,cookie=cookie)
-            negative={'case':'forbidden-query','uri':SESSION_REJECT_URI,'status':status,'role':None}
-            receipt['registered_readonly_probes'].append(negative)
-            if status==200:negative['role']=json.loads(body)['viewer']['role']
-            check('registered readonly forbidden query rejected',status==403)
-            check('readonly actual POST denied',request_http('/dashboard/tasks/api/members','POST',cookie)[0]==403)
-            check('direct forged board headers denied',request_http('/api/session',headers={'X-Auth-User':'fstech','X-Auth-Role':'admin'},tls=False,port=ports['board'])[0]==401)
-            check('oldFC cookie retired',request_http('/fc27/verify',cookie='fc27sess=synthetic-old')[0]==401)
-            check('sensitive FC analysis readonly denied',request_http('/fc27/analysis',cookie=cookie)[0]==401)
-            check('FC analysis valid admin preserved',request_http('/fc27/analysis',cookie=portal.CFG['cookie']+'='+native['fstech'])[0]==200)
-            rows=[json.loads(line) for line in tracefile.read_text().splitlines()]
-            check('Nginx user role groups overwrite client',any(row.get('kind')=='board-input' and row.get('user')=='fstech' and row.get('role')=='admin' and 'deploy' in (row.get('groups') or '').split(',') for row in rows))
-            check('actual method and URI reach verifier',any(row.get('kind')=='verify' and row.get('method')=='POST' and row.get('uri')=='/dashboard/tasks/api/members' and row.get('status')==403 for row in rows))
-            db=data/'registration-approval/registration.sqlite3';anchor=data/'.registration-checkpoint/state.json'
-            moved=db.with_suffix('.unavailable-QA');db.rename(moved)
-            try:
-                status=request_http(SESSION_READ_URI,cookie=cookie)[0]
-                observed=[json.loads(line) for line in tracefile.read_text().splitlines()]
-                check('actual verifier503 fails closed through Nginx',status>=500 and any(row.get('kind')=='portal-verify-wire' and row.get('status')==503 for row in observed))
-            finally:moved.rename(db)
-            stop(portal_child)
-            store.decide(proof,request['request_id'],1,'revoke','Synthetic seam revoke')
-            session,csrf=store.new_session(legacy_user=proof.user)
-            check('synthetic native logout fixture',app.dispatch('POST','/api/logout',cookies={runtime.core.COOKIE:session,portal.CFG['cookie']:native['fstech']},body=b'{}',headers={'Origin':ORIGIN,'X-CSRF-Token':csrf,'Content-Type':'application/json'})[0]==200)
-            before=(sha(db),sha(anchor));recovery=start('recovery');ready(recovery,ports['portal'])
-            for label,old in (('native',portal.CFG['cookie']+'='+native['fstech']),('registered',cookie)):
-                status,headers,_=request_http(SESSION_READ_URI,cookie=old)
-                check('recovery old '+label+' token denied',status==302 and '/__auth/access/' in headers.get('Location',''))
-            check('recovery access bootstrap503',request_http('/__auth/access/api/bootstrap')[0]==503)
-            check('recovery retained exact latest DB + witness',before==(sha(db),sha(anchor)))
-            check('FC old identity DB never created',not (scratch/'never-create-old-FC.sqlite3').exists())
-            workers=[json.loads(log.read_text(encoding='utf-8').splitlines()[0]) for log in worker_logs]
-            check('all6 actual Python workers report target39 + SQLite3534',len(workers)==6 and all(row['python']=='3.9.18' and row['sqlite']=='3.53.4' for row in workers))
-            receipt['actual_worker_receipts']=workers
-            check('source inputs unchanged after integration',verify_inputs(root)==release)
-            receipt.update(status='PASS',checks=checks,source_modified=False,
-                recovery_sha256=release['recovery']['sha256'],production_ready=False,
-                production_systemd_or_real_roles_verified=False,
-                QA_projection=['synthetic-only data/credentials/cert','owned loopback sockets and port remap',
-                    'runtime path + native-policy loader mapping','isolated store boundary',
-                    'header observer without cookies','minimal synthetic Nginx route fixture; no live includes',
-                    'owned QA log/pid/temp paths + worker UID'])
-        except Exception as exc:
-            receipt.update(status='FAIL',checks=checks,error_type=type(exc).__name__,error=str(exc))
-        finally:
-            # Ignore repeated termination only during bounded owned-group cleanup.
-            for sig in old_handlers:signal.signal(sig,signal.SIG_IGN)
-            receipt['all_owned_children_reaped']=reap_owned(children)
-            for stream in handles:stream.close()
+            child=subprocess.Popen([str(nginx),'-e','stderr','-p',str(scratch)+'/', '-c',str(configfile)],
+                                   stdout=handle,stderr=handle,start_new_session=True)
+            children.append(child);state['nginx_child']=child
+            ready(child,ports['http']);ready(child,ports['https']);ok=True
+        elif op=='native-token-distinction':
+            key=ctx['native_cookie']
+            values=[ctx['sessions'][name][key] for name in ('http.admin','http.independent','native.fstech')]
+            ok=len(set(values))==3
+            facts={'distinct_exact_native_sessions':len(set(values))}
+        elif op=='expired-fixtures':
+            store=state['store'];runtime=state['runtime']
+            token=ctx['sessions']['reg.primary'][ctx['registered_cookie']]
+            session=store.session(token);state['registered_uid']=session['user_id']
+            state['registered_epoch_before_revoke']=session['epoch']
+            expired,_=store.new_session(uid=session['user_id'])
+            with store.transaction() as connection:
+                connection.execute('UPDATE sessions SET expires=? WHERE token_hash=?',
+                                   (store.now()-60,runtime.core.digest(expired)))
+            ctx['sessions']['expired-registered']={ctx['registered_cookie']:expired};ok=True
+        elif op=='registered-session-distinction':
+            key=ctx['registered_cookie']
+            values=[ctx['sessions'][name][key] for name in ('reg.primary','reg.logout','reg.multi')]
+            ok=len(set(values))==3
+            facts={'distinct_exact_registered_sessions':len(set(values))}
+        elif op=='db-hide':
+            state['before_db_loss']=storage_hashes();db.rename(moved);ok=not db.exists() and moved.is_file()
+        elif op=='db-not-recreated':ok=not db.exists() and moved.is_file()
+        elif op=='db-restore':
+            if moved.exists():
+                if db.exists():raise ValueError('unexpected synthetic DB recreation; refusing overwrite')
+                moved.rename(db)
+            ok=state.get('before_db_loss')==storage_hashes()
+            facts={'database_and_witness_unchanged':ok}
+        elif op=='account-revoke-epoch':
+            store=state['store'];uid=state['registered_uid']
+            with store.connection() as connection:
+                user=connection.execute('SELECT epoch,state FROM users WHERE id=?',(uid,)).fetchone()
+                count=connection.execute('SELECT COUNT(*) FROM sessions WHERE user_id=?',(uid,)).fetchone()[0]
+            ok=user['state']=='revoked' and user['epoch']==state['registered_epoch_before_revoke']+1 and count==0
+            facts={'epoch_advanced_once':user['epoch']==state['registered_epoch_before_revoke']+1,
+                   'registered_sessions_remaining':count}
+        elif op=='recovery-start':
+            stop(state['portal_child']);state['recovery_before']=storage_hashes()
+            child=start('recovery');state['recovery_child']=child;ready(child,ports['portal']);ok=True
+            receipt['recovery_retained_before']={'db_sha256':state['recovery_before'][0],'witness_sha256':state['recovery_before'][1]}
+        elif op=='recovery-retention':
+            current=storage_hashes();ok=current==state['recovery_before']
+            receipt['recovery_retained_after']={'db_sha256':current[0],'witness_sha256':current[1]}
+        elif op=='upstream-stop':stop(state['recovery_child']);ok=state['recovery_child'].poll() is not None
+        elif op=='old-fc-db-absent':ok=not (scratch/'never-create-old-FC.sqlite3').exists()
+        elif op=='worker-versions':
+            workers=[json.loads(path.read_text(encoding='utf-8').splitlines()[0]) for path in worker_logs]
+            kinds=[r.get('worker') for r in workers]
+            ok=(len(workers)==6 and kinds==['portal','portal','portal','fc','board','recovery']
+                and all(r.get('python')=='3.9.18' and r.get('sqlite')=='3.53.4' for r in workers))
+            receipt['actual_worker_receipts']=workers;facts={'actual_python_workers':len(workers)}
+        elif op=='source-post':
+            # Shared total Git budget, leaving time to emit a failure receipt
+            # inside the workflow's 15-second post-TERM kill grace.
+            receipt['source_pre_post_unchanged']=False
+            receipt['source_modified']=None
+            verified=verify_inputs(root,deadline=time.monotonic()+5.0);ok=verified==release
+            receipt['source_pre_post_unchanged']=ok;receipt['source_modified']=not ok
+            receipt['source_post_sha256']=verified['verified_file_sha256']
+        elif op=='owned-cleanup':
+            ok=reap_owned(children)
+            for handle in handles:handle.close()
             for sock in sockets.values():sock.close()
-            receipt['all_owned_children_reaped']=all(child.poll() is not None for child in children)
+            receipt['all_owned_children_reaped']=ok
             receipt['child_returncodes']=[child.returncode for child in children]
-            try:
-                receipt['source_pre_post_unchanged'] = verify_inputs(root) == release
-                if not receipt['source_pre_post_unchanged']:
-                    receipt.update(status='FAIL',error_type='SourceDrift',source_modified=True)
-            except Exception as exc:
-                receipt.update(status='FAIL',error_type=type(exc).__name__,source_modified=True)
-            if not receipt['all_owned_children_reaped']:
-                receipt.update(status='FAIL',error_type='CleanupIncomplete')
-            for sig,handler in old_handlers.items():signal.signal(sig,handler)
-    receipt['synthetic_temp_cleaned']=True
+        elif op=='temp-cleanup':
+            tmp.cleanup();ok=not scratch.exists();receipt['synthetic_temp_cleaned']=ok
+        else:raise ValueError('unrecognized local contract action')
+        return {'ok':bool(ok),'facts':facts}
+
+    actions={row['operation']:action for row in CONTRACT_PLAN if row['operation']!='http'}
+    runner=ContractRunner(transport,actions,ctx,deadline)
+    old_handlers={sig:signal.getsignal(sig) for sig in (signal.SIGTERM,signal.SIGINT,signal.SIGALRM)}
+    def terminated(signum,frame):raise ControllerTermination('owned controller deadline/termination')
+    for sig in old_handlers:signal.signal(sig,terminated)
+    signal.alarm(120)
+    try:
+        runner.execute()
+    except BaseException as exc:
+        receipt['controller_error_type']=type(exc).__name__
+    finally:
+        signal.alarm(0)
+        for sig in old_handlers:signal.signal(sig,signal.SIG_IGN)
+        # Reap owned processes before potentially slow source verification.
+        runner.perform(next(row for row in CONTRACT_PLAN if row['id']=='owned-cleanup'))
+        # Restore only the owned synthetic fixture after its workers are stopped.
+        if moved.exists() and not db.exists():
+            try:moved.rename(db)
+            except OSError:receipt['synthetic_db_restore_failed']=True
+        for name in ('source-post','temp-cleanup'):
+            row=next(row for row in CONTRACT_PLAN if row['id']==name)
+            runner.perform(row)
+        runner.finish_unrecorded('controller terminated before scheduled case')
+        for sig,handler in old_handlers.items():signal.signal(sig,handler)
+    receipt['checks']=runner.results
+    receipt['summary']={key:sum(row['outcome']==key for row in runner.results) for key in ('PASS','FAIL','BLOCKED','NOT_RUN')}
+    receipt['summary']['total']=len(runner.results)
+    receipt['status']='PASS' if (len(runner.results)==len(CONTRACT_PLAN)
+        and all(row['outcome']=='PASS' for row in runner.results) and 'controller_error_type' not in receipt) else 'FAIL'
     output.write_text(json.dumps(receipt,indent=2)+'\n',encoding='utf-8')
-    print(json.dumps({'status':receipt['status'],'checks':len(checks),'receipt':str(output),
-                      'production_write':False,'43plus4_rerun':False}))
+    print(json.dumps({'status':receipt['status'],'summary':receipt['summary'],'receipt':str(output),
+                      'production_write':False,'43plus4_rerun':False,'production_ready':False}))
     return 0 if receipt['status']=='PASS' else 1
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--source-root',type=Path)
     parser.add_argument('--nginx',type=Path)
@@ -697,11 +1326,9 @@ if __name__ == '__main__':
     mode.add_argument('--worker',choices=('portal','recovery','fc','board'))
     parser.add_argument('--fd',type=int)
     args=parser.parse_args()
-    if args.driver_check:
-        sys.exit(driver_check())
+    if args.driver_check:sys.exit(driver_check())
     elif args.worker:
-        if args.source_root is None or args.fd is None:
-            parser.error('worker requires source-root and an owned fd')
+        if args.source_root is None or args.fd is None:parser.error('worker requires source-root and an owned fd')
         verify_inputs(args.source_root)
         worker(args.source_root,args.worker,args.fd)
     else:
