@@ -1,0 +1,17 @@
+# Review-only server{} snippets. Replace example.invalid and __AUTH_PORTAL_PORT__.
+# Merge into the existing protected configuration; preserve unrelated directives.
+location = /__auth { return 301 /__auth/access/; }
+location /__auth/ {
+    if ($scheme = http) { return 308 https://example.invalid$request_uri; }
+    proxy_pass http://127.0.0.1:__AUTH_PORTAL_PORT__/;
+    # Preserve existing proxy headers, timeouts and navigation-filter directives.
+}
+location @auth_login {
+    return 302 /__auth/access/?next=$request_uri;
+}
+location @auth_noperm {
+    return 302 /__auth/access/?err=noperm&next=$request_uri;
+}
+location @fc27_login {
+    return 302 /__auth/access/?next=$request_uri;
+}

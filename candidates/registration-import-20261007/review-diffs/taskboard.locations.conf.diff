@@ -1,0 +1,21 @@
+--- /etc/nginx/taskboard.locations.conf.before
++++ /etc/nginx/taskboard.locations.conf
+@@ -23,6 +23,8 @@
+ 
+     auth_request /__auth_verify;
+     auth_request_set $auth_user $upstream_http_x_auth_user;
++    auth_request_set $registration_taskboard_role $upstream_http_x_auth_role;
++    auth_request_set $registration_taskboard_groups $upstream_http_x_auth_groups;
+     error_page 401 = @auth_login;
+ 
+     # 前缀替换：/dashboard/tasks/api/board  ->  /api/board
+@@ -34,7 +36,8 @@
+ 
+     # ★ 身份唯一来源：用已登录用户名覆盖客户端传来的同名字头
+     proxy_set_header X-Auth-User $auth_user;
+-    proxy_set_header X-Auth-Groups $upstream_http_x_auth_groups;
++    proxy_set_header X-Auth-Groups $registration_taskboard_groups;
++    proxy_set_header X-Auth-Role $registration_taskboard_role;
+ 
+     proxy_pass_request_body on;
+     proxy_read_timeout 30s;

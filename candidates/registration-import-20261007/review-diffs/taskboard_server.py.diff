@@ -1,0 +1,65 @@
+--- /opt/mmoexp-taskboard/taskboard_server.py.before
++++ /opt/mmoexp-taskboard/taskboard_server.py
+@@ -717,6 +717,36 @@
+ 
+ # --------------------------------------------------------------------------- HTTP
+ 
++def _registration_verified_identity(handler):
++    """Verify independently so direct clients cannot create identity with headers."""
++    import http.client
++    connection = http.client.HTTPConnection('127.0.0.1', 8895, timeout=3)
++    # Derive public URI from actual backend path; never trust client originals.
++    public = '/dashboard/tasks' + handler.path
++    try:
++        connection.request('GET', '/verify', headers={
++            'Cookie': handler.headers.get('Cookie', ''),
++            'X-Original-Method': handler.command,
++            'X-Original-URI': public})
++        response = connection.getresponse()
++        subject = response.getheader('X-Auth-User')
++        verified_role = response.getheader('X-Auth-Role')
++        response.read()
++        if response.status != 200:
++            raise ApiError(503 if response.status >= 500 else response.status,
++                           'global verification unavailable' if response.status >= 500 else 'access denied')
++        if not subject or verified_role not in ('admin', 'readonly'):
++            raise ApiError(503, 'invalid verification response')
++        if any(handler.headers.get(name) not in (None, value) for name, value in
++               (('X-Auth-User', subject), ('X-Auth-Role', verified_role))):
++            raise ApiError(403, 'identity header conflict')
++        return subject, verified_role
++    except (OSError, http.client.HTTPException):
++        raise ApiError(503, 'global verification unavailable') from None
++    finally:
++        connection.close()
++
++
+ class Handler(BaseHTTPRequestHandler):
+     server_version = "MMOEXPTaskboard/" + VERSION
+     protocol_version = "HTTP/1.1"
+@@ -748,12 +778,12 @@
+         self._json(code, {"error": message, "detail": detail})
+ 
+     def _ctx(self) -> Ctx:
+-        user = (self.headers.get("X-Auth-User") or "").strip()
++        user, verified_role = _registration_verified_identity(self)
+         ip = (self.headers.get("X-Real-IP") or self.client_address[0] or "")
+         ua = self.headers.get("User-Agent") or ""
+         conn = db_connect()
+         try:
+-            role, registered = member_state(conn, user)
++            role, registered = _registration_member(conn, user, verified_role)
+             return Ctx(user, role, ip, ua, registered)
+         finally:
+             conn.close()
+@@ -916,6 +946,10 @@
+     if "--selftest" in argv:
+         return selftest()
+ 
++    sys.path.insert(0, '/opt/auth-portal/registration-runtime/20261007-ca6258ad')
++    from consumer_seams import install_taskboard as _registration_install_taskboard
++    import native_access_policy as _registration_policy
++    _registration_install_taskboard(sys.modules[__name__], _registration_policy)
+     info = init_db()
+     log("任务台服务启动 version=%s db=%s" % (VERSION, CFG["db"]))
+     log("初始化：%s" % json.dumps(info, ensure_ascii=False))

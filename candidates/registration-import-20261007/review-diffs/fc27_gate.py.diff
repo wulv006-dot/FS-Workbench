@@ -1,0 +1,17 @@
+--- /opt/fc27-gate/fc27_gate.py.before
++++ /opt/fc27-gate/fc27_gate.py
+@@ -935,9 +935,11 @@
+ 
+ 
+ def main():
+-    init_db()
+-    purge_expired()
+-    threading.Thread(target=janitor, daemon=True).start()
++    # Independent FC identity is retired; do not initialize/sync/purge its DB.
++    sys.path.insert(0, '/opt/auth-portal/registration-runtime/20261007-ca6258ad')
++    from consumer_seams import install_fc as _registration_install_fc
++    import native_access_policy as _registration_policy
++    _registration_install_fc(sys.modules[__name__], _registration_policy)
+     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+     srv.daemon_threads = True
+     print("[+] FC27 门禁服务已启动 http://127.0.0.1:%d  DB=%s" % (PORT, DB_PATH))

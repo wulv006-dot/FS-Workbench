@@ -1,0 +1,50 @@
+{
+  "status": "PREPARED_NOT_RUN",
+  "created_utc": "2026-10-07T03:22:55.735445+00:00",
+  "entrypoint": "linux_delta_entry.py",
+  "thin_payload_files": [
+    {
+      "path": "linux_delta_entry.py",
+      "bytes": 26145,
+      "sha256": "aa37ce503cc23fbead8a0867f4e37a9ad75f36dd5bb0e7b9fd7de19149598a24"
+    },
+    {
+      "path": "EXECUTE.md",
+      "bytes": 3205,
+      "sha256": "cc7e8d20dab0f852e2f0de322f30d1f3dcc4990009169662dd5f252036fcec79"
+    }
+  ],
+  "required_existing_reviewed_input_manifest_sha256": "722757c03619bd0bc2d33301782ee38f31d0d993243b9b7465b89c6fdba5f1ed",
+  "candidate21_content_set_sha256": "45254c1e33afc9481f45da65ea90ef14c88c560ac51c4852b2be3b377f2226a3",
+  "recovery_sha256": "8d24b5c11179100b2cb8672dacc5d858596fe5d5b7b392ac76ebe234f573ff5e",
+  "static_candidate_review": {
+    "path": "D:\\codex\\2026-10-05\\task-5\\registration-release-delta-review-20261007\\REVIEW.md",
+    "sha256": "b192748b6b4234c11ffae10ccecc9a5c336693428eedc3bb9d234c9c21e688a9",
+    "verdict": "PASS_STATIC_ONLY",
+    "not_Linux_or_new_QA_runner_execution": true
+  },
+  "preparation_check": {
+    "path": "preparation-check.json",
+    "sha256": "45dccddd7454f4b248d077def4a770eed3983bd7b988a3df11ca2171f64df183"
+  },
+  "requires_existing_authorized_QA": {
+    "platform": "Linux",
+    "python": "3.9.18",
+    "sqlite": "3.53.4",
+    "nginx": "1.26.1 + compatible modules",
+    "openssl": "existing binary",
+    "reviewed_inputs": "existing approved47 input root; never fetch production source"
+  },
+  "QA_workers": {
+    "actual_Python_processes": 6,
+    "actual_Nginx_process_group": 1,
+    "sockets": "owned loopback only",
+    "bound_seconds": 120,
+    "source_files_modified": false
+  },
+  "production_or_Git_write": false,
+  "new_workflow_or_dependency_install": false,
+  "Linux_execution": false,
+  "original43plus4_rerun": false,
+  "original_denied_QA_upload_replayed": false
+}

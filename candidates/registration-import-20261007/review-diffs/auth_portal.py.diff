@@ -1,0 +1,17 @@
+--- /opt/auth-portal/auth_portal.py.before
++++ /opt/auth-portal/auth_portal.py
+@@ -762,6 +762,14 @@
+ 
+     os.makedirs(CFG["data_dir"], exist_ok=True)
+ 
++    # Frozen registration runtime: explicit existing-store boot, never first-init.
++    _registration_root = '/opt/auth-portal/registration-runtime/20261007-ca6258ad'
++    if not os.path.isdir(_registration_root):
++        raise RuntimeError('registration runtime missing; refusing listener')
++    sys.path.insert(0, _registration_root)
++    from portal_bridge import install as _registration_install
++    _registration_install(sys.modules[__name__], 'https://47.85.224.112')
++
+     srv = ThreadingHTTPServer((CFG["bind"], CFG["port"]), Handler)
+     srv.daemon_threads = True
+     log("auth-portal v%s 启动 bind=%s:%d prefix=%s 组=%s secure_cookie=%s"

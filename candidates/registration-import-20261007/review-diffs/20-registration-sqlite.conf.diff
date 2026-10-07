@@ -1,0 +1,5 @@
+--- /dev/null
++++ /etc/systemd/system/auth-portal.service.d/20-registration-sqlite.conf
+@@ -0,0 +1,2 @@
++[Service]
++Environment="LD_LIBRARY_PATH=/opt/auth-portal/registration-runtime-deps/sqlite-3.53.4/lib"

@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "candidate": "registration-import-20261007",
+  "branch": "registration-import",
+  "status": "SOURCE_REVIEW_CANDIDATE",
+  "releaseReady": false,
+  "baseMainCommit": "c9389a51de16e6bc42c18be5155df9f935e421f1",
+  "baseMainTree": "b265456b23a61ab1856d7e8d1953f65f9f7a7c2c",
+  "approvedUploadFileCount": 20,
+  "inputManifests": {
+    "review": {
+      "name": "review-input-manifest.json",
+      "sha256": "722757c03619bd0bc2d33301782ee38f31d0d993243b9b7465b89c6fdba5f1ed"
+    },
+    "overlay": {
+      "name": "qa-overlay/overlay-manifest.json",
+      "sha256": "ebc763e44e588c53d3925d2ac10a0e25113650e963274b06c3b2777e280ccef9"
+    }
+  },
+  "dependency": {
+    "path": "registration_approval_runtime_v3_20261006",
+    "gitTree": "790c5ec62472c12950e6652c5b3c4760a36df7f2",
+    "copiedIntoCommit": false,
+    "sourceFilesVerified": [
+      {
+        "path": "registration_approval_runtime_v3_20261006/consumer_seams.py",
+        "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+        "gitBlobSha": "734e3d7387909ca6df66c9b543da2c9b64c8a826",
+        "size": 4857
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/portal_bridge.py",
+        "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+        "gitBlobSha": "22820573d6a0141c5837680d36c45e6e9fc316d6",
+        "size": 7466
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/route-contract.json",
+        "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b",
+        "gitBlobSha": "772d8abcd89b663bc8d392aede67440cdf250251",
+        "size": 3825
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/runtime.py",
+        "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+        "gitBlobSha": "ca6e7f82b8805320a62aac3a40be39ac4b2bdbb0",
+        "size": 12958
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/storage_checkpoint.py",
+        "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+        "gitBlobSha": "65e4aedfb1032f7d11af0beac68590bb1f845754",
+        "size": 1869
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/auth_candidate.py",
+        "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+        "gitBlobSha": "c06ff108989d6adf05f2fb033e47c162f00aefbc",
+        "size": 28877
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_access_policy.py",
+        "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+        "gitBlobSha": "026ae12ff671d1cbbd94f01b96b7ae169dba2355",
+        "size": 1269
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_integration.py",
+        "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+        "gitBlobSha": "153db519ae6cac45dfb66abf017a2bdbefccf98e",
+        "size": 10041
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py",
+        "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+        "gitBlobSha": "b573f8cff226315dbc4949359df4b28f0c98a417",
+        "size": 5741
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py",
+        "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+        "gitBlobSha": "79dab08fa330706a485109ac5ccc13df35351b83",
+        "size": 825
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/vendor/schema_contract.py",
+        "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+        "gitBlobSha": "ee654b7d480759e5b60ad0530babc4836067d78b",
+        "size": 2719
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/web/access.css",
+        "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+        "gitBlobSha": "1f77e03d86eedd21bedbc900763e6c27d1de9dd4",
+        "size": 1065
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/web/app.js",
+        "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+        "gitBlobSha": "9670d5d4d908f32261eca84da04fcefb44497984",
+        "size": 4654
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/web/base.css",
+        "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+        "gitBlobSha": "1f2d31c72edad5d4b580230441cbe83594d3afd6",
+        "size": 7581
+      },
+      {
+        "path": "registration_approval_runtime_v3_20261006/web/index.html",
+        "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+        "gitBlobSha": "0eb030a708fd645389c7c50401a6905511fd1ed7",
+        "size": 4089
+      }
+    ]
+  },
+  "verification": {
+    "windowsSyntheticDelta": {
+      "tests": 7,
+      "passed": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "sourceBytesUnchanged": true,
+      "command": "python -B -m unittest discover -s tests/registration-import-20261007 -p test_release_delta.py -v"
+    },
+    "linuxOrProductionAcceptance": false
+  },
+  "credentialReview": {
+    "portalEnvironmentOnly": true,
+    "suspectedHardcodedValues": "selftest synthetic fixtures; not deployment credentials; values omitted",
+    "testPasswordsAndCookies": "synthetic fixtures"
+  },
+  "excluded": [
+    "live-config",
+    "full live configurations",
+    "passwords",
+    "real Cookies",
+    "keys",
+    "account databases",
+    "real business data",
+    "archives",
+    "runtime duplication",
+    "generated test outputs"
+  ],
+  "ownerScope": {
+    "portal": "吴律主导；陈超参与",
+    "FC": "吴律",
+    "taskboard": "待指派；本导入不推定业务owner或接管"
+  },
+  "files": [
+    {
+      "path": "candidates/registration-import-20261007/README.md",
+      "bytes": 2100,
+      "sha256": "61dcbc06214cba4eda1c3ba1cde650c95a6473a42c015502dca402ab9b1ec49a",
+      "gitBlobSha1": "333396de429c4cd5f7cfbf500231ccd2f440bd29",
+      "source": "generated redacted template or README",
+      "transformation": "new reviewed documentation/template"
+    },
+    {
+      "path": "candidates/registration-import-20261007/config/nginx/iggm-web.registration.conf.example",
+      "bytes": 688,
+      "sha256": "0df270ce2a2ee59394a7878cbf87c3d8fee3429862693b9e2c09ead2486eb181",
+      "gitBlobSha1": "934a2537ff830d4fea4c58d3d3a616cfeed0d25b",
+      "source": "generated redacted template or README",
+      "transformation": "new reviewed documentation/template"
+    },
+    {
+      "path": "candidates/registration-import-20261007/config/nginx/taskboard-registration-headers.conf.example",
+      "bytes": 591,
+      "sha256": "62a48a89c1c6cb7fe5d665eed8938cacd4fbc6f45f168b83223b8e4772aaa6b0",
+      "gitBlobSha1": "15c22f500105b95b0d981e432156d67daa4fecba",
+      "source": "generated redacted template or README",
+      "transformation": "new reviewed documentation/template"
+    },
+    {
+      "path": "candidates/registration-import-20261007/config/systemd/auth-portal.service.d/20-registration-sqlite.conf.example",
+      "bytes": 150,
+      "sha256": "6c229bb9e19b804accde72fea3d8c4a82180d5e59daf1d159088b653b13d4af6",
+      "gitBlobSha1": "207371018991c8c1b8cae3f502a161f327cdbf71",
+      "source": "generated redacted template or README",
+      "transformation": "new reviewed documentation/template"
+    },
+    {
+      "path": "candidates/registration-import-20261007/formal/auth_portal.py",
+      "bytes": 29095,
+      "sha256": "6b00046a56b6292086f715df3e52fa247093ea1415375313e3b821d98b101baf",
+      "gitBlobSha1": "78bfd8ee9c105697285fa686bd936615508babe0",
+      "source": "payload/opt/auth-portal/auth_portal.py",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/formal/fc27_gate.py",
+      "bytes": 40559,
+      "sha256": "e4dfc447fb1fdeeb0c363b90a69fdbd1626466f85590d7b287b9cc6d65e16c7f",
+      "gitBlobSha1": "95d28f171d834b0e124f4472f86c6e85a268231b",
+      "source": "payload/opt/fc27-gate/fc27_gate.py",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/formal/taskboard_server.py",
+      "bytes": 42629,
+      "sha256": "ade6ea26fb7443f688692a52ab3949cae325b48586d6923b122c21395d018034",
+      "gitBlobSha1": "fc71484586c833d5933524baace47d41467bd89f",
+      "source": "payload/opt/mmoexp-taskboard/taskboard_server.py",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/recovery/auth_portal.py",
+      "bytes": 29371,
+      "sha256": "8d24b5c11179100b2cb8672dacc5d858596fe5d5b7b392ac76ebe234f573ff5e",
+      "gitBlobSha1": "57e702ff3e4decd031bc633574cf4e89791ab3d9",
+      "source": "recovery/opt/auth-portal/auth_portal.py",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/20-registration-sqlite.conf.diff",
+      "bytes": 212,
+      "sha256": "5fdb3c48b1d695d279176aec2ef08127579ce704eb46bb8636ef71b7c576a850",
+      "gitBlobSha1": "fdf76c10c1409ff9f160ac38d6f7c7da76e0dd49",
+      "source": "diffs/20-registration-sqlite.conf.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/auth_portal-recovery.py.diff",
+      "bytes": 861,
+      "sha256": "5feee03e59455e75bdb00ee7d33bf91820637a7411b5be7c287aadf94b6954df",
+      "gitBlobSha1": "b3786c519b4f19c36e4d1d8aab36501271f8ea72",
+      "source": "diffs/auth_portal-recovery.py.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/auth_portal.py.diff",
+      "bytes": 827,
+      "sha256": "d90626ddba48a9953f68a04a1e007d7c584b4490fd29b5423044785c4f07d15b",
+      "gitBlobSha1": "fd3dcf190636c467bb6913ae4c823c65c083f2e1",
+      "source": "diffs/auth_portal.py.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/fc27_gate.py.diff",
+      "bytes": 769,
+      "sha256": "2a55082a5b54f8d990ac0722ac8c8af87846e47a73856528362004b952f7194d",
+      "gitBlobSha1": "5ce81d0f02a5fffcd894ee19e1c4cd6f9da9d5ef",
+      "source": "diffs/fc27_gate.py.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/iggm-web.conf.diff",
+      "bytes": 1622,
+      "sha256": "e7a41196034b7574113042403d917cab495266f867146f631d2d5f3d7c9965f4",
+      "gitBlobSha1": "8632c2b60226b9c4be8d0cb7b960ef593f9a2a43",
+      "source": "diffs/iggm-web.conf.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/taskboard.locations.conf.diff",
+      "bytes": 905,
+      "sha256": "13856b63931ee51e34c66f13fd2620fa5f3086957fca9fa3b1b49a39bcfd8b22",
+      "gitBlobSha1": "5a8a2d256b36b31ec852209ddb2677ba225dae15",
+      "source": "diffs/taskboard.locations.conf.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "candidates/registration-import-20261007/review-diffs/taskboard_server.py.diff",
+      "bytes": 3157,
+      "sha256": "7b2bc2d5253dd9be10e9807f97dfce49ede1db7e6bf9e47e0e53b77cf9f45db9",
+      "gitBlobSha1": "c90d8bcb821d83a6b7ea424f521e60d66d2545b5",
+      "source": "diffs/taskboard_server.py.diff",
+      "transformation": "none"
+    },
+    {
+      "path": "tests/registration-import-20261007/EXECUTE.md",
+      "bytes": 3205,
+      "sha256": "cc7e8d20dab0f852e2f0de322f30d1f3dcc4990009169662dd5f252036fcec79",
+      "gitBlobSha1": "d0ad166926efb5d7779dff0d3a32a1950203ea5e",
+      "source": "qa-overlay/EXECUTE.md",
+      "transformation": "none"
+    },
+    {
+      "path": "tests/registration-import-20261007/linux_delta_entry.py",
+      "bytes": 26145,
+      "sha256": "aa37ce503cc23fbead8a0867f4e37a9ad75f36dd5bb0e7b9fd7de19149598a24",
+      "gitBlobSha1": "e76f060c2969d0ac37a9a8501e49a1eae0bf8fe5",
+      "source": "qa-overlay/linux_delta_entry.py",
+      "transformation": "none"
+    },
+    {
+      "path": "tests/registration-import-20261007/overlay-manifest.json",
+      "bytes": 1942,
+      "sha256": "ebc763e44e588c53d3925d2ac10a0e25113650e963274b06c3b2777e280ccef9",
+      "gitBlobSha1": "eb333920a4eb356b563d10b2f4d8c7b2c4c9a5e9",
+      "source": "qa-overlay/overlay-manifest.json",
+      "transformation": "none"
+    },
+    {
+      "path": "tests/registration-import-20261007/test_release_delta.py",
+      "bytes": 13514,
+      "sha256": "796558d27912d6fb87050d11b6a6a15c314d8adbbd5d121841d097e4901dc23f",
+      "gitBlobSha1": "0a4e6f9bdd01360985a77ad1a68fac10cb9c3b16",
+      "source": "test_release_delta.py",
+      "transformation": "repository-relative paths only",
+      "sourceSha256": "410d786988c0ac14ca40a8e27f623dbae59eb818ecdf5fc15e95d53b04396bab"
+    }
+  ],
+  "manifestSelfHash": "excluded to avoid recursion; provided in upload readback receipt",
+  "nextStep": "老D按本manifest复核候选，再沿已有合法隔离QA路径继续；不代表merge或生产批准"
+}

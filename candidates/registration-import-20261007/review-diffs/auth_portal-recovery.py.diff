@@ -1,0 +1,14 @@
+--- /opt/auth-portal/auth_portal.py.formal-candidate
++++ /opt/auth-portal/auth_portal.py.compatible-recovery
+@@ -768,7 +768,10 @@
+         raise RuntimeError('registration runtime missing; refusing listener')
+     sys.path.insert(0, _registration_root)
+     from portal_bridge import install as _registration_install
+-    _registration_install(sys.modules[__name__], 'https://47.85.224.112')
++    _registration_store, _registration_adapter, _registration_app = _registration_install(sys.modules[__name__], 'https://47.85.224.112')
++    def _registration_recovery_dispatch(*args, **kwargs):
++        return 503, {'error': 'registration maintenance; retained revocation state'}, {}
++    _registration_app.dispatch = _registration_recovery_dispatch
+ 
+     srv = ThreadingHTTPServer((CFG["bind"], CFG["port"]), Handler)
+     srv.daemon_threads = True

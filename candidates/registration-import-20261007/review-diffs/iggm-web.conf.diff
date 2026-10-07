@@ -1,0 +1,37 @@
+--- /etc/nginx/conf.d/iggm-web.conf.before
++++ /etc/nginx/conf.d/iggm-web.conf
+@@ -42,8 +42,9 @@
+     # 统一登录门户：HTML 登录页 + 签名 Cookie 会话，替代 Basic Auth 原生弹窗。
+     # 2026-09-30 正式切换完成：全站 10 处业务入口已由 auth_basic 改为 auth_request，
+     # 浏览器原生密码框不再出现；未登录访问任何入口一律 302 回本登录页。
+-    location = /__auth { return 301 /__auth/login; }
++    location = /__auth { return 301 /__auth/access/; }
+     location /__auth/ {
++        if ($scheme = http) { return 308 https://47.85.224.112$request_uri; }
+         # server 级 sub_filter 会往每个 </body> 注入全站导航条；
+         # 登录页是独立门面，这里用同值替换覆盖掉注入，保持页面干净。
+         sub_filter "</body>" "</body>";
+@@ -85,12 +86,12 @@
+ 
+     # 未登录 / 会话过期 -> 回登录页并记住原地址
+     location @auth_login {
+-        return 302 /__auth/login?next=$request_uri;
++        return 302 /__auth/access/?next=$request_uri;
+     }
+ 
+     # 已登录但无该模块权限 -> 回登录页并说明原因
+     location @auth_noperm {
+-        return 302 /__auth/login?err=noperm&next=$request_uri;
++        return 302 /__auth/access/?err=noperm&next=$request_uri;
+     }
+     # <<< auth-portal <<<
+     # >>> nav-formal-analytics-20261006 >>>
+@@ -296,7 +297,7 @@
+     }
+ 
+     location @fc27_login {
+-        return 302 /fc27/login?next=$request_uri;
++        return 302 /__auth/access/?next=$request_uri;
+     }
+ 
+     location = /__fc27_verify {
