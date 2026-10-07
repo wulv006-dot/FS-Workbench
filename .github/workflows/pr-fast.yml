@@ -35,8 +35,9 @@ jobs:
           git diff --name-only -z "$PR_BASE" "$PR_HEAD" > "$RUNNER_TEMP/pr-paths"
           QA_PYTHON="${{ steps.python.outputs.python-path }}"
           QA_LIBRARY="$(dirname "$QA_PYTHON")/../lib"
+          QA_NODE_DIR="$(dirname "$(command -v node)")"
           sudo unshare --net -- bash -c '
             set -euo pipefail
             ip link set lo up
-            exec env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
-          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD"
+            exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
+          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR"

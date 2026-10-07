@@ -53,7 +53,7 @@ def select(paths):
     for name in paths:
         suffix=Path(name).suffix
         if suffix not in (".py",".js",".cjs",".sh"):continue
-        if name.startswith("tools/pr_fast"):groups.update(("self","engine","supersession","players","rpg","aion","nba"))
+        if name.startswith("tools/pr_fast"):groups.update(("self","engine","supersession","players","rpg","aion","nba","fc-control"))
         elif name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
