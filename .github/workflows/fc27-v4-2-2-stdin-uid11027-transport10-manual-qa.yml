@@ -1,0 +1,62 @@
+{
+  "name": "FC v4.2.2 bounded stdin Python3.9.18 UID11027 transport10",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "Confirm existing free Actions quota; zero paid spend. Only new stdin transport10; no historical57/41/11.",
+          "required": true,
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "fc-v4-2-2-bounded-stdin-native-uid11027",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "native_uid11027_transport10": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed == true }}",
+      "runs-on": "ubuntu-22.04",
+      "timeout-minutes": 7,
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "steps": [
+        {
+          "name": "Checkout immutable reviewed stdin repair",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "a08af482b3a63f674d732919d2e20864019bbd72",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Select registered Ubuntu22.04 x64 Python3.9.18",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false
+          }
+        },
+        {
+          "name": "Verify frozen inputs and actual nonroot stdin transport10",
+          "shell": "bash",
+          "run": "set -euo pipefail\nQA_PYTHON=\"${{ steps.python.outputs.python-path }}\"\nQA_LIBRARY=\"$(dirname \"$QA_PYTHON\")/../lib\"\nset +e\nsudo env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH=\"$QA_LIBRARY\" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \"$QA_PYTHON\" -I -B - \"$GITHUB_WORKSPACE\" \"$RUNNER_TEMP/fc422-transport-result.json\" > \"$RUNNER_TEMP/fc422-transport.log\" 2>&1 <<'PY'\nimport ast,hashlib,json,os,platform,subprocess,sys\nfrom pathlib import Path\nrepo=Path(sys.argv[1]).resolve();out=Path(sys.argv[2])\nroot=repo/'candidates/fc-coins/player-supersession-20261007-v4-2-2'\nassert sys.platform=='linux' and platform.machine()=='x86_64'\nassert sys.version_info[:3]==(3,9,18) and os.geteuid()==0 and os.getegid()==0\nrelease=dict(l.split('=',1) for l in Path('/etc/os-release').read_text().splitlines() if '=' in l)\nassert release['ID'].strip('\"')=='ubuntu' and release['VERSION_ID'].strip('\"')=='22.04'\ndef git(ref):return subprocess.check_output(['git','-c','safe.directory='+str(repo),'-C',str(repo),'rev-parse',ref],text=True).strip()\nassert git('HEAD')=='a08af482b3a63f674d732919d2e20864019bbd72' and git('HEAD^{tree}')=='32cc6c7d0df88b323d47d14bcbf9926e397fa545'\ndigest=lambda raw:hashlib.sha256(raw).hexdigest()\nraw=(root/'GIT-INPUT-MANIFEST.json').read_bytes();assert digest(raw)=='696e6bed121542298d989be80d0e19aa659007cf79f7774556dfe7de8f429af8'\nmanifest=json.loads(raw);assert len(manifest['files'])==28\nnames=set(manifest['files'])|{'GIT-INPUT-MANIFEST.json'}\nassert {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}==names\nbefore={}\nfor name in sorted(names):\n file=root/name\n assert file.is_file() and not file.is_symlink() and file.stat().st_nlink==1\n before[name]=digest(file.read_bytes())\n if name!='GIT-INPUT-MANIFEST.json':assert before[name]==manifest['files'][name],name\nassert before['source/SOURCE-MANIFEST.json']=='42f4151547e2d96a3e7b7331b2bb69a59e9496a03590b29d6d47166ac60fcde4'\nassert before['source/runner.py']=='c896137f14cea2bbdfc4f50d3b091090962f3664de8e39274f221f9f9a3bbaee'\nassert before['source/launch.py']=='874c0f6efba568a4068bb3fe9a4e3bde97189efe0ece166ed2b0aed1f72fc4d3'\nfor file in root.rglob('*.py'):ast.parse(file.read_text(encoding='utf-8'),feature_version=(3,9))\nprint(json.dumps({'phase':'before','head':git('HEAD'),'tree':git('HEAD^{tree}'),'python':sys.version,\n 'uid':os.geteuid(),'gid':os.getegid(),'os':'ubuntu-22.04-x64','candidate_files_verified':len(before),\n 'input_manifest_sha256':digest(raw),'source_manifest_sha256':before['source/SOURCE-MANIFEST.json'],\n 'runner_sha256':before['source/runner.py'],'production_access':False},sort_keys=True))\nresult=subprocess.run([sys.executable,'-I','-B',str(root/'stdin_transport_qa.py'),'--source-root',str(root/'source')],capture_output=True,text=True,timeout=150)\nprint(result.stdout,end='');print(result.stderr,end='',file=sys.stderr)\nassert result.returncode==0,'transport_qa_failed'\nreport=json.loads(result.stdout)\nassert report['status']=='stdin_transport_qa_passed' and report['checks_passed']==10\nassert len(report['checks'])==10 and len(set(report['checks']))==10\nassert report['mode']=='native_uid11027' and report['fixed_image_tested'] is False\nassert report['recipient_identity']['uid']==11027 and report['recipient_identity']['gid']==11027\nassert set(report['recipient_identity']['groups'])=={11027,11028}\nassert report['business_posts']==0 and report['http_requests']==0 and report['secret_contents_read'] is False\nassert report['full_runtime_preflight_completed'] is False\nafter={name:digest((root/name).read_bytes()) for name in names}\nassert before==after and {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}==names\nsummary={'phase':'after','head':git('HEAD'),'tree':git('HEAD^{tree}'),'python':platform.python_version(),\n 'checks_passed':10,'failed':0,'skipped':0,'all_frozen_inputs_unchanged':True,'report':report,\n 'input_manifest_sha256':digest(raw),'source_manifest_sha256':before['source/SOURCE-MANIFEST.json'],\n 'runner_sha256':before['source/runner.py'],'production_fixed_image_tested':False,\n 'old57_rerun':False,'old41_rerun':False,'old11_rerun':False}\nout.write_text(json.dumps(summary,sort_keys=True,indent=2)+'\\n',encoding='utf-8')\nprint(json.dumps(summary,sort_keys=True))\nPY\nqa_status=$?\nset -e\ncat \"$RUNNER_TEMP/fc422-transport.log\"\nif [ -f \"$RUNNER_TEMP/fc422-transport-result.json\" ]; then cat \"$RUNNER_TEMP/fc422-transport-result.json\"; fi\nexit \"$qa_status\"\n"
+        }
+      ]
+    }
+  }
+}
