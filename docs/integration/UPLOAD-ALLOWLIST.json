@@ -1,14 +1,14 @@
 {
-  "revision": "profit-endpoint-owner-metadata-main412ae068-20261007",
-  "status": "exact combined Git tree; owner encoding corrected; PR10 workflow and FC/registration base preserved; no production canonical adoption",
+  "revision": "profit-endpoint-reviewed-two-existing-publisher-20261007",
+  "status": "exact combined Git tree; unchanged business90 source/test bytes; clean synthetic publisher support added; not production canonical adoption",
   "releaseReady": false,
   "manifestSelfExclusions": [
     "docs/integration/UPLOAD-ALLOWLIST.json",
     "docs/provenance/UPLOAD-ALLOWLIST.json"
   ],
-  "contentFiles": 422,
-  "contentBytes": 13054176,
-  "contentSetSha256": "d04f4d9d3bf4d3d1419670a9c8faf4ea65c60aba1be9cdacd6151fc49ea492de",
+  "contentFiles": 425,
+  "contentBytes": 13083718,
+  "contentSetSha256": "b527c8dc6886be1d09660249db0030e44beba6136aa218095641540ed5b64326",
   "files": [
     {
       "path": ".github/workflows/fc27-reconcile-v3-manual-qa.yml",
@@ -226,6 +226,27 @@
       "sha256": "5b01d2a26d1313f9d4cb7bd33fcb83f9aa9964483c9ff0a026c555f3915f7926",
       "gitMode": "100644",
       "gitBlobSha1": "f0412933417a516e795ab0185c656ad53e8fd66e"
+    },
+    {
+      "path": "candidates/business-snapshot/order-endpoint-padding-publisher-20261007/INPUT-MANIFEST.json",
+      "bytes": 748,
+      "sha256": "5bdeb05a6d6239b8e3da4187d717b16c7114b32951e68b6fba23892aaa93c562",
+      "gitMode": "100644",
+      "gitBlobSha1": "5bc64c5bda73bf1cb31043ddb0a65c36be3bc286"
+    },
+    {
+      "path": "candidates/business-snapshot/order-endpoint-padding-publisher-20261007/release_profit_backend.py",
+      "bytes": 18977,
+      "sha256": "c90b62caaa5c6eeb05e782282a944b32946f54c914d4a7e1ee919f31c0b086b0",
+      "gitMode": "100644",
+      "gitBlobSha1": "6dda1ffd75d276c2e2d68a6bcd53d390fa393cc3"
+    },
+    {
+      "path": "candidates/business-snapshot/order-endpoint-padding-publisher-20261007/test_backend_release.py",
+      "bytes": 9817,
+      "sha256": "337efe0f4c8cc80d6b841105469bafa5fbc75128cc7a97875b66c3c05dbd832f",
+      "gitMode": "100644",
+      "gitBlobSha1": "c68cb37e60086d5740cf0d08fdd02b8af05cecbd"
     },
     {
       "path": "candidates/fc-coins/player-readonly-reconcile-20261006-v3/CANDIDATE-MANIFEST.json",

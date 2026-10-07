@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Exact reviewed two-existing-file publisher and synthetic temporary-root tests; not a production release manifest",
+  "files": [
+    {
+      "path": "release_profit_backend.py",
+      "bytes": 18977,
+      "sha256": "c90b62caaa5c6eeb05e782282a944b32946f54c914d4a7e1ee919f31c0b086b0"
+    },
+    {
+      "path": "test_backend_release.py",
+      "bytes": 9817,
+      "sha256": "337efe0f4c8cc80d6b841105469bafa5fbc75128cc7a97875b66c3c05dbd832f"
+    }
+  ],
+  "selfExcluded": [
+    "INPUT-MANIFEST.json"
+  ],
+  "testEntry": "python -B -m unittest -v test_backend_release",
+  "expectedTestMethods": 23,
+  "syntheticOnly": true,
+  "liveInputsIncluded": false,
+  "productionWritesByQa": false,
+  "releaseReady": false
+}
