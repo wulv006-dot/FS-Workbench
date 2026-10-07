@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "status": "PREPARED_NOT_INTEGRATION_RUN",
+  "source_commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+  "source_manifest_path": "candidates/registration-import-20261007/candidate-manifest.json",
+  "source_manifest_sha256": "6a1391e26013415e1f1f68d858ce25715e47ee6e56f83c2a9ec726713ec8aef0",
+  "runtime_subtree": "790c5ec62472c12950e6652c5b3c4760a36df7f2",
+  "manifest_candidate_files": 19,
+  "manifest_file_separate": 1,
+  "runtime_dependencies": 15,
+  "derived_from_entry_sha256": "aa37ce503cc23fbead8a0867f4e37a9ad75f36dd5bb0e7b9fd7de19149598a24",
+  "synthetic_fixture_bytes": 2747,
+  "synthetic_fixture_sha256": "938d71023c1179f30b69959e011a12d22479655187a7e123cd03eb7b0191c2fc",
+  "files": [
+    {
+      "path": "linux_delta_entry.py",
+      "bytes": 43103,
+      "sha256": "dff356e2ed0cb9dbc99cb54d217f6e7b0beb271446f1bb4a1261c8f9368c18c9"
+    },
+    {
+      "path": "EXECUTE.md",
+      "bytes": 4154,
+      "sha256": "6eb0f026cf921e5d9503920bf9399634949dd0bffb7fc2dfa424bda1a487bb64"
+    }
+  ],
+  "workflow_path": ".github/workflows/registration-target39-manual-qa.yml",
+  "workflow_sha256": "845015d9b428a05bae8baf16930906d6d17b4dc1295056316ea7d43176d92650",
+  "baseline_main": "06263cbab5febe138d32c68b42c78aa192ea32a8",
+  "required_environment": {
+    "platform": "Linux",
+    "python": "3.9.18",
+    "sqlite": "3.53.4",
+    "nginx": "1.26.1"
+  },
+  "nginx_official_commit": "02725ce722bc7b34fa307d611eac3956ef744efa",
+  "driver_check": "Static AST/manifest/fixture/workflow controls only; no source checkout or candidate import",
+  "main_deadline_seconds": 120,
+  "outer_cleanup_grace_seconds": 15,
+  "runtime43plus4_rerun": false,
+  "seven_delta_unit_tests_rerun": false,
+  "production_nginx_verified": false,
+  "production_ready": false,
+  "integration_executed": false,
+  "manifest_self_hash": "Provided in external five-path inventory; excluded here to avoid recursion",
+  "integration_namespace": "network loopback-only + PID/fork/mount-proc/kill-child lifecycle; runner UID/GID"
+}
