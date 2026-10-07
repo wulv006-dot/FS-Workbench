@@ -1,0 +1,62 @@
+{
+  "name": "FC reconcile v3 manual native QA",
+  "run-name": "FC v3 fixed690af346 / manual native QA",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "free_quota_confirmed": {
+          "description": "Root verified existing free Actions quota; do not run if unverified",
+          "type": "boolean",
+          "required": true,
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "fc-reconcile-v3-manual-qa",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "native-qa": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed }}",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 10,
+      "steps": [
+        {
+          "name": "Checkout fixed reviewed PR7 commit",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "690af346c58f5eee6a7741c90d5091eed478c2e8",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          }
+        },
+        {
+          "name": "Setup official Python3.9.25; not production3.9.18",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.25",
+            "architecture": "x64",
+            "check-latest": false
+          }
+        },
+        {
+          "name": "Real root native suite;76 tests and zero skip required",
+          "shell": "bash",
+          "env": {
+            "QA_PYTHON": "${{ steps.python.outputs.python-path }}"
+          },
+          "run": "set -euo pipefail\n[[ \"$QA_PYTHON\" = /* && -x \"$QA_PYTHON\" ]]\n[[ \"$(git rev-parse HEAD)\" = \"690af346c58f5eee6a7741c90d5091eed478c2e8\" ]]\n[[ \"$(git rev-parse 'HEAD^{tree}')\" = \"8144281e57c2b5ccf1d0c8064c36c3f82de708d6\" ]]\nsudo -n -- \"$QA_PYTHON\" -B - <<'PY'\nimport hashlib,json,os,platform,sys,tempfile,unittest\nfrom pathlib import Path\nif os.name != 'posix' or os.getuid() != 0 or os.geteuid() != 0 or os.getgid() != 0:\n    raise SystemExit('existing real Linux uid/gid0 required')\nif sys.version_info[:3] != (3,9,25):\n    raise SystemExit('QA interpreter must be3.9.25; production3.9.18 remains unverified')\nroot=Path.cwd()\nsource=root/'candidates/fc-coins/player-readonly-reconcile-20261006-v3'\nmanifest=(source/'CANDIDATE-MANIFEST.json').read_bytes()\nif hashlib.sha256(manifest).hexdigest() != 'faec9cd57bd866d5e433afef17bb61c5d550864a8a70f031e31c7effaa41ff8e':\n    raise SystemExit('candidate manifest mismatch')\ninputs=json.loads(manifest)['files']\nif len(inputs) != 14:\n    raise SystemExit('expected14 frozen inputs')\nguide=root/'docs/planning/fc27-player-readonly-reconcile-v3-20261006/README.md'\nif hashlib.sha256(guide.read_bytes()).hexdigest() != '6ed5628223ba4a2b771ddcdcb42bee66f03198a9529b1b676c85caf89a9b067e':\n    raise SystemExit('sixteenth payload file mismatch')\nos.umask(0o077)\nqa=Path(tempfile.mkdtemp(prefix='fc27-readback-v3-qa-',dir='/tmp'))\n(qa/'CANDIDATE-MANIFEST.json').write_bytes(manifest)\nfor name,expected in inputs.items():\n    if Path(name).name != name:\n        raise SystemExit('nonflat candidate input')\n    raw=(source/name).read_bytes()\n    if hashlib.sha256(raw).hexdigest() != expected:\n        raise SystemExit('frozen input mismatch:'+name)\n    (qa/name).write_bytes(raw)\nos.environ['TMPDIR']=str(qa)\ntempfile.tempdir=str(qa)\nos.chdir(qa)\nsys.dont_write_bytecode=True\nsys.path.insert(0,str(qa))\nprint(json.dumps({'source_commit':'690af346c58f5eee6a7741c90d5091eed478c2e8','source_tree':'8144281e57c2b5ccf1d0c8064c36c3f82de708d6','manifest_sha256':'faec9cd57bd866d5e433afef17bb61c5d550864a8a70f031e31c7effaa41ff8e','verified_files':16,'python':sys.version,'python_executable':sys.executable,'python_executable_sha256':hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),'platform':platform.platform(),'uid':os.getuid(),'gid':os.getgid(),'qa_dir':str(qa),'production_python':'3.9.18 NOT_VALIDATED','power_loss':'NOT_TESTED'}),flush=True)\nsuite=unittest.defaultTestLoader.discover(str(qa),pattern='test*.py',top_level_dir=str(qa))\nif suite.countTestCases() != 76:\n    raise SystemExit('suite count differs from fixed reviewed76')\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nsummary={'tests_run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'skipped':len(result.skipped),'python_version':platform.python_version(),'production_python318_validated':False,'power_loss_tested':False}\nprint(json.dumps(summary),flush=True)\nif not result.wasSuccessful() or result.testsRun != 76 or result.skipped:\n    raise SystemExit(1)\nPY\n"
+        }
+      ]
+    }
+  }
+}
