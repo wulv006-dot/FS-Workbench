@@ -1,0 +1,104 @@
+"""Synthetic fast contracts against actual selected source. No production IO."""
+import copy, importlib.util, json, sys, tempfile, unittest
+from pathlib import Path
+from decimal import Decimal
+ROOT = Path(__file__).resolve().parents[1]
+
+def module(name, path):
+    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    value = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(value)
+    return value
+
+class RPGGuards(unittest.TestCase):
+    def setUp(self):
+        self.gates = module("fast_gates", "opt/d4follow/gates.py")
+        sys.modules["gates"] = self.gates
+        self.engine = module("fast_engine", "opt/d4follow/engine.py")
+    def test_binding_quantity_drift_stops_without_mutation(self):
+        cfg = {"p2pah":{"商品ID映射":{"KEY_X10":"101"}},
+               "商品映射":{"对照项":[{"key":"KEY_X10","装量":10,"p2pah":{"商品名关键词":"Key"}}]}}
+        before = copy.deepcopy(cfg)
+        drift, checked = self.gates.detect_binding_drift(cfg,[{"id":"101","title":"(1000) Key"}],log=lambda *a:None)
+        self.assertEqual(checked,1)
+        self.assertIn("qty_changed",[d["level"] for d in drift])
+        self.assertEqual(cfg,before)
+    def test_quantity_collision_is_reported(self):
+        cfg={"商品映射":{"对照项":[{"key":"KEY_X10","装量":10},{"key":"KEY_X1000","装量":10}]}}
+        self.assertTrue(self.gates.audit_qty_collisions(cfg,log=lambda *a:None))
+    def test_step_limit_and_explicit_off(self):
+        self.assertEqual(self.gates.clamp_round_step({},1,10),(1.5,True,.5))
+        self.assertEqual(self.gates.clamp_round_step({"引擎":{"单轮幅度上限":0}},1,10),(10,False,0))
+    def test_tick_cannot_raise_front_price_above_target(self):
+        value=self.engine.fit_under_tick(.1003,.0001,.9,.0902,dec=4)
+        self.assertLessEqual(round(value*.9,4),.0902)
+        self.assertIsNone(self.engine.fit_under_tick(.0000947,.0001,1,.0000947,dec=4))
+
+class PlayersLock(unittest.TestCase):
+    def test_missing_and_symlink_are_not_acquired(self):
+        lock=module("fast_players_lock","fc27_players_cloud/player_web/price_lock.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            missing=Path(tmp)/"missing"
+            with lock.shared_price_lock(missing) as held:self.assertFalse(held)
+            real=Path(tmp)/"lock";real.touch()
+            link=Path(tmp)/"link";link.symlink_to(real)
+            with lock.shared_price_lock(link) as held:self.assertFalse(held)
+    def test_same_inode_exclusion_and_release(self):
+        lock=module("fast_players_lock","fc27_players_cloud/player_web/price_lock.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"lock";path.touch()
+            with lock.shared_price_lock(path) as one:
+                self.assertTrue(one)
+                with lock.shared_price_lock(path) as two:self.assertFalse(two)
+            with lock.shared_price_lock(path) as held:self.assertTrue(held)
+
+class CurrentSupersession(unittest.TestCase):
+    def setUp(self):
+        current=ROOT/"candidates/fc-coins/player-supersession-20261007-v4-2-3/source"
+        historical=ROOT/"candidates/fc-coins/player-supersession-20261007-v4-2"
+        # Historical fixture supplies synthetic values only; tested implementation is current.
+        sys.path[:0]=[str(current),str(historical/"tests")]
+        self.impl=module("fast_current_supersede",str(current.relative_to(ROOT)/"supersede.py"))
+        import test_supersession_increment as fixture
+        self.fx=fixture.SupersessionTests();self.fx.setUp()
+        self.audit=json.loads(self.fx.store.live["executions/"+self.fx.cid+".json"])
+        ledger=json.loads(self.fx.store.live["all-coin-sync/"+self.fx.cid+".json"])
+        self.approved=self.impl.approved_tiers(ledger,self.audit,self.fx.scope)
+    def validate(self):
+        f=self.fx
+        return self.impl.validate_supersession_round(f.scope,f.ledger,f.job,self.audit,f.policy,f.proof,f.now,self.approved)
+    def change_inputs(self):
+        for sample in self.fx.proof["samples"]:
+            sample["model_inputs"]["coefficient"]="1.2"
+            for part in sample["public_readback"]:
+                p=part["platform"]
+                sample["model_inputs"][p]="20000"
+                part["our_price_coins"]="20000";part["coefficient"]="1.2"
+                target=Decimal("20")*Decimal(self.fx.proof["expected_rates"][p])*Decimal("1.2")
+                part["target_usd"]=str(target)
+                part["backend_match"]=abs(Decimal(part["backend_usd"])-target)<=Decimal(".001")
+                part["public_match"]=abs(Decimal(part["public_usd"])-target)<=Decimal(".001")
+    def test_current_valid_proof(self):self.assertTrue(self.validate())
+    def test_current_input_update_not_historical_plan_replay(self):
+        before=copy.deepcopy(self.fx.ledger["sample_before"])
+        self.change_inputs()
+        self.assertTrue(self.validate())
+        self.assertEqual(self.fx.ledger["sample_before"],before)
+    def test_model_public_mismatch_rejected(self):
+        self.change_inputs()
+        self.fx.proof["samples"][0]["model_inputs"]["PS"]="999"
+        with self.assertRaisesRegex(ValueError,"player_inputs_changed"):self.validate()
+    def test_identity_and_provenance_rejected(self):
+        self.fx.proof["samples"][0]["products"][0]["id"]=999
+        with self.assertRaisesRegex(ValueError,"linked_identity_changed"):self.validate()
+        self.setUp();self.fx.proof["read_only"]=False
+        with self.assertRaisesRegex(ValueError,"proof_origin_changed"):self.validate()
+    def test_original_failure_evidence_preserved(self):
+        f=self.fx;before=copy.deepcopy(f.store.live)
+        after=self.impl.supersession_after(f.scope,before,[f.proof],f.now.isoformat(),"a"*64,"/synthetic/backup")
+        for key,value in after.items():
+            old=json.loads(before[key]);new=json.loads(value)
+            self.assertEqual(new["status"],"superseded")
+            self.assertTrue(new["supersession"]["needs_fresh_auto_cycle"])
+            for field in ("error","error_detail","result","stage","completed_at"):
+                self.assertEqual(old.get(field),new.get(field))
