@@ -32,7 +32,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          git diff --name-only -z "$PR_BASE" "$PR_HEAD" > "$RUNNER_TEMP/pr-paths"
+          git diff --no-renames --name-only -z "$PR_BASE" "$PR_HEAD" > "$RUNNER_TEMP/pr-paths"
           QA_PYTHON="${{ steps.python.outputs.python-path }}"
           QA_LIBRARY="$(dirname "$QA_PYTHON")/../lib"
           QA_NODE_DIR="$(dirname "$(command -v node)")"

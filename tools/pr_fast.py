@@ -84,6 +84,57 @@ def require_changed_file(name,exists):
     if not exists and Path(name).suffix in (".html",".css"):
         raise RuntimeError("UNMAPPED_DELETION: register an affected consumer check before removing "+name)
 
+def rename_source_selfcheck():
+    # Exercise the actual workflow producer against a temporary offline Git history.
+    import shlex, tempfile
+    line=next(line.strip() for line in (ROOT/".github/workflows/pr-fast.yml").read_text().splitlines()
+              if line.strip().startswith("git diff "))
+    command=shlex.split(line.split(" > ",1)[0])
+    pairs=[("ui/a.html","ui/b.html"),("ui/a.css","ui/b.css"),
+           ("ops/schema.sql","notes/schema.txt"),("ops/worker.service","notes/worker.txt"),
+           ("ops/worker.timer","notes/timer.txt"),
+           (".github/workflows/old.yml","notes/workflow.md"),
+           (".github/workflows/old.yaml","notes/workflow-yaml.md"),
+           ("docs/old doc.md","docs/new doc.md"),
+           ("ui/old\npage.html","ui/new\npage.html")]
+    with tempfile.TemporaryDirectory(prefix="pr-fast-rename-") as directory:
+        root=Path(directory)
+        def git(*args):
+            return subprocess.check_output(["git","-c","user.name=Offline QA",
+                "-c","user.email=qa@example.invalid","-c","commit.gpgsign=false",
+                "-c","core.hooksPath=/dev/null",*args],cwd=root,stderr=subprocess.STDOUT)
+        git("init","-q")
+        for index,(old,new) in enumerate(pairs):
+            path=root/old;path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text("unique fixture "+str(index)+"\n",encoding="utf-8")
+        regular=root/"fc27_quote_engine.py";regular.write_text("VALUE=1\n")
+        git("add",".");git("commit","-qm","synthetic base")
+        base=git("rev-parse","HEAD").decode().strip()
+        for old,new in pairs:
+            target=root/new;target.parent.mkdir(parents=True,exist_ok=True)
+            (root/old).rename(target)
+        regular.write_text("VALUE=2\n")
+        git("add","-A");git("commit","-qm","synthetic moves and modification")
+        head=git("rev-parse","HEAD").decode().strip()
+        command=[base if token=="$PR_BASE" else head if token=="$PR_HEAD" else token for token in command]
+        paths=subprocess.check_output(command,cwd=root).decode("utf-8").rstrip("\0").split("\0")
+        expected={name for pair in pairs for name in pair}|{"fc27_quote_engine.py"}
+        if set(paths)!=expected:raise RuntimeError("rename_source_omitted_by_workflow")
+        for old,new in pairs:
+            if Path(old).suffix in (".html",".css"):
+                try:require_changed_file(old,(root/old).exists())
+                except RuntimeError as error:
+                    if "UNMAPPED_DELETION" not in str(error):raise
+                else:raise RuntimeError("rename_source_deletion_allowed")
+            elif not old.startswith("docs/"):
+                try:select([old,new])
+                except RuntimeError as error:
+                    if "UNMAPPED" not in str(error):raise
+                else:raise RuntimeError("rename_source_runtime_coverage_allowed")
+        if select(list(pairs[7])) or select(["fc27_quote_engine.py"])!=["engine"]:
+            raise RuntimeError("ordinary_change_scope_regression")
+    print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
+
 def selfcheck():
     class Good(unittest.TestCase):
         def runTest(self):self.assertTrue(True)
@@ -136,6 +187,7 @@ def selfcheck():
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
+    rename_source_selfcheck()
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
