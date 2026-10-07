@@ -14,8 +14,8 @@
   "files": [
     {
       "path": "linux_delta_entry.py",
-      "bytes": 84845,
-      "sha256": "38fd7c5a745b5bd0231890f1a4a36ef66f0b11c631f704209aa183698fdcd4a4"
+      "bytes": 89255,
+      "sha256": "fd24041a25cb97ccbed2bdb7e67891712946034f9245c166a7cfa8792594e59c"
     },
     {
       "path": "EXECUTE.md",
@@ -25,7 +25,7 @@
   ],
   "workflow_path": ".github/workflows/registration-target39-manual-qa.yml",
   "workflow_sha256": "845015d9b428a05bae8baf16930906d6d17b4dc1295056316ea7d43176d92650",
-  "baseline_main": "9ea86d8d49c38ddb9e1ef97e1cb46d05273229cc",
+  "baseline_main": "f741ab4abce6adb7f4697108fce624c5d27a4c93",
   "required_environment": {
     "platform": "Linux",
     "python": "3.9.18",
@@ -93,7 +93,28 @@
     "target_reexecution_pending": true,
     "preserved_failed_runs": [
       37623684963,
-      37630588766
+      37630588766,
+      37637324369,
+      37640046850
     ]
+  },
+  "mechanism_fix": {
+    "failed_target_run": 37640046850,
+    "prior_driver_sha256": "38fd7c5a745b5bd0231890f1a4a36ef66f0b11c631f704209aa183698fdcd4a4",
+    "observed_target_summary": {
+      "PASS": 306,
+      "FAIL": 5,
+      "BLOCKED": 0,
+      "NOT_RUN": 0
+    },
+    "redirect": "Validate exact relative or trusted HTTPS authority/owned port/path/raw query; no arbitrary prefix or external redirect acceptance",
+    "upstream_unavailability": "Reap owned upstream; release retained controller listener; require zero LISTEN/owned FD holders and ECONNREFUSED before unchanged HTTP checks",
+    "http_timeout_seconds": 3,
+    "all_311_case_definitions_unchanged": true,
+    "fixture_unchanged": true,
+    "business_source_changed": false,
+    "workflow_changed": false,
+    "new_target_run_executed": false,
+    "original_location_header_recorded": false
   }
 }
