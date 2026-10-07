@@ -1,0 +1,11 @@
+# FC Player supersession v4.2
+
+This candidate retains the frozen v4.1 kernel and introduces a separate metadata-only supersession operation for a historical failed Player job when a later real CONFIRMED coin execution has changed its basis. It never confirms the historical task for the newer price, never writes coin prices, and never clears locks.
+
+The binding explicitly includes both old and new coin execution/job/ALL records and the exact installed sync_players.sh bytes. Private before-images and the root-only supersession receipt become durable before the final gate-readable job. Both metadata files must match the receipt's intended SHA before producers accept the historical supersession. Original errors, result and completion timestamps remain unchanged.
+
+The next ordinary automatic cycle uses existing collection, cost, FX and pricing checks. A confirmed coin change follows the existing path. Only a pending supersession intent permits a no_price_change cycle to enqueue a Player refresh against the latest actual confirmed coin basis. UUID5 is based on that coin execution, so separate parent cycles resume the same durable identity. Queued, claimed, failed or interrupted tasks cannot be replayed. A failed new task keeps the existing protective gate.
+
+The special Player path requires a root-owned durable fresh automatic no-change parent, exact parent field hash, source closure, ON policy versions, confirmed coin and ALL audit hashes, and independent typed GET readback of both backend sites plus all 45 public tiers immediately before category dispatch. The ordinary automatic-only guard remains unchanged for requests without the narrow automatic_basis capsule. Docker adds only specific readonly files and unchanged GET helpers; no credential, permission, unit or pricing policy change.
+
+Only dedicated UID994/GID11028/0660 existing policy locks are additionally accepted; no chown/chmod is introduced. Original reconcile.py and player_readonly_reconcile_guard.py are byte-identical to v4.1. Actual private production binding/receipts and diagnostic data are excluded from Git. New 41-test matrix requires Linux root Python3.9.18 and zero skips; historical57/76 are not rerun. This source freeze does not claim review, deployment or production acceptance.
