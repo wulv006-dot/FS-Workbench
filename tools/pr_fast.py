@@ -209,6 +209,7 @@ def select(paths):
         if suffix in (".html",".css"):
             groups.add("frontend");continue
         if name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
+        elif name.startswith("releases/fc-coins/player-price-verification-off-20261007/"):groups.add("player-price-rule")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
         elif name=="fc27_players_cloud/player_web/price_lock.py":groups.add("players")
@@ -245,6 +246,7 @@ def main():
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
         if group=="engine":units(".",["test_fc27_quote_engine"])
+        elif group=="player-price-rule":units("releases/fc-coins/player-price-verification-off-20261007",["test_rule"])
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards"])
