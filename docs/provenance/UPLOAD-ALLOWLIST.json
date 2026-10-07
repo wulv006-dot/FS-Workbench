@@ -1,14 +1,14 @@
 {
-  "revision": "profit-endpoint-git-freeze-ca6258-20261007",
-  "status": "exact proposed Git tree; additive FC/registration base preserved; not production canonical adoption",
+  "revision": "profit-endpoint-owner-metadata-main412ae068-20261007",
+  "status": "exact combined Git tree; owner encoding corrected; PR10 workflow and FC/registration base preserved; no production canonical adoption",
   "releaseReady": false,
   "manifestSelfExclusions": [
     "docs/integration/UPLOAD-ALLOWLIST.json",
     "docs/provenance/UPLOAD-ALLOWLIST.json"
   ],
-  "contentFiles": 421,
-  "contentBytes": 13048551,
-  "contentSetSha256": "4f4d4bd2f648b9dff4dc4d75c4ff3d45a421557769050ba878f715f28cadbb3e",
+  "contentFiles": 422,
+  "contentBytes": 13054176,
+  "contentSetSha256": "d04f4d9d3bf4d3d1419670a9c8faf4ea65c60aba1be9cdacd6151fc49ea492de",
   "files": [
     {
       "path": ".github/workflows/fc27-reconcile-v3-manual-qa.yml",
@@ -16,6 +16,13 @@
       "sha256": "70d3f877e148172c51f0121bd7765126ad5db80df4caaab68ba5b162aade8eb8",
       "gitMode": "100644",
       "gitBlobSha1": "1a3c04330b5f8438a23d6c5734abbf1f5b7d9c6f"
+    },
+    {
+      "path": ".github/workflows/profit-daily-pr9-python3918-manual-qa.yml",
+      "bytes": 5637,
+      "sha256": "a3eb5c922f57fe274a2c7a4692f27fe51592d4dde162c7d1207b8d294466a52f",
+      "gitMode": "100644",
+      "gitBlobSha1": "7b913ebee8f27ceb84d61666f4b17dba9530e454"
     },
     {
       "path": ".gitignore",
@@ -62,9 +69,9 @@
     {
       "path": "candidates/business-snapshot/order-endpoint-padding-20261007/INPUT-MANIFEST.json",
       "bytes": 3982,
-      "sha256": "945ee9da3f3ae793d00fb6223f91335a5de2c11ef3f1fdfa65f250ac159bfab5",
+      "sha256": "40bab30a6165b82dc96a1d27ff88e4810f814163e47341cd4360fe82457c26d3",
       "gitMode": "100644",
-      "gitBlobSha1": "fdcd2c9aed9c97ed326bf3d344e7a37e2c0a2044"
+      "gitBlobSha1": "60897d4ee8dabf25a9117904cdc445eee46e5cd2"
     },
     {
       "path": "candidates/business-snapshot/order-endpoint-padding-20261007/OWNER-ASSIGNMENT.json",
@@ -75,10 +82,10 @@
     },
     {
       "path": "candidates/business-snapshot/order-endpoint-padding-20261007/PROVENANCE.json",
-      "bytes": 3426,
-      "sha256": "28f04ba506b2f3040273d86f053af1435e3ccc7469d2f86f0d3650da3b90be8b",
+      "bytes": 3414,
+      "sha256": "056cfe7e134616f4e0b6f3ebd828803ce7291e65954724e6ac1d0a03570ef0b8",
       "gitMode": "100644",
-      "gitBlobSha1": "9367568e94e583b576f83608ce6decd2cf30197f"
+      "gitBlobSha1": "6ebb8c38713f8d0fd168662ff2347695ba910adb"
     },
     {
       "path": "candidates/business-snapshot/order-endpoint-padding-20261007/README.md",

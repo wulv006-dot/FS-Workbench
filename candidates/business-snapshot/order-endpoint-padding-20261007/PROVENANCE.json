@@ -6,13 +6,13 @@
   "gitHead": null,
   "gitTree": null,
   "moduleId": "business-snapshot",
-  "businessOwner": "鍚村緥",
-  "categoryCollaborator": "闄堣秴",
+  "businessOwner": "吴律",
+  "categoryCollaborator": "陈超",
   "ownerConfirmation": {
     "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
     "confirmedAtUtc": "2026-10-06T18:41:03Z",
-    "businessOwner": "鍚村緥",
-    "categoryCollaborator": "闄堣秴",
+    "businessOwner": "吴律",
+    "categoryCollaborator": "陈超",
     "scope": [
       "all-sites business data",
       "exact date ranges",
