@@ -1,12 +1,12 @@
+> 历史证据：下文结果/来源只属于各自对象和时点，不构成当前全仓QA、上传或另批门槛。当前执行规则只见 [HOTFIX](ops/HOTFIX.md)；先验直接影响，资料后补，不把旧绿或旧失败冒充新候选结果。
+
 ## 2026-10-07 本治理合并检查记录
 
 复用并核对PR #3精确检查器原字节，在本机隔离副本完成完整合成检查：185 Python方法，184pass/1Windows所有权skip/0fail-error；182 Python AST、34 JS语法、rev25矩阵及7组Node通过。Windows Python3.14首次Google时区用例因缺tzdata失败，原失败保留；使用现有Codex bundled tzdata/zoneinfo设置仅当前测试进程PYTHONTZPATH后完整复核通过，没有安装依赖、改源码、伪造时区或删除用例。该结果只覆盖本治理所沿用的main业务源码，不能替代PR #2 NBA增量或PR #5注册、真实Linux/身份/生产验收。
 
 最终文档/两清单经精确树、308未变文件原字节及17模块归属检查；完整合成检查输入的业务源码与最终候选字节相同。本次15条路径均为治理文档/JSON，merge条件仅限该范围。PR #2/#3保持draft，未来业务组合树重新核验；空GitHub checks不是正式CI绿色。最终head/tree和实际merge以PR #6读回为准，生产仍未授权。
 
-> 当前流程修订见 [协作状态](collaboration/CURRENT-STATUS.md) 与 [规则入口](../AGENTS.md)；下文冻结测试/映射为历史证据。新候选合并前QA、合并后产物、生产基线与独立批准分别核验；不把旧失败/通过复制为新树结果。
 
-> 首次入库更正：以下为冻结候选的历史记录；当前批准/owner/FC业务类别/NBA后置与未验状态见 `docs/collaboration/CURRENT-STATUS.md` 和 `READINESS.json`。旧upload声明不代表当前条件授权，静态/合成记录不代表生产放行。
 
 # 首版候选检查
 

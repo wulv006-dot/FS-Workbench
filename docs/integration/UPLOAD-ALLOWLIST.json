@@ -1,6 +1,7 @@
 {
+  "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "revision": "profit-endpoint-final-main78765b91-20261007",
-  "status": "exact combined Git tree; approved PR10/PR11 QA entries preserved; source/test byte evidence unchanged; no production canonical adoption",
+  "status": "Historical profit-endpoint inventory; not the current main file set or per-task admission gate. Original rows and hashes retained.",
   "releaseReady": false,
   "manifestSelfExclusions": [
     "docs/integration/UPLOAD-ALLOWLIST.json",

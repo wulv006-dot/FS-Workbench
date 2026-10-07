@@ -1,5 +1,9 @@
-> 首次入库更正：以下为冻结候选的历史记录；当前批准/owner/FC业务类别/NBA后置与未验状态见 `docs/collaboration/CURRENT-STATUS.md` 和 `READINESS.json`。旧upload声明不代表当前条件授权，静态/合成记录不代表生产放行。
+# 历史集成候选与来源记录
 
-# 当前revision3入口
+当前执行规则只见 [HOTFIX](../ops/HOTFIX.md)。
 
-主说明REVISION-3-REMEDIATION.md；两兼容决定REVISION-3-DECISIONS.md；准确模块/运行依赖MODULE-RUNTIME-MAP.json，来源SHA仍见INTEGRATION-MANIFEST，当前集合UPLOAD-ALLOWLIST。旧revision2修复/测试为历史证据，不作revision3全套实跑声明。外部准确库存含allowlist自身，待独立delta审查，不上传/部署。
+本目录revision1/2/3、INTEGRATION-MANIFEST、UPLOAD-ALLOWLIST及provenance清单记录对应历史输入；它们不是最新main的完整库存，不提供当前全仓发布/审批状态。来源行和SHA保留原证据，不为每次小修改重算整个历史集合。
+
+模块映射和运行合同仅作定位依据，发布前核本次实际活动来源、直接依赖与现场基线。releaseReady=false只描述当时对象，不能封锁无关模块；也不能改成true伪造真实验收。
+
+旧独立审查和失败记录保留；当前检查读取真实PR CI/专用运行结果，静态合同与实际接线验收分别声明。

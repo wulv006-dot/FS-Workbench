@@ -1,4 +1,5 @@
 {
+  "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "status": "explicit business allocation; unassigned remains unassigned",
   "isTechnicalACL": false,
   "repositoryWriteIsRepoWide": true,
@@ -617,7 +618,7 @@
     "owner": "陈超",
     "scope": "D4 / PoE2 / Aion2业务；经营供数里的Aion2不因此改变数据owner；d4follow全部已列源码保留"
   },
-  "crossModule": "precise paths/reason/consumers/tests/rollback; each affected owner confirms; unresolved owner blocks production",
+  "crossModule": "Ownership unchanged. Workflow and approved shared-scope handling follow docs/ops/HOTFIX.md; no repeated per-SHA or two-person approval gate.",
   "githubUsers": {
     "吴律": "wulv006-dot",
     "陈超": "dachao1997"

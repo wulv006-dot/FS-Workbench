@@ -1,4 +1,5 @@
 {
+  "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "recordedAt": "2026-10-05T16:37:07.843320+00:00",
   "status": "historical first-source snapshot; latest docs/NBA increment is separately frozen",
   "projectRoot": "E:\\WorkBuddy\\大超服务器",
@@ -16,7 +17,7 @@
   "governanceDocumentsMustUpdateInSeparateFirstUploadDirectory": true,
   "finalUploadManifestMustBeRegenerated": true,
   "modulePermissionLimit": "GitHub repository write is repo-wide; these owner/path rules are not verified ACLs",
-  "crossModuleChange": "list exact paths, reason, consumers, compatibility tests, rollback; each affected owner confirms; no inferred owner",
+  "crossModuleChange": "Source hints and owners unchanged; shared-scope handling follows docs/ops/HOTFIX.md. Historical first-upload inventory is not a current-tree approval gate.",
   "productionMappingLimit": "candidate paths are not certified live sources; resolve provenance/source-manifest and current live SHA before any deployment",
   "knownCanonicalMappings": [
     {
