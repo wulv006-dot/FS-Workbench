@@ -1,0 +1,26 @@
+# FC readback reconcile v3 — only three v2 residual fixes
+
+LOCAL_CANDIDATE_FOR_THREE_ITEM_REVIEW; production_approval=false/releaseReady=false, Git commit/tree null. v2 is preserved byte-for-byte at manifest8e306f656b39259bb726c35e5fab641fb0ff229ce160e250550eb9fd73423f68. Independent v2 review statically closed FC-RC-01/02/04/05 and accepted final job rename as the single gate-visible publication point; this iteration changes only the three named RC03/06 residuals. Those previously closed items are carried forward, not redone or expanded.
+
+## Exact code differences from v2
+
+1. RC03-v2/P1: Recovery.checkpoint completes slow context/CAS/dependency reads first, then revalidates both proof rounds at latest now and checks monotonic160s last, immediately before the caller's rename. Two publication targets use the same order. No slow read is added between the final checks and rename; thresholds60/160/public180 remain unchanged. New context-internal delay tests cross60s or160s before final job and keep original job failed; a ledger-target case keeps both originals unchanged.
+2. RC06-v2-A/P1: SecureFS.publish keeps the validated staging descriptor open for both new and reused stages. Both branches perform file fsync plus transaction-directory fsync before final checkpoint/rename. Failure leaves staging evidence and does not rename. Native tests inject initial and repeated reused-stage file or tx-directory fsync failure, then successful reuse. These actual SecureFS tests are ready but not run on Windows; MemoryStore is not evidence that native fsync passed.
+3. RC06-v2-B/P2: every cross-directory rename fsyncs target AND source transaction directories. Storage.sync_visible补齐file/target/source同步。已出现ledger after字节的未完成重试同样先sync_visible(ledger)，再允许写ledger_installed/evidence_committed与job；避免跳过一次源目录失败。Exact final-job retry补同步双方目录，无业务重放。Job rename后任一同步/读回不确定仍metadata_may_be_committed_needs_readback/exit3；不声称失败门禁仍挡、不自动回滚、不在job后写事务状态。
+
+Only runtime code changes are reconcile.py, secure_fs.py, storage.py. runner.py/probe.py/original pure guard/scope.json are EXACT v2 bytes. No other owner/path/auth/image/monitor/pricing formula/identity/target/policy/gift/consumer or security behavior changed. Version-labelled future artifact/transaction paths remain the already reviewed scope's unused v2 paths; v3 does not create them, and any eventual deployment must approve this exact v3 artifact hash. New local/remote candidate name v3 does not rename runtime paths or alter a CAS binding.
+
+## Tests and limits
+
+63 synthetic passed,0fail/error;13 native Linux cases SKIPPED on Windows3.14.7 (old10 plus3 residual-specific cases). All8 Python source files compile and parse Python3.9 grammar; target Python3.9.18 execution not performed. New synthetic5 cases cover context60/160 delay, pre-ledger delay, existing-ledger durability retry and retry-sync failure. Native3 new tests use real SecureFS/Storage in isolated temporary synthetic paths when approved Linux root uid0/gid0 is available; no production file/API/session is opened. The native suite also retains the original10 cases. No interpreter/dependency installation or production QA transfer. Real fsync/injected process failures do not prove survival after power loss.
+
+Prepared isolated QA invocation (only after root approves legal environment/path and existing root/Python3.9):
+```
+cd /approved/isolated-qa/candidates/fc-coins/player-readonly-reconcile-20261006-v3
+python3.9 -B -m unittest -v test_candidate test_native_linux
+```
+Expected76 run/0fail/error/skip in that environment. Current13 skips must not be reported as native success. Test temporary trees and fsync failure evidence remain isolated; no automatic deletion of incomplete production transaction is provided. A Python3.9 grammar pass alone does not establish native directory-fd/flock/owner or production host binary/version compatibility. Real reader/image/consumer concurrency and power-loss behavior remain separately unverified; do not widen this three-item review into platform work.
+
+Scope retains original exact Player6aa0476a-a3bd-5ca6-b162-5695e3ed3396 and Coins0b26528c-2964-4c49-823e-570254e5642a, eight original file SHA, twelve APP source SHA, existing model/product/lock/owner/image/interpreter identities and quantities/gifts. All actual rates/prices are read only from frozen original runtime records during a separately approved execution, never copied into synthetic fixtures or remote payload. No production upload/execution, replay, manual trigger, clear-lock, cache/price POST, switches/permissions/RPG or Git mutation occurred. Source adoption legacy-unreconciled remains.
+
+New14-input manifest closure includes this README/findings,8Python files,scope,synthetic results and v2-to-v3.diff. Historical v1/v2 candidate and reviews remain in separate local engineering archives; raw runtime/preparation/price/secret evidence stays outside Git. Exact16-file Git draft is15 candidate files plus1 independent scope/QA guide. Fresh main/PR/branch reread and root exact payload approval precede any remote write; legal Linux QA, owner吴律/merge and production artifact/window approval remain separate. Limited review requested only on the three changed residuals. No natural-cycle observations are repeated this iteration.

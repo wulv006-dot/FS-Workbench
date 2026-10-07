@@ -1,0 +1,29 @@
+{
+  "candidate": "fc27-player-readonly-reconcile-20261006-v3",
+  "status": "LOCAL_CANDIDATE_FOR_THREE_ITEM_REVIEW",
+  "production_approval": false,
+  "releaseReady": false,
+  "git_commit": null,
+  "git_tree": null,
+  "references": {
+    "v2_manifest_sha256": "8e306f656b39259bb726c35e5fab641fb0ff229ce160e250550eb9fd73423f68",
+    "v2_review_sha256": "557b98adab7aac7b7d523b71e91fac2e33f7769120642d8a162415d71bfdb4e1",
+    "original_guard_sha256": "0756d29518adbeb0846431f03ce47933377ad5af2c5867cae7f326be1bb3eec4"
+  },
+  "files": {
+    "FINDINGS.json": "93f4395f256b24978a878147314532a1620137cc5306a52a622fd4b425f08a64",
+    "player_readonly_reconcile_guard.py": "0756d29518adbeb0846431f03ce47933377ad5af2c5867cae7f326be1bb3eec4",
+    "probe.py": "329c3bd28c7222a0a5639106d59bbdb7426a797557c84ef3b607d2daaed059b5",
+    "README.md": "9454b07a10494d7aa274091419cc0159800f6cdba3d48287e29199b3be9768f6",
+    "reconcile.py": "f1080c48a8252036eade870695b42c44c6bbe6f4387a563ca1d48f3f2f7421ca",
+    "runner.py": "338601acda231c80deafb13889c8751ed9da93a2596a0a88f5bd5d6a75102a78",
+    "scope.json": "dabe12eb976ca86a3e0d4d57eb35a0a4f848697daaf08ec896b4c3604919d585",
+    "secure_fs.py": "970d093c5bbf432777bdbb72d64ccf17cce0a87bd177450ad3a9b54ced7770ff",
+    "storage.py": "f66efe42df4c0c5a0fa9f6614a2b9c87bba33717dcc9dcdea484ee7f52c7ee0b",
+    "TEST-RESULTS.json": "b34222130859047c998273cdcda32d095620e20a3d608ad2d6b30ed25d8e183b",
+    "TEST-RESULTS.txt": "5b58d7860d827677446cac145c365c377483dd0d6a5c5f32d52aaef21012f066",
+    "test_candidate.py": "ef7fdc87338fe680f6c99f14163ab71652a8ab6281120e55e588ebaed0a66483",
+    "test_native_linux.py": "76d4946a5c359571864bde95a96e6e18e783ec4d8e6961787f4af56f4ccb56f9",
+    "v2-to-v3.diff": "28e8283aa1402f9e7bd2a1cd8f8cf2922f25a3c7c285f5e30dca52aa127a4e6a"
+  }
+}

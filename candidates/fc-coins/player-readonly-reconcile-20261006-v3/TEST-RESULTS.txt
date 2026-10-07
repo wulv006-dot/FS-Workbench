@@ -1,0 +1,81 @@
+test_160s_budget_includes_backup (test_candidate.CandidateTests.test_160s_budget_includes_backup) ... ok
+test_all_only_wrong_target_rejected (test_candidate.CandidateTests.test_all_only_wrong_target_rejected) ... ok
+test_apply_preserves_errors_and_unrelated_bytes (test_candidate.CandidateTests.test_apply_preserves_errors_and_unrelated_bytes) ... ok
+test_backend_price_mismatch (test_candidate.CandidateTests.test_backend_price_mismatch) ... ok
+test_backup_fsync_delay_expires_before_metadata (test_candidate.CandidateTests.test_backup_fsync_delay_expires_before_metadata) ... ok
+test_backup_proof_tamper_and_path_escape (test_candidate.CandidateTests.test_backup_proof_tamper_and_path_escape) ... ok
+test_bound_directory_contract_covers_all_runtime_inputs (test_candidate.CandidateTests.test_bound_directory_contract_covers_all_runtime_inputs) ... ok
+test_changed_all_player_id (test_candidate.CandidateTests.test_changed_all_player_id) ... ok
+test_changed_coin_inputs (test_candidate.CandidateTests.test_changed_coin_inputs) ... ok
+test_changed_public_product (test_candidate.CandidateTests.test_changed_public_product) ... ok
+test_earliest_observation105s_end55s_rejected (test_candidate.CandidateTests.test_earliest_observation105s_end55s_rejected) ... ok
+test_evidence_receipt_fsync_failure_keeps_gate_failed (test_candidate.CandidateTests.test_evidence_receipt_fsync_failure_keeps_gate_failed) ... ok
+test_expired_proof (test_candidate.CandidateTests.test_expired_proof) ... ok
+test_false_match_flag (test_candidate.CandidateTests.test_false_match_flag) ... ok
+test_full_model_count (test_candidate.CandidateTests.test_full_model_count) ... ok
+test_full_model_scope_digest (test_candidate.CandidateTests.test_full_model_scope_digest) ... ok
+test_future_proof (test_candidate.CandidateTests.test_future_proof) ... ok
+test_gallery_separate_source_fails_on_change (test_candidate.CandidateTests.test_gallery_separate_source_fails_on_change) ... ok
+test_gift_change (test_candidate.CandidateTests.test_gift_change) ... ok
+test_immutable_approved_source_payload_disagree_rejected (test_candidate.CandidateTests.test_immutable_approved_source_payload_disagree_rejected) ... ok
+test_interrupt_evidence_committed_gate_failed (test_candidate.CandidateTests.test_interrupt_evidence_committed_gate_failed) ... ok
+test_interrupt_ledger_installed_gate_failed (test_candidate.CandidateTests.test_interrupt_ledger_installed_gate_failed) ... ok
+test_interrupt_prepared_retry_reads_fresh_proof (test_candidate.CandidateTests.test_interrupt_prepared_retry_reads_fresh_proof) ... ok
+test_job_dir_fsync_uncertainty_report_and_exact_retry (test_candidate.CandidateTests.test_job_dir_fsync_uncertainty_report_and_exact_retry) ... ok
+test_job_stage_fsync_delay_rejects_before_job_rename (test_candidate.CandidateTests.test_job_stage_fsync_delay_rejects_before_job_rename) ... ok
+test_missing_all_player_link (test_candidate.CandidateTests.test_missing_all_player_link) ... ok
+test_missing_public_coin_platform (test_candidate.CandidateTests.test_missing_public_coin_platform) ... ok
+test_missing_readonly_flag (test_candidate.CandidateTests.test_missing_readonly_flag) ... ok
+test_old_public_price (test_candidate.CandidateTests.test_old_public_price) ... ok
+test_original_ledger_digest (test_candidate.CandidateTests.test_original_ledger_digest) ... ok
+test_partial_ledger_rename_retry_synchronizes_before_job (test_candidate.CandidateTests.test_partial_ledger_rename_retry_synchronizes_before_job) ... ok
+test_partial_ledger_retry_sync_failure_keeps_job_failed (test_candidate.CandidateTests.test_partial_ledger_retry_sync_failure_keeps_job_failed) ... ok
+test_partial_resume_public_regression_blocks (test_candidate.CandidateTests.test_partial_resume_public_regression_blocks) ... ok
+test_player_revision (test_candidate.CandidateTests.test_player_revision) ... ok
+test_player_source_digest (test_candidate.CandidateTests.test_player_source_digest) ... ok
+test_positive_exact_synthetic_proof (test_candidate.CandidateTests.test_positive_exact_synthetic_proof) ... ok
+test_preflight_has_zero_storage_writes (test_candidate.CandidateTests.test_preflight_has_zero_storage_writes) ... ok
+test_provenance_image_or_helper_change_rejected (test_candidate.CandidateTests.test_provenance_image_or_helper_change_rejected) ... ok
+test_public_coin_discount_changed (test_candidate.CandidateTests.test_public_coin_discount_changed) ... ok
+test_public_coin_duplicate_platform (test_candidate.CandidateTests.test_public_coin_duplicate_platform) ... ok
+test_public_coin_stale (test_candidate.CandidateTests.test_public_coin_stale) ... ok
+test_queue_between_ledger_job_keeps_gate_failed (test_candidate.CandidateTests.test_queue_between_ledger_job_keeps_gate_failed) ... ok
+test_queued_running_newer_and_uncertain_contexts (test_candidate.CandidateTests.test_queued_running_newer_and_uncertain_contexts) ... ok
+test_raw_cas_before_probe (test_candidate.CandidateTests.test_raw_cas_before_probe) ... ok
+test_real_monitor_without_gallery_passes (test_candidate.CandidateTests.test_real_monitor_without_gallery_passes) ... ok
+test_receipt_evidence_durable_before_consumer_ready (test_candidate.CandidateTests.test_receipt_evidence_durable_before_consumer_ready) ... ok
+test_recomputed_intended_hash_not_proof_driven (test_candidate.CandidateTests.test_recomputed_intended_hash_not_proof_driven) ... ok
+test_retry_fsync_failure_reports_visible_uncertainty (test_candidate.CandidateTests.test_retry_fsync_failure_reports_visible_uncertainty) ... ok
+test_sample_order (test_candidate.CandidateTests.test_sample_order) ... ok
+test_site_and_public_agree_wrong_target_rejected (test_candidate.CandidateTests.test_site_and_public_agree_wrong_target_rejected) ... ok
+test_slow_context_before_ledger_keeps_both_originals (test_candidate.CandidateTests.test_slow_context_before_ledger_keeps_both_originals) ... ok
+test_slow_context_crosses160s_before_final_job_rename (test_candidate.CandidateTests.test_slow_context_crosses160s_before_final_job_rename) ... ok
+test_slow_context_crosses60s_before_final_job_rename (test_candidate.CandidateTests.test_slow_context_crosses60s_before_final_job_rename) ... ok
+test_source_digest_drift (test_candidate.CandidateTests.test_source_digest_drift) ... ok
+test_stability_mismatch (test_candidate.CandidateTests.test_stability_mismatch) ... ok
+test_stat_rejects_hardlink_untrusted_owner_and_mode (test_candidate.CandidateTests.test_stat_rejects_hardlink_untrusted_owner_and_mode) ... ok
+test_transaction_proof_record_escape_rejected (test_candidate.CandidateTests.test_transaction_proof_record_escape_rejected) ... ok
+test_uncertain_post (test_candidate.CandidateTests.test_uncertain_post) ... ok
+test_unexpected_business_post (test_candidate.CandidateTests.test_unexpected_business_post) ... ok
+test_wrong_all_baseline (test_candidate.CandidateTests.test_wrong_all_baseline) ... ok
+test_wrong_coin_game (test_candidate.CandidateTests.test_wrong_coin_game) ... ok
+test_wrong_coin_product_identity (test_candidate.CandidateTests.test_wrong_coin_product_identity) ... ok
+test_wrong_player_area (test_candidate.CandidateTests.test_wrong_player_area) ... ok
+test_directory_fsync_failure_after_job_rename_preserves_evidence (test_native_linux.NativeLinuxTests.test_directory_fsync_failure_after_job_rename_preserves_evidence) ... skipped 'native isolated Linux root QA not available'
+test_file_symlink_rejected (test_native_linux.NativeLinuxTests.test_file_symlink_rejected) ... skipped 'native isolated Linux root QA not available'
+test_hardlink_rejected (test_native_linux.NativeLinuxTests.test_hardlink_rejected) ... skipped 'native isolated Linux root QA not available'
+test_held_lock_inode_replacement_rejected (test_native_linux.NativeLinuxTests.test_held_lock_inode_replacement_rejected) ... skipped 'native isolated Linux root QA not available'
+test_leftover_stage_retries_file_fsync_twice_then_succeeds (test_native_linux.NativeLinuxTests.test_leftover_stage_retries_file_fsync_twice_then_succeeds) ... skipped 'native isolated Linux root QA not available'
+test_leftover_stage_retries_tx_dir_fsync_twice_then_succeeds (test_native_linux.NativeLinuxTests.test_leftover_stage_retries_tx_dir_fsync_twice_then_succeeds) ... skipped 'native isolated Linux root QA not available'
+test_opened_parent_replacement_rejected (test_native_linux.NativeLinuxTests.test_opened_parent_replacement_rejected) ... skipped 'native isolated Linux root QA not available'
+test_parent_directory_symlink_rejected (test_native_linux.NativeLinuxTests.test_parent_directory_symlink_rejected) ... skipped 'native isolated Linux root QA not available'
+test_real_private_file_and_directory_fsync (test_native_linux.NativeLinuxTests.test_real_private_file_and_directory_fsync) ... skipped 'native isolated Linux root QA not available'
+test_source_dir_fsync_after_rename_failure_exact_retry_syncs_both (test_native_linux.NativeLinuxTests.test_source_dir_fsync_after_rename_failure_exact_retry_syncs_both) ... skipped 'native isolated Linux root QA not available'
+test_stage_fsync_before_publication_checkpoint (test_native_linux.NativeLinuxTests.test_stage_fsync_before_publication_checkpoint) ... skipped 'native isolated Linux root QA not available'
+test_transaction_symlink_rejected (test_native_linux.NativeLinuxTests.test_transaction_symlink_rejected) ... skipped 'native isolated Linux root QA not available'
+test_untrusted_owner_rejected (test_native_linux.NativeLinuxTests.test_untrusted_owner_rejected) ... skipped 'native isolated Linux root QA not available'
+
+----------------------------------------------------------------------
+Ran 76 tests in 0.148s
+
+OK (skipped=13)

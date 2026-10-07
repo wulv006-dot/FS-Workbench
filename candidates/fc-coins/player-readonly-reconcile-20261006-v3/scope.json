@@ -1,0 +1,692 @@
+{
+  "scope": "fc27_player_readonly_reconcile_20261006_v2",
+  "player_job_id": "6aa0476a-a3bd-5ca6-b162-5695e3ed3396",
+  "coin_execution_id": "0b26528c-2964-4c49-823e-570254e5642a",
+  "expected_files": {
+    "jobs/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json": "ecc7c4af20eff12f9ef0e2b3f464c81e8ede6536b37b23286c639d21a6e6194c",
+    "player-sync/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json": "fbaf5c42dda35cb93742782a854f4e6815f78230e53f4944963a6aae5757962f",
+    "executions/0b26528c-2964-4c49-823e-570254e5642a.json": "d4acb9a2763cd70097c7d40c1aacb90c2485cfadeea4fdf738037611bb9be3a5",
+    "jobs/0b26528c-2964-4c49-823e-570254e5642a.json": "33889252d187913b83a9d06cdc32929768922601f457bca19ed0b57d026b2c2b",
+    "all-coin-sync/0b26528c-2964-4c49-823e-570254e5642a.json": "bb0ffa8cb29779767cbff54458133d582647a29f75a949a36f6a1f926ffebcae",
+    "config/automation.json": "9ca0c82b8f17dd7b23f14e017b1b6938b93f0f788703d72e05b131c766556068",
+    "config/player-sync.json": "c1dfe17bb676d1388ccdc58a4adc563edbe551dcfbf34df7194a07e5c8cba942",
+    "/var/lib/fc27-gallery/settings.json": "5b7dd17780f18f9b7a6ee65cf9bb5a191caa26203fd634f3cd60e47de08c48d0"
+  },
+  "expected_sources": {
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py": "6fe9f1db75450892f9035ca81278378b5d6beda15c002bfca76a39a72a531e05",
+    "/opt/fc27-cloud-browser/fc27_cloud_worker.py": "88a46710fae62950cac549a2cc97e59cfb55fc236ab01c0fa513a077e64cf620",
+    "/opt/fc27-cloud-browser/player_sync_job.py": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7",
+    "/opt/fc27-cloud-browser/automation_tick.py": "f7486520712b9c1fbb9dc4c82bba19646951b2404b6a32a569970257be4a10e5",
+    "/opt/fc27-cloud-browser/coin_all_sync_job.py": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d",
+    "/opt/fc27-cloud-browser/automation_policy.py": "ddcb47a09f0fc35600ad3d86408018b7fd39395c9f114cf61c9c5cc1f53a0611",
+    "/opt/fc27-cloud-browser/player_sync_policy.py": "0264e8d661a5fe9cdcef8618698061883401235d26aafd94e3a5aa3cdd4e6ecf",
+    "/opt/fc27-cloud-browser/server_quote_job.py": "68f7c083237c26ca5ebe9cfcaba419e82160befe0f922e6b90e78390fdf33fa0",
+    "/opt/fc27-cloud-browser/activity_log_store.py": "b2ddc56ec9029cf4f6e66edb47358e6620cd6226c5e181b549f82effcc04a082",
+    "/opt/fc27-cloud-browser/fc27_quote_engine.py": "45cdb611c3090e821b155fa97450c677776c21088170af3b08dce0e5fcb71924",
+    "/opt/fc27-cloud-browser/snapshot_layer.py": "b91dbbbf7c53ba7ef3f6bd1d1226a0b4fb1c3af541855c2914b57fe9c97c4f46",
+    "/opt/fc27-cloud-browser/storefront_monitor.py": "0948228673725afd48781a493dc5f2cbe94be927a0236f671d92e55996cb1b3c"
+  },
+  "coin_revision": 28,
+  "schedule_revision": 28,
+  "interval_minutes": 120,
+  "player_revision": 8,
+  "gallery_revision": 8,
+  "sample_model_ids": [
+    43168253,
+    43168647,
+    43168063,
+    43168779,
+    43169191
+  ],
+  "tier_gold": [
+    10,
+    50,
+    80,
+    100,
+    200,
+    300,
+    500,
+    600,
+    800,
+    1000,
+    1500,
+    1800,
+    2000,
+    3000,
+    5000
+  ],
+  "tier_give": [
+    0,
+    0,
+    0,
+    5,
+    0,
+    0,
+    35,
+    0,
+    0,
+    100,
+    150,
+    180,
+    200,
+    300,
+    500
+  ],
+  "tier_discount": [
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100
+  ],
+  "allowed_metadata_targets": [
+    "player-sync/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json",
+    "jobs/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json"
+  ],
+  "coin_job_public_unconfirmed_preserved": true,
+  "production_approval": false,
+  "sample_product_ids": {
+    "43168253": [
+      170017083,
+      170017085,
+      170017091,
+      170017093,
+      170026023,
+      170026025
+    ],
+    "43168647": [
+      170018647,
+      170018649,
+      170018651,
+      170018653,
+      170024927,
+      170024929
+    ],
+    "43168063": [
+      170016243,
+      170016245,
+      170016247,
+      170016249,
+      170026243,
+      170026245
+    ],
+    "43168779": [
+      170019175,
+      170019177,
+      170019179,
+      170019181,
+      170024623,
+      170024625
+    ],
+    "43169191": [
+      170020419,
+      170020421,
+      170020423,
+      170020425,
+      170023059,
+      170023061
+    ]
+  },
+  "source_metadata": {
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503405,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/fc27_cloud_worker.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503914,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/player_sync_job.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2491228,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/automation_tick.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503929,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/coin_all_sync_job.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2504075,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/automation_policy.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2504792,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/player_sync_policy.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503628,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/server_quote_job.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503860,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/activity_log_store.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503800,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/fc27_quote_engine.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2504989,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/snapshot_layer.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2502963,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/opt/fc27-cloud-browser/storefront_monitor.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503552,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    }
+  },
+  "file_metadata": {
+    "jobs/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json": {
+      "mode": "0o640",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2505514,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "player-sync/6aa0476a-a3bd-5ca6-b162-5695e3ed3396.json": {
+      "mode": "0o640",
+      "uid": 11027,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 3677837,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "executions/0b26528c-2964-4c49-823e-570254e5642a.json": {
+      "mode": "0o640",
+      "uid": 11027,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2505521,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "jobs/0b26528c-2964-4c49-823e-570254e5642a.json": {
+      "mode": "0o640",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2505522,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "all-coin-sync/0b26528c-2964-4c49-823e-570254e5642a.json": {
+      "mode": "0o640",
+      "uid": 11027,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 4075509,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "config/automation.json": {
+      "mode": "0o640",
+      "uid": 994,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 3288681,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "config/player-sync.json": {
+      "mode": "0o640",
+      "uid": 994,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 3288369,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "/var/lib/fc27-gallery/settings.json": {
+      "mode": "0o660",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2756707,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    }
+  },
+  "trusted_directories": {
+    "/": {
+      "mode": "0o555",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2,
+      "nlink": 18,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 1179649,
+      "nlink": 21,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 1179663,
+      "nlink": 43,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2362711,
+      "nlink": 21,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/state": {
+      "mode": "0o750",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2502995,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/rollback": {
+      "mode": "0o700",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2502923,
+      "nlink": 58,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/jobs": {
+      "mode": "0o750",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2503061,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/player-sync": {
+      "mode": "0o2770",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 3677303,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/executions": {
+      "mode": "0o2770",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2503079,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/all-coin-sync": {
+      "mode": "0o2770",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 4074883,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-cloud/config": {
+      "mode": "0o2770",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 3288350,
+      "nlink": 2,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/opt": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 917506,
+      "nlink": 74,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/opt/fc27-cloud-browser": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2490378,
+      "nlink": 5,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/var/lib/fc27-gallery": {
+      "mode": "0o2770",
+      "uid": 0,
+      "gid": 11028,
+      "device": 66305,
+      "inode": 2756696,
+      "nlink": 3,
+      "is_symlink": false,
+      "is_regular": false,
+      "is_directory": true
+    },
+    "/opt/fc27-player-reconcile-20261006-v2": {
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/var/lib/fc27-cloud/queue": {
+      "uid": 0,
+      "gid": 11028,
+      "mode": "0o2770",
+      "device": 66305,
+      "inode": 2503060
+    }
+  },
+  "artifact_root": "/opt/fc27-player-reconcile-20261006-v2",
+  "state_root": "/var/lib/fc27-cloud/state",
+  "rollback_root": "/var/lib/fc27-cloud/rollback",
+  "lock_metadata": {
+    "automation-tick.lock": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503446,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "snapshot.lock": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503006,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "price-writer.lock": {
+      "mode": "0o640",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503078,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "p2pah-cost.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503028,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "lootbar.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2502996,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "IGGM.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503016,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "U4GM.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2502922,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "U7Buy.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503019,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "fx.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503033,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    },
+    "preview.lock": {
+      "mode": "0o600",
+      "uid": 0,
+      "gid": 0,
+      "device": 66305,
+      "inode": 2503052,
+      "nlink": 1,
+      "is_symlink": false,
+      "is_regular": true,
+      "is_directory": false
+    }
+  },
+  "trusted_service_uids": [
+    0,
+    994,
+    11027
+  ],
+  "service_gid": 11028,
+  "container_image_id": "sha256:42d53d8c606491685f8a87db7bf6b0d1010c855464c37b8e37e7bbd45dd1dcda",
+  "host_python": {
+    "version": "3.9.18 (main, Sep  5 2026, 14:39:22) \n[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)]",
+    "executable": "/usr/bin/python3",
+    "executable_sha256": "cdfd8589ce548d284d5845ee3d40c04db721f1438459dace4e4c8db0963829b6"
+  },
+  "proof_provenance": {
+    "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+    "executable": "/usr/bin/python3",
+    "executable_sha256": "a2f33a6e006989270f4340528eb61f8f97366e00a5d1b602ac8672ea44fc56ae",
+    "modules": {
+      "player_sync_job": {
+        "path": "/opt/fc27-cloud-browser/player_sync_job.py",
+        "sha256": "8259ea8af669d5374b287360bf1d9785a00c3f536d3d707e906252cb1920cdf7"
+      },
+      "coin_all_sync_job": {
+        "path": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+        "sha256": "0b20dd5be37cdbadd4d49f3d042bcde2fdb6794fb178115d930a24959871946d"
+      },
+      "storefront_monitor": {
+        "path": "/opt/fc27-cloud-browser/storefront_monitor.py",
+        "sha256": "0948228673725afd48781a493dc5f2cbe94be927a0236f671d92e55996cb1b3c"
+      },
+      "p2pah_session_service": {
+        "path": "/usr/local/bin/p2pah_session_service.py",
+        "sha256": "04af4317072ad565dbbf4efeed63db4ee21ccb73bafebd043012f6878e1d0bb0"
+      }
+    }
+  },
+  "existing_service_owners": [
+    {
+      "uid": 994,
+      "name": "fc27api"
+    },
+    {
+      "uid": 11027,
+      "name": "fc27chrome"
+    }
+  ]
+}
