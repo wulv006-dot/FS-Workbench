@@ -1,9 +1,19 @@
 {
   "name": "Registration target3.9.18 + SQLite3.53.4 manual QA",
-  "run-name": "Registration fixedca6258ad / target3.9.18+3.53.4 /43+4",
+  "run-name": "Registration ${{ inputs.mode }} / target3.9.18+3.53.4",
   "on": {
     "workflow_dispatch": {
       "inputs": {
+        "mode": {
+          "description": "registration_delta synthetic routes, or explicit original runtime43 + multiprocess4",
+          "type": "choice",
+          "required": true,
+          "default": "registration_delta",
+          "options": [
+            "registration_delta",
+            "runtime43_multiprocess4"
+          ]
+        },
         "free_quota_confirmed": {
           "description": "Root verified at least10 free Actions minutes; only this registered single run, stop if zero/unknown",
           "type": "boolean",
@@ -22,7 +32,7 @@
   },
   "jobs": {
     "target39": {
-      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.free_quota_confirmed }}",
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.mode == 'runtime43_multiprocess4' && inputs.free_quota_confirmed }}",
       "runs-on": "ubuntu-24.04",
       "timeout-minutes": 10,
       "steps": [
@@ -75,6 +85,109 @@
             "QA_BASE": "${{ steps.sqlite.outputs.base }}"
           },
           "run": "set -euo pipefail\n/usr/bin/python3 -I -B - <<'PY'\nimport os,shutil\nfrom pathlib import Path\npath=Path(os.environ['QA_BASE'])\nassert path.is_absolute() and path.parent==Path('/tmp') and path.name.startswith('registration-target39-')\nassert not path.is_symlink() and path.resolve()==path\nif path.exists():shutil.rmtree(path)\nPY\n"
+        }
+      ]
+    },
+    "registration_delta": {
+      "if": "${{ github.event_name == 'workflow_dispatch' && github.repository == 'wulv006-dot/FS-Workbench' && github.ref == 'refs/heads/main' && inputs.mode == 'registration_delta' && inputs.free_quota_confirmed }}",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 10,
+      "permissions": {
+        "contents": "read"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false
+          },
+          "name": "Checkout exact merged driver commit"
+        },
+        {
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "repository": "wulv006-dot/FS-Workbench",
+            "ref": "2152c8c9ea2fd68be3876349299d490d38903404",
+            "persist-credentials": false,
+            "fetch-depth": 1,
+            "submodules": false,
+            "lfs": false,
+            "path": "registration-source"
+          },
+          "name": "Checkout separate fixed registration source"
+        },
+        {
+          "name": "Official exact Python3.9.18 Ubuntu24.04 x64",
+          "id": "python",
+          "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "with": {
+            "python-version": "3.9.18",
+            "architecture": "x64",
+            "check-latest": false,
+            "update-environment": false,
+            "allow-prereleases": false
+          }
+        },
+        {
+          "name": "Static driver check only; no candidate imports",
+          "shell": "bash",
+          "env": {
+            "QA_PY": "${{ steps.python.outputs.python-path }}"
+          },
+          "run": "set -euo pipefail\n[[ \"$QA_PY\" = /* && -x \"$QA_PY\" ]]\nLD_LIBRARY_PATH=\"$(dirname \"$QA_PY\")/../lib\" \"$QA_PY\" -I -B tests/registration-release-delta-qa-20261007/linux_delta_entry.py --driver-check\n"
+        },
+        {
+          "name": "Verify official SQLite3.53.4 source and build private library",
+          "id": "sqlite",
+          "shell": "bash",
+          "run": "set -euo pipefail\numask 077\nfor tool in gcc curl tar sha256sum; do command -v \"$tool\" >/dev/null; done\n[[ \"$(uname -m)\" = x86_64 ]]\n. /etc/os-release\n[[ \"$ID\" = ubuntu && \"$VERSION_ID\" = 24.04 ]]\nBASE=\"$(mktemp -d /tmp/registration-target39-XXXXXXXX)\"\nprintf 'base=%s\nlib=%s\n' \"$BASE\" \"$BASE/sqlite/lib\" >> \"$GITHUB_OUTPUT\"\nmkdir -p \"$BASE/sqlite/lib\" \"$BASE/src\"\ncurl --fail --location --connect-timeout 10 --max-time 90 --retry 0 --output \"$BASE/source.tgz\" https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz\nprintf '0e9483900e92cd5de8fd48d16bf9200145a61f7fd5be542a5ac81d8a9516eb9c  %s\n' \"$BASE/source.tgz\" | sha256sum --check --strict -\ntar --extract --gzip --file \"$BASE/source.tgz\" --directory \"$BASE/src\" --no-same-owner --no-same-permissions sqlite-autoconf-3530400/sqlite3.c sqlite-autoconf-3530400/sqlite3.h\nprintf 'b1dd5d74ec7f29055a6684fa06fb3c2f6821c87dd38f9a458dfd2e8a1db28189  %s\n' \"$BASE/src/sqlite-autoconf-3530400/sqlite3.c\" | sha256sum --check --strict -\ngcc -Os -fPIC -shared -DSQLITE_THREADSAFE=1 -Wl,-soname,libsqlite3.so.0 \"$BASE/src/sqlite-autoconf-3530400/sqlite3.c\" -o \"$BASE/sqlite/lib/libsqlite3.so.3.53.4\" -lpthread -ldl -lm\nln -s libsqlite3.so.3.53.4 \"$BASE/sqlite/lib/libsqlite3.so.0\"\ngcc --version | head -n 1\nsha256sum \"$BASE/sqlite/lib/libsqlite3.so.3.53.4\"\n"
+        },
+        {
+          "name": "Build official pinned Nginx1.26.1 in private prefix; missing dependencies fail",
+          "id": "nginx",
+          "shell": "bash",
+          "run": "set -euo pipefail\numask 077\nfor tool in gcc make git pkg-config openssl timeout unshare ip setpriv; do command -v \"$tool\" >/dev/null; done\npkg-config --exists openssl libpcre2-8 zlib\nBASE=\"$(mktemp -d /tmp/registration-delta-nginx-XXXXXXXX)\"\nprintf 'base=%s\nnginx=%s\nopenssl=%s\n' \"$BASE\" \"$BASE/install/sbin/nginx\" \"$(command -v openssl)\" >> \"$GITHUB_OUTPUT\"\nmkdir -p \"$BASE/src\" \"$BASE/home\"\nCOMMIT=02725ce722bc7b34fa307d611eac3956ef744efa\nprivate_git() {\n  env -i PATH=/usr/bin:/bin HOME=\"$BASE/home\" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 \\\n    git -c credential.helper= -c core.hooksPath=/dev/null \"$@\"\n}\nprivate_git init --quiet \"$BASE/src\"\nprivate_git -C \"$BASE/src\" fetch --quiet --depth=1 --no-tags https://github.com/nginx/nginx.git \"$COMMIT\"\nprivate_git -C \"$BASE/src\" checkout --quiet --detach \"$COMMIT\"\n[[ \"$(private_git -C \"$BASE/src\" rev-parse HEAD)\" = \"$COMMIT\" ]]\n[[ \"$(private_git -C \"$BASE/src\" rev-parse HEAD^{tree})\" = 1300cfe81af6453b2740a9f1c08640d44851087f ]]\ncd \"$BASE/src\"\nenv -i PATH=/usr/bin:/bin HOME=\"$BASE/home\" auto/configure --prefix=\"$BASE/install\" --with-http_auth_request_module --with-http_ssl_module\nenv -i PATH=/usr/bin:/bin HOME=\"$BASE/home\" make -j2\nenv -i PATH=/usr/bin:/bin HOME=\"$BASE/home\" make install\n\"$BASE/install/sbin/nginx\" -V 2> \"$BASE/version.txt\"\ngrep -F 'nginx version: nginx/1.26.1' \"$BASE/version.txt\"\ngrep -F -- '--with-http_auth_request_module' \"$BASE/version.txt\"\ngrep -F -- '--with-http_ssl_module' \"$BASE/version.txt\"\nsha256sum \"$BASE/install/sbin/nginx\"\n"
+        },
+        {
+          "name": "One synthetic registration delta integration; loopback namespace; 120 seconds",
+          "id": "delta",
+          "shell": "bash",
+          "env": {
+            "QA_PY": "${{ steps.python.outputs.python-path }}",
+            "QA_LIB": "${{ steps.sqlite.outputs.lib }}",
+            "QA_NGINX": "${{ steps.nginx.outputs.nginx }}",
+            "QA_OPENSSL": "${{ steps.nginx.outputs.openssl }}",
+            "DRIVER_COMMIT": "${{ github.sha }}"
+          },
+          "run": "set -euo pipefail\numask 077\n[[ \"$QA_PY\" = /* && -x \"$QA_PY\" ]]\n[[ \"$QA_LIB\" = /tmp/registration-target39-*/sqlite/lib && -d \"$QA_LIB\" ]]\n[[ \"$QA_NGINX\" = /tmp/registration-delta-nginx-*/install/sbin/nginx && -x \"$QA_NGINX\" ]]\n[[ \"$QA_OPENSSL\" = /* && -x \"$QA_OPENSSL\" ]]\n[[ \"$DRIVER_COMMIT\" =~ ^[0-9a-f]{40}$ ]]\n[[ \"$GITHUB_RUN_ID\" =~ ^[0-9]+$ && \"$GITHUB_RUN_ATTEMPT\" =~ ^[0-9]+$ ]]\nBASE=\"$(mktemp -d /tmp/registration-delta-run-XXXXXXXX)\"\nRECEIPT=\"$RUNNER_TEMP/registration-delta-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json\"\nprintf 'base=%s\nreceipt=%s\n' \"$BASE\" \"$RECEIPT\" >> \"$GITHUB_OUTPUT\"\n[[ ! -e \"$RECEIPT\" && ! -L \"$RECEIPT\" ]]\nQA_LIBRARY=\"$QA_LIB:$(dirname \"$QA_PY\")/../lib\"\nsudo unshare --net --pid --fork --mount-proc --kill-child=KILL -- bash -c '\n  set -euo pipefail\n  ip link set lo up\n  [[ \"$(ip -o link show | wc -l)\" = 1 ]]\n  ip -o link show dev lo >/dev/null\n  [[ -z \"$(ip route show default)\" && -z \"$(ip -6 route show default)\" ]]\n  exec setpriv --reuid \"$9\" --regid \"${10}\" --clear-groups env -i \\\n    PATH=/usr/bin:/bin LD_LIBRARY_PATH=\"$1\" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 \\\n    TMPDIR=\"$7\" DRIVER_COMMIT=\"$8\" \\\n    timeout --signal=TERM --kill-after=15s 120s \"$2\" -I -B \\\n    \"$3/tests/registration-release-delta-qa-20261007/linux_delta_entry.py\" \\\n    --source-root \"$3/registration-source\" --nginx \"$4\" --openssl \"$5\" --output \"$6\"\n' bash \"$QA_LIBRARY\" \"$QA_PY\" \"$GITHUB_WORKSPACE\" \"$QA_NGINX\" \"$QA_OPENSSL\" \"$RECEIPT\" \"$BASE\" \"$DRIVER_COMMIT\" \"$(id -u)\" \"$(id -g)\"\n"
+        },
+        {
+          "name": "Preserve sanitized synthetic-only receipt",
+          "if": "${{ always() && steps.delta.outputs.receipt != '' }}",
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "registration-delta-receipt-${{ github.run_id }}-${{ github.run_attempt }}",
+            "path": "${{ steps.delta.outputs.receipt }}",
+            "if-no-files-found": "error",
+            "retention-days": 7,
+            "compression-level": 0
+          }
+        },
+        {
+          "name": "Remove only this run private prefixes",
+          "if": "${{ always() }}",
+          "shell": "bash",
+          "env": {
+            "QA_SQLITE_BASE": "${{ steps.sqlite.outputs.base }}",
+            "QA_NGINX_BASE": "${{ steps.nginx.outputs.base }}",
+            "QA_DELTA_BASE": "${{ steps.delta.outputs.base }}"
+          },
+          "run": "set -euo pipefail\n/usr/bin/python3 -I -B - <<'CLEANUP'\nimport os, shutil\nfrom pathlib import Path\nfor key, prefix in (('QA_SQLITE_BASE','registration-target39-'),\n                    ('QA_NGINX_BASE','registration-delta-nginx-'),\n                    ('QA_DELTA_BASE','registration-delta-run-')):\n    value=os.environ.get(key)\n    if not value:\n        continue\n    path=Path(value)\n    assert path.is_absolute() and path.parent==Path('/tmp') and path.name.startswith(prefix)\n    assert not path.is_symlink() and path.resolve()==path\n    if path.exists():\n        shutil.rmtree(path)\nCLEANUP\n"
         }
       ]
     }
