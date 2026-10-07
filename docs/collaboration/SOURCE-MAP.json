@@ -4048,7 +4048,7 @@
       },
       {
         "moduleId": "business-snapshot",
-        "owner": "待指派",
+        "owner": "吴律",
         "adoptionStatus": "legacy-unreconciled",
         "repository": "wulv006-dot/FS-Workbench",
         "canonicalPaths": [
@@ -4089,11 +4089,34 @@
         "qaStatus": "NOT_RUN per current module candidate; source inventory verified only",
         "ownerConfirmation": null,
         "releaseAuthorization": null,
-        "consumers": "shared dependencies require affected owner confirmation"
+        "consumers": "shared dependencies require affected owner confirmation",
+        "categoryCollaborator": "陈超",
+        "ownerAssignmentEvidence": {
+          "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
+          "confirmedAtUtc": "2026-10-06T18:41:03Z",
+          "businessOwner": "吴律",
+          "categoryCollaborator": "陈超",
+          "scope": [
+            "all-sites business data",
+            "exact date ranges",
+            "profit daily/backfill"
+          ],
+          "scopeDoesNotApprove": [
+            "GitHub write",
+            "candidate-head approval",
+            "merge",
+            "production deployment",
+            "business strategy or authorization change"
+          ]
+        },
+        "candidateInputRoot": "candidates/business-snapshot/order-endpoint-padding-20261007/",
+        "candidateTestEntry": "run_offline_tests.py",
+        "candidateInputManifest": "INPUT-MANIFEST.json",
+        "candidateAdoptionStatus": "isolated review/test payload; not active canonical adoption"
       },
       {
         "moduleId": "exact-range",
-        "owner": "待指派",
+        "owner": "吴律",
         "adoptionStatus": "legacy-unreconciled",
         "repository": "wulv006-dot/FS-Workbench",
         "canonicalPaths": [
@@ -4122,7 +4145,26 @@
         "qaStatus": "NOT_RUN per current module candidate; source inventory verified only",
         "ownerConfirmation": null,
         "releaseAuthorization": null,
-        "consumers": "shared dependencies require affected owner confirmation"
+        "consumers": "shared dependencies require affected owner confirmation",
+        "categoryCollaborator": "陈超",
+        "ownerAssignmentEvidence": {
+          "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
+          "confirmedAtUtc": "2026-10-06T18:41:03Z",
+          "businessOwner": "吴律",
+          "categoryCollaborator": "陈超",
+          "scope": [
+            "all-sites business data",
+            "exact date ranges",
+            "profit daily/backfill"
+          ],
+          "scopeDoesNotApprove": [
+            "GitHub write",
+            "candidate-head approval",
+            "merge",
+            "production deployment",
+            "business strategy or authorization change"
+          ]
+        }
       },
       {
         "moduleId": "fc-ops",

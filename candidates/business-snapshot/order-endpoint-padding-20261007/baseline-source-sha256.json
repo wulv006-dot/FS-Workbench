@@ -1,0 +1,11 @@
+{
+  "atomic_snapshot.py": "7ba36c66a24e735241469440d9a9e634357fc06cb554d8184ef6aaaeb6936a54",
+  "collector.py": "85744def2704137c59052277b97d87df95d6817e698b2b534f9ad9ee59a96af1",
+  "fc_category_contract.py": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a",
+  "fc_product_contract.py": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+  "primary_fields.py": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+  "profit_backfill.py": "f58e1c70ad774f8dec7d8034a16965a9fb0d5a97f85746858c03b7cabfeb5777",
+  "profit_daily.py": "8be3a3db5490120e49582ac4042fb0bd7bc37325b74ac572cafbe1b1eddc717e",
+  "profit_daily_reader.py": "9218b92caf206498ea32cd46d53efae56504dcba3aecf1979c0b51fb8a87a40d",
+  "profit_reader_adapter.py": "9208e7d2763abb36068b1a8833a5945269c3517d513d0cbe424bd47a92114d7d"
+}

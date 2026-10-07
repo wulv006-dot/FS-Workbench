@@ -1,0 +1,76 @@
+{
+  "baseCommit": "7d5379a7f535decde83eef0e865548251f1c193e",
+  "baseTree": "b8542294424820cf08eb21de31741954c4d61ff8",
+  "proposedBranch": "codex/profit-endpoint-padding-20261007",
+  "branchCreated": false,
+  "gitHead": null,
+  "gitTree": null,
+  "moduleId": "business-snapshot",
+  "businessOwner": "吴律",
+  "categoryCollaborator": "陈超",
+  "ownerConfirmation": {
+    "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
+    "confirmedAtUtc": "2026-10-06T18:41:03Z",
+    "businessOwner": "吴律",
+    "categoryCollaborator": "陈超",
+    "scope": [
+      "all-sites business data",
+      "exact date ranges",
+      "profit daily/backfill"
+    ],
+    "scopeDoesNotApprove": [
+      "GitHub write",
+      "candidate-head approval",
+      "merge",
+      "production deployment",
+      "business strategy or authorization change"
+    ]
+  },
+  "adoptionStatus": "legacy-unreconciled",
+  "candidatePurpose": "exact two reviewed fixes plus pinned offline-only source dependency/test closure",
+  "reviewedFixSha256": {
+    "profit_daily_reader.py": "92633c6db461e8f9f981fe0b702e7b1e0323c3b78ea46f0e9b67943c48c3ec03",
+    "profit_backfill.py": "1a72166c2042c14c9a958e98b1e21ca6ee7e01f3b96f774d714344ac930c0254"
+  },
+  "unchangedSupportSourceSha256": {
+    "atomic_snapshot.py": "7ba36c66a24e735241469440d9a9e634357fc06cb554d8184ef6aaaeb6936a54",
+    "collector.py": "85744def2704137c59052277b97d87df95d6817e698b2b534f9ad9ee59a96af1",
+    "fc_category_contract.py": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a",
+    "fc_product_contract.py": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+    "primary_fields.py": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+    "profit_daily.py": "8be3a3db5490120e49582ac4042fb0bd7bc37325b74ac572cafbe1b1eddc717e",
+    "profit_reader_adapter.py": "9208e7d2763abb36068b1a8833a5945269c3517d513d0cbe424bd47a92114d7d"
+  },
+  "legacyBaselineSources": "existing v2 archive/candidate; no production reads or reverse overwrite this task",
+  "gitExistingModuleNotAssumedSameSource": true,
+  "syntheticMigration": {
+    "oldMethods": 55,
+    "endpointMethods": 35,
+    "allInputsInvented": true,
+    "retainedCoverageTopology": "7 all-sites + 5 FC27 + 1 AION2",
+    "defaultInventedOrderCount": 80,
+    "defaultInventedRevenueUsd": 4800,
+    "defaultInventedMarginPct": 12.5,
+    "calendarYear": 2021,
+    "oldReadbackFilesCopied": false,
+    "methodIdentityChange": "real sample -> synthetic sample; all other names unchanged",
+    "logicChanges": [
+      "standalone tests ROOT points to parent",
+      "read_text explicit UTF-8",
+      "sample/seed fixture paths now synthetic",
+      "source freeze assertion compares only two new fixes against saved v2 SHA baseline",
+      "already-reviewed fixed auth error-code expectation retained"
+    ]
+  },
+  "releaseReady": false,
+  "gitWriteAuthorizationForThisExactPayload": {
+    "userMessageId": "Sentinel_3224103cea7c8191b0c67e2ef8443278",
+    "atUtc": "2026-10-07T00:56:44Z",
+    "scope": "previous exact 27-file profit candidate Git draft/QA/review/merge and controlled deployment; unchanged definitions/strategies/timers",
+    "rootSerialWindow": "FC owns Git/production window; await root handoff before any remote write"
+  },
+  "linuxQa": "NOT_RUN",
+  "liveUpstream": "NOT_RUN",
+  "newNaturalCycle": "NOT_RUN",
+  "rootSerialWindowPending": true
+}
