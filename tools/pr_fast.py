@@ -46,15 +46,28 @@ def selfcheck():
         try:require_success(runner.run(suite))
         except RuntimeError:continue
         raise RuntimeError("failure_propagation_selfcheck_failed")
+    # HTML/CSS must not get a green gate from selfcheck alone.
+    for paths in (["index.html"], ["styles.css"], ["index.html","README.md"],
+                  ["styles.css","fc27_quote_engine.py"]):
+        try:select(paths)
+        except RuntimeError as exc:
+            if "UNMAPPED:" not in str(exc):raise
+        else:raise RuntimeError("unmapped_frontend_path_was_allowed")
+    if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
+        raise RuntimeError("docs_or_dispatcher_scope_changed")
+    print("path selfcheck: HTML/CSS-only and mixed code reject UNMAPPED; docs-only and dispatcher scope verified")
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
-        if suffix not in (".py",".js",".cjs",".sh"):continue
-        if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":groups.update(("self","engine","supersession","players","rpg","aion","nba","fc-control"))
-        elif name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
+        if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
+            groups.add("self");continue
+        if suffix not in (".py",".js",".cjs",".sh",".html",".css"):continue
+        if suffix in (".html",".css"):
+            unmapped.append(name);continue
+        if name.startswith("candidates/fc-coins/player-supersession-20261007-v4-2-3/source/") and "/app/" not in name:groups.add("supersession")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
         elif name=="fc27_players_cloud/player_web/price_lock.py":groups.add("players")
