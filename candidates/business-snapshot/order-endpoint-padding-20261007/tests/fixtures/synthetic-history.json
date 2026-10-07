@@ -1,0 +1,422 @@
+{
+  "daily": [
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-03",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 23,
+      "period": {
+        "end": "2021-10-04 00:00",
+        "start": "2021-10-03 00:00"
+      },
+      "profileKey": "AION2",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": -4.25,
+      "profitUsd": null,
+      "revenueUsd": 345.0,
+      "scope": {
+        "orderGameId": "826",
+        "orderProductType": "",
+        "orderStatus": "3",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-01",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 25,
+      "period": {
+        "end": "2021-10-02 00:00",
+        "start": "2021-10-01 00:00"
+      },
+      "profileKey": "FC27",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.5,
+      "profitUsd": null,
+      "revenueUsd": 375.0,
+      "scope": {
+        "orderGameId": "1322",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-02",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 24,
+      "period": {
+        "end": "2021-10-03 00:00",
+        "start": "2021-10-02 00:00"
+      },
+      "profileKey": "FC27",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.4,
+      "profitUsd": null,
+      "revenueUsd": 360.0,
+      "scope": {
+        "orderGameId": "1322",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-03",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 23,
+      "period": {
+        "end": "2021-10-04 00:00",
+        "start": "2021-10-03 00:00"
+      },
+      "profileKey": "FC27",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.3,
+      "profitUsd": null,
+      "revenueUsd": 345.0,
+      "scope": {
+        "orderGameId": "1322",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-04",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 22,
+      "period": {
+        "end": "2021-10-05 00:00",
+        "start": "2021-10-04 00:00"
+      },
+      "profileKey": "FC27",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.2,
+      "profitUsd": null,
+      "revenueUsd": 330.0,
+      "scope": {
+        "orderGameId": "1322",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-05",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 21,
+      "period": {
+        "end": "2021-10-06 00:00",
+        "start": "2021-10-05 00:00"
+      },
+      "profileKey": "FC27",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.1,
+      "profitUsd": null,
+      "revenueUsd": 315.0,
+      "scope": {
+        "orderGameId": "1322",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-09-29",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 27,
+      "period": {
+        "end": "2021-09-30 00:00",
+        "start": "2021-09-29 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.7,
+      "profitUsd": null,
+      "revenueUsd": 405.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-09-30",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 26,
+      "period": {
+        "end": "2021-10-01 00:00",
+        "start": "2021-09-30 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.6,
+      "profitUsd": null,
+      "revenueUsd": 390.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-01",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 25,
+      "period": {
+        "end": "2021-10-02 00:00",
+        "start": "2021-10-01 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.5,
+      "profitUsd": null,
+      "revenueUsd": 375.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-02",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 24,
+      "period": {
+        "end": "2021-10-03 00:00",
+        "start": "2021-10-02 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.4,
+      "profitUsd": null,
+      "revenueUsd": 360.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-03",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 23,
+      "period": {
+        "end": "2021-10-04 00:00",
+        "start": "2021-10-03 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.3,
+      "profitUsd": null,
+      "revenueUsd": 345.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-04",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 22,
+      "period": {
+        "end": "2021-10-05 00:00",
+        "start": "2021-10-04 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.2,
+      "profitUsd": null,
+      "revenueUsd": 330.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "capturedAt": "2021-10-06T14:21:27+00:00",
+      "collectionKind": "existing-120min-native-day",
+      "costUsd": null,
+      "currency": "USD",
+      "date": "2021-10-05",
+      "definition": null,
+      "endpoint": "/stats/admin_order/index.html",
+      "latestAttemptAt": "2021-10-06T14:21:27+00:00",
+      "latestAttemptStatus": "available",
+      "marginUnit": "percent",
+      "orders": 21,
+      "period": {
+        "end": "2021-10-06 00:00",
+        "start": "2021-10-05 00:00"
+      },
+      "profileKey": "MMOEXP",
+      "profitCostStatus": "not_provided",
+      "profitMarginPct": 11.1,
+      "profitUsd": null,
+      "revenueUsd": 315.0,
+      "scope": {
+        "orderGameId": "0",
+        "orderProductType": "",
+        "orderStatus": "",
+        "sites": "all-websites"
+      },
+      "source": "order.p2pah.cn",
+      "stale": false,
+      "status": "available",
+      "timezone": "Asia/Shanghai"
+    }
+  ],
+  "purpose": "Invented 13-point coverage topology; no production seed/cache",
+  "synthetic": true
+}

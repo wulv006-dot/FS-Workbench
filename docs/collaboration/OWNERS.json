@@ -34,7 +34,7 @@
     {
       "moduleId": "business-snapshot",
       "fileCount": 14,
-      "businessOwner": "待指派",
+      "businessOwner": "吴律",
       "candidatePaths": [
         "fs_transaction_snapshot_20260930/atomic_snapshot.py",
         "fs_transaction_snapshot_20260930/collector.py",
@@ -62,12 +62,31 @@
       "approvalScope": "module code/business responsibility; no automatic production permission",
       "adoptionStatus": "legacy-unreconciled",
       "coordinator": "Work",
-      "ownerConfirmationAtCandidateSha": null
+      "ownerConfirmationAtCandidateSha": null,
+      "categoryCollaborator": "陈超",
+      "ownerAssignmentEvidence": {
+        "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
+        "confirmedAtUtc": "2026-10-06T18:41:03Z",
+        "businessOwner": "吴律",
+        "categoryCollaborator": "陈超",
+        "scope": [
+          "all-sites business data",
+          "exact date ranges",
+          "profit daily/backfill"
+        ],
+        "scopeDoesNotApprove": [
+          "GitHub write",
+          "candidate-head approval",
+          "merge",
+          "production deployment",
+          "business strategy or authorization change"
+        ]
+      }
     },
     {
       "moduleId": "exact-range",
       "fileCount": 2,
-      "businessOwner": "待指派",
+      "businessOwner": "吴律",
       "candidatePaths": [
         "fs_range_read_state_20261001/exact-range-client.js",
         "mmoexp_google_data/weekly_report/range_parser_release_20261005/source/range_api.py"
@@ -83,7 +102,26 @@
       "approvalScope": "module code/business responsibility; no automatic production permission",
       "adoptionStatus": "legacy-unreconciled",
       "coordinator": "Work",
-      "ownerConfirmationAtCandidateSha": null
+      "ownerConfirmationAtCandidateSha": null,
+      "categoryCollaborator": "陈超",
+      "ownerAssignmentEvidence": {
+        "userConfirmationMessageId": "Sentinel_e92414f035508191adb6f754beed7f51",
+        "confirmedAtUtc": "2026-10-06T18:41:03Z",
+        "businessOwner": "吴律",
+        "categoryCollaborator": "陈超",
+        "scope": [
+          "all-sites business data",
+          "exact date ranges",
+          "profit daily/backfill"
+        ],
+        "scopeDoesNotApprove": [
+          "GitHub write",
+          "candidate-head approval",
+          "merge",
+          "production deployment",
+          "business strategy or authorization change"
+        ]
+      }
     },
     {
       "moduleId": "fc-ops",

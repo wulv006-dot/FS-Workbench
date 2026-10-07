@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Hermetic synthetic-only profit regression inputs",
+  "files": [
+    {
+      "path": "source/atomic_snapshot.py",
+      "sha256": "7ba36c66a24e735241469440d9a9e634357fc06cb554d8184ef6aaaeb6936a54",
+      "bytes": 8368
+    },
+    {
+      "path": "source/collector.py",
+      "sha256": "85744def2704137c59052277b97d87df95d6817e698b2b534f9ad9ee59a96af1",
+      "bytes": 19636
+    },
+    {
+      "path": "source/fc_category_contract.py",
+      "sha256": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a",
+      "bytes": 6796
+    },
+    {
+      "path": "source/fc_product_contract.py",
+      "sha256": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1",
+      "bytes": 8129
+    },
+    {
+      "path": "source/primary_fields.py",
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+      "bytes": 1497
+    },
+    {
+      "path": "source/profit_backfill.py",
+      "sha256": "1a72166c2042c14c9a958e98b1e21ca6ee7e01f3b96f774d714344ac930c0254",
+      "bytes": 14683
+    },
+    {
+      "path": "source/profit_daily.py",
+      "sha256": "8be3a3db5490120e49582ac4042fb0bd7bc37325b74ac572cafbe1b1eddc717e",
+      "bytes": 6239
+    },
+    {
+      "path": "source/profit_daily_reader.py",
+      "sha256": "92633c6db461e8f9f981fe0b702e7b1e0323c3b78ea46f0e9b67943c48c3ec03",
+      "bytes": 10678
+    },
+    {
+      "path": "source/profit_reader_adapter.py",
+      "sha256": "9208e7d2763abb36068b1a8833a5945269c3517d513d0cbe424bd47a92114d7d",
+      "bytes": 2182
+    },
+    {
+      "path": "tests/build_synthetic_inputs.py",
+      "sha256": "928cb31ef24f580d0e1c75ed93715be6065471ad729382d5b6671bc338cafe05",
+      "bytes": 2791
+    },
+    {
+      "path": "tests/fixtures/synthetic-all-sites.json",
+      "sha256": "34b7fc628e61c2295cd7610c148c5ffe7bc64f6e77cc62fc6b286d2c6e49d2da",
+      "bytes": 2879
+    },
+    {
+      "path": "tests/fixtures/synthetic-fc27.json",
+      "sha256": "e1c928200422bb091874a266218609dfcb3aac39d7d5352abc5458facba16753",
+      "bytes": 2881
+    },
+    {
+      "path": "tests/fixtures/synthetic-history.json",
+      "sha256": "abf2e26fa10fce6050bda54e6081df098b5aadc753d7f82f9425671750b87124",
+      "bytes": 12256
+    },
+    {
+      "path": "tests/fixtures/synthetic-single-day.json",
+      "sha256": "e73b83040e302036d722b141832f79c156b2e95efb397635ee36bc49a480e675",
+      "bytes": 903
+    },
+    {
+      "path": "tests/test_backfill.py",
+      "sha256": "04b1237d5425951e26ae44c1fbad25a7913cebd82852e72444bbc882add66e11",
+      "bytes": 17077
+    },
+    {
+      "path": "tests/test_endpoint_padding.py",
+      "sha256": "c91a4d18ab9b56b389200648da8820ae60ed4d6145912d911a6c7a81caf3bc1e",
+      "bytes": 12441
+    },
+    {
+      "path": "tests/test_review_counterexamples.py",
+      "sha256": "5b01d2a26d1313f9d4cb7bd33fcb83f9aa9964483c9ff0a026c555f3915f7926",
+      "bytes": 15285
+    },
+    {
+      "path": "baseline-source-sha256.json",
+      "sha256": "ffde757946e6a13989fda8560dc402a7c2fa73e3c1ce1d7467a5b8abd830337c",
+      "bytes": 840
+    },
+    {
+      "path": "run_offline_tests.py",
+      "sha256": "2a4912b52068784b3d0283bc7f223b7d1e9873285c7ad5a49d469d29c37116e3",
+      "bytes": 1120
+    },
+    {
+      "path": "OWNER-ASSIGNMENT.json",
+      "sha256": "bb4b865ee2f65c74f91271dfde6c3d8d00fc439115d3f7b705546eb392696655",
+      "bytes": 463
+    },
+    {
+      "path": "PROVENANCE.json",
+      "sha256": "28f04ba506b2f3040273d86f053af1435e3ccc7469d2f86f0d3650da3b90be8b",
+      "bytes": 3426
+    },
+    {
+      "path": "README.md",
+      "sha256": "cd10b71c3baa0f1259ebf1cd8c385aff533084d4f9a0d2b32a406322195d80b5",
+      "bytes": 3922
+    }
+  ],
+  "excluded": [
+    "INPUT-MANIFEST.json",
+    "private-local-results/**",
+    "proposed-repository-files/**"
+  ],
+  "selfExcluded": true,
+  "noLiveInputs": true,
+  "baseCommit": "7d5379a7f535decde83eef0e865548251f1c193e",
+  "baseTree": "b8542294424820cf08eb21de31741954c4d61ff8",
+  "releaseReady": false
+}
