@@ -194,6 +194,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/green-plan/20261009/"):
+            groups.add("green-plan");continue
         if name in (
             "tests/registration-release-delta-qa-20261007/linux_delta_entry.py",
             "tests/registration-release-delta-qa-20261007/overlay-manifest.json",
@@ -257,8 +259,12 @@ def main():
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
+        elif group=="green-plan":
+            for name in ("candidate/backend/test_green_plan.py","check_release.py"):
+                subprocess.run([sys.executable,"-B",str(ROOT/"releases/green-plan/20261009"/name)],check=True,timeout=90,cwd=ROOT)
         elif group=="builder":units("tools",["test_business_html_build"])
         elif group=="registration-delta":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
