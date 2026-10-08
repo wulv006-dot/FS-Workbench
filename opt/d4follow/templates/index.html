@@ -72,6 +72,14 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(10,143,77,.3)}50%{box-shadow:0 0 0 7px rgba(10,143,77,0)}}
 #swAuto.on{animation:pulse 2.4s infinite}
 .toggles{display:flex;flex-wrap:wrap;gap:9px}
+/* 控制台分块：给「跟价开关」「运行参数」各加一个小标题，与下面的动作按钮分组呼应，
+   整段读起来是「总开关 → 开关/参数 → 动作」三块，不再是散落一地的小控件。 */
+.ctl>.ctlrow{flex:1 1 100%}
+.ctlrow{display:flex;align-items:flex-start;gap:10px;margin-top:10px}
+.ctlrow-n{flex:none;font-size:10.5px;letter-spacing:.6px;font-weight:700;color:var(--ov0);
+  padding-top:7px;white-space:nowrap;min-width:62px}
+.ctlrow>*:not(.ctlrow-n){flex:1 1 auto;min-width:0}
+@media(max-width:640px){.ctlrow-n{display:none}}
 .tg{display:flex;align-items:center;gap:8px;background:var(--s0);border:1px solid transparent;
   border-radius:8px;padding:5px 11px;cursor:pointer;font-size:12.5px;user-select:none;transition:.15s}
 .tg:hover{border-color:var(--s1)}
@@ -90,8 +98,6 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
    2026-09-24 第十五轮：「偏离纠正阈值 (%)」下线（页面参数 + 引擎触发一并移除）。 */
 .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .prow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1 1 auto}
-.ctl .acts{margin-top:0}
-.ctl .acts button.btn{padding:7px 13px;font-size:12.5px}
 .fld{display:flex;align-items:center;gap:7px;background:var(--s0);border-radius:8px;
   padding:4px 10px;min-width:0}
 .fld label{font-size:11.5px;color:var(--ov0);white-space:nowrap;flex:none}
@@ -116,16 +122,25 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
 
 /* 按钮 */
 .acts{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
-button.btn{background:var(--s0);color:var(--text);border:1px solid var(--s1);border-radius:8px;
-  padding:9px 17px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s;
-  display:inline-flex;align-items:center;gap:7px}
-button.btn:hover{background:var(--s1);border-color:var(--s2)}
-button.btn:disabled{opacity:.45;cursor:not-allowed}
-button.btn.primary{background:var(--blue);border-color:var(--blue);color:var(--crust);font-weight:600}
-button.btn.primary:hover{background:#0077ed}
-button.btn.danger{background:#fdeef1;border-color:var(--red);color:var(--red)}
-button.btn.ghost{background:transparent}
-button.btn.ok{background:var(--green);border-color:var(--green);color:var(--crust);font-weight:600}
+button.btn{background:var(--crust);color:var(--text);border:1px solid var(--s1);border-radius:9px;
+  padding:8px 14px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:transform .13s ease,box-shadow .13s ease,background .13s ease,border-color .13s ease;
+  box-shadow:0 1px 2px rgba(16,24,40,.04)}
+button.btn svg{flex:none;opacity:.85}
+button.btn:hover{background:#fff;border-color:var(--s2);transform:translateY(-1px);
+  box-shadow:0 5px 14px -7px rgba(16,24,40,.4)}
+button.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+button.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+button.btn.primary{background:linear-gradient(180deg,#0a80f0,#0071e3);border-color:#0071e3;
+  color:#fff;font-weight:600;box-shadow:0 2px 8px -4px rgba(0,113,227,.7)}
+button.btn.primary:hover{background:linear-gradient(180deg,#1a8bf5,#0a77e6);border-color:#0a77e6}
+button.btn.primary svg{opacity:.95}
+button.btn.danger{background:#fff;border-color:#f0b4bd;color:var(--red)}
+button.btn.danger:hover{background:#fff5f7;border-color:var(--red)}
+button.btn.ghost{background:transparent;box-shadow:none}
+button.btn.ghost:hover{background:var(--s0);box-shadow:none}
+button.btn.ok{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
 
 /* KPI */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;padding:14px 16px}
@@ -246,7 +261,7 @@ th{background:#fafafa}
 .toc a:hover{background:var(--s0);color:var(--text)}
 .toc a.on{background:rgba(0,113,227,.1);color:var(--blue);font-weight:600}
 .toc a.on .i{color:var(--blue)}
-#sec-ctl,#sec-follow,#sec-kpi,#sec-log,#sec-health,#sec-local{scroll-margin-top:76px}
+#sec-ctl,#sec-kpi,#sec-follow,#sec-log,#sec-local{scroll-margin-top:76px}
 /* 给右侧悬浮目录留一条「走廊」，否则目录会压住主表最后一列（原因 / 依据）。
    只在目录可见的宽度区间生效（≤1120px 时目录隐藏，不留空白）。 */
 @media(min-width:1121px){main{padding-right:68px}}
@@ -441,19 +456,34 @@ th{background:#fafafa}
 #shelfBar .sb ul{margin:0;padding-left:18px;font-size:13px;color:var(--sub);line-height:1.7}
 #shelfBar .sb li b{color:var(--text)}
 #shelfBar .sb .hint{margin-top:8px;font-size:12px;color:var(--ov0)}
-#shelfPatchBtn{
-  font:600 13px -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
-  color:#fff;background:#0a84ff;border:none;border-radius:8px;
-  padding:8px 14px;cursor:pointer;margin:8px 0 4px;
-}
-#shelfPatchBtn:hover{background:#0070e0}
-#shelfPatchBtn:disabled{background:#b0b0b5;cursor:default}
-#shelfPatchOut{
-  white-space:pre-wrap;word-break:break-all;
-  font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  background:#f5f5f7;color:#1d1d1f;border:1px solid #e5e5ea;border-radius:10px;
-  padding:12px 14px;margin:6px 0 2px;max-height:420px;overflow:auto;
-}
+/* ===== 2026-10-08 · 面板折叠（④ 改动记录：默认收起，用时再展开）=====
+   原先 .logbox 固定 420px 高，即使一行日志都没有也占着半屏（用户反馈「留空很大」）。
+   现在整段默认 collapsed：只留标题行（带行数计数），点标题展开 / 收起；
+   任务一启动（subscribe）自动展开 —— 「用的时候出来，不用的时候叠起来」。 */
+.panel.collapsed>.logbox{display:none}
+/* 展开但还没日志时不要留一个 420px 的大空盒子 */
+.logbox:empty{height:104px;display:flex;align-items:center}
+.logbox:empty::before{content:"暂无日志 —— 点上方「立即采集 / 重算看板」等按钮，运行过程会实时输出到这里。";
+  color:var(--ov0);font-size:12px;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+.panel>h2.h2click{cursor:pointer;user-select:none}
+.panel>h2.h2click:hover{background:rgba(0,0,0,.045)}
+.caret{display:inline-block;transition:transform .18s ease;color:var(--ov0);font-size:11px}
+.panel.collapsed>.h2click .caret{transform:rotate(-90deg)}
+/* 详情区里「不属于当前游戏」的区块直接不占位（每个游戏一个独立看板） */
+.gd-sec.hide{display:none}
+
+/* ===== 2026-10-08 · 控制台动作按钮分组（按钮多但要有层次才好看）=====
+   8 个按钮按用途分到 4 组：参数 / 数据 / 演练 / 工单，每组一个竖标签 + 细虚线分隔。
+   工单组用暖色边框区分（这是唯一会真正写入后台的一组，视觉上要「重」一点）。 */
+.ctlgroups{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.actgrp{display:flex;align-items:center;gap:9px;border:1px solid var(--s1);border-radius:12px;
+  background:linear-gradient(180deg,#fcfcfe,#f6f6f9);padding:7px 10px 7px 12px}
+.actgrp>label{font-size:10.5px;letter-spacing:.6px;font-weight:700;color:var(--ov0);
+  padding-right:10px;border-right:1px dashed var(--s2);white-space:nowrap;flex:none}
+.actgrp .btns{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.actgrp.ticket{border-color:#f2ccd4;background:linear-gradient(180deg,#fffafa,#fdf0f3)}
+.actgrp.ticket>label{color:var(--red)}
+@media(max-width:640px){.actgrp>label{border-right:0;padding-right:0}}
 </style>
 </head>
 <body>
@@ -465,21 +495,13 @@ th{background:#fafafa}
 <nav class="toc" id="toc" aria-label="模块目录">
   <div class="toc-t">目录</div>
   <a href="#sec-ctl"    data-to="sec-ctl"><span class="i">①</span><span class="t">控制台</span></a>
-  <a href="#sec-follow" data-to="sec-follow"><span class="i">②</span><span class="t">游戏监控台</span></a>
-  <a href="#sec-kpi"    data-to="sec-kpi"><span class="i">③</span><span class="t">关键指标</span></a>
+  <a href="#sec-kpi"    data-to="sec-kpi"><span class="i">②</span><span class="t">关键指标</span></a>
+  <a href="#sec-follow" data-to="sec-follow"><span class="i">③</span><span class="t">游戏监控台</span></a>
   <a href="#sec-log"    data-to="sec-log"><span class="i">④</span><span class="t">改动记录</span></a>
-  <a href="#sec-health" data-to="sec-health"><span class="i">⑤</span><span class="t">数据源健康</span></a>
-  <a href="#sec-local"  data-to="sec-local"><span class="i">⑥</span><span class="t">执行器</span></a>
+  <a href="#sec-local"  data-to="sec-local"><span class="i">⑤</span><span class="t">执行器</span></a>
 </nav>
 
 <div id="shelfBar"></div>
-<!-- 2026-10-01：按钮容器默认可见（此前 style="display:none"，JS 才开，零漂移时又被关死
-     ⇒ 用户完全看不到。现改为常显，保证「随时能核对」。） -->
-<div id="shelfPatchWrap">
-  <button id="shelfPatchBtn" type="button">核对货架一致性（生成纳管补丁草稿 · 只生成不落盘）</button>
-  <span id="shelfPatchMsg" style="margin-left:10px;font-size:13px;color:#8a8a8e"></span>
-</div>
-<pre id="shelfPatchOut" style="display:none"></pre>
 <main>
   <section class="panel" id="sec-ctl">
     <h2>① 控制台</h2>
@@ -499,17 +521,43 @@ th{background:#fafafa}
             <span class="swst" id="swAutoSt">关闭</span>
           </div>
         </div>
-        <div class="toggles" id="toggles"></div>
-        <div class="prow" id="params"></div>
-        <div class="acts" id="ctlBar">
-          <button class="btn primary" id="btnSave" onclick="saveParams()">保存参数</button>
-          <button class="btn ghost" onclick="loadState()">刷新数据</button>
-          <button class="btn" onclick="runTask('collect',{force:true})" title="立即采集：忽略各游戏的采集周期，全部游戏马上全量跑一遍（只是查价，真偏离才会改价）">立即采集</button>
-          <button class="btn" onclick="runTask('rebuild')">重算看板</button>
-          <button class="btn" onclick="simulate()">模拟跟价</button>
-          <button class="btn" onclick="runTask('plan')">改价计划 DRY-RUN</button>
-          <button class="btn danger" id="btnApply" onclick="openApply()">生成改价工单</button>
-          <button class="btn danger" id="btnGoldApply" onclick="openGoldApply()">生成金币工单</button>
+        <div class="ctlrow">
+          <span class="ctlrow-n">跟价开关</span>
+          <div class="toggles" id="toggles"></div>
+        </div>
+        <div class="ctlrow">
+          <span class="ctlrow-n">运行参数</span>
+          <div class="prow" id="params"></div>
+        </div>
+        <div class="ctlgroups" id="ctlBar">
+          <div class="actgrp">
+            <label>参数</label>
+            <div class="btns">
+              <button class="btn primary" id="btnSave" onclick="saveParams()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2h8l2 2v10H3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 2v3.5h5V2M5.5 14v-4h5v4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>保存参数</button>
+            </div>
+          </div>
+          <div class="actgrp">
+            <label>数据</label>
+            <div class="btns">
+              <button class="btn ghost" onclick="loadState()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13.3 2.2v3.2H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>刷新数据</button>
+              <button class="btn" onclick="runTask('collect',{force:true})" title="立即采集：忽略各游戏的采集周期，全部游戏马上全量跑一遍（只是查价，真偏离才会改价）"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.6 1.5 3.3 9h3.6l-.5 5.5L12.7 7H9.1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>立即采集</button>
+              <button class="btn" onclick="runTask('rebuild')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 13.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="2.4" height="4" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="7" y="5" width="2.4" height="7" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="10.5" y="9.5" width="2.4" height="2.5" rx=".6" stroke="currentColor" stroke-width="1.3"/></svg>重算看板</button>
+            </div>
+          </div>
+          <div class="actgrp">
+            <label>演练</label>
+            <div class="btns">
+              <button class="btn" onclick="simulate()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.3 2h3.4M7 2v4.2L4.1 11.6A1.6 1.6 0 0 0 5.5 14h5a1.6 1.6 0 0 0 1.4-2.4L9 6.2V2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.2 10.4h5.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>模拟跟价</button>
+              <button class="btn" onclick="runTask('plan')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.2" y="2.8" width="9.6" height="11" rx="1.6" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7h4.8M5.6 9.6h3.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>改价计划 DRY-RUN</button>
+            </div>
+          </div>
+          <div class="actgrp ticket">
+            <label>工单</label>
+            <div class="btns">
+              <button class="btn danger" id="btnApply" onclick="openApply()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 4.5h11v2.2a1.3 1.3 0 0 0 0 2.6v2.2h-11v-2.2a1.3 1.3 0 0 0 0-2.6z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="M9.6 4.5v7" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.8 1.6"/></svg>生成改价工单</button>
+              <button class="btn danger" id="btnGoldApply" onclick="openGoldApply()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.4" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.2v5.6M6.4 6.6h2.6a1.1 1.1 0 0 1 0 2.2H6.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>生成金币工单</button>
+            </div>
+          </div>
         </div>
         <div class="sched">
           <div class="sched-h">
@@ -523,8 +571,13 @@ th{background:#fafafa}
     </div>
   </section>
 
+  <section class="panel" id="sec-kpi">
+    <h2>② 关键指标 <span class="hint" id="kpiTs"></span></h2>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
   <section class="panel ov" id="sec-follow">
-    <h2>② 游戏监控台
+    <h2>③ 游戏监控台
       <span class="hint" style="margin-left:auto;display:flex;gap:7px;align-items:center">
         <span id="followSum"></span>
         <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="followAll(true)">全部跟价</button>
@@ -548,11 +601,11 @@ th{background:#fafafa}
             <button class="btn ghost gd-mini" id="followToggle" onclick="toggleFollowBox()">收起</button></h4>
           <div id="follow"></div>
         </div>
-        <div class="gd-sec">
+        <div class="gd-sec" id="secPropWrap">
           <h4 class="gd-t" id="mainHead">道具监控 <span class="num" id="mainSum" style="margin-left:auto"></span></h4>
           <div id="mainBlocks"></div>
         </div>
-        <div class="gd-sec">
+        <div class="gd-sec" id="secGoldWrap">
           <h4 class="gd-t" id="goldHead">金币监控
             <span class="mech" id="goldMech"></span>
             <span class="num" id="goldSum"></span>
@@ -565,32 +618,26 @@ th{background:#fafafa}
     </div>
   </section>
 
-  <section class="panel" id="sec-kpi">
-    <h2>③ 关键指标 <span class="hint" id="kpiTs"></span></h2>
-    <div class="kpis" id="kpis"></div>
-  </section>
-
-  <section class="panel" id="sec-log">
-    <h2>④ 改动记录
+  <section class="panel collapsed" id="sec-log">
+    <h2 class="h2click" onclick="toggleLog()"
+        title="改动记录默认收起；点这里展开 / 收起（任务运行时自动展开）">④ 改动记录
       <span style="display:flex;gap:8px;align-items:center">
         <span class="st" id="logSt"></span>
         <span class="small" id="logTitle"></span>
         <span class="small" id="logMeta"></span>
       </span>
-      <span class="hint">
-        <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="clearLog()">清空</button>
+      <span class="hint" style="display:flex;gap:9px;align-items:center">
+        <span class="small" id="logCount"></span>
+        <button class="btn ghost" style="padding:3px 10px;font-size:11.5px"
+                onclick="event.stopPropagation();clearLog()">清空</button>
+        <span class="caret" id="logCaret">▾</span>
       </span>
     </h2>
     <div class="logbox" id="log"></div>
   </section>
 
-  <section class="panel" id="sec-health">
-    <h2>⑤ 数据源健康 &amp; 改价后台接入</h2>
-    <div class="pad" id="health"></div>
-  </section>
-
   <section class="panel" id="sec-local">
-    <h2>⑥ 执行器（服务器 / 本机）
+    <h2>⑤ 执行器（服务器 / 本机）
       <span class="badge off" id="localBadge"><span class="dot"></span><span id="localSt">读取中…</span></span>
       <span class="hint" id="localTs"></span>
     </h2>
@@ -827,6 +874,11 @@ function renderGdHead(){
   const tip=$('#gateTip'); if(tip) tip.style.display = g ? 'none' : '';
   if(!g){ if(head) head.innerHTML=''; return; }
   const s=gStat(g), idx=FGAMES.indexOf(g);
+  /* 每个游戏一个独立看板：当前游戏没有金币 ⇒ 整个「金币监控」区块不占位；
+     没有道具 ⇒ 「道具监控」不占位。切到哪个游戏就只看到哪个游戏的东西。 */
+  const wProp=$('#secPropWrap'), wGold=$('#secGoldWrap');
+  if(wProp) wProp.classList.toggle('hide', !s.propN);
+  if(wGold) wGold.classList.toggle('hide', !s.hasGold);
   det.style.setProperty('--gc', g.color||'#0071e3');
   const act = (s.up||s.dn)
     ? (' ｜ <b style="color:'+(s.up&&s.dn?'var(--peach)':(s.up?'var(--red)':'var(--green)'))+'">待改 '
@@ -1178,57 +1230,6 @@ function renderTable(rows){
   const rs=sortByConfig(list);                 // 顺序 = config 编排顺序
   box.innerHTML = secBody(THEAD, rs.map(mainRow).join(''), secH(rs.length));
 }
-function renderHealth(d){
-  const h=d.health||{}, p=d.p2pah||{};
-  const row=(n,v,s)=>'<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--s0)">'
-    +'<div style="min-width:180px;color:var(--ov0)">'+n+'</div><div><b>'+v+'</b>'
-    +(s?' <span class="small">'+s+'</span>':'')+'</div></div>';
-  let html='';
-  const _sw=d.switches||{};
-  html+=row('系统总开关',
-    _sw.master?'<span style="color:#0a8f4d">开启</span>':'<span style="color:#b7791f">关闭</span>',
-    _sw.master?'允许改价：手动放行、自动跟价都走它'
-              :'拦截一切改价动作 —— 任务会拒绝执行、脚本会拒绝落库');
-  html+=row('自动跟价', _sw.auto?'<span style="color:#0a8f4d">开启</span>':'关闭',
-    _sw.auto?'采集后自动算并下发，不用人工放行'
-            :'只出改价计划，必须人工点「生成改价工单」并输入确认短语');
-  html+=row('跟价范围', (d.follow&&d.follow.onCount!=null)
-      ? ('已开启 '+d.follow.onCount+' / '+d.follow.total+' 件')
-      : '—',
-    '按游戏分组开关，存 config.json 的「对照项.跟价」，一点即存服务器');
-  html+=row('IGGM 竞品快照', esc(h.iggmTs||'—'), (h.iggmCount||0)+' 条商品');
-  const _kf=Number(h.iggmFactor||1);
-  html+=row('竞品价折算口径', '×'+_kf.toFixed(6),
-    (Math.abs(_kf-1)<1e-9) ? '关闭折算（表内直接是抓取值）'
-      : 'IGGM 对机房 IP 的报价比家用 IP 高 10%（实测 7/7）；表内 IGGM 价已换算成「客户实付折后价」');
-  const _ap=Number(h.allowPct||0), _gap=Number(h.goldAllowPct||0);
-  html+=row('让价口径', (_ap>0?('比 IGGM 低 '+_ap.toFixed(1)+'%'):'不让价（与 IGGM 持平）'),
-    '我方前端价（客户实付）= IGGM 当前价 ×(1−'+_ap.toFixed(1)+'%)；'
-    +'目标标价 = 前端价 ÷ 后台折扣。金币同口径：低 '+_gap.toFixed(1)+'%。');
-  html+=row('千岛进货成本', esc(h.qdTs||'—'), (h.qdKeys||0)+' 项匹配'+((h.qdStaleHours>24)?' ⚠ 超过 24h，建议本机推送':''));
-  html+=row('我方前端价', esc(h.ourTs||'—'), (h.ourCount||0)+' 条'+((h.ourStaleHours>12)?' ⚠ 超过 12h，建议本机推送':''));
-  html+=row('我方价采集方式', (d.config&&d.config['前端.服务器直连'])?'服务器直连':'本机推送',
-    (d.config&&d.config['前端.服务器直连'])?'服务器每次采集自抓（2026-09-24 实测可用）':'本机 6_推送数据到在线看板.bat → POST /api/our');
-  html+=row('千岛成本采集方式', (d.config&&d.config['千岛.服务器抓取'])?'服务器直连':'本机推送',
-    (d.config&&d.config['千岛.服务器抓取'])?'超过阈值小时由服务器自己抓（Playwright）':'千岛有反爬，需真实浏览器；本机 6_推送数据到在线看板.bat');
-  html+=row('order.p2pah.cn 账号', p.账号已配?('已配置（'+esc(p.账号)+'）'):'<span style="color:var(--yellow)">未配置</span>', '改价必需');
-  html+=row('改价写接口', p.写接口已配?'已配置':'<span style="color:var(--yellow)">未配置</span>', '需要你提供表单接口与字段名');
-  html+=row('千岛对标区服', esc(d.qd&&d.qd.对标区服||'—'), '参考区服：'+esc((d.qd&&d.qd.参考区服||[]).join('、')||'无'));
-  html+=row('负毛利商品', d.kpi&&d.kpi.negMargin ? d.kpi.negMargin : 0,
-    (d.kpi&&d.kpi.negMargin)? '<span style="color:var(--red)">低于进货成本，需人工核对</span>'
-                            : '无');
-  html+='<div style="margin-top:14px"><b style="font-size:12.5px">最近运行记录</b>'
-    +'<div class="scroll" style="max-height:230px;margin-top:7px"><table><thead><tr>'
-    +'<th>时间</th><th>开关</th><th class="num">IGGM</th><th class="num">千岛</th><th class="num">我方</th>'
-    +'<th class="num">可跟</th><th class="num">拦截</th><th>备注</th></tr></thead><tbody>'
-    + (h.runs||[]).map(r=>'<tr><td class="small">'+esc(r.ts)+'</td><td>'+esc(r.mode||'')+'</td>'
-      +'<td class="num">'+(r.iggm_count||0)+'</td><td class="num">'+(r.qd_count||0)+'</td>'
-      +'<td class="num">'+(r.our_count||0)+'</td><td class="num">'+(r.follows||0)+'</td>'
-      +'<td class="num">'+(r.blocked||0)+'</td><td class="small">'+esc(r.note||'')+'</td></tr>').join('')
-    +'</tbody></table></div></div>';
-  $('#health').innerHTML=html;
-}
-
 /* ---------- 参数编辑 ---------- */
 function mark(el){ el.closest('.tg').style.borderColor='var(--yellow)'; D[el.dataset.p]=el.checked; }
 function markInput(el){
@@ -1291,6 +1292,21 @@ async function saveSchedule(){
 }
 
 /* ---------- 任务 + 实时日志 ---------- */
+/* ④ 改动记录：默认收起（空着也不占屏），任务一跑自动展开；点标题可手动切换。 */
+let LOG_OPEN = false;
+function logNLines(){ const b=$('#log'); return b ? b.childNodes.length : 0; }
+function paintLogCount(){
+  const c=$('#logCount'); if(!c) return;
+  const n=logNLines();
+  c.textContent = n ? (n+' 行') : '暂无记录';
+}
+function setLogOpen(v){
+  LOG_OPEN = !!v;
+  const s=$('#sec-log'); if(s) s.classList.toggle('collapsed', !LOG_OPEN);
+  const car=$('#logCaret'); if(car) car.textContent = LOG_OPEN ? '▴' : '▾';
+  if(LOG_OPEN){ const box=$('#log'); if(box) box.scrollTop=box.scrollHeight; }
+}
+function toggleLog(){ setLogOpen(!LOG_OPEN); }
 function logLine(txt,cls){
   const box=$('#log');
   const d=document.createElement('div');
@@ -1298,8 +1314,9 @@ function logLine(txt,cls){
   d.textContent=txt;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
   while(box.childNodes.length>1200) box.removeChild(box.firstChild);
+  paintLogCount();
 }
-function clearLog(){ $('#log').innerHTML=''; }
+function clearLog(){ $('#log').innerHTML=''; paintLogCount(); }
 function classify(s){
   if(/✘|失败|错误|拒绝|异常/.test(s)) return 'err';
   if(/✔|完成/.test(s)) return 'ok';
@@ -1319,6 +1336,7 @@ function subscribe(tid,title){
   $('#logTitle').textContent='· '+(title||'');
   $('#logMeta').textContent=tid;
   $('#logSt').className='st run';
+  setLogOpen(true);                              // 任务一跑就把「改动记录」展开
   logLine('──── 任务启动：'+title+' ('+tid+') ────','hi');
   setBusy(true);
   ES=new EventSource('api/logs/'+tid);
@@ -1722,12 +1740,23 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     GOLD_COST_DATA = r || {items:[], 汇总:null, 口径:''};
   }
   const d = GOLD_COST_DATA;
-  const rows = (d.items||[]);
-  if(!rows.length){
-    box.innerHTML = '<div class="gempty">该游戏暂无 DD373 进货成本数据'
-      + '（成本采集独立于跟价，可能尚未跑过一轮）</div>';
+  /* ⛔ 2026-10-08 修「AION2 金币面板串到所有游戏」：
+     /api/gold_cost 后端按 config「金币.进货成本.游戏」**固定返回 AION2 的一整批区**
+     （见 app.py api_gold_cost：game = cc.get("游戏") or "AION2"），不区分前端选的是哪个游戏。
+     原来这里 rows = d.items 全量渲染 ⇒ 打开暗黑4 / POE2 / 别的游戏也会看到 AION2 的 86 行。
+     归属判定：**这批成本数据属于当前游戏 ⇔ 至少有一条 key 登记在本游戏下**。
+       · 线上实测（2026-10-08）：AION2 86/86 全部登记、其余 8 个游戏交集恒为 0；
+       · 命中就**整批展示**、不做逐行过滤 —— 将来某区没登记进跟价清单也不会被静默吞行；
+       · 不命中 ⇒ 整块不显示（不是显示「暂无」，别留半块空面板）。
+     ⚠ 局限：若日后后端把多个游戏的成本并进同一批返回，需改为后端按 ?game= 过滤。 */
+  const mCost = key2sec();
+  const allRows = (d.items||[]);
+  if(!allRows.some(x=>mCost.get(x.key)===g)){
+    box.style.display='none'; box.innerHTML='';
     return;
   }
+  const rows = allRows;
+  box.style.display='';
   const S = d.汇总||{};
   /* 数字格式：售价 $/M、成本 $/M 都保留 4 位（够看清差异又不至于太长） */
   const f4 = function(v){ if(v===null||v===undefined||v==='') return '--';
@@ -2247,9 +2276,9 @@ async function loadState(){
     renderToggles(STATE.config); renderParams(STATE.config);
     renderFollow(STATE.follow);
     renderGates(); renderGdHead();
-    renderKpis(STATE); renderTable(STATE.rows); renderHealth(STATE);
+    renderKpis(STATE); renderTable(STATE.rows);
     renderSchedule(STATE.schedule);
-    renderGold(pGold); renderLocal(pLocal); renderShelfBar(); bindShelfPatch();
+    renderGold(pGold); renderLocal(pLocal); renderShelfBar();
     for(const k in D) delete D[k];
   }catch(e){ toast('加载失败：'+e.message,'err'); }
 }
@@ -2258,57 +2287,25 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 $('#histModal').addEventListener('click',e=>{ if(e.target.id==='histModal') closeHist(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHist(); });
 tocInit();
+setLogOpen(false); paintLogCount();
 loadState();
 setInterval(()=>{ if(!ES) loadState(); }, 60000);
 setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
 
-/* 货架自检告警条：只读展示，不自动改配置（用户手动处理） */
-function bindShelfPatch(){
-  var b=document.getElementById("shelfPatchBtn");
-  if(!b||b._bound)return; b._bound=true;
-  b.addEventListener("click",async function(){
-    var out=document.getElementById("shelfPatchOut");
-    var msg=document.getElementById("shelfPatchMsg");
-    b.disabled=true; msg.textContent="正在生成…";
-    try{
-      /* ⛔ 2026-10-01 修：原为 fetch("/api/shelf_patch")（绝对路径）→ 实际请求
-         根路径 /api/shelf_patch，nginx 无此 location 返回 404 HTML
-         ⇒ 前端 JSON.parse 报 "Unexpected token '<'"。页面内所有接口约定用
-         **相对路径**（如 api('api/gold') = /d4/api/gold），这里保持一致。 */
-      var r=await fetch("api/shelf_patch",{cache:"no-store"});
-      var j=await r.json();
-      if(!j.ok){msg.textContent="生成失败";out.style.display="block";
-                out.textContent="生成失败："+(j.err||"未知错误");return;}
-      var c=j.counts||{};
-      if((c.new_items||0)+(c.dup_remove||0)+(c.manual||0)===0){
-        msg.textContent="当前无差异，无需纳管";
-        out.style.display="block";
-        out.textContent="【货架纳管补丁草稿】\n\n当前货架无漂移，无需生成补丁。";
-      }else{
-        msg.textContent="新增 "+(c.new_items||0)+" / 清理 "+(c.dup_remove||0)+" / 人工 "+(c.manual||0);
-        out.style.display="block"; out.textContent=j.diff_text||"";
-      }
-    }catch(e){msg.textContent="请求失败："+e;}
-    finally{b.disabled=false;}
-  });
-}
+/* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。
+   2026-10-08：按老板要求下线「核对货架一致性（生成纳管补丁草稿 · 只生成不落盘）」按钮 ——
+   该动作日常不用，整块去掉（后端 /api/shelf_patch 保留未删，日后要恢复只加回前端即可）。
+   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。 */
 async function renderShelfBar(){
   const box=$('#shelfBar'); if(!box) return;
   let d;
-  /* 2026-10-01 修复：此前这里 catch 后直接 return，且零漂移时把 shelfPatchWrap 整块
-     display:none —— 导致「核对按钮」在无漂移时永远看不见（用户反馈：按钮没出现）。
-     现在改为：**按钮容器常显**，不管有没有漂移都能点（用户要的是「随时能核对」）。 */
-  const _w0=document.getElementById('shelfPatchWrap');
-  if(_w0) _w0.style.display='block';
   try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
   const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
   if(!un.length && !mm.length && !orp.length){
     box.innerHTML='<div class="sb" style="background:#f2fbf4;border-color:#bfe6c9;border-left-color:var(--green)">'
       +'<div class="hint" style="margin:0">✅ 货架与系统一致（前台名称/装量 / 后台行 / 映射三项均无差异）。'
-      +'检查时间：'+esc(d.ts||'—')+'　｜　可点右侧按钮随时重新核对。</div></div>';
-    var _o=document.getElementById('shelfPatchOut'); if(_o)_o.style.display='none';
+      +'检查时间：'+esc(d.ts||'—')+'</div></div>';
     return; }
-  var _w2=document.getElementById('shelfPatchWrap'); if(_w2)_w2.style.display='block';
   /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
      同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
      抛 "Cannot access 'esc' before initialization"，**整个 renderShelfBar 崩掉**。
@@ -2331,7 +2328,7 @@ async function renderShelfBar(){
       + '</ul></div>';
   }
   h+='<div class="sb" style="background:transparent;border:none;border-left:none;padding:2px 0">'
-    +'<div class="hint">系统不会自动改配置。确认无误后请联系技术支持出纳管补丁。检查时间：'+esc(d.ts||'—')+'</div></div>';
+    +'<div class="hint">系统不会自动改配置；如需处理请联系技术支持。检查时间：'+esc(d.ts||'—')+'</div></div>';
   box.innerHTML=h;
 }
 </script>
