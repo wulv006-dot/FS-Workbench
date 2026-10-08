@@ -104,19 +104,21 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
 .fld input,.fld select{background:var(--crust);border:1px solid var(--s1);color:var(--text);
   border-radius:6px;padding:4px 7px;font-size:12.5px;font-family:inherit;outline:none;width:96px}
 .fld.wide input{width:158px}
-/* ---- 采集周期（2026-09-28）：每游戏一个下拉，选完点保存 ---- */
-.sched{margin-top:13px;border-top:1px dashed var(--s1);padding-top:11px}
-.sched-h{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap}
-.sched-h b{font-size:13px}
-.sched-h .hint{font-size:11.5px;color:var(--ov0);font-weight:400}
-.sched-list{display:flex;flex-wrap:wrap;gap:8px}
-.srow{display:flex;align-items:center;gap:7px;background:var(--s0);border-radius:8px;
-  padding:6px 10px;font-size:12.5px;border:1px solid transparent}
-.srow.due{border-color:var(--yellow)}
-.srow .snm{font-weight:600}
-.srow select{background:var(--crust);border:1px solid var(--s1);color:var(--text);
-  border-radius:6px;padding:3px 6px;font-size:12px}
-.srow .snext{color:var(--ov0);font-size:11px}
+/* ---- 采集周期（2026-10-09）：从「① 控制台」下沉到各游戏卡片内 —— 省掉控制台一整个区块，
+   而且「这个游戏的周期」就在这个游戏的卡上，不用上下对照。改完点监控台右上「保存周期」。 ---- */
+.gt-sched{display:flex;align-items:center;gap:6px;margin-top:2px;padding-top:7px;
+  border-top:1px dashed var(--s1);font-size:11px;color:var(--ov0);min-width:0}
+.gt-sched .gs-k{font-size:10.5px;color:var(--ov0);white-space:nowrap;flex:none}
+.gt-sched select{background:var(--s0);border:1px solid var(--s1);color:var(--text);
+  border-radius:6px;padding:2px 5px;font-size:11.5px;font-family:inherit;cursor:pointer;max-width:88px}
+.gt-sched select:hover{border-color:var(--s2)}
+.gt-sched select:focus{border-color:var(--blue);outline:none}
+.gt-sched select.dirty{border-color:var(--yellow);background:#fff8e6}
+.gt-sched .gs-next{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gt-sched.due .gs-k{color:var(--yellow);font-weight:600}
+/* 有未保存的周期改动时，监控台右上「保存周期」按钮闪一下，避免改完忘了点 */
+@keyframes schedPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,113,227,.5)}50%{box-shadow:0 0 0 5px rgba(0,113,227,0)}}
+#btnSched.dirty{animation:schedPulse 1.5s infinite}
 .fld input:focus,.fld select:focus{border-color:var(--blue)}
 .fld input.dirty,.fld select.dirty{border-color:var(--yellow);background:#fff8e6}
 
@@ -142,12 +144,12 @@ button.btn.ghost{background:transparent;box-shadow:none}
 button.btn.ghost:hover{background:var(--s0);box-shadow:none}
 button.btn.ok{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
 
-/* KPI */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;padding:14px 16px}
-.kpi{background:var(--s0);border-radius:10px;padding:11px 13px}
-.kpi .k{font-size:11.5px;color:var(--ov0)}
-.kpi .v{font-size:20px;font-weight:700;margin-top:3px;letter-spacing:-.4px}
-.kpi .s{font-size:11px;color:var(--ov0);margin-top:2px}
+/* KPI（2026-10-09：全局「关键指标」面板下线，指标下沉进各游戏详情 ⇒ 这里就是详情内的样式，不留外框内边距） */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:9px;padding:0}
+.kpi{background:var(--s0);border-radius:10px;padding:9px 11px;min-width:0}
+.kpi .k{font-size:11px;color:var(--ov0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v{font-size:18px;font-weight:700;margin-top:2px;letter-spacing:-.3px}
+.kpi .s{font-size:10.5px;color:var(--ov0);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* 表 */
 .scroll{overflow:auto;max-height:640px}
@@ -261,7 +263,7 @@ th{background:#fafafa}
 .toc a:hover{background:var(--s0);color:var(--text)}
 .toc a.on{background:rgba(0,113,227,.1);color:var(--blue);font-weight:600}
 .toc a.on .i{color:var(--blue)}
-#sec-ctl,#sec-kpi,#sec-follow,#sec-log,#sec-local{scroll-margin-top:76px}
+#sec-ctl,#sec-follow,#sec-log,#sec-local{scroll-margin-top:76px}
 /* 给右侧悬浮目录留一条「走廊」，否则目录会压住主表最后一列（原因 / 依据）。
    只在目录可见的宽度区间生效（≤1120px 时目录隐藏，不留空白）。 */
 @media(min-width:1121px){main{padding-right:68px}}
@@ -378,9 +380,14 @@ th{background:#fafafa}
    做法：② 面板改成「游戏监控台」——顶层只放**游戏入口卡**（卡上带摘要：道具条数 /
    待改数 / 开关进度），点哪张卡才展开哪张卡的内容，一次只看一个游戏。
    以后新增游戏 = 自动多一张卡，页面长度不变（卡片是网格，会自动换行）。 */
-.gates{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));
+/* 2026-10-09：一排放 4 张卡（原来按 258px 自适应，宽屏只排 4~5 张且卡高不齐）。
+   固定 4 列 + 窄屏降级 ⇒ 每张卡宽度稳定、留得出位置放「采集周期 / 上次采集 / 待改」等信息。 */
+.gates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   gap:11px;padding:12px 16px 2px}
-.gtile{position:relative;display:flex;flex-direction:column;gap:7px;width:100%;
+@media(max-width:1240px){.gates{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:940px){.gates{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.gates{grid-template-columns:1fr}}
+.gtile{position:relative;display:flex;flex-direction:column;gap:7px;width:100%;min-width:0;
   border:1px solid var(--s1);border-radius:12px;background:var(--crust);
   padding:11px 13px 10px 15px;cursor:pointer;font-family:inherit;font-size:13px;
   text-align:left;color:var(--text);transition:.16s;overflow:hidden;appearance:none}
@@ -495,10 +502,9 @@ th{background:#fafafa}
 <nav class="toc" id="toc" aria-label="模块目录">
   <div class="toc-t">目录</div>
   <a href="#sec-ctl"    data-to="sec-ctl"><span class="i">①</span><span class="t">控制台</span></a>
-  <a href="#sec-kpi"    data-to="sec-kpi"><span class="i">②</span><span class="t">关键指标</span></a>
-  <a href="#sec-follow" data-to="sec-follow"><span class="i">③</span><span class="t">游戏监控台</span></a>
-  <a href="#sec-log"    data-to="sec-log"><span class="i">④</span><span class="t">改动记录</span></a>
-  <a href="#sec-local"  data-to="sec-local"><span class="i">⑤</span><span class="t">执行器</span></a>
+  <a href="#sec-follow" data-to="sec-follow"><span class="i">②</span><span class="t">游戏监控台</span></a>
+  <a href="#sec-log"    data-to="sec-log"><span class="i">③</span><span class="t">改动记录</span></a>
+  <a href="#sec-local"  data-to="sec-local"><span class="i">④</span><span class="t">执行器</span></a>
 </nav>
 
 <div id="shelfBar"></div>
@@ -559,29 +565,19 @@ th{background:#fafafa}
             </div>
           </div>
         </div>
-        <div class="sched">
-          <div class="sched-h">
-            <b>采集周期</b>
-            <span class="hint">每个游戏「查价 + 改价」的间隔。定时器每小时醒一次，只跑到期的游戏；改完点右边保存（存服务器）。</span>
-            <button class="btn primary" id="btnSched" onclick="saveSchedule()" style="margin-left:auto">保存周期</button>
-          </div>
-          <div class="sched-list" id="schedList"></div>
-        </div>
       </div>
     </div>
   </section>
 
-  <section class="panel" id="sec-kpi">
-    <h2>② 关键指标 <span class="hint" id="kpiTs"></span></h2>
-    <div class="kpis" id="kpis"></div>
-  </section>
-
   <section class="panel ov" id="sec-follow">
-    <h2>③ 游戏监控台
+    <h2>② 游戏监控台
       <span class="hint" style="margin-left:auto;display:flex;gap:7px;align-items:center">
         <span id="followSum"></span>
         <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="followAll(true)">全部跟价</button>
         <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="followAll(false)">全部停跟</button>
+        <button class="btn primary" id="btnSched" onclick="saveSchedule()" disabled
+                style="padding:3px 11px;font-size:11.5px"
+                title="改完卡片里的「采集周期」后点这里保存到服务器（有未保存改动时会闪）">保存周期</button>
       </span>
     </h2>
     <div class="fbar" id="followBar"></div>
@@ -590,11 +586,18 @@ th{background:#fafafa}
          不点进去也能一眼看全局。点哪张卡才展开哪张卡的内容。
          加游戏 = 自动多一张卡（网格自动换行），页面长度不跟着涨。 -->
     <div class="gates" id="gameGates"></div>
-    <div class="gempty" id="gateTip">点一张游戏卡进入 —— 里面是这个游戏的<b>道具监控</b>与<b>金币监控</b>。</div>
+    <div class="gempty" id="gateTip">点一张游戏卡进入 —— 里面是这个游戏的<b>关键指标</b>、<b>道具监控</b>与<b>金币监控</b>；卡片右下角可直接改该游戏的<b>采集周期</b>。</div>
 
     <div class="gdetail hide" id="gameDetail">
       <div class="gd-h" id="gdHead"></div>
       <div class="gd-b">
+        <!-- 2026-10-09：原全局「关键指标」面板下线，指标下沉到这里 —— 点开哪个游戏看哪个游戏的指标。
+             指标项按该游戏**实际有的数据**动态出（没金币就不出金币卡、没负毛利就不出负毛利卡、
+             没配采集周期就不出周期卡），所以不同游戏的指标是可以不一样的。 -->
+        <div class="gd-sec" id="secKpiWrap">
+          <h4 class="gd-t">关键指标 <span class="num" id="kpiGameSum" style="margin-left:auto"></span></h4>
+          <div class="kpis" id="gameKpis"></div>
+        </div>
         <div class="gd-sec">
           <h4 class="gd-t" id="followHead">跟价范围
             <span class="sub" id="followHint" style="margin-left:auto">点一下格子 = 开 / 关这个商品的跟价</span>
@@ -620,7 +623,7 @@ th{background:#fafafa}
 
   <section class="panel collapsed" id="sec-log">
     <h2 class="h2click" onclick="toggleLog()"
-        title="改动记录默认收起；点这里展开 / 收起（任务运行时自动展开）">④ 改动记录
+        title="改动记录默认收起；点这里展开 / 收起（任务运行时自动展开）">③ 改动记录
       <span style="display:flex;gap:8px;align-items:center">
         <span class="st" id="logSt"></span>
         <span class="small" id="logTitle"></span>
@@ -637,7 +640,7 @@ th{background:#fafafa}
   </section>
 
   <section class="panel" id="sec-local">
-    <h2>⑤ 执行器（服务器 / 本机）
+    <h2>④ 执行器（服务器 / 本机）
       <span class="badge off" id="localBadge"><span class="dot"></span><span id="localSt">读取中…</span></span>
       <span class="hint" id="localTs"></span>
     </h2>
@@ -663,7 +666,7 @@ th{background:#fafafa}
 <div class="modal" id="modal">
   <div class="box">
     <h3 id="modalTitle">生成改价工单（服务器算 · 服务器执行）</h3>
-    <div class="warnbox">这里只负责<b>算准该改什么并生成工单</b>，真正的写请求由执行方发。默认执行方是<b>服务器自己</b>（新机 IP 已在 order.p2pah.cn 白名单内；看板第⑥段可切换成「本机执行」）。请确认已看过「改价计划 DRY-RUN」的输出。</div>
+    <div class="warnbox">这里只负责<b>算准该改什么并生成工单</b>，真正的写请求由执行方发。默认执行方是<b>服务器自己</b>（新机 IP 已在 order.p2pah.cn 白名单内；看板「④ 执行器」段可切换成「本机执行」）。请确认已看过「改价计划 DRY-RUN」的输出。</div>
     <div class="warnbox" style="background:#eaf4ff;border-color:#b9dcff"><b>工单生成后自动派给执行方</b>（执行器在跑就自动执行：写价 → 复核 → 清缓存）。<br>执行器不在线也没关系，工单会<b>排队等待，不会丢单</b>；也可在看板把单改成另一种执行方式，或手工跑：<br><code>python p2pah_local.py write --plan "&lt;工单文件&gt;" --confirm</code></div>
     <div id="applyInfo" class="small" style="margin-bottom:9px"></div>
     <label class="small">请输入确认短语：<b>确认改价</b></label>
@@ -796,6 +799,9 @@ function sortByConfig(rows){
    「跟价范围 + 道具监控 + 金币监控」。目的：游戏加到七八个时，页面长度不跟着涨。
    CUR_GAME = 当前展开的游戏名；null = 全部折叠（默认，只看入口）。 */
 let CUR_GAME = null;
+/* 2026-10-09：采集周期下沉到游戏卡后，未保存的改动先放这里（游戏名 → 小时）。
+   60s 自动刷新会重绘卡片，若不留这个"草稿"，用户正在选的值会被刷回服务器旧值。 */
+let SCHED_DIRTY = {};
 let GOLD_DATA = null;   // /api/gold 最近一次快照（入口卡上的金币待改数要用它）
 let GOLD_COST_DATA = null;  // /api/gold_cost 快照（售价/成本/利润率汇总区；renderGold 里清空）
 /* 2026-10-02：key → 最近一次真实调价（{时间,旧价,新价,幅度,依据}）。
@@ -841,11 +847,39 @@ function bdgHTML(s){
   const txt = (u&&d) ? ('涨'+u+' 降'+d) : (u?('该涨 '+u):('该降 '+d));
   return '<span class="gt-bdg '+cls+'">'+txt+'</span>';
 }
+/* 卡片底部的「采集周期」一行：把原来①控制台那一整块搬进每张卡（2026-10-09）。
+   ⚠ 卡片已从 <button> 改成 <div role="button"> —— <select> 不能嵌在 button 里
+     （HTML 不允许交互元素嵌套，点击还会误触发"进入游戏"）；
+     所以给这一行单独加 stopPropagation，点下拉不会把卡片展开/收起。 */
+function schedBoxHTML(g){
+  const sch=schedRec(g.name);
+  const dirty=(g.name in SCHED_DIRTY);
+  if(!sch && !dirty) return '';
+  const cur = dirty ? SCHED_DIRTY[g.name] : sch.周期小时;
+  const opts=(STATE&&STATE.schedule&&STATE.schedule.选项)||[1,3,6,12,24];
+  return '<span class="gt-sched'+(sch&&sch.到期?' due':'')+'"'
+    +' onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">'
+    +'<span class="gs-k">采集周期</span>'
+    +'<select class="schedsel'+(dirty?' dirty':'')+'" data-g="'+esc(g.name)+'"'
+      +' title="这个游戏「查价 + 改价」的间隔；改完点监控台右上「保存周期」存到服务器"'
+      +' onchange="markSched(this)">'
+      + opts.map(h=>'<option value="'+h+'"'+(Number(h)===Number(cur)?' selected':'')+'>'
+        +hourLabel(h)+'</option>').join('')
+    +'</select>'
+    +'<span class="gs-next" title="上次跑完：'+esc(fmtClock(sch&&sch.上次))
+      +'&#10;下次预计：'+esc(fmtClock(sch&&sch.下次))+'">'
+      +(sch&&sch.上次? ('上次 '+esc(fmtClock(sch.上次))) : '还没跑过')
+    +'</span></span>';
+}
 function gtileHTML(g){
   const s=gStat(g), on=(g.name===CUR_GAME), c=g.color||'#0071e3';
   const pc = s.allN ? Math.round(s.onN/s.allN*100) : 0;
-  return '<button type="button" class="gtile'+(on?' on':'')+(s.allN?'':' res')+'"'
-    +' data-g="'+esc(g.name)+'" onclick="pickGameFrom(this)"'
+  const act = (s.up||s.dn)
+    ? '<span>待改 <b class="'+(s.up&&s.dn?'':(s.up?'up':'dn'))+'">'+(s.up+s.dn)+'</b></span>' : '';
+  return '<div class="gtile'+(on?' on':'')+(s.allN?'':' res')+'"'
+    +' data-g="'+esc(g.name)+'" role="button" tabindex="0"'
+    +' onclick="pickGameFrom(this)"'
+    +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pickGameFrom(this);}"'
     +' style="--gc:'+c+';--gca:'+c+'2e"'
     +' title="'+esc(g.name)+'：'+(s.allN?('监控 '+s.allN+' 项，已开 '+s.onN+' 项'):'暂未配置商品')+'">'
     +'<span class="gt-row">'
@@ -855,12 +889,15 @@ function gtileHTML(g){
     +'</span>'
     +'<span class="gt-meta"><span>道具 <b>'+s.propN+'</b></span>'
       +(s.hasGold?('<span>金币 <b>'+s.goldN+'</b> 区</span>'):'')
+      +act
     +'</span>'
     +'<span class="gt-ft">'
       +'<span class="gt-pb"><i style="width:'+pc+'%"></i></span>'
       +'<span>已开 '+s.onN+'/'+s.allN+'</span>'
       +'<span class="gt-go">'+(on?'收起 ▴':'进入 ▸')+'</span>'
-    +'</span></button>';
+    +'</span>'
+    +schedBoxHTML(g)
+    +'</div>';
 }
 function renderGates(){
   const box=$('#gameGates'); if(!box) return;
@@ -872,7 +909,7 @@ function renderGdHead(){
   const g=curGameObj();
   det.classList.toggle('hide', !g);
   const tip=$('#gateTip'); if(tip) tip.style.display = g ? 'none' : '';
-  if(!g){ if(head) head.innerHTML=''; return; }
+  if(!g){ if(head) head.innerHTML=''; renderGameKpis(); return; }
   const s=gStat(g), idx=FGAMES.indexOf(g);
   /* 每个游戏一个独立看板：当前游戏没有金币 ⇒ 整个「金币监控」区块不占位；
      没有道具 ⇒ 「道具监控」不占位。切到哪个游戏就只看到哪个游戏的东西。 */
@@ -894,6 +931,7 @@ function renderGdHead(){
       +'<button class="btn ghost" onclick="followGame('+idx+',false)">该游戏全关</button>'
       +'<button class="btn" onclick="pickGame(null)">收起</button>'
     +'</span>';
+  renderGameKpis();   // 指标跟着当前游戏走（renderGold 拿到金币快照后还会再调一次）
 }
 /* 打开 / 收起一个游戏（再点同一张卡 = 收起）。传 null = 全部收起。 */
 function pickGame(name){
@@ -1158,24 +1196,62 @@ async function followAll(on){
       +(r.count==null?'':r.count+' 件'), on?'ok':'');
   }catch(e){ toast(e.message,'err'); }
 }
-function renderKpis(d){
-  const k=d.kpi||{};
-  const cards=[
-    ['对照商品', k.items||0, '个规格'],
-    ['IGGM 有变动', k.changed||0, '本轮价格变化'],
-    ['本轮该跟价', k.suggested||0, '引擎判定该动的件数'],
-    ['实际会执行', k.actionable||0, (d.switches&&d.switches.master)
-      ?((d.switches.auto)?'自动跟价开启：会自动下发':'自动跟价关闭：需人工放行')
-      :'系统总开关关闭：改价被拦截'],
-    ['被安全闸拦下', k.blocked||0, (k.blocked?'需人工判断':'无')],
-    ['平均毛利率', k.marginAvg==null?'--':pct(k.marginAvg), '最低 '+(k.marginMin==null?'--':pct(k.marginMin))],
-    ['负毛利商品', k.negMargin||0, (k.negMargin?'⚠ 需核对映射':'正常')],
-    ['IGGM 无对标', k.iggmMissing||0, (k.iggmMissing?'⚠ 竞品可能已下架':'全部有对标')]
-  ];
-  $('#kpis').innerHTML=cards.map(c=>'<div class="kpi"><div class="k">'+esc(c[0])+'</div>'
-    +'<div class="v" style="'+(String(c[0]).includes('负毛利')&&c[1]?'color:var(--red)':'')+'">'+esc(c[1])+'</div>'
-    +'<div class="s">'+esc(c[2])+'</div></div>').join('');
-  $('#kpiTs').textContent = d.ts? ('决策快照 '+d.ts+' ｜ 服务器时间 '+d.serverTime):'';
+/* ---------- 关键指标（2026-10-09：由「全站一块」改为「每游戏各一块」）-----------------
+   原「② 关键指标」面板是全站口径（kpi 只统计主表那批商品），但对老板来说有用的判断
+   都是「这个游戏怎么样」。现在指标下沉进游戏详情：点开哪张卡，就出那个游戏自己的指标。
+   **指标项按该游戏真有的数据出** —— 没金币不出金币卡、无负毛利不出负毛利卡、
+   没配采集周期不出周期卡 ⇒ 不同游戏的指标天然不一样，以后加指标只要往 cards 里 push。 */
+function schedRec(name){
+  const s=(STATE&&STATE.schedule)||{};
+  return (s.列表||[]).find(r=>r.游戏===name)||null;
+}
+function hourLabel(h){
+  const n=Number(h), m=n*60;
+  if(m<60) return m+' 分钟';
+  return (n%1===0? n : m)+(n%1===0?' 小时':' 分钟');
+}
+function renderGameKpis(){
+  const box=$('#gameKpis'), sum=$('#kpiGameSum');
+  if(!box) return;
+  const g=curGameObj();
+  if(!g){ box.innerHTML=''; if(sum) sum.textContent=''; return; }
+  const st=gStat(g), m=key2sec(), rows=(STATE&&STATE.rows)||[];
+  const mine=r=>m.get(r.key)===g;
+  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 margin_rate（0~1）。
+     口径不同但都是比例，同一个「平均毛利率」里合并没歧义 —— 只统计当前游戏的行。 */
+  const propRows=rows.filter(r=>!isGoldKey(r.key) && mine(r));
+  const  goldRows=rows.filter(r=>isGoldKey(r.key) && mine(r));
+  const goldLive=((GOLD_DATA&&GOLD_DATA.items)||[]).filter(mine);
+  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(r=>r.margin_rate))
+    .filter(v=>typeof v==='number' && isFinite(v));
+  const avg = mg.length? mg.reduce((a,b)=>a+b,0)/mg.length : null;
+  const mn  = mg.length? Math.min.apply(null,mg) : null;
+  const neg = mg.filter(v=>v<0).length;
+  const noI = propRows.filter(r=>r.iggmMissing).length;
+  const newS= propRows.filter(r=>r.iggmNewSpec).length;
+  /* 金币行最近一次真实改价（金币那套写在「上次改价」里） */
+  const lastAct=goldLive.map(r=>r.上次改价).filter(x=>x&&x.时间)
+    .sort((a,b)=>String(b.时间).localeCompare(String(a.时间)))[0]||null;
+  const sch=schedRec(g.name);
+  const cards=[];
+  cards.push(['道具规格', st.propN||0, st.propN? '在监控的规格数' : '暂未配置商品']);
+  if(st.hasGold) cards.push(['金币', st.goldN||0, st.poeGold.length? 'Quick Gold 商品' : '服务区']);
+  cards.push(['本轮待改', st.up+st.dn, (st.up+st.dn)? ('涨 '+st.up+' · 降 '+st.dn) : '全部持平']);
+  cards.push(['已开跟价', st.onN+'/'+st.allN, st.allN? (Math.round(st.onN/st.allN*100)+'% 的商品在跟价') : '无商品']);
+  if(mg.length) cards.push(['平均毛利率', pct(avg), '最低 '+pct(mn)]);
+  cards.push(['负毛利商品', neg, neg? '⚠ 低于进货成本，需核对映射' : '正常']);
+  if(noI)  cards.push(['IGGM 无对标', noI,  '⚠ 竞品可能已下架']);
+  if(newS) cards.push(['IGGM 新增规格', newS, '先建基线，下一轮起跟价']);
+  if(lastAct) cards.push(['最近改价', fmtClock(lastAct.时间), '单号 '+String(lastAct.单号||'—')]);
+  if(sch) cards.push(['采集周期', hourLabel(sch.周期小时),
+    sch.上次? ('上次跑完 '+fmtClock(sch.上次)) : '还没跑过']);
+  box.innerHTML=cards.map(c=>{
+    const red = (String(c[0]).indexOf('负毛利')===0 && c[1]);
+    return '<div class="kpi"><div class="k">'+esc(c[0])+'</div>'
+      +'<div class="v"'+(red?' style="color:var(--red)"':'')+'>'+esc(c[1])+'</div>'
+      +'<div class="s">'+esc(c[2])+'</div></div>';
+  }).join('');
+  if(sum) sum.textContent = (STATE&&STATE.ts)? ('决策快照 '+STATE.ts) : '';
 }
 /* 跟价主表的一行（12 列；showHistory 的点击行为原样保留） */
 function mainRow(r){
@@ -1254,39 +1330,33 @@ async function saveParams(){
   }catch(e){ toast('保存失败：'+e.message,'err'); }
 }
 
-/* ---------- 采集周期（每游戏，2026-09-28）----------
+/* ---------- 采集周期（每游戏，2026-09-28；2026-10-09 下沉进游戏卡）----------
    定时器每小时醒一次，只有到期的游戏才真跑「抓价 → 算价 → 改价」。
-   周期存服务器 config.json（运行.采集周期小时），换电脑/重启都不丢。 */
+   周期存服务器 config.json（运行.采集周期小时），换电脑/重启都不丢。
+   渲染已并入 gtileHTML 的 schedBoxHTML()（周期就在这个游戏的卡上）；
+   这里只留：时间格式化、改动标记（草稿）、保存。 */
 function fmtClock(s){
   if(!s) return '—';
   const d=new Date(s); if(isNaN(d.getTime())) return String(s).slice(5,16).replace('T',' ');
   const p=n=>('0'+n).slice(-2);
   return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
 }
-function renderSchedule(s){
-  const box=$('#schedList'); if(!box) return;
-  if(!s||!s.列表||!s.列表.length){ box.innerHTML='<span class="hint">没有可调度的游戏</span>'; return; }
-  const opts=s.选项||[1,3,6,12,24];
-  box.innerHTML=s.列表.map(r=>
-    '<div class="srow'+(r.到期?' due':'')+'" title="上次跑完：'+fmtClock(r.上次)
-      +'&#10;下次预计：'+fmtClock(r.下次)+'">'
-    +'<span class="snm">'+esc(r.游戏)+'</span>'
-    +'<select data-g="'+esc(r.游戏)+'" onchange="markSched(this)">'
-      +opts.map(h=>'<option value="'+h+'"'+(h===r.周期小时?' selected':'')+'>'
-        +((h*60)<60?((h*60)+' 分钟'):((h%1===0?h:(h*60))+(h%1===0?' 小时':' 分钟')))+'</option>').join('')
-    +'</select>'
-    +'<span class="snext">'+(r.上次?('上次 '+fmtClock(r.上次)):'还没跑过')+'</span>'
-    +'</div>').join('');
+/* 改了下拉 = 先记草稿（不立刻写服务器），并把「保存周期」按钮点亮 —— 
+   周期管的是「什么时候真去改价」，误改代价大，保持"改完手动保存"的老规矩。 */
+function markSched(el){
+  SCHED_DIRTY[el.dataset.g]=Number(el.value);
+  el.classList.add('dirty');
+  const b=$('#btnSched'); if(b){ b.disabled=false; b.classList.add('dirty'); }
 }
-function markSched(el){ el.style.borderColor='var(--yellow)'; }
 async function saveSchedule(){
   const patch={};
-  document.querySelectorAll('#schedList select').forEach(el=>{ patch[el.dataset.g]=Number(el.value); });
+  document.querySelectorAll('#gameGates select.schedsel').forEach(el=>{ patch[el.dataset.g]=Number(el.value); });
   if(!Object.keys(patch).length){ toast('没有可保存的周期'); return; }
   try{
     const r=await api('api/schedule',{method:'POST',body:JSON.stringify({周期:patch})});
+    SCHED_DIRTY={};
+    const b=$('#btnSched'); if(b){ b.disabled=true; b.classList.remove('dirty'); }
     toast('已保存 '+Object.keys(r.applied||patch).length+' 个游戏的采集周期','ok');
-    if(r.schedule) renderSchedule(r.schedule);
     await loadState();
   }catch(e){ toast('保存失败：'+e.message,'err'); }
 }
@@ -1373,7 +1443,7 @@ function openApply(){
     +((s.auto)?'开启':'关闭（本次为人工放行）')+'</b> ｜ '
     +'后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
     +' ｜ 写接口：'+(p.写接口已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
-    +'<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在第⑥段切换成「本机执行」）</span>';
+    +'<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在「④ 执行器」段切换成「本机执行」）</span>';
   $('#confirmInput').value='';
   $('#modal').classList.add('show');
   setTimeout(()=>$('#confirmInput').focus(),80);
@@ -1413,7 +1483,13 @@ function goldOffRows(rows){
 }
 /* pre：调用方可选传入一个「已经在飞」的 api('api/gold') promise（首屏并行用）。
    不传时行为与原来完全一致：自己发请求。 */
+/* 2026-10-09：外面套一层 —— 金币快照到手后必须重算「关键指标」（平均毛利率里含金币行的
+   margin_rate、最近改价也来自金币行）。原函数里有多处 return，逐个补调用容易漏，
+   统一在 finally 里补一次，保证任何分支退出后指标都是最新的。 */
 async function renderGold(pre){
+  try{ await renderGoldInner(pre); } finally { renderGameKpis(); }
+}
+async function renderGoldInner(pre){
   const box=$('#goldBlocks');
   if(!box) return;
   /* ⚠ 取数与索引必须**在任何隐藏判定之前**做完 ——
@@ -1985,7 +2061,7 @@ function openGoldApply(){
     + '<br>金币改的是<b>采购成本</b>（￥/M），工单在执行时会自动：'
     + '① 写采购成本 → ② 点「更新b2c网站」(getweb=1) <b>不勾「所有区」</b> → ③ 清缓存。'
     + '<br>前端约 <b>5~15 分钟</b>后生效（实测 13 分钟），别马上抓一次没变就下结论。'
-    + '<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在第⑥段切换成「本机执行」）</span>';
+    + '<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在「④ 执行器」段切换成「本机执行」）</span>';
   $('#confirmInput').value='';
   $('#modal').classList.add('show');
   setTimeout(function(){ $('#confirmInput').focus(); },80);
@@ -2275,9 +2351,8 @@ async function loadState(){
     renderBadges(STATE); renderSwitches(STATE);
     renderToggles(STATE.config); renderParams(STATE.config);
     renderFollow(STATE.follow);
-    renderGates(); renderGdHead();
-    renderKpis(STATE); renderTable(STATE.rows);
-    renderSchedule(STATE.schedule);
+    renderGates(); renderGdHead();   // 采集周期已并入游戏卡，renderGates 一并重绘
+    renderTable(STATE.rows);
     renderGold(pGold); renderLocal(pLocal); renderShelfBar();
     for(const k in D) delete D[k];
   }catch(e){ toast('加载失败：'+e.message,'err'); }
@@ -2301,11 +2376,10 @@ async function renderShelfBar(){
   let d;
   try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
   const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
-  if(!un.length && !mm.length && !orp.length){
-    box.innerHTML='<div class="sb" style="background:#f2fbf4;border-color:#bfe6c9;border-left-color:var(--green)">'
-      +'<div class="hint" style="margin:0">✅ 货架与系统一致（前台名称/装量 / 后台行 / 映射三项均无差异）。'
-      +'检查时间：'+esc(d.ts||'—')+'</div></div>';
-    return; }
+  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色「✅ 货架与系统一致…检查时间：—」，
+     日常绝大多数时候都是这条 ⇒ 白占一行。现在只有真出问题时才出现该条，一致时静默。
+     #shelfBar:empty{display:none} 保证连外边距都不占。 */
+  if(!un.length && !mm.length && !orp.length){ box.innerHTML=''; return; }
   /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
      同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
      抛 "Cannot access 'esc' before initialization"，**整个 renderShelfBar 崩掉**。
