@@ -117,7 +117,7 @@ def pricing_policy(cfg, game=None):
     │ 基准 = min(G2G, ELD)，IGGM 更低则取 IGGM，两站无数据用同大区均价  │
     │ 兜底；目标 = 基准 × (1 − 让价百分比)                              │
     └─────────────────────────────────────────────────────────────────┘
-    ┌ dd373_only（2026-10-06 起，老板定案「只跟 DD373 进货价 +25%」）───┐
+    ┌ dd373_only（2026-10-06 起，老板定案「只跟 DD373 进货价 +7%」）────┐
     │ 目标售价 $/M = DD373 该区进货成本 $/M × (1 + 加价比例)。           │
     │ **不跟 G2G、不跟 IGGM** —— 三源只采集展示（G2G最低/ELD最低/IGGM）。│
     │ DD373 无有效报价 **或 可买量 < 1 亿基纳** ⇒ 统一挂「无货兜底售价」 │
@@ -191,14 +191,13 @@ def pricing_policy(cfg, game=None):
                         "最后再按利润率下限 %.0f%% 兜底（低了就抬回成本线）"
                         % (_cn, _cn, disc * 100, disc * 100, _mlim * 100))}
     if mode == "dd373_only":
-        # 2026-10-06 老板定案：**只跟 DD373 进货成本**，加价 25%；
-        #   （2026-10-07 老板两次上调：加价比例 7% → 20% → 25% —— 每次只动这一个数，其余口径不变）
+        # 2026-10-06 老板定案：**只跟 DD373 进货成本**，加价 7%；
         #   无有效报价 / 可买量不足 1 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
         #   G2G最低价 / ELD最低价 / IGGM **仅采集展示，不参与定价**。
         try:
-            mk = float(p.get("加价比例", 0.25))
+            mk = float(p.get("加价比例", 0.07))
         except (TypeError, ValueError):
-            mk = 0.25
+            mk = 0.07
         if mk < 0:
             mk = 0.0
         _park = _f(p.get("无货兜底售价_USD每M"))
@@ -685,7 +684,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
     elif _pricing_mode == "dd373_only":
         _pol_a = _pol_by_game.get("AION2") or {}
         log("  [金币/定价] AION2 走「**只跟 DD373 进货成本 + %.1f%%**」模式：%s"
-            % ((_pol_a.get("加价比例") or 0.25) * 100, _pol_a.get("口径")))
+            % ((_pol_a.get("加价比例") or 0.07) * 100, _pol_a.get("口径")))
         if not _costs:
             log("  [金币/定价] ⚠ 本轮没有注入 DD373 成本（dd373_costs 为空）"
                 "⇒ 全部 AION2 服务区按「无货兜底 $%.2f/M」出价（不会退回 G2G/IGGM）"
@@ -862,7 +861,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["说明_顺延"] = ("DD373 无报价且 %s 无数据 → 用默认售价 $%.2f/M"
                                     % (_sec_src, _def_m))
         # ①'' 2026-10-06 新模式：**只跟 DD373 进货成本 + 加价**（老板定案）
-        #      · 目标售价 $/M = DD373 该区进货成本 $/M × (1 + 加价比例)，默认 +25%
+        #      · 目标售价 $/M = DD373 该区进货成本 $/M × (1 + 加价比例)，默认 +7%
         #      · DD373 无有效报价 **或 可买量 < 1 亿基纳** ⇒ 统一挂「无货兜底售价」
         #        （默认 $19.9/M）；等该区有货（≥1 亿）下一轮自动跟回。
         #      · **不回落 G2G / 不回落 IGGM**；三源只采集展示（G2G最低/ELD最低/IGGM）。
@@ -872,7 +871,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             rec["定价模式"] = "dd373_only"
             _mk = _row_pol.get("加价比例")
             if _mk is None:
-                _mk = 0.25
+                _mk = 0.07
             rec["加价比例"] = _mk
             _park = _f(_row_pol.get("无货兜底售价_USD每M"))
             if _park is None or _park <= 0:

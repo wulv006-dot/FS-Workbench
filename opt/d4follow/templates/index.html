@@ -1797,7 +1797,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       return (Math.round(Number(v)*1000)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
     const _isDDonly = (_pmode==='dd373_only');
     const _ddMkNum = Number(_pol['加价比例']);
-    const _ddMk = isNaN(_ddMkNum) ? 0.25 : _ddMkNum;
+    const _ddMk = isNaN(_ddMkNum) ? 0.07 : _ddMkNum;
     const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
     const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
     const tierCell = (tier==null)

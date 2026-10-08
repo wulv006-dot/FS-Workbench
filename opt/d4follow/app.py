@@ -810,6 +810,93 @@ TASK_ORDER = []
 MAX_TASKS = 40
 
 
+# ---------------------------------------------------------------------------
+# DD373 采集闸门状态（2026-10-07）：服务器自抓优先 + 撞风控自动降频
+#   ⚠ 这些是**模块级**函数（不是 Task 的方法）：`collect_gold_cost` 里直接按名调用，
+#     不需要 self，也不碰实例状态 —— 纯读写一个 JSON 状态文件。
+#   状态文件 data/dd373_cost_gate.json：
+#     {"blocked_at": null|iso, "strikes": n, "ok_at": iso}
+#   冷却阶梯由 config「金币.进货成本.风控冷却阶梯分钟」给（默认 [30, 60, 90]）：
+#     第 1 次撞 → 30 分钟；同一天内第 2 次 → 60；第 3 次及以后 → 90。
+#     一旦成功抓到数据 ⇒ strikes 清零。
+#   为什么放文件不放内存：d4follow 会 restart（改配置/改模板都要重启），
+#   内存态一重启就丢，会把「还在冷却」误判成「可以抓了」→ 立刻再撞一次。
+# ---------------------------------------------------------------------------
+COST_GATE_STATE = os.path.join(ROOT, "data", "dd373_cost_gate.json")
+
+
+def _cost_gate_state():
+    """读采集闸门状态；读不到就当作「没有风控」。"""
+    try:
+        with open(COST_GATE_STATE, encoding="utf-8") as f:
+            d = json.load(f)
+        if not isinstance(d, dict):
+            raise ValueError("not a dict")
+        return d
+    except Exception:
+        return {"blocked_at": None, "strikes": 0, "ok_at": None}
+
+
+def _cost_gate_write(d):
+    """原子写（先写临时文件再 rename，避免半截文件）。失败不影响主流程。"""
+    try:
+        os.makedirs(os.path.dirname(COST_GATE_STATE), exist_ok=True)
+        _tmp = COST_GATE_STATE + ".tmp"
+        with open(_tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+        os.replace(_tmp, COST_GATE_STATE)
+    except Exception:
+        pass
+
+
+def _cost_gate_ladder(cfg):
+    """风控冷却阶梯（分钟）。config 没配就用 [30, 60, 90]。"""
+    try:
+        _l = ((cfg.get("金币") or {}).get("进货成本") or {}
+              ).get("风控冷却阶梯分钟")
+        if isinstance(_l, (list, tuple)) and _l:
+            _v = [max(5.0, float(x)) for x in _l]
+            if _v:
+                return _v
+    except Exception:
+        pass
+    return [30.0, 60.0, 90.0]
+
+
+def _cost_gate_cooldown_min(cfg):
+    """按当前 strikes 取本次该冷却多少分钟。"""
+    st = int(_cost_gate_state().get("strikes") or 0)
+    _lad = _cost_gate_ladder(cfg)
+    return _lad[min(max(st - 1, 0), len(_lad) - 1)]
+
+
+def _cost_gate_mark_blocked(cfg, log=None, why=""):
+    """记一次风控：blocked_at=now，strikes+1，并按阶梯算出本轮冷却分钟。"""
+    d = _cost_gate_state()
+    # 跨天重置：昨天的 strikes 不该继续压今天的频率
+    try:
+        _oa = d.get("blocked_at") or ""
+        if _oa and dt.date.fromisoformat(str(_oa)[:10]) != dt.date.today():
+            d["strikes"] = 0
+    except Exception:
+        pass
+    d["strikes"] = int(d.get("strikes") or 0) + 1
+    d["blocked_at"] = dt.datetime.now().isoformat(timespec="seconds")
+    _cost_gate_write(d)
+    _cd = _cost_gate_cooldown_min(cfg)
+    if log:
+        log("  [成本] 已记风控（第 %d 次）→ 下一轮冷却 %.0f 分钟"
+            % (d["strikes"], _cd) + ("（%s）" % why if why else ""))
+
+
+def _cost_gate_mark_ok(cfg):
+    """抓到数据 ⇒ 清风控状态（strikes 归零，下次撞从阶梯第 1 级起）。"""
+    d = _cost_gate_state()
+    if d.get("blocked_at") or int(d.get("strikes") or 0):
+        _cost_gate_write({"blocked_at": None, "strikes": 0,
+                          "ok_at": dt.datetime.now().isoformat(timespec="seconds")})
+
+
 class Task(object):
     def __init__(self, kind, title, params=None):
         self.id = uuid.uuid4().hex[:12]
@@ -888,26 +975,44 @@ class Task(object):
             return 0
         cc = (cfg.get("金币") or {}).get("进货成本") or {}
         game = str(cc.get("游戏") or "AION2")
-        # ── 本机代抓优先（2026-10-06）：服务器出口 IP 已被 DD373 WAF 风控，
-        #    自抓恒失败。若本机（dd373_local_collect.py）刚推过成本，本轮直接沿用，
-        #    既保证数据新鲜，也**不再用被拦的 IP 去撞**（少一个持续触发风控的源头）。
-        #    本机没跑 / 推送过期 ⇒ 照旧自抓（风控解除后自然切回）。
+        # ── 服务器自抓优先 · 本机仅兜底（2026-10-07 反转）
+        #    2026-10-07 实测：服务器出口 IP 47.85.224.112 **已解除** DD373 风控
+        #    （不带 cookie 直连 goods-list-item=20 / _blocked=False）⇒ 服务器恢复自主采集，
+        #    不再依赖本机（老板关电脑也不影响自动改价）。
+        #    本机那套（dd373_local_collect.py）**保留为兜底**：
+        #    只有「服务器上一轮撞了风控」**且**「本机在兜底窗口内推过」时，才沿用本机数据。
+        #    ⚠ 判定顺序很关键：服务器正常 ⇒ 永远走自抓，本机推没推过都不看。
         if not force:
             try:
-                _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
-                if os.path.exists(_lp):
-                    with open(_lp, encoding="utf-8") as _f:
-                        _j = json.load(_f)
-                    _t = dt.datetime.fromisoformat(str(_j.get("pushed_at") or ""))
-                    _age = (dt.datetime.now() - _t).total_seconds() / 60.0
-                    # 2026-10-06：本机采集已挂 Windows 计划任务（每 20 分钟一次），
-                    # 窗口必须 **大于** 20 分钟，否则边界上会判「过期」→ 服务器去自抓
-                    # → 撞风控（既浪费又持续给风控续命）。取 25 分钟留 5 分钟余量。
-                    if _age < 25:
-                        log("  [成本] 本机 %.1f 分钟前刚推送 %d 条 DD373 成本"
-                            "（有效 %d）—— 本轮跳过服务器自抓（避免继续撞风控）"
-                            % (_age, _j.get("saved") or 0, _j.get("ok_rows") or 0))
+                _g = _cost_gate_state()
+                if _g.get("blocked_at"):
+                    _cd = _cost_gate_cooldown_min(cfg)
+                    _bt = dt.datetime.fromisoformat(str(_g["blocked_at"]))
+                    _cd_age = (dt.datetime.now() - _bt).total_seconds() / 60.0
+                    if _cd_age < _cd:
+                        # 还在风控冷却里：能读本机兜底就读，读不到就本轮不抓（等下轮）
+                        _fb = float(cc.get("兜底窗口分钟") or 45)
+                        _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
+                        _used = False
+                        if os.path.exists(_lp):
+                            with open(_lp, encoding="utf-8") as _f:
+                                _j = json.load(_f)
+                            _pt = dt.datetime.fromisoformat(
+                                str(_j.get("pushed_at") or ""))
+                            _page = (dt.datetime.now() - _pt).total_seconds() / 60.0
+                            if _page < _fb:
+                                log("  [成本] ⚠ 服务器处于风控冷却（%.1f/%.0f 分钟），"
+                                    "改用本机 %.1f 分钟前推送的 %d 条（有效 %d）"
+                                    % (_cd_age, _cd, _page, _j.get("saved") or 0,
+                                       _j.get("ok_rows") or 0))
+                                _used = True
+                        if not _used:
+                            log("  [成本] ⚠ 服务器处于风控冷却（%.1f/%.0f 分钟）且"
+                                "本机无新鲜兜底 —— 本轮跳过采集（沿用上一轮快照）"
+                                % (_cd_age, _cd))
                         return 0
+                    log("  [成本] 风控冷却 %.0f 分钟已过（%.1f 分钟前撞的）"
+                        "—— 本轮重试服务器自抓" % (_cd, _cd_age))
             except Exception:
                 pass
         rate = core_gold.rate_of(cfg)
@@ -923,6 +1028,7 @@ class Task(object):
             svs, rate, log=log, gap=gap, refresh_tree=bool(force))
         if not costs:
             log("  [成本] 本轮无数据（多为被风控），沿用上一轮快照")
+            _cost_gate_mark_blocked(cfg, log, why="本轮返回空")
             return 0
         ok = sum(1 for v in costs.values() if v.get("ok"))
         blocked = [v for v in costs.values()
@@ -930,7 +1036,9 @@ class Task(object):
         if blocked:
             log("  [成本] ⚠ 撞上 DD373 风控，本轮中止（已抓 %d 条不落库，"
                 "面板继续显示上一轮快照）" % ok)
+            _cost_gate_mark_blocked(cfg, log, why="%d 个区被拦" % len(blocked))
             return 0
+        _cost_gate_mark_ok(cfg)      # 抓到数据 ⇒ 风控状态清零（下次撞从 30 分钟起）
         # 最终售价：优先用**本轮目标价**（改价后），没有就退回我方现价
         _price = {}
         try:
@@ -2708,7 +2816,7 @@ def api_gold():
             "说明": ("AION2 售价 = DD373 该区进货成本 × (1+%.1f%%)；DD373 无报价或"
                      "可买量不足 1 亿的区统一挂 $%.2f/M；"
                      "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
-                     % ((_pol_a.get("加价比例") or 0.25) * 100,
+                     % ((_pol_a.get("加价比例") or 0.07) * 100,
                         (_pol_a.get("无货兜底售价_USD每M") or 19.9))
                      if _pol_a.get("模式") == "dd373_only" else
                      ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
@@ -2899,7 +3007,7 @@ def api_gold_cost():
              "（等该区有货下一轮自动跟回）。"
              "G2G最低价/ELD最低价/IGGM 仅采集监控展示，不参与定价；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
-             % ((_pol.get("加价比例") or 0.25) * 100,
+             % ((_pol.get("加价比例") or 0.07) * 100,
                 (_pol.get("无货最小可买万基纳") or 10000),
                 (_pol.get("无货兜底售价_USD每M") or 19.9)))
             if _pol.get("模式") == "dd373_only" else
