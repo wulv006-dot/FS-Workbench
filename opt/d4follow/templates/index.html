@@ -1679,13 +1679,6 @@ async function renderGoldInner(pre){
       const rowsC = sortByConfig(myCost);
       const body = rowsC.map(function(x){
         const isOff = OFF.has(x.key);
-        let gap = '<span style="color:var(--sub)">--</span>';
-        if(x.ratio!==null && x.ratio!==undefined){
-          const dd = (Number(x.ratio)-1)*100;
-          const col = Math.abs(dd)<0.5 ? 'var(--sub)' : (dd>0?'var(--red)':'var(--green)');
-          gap = '<span style="color:'+col+'">x'+Number(x.ratio).toFixed(4)
-              + '<div class="small" style="color:var(--sub)">'+(dd>0?'+':'')+dd.toFixed(2)+'%</div></span>';
-        }
         const tgt = (x.cost_target===null||x.cost_target===undefined) ? '--'
           : '<b class="mono">'+c6(x.cost_target)+'</b>'
             + (x.cost_old!=null ? '<div class="small" style="color:var(--sub)">现 '+c6(x.cost_old)+'</div>' : '');
@@ -1726,8 +1719,7 @@ async function renderGoldInner(pre){
           + (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : '')
           + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
           + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b></td>'
-          + gapCell(x) + (gap==='<span style="color:var(--sub)">--</span>'
-                          ? '' : '<div class="small" style="color:var(--sub)">vs IGGM '+gap+'</div>')
+          + gapCell(x)
           + '<td class="num">'+(x.margin_rate!=null ? (Number(x.margin_rate)*100).toFixed(0)+'%' : '--')+'</td>'
           + '<td class="num">'+tgt+'</td>'
           + '<td class="num">'+big+'</td>'
