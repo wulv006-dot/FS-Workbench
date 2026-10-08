@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "scopeContract": "Existing global portal sessions/current membership only; FC login/register/roles/fallback retired; writes remain existing admins",
+  "sections": [
+    {
+      "id": "analytics",
+      "title": "数据分析",
+      "icon": "▥",
+      "intro": "经营与 Google 运营同页切换，原页与周报入口保留。",
+      "ids": [
+        "unified-business",
+        "unified-google",
+        "analytics",
+        "marketing",
+        "weekly"
+      ],
+      "path": "/dashboard/modules/analytics/"
+    },
+    {
+      "id": "sports",
+      "title": "球类工作区",
+      "icon": "◉",
+      "intro": "FC、NBA、MLB 与 Madden 的日常业务入口。",
+      "ids": [
+        "coins",
+        "ops",
+        "players",
+        "gallery",
+        "nba",
+        "mlb",
+        "madden",
+        "odds"
+      ],
+      "path": "/dashboard/modules/sports/"
+    },
+    {
+      "id": "arpg",
+      "title": "RPG 游戏改价系统",
+      "icon": "♜",
+      "intro": "D4、PoE2、Aion2 · RPG 游戏改价系统，共用原控制台。",
+      "ids": [
+        "d4",
+        "poe2",
+        "aion2"
+      ],
+      "path": "/dashboard/modules/arpg/"
+    },
+    {
+      "id": "collaboration",
+      "title": "协作工具",
+      "icon": "▦",
+      "intro": "项目任务、团队手册与共享工具。",
+      "ids": [
+        "green-plan",
+        "tasks",
+        "docs",
+        "sites",
+        "release-radar",
+        "deploy"
+      ],
+      "path": "/dashboard/modules/collaboration/"
+    }
+  ],
+  "tools": [
+    {
+      "id": "unified-business",
+      "label": "全局分析 · 经营",
+      "path": "/dashboard/analytics/?mode=business",
+      "icon": "▥",
+      "short": "进入统一分析页面 · 经营模式",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "unified-google",
+      "label": "全局分析 · Google",
+      "path": "/dashboard/analytics/?mode=google",
+      "icon": "◎",
+      "short": "进入统一分析页面 · Google模式",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "analytics",
+      "label": "原完整经营看板",
+      "path": "/dashboard/index.html",
+      "icon": "▥",
+      "short": "保留完整统计与历史功能",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "marketing",
+      "label": "原 Google 运营页",
+      "path": "/dashboard/marketing/",
+      "icon": "◎",
+      "short": "MMOEXP / RSOrder · Google 运营数据",
+      "ownerId": null,
+      "serverGuard": "existing marketing auth_request; owned by Google task",
+      "availability": "verify-published-page",
+      "probeJson": "/dashboard/marketing/data.json",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "green-plan",
+      "label": "绿茵计划",
+      "path": "/dashboard/tasks/green-plan/",
+      "icon": "⚽",
+      "short": "球类项目 AI 自动化运营体系 · 计划、排期与任务推进",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard",
+      "probeJson": "/dashboard/tasks/api/green-plan"
+    },
+    {
+      "id": "tasks",
+      "label": "项目工作任务台",
+      "path": "/dashboard/tasks/",
+      "icon": "☑",
+      "short": "任务下发、接手确认、自检放行",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "coins",
+      "label": "FC27 金币控制台",
+      "path": "/dashboard/fc27-coins.html",
+      "icon": "◎",
+      "short": "竞品、报价与自动化",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "ops",
+      "label": "FC27 运营看板",
+      "path": "/s/wulv/fc27-ops/",
+      "icon": "▥",
+      "short": "运营统计与分析 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "players",
+      "label": "FC27 球员维护",
+      "path": "/tools/fc27-players/",
+      "icon": "▣",
+      "short": "同步、校验与维护 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "gallery",
+      "label": "FC27 图片图库",
+      "path": "/tools/fc27-gallery/",
+      "icon": "▧",
+      "short": "检索与管理球员素材",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "mlb",
+      "label": "MLB 新卡工作台",
+      "path": "/mlb/",
+      "icon": "◇",
+      "short": "新卡上架业务工具",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "nba",
+      "label": "NBA2K 业务工具",
+      "path": "/nba2k27/",
+      "icon": "◉",
+      "short": "现有 NBA2K 工作台",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "d4",
+      "label": "RPG 游戏改价系统",
+      "path": "/d4/",
+      "icon": "♜",
+      "short": "共用 ARPG 控制台 · 进入后选择 D4",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "arpg",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "docs",
+      "label": "部门手册",
+      "path": "/docs/",
+      "icon": "▤",
+      "short": "现有团队文档入口",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "sites",
+      "label": "团队工具目录",
+      "path": "/s/",
+      "icon": "▦",
+      "short": "现有共享业务站点",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "deploy",
+      "label": "现有部署工作台",
+      "path": "/deploy/",
+      "icon": "↥",
+      "short": "现有发布入口 · deploy组",
+      "ownerId": null,
+      "requiredGroup": "deploy",
+      "serverGuard": "/__auth_verify_deploy",
+      "scope": "global-portal",
+      "section": "collaboration"
+    },
+    {
+      "id": "release-radar",
+      "label": "游戏发布监控台",
+      "path": "/dashboard/release-radar/",
+      "icon": "📡",
+      "short": "27游戏 · 静态历史情报 · 采集待接入",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "weekly",
+      "label": "运营周报",
+      "path": "/dashboard/marketing/weekly/",
+      "icon": "▤",
+      "short": "查看最近已发布自然周周报",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "madden",
+      "label": "Madden 金币看板",
+      "path": "/dashboard/madden27-coins.html",
+      "icon": "◎",
+      "short": "既有金币看板",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "odds",
+      "label": "FC 赔率工具",
+      "path": "/s/wulv/fc-odds/",
+      "icon": "◈",
+      "short": "既有赔率业务工具",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "poe2",
+      "label": "RPG 游戏改价系统",
+      "path": "/d4/",
+      "icon": "♜",
+      "short": "共用 ARPG 控制台 · 进入后选择 PoE2",
+      "scope": "global-portal",
+      "section": "arpg",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "aion2",
+      "label": "RPG 游戏改价系统",
+      "path": "/d4/",
+      "icon": "♜",
+      "short": "共用 ARPG 控制台 · 进入后选择 Aion2",
+      "scope": "global-portal",
+      "section": "arpg",
+      "requiredGroup": "dashboard"
+    }
+  ],
+  "analyticsContract": {
+    "status": "BLOCKED_SECURITY_REVIEW_REAL_ROLE_ACCEPTANCE",
+    "legacyBusiness": "/dashboard/index.html",
+    "legacyGoogle": "/dashboard/marketing/",
+    "unifiedPath": "/dashboard/analytics/?mode=business",
+    "googlePath": "/dashboard/analytics/?mode=google"
+  }
+}
