@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "moduleId": "fs-hooks-fc-business-20261008",
+  "policyPath": "docs/ops/HOTFIX.md",
+  "observedMain": "2a75a0c2226de3705930541b495c76b3bfe01024",
+  "businessOwner": "吴律",
+  "runtimeMode": "FC RULES_ARMED; dashboard observation",
+  "monitorIntervalSeconds": 300,
+  "gateExpiresSeconds": 900,
+  "businessCollectionScheduleChanged": false,
+  "sourceFiles": [
+    {
+      "path": "ops/hooks/automation_policy.py",
+      "runtime": "/opt/fc27-cloud-browser/automation_policy.py",
+      "sha256": "362e583f139f64c6f61b6af004267993efc6b9fa6392fdd13885defc04715412"
+    },
+    {
+      "path": "ops/hooks/price_writer.py",
+      "runtime": "/opt/fc27-cloud-browser/price_writer.py",
+      "sha256": "fdb50019f13f2a2cf437366c299c6d5a2687a2b6d9c9df49c8d9bd837acbd09f"
+    },
+    {
+      "path": "ops/hooks/coin_all_sync_job.py",
+      "runtime": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "sha256": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2"
+    },
+    {
+      "path": "ops/hooks/execute_price.sh",
+      "runtime": "/opt/fc27-cloud-browser/execute_price.sh",
+      "sha256": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91"
+    },
+    {
+      "path": "ops/hooks/collector.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/collector.py",
+      "sha256": "a95794363c03aedbe5bbe9fb1ab10622925a713bb8334f6302f14f9f5074dba9"
+    },
+    {
+      "path": "ops/hooks/probe_worker.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/probe_worker.py",
+      "sha256": "0805f0d58287f8f9278825d022a30971b4c6896fa6803598ec424dd0ac270110"
+    },
+    {
+      "path": "ops/hooks/delivery.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/delivery.py",
+      "sha256": "7a078a1a9d3e761d6018637745981610e1264bd47fb2a4d2faeba148cd2cce27"
+    },
+    {
+      "path": "ops/hooks/hooks.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/hooks.py",
+      "sha256": "93942364594ddd81f62d6c7357cdf663e456f7d1ed9bd79c5853478918859f3d"
+    },
+    {
+      "path": "ops/hooks/hooks_notifier.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
+      "sha256": "9743eacfa195d05be3f635c53ede15d5ed3c2f945e0cb513fcde8c10b6956de4"
+    }
+  ],
+  "state": "/var/lib/fc-ops-readonly-monitor",
+  "gateReadonlyBind": "/var/lib/fc-ops-readonly-monitor/gates",
+  "fcPublisher": "existing player-price-rule publisher --hooks; original queue/price locks; no service restart",
+  "monitorPublisher": "existing monitor publisher upgrade; .collector.lock and CAS",
+  "naturalEvidence": {
+    "operationId": "86e39e89-e96a-4bf8-af02-f187fc0c573f",
+    "completedAtUtc": "2026-10-08T08:24:08.027107+00:00",
+    "platforms": [
+      "PS",
+      "XBOX",
+      "PC"
+    ],
+    "result": "confirmed",
+    "publicReadback": "verified"
+  },
+  "capabilities": {
+    "runtime_mapping_verified": true,
+    "server_watch_ready": true,
+    "event_ingest_ready": "local probes only",
+    "write_gate_ready": true,
+    "unknown_reconcile_ready": "detection/original IDs; no new reconciler",
+    "safe_sales_adapter_ready": false,
+    "bot_delivery_ready": false,
+    "headless_agent_ready": false,
+    "existing_publisher_ready": true,
+    "rollback_ready": "four-file code rollback exercised; no state rollback",
+    "unattended_authorization_ready": "first/second increment only",
+    "budget_ready": "0 extra dollars; AI unavailable; no AI calls"
+  },
+  "notCovered": [
+    "real bot receipt",
+    "external dead-host heartbeat",
+    "SKU purchase inhibition or compensation",
+    "frontend DOM/date-filter faults",
+    "persistent exact-range query errors",
+    "browser/session/cache/worker playbooks",
+    "AI patch/deploy"
+  ],
+  "persistentStateBoundary": "policies, ledger, queue, locks, receipts, sessions, DB excluded; natural cycle allowed"
+}
