@@ -888,6 +888,28 @@ class Task(object):
             return 0
         cc = (cfg.get("金币") or {}).get("进货成本") or {}
         game = str(cc.get("游戏") or "AION2")
+        # ── 本机代抓优先（2026-10-06）：服务器出口 IP 已被 DD373 WAF 风控，
+        #    自抓恒失败。若本机（dd373_local_collect.py）刚推过成本，本轮直接沿用，
+        #    既保证数据新鲜，也**不再用被拦的 IP 去撞**（少一个持续触发风控的源头）。
+        #    本机没跑 / 推送过期 ⇒ 照旧自抓（风控解除后自然切回）。
+        if not force:
+            try:
+                _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
+                if os.path.exists(_lp):
+                    with open(_lp, encoding="utf-8") as _f:
+                        _j = json.load(_f)
+                    _t = dt.datetime.fromisoformat(str(_j.get("pushed_at") or ""))
+                    _age = (dt.datetime.now() - _t).total_seconds() / 60.0
+                    # 2026-10-06：本机采集已挂 Windows 计划任务（每 20 分钟一次），
+                    # 窗口必须 **大于** 20 分钟，否则边界上会判「过期」→ 服务器去自抓
+                    # → 撞风控（既浪费又持续给风控续命）。取 25 分钟留 5 分钟余量。
+                    if _age < 25:
+                        log("  [成本] 本机 %.1f 分钟前刚推送 %d 条 DD373 成本"
+                            "（有效 %d）—— 本轮跳过服务器自抓（避免继续撞风控）"
+                            % (_age, _j.get("saved") or 0, _j.get("ok_rows") or 0))
+                        return 0
+            except Exception:
+                pass
         rate = core_gold.rate_of(cfg)
         gap = float(cc.get("请求间隔秒") or 1.3)
         svs = [s for s in ((cfg.get("金币") or {}).get("服务区") or [])
@@ -1778,16 +1800,38 @@ def task_collect(t, opts):
         t.log("  [金币] %s 本轮未到期，跳过金币算价" % _goldgame)
         t.log("  [成本] DD373 进货成本未启用或本轮未到期，跳过")
 
-    # 把本轮成本注入算价（仅当该游戏真的在用 DD373 定价时才注入）
+    # 把本轮成本注入算价（DD373 成本 2026-10-06 起是**定价输入**，不只是监控）：
+    #   · dd373_markup → 直接拿它当定价基准（三级顺延的第 1 级）；
+    #   · g2g_cheapold → 拿它做「成本兜底（竞品低于成本就按成本价）+ 利润率下限 −10%」。
     _dd_costs = {}
-    if _pol_aion2.get("模式") == "dd373_markup" and _costcfg.get("启用"):
+    if _pol_aion2.get("模式") in ("dd373_markup", "g2g_cheapold", "dd373_only") \
+            and _costcfg.get("启用"):
         try:
+            def _avail_wan(_s):
+                """从 gold_cost.stock 文本（「可买79390万基纳」）解析可买量（万基纳）。
+
+                ⚠ gold_cost 表**没有**数字型的可买量列，只有这句文本（由
+                  core_dd373_cost 生成）。dd373_only 的「不足 1 亿 → 无货兜底」判定
+                  要用数字，所以在注入时解析一次。
+                  解析失败返回 None ⇒ core_gold 按「有货」处理（宁可正常定价，
+                  也不要把真有货的区误挂成 $19.9）。
+                """
+                _m = re.search(r"可买\s*([0-9]+(?:\.[0-9]+)?)\s*万基纳", str(_s or ""))
+                if not _m:
+                    return None
+                try:
+                    return float(_m.group(1))
+                except (TypeError, ValueError):
+                    return None
+
             for _r in store.gold_cost_latest(con, game=_cost_game):
                 _dd_costs[_r.get("key")] = {
                     "ok": _r.get("ok"), "cny_per_wan": _r.get("cny_per_wan"),
                     "usd_per_m": _r.get("usd_per_m"), "n_items": _r.get("n_items"),
                     "dd_zone": _r.get("dd_zone"), "basis": _r.get("basis"),
-                    "note": _r.get("note")}
+                    "note": _r.get("note"), "stock": _r.get("stock"),
+                    # 2026-10-06 dd373_only 用：可买量（万基纳，数字）
+                    "avail_wan": _avail_wan(_r.get("stock"))}
         except Exception:
             t.log("  ⚠ 读 gold_cost 失败（%s 本轮无成本 → 全部 hold）"
                   % _pol_aion2.get("口径"))
@@ -1823,12 +1867,38 @@ def task_collect(t, opts):
             if _pp:
                 t.log("  [金币] AION2 定价模式：%s ｜ %s" % (_pp.get("模式"), _pp.get("口径")))
             for it in gp["items"]:
-                if it.get("定价模式") == "dd373_markup":
+                if it.get("定价模式") == "dd373_only":
+                    if (it.get("定价来源级别") or 0) == 1:
+                        t.log("  [金币] %-22s DD373进货 $%s/M（%s 元/万基纳·可买 %s 万基纳）"
+                              "+%.1f%% → 目标采购成本 %s ｜ %s"
+                              % (it.get("中文名"), it.get("DD373成本_USD每M"),
+                                 it.get("DD373成本_元每万基纳"),
+                                 ("%.0f" % it["DD373可买_万基纳"])
+                                 if it.get("DD373可买_万基纳") is not None else "-",
+                                 (it.get("加价比例") or 0) * 100,
+                                 it.get("采购成本_新"), it.get("动作") or "-"))
+                    else:
+                        t.log("  [金币] %-22s ⛔无货兜底 $%s/M ｜ %s ｜ %s"
+                              % (it.get("中文名"), it.get("无货兜底售价_USD每M"),
+                                 it.get("无货兜底说明") or "",
+                                 it.get("动作") or "-"))
+                elif it.get("定价模式") == "dd373_markup":
                     t.log("  [金币] %-22s DD373 $%s（%s 条挂单）+%.1f%% → 目标采购成本 %s ｜ %s"
                           % (it.get("中文名"), it.get("DD373成本_USD每M"),
                              it.get("DD373挂单数"),
                              (it.get("加价比例") or 0) * 100,
                              it.get("采购成本_新"), it.get("动作") or "-"))
+                elif it.get("定价模式") == "g2g_cheapold":
+                    _tflag = ""
+                    if it.get("目标来自成本兜底"):
+                        _tflag = " ⛔成本兜底(竞品$%s<成本$%s)" % (
+                            it.get("基准价_原竞品"), it.get("DD373成本_USD每M"))
+                    if it.get("利润率下限触发"):
+                        _tflag += " ⛔利润下限"
+                    t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
+                          % (it.get("中文名"), it.get("基准来源") or "-",
+                             it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
+                             it.get("采购成本_新"), it.get("动作") or "-", _tflag))
                 else:
                     t.log("  [金币] %-22s 利润率 %s ｜ 我方每M %s ｜ IGGM每M %s ｜ 目标采购成本 %s ｜ %s"
                           % (it.get("中文名"), it.get("利润率"),
@@ -2635,11 +2705,25 @@ def api_gold():
                         or "AION2"),
         "定价策略": {
             "AION2": _pol_a,
-            "说明": ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
-                     "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
-                     % ((_pol_a.get("加价比例") or 0) * 100)
-                     if _pol_a.get("模式") == "dd373_markup" else
-                     ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")),
+            "说明": ("AION2 售价 = DD373 该区进货成本 × (1+%.1f%%)；DD373 无报价或"
+                     "可买量不足 1 亿的区统一挂 $%.2f/M；"
+                     "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
+                     % ((_pol_a.get("加价比例") or 0.25) * 100,
+                        (_pol_a.get("无货兜底售价_USD每M") or 19.9))
+                     if _pol_a.get("模式") == "dd373_only" else
+                     ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
+                      "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
+                      % ((_pol_a.get("加价比例") or 0) * 100)
+                      if _pol_a.get("模式") == "dd373_markup" else
+                      ("AION2 售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）"
+                       "× (1−%.1f%%)；⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
+                       "（成本 = 买满 1 亿基纳的订单簿加权均价），最后按利润率下限 %.0f%% 兜底；"
+                       "ELD/IGGM 继续采集监控但不参与定价。"
+                       % ((_pol_a.get("下浮比例") or 0.03) * 100,
+                          (_pol_a.get("利润率下限")
+                           if _pol_a.get("利润率下限") is not None else -0.10) * 100)
+                       if _pol_a.get("模式") == "g2g_cheapold" else
+                       ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
         "items": rows,
     })
@@ -2647,14 +2731,16 @@ def api_gold():
 
 @app.route("/api/gold_cost")
 def api_gold_cost():
-    """金币进货成本 + 利润率汇总（2026-10-02 · DD373 货源 · **只读**）
+    """金币进货成本 + 利润率汇总（2026-10-02 · DD373 货源）
 
     返回每个服务区一行：
       最终售价 $/M  ← **改价后的最终售价**（有目标价用目标价，否则我方现价）
-      成本价      ← DD373 综合排序第 1 条的单价（元/万基纳 + 折算 $/M）
+      成本价      ← DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳 + 折算 $/M）
+                     （2026-10-06 前是「综合排序第 1 条单价」——量级太小，已换）
       利润率      ← (售价 − 成本) / 售价，**可以为负**（负数就是亏，别截断）
 
-    ⛔ 本接口只读，不写任何价格；成本不参与定价。
+    ⛔ 本接口只读，不写任何价格；但成本自 2026-10-06 起**参与定价**
+       （g2g_cheapold 模式下做「成本兜底 + 利润率下限」，见 core_gold.build_plan）。
     """
     cfg = load_cfg()
     con = open_db()
@@ -2696,7 +2782,12 @@ def api_gold_cost():
                    "采集ts": r.get("ts"),
                    # 2026-10-02：定价级别（第1/2/3 级）+ 竞品三源（仅监控展示）
                    "tier": r.get("price_tier"),
-                   "g2g": r.get("src2_g2g"),
+                   # 2026-10-06 用户口径「只关注 G2G最低价」：G2G 列改用**三源基准里的
+                   #   G2G 最低价**（src_g2g），不再用子服务器 cheapold（src2_g2g）。
+                   #   cheapold 只有旧 g2g_cheapold 模式才有值，新模式下为 NULL ——
+                   #   若继续取它，看板 G2G 列会整列空白。
+                   "g2g": (r.get("src_g2g") if r.get("src_g2g") is not None
+                           else r.get("src2_g2g")),
                    "eld": r.get("src_eld"),
                    "iggm": r.get("iggm_per_m"),
                    # 2026-10-02：竞品最低价与差距 —— 金币监控主表已按用户要求隐藏，
@@ -2710,6 +2801,32 @@ def api_gold_cost():
         costs = store.gold_cost_latest(con, game=game)
     except Exception:
         costs = []
+    # 2026-10-06 展示名统一（用户要求）：
+    #   汇总表「服务区」列原先只取 DD373 的游戏区名，而本轮新增的 52 个子服务器在
+    #   DD373 没有挂单 → 回落成内部主键 AION2_XXX_E，与老 34 区的「Siel / Zikel」
+    #   两种格式并存。这里给每条补 服务器名 / 大区中文 / 种族：
+    #     · DD373 有数据的区 → 沿用原值（老区外观零变化）
+    #     · 新区 → 取 config 金币.服务区（86 区全都有 g2g_服务区/中文名）
+    #   前端第一列改用这三个字段，86 行格式统一。
+    _REGION_CN = {"EU": "欧服", "NA West": "北美西", "NA East": "北美东",
+                  "Asia": "日服", "South America": "南美", "SAM": "南美", "Latin": "南美"}
+    _names = {}
+    for _s in ((cfg.get("金币") or {}).get("服务区") or []):
+        _k = _s.get("key")
+        if not _k:
+            continue
+        _g2g = str(_s.get("g2g_服务区") or "")
+        # 只处理「带 G2G 子服务器名」的区（= AION2 这 86 个）。暗黑4 的 4 个金币区没有
+        # 该字段，直接跳过 → 仍走 DD373 原名，外观零影响。
+        if " - " not in _g2g:
+            continue
+        _cn = str(_s.get("中文名") or "")
+        _serv = _g2g.split(" - ")[0].strip()
+        _race = ("天族" if ("（天族）" in _cn or _g2g.endswith("Elyos"))
+                 else ("魔族" if ("（魔族）" in _cn or _g2g.endswith("Asmodian")) else ""))
+        _names[_k] = {"服务器名": _serv,
+                      "大区中文": _REGION_CN.get(_s.get("大区")) or (_s.get("大区") or ""),
+                      "种族": _race}
     out = []
     for c in costs:
         k = c.get("key")
@@ -2735,6 +2852,14 @@ def api_gold_cost():
             "挂单数": c.get("n_items"),
             "DD区": c.get("dd_area"), "DD种族": c.get("dd_race"),
             "DD游戏区": c.get("dd_zone"),
+            # 2026-10-06：展示名（DD373 优先，缺失回落 config）——见上方 _names。
+            #   前端汇总表第一列用这三个字段，替代原来的 DD游戏区||key 兜底。
+            # ⚠ config 优先、DD373 兜底（2026-10-06）：DD373 的区名有个别笔误
+            #   （如 Asia 的 Nezekan 被拼成 Nezekan/Nezakan 两种），两个源混用会让
+            #   同一台服务器在表里出现两种拼写。统一以 config（站内权威名）为准。
+            "服务器名": (_names.get(k) or {}).get("服务器名") or c.get("dd_zone") or "",
+            "大区中文": (_names.get(k) or {}).get("大区中文") or c.get("dd_area") or "",
+            "种族": (_names.get(k) or {}).get("种族") or c.get("dd_race") or "",
             "依据": c.get("basis"), "备注": c.get("note"),
             "url": c.get("url"), "ts": c.get("ts"),
             "对照档位M": _tier.get(k),
@@ -2768,13 +2893,31 @@ def api_gold_cost():
     return jsonify({
         "ok": True, "game": game, "rate": rate,
         "ts": (out[0]["ts"] if out else None),
-        "口径": ("售价 = DD373 该区推荐价（综合排序第 1 条）折 $/M × %.1f%%；"
-                 "成本 = 同一条挂单的单价；利润率 = (售价 − 成本) / 售价，可为负。"
-                 "G2G/ELD/IGGM 仅监控展示，不参与定价。"
-                 % ((_pol.get("加价比例") or 0) * 100)
-                 if _pol.get("模式") == "dd373_markup" else
-                 "成本 = DD373 永恒之塔2国际服·基纳·各区·综合排序第 1 条单价；"
-                 "利润率 = (售价 − 成本) / 售价，可为负。"),
+        "口径": (
+            ("售价 $/M = DD373 该区进货成本 $/M × (1+%.1f%%)（加价）；"
+             "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 1 亿）⇒ 统一挂 $%.2f/M"
+             "（等该区有货下一轮自动跟回）。"
+             "G2G最低价/ELD最低价/IGGM 仅采集监控展示，不参与定价；"
+             "利润率 = (售价 − 成本) / 售价，可为负。"
+             % ((_pol.get("加价比例") or 0.25) * 100,
+                (_pol.get("无货最小可买万基纳") or 10000),
+                (_pol.get("无货兜底售价_USD每M") or 19.9)))
+            if _pol.get("模式") == "dd373_only" else
+            ("售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）× (1−%.1f%%)；"
+             "⛔ 成本兜底（2026-10-06）：竞品价 < 我方 DD373 成本价时**不再跟降，"
+             "按成本价定价**；最后按利润率下限 %.0f%% 兜底。"
+             "成本 = DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳）；"
+             "利润率 = (售价 − 成本) / 售价，可为负。"
+             % ((_pol.get("下浮比例") or 0.03) * 100,
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else -0.10) * 100)
+             if _pol.get("模式") == "g2g_cheapold" else
+             ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M × %.1f%%；"
+              "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"
+              "G2G/ELD/IGGM 仅监控展示，不参与定价。"
+              % ((_pol.get("加价比例") or 0) * 100)
+              if _pol.get("模式") == "dd373_markup" else
+              "成本 = DD373 永恒之塔2国际服·基纳·各区·买满 1 亿基纳的订单簿加权均价；"
+              "利润率 = (售价 − 成本) / 售价，可为负。"))),
         "定价策略": _pol,
         "汇总": {
             "服务区数": len(out),
@@ -2918,13 +3061,18 @@ def api_schedule():
             if g not in games:
                 return jsonify({"ok": False, "error": "未知游戏：%s" % g}), 400
             try:
-                iv = int(v)
+                iv = float(v)
             except (TypeError, ValueError):
-                return jsonify({"ok": False, "error": "%s 的周期需要整数小时" % g}), 400
+                return jsonify({"ok": False, "error": "%s 的周期需要数字小时" % g}), 400
+            # ⚠ 必须按 float 比较：SCHED_CHOICES 含 0.25/0.5 两个小数档。
+            #   旧代码用 `int(v)` 会把 0.5→0、0.25→0 ⇒ 页面上选「30 分钟」必被拒
+            #   （报「只能是 0.25/0.5/1/3/6/12/24 小时」，自相矛盾）。
             if iv not in SCHED_CHOICES:
                 return jsonify({"ok": False,
                                 "error": "%s 的周期只能是 %s 小时"
                                          % (g, "/".join(str(x) for x in SCHED_CHOICES))}), 400
+            if float(iv).is_integer():      # 整数档存 int，config 更干净；0.25/0.5 保留 float
+                iv = int(iv)
             cur[g] = iv
             applied[g] = iv
         for g in games:                      # 没提到的游戏补齐默认值（新游戏也能用）
@@ -3138,6 +3286,58 @@ def api_our():
     try:
         n = store.save_our(con, ts, rows)
         return jsonify({"ok": True, "saved": n, "ts": ts})
+    finally:
+        con.close()
+
+
+@app.route("/api/dd373_cost", methods=["POST"])
+def api_dd373_cost():
+    """本机推送 DD373 基纳进货成本（**本机代抓**）。
+
+    为什么走本机：服务器出口 IP 已被 DD373 的阿里云 WAF 打进风控（无痕验证滑块页），
+    服务器侧 fetch_costs 恒被判风控 ⇒ 成本冻结、AION2 不出单。实测本机 IP **未**被打，
+    只需带浏览器 cookie 就能正常抓（见 dd373_local_collect.py）。
+
+    ⛔ 与 collect_gold_cost 走**同一条落库路径**（store.save_gold_cost）：
+       只写 gold_cost 表，**绝不写 gold_price / plan / 目标价**（用户口径：
+       成本仅作监控与定价输入，写入由 build_plan 统一负责）。
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    costs = body.get("costs") or {}
+    if not costs:
+        return jsonify({"ok": False, "error": "costs 为空"}), 400
+    ts = str(body.get("ts") or dt.datetime.now().isoformat(timespec="seconds"))
+    game = str(body.get("game") or "AION2")
+    cfg = load_cfg()
+    con = open_db()
+    try:
+        # 与本机同口径：最终售价优先取当前目标价，没有就退回我方现价（仅用于 margin 展示）
+        _price = {}
+        try:
+            for r in (store.gold_latest(con)[0] or []):
+                if engine.game_of(cfg, r.get("key")) != game:
+                    continue
+                tgt = None
+                if r.get("tgt_big") is not None and r.get("big_tier"):
+                    tgt = float(r["tgt_big"]) / float(r["big_tier"])
+                elif r.get("cost_target") is not None and r.get("divisor"):
+                    tgt = float(r["cost_target"]) / float(r["divisor"])
+                _price[r.get("key")] = tgt if tgt is not None else r.get("our_per_m")
+        except Exception:
+            pass
+        n = store.save_gold_cost(con, ts, costs, _price, game=game)
+        n_ok = sum(1 for v in costs.values() if v.get("ok"))
+        # 留痕：给 collect_gold_cost 判断「本机刚推过、本轮不必再自抓」用
+        try:
+            _p = os.path.join(ROOT, "data", "dd373_local_push.json")
+            with open(_p, "w", encoding="utf-8") as f:
+                json.dump({"ts": ts, "saved": n, "ok_rows": n_ok,
+                           "pushed_at": dt.datetime.now().isoformat(timespec="seconds"),
+                           "src": str(body.get("src") or "local")},
+                          f, ensure_ascii=False)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "saved": n, "ok_rows": n_ok, "ts": ts})
     finally:
         con.close()
 
