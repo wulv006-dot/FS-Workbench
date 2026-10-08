@@ -1720,7 +1720,37 @@ async function renderGoldInner(pre){
           + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
           + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b></td>'
           + gapCell(x)
-          + '<td class="num">'+(x.margin_rate!=null ? (Number(x.margin_rate)*100).toFixed(0)+'%' : '--')+'</td>'
+          + (function(){
+              /* 2026-10-09 · MSCW(iggm_undercut) 专用展示（老板口径）：
+                 ① 利润率列**按「当前跟价 vs 进货均价」实算**，不再显示写死的后台利润率
+                    （原来那个 30% 是后台行 21754 的存档值，不随价格变 → 现在算出来的才是真利润）；
+                 ② 单元格补一行**估算进货均价**（DD373「买满 100 万金」订单簿加权均价 = dd_ref_usd），
+                    同时给 行内单位($/K) 与 $/M 两个口径，一眼知道大致的进货价。 */
+              const _cst = (x.price_mode==='iggm_undercut' && x.dd_ref_usd!=null) ? Number(x.dd_ref_usd) : null;
+              const _our = (x.our_per_m!=null && x.our_per_m!=='') ? Number(x.our_per_m) : null;
+              const _mg  = (_cst!=null && _our && _our>0) ? (_our-_cst)/_our : null;
+              let _cell = '<td class="num">';
+              if(_mg!=null){
+                  const _col = (_mg<0) ? 'var(--red)' : 'var(--green)';
+                  _cell += '<span style="color:'+_col+';font-weight:600">'+(_mg*100).toFixed(1)+'%</span>';
+              }else{
+                  _cell += (x.margin_rate!=null ? (Number(x.margin_rate)*100).toFixed(0)+'%' : '--');
+              }
+              if(_cst!=null){
+                  const _perM = _cst * (String(x.unitLabel)==='K' ? 1000 : 1);
+                  const _fl = (function(){
+                      try{
+                          const p=(GOLD_DATA&&GOLD_DATA['定价策略']&&GOLD_DATA['定价策略']['按游戏'])||{};
+                          const v=(p[x['游戏']]||{})['利润率下限'];
+                          return (v==null) ? null : Number(v);
+                      }catch(e){ return null; }
+                  })();
+                  _cell += '<div class="small" style="color:var(--sub)">进货 ≈ $'+_cst.toFixed(4)+'/'+_UL
+                         + '（$'+_perM.toFixed(2)+'/M）'
+                         + (_fl!=null ? ' ｜ 兜底 '+(_fl*100).toFixed(0)+'%' : '') + '</div>';
+              }
+              return _cell + '</td>';
+          })()
           + '<td class="num">'+tgt+'</td>'
           + '<td class="num">'+big+'</td>'
           + '<td style="color:'+acol+';font-weight:600">'+act+'</td>'
