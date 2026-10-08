@@ -4864,5 +4864,15 @@
       "bytes": 20460
     }
   ]
-}
+},
+  "registrationRuntimeV3Index": {
+    "moduleId": "registration-runtime-v3",
+    "indexPath": "docs/collaboration/REGISTRATION-INDEX.md",
+    "machineReadablePath": "docs/collaboration/registration-runtime-v3-index.json",
+    "recordedAt": "2026-10-07 17:20:10 UTC",
+    "sourceCommit": "2152c8c9ea2fd68be3876349299d490d38903404",
+    "artifactManifestSha256": "d17e695860b2300aa65470f77e89e7aa6c6e1e52bff3399a3ea3edd7365d9cb8",
+    "localEvidenceKey": "registration-production-release-20261008",
+    "scope": "registration index only; historical rows and owner contracts preserved"
+  }
 }

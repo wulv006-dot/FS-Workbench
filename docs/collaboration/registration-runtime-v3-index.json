@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "moduleId": "registration-runtime-v3",
+  "recordScope": "registration-only; indexed evidence snapshot, not a deploy manifest or permission grant",
+  "recordedAt": "2026-10-07 17:20:10 UTC",
+  "repository": "wulv006-dot/FS-Workbench",
+  "ownerContract": {
+    "path": "docs/collaboration/OWNERS.json",
+    "moduleId": "portal",
+    "businessOwner": "吴律主导；陈超可参与迭代",
+    "unchanged": true
+  },
+  "observedMain": {
+    "commit": "56021e9d2b7c7214a1edca185d09d02182680c60",
+    "tree": "6950b2243cc1b92ca07f01ff3d130d22ca73a0af"
+  },
+  "source": {
+    "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+    "tree": "d06085f8979e409e63fb9554a7c0a3fda1139ce1",
+    "qaCheckoutCommit": "364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8"
+  },
+  "artifact": {
+    "releaseId": "registration-20261007163102Z",
+    "manifestSha256": "d17e695860b2300aa65470f77e89e7aa6c6e1e52bff3399a3ea3edd7365d9cb8",
+    "archiveSha256": "62154dec318d7c4a80b5df7ddc0043ff85ff8b2f1a1bf2431ee4bc61aab5791f",
+    "targetCount": 21,
+    "archiveMemberCount": 25,
+    "storage": "local-only"
+  },
+  "qa": {
+    "runId": 37645305282,
+    "url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/37645305282",
+    "head": "364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8",
+    "status": "completed",
+    "conclusion": "success",
+    "runAttempt": 1,
+    "reportedCount": {
+      "passed": 311,
+      "source": "prior user and handoff receipt; full logs not fetched by this index task"
+    },
+    "rerunThisTask": false
+  },
+  "files": [
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "bytes": 4857,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/consumer_seams.py",
+        "blob": "734e3d7387909ca6df66c9b543da2c9b64c8a826",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/consumer_seams.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/portal_bridge.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/portal_bridge.py",
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "bytes": 7466,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/portal_bridge.py",
+        "blob": "22820573d6a0141c5837680d36c45e6e9fc316d6",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/portal_bridge.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "sha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b",
+      "bytes": 3825,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/route-contract.json",
+        "blob": "772d8abcd89b663bc8d392aede67440cdf250251",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/route-contract.json",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "sha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "bytes": 12958,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/runtime.py",
+        "blob": "ca6e7f82b8805320a62aac3a40be39ac4b2bdbb0",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/runtime.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/storage_checkpoint.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/storage_checkpoint.py",
+      "sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "bytes": 1869,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/storage_checkpoint.py",
+        "blob": "65e4aedfb1032f7d11af0beac68590bb1f845754",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/storage_checkpoint.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "sha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "bytes": 28877,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/auth_candidate.py",
+        "blob": "c06ff108989d6adf05f2fb033e47c162f00aefbc",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/auth_candidate.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py",
+      "sha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017",
+      "bytes": 1269,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_access_policy.py",
+        "blob": "026ae12ff671d1cbbd94f01b96b7ae169dba2355",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/native_access_policy.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_integration.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_integration.py",
+      "sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "bytes": 10041,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_integration.py",
+        "blob": "153db519ae6cac45dfb66abf017a2bdbefccf98e",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/native_integration.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_portal_functions.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_portal_functions.py",
+      "sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "bytes": 5741,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py",
+        "blob": "b573f8cff226315dbc4949359df4b28f0c98a417",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/native_portal_functions.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_taskboard_member.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_taskboard_member.py",
+      "sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "bytes": 825,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py",
+        "blob": "79dab08fa330706a485109ac5ccc13df35351b83",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/native_taskboard_member.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/schema_contract.py",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/schema_contract.py",
+      "sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "bytes": 2719,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/vendor/schema_contract.py",
+        "blob": "ee654b7d480759e5b60ad0530babc4836067d78b",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/vendor/schema_contract.py",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "sha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "bytes": 1065,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/web/access.css",
+        "blob": "1f77e03d86eedd21bedbc900763e6c27d1de9dd4",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/web/access.css",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "sha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "bytes": 4654,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/web/app.js",
+        "blob": "9670d5d4d908f32261eca84da04fcefb44497984",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/web/app.js",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/base.css",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/base.css",
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "bytes": 7581,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/web/base.css",
+        "blob": "1f2d31c72edad5d4b580230441cbe83594d3afd6",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/web/base.css",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "runtime",
+      "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "artifactRelativePath": "payload/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "sha256": "d97e16b188a7b810c73acf9d8566c0716719a710e1971f305a5c5b7bc97ae293",
+      "bytes": 4089,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "registration_approval_runtime_v3_20261006/web/index.html",
+        "blob": "0eb030a708fd645389c7c50401a6905511fd1ed7",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/registration_approval_runtime_v3_20261006/web/index.html",
+        "observedMain": "same-path-same-blob"
+      }
+    },
+    {
+      "kind": "caller",
+      "runtimeTarget": "/opt/auth-portal/auth_portal.py",
+      "artifactRelativePath": "payload/opt/auth-portal/auth_portal.py",
+      "sha256": "6b00046a56b6292086f715df3e52fa247093ea1415375313e3b821d98b101baf",
+      "bytes": 29095,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "candidates/registration-import-20261007/formal/auth_portal.py",
+        "blob": "78bfd8ee9c105697285fa686bd936615508babe0",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/candidates/registration-import-20261007/formal/auth_portal.py",
+        "observedMain": "path-and-equal-blob-absent"
+      }
+    },
+    {
+      "kind": "caller",
+      "runtimeTarget": "/opt/fc27-gate/fc27_gate.py",
+      "artifactRelativePath": "payload/opt/fc27-gate/fc27_gate.py",
+      "sha256": "e4dfc447fb1fdeeb0c363b90a69fdbd1626466f85590d7b287b9cc6d65e16c7f",
+      "bytes": 40559,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "candidates/registration-import-20261007/formal/fc27_gate.py",
+        "blob": "95d28f171d834b0e124f4472f86c6e85a268231b",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/candidates/registration-import-20261007/formal/fc27_gate.py",
+        "observedMain": "path-and-equal-blob-absent"
+      }
+    },
+    {
+      "kind": "caller",
+      "runtimeTarget": "/opt/mmoexp-taskboard/taskboard_server.py",
+      "artifactRelativePath": "payload/opt/mmoexp-taskboard/taskboard_server.py",
+      "sha256": "ade6ea26fb7443f688692a52ab3949cae325b48586d6923b122c21395d018034",
+      "bytes": 42629,
+      "source": {
+        "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+        "path": "candidates/registration-import-20261007/formal/taskboard_server.py",
+        "blob": "fc71484586c833d5933524baace47d41467bd89f",
+        "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/candidates/registration-import-20261007/formal/taskboard_server.py",
+        "observedMain": "path-and-equal-blob-absent"
+      }
+    },
+    {
+      "kind": "production-config",
+      "runtimeTarget": "/etc/nginx/conf.d/iggm-web.conf",
+      "artifactRelativePath": "payload/etc/nginx/conf.d/iggm-web.conf",
+      "sha256": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317",
+      "bytes": 22324,
+      "source": null
+    },
+    {
+      "kind": "production-config",
+      "runtimeTarget": "/etc/nginx/taskboard.locations.conf",
+      "artifactRelativePath": "payload/etc/nginx/taskboard.locations.conf",
+      "sha256": "5132305130f74039a18ee7269e995480fdd442b83c1435ee680054a6a558acfd",
+      "bytes": 3225,
+      "source": null
+    },
+    {
+      "kind": "production-config",
+      "runtimeTarget": "/etc/systemd/system/auth-portal.service.d/20-registration-sqlite.conf",
+      "artifactRelativePath": "payload/etc/systemd/system/auth-portal.service.d/20-registration-sqlite.conf",
+      "sha256": "274f7ec6185b7714b43e45f2de7d0098a9baea316798ec37e878727e04b0a782",
+      "bytes": 101,
+      "source": null
+    }
+  ],
+  "recovery": {
+    "kind": "recovery",
+    "runtimeTarget": "/opt/auth-portal/auth_portal.py",
+    "artifactRelativePath": "recovery/opt/auth-portal/auth_portal.py",
+    "sha256": "8d24b5c11179100b2cb8672dacc5d858596fe5d5b7b392ac76ebe234f573ff5e",
+    "bytes": 29371,
+    "source": {
+      "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
+      "path": "candidates/registration-import-20261007/recovery/auth_portal.py",
+      "blob": "57e702ff3e4decd031bc633574cf4e89791ab3d9",
+      "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2152c8c9ea2fd68be3876349299d490d38903404/candidates/registration-import-20261007/recovery/auth_portal.py",
+      "observedMain": "path-and-equal-blob-absent"
+    }
+  },
+  "configuration": {
+    "source": "approved local release manifest; production configuration content not uploaded",
+    "exampleIsExactProductionConfig": false
+  },
+  "evidence": {
+    "key": "registration-production-release-20261008",
+    "storage": "local-only",
+    "independentReadbackCapturedAt": "2026-10-07T16:51:09.960703+00:00",
+    "independentReadbackSha256": "3fd0cb6648ebcaa4ca99832054da77b5defef06f621e1bee30d6bd68b3fb3298",
+    "basicReadbackPassed": true,
+    "protectedFilesUnchanged": 25,
+    "servicesRunning": 3,
+    "entryChecksPassed": 11,
+    "realRoleAcceptance": "partial",
+    "liveReadThisTask": false,
+    "pending": [
+      "existing readonly/editor role readback",
+      "other administrators per-account login readback",
+      "real registration/approval/revocation lifecycle with scoped account authorization",
+      "production UI candidate/synthetic wording correction"
+    ]
+  },
+  "localBinding": {
+    "key": "registration-runtime-v3",
+    "artifactRootKey": "registration-production-release-20261008/artifact",
+    "evidenceRootKey": "registration-production-release-20261008",
+    "machinePathsStoredInRepository": false
+  },
+  "limitations": [
+    "main integration is not the production source identity",
+    "3 callers and 1 recovery file are pinned to approved source commit; observed main has neither candidate paths nor equal blobs",
+    "original frozen package and failed receipts remain unchanged",
+    "no source restoration, permissions, configuration or deployment change in this docs increment"
+  ]
+}
