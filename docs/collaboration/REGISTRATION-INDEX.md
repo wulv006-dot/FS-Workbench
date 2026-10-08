@@ -2,11 +2,13 @@
 
 本模块ID：`registration-runtime-v3`。机器可读映射：[registration-runtime-v3-index.json](registration-runtime-v3-index.json)；全仓来源入口：[SOURCE-MAP.json](SOURCE-MAP.json)。负责人沿用 [OWNERS.json](OWNERS.json) 的 portal 合同，未调整业务归属或权限。
 
+更新：2026-10-08；Git与生产证据各用自己的时点，最新集成状态见 [CURRENT-STATUS](CURRENT-STATUS.md)。
+
 ## 当前有据版本
 
 | 层级 | 版本 / 证据 | 使用范围 |
 | --- | --- | --- |
-| 索引观察的 main | `56021e9d2b7c7214a1edca185d09d02182680c60` | 集成快照；不替代生产版本 |
+| 本次Git观察的 main | `7154ba13288accff164b717f1f3ad86a4e25ad31` | PR32已合并的集成快照；本文后续文档提交不改变生产源身份 |
 | 发布源码 | [2152c8c9ea2fd68be3876349299d490d38903404](https://github.com/wulv006-dot/FS-Workbench/commit/2152c8c9ea2fd68be3876349299d490d38903404) | 18发布源码及1恢复文件逐blob匹配本地材料 |
 | QA checkout/合并版本 | [364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8](https://github.com/wulv006-dot/FS-Workbench/commit/364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8) | [run 37645305282](https://github.com/wulv006-dot/FS-Workbench/actions/runs/37645305282) completed/success；311/311数量引用已有用户/交接证据，本次未取完整日志或重跑 |
 | 发布材料 | `registration-20261007163102Z` | manifest SHA `d17e695860b2300aa65470f77e89e7aa6c6e1e52bff3399a3ea3edd7365d9cb8`；tar SHA `62154dec318d7c4a80b5df7ddc0043ff85ff8b2f1a1bf2431ee4bc61aab5791f`，文件保留本地 |
@@ -24,6 +26,10 @@
 
 ## 仍缺的真实验收
 
-已部署且基础读回通过，不等于全部角色与真实账户生命周期已验收。合法readonly/editor、其他管理员逐账号登录、真实注册审批/撤销，以及生产页面“本地候选/合成演示”文案修订仍待。原始失败与旧状态快照保留；本增量只记录新索引，不关闭这些事项、不授生产操作或新账户权限。
+已部署且基础读回通过，不等于全部角色与真实账户生命周期已验收。合法readonly/editor、其他管理员逐账号登录、真实注册审批/撤销仍待。
+
+生产页面“本地候选/合成演示”等十处误导文案已于2026-10-08 01:18:21北京时间单文件修订，01:19独立HTTPS读回及46文件检查通过。活动HTML SHA256为 `5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2`，仅文字增量，原源码commit/21目标发布材料及旧SHA保持。本次索引更新没有回补HTML源码、部署、账户或权限操作；活动文案不冒充Git原HTML。
+
+PR #4原v5设计草稿已关闭归档，当前实施路线为runtime v3；不把v5候选与已部署v3等同。原始失败与旧状态快照保留，真实角色和账户生命周期未因文案修订或索引合并关闭。
 
 原始配置、数据库、凭据、用户数据、日志、完整生产源码及部署包不随本索引上传。历史被拒绝/取消的原服务器QA上传不重试。
