@@ -2376,9 +2376,9 @@ async function renderShelfBar(){
   let d;
   try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
   const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
-  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色「✅ 货架与系统一致…检查时间：—」，
-     日常绝大多数时候都是这条 ⇒ 白占一行。现在只有真出问题时才出现该条，一致时静默。
-     #shelfBar:empty{display:none} 保证连外边距都不占。 */
+  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
+     日常绝大多数时候都是那条 ⇒ 白占一行，老板要求去掉）。
+     现在只有真出问题时才出现，一致时静默；#shelfBar:empty{display:none} 连外边距都不占。 */
   if(!un.length && !mm.length && !orp.length){ box.innerHTML=''; return; }
   /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
      同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
