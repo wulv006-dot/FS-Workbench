@@ -10,7 +10,10 @@
     "businessOwner": "吴律主导；陈超可参与迭代",
     "unchanged": true
   },
-  "observedMain": "7154ba13288accff164b717f1f3ad86a4e25ad31",
+  "observedMain": {
+    "commit": "7154ba13288accff164b717f1f3ad86a4e25ad31",
+    "tree": "2641e1d07ef801962e647df2d3b10576130e1f78"
+  },
   "source": {
     "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
     "tree": "d06085f8979e409e63fb9554a7c0a3fda1139ce1",
