@@ -163,7 +163,12 @@ def controls(value, previous=None, at=None):
               'collection_stale_or_clock_invalid', 'collection_time_unverified',
               'original_operation_state_unavailable', 'collection_unavailable',
               'latest_coin_job_failed', 'latest_coin_all_proof_unverified',
-              'coin_job_deadline_exceeded', 'coin_job_start_unverified'}
+              'coin_job_deadline_exceeded', 'coin_job_start_unverified',
+              'service_unavailable:fc27-cloud-api.service',
+              'service_unavailable:fc27-cloud-worker.service',
+              'service_unavailable:fc27-gate.service',
+              'service_unavailable:coin_api_http_gate',
+              'service_unavailable:gallery_api_http_gate'}
     for platform in PLATFORMS:
         reasons[platform].extend(sorted(codes & shared))
         if not user_enabled:

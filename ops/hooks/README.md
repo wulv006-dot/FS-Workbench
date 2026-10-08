@@ -19,3 +19,5 @@
 RPG共享接口：collector.persist（状态/去重/outbox）、hooks_notifier.deliver_bot（已有渠道）、hooks.can_resume（纯恢复条件）。陈超按第二份方案接自己的scope、writer/锁、来源、原ID、读回、publisher、售卖保护。本次没有安装或修改RPG业务规则，FC路径和价格规则不能套用。
 
 生产重跑先核现场SHA与原操作ID，发布不能盲重放；只沿原锁/CAS回退代码，保留DB、价格、队列、锁、回执与暂停状态。
+
+2026-10-08后续评审修复：必需FC API/worker/gate及两个HTTP身份门禁失败或未知，service_unavailable错误码进入三平台写价阻断；独立图库/经营故障继续只影响自身范围。升级事务只回退本次已替换的代码，删除本次新增目标并清理自有临时文件；保护读回失败也进入回退。服务探测→report→controls→原writer guard和五次替换/最终读回中断共32直接Linux检查/0skip通过；故障仅注入独立临时目录，生产FC服务未停启。例外回退不提供进程被kill或断电时的事务恢复保证。

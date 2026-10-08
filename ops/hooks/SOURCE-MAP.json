@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "moduleId": "fs-hooks-fc-business-20261008",
   "policyPath": "docs/ops/HOTFIX.md",
-  "observedMain": "2a75a0c2226de3705930541b495c76b3bfe01024",
-  "businessOwner": "吴律",
+  "observedMain": "991920f90e42fd78cdb1d13a4d7d3afe4ddbcabd",
+  "businessOwner": "鍚村緥",
   "runtimeMode": "FC RULES_ARMED; dashboard observation",
   "monitorIntervalSeconds": 300,
   "gateExpiresSeconds": 900,
@@ -47,7 +47,7 @@
     {
       "path": "ops/hooks/hooks.py",
       "runtime": "/opt/fc-ops-readonly-monitor/hooks.py",
-      "sha256": "df0fd30962351d7b70f60c429c7b85a91614262ce3a22d7d759880ac8928e0da"
+      "sha256": "9eb21fc0dc69b598ae7053022605639cda5ea0b0fb827b6178c862b57d09237d"
     },
     {
       "path": "ops/hooks/hooks_notifier.py",
@@ -61,7 +61,7 @@
   "monitorPublisher": "existing monitor publisher upgrade; .collector.lock and CAS",
   "naturalEvidence": {
     "operationId": "86e39e89-e96a-4bf8-af02-f187fc0c573f",
-    "completedAtUtc": "2026-10-08T08:24:08.027107+00:00",
+    "completedAtUtc": "2026-10-08T16:24:08.027107+08:00",
     "platforms": [
       "PS",
       "XBOX",
@@ -99,5 +99,15 @@
     "source": "real isolated HTTP503 and recovery via existing notifier/outbox; user confirmed",
     "production_fault_injected": false,
     "secret_in_git": false
+  },
+  "reviewFix": {
+    "comments": [
+      4217591822,
+      4217591832
+    ],
+    "requiredServiceFailuresBlockAutomaticWrites": true,
+    "rollbackNewFilesAndOwnTemps": true,
+    "protectedReadbackInsideRollback": true,
+    "verification": "direct Linux32/0; existing publisher deployed; fault scenarios isolated"
   }
 }

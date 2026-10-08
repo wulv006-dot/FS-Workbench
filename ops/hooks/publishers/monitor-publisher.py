@@ -42,9 +42,9 @@ def upgrade(stage, apply):
         compile(source.read_text(),row['name'],'exec')
     tests=subprocess.run(['/usr/bin/python3','-B','-m','unittest','discover','-s',str(stage/'source'),'-p','test_*.py'],capture_output=True,text=True,timeout=60)
     (stage/'linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
-    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 31 tests' not in tests.stderr:
+    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 32 tests' not in tests.stderr:
         raise RuntimeError('required_linux_checks_failed')
-    before=baseline(); receipt={'checks':'31 Linux checks, zero skips','applied':False,'before':before}
+    before=baseline(); receipt={'checks':'32 Linux checks, zero skips','applied':False,'before':before}
     if apply:
         with (DATA/'.collector.lock').open('a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -56,22 +56,32 @@ def upgrade(stage, apply):
                 if actual!=row['before']:raise ValueError('monitor_baseline_changed_under_lock')
                 if target.exists():shutil.copy2(target,backup/row['name'])
             metadata=DATA.stat();receipt['original_data_metadata']=[metadata.st_uid,metadata.st_gid,metadata.st_mode&0o7777]
+            installed=[]
             try:
                 for row in rows:
-                    target=APP/row['name'];temporary=APP/('.hooks-'+row['name'])
-                    with temporary.open('xb') as stream:
-                        stream.write((stage/'source'/row['name']).read_bytes());stream.flush();os.fsync(stream.fileno())
-                    temporary.chmod(0o644);os.replace(temporary,target)
+                    target=APP/row['name']
+                    fd,temporary=tempfile.mkstemp(dir=APP,prefix='.hooks-'+row['name']+'-')
+                    try:
+                        with os.fdopen(fd,'wb') as stream:
+                            stream.write((stage/'source'/row['name']).read_bytes());stream.flush();os.fsync(stream.fileno())
+                        os.chmod(temporary,0o644);os.replace(temporary,target)
+                        installed.append(row)
+                    finally:
+                        if os.path.exists(temporary):os.unlink(temporary)
                 gates=DATA/'gates';gates.mkdir(exist_ok=True);os.chown(gates,0,11028);gates.chmod(0o2750)
                 os.chown(DATA,0,11028);DATA.chmod(0o710)
+                receipt['after']=baseline()
+                if receipt['after']!=before:raise RuntimeError('protected_baseline_changed')
                 receipt.update(applied=True,backup=str(backup))
             except Exception:
-                for row in rows:
+                for row in reversed(installed):
                     target=APP/row['name']
-                    if row['before'] is not None:shutil.copy2(backup/row['name'],target)
+                    if row['before'] is None:target.unlink()
+                    else:shutil.copy2(backup/row['name'],target)
                 os.chown(DATA,metadata.st_uid,metadata.st_gid);DATA.chmod(metadata.st_mode&0o7777)
                 raise
-    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not apply:receipt['after']=baseline()
+    receipt['protected_unchanged']=receipt['after']==before
     if not receipt['protected_unchanged']:raise RuntimeError('protected_baseline_changed')
     (stage/'monitor-upgrade-receipt.json').write_text(json.dumps(receipt,indent=2))
     print(json.dumps(receipt))
