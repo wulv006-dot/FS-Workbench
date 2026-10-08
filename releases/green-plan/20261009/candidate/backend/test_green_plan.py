@@ -32,6 +32,15 @@ def run():
         conn.execute("INSERT INTO members(username,role,active,created_at,updated_at) VALUES('inactive','editor',0,'x','x')")
         conn.commit()
         old=[tuple(r) for r in conn.execute('SELECT * FROM tasks')]
+        # Fresh baseline has an unconditional final commit: old seed inserts persist.
+        old_seed=Path(tmp)/'seed.json'
+        old_seed.write_text(json.dumps({'groups':[{'name':'newgroup','projects':['newproject']}],
+            'depts':['newdept'],'members':[{'username':'seedmember','role':'viewer'}],'tasks':[]}),encoding='utf-8')
+        host.CFG['seed']=old_seed
+        host.init_db(False)
+        assert conn.execute("SELECT COUNT(*) FROM projects WHERE name='newproject'").fetchone()[0]==1
+        assert conn.execute("SELECT COUNT(*) FROM depts WHERE name='newdept'").fetchone()[0]==1
+        assert conn.execute("SELECT COUNT(*) FROM members WHERE username='seedmember'").fetchone()[0]==1
         gp.init(conn)
         assert len(gp.all_tasks(conn))==50
         assert all(t['status']=='todo' and t['progress']==0 and not t['assignee'] for t in gp.all_tasks(conn).values())

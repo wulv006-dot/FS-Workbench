@@ -48,7 +48,7 @@
     {
       "candidate": "web/plan.html",
       "target": "/var/www/dashboard/tasks/green-plan/plan.html",
-      "sha256": "4c9b332c1e68842dfc6b97cdaba98f62504230c3417d7b5ff26b32150c65629b",
+      "sha256": "db6619102d75af6d87d8f625f4288f0c26e1e520710c1a151e574b1c31664acf",
       "beforeSha256": null
     },
     {
