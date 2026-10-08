@@ -213,7 +213,7 @@ def select(paths):
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
         elif name=="fc27_players_cloud/player_web/price_lock.py":groups.add("players")
-        elif name.startswith("opt/d4follow/") or name.startswith("aion2_dd373_local_collect_20261006/"):groups.add("rpg")
+        elif name.startswith("opt/d4follow/") or name.startswith("aion2_dd373_local_collect_20261006/") or name=="tools/release_d4follow.py":groups.add("rpg")
         elif name.startswith("aion2_dashboard_20261004/"):groups.add("aion")
         elif name.startswith("opt/nba-reprice/backend/api_security") or name=="tests/integration/test_nba_pure_guards.cjs":groups.add("nba")
         elif name in ("tools/build_business_html.py","tools/test_business_html_build.py"):groups.add("builder")

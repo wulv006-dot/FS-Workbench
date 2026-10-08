@@ -91,6 +91,46 @@ class RPGModuleContracts(unittest.TestCase):
         self.assertEqual(set(sw.VALID),
                          {"dd373_only", "g2g_cheapold", "dd373_markup", "multisrc"})
 
+    def test_release_guard_refuses_unmanaged_and_is_offline(self):
+        """受控发布器的守卫必须是「保守失败」：无法解释的远端内容一律拒发。"""
+        rd = module("fast_release_d4follow", "tools/release_d4follow.py")
+        known = {"a" * 64}
+        target = "b" * 64
+        self.assertEqual(rd.classify(None, target, known), "NEW")
+        self.assertEqual(rd.classify(target, target, known), "SAME")
+        self.assertEqual(rd.classify("a" * 64, target, known), "OLD")
+        self.assertEqual(rd.classify("c" * 64, target, known), "UNMANAGED")
+        remote, targets = {"app.py": "c" * 64}, {"app.py": target}
+        actions, refusals = rd.plan_actions(remote, targets, {"app.py": known})
+        self.assertEqual(len(refusals), 1)
+        self.assertEqual(actions, [])
+        actions, refusals = rd.plan_actions(remote, targets, {"app.py": known}, allow_unmanaged=True)
+        self.assertEqual(refusals, [])
+        self.assertEqual(actions[0][1], "OVERRIDE")
+
+    def test_release_guard_path_id_and_credential_rules(self):
+        rd = module("fast_release_d4follow", "tools/release_d4follow.py")
+        self.assertEqual(rd.safe_rel("templates/index.html"), "templates/index.html")
+        for bad in ("../x", "/etc/passwd", "a\\b.py", "data/x.py", "a/b/c.py", ""):
+            with self.assertRaises(rd.Refused):
+                rd.safe_rel(bad)
+        for bad in ("", "../x", "a b"):
+            with self.assertRaises(rd.Refused):
+                rd.check_release_id(bad)
+        # 凭据文件禁止从仓库发布（仓库版是脱敏占位，线上含真实 token）
+        self.assertIn("set_dingtalk_secret.sh", rd.NEVER_PUBLISH)
+
+    def test_release_publisher_parses_on_python39_and_uses_no_third_party(self):
+        src = (ROOT / "tools/release_d4follow.py").read_text(encoding="utf-8")
+        tree = ast.parse(src, filename="release_d4follow.py", feature_version=(3, 9))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        self.assertFalse(imported & {"requests", "paramiko", "yaml", "fabric"})
+
 class PlayersLock(unittest.TestCase):
     def test_missing_and_symlink_are_not_acquired(self):
         lock=module("fast_players_lock","fc27_players_cloud/player_web/price_lock.py")
