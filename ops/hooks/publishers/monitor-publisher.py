@@ -42,9 +42,9 @@ def upgrade(stage, apply):
         compile(source.read_text(),row['name'],'exec')
     tests=subprocess.run(['/usr/bin/python3','-B','-m','unittest','discover','-s',str(stage/'source'),'-p','test_*.py'],capture_output=True,text=True,timeout=60)
     (stage/'linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
-    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 30 tests' not in tests.stderr:
+    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 31 tests' not in tests.stderr:
         raise RuntimeError('required_linux_checks_failed')
-    before=baseline(); receipt={'checks':'30 Linux checks, zero skips','applied':False,'before':before}
+    before=baseline(); receipt={'checks':'31 Linux checks, zero skips','applied':False,'before':before}
     if apply:
         with (DATA/'.collector.lock').open('a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)

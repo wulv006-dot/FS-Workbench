@@ -6,14 +6,16 @@
 
 固定恢复只有有界重读和解除本系统暂停原因：用户仍启用、当前配置版本、两次正常观察、无 UNKNOWN、独立安全检查全部满足；先标 AWAITING_CYCLE。已错价而无法保护售卖时标 ESCALATED 和 sales_protection_status=UNAVAILABLE，不宣称风险已隔离。
 
-2026-10-08 北京16:24:08，原定自然操作 86e39e89-e96a-4bf8-af02-f187fc0c573f 三平台 confirmed，公开读回 verified。没有手动触发改价，业务节拍与服务 PID 保留。Linux直接30检查/0 skip通过。首次FC发布因旧任务专用球员条件自动回退四代码文件；限定 --hooks 验收后重新发布，原发布分支条件和失败证据保留。
+2026-10-08 北京16:24:08，原定自然操作 86e39e89-e96a-4bf8-af02-f187fc0c573f 三平台 confirmed，公开读回 verified。没有手动触发改价，业务节拍与服务 PID 保留。首次FC发布因旧任务专用球员条件自动回退四代码文件；限定 --hooks 验收后重新发布，原发布分支条件和失败证据保留。
 
-机器人仅配在阿里云控制台，服务器无配置；outbox 与 DingTalk 适配仅隔离验证，没有真实收件证明。无可用无头 AI，AUTO_PATCH_ARMED=false，额外预算0美元。整机失联、前端DOM/日期脚本、准确区间逐查询事件、浏览器/缓存/worker修复、SKU停购/价格补偿未覆盖。
+17:30现有钉钉机器人接入服务器：真实隔离HTTP503及恢复 → 原检测/状态/outbox → 原发送器 → 钉钉，两条provider errcode=0；用户明确确认异常与恢复均收到，重复调用新增发送0。故障源为隔离服务，没有在生产制造故障。私有配置root:root0600，验收状态绑定实际配置哈希；凭据不进Git或报告。测试发送入口独立，安装真实机器人后运行检查也不会使用生产地址。直接Linux检查31项/0skip。
 
-直接复查：python3 -B -m unittest discover -s ops/hooks -p 'test_*.py'。pr-fast 复用 hooks 分组。CI为隔离检查，对root所有权用合成输入；实际 UID11027/group11028 和只读控制绑定已用原 writer 镜像另验。
+自然告警已接入原五分钟timer，服务器持续链路不依赖个人电脑；电脑实际关闭、整机失联外部心跳、前端DOM/日期脚本、准确区间逐查询事件、浏览器/缓存/worker修复、SKU停购/价格补偿未覆盖。无可用无头AI，AUTO_PATCH_ARMED=false，额外预算0美元。
 
-机器人缺项：由有权限的人保存服务器 /etc/fc-ops-readonly-monitor/hooks-bot.json，root:root 0600。字段为 approved=true、group=服务器及Github报警、activated_at=带时区时间、webhook=现有机器人地址、secret=现有密钥。凭据不进Git、报告或聊天。每轮最多两条，未知写入告警携带原操作 ID，区分排队、provider accepted 与用户实收；仍需真实检测到群收件验收。签名按[钉钉官方接口](https://open.dingtalk.com/document/robots/custom-robot-access)，不挪用 Aion2 机器人。
+直接复查：python3 -B -m unittest discover -s ops/hooks -p 'test_*.py'。pr-fast复用hooks分组。CI为隔离检查，对root所有权用合成输入；实际UID11027/group11028和只读控制绑定已用原writer镜像另验。
 
-RPG共享接口：collector.persist（状态/去重/outbox）、hooks_notifier.deliver_bot（已有渠道）、hooks.can_resume（纯恢复条件）。陈超按第二份方案接自己的 scope、writer/锁、来源、原 ID、读回、publisher、售卖保护。本次没有安装或修改 RPG 业务规则，FC路径和价格规则不能套用。
+机器人配置位置 /etc/fc-ops-readonly-monitor/hooks-bot.json。配置轮换后必须重新验收该地址并更新私有bot-acceptance.json；仅配置存在不算实收。每轮最多两条，未知写入告警携带原操作ID，区分排队、provider accepted与用户实收；前次验收不保证每条未来消息已实收。签名沿现有钉钉接口，不挪用Aion2机器人。
 
-生产重跑先核现场SHA与原操作 ID，发布不能盲重放；只沿原锁/CAS回退代码，保留DB、价格、队列、锁、回执与暂停状态。
+RPG共享接口：collector.persist（状态/去重/outbox）、hooks_notifier.deliver_bot（已有渠道）、hooks.can_resume（纯恢复条件）。陈超按第二份方案接自己的scope、writer/锁、来源、原ID、读回、publisher、售卖保护。本次没有安装或修改RPG业务规则，FC路径和价格规则不能套用。
+
+生产重跑先核现场SHA与原操作ID，发布不能盲重放；只沿原锁/CAS回退代码，保留DB、价格、队列、锁、回执与暂停状态。

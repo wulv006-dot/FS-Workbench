@@ -35,6 +35,23 @@ def snapshot(root):
 
 
 class Faults(unittest.TestCase):
+    def test_bot_readiness_requires_bound_received_receipt(self):
+        from types import SimpleNamespace
+        import stat
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name);cfg=root/'bot.json';proof=root/'receipt.json';cfg.write_bytes(b'isolated-credential')
+            record={'provider_accepted':True,'group_receipt':'awaiting_user',
+                    'config_sha256':hashlib.sha256(cfg.read_bytes()).hexdigest()}
+            meta=SimpleNamespace(st_mode=stat.S_IFREG|0o600,st_uid=0,st_nlink=1,st_size=100)
+            with patch('hooks_notifier.load_bot',return_value={}),patch('pathlib.Path.lstat',return_value=meta):
+                proof.write_text(json.dumps(record));self.assertFalse(hooks.bot_ready(cfg,proof))
+                record['group_receipt']='both_received';proof.write_text(json.dumps(record));self.assertTrue(hooks.bot_ready(cfg,proof))
+                record['provider_accepted']=False;proof.write_text(json.dumps(record));self.assertFalse(hooks.bot_ready(cfg,proof))
+                record['provider_accepted']=True;proof.write_text(json.dumps(record));cfg.write_bytes(b'rotated-credential')
+                self.assertFalse(hooks.bot_ready(cfg,proof))
+                record['config_sha256']=hashlib.sha256(cfg.read_bytes()).hexdigest();proof.write_text(json.dumps(record))
+                meta.st_uid=1;self.assertFalse(hooks.bot_ready(cfg,proof))
+
     def test_shared_resume_interface_fails_closed(self):
         kwargs={'user_intent':'ENABLED','pause_source':'system_fault','revision_current':True,
                 'dependencies_verified':True,'unknown_operations':[],'business_safe':True,'authorized':True}

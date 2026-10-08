@@ -9,6 +9,8 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from collector import atomic
 from report import reader_health
 
+BOT_CONFIG = Path('/etc/fc-ops-readonly-monitor/hooks-bot.json')
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -38,7 +40,7 @@ def load_config(path):
 def deliver(directory, config_path, transport=send, config_loader=load_config):
     result = {'state':'not_configured','delivered':False,'heartbeat':'not_sent','business':'not_sent',
               'accepted_event_ids':[], 'checked_at':datetime.now(timezone.utc).isoformat()}
-    bot_path = Path('/etc/fc-ops-readonly-monitor/hooks-bot.json')
+    bot_path = BOT_CONFIG
     if bot_path.exists():
         from hooks_notifier import deliver_bot
         return deliver_bot(directory, bot_path)

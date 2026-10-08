@@ -133,6 +133,21 @@ def extend_report(value, range_url='http://127.0.0.1:8931/health', snapshot_root
     return value
 
 
+def bot_ready(config=Path('/etc/fc-ops-readonly-monitor/hooks-bot.json'),
+              receipt=Path('/var/lib/fc-ops-readonly-monitor/bot-acceptance.json')):
+    # Readiness is bound to the credential actually accepted and received.
+    try:
+        from hooks_notifier import load_bot
+        load_bot(config)
+        meta=receipt.lstat()
+        if (not stat.S_ISREG(meta.st_mode) or meta.st_uid!=0 or meta.st_mode&0o077
+                or meta.st_nlink!=1 or meta.st_size>8192):return False
+        proof=json.loads(receipt.read_text(encoding='utf-8'))
+        return (proof.get('provider_accepted') is True and proof.get('group_receipt')=='both_received'
+                and proof.get('config_sha256')==hashlib.sha256(config.read_bytes()).hexdigest())
+    except (OSError,ValueError,KeyError,TypeError):return False
+
+
 def controls(value, previous=None, at=None):
     previous = previous or {}
     at = at or datetime.now(timezone.utc)
@@ -202,7 +217,7 @@ def controls(value, previous=None, at=None):
             'user_intent':'ENABLED' if user_enabled else 'DISABLED', 'platforms':states,
             'unknown_operations':value.get('unknown_operations'),
             'safe_sales_adapter_ready':False, 'headless_agent_ready':False,
-            'bot_delivery_ready':False}
+            'bot_delivery_ready':bot_ready()}
 
 
 def persist_controls(directory, value):

@@ -17,6 +17,11 @@ def config():
             'business_url':'https://hc-ping.com/00000000-0000-0000-0000-000000000002'}
 
 class MonitorTests(unittest.TestCase):
+    def setUp(self):
+        directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
+        isolated=patch('delivery.BOT_CONFIG',Path(directory.name)/'no-production-bot.json')
+        isolated.start();self.addCleanup(isolated.stop)
+
     def test_bounded_confirmation_and_transient(self):
         sleeps=[]; result=collect_bounded(lambda:value('critical'),sleeps.append)
         self.assertEqual((len(result['observations']),sleeps),(3,[10,10]))
