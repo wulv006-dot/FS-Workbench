@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "moduleId": "registration-runtime-v3",
   "recordScope": "registration-only; indexed evidence snapshot, not a deploy manifest or permission grant",
-  "recordedAt": "2026-10-07 17:20:10 UTC",
+  "recordedAt": "2026-10-08 01:13:40 UTC",
   "repository": "wulv006-dot/FS-Workbench",
   "ownerContract": {
     "path": "docs/collaboration/OWNERS.json",
@@ -10,10 +10,7 @@
     "businessOwner": "吴律主导；陈超可参与迭代",
     "unchanged": true
   },
-  "observedMain": {
-    "commit": "56021e9d2b7c7214a1edca185d09d02182680c60",
-    "tree": "6950b2243cc1b92ca07f01ff3d130d22ca73a0af"
-  },
+  "observedMain": "7154ba13288accff164b717f1f3ad86a4e25ad31",
   "source": {
     "commit": "2152c8c9ea2fd68be3876349299d490d38903404",
     "tree": "d06085f8979e409e63fb9554a7c0a3fda1139ce1",
@@ -350,9 +347,22 @@
     "pending": [
       "existing readonly/editor role readback",
       "other administrators per-account login readback",
-      "real registration/approval/revocation lifecycle with scoped account authorization",
-      "production UI candidate/synthetic wording correction"
-    ]
+      "real registration/approval/revocation lifecycle with scoped account authorization"
+    ],
+    "productionCopyHotfix": {
+      "publishedAtUtc": "2026-10-07T17:18:21Z",
+      "independentReadbackAtUtc": "2026-10-07T17:19:00Z",
+      "status": "published-and-independent-HTTPS-readback-passed",
+      "changedTextItems": 10,
+      "checkedFiles": 46,
+      "htmlSha256": "5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2",
+      "htmlBytes": 4169,
+      "localEvidenceKey": "registration-production-release-20261008/COPY-HOTFIX-DELIVERY.md",
+      "sourceCommit": null,
+      "sourceStatus": "local active wording delta; original Git HTML unchanged",
+      "originalReleaseFilesPreserved": true,
+      "liveReadThisTask": false
+    }
   },
   "localBinding": {
     "key": "registration-runtime-v3",
@@ -364,6 +374,7 @@
     "main integration is not the production source identity",
     "3 callers and 1 recovery file are pinned to approved source commit; observed main has neither candidate paths nor equal blobs",
     "original frozen package and failed receipts remain unchanged",
-    "no source restoration, permissions, configuration or deployment change in this docs increment"
+    "no source restoration, permissions, configuration or deployment change in this docs increment",
+    "files describe original approved release artifact; latest active HTML wording is separately recorded in evidence.productionCopyHotfix"
   ]
 }
