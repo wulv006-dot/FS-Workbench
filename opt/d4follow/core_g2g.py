@@ -268,6 +268,109 @@ def scrape_all(region_names=None, pages=1, log=None, **kw):
     return by_region, flat
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 子服务器级抓取：cheapold 跟价（2026-10-05 新增）
+# ───────────────────────────────────────────────────────────────────────────
+# 需求（用户 2026-10-05 定案，口径 A：**永远优先 cheapold**）：
+#   进 G2G 每个子服务器（金币购买页）→
+#     · 若 Other Sellers 里有卖家名叫 cheapold  ⇒ 基准 = cheapold 价
+#     · 没有 cheapold                          ⇒ 基准 = min(推荐第1位, 推荐第2位)
+#   目标前端每M = 基准 × (1 − 下浮比例)          （默认下浮 3%）
+#
+# ⚠ 与上面 scrape_region 的区别：
+#   · scrape_region 抓「整个大区、按最低价排序」，是旧 multisrc 口径；
+#   · 本段抓「单个子服务器、按 G2G 页面默认 == 推荐(Recommended)排序」，
+#     才能拿到用户说的「推荐第 1 / 第 2 位」，也能在同一份返回里找到 cheapold。
+#     filter_attr = <collection_id>:<dataset_id>（如 lgc_37781_dropdown_12:…_64642）。
+#   · collection_id 可由 dataset_id 反推：lgc_37781_dropdown_12_64642 → lgc_37781_dropdown_12。
+#
+# 字段依据（2026-10-05 服务器/本机实测）：
+#   · converted_unit_price = 每 1M 的美元价（就是本项目口径）。
+#   · min_qty = 起售份数（cheapold 常见 5，即「5M 起售」，**不是** 5M 总价！）。
+#   · username = 卖家名；结果顺序 = 推荐序（默认 sort = recommended_v4）。
+#   ⚠ 实测：cheapold 并非总是最便宜（NA East 上 cheapold $8.99 而 CNLTeam $2.96）。
+#     用户明确要求「永远优先跟进 cheapold」，故这里**不做「取更低者」的兜底**。
+CHEAPOLD_NAME = "cheapold"
+ALL_SORT = "recommended_v4"
+
+# config 的「大区」字段 → G2G region_id（[NA West]/[NA East] 同属 US 大区）
+AREA_TO_RID = {
+    "US": REGIONS["US"], "NA West": REGIONS["US"], "NA East": REGIONS["US"],
+    "EU": REGIONS["EU"],
+    "Asia": REGIONS["Asia"],
+    "SAM": REGIONS["SAM"], "Latin": REGIONS["SAM"], "South America": REGIONS["SAM"],
+}
+
+
+def dataset_collection(ds):
+    """从 dataset_id 反推 collection_id（末段数字去掉）。"""
+    ds = (ds or "").strip()
+    return ds.rsplit("_", 1)[0] if "_" in ds else ""
+
+
+def scrape_offers(ds, area, page_size=100, sort=ALL_SORT,
+                  timeout=30, retry=3, log=None):
+    """按**单个子服务器**抓全部卖家报价（推荐序），返回 payload.results[] 原样。
+
+    ds   = dataset_id（如 lgc_37781_dropdown_12_64642）
+    area = config 的大区名（EU / NA West / NA East / South America / Asia）
+    """
+    coll = dataset_collection(ds)
+    rid = AREA_TO_RID.get(str(area or "").strip())
+    if not coll or not rid:
+        raise KeyError("无法解析 G2G 入口：ds=%r area=%r" % (ds, area))
+    q = urllib.parse.urlencode({
+        "seo_term": SEO_TERM,
+        "region_id": rid,
+        "country": "US",
+        "currency": "USD",
+        "page_size": page_size,
+        "page": 1,
+        "sort": sort,
+        "group": 0,
+        "v": "v2",
+        "filter_attr": "%s:%s" % (coll, ds),
+    })
+    d = _get("%s?%s" % (SEARCH_URL, q), timeout=timeout, retry=retry, log=log)
+    if not isinstance(d, dict) or d.get("code") != 2000:
+        raise RuntimeError("G2G 接口返回异常：%s" % json.dumps(d, ensure_ascii=False)[:300])
+    return ((d.get("payload") or {}).get("results")) or []
+
+
+def cheapold_base(ds, area, name=CHEAPOLD_NAME, log=None, **kw):
+    """按「cheapold 优先」口径算某子服务器的基准价。
+
+    返回 dict：
+      base   基准价（$/M）；无报价/失败 → None
+      src    'cheapold' | '推荐前二' | None
+      who    取价卖家名
+      cheapold / t1 / t1_u / t2 / t2_u / n
+    """
+    offers = scrape_offers(ds, area, log=log, **kw)
+    pair = []                                   # 推荐序前两位（有价才收）
+    for o in offers[:2]:
+        p = _f(o.get("converted_unit_price"))
+        if p is not None:
+            pair.append((p, o.get("username")))
+    ch = None
+    for o in offers:
+        if str(o.get("username") or "").strip().lower() == str(name).strip().lower():
+            ch = _f(o.get("converted_unit_price"))
+            break
+    rec = {"n": len(offers), "cheapold": ch,
+           "t1": pair[0][0] if len(pair) > 0 else None,
+           "t1_u": pair[0][1] if len(pair) > 0 else None,
+           "t2": pair[1][0] if len(pair) > 1 else None,
+           "t2_u": pair[1][1] if len(pair) > 1 else None,
+           "base": None, "src": None, "who": None}
+    if ch is not None:
+        rec.update({"base": ch, "src": "cheapold", "who": str(name)})
+    elif pair:
+        b, w = min(pair, key=lambda x: x[0])
+        rec.update({"base": b, "src": "推荐前二", "who": w})
+    return rec
+
+
 if __name__ == "__main__":
     import argparse
 

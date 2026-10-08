@@ -228,12 +228,26 @@ class MultiSource(object):
         return self._lookup(self._eld, sv, "eld_服务区")
 
     # ------------------------------------------------------------ 同大区兜底
-    def region_avg(self, region, exclude_key=None):
-        """同大区（G2G 优先，缺则 ELD）已有数据的**每 M 价均值**。
+    def region_avg(self, region, exclude_key=None):  # PATCHED-20261006
+        """同大区兜底价 —— **抗污染版：中位数 + 剔离群**（不再是算术均值）。
 
-        用户 2026-10-01 定案：「有些区服其他平台没有就先空着」→ 后来又定
-        「用同大区其他区的均价兜底」。这里取两站合起来的「每区最低价」均值
-        （不是所有报价的均值 —— 那会被高价的冷门卖家拉高）。
+        用户 2026-10-01 定案：「有些区服其他平台没有就先空着」→「用同大区其他区的
+        均价兜底」。
+
+        ⛔ 2026-10-06 事故：原版用 **算术均值**，被 ELD 的离群报价整区污染。
+        ELD 对 EU 新区（Tsenka-Quai / Bakarma-Kromede…）返回
+        `unitSystem=Unit1000` + `pricePerUnitInUSD.amount=19.99/384/1.0`，
+        按 ×1000 换算成 **19990 / 384000 / 1000**（正常量级是 1.2~3.99）。
+        这些区 G2G 无货 ⇒ 三源皆空 ⇒ 走本函数 ⇒
+            (19990×9 + 1000 + 3.99 + …) / 27 ≈ **6701.5995**
+        ⇒ EU 22 个区基准全是 6701.6 ⇒ 毛利率显示成 **-385870%**。
+
+        为什么 aion2_watch.sanity_check 没拦住：它只校验**单行内**三源值偏离中位数，
+        而 6701.6 是**整区兜底价**、每行长得「一样离谱」⇒ 中位数判定失效。
+
+        ⇒ 这里改用**中位数**（天然抗单点污染：27 条里 9 条极端值，中位数仍 2.85），
+        并先剔除偏离中位数 3 倍以上的离群值再取中位数。
+        同时把统计留在 self._last_region_stats，供 resolve_base 做合理性校验。
         """
         vals = []
         for table in (self._g2g, self._eld):
@@ -245,10 +259,53 @@ class MultiSource(object):
                 if exclude_key and k == exclude_key:
                     continue
                 if v is not None:
-                    vals.append(v)
+                    try:
+                        fv = float(v)
+                    except (TypeError, ValueError):
+                        continue
+                    if fv > 0:
+                        vals.append(fv)
+        if not vals:
+            self._last_region_stats = {"region": region, "n_all": 0}
+            return None
+
+        svals = sorted(vals)
+        n = len(svals)
+        med = svals[n // 2] if n % 2 else (svals[n // 2 - 1] + svals[n // 2]) / 2.0
+        if med <= 0:
+            self._last_region_stats = {"region": region, "n_all": n}
+            return None
+        keep = [v for v in vals if med / 3.0 <= v <= med * 3.0]
+        if not keep:
+            keep = [med]
+        sk = sorted(keep)
+        m2 = len(sk)
+        out = sk[m2 // 2] if m2 % 2 else (sk[m2 // 2 - 1] + sk[m2 // 2]) / 2.0
+        self._last_region_stats = {
+            "region": region, "n_all": n, "n_kept": m2,
+            "median_all": med, "used": out,
+            "dropped": [v for v in vals if not (med / 3.0 <= v <= med * 3.0)],
+        }
+        return out
+
+    def region_real_median(self, region_valued):
+        """同大区「有真实三源价」的区的**基准中位数**（给兜底合理性校验用）。
+
+        region_valued: {key: 基准}，只应放**非兜底**的真实基准。
+        """
+        vals = []
+        for v in (region_valued or {}).values():
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if fv > 0:
+                vals.append(fv)
         if not vals:
             return None
-        return sum(vals) / len(vals)
+        s = sorted(vals)
+        n = len(s)
+        return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
 
     # ------------------------------------------------------------- 基准价
     def resolve_base(self, sv, iggm_price=None, apo=1.0, cache=None):

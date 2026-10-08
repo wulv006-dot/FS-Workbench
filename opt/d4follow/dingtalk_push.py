@@ -244,10 +244,36 @@ def _short(name: str) -> str:
 
 
 def _margin(base, our):
-    """毛利率 = (我方 − 基准) / 我方。这是「我方价里有多少是溢价」的占比。"""
+    """毛利率 = (我方 − 基准) / 我方。这是「我方价里有多少是溢价」的占比。
+
+    ⚠ 2026-10-06 起**报表不再展示毛利率**（它随竞品基准剧烈波动，
+    基准走兜底或被污染时会出现 -385870% 这种荒谬值）。
+    函数保留：Excel 链路与调试仍可能用到。
+    """
     if base in (None, 0) or our in (None, 0):
         return None
     return (our - base) / our
+
+
+def _rate(v):
+    """把 config 里的「利润率」归一成**小数**（0.2 → 0.2；20 → 0.2；"20%" → 0.2）。
+
+    容错：后台有人填 `20` 或 `20%` 时不应显示成 2000%。
+    """
+    if v is None or v == "":
+        return None
+    if isinstance(v, str):
+        s = v.strip().rstrip("%")
+        try:
+            f = float(s)
+        except ValueError:
+            return None
+        return f / 100.0 if f > 1.0 else f
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f / 100.0 if f > 1.0 else f
 
 
 def render_aion2_markdown(cur_rows, prev_rows, round_no=0, total_rounds=4) -> str:
@@ -257,17 +283,27 @@ def render_aion2_markdown(cur_rows, prev_rows, round_no=0, total_rounds=4) -> st
     改成**每个服务区一行**，大区只作为分组标题 + 一行小计（不再拿均价代替明细）。
 
     同日用户反馈 Excel 链接形式不好用，要求换回 Markdown 明细表，
-    并**去掉「基准价」「较上轮」两列**（基准仍参与毛利率计算，只是不单独展示）。
+    并**去掉「基准价」「较上轮」两列**。
 
-    cur_rows / prev_rows: [{key, 大区, 名称, 基准, 我方价, G2G, ELD, IGGM, 兜底, 毛利}]
+    ⛔⛔ 2026-10-06 用户再要求：**去掉「毛利率」，改用「利润率」**。
+    两者完全不同，别混：
+      · 毛利率 = (我方 − 竞品基准)/我方 —— **现算**，随竞品基准剧烈波动
+        （基准走兜底或被污染时曾出现 -385870%），不是业务指标。
+      · 利润率 = **改价系统看板**（`/api/gold_cost`）给的真实盈亏
+        = (售价 − DD373 进货成本) / 售价，**可以为负**（亏就是亏）。
+        ⚠ 不是 config 里的 `服务区.利润率`（那是**目标**值，恒 0.2）。
+    ⇒ 本表展示**看板利润率**。基准只作为三源参考出现。
 
-    列：服务区 | 我方 | 毛利率 | 三源明细
+    cur_rows / prev_rows: [{key, 大区, 名称, 基准, 我方价, 利润率,
+                            看板售价, 看板成本, G2G, ELD, IGGM, 兜底}]
+
+    列：服务区 | 我方 | 利润率 | 三源明细
     ⚠ 钉钉 markdown 表格列数不宜过多（窄屏会横向滚动），故三源压成一列。
     """
     lines = []
     lines.append("## AION2 金币价 · 全量小服明细（第 %d 轮）" % round_no)
     lines.append("")
-    lines.append("> 毛利率 = (我方 − 竞品基准) / 我方，基准 = min(G2G, ELD)，IGGM 更低则取 IGGM；"
+    lines.append("> 利润率来自改价系统看板 = (售价 − DD373 成本) / 售价，可为负；"
                  "单价 $/M。")
     lines.append("")
 
@@ -277,40 +313,59 @@ def render_aion2_markdown(cur_rows, prev_rows, round_no=0, total_rounds=4) -> st
 
     # 大区按「配置里出现次数」降序，让大区多的排在前面
     order = sorted(groups, key=lambda k: (-len(groups[k]), k))
+    n_loss = [0]          # 负利润率（真亏损）行数，用列表以便内层函数累加
     for reg in order:
         rows = groups[reg]
         # 组内按服务区名排序，输出稳定（否则每轮顺序跳动，难比对）
         rows = sorted(rows, key=lambda z: str(z.get("名称") or z.get("key") or ""))
         ours = [r["我方价"] for r in rows if r.get("我方价") is not None]
         avg_o = sum(ours) / len(ours) if ours else None
+        # 大区利润率均值（仅对**有配置**的区求均值，配置缺失的不参与）
+        rates = [_rate(r.get("利润率")) for r in rows]
+        rates = [v for v in rates if v is not None]
+        avg_r = sum(rates) / len(rates) if rates else None
 
         lines.append("### %s（%s）· %d 个小服" % (reg, REGION_CN.get(reg, ""), len(rows)))
         lines.append("")
-        lines.append("| 服务区 | 我方 | 毛利率 | 三源（G2G/ELD/IGGM） |")
+        lines.append("| 服务区 | 我方 | 利润率 | 三源（G2G/ELD/IGGM） |")
         lines.append("| --- | --- | --- | --- |")
         for r in rows:
-            m = _margin(r.get("基准"), r.get("我方价"))
+            rv = _rate(r.get("利润率"))
             srcs = "%s / %s / %s" % (_fmt(r.get("G2G"), 3), _fmt(r.get("ELD"), 3),
                                      _fmt(r.get("IGGM"), 3))
             if r.get("兜底"):
                 srcs += " · %s" % r["兜底"]
+            # ⚠ 看板口径：利润率为负 = 真亏损，**必须原样显示**并标记，不淡化、不截断
+            if rv is None:
+                cell = "—"
+            elif rv < 0:
+                n_loss[0] += 1
+                cell = "**%.1f%%** ⚠亏" % (rv * 100)
+            else:
+                cell = "%.1f%%" % (rv * 100)
             lines.append("| %s | %s | %s | %s |" % (
                 _short(r.get("名称") or r.get("key")),
-                _fmt(r.get("我方价")),
-                ("%.1f%%" % (m * 100)) if m is not None else "—", srcs))
+                _fmt(r.get("我方价")), cell, srcs))
         # 小计行：给出大区层面的参考，但**不替代**上面的明细
-        lines.append("| **小计 / 均值** | **%s** | **—** | %d 个小服 |" % (
-            _fmt(avg_o), len(rows)))
+        lines.append("| **小计 / 均值** | **%s** | **%s** | %d 个小服 |" % (
+            _fmt(avg_o),
+            ("%.1f%%" % (avg_r * 100)) if avg_r is not None else "—", len(rows)))
         lines.append("")
 
     # 全局速览：一行看清整体
     all_o = [r["我方价"] for r in cur_rows if r.get("我方价") not in (None, 0)]
     g_o = sum(all_o) / len(all_o) if all_o else None
+    all_r = [_rate(r.get("利润率")) for r in cur_rows]
+    all_r = [v for v in all_r if v is not None]
+    g_r = sum(all_r) / len(all_r) if all_r else None
     lines.append("---")
     lines.append("")
-    lines.append("**全局**：%d 个小服 · 我方均价 %s ·（毛利率按各区竞品基准逐区算，不做全局平均）"
-                 % (len(cur_rows), _fmt(g_o)))
+    lines.append("**全局**：%d 个小服 · 我方均价 %s · 平均利润率 %s%s" % (
+        len(cur_rows), _fmt(g_o),
+        ("%.1f%%" % (g_r * 100)) if g_r is not None else "—",
+        " ·⚠ 亏损 %d 个" % n_loss[0] if n_loss[0] else ""))
     lines.append("")
+    lines.append("- 利润率取自改价系统看板（售价 − DD373 成本）/ 售价，可为负")
     lines.append("- 数据源：G2G / ELD / IGGM 三源 + 我方前台价（mmoexp）")
     lines.append("- 每 15 分钟采集，每 %d 轮（约 1 小时）推送一次" % total_rounds)
     lines.append("- 单源偏离同区中位价超3 倍会自动剔除并在消息顶部告警")

@@ -75,6 +75,53 @@ def save_state(st):
     os.replace(tmp, STATE_FILE)
 
 
+# --------------------------------------------------------------------- 看板取数
+# 看板端口：d4follow.service监听 8900（与 /d4/ 反代同一后端）。
+# ⚠ 若以后看板端口变了，这里要跟着改 —— 可用 `ss -lntp | grep d4follow` 自查。
+BOARD_PORT = 8900
+BOARD_URL = "http://127.0.0.1:%d/api/gold_cost" % BOARD_PORT
+
+
+def fetch_board_cost(url=BOARD_URL, timeout=30, log=_log):
+    """从**改价系统看板**接口取「售价 / 成本 / 利润率」。
+
+    2026-10-06 用户口径：消息里的「利润率」要取看板那个，
+    不是取 config 里`金币.服务区[].利润率`（那是**目标**利润率，恒 0.2）。
+
+    看板口径（app.py:api_gold_cost）：
+        利润率 = (售价 − DD373 进货成本) / 售价，**可以为负**（亏就是亏）
+        售价   = 改价后的最终售价（`tgt_big/big_tier`，无目标价则留空）
+        成本   = DD373 买满 2 亿基纳的订单簿加权均价折算$/M
+
+    返回 ({key: {利润率, 售价_USD每M, 成本_USD每M}}, warns)。
+    ⚠ 本地直连 127.0.0.1，不走 nginx，所以**不受 Basic Auth / auth_request 影响**。
+    """
+    import urllib.request
+    warns = []
+    out = {}
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            d = json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception as e:                # noqa: BLE001
+        # ⚠ 看板不可用时**只报缺失、不编数**：利润率列显示「—」，绝不用别处顶替
+        warns.append("⚠️ 看板接口 %s 取不到（%r），利润率列留空" % (url, e))
+        log("  [看板] 取数失败：%r" % (e,))
+        return out, warns
+
+    items = d.get("items") or d.get("rows") or []
+    for it in items:
+        k = it.get("key")
+        if not k:
+            continue
+        out[k] = {
+            "利润率": it.get("利润率"),
+            "售价_USD每M": it.get("售价_USD每M"),
+            "成本_USD每M": it.get("成本_USD每M"),
+        }
+    log("  [看板] 取到%d 个区的售价/成本/利润率" % len(out))
+    return out, warns
+
+
 # --------------------------------------------------------------------- 采集
 def collect(cfg, log=_log):
     """采一轮 AION2 金币三源 + 我方前台价。返回 (rows, warns)。
@@ -118,6 +165,12 @@ def collect(cfg, log=_log):
     except Exception as e:                       # noqa: BLE001
         warns.append("⚠️ IGGM 客户端初始化失败：%s" % e)
     ig_page = core_gold.game_param(cfg, GAME).get("IGGM金币页")
+
+    # ⭐ 2026-10-06 用户口径：利润率要**从改价系统看板拿**（/api/gold_cost），
+    #   不是从 config 的「服务区.利润率」拿 —— 后者是目标值（恒 0.2），
+    #   看板那个才是真实盈亏：(售价 − DD373进货成本) / 售价。
+    cost_map, cost_warns = fetch_board_cost()
+    warns.extend(cost_warns)
 
     for sv in svs:
         aid = sv.get("前端aid")
@@ -168,6 +221,13 @@ def collect(cfg, log=_log):
             "名称": sv.get("中文名") or sv.get("key"),
             "基准": base,
             "我方价": our,
+            # ⭐ 利润率来自**改价系统看板**（/api/gold_cost），不是 config。
+            #   看板口径：(售价 − DD373 进货成本) / 售价，可为负（亏就是亏）。
+            #   ⚠ 与「毛利率」是两回事，别混：毛利率 = (我方 − 竞品基准)/我方，
+            #     随竞品基准剧烈波动（曾出现 -385870%），不是业务指标。
+            "利润率": (cost_map.get(sv.get("key")) or {}).get("利润率"),
+            "看板售价": (cost_map.get(sv.get("key")) or {}).get("售价_USD每M"),
+            "看板成本": (cost_map.get(sv.get("key")) or {}).get("成本_USD每M"),
             "G2G": det.get("G2G"),
             "ELD": det.get("ELD"),
             "IGGM": iggm,

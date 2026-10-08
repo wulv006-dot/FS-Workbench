@@ -1,5 +1,5 @@
 """Synthetic fast contracts against actual selected source. No production IO."""
-import copy, importlib.util, json, sys, tempfile, unittest
+import ast, copy, importlib.util, json, sys, tempfile, unittest
 from pathlib import Path
 from decimal import Decimal
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +33,63 @@ class RPGGuards(unittest.TestCase):
         value=self.engine.fit_under_tick(.1003,.0001,.9,.0902,dec=4)
         self.assertLessEqual(round(value*.9,4),.0902)
         self.assertIsNone(self.engine.fit_under_tick(.0000947,.0001,1,.0000947,dec=4))
+
+class RPGModuleContracts(unittest.TestCase):
+    """并入 d4follow 模块的最小离线合同检查（纯函数/结构；无网络、无子进程）。
+
+    范围声明：只验证「Python 3.9 语法可解析 + 关键符号存在 + 加签纯函数确定性 +
+    凭据未配置时不抛错」。不替代集成验收，不替代线上 UI/发布验收。
+    """
+    MERGED = (
+        "opt/d4follow/app.py",
+        "opt/d4follow/aion2_watch.py",
+        "opt/d4follow/core_dd373_cost.py",
+        "opt/d4follow/core_front.py",
+        "opt/d4follow/core_g2g.py",
+        "opt/d4follow/core_gold.py",
+        "opt/d4follow/core_multi.py",
+        "opt/d4follow/dingtalk_push.py",
+        "opt/d4follow/switch_pricing_mode.py",
+        "opt/d4follow/drop_monitor_item.py",
+        "opt/d4follow/health_check_aion2.py",
+        "opt/d4follow/manual_override.py",
+        "opt/d4follow/push_data.py",
+        "opt/d4follow/set_collect_interval.py",
+        "opt/d4follow/simulate.py",
+        "opt/d4follow/verify_aion2_after_1yi.py",
+        "aion2_dd373_local_collect_20261006/dd373_local_collect.py",
+        "aion2_dd373_local_collect_20261006/run_collect.py",
+    )
+
+    def test_merged_modules_parse_under_python39(self):
+        for rel in self.MERGED:
+            ast.parse((ROOT / rel).read_text(encoding="utf-8"), filename=rel,
+                      feature_version=(3, 9))
+
+    def test_dingtalk_signing_is_deterministic_and_offline(self):
+        push = module("fast_dingtalk_push", "opt/d4follow/dingtalk_push.py")
+        bot = push.DingTalkBot(
+            webhook="https://oapi.dingtalk.com/robot/send?access_token=synthetic",
+            secret="SEC" + "a" * 64)
+        first = bot._sign_digest("1700000000000", 0)
+        self.assertEqual(first, bot._sign_digest("1700000000000", 0))
+        self.assertEqual(len(first), 32)
+        signed = bot._signed_url(mode=0, ts="1700000000000")
+        self.assertIn("timestamp=1700000000000", signed)
+        self.assertIn("sign=", signed)
+        # 4 种签名策略必须给出互不相同的摘要（"逐策略试错"实现的前提）
+        self.assertEqual(len({bot._sign_digest("1700000000000", m) for m in range(4)}), 4)
+        # 凭据未配置：必须能构造、不抛错；发送时才报明确错误且不发网络
+        bare = push.DingTalkBot.from_env(prefix="__ABSENT_FOR_TEST__")
+        self.assertFalse(bare.configured)
+        self.assertEqual(bare._signed_url(), "")
+        with self.assertRaises(push.DingTalkError):
+            bare.send({})
+
+    def test_pricing_mode_switch_declares_all_modes(self):
+        sw = module("fast_switch_pricing_mode", "opt/d4follow/switch_pricing_mode.py")
+        self.assertEqual(set(sw.VALID),
+                         {"dd373_only", "g2g_cheapold", "dd373_markup", "multisrc"})
 
 class PlayersLock(unittest.TestCase):
     def test_missing_and_symlink_are_not_acquired(self):
