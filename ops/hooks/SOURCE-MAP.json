@@ -47,7 +47,7 @@
     {
       "path": "ops/hooks/hooks.py",
       "runtime": "/opt/fc-ops-readonly-monitor/hooks.py",
-      "sha256": "93942364594ddd81f62d6c7357cdf663e456f7d1ed9bd79c5853478918859f3d"
+      "sha256": "6338959ad9cee0f68d20a984e3418cfefdac8ca8460190911c6ad032a85668a3"
     },
     {
       "path": "ops/hooks/hooks_notifier.py",

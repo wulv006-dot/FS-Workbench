@@ -86,11 +86,15 @@ class Faults(unittest.TestCase):
     def test_original_id_retained_legitimate_inflight_not_unknown(self):
         with tempfile.TemporaryDirectory() as name:
             root=Path(name);op='11111111-1111-4111-8111-111111111111'
-            atomic(root/'jobs'/('job.json'),{'job_id':'run','status':'running'})
+            atomic(root/'jobs'/('job.json'),{'job_id':op,'status':'running'})
             target=root/'executions'/(op+'.json')
-            atomic(target,{'execution_id':op,'run_id':'run','status':'PARTIAL','selected':['PS']})
+            atomic(target,{'execution_id':op,'run_id':'collection-is-not-operation','status':'PARTIAL','selected':['PS']})
             self.assertEqual(hooks.unknown_operations(root),[])
-            atomic(target,{'execution_id':op,'run_id':'run','status':'UNCERTAIN','selected':['PS']})
+            atomic(root/'jobs'/'job.json',{'job_id':op,'status':'ready'})
+            self.assertEqual(hooks.unknown_operations(root)[0]['operation_id'],op)
+            atomic(root/'jobs'/'job.json',{'job_id':'manual-job','status':'running','request':{'execution_id':op}})
+            self.assertEqual(hooks.unknown_operations(root),[])
+            atomic(target,{'execution_id':op,'run_id':'collection-is-not-operation','status':'UNCERTAIN','selected':['PS']})
             before=target.read_bytes();rows=hooks.unknown_operations(root)
             self.assertEqual(rows[0]['operation_id'],op);self.assertEqual(target.read_bytes(),before)
             c=hooks.controls(healthy()|{'unknown_operations':rows},at=NOW)

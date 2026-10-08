@@ -79,16 +79,18 @@ def snapshot_probe(root=WEB, at=None):
 def unknown_operations(root=BUSINESS):
     # Keep original operation IDs. Never edit executions, locks or receipts.
     rows = []
-    jobs = {}
+    active_operations = set()
     for path in (root/'jobs').glob('*.json'):
         row = json.loads(path.read_text())
-        jobs[row.get('job_id')] = row
+        if row.get('status') == 'running':
+            # run_id is the collection, not the writer operation.
+            active_operations.update(filter(None, (row.get('job_id'),
+                (row.get('request') or {}).get('execution_id'))))
     for path in (root/'executions').glob('*.json'):
         row = json.loads(path.read_text())
         operation = row.get('execution_id')
-        job = jobs.get(row.get('run_id'), {})
         uncertain = row.get('status') == 'UNCERTAIN'
-        stopped = row.get('status') in {'RUNNING', 'PARTIAL'} and job.get('status') != 'running'
+        stopped = row.get('status') in {'RUNNING', 'PARTIAL'} and operation not in active_operations
         if uncertain or stopped:
             if not re.fullmatch(r'[0-9a-f-]{36}', operation or ''):
                 raise ValueError('operation_identity_unknown')
