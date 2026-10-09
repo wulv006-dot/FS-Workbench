@@ -1,0 +1,45 @@
+{
+  "task": "fc27-coupon-consistency-20261009",
+  "publisher": "stage/deploy.py",
+  "mode": "single-file CAS (adapted from publish_worker.py)",
+  "dry_run": {
+    "at_utc": "2026-10-09T11:46:xx+00:00",
+    "status": "checked",
+    "protected": 12
+  },
+  "apply": {
+    "at_utc": "2026-10-09T11:47:49.734015+00:00",
+    "status": "deployed",
+    "backup": "/var/lib/fc27-cloud/rollback/coupon-consistency-20261009T114749Z",
+    "installed_sha256": {
+      "/opt/fc27-cloud-browser/snapshot_layer.py": "1d8a40c2bd0489f36444e74abc6e8ff3bc8543522cb5c58dfe305e052b36f4fd"
+    },
+    "services_after_restart": {
+      "fc27-cloud-api": "ok",
+      "fc27-cloud-worker": "ok"
+    },
+    "protected_hashes_unchanged": 12,
+    "backup_contents": [
+      "snapshot_layer.py (original bytes, sha256 280cc936…)",
+      "manifest.json",
+      "receipt.json"
+    ]
+  },
+  "post_verification": {
+    "installed_hash_matches_after": true,
+    "new_gate_code_present": true,
+    "note": "post-deploy hash re-read on the host returned 1d8a40c2…; the new coupon-agreement gate body and the carried coupon_excluded row field are both present in the live file"
+  },
+  "discipline": [
+    "flock on /var/lib/fc27-cloud/state/price-writer.lock (non-blocking)",
+    "queue / jobs / executions idle check",
+    "re-verify every baseline hash, abort on drift",
+    "require fc27-cloud-api, fc27-cloud-worker and the automation timer active",
+    "snapshot the target into /var/lib/fc27-cloud/rollback/<stamp>/",
+    "stop API + worker so the loaded module is reloaded idle",
+    "atomic os.replace() swap preserving mode/owner, fsync file + directory",
+    "restart API + worker, wait for monitor health worker == ok",
+    "verify installed hash == after and every protected hash == before",
+    "on any failure: stop, restore the backup, restart, re-raise"
+  ]
+}
