@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {fsMainSite,fsReferenceTotal} from './source-policy.mjs';
+import {fixture} from './fixtures.mjs';
+let passed=0;
+const input=()=>{const p=fixture();p.primary.metrics={profitMarginPct:{value:22.16,status:'available',unit:'percent'}};p.supplement.metrics.newCustomers={value:8,status:'available'};return p;};
+function check(name,fn){fn();passed++;console.log('PASS '+name);}
+check('Admin main authoritative despite discrepancy',()=>{const m=fsMainSite(input()).metrics;assert.equal(m.revenueUsd.value,1000);assert.equal(m.orders.value,40);});
+check('estimated profit uses Admin amount times Order percent',()=>{const m=fsMainSite(input()).metrics;assert.equal(m.estimatedProfitUsd.value,221.6);assert.equal(m.estimatedProfitUsd.source,'Admin × Order');assert.ok(m.profitMarginPct.scope.includes('口径不同'));});
+check('synthetic amount rounds to cents',()=>{const p=input();p.supplement.dimensions.channels[0].revenueUsd=12345.67;assert.equal(fsMainSite(p).metrics.estimatedProfitUsd.value,2735.8);});
+check('no source mutation',()=>{const p=input(),before=JSON.stringify(p);fsMainSite(p);fsReferenceTotal(p);assert.equal(JSON.stringify(p),before);});
+check('missing rate is missing estimate',()=>{const p=input();delete p.primary.metrics.profitMarginPct;assert.equal(fsMainSite(p).metrics.estimatedProfitUsd.value,null);});
+check('zero rate gives zero estimate',()=>{const p=input();p.primary.metrics.profitMarginPct.value=0;assert.equal(fsMainSite(p).metrics.estimatedProfitUsd.value,0);});
+check('negative margin gives negative estimate',()=>{const p=input();p.primary.metrics.profitMarginPct.value=-10;assert.equal(fsMainSite(p).metrics.estimatedProfitUsd.value,-100);});
+check('Admin failure cannot substitute Order revenue',()=>{const p=input();p.supplement.status='unavailable';const m=fsMainSite(p).metrics;assert.equal(m.revenueUsd.value,null);assert.equal(m.estimatedProfitUsd.value,null);assert.equal(m.profitMarginPct.value,22.16);});
+check('Order failure cannot hide Admin revenue',()=>{const p=input();p.primary.status='unavailable';const m=fsMainSite(p).metrics;assert.equal(m.revenueUsd.value,1000);assert.equal(m.estimatedProfitUsd.value,null);});
+check('duplicate Admin main rejected',()=>{const p=input();p.supplement.dimensions.channels.push({...p.supplement.dimensions.channels[0]});assert.equal(fsMainSite(p).metrics.revenueUsd.value,null);});
+check('multiple Admin brands never turn all-brand customers into MMOEXP customers',()=>{const p=input();p.supplement.dimensions.channels.push({code:'www.rsorders.com',orders:10,revenueUsd:200});const m=fsMainSite(p).metrics;assert.equal(m.revenueUsd.value,1000);assert.equal(m.orders.value,40);assert.equal(m.newCustomers.value,null);});
+check('sole Admin main uses its customer fields',()=>assert.equal(fsMainSite(input()).metrics.newCustomers.value,8));
+check('period mismatch hides Admin and estimated values',()=>{const p=input();p.supplement.period.end='2026-10-10 00:00';assert.equal(fsMainSite(p).metrics.revenueUsd.value,null);});
+check('missing is not zero',()=>assert.equal(fsMainSite(null).metrics.revenueUsd.value,null));
+check('satellite total remains separate',()=>{const p=input();assert.equal(fsReferenceTotal(p),1030);assert.equal(fsMainSite(p).metrics.estimatedProfitUsd.value,221.6);});
+check('missing satellite does not block main or produce fake complete total',()=>{const p=input();p.dimensions.channels.pop();assert.equal(fsReferenceTotal(p),null);assert.equal(fsMainSite(p).metrics.revenueUsd.value,1000);});
+check('unknown satellite does not block main',()=>{const p=input();p.dimensions.channels.push({name:'other.example',amountUsd:5});assert.equal(fsReferenceTotal(p),null);assert.equal(fsMainSite(p).metrics.revenueUsd.value,1000);});
+check('explicit zero Admin aggregate with absent ranks stays zero',()=>{const p=input();p.supplement.dimensions.channels=null;p.supplement.metrics.orders={status:'available',value:0};p.supplement.metrics.revenueUsd={status:'available',value:0};assert.equal(fsMainSite(p).metrics.revenueUsd.value,0);});
+console.log(JSON.stringify({passed,syntheticOnly:true}));
