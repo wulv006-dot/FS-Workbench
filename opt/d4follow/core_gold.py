@@ -30,6 +30,8 @@
         且必须先 GET 一次 `/diablo-4-gold` 拿 Cloudflare cookie，否则 403。
         返回 `data.one_goods.price` = 每单位价（$/M），`data.result_goods[].all` = 各档总价。
         服务器（机房 IP）抓到的价 = 客户真价 × 1.1 → 用 `iggm.竞品价折算系数` 还原。
+        ⭐ 2026-10-09：金币链路改为**复用 core_iggm 的 CF 加固会话**（会话自愈
+          + 熔断退避；`__cf_bm` 是域级 cookie，与物品采集共用）—— 见 `IggmGold`。
   我方前端金币：`POST https://www.mmoexp.com/ajax/goods`
       form: `Game_id=456&top_cid=1&aid=<服务区aid>&cid=&site_id=`
       返回 `goods.index.list[0].goods_list{num:{num,price,price_discount,discount}}`。
@@ -44,6 +46,9 @@ import os
 import time
 import urllib.parse
 import urllib.request
+
+import core_iggm as _ci            # IGGM 会话（CF 挑战加固）：金币与物品共用同一
+                                   # CookieJar + 熔断器 —— 见下方 IggmGold
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
@@ -591,70 +596,71 @@ def factor_of(cfg, game=None):
     return k if k > 0 else 1.0
 
 
+# core_iggm 撞 CF 拦截时抛的异常类（基线版本可能没有 → 空元组，永不匹配）
+_IGGM_BLOCKED_CLS = getattr(_ci, "IGGMBlocked", ())
+
+
+def _is_iggm_blocked(e):
+    """该异常是否 = core_iggm 的「撞 CF 拦截」信号（用于停止后续 IGGM 抓取）。"""
+    return bool(_IGGM_BLOCKED_CLS) and isinstance(e, _IGGM_BLOCKED_CLS)
+
+
 # ------------------------------------------------------------------ 竞品：IGGM 金币
 class IggmGold(object):
-    """IGGM 金币抓取（带 Cloudflare cookie 的会话来抓）。
+    """IGGM 金币抓取 —— 复用 core_iggm 的 CF 加固会话（2026-10-09 改造）。
 
-    ⚠ 与 core_iggm 的物品抓取**不能共用会话**：
-      物品接口裸请求即可；金币接口不带 cookie 一律 403。
+    原先自己维护 CookieJar/opener，与 core_iggm 物品侧**同源缺陷**：
+      · 撞 403/挑战页只丢弃预热标记、**不清 jar** ⇒ 失效的 __cf_bm 被反复带出、
+        不重启进程就永不自愈；
+      · warm 无 TTL、不识别挑战页；fetch 每个区各重试 3 次、**无熔断**
+        （一轮打几百次请求，越打越黑）。
+    现改为薄封装：**会话自愈 / 熔断退避 / 降速 / 浏览器请求头**全部交给 core_iggm。
+    ⚠ __cf_bm 是**域级** cookie ⇒ 金币与物品可共用同一 CookieJar 与熔断器：
+      物品侧已预热过就无需再 GET 金币页；同一 IP 被 CF 拦时两边同步熔断。
+
+    ⚠ 撞 CF 拦截时由 core_iggm 抛 `IGGMBlocked`（基线无该类则抛普通异常）；
+      熔断期内再 fetch 会**零网络请求**直接抛错 —— 调用方 catch 即可。
     """
 
     def __init__(self, log=print, timeout=40):
         self.log = log or (lambda *a: None)
         self.timeout = timeout
-        self.jar = http.cookiejar.CookieJar()
-        self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
-        self._warmed = set()          # 按「金币页路径」分别记 —— 多游戏各要一次 cookie
 
     def warm(self, force=False, page=None):
-        """先 GET 一次该游戏的金币页，拿 __cf_bm / SESS_ID，否则 goods_ajax 返回 403。
+        """预热金币页拿 Cloudflare cookie（幂等；由 core_iggm 按 CF_TTL 缓存）。
 
-        ⚠ cookie 是**按游戏页**取的：D4 是 /diablo-4-gold、Aion 2 是 /aion-2/kinah。
+        ⚠ 原来是「按金币页路径分别记 _warmed」，现统一交给 core_iggm 的进程级会话
+          —— cookie 是域级，预热过任意页面即全站可用。
         """
         page = page or GAME_PARAMS[DEFAULT_GAME]["IGGM金币页"]
-        if page in self._warmed and not force:
-            return True
-        try:
-            self.op.open(urllib.request.Request(
-                IGGM_BASE + page,
-                headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"}), timeout=self.timeout).read()
-            self._warmed.add(page)
-            return True
-        except Exception as e:
-            self.log("  [金币/IGGM] 取 cookie 失败（%s）：%r" % (page, e))
-            self._warmed.discard(page)
-            return False
+        ok = _ci._prime(IGGM_BASE + page, timeout=self.timeout, force=force)
+        if not ok:
+            self.log("  [金币/IGGM] 取 cookie 失败（%s）" % page)
+        return ok
 
     def fetch(self, server_id, page=None, retry=3):
         """返回 {"unit_price": 每M价, "goods_no":..., "title":..., "tiers":[{num,all}], "update_time":...}
 
         `page` = 该游戏的金币页路径（同时决定 Referer 与 cookie 预热页），缺省 = D4。
+        URL 与改造前**逐字一致**（golds 模板不带 game_sku）；
+        重试 / 会话自愈 / 熔断由 core_iggm 负责（`retry` 透传给 core_iggm._get）。
         """
         page = page or GAME_PARAMS[DEFAULT_GAME]["IGGM金币页"]
-        url = (IGGM_BASE + "/goods/goods_ajax?template_type=golds&server_id=%s&cate_id=0"
-               % server_id)
-        h = {"User-Agent": UA, "Referer": IGGM_BASE + page,
-             "X-Requested-With": "XMLHttpRequest"}
-        last = None
-        for i in range(retry):
-            self.warm(force=(i > 0), page=page)
-            try:
-                b = self.op.open(urllib.request.Request(url, headers=h),
-                                 timeout=self.timeout).read()
-                d = (json.loads(b.decode("utf-8", "replace")) or {}).get("data") or {}
-                g = d.get("one_goods") or {}
-                tiers = [{"num": int(x.get("num") or 0), "all": _f(x.get("all")),
-                          "market_price": _f(x.get("market_price"))}
-                         for x in (d.get("result_goods") or [])]
-                tiers.sort(key=lambda x: x["num"])
-                return {"unit_price": _f(g.get("price")), "raw_unit_price": _f(g.get("price")),
-                        "goods_no": g.get("goods_no"), "title": (g.get("title") or "").strip(),
-                        "rule": g.get("rule"), "tiers": tiers,
-                        "update_time": (d.get("result_goods") or [{}])[0].get("update_time")}
-            except Exception as e:
-                last = e
-                time.sleep(1.5 * (i + 1))
-        raise last
+        qs = urllib.parse.urlencode({
+            "template_type": "golds", "server_id": str(server_id), "cate_id": 0,
+        })
+        body = _ci._get(IGGM_BASE + "/goods/goods_ajax?" + qs,
+                        referer=IGGM_BASE + page, timeout=self.timeout, retry=retry)
+        d = (json.loads(body) or {}).get("data") or {}
+        g = d.get("one_goods") or {}
+        tiers = [{"num": int(x.get("num") or 0), "all": _f(x.get("all")),
+                  "market_price": _f(x.get("market_price"))}
+                 for x in (d.get("result_goods") or [])]
+        tiers.sort(key=lambda x: x["num"])
+        return {"unit_price": _f(g.get("price")), "raw_unit_price": _f(g.get("price")),
+                "goods_no": g.get("goods_no"), "title": (g.get("title") or "").strip(),
+                "rule": g.get("rule"), "tiers": tiers,
+                "update_time": (d.get("result_goods") or [{}])[0].get("update_time")}
 
 
 # ------------------------------------------------------------------ 我方前端金币
@@ -855,6 +861,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         else:
             _ms = None
     items = []
+    _blk_hit = [False]        # 本轮 IGGM 是否已撞熔断（只记第一条日志）
     for sv in svs:
         if sv.get("跟价", True) is False:
             log("  [金币] %s 未勾选跟价，跳过" % sv.get("中文名"))
@@ -888,8 +895,18 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             rec["IGGM最大档每M"] = _bpm
         except Exception as e:
             rec["IGGM每M"] = None
-            rec["错误"] = "IGGM 抓取失败：%r" % e
-            log("  [金币/IGGM] %s 抓取失败：%r" % (sv.get("中文名"), e))
+            if _is_iggm_blocked(e):
+                # ⭐ 撞 CF 拦截 → 后续 fetch 在熔断期内零网络请求直接抛错，
+                #   这里只记第一条日志，避免刷屏；本区 IGGM 价留空（不误写价）。
+                rec["错误"] = "IGGM 熔断：%r" % e
+                if not _blk_hit[0]:
+                    _blk_hit[0] = True
+                    log("  [金币/IGGM] 撞 CF 拦截 → 本轮停止后续 IGGM 抓取"
+                        "（冷却剩余 %ss）：%r"
+                        % (_ci.breaker_state().get("remain_s"), e))
+            else:
+                rec["错误"] = "IGGM 抓取失败：%r" % e
+                log("  [金币/IGGM] %s 抓取失败：%r" % (sv.get("中文名"), e))
         try:
             # 前台参数**按游戏取**；外部传入的 front_fn 保持原签名不动（向后兼容）
             if front_fn:
