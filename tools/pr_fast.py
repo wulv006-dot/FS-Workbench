@@ -255,7 +255,7 @@ def main():
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
-        elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor"])
+        elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])

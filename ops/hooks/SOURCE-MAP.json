@@ -144,6 +144,14 @@
       "sale safety and current-price verification",
       "game-specific source freshness"
     ],
-    "verification": "35 direct Linux checks/0skip; natural monitor readback follows"
-  }
+    "verification": "35 direct Linux checks/0skip; actual natural monitor; both Chinese demos received/readable by user",
+    "botDemoUserReceivedReadable": true,
+    "naturalMonitorFinishedAtUtc": "2026-10-09T01:37:10.160561+00:00"
+  },
+  "ciTestModules": [
+    "test_hooks",
+    "test_monitor",
+    "test_notifier",
+    "test_rpg_alerts"
+  ]
 }
