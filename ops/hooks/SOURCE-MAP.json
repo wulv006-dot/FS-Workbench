@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "moduleId": "fs-hooks-fc-business-20261008",
   "policyPath": "docs/ops/HOTFIX.md",
-  "observedMain": "991920f90e42fd78cdb1d13a4d7d3afe4ddbcabd",
-  "businessOwner": "鍚村緥",
+  "observedMain": "f0ec313c5bb9d90b400113fe5f58cec82234d108",
+  "businessOwner": "吴律",
   "runtimeMode": "FC RULES_ARMED; dashboard observation",
   "monitorIntervalSeconds": 300,
   "gateExpiresSeconds": 900,
@@ -37,7 +37,7 @@
     {
       "path": "ops/hooks/probe_worker.py",
       "runtime": "/opt/fc-ops-readonly-monitor/probe_worker.py",
-      "sha256": "0805f0d58287f8f9278825d022a30971b4c6896fa6803598ec424dd0ac270110"
+      "sha256": "0b77a9d650dfbea45d6e6ca6d017837fbdbf70fed5236334b0edcc8fa5d2dce2"
     },
     {
       "path": "ops/hooks/delivery.py",
@@ -52,7 +52,7 @@
     {
       "path": "ops/hooks/hooks_notifier.py",
       "runtime": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
-      "sha256": "9743eacfa195d05be3f635c53ede15d5ed3c2f945e0cb513fcde8c10b6956de4"
+      "sha256": "4da3ce682ebe7cc0efe29e4de7f5a6819ea73dadcab72d376f5bf110abf3c0b3"
     }
   ],
   "state": "/var/lib/fc-ops-readonly-monitor",
@@ -109,5 +109,41 @@
     "rollbackNewFilesAndOwnTemps": true,
     "protectedReadbackInsideRollback": true,
     "verification": "direct Linux32/0; existing publisher deployed; fault scenarios isolated"
+  },
+  "alertPresentation": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "productionApplied": true,
+    "fcDemoProviderAccepted": true,
+    "fcDemoUserReceivedReadable": true,
+    "previousEventsReplayed": false
+  },
+  "monitorRuntime": {
+    "execStart": "/opt/python39/bin/python3",
+    "unitSha256": "c9a0a54f9e910e5f8846135373ec01b64e800e28a3bf80d1f94ba1c75dff7770",
+    "tlsRuntimeVerified": true,
+    "repairPublisherBackfilled": true
+  },
+  "rpgReadOnlyAlerts": {
+    "owner": "陈超",
+    "resourceGroup": "d4follow",
+    "endpoint": "http://127.0.0.1:8900/api/state",
+    "services": [
+      "d4follow.service",
+      "p2pah-srv-exec.service"
+    ],
+    "scope": "shared services and current runtime task failures; mapped game when present, otherwise shared scope",
+    "productionApplied": true,
+    "botDemoProviderAccepted": true,
+    "rulesAndConfigAndPidsUnchanged": true,
+    "pausesWrites": false,
+    "selfHealing": false,
+    "coverageLimits": [
+      "old-process task history",
+      "per-row failed or unknown writes",
+      "sale safety and current-price verification",
+      "game-specific source freshness"
+    ],
+    "verification": "35 direct Linux checks/0skip; natural monitor readback follows"
   }
 }

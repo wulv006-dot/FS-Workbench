@@ -304,7 +304,7 @@ class Faults(unittest.TestCase):
                      patch.object(publisher.os,'geteuid',return_value=0,create=True), \
                      patch.object(publisher.os,'chown',create=True), \
                      patch.object(publisher.os,'replace',side_effect=interrupted), \
-                     patch.object(publisher.subprocess,'run',return_value=SimpleNamespace(returncode=0,stderr='Ran 32 tests\n\nOK\n')):
+                     patch.object(publisher.subprocess,'run',return_value=SimpleNamespace(returncode=0,stderr='Ran 35 tests\n\nOK\n')):
                     with self.assertRaises((OSError,RuntimeError)):
                         publisher.upgrade(stage,True)
                 self.assertEqual({p.name:p.read_bytes() for p in app.iterdir()},original)

@@ -1,8 +1,10 @@
 """Bounded read-only probe; Player evidence covers request acceptance only."""
-import json, subprocess
+import json, subprocess, re
+from datetime import datetime, timezone
 import urllib.error, urllib.request
 import read_only_status as source
-from report import report
+from report import report, unverified
+from delivery import NoRedirect
 
 def state(unit):
     try:
@@ -30,7 +32,45 @@ def read(path):
 def select(data, fields):
     return {k:data.get(k) for k in fields}
 
-def main():
+def rpg_probe():
+    observed = {'checked_at':datetime.now(timezone.utc).isoformat(),
+                'scope':'shared_services_and_current_runtime_tasks', 'issues':[],
+                'service_states':{u:state(u) for u in ('d4follow.service','p2pah-srv-exec.service')}}
+    for unit, status in observed['service_states'].items():
+        if status != 'active':
+            observed['issues'].append({'level':'critical','code':'rpg_dependency_unavailable:'+unit})
+    try:
+        with urllib.request.build_opener(NoRedirect).open('http://127.0.0.1:8900/api/state',timeout=8) as response:
+            raw = response.read(4*1024*1024+1)
+        if len(raw) > 4*1024*1024:raise ValueError('bounded_rpg_state_required')
+        value = json.loads(raw)
+        if value.get('ok') is not True or not isinstance(value.get('data',{}).get('tasks'),list):
+            raise ValueError('rpg_task_state_required')
+        tasks = value['data']['tasks']
+        if len(tasks) > 12:raise ValueError('rpg_task_count_changed')
+        observed['recent_task_count'] = len(tasks)
+        seen = set()
+        # Existing endpoint returns newest first; a later success supersedes its task kind/scope.
+        for task in tasks:
+            identity = task['id']; kind = task['kind']; params = task.get('params') or {}
+            if (not re.fullmatch(r'[0-9a-f]{12}',identity) or
+                    not re.fullmatch(r'[a-z_]{1,40}',kind) or task['status'] not in {'running','done','error'}):
+                raise ValueError('rpg_task_shape_changed')
+            game = params.get('game')
+            scope = {'暗黑破坏神4':'d4','流放之路2':'poe2','AION2':'aion2'}.get(game,'shared')
+            group = (kind,game if isinstance(game,str) else None)
+            if group in seen:continue
+            seen.add(group)
+            if task['status'] == 'error':
+                observed['issues'].append({'level':'critical','code':'rpg_task_failed:'+scope+':'+kind+':'+identity})
+        # shortcut: in-memory task summaries omit old-process and per-row outcomes; add a read-only receipt feed when RPG exposes one.
+    except Exception:
+        observed['issues'].append({'level':'critical','code':'rpg_state_unavailable'})
+    observed['status'] = 'critical' if observed['issues'] else 'healthy'
+    return observed
+
+
+def fc_report():
     snapshot = source.collect()
     recent = snapshot.get('recent_auto_jobs', [])
     evidence = {}
@@ -67,6 +107,17 @@ def main():
     checks.update({'coin_api_http_gate':http_gate(8879), 'gallery_api_http_gate':http_gate(8902)})
     from hooks import extend_report
     return extend_report(report(snapshot, source.assess(snapshot), checks, evidence))
+
+
+def main():
+    try:
+        value = fc_report()
+    except Exception as exc:
+        value = unverified(type(exc).__name__)
+    value['rpg'] = rpg_probe()
+    value['issues'].extend(value['rpg']['issues'])
+    value['status'] = 'critical' if any(i['level']=='critical' for i in value['issues']) else 'warning' if value['issues'] else 'healthy'
+    return value
 
 if __name__ == '__main__':
     print(json.dumps(main(), ensure_ascii=False))

@@ -42,9 +42,9 @@ def upgrade(stage, apply):
         compile(source.read_text(),row['name'],'exec')
     tests=subprocess.run(['/usr/bin/python3','-B','-m','unittest','discover','-s',str(stage/'source'),'-p','test_*.py'],capture_output=True,text=True,timeout=60)
     (stage/'linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
-    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 32 tests' not in tests.stderr:
+    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 35 tests' not in tests.stderr:
         raise RuntimeError('required_linux_checks_failed')
-    before=baseline(); receipt={'checks':'32 Linux checks, zero skips','applied':False,'before':before}
+    before=baseline(); receipt={'checks':'35 Linux checks, zero skips','applied':False,'before':before}
     if apply:
         with (DATA/'.collector.lock').open('a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -87,9 +87,45 @@ def upgrade(stage, apply):
     print(json.dumps(receipt))
 
 
+def repair_runtime(apply):
+    """Repair this monitor's HTTPS interpreter without touching business units."""
+    import fcntl, shutil, tempfile, ssl
+    unit=UNITS/'fc-ops-readonly-monitor.service'
+    expected='dc1b6fc249e081ae36a39eee2aa8c59b943d09c76dea43b606a50d1741f78d28'
+    raw=unit.read_bytes()
+    if os.geteuid()!=0 or unit.is_symlink() or hashlib.sha256(raw).hexdigest()!=expected:
+        raise ValueError('monitor_unit_baseline_changed')
+    old=b'ExecStart=/usr/bin/python3 -B '
+    if raw.count(old)!=1:raise ValueError('monitor_execstart_ambiguous')
+    candidate=raw.replace(old,b'ExecStart=/opt/python39/bin/python3 -B ')
+    run(['/opt/python39/bin/python3','-B','-c','import ssl,urllib.request; assert ssl.OPENSSL_VERSION; r=urllib.request.urlopen("https://oapi.dingtalk.com",timeout=8); assert r.status==200'])
+    before=baseline(); receipt={'applied':False,'before':before,'unit_before':expected,
+        'unit_after':hashlib.sha256(candidate).hexdigest(),'tls_verified':True}
+    if apply:
+        with (DATA/'.collector.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            if unit.read_bytes()!=raw:raise ValueError('monitor_unit_changed_under_lock')
+            backup=DATA/'code-backups'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+            backup.mkdir(parents=True,mode=0o700);shutil.copy2(unit,backup/unit.name)
+            fd,temp=tempfile.mkstemp(dir=UNITS,prefix='.monitor-runtime-')
+            try:
+                with os.fdopen(fd,'wb') as stream:stream.write(candidate);stream.flush();os.fsync(stream.fileno())
+                os.chmod(temp,0o644);os.replace(temp,unit);run(['systemctl','daemon-reload'])
+                if baseline()!=before:raise RuntimeError('protected_baseline_changed')
+            except Exception:
+                shutil.copy2(backup/unit.name,unit);run(['systemctl','daemon-reload']);raise
+            finally:
+                if os.path.exists(temp):os.unlink(temp)
+            receipt.update(applied=True,backup=str(backup))
+    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not receipt['protected_unchanged']:raise RuntimeError('protected_baseline_changed')
+    print(json.dumps(receipt))
+
+
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument('--stage',required=True,type=Path)
-    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); args=parser.parse_args()
+    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); parser.add_argument('--repair-runtime',action='store_true'); args=parser.parse_args()
+    if args.repair_runtime:return repair_runtime(args.apply)
     stage=args.stage.resolve()
     if not stage.name.startswith('fc-ops-monitor-stage-') or stage.parent!=Path('/opt') or args.stage.is_symlink():
         raise ValueError('fixed_isolated_stage_required')
