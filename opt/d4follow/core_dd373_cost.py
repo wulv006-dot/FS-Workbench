@@ -950,11 +950,30 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
         ob = orderbook_avg(_q1)
         if not ob:
             _n0 = _site["总数"] if _site["总数"] is not None else 0
-            out[key] = {"ok": False, "依据": "DD373 该游戏区暂无在售商品",
-                        "备注": "页面正常渲染（未被风控），站点共 %s 条记录" % _n0,
-                        "URL": url}
-            if log:
-                log("  [DD373] %-24s · 无报价（0 条挂单，非风控）" % key)
+            if _q1:
+                # 🔴 2026-10-09：**有挂单、但被「跳过最低 2 条」剔空了** —— 必须与
+                #    「站点真的 0 条」区分开。原来统一报「暂无在售商品」，等于把我们
+                #    主动跳过说成站点没货（实测 13 个薄区会是这个症状），面板会误导人。
+                _sk = sorted(_q1, key=lambda x: x[1])[:SKIP_LOWEST_QUOTES]
+                out[key] = {
+                    "ok": False,
+                    "依据": "跳过最低 %d 条后已无可买挂单（原 %d 条）"
+                            % (len(_sk), len(_q1)),
+                    "备注": "该区首页仅 %d 条可买挂单，被 2026-10-09 新口径"
+                            "「跳过最低 %d 条」整条剔除后为空 ⇒ 按无报价处理"
+                            "（不足 1 亿 ⇒ 无货兜底）；剔除明细：%s"
+                            % (len(_q1), len(_sk),
+                               "；".join("%.0f万@%.4f(%s)" % t for t in _sk)),
+                    "URL": url}
+                if log:
+                    log("  [DD373] %-24s · 跳过最低 %d 条后无剩余挂单（原 %d 条）"
+                        % (key, len(_sk), len(_q1)))
+            else:
+                out[key] = {"ok": False, "依据": "DD373 该游戏区暂无在售商品",
+                            "备注": "页面正常渲染（未被风控），站点共 %s 条记录" % _n0,
+                            "URL": url}
+                if log:
+                    log("  [DD373] %-24s · 无报价（0 条挂单，非风控）" % key)
             time.sleep(gap)
             continue
         _pr = ob["均价"]
