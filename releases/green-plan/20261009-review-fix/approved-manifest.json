@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 1,
+  "scope": "green-plan-review-fix-20261009",
+  "releaseReady": true,
+  "sourceBaseCommit": "f0ec313c5bb9d90b400113fe5f58cec82234d108",
+  "files": [
+    {
+      "candidate": "auth/route-contract.json",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "sha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c",
+      "beforeSha256": "4d85b705ba9c7040ff8fa7d0d38f0722c2d831f2d23ef3ab5219edc23503cd3b"
+    },
+    {
+      "candidate": "auth/native_access_policy.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+      "beforeSha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+    },
+    {
+      "candidate": "auth/access_policy.py",
+      "target": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+      "beforeSha256": "b02e38348212c82879859cfd5db3c13c1e7506c33515c9e018b6290616f62017"
+    },
+    {
+      "candidate": "web/app.js",
+      "target": "/var/www/dashboard/tasks/green-plan/app.js",
+      "sha256": "d85891de4098a6f1e55020d135f76e403d2e2fa8c955fece4a2edf38ef6543a8",
+      "beforeSha256": "4f897ff0e4ae056095f6c01ed969298b0d9cb60569f102d17ad8be757c3b793b"
+    },
+    {
+      "candidate": "web/index.html",
+      "target": "/var/www/dashboard/tasks/green-plan/index.html",
+      "sha256": "d56f83f5281044d8b21e82c723d013e9227b1e75152328d70a55019755490396",
+      "beforeSha256": "f6425fc78f0fdf33cfd7ba88fa275987ece8dfc249b017676f37ec7e316899ce"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/etc/nginx/conf.d/iggm-web.conf",
+      "sha256": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317"
+    },
+    {
+      "path": "/etc/nginx/fs-business-range.locations.conf",
+      "sha256": "090cb29c4052691f60acf4b3db3a430815a94389f5a70bbd9928184a9f0dfc9f"
+    },
+    {
+      "path": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "32e6b24b5cf657ea98ce440709e6f35631264987759f5ebec8d39a408a7e4566"
+    },
+    {
+      "path": "/etc/nginx/fs-navigation-preview-20261006.locations.conf",
+      "sha256": "c47c2ed5aef4c6519473c9a741e3b12cc1eee3c036bc4c73c13916676e66144e"
+    },
+    {
+      "path": "/etc/nginx/taskboard.locations.conf",
+      "sha256": "5132305130f74039a18ee7269e995480fdd442b83c1435ee680054a6a558acfd"
+    },
+    {
+      "path": "/etc/systemd/system/auth-portal.service.d/20-registration-sqlite.conf",
+      "sha256": "274f7ec6185b7714b43e45f2de7d0098a9baea316798ec37e878727e04b0a782"
+    },
+    {
+      "path": "/etc/systemd/system/fs-transaction-collect.service",
+      "sha256": "8f494ab323f17c7a9534b24eee125a1c895c8f079bf4e596c1c7c84360d83852"
+    },
+    {
+      "path": "/etc/systemd/system/fs-transaction-collect.timer",
+      "sha256": "48cb510cb7b5270942d53271f1e6e452c9adc56f39f32c07a33ef77447efd72f"
+    },
+    {
+      "path": "/opt/auth-portal/auth_portal.py",
+      "sha256": "6b00046a56b6292086f715df3e52fa247093ea1415375313e3b821d98b101baf"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "sha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/portal_bridge.py",
+      "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "sha256": "5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2"
+    },
+    {
+      "path": "/opt/fc27-gate/fc27_gate.py",
+      "sha256": "e4dfc447fb1fdeeb0c363b90a69fdbd1626466f85590d7b287b9cc6d65e16c7f"
+    },
+    {
+      "path": "/opt/fs-dashboard-release/release_gateway.py",
+      "sha256": "90cf84524aabcaa13c54aef7f7256fa9ef46a1d9f53eb0fe6165270c5dcbf5e2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/atomic_snapshot.py",
+      "sha256": "7ba36c66a24e735241469440d9a9e634357fc06cb554d8184ef6aaaeb6936a54"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/collector.py",
+      "sha256": "85744def2704137c59052277b97d87df95d6817e698b2b534f9ad9ee59a96af1"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/fc_category_contract.py",
+      "sha256": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/fc_category_reader.py",
+      "sha256": "2dc8f805386f4bde5a3927a6a6e31275ae25349d7d4ca9490e480a922ef597c6"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/fc_product_contract.py",
+      "sha256": "d1e3356a37fe408b93caa4e20756e8c8f3977e69ed09ade908a1be39988807c1"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/fc_product_reader.py",
+      "sha256": "86356f8f940626925177aea582a441562e8e21c9a28ef353c16374bc283bfc57"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/primary_fields.py",
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/primary_reader.py",
+      "sha256": "c246da9acd7b6b75bc41b79564b39a532b286eb3bf109598e6825738bdcb8f30"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/profit-history-seed.json",
+      "sha256": "88157dc70e012ddfd2344c773a25d924155f89e4e3b7fcb1824c314a9d95161e"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "sha256": "8be3a3db5490120e49582ac4042fb0bd7bc37325b74ac572cafbe1b1eddc717e"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/profit_reader_adapter.py",
+      "sha256": "9208e7d2763abb36068b1a8833a5945269c3517d513d0cbe424bd47a92114d7d"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/supplement_reader.py",
+      "sha256": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38"
+    },
+    {
+      "path": "/opt/mmoexp-taskboard/green-plan-seed.json",
+      "sha256": "a94a6d0cb9815733604ba34406fa31e8e85cefee655c620af5e492ac1f9a3260"
+    },
+    {
+      "path": "/opt/mmoexp-taskboard/green_plan.py",
+      "sha256": "3c501fce363445f3309dd08fd9d29159f49107c80877d63a828e47ad0fc7c2fc"
+    },
+    {
+      "path": "/opt/mmoexp-taskboard/taskboard_server.py",
+      "sha256": "763357f581661e6bafe8ff4fbd6d3696f078ff9a0563259ec7046d54ecb043db"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/20261006/analytics/frame-theme.css",
+      "sha256": "d99f3d7ebd082778b1a56a0b48e886e1162707f34f14a3d125963f4a27627b7f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/20261006/analytics/index.html",
+      "sha256": "b103584b8d35d7edda673fcf75a51b546b131e517fedb96ecdd755cf732efe6d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/20261006/analytics/shell.css",
+      "sha256": "7df68fc74c768a1b4dc9aab400f04c54bf38c7bc967ecffaa2d0c271d7924a17"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/20261006/analytics/shell.js",
+      "sha256": "f1efac5e3e2c8d3288127c6b3e896c34d35704bdde4d16bece3ca3903e2e03d5"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/business.css",
+      "sha256": "76c4b10c19c1d1cdcd50a846ec463705cbcd2b195870a7ea4a33cf02ff4c7532"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/business.html",
+      "sha256": "f2e393745b92b06debaab6eb087a3b42660d3c7758995e3e50b27ec873ce1f93"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/business.js",
+      "sha256": "f7b8c05f7a62be12258afe80866b61e86f04de8ae422931ef6aad5b6bed7a078"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/google.css",
+      "sha256": "3c1b849c7e71685a78a04ce907bec93e371e324ab16a8fc5415baaec3c5771fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/google.js",
+      "sha256": "4784cb3fe525df06f720a05dc7ec9cd21ba0d1d99aad5eb28412d5728400b569"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/home.html",
+      "sha256": "cf7a9243b82c645f6709f50dda949ecf6d05e76e2f413fbb5797ff814b5465b7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/index.html",
+      "sha256": "88a8124e807169aa8b161c901bfc3586bb02a15fff468880e719ecae73bb772f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/runtime.js",
+      "sha256": "1540c74da57302d27ed5beb956a63a053fb1fe904551448702d178bee57efd1c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/shell.js",
+      "sha256": "105c51f09685b0a598a7b5357f5d7a4c6738e905a7e778ddf7dfd35993dd4012"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/business.css",
+      "sha256": "76c4b10c19c1d1cdcd50a846ec463705cbcd2b195870a7ea4a33cf02ff4c7532"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/business.html",
+      "sha256": "f2e393745b92b06debaab6eb087a3b42660d3c7758995e3e50b27ec873ce1f93"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/business.js",
+      "sha256": "f7b8c05f7a62be12258afe80866b61e86f04de8ae422931ef6aad5b6bed7a078"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/google.css",
+      "sha256": "3c1b849c7e71685a78a04ce907bec93e371e324ab16a8fc5415baaec3c5771fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/google.js",
+      "sha256": "4784cb3fe525df06f720a05dc7ec9cd21ba0d1d99aad5eb28412d5728400b569"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/home.html",
+      "sha256": "86536f1c578ce0f5198aa18cc04eaf93a8ef5adf284bf006636a40bae3912561"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/index.html",
+      "sha256": "af8d864fdbc5d87a22c0e921ad79a23df9847a887388121b06569c5f2acc0e10"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/runtime.js",
+      "sha256": "b8b6f0397e1c0b2ff031b7a0c8440e899b2fca97cbcdd86dd10e2c13e5c99099"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/shell.js",
+      "sha256": "21236732a99cb4abcd6846e81cb4ca4d31927536d6292d27f44308d935e8864f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-a570d53c5212/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/app.js",
+      "sha256": "e3373785a0bfe1279905892893758f6589aef73440677c196f91b8b0267a4137"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "86536f1c578ce0f5198aa18cc04eaf93a8ef5adf284bf006636a40bae3912561"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/module-registry.json",
+      "sha256": "31c4abfc9f5ee7441d8525b02843534bc189cc0156f2de8536c98190888c6a64"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.css",
+      "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.json",
+      "sha256": "43e009607d00dc2dbf223fb76497f5cdaea070cff12102df49445758a09d8118"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/styles.css",
+      "sha256": "73eca6819fadb24433a1811fa8498462ec665197efb0bd1001f92f4be417f886"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/aion2-status.js",
+      "sha256": "0d711e037bdc6d0e78089f75c50e856dd53e94ac4a9989fc83fac281ef0996c1"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/business-range.js",
+      "sha256": "15ca27648c154bbaf9868a614e8099625b23ec75ae838c810271ede43885bf83"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/business-theme.css",
+      "sha256": "29565308b445531fc34b492c93785e54d2d6975921c776d93bebecb167a1df4b"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/business-theme.js",
+      "sha256": "99b05fd8b4b764b6ce73b8fca27a6a68acc5360abc831fc32f06b717fe6f30cb"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/exact-range-client.js",
+      "sha256": "672170e58e9478209cfe50f89b47d513a77e129e8b7d7b6bbe9ad09ac578e0e3"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/supplement-insights.css",
+      "sha256": "976dea341e7dcbe3d9c0feca3290cf15af485d2f0d0450d83096d2f23b004e74"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/supplement-insights.js",
+      "sha256": "57f163a9cbfb15318f1b61f751648df36c4aa91db873aeaca2ce30f3d25f2c3c"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/app.js",
+      "sha256": "392dd2b813689da580d42d84a0e6c48dbc829f0a9398efb32ae89f43cbeeadfe"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/green-plan/plan.css",
+      "sha256": "8dc9fb91df2d200cf0e028ce71364f3f12fb423ff71d8fc1be48e53e6de2b7e7"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/green-plan/plan.html",
+      "sha256": "db6619102d75af6d87d8f625f4288f0c26e1e520710c1a151e574b1c31664acf"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/green-plan/plan.js",
+      "sha256": "2f5a80081b68761e17daae1533c9c829ef5116ac328283012c334d7919b8c67c"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/green-plan/style.css",
+      "sha256": "885745107c3860765445d5b4ef3921a997506d8b1469c582e6f652d88576ade0"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/index.html",
+      "sha256": "b7570335c5e7e0ae2a8fcd8f3103378d668c8a746806e4093c7b737fec9ec4d0"
+    },
+    {
+      "path": "/var/www/dashboard/tasks/styles.css",
+      "sha256": "eb1d37714a4fbc31f3cb70c88ebbb3e4944945ce4c1e289d2a72b078a7558d63"
+    },
+    {
+      "path": "/var/www/fs-nav-preview/20261006/analytics/frame-theme.css",
+      "sha256": "d99f3d7ebd082778b1a56a0b48e886e1162707f34f14a3d125963f4a27627b7f"
+    },
+    {
+      "path": "/var/www/fs-nav-preview/20261006/analytics/index.html",
+      "sha256": "b103584b8d35d7edda673fcf75a51b546b131e517fedb96ecdd755cf732efe6d"
+    },
+    {
+      "path": "/var/www/fs-nav-preview/20261006/analytics/shell.css",
+      "sha256": "7df68fc74c768a1b4dc9aab400f04c54bf38c7bc967ecffaa2d0c271d7924a17"
+    },
+    {
+      "path": "/var/www/fs-nav-preview/20261006/analytics/shell.js",
+      "sha256": "f1efac5e3e2c8d3288127c6b3e896c34d35704bdde4d16bece3ca3903e2e03d5"
+    },
+    {
+      "path": "/var/www/mmoexp-marketing/current/business-module.js",
+      "sha256": "d942771371b353faee2061448bd209e3c35526b03ece6e5ac7ccfe6a4d55bcd8"
+    },
+    {
+      "path": "/var/www/mmoexp-marketing/current/index.html",
+      "sha256": "8a0fd918ca2904d7c15354d38f20eaad74672fbdee0e7916ce4809cc491998e1"
+    },
+    {
+      "path": "/var/www/mmoexp-marketing/current/marketing-module.css",
+      "sha256": "3b30be93d1ad1e3d4b1eb029c1724c0b2994dd8cba669ec4bc39c85904c2c819"
+    },
+    {
+      "path": "/var/www/mmoexp-marketing/current/marketing-module.js",
+      "sha256": "e04f3ca3a0447a52753e54c27f0ca5d44d32d39c69e277a52b981400472c7aa9"
+    },
+    {
+      "path": "/var/www/sites/wulv/fc27-ops/data/fc-analytics.js",
+      "sha256": "562f91e3cc664734df4f8e3dae42c49e9b6c7b9b11361b7d1eb120d7bfdb4dd2"
+    },
+    {
+      "path": "/var/www/sites/wulv/fc27-ops/data/fc-products.js",
+      "sha256": "64ea27596932ab5c4142b2c62d7733739940c50ce605a0b6bee773fd3e5e5714"
+    },
+    {
+      "path": "/var/www/sites/wulv/fc27-ops/index.html",
+      "sha256": "68ea2731f91e714fc24e411dc11fde7507650d587477b3f326120ce0d5dee2b0"
+    }
+  ],
+  "runtimeRequired": {
+    "auth-portal.service": {
+      "ActiveState": "active"
+    },
+    "fc27-cloud-api.service": {
+      "MainPID": "22331",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fc27-cloud-worker.service": {
+      "MainPID": "22333",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fs-transaction-collect.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    }
+  }
+}

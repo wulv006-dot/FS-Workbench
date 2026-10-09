@@ -194,6 +194,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/green-plan/20261009-review-fix/"):
+            groups.add("green-plan-review-fix");continue
         if name.startswith("releases/green-plan/20261009/"):
             groups.add("green-plan");continue
         if name in (
@@ -259,6 +261,13 @@ def main():
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
+        elif group=="green-plan-review-fix":
+            fix=ROOT/"releases/green-plan/20261009-review-fix"
+            env=dict(os.environ,GREEN_AUTH_RUNTIME=str(ROOT/"registration_approval_runtime_v3_20261006"),
+                GREEN_BACKEND=str(ROOT/"releases/green-plan/20261009/candidate/backend"),
+                GREEN_AUTH_CANDIDATE=str(fix/"candidate/auth"))
+            for name in ("test_auth_flow.py","test_rollback.py"):
+                subprocess.run([sys.executable,"-B",str(fix/"tests"/name)],check=True,timeout=90,cwd=ROOT,env=env)
         elif group=="green-plan":
             for name in ("candidate/backend/test_green_plan.py","check_release.py"):
                 subprocess.run([sys.executable,"-B",str(ROOT/"releases/green-plan/20261009"/name)],check=True,timeout=90,cwd=ROOT)
