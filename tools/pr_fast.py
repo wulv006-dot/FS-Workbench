@@ -186,6 +186,8 @@ def selfcheck():
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
+    if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
+        raise RuntimeError("admin_entry_scope_missing")
     if select(["releases/registration/account-management-20261009/source/web/app.js"]) != ["registration-management"]:
         raise RuntimeError("registration_management_scope_missing")
     if select(["releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"]) != ["fc-lootbar"]:
@@ -201,6 +203,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/auth/admin-entry-20261009/"):
+            groups.add("admin-entry");continue
         if name.startswith("releases/registration/account-management-20261009/"):
             groups.add("registration-management");continue
         if name.startswith("releases/fc-coins/lootbar-spec-repair-20261009/"):
@@ -264,6 +268,7 @@ def main():
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
         if group=="engine":units(".",["test_fc27_quote_engine"])
+        elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
         elif group=="registration-management":
             release="releases/registration/account-management-20261009"
             node(release+"/tests/test_actions.cjs")
