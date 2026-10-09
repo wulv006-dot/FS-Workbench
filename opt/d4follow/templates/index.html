@@ -1990,7 +1990,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         + '</td>';
     };
     /* 竞品参考价单元格（ELD / IGGM）—— 用户要求汇总区也能一眼看到。
-       2026-10-09：G2G 已改用 g2gCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
+       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
     const cCell = function(v){ return (v==null||v==='')
       ? '<td class="num" style="color:var(--sub)">—</td>'
       : '<td class="num mono">$'+Number(v).toFixed(2)+'/M</td>'; };
