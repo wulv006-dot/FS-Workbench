@@ -42,9 +42,9 @@ def upgrade(stage, apply):
         compile(source.read_text(),row['name'],'exec')
     tests=subprocess.run(['/usr/bin/python3','-B','-m','unittest','discover','-s',str(stage/'source'),'-p','test_*.py'],capture_output=True,text=True,timeout=60)
     (stage/'linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
-    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 31 tests' not in tests.stderr:
+    if tests.returncode or 'skipped=' in tests.stderr or 'Ran 35 tests' not in tests.stderr:
         raise RuntimeError('required_linux_checks_failed')
-    before=baseline(); receipt={'checks':'31 Linux checks, zero skips','applied':False,'before':before}
+    before=baseline(); receipt={'checks':'35 Linux checks, zero skips','applied':False,'before':before}
     if apply:
         with (DATA/'.collector.lock').open('a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -56,33 +56,159 @@ def upgrade(stage, apply):
                 if actual!=row['before']:raise ValueError('monitor_baseline_changed_under_lock')
                 if target.exists():shutil.copy2(target,backup/row['name'])
             metadata=DATA.stat();receipt['original_data_metadata']=[metadata.st_uid,metadata.st_gid,metadata.st_mode&0o7777]
+            installed=[]
             try:
                 for row in rows:
-                    target=APP/row['name'];temporary=APP/('.hooks-'+row['name'])
-                    with temporary.open('xb') as stream:
-                        stream.write((stage/'source'/row['name']).read_bytes());stream.flush();os.fsync(stream.fileno())
-                    temporary.chmod(0o644);os.replace(temporary,target)
+                    target=APP/row['name']
+                    fd,temporary=tempfile.mkstemp(dir=APP,prefix='.hooks-'+row['name']+'-')
+                    try:
+                        with os.fdopen(fd,'wb') as stream:
+                            stream.write((stage/'source'/row['name']).read_bytes());stream.flush();os.fsync(stream.fileno())
+                        os.chmod(temporary,0o644);os.replace(temporary,target)
+                        installed.append(row)
+                    finally:
+                        if os.path.exists(temporary):os.unlink(temporary)
                 gates=DATA/'gates';gates.mkdir(exist_ok=True);os.chown(gates,0,11028);gates.chmod(0o2750)
                 os.chown(DATA,0,11028);DATA.chmod(0o710)
+                receipt['after']=baseline()
+                if receipt['after']!=before:raise RuntimeError('protected_baseline_changed')
                 receipt.update(applied=True,backup=str(backup))
             except Exception:
-                for row in rows:
+                for row in reversed(installed):
                     target=APP/row['name']
-                    if row['before'] is not None:shutil.copy2(backup/row['name'],target)
+                    if row['before'] is None:target.unlink()
+                    else:shutil.copy2(backup/row['name'],target)
                 os.chown(DATA,metadata.st_uid,metadata.st_gid);DATA.chmod(metadata.st_mode&0o7777)
                 raise
-    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not apply:receipt['after']=baseline()
+    receipt['protected_unchanged']=receipt['after']==before
     if not receipt['protected_unchanged']:raise RuntimeError('protected_baseline_changed')
     (stage/'monitor-upgrade-receipt.json').write_text(json.dumps(receipt,indent=2))
     print(json.dumps(receipt))
 
 
+def repair_runtime(apply):
+    """Repair this monitor's HTTPS interpreter without touching business units."""
+    import fcntl, shutil, tempfile, ssl
+    unit=UNITS/'fc-ops-readonly-monitor.service'
+    expected='dc1b6fc249e081ae36a39eee2aa8c59b943d09c76dea43b606a50d1741f78d28'
+    raw=unit.read_bytes()
+    if os.geteuid()!=0 or unit.is_symlink() or hashlib.sha256(raw).hexdigest()!=expected:
+        raise ValueError('monitor_unit_baseline_changed')
+    old=b'ExecStart=/usr/bin/python3 -B '
+    if raw.count(old)!=1:raise ValueError('monitor_execstart_ambiguous')
+    candidate=raw.replace(old,b'ExecStart=/opt/python39/bin/python3 -B ')
+    run(['/opt/python39/bin/python3','-B','-c','import ssl,urllib.request; assert ssl.OPENSSL_VERSION; r=urllib.request.urlopen("https://oapi.dingtalk.com",timeout=8); assert r.status==200'])
+    before=baseline(); receipt={'applied':False,'before':before,'unit_before':expected,
+        'unit_after':hashlib.sha256(candidate).hexdigest(),'tls_verified':True}
+    if apply:
+        with (DATA/'.collector.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            if unit.read_bytes()!=raw:raise ValueError('monitor_unit_changed_under_lock')
+            backup=DATA/'code-backups'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+            backup.mkdir(parents=True,mode=0o700);shutil.copy2(unit,backup/unit.name)
+            fd,temp=tempfile.mkstemp(dir=UNITS,prefix='.monitor-runtime-')
+            try:
+                with os.fdopen(fd,'wb') as stream:stream.write(candidate);stream.flush();os.fsync(stream.fileno())
+                os.chmod(temp,0o644);os.replace(temp,unit);run(['systemctl','daemon-reload'])
+                if baseline()!=before:raise RuntimeError('protected_baseline_changed')
+            except Exception:
+                shutil.copy2(backup/unit.name,unit);run(['systemctl','daemon-reload']);raise
+            finally:
+                if os.path.exists(temp):os.unlink(temp)
+            receipt.update(applied=True,backup=str(backup))
+    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not receipt['protected_unchanged']:raise RuntimeError('protected_baseline_changed')
+    print(json.dumps(receipt))
+
+
+def noncore_checks(stage, checks):
+    import re
+    files=checks['files']
+    if checks.get('patterns')!=['test_monitor.py'] or 'tests/test_monitor.py' not in files or type(checks['test_count']) is not int or checks['test_count']<1:
+        raise ValueError('frozen_noncore_checks_required')
+    for relative,wanted in files.items():
+        path=stage/relative
+        if Path(relative).is_absolute() or '..' in Path(relative).parts or path.is_symlink() or not path.resolve().is_relative_to(stage.resolve()) or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=wanted:
+            raise ValueError('noncore_check_input_changed')
+    tests=subprocess.run([os.sys.executable,'-B','-m','unittest','discover','-s',str(stage/'tests'),'-p','test_monitor.py'],capture_output=True,text=True,timeout=60)
+    (stage/'noncore-linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
+    count=re.search(r'Ran (\d+) tests?',tests.stderr)
+    if tests.returncode or not count or int(count.group(1))!=checks['test_count'] or not tests.stderr.rstrip().endswith('OK'):
+        raise RuntimeError('noncore_linux_checks_failed')
+
+def noncore_swap(source,target):
+    import tempfile,stat
+    metadata=target.stat()
+    fd,temporary=tempfile.mkstemp(dir=target.parent,prefix='.noncore-'+target.name+'-')
+    try:
+        with os.fdopen(fd,'wb') as stream:
+            stream.write(source.read_bytes());stream.flush();os.fsync(stream.fileno())
+        os.chmod(temporary,stat.S_IMODE(metadata.st_mode));os.chown(temporary,metadata.st_uid,metadata.st_gid)
+        os.replace(temporary,target)
+        directory=os.open(target.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+    finally:
+        if os.path.exists(temporary):os.unlink(temporary)
+
+def noncore_emergency(stage,apply):
+    import fcntl,shutil
+    manifest=json.loads((stage/'noncore-monitor-manifest.json').read_text())
+    rows=manifest['files'];names={'collector.py','read_only_status.py','hooks_notifier.py'}
+    if os.geteuid()!=0 or {row['name'] for row in rows}!=names or len(rows)!=len(names):
+        raise ValueError('exact_noncore_monitor_scope_required')
+    def verify():
+        for row in rows:
+            source=stage/'source'/'monitor'/row['name'];target=APP/row['name']
+            if source.is_symlink() or not source.resolve().is_relative_to(stage.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest()!=row['after']:
+                raise ValueError('noncore_monitor_payload_changed')
+            if target.is_symlink() or hashlib.sha256(target.read_bytes()).hexdigest()!=row['before']:
+                raise ValueError('noncore_monitor_baseline_changed')
+            compile(source.read_text(),row['name'],'exec')
+    verify();noncore_checks(stage,manifest['checks'])
+    before=baseline()
+    if before['sha256']!=manifest['protected']:
+        raise ValueError('noncore_monitor_protected_baseline_changed')
+    receipt={'applied':False,'before':before,'checks':manifest['checks']['test_count']}
+    if apply:
+        with (DATA/'.collector.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            verify()
+            if baseline()!=before:raise RuntimeError('noncore_monitor_baseline_changed_under_lock')
+            backup=DATA/'code-backups'/('noncore-emergency-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+            backup.mkdir(parents=True,mode=0o700)
+            for row in rows:shutil.copy2(APP/row['name'],backup/row['name'])
+            (backup/'manifest.json').write_text(json.dumps(manifest,indent=2))
+            installed=[]
+            try:
+                for row in rows:
+                    source=stage/'source'/'monitor'/row['name']
+                    if source.is_symlink() or not source.resolve().is_relative_to(stage.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest()!=row['after']:
+                        raise ValueError('noncore_monitor_payload_changed_before_replace')
+                    noncore_swap(source,APP/row['name']);installed.append(row)
+                if baseline()!=before:raise RuntimeError('noncore_monitor_protected_changed')
+                actual={row['name']:hashlib.sha256((APP/row['name']).read_bytes()).hexdigest() for row in rows}
+                if any(actual[row['name']]!=row['after'] for row in rows):raise RuntimeError('noncore_monitor_installed_hash_mismatch')
+                receipt.update(applied=True,backup=str(backup),installed_sha256=actual)
+            except Exception:
+                for row in reversed(installed):noncore_swap(backup/row['name'],APP/row['name'])
+                raise
+    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not receipt['protected_unchanged']:raise RuntimeError('noncore_monitor_protected_changed')
+    (stage/'noncore-monitor-receipt.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt))
+    return receipt
+
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--stage',required=True,type=Path)
-    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); args=parser.parse_args()
+    parser=argparse.ArgumentParser(); parser.add_argument('--stage',type=Path)
+    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); parser.add_argument('--repair-runtime',action='store_true'); parser.add_argument('--noncore-emergency',action='store_true'); args=parser.parse_args()
+    if args.noncore_emergency and (args.upgrade or args.repair_runtime):raise ValueError('deployment_modes_conflict')
+    if args.repair_runtime:return repair_runtime(args.apply)
+    if args.stage is None:parser.error('--stage is required for install or upgrade')
     stage=args.stage.resolve()
     if not stage.name.startswith('fc-ops-monitor-stage-') or stage.parent!=Path('/opt') or args.stage.is_symlink():
         raise ValueError('fixed_isolated_stage_required')
+    if args.noncore_emergency:return noncore_emergency(stage,args.apply)
     if args.upgrade:
         return upgrade(stage,args.apply)
     rows=json.loads((stage/'manifest.json').read_text())['files']

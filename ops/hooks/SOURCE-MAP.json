@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "moduleId": "fs-hooks-fc-business-20261008",
   "policyPath": "docs/ops/HOTFIX.md",
-  "observedMain": "2a75a0c2226de3705930541b495c76b3bfe01024",
+  "observedMain": "6de5e17309d245178698c80dda6cf9bf16f4580f",
   "businessOwner": "吴律",
   "runtimeMode": "FC RULES_ARMED; dashboard observation",
   "monitorIntervalSeconds": 300,
@@ -10,49 +10,123 @@
   "businessCollectionScheduleChanged": false,
   "sourceFiles": [
     {
-      "path": "ops/hooks/automation_policy.py",
-      "runtime": "/opt/fc27-cloud-browser/automation_policy.py",
-      "sha256": "362e583f139f64c6f61b6af004267993efc6b9fa6392fdd13885defc04715412"
-    },
-    {
       "path": "ops/hooks/price_writer.py",
       "runtime": "/opt/fc27-cloud-browser/price_writer.py",
-      "sha256": "fdb50019f13f2a2cf437366c299c6d5a2687a2b6d9c9df49c8d9bd837acbd09f"
+      "sha256": "fdb50019f13f2a2cf437366c299c6d5a2687a2b6d9c9df49c8d9bd837acbd09f",
+      "runtimeSha256": "fdb50019f13f2a2cf437366c299c6d5a2687a2b6d9c9df49c8d9bd837acbd09f",
+      "deploymentStatus": "deployed_same_bytes"
     },
     {
       "path": "ops/hooks/coin_all_sync_job.py",
       "runtime": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
-      "sha256": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2"
+      "sha256": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
+      "runtimeSha256": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
+      "deploymentStatus": "deployed_same_bytes"
     },
     {
       "path": "ops/hooks/execute_price.sh",
       "runtime": "/opt/fc27-cloud-browser/execute_price.sh",
-      "sha256": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91"
-    },
-    {
-      "path": "ops/hooks/collector.py",
-      "runtime": "/opt/fc-ops-readonly-monitor/collector.py",
-      "sha256": "a95794363c03aedbe5bbe9fb1ab10622925a713bb8334f6302f14f9f5074dba9"
+      "sha256": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91",
+      "runtimeSha256": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91",
+      "deploymentStatus": "deployed_same_bytes"
     },
     {
       "path": "ops/hooks/probe_worker.py",
       "runtime": "/opt/fc-ops-readonly-monitor/probe_worker.py",
-      "sha256": "0805f0d58287f8f9278825d022a30971b4c6896fa6803598ec424dd0ac270110"
+      "sha256": "4823d2af2d0e9a4c30865f73dd24c8dd3d778acd1b6f407d1461e9adb8890b98",
+      "runtimeSha256": "0b77a9d650dfbea45d6e6ca6d017837fbdbf70fed5236334b0edcc8fa5d2dce2",
+      "deploymentStatus": "git_fix_not_deployed"
     },
     {
       "path": "ops/hooks/delivery.py",
       "runtime": "/opt/fc-ops-readonly-monitor/delivery.py",
-      "sha256": "3c7f93f8e573a926dc44cfe0993a8f7af3b00883dc46048df6a585bc87434b93"
+      "sha256": "3c7f93f8e573a926dc44cfe0993a8f7af3b00883dc46048df6a585bc87434b93",
+      "runtimeSha256": "3c7f93f8e573a926dc44cfe0993a8f7af3b00883dc46048df6a585bc87434b93",
+      "deploymentStatus": "deployed_same_bytes"
     },
     {
       "path": "ops/hooks/hooks.py",
       "runtime": "/opt/fc-ops-readonly-monitor/hooks.py",
-      "sha256": "df0fd30962351d7b70f60c429c7b85a91614262ce3a22d7d759880ac8928e0da"
+      "sha256": "9e9c4f98c3e2355d843bc67a9148e8b22ede9d6ca3144395288ab74e6075b843",
+      "runtimeSha256": "9eb21fc0dc69b598ae7053022605639cda5ea0b0fb827b6178c862b57d09237d",
+      "deploymentStatus": "git_fix_not_deployed"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py",
+      "runtime": "/opt/fc27-cloud-browser/fc27_quote_engine.py",
+      "sha256": "b25e497dd4bce85761085f65b1e17046a96b98980625b5f468809deff40af060",
+      "runtimeSha256": "b25e497dd4bce85761085f65b1e17046a96b98980625b5f468809deff40af060",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/snapshot_layer.py",
+      "runtime": "/opt/fc27-cloud-browser/snapshot_layer.py",
+      "sha256": "280cc936ceaa68da0895533a8d03e7a551b00b492d254656d4b083a0a9cc8a60",
+      "runtimeSha256": "280cc936ceaa68da0895533a8d03e7a551b00b492d254656d4b083a0a9cc8a60",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/server_quote_job.py",
+      "runtime": "/opt/fc27-cloud-browser/server_quote_job.py",
+      "sha256": "c373b10918fb0bb68b6055f2d377d68489b036a936e11bac7bfb8889090cedf3",
+      "runtimeSha256": "c373b10918fb0bb68b6055f2d377d68489b036a936e11bac7bfb8889090cedf3",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "ops/hooks/automation_policy.py",
+      "runtime": "/opt/fc27-cloud-browser/automation_policy.py",
+      "sha256": "82514d34da4cf1ec0bd9c484c26861d815b87c6f61e7092cfd855626553da674",
+      "runtimeSha256": "82514d34da4cf1ec0bd9c484c26861d815b87c6f61e7092cfd855626553da674",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/fc27_cloud_api.py",
+      "runtime": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+      "sha256": "61b782a29d5ec755992113b4340cdae5fadae46a78c7c1addfe0025b26f7e601",
+      "runtimeSha256": "61b782a29d5ec755992113b4340cdae5fadae46a78c7c1addfe0025b26f7e601",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/repricing_logic.js",
+      "runtime": "/opt/fc27-cloud-browser/repricing_logic.js",
+      "sha256": "681556bca845fde58bd80bb74d846246a0af137ed59e6e3c29015d670d8393de",
+      "runtimeSha256": "681556bca845fde58bd80bb74d846246a0af137ed59e6e3c29015d670d8393de",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/automation_tick.py",
+      "runtime": "/opt/fc27-cloud-browser/automation_tick.py",
+      "sha256": "e54571f3be2693ffca886cf100ae7d8b8e38b5b2ee8fe55dd6429dcc8fad6416",
+      "runtimeSha256": "e54571f3be2693ffca886cf100ae7d8b8e38b5b2ee8fe55dd6429dcc8fad6416",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "releases/fc-coins/noncore-emergency-20261009/source/fc27-quote-cloud.js",
+      "runtime": "/var/www/dashboard/fc27-quote-cloud.js",
+      "sha256": "fd66de7014befc39cfc6cb3028aa9843d89fc0836311c0c1bb5e03f54dba319f",
+      "runtimeSha256": "fd66de7014befc39cfc6cb3028aa9843d89fc0836311c0c1bb5e03f54dba319f",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "ops/hooks/collector.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/collector.py",
+      "sha256": "6be99222f26921f941ad0a65d5740ef16fe39e95560ad8b2a1a9260daeee16a0",
+      "runtimeSha256": "6be99222f26921f941ad0a65d5740ef16fe39e95560ad8b2a1a9260daeee16a0",
+      "deploymentStatus": "deployed_same_bytes"
+    },
+    {
+      "path": "ops/hooks/read_only_status.py",
+      "runtime": "/opt/fc-ops-readonly-monitor/read_only_status.py",
+      "sha256": "45746777d5d546b14be280bc8db188b28192c1c72ef028cd8e81f93440c70f7f",
+      "runtimeSha256": "45746777d5d546b14be280bc8db188b28192c1c72ef028cd8e81f93440c70f7f",
+      "deploymentStatus": "deployed_same_bytes"
     },
     {
       "path": "ops/hooks/hooks_notifier.py",
       "runtime": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
-      "sha256": "9743eacfa195d05be3f635c53ede15d5ed3c2f945e0cb513fcde8c10b6956de4"
+      "sha256": "12bda6bc314662b7db2593b8ae1fac0f560082218c5504c4c087b1a23a0f7b0f",
+      "runtimeSha256": "12bda6bc314662b7db2593b8ae1fac0f560082218c5504c4c087b1a23a0f7b0f",
+      "deploymentStatus": "deployed_same_bytes"
     }
   ],
   "state": "/var/lib/fc-ops-readonly-monitor",
@@ -61,7 +135,7 @@
   "monitorPublisher": "existing monitor publisher upgrade; .collector.lock and CAS",
   "naturalEvidence": {
     "operationId": "86e39e89-e96a-4bf8-af02-f187fc0c573f",
-    "completedAtUtc": "2026-10-08T08:24:08.027107+00:00",
+    "completedAtUtc": "2026-10-08T16:24:08.027107+08:00",
     "platforms": [
       "PS",
       "XBOX",
@@ -99,5 +173,103 @@
     "source": "real isolated HTTP503 and recovery via existing notifier/outbox; user confirmed",
     "production_fault_injected": false,
     "secret_in_git": false
+  },
+  "reviewFix": {
+    "comments": [
+      4217591822,
+      4217591832
+    ],
+    "requiredServiceFailuresBlockAutomaticWrites": true,
+    "rollbackNewFilesAndOwnTemps": true,
+    "protectedReadbackInsideRollback": true,
+    "verification": "direct Linux32/0; existing publisher deployed; fault scenarios isolated"
+  },
+  "alertPresentation": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "productionApplied": true,
+    "fcDemoProviderAccepted": true,
+    "fcDemoUserReceivedReadable": true,
+    "previousEventsReplayed": false
+  },
+  "monitorRuntime": {
+    "execStart": "/opt/python39/bin/python3",
+    "unitSha256": "c9a0a54f9e910e5f8846135373ec01b64e800e28a3bf80d1f94ba1c75dff7770",
+    "tlsRuntimeVerified": true,
+    "repairPublisherBackfilled": true
+  },
+  "rpgReadOnlyAlerts": {
+    "owner": "陈超",
+    "resourceGroup": "d4follow",
+    "endpoint": "http://127.0.0.1:8900/api/state",
+    "services": [
+      "d4follow.service",
+      "p2pah-srv-exec.service"
+    ],
+    "scope": "shared services and current runtime task failures; mapped game when present, otherwise shared scope",
+    "productionApplied": true,
+    "botDemoProviderAccepted": true,
+    "rulesAndConfigAndPidsUnchanged": true,
+    "pausesWrites": false,
+    "selfHealing": false,
+    "coverageLimits": [
+      "old-process task history",
+      "per-row failed or unknown writes",
+      "sale safety and current-price verification",
+      "game-specific source freshness"
+    ],
+    "verification": "35 direct Linux checks/0skip; actual natural monitor; both Chinese demos received/readable by user",
+    "botDemoUserReceivedReadable": true,
+    "naturalMonitorFinishedAtUtc": "2026-10-09T01:37:10.160561+00:00"
+  },
+  "ciTestModules": [
+    "test_hooks",
+    "test_monitor",
+    "test_notifier",
+    "test_rpg_alerts"
+  ],
+  "productionReadbackAtUtc": "2026-10-09T03:07:40.857951+00:00",
+  "noncoreEmergency": {
+    "frozenSourceMap": "releases/fc-coins/noncore-emergency-20261009/SOURCE-MAP.json",
+    "productionAcceptedAtBeijing": "2026-10-09 10:24",
+    "naturalOperationId": "ff748646-3d73-47f6-bef1-1a6d2e00b87f",
+    "liveSourceCount": 11,
+    "sourcePolicy": "Lootbar required; U4GM/IGGM preferred; U7Buy only if both primary references unavailable",
+    "missingSourceValidation": "isolated only; accepted natural cycle had all four sources",
+    "latestProductionControl": "three platforms RECOVERED; no UNKNOWN; user ENABLED; revision29"
+  },
+  "postAcceptanceFixes": {
+    "deployment": "Git only, production unchanged in this merge task",
+    "galleryHttpFailureScope": "gallery only; required Coins HTTP gate still blocks writes",
+    "rpgRetryRecovery": "running retry retains previous failure; only later done supersedes",
+    "repairRuntimeCli": "stage optional for standalone repair; required for install/upgrade"
+  },
+  "publisherSources": [
+    {
+      "path": "ops/hooks/publishers/fc-publisher.py",
+      "sha256": "b4957edc71da6bee47a57787083f74685bb526ade13b3ac22ea48f22acd34727",
+      "frozenReleasedSnapshot": "releases/fc-coins/noncore-emergency-20261009/publishers/fc-publisher.py"
+    },
+    {
+      "path": "ops/hooks/publishers/monitor-publisher.py",
+      "sha256": "2da41d99a96726b316d01c39a8ea5735153644b5da4cd91fec05653d00977623",
+      "frozenReleasedSnapshot": "releases/fc-coins/noncore-emergency-20261009/publishers/monitor-publisher.py"
+    }
+  ],
+  "checks": {
+    "dispatcher": "tools/pr_fast.py",
+    "groups": [
+      "hooks",
+      "fc-noncore"
+    ],
+    "methods": {
+      "hooks": 35,
+      "pipeline": 12,
+      "selfheal": 12,
+      "monitor": 21,
+      "publishers": 12
+    },
+    "jsAssertions": 75,
+    "finalLinuxCi": "required before merge; no new workflow"
   }
 }

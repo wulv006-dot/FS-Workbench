@@ -220,6 +220,33 @@ class Faults(unittest.TestCase):
             self.assertEqual(writes,[])
             c=hooks.controls(healthy(),at=NOW);atomic(target,c);target.chmod(0o640)
             ns['hooks_before_write'](POLICY,['PS'],True)
+            # Trace service probe -> report -> controls -> actual automatic guard.
+            from report import report
+            required=('fc27-cloud-api.service','fc27-cloud-worker.service','fc27-gate.service',
+                      'coin_api_http_gate')
+            for unit in required:
+                for state in ('inactive','failed','unknown','unexpected_http_status','unexpected_anonymous_success'):
+                    with self.subTest(unit=unit,state=state):
+                        snapshot={'captured_at':NOW.isoformat(),'health':{'api':'ok'},
+                                  'automation':POLICY,'publication':healthy()['publication']}
+                        observed=report(snapshot,{'issues':[]},{unit:state},{})
+                        code='service_unavailable:'+unit
+                        self.assertEqual(observed['issues'][0]['code'],code)
+                        control=hooks.controls(observed,at=NOW);atomic(target,control);target.chmod(0o640)
+                        for platform in hooks.PLATFORMS:
+                            self.assertIn(code,control['platforms'][platform]['reasons'])
+                            with self.assertRaisesRegex(ValueError,'hook_scope_paused'):
+                                ns['hooks_before_write'](POLICY,[platform],True);writes.append('POST')
+                        self.assertEqual(writes,[])
+            for unit in ('fc27-gallery.service','gallery_api_http_gate','fs-business-range.service','unrelated-service'):
+                snapshot={'captured_at':NOW.isoformat(),'automation':POLICY,
+                          'publication':healthy()['publication']}
+                control=hooks.controls(report(snapshot,{'issues':[]},{unit:'failed'},{}),at=NOW)
+                atomic(target,control);target.chmod(0o640)
+                for platform in hooks.PLATFORMS:
+                    self.assertEqual(control['platforms'][platform]['reasons'],[])
+                    ns['hooks_before_write'](POLICY,[platform],True)
+            atomic(target,c);target.chmod(0o640)
             if os.name=='posix':
                 GuardPath.owner=1
                 with self.assertRaises(ValueError):ns['hooks_before_write'](POLICY,['PS'],True)
@@ -239,5 +266,52 @@ class Faults(unittest.TestCase):
         mirror=(root/'coin_all_sync_job.py').read_text()
         self.assertIn("hooks_before_write(read_policy(), [step['platform']], audit.get('automatic') is True)",mirror)
         wrapper=(root/'execute_price.sh').read_text();self.assertIn('flock -n 9',wrapper);self.assertIn('gates,readonly',wrapper)
+
+    def test_monitor_upgrade_rollback_removes_only_this_attempt_files(self):
+        from types import SimpleNamespace
+        import importlib.util
+        publisher_path=Path(__file__).parent/'publishers/monitor-publisher.py'
+        spec=importlib.util.spec_from_file_location('isolated_monitor_publisher',publisher_path)
+        publisher=importlib.util.module_from_spec(spec);spec.loader.exec_module(publisher)
+        with patch.object(sys,'argv',['publisher','--repair-runtime']),patch.object(publisher,'repair_runtime',return_value='checked') as repair:
+            self.assertEqual(publisher.main(),'checked');repair.assert_called_once_with(False)
+        with patch.object(sys,'argv',['publisher']),patch('sys.stderr'),self.assertRaises(SystemExit) as rejected:
+            publisher.main()
+        self.assertEqual(rejected.exception.code,2)
+        names=('collector.py','hooks.py','probe_worker.py','hooks_notifier.py','delivery.py')
+        for fail_at in range(1,7):
+            with self.subTest(fail_at=fail_at),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);app=root/'app';data=root/'data';stage=root/'stage'
+                app.mkdir();data.mkdir();(stage/'source').mkdir(parents=True)
+                original={};rows=[]
+                for name in names:
+                    before=None
+                    if name not in {'hooks.py','hooks_notifier.py'}:
+                        body=('# old '+name+'\n').encode();(app/name).write_bytes(body)
+                        original[name]=body;before=hashlib.sha256(body).hexdigest()
+                    body=('# new '+name+'\n').encode();(stage/'source'/name).write_bytes(body)
+                    rows.append({'name':name,'before':before,'after':hashlib.sha256(body).hexdigest()})
+                original['.hooks-unrelated']=b'preserve existing evidence'
+                (app/'.hooks-unrelated').write_bytes(original['.hooks-unrelated'])
+                (stage/'hooks-monitor-manifest.json').write_text(json.dumps({'files':rows}))
+                snapshot={'synthetic_protected':'unchanged'}
+                after=snapshot if fail_at<6 else {'synthetic_protected':'changed'}
+                replace=os.replace;calls=[]
+                def interrupted(source,target):
+                    calls.append(Path(target).name)
+                    if fail_at==len(calls):raise OSError('isolated mid-upgrade failure')
+                    replace(source,target)
+                lock_modules={}
+                if os.name!='posix':
+                    lock_modules['fcntl']=SimpleNamespace(LOCK_EX=1,LOCK_NB=2,flock=lambda *_:None)
+                with patch.dict(sys.modules,lock_modules),patch.object(publisher,'APP',app),patch.object(publisher,'DATA',data), \
+                     patch.object(publisher,'baseline',side_effect=[snapshot,after]), \
+                     patch.object(publisher.os,'geteuid',return_value=0,create=True), \
+                     patch.object(publisher.os,'chown',create=True), \
+                     patch.object(publisher.os,'replace',side_effect=interrupted), \
+                     patch.object(publisher.subprocess,'run',return_value=SimpleNamespace(returncode=0,stderr='Ran 35 tests\n\nOK\n')):
+                    with self.assertRaises((OSError,RuntimeError)):
+                        publisher.upgrade(stage,True)
+                self.assertEqual({p.name:p.read_bytes() for p in app.iterdir()},original)
 
 if __name__=='__main__':unittest.main()
