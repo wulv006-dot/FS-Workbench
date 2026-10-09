@@ -1,0 +1,171 @@
+<div class="native-body business">
+<div class="tip" id="tip"></div>
+<div class="tip wide" id="calTip"></div>
+<div class="wrap">
+  <nav class="sidenav" id="sideNav"></nav>
+  
+
+
+  <div class="ctrl">
+    <label class="scope-select">范围 <select id="business-scope" aria-label="经营范围"></select></label>
+    <div id="profileTabs"></div>
+    <div class="toolbar" id="rangeBar"></div>
+  </div>
+
+<div id="secOverview"></div>
+  <section id="supplement-insights" aria-label="所选日期准确经营指标"></section>
+  <div id="profitWrap">
+    <div class="section-label" id="lblProfit"></div>
+    <div class="kpis" id="kpisProfit"></div>
+  </div>
+
+  <div class="sec-head" id="secTrend"><span class="sec-num">02</span><span class="sec-title">利润率与销售趋势</span>
+    <span class="sec-desc" id="trendDesc"></span></div>
+
+  <div class="card" id="trendCard">
+    <h2 id="trendHead">利润率走势与每日订单量</h2>
+
+    <div id="pfPane">
+      <div class="pane-ttl">利润率走势<span class="hint" id="profitHint"></span></div>
+      <div id="chartProfit"></div>
+      <div class="pfavg" id="profitLegend"></div>
+    </div>
+    <div class="pdiv" id="pfDiv"></div>
+
+    <div class="pane-ttl"><span id="mainTitle">每日订单量与销售额</span><span class="hint" id="mainHint"></span></div>
+    <div id="chartMain"></div>
+    <div class="legend" id="mainLegend">
+      <span><i style="background:#0071e3"></i>订单量（左轴）</span>
+      <span><i style="background:#ff9500"></i>销售额 USD（右轴）</span>
+    </div>
+    <div class="hnote" id="mainNote" style="display:none"></div>
+  </div>
+
+  <div class="card" id="calCard">
+    <h2>销售日历<span class="hint" id="calHint"></span></h2>
+    <div class="cal-bar" id="calBar"></div>
+    <div class="cal-legend" id="calLegend"></div>
+    <div class="cal-months" id="calMonths"></div>
+    <div class="cal-note" id="calNote"></div>
+  </div>
+
+  <div class="sec-head" id="secStruct"><span class="sec-num">03</span><span class="sec-title">结构分析</span>
+    <span class="sec-desc" id="structDesc">跟随上方所选区间联动</span></div>
+
+  <div class="card" id="gameCard">
+    <h2><span id="gameCardTtl">游戏 / 品类排行</span><span class="hint" id="gameHint"></span></h2>
+    <div class="split">
+      <div class="pane">
+        <div class="pane-ttl">按订单量 · 前 10 名</div>
+        <div id="gameRank"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-ttl">按销售额 · 前 10 款</div>
+        <div class="gcards" id="gameImgs"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="geoCard">
+    <h2>国家 / 地区<span class="hint" id="geoHint"></span></h2>
+    <div class="split">
+      <div class="pane">
+        <div class="pane-ttl">订单来源 · 前 8 名</div>
+        <div id="geoRank"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-ttl">订单地理分布</div>
+        <div class="wm-wrap" id="worldMap"></div>
+        <div class="wm-legend" id="wmLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row2 eq" id="payRow">
+    <div class="card" id="payStyleCard">
+      <h2>支付方式<span class="hint" id="payStyleHint"></span></h2>
+      <div id="payStyleList"></div>
+    </div>
+    <div class="card" id="payDevCard">
+      <h2>支付设备<span class="hint" id="payDevHint"></span></h2>
+      <div id="payDevBox"></div>
+    </div>
+  </div>
+
+  <div class="sec-head" id="secDetail"><span class="sec-num">04</span><span class="sec-title">明细</span>
+    <span class="sec-desc">按小时下钻</span></div>
+
+  <div class="card" id="tblCard" style="display:none">
+    <h2><span id="tblTitle">按小时明细</span><span class="hint" id="tblHint">点表头可排序</span></h2>
+    <div class="tblwrap"><table id="tbl">
+      <thead id="tblHead"></thead><tbody></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" id="hourlyCard" style="display:none">
+    <h2>分时（按小时）<span class="hint" id="hourlyHint"></span></h2>
+    <div class="hbar"><span class="hlbl">区间</span><div class="subtabs" id="hourlyRanges" style="margin:0"></div>
+      <label class="hchk" title="对齐后每组 00:00 即「销售日历」里同一天的开头"><input type="checkbox" id="hourlyAlign" checked>对齐「销售日历」口径</label>
+    </div>
+    <div id="chartHourly"></div>
+    <div class="legend">
+      <span><i style="background:#34a853"></i>订单量（左轴）</span>
+      <span><i style="background:#ff9500"></i>销售额 USD（右轴）</span>
+      <span><i style="background:#f5a623"></i>当前未过完的小时</span>
+    </div>
+    <div class="hnote" id="hourlyNote"></div>
+  </div>
+
+  <div id="crossSec" style="display:none">
+    <div class="sec-head" id="secCross"><span class="sec-num">05</span><span class="sec-title">组内项目对比</span>
+      <span class="sec-desc" id="crossHint"></span></div>
+    <div class="card" id="crossCard">
+      <h2>最新完整日 + 近7日<span class="hint">按项目横向对比</span></h2>
+      <div class="tblwrap" style="max-height:none"><table id="crossTbl">
+        <thead><tr><th data-k="name">项目</th><th data-k="lifecycle">生命周期</th>
+        <th data-k="dayOrders">最新日订单</th><th data-k="dayRevenue">最新日金额</th>
+        <th data-k="weekOrders">近7日订单</th><th data-k="weekRevenue">近7日金额</th>
+        <th data-k="weekNew">近7日新客</th><th data-k="weekRepeat">近7日后台复购率</th>
+        <th data-k="coverage">覆盖状态</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+
+<dialog class="overlay" id="cmpOverlay" aria-label="区间对比">
+  <div class="cmp-card">
+    <div class="cmp-head"><span id="cmpIcon"></span><h3 id="cmpTitle">区间对比</h3>
+      <button class="cmp-close" id="btnCompareClose">✕</button></div>
+    <div class="cmp-sel">
+      <div class="cmp-side a">
+        <div class="ttl"><span class="cmp-tagA">区间 A</span>
+          <select id="cmpPresetA">
+            <option value="7">近 7 天</option><option value="14">近 14 天</option>
+            <option value="30" selected>近 30 天</option><option value="180">近半年</option>
+            <option value="365">近一年</option><option value="custom">自定义</option>
+          </select></div>
+        <div class="cmp-dates">
+          <input class="dinput" id="cmpAStart" placeholder="YYYY-MM-DD">
+          <span class="dtsep">~</span>
+          <input class="dinput" id="cmpAEnd" placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+      <div class="cmp-side b">
+        <div class="ttl"><span class="cmp-tagB">区间 B</span>
+          <select id="cmpPresetB">
+            <option value="7">近 7 天</option><option value="14">近 14 天</option>
+            <option value="30" selected>近 30 天</option><option value="180">近半年</option>
+            <option value="365">近一年</option><option value="custom">自定义</option>
+          </select></div>
+        <div class="cmp-dates">
+          <input class="dinput" id="cmpBStart" placeholder="YYYY-MM-DD">
+          <span class="dtsep">~</span>
+          <input class="dinput" id="cmpBEnd" placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+    </div>
+    <div class="cmp-go"><button class="applybtn" id="btnCompareRun" style="padding:10px 34px">开始对比</button></div>
+    <div class="cmp-result" id="cmpResult"></div>
+    <div class="cmp-note">对比口径：订单 / 金额 / 客单价 / 峰值均由按天序列合计（已做完整天修正，准确）；变化 =（B − A）÷ A。</div>
+  </div>
+</dialog><details class="source-details"><summary>数据与口径详情</summary><div id="meta"></div></details></div>
