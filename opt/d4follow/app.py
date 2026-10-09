@@ -3007,6 +3007,14 @@ def api_gold_cost():
                    #   若继续取它，看板 G2G 列会整列空白。
                    "g2g": (r.get("src_g2g") if r.get("src_g2g") is not None
                            else r.get("src2_g2g")),
+                   # 2026-10-09（老板口径）：看板要看清「我方到底在跟哪个价」。
+                   #   g2g_base = **子服务器** G2G 上真正被跟的价（有 cheapold 用 cheapold，
+                   #   无则推荐前二较低者），且是**成本兜底前**的原竞品价（不受保本抬价影响）。
+                   #   g2g_base_src = 它的来源（"G2G·cheapold" / "G2G·推荐前二"）。
+                   #   与上面的 "g2g" 区别：那个是**三源·大区级** G2G 最低价，仅作参考，
+                   #   跟定价基准不是一个口径 —— 前端汇总区那一列改用这两个字段。
+                   "g2g_base": r.get("g2g_base"),
+                   "g2g_base_src": r.get("g2g_base_src"),
                    "eld": r.get("src_eld"),
                    "iggm": r.get("iggm_per_m"),
                    # 2026-10-02：竞品最低价与差距 —— 金币监控主表已按用户要求隐藏，

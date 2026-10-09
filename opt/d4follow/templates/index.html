@@ -1923,10 +1923,12 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _pct = function(v){ if(v==null) return '--';
       return (Math.round(Number(v)*1000)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
     const _isDDonly = (_pmode==='dd373_only');
+    const _isG2GC   = (_pmode==='g2g_cheapold');
     const _ddMkNum = Number(_pol['加价比例']);
     const _ddMk = isNaN(_ddMkNum) ? 0.07 : _ddMkNum;
     const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
     const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
+    /* 旧「定价级别」单元格 —— 只在 dd373 两种模式下还有意义（D4 等游戏仍走这里，逐字不变）。 */
     const tierCell = (tier==null)
       ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
       : '<td class="num" style="color:'+tcol+';font-weight:600">第'+tier+'级'
@@ -1938,7 +1940,57 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
               : (tier===2? ((_pol['次源']||'G2G')+'兜底')
                          : ('默认 $'+(Number(_pol['默认售价_USD每M'])||9.9).toFixed(2)))))
         + '</div></td>';
-    /* 竞品三源（仅采集监控，不参与定价）—— 用户要求汇总区也能一眼看到 */
+    /* ===== 2026-10-09（老板口径）· **跟价来源** 单元格 =====
+       取代 g2g_cheapold 模式下的旧「定价级别」列（那列在该模式下 86 行全渲染成
+       字面文本「旧口径」，纯噪音）。这里直接回答「这一行的价跟的是谁」：
+         cheapold 卖家 / 推荐前二较低者 / 货源闸保护价，命中成本兜底再单独标一句。 */
+    const _bS  = String(P.base || '');        // src_base："G2G·cheapold" / "G2G·推荐前二" / "无货兜底" …
+    const _bS0 = _bS.replace(/→成本价$/,'');   // 去掉成本兜底尾巴，剩下的才是取价来源
+    const _cf  = (_bS.indexOf('成本价') >= 0); // 竞品低于我方 DD373 成本 ⇒ 按成本价保本，不下浮
+    const _cfTip = '<div class="small" style="color:var(--sub);font-weight:400">'
+                 + '竞品低于成本 → 按成本价保本</div>';
+    const srcCell = !_isG2GC ? tierCell
+      : (_bS0.indexOf('cheapold') >= 0
+          ? '<td style="color:var(--green);font-weight:600">cheapold 卖家'
+            + (_cf ? _cfTip
+                   : '<div class="small" style="color:var(--sub);font-weight:400">'
+                     + '永远优先 cheapold</div>') + '</td>'
+        : (_bS0.indexOf('推荐前二') >= 0
+          ? '<td style="color:var(--yellow);font-weight:600">推荐前二较低者'
+            + (_cf ? _cfTip
+                   : '<div class="small" style="color:var(--sub);font-weight:400">'
+                     + '该区无 cheapold 卖家</div>') + '</td>'
+        : (_bS.indexOf('无货兜底') >= 0
+          ? '<td style="color:var(--red);font-weight:600">货源闸'
+            + '<div class="small" style="color:var(--sub);font-weight:400">DD373 无货 → $'
+            + _ddPark.toFixed(2)+'/M 保护</div></td>'
+          : '<td style="color:var(--sub)">—</td>')));
+    /* ===== 2026-10-09（老板口径）· **G2G 跟价基准** 单元格 =====
+       主数字 = 我方真正在跟的那个价（cheapold 优先，无则推荐前二较低者）。
+       · 新列 g2g_base 落库后优先用（**成本兜底前**的原竞品价，最准）；
+       · 旧快照该列还是 NULL ⇒ 回落 src_base_v（两者等价；唯一差别是「成本兜底」
+         那 2 行旧快照会短暂显示成本价，下一轮采集后自动校正）。 */
+    const g2gBaseCell = function(){
+      let _b = (P.g2g_base!=null && P.g2g_base!=='') ? Number(P.g2g_base) : null;
+      let _tag = String(P.g2g_base_src || '');
+      if(_b==null && _isG2GC && _bS0.indexOf('G2G')>=0
+         && P.base_v!=null && P.base_v!==''){ _b = Number(P.base_v); _tag = _bS0; }
+      if(_b==null || isNaN(_b))
+        return '<td class="num" style="color:var(--sub)">—'
+          + (_isG2GC
+             ? '<div class="small" style="color:var(--sub);font-weight:400">'
+               + (_bS.indexOf('无货兜底')>=0 ? '货源闸：本轮未抓 G2G' : '本轮无 G2G 报价')
+               + '</div>'
+             : '')
+          + '</td>';
+      const _lab = (_tag.indexOf('cheapold')>=0) ? 'cheapold 价'
+                 : (_tag.indexOf('推荐前二')>=0) ? '推荐前二较低者' : '';
+      return '<td class="num mono"><b>$'+_b.toFixed(2)+'/M</b>'
+        + (_lab ? '<div class="small" style="color:var(--sub)">'+_lab+'</div>' : '')
+        + '</td>';
+    };
+    /* 竞品参考价单元格（ELD / IGGM）—— 用户要求汇总区也能一眼看到。
+       2026-10-09：G2G 已改用 g2gCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
     const cCell = function(v){ return (v==null||v==='')
       ? '<td class="num" style="color:var(--sub)">—</td>'
       : '<td class="num mono">$'+Number(v).toFixed(2)+'/M</td>'; };
@@ -1969,13 +2021,17 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
         + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
         + (stockTip? esc(stockTip):'')+'</div></td>'
-      + tierCell
+      + srcCell
       + '<td class="num mono">'+(x.售价_USD每M!=null?('$'+f4(x.售价_USD每M)+'/M') : '--')
         + (x.对照档位M? '<div class="small" style="color:var(--sub)">按 '+x.对照档位M+'M 档</div>':'')+'</td>'
       /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列 ——
          该列用成本除数换算，与 MMOEXP 前台口径重复且易误读，直接移除。
          「改价操作」列里的新价已改用真实除数（5.32），与前台一致。 */
-      + cCell(P.g2g) + cCell(P.eld) + cCell(P.iggm)
+      /* 2026-10-09：G2G 列换成 g2gBaseCell（跟价基准 = cheapold 优先），不再是三源 G2G 最低价。
+         ⚠ 只在 g2g_cheapold 模式（或有新列 g2g_base）时才换；其它定价模式的每一行
+           仍然走原来的 cCell(P.g2g) —— 保证 D4 / MSCW 那些行**逐字不变**。 */
+      + ((_isG2GC || P.g2g_base!=null) ? g2gBaseCell() : cCell(P.g2g))
+      + cCell(P.eld) + cCell(P.iggm)
       + costCell
       + mCell(x.利润率)
       + gapCellSum(P)
@@ -2011,12 +2067,39 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + ' ｜ <span style="color:var(--yellow)">无货兜底 $'
       + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_dist[3]+'</span>');
   }
-  const thead = '<tr><th>服务区 / 货源</th><th class="num">定价级别</th>'
+  if(_pol2['模式']==='g2g_cheapold'){
+    /* 2026-10-09（老板口径）：跟价来源分布 —— 取代旧「第N级」分布。
+       一眼看出这轮有几个区在跟 cheapold、几个区该区没 cheapold 走了推荐前二、
+       几个区被 DD373 货源闸挂了 $19.9 保护价。（判据与「跟价来源」列完全同源。） */
+    const _d2 = {cheapold:0, rec:0, gate:0, other:0};
+    rows.forEach(function(x){
+      const P3 = x['定价']||{};
+      if(P3.mode!=='g2g_cheapold') return;
+      const b = String(P3.base||'');
+      if(b.indexOf('无货兜底')>=0) _d2.gate++;
+      else if(b.indexOf('cheapold')>=0) _d2.cheapold++;
+      else if(b.indexOf('推荐前二')>=0) _d2.rec++;
+      else _d2.other++;
+    });
+    sumBits.push('跟价来源：<span style="color:var(--green)">cheapold '+_d2.cheapold
+      + '</span> ｜ <span style="color:var(--yellow)">推荐前二 '+_d2.rec
+      + '</span> ｜ <span style="color:var(--red)">货源闸 $'
+      + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_d2.gate+'</span>');
+  }
+  const thead = '<tr><th>服务区 / 货源</th>'
+    /* 2026-10-09（老板口径）：「这个定价级别是什么旧口径，这种数据没啥意义，修改掉」——
+       旧列只在 dd373 两种模式下才算级别，现行 g2g_cheapold 模式下 86 行全渲染成
+       字面文本「旧口径」= 纯噪音。改成 **跟价来源**：直接回答「这一行的价跟的是谁」。 */
+    + '<th>跟价来源</th>'
     + '<th class="num">售价 $/M<br><span class="small" style="color:var(--sub);font-weight:400">改价后最终</span></th>'
     /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列，与「售价」列口径重复。 */
-    /* 2026-10-06 用户口径：「只关注 G2G最低价、ELD最低价、IGGM价」——
-       G2G 列由子服务器 cheapold 改为**三源里的 G2G 最低价**（见 app.py api_gold_cost）。 */
-    + '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    /* 2026-10-09（老板口径）：「之前不是让你盯着 cheapold 的价格来改吗，那你得把
+       G2G 最低这列数据换成这个 cheapold 的价格」——
+       原列取 src_g2g = **三源·大区级** G2G 最低价，与真正在跟的价（**子服务器**
+       cheapold / 推荐前二）不是一个口径（实测 ASIA_ARIEL_E 列显 3.96 / 实际跟 1.89）。
+       现改为 **G2G 跟价基准**：有 cheapold 显示 cheapold 价，无则显示推荐前二较低者
+       并标注来源（老板确认选 A：不出现空洞）。 */
+    + '<th class="num">G2G 跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先</span></th>'
     + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
@@ -2027,6 +2110,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     + '<th>依据</th><th>改价操作</th></tr>';
   const _isDD2 = _pol2['模式']==='dd373_markup';
   const _isOnly = _pol2['模式']==='dd373_only';
+  const _isG2GC2 = _pol2['模式']==='g2g_cheapold';   // 2026-10-09：AION2 现行模式
   /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
      ⚠ 必须放在 #gcsTable **之外**：表格每次重绘都换 innerHTML，控件在里面会失焦。
      控件的初值从 GCS_FILTER 回填（新一轮采集重建后不丢用户已选的筛选）。 */
@@ -2065,7 +2149,15 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + (Math.round(Number(_pol2['加价比例']||0)*1000)/10)+'%'
                  + '；无报价或可买量 < 1 亿 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
-              : ' ｜ <b>成本不参与改价</b>，仅监控参考。'))
+              /* 2026-10-09 修：原来 g2g_cheapold 落到「成本不参与改价，仅监控参考」这一支
+                 —— 那是旧 dd373 时代的说法，现行口径下成本**参与**（成本兜底 + 货源闸），
+                 留着就是错误口径。补正确分支。 */
+              : (_isG2GC2 ? (' ｜ <b style="color:var(--green)">跟 G2G 该子服务器 cheapold 价 −'
+                 + (Math.round(Number(_pol2['下浮比例']||0)*1000)/10)+'%'
+                 + '；该区无 cheapold ⇒ 推荐前二较低者；竞品低于我方成本 ⇒ 按成本价保本；'
+                 + 'DD373 无货 ⇒ 统一挂 $'
+                 + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M 保护</b>')
+              : ' ｜ <b>成本不参与改价</b>，仅监控参考。')))
     + '</div>'
     + bar
     + '<div id="gcsTable"></div>';
