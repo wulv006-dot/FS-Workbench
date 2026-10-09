@@ -1,0 +1,26 @@
+{
+  "module": "fc-coins",
+  "owner": "wulv",
+  "scope": "two collector files only",
+  "root_fc27_adoption": "legacy-unreconciled; root paths left unchanged",
+  "runtime_status": "deployed 2026-10-09T06:36:40Z",
+  "backup": "/var/lib/fc27-cloud/rollback/collector-recovery-20261009T063640Z",
+  "entries": [
+    {
+      "name": "lootbar_server_collector.py",
+      "target": "/opt/fc27-cloud-browser/collector/lootbar_server_collector.py",
+      "before": "8f98ac8a495c6e9ca8d853f9fbd7b6bb578e057752717f76fc40fb0f7f1dbc5d",
+      "after": "db871f15b59e59cf8e98fd2e94cca1081742b82ff80f7a33b0401257b6732f82",
+      "git_path": "releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"
+    },
+    {
+      "name": "background.js",
+      "target": "/opt/fc27-cloud-browser/collector/background.js",
+      "before": "15342c846a24d3e33784f5d86d801ba3aea9917f0cd5c6aaf9b3d0397dcc3c17",
+      "after": "4f36ad8a9723039912727f64bb6a3f20da0c657dc2a57105c4fb4d8faa6cf67b",
+      "git_path": "releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/background.js"
+    }
+  ],
+  "pricing_policy_unchanged": true,
+  "generic_retry_whitelist_changed": false
+}

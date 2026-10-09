@@ -11,6 +11,7 @@ def units(directory, names):
     # Each group runs in a fresh interpreter: avoid module-name/path collisions.
     code = """
 import io,json,socket,subprocess,sys,unittest
+import unittest.mock
 from pathlib import Path
 root=Path(sys.argv[1]);sys.path[:0]=[str(root/sys.argv[2]),str(root)]
 real=socket.socket.connect
@@ -187,6 +188,8 @@ def selfcheck():
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/registration/account-management-20261009/source/web/app.js"]) != ["registration-management"]:
         raise RuntimeError("registration_management_scope_missing")
+    if select(["releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"]) != ["fc-lootbar"]:
+        raise RuntimeError("lootbar_mapping_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
         raise RuntimeError("fc_noncore_scope_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
@@ -200,6 +203,8 @@ def select(paths):
         suffix=Path(name).suffix
         if name.startswith("releases/registration/account-management-20261009/"):
             groups.add("registration-management");continue
+        if name.startswith("releases/fc-coins/lootbar-spec-repair-20261009/"):
+            groups.add("fc-lootbar");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
         if name.startswith("releases/green-plan/20261009-review-fix/"):
@@ -278,6 +283,11 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fc-lootbar":
+            release="releases/fc-coins/lootbar-spec-repair-20261009"
+            units(release+"/fc27_chrome_collector",["test_lootbar_server_collector"])
+            subprocess.run(["node",str(ROOT/release/"fc27_chrome_collector/test_lootbar_collection.cjs")],
+                cwd=ROOT/release,check=True,timeout=30)
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
@@ -296,5 +306,6 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
