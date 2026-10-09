@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "status": "local-candidate-awaiting-private-repo-QA-and-controlled-release-approval",
+  "frontendRelease": "workspace-native-20261006-f6a2468ee805",
+  "files": [
+    {
+      "source": "stage/assets/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/business.css",
+      "sha256": "3bf213fd69913109dbe31e8d1aaadffa7a8bea9eaaef909168719d5f58958fda"
+    },
+    {
+      "source": "stage/assets/business.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/business.html",
+      "sha256": "04ec3e09ae7b9c97236b09f32437a98f5e1922247ee0a8a0b4f022eea3f679ec"
+    },
+    {
+      "source": "stage/assets/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/business.js",
+      "sha256": "13566060f5560d52a58adb27604f9b36fe51bf0e818541be178f0b0f93c47381"
+    },
+    {
+      "source": "stage/assets/google.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/google.css",
+      "sha256": "aebd721edcd077ea9d6af3f080eb607ecff1ae7475bba003c1216507271b99c6"
+    },
+    {
+      "source": "stage/assets/google.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "source": "stage/assets/google.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/google.js",
+      "sha256": "c7730146a194ca5346562f006a18f2d6816234d003b74ccb6eebf367bbc598f6"
+    },
+    {
+      "source": "stage/assets/home.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/home.html",
+      "sha256": "7066312ecd24ba827ea2ef49ac59048e6ea8a49534b805904016ae5af61b34c8"
+    },
+    {
+      "source": "stage/assets/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/index.html",
+      "sha256": "e5ca6afe677f89bdbedc097685cb66ac28454836aa33d1cbe91c0ec2ac89f345"
+    },
+    {
+      "source": "stage/assets/metrics.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "source": "stage/assets/navigation.json",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed"
+    },
+    {
+      "source": "stage/assets/runtime.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973"
+    },
+    {
+      "source": "stage/assets/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/shell.js",
+      "sha256": "3a5caf99c22a3d81df4243df8443bac78271798498dccb2694941c3eb8b6497d"
+    },
+    {
+      "source": "stage/assets/snapshot-client.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e"
+    },
+    {
+      "source": "stage/assets/workspace.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f6a2468ee805/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d"
+    },
+    {
+      "source": "stage/candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "7066312ecd24ba827ea2ef49ac59048e6ea8a49534b805904016ae5af61b34c8"
+    },
+    {
+      "source": "stage/candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "36da8e3a1bbb3a6eebf8991b85cf0422cc2bf400b18b155ef9151feef2174055"
+    },
+    {
+      "source": "stage/candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    },
+    {
+      "source": "custom_range.py",
+      "target": "/opt/mmoexp-marketing/custom-range/custom_range.py",
+      "sha256": "33b63a04321dab4143f64b17ede3debc3d04c22c68da9cefc530d94f8758110d"
+    },
+    {
+      "source": "range_api.py",
+      "target": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "sha256": "cf6959fc5e5d720258e7e1b35b9845352c6d0f55d99297593e2c3dae610953d8"
+    },
+    {
+      "source": "service/admin_links.py",
+      "target": "fc27-p2pah-session:/usr/local/bin/admin_links.py",
+      "sha256": "3a2d3d7b6479fa57e4cd81f5ab33337b717b5c57121b81527e89f1444bd640d9"
+    },
+    {
+      "source": "service/p2pah_session_service.py",
+      "target": "fc27-p2pah-session:/usr/local/bin/p2pah_session_service.py",
+      "sha256": "ec4c7ba41c3cc07f16e2dbdb294f9c467f490bb7765a8a74d2d3db8e6c4b26e9"
+    },
+    {
+      "source": "service/Dockerfile.session",
+      "target": "session image build input",
+      "sha256": "30eab6f0afcc9523c14bef2c1096850c6ff03a2f1f3ac7e117dcbf02dbb2c42d"
+    },
+    {
+      "source": "service/fs-marketing-range.service",
+      "target": "/etc/systemd/system/fs-marketing-range.service",
+      "sha256": "1add2694d89e56c42b52dc13d162b190788cc3c365ddff7f6efcc129ad97ea21"
+    },
+    {
+      "source": "service/marketing-range.locations.conf",
+      "target": "existing protected nginx server include",
+      "sha256": "36361a276beb0232475061395830c6a3d66df66acf1381ff6309239d15ecb2f0"
+    },
+    {
+      "source": "auth/runtime.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "sha256": "6b92b4c33d9fa1e4ac14514ea0291beb1aaf291495b8dec77db8507f24f62e12"
+    },
+    {
+      "source": "auth/route-contract.json",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "sha256": "5e29010b520bf4ee6f6e04cbfff56d3430cf21300b040301ae6ea5316dde0539"
+    }
+  ],
+  "sourceMaps": [
+    "service-source-map.json",
+    "auth/source-map.json"
+  ],
+  "gatesRemaining": [
+    "private repository frozen commit and Linux QA",
+    "current source/runtime/image and nginx CAS verification",
+    "owner and exact artifact release approval",
+    "real protected roles and real custom date readback"
+  ],
+  "newPublicReads": [
+    "/dashboard/marketing/range.json",
+    "/dashboard/marketing/business-links.json"
+  ],
+  "upstreamWrites": false,
+  "changedSchedules": false,
+  "gitWritten": false
+}

@@ -1,0 +1,9 @@
+{
+  "runtimeBeforeSha256": "74019f5942d8bc825fcfb28d9d66b085cb132edc24cea1f0686384d74b16bb8c",
+  "routeContractBeforeSha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c",
+  "runtimeTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+  "contractTarget": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+  "contractBeforeCopy": "decoded JSON semantic readback, not byte-identical export",
+  "permissionScope": "existing marketing read grant only; no users or grants changed",
+  "releaseReady": false
+}

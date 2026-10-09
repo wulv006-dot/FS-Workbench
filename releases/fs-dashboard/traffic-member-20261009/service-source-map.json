@@ -1,0 +1,9 @@
+{
+  "beforeSha256": "04af4317072ad565dbbf4efeed63db4ee21ccb73bafebd043012f6878e1d0bb0",
+  "candidateSha256": "983aa3e0a45a126862dbb2263ee659f34eb28cd7b7762ff664a2a5877a95d55d",
+  "target": "fc27-p2pah-session:/usr/local/bin/p2pah_session_service.py",
+  "extra": "fc27-p2pah-session:/usr/local/bin/admin_links.py",
+  "releaseReady": false,
+  "existingEndpoints": "unchanged",
+  "authentication": "uses ready in-process session only; does not login or renew for marketing"
+}
