@@ -9,8 +9,8 @@
       "gitPath": "releases/registration/account-management-20261009/source/web/app.js",
       "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
       "beforeSha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
-      "afterSha256": "b74b78cfec875633f57a3b69e6d8fddf01eb092659558b175edc708cdeb8ed94",
-      "bytes": 8824
+      "afterSha256": "71286fb2fb82fc4a3e582c8b75c65786f05410643f4e12596e18f7184fe0ce1f",
+      "bytes": 8704
     },
     {
       "source": "source/web/index.html",

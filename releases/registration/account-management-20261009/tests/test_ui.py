@@ -45,7 +45,7 @@ def run():
                 state['posts'].append((action, body))
                 status = state['failure'].get(body['request_id'], 200)
                 if status == 0: route.abort(); return
-                result = {'error': '�����ѱ仯����ˢ�º�����'}
+                result = {'error': '申请已变化，请刷新后重试'}
             else:
                 route.abort(); return
             route.fulfill(status=status, json=result)
@@ -63,14 +63,14 @@ def run():
             form.locator('button').click()
             alert = form.get_by_role('alert')
             alert.wait_for(state='visible')
-            check(alert.inner_text() == '�˺Ż����������������ԡ�', 'Chinese credential error beside each login')
+            check(alert.inner_text() == '账号或密码错误，请检查后重试。', 'Chinese credential error beside each login')
             check(form.locator('[name=password]').input_value() == 'wrong-fixture-password', 'failed login preserves input')
             check(form.locator('button').is_enabled(), 'failed login permits retry')
             rect = alert.bounding_box()
             check(rect['y'] >= 0 and rect['y'] + rect['height'] <= 701, 'error is within viewport after submit')
         state['login'] = 0
         page.locator('#native-login button').click()
-        page.wait_for_function("document.querySelector('#native-login [role=alert]').textContent.includes('�����ж�')")
+        page.wait_for_function("document.querySelector('#native-login [role=alert]').textContent.includes('连接中断')")
         check(page.locator('#native-login button').is_enabled(), 'network failure recovers login button')
         state['login'] = 200
         page.locator('#native-login button').click()
@@ -78,12 +78,12 @@ def run():
         check(page.locator('#native-box').is_hidden(), 'successful login restores admin panel')
 
         def rows(status='pending', count=3):
-            return [{'id': str(i), 'name': 'fixture_' + str(i), 'status': status, 'version': i, 'team': '����', 'purpose': '��������', 'cursor': i} for i in range(1, count+1)]
+            return [{'id': str(i), 'name': 'fixture_' + str(i), 'status': status, 'version': i, 'team': '测试', 'purpose': '隔离验收', 'cursor': i} for i in range(1, count+1)]
         def refresh(items):
             state['items'] = items
             with page.expect_response(lambda response: '/api/requests' in response.url):
                 page.locator('#refresh').click()
-            page.wait_for_function('(n) => document.querySelectorAll("#requests article").length === n && document.getElementById("selection").textContent.includes("��ѡ 0")', arg=len(items))
+            page.wait_for_function('(n) => document.querySelectorAll("#requests article").length === n && document.getElementById("selection").textContent.includes("已选 0")', arg=len(items))
         dialog_state = {'accept': True}
         page.on('dialog', lambda dialog: dialog.accept() if dialog_state['accept'] else dialog.dismiss())
         refresh(rows())
@@ -92,34 +92,34 @@ def run():
         check(page.locator('#bulk-approve').is_enabled() and page.locator('#bulk-revoke').is_disabled(), 'only matching pending actions enabled')
         page.locator('#bulk-approve').click()
         check(not state['posts'], 'blank reason sends no approval')
-        page.locator('#bulk-reason').fill('�˹���ʵ����')
+        page.locator('#bulk-reason').fill('人工核实测试')
         dialog_state['accept'] = False
         page.locator('#bulk-approve').click()
         check(not state['posts'], 'cancel confirmation sends no approval')
         dialog_state['accept'] = True
         page.locator('#bulk-approve').click()
-        page.wait_for_function("document.getElementById('message').textContent.includes('����� 3 / 3')")
+        page.wait_for_function("document.getElementById('message').textContent.includes('已完成 3 / 3')")
         check([b['request_id'] for _, b in state['posts']] == ['1','2','3'], 'exact selected IDs sent once in sequence')
-        check(all(b['reason']=='�˹���ʵ����' and b['action']=='approve' and b['version']==int(b['request_id']) for _,b in state['posts']), 'reason and CAS versions retained')
+        check(all(b['reason']=='人工核实测试' and b['action']=='approve' and b['version']==int(b['request_id']) for _,b in state['posts']), 'reason and CAS versions retained')
         check(page.locator('#results p').count()==3, 'each result remains visible after refresh')
         check(page.locator('#bulk-approve').is_disabled(), 'selection cleared after operation')
 
         state['posts'] = []; state['failure'] = {'2':409}
         refresh(rows()); page.locator('#select-all').check(); page.locator('#bulk-reject').click()
-        page.wait_for_function("document.getElementById('message').textContent.includes('ʧ�� 1')")
-        check(len(state['posts'])==3 and 'δ���' in page.locator('#results').inner_text(), 'CAS conflict reported separately; no false all-success')
+        page.wait_for_function("document.getElementById('message').textContent.includes('失败 1')")
+        check(len(state['posts'])==3 and '未完成' in page.locator('#results').inner_text(), 'CAS conflict reported separately; no false all-success')
 
         state['posts'] = []; state['failure'] = {'2':0}
         refresh(rows('approved')); page.locator('#select-all').check(); page.locator('#bulk-revoke').click()
-        page.wait_for_function("document.getElementById('message').textContent.includes('���ڴ��˶Խ��')")
+        page.wait_for_function("document.getElementById('message').textContent.includes('存在待核对结果')")
         check(len(state['posts'])==2, 'unknown result stops remaining writes')
         check(all(a=='revoke' and 'action' not in b for a,b in state['posts']), 'revoke contract retained')
-        check('��Ҫֱ������' in page.locator('#results').inner_text(), 'unknown instructions explicit')
+        check('不要直接重试' in page.locator('#results').inner_text(), 'unknown instructions explicit')
 
         for status in [503, 403]:
             state['posts'] = []; state['failure'] = {'1':status}
             refresh(rows()); page.locator('#select-all').check(); page.locator('#bulk-reject').click()
-            page.wait_for_function("document.getElementById('message').textContent.includes('����� 0 / 3')")
+            page.wait_for_function("document.getElementById('message').textContent.includes('已完成 0 / 3')")
             page.wait_for_function("document.getElementById('refresh').disabled === false")
             check(len(state['posts'])==1, 'server uncertainty or permission denial stops further writes')
 
