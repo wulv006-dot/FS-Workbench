@@ -1,0 +1,40 @@
+{
+  "status": "deployed",
+  "at": "2026-10-09T13:05:41.623462+00:00",
+  "target": "/opt/fc27-cloud-browser/lootbar_server_collector.py",
+  "installed_sha256": "9e1f39eb8f92e84ad324257a4483cc6dd098d87c301ae50d94885ca16537a1a6",
+  "before_sha256": "3857e56cbf8f8bd32589c36c10af1b4c78d07827cd804a427c42a0c0c792ff04",
+  "backup": "/var/lib/fc27-cloud/rollback/coupon-parity-doc-20261009T130540Z",
+  "protected_hashes_unchanged": 28,
+  "services": {
+    "fc27-cloud-api": "active",
+    "fc27-cloud-worker": "active",
+    "fc27-automation-tick.timer": "active"
+  },
+  "policy_revision": 30,
+  "ast_equivalence": {
+    "equal": true,
+    "ast_sha256": "72d83b4eb582f3cd1025e7770bc6b575d0437dda4cf72ee1c40ed60756b57ec4"
+  },
+  "dry_run": {
+    "status": "checked",
+    "protected": 28
+  },
+  "discipline": [
+    "flock state/price-writer.lock non-blocking",
+    "queue/jobs/executions idle",
+    "baseline hash re-verified (29 files)",
+    "units active required",
+    "backup into rollback/coupon-parity-doc-20261009T130540Z",
+    "stop api+worker",
+    "atomic os.replace preserving mode/owner",
+    "fsync file + directory",
+    "restart + wait_health (worker==ok)",
+    "installed & protected hashes re-verified"
+  ],
+  "docs": {
+    "rules_md_pr": 51,
+    "rules_md_merge": "77c16535726fd5ff0b51a8351b46f2b62e13ffd1",
+    "local_strategy_doc": "FC27_Coins_Lootbar定锚策略_20260928.md"
+  }
+}

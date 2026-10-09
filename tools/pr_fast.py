@@ -205,6 +205,8 @@ def selfcheck():
         raise RuntimeError("fc_public_readback_scope_missing")
     if select(["releases/fc-coins/coupon-consistency-20261009/fc27_cloud_browser/snapshot_layer.py"]) != ["fc-coupon-consistency"]:
         raise RuntimeError("fc_coupon_consistency_scope_missing")
+    if select(["releases/fc-coins/coupon-parity-doc-20261009/release/source/lootbar_server_collector.py"]) != ["fc-coupon-parity-doc"]:
+        raise RuntimeError("fc_coupon_parity_doc_scope_missing")
     if select(["releases/fs-dashboard/metrics-fix-20261009/assets/runtime.js"]) != ["fs-metrics-fix"]:
         raise RuntimeError("fs_metrics_fix_mapping_missing")
     if select(["releases/fs-dashboard/traffic-yesterday-20261009/assets/business.js"]) != ["fs-period-ui"]:
@@ -238,6 +240,8 @@ def select(paths):
             groups.add("fc-public-readback");continue
         if name.startswith("releases/fc-coins/coupon-consistency-20261009/"):
             groups.add("fc-coupon-consistency");continue
+        if name.startswith("releases/fc-coins/coupon-parity-doc-20261009/"):
+            groups.add("fc-coupon-parity-doc");continue
         if name.startswith("releases/green-plan/20261009-review-fix/"):
             groups.add("green-plan-review-fix");continue
         if name.startswith("releases/green-plan/20261009/"):
@@ -344,6 +348,10 @@ def main():
             subprocess.run([sys.executable,"-I","-B","-c",
                 "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                 str(ROOT/"tools"),str(ROOT/release/"fc27_cloud_browser"),"test_coupon_consistency"],check=True,timeout=90,cwd=ROOT)
+        elif group=="fc-coupon-parity-doc":
+            release="releases/fc-coins/coupon-parity-doc-20261009"
+            subprocess.run([sys.executable,"-I","-B","tools/fc-check-doc-release.py",
+                str(ROOT/release)],check=True,timeout=60,cwd=ROOT/release)
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
