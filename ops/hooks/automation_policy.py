@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 
 from fc27_quote_engine import (normalize_discount_rules, discount_rules_sha256,
-                               default_discount_rules, clamp_discount)
+                               default_discount_rules, clamp_discount, reference_sites)
 
 
 ROOT = Path("/var/lib/fc27-cloud")
@@ -265,6 +265,9 @@ def check_write(policy, quote, selected, *, automatic=False, confirmed=(), reaso
                     raise ValueError("automatic_tier_rule:" + platform)
             if automatic and price >= floor and not follows_ps:
                 offers = quote["evidence"]["offers"][platform]
+                references = reference_sites(offers)
+                if not references:
+                    raise ValueError("automation_reference_missing")
                 lootbar_offer = offers["Lootbar"]
                 if Decimal(str(lootbar_offer["base_k"])) != 100:
                     raise ValueError("automation_lootbar_package_invalid")
@@ -279,7 +282,7 @@ def check_write(policy, quote, selected, *, automatic=False, confirmed=(), reaso
                     raise ValueError("automation_competitor_page_invalid")
                 if before_margin >= 40:
                     gaps = []
-                    for site in ("U4GM", "IGGM"):
+                    for site in references:
                         offer = offers[site]
                         if Decimal(str(offer["base_k"])) != 100:
                             raise ValueError("automation_competitor_package_invalid")
@@ -291,7 +294,7 @@ def check_write(policy, quote, selected, *, automatic=False, confirmed=(), reaso
                             raise ValueError("automation_competitor_page_invalid")
                         other_unit = Fraction(other_page) / Fraction(Decimal(100) + other_bonus)
                         gaps.append(max(Fraction(0), (lootbar_unit - other_unit) / lootbar_unit))
-                    reduction = min(Fraction(1, 10), sum(gaps) / 2)
+                    reduction = min(Fraction(1, 10), sum(gaps) / len(gaps))
                 elif before_margin >= 30:
                     reduction = Fraction(3, 40)
                 elif before_margin >= 20:

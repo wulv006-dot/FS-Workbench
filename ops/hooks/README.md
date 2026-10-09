@@ -20,8 +20,10 @@ RPG共享接口：collector.persist（状态/去重/outbox）、hooks_notifier.d
 
 生产重跑先核现场SHA与原操作ID，发布不能盲重放；只沿原锁/CAS回退代码，保留DB、价格、队列、锁、回执与暂停状态。
 
-2026-10-08后续评审修复：必需FC API/worker/gate及两个HTTP身份门禁失败或未知，service_unavailable错误码进入三平台写价阻断；独立图库/经营故障继续只影响自身范围。升级事务只回退本次已替换的代码，删除本次新增目标并清理自有临时文件；保护读回失败也进入回退。服务探测→report→controls→原writer guard和五次替换/最终读回中断共32直接Linux检查/0skip通过；故障仅注入独立临时目录，生产FC服务未停启。例外回退不提供进程被kill或断电时的事务恢复保证。
+2026-10-08后续评审修复：必需FC API/worker/gate及Coins HTTP身份门禁失败或未知，service_unavailable错误码进入三平台写价阻断；独立图库/经营故障继续只影响自身范围。升级事务只回退本次已替换的代码，删除本次新增目标并清理自有临时文件；保护读回失败也进入回退。服务探测→report→controls→原writer guard和五次替换/最终读回中断共32直接Linux检查/0skip通过；故障仅注入独立临时目录，生产FC服务未停启。例外回退不提供进程被kill或断电时的事务恢复保证。
 
 2026-10-09 中文告警和RPG只读接入：复用同一notifier、outbox、五分钟巡检和publisher。告警说明异常、业务影响、处理建议与北京时间，主动关闭的任务单列；恢复巡检不冒称改价恢复。09:23中文演练用户确认收到且能看懂，旧事件不重发。RPG接实际d4follow.service/p2pah-srv-exec.service和现有GET /api/state的当前任务失败；有已确认游戏字段才标D4/PoE2/Aion2，其余明确共享任务。两类中文演练均用户确认收到且能看懂；原定五分钟巡检已自然读取RPG服务和任务，RPG检查正常且无重复演练发送。35直接Linux检查/0skip通过；RPG源码、配置和PID不变，不改业务规则、价格、开关、调度或接入自动暂停/自愈。不覆盖进程重启前任务、逐行失败/未知写入和现价安全。既有08:11巡检HTTPS解释器修复的publisher一并按现场源码回补，单位本轮未再修改。实际收据与自然读回保持本地，生产上线与PR合并分别记录。
 
 现有 pr-fast 的 hooks 分组已登记 test_notifier 与 test_rpg_alerts，连同原 test_hooks/test_monitor 共35方法；此前32方法的CI结果仅覆盖旧分组，不能用来冒称新增通知用例已在CI执行。
+
+2026-10-09最新FC修复回补：非核心来源应急、固定写前自愈及自然恢复通知的11源见releases/fc-coins/noncore-emergency-20261009/；已部署来源与当前Git SHA分别索引。图库HTTP故障只报警自身，不暂停Coins；RPG运行中的重试仍保留旧失败，成功后才消警；独立repair-runtime入口不再要求无关stage参数。这三处后续修正本轮仅合入Git，未重新部署。pr-fast沿原hooks35方法，并补fc-noncore57方法与75个JS断言；空/失败/skip阻断。历史包与失败记录保留。

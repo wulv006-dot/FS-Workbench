@@ -167,8 +167,7 @@ def controls(value, previous=None, at=None):
               'service_unavailable:fc27-cloud-api.service',
               'service_unavailable:fc27-cloud-worker.service',
               'service_unavailable:fc27-gate.service',
-              'service_unavailable:coin_api_http_gate',
-              'service_unavailable:gallery_api_http_gate'}
+              'service_unavailable:coin_api_http_gate'}
     for platform in PLATFORMS:
         reasons[platform].extend(sorted(codes & shared))
         if not user_enabled:

@@ -60,6 +60,7 @@ def rpg_probe():
             scope = {'暗黑破坏神4':'d4','流放之路2':'poe2','AION2':'aion2'}.get(game,'shared')
             group = (kind,game if isinstance(game,str) else None)
             if group in seen:continue
+            if task['status'] == 'running':continue
             seen.add(group)
             if task['status'] == 'error':
                 observed['issues'].append({'level':'critical','code':'rpg_task_failed:'+scope+':'+kind+':'+identity})

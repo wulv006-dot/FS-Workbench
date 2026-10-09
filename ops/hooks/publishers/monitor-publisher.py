@@ -122,13 +122,93 @@ def repair_runtime(apply):
     print(json.dumps(receipt))
 
 
+def noncore_checks(stage, checks):
+    import re
+    files=checks['files']
+    if checks.get('patterns')!=['test_monitor.py'] or 'tests/test_monitor.py' not in files or type(checks['test_count']) is not int or checks['test_count']<1:
+        raise ValueError('frozen_noncore_checks_required')
+    for relative,wanted in files.items():
+        path=stage/relative
+        if Path(relative).is_absolute() or '..' in Path(relative).parts or path.is_symlink() or not path.resolve().is_relative_to(stage.resolve()) or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=wanted:
+            raise ValueError('noncore_check_input_changed')
+    tests=subprocess.run([os.sys.executable,'-B','-m','unittest','discover','-s',str(stage/'tests'),'-p','test_monitor.py'],capture_output=True,text=True,timeout=60)
+    (stage/'noncore-linux-tests.txt').write_text(tests.stderr,encoding='utf-8')
+    count=re.search(r'Ran (\d+) tests?',tests.stderr)
+    if tests.returncode or not count or int(count.group(1))!=checks['test_count'] or not tests.stderr.rstrip().endswith('OK'):
+        raise RuntimeError('noncore_linux_checks_failed')
+
+def noncore_swap(source,target):
+    import tempfile,stat
+    metadata=target.stat()
+    fd,temporary=tempfile.mkstemp(dir=target.parent,prefix='.noncore-'+target.name+'-')
+    try:
+        with os.fdopen(fd,'wb') as stream:
+            stream.write(source.read_bytes());stream.flush();os.fsync(stream.fileno())
+        os.chmod(temporary,stat.S_IMODE(metadata.st_mode));os.chown(temporary,metadata.st_uid,metadata.st_gid)
+        os.replace(temporary,target)
+        directory=os.open(target.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+    finally:
+        if os.path.exists(temporary):os.unlink(temporary)
+
+def noncore_emergency(stage,apply):
+    import fcntl,shutil
+    manifest=json.loads((stage/'noncore-monitor-manifest.json').read_text())
+    rows=manifest['files'];names={'collector.py','read_only_status.py','hooks_notifier.py'}
+    if os.geteuid()!=0 or {row['name'] for row in rows}!=names or len(rows)!=len(names):
+        raise ValueError('exact_noncore_monitor_scope_required')
+    def verify():
+        for row in rows:
+            source=stage/'source'/'monitor'/row['name'];target=APP/row['name']
+            if source.is_symlink() or not source.resolve().is_relative_to(stage.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest()!=row['after']:
+                raise ValueError('noncore_monitor_payload_changed')
+            if target.is_symlink() or hashlib.sha256(target.read_bytes()).hexdigest()!=row['before']:
+                raise ValueError('noncore_monitor_baseline_changed')
+            compile(source.read_text(),row['name'],'exec')
+    verify();noncore_checks(stage,manifest['checks'])
+    before=baseline()
+    if before['sha256']!=manifest['protected']:
+        raise ValueError('noncore_monitor_protected_baseline_changed')
+    receipt={'applied':False,'before':before,'checks':manifest['checks']['test_count']}
+    if apply:
+        with (DATA/'.collector.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            verify()
+            if baseline()!=before:raise RuntimeError('noncore_monitor_baseline_changed_under_lock')
+            backup=DATA/'code-backups'/('noncore-emergency-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+            backup.mkdir(parents=True,mode=0o700)
+            for row in rows:shutil.copy2(APP/row['name'],backup/row['name'])
+            (backup/'manifest.json').write_text(json.dumps(manifest,indent=2))
+            installed=[]
+            try:
+                for row in rows:
+                    source=stage/'source'/'monitor'/row['name']
+                    if source.is_symlink() or not source.resolve().is_relative_to(stage.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest()!=row['after']:
+                        raise ValueError('noncore_monitor_payload_changed_before_replace')
+                    noncore_swap(source,APP/row['name']);installed.append(row)
+                if baseline()!=before:raise RuntimeError('noncore_monitor_protected_changed')
+                actual={row['name']:hashlib.sha256((APP/row['name']).read_bytes()).hexdigest() for row in rows}
+                if any(actual[row['name']]!=row['after'] for row in rows):raise RuntimeError('noncore_monitor_installed_hash_mismatch')
+                receipt.update(applied=True,backup=str(backup),installed_sha256=actual)
+            except Exception:
+                for row in reversed(installed):noncore_swap(backup/row['name'],APP/row['name'])
+                raise
+    receipt['after']=baseline();receipt['protected_unchanged']=receipt['after']==before
+    if not receipt['protected_unchanged']:raise RuntimeError('noncore_monitor_protected_changed')
+    (stage/'noncore-monitor-receipt.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt))
+    return receipt
+
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--stage',required=True,type=Path)
-    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); parser.add_argument('--repair-runtime',action='store_true'); args=parser.parse_args()
+    parser=argparse.ArgumentParser(); parser.add_argument('--stage',type=Path)
+    parser.add_argument('--apply',action='store_true'); parser.add_argument('--upgrade',action='store_true'); parser.add_argument('--repair-runtime',action='store_true'); parser.add_argument('--noncore-emergency',action='store_true'); args=parser.parse_args()
+    if args.noncore_emergency and (args.upgrade or args.repair_runtime):raise ValueError('deployment_modes_conflict')
     if args.repair_runtime:return repair_runtime(args.apply)
+    if args.stage is None:parser.error('--stage is required for install or upgrade')
     stage=args.stage.resolve()
     if not stage.name.startswith('fc-ops-monitor-stage-') or stage.parent!=Path('/opt') or args.stage.is_symlink():
         raise ValueError('fixed_isolated_stage_required')
+    if args.noncore_emergency:return noncore_emergency(stage,args.apply)
     if args.upgrade:
         return upgrade(stage,args.apply)
     rows=json.loads((stage/'manifest.json').read_text())['files']

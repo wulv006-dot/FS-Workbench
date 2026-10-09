@@ -36,6 +36,9 @@ class RpgAlerts(unittest.TestCase):
             self.assertNotIn('private-value',text)
             persist(root,value); self.assertEqual(len(list((root/'outbox').glob('*.json'))),1)
         success = failed | {'id':'abcdef123456','status':'done'}
+        running = success | {'status':'running'}
+        self.assertEqual(self.probe([running,failed])['issues'],observed['issues'])
+        self.assertEqual(self.probe([running,success,failed])['issues'],[])
         self.assertEqual(self.probe([success,failed])['issues'],[])
         other_game = success | {'params':{'game':'暗黑破坏神4'}}
         self.assertEqual(len(self.probe([other_game,failed])['issues']),1)

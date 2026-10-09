@@ -223,7 +223,7 @@ class Faults(unittest.TestCase):
             # Trace service probe -> report -> controls -> actual automatic guard.
             from report import report
             required=('fc27-cloud-api.service','fc27-cloud-worker.service','fc27-gate.service',
-                      'coin_api_http_gate','gallery_api_http_gate')
+                      'coin_api_http_gate')
             for unit in required:
                 for state in ('inactive','failed','unknown','unexpected_http_status','unexpected_anonymous_success'):
                     with self.subTest(unit=unit,state=state):
@@ -238,7 +238,7 @@ class Faults(unittest.TestCase):
                             with self.assertRaisesRegex(ValueError,'hook_scope_paused'):
                                 ns['hooks_before_write'](POLICY,[platform],True);writes.append('POST')
                         self.assertEqual(writes,[])
-            for unit in ('fc27-gallery.service','fs-business-range.service','unrelated-service'):
+            for unit in ('fc27-gallery.service','gallery_api_http_gate','fs-business-range.service','unrelated-service'):
                 snapshot={'captured_at':NOW.isoformat(),'automation':POLICY,
                           'publication':healthy()['publication']}
                 control=hooks.controls(report(snapshot,{'issues':[]},{unit:'failed'},{}),at=NOW)
@@ -273,6 +273,11 @@ class Faults(unittest.TestCase):
         publisher_path=Path(__file__).parent/'publishers/monitor-publisher.py'
         spec=importlib.util.spec_from_file_location('isolated_monitor_publisher',publisher_path)
         publisher=importlib.util.module_from_spec(spec);spec.loader.exec_module(publisher)
+        with patch.object(sys,'argv',['publisher','--repair-runtime']),patch.object(publisher,'repair_runtime',return_value='checked') as repair:
+            self.assertEqual(publisher.main(),'checked');repair.assert_called_once_with(False)
+        with patch.object(sys,'argv',['publisher']),patch('sys.stderr'),self.assertRaises(SystemExit) as rejected:
+            publisher.main()
+        self.assertEqual(rejected.exception.code,2)
         names=('collector.py','hooks.py','probe_worker.py','hooks_notifier.py','delivery.py')
         for fail_at in range(1,7):
             with self.subTest(fail_at=fail_at),tempfile.TemporaryDirectory() as directory:

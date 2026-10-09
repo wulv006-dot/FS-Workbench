@@ -1,4 +1,7 @@
-# 最新映射入口（2026-10-08）
+# 最新映射入口（2026-10-09）
+
+FC最新非核心来源应急与固定自愈已按11个活动源码核对生产；本次精确回补见 [冻结增量](../releases/fc-coins/noncore-emergency-20261009/SOURCE-MAP.json) 与 [当前共享接口](../ops/hooks/SOURCE-MAP.json)。后者区分生产字节与仅Git修正：图库误阻断、RPG提前消警和独立运维入口参数修复本次未重新部署。其余FC仍未全面接管，旧release保持，不从main整包覆盖生产。下方10/8记录保留其原时点。
+
 
 本轮Git观察main `7154ba13288accff164b717f1f3ad86a4e25ad31`；生产未重新连接。活动source/artifact/runtime必须按模块和证据时间读取。下面历史revision2表格保留当时背景，不作为当前全站部署清单。
 

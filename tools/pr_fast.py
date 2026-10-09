@@ -185,6 +185,8 @@ def selfcheck():
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
+    if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
+        raise RuntimeError("fc_noncore_scope_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -194,6 +196,10 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
+            groups.add("fc-noncore");continue
+        if name.startswith("releases/green-plan/20261009-review-fix/"):
+            groups.add("green-plan-review-fix");continue
         if name.startswith("releases/green-plan/20261009/"):
             groups.add("green-plan");continue
         if name in (
@@ -256,9 +262,23 @@ def main():
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
+        elif group=="fc-noncore":
+            release="releases/fc-coins/noncore-emergency-20261009"
+            for name in ("test_pipeline","test_selfheal","test_monitor","test_publishers"):
+                subprocess.run([sys.executable,"-I","-B","-c",
+                    "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
+                    str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
+            node(release+"/tests/test_js.cjs")
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
+        elif group=="green-plan-review-fix":
+            fix=ROOT/"releases/green-plan/20261009-review-fix"
+            env=dict(os.environ,GREEN_AUTH_RUNTIME=str(ROOT/"registration_approval_runtime_v3_20261006"),
+                GREEN_BACKEND=str(ROOT/"releases/green-plan/20261009/candidate/backend"),
+                GREEN_AUTH_CANDIDATE=str(fix/"candidate/auth"))
+            for name in ("test_auth_flow.py","test_rollback.py"):
+                subprocess.run([sys.executable,"-B",str(fix/"tests"/name)],check=True,timeout=90,cwd=ROOT,env=env)
         elif group=="green-plan":
             for name in ("candidate/backend/test_green_plan.py","check_release.py"):
                 subprocess.run([sys.executable,"-B",str(ROOT/"releases/green-plan/20261009"/name)],check=True,timeout=90,cwd=ROOT)

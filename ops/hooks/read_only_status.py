@@ -51,12 +51,27 @@ def assess(value):
         issues.append({'level':'critical','code':'coin_execution_needs_reconcile'})
     monitor = value.get('monitor', {})
     collection = monitor.get('latest_collection', {})
-    expected_keys={(s,p) for s in ('Lootbar','IGGM','U4GM','U7Buy') for p in ('PS','XBOX','PC')}
-    if (collection.get('competitor_count') != 12 or collection.get('cost_count') != 3 or
-        {tuple(x) for x in collection.get('competitor_keys',[])} != expected_keys or
-        set(collection.get('cost_platforms',[])) != {'PS','XBOX','PC'} or
-        any(health.get('sources',{}).get(k) != 'ok' for k in ('lootbar','iggm','u4gm','u7buy','p2pah_cost','fx'))):
+    from fc27_quote_engine import reference_sites
+    platforms = ('PS','XBOX','PC')
+    sites = ('Lootbar','IGGM','U4GM','U7Buy')
+    expected_keys = {(s,p) for s in sites for p in platforms}
+    rows = collection.get('competitor_keys', [])
+    keys = {tuple(x) for x in rows if isinstance(x, list) and len(x) == 2 and all(isinstance(v,str) for v in x)}
+    sources = health.get('sources', {})
+    coverage_ok = (len(keys) == len(rows) == collection.get('competitor_count') and
+                   keys <= expected_keys and not collection.get('competitor_records_invalid') and
+                   all(('Lootbar',p) in keys and reference_sites({s for s,p2 in keys if p2 == p}) for p in platforms) and
+                   collection.get('cost_count') == 3 and
+                   set(collection.get('cost_platforms',[])) == set(platforms) and
+                   all(sources.get(k) == 'ok' for k in ('lootbar','p2pah_cost','fx')) and
+                   all(sources.get(s.lower()) == ('ok' if all((s,p) in keys for p in platforms) else 'missing')
+                       for s in sites[1:]))
+    if not coverage_ok:
         issues.append({'level':'critical','code':'source_coverage_unverified'})
+    else:
+        for site in sites[1:]:
+            if any((site,p) not in keys for p in platforms):
+                issues.append({'level':'warning','code':'noncore_source_unavailable:'+site})
     interval = value.get('automation',{}).get('interval_minutes')
     allowance = interval*60+900 if type(interval) is int and interval>0 else None
     try:
@@ -117,11 +132,25 @@ def collect():
     latest = read(gallery/'latest.json', {})
     gallery_jobs = [read(p) for p in (gallery/'jobs').glob('*.json')]
     collection = monitor.get('latest_collection') or {}
+    competitors = collection.get('competitors', [])
+    valid_competitors = [r for r in competitors if isinstance(r,dict) and r.get('status') in (None,'valid')]
+    from fc27_quote_engine import reference_sites
+    refs = {p:reference_sites({r.get('source') for r in valid_competitors if r.get('platform') == p})
+            for p in ('PS','XBOX','PC')}
+    record_keys = [(r.get('source'),r.get('platform')) for r in competitors if isinstance(r,dict)]
+    invalid_competitors = (len(record_keys) != len(competitors) or
+                          len(set(record_keys)) != len(record_keys) or
+                          any(r.get('status') not in (None,'valid','missing') for r in competitors if isinstance(r,dict)) or
+                          any(s not in ('Lootbar','IGGM','U4GM','U7Buy') or p not in ('PS','XBOX','PC') for s,p in record_keys) or
+                          any(r.get('comparable') is not True and
+                              not (r.get('comparable') is None and r.get('conditional') is not True)
+                              for r in valid_competitors
+                              if r.get('source') == 'Lootbar' or r.get('source') in refs.get(r.get('platform'),[])))
     tls = subprocess.run(['curl','--silent','--show-error','--connect-timeout','5','--max-time','15',
                           '--output','/dev/null','--write-out','%{http_code} %{ssl_verify_result}',
                           'https://47.85.224.112/dashboard/'], capture_output=True, text=True, timeout=20)
     fields = tls.stdout.split()
-    return {
+    value = {
         'captured_at': datetime.now(timezone.utc).isoformat(),
         'gateway': {'transport_ok':tls.returncode == 0,
                     'http_status':fields[0] if len(fields)==2 else None,
@@ -130,9 +159,14 @@ def collect():
         'player_sync': monitor['player_sync'],
         'monitor': {k:monitor[k] for k in ('latest_attempt','page_readback','cache_refresh')} |
                    {'latest_collection': selected(collection,('run_id','created_at','quote_created_at')) |
-                     {'competitor_count':len(collection.get('competitors',[])),
+                     {'competitor_count':len(valid_competitors),
                       'cost_count':len(collection.get('costs',[])),
-                      'competitor_keys':[[r.get('source'),r.get('platform')] for r in collection.get('competitors',[])],
+                      'competitor_keys':[[r.get('source'),r.get('platform')] for r in valid_competitors],
+                      'competitor_records_invalid':invalid_competitors,
+                      'unavailable_sources':[s for s in ('IGGM','U4GM','U7Buy')
+                                             if any(not any(r.get('source') == s and r.get('platform') == p
+                                                            for r in valid_competitors) for p in ('PS','XBOX','PC'))],
+                      'reference_sources':refs,
                       'cost_platforms':[r.get('platform') for r in collection.get('costs',[])],
                       'storefront_run_id':monitor['storefront'].get('collection_run_id')}},
         'publication': {'status':monitor['publication'].get('status'),
@@ -149,6 +183,33 @@ def collect():
                    for p in [APP/'player_sync_job.py',APP/'fc27_cloud_api.py',APP/'automation_tick.py',
                              Path('/opt/fc27-gallery/api.py'),Path('/opt/fc27-gallery/runner.py')]
                    if p.exists()}}
+    # Only a fresh usable collection can clear an independently proven no-write rejection.
+    from hooks import controls
+    control = controls({'issues':assess(value)['issues'],'coin':{'config':monitor['automation']},
+                        'publication':value['publication'],'unknown_operations':[]})
+    if (not any(state['reasons'] for state in control['platforms'].values()) and
+            (monitor.get('latest_attempt') or {}).get('status') == 'ready_for_quote' and
+            (monitor.get('latest_attempt') or {}).get('run_id') == collection.get('run_id') and
+            value['monitor']['latest_collection']['storefront_run_id'] == collection.get('run_id')):
+        try:
+            import uuid
+            from automation_tick import proven_prewrite_rejection
+            latest = next(iter(value['recent_auto_jobs']), {})
+            job_id = latest.get('job_id')
+            if str(uuid.UUID(job_id)) != job_id:
+                raise ValueError('job_identity_invalid')
+            job = read(ROOT/'jobs'/(job_id+'.json'), {})
+            revision = monitor['automation'].get('revision')
+            if (proven_prewrite_rejection(job, revision) and
+                    datetime.fromisoformat(collection['created_at'].replace('Z','+00:00')) >
+                    datetime.fromisoformat(job['completed_at'].replace('Z','+00:00'))):
+                value['monitor']['latest_collection']['prewrite_failure_recovery'] = {
+                    'verified_prewrite':True,'failed_job_id':job_id,'failed_completed_at':job['completed_at'],
+                    'policy_revision':revision,'new_collection_run_id':collection['run_id'],
+                    'new_collection_created_at':collection['created_at']}
+        except (ImportError,AttributeError,KeyError,TypeError,ValueError,OSError):
+            pass
+    return value
 
 if __name__ == '__main__':
     try:

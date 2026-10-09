@@ -29,6 +29,7 @@ def load_bot(path):
 
 
 ISSUE_TEXT = {
+    'historical_prewrite_failure':'历史自动改价任务因写价前保护拒绝而失败，已确认该任务未提交写价；新采集和依赖检查通过，按两次健康观察后再运行新一轮，失败记录保留。',
     'latest_coin_job_failed':'最近一次 FC 金币自动改价任务失败，未完成正常更新。',
     'latest_attempt_or_monitor_run_unverified':'最新采集任务状态或数据编号未对齐，尚未确认数据可用于报价。',
     'gallery_automation_disabled':'FC 球员图鉴自动化当前关闭；若是主动关闭，无需处理。',
@@ -84,9 +85,13 @@ def format_message(event):
     issues = [x for x in event['issues'] if re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}', x['code'])][:24]
     codes = {x['code'] for x in issues}
     recovering = event['kind'] == 'recovery'
+    cycle = event.get('cycle_recovery') or {}
+    cycle_platforms = [p for p in cycle.get('platforms',[]) if p in {'PS','XBOX','PC'}]
+    cycle_confirmed = recovering and cycle_platforms and cycle.get('result') in {'confirmed','no_price_change'}
     title = ('本次巡检恢复正常' if event['status'] == 'healthy' else '异常有所缓解，仍有提醒') if recovering else {
         'critical':'发现异常，需要处理', 'warning':'有状态提醒', 'unverified':'当前状态待核实',
         'healthy':'本次检查正常'}.get(event['status'], '当前状态待核实')
+    if cycle_confirmed:title = 'FC 新自然周期已完成，其他提醒仍保留'
     demo_title = 'RPG中文消息演练' if any(code.startswith('rpg_') for code in codes) else '中文消息演练'
     lines = ['FS服务器巡检【'+(demo_title if event.get('synthetic') else title)+'】']
     try:
@@ -96,6 +101,12 @@ def format_message(event):
     except (ValueError, TypeError, AttributeError):
         lines.append('检查时间：尚未确认')
     if event.get('synthetic'):lines.append('这是通知文案演练，不代表发生新的故障或业务已恢复。')
+    if cycle_confirmed:
+        result = '已确认改价结果' if cycle['result'] == 'confirmed' else '本轮无需改价'
+        lines.append('FC 恢复验证：'+ '、'.join(cycle_platforms)+' 已完成恢复后的新自然周期，'+result+'。')
+    recovered = [s for s in event.get('recovered_sources',[]) if s in {'IGGM','U4GM','U7Buy'}]
+    if recovering and recovered:
+        lines.append('来源恢复：'+ '、'.join(recovered)+' 已在新一轮采集恢复有效数据，重新纳入参考；其他提醒仍按下文处理。')
     information = {'gallery_automation_disabled','coin_automation_disabled_or_manual','player_disabled_pending_retained'}
     for heading, rows in [('检查发现', [x for x in issues if x['code'] not in information]),
                           ('状态说明（不代表新的系统故障）', [x for x in issues if x['code'] in information])]:
@@ -114,7 +125,15 @@ def format_message(event):
                     scope = {'d4':'D4','poe2':'PoE2','aion2':'Aion2','shared':'RPG 共享（具体游戏待核对）'}.get(parts[1], 'RPG 共享（具体游戏待核对）')
                     kind = {'collect':'采集与改价','cost':'成本采集','our':'售价采集','apply':'改价执行'}.get(parts[2], '业务')
                     description = scope+'的'+kind+'任务失败。原任务编号：'+parts[3]+'。'
+            if code.startswith('noncore_source_unavailable:') and code.split(':',1)[1] in {'IGGM','U4GM','U7Buy'}:
+                description = code.split(':',1)[1]+' 本轮采集异常，暂未参与报价；Lootbar 和可用参考源通过来源检查。'
             lines.append('• '+description)
+    if any(code.startswith('noncore_source_unavailable:') for code in codes):
+        references = event.get('reference_sources') or {}
+        for platform in ('PS','XBOX','PC'):
+            available = [s for s in references.get(platform,[]) if s in {'IGGM','U4GM','U7Buy'}]
+            if available:lines.append(platform+' 当前参考：'+ '、'.join(available)+'（核心 Lootbar 保留）。')
+        lines.append('应急策略：仅非核心源缺失不暂停自动化，后续仍按原计划重采；如有其他异常，仍按原保护处理。')
     if any(code.startswith('rpg_') for code in codes):
         lines.append('RPG 影响：相关数据更新或改价可能受影响；此告警不能确认现有售价安全，也不表示已暂停写价。')
         lines.append('RPG 处理建议：先核对原任务和回执，不清锁、不重放；正常游戏保持原运行方式。')
@@ -126,7 +145,9 @@ def format_message(event):
         lines.append('处理建议：按上述异常核对受影响模块；主动关闭的任务无需开启。')
     if any('publication' in code or 'published_price' in code for code in codes):
         lines.append('售卖提醒：仅暂停自动写价不能证明已经止损，需要另外核对现有售价及售卖保护。')
-    if recovering:lines.append('此消息仅表示巡检状态改善，不代表自动改价或售卖保护已恢复。')
+    if cycle_confirmed:
+        lines.append('此消息仅确认上述平台的新周期结果，不代表所有来源或其他模块已恢复，也不单独证明售卖保护有效。')
+    elif recovering:lines.append('此消息仅表示巡检状态改善，不代表自动改价或售卖保护已恢复。')
     for operation in event.get('operation_ids', [])[:24]:
         if re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', operation):
             lines.append('原操作编号：'+operation)
