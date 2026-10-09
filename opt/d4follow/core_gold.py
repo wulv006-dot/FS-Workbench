@@ -40,9 +40,11 @@
 
 只读：本模块全部是 GET / 只查询的 POST，**不写任何价格**。
 """
+import datetime
 import http.cookiejar
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -116,6 +118,101 @@ DEFAULT_GAME = "暗黑破坏神4"
 def server_game(cfg, sv):
     """服务区属于哪个游戏（config.金币.服务区[].游戏；缺省 = 暗黑破坏神4）。"""
     return (sv or {}).get("游戏") or DEFAULT_GAME
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2026-10-09 · 时段加价（老板定案）
+#   原话：「北京时间 凌晨2点至09:00，临时增加利润率至30%…持续7个小时，
+#          7小时候回归正常策略」（复核口径后定案：加价比例 0.25 → **0.35**）
+#   实现要点：
+#     · 套在 pricing_policy() 里 ⇒ **所有下游（build_plan / 看板 / 钉钉 / 自检）
+#       自动同步**；不用另开定时任务 —— 到点后下一轮调价自然回到常规值；
+#     · 时间**固定按 UTC+8 算**，不读服务器时区（哪天机器时区被改，
+#       也不会把「凌晨提价」跑到白天去）；
+#     · 只对**带「加价比例」的模式**（dd373_only / dd373_markup）生效；
+#       MSCW 的 iggm_undercut 走的是「让价比例」，不受影响。
+# ═══════════════════════════════════════════════════════════════════════════
+_BJ_TZ_HOURS = 8.0
+
+
+def hhmm_to_min(s):
+    """'02:00' → 120（当天第几分钟）；非法/空 → None（**不猜**）。"""
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", str(s or ""))
+    if not m:
+        return None
+    h, mi = int(m.group(1)), int(m.group(2))
+    if h > 23 or mi > 59:
+        return None
+    return h * 60 + mi
+
+
+def beijing_minute(now_utc=None):
+    """当前北京时间 = 当天第几分钟（0~1439）。固定 UTC+8，不依赖服务器时区。"""
+    n = now_utc or (datetime.datetime.utcnow() + datetime.timedelta(hours=_BJ_TZ_HOURS))
+    return n.hour * 60 + n.minute
+
+
+def _win_hours(win):
+    """窗口小时数（跨天也对）；取不到返回 '?'。"""
+    a, b = hhmm_to_min((win or {}).get("起")), hhmm_to_min((win or {}).get("止"))
+    if a is None or b is None:
+        return "?"
+    return "%g" % (((b - a) % 1440) / 60.0)
+
+
+def _time_markup(block, game, ret):
+    """给「加价比例」类策略套一层**时段覆盖**（config `金币.定价策略.时段加价`）。
+
+    命中窗口 ⇒ 返回一份副本：加价比例换成窗口值，并带上 时段加价 / 加价比例_常规 /
+    时段加价_结束 与口径说明（看板与日志都读它）；未命中 ⇒ 原样返回。
+
+    配置形状：
+        "时段加价": {
+          "启用": true,
+          "适用游戏": ["AION2"],
+          "区间": [{"起": "02:00", "止": "09:00", "加价比例": 0.35}]
+        }
+    「起 > 止」按**跨天**处理；区间左闭右开（02:00 生效、09:00 整点失效）。
+    """
+    tk = (block or {}).get("时段加价")
+    if not isinstance(tk, dict) or not tk.get("启用"):
+        return ret
+    _games = tk.get("适用游戏") or []
+    if _games and game and game not in _games:
+        return ret
+    if ret.get("加价比例") is None:          # 乘法类模式才有时段加价
+        return ret
+    _base = ret.get("加价比例")
+    _now = beijing_minute()
+    for win in (tk.get("区间") or []):
+        if not isinstance(win, dict):
+            continue
+        a, b = hhmm_to_min(win.get("起")), hhmm_to_min(win.get("止"))
+        if a is None or b is None:
+            continue
+        hit = (a <= _now < b) if a <= b else (_now >= a or _now < b)
+        if not hit:
+            continue
+        try:
+            mk2 = float(win.get("加价比例"))
+        except (TypeError, ValueError):
+            continue
+        if mk2 < 0:
+            continue
+        out = dict(ret)
+        out["加价比例_常规"] = _base
+        out["加价比例"] = mk2
+        out["时段加价"] = "%s-%s" % (win.get("起"), win.get("止"))
+        out["时段加价_结束"] = str(win.get("止"))
+        _mg = (1.0 - 1.0 / (1.0 + mk2)) if mk2 > 0 else 0.0
+        out["口径"] = ("⏰ 时段加价生效（北京时间 %s，每天 %s 小时）：加价比例由 %.4g "
+                       "临时提到 %.4g（看板利润率 %.1f%%），到 %s 自动回归常规策略。"
+                       % (out["时段加价"], _win_hours(win), float(_base or 0), mk2,
+                          _mg * 100, win.get("止")))
+        if ret.get("口径"):
+            out["口径"] += " ｜ " + str(ret["口径"])
+        return out
+    return ret
 
 
 def pricing_policy(cfg, game=None):
@@ -200,7 +297,9 @@ def pricing_policy(cfg, game=None):
             mk = float(p.get("加价比例", 0.05))
         except (TypeError, ValueError):
             mk = 0.05
-        return {"模式": mode, "加价比例": mk, "成本源": "DD373",
+        # 2026-10-09：套一层「时段加价」覆盖（命中则加价比例临时提高，见 _time_markup）
+        return _time_markup(p, g, {
+                "模式": mode, "加价比例": mk, "成本源": "DD373",
                 # 三级兜底（2026-10-02 老板补充口径）
                 "次源": str(p.get("次源") or "G2G"),
                 "次源加价": (float(p.get("次源加价") or 0.0)
@@ -208,7 +307,7 @@ def pricing_policy(cfg, game=None):
                 "默认售价_USD每M": _f(p.get("默认售价_USD每M") or 9.9),
                 "口径": "售价 = DD373 该区推荐价(综合排序第1条)折 $/M × %.2f%%；"
                         "G2G/ELD/IGGM 继续采集监控并展示，但定价上不主动参与 "
-                        "（仅 DD373 无报价时按顺序兜底）" % (mk * 100)}
+                        "（仅 DD373 无报价时按顺序兜底）" % (mk * 100)})
     if mode == "multisrc":
         return {"模式": mode, "加价比例": None, "成本源": "",
                 "口径": "基准 = min(G2G, ELD)，IGGM 更低则取 IGGM，"
@@ -252,13 +351,15 @@ def pricing_policy(cfg, game=None):
         _need = _f(p.get("无货最小可买万基纳"))
         if _need is None or _need < 0:
             _need = 10000.0
-        return {"模式": mode, "加价比例": mk, "成本源": "DD373",
+        # 2026-10-09：套一层「时段加价」覆盖（北京时间 02:00-09:00 提到 0.35）
+        return _time_markup(p, g, {
+                "模式": mode, "加价比例": mk, "成本源": "DD373",
                 "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
                 "口径": ("目标售价 $/M = DD373 该区进货成本 $/M × (1+%.1f%%)；"
                         "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 1 亿）"
                         "⇒ 统一挂 $%.2f/M（等有货自动跟回）。"
                         "G2G最低价/ELD最低价/IGGM 仅采集展示，不参与定价。"
-                        % (mk * 100, _need, _park))}
+                        % (mk * 100, _need, _park))})
     if mode == "iggm_undercut":
         # ── 2026-10-08 老板定案（MapleStory Classic World · 冒险岛怀旧服国际服）──────
         # 用户原话：

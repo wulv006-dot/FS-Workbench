@@ -9,6 +9,17 @@
    ⇒ 目标量 TARGET_WAN 2 亿（20000 万基纳）→ **1 亿（10000 万基纳）**；
      对应的「无货兜底」阈值（config `金币.定价策略.无货最小可买万基纳`）同步 20000 → 10000。
 
+【2026-10-09 · **跳过最低 2 条**（老板定案，**仅 AION2**）】老板原话：
+   「DD373 成本拉取过程中，跳过页面第一条与第二条的报价和库存，再向下遍历直至 1 亿库存；
+     因为经常会出现 1、2 条超低价的情况，影响价格判断」。
+   ⇒ 在 orderbook_avg 里先把单价**最低的 2 条整条剔除**（价格与库存都不计入，
+     可买量随之少算这两条），再从第 3 条起「吃」满 1 亿。
+   ⇒ 页面「综合排序」本身按价格升序给 ⇒「页面第 1、2 条」= 排序后最便宜的 2 条。
+   ⚠ MSCW（扁平专区）**不套用**：`_collect_flat_game` 显式传 `skip_lowest=0`，
+     那边合并两区翻页后条数多、没有「首页 1、2 条超低价」这个问题，别顺手改掉它的口径。
+   ⚠ 薄区（可买挂单 ≤ 2 条）**不做兜底保留**：剔完即为空 ⇒ 按「无报价」进无货兜底。
+     理由：那两条本来就是它唯一的挂单，宁可挂兜底价，也不拿一条可疑超低价去定价。
+
 ⇒ 成本口径 = **「买满 1 亿基纳」的订单簿加权均价**（不是最小那一笔散单的单价）：
      · 收集该区**全部可买挂单**：散单（单笔不拆，可供量 = max）+
        热卖商城（数量行 data-max，单位万基纳）；
@@ -421,6 +432,12 @@ _RE_MIN = re.compile(r'起售：<span[^>]*>([^<]+)</span>')
 #     配套的「无货兜底」阈值见 config `金币.定价策略.无货最小可买万基纳`（同为 10000）。
 # ═══════════════════════════════════════════════════════════════════════════
 TARGET_WAN = 10000.0        # 目标采购量：1 亿基纳 = 10000 万基纳
+
+# ── 2026-10-09 老板定案：订单簿**跳过单价最低的 2 条**（价格与库存都不计入），
+#    从第 3 条起向下「吃」满 1 亿。原因（原话）：「经常会出现 1、2 条超低价的情况，
+#    影响价格判断」。只作用于 AION2 —— MSCW 那条扁平链路显式传 skip_lowest=0。
+#    想临时关掉：把这里改成 0（或给 orderbook_avg 传 skip_lowest=0）。
+SKIP_LOWEST_QUOTES = 2
 REQ_BUDGET = 400            # 单轮总请求预算（含每个区的首屏）；用尽则剩余区沿用上一轮快照
                             #   2026-10-06 深夜（取消翻页后）：每轮 ≈ 86 区 × 1 次首屏
                             #   = 86 次，距站点「约 200 次/短窗口」的限流线余量充足。
@@ -488,14 +505,32 @@ def _parse_quotes(html):
     return out
 
 
-def orderbook_avg(quotes, target_wan=TARGET_WAN):
+def orderbook_avg(quotes, target_wan=TARGET_WAN, skip_lowest=SKIP_LOWEST_QUOTES):
     """按单价升序吃满 target_wan（万基纳）→ 数量加权均价。
 
-    返回 None = 一条有效报价都没有；否则 dict：
-      均价 / 参与条数 / 报价条数 / 可供量(全部可买) / 缺口 / 够量 / 明细
-    「明细」留前 6 条被吃掉的档位，供面板/日志核对（这一条最值钱：能看到钱花在哪）。
+    `skip_lowest`（2026-10-09）：先**整条剔除单价最低的 N 条**（价格与库存都不计入，
+      可买量也随之少算），再从第 N+1 条起向下「吃」。默认 2 —— 页面「综合排序」按
+      价格升序给，所谓「页面第 1、2 条」就是排序后最便宜的 2 条；这两条多为超低价
+      占位/挂错，留着会把整区成本拉低（老板口径）。MSCW 那条链路显式传 0（不跳过）。
+
+    返回 None = 一条有效报价都没有（**剔完为空也算 None** ⇒ 调用方按无货兜底处理）；
+    否则 dict：
+      均价 / 参与条数 / 报价条数 / 可供量(剔完 skip 后剩下的全部可买) / 缺口 / 够量 /
+      明细 / 跳过条数 / 原始条数 / 跳过明细
+    「明细」留前 6 条被吃掉的档位、「跳过明细」留被剔掉的条目，供面板/日志核对
+    （这一条最值钱：能看到钱花在哪、以及跳掉了什么）。
     """
     qs = sorted(quotes or [], key=lambda x: x[1])
+    _n_all = len(qs)
+    _skip = int(skip_lowest or 0)
+    if _skip < 0:
+        _skip = 0
+    skipped = []
+    if _skip:
+        # ⚠ 这里**刻意不做「至少留一条」的兜底**：剔完为空就该判「无报价」，
+        #   由调用方按无货兜底价处理 —— 宁可挂兜底高价，也不拿一条可疑超低价定价。
+        skipped = qs[:_skip]
+        qs = qs[_skip:]
     all_avail = sum(q for q, _, _ in qs)
     need = float(target_wan)
     cost = got = 0.0
@@ -518,6 +553,10 @@ def orderbook_avg(quotes, target_wan=TARGET_WAN):
         "缺口": max(0.0, float(target_wan) - all_avail),
         "够量": all_avail >= float(target_wan) - 1e-6,
         "明细": used[:6],
+        # 2026-10-09：把「剔了谁」如实带出去，面板/日志可逐条核对（成本是定价输入，必须可追溯）
+        "跳过条数": len(skipped),
+        "原始条数": _n_all,
+        "跳过明细": ["%.0f万@%.4f(%s)" % (q, pr, src) for q, pr, src in skipped],
     }
 
 
@@ -708,7 +747,9 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
             break
         if pages_used == 0:
             break                       # 一页都没抓到（全失败）→ 别空转到底
-    ob = orderbook_avg(quotes, tgt)
+    # ⚠ 2026-10-09：**MSCW 不套用「跳过最低 2 条」**（老板那条要求是 AION2 的）——
+    #   这里显式传 skip_lowest=0，保持本专区口径一字不变。
+    ob = orderbook_avg(quotes, tgt, skip_lowest=0)
     if not ob:
         return ({"ok": False, "依据": "DD373 该专区暂无在售商品",
                  "备注": "页面正常渲染（未被风控）；两子区合并后 0 条可买挂单；"
@@ -927,10 +968,16 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
         _short_note = (None if ob["够量"] else
                        "该区首页挂单仅可买 %.0f 万基纳（< 1 亿），均价按现有挂单加权"
                        % ob["可供量"])
-        _cap_note = ("口径：成本/可买量 = **第 1 页**订单簿（2026-10-06 起取消翻页）；"
-                     "挂单数 = 站点权威总数。第 1 页解析 %d 条；"
-                     "站点「为您找到 %d 条」只数散单、不含热卖商城（该区站点共 %s 页）"
-                     % (ob["报价条数"], _tot_n, _pgs_s))
+        # 2026-10-09：把「跳过了哪 2 条」写进备注 —— 老板要看的就是这两条是不是超低价
+        _skip_note = (None if not ob["跳过条数"] else
+                      "⏭ 已按新策略跳过**单价最低的 %d 条**（价格与库存都不计入）：%s"
+                      % (ob["跳过条数"], "；".join(ob["跳过明细"] or []) or "-"))
+        _cap_note = ("口径：成本/可买量 = **第 1 页**订单簿（2026-10-06 起取消翻页；"
+                     "2026-10-09 起**跳过最低 %d 条**，原始 %d 条 → 参与 %d 条）；"
+                     "挂单数 = 站点权威总数。站点「为您找到 %d 条」只数散单、"
+                     "不含热卖商城（该区站点共 %s 页）"
+                     % (SKIP_LOWEST_QUOTES, ob["原始条数"], ob["报价条数"],
+                        _tot_n, _pgs_s))
         rec = {
             "ok": True,
             "成本_元每万基纳": _pr,
@@ -949,21 +996,25 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
             "翻页数": _pages,                    # 取消翻页后恒为 1（字段保留以兼容旧表）
             "DD区": info["dd_area"], "DD种族": info["dd_race"], "DD游戏区": info["dd_name"],
             # 依据列保持简短（太长会把右侧「改价操作」挤出可视区）：区/种族/游戏区 + 口径
-            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·仅第1页·站点%d单)"
+            "依据": "%s / %s / %s · 买满1亿订单簿加权(吃%d/%d条·跳过%d条·仅第1页·站点%d单)"
                     % (info["dd_area"], info["dd_race"], info["dd_name"],
-                       ob["参与条数"], ob["报价条数"], _tot_n),
+                       ob["参与条数"], ob["报价条数"], ob["跳过条数"], _tot_n),
             "URL": url,
         }
-        _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short_note, _cap_note) if x)
+        _own = "；".join(x for x in ((_chk or {}).get("自校验"), _skip_note,
+                                     _short_note, _cap_note) if x)
         if _own:
             rec["备注"] = _own
         out[key] = rec
         if log:
             log("  [DD373] %-24s %-10s %.6f 元/万基纳 → $%.4f/M  "
-                "(1亿订单簿 吃%d/%d条·仅第1页·站点%d单，可买 %.0f万基纳%s)"
+                "(1亿订单簿 吃%d/%d条·跳过%d条·仅第1页·站点%d单，可买 %.0f万基纳%s)"
                 % (key, rec["DD游戏区"], _pr, rec["成本_USD每M"] or 0,
-                   ob["参与条数"], ob["报价条数"], _tot_n,
+                   ob["参与条数"], ob["报价条数"], ob["跳过条数"], _tot_n,
                    ob["可供量"], "" if ob["够量"] else "·不足1亿"))
+            if ob["跳过条数"]:
+                log("  [DD373] %-24s ⏭ 跳过最低 %d 条：%s"
+                    % (key, ob["跳过条数"], "；".join(ob["跳过明细"] or [])))
         time.sleep(gap)
     return out
 
