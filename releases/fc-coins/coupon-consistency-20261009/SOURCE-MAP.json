@@ -1,0 +1,77 @@
+{
+  "release": "fc-coins/coupon-consistency-20261009",
+  "title": "FC27 快照门禁改为「三平台口径一致」",
+  "date": "2026-10-09",
+  "fc_root_status": "legacy-unreconciled",
+  "note": "GitHub FC 根目录源码与线上不一致（历史遗留）。本 release 以线上真实字节为准回补，不覆盖根目录旧源码。基线取自 releases/fc-coins/noncore-emergency-20261009/source/snapshot_layer.py（sha256 280cc936…），该版本与线上 /opt/fc27-cloud-browser/snapshot_layer.py 字节一致，已用 sha256 逐字节核对。",
+  "source_to_runtime": [
+    {
+      "source": "releases/fc-coins/coupon-consistency-20261009/fc27_cloud_browser/snapshot_layer.py",
+      "target": "/opt/fc27-cloud-browser/snapshot_layer.py",
+      "before_sha256": "280cc936ceaa68da0895533a8d03e7a551b00b492d254656d4b083a0a9cc8a60",
+      "after_sha256": "1d8a40c2bd0489f36444e74abc6e8ff3bc8543522cb5c58dfe305e052b36f4fd",
+      "service": "fc27-cloud-api, fc27-cloud-worker",
+      "unit": "fc27-cloud-worker ExecStart=/usr/bin/python3 /opt/fc27-cloud-browser/fc27_cloud_worker.py"
+    }
+  ],
+  "baseline_files": [
+    {
+      "path": "releases/fc-coins/coupon-consistency-20261009/baseline/snapshot_layer.py",
+      "sha256": "280cc936ceaa68da0895533a8d03e7a551b00b492d254656d4b083a0a9cc8a60",
+      "role": "pre-fix bytes, taken from the live host (byte-identical to releases/fc-coins/noncore-emergency-20261009/source/snapshot_layer.py)"
+    }
+  ],
+  "protected_at_publish": [
+    "/opt/fc27-cloud-browser/automation_tick.py",
+    "/opt/fc27-cloud-browser/player_sync_job.py",
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+    "/opt/fc27-cloud-browser/sync_players.sh",
+    "/opt/fc27-cloud-browser/automation_policy.py",
+    "/opt/fc27-cloud-browser/player_sync_policy.py",
+    "/opt/fc27-cloud-browser/price_writer.py",
+    "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+    "/opt/fc27-cloud-browser/execute_price.sh",
+    "/var/www/dashboard/fc27-quote-cloud.js",
+    "/var/lib/fc27-cloud/config/automation.json",
+    "/var/lib/fc27-cloud/config/player-sync.json"
+  ],
+  "runtime_root": "/var/lib/fc27-cloud",
+  "runtime_root_source": "snapshot_layer.ROOT",
+  "deployment": {
+    "publisher": "stage/deploy.py (single-file CAS publisher, adapted from publish_worker.py)",
+    "at_utc": "2026-10-09T11:47:49.734015+00:00",
+    "backup": "/var/lib/fc27-cloud/rollback/coupon-consistency-20261009T114749Z",
+    "rollback": "stop fc27-cloud-api + fc27-cloud-worker; swap backup file back; start both; re-verify hash and health"
+  },
+  "tests": [
+    {
+      "path": "releases/fc-coins/coupon-consistency-20261009/fc27_cloud_browser/test_coupon_consistency.py",
+      "sha256": "47054bd175fb289b32af889103793475f17ea01862d4204e59d2bf4635818873",
+      "count": 15,
+      "status": "pass",
+      "isolation": "stubbed fc27_quote_engine import; no network, no subprocess",
+      "runtimes": [
+        "local CPython 3.13.12",
+        "server CPython 3.9.18 (/usr/bin/python3)"
+      ],
+      "layout": "locates snapshot_layer.py beside the test (release layout) or in ../candidate/ (scratch layout)"
+    }
+  ],
+  "gate_change": {
+    "repo_path": "tools/pr_fast.py",
+    "before_sha256": "696ac4122b912cc3e148a09723a2c8451720afbc558f78eae8552bea0696dbb6",
+    "after_sha256": "ae4c65f5076cda75b4b8c41063b4bc7f166241907a9b78ab8852843630050e8e",
+    "edits": [
+      "select(): map releases/fc-coins/coupon-consistency-20261009/ to group fc-coupon-consistency",
+      "selfcheck(): assert that mapping resolves to ['fc-coupon-consistency']",
+      "main(): run test_coupon_consistency under the release directory"
+    ],
+    "note": "rebased onto the real remote main bytes; the four other mapping groups added by other authors are preserved untouched"
+  },
+  "evidence": [
+    "fc27_coupon_consistency_20261009/stage/manifest.json",
+    "fc27_coupon_consistency_20261009/release/evidence/deployment-receipt.json",
+    "fc27_coupon_consistency_20261009/release/evidence/regression-real-evidence.json",
+    "FC27/outputs/fc27-lootbar-coupon-incident-20261009.md"
+  ]
+}

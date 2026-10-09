@@ -1,0 +1,96 @@
+{
+  "purpose": "Prove the relaxed gate still rejects mixed bases and still accepts a genuinely uniform basis, using real production captures rather than synthetic fixtures.",
+  "fixtures": [
+    {
+      "label": "16:58 all-coupon",
+      "source": "live LootBar capture, /var/lib/fc27-cloud/evidence/lootbar-*.jsonl",
+      "observed_coupon_excluded": {"PS": true, "XBOX": true, "PC": true},
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "note": "first read reported stale_capture — correct behaviour, the capture was ~3h old and the 3600s freshness gate rejects it; re-running with the timestamp refreshed gave ACCEPTED coupons=[True, True, True]"
+    },
+    {
+      "label": "19:01 mixed basis",
+      "source": "live LootBar capture",
+      "observed_coupon_excluded": {"PS": true, "XBOX": false, "PC": false},
+      "expected": "REJECTED (platform_or_coupon_mismatch)",
+      "actual": "REJECTED",
+      "note": "the real invariant — a pre-coupon price must not be mixed with a post-coupon price across platforms — is preserved"
+    },
+    {
+      "label": "19:38 all-no-coupon",
+      "source": "manual read-only collect via /opt/fc27-cloud-browser/collect_lootbar.sh",
+      "observed_coupon_excluded": {"PS": false, "XBOX": false, "PC": false},
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "note": "site-side change: LootBar withdrew the FC27 new-customer coupon; the collector honestly recorded couponState='none' (not a parse failure)"
+    }
+  ],
+  "unit_tests": {
+    "count": 15,
+    "status": "pass",
+    "runtimes": ["local CPython 3.13.12", "server CPython 3.9.18 (/usr/bin/python3)"],
+    "key_cases": [
+      "all platforms coupon → accepted",
+      "no platform coupon → accepted",
+      "observed state carried through, not hardcoded",
+      "2-with-1-without → rejected",
+      "1-with-2-without → rejected",
+      "non-bool flags ('true','True',1,0,None) → rejected",
+      "missing coupon_excluded key → rejected",
+      "platform-label drift → rejected",
+      "package-size != 100 (base_k) → rejected",
+      "missing platform → rejected",
+      "stale capture (>3600s) → rejected",
+      "collector incomplete → rejected",
+      "invalid bonus → rejected",
+      "per-K pricing math",
+      "run_id stamped on every row"
+    ]
+  },
+  "production_self_heal": {
+    "context": "the failing cycle 5919057b latched paused_after_failure; a single read-only collect job 068cc60f produced a collection newer than the failed job, letting the independent monitor confirm recovery",
+    "failed_job": {
+      "id": "5919057b-b57f-4d0b-8a29-6de77777867b",
+      "kind": "auto_cycle",
+      "status": "failed",
+      "error": "writer_not_confirmed",
+      "created_at": "2026-10-09T11:49:53.186964+00:00",
+      "completed_at": "2026-10-09T11:51:53.149373+00:00"
+    },
+    "recovery_collect_job": {
+      "id": "068cc60f-40ce-4c49-9e2c-95588b090689",
+      "kind": "collect",
+      "status": "ready",
+      "snapshot": "ready_for_quote",
+      "valid_competitors": 12,
+      "valid_costs": 3,
+      "created_at": "2026-10-09T12:02:15.269615+00:00"
+    },
+    "monitor_transitions": [
+      {"at_utc": "2026-10-09T12:05:27.693057+00:00", "clean_observations": 1, "phase": "CONTAINED", "reasons": ["recovery_confirmation_pending"], "monitor_status": "warning"},
+      {"at_utc": "2026-10-09T12:10:28.199911+00:00", "clean_observations": 2, "phase": "AWAITING_CYCLE", "reasons": [], "monitor_status": "warning"},
+      {"at_utc": "2026-10-09T12:15:28.430725+00:00", "clean_observations": 2, "phase": "RECOVERED", "reasons": [], "monitor_status": "warning"}
+    ],
+    "recovery_cycle": {
+      "id": "9d2476dd-a864-4c2d-93d2-931a25932711",
+      "kind": "auto_cycle",
+      "actor": "system-automation",
+      "status": "ready",
+      "request": {"collection_retry_attempt": 1, "collection_retry_of": "5919057b-b57f-4d0b-8a29-6de77777867b"},
+      "snapshot": {"status": "ready_for_quote", "valid_competitors": 12, "valid_costs": 3, "fx_status": "valid"},
+      "storefront": {"status": "ok", "refreshed_platforms": ["PS", "XBOX", "PC"]},
+      "quote": {"status": "ready_for_preview", "platforms": ["PS", "XBOX", "PC"]},
+      "write": {"status": "confirmed", "blocked_platforms": {}, "unchanged_platforms": []},
+      "cache_refresh": {"status": "cleared", "scope": "all"},
+      "public_page_readback": {"status": "verified", "platforms": ["PS", "XBOX", "PC"], "attempts": 1},
+      "player_sync": {"status": "queued", "job_id": "35fc97e2-1350-5dd1-9c19-5f6b716ec246"},
+      "completed_at": "2026-10-09T12:13:00.266488+00:00"
+    },
+    "tick_log_transition": {
+      "blocked_window": "20:04:54 – 20:09:55 CST, 6 consecutive retry_blocked / hook_scope_paused",
+      "released_at": "2026-10-09T12:10:55.600980+00:00",
+      "released_event": "{\"status\": \"queued\", \"job_id\": \"9d2476dd-a864-4c2d-93d2-931a25932711\", \"collection_retry\": 1}"
+    }
+  }
+}
