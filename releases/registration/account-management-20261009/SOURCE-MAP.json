@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "local-tested-not-published",
+  "scope": "new-registration-bulk-decisions-and-login-feedback",
+  "permissionEditing": "pending-user-scope; not implemented",
+  "files": [
+    {
+      "source": "source/web/app.js",
+      "gitPath": "releases/registration/account-management-20261009/source/web/app.js",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "beforeSha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "afterSha256": "b74b78cfec875633f57a3b69e6d8fddf01eb092659558b175edc708cdeb8ed94",
+      "bytes": 8824
+    },
+    {
+      "source": "source/web/index.html",
+      "gitPath": "releases/registration/account-management-20261009/source/web/index.html",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "beforeSha256": "5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2",
+      "afterSha256": "1c309323566f38ea22e20e05b6535760d4ff309822579ac5d2bedc83c90e94ae",
+      "bytes": 5286
+    },
+    {
+      "source": "source/web/access.css",
+      "gitPath": "releases/registration/account-management-20261009/source/web/access.css",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "beforeSha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "afterSha256": "b7f8bf590aa4bd3dfef4e40fdbe2c6e43faeb159447c74e3da0f2719e498e7f3",
+      "bytes": 1539
+    }
+  ],
+  "preserve": {
+    "routeContractSha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c",
+    "policySha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+    "database": "untouched",
+    "checkpoint": "untouched",
+    "sessionsAndRevocations": "untouched"
+  },
+  "tests": {
+    "nodeAssertions": 18,
+    "windowsChromeAssertions": 37,
+    "productionAccountActions": 0
+  }
+}
