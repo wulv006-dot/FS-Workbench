@@ -521,8 +521,13 @@ def orderbook_avg(quotes, target_wan=TARGET_WAN):
     }
 
 
-def parse_first(html):
-    """取**综合排序第一条**的单价。抓不到返回 None（**不编数**）。"""
+def parse_first(html, unit_name="万基纳", unit_kw=("万", "10000", "w", "W")):
+    """取**综合排序第一条**的单价。抓不到返回 None（**不编数**）。
+
+    `unit_name` 是页面上的单位串（AION2 = 「万基纳」，MSCW = 「万金」）；
+    自校验 ② 原本写死「万基纳」，2026-10-08 参数化 —— MSCW 页面单位是「万金」，
+    写死会把**每一个区**都判成「单位口径异常，已丢弃」，MSCW 一条成本都采不到。
+    """
     i = html.find("goods-list-item")
     if i < 0:
         return None
@@ -548,17 +553,21 @@ def parse_first(html):
     }
     # 自校验 ①：singleprice 与「1元=X万基纳」应互为倒数（差 1% 内算通过）。
     #   这一条能挡住「解析到了错误的块」这类静默 bug。
-    # 自校验 ②：**单位必须是「万基纳」**。若站点改成「亿基纳」或「个」，
-    #   下面的 ×100 换算就会错 10~10000 倍 —— 所以单位必须校验，不能只当展示字段。
+    # 自校验 ②：**单位必须 = unit_name**。若站点改成「亿基纳」「个」或别的量纲，
+    #   下面的 ×wan_per_unit 换算就会错 10~10000 倍 —— 所以单位必须校验。
     bad = []
     if out["每元可买"]:
         exp = 1.0 / price if price else None
         if exp and abs(out["每元可买"] - exp) / exp > 0.01:
-            bad.append("单价与比例不自洽（1元=%s万基纳 vs 1/%s）"
-                       % (out["每元可买"], price))
-    un = (out["单位"] or "").replace("基纳", "").replace(" ", "")
-    if un and un not in ("万", "10000", "w", "W"):
-        bad.append("⚠单位不是「万基纳」而是「%s」—— 换算会错，**本条不可用**" % out["单位"])
+            bad.append("单价与比例不自洽（1元=%s%s vs 1/%s）"
+                       % (out["每元可买"], unit_name, price))
+    un = (out["单位"] or "")
+    for _t in (unit_name, "基纳", "金"):
+        un = un.replace(_t, "")
+    un = un.replace(" ", "")
+    if un and un not in unit_kw:
+        bad.append("⚠单位不是「%s」而是「%s」—— 换算会错，**本条不可用**"
+                   % (unit_name, out["单位"]))
     if bad:
         out["自校验"] = "；".join(bad)
         out["不可用"] = any("不可用" in b for b in bad)
@@ -566,23 +575,224 @@ def parse_first(html):
 
 
 # ---------------------------------------------------------------------------
-# 单位换算：元/万基纳 → USD/M
+# 单位换算：元/万{单位} → 美元/前端单位
 # ---------------------------------------------------------------------------
-# 1 M 基纳 = 1,000,000 基纳 = 100 × 「万基纳」
+# AION2：1 M 基纳 = 1,000,000 基纳 = 100 ×「万基纳」⇒ 每「M」合 100 个万。
 WAN_PER_M = 100.0
 
 
-def to_usd_per_m(price_yuan_per_wan, rate):
-    """元/万基纳 → 美元/百万基纳。rate = 汇率（USD→CNY）。"""
+def to_usd_per_unit(price_yuan_per_wan, rate, wan_per_unit=WAN_PER_M):
+    """元/万{单位} → 美元/**前端单位**。rate = 汇率（USD→CNY）。
+
+    `wan_per_unit` = 前端 1 个单位合多少个「万」：
+      · AION2    前端单位 = M 基纳 = 100 万基纳 ⇒ 100
+      · MSCW     前端单位 = K 金   = 1,000 金 = 0.1 万金 ⇒ **0.1**
+        （1 万金 = 10,000 金 = 10 K ⇒ 1 K = 0.1 万金）
+    ⚠ AION2 与 MSCW 的「万」都指 10000 个货币，但**前端单位不同**（M vs K），
+      所以这个系数必须按专区配，不能共用 100 —— 共用会把 MSCW 成本放大 1000 倍。
+    """
     if price_yuan_per_wan is None or not rate:
         return None
-    return float(price_yuan_per_wan) * WAN_PER_M / float(rate)
+    return float(price_yuan_per_wan) * float(wan_per_unit) / float(rate)
+
+
+def to_usd_per_m(price_yuan_per_wan, rate):
+    """元/万基纳 → 美元/百万基纳（AION2 专用，保留旧签名）。"""
+    return to_usd_per_unit(price_yuan_per_wan, rate, WAN_PER_M)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 扁平专区（2026-10-08 新增）—— MapleStory Classic World（冒险岛怀旧服国际服）
+# ═══════════════════════════════════════════════════════════════════════════
+# 与 AION2 的差别：**没有「区 → 种族 → 游戏区」三层**，只有「北美NA / 欧洲EU」两个
+#   子区段，货币在 global 内互通 ⇒ 两个子区**合并成一本订单簿**再算加权均价。
+#
+# 实测（2026-10-08，服务器出口 IP 47.85.224.112 · 未被风控）：
+#   · 北美NA 段 `k5faqj`：117 条 / 6 页，第 1 页可买 **75 万金**（< 100 万 ⇒ 必须翻页）
+#   · 欧洲EU 段 `sphpwv`：**0 条挂单**（页面正常渲染，非风控；并入后不改变结果）
+#   · 单价口径：`<input class="goods-num" max="3" singleprice="16.6112957">`
+#       ⇒ singleprice = **元/万金**，页面单位串 = 「万金」
+#       自校验：`1元=0.0602万金` 与 singleprice 互为倒数（0.0602 ≈ 1/16.611）✓
+#   · 分页：❌ `?PageIndex=N` 被阿里云 ESA 拦（11956 字节滑块页，实测 blocked=True）；
+#           ✅ **只改长 URL 的第 13 段**（`…-0-0-0-et9e1b-0-0-0-0-0-{页}-0-0-0.html`）
+#              实测 page=2 内容与 page=1 不重复、可正常解析（page2 首单价 18.0 vs page1 16.61）
+#
+# 🔴 目标量（用户口径 2026-10-08）：
+#     「以存货 100W 货币为兜底，遍历页面直到够 100w 金币，然后计算这 100w 金币的平均价」
+#     ⇒ target_wan = **100 万金**（不是 AION2 的 1 亿 = 10000 万基纳）
+#
+# ⚠ `wan_per_unit` = 前端 1 个单位合多少个「万」：
+#     前端单位是 **K**（档位 10/20/…/500，data-unit="K"）⇒ 1 K = 1000 金 = 0.1 万金。
+#     填 0.1（不是 100）。填错会把成本放大 1000 倍、目标价被兜底线整个顶飞。
+FLAT_ZONES = {
+    "MapleStory Classic World": {
+        "sid": "063g3j",            # 专区「新枫之谷经典版冒险岛怀旧服」
+        "cate_seg": "46qwx3",       # 品类/子区上一层段（AION2 的对应位是 2c2xs4）
+        "type_seg": "et9e1b",       # 商品类型段（游戏币）
+        "unit_name": "万金",        # 页面上的单位串（parse_first 自校验用）
+        "wan_per_unit": 0.1,        # 前端单位 = K ⇒ 1 K = 0.1 万金
+        "target_wan": 100.0,        # 目标：买满 100 万金
+        "max_pages": 6,             # 站点实测共 6 页；够量即停
+        "sub": {                    # 我方「大区」→ (DD373 子区展示名, URL 段)
+            "Global": ("北美NA+欧洲EU", "k5faqj"),
+        },
+        # 合并统计的子区段（**两个都抓**，用户口径：global 内货币互通）
+        "sub_segs": [("北美NA", "k5faqj"), ("欧洲EU", "sphpwv")],
+    },
+}
+
+
+def _flat_url(z, sub_seg, page=1):
+    """扁平专区（MSCW）的商品页长 URL。
+
+    段位顺序是**从用户给的线上页面抄的**，别自己推：
+      /s-{sid}-{品类段}-{子区段}-0-0-0-{商品类型段}-0-0-0-0-0-{页}-0-0-0.html
+    ⚠ 翻页**只能改第 13 段**；`?PageIndex=N` 在本专区被 ESA 拦（与 AION2 正好相反）。
+    """
+    return "%s/s-%s-%s-%s-0-0-0-%s-0-0-0-0-0-%d-0-0-0.html" % (
+        BASE, z["sid"], z["cate_seg"], sub_seg, z["type_seg"], max(1, int(page)))
+
+
+def _collect_flat_game(game, rate, log=None, gap=1.3):
+    """把扁平专区的**全部子区合并**成一本订单簿，「吃」满目标量后返回成本记录。
+
+    返回 (记录 dict, {子区名: 站点统计})。记录结构对 AION2 的记录**保持同名兼容**
+    （成本_元每万基纳 / 成本_USD每M / 可供量_万基纳 / 库存 / 商品条数 / 依据 / URL …），
+    这样 store.save_gold_cost、看板、app.py 的注入链一行都不用改。
+
+    ⚠ 字段名里的「基纳」在本专区实为「金」（沿用旧字段名是为了不改下游）。
+    """
+    z = FLAT_ZONES[game]
+    subs = list(z.get("sub_segs") or list((z.get("sub") or {}).values()))
+    tgt = float(z.get("target_wan") or 100.0)
+    unit_name = z.get("unit_name") or "万金"
+    wpu = float(z.get("wan_per_unit") or WAN_PER_M)
+    quotes = []
+    pages_used = 0
+    site = {"总数": None, "页数": None, "每页": None}
+    urls = []
+    notes = []
+    _chk = None
+    for page in range(1, int(z.get("max_pages") or 6) + 1):
+        for dd_area, seg in subs:
+            url = _flat_url(z, seg, page)
+            try:
+                html = _get(url, referer=BASE + "/", tries=2)
+            except Exception as e:                 # noqa: BLE001
+                notes.append("%s p%d 抓取失败(%r)" % (dd_area, page, e))
+                continue
+            if _blocked(html):
+                # 被风控 ≠ 没货 ⇒ **整轮中止**，别把剩下几页打成「无报价」
+                return ({"ok": False, "依据": "被 DD373 风控拦截（不是无货）",
+                         "备注": "返回阿里云 ESA 滑块验证页；本轮已停止采集，"
+                                 "沿用上一轮快照", "URL": url}, site)
+            pages_used += 1
+            urls.append(url)
+            _q = _parse_quotes(html)
+            quotes.extend(_q)
+            # 站点统计取**有数据那一页**的（欧洲EU 永远是 0，取它会把总数写成 0）
+            _s = _site_stat(html)
+            for _k in ("总数", "页数", "每页"):
+                if _s.get(_k) and not site.get(_k):
+                    site[_k] = _s[_k]
+            if _chk is None and _q:
+                _chk = parse_first(html, unit_name)
+                if _chk and _chk.get("不可用"):
+                    # 单位口径异常 ⇒ **整轮丢弃**，宁缺勿错（成本是兜底线输入）
+                    return ({"ok": False, "依据": "单位口径异常，已丢弃（不写脏值）",
+                             "备注": _chk.get("自校验"), "URL": url}, site)
+            if gap:
+                time.sleep(gap)
+        # 本页（两个子区）都吃完了：够量就停（用户口径「遍历页面直到够 100w」）
+        if sum(q for q, _, _ in quotes) >= tgt - 1e-6:
+            break
+        if pages_used == 0:
+            break                       # 一页都没抓到（全失败）→ 别空转到底
+    ob = orderbook_avg(quotes, tgt)
+    if not ob:
+        return ({"ok": False, "依据": "DD373 该专区暂无在售商品",
+                 "备注": "页面正常渲染（未被风控）；两子区合并后 0 条可买挂单；"
+                         + ("；".join(notes) if notes else "站点共 %s 条记录"
+                            % (site.get("总数") if site.get("总数") is not None else 0)),
+                 "URL": urls[0] if urls else ""}, site)
+    _pr = ob["均价"]
+    _usd = to_usd_per_unit(_pr, rate, wpu)
+    _tot = site.get("总数")
+    _short = (None if ob["够量"] else
+              "该专区 %d 页内仅可买 %.0f 万金（< %.0f 万），均价按现有挂单加权"
+              % (pages_used, ob["可供量"], tgt))
+    rec = {
+        "ok": True,
+        "成本_元每万基纳": _pr,
+        "单位": unit_name,
+        "成本_USD每M": _usd,                       # ⚠ 本专区实为 $/K（前端单位就是 K）
+        "前端单位": "K",
+        "可供量_万基纳": ob["可供量"], "够量": ob["够量"],
+        "参与条数": ob["参与条数"],
+        "库存": "可买%.0f万金" % ob["可供量"],
+        "起售": None,
+        "商品条数": (_tot if _tot is not None else ob["报价条数"]),
+        "本页条数": len(quotes),
+        "解析条数": ob["报价条数"],
+        "站点页数": site.get("页数"),
+        "翻页数": pages_used,
+        "DD区": z.get("sub", {}).get("Global", ("", ""))[0],
+        "DD种族": "-", "DD游戏区": "Global（NA+EU 合并）",
+        "依据": "北美NA+欧洲EU 合并 · 买满 %.0f 万金订单簿加权(吃%d/%d条·翻%d页)"
+                % (tgt, ob["参与条数"], ob["报价条数"], pages_used),
+        "URL": urls[0] if urls else "",
+    }
+    _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short,
+                                 ("单价口径：元/万金 ÷ 汇率 ÷ 10 = $/K"
+                                  "（1 万金 = 10 K，前端单位 K）"),
+                                 ("；".join(notes) if notes else None)) if x)
+    if _own:
+        rec["备注"] = _own
+    if log:
+        log("  [DD373] %-24s 买满 %.0f 万金 → %.6f 元/万金 = $%.6f/K "
+            "(吃%d/%d条·翻%d页·可买%.0f万金%s)"
+            % (z.get("sub", {}).get("Global", ("", "-"))[0], tgt, _pr, _usd or 0,
+               ob["参与条数"], ob["报价条数"], pages_used, ob["可供量"],
+               "" if ob["够量"] else "·不足%.0f万" % tgt))
+    return (rec, site)
+
+
+def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None):
+    """扁平专区（MSCW）：整个游戏**共用一本订单簿**，结果写给该游戏全部服务区。"""
+    g = game or (servers[0].get("游戏") if servers else None)
+    if g not in FLAT_ZONES:
+        if log:
+            log("  [DD373] 扁平专区未登记：%r" % (g,))
+        return {}
+    svs = [s for s in (servers or []) if s.get("key")]
+    if not svs:
+        return {}
+    rec, _site = _collect_flat_game(g, rate, log=log, gap=gap)
+    return {s.get("key"): dict(rec) for s in svs}
 
 
 # ---------------------------------------------------------------------------
-# 主入口
+# 主入口（按游戏分发：AION2 三层树+首屏；MSCW 扁平子区+合并翻页）
 # ---------------------------------------------------------------------------
-def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False):
+def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False, game=None):
+    """给一批服务区取 DD373 成本 —— **按游戏分发**。
+
+    · 游戏 ∈ FLAT_ZONES（MSCW）⇒ `_fetch_costs_flat`（扁平子区 + 合并 + 翻页到够量）；
+    · 其余（AION2 / 未指定）    ⇒ `_fetch_costs_aion2`（原逻辑，一字未改）。
+
+    ⚠ 调用方一次**只传一个游戏**的服务区（app.py 按游戏循环）；
+      混游戏传入时按 `servers[0].游戏` 分发 —— 别依赖这个兜底。
+    """
+    svs = [s for s in (servers or []) if s.get("key")]
+    if not svs:
+        return {}
+    g = game or svs[0].get("游戏") or ""
+    if g in FLAT_ZONES:
+        return _fetch_costs_flat(svs, rate, log=log, gap=gap, game=g)
+    return _fetch_costs_aion2(svs, rate, log=log, gap=gap, refresh_tree=refresh_tree)
+
+
+def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
     """给一批服务区取 DD373 成本。
 
     servers : [{key, 大区, 名称或 g2g_服务区}] —— 直接传 config.金币.服务区 里的条目
@@ -783,13 +993,14 @@ def summarize(costs, our_price_by_key):
 if __name__ == "__main__":
     import sys
     cfg_path = sys.argv[1] if len(sys.argv) > 1 else "config.json"
+    game = sys.argv[2] if len(sys.argv) > 2 else "AION2"
     cfg = json.load(open(cfg_path, encoding="utf-8"))
     g = cfg.get("金币", {})
     rate = (g.get("汇率") or cfg.get("汇率", {}).get("USDCNY")) or 6.65
-    svs = [s for s in g.get("服务区", []) if s.get("游戏") == "AION2"]
-    print("AION2 %d 个服务区，汇率 %.4f，采集 DD373 成本 …" % (len(svs), rate))
-    res = fetch_costs(svs, rate, log=print, refresh_tree=True)
+    svs = [s for s in g.get("服务区", []) if s.get("游戏") == game]
+    print("%s %d 个服务区，汇率 %.4f，采集 DD373 成本 …" % (game, len(svs), rate))
+    res = fetch_costs(svs, rate, log=print, refresh_tree=True, game=game)
     ok = sum(1 for v in res.values() if v.get("ok"))
     _full = sum(1 for v in res.values() if v.get("ok") and v.get("够量"))
-    print("\n成功 %d / %d（其中可买满 1 亿 %d 个区）" % (ok, len(svs), _full))
+    print("\n成功 %d / %d（其中买满目标量 %d 个区）" % (ok, len(svs), _full))
     print(json.dumps(summarize(res, {}), ensure_ascii=False, indent=1))

@@ -85,6 +85,29 @@ def _render_post(u, path, payload, timeout=480):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
+
+def local_fallback_allowed(cfg=None):
+    """容器不可用时，是否允许回退到「本机 Playwright」。
+
+    ── 2026-10-08 结构性问题治理 ──
+    生产宿主 CentOS 7.9（glibc 2.17）能 import playwright，但**起不了 Chromium**
+    （`Connection closed while reading from the driver`）。也就是说这条回退分支
+    在生产上**必定失败**，却还打一行「回退本机 Playwright」把排查引向错误方向，
+    并且白等一次启动超时。
+
+    现改为**默认关闭**：容器不可用即快速返回（沿用上次快照），日志直说原因。
+    需要这条回退的环境（本机开发 / 有浏览器内核的旧机）用环境变量
+    `QD_LOCAL_FALLBACK=1`，或 config `千岛.允许本机回退=true` 打开。
+    """
+    v = (os.environ.get("QD_LOCAL_FALLBACK") or "").strip().lower()
+    if v:
+        return v not in ("0", "off", "false", "no", "none")
+    try:
+        return bool((cfg or {}).get("千岛", {}).get("允许本机回退", False))
+    except Exception:
+        return False
+
+
 # 暗黑4通货区服 id 全集（改写请求时用来识别「这一格就是区服」）
 SPEC_POOL = ("278378", "278379", "278380", "278381", "278382", "278384")
 
@@ -338,7 +361,14 @@ def scrape(cfg, log=print, info=None):
                 info["counts"] = _r.get("counts") or {}
             return _r.get("rows") or []
         except Exception as e:
-            log("  [千岛] ⚠ 容器渲染后端异常(%r)，回退本机 Playwright" % (e,))
+            log("  [千岛] ⚠ 容器渲染后端异常(%r)" % (e,))
+    if not local_fallback_allowed(cfg):
+        log("  [千岛] ✘ 容器不可用，本机回退已关闭（生产宿主无浏览器内核）"
+            "—— 本轮跳过，沿用上次快照")
+        if info is not None:
+            info["missed"], info["counts"] = [], {}
+        return []
+    log("  [千岛] 容器不可用 -> 回退本机 Playwright（QD_LOCAL_FALLBACK 已开启）")
     from playwright.sync_api import sync_playwright        # 懒 import：不抓千岛时不依赖
 
     spec_map = {str(k): canon_spec(v) for k, v in (qd.get("区服") or {}).items()}
@@ -553,16 +583,69 @@ def scrape_books(cfg, targets, log=print, specs=None):
 
     _u = render_url(cfg)
     if _u:                                                 # 走容器（CentOS 7 唯一可行路径）
+        # ── 2026-10-08 分块调用（修「每轮必然超时」）──
+        # 50 个 SPU × 3 个抓取区服 = 150 个组合。2026-10-05 加节流（每发请求 +
+        # 「请求间隔秒」1.5s、退避重试）后单组合 ≈4s，整轮 ≈600s —— 超过本函数
+        # _render_post 的 480s 上限 ⇒ **每一轮都必然超时** → 回退本机 Playwright
+        # （宿主 CentOS 7 glibc 2.17 起不了 Chromium）→ app.py 记「订单簿刷新失败，
+        # 沿用现有成本」。实测后果：订单簿快照停在 2026-10-07 19:13，成本一天没动。
+        # 改为按「分块SPU数」拆成多批、每批单独一次 HTTP（单批 ≈120s ≪ 480s），
+        # 且单批失败只丢该批（部分降级），不再把整轮拖垮。
+        _chunk = max(1, _int(bk.get("分块SPU数"), 10))
+        _parts = [targets[i:i + _chunk] for i in range(0, len(targets), _chunk)]
+        _books, _logs, _metas, _fails = {}, [], [], []
         try:
-            log("  [千岛·订单簿] 渲染后端 = 容器 %s" % _u)
-            _r = _render_post(_u, "/scrape_books",
-                              {"targets": [[s, n] for s, n in targets],
-                               "specs": specs})
-            for _l in (_r.get("log") or []):               # 回放容器内日志
+            log("  [千岛·订单簿] 渲染后端 = 容器 %s（%d 个 SPU / %d 批）"
+                % (_u, len(targets), len(_parts)))
+            for _i, _pt in enumerate(_parts, 1):
+                # 批内 0 结果时重试一次：千岛页面偶发「点了商品名但没发出 spu-list-v2」
+                # （实测 5 批里有 2 批中招），换一次新浏览器重来基本能成 —— 不重试
+                # 的话这一批 30 个组合全丢，成本只能沿用滞后的聚合价。限流（blocked）
+                # 时不重试，免得火上浇油。
+                _got, _m = {}, {}
+                for _a in range(2):
+                    if _a:
+                        log("  [千岛·订单簿] ⚠ 第 %d/%d 批 0 个订单簿（页面未就绪），重试一次"
+                            % (_i, len(_parts)))
+                        time.sleep(2)
+                    try:
+                        _r = _render_post(_u, "/scrape_books",
+                                          {"targets": [[s, n] for s, n in _pt],
+                                           "specs": specs})
+                    except Exception as _e:
+                        _fails.append("批%d/第%d次 %r" % (_i, _a + 1, _e))
+                        log("  [千岛·订单簿] ⚠ 第 %d/%d 批第 %d 次失败（%r）"
+                            % (_i, len(_parts), _a + 1, _e))
+                        continue
+                    _logs += (_r.get("log") or [])
+                    _got = _r.get("books") or {}
+                    _m = _r.get("meta") or {}
+                    if _got or _m.get("blocked"):
+                        break
+                _books.update(_got)
+                _metas.append(_m)
+                log("  [千岛·订单簿] 第 %d/%d 批完成：本批 %d 个订单簿（累计 %d）"
+                    % (_i, len(_parts), len(_got), len(_books)))
+            for _l in _logs:                               # 回放容器内日志
                 log(_l)
-            return _r.get("books") or {}, _r.get("meta") or {}
+            _meta = {"ok": bool(_books), "n": len(_books),
+                     "chunks": len(_parts), "chunk_fail": len(_fails),
+                     "ms": sum(int(m.get("ms") or 0) for m in _metas),
+                     "blocked": any(m.get("blocked") for m in _metas),
+                     "err": _fails[-1] if _fails else None}
+            if _books:
+                return _books, _meta
+            log("  [千岛·订单簿] ⚠ 分块全部失败（%d/%d）"
+                % (len(_fails), len(_parts)))
         except Exception as e:
-            log("  [千岛·订单簿] ⚠ 容器渲染后端异常(%r)，回退本机 Playwright" % (e,))
+            log("  [千岛·订单簿] ⚠ 容器渲染后端异常(%r)" % (e,))
+        if not local_fallback_allowed(cfg):
+            log("  [千岛·订单簿] ✘ 容器不可用，本机回退已关闭（生产宿主无浏览器内核）"
+                "—— 本轮沿用现有成本，不白等")
+            return {}, {"ok": False, "n": 0, "blocked": False,
+                        "err": (_fails[-1] if _fails else "容器不可用"),
+                        "local_fallback": False}
+        log("  [千岛·订单簿] 容器不可用 -> 回退本机 Playwright（QD_LOCAL_FALLBACK 已开启）")
 
     from playwright.sync_api import sync_playwright
     state = {"busy": False, "done": False, "books": {}, "err": None, "blocked": False,
@@ -580,29 +663,69 @@ def scrape_books(cfg, targets, log=print, specs=None):
 
         首个成功响应会存进 _first_box 供 route.fulfill 复用 —— 原来为拿 first
         又额外打了一发，等于凭空多耗一份配额，本身就是加剧 405 的原因之一。
+
+        ── 2026-10-08 健壮性修复 ──
+        ① `route.fetch()` 原先**没有 timeout**：千岛偶发不回包 / 页面被销毁时，
+           这一发会永久挂住 → 整个 worker 卡到 900s 被容器杀 → 宿主 480s 超时。
+           现在显式传 timeout（默认 25s），到点抛异常交给调用方重试。
+        ② 原先异常会**直接冒泡出整个 route_book**（下面 for a in range(_try)
+           的重试根本接不到：err 是用返回值传的，而 fetch 是抛异常）⇒ 一次网络
+           抖动就让整批组合全丢。现在这里兜住，重试逻辑才真正生效。
+        ③ 每个响应体用完立刻 dispose()（Playwright 要求，否则 body 一直缓在
+           driver 内存里）：150 组合 × 最多 8 页 = 上千个响应体，不释放会把
+           renderer 撑到 OOM/崩溃 → 正是上面 TargetClosedError 的成因。
         """
-        r = route.fetch(post_data=json.dumps(body, ensure_ascii=False))
+        try:
+            r = route.fetch(post_data=json.dumps(body, ensure_ascii=False),
+                            timeout=_int(bk.get("单发超时毫秒"), 25000))
+        except Exception as e:
+            return None, None, None, "fetch异常 %r" % (e,)
         if r.status != 200:
+            try:
+                r.dispose()
+            except Exception:
+                pass
             return None, None, None, "HTTP %s" % r.status
         try:
             d = (r.json() or {}).get("data") or {}
         except Exception as e:
+            try:
+                r.dispose()
+            except Exception:
+                pass
             return None, None, None, "响应解析失败 %r" % (e,)
         if _first_box["r"] is None:
-            _first_box["r"] = r
+            _first_box["r"] = r                           # 留给 route.fulfill
+        else:
+            try:
+                r.dispose()                               # 非 first 立即释放
+            except Exception:
+                pass
         got = d.get("items") or []
         return got, d.get("total"), bool(d.get("more")) and bool(got), None
+
+    # ── 2026-10-08 单轮总预算（与宿主「分块」配合的第二道保险）──
+    # 万一某批里请求集体变慢，也不允许把这一发 handler 拖到容器 900s 硬杀：
+    # 到预算就收尾，把已经抓到的组合带回去（部分数据 > 全丢）。
+    _budget = _f(bk.get("单轮预算秒"), 300)
 
     def route_book(route):
         if state["done"] or state["busy"]:
             return route.continue_()
         state["busy"] = True
         t0 = time.time()
+        _deadline = t0 + _budget
         try:
             tmpl = json.loads(route.request.post_data or "{}")
             thin = []
             for spu, name in targets:
+                if time.time() > _deadline:
+                    log("  [千岛·订单簿] ⏱ 已达单轮预算 %.0fs，停止剩余组合（已抓 %d 组）"
+                        % (_budget, len(state["books"])))
+                    break
                 for sid in specs:
+                    if time.time() > _deadline:
+                        break
                     body = json.loads(json.dumps(tmpl))
                     body["spuId"] = spu
                     body["offset"] = 0
@@ -610,6 +733,9 @@ def scrape_books(cfg, targets, log=print, specs=None):
                     items, total, more, off, pages = [], None, True, 0, 0
                     why = None
                     while more and pages < _int(bk.get("最大翻页"), 8):
+                        if time.time() > _deadline:
+                            why = "预算耗尽"
+                            break
                         body["offset"] = off
                         got, total2, more2, err = None, None, False, "未发请求"
                         for a in range(_try):
@@ -708,8 +834,14 @@ def scrape_books(cfg, targets, log=print, specs=None):
                     except Exception:
                         pass
         finally:
-            ctx.close()
-            br.close()
+            try:                                       # 2026-10-08：页面半死时
+                ctx.close()                            # close() 会抛 TargetClosed
+            except Exception:                          # / 连接已断，别让它把
+                pass                                   # 已抓到的结果一起带走
+            try:
+                br.close()
+            except Exception:
+                pass
 
     meta = {"ok": bool(state["books"]), "n": len(state["books"]),
             "blocked": state["blocked"], "err": state["err"], "ms": state["ms"]}
