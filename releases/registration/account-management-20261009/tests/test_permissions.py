@@ -21,7 +21,7 @@ GREEN = ROOT / 'green_plan_20261009/deploy/candidate/backend'
 POLICY = ROOT / 'green_plan_review_fix_20261009/source/auth/native_access_policy.py'
 if not GREEN.exists():
     GREEN = ROOT / 'releases/green-plan/20261009/candidate/backend'
-    POLICY = ROOT / 'releases/green-plan/20261009-review-fix/source/auth/native_access_policy.py'
+    POLICY = ROOT / 'releases/green-plan/20261009-review-fix/candidate/auth/native_access_policy.py'
 sys.path[:0] = [str(RELEASE/'source/runtime'),str(BASE/'vendor'),str(BASE),str(GREEN)]
 import runtime as r
 import module_permissions as permissions
