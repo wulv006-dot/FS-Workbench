@@ -1167,8 +1167,18 @@ def eval_rows(cfg, con, with_history=True):
     iggm_prev = {r["goods_no"]: r for r in (store.iggm_rows(con, prev_t) if prev_t else [])}
     qd_map = build_qd_map(cfg, con, qd_ts) if qd_ts else {}
 
+    # 2026-10-09：**每个 key 各取自己最新的一条决策**，不再只取「全表最新那一个 ts」。
+    #   起因：多游戏「按各自周期采集」上线后，每轮只对**到期的游戏**写决策快照
+    #   （D4 3h ／ ARC·WarDogs·WoW 6h ／ POE2·D&D·MSCW 1h ／ AION2 30min），
+    #   而页面只读全表最新那份 ⇒ 未到期的游戏被整轮挤掉、道具详情区显示
+    #   「这个游戏还没有道具数据」。改为按 key 取各自最新后，任何游戏都能显示
+    #   「它最近一次」的结果，互不挤占。
+    #   ⚠ 展示口径与出单口径严格分开：出单（emit_record / 工单）只认本轮快照，
+    #   下面的 `_cur` 标记保证过期行不会把自己算进「待改」。
     decs = [dict(r) for r in con.execute(
-        "SELECT * FROM decisions WHERE ts=? ORDER BY key", (ts,))]
+        "SELECT d.* FROM decisions d JOIN"
+        " (SELECT key AS k, MAX(ts) AS mt FROM decisions GROUP BY key) x"
+        " ON d.key=x.k AND d.ts=x.mt ORDER BY d.key")]
 
     # 后台折扣：前端价 = 我方标价 × 折扣。页面同时展示两个口径，这里统一换算一次。
     # 2026-09-25：改为**按商品/按游戏**取（暗黑4=90、POE2=100），见 engine.disc_of。
@@ -1195,6 +1205,13 @@ def eval_rows(cfg, con, with_history=True):
         if not follow:
             _act, _sug, _tgt, _mnew = "hold", None, None, None
             _rsn = "未勾选跟价：只展示价格与毛利，不出目标价"
+        # 过期行（该 key 最近一次决策不是本轮）：动作降级成 hold 并注明来源轮次。
+        # 目的有两个：① 页面「待改 N 条」只反映本轮真会出单的行，与工单对得上；
+        #             ② 避免用户误以为这些行本轮会改价（本轮根本没重算它们）。
+        _cur = (d.get("ts") == ts)
+        if not _cur and _act in ("follow_up", "follow_down"):
+            _act, _sug = "hold", None
+            _rsn = "（上轮快照 %s ｜ 本轮未到期，未重算）%s" % (d.get("ts"), _rsn or "")
         rows.append({
             "key": d["key"],
             "title": d.get("title") or it.get("中文名") or d["key"],
@@ -1223,8 +1240,12 @@ def eval_rows(cfg, con, with_history=True):
             "iggmMissing": bool(gn) and not bool(it.get("无IGGM对应"))
                            and d.get("iggm_new") is None,
             "iggmNewSpec": d.get("iggm_old") is None and d.get("iggm_new") is not None,
+            # 该行决策来自哪一轮 / 是否本轮 —— 便于页面区分「刚算的」与「沿用上轮」
+            "snapTs": d.get("ts"),
+            "cur": _cur,
         })
-        if d.get("iggm_old") and d.get("iggm_new") and abs(d["iggm_new"] - d["iggm_old"]) > 1e-12:
+        if (_cur and d.get("iggm_old") and d.get("iggm_new")
+                and abs(d["iggm_new"] - d["iggm_old"]) > 1e-12):
             changed += 1
         if d.get("margin_old") is not None:
             margins.append(d["margin_old"])
