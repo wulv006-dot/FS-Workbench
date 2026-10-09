@@ -141,10 +141,12 @@ CREATE TABLE IF NOT EXISTS gold_price (
     --   此前看板 G2G 列取的是 src_g2g = **三源·大区级** G2G 最低价（core_multi），
     --   与真正被跟着的价（**子服务器** cheapold / 推荐前二，见 core_g2g.cheapold_base）
     --   不是一个东西，老板看混了。这两列落库后看板直接显示「跟的那个价」。
-    g2g_base     REAL,       -- 该子服务器 G2G 上真正被跟的价 $/M（有 cheapold 用 cheapold，
-                             --   无则推荐前二较低者）；**成本兜底前的原竞品价**，不受保本抬价影响
-    g2g_base_src TEXT,       -- 上面那个价的来源："G2G·cheapold" / "G2G·推荐前二"
-                             --   （NULL = 该轮没抓到 G2G / 命中 DD373 货源闸没抓）
+    g2g_base     REAL,       -- 看板「跟价基准」列的价 $/M —— **我方真正在跟的那个价**：
+                             --   有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
+                             --   无 cheapold → 2026-10-09 起 = 本区 DD373 成本 × 系数（1.30）。
+    g2g_base_src TEXT,       -- 上面那个价的来源："G2G·cheapold" / "成本×1.30"（2026-10-09 起）
+                             --   （NULL = 该轮没抓到 G2G / 命中 DD373 货源闸没抓）；
+                             --   旧快照残留 "G2G·推荐前二"（该口径已于 2026-10-09 废止）
     PRIMARY KEY (ts, key)
 );
 CREATE INDEX IF NOT EXISTS idx_gold_key ON gold_price(key, ts);

@@ -245,10 +245,10 @@ def pricing_policy(cfg, game=None):
     │   「没挂单的统一调 19.9」= 严格统一，兜底价只看 无货兜底售价_USD每M）│
     └─────────────────────────────────────────────────────────────────┘
     ┌ g2g_cheapold（2026-10-05 起，老板定案 A「永远优先 cheapold」）────┐
-    │ 每个子服务器进 G2G：有卖家 cheapold → 目标 = cheapold价×(1−3%)；  │
-    │ 无 → 目标 = min(推荐第1位, 推荐第2位) × (1−3%)。                  │
-    │ DD373 / ELD / IGGM 照旧采集监控。                                 │
-    │ 🔴 2026-10-06 **成本兜底**（老板定案）：                           │
+    │ 每个子服务器进 G2G：有卖家 cheapold → 目标 = cheapold价×(1−下浮)。│
+    │ 无 cheapold 卖家 → 目标 = 本区 DD373 成本 × 1.30（保 30% 利润）； │
+    │ 🔴 2026-10-09 定案：**不再跟推荐前二**，该区与 G2G 竞品价脱钩。    │
+    │ 🔴 2026-10-06 **成本兜底**（老板定案，仅对有 cheapold 的区）：      │
     │   · 基准价 < 我方 DD373 成本价（买满 1 亿的订单簿加权均价）        │
     │     ⇒ 不再跟降，**目标 = 成本价**（不下浮）；                      │
     │   · 最后按 利润率下限（默认 −10%）兜底：利润率更低就抬到 成本÷1.1。│
@@ -336,17 +336,28 @@ def pricing_policy(cfg, game=None):
         _need = _f(p.get("无货最小可买万基纳"))
         if _need is None or _need < 0:
             _need = 10000.0
+        # 🔴 2026-10-09 三次定案 · **无 cheapold 卖家 ⇒ 按成本保 30% 利润**：
+        #   老板原话「该区无 cheapold 卖家，则保持30%的利润」，并确认
+        #   ① 利润公式 = **售价 = 成本 × 1.3**（成本加价 30%，不是 ÷0.7 口径）；
+        #   ② 与「推荐前二」是**替换**关系（该区直接与 G2G 竞品价脱钩）。
+        #   ⇒ 该区不再取 G2G 推荐前二价，目标 = 本区 DD373 成本 × 系数。
+        #   ⚠ 系数走配置，方便日后微调；非法/缺失一律回落 1.30。
+        _nc = _f(p.get("无cheapold加价系数"))
+        if _nc is None or _nc <= 1.0:
+            _nc = 1.30
         return {"模式": mode, "下浮比例": disc, "乘数": 1.0 - disc, "成本源": "DD373",
                 "cheapold卖家": _cn, "利润率下限": _mlim,
                 "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
+                "无cheapold加价系数": _nc,
                 "口径": ("每个子服务器进 G2G 取价：有卖家 %s → 目标 = %s价 × (1−%.1f%%)；"
-                        "无 → 目标 = min(推荐第1, 推荐第2) × (1−%.1f%%)。"
+                        "无 %s 卖家 → 目标 = 本区 DD373 成本 × %.2f"
+                        "（老板口径「保持 30%% 的利润」，不再跟推荐前二）。"
                         "⚠ DD373 货源闸（2026-10-09）：DD373 无有效报价 或 可买量 < %.0f 万基纳"
                         "（不足 1 亿）⇒ 该区统一挂 $%.2f/M 高价保护（等有货自动跟回）。"
-                        "⚠ 成本兜底（2026-10-06 保留）：基准价 < 我方 DD373 成本价"
+                        "⚠ 成本兜底（2026-10-06 保留，仅对有 cheapold 的区）：基准价 < 我方 DD373 成本价"
                         "（= 买满 1 亿基纳的订单簿加权均价）时**不再跟降，直接按成本价定价**；"
                         "最后再按利润率下限 %.0f%% 兜底（低了就抬回成本线）"
-                        % (_cn, _cn, disc * 100, disc * 100, _need, _park, _mlim * 100))}
+                        % (_cn, _cn, disc * 100, _cn, _nc, _need, _park, _mlim * 100))}
     if mode == "dd373_only":
         # 2026-10-06 老板定案：**只跟 DD373 进货成本**，加价 7%；
         #   无有效报价 / 可买量不足 1 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
@@ -1320,32 +1331,62 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     _who_txt = ("cheapold 卖家" if _issrc
                                 else "推荐前二较低者(%s)" % _cb.get("who"))
                     _base0 = _cb["base"]
-                    rec["基准价_原竞品"] = _base0
-                    rec["基准来源_原竞品"] = _base_src0
-                    _cost_floor = False
-                    if _cost_ok and _base0 < _cusd:
-                        # ⛔ 成本兜底：竞品比我们的进货成本还低 → 不跟降，直接按成本价定价
-                        _base0 = _cusd
-                        _base_src = "%s→成本价" % _base_src0
-                        _cost_floor = True
-                        rec["成本兜底"] = ("竞品 $%.4f/M < 我方成本 $%.4f/M ⇒ 不再跟降，"
-                                           "按成本价定价（不下浮）" % (_cb["base"], _cusd))
+                    # 🔴 2026-10-09（老板定案）· **无 cheapold 卖家 ⇒ 按成本保 30% 利润**
+                    #   老板原话「该区无 cheapold 卖家，则保持30%的利润」，并已明确两点：
+                    #     ① 利润公式 = **售价 = 成本 × 1.30**（成本加价 30%）；
+                    #     ② 与「推荐前二」是**替换**关系 —— 该区从此与 G2G 竞品价脱钩。
+                    #   ⇒ 不再取 G2G 推荐前二价，目标 = 本区 DD373 成本 × 系数（**不下浮**）。
+                    #   走到这里 _cost_ok 必为真（无成本 / 货不足的区已被上面「货源闸」拦掉），
+                    #   仍留 _cost_ok 守卫：万一配置漂移，也不至于算出一个没有成本支撑的假价。
+                    if not _issrc and _cost_ok and _cusd:
+                        _nc = _f(_row_pol.get("无cheapold加价系数"))
+                        if _nc is None or _nc <= 1.0:
+                            _nc = 1.30
+                        _cb_base = _cusd * _nc
+                        # 看板「跟价基准」列口径 = **我方真正在跟的价** ⇒ 落成本价；
+                        # G2G 给的那个推荐前二价单独存进「无cheapold基准」仅作留证。
+                        rec["基准价_原竞品"] = _cb_base
+                        rec["基准来源_原竞品"] = "成本×%.2f" % _nc
+                        rec["基准价"] = _cb_base
+                        rec["基准来源"] = "成本×%.2f" % _nc
+                        _base_src = rec["基准来源"]
+                        rec["定价来源级别"] = 2
+                        rec["目标来自成本兜底"] = False
+                        rec["无cheapold成本加价"] = _nc
+                        rec["无cheapold基准"] = _base0
+                        _tgt_from_base = _cb_base
+                        _base_detail = ("该区无 cheapold 卖家（G2G 推荐前二较低者 $%.4f/M 不跟）"
+                                        "⇒ 目标 = 本区 DD373 成本 $%.4f/M × %.2f"
+                                        "（成本加价 %.0f%%，利润率 %.1f%%）"
+                                        % (_base0, _cusd, _nc,
+                                           (_nc - 1.0) * 100, (1.0 - 1.0 / _nc) * 100))
                     else:
-                        _base_src = _base_src0
-                    rec["基准价"] = _base0
-                    rec["基准来源"] = _base_src
-                    rec["定价来源级别"] = 1 if _issrc else 2
-                    rec["目标来自成本兜底"] = bool(_cost_floor)
-                    if _cost_floor:
-                        # 老板口径：「按成本价来定价」—— 成本兜底时**不再下浮**
-                        _tgt_from_base = _base0
-                        _base_detail = ("G2G %s %s $%.4f/M < 成本 $%.4f/M → 直接按成本价定价"
-                                        % (sv.get("大区") or "", _who_txt, _cb["base"], _cusd))
-                    else:
-                        _tgt_from_base = _base0 * _mult
-                        _base_detail = ("G2G %s %s：$%.4f/M × (1−%.1f%%)"
-                                        % (sv.get("大区") or "", _who_txt, _cb["base"],
-                                           _disc * 100))
+                        rec["基准价_原竞品"] = _base0
+                        rec["基准来源_原竞品"] = _base_src0
+                        _cost_floor = False
+                        if _cost_ok and _base0 < _cusd:
+                            # ⛔ 成本兜底：竞品比我们的进货成本还低 → 不跟降，直接按成本价定价
+                            _base0 = _cusd
+                            _base_src = "%s→成本价" % _base_src0
+                            _cost_floor = True
+                            rec["成本兜底"] = ("竞品 $%.4f/M < 我方成本 $%.4f/M ⇒ 不再跟降，"
+                                               "按成本价定价（不下浮）" % (_cb["base"], _cusd))
+                        else:
+                            _base_src = _base_src0
+                        rec["基准价"] = _base0
+                        rec["基准来源"] = _base_src
+                        rec["定价来源级别"] = 1 if _issrc else 2
+                        rec["目标来自成本兜底"] = bool(_cost_floor)
+                        if _cost_floor:
+                            # 老板口径：「按成本价来定价」—— 成本兜底时**不再下浮**
+                            _tgt_from_base = _base0
+                            _base_detail = ("G2G %s %s $%.4f/M < 成本 $%.4f/M → 直接按成本价定价"
+                                            % (sv.get("大区") or "", _who_txt, _cb["base"], _cusd))
+                        else:
+                            _tgt_from_base = _base0 * _mult
+                            _base_detail = ("G2G %s %s：$%.4f/M × (1−%.1f%%)"
+                                            % (sv.get("大区") or "", _who_txt, _cb["base"],
+                                               _disc * 100))
                 else:
                     rec["G2G跟价错误"] = "该子服务器本轮 0 条有效报价"
         # ①''' 2026-10-08 老板定案（MapleStory Classic World）：**无脑跟 IGGM 的价 ×(1−10%)**，
@@ -1423,6 +1464,15 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     rec["目标前端每M_口径"] = (
                         "DD373 货源不足（无有效报价 / 不足 1 亿）→ 统一挂 $%.2f/M 高价保护"
                         "（等有货自动跟回）" % float(rec.get("无货兜底售价_USD每M") or 0))
+                elif rec.get("无cheapold成本加价"):
+                    # 2026-10-09：无 cheapold 卖家的区改走「成本 × 系数」，不再是推荐前二×下浮。
+                    _nc_t = rec.get("无cheapold成本加价") or 1.30
+                    rec["目标前端每M_口径"] = (
+                        "该区无 cheapold 卖家（G2G 推荐前二 $%.4f/M 不跟）⇒ "
+                        "目标 = **成本价** $%.4f/M × %.2f（成本加价 %.0f%%，利润率 %.1f%%）"
+                        % (rec.get("无cheapold基准") or 0.0,
+                           rec.get("DD373成本_USD每M") or 0.0, _nc_t,
+                           (_nc_t - 1.0) * 100, (1.0 - 1.0 / _nc_t) * 100))
                 elif rec.get("目标来自成本兜底"):
                     rec["目标前端每M_口径"] = (
                         "竞品 %s $%.4f/M 低于我方成本 $%.4f/M → 目标 = **成本价**（不下浮）"
@@ -1693,7 +1743,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             if _mode_used == "g2g_cheapold":
                 _lvl = rec.get("定价来源级别")
                 _lbl = ("cheapold 卖家" if _lvl == 1
-                        else "推荐前二较低者(%s)" % (rec.get("G2G_取价卖家") or "-"))
+                        else ("本区 DD373 成本" if rec.get("无cheapold成本加价")
+                              else "推荐前二较低者(%s)" % (rec.get("G2G_取价卖家") or "-")))
                 # 2026-10-09 补：DD373 **货源闸**命中的区压根**没抓 G2G**（基准价 = None）。
                 #   原来会落进下面那个 G2G 分支 ⇒ 说明写成「G2G 推荐前二较低者 $-/M × (1−1.0%)」，
                 #   与真实口径（统一挂保护价）不符：目标明明是 $19.9，读起来却像闸门没生效。
@@ -1711,6 +1762,17 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                             % (fmt_money(per_100k(tgt_m, _dm)), _ul, _lbl,
                                fmt_money(per_100k(rec.get("基准价_原竞品"), _dm)), _ul,
                                fmt_money(per_100k(_cusd, _dm)), _ul,
+                               fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                elif rec.get("无cheapold成本加价"):
+                    # 🆕 2026-10-09：该区无 cheapold 卖家 ⇒ 改按成本保 30% 利润定价
+                    _nc_l = rec["无cheapold成本加价"]
+                    _pre = ("目标 $%s/%s（🆕 无 cheapold 卖家：G2G 推荐前二 $%s/%s **不跟** "
+                            "⇒ 按本区成本 $%s/%s × %.2f 定价，成本加价 %.0f%%、利润率 %.1f%%）"
+                            "｜我方 $%s/%s（%+.2f%%）"
+                            % (fmt_money(per_100k(tgt_m, _dm)), _ul,
+                               fmt_money(per_100k(rec.get("无cheapold基准"), _dm)), _ul,
+                               fmt_money(per_100k(_cusd, _dm)), _ul, _nc_l,
+                               (_nc_l - 1.0) * 100, (1.0 - 1.0 / _nc_l) * 100,
                                fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
                 else:
                     _pre = ("目标 $%s/%s（G2G %s $%s/%s × (1−%.1f%%)）｜我方 $%s/%s（%+.2f%%）"
@@ -1857,7 +1919,9 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                          "改 config.金币.定价策略.模式 即可切回 G2G cheapold 或三源比价。"
                          if _pricing_mode == "dd373_only" else
                          ("当前 AION2 走「G2G cheapold 跟价」；G2G/ELD/IGGM 继续采集监控并展示，"
-                          "定价只取该子服务器的 cheapold（无则推荐前二较低者）×(1−下浮%)。"
+                          "定价只取该子服务器的 cheapold ×(1−下浮%)；"
+                          "**该区无 cheapold 卖家 ⇒ 改按本区成本 ×1.30 保 30% 利润**"
+                          "（2026-10-09 定案，不再跟推荐前二）。"
                           "改 config.金币.定价策略.模式 即可切回 DD373 或三源比价。"
                           if _pricing_mode == "g2g_cheapold" else
                           ("当前 AION2 走「DD373 推荐价 + 加价%」；G2G/ELD/IGGM 继续采集监控并展示，"

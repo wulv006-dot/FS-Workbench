@@ -2080,10 +2080,22 @@ def task_collect(t, opts):
                                  it.get("无货兜底售价_USD每M") or 19.9,
                                  it.get("采购成本_新"), it.get("动作") or "-"))
                     else:
-                        t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
-                              % (it.get("中文名"), it.get("基准来源") or "-",
-                                 it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
-                                 it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                        # 🆕 2026-10-09：无 cheapold 卖家的区改按成本保 30% 利润定价，
+                        #   不能再按「G2G 基准 × (1−下浮%)」打印（那会写成 −1%，误导）。
+                        if it.get("无cheapold成本加价"):
+                            t.log("  [金币] %-22s 无 cheapold 卖家 → 成本 $%s/M × %.2f"
+                                  "（保 %.1f%% 利润，G2G 推荐前二 $%s 不跟）"
+                                  " → 目标采购成本 %s ｜ %s%s"
+                                  % (it.get("中文名"), it.get("DD373成本_USD每M"),
+                                     it.get("无cheapold成本加价"),
+                                     (1.0 - 1.0 / float(it["无cheapold成本加价"])) * 100,
+                                     it.get("无cheapold基准"),
+                                     it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                        else:
+                            t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
+                                  % (it.get("中文名"), it.get("基准来源") or "-",
+                                     it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
+                                     it.get("采购成本_新"), it.get("动作") or "-", _tflag))
                 elif it.get("定价模式") == "iggm_undercut":
                     # 2026-10-08 MSCW：无脑跟 IGGM ×(1−让价%)，只保留 +15% 利润兜底
                     _tflag = ""
@@ -2934,11 +2946,16 @@ def api_gold():
                  "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
                  % ((_pol_a.get("加价比例") or 0) * 100)
                  if _pol_a.get("模式") == "dd373_markup" else
-                 ("AION2 售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）"
-                  "× (1−%.1f%%)；⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
+                 ("AION2 售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
+                  "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f"
+                  "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
+                  "⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
                   "（成本 = 买满 1 亿基纳的订单簿加权均价），最后按利润率下限 %.0f%% 兜底；"
                   "ELD/IGGM 继续采集监控但不参与定价。"
                   % ((_pol_a.get("下浮比例") or 0.03) * 100,
+                     (_pol_a.get("无cheapold加价系数") or 1.30),
+                     ((_pol_a.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
+                     (1.0 - 1.0 / (_pol_a.get("无cheapold加价系数") or 1.30)) * 100,
                      (_pol_a.get("利润率下限")
                       if _pol_a.get("利润率下限") is not None else -0.10) * 100)
                   if _pol_a.get("模式") == "g2g_cheapold" else
@@ -3130,12 +3147,17 @@ def api_gold_cost():
                 (_pol.get("无货最小可买万基纳") or 10000),
                 (_pol.get("无货兜底售价_USD每M") or 19.9)))
             if _pol.get("模式") == "dd373_only" else
-            ("售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）× (1−%.1f%%)；"
+            ("售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
+             "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f 定价"
+             "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
              "⛔ 成本兜底（2026-10-06）：竞品价 < 我方 DD373 成本价时**不再跟降，"
              "按成本价定价**；最后按利润率下限 %.0f%% 兜底。"
              "成本 = DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳）；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
              % ((_pol.get("下浮比例") or 0.03) * 100,
+                (_pol.get("无cheapold加价系数") or 1.30),
+                ((_pol.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
+                (1.0 - 1.0 / (_pol.get("无cheapold加价系数") or 1.30)) * 100,
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else -0.10) * 100)
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M × %.1f%%；"
