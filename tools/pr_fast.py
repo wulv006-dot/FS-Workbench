@@ -209,6 +209,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/traffic-member-20261009/"):
+            groups.add("fs-traffic-member");continue
         if name.startswith("releases/fs-dashboard/traffic-yesterday-20261009/"):
             groups.add("fs-period-ui");continue
         if name.startswith("releases/fs-dashboard/metrics-fix-20261009/"):
@@ -300,6 +302,11 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-traffic-member":
+            release="releases/fs-dashboard/traffic-member-20261009"
+            units(release,["test_backend","test_publisher"])
+            units(release+"/deploy/static",["test_release_workspace"])
+            node(release+"/test-glossary.cjs")
         elif group=="fs-period-ui":node("releases/fs-dashboard/traffic-yesterday-20261009/test-yesterday.mjs")
         elif group=="fs-metrics-fix":
             release="releases/fs-dashboard/metrics-fix-20261009"
@@ -332,3 +339,4 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+

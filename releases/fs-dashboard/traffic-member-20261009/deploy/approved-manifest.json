@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "scope": "fs-traffic-member-20261009",
+  "releaseReady": true,
+  "sessionBaseImage": "sha256:42d53d8c606491685f8a87db7bf6b0d1010c855464c37b8e37e7bbd45dd1dcda",
+  "files": [
+    {
+      "candidate": "custom_range.py",
+      "target": "/opt/mmoexp-marketing/custom-range/custom_range.py",
+      "sha256": "33b63a04321dab4143f64b17ede3debc3d04c22c68da9cefc530d94f8758110d",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "range_api.py",
+      "target": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "sha256": "cf6959fc5e5d720258e7e1b35b9845352c6d0f55d99297593e2c3dae610953d8",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/admin_links.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_links.py",
+      "sha256": "3a2d3d7b6479fa57e4cd81f5ab33337b717b5c57121b81527e89f1444bd640d9",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "ec4c7ba41c3cc07f16e2dbdb294f9c467f490bb7765a8a74d2d3db8e6c4b26e9",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/Dockerfile.session",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "sha256": "e1ff6d139ffc56c953997299b0930d63feb39a87677446df0384d940ed7adeee",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "fs-marketing-range.service",
+      "target": "/etc/systemd/system/fs-marketing-range.service",
+      "sha256": "1add2694d89e56c42b52dc13d162b190788cc3c365ddff7f6efcc129ad97ea21",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "3c690e92c3287f9295d7566f0eeb7ed894f074f5c3b02def116aa2e37e2d1a4d",
+      "beforeSha256": "36a9cee51162e6e26670f6ecbb2bae33c438baa6117b75bc62fcdd342f0cb31e"
+    },
+    {
+      "candidate": "traffic-auth/runtime.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "sha256": "6b92b4c33d9fa1e4ac14514ea0291beb1aaf291495b8dec77db8507f24f62e12",
+      "beforeSha256": "74019f5942d8bc825fcfb28d9d66b085cb132edc24cea1f0686384d74b16bb8c"
+    },
+    {
+      "candidate": "traffic-auth/route-contract.json",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "sha256": "5e29010b520bf4ee6f6e04cbfff56d3430cf21300b040301ae6ea5316dde0539",
+      "beforeSha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/opt/auth-portal/auth_portal.py",
+      "sha256": "6b00046a56b6292086f715df3e52fa247093ea1415375313e3b821d98b101baf"
+    },
+    {
+      "path": "/etc/nginx/conf.d/iggm-web.conf",
+      "sha256": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317"
+    },
+    {
+      "path": "/etc/nginx/fs-business-range.locations.conf",
+      "sha256": "75c410fea586c47253a19a7a1918d4575f389786f6481c45ad4ce6867ccd3571"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/collect_details.py",
+      "sha256": "6e9a5d1f4c6a27640a06cec60b5a847558cd7dcf21c6083826495379ca785c1c"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/detail_model.py",
+      "sha256": "9c9592549fa2162adda7ea8cb590ce2bf4bf95a7b8ce7ccb28ecdfc4e8326dc2"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/deployment/server_run_integrated.py",
+      "sha256": "a1174defb5db8405624f87b89d40e700bfceed6160ae004363fe913a0cd439e7"
+    },
+    {
+      "path": "/etc/systemd/system/mmoexp-marketing-daily.service",
+      "sha256": "0b35017d97ce636ef94f076c4e20a3c1ec7aac8223aea5760bda71425f5586dc"
+    },
+    {
+      "path": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+      "sha256": "133f98e7467c0507119e588128dcbf6856db58a7a34eb8887b3d9a5660f48188"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "sha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58"
+    }
+  ],
+  "runtimeRequired": {
+    "auth-portal.service": {
+      "ActiveState": "active"
+    },
+    "fc27-p2pah-session.service": {
+      "ActiveState": "active"
+    }
+  }
+}

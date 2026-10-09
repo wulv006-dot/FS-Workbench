@@ -1,0 +1,5 @@
+FROM fc27-cloud-session:1
+USER root
+COPY p2pah_session_service.py admin_links.py /usr/local/bin/
+USER fc27chrome
+ENTRYPOINT ["python3", "/usr/local/bin/p2pah_session_service.py"]
