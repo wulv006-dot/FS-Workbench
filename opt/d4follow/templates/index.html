@@ -2057,6 +2057,10 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     }
   });
   const _pol2 = d['定价策略']||{};
+  /* 2026-10-09：表头文案要跟着**当前模式**走 —— 模式可用 switch_pricing_mode.py 一键切回
+     dd373_only / dd373_markup。若表头写死「跟价来源 / G2G 跟价基准」而模式里每行渲染的
+     还是「第N级 / 三源 G2G 最低」，就成了新的口径不一致。所以这里按模式分叉。 */
+  const _isG2GC2 = _pol2['模式']==='g2g_cheapold';
   if(_pol2['模式']==='dd373_markup'){
     sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
@@ -2090,7 +2094,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     /* 2026-10-09（老板口径）：「这个定价级别是什么旧口径，这种数据没啥意义，修改掉」——
        旧列只在 dd373 两种模式下才算级别，现行 g2g_cheapold 模式下 86 行全渲染成
        字面文本「旧口径」= 纯噪音。改成 **跟价来源**：直接回答「这一行的价跟的是谁」。 */
-    + '<th>跟价来源</th>'
+    + (_isG2GC2 ? '<th>跟价来源</th>' : '<th class="num">定价级别</th>')
     + '<th class="num">售价 $/M<br><span class="small" style="color:var(--sub);font-weight:400">改价后最终</span></th>'
     /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列，与「售价」列口径重复。 */
     /* 2026-10-09（老板口径）：「之前不是让你盯着 cheapold 的价格来改吗，那你得把
@@ -2099,7 +2103,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
        cheapold / 推荐前二）不是一个口径（实测 ASIA_ARIEL_E 列显 3.96 / 实际跟 1.89）。
        现改为 **G2G 跟价基准**：有 cheapold 显示 cheapold 价，无则显示推荐前二较低者
        并标注来源（老板确认选 A：不出现空洞）。 */
-    + '<th class="num">G2G 跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先</span></th>'
+    + (_isG2GC2
+        ? '<th class="num">G2G 跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先</span></th>'
+        : '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
     + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
@@ -2110,7 +2116,6 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     + '<th>依据</th><th>改价操作</th></tr>';
   const _isDD2 = _pol2['模式']==='dd373_markup';
   const _isOnly = _pol2['模式']==='dd373_only';
-  const _isG2GC2 = _pol2['模式']==='g2g_cheapold';   // 2026-10-09：AION2 现行模式
   /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
      ⚠ 必须放在 #gcsTable **之外**：表格每次重绘都换 innerHTML，控件在里面会失焦。
      控件的初值从 GCS_FILTER 回填（新一轮采集重建后不丢用户已选的筛选）。 */
