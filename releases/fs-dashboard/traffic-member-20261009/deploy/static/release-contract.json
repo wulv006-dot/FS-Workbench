@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "releaseReady": true,
+  "releaseReady": false,
   "releaseId": "workspace-native-20261006-f6a2468ee805",
   "scope": "Chinese explanations, translated dimensions, custom date range and sanitized Admin member/coupon reads; existing business and access policies retained",
   "immutableAssets": [

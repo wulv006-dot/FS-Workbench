@@ -14,7 +14,7 @@ FRAGMENT = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 NAVIGATION = '/var/www/dashboard/fs-home/navigation.js'
 MUTABLE = (HOME,FRAGMENT,NAVIGATION)
 NAMES = {'business.css','business.html','business.js','google.css','google.html','google.js','home.html','index.html','metrics.js','navigation.json','runtime.js','shell.js','snapshot-client.js','workspace.css'}
-CONTRACT_SHA = '9b4391778621e9a9256175b4e258306d340657e527ef7a3fa0d6cea1c2f8632a'
+CONTRACT_SHA = '2d8b68dfdee4ec8cf620191dc02d5e95cb2b441051c1167349e19eef4889ef66'
 hashed = lambda data: hashlib.sha256(data).hexdigest()
 at = lambda root,name: root / str(name).lstrip('/')
 
