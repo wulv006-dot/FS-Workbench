@@ -327,14 +327,26 @@ def pricing_policy(cfg, game=None):
             _mlim = -0.10
         if _mlim > 0:
             _mlim = 0.0
+        # 2026-10-09 二次定案：**DD373 货源闸** —— 无有效报价 或 可买量 < 阈值 ⇒ 挂保护价。
+        #   判据用 **DD373 的货源**（老板明确「货源不足指的是 DD373 的货源不够」），
+        #   与 G2G 有没有报价无关。
+        _park = _f(p.get("无货兜底售价_USD每M"))
+        if _park is None or _park <= 0:
+            _park = 19.9
+        _need = _f(p.get("无货最小可买万基纳"))
+        if _need is None or _need < 0:
+            _need = 10000.0
         return {"模式": mode, "下浮比例": disc, "乘数": 1.0 - disc, "成本源": "DD373",
                 "cheapold卖家": _cn, "利润率下限": _mlim,
+                "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
                 "口径": ("每个子服务器进 G2G 取价：有卖家 %s → 目标 = %s价 × (1−%.1f%%)；"
                         "无 → 目标 = min(推荐第1, 推荐第2) × (1−%.1f%%)。"
-                        "⚠ 成本兜底（2026-10-06）：基准价 < 我方 DD373 成本价"
+                        "⚠ DD373 货源闸（2026-10-09）：DD373 无有效报价 或 可买量 < %.0f 万基纳"
+                        "（不足 1 亿）⇒ 该区统一挂 $%.2f/M 高价保护（等有货自动跟回）。"
+                        "⚠ 成本兜底（2026-10-06 保留）：基准价 < 我方 DD373 成本价"
                         "（= 买满 1 亿基纳的订单簿加权均价）时**不再跟降，直接按成本价定价**；"
                         "最后再按利润率下限 %.0f%% 兜底（低了就抬回成本线）"
-                        % (_cn, _cn, disc * 100, disc * 100, _mlim * 100))}
+                        % (_cn, _cn, disc * 100, disc * 100, _need, _park, _mlim * 100))}
     if mode == "dd373_only":
         # 2026-10-06 老板定案：**只跟 DD373 进货成本**，加价 7%；
         #   无有效报价 / 可买量不足 1 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
@@ -1234,9 +1246,25 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             rec["DD373成本_元每万基纳"] = _cost.get("cny_per_wan")
             rec["DD373可买"] = _cost.get("stock")
             rec["DD373依据"] = _cost.get("basis")
+            # 🔴 2026-10-09 二次定案 · **DD373 货源闸**：判据是 **DD373 的货源**，与 G2G 有没有
+            #   报价无关（老板明确「若该区域货源不足，还是以 19.9 进行高价保护」＋
+            #   「货源不足指的是 DD373 的货源不够」）。不足 ⇒ 该区买不到货 ⇒ 统一挂保护价，
+            #   且**不再抓 G2G**（省一次请求）。
+            _park = _f(_row_pol.get("无货兜底售价_USD每M"))
+            if _park is None or _park <= 0:
+                _park = 19.9
+            _need = _f(_row_pol.get("无货最小可买万基纳"))
+            if _need is None or _need < 0:
+                _need = 10000.0
+            _avail = _f(_cost.get("avail_wan"))
+            #   「够不够」沿用 dd373_only 的同一口径：avail 拿不到（旧快照/解析失败）⇒
+            #   按有货处理 —— 宁可正常跟价，也不要把一个真有货的区误挂成 $19.9。
+            _enough = bool(_cost_ok) and (_avail is None or _avail >= _need)
+            rec["无货兜底售价_USD每M"] = _park
+            rec["DD373可买_万基纳"] = _avail
             if not _cost_ok:
-                rec["成本兜底_说明"] = "本轮无 DD373 成本（%s）⇒ 按原 cheapold 口径定价" % (
-                    _cost.get("basis") or "未采到")
+                rec["成本兜底_说明"] = ("本轮无 DD373 成本（%s）⇒ 触发货源闸，挂保护价"
+                                        % (_cost.get("basis") or "未采到"))
             # 三源明细照旧（看板继续显示 G2G/ELD/IGGM + 差距对比）
             if _ms and sv.get("key") in _ms_need:
                 try:
@@ -1250,7 +1278,25 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             # 子服务器 G2G 取价（cheapold 优先）
             _ds = str(sv.get("g2g_dataset") or "").strip()
             _cb = None
-            if not _g2gcb:
+            if not _enough:
+                # ── 货源闸命中：DD373 买不到货（无报价 / 不足 1 亿）⇒ 挂保护价，不抓 G2G ──
+                # 老板口径「没挂单的统一挂 19.9」= 严格统一，故保护价只看
+                # 「无货兜底售价_USD每M」，不走成本兜底、也不受利润率下限影响（见下方闸门）。
+                _tgt_from_base = _park
+                _base_src = "无货兜底"
+                rec["定价来源级别"] = 3
+                rec["基准价"] = None
+                rec["基准来源"] = "无货兜底"
+                if not _cost_ok:
+                    _why = "DD373 无有效报价（%s）" % (_cost.get("basis") or "该区无挂单")
+                else:
+                    _why = ("DD373 可买量 %.0f 万基纳 < %.0f（不足 1 亿）"
+                            % (_avail or 0.0, _need))
+                rec["无货兜底说明"] = ("%s ⇒ 本轮统一挂 $%.2f/M 高价保护，"
+                                       "等该区有货（≥%.0f 万基纳）下一轮自动跟回"
+                                       % (_why, _park, _need))
+                _base_detail = rec["无货兜底说明"]
+            elif not _g2gcb:
                 rec["G2G跟价错误"] = "core_g2g 不可用"
             elif not _ds:
                 rec["G2G跟价错误"] = "config 缺 g2g_dataset（无法定位 G2G 子服务器入口）"
@@ -1373,7 +1419,11 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     {"DD373": "DD373推荐价"}.get(_base_src, _base_src),
                     rec.get("基准价") or 0.0, (_mk or 0) * 100)
             elif _mode_used == "g2g_cheapold":
-                if rec.get("目标来自成本兜底"):
+                if rec.get("基准来源") == "无货兜底":
+                    rec["目标前端每M_口径"] = (
+                        "DD373 货源不足（无有效报价 / 不足 1 亿）→ 统一挂 $%.2f/M 高价保护"
+                        "（等有货自动跟回）" % float(rec.get("无货兜底售价_USD每M") or 0))
+                elif rec.get("目标来自成本兜底"):
                     rec["目标前端每M_口径"] = (
                         "竞品 %s $%.4f/M 低于我方成本 $%.4f/M → 目标 = **成本价**（不下浮）"
                         % (rec.get("基准来源_原竞品") or "G2G",
