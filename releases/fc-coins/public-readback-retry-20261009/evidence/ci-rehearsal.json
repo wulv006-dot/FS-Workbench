@@ -1,0 +1,44 @@
+{
+  "rehearsal": "offline PR CI rehearsal against a synthetic repo mirroring the post-PR tree",
+  "python": "3.9.18 (server /usr/bin/python3, matches CI setup-python 3.9.18)",
+  "note": "GitHub-hosted runner provides its own git; the FC27 production host has no git binary, so the git-dependent rename_source_selfcheck was not exercised here. The Windows-only POSIX-newline-filename failure is pre-existing and reproduced on the unpatched baseline.",
+  "checks": [
+    {
+      "name": "selector_maps_release_path",
+      "input": "releases/fc-coins/public-readback-retry-20261009/fc27_cloud_browser/fc27_cloud_worker.py",
+      "result": ["fc-public-readback"],
+      "status": "pass"
+    },
+    {
+      "name": "unmapped_path_still_rejected",
+      "input": "totally/unmapped/thing.py",
+      "error": "UNMAPPED: add minimal affected synthetic test mapping in this PR: totally/unmapped/thing.py",
+      "status": "pass"
+    },
+    {
+      "name": "lcov_selfcheck_frontend_and_coverage_blocks",
+      "detail": "path/structure selfcheck and coverage selfcheck printed their PASS lines before the git-dependent block",
+      "status": "pass"
+    },
+    {
+      "name": "group_runner_command",
+      "detail": "the exact fc-public-readback group command invoked by pr_fast.main ran with rc 0",
+      "status": "pass"
+    },
+    {
+      "name": "release_tests_on_linux_39",
+      "detail": "python3 -m unittest test_public_readback_retry",
+      "ran": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "status": "pass"
+    }
+  ],
+  "pre_existing_platform_failure": {
+    "where": "tools/pr_fast.py rename_source_selfcheck",
+    "cause": "Windows cannot create a filename containing a literal newline (ui/old\\npage.html)",
+    "reproduced_on_unpatched_baseline": true,
+    "conclusion": "not introduced by this change; Linux CI is the authoritative environment"
+  }
+}
