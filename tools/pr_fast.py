@@ -7,7 +7,7 @@ def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
         raise RuntimeError("required_tests_failed_or_empty_or_skipped")
 
-def units(directory, names):
+def units(directory, names, root_owned=False):
     # Each group runs in a fresh interpreter: avoid module-name/path collisions.
     code = """
 import io,json,socket,subprocess,sys,unittest
@@ -27,7 +27,12 @@ r=unittest.TextTestRunner(verbosity=2).run(suite)
 print(json.dumps({'testsRun':r.testsRun,'failures':len(r.failures),'errors':len(r.errors),'skipped':len(r.skipped)}))
 sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
 """
-    subprocess.run([sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
+    prefix=[]
+    if root_owned:
+        # The publisher requires root-owned staging; reproduce it inside the disposable CI checkout.
+        subprocess.run(["sudo","chown","-R","0:0",str(ROOT/directory)],check=True,timeout=30)
+        prefix=["sudo"]
+    subprocess.run(prefix+[sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
 
 def node(path):
     subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=30)
@@ -305,7 +310,7 @@ def main():
         elif group=="fs-traffic-member":
             release="releases/fs-dashboard/traffic-member-20261009"
             units(release,["test_backend","test_publisher"])
-            units(release+"/deploy/static",["test_release_workspace"])
+            units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
         elif group=="fs-period-ui":node("releases/fs-dashboard/traffic-yesterday-20261009/test-yesterday.mjs")
         elif group=="fs-metrics-fix":
