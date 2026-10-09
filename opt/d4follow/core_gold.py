@@ -1694,7 +1694,18 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 _lvl = rec.get("定价来源级别")
                 _lbl = ("cheapold 卖家" if _lvl == 1
                         else "推荐前二较低者(%s)" % (rec.get("G2G_取价卖家") or "-"))
-                if rec.get("目标来自成本兜底"):
+                # 2026-10-09 补：DD373 **货源闸**命中的区压根**没抓 G2G**（基准价 = None）。
+                #   原来会落进下面那个 G2G 分支 ⇒ 说明写成「G2G 推荐前二较低者 $-/M × (1−1.0%)」，
+                #   与真实口径（统一挂保护价）不符：目标明明是 $19.9，读起来却像闸门没生效。
+                _park_note = ("｜%s" % (rec.get("无货兜底说明") or "")
+                              if rec.get("基准来源") == "无货兜底" else "")
+                if rec.get("基准来源") == "无货兜底":
+                    _pre = ("目标 $%s/%s（⛔ 无货兜底：DD373 货源不足 ⇒ 统一挂 $%.2f/M 高价保护）"
+                            "｜我方 $%s/%s（%+.2f%%）"
+                            % (fmt_money(per_100k(tgt_m, _dm)), _ul,
+                               float(rec.get("无货兜底售价_USD每M") or 0),
+                               fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                elif rec.get("目标来自成本兜底"):
                     _pre = ("目标 $%s/%s（⛔ 成本兜底：竞品 %s $%s/%s < 我方成本 $%s/%s "
                             "⇒ 按成本价定价，不下浮）｜我方 $%s/%s（%+.2f%%）"
                             % (fmt_money(per_100k(tgt_m, _dm)), _ul, _lbl,
@@ -1713,6 +1724,9 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                           rec.get("G2G_推荐1卖家") or "-", fmt_money(rec.get("G2G_推荐2")),
                           rec.get("G2G_推荐2卖家") or "-", rec.get("G2G_卖家数"),
                           fmt_money(rec.get("DD373成本_USD每M")) or "-"))
+                if _park_note:
+                    # 货源闸命中时 G2G 三列全是「-」（本轮没抓），换成 DD373 货源说明
+                    _gz = _park_note
                 if rec.get("利润率下限触发"):
                     _gz += "｜%s" % rec["利润率下限触发"]
                 if rec["动作"] == "hold":

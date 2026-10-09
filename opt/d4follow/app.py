@@ -2046,10 +2046,23 @@ def task_collect(t, opts):
                             it.get("基准价_原竞品"), it.get("DD373成本_USD每M"))
                     if it.get("利润率下限触发"):
                         _tflag += " ⛔利润下限"
-                    t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
-                          % (it.get("中文名"), it.get("基准来源") or "-",
-                             it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
-                             it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                    if it.get("基准来源") == "无货兜底":
+                        # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
+                        #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
+                        #   （保护价不打折），单独一条线写清楚。
+                        _av = it.get("DD373可买_万基纳")
+                        t.log("  [金币] %-22s ⛔货源闸 DD373 %s → 挂 $%s/M 高价保护"
+                              " ｜ 目标采购成本 %s ｜ %s"
+                              % (it.get("中文名"),
+                                 "无有效报价" if _av is None
+                                 else ("可买 %.0f 万基纳（不足 1 亿）" % _av),
+                                 it.get("无货兜底售价_USD每M") or 19.9,
+                                 it.get("采购成本_新"), it.get("动作") or "-"))
+                    else:
+                        t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
+                              % (it.get("中文名"), it.get("基准来源") or "-",
+                                 it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
+                                 it.get("采购成本_新"), it.get("动作") or "-", _tflag))
                 elif it.get("定价模式") == "iggm_undercut":
                     # 2026-10-08 MSCW：无脑跟 IGGM ×(1−让价%)，只保留 +15% 利润兜底
                     _tflag = ""
