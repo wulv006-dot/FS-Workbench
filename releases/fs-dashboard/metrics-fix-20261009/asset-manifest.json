@@ -1,0 +1,60 @@
+{
+  "files": [
+    {
+      "path": "assets/business.css",
+      "sha256": "3bf213fd69913109dbe31e8d1aaadffa7a8bea9eaaef909168719d5f58958fda"
+    },
+    {
+      "path": "assets/business.html",
+      "sha256": "04ec3e09ae7b9c97236b09f32437a98f5e1922247ee0a8a0b4f022eea3f679ec"
+    },
+    {
+      "path": "assets/business.js",
+      "sha256": "55737b1c0da73fa5a436086ca5f8d780774701c9e5cbd0956ec187bdb1d19052"
+    },
+    {
+      "path": "assets/google.css",
+      "sha256": "3c1b849c7e71685a78a04ce907bec93e371e324ab16a8fc5415baaec3c5771fd"
+    },
+    {
+      "path": "assets/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "assets/google.js",
+      "sha256": "4784cb3fe525df06f720a05dc7ec9cd21ba0d1d99aad5eb28412d5728400b569"
+    },
+    {
+      "path": "assets/home.html",
+      "sha256": "7d28a59c4a5fb837420693ad2bf031878ca68adaf2d54b03cf915897814939f2"
+    },
+    {
+      "path": "assets/index.html",
+      "sha256": "deec7b80a83dc6a84f7ad740f29bbc49f35f51ba2faea2a5c479f14917dde79e"
+    },
+    {
+      "path": "assets/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "assets/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed"
+    },
+    {
+      "path": "assets/runtime.js",
+      "sha256": "7696106343f01d226cf696f0268027a42e58f12a800844944a57f790750ba729"
+    },
+    {
+      "path": "assets/shell.js",
+      "sha256": "3a5caf99c22a3d81df4243df8443bac78271798498dccb2694941c3eb8b6497d"
+    },
+    {
+      "path": "assets/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e"
+    },
+    {
+      "path": "assets/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d"
+    }
+  ]
+}
