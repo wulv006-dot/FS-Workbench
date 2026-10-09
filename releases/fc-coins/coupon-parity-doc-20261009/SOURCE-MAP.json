@@ -1,0 +1,60 @@
+{
+  "release": "fc-coins/coupon-parity-doc-20261009",
+  "task": "明确「无券价 = 券前价」价格口径",
+  "fc_root_status": "legacy-unreconciled",
+  "note": "本包记录一次**纯注释**线上发布（逻辑零改动）与相关文档同步。根目录 fc27_chrome_collector/lootbar_server_collector.py（15407 B）与线上运行字节（14622 B）本就不同版本，本包不动该 legacy 文件。",
+  "source_to_runtime": {
+    "file": "lootbar_server_collector.py",
+    "runtime_path": "/opt/fc27-cloud-browser/lootbar_server_collector.py",
+    "before": {
+      "sha256": "3857e56cbf8f8bd32589c36c10af1b4c78d07827cd804a427c42a0c0c792ff04",
+      "size": 13786
+    },
+    "after": {
+      "sha256": "9e1f39eb8f92e84ad324257a4483cc6dd098d87c301ae50d94885ca16537a1a6",
+      "size": 14622
+    }
+  },
+  "logical_equivalence": {
+    "method": "ast.dump(ast.parse(src))",
+    "ast_sha256_before": "72d83b4eb582f3cd1025e7770bc6b575d0437dda4cf72ee1c40ed60756b57ec4",
+    "ast_sha256_after": "72d83b4eb582f3cd1025e7770bc6b575d0437dda4cf72ee1c40ed60756b57ec4",
+    "equal": true,
+    "python": "3.9.18",
+    "note": "AST 哈希完全相同 ⇒ 仅新增注释，无任何语句/表达式/结构改动。"
+  },
+  "change": {
+    "kind": "comment-only",
+    "location": "def _offer(platform, snapshot)",
+    "added_lines": 6,
+    "body": "说明 price_basis 的两种标注同属「页面挂价（券前口径）」：coupon_excluded=True 取券前原价（券后价另存），False 时三价合一（券前=券后=无券）；即「无券价 = 券前价」，撤券/加券不改变对标口径。并指向 docs/standards/fc27/RULES.md「Coins 价格口径」行。"
+  },
+  "deployment": {
+    "at": "2026-10-09T13:05:41.623462+00:00",
+    "published_by": "/usr/bin/python3 publish_worker.py --apply",
+    "backup": "/var/lib/fc27-cloud/rollback/coupon-parity-doc-20261009T130540Z",
+    "backup_contents": ["lootbar_server_collector.py", "manifest.json", "receipt.json"],
+    "protected_files_unchanged": 28,
+    "installed_sha256": "9e1f39eb8f92e84ad324257a4483cc6dd098d87c301ae50d94885ca16537a1a6",
+    "services": {"fc27-cloud-api": "active", "fc27-cloud-worker": "active", "fc27-automation-tick.timer": "active"},
+    "health": {"api": "ok", "worker": "ok", "browser": "ok", "p2pah_session": "ok", "price_writer": "ready", "queue_depth": 0},
+    "policy_revision": 30
+  },
+  "docs_synced": {
+    "github_main": {
+      "path": "docs/standards/fc27/RULES.md",
+      "change": "业务边界表新增「Coins 价格口径」行",
+      "before_blob": "2eec0d6061d16d5f776c874276c48471e7fb1180",
+      "after_blob": "7732db866fcc20f0f20a93d4f681efe0409fbda0",
+      "before_sha256": "f1d0642290d001cf279555f50419b94fc0d65c90160d18d217bc03ea30cc57b2",
+      "after_sha256": "e356574c9ea61d15f22392143ed66c0bee682c7a638a70795aa038b999b65efe",
+      "pr": 51,
+      "merge_commit": "77c16535726fd5ff0b51a8351b46f2b62e13ffd1"
+    },
+    "local": {
+      "path": "FC27_Coins_Lootbar定锚策略_20260928.md",
+      "change": "新增「口径：无券价 = 券前价」小节"
+    }
+  },
+  "baseline_note": "baseline/lootbar_server_collector.py 取自线上备份目录，sha256 与 manifest.before 逐字相符；不是 GitHub 根目录同名文件。"
+}
