@@ -198,6 +198,8 @@ def selfcheck():
         raise RuntimeError("fc_noncore_scope_missing")
     if select(["releases/fs-dashboard/metrics-fix-20261009/assets/runtime.js"]) != ["fs-metrics-fix"]:
         raise RuntimeError("fs_metrics_fix_mapping_missing")
+    if select(["releases/fs-dashboard/traffic-yesterday-20261009/assets/business.js"]) != ["fs-period-ui"]:
+        raise RuntimeError("fs_period_ui_mapping_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -207,6 +209,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/traffic-yesterday-20261009/"):
+            groups.add("fs-period-ui");continue
         if name.startswith("releases/fs-dashboard/metrics-fix-20261009/"):
             groups.add("fs-metrics-fix");continue
         if name.startswith("releases/fs-dashboard/admin-main-20261009/"):
@@ -296,6 +300,7 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-period-ui":node("releases/fs-dashboard/traffic-yesterday-20261009/test-yesterday.mjs")
         elif group=="fs-metrics-fix":
             release="releases/fs-dashboard/metrics-fix-20261009"
             for name in ("test-fix.mjs","test-visibility.mjs","check-entry.cjs","test-assets.mjs"):node(release+"/"+name)
