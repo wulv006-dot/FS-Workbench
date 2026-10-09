@@ -1,0 +1,56 @@
+{
+  "status": "deployed",
+  "at": "2026-10-09T10:45:37.474908+00:00",
+  "backup": "/var/lib/fc27-cloud/rollback/public-readback-retry-20261009T104536Z",
+  "installed_sha256": {
+    "/opt/fc27-cloud-browser/fc27_cloud_worker.py": "06c89b902726f1266bc9b97d236b7ae5b6299b9e1447fb03542151fa0f362b29"
+  },
+  "protected_sha256": {
+    "/opt/fc27-cloud-browser/automation_tick.py": "e54571f3be2693ffca886cf100ae7d8b8e38b5b2ee8fe55dd6429dcc8fad6416",
+    "/opt/fc27-cloud-browser/player_sync_job.py": "c5e08fa8bb53b3a49c56c313364e605b704c91ee4d2686492ec60e17ff65ca6a",
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py": "61b782a29d5ec755992113b4340cdae5fadae46a78c7c1addfe0025b26f7e601",
+    "/opt/fc27-cloud-browser/sync_players.sh": "28e4eae3f851b474de60d85d7acae3d978b759a41603a0de0064049499ca0a8a",
+    "/opt/fc27-cloud-browser/automation_policy.py": "82514d34da4cf1ec0bd9c484c26861d815b87c6f61e7092cfd855626553da674",
+    "/opt/fc27-cloud-browser/player_sync_policy.py": "0264e8d661a5fe9cdcef8618698061883401235d26aafd94e3a5aa3cdd4e6ecf",
+    "/opt/fc27-cloud-browser/price_writer.py": "fdb50019f13f2a2cf437366c299c6d5a2687a2b6d9c9df49c8d9bd837acbd09f",
+    "/opt/fc27-cloud-browser/coin_all_sync_job.py": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
+    "/opt/fc27-cloud-browser/execute_price.sh": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91",
+    "/var/www/dashboard/fc27-quote-cloud.js": "fd66de7014befc39cfc6cb3028aa9843d89fc0836311c0c1bb5e03f54dba319f",
+    "/var/lib/fc27-cloud/config/automation.json": "fc84fef6d731b0e4a8af21159d7284c581a6ba34c29ab86cf1e6960b5f784edd",
+    "/var/lib/fc27-cloud/config/player-sync.json": "c1dfe17bb676d1388ccdc58a4adc563edbe551dcfbf34df7194a07e5c8cba942"
+  },
+  "policy_revision": 29,
+  "health": {
+    "api": "ok",
+    "worker": "ok",
+    "browser": "ok",
+    "p2pah_session": "ok",
+    "last_run": {
+      "run_id": "5968cbe9-a108-4112-8db6-6edc0a2cbc50",
+      "status": "ready_for_quote",
+      "created_at": "2026-10-09T08:58:37.406187+00:00"
+    },
+    "price_writer": "ready",
+    "https_certificate": {
+      "status": "ok",
+      "expires_at": "2026-10-14T19:14:05+00:00"
+    },
+    "queue_depth": 0,
+    "tab_count": 1,
+    "disk_free_gb": 159.2,
+    "sources": {
+      "lootbar": "ok",
+      "iggm": "ok",
+      "u4gm": "ok",
+      "u7buy": "ok",
+      "p2pah_cost": "ok",
+      "fx": "ok"
+    },
+    "last_successful_run": "2026-10-09T08:58:37.406187+00:00",
+    "incomplete_executions": 0,
+    "queue_protocol": "existing-tick-inode-v4",
+    "api_pid": 24620,
+    "automation_timer": "active",
+    "storefront_collection": "linked"
+  }
+}

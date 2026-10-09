@@ -201,6 +201,8 @@ def selfcheck():
         raise RuntimeError("lootbar_mapping_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
         raise RuntimeError("fc_noncore_scope_missing")
+    if select(["releases/fc-coins/public-readback-retry-20261009/fc27_cloud_browser/fc27_cloud_worker.py"]) != ["fc-public-readback"]:
+        raise RuntimeError("fc_public_readback_scope_missing")
     if select(["releases/fs-dashboard/metrics-fix-20261009/assets/runtime.js"]) != ["fs-metrics-fix"]:
         raise RuntimeError("fs_metrics_fix_mapping_missing")
     if select(["releases/fs-dashboard/traffic-yesterday-20261009/assets/business.js"]) != ["fs-period-ui"]:
@@ -230,6 +232,8 @@ def select(paths):
             groups.add("fc-lootbar");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
+        if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
+            groups.add("fc-public-readback");continue
         if name.startswith("releases/green-plan/20261009-review-fix/"):
             groups.add("green-plan-review-fix");continue
         if name.startswith("releases/green-plan/20261009/"):
@@ -326,6 +330,11 @@ def main():
             units(release+"/fc27_chrome_collector",["test_lootbar_server_collector"])
             subprocess.run(["node",str(ROOT/release/"fc27_chrome_collector/test_lootbar_collection.cjs")],
                 cwd=ROOT/release,check=True,timeout=30)
+        elif group=="fc-public-readback":
+            release="releases/fc-coins/public-readback-retry-20261009"
+            subprocess.run([sys.executable,"-I","-B","-c",
+                "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
+                str(ROOT/"tools"),str(ROOT/release/"fc27_cloud_browser"),"test_public_readback_retry"],check=True,timeout=90,cwd=ROOT)
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
             units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
