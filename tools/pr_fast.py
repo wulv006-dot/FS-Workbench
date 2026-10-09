@@ -259,7 +259,11 @@ def main():
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
         if group=="engine":units(".",["test_fc27_quote_engine"])
-        elif group=="registration-management":node("releases/registration/account-management-20261009/tests/test_actions.cjs")
+        elif group=="registration-management":
+            release="releases/registration/account-management-20261009"
+            node(release+"/tests/test_actions.cjs")
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"tests/test_permissions.py")],cwd=ROOT,check=True,timeout=120)
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"tests/test_release.py")],cwd=ROOT,check=True,timeout=60)
         elif group=="player-price-rule":units("releases/fc-coins/player-price-verification-off-20261007",["test_rule"])
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])

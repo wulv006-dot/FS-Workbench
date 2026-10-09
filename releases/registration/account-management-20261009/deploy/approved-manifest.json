@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "scope": "registration-account-management-20261009",
+  "releaseReady": false,
+  "files": [
+    {
+      "candidate": "permission-web/app.js",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "beforeSha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
+      "sha256": "c23211402f2d224a9c98ad36632d65603ba857f952cd76cd6b97e7b097ae7fca"
+    },
+    {
+      "candidate": "permission-web/index.html",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "beforeSha256": "5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2",
+      "sha256": "ac1ec449d145c9ab6ff50f7296d56f208e665e8f823047af7ff7c753c9db2636"
+    },
+    {
+      "candidate": "permission-web/access.css",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "beforeSha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
+      "sha256": "6276465e0c49465810ef7915bb1f2dbb611df7d745071e080ec75661d9c81d33"
+    },
+    {
+      "candidate": "permission-runtime/runtime.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "beforeSha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "sha256": "74019f5942d8bc825fcfb28d9d66b085cb132edc24cea1f0686384d74b16bb8c"
+    },
+    {
+      "candidate": "permission-runtime/module_permissions.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "beforeSha256": null,
+      "sha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58"
+    },
+    {
+      "candidate": "permission-runtime/consumer_seams.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "beforeSha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "sha256": "6b3facc24159c9eb4872b877ec5f6110e79788693889c1590b21000ace3ef4e1"
+    },
+    {
+      "candidate": "permission-runtime/vendor/auth_candidate.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "beforeSha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "sha256": "c94fa0714649168f86bb965c85aada8d48a5e2f0af6f35312ab7863c56d70f66"
+    },
+    {
+      "candidate": "permission-taskboard/taskboard_server.py",
+      "target": "/opt/mmoexp-taskboard/taskboard_server.py",
+      "beforeSha256": "763357f581661e6bafe8ff4fbd6d3696f078ff9a0563259ec7046d54ecb043db",
+      "sha256": "cac558bb6cb9d91f6aed0f6a398a6593d7a7757d4c8e07855bb5a2f878aa0a73"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "sha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c"
+    },
+    {
+      "path": "/opt/mmoexp-taskboard/green_plan.py",
+      "sha256": "3c501fce363445f3309dd08fd9d29159f49107c80877d63a828e47ad0fc7c2fc"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/etc/nginx/taskboard.locations.conf",
+      "sha256": "5132305130f74039a18ee7269e995480fdd442b83c1435ee680054a6a558acfd"
+    },
+    {
+      "path": "/etc/nginx/conf.d/iggm-web.conf",
+      "sha256": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317"
+    }
+  ],
+  "runtimeRequired": {
+    "auth-portal.service": {
+      "ActiveState": "active"
+    }
+  },
+  "evidenceUTC": "2026-10-09T05:42:25Z",
+  "dataDir": "/opt/auth-portal/data",
+  "approval": "merge and production publish require explicit final authorization; no account writes during publish window"
+}

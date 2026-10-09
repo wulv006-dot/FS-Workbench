@@ -1,44 +1,103 @@
 {
   "schemaVersion": 1,
-  "status": "local-tested-not-published",
-  "scope": "new-registration-bulk-decisions-and-login-feedback",
-  "permissionEditing": "pending-user-scope; not implemented",
+  "status": "local-tested-draft-not-published",
+  "scope": "registration-account-management-20261009",
+  "permissionEditing": {
+    "accounts": "approved registrations only",
+    "editableModules": [
+      "tasks",
+      "green_plan"
+    ],
+    "editor": "own assigned execution fields only"
+  },
   "files": [
     {
       "source": "source/web/app.js",
       "gitPath": "releases/registration/account-management-20261009/source/web/app.js",
       "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
       "beforeSha256": "c2f190487e4943119dcc7138ef5b1d19926912c799afcdccd18abc1236bfc444",
-      "afterSha256": "71286fb2fb82fc4a3e582c8b75c65786f05410643f4e12596e18f7184fe0ce1f",
-      "bytes": 8704
+      "afterSha256": "c23211402f2d224a9c98ad36632d65603ba857f952cd76cd6b97e7b097ae7fca",
+      "bytes": 13362
     },
     {
       "source": "source/web/index.html",
       "gitPath": "releases/registration/account-management-20261009/source/web/index.html",
       "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
       "beforeSha256": "5082417db16b5ce2154ec95317c29edb463b256532a48fe4f951e0a02b35eeb2",
-      "afterSha256": "1c309323566f38ea22e20e05b6535760d4ff309822579ac5d2bedc83c90e94ae",
-      "bytes": 5286
+      "afterSha256": "ac1ec449d145c9ab6ff50f7296d56f208e665e8f823047af7ff7c753c9db2636",
+      "bytes": 5412
     },
     {
       "source": "source/web/access.css",
       "gitPath": "releases/registration/account-management-20261009/source/web/access.css",
       "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
       "beforeSha256": "1fb75ab7ea1c10435bdecbd514e87a96fa36810199e62dcaa59be2730734b1b6",
-      "afterSha256": "b7f8bf590aa4bd3dfef4e40fdbe2c6e43faeb159447c74e3da0f2719e498e7f3",
-      "bytes": 1539
+      "afterSha256": "6276465e0c49465810ef7915bb1f2dbb611df7d745071e080ec75661d9c81d33",
+      "bytes": 1856
+    },
+    {
+      "source": "source/runtime/runtime.py",
+      "gitPath": "releases/registration/account-management-20261009/source/runtime/runtime.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "beforeSha256": "cd25dced4050cc8546cb021bede55888a0fe7124b81a8ba5b663479090d95159",
+      "afterSha256": "74019f5942d8bc825fcfb28d9d66b085cb132edc24cea1f0686384d74b16bb8c",
+      "bytes": 13012
+    },
+    {
+      "source": "source/runtime/module_permissions.py",
+      "gitPath": "releases/registration/account-management-20261009/source/runtime/module_permissions.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "beforeSha256": null,
+      "afterSha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58",
+      "bytes": 7192
+    },
+    {
+      "source": "source/runtime/consumer_seams.py",
+      "gitPath": "releases/registration/account-management-20261009/source/runtime/consumer_seams.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "beforeSha256": "5cb16750bea0305d499a9c857f0c65071f76ac94a8dd2ce979e4aef661784749",
+      "afterSha256": "6b3facc24159c9eb4872b877ec5f6110e79788693889c1590b21000ace3ef4e1",
+      "bytes": 5041
+    },
+    {
+      "source": "source/runtime/vendor/auth_candidate.py",
+      "gitPath": "releases/registration/account-management-20261009/source/runtime/vendor/auth_candidate.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "beforeSha256": "d478464f4daa861886d33b96773eb950c0ee8234caee26b64013f77f03260492",
+      "afterSha256": "c94fa0714649168f86bb965c85aada8d48a5e2f0af6f35312ab7863c56d70f66",
+      "bytes": 28893
+    },
+    {
+      "source": "source/taskboard/taskboard_server.py",
+      "gitPath": "releases/registration/account-management-20261009/source/taskboard/taskboard_server.py",
+      "runtime": "/opt/mmoexp-taskboard/taskboard_server.py",
+      "beforeSha256": "763357f581661e6bafe8ff4fbd6d3696f078ff9a0563259ec7046d54ecb043db",
+      "afterSha256": "cac558bb6cb9d91f6aed0f6a398a6593d7a7757d4c8e07855bb5a2f878aa0a73",
+      "bytes": 43180
     }
   ],
   "preserve": {
-    "routeContractSha256": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c",
-    "policySha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
-    "database": "untouched",
-    "checkpoint": "untouched",
-    "sessionsAndRevocations": "untouched"
+    "/opt/fs-access-policy/access_policy.py": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+    "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+    "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json": "1c61297c4df273bf15521b434b7152192cf58e7f667dbf2189a6a109958a6f0c",
+    "/opt/mmoexp-taskboard/green_plan.py": "3c501fce363445f3309dd08fd9d29159f49107c80877d63a828e47ad0fc7c2fc",
+    "/var/www/dashboard/index.html": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba",
+    "/etc/nginx/taskboard.locations.conf": "5132305130f74039a18ee7269e995480fdd442b83c1435ee680054a6a558acfd",
+    "/etc/nginx/conf.d/iggm-web.conf": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317"
+  },
+  "storage": {
+    "schemaStructure": 3,
+    "afterFirstPermissionSaveUserVersion": 4,
+    "audit": "append-only permission event",
+    "sessionRevocation": "epoch increment and session deletion",
+    "legacyRollback": "refused after permission save; never restore database or witness"
   },
   "tests": {
     "nodeAssertions": 18,
-    "windowsChromeAssertions": 37,
+    "windowsChromeAssertions": 47,
+    "backendScenarios": 8,
+    "releaseScenarios": 4,
     "productionAccountActions": 0
-  }
+  },
+  "deployManifestSha256": "bafc0bd30e4b42986bcc4b13c3b39867aca42a63832a1d4c9dd5701097fc30fa"
 }

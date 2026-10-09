@@ -14,7 +14,9 @@ def check(value, description):
     checks += 1
 
 def run():
-    state = {'role': 'guest', 'items': [], 'posts': [], 'failure': {}, 'login': 401}
+    modules=[dict(id=key,label=label,can_edit=key in ('tasks','green_plan'),href='/dashboard/') for key,label in [('business','经营分析'),('marketing','营销分析'),('weekly','运营周报'),('tasks','工作任务台'),('green_plan','绿茵计划'),('fc_ops','FC运营看板'),('players','FC球员维护')]]
+    defaults={m['id']:'readonly' for m in modules}
+    state = {'role': 'guest', 'items': [], 'posts': [], 'failure': {}, 'login': 401, 'members': [], 'members_failure': 200, 'permission_failure':200}
     with sync_playwright() as p:
         browser = p.chromium.launch(channel='chrome', headless=True)
         page = browser.new_page(viewport={'width': 1100, 'height': 700})
@@ -32,7 +34,7 @@ def run():
                 return
             action = path.rsplit('/', 1)[-1]
             status, result = 200, {}
-            if action == 'bootstrap': result = {'csrf': 'fixture-csrf', 'account': {'role': state['role']}}
+            if action == 'bootstrap': result = {'csrf': 'fixture-csrf', 'account': {'role': state['role']},'permission_modules':modules}
             elif action == 'requests': result = {'items': state['items']}
             elif action == 'audit': result = {'items': []}
             elif action in {'native-login', 'login'}:
@@ -46,6 +48,15 @@ def run():
                 status = state['failure'].get(body['request_id'], 200)
                 if status == 0: route.abort(); return
                 result = {'error': '申请已变化，请刷新后重试'}
+            elif action == 'permissions':
+                body=request.post_data_json;state['posts'].append((action,body));status=state['permission_failure']
+                check(request.headers.get('x-csrf-token')=='fixture-csrf','permission update retains CSRF')
+                if status==0:route.abort();return
+                result=dict(version=42,modules=body['permissions'],sessions_revoked=True,member=dict(username='reg:12345678-1234-1234-1234-123456789abc',displayName='fixture_1',role='viewer',active=True) if 'editor' in body['permissions'].values() else None)
+                if status==200:state['items'][0]['permissions']=dict(version=42,modules=body['permissions'])
+            elif action == 'members':
+                status=state['members_failure'];result={'members':state['members'],'error':'登记服务不可用'}
+                if request.method=='POST':state['members'].append(request.post_data_json)
             else:
                 route.abort(); return
             route.fulfill(status=status, json=result)
@@ -85,7 +96,7 @@ def run():
                 page.locator('#refresh').click()
             page.wait_for_function('(n) => document.querySelectorAll("#requests article").length === n && document.getElementById("selection").textContent.includes("已选 0")', arg=len(items))
         dialog_state = {'accept': True}
-        page.on('dialog', lambda dialog: dialog.accept() if dialog_state['accept'] else dialog.dismiss())
+        page.on('dialog', lambda dialog: dialog.accept('隔离权限调整原因' if dialog.type=='prompt' else None) if dialog_state['accept'] else dialog.dismiss())
         refresh(rows())
         check(page.locator('#bulk-approve').is_disabled(), 'empty selection cannot approve')
         page.locator('#select-all').check()
@@ -130,6 +141,28 @@ def run():
         page.locator('#select-all').uncheck()
         page.locator('#requests input').first.check()
         check(page.locator('#bulk-approve').is_enabled(), 'individual selection works')
+        state['posts']=[]
+        approved=rows('approved',1);approved[0]['permissions']=dict(version=0,modules=dict(defaults))
+        refresh(approved)
+        details=page.locator('#requests details');details.locator('summary').click()
+        check(details.locator('select').count()==7,'seven module access settings shown')
+        check(details.locator('option[value=editor]').count()==2,'editing offered only for approved two modules')
+        details.locator('select[data-module=business]').select_option('none')
+        details.locator('select[data-module=tasks]').select_option('editor')
+        details.locator('button').click()
+        page.wait_for_function("document.getElementById('results').textContent.includes('执行人登记已核对')")
+        check(state['posts'][-1][1]['permissions']['business']=='none' and state['posts'][-1][1]['permissions']['tasks']=='editor','selected per-module values submitted')
+        check(state['members'][0]['role']=='viewer','member projection carries no independent editor or admin grant')
+        check('旧会话已注销' in page.locator('#results').inner_text(),'session invalidation reported')
+        state['members']=[];state['members_failure']=503
+        page.locator('#requests details summary').click();page.locator('#requests details button').click()
+        page.wait_for_function("document.getElementById('results').textContent.includes('权限保存已成功')")
+        check('登记未完成或待核对' in page.locator('#results').inner_text(),'partial projection failure not reported as complete')
+        state['permission_failure']=0;state['posts']=[]
+        page.locator('#requests details summary').click();page.locator('#requests details button').click()
+        page.wait_for_function("document.getElementById('results').textContent.includes('不要直接重试')")
+        check(len(state['posts'])==1,'unknown permission save not automatically replayed')
+        page.locator('#requests details summary').click()
         page.locator('#admin h2').click()
         page.screenshot(path=str(ROOT/'evidence/admin-ui.png'), full_page=True)
         check(not errors, 'no browser JavaScript errors')
