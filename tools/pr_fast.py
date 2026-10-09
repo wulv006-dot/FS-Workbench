@@ -190,6 +190,8 @@ def selfcheck():
         raise RuntimeError("admin_entry_scope_missing")
     if select(["releases/registration/account-management-20261009/source/web/app.js"]) != ["registration-management"]:
         raise RuntimeError("registration_management_scope_missing")
+    if select(["releases/fs-dashboard/admin-main-20261009/assets/shell.js"]) != ["fs-admin-view"]:
+        raise RuntimeError("fs_admin_view_mapping_missing")
     if select(["releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"]) != ["fc-lootbar"]:
         raise RuntimeError("lootbar_mapping_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
@@ -203,6 +205,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/admin-main-20261009/"):
+            groups.add("fs-admin-view");continue
         if name.startswith("releases/auth/admin-entry-20261009/"):
             groups.add("admin-entry");continue
         if name.startswith("releases/registration/account-management-20261009/"):
@@ -288,6 +292,11 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-admin-view":
+            release="releases/fs-dashboard/admin-main-20261009"
+            node(release+"/test-policy.mjs")
+            node(release+"/test-visibility.mjs")
+            node(release+"/test-assets.mjs")
         elif group=="fc-lootbar":
             release="releases/fc-coins/lootbar-spec-repair-20261009"
             units(release+"/fc27_chrome_collector",["test_lootbar_server_collector"])
@@ -311,6 +320,3 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
-
-
-
