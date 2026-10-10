@@ -45,7 +45,7 @@ function fsMainSite(profile){
   site:'MMOEXP',policy:'admin-main-order-labelled-supplement-v1'};
 }
 
-function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale?' · 已过期':'');}
+function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale&&source?.capturedAt?' · 已过期':'');}
 function fsMetricText(item,format){
  if(item?.value!=null)return format(item.value)+(item.stale?'（已过期，更新中）':'');
  return {queued:'Order 排队中',reading:'Order 读取中',deferred:'Order 暂忙，稍后重试',failed:'Order 读取失败','period-mismatch':'Order 日期待对齐'}[item?.pendingPhase]||'源未提供';
@@ -220,9 +220,15 @@ async function load(d,key,s,signal,onWait,onResult,followOrder=true){
   const data=await requestRange(query,signal,Math.max(1,100000-(Date.now()-started)),onWait);if(signal.aborted)throw new DOMException('Aborted','AbortError');
   if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==key||!same(data.query,s))throw Error('汇总数据合同错误');
   const pending=data.sources?.Admin?.status==='pending'||followOrder&&data.sources?.Order?.status==='pending';
+  // A deferred Order read is temporary contention, not a completed source omission.
+  // Follow it only inside this explicit read's existing 100-second budget. Closed
+  // history still has no periodic refresh, and the shared backend lock is untouched.
+  const order=data.sources?.Order;
+  const deferred=followOrder&&order?.phase==='deferred'&&['collector_busy','scheduled_collection_due'].includes(order.error);
+  const delay=pending?2000:30000;
   data.clientExpiresAt=Date.now()+Math.min(pending?2:fsPeriodPolicy().ttl(s),Math.max(0,data.expiresInSeconds||0))*1000;deniedStatus=0;onResult(data);
-  if(!pending||Date.now()-started>=98000)return data;
-  await pause(2000,signal);
+  if((!pending&&!deferred)||Date.now()-started+delay>=100000)return data;
+  await pause(delay,signal);
  }while(Date.now()-started<100000);
 }
 

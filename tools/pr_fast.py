@@ -338,6 +338,8 @@ def main():
             node(release+"/tests/test_latency.mjs")
             node(release+"/tests/test_entry_refs.mjs")
             node(release+"/tests/test_period_policy.mjs")
+            node(release+"/tests/test_order_recovery.cjs")
+            node(release+"/tests/test_home_recovery.cjs")
         elif group=="fs-order-latency":
             release="releases/fs-dashboard/order-latency-20261010"
             units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope"],root_owned=True)
@@ -398,5 +400,6 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
