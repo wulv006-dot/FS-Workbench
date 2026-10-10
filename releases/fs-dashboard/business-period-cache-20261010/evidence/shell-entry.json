@@ -1,0 +1,15 @@
+{
+  "syntheticOnly": true,
+  "result": [
+    {
+      "entry": "index.html",
+      "passed": true,
+      "independentPermissionRevocation": true
+    },
+    {
+      "entry": "home.html",
+      "passed": true,
+      "independentPermissionRevocation": true
+    }
+  ]
+}

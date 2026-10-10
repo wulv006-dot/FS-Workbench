@@ -234,6 +234,8 @@ def select(paths):
             groups.add("registration-management");continue
         if name.startswith("releases/fc-coins/lootbar-spec-repair-20261009/"):
             groups.add("fc-lootbar");continue
+        if name.startswith("releases/fs-dashboard/business-period-cache-20261010/"):
+            groups.add("fs-business-period-cache");continue
         if name.startswith("releases/fs-dashboard/order-latency-20261010/"):
             groups.add("fs-order-latency");continue
         if name.startswith("releases/fs-dashboard/business-live-20261010/"):
@@ -328,6 +330,14 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="fs-business-period-cache":
+            release="releases/fs-dashboard/business-period-cache-20261010"
+            units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope","test_period_cache"],root_owned=True)
+            units(release+"/deploy/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_frontend.mjs")
+            node(release+"/tests/test_latency.mjs")
+            node(release+"/tests/test_entry_refs.mjs")
+            node(release+"/tests/test_period_policy.mjs")
         elif group=="fs-order-latency":
             release="releases/fs-dashboard/order-latency-20261010"
             units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope"],root_owned=True)

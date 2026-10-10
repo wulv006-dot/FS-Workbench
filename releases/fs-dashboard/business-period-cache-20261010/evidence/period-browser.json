@@ -1,0 +1,90 @@
+{
+  "syntheticOnly": true,
+  "checks": [
+    "7/14/30 D1",
+    "KPI/chart/compare shared dates",
+    "history no auto-read after 2h",
+    "midnight fixed view/explicit reanchor",
+    "today 15min refresh"
+  ],
+  "requests": [
+    {
+      "profile": "NBA2K27",
+      "start": "2026-09-10",
+      "end": "2026-10-09",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-03",
+      "end": "2026-10-09",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-09-26",
+      "end": "2026-10-09",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "FC27",
+      "start": "2026-09-10",
+      "end": "2026-10-09",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "FC27",
+      "start": "2026-09-11",
+      "end": "2026-10-10",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-11",
+      "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-11",
+      "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "FC27",
+      "start": "2026-10-11",
+      "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-11",
+      "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "FC27",
+      "start": "2026-10-11",
+      "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    }
+  ],
+  "errors": []
+}
