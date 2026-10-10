@@ -1,0 +1,24 @@
+{
+  "passed": 7,
+  "syntheticOnly": true,
+  "errors": [],
+  "requests": [
+    "/",
+    "/business.js",
+    "/runtime.js",
+    "/dashboard/fs-home/transactions/current.json",
+    "/dashboard/fs-home/transactions/attempt.json",
+    "/__auth/verify",
+    "/__auth/verify",
+    "/dashboard/fs-home/range.json?profile=MMOEXP&start=2026-10-10&end=2026-10-10&grain=day&mode=summary",
+    "/dashboard/fs-home/transactions/current.json",
+    "/dashboard/fs-home/transactions/attempt.json",
+    "/__auth/verify",
+    "/__auth/verify",
+    "/dashboard/fs-home/transactions/current.json",
+    "/dashboard/fs-home/transactions/attempt.json",
+    "/__auth/verify",
+    "/__auth/verify",
+    "/dashboard/fs-home/range.json?profile=MMOEXP&start=2026-10-10&end=2026-10-10&grain=day&mode=summary"
+  ]
+}

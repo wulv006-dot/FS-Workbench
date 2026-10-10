@@ -1,0 +1,4 @@
+FROM fc27-cloud-session:traffic-20261009-ec4c7ba41c3c
+USER root
+COPY p2pah_session_service.py admin_summary.py supplement_fields.py /usr/local/bin/
+RUN python3 -m py_compile /usr/local/bin/p2pah_session_service.py /usr/local/bin/admin_summary.py /usr/local/bin/supplement_fields.py

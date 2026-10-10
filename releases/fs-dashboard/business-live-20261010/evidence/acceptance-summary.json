@@ -1,0 +1,74 @@
+{
+  "targetsChecked": 25,
+  "mismatches": [],
+  "protectedMismatches": [],
+  "runtime": {
+    "fc27-cloud-api.service": {
+      "MainPID": "29930",
+      "ActiveState": "active"
+    },
+    "fc27-cloud-worker.service": {
+      "MainPID": "2720",
+      "ActiveState": "active"
+    },
+    "fs-business-range.service": {
+      "MainPID": "6617",
+      "ActiveState": "active"
+    },
+    "fc27-p2pah-session.service": {
+      "MainPID": "2713",
+      "ActiveState": "active"
+    },
+    "fs-transaction-collect.timer": {
+      "NextElapseUSecRealtime": "0",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "mmoexp-marketing-daily.timer": {
+      "NextElapseUSecRealtime": "56y 9month 1w 2d 2h 30min",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    }
+  },
+  "summary": {
+    "codes": [
+      200,
+      200
+    ],
+    "elapsedSeconds": 2.01,
+    "status": "available",
+    "origin": "live-cache",
+    "stale": false,
+    "period": {
+      "end": "2026-10-10 15:16",
+      "start": "2026-10-10 00:00"
+    },
+    "sources": {
+      "Admin": {
+        "asOfStatus": "upstream_watermark_unknown",
+        "capturedAt": "2026-10-10T07:16:32.185204+00:00",
+        "sourceDataAsOf": null,
+        "stale": false,
+        "status": "available"
+      },
+      "Order": {
+        "asOfStatus": "upstream_watermark_unknown",
+        "capturedAt": null,
+        "sourceDataAsOf": null,
+        "stale": true,
+        "status": "unavailable"
+      }
+    },
+    "cacheSeconds": 120,
+    "admin": "available",
+    "order": "unavailable"
+  },
+  "cacheHit": {
+    "sameRangeId": true,
+    "sameAdminCapture": true,
+    "expiresInSeconds": 118.57791060605086
+  },
+  "anonymousStatus": 401,
+  "realUserRoleAcceptance": "Separately verified in actual Chrome UI with existing login; maintenance protocol result is not a role claim",
+  "actualAmountsExcluded": true
+}

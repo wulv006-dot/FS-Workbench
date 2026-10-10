@@ -1,0 +1,12 @@
+{
+  "packageSha256": "d90b6b65a949431534d6b2052faa0c0a575724c8413978ba7d1c472fe1228da4",
+  "manifestSha256": "f54579bd0e53fd789096c3e065d861b3701ba5ddbc916e60b688454b1f350ca1",
+  "files": [
+    {
+      "candidate": "live/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "387460bfe70fd2587d144937201da9181ec9386238492cc06174bfaa53aa93a6",
+      "sha256": "98d643f21e28e1b5af3024341a400f3a63aac0d5e1ce18f273f0db7fc79eda4a"
+    }
+  ]
+}

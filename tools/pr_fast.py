@@ -234,6 +234,8 @@ def select(paths):
             groups.add("registration-management");continue
         if name.startswith("releases/fc-coins/lootbar-spec-repair-20261009/"):
             groups.add("fc-lootbar");continue
+        if name.startswith("releases/fs-dashboard/business-live-20261010/"):
+            groups.add("fs-business-live");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
         if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
@@ -324,6 +326,13 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="fs-business-live":
+            release="releases/fs-dashboard/business-live-20261010"
+            units(release+"/tests",["test_live_summary","test_release","test_session","test_cache_patch"],root_owned=True)
+            units(release+"/deploy/frontend",["test_release_workspace"],root_owned=True)
+            units(release+"/deploy/frontend-fixed",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_frontend.mjs")
+            node(release+"/tests/test_entry_refs.mjs")
         elif group=="fs-period-ui":node("releases/fs-dashboard/traffic-yesterday-20261009/test-yesterday.mjs")
         elif group=="fs-metrics-fix":
             release="releases/fs-dashboard/metrics-fix-20261009"
