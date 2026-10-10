@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "releaseReady": true,
+  "assets": 14,
+  "mutableTargets": 3,
+  "protectedPaths": 191,
+  "productionWrites": 0
+}

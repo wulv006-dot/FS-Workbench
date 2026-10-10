@@ -1,0 +1,24 @@
+{"elapsedSeconds": 0.003, "stage": "baseline", "sha256": {"live_summary.py": "98d643f21e28e1b5af3024341a400f3a63aac0d5e1ce18f273f0db7fc79eda4a", "summary_bridge.py": "1482061c1eb5cd40b8c0bf1ad6d873d50a90f35196194b43fedef62849825e4f", "range_api.py": "65185cbd21f64144fd2c16f7140179407daec438ca2d5031bd72c133ba3db663", "range_primary_reader.py": "433e8f3f8491cbe6b08eba53f415a679ee726e0b1a7cbbf6a919166c093981c1"}, "timerSeconds": 4201.2}
+{"elapsedSeconds": 0.004, "stage": "source_start", "source": "Admin", "date": "2026-10-09", "queueSeconds": 0.0}
+{"elapsedSeconds": 0.004, "stage": "source_start", "source": "Order", "date": "2026-10-09", "queueSeconds": 0.001}
+{"elapsedSeconds": 0.022, "stage": "collector_lock_attempt", "attemptSeconds": 0.0, "blocking": false}
+{"elapsedSeconds": 0.039, "stage": "cache_states", "date": "2026-10-09", "states": {"Admin": "pending", "Order": "pending"}}
+{"elapsedSeconds": 0.039, "stage": "cache_states", "date": "2026-10-08", "states": {"Admin": "pending", "Order": "pending"}}
+{"elapsedSeconds": 0.45, "stage": "source_read_complete", "source": "Admin", "date": "2026-10-09", "readSeconds": 0.446, "status": "available", "marginProvided": false}
+{"elapsedSeconds": 0.45, "stage": "source_start", "source": "Admin", "date": "2026-10-08", "queueSeconds": 0.429}
+{"elapsedSeconds": 0.541, "stage": "cache_states", "date": "2026-10-09", "states": {"Admin": "available", "Order": "pending"}}
+{"elapsedSeconds": 0.746, "stage": "source_read_complete", "source": "Admin", "date": "2026-10-08", "readSeconds": 0.296, "status": "available", "marginProvided": false}
+{"elapsedSeconds": 0.791, "stage": "cache_states", "date": "2026-10-08", "states": {"Admin": "available", "Order": "pending"}}
+{"elapsedSeconds": 3.389, "stage": "order_browser_complete", "browserProcessSeconds": 3.366, "returnCode": 0}
+{"elapsedSeconds": 3.389, "stage": "order_navigation", "navigationSeconds": 2.308, "domReadSeconds": 0.065}
+{"elapsedSeconds": 3.389, "stage": "source_read_complete", "source": "Order", "date": "2026-10-09", "readSeconds": 3.385, "status": "available", "marginProvided": true}
+{"elapsedSeconds": 3.389, "stage": "source_start", "source": "Order", "date": "2026-10-08", "queueSeconds": 3.368}
+{"elapsedSeconds": 3.393, "stage": "collector_lock_attempt", "attemptSeconds": 0.0, "blocking": false}
+{"elapsedSeconds": 3.544, "stage": "cache_states", "date": "2026-10-09", "states": {"Admin": "available", "Order": "available"}}
+{"elapsedSeconds": 3.545, "stage": "cache_hit", "date": "2026-10-09", "responseSeconds": 0.00081, "httpStatus": 200, "sources": {"Admin": {"status": "available", "capturedAt": "2026-10-10T08:09:51.373845+00:00"}, "Order": {"status": "available", "capturedAt": "2026-10-10T08:09:54.245099+00:00"}}}
+{"elapsedSeconds": 6.58, "stage": "order_browser_complete", "browserProcessSeconds": 3.187, "returnCode": 0}
+{"elapsedSeconds": 6.58, "stage": "order_navigation", "navigationSeconds": 2.154, "domReadSeconds": 0.059}
+{"elapsedSeconds": 6.58, "stage": "source_read_complete", "source": "Order", "date": "2026-10-08", "readSeconds": 3.191, "status": "available", "marginProvided": true}
+{"elapsedSeconds": 6.799, "stage": "cache_states", "date": "2026-10-08", "states": {"Admin": "available", "Order": "available"}}
+{"elapsedSeconds": 6.8, "stage": "cache_hit", "date": "2026-10-08", "responseSeconds": 0.00073, "httpStatus": 200, "sources": {"Admin": {"status": "available", "capturedAt": "2026-10-10T08:09:51.674871+00:00"}, "Order": {"status": "available", "capturedAt": "2026-10-10T08:09:57.431131+00:00"}}}
+{"elapsedSeconds": 7.05, "stage": "finished", "completedDates": ["2026-10-08", "2026-10-09"], "sourceReads": 4, "productionSourceWrites": 0}

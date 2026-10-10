@@ -234,6 +234,8 @@ def select(paths):
             groups.add("registration-management");continue
         if name.startswith("releases/fc-coins/lootbar-spec-repair-20261009/"):
             groups.add("fc-lootbar");continue
+        if name.startswith("releases/fs-dashboard/order-latency-20261010/"):
+            groups.add("fs-order-latency");continue
         if name.startswith("releases/fs-dashboard/business-live-20261010/"):
             groups.add("fs-business-live");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
@@ -326,6 +328,13 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="fs-order-latency":
+            release="releases/fs-dashboard/order-latency-20261010"
+            units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope"],root_owned=True)
+            units(release+"/deploy/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_frontend.mjs")
+            node(release+"/tests/test_latency.mjs")
+            node(release+"/tests/test_entry_refs.mjs")
         elif group=="fs-business-live":
             release="releases/fs-dashboard/business-live-20261010"
             units(release+"/tests",["test_live_summary","test_release","test_session","test_cache_patch"],root_owned=True)
@@ -379,4 +388,5 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 

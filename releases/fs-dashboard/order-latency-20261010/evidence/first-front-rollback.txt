@@ -1,0 +1,5 @@
+{
+  "status": "rolled-back-immutable-history-retained",
+  "backup": "/var/backups/fs-navigation-native-20261006/workspace-native-20261006-59c1aa395354",
+  "immutableHistoryRetained": true
+}

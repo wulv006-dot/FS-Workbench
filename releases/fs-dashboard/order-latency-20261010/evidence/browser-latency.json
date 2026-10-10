@@ -1,0 +1,29 @@
+{
+  "syntheticOnly": true,
+  "cases": 6,
+  "timings": [
+    {
+      "day": "2026-10-09",
+      "coldSeconds": 2.295
+    },
+    {
+      "day": "2026-10-08",
+      "coldSeconds": 2.284
+    },
+    {
+      "day": "2026-10-09",
+      "cacheHitSeconds": 0.003,
+      "additionalRequests": 0
+    }
+  ],
+  "errors": [],
+  "requests": [
+    "?profile=MMOEXP&start=2026-10-10&end=2026-10-10&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-09&end=2026-10-09&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-09&end=2026-10-09&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-08&end=2026-10-08&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-08&end=2026-10-08&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-07&end=2026-10-07&grain=day&mode=summary",
+    "?profile=FC27&start=2026-10-06&end=2026-10-06&grain=day&mode=summary"
+  ]
+}

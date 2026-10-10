@@ -1,0 +1,13 @@
+{
+  "syntheticOnly": true,
+  "result": [
+    {
+      "entry": "index.html",
+      "passed": true
+    },
+    {
+      "entry": "home.html",
+      "passed": true
+    }
+  ]
+}

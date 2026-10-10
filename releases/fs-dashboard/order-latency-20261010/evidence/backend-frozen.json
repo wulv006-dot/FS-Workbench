@@ -1,0 +1,6 @@
+{
+  "packageSha256": "ee6db7254211691165195c086682f7d742b57beb40c90bf1de8b72be01f3f0c4",
+  "manifestSha256": "b716297f2bed204dbafb94e2591da14c11db8ca98b48da9a45be7d09d499ab8d",
+  "releaseId": "order-latency-range-only",
+  "status": "frozen-awaiting-inspect"
+}
