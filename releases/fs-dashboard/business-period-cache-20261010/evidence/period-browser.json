@@ -5,7 +5,9 @@
     "KPI/chart/compare shared dates",
     "history no auto-read after 2h",
     "midnight fixed view/explicit reanchor",
-    "today 15min refresh"
+    "today 15min refresh",
+    "today rollover",
+    "explicit historical supplement retry"
   ],
   "requests": [
     {
@@ -82,6 +84,41 @@
       "profile": "FC27",
       "start": "2026-10-11",
       "end": "2026-10-11",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-12",
+      "end": "2026-10-12",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-12",
+      "end": "2026-10-12",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "FC27",
+      "start": "2026-10-12",
+      "end": "2026-10-12",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-08",
+      "end": "2026-10-08",
+      "grain": "day",
+      "mode": "summary"
+    },
+    {
+      "profile": "NBA2K27",
+      "start": "2026-10-08",
+      "end": "2026-10-08",
       "grain": "day",
       "mode": "summary"
     }
