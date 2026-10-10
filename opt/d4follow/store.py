@@ -137,6 +137,16 @@ CREATE TABLE IF NOT EXISTS gold_price (
     dd_ref_usd   REAL,       -- DD373 推荐价折 $/M（定价基准，留证）
     dd_ref_cny   REAL,       -- DD373 单价 元/万基纳（留证）
     dd_items     INTEGER,    -- DD373 该游戏区综合排序下的挂单条数
+    -- 2026-10-09：G2G **跟价基准**（cheapold 优先口径）—— 回答「看板 G2G 那一列到底在跟谁」。
+    --   此前看板 G2G 列取的是 src_g2g = **三源·大区级** G2G 最低价（core_multi），
+    --   与真正被跟着的价（**子服务器** cheapold / 推荐前二，见 core_g2g.cheapold_base）
+    --   不是一个东西，老板看混了。这两列落库后看板直接显示「跟的那个价」。
+    g2g_base     REAL,       -- 看板「跟价基准」列的价 $/M —— **我方真正在跟的那个价**：
+                             --   有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
+                             --   无 cheapold → 2026-10-09 起 = 本区 DD373 成本 × 系数（1.30）。
+    g2g_base_src TEXT,       -- 上面那个价的来源："G2G·cheapold" / "成本×1.30"（2026-10-09 起）
+                             --   （NULL = 该轮没抓到 G2G / 命中 DD373 货源闸没抓）；
+                             --   旧快照残留 "G2G·推荐前二"（该口径已于 2026-10-09 废止）
     PRIMARY KEY (ts, key)
 );
 CREATE INDEX IF NOT EXISTS idx_gold_key ON gold_price(key, ts);
@@ -320,7 +330,9 @@ def _migrate(con):
                            ("price_mode", "TEXT"),
                            ("price_tier", "INTEGER"), ("src2_g2g", "REAL"),
                            ("dd_ref_usd", "REAL"), ("dd_ref_cny", "REAL"),
-                           ("dd_items", "INTEGER")]}
+                           ("dd_items", "INTEGER"),
+                           # 2026-10-09：看板「G2G 跟价基准」列（cheapold 优先口径）补列。
+                           ("g2g_base", "REAL"), ("g2g_base_src", "TEXT")]}
     for table, cols in want.items():
         have = {r["name"] for r in con.execute("PRAGMA table_info(%s)" % table)}
         for name, typ in cols:
@@ -434,7 +446,13 @@ def save_gold(con, ts, plan):
                      r.get("差距_对竞品最低"), r.get("差距_对竞品最低_百分比"),
                      r.get("定价模式"), r.get("定价来源级别"), r.get("G2G_USD每M"),
                      r.get("DD373成本_USD每M"), r.get("DD373成本_元每万基纳"),
-                     r.get("DD373挂单数")))
+                     r.get("DD373挂单数"),
+                     # 2026-10-09：G2G 跟价基准（cheapold 优先）—— core_gold 在
+                     #   g2g_cheapold 分支里已算出「成本兜底前的原竞品价」及来源，
+                     #   此前没落库 ⇒ 看板只能拿三源 G2G 顶替 ⇒ 老板看不明白。这里补上。
+                     #   其它定价模式（dd373_markup / multisrc / iggm_undercut）没有这两个
+                     #   字段 ⇒ 落 NULL，行为与改动前一致。
+                     r.get("基准价_原竞品"), r.get("基准来源_原竞品")))
     con.executemany(
         "INSERT OR REPLACE INTO gold_price"
         "(ts,key,title,row_id,aid,iggm_sid,iggm_raw,iggm_per_m,our_per_m,our_tier,"
@@ -442,14 +460,15 @@ def save_gold(con, ts, plan):
         " divisor,big_tier,iggm_big,our_big,tgt_big,below_pct,ok,"
         " src_g2g,src_eld,src_igmm,src_base,src_base_v,src_fallb,"
         " comp_min,comp_min_src,gap_comp,gap_comp_pct,price_mode,price_tier,src2_g2g,"
-        " dd_ref_usd,dd_ref_cny,dd_items)"
+        " dd_ref_usd,dd_ref_cny,dd_items,g2g_base,g2g_base_src)"
         " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
-        "?,?,?,?,?,?,?,?,?,?,?)", data)
-    # ⚠ 上面这串 ? 必须**正好 40 个**（对齐上面 40 个列名）。
+        "?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
+    # ⚠ 上面这串 ? 必须**正好 42 个**（对齐上面 42 个列名）。
     #   2026-10-02 踩过：加了 10 个新列却只补到 39 个 ?，
     #   线上报 "39 values for 40 columns"，而 save_gold 的调用点被 try/except
     #   吞掉，只在日志里留一行「金币抓取失败」—— 整轮白跑、快照不落库。
     #   verify_schema_local.py 的 G 组会静态校验这个数量，别删。
+    #   2026-10-09：加 g2g_base / g2g_base_src ⇒ 40 → 42，列名与 ? 各 42，已静态校验。
     con.commit()
     return len(data)
 

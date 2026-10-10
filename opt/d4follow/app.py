@@ -539,10 +539,12 @@ CFG_LOCK = threading.RLock()
 # 定时器（d4follow-collect.timer）仍**每小时**触发一次 —— 它只是心跳，
 # 真正跑不跑由 due_games() 按每个游戏的周期决定：没到期的游戏不抓价、不算价、不改价。
 SCHED_PATH = os.path.join(ROOT, "data", "collect_schedule.json")
-SCHED_CHOICES = [0.25, 0.5, 1, 3, 6, 12, 24]    # 允许的周期档位（小时）
+SCHED_CHOICES = [0.25, 0.5, 1, 2.5, 3, 6, 12, 24]    # 允许的周期档位（小时）
 # 2026-10-02 用户要求：AION2 金币采集+监控改 30 分钟一轮 → 加 0.5h 档。
+# 2026-10-10 用户要求：ARC Raiders 改 2.5 小时一轮 → 加 2.5h 档。
 # ⚠ 心跳 d4follow-collect.timer 已是 15min（OnUnitActiveSec=15min），
-#   所以 0.5h 能被真正等到；心跳比它细，不会漏触发。
+#   所以 0.25/0.5/2.5h 都能被真正等到；心跳比它细，不会漏触发。
+#   （2.5h = 15min × 10，正好落在心跳网格上，不会漂成 3h。）
 SCHED_FAST = ("暗黑破坏神4", "流放之路2")   # 默认 1 小时的那几个
 SCHED_DEFAULT_SLOW = 6                   # 其余游戏默认 6 小时
 SCHED_TOLERANCE_S = 300                  # 定时器抖动容差：距到期 5 分钟内也算到期
@@ -605,7 +607,7 @@ def interval_of(cfg, game):
         v = float(d.get(game))
     except (TypeError, ValueError):
         v = 0
-    # 0.25h（15 分钟）~ 24h：小数档（0.25/0.5）与整数档（1/3/6/12/24）都认
+    # 0.25h（15 分钟）~ 24h：小数档（0.25/0.5/2.5）与整数档（1/3/6/12/24）都认
     if 0.25 <= v <= 24:
         return v
     return 1 if game in SCHED_FAST else SCHED_DEFAULT_SLOW
@@ -1017,46 +1019,60 @@ class Task(object):
                 pass
         rate = core_gold.rate_of(cfg)
         gap = float(cc.get("请求间隔秒") or 1.3)
-        svs = [s for s in ((cfg.get("金币") or {}).get("服务区") or [])
-               if s.get("游戏") == game]
-        if not svs:
-            log("  [成本] config 里没有 %s 的金币服务区，跳过" % game)
-            return 0
-        log("  [成本] DD373 进货成本 · %s %d 个服务区 · 汇率 %.4f · 间隔 %.1fs"
-            % (game, len(svs), rate, gap))
-        costs = core_dd373_cost.fetch_costs(
-            svs, rate, log=log, gap=gap, refresh_tree=bool(force))
-        if not costs:
-            log("  [成本] 本轮无数据（多为被风控），沿用上一轮快照")
-            _cost_gate_mark_blocked(cfg, log, why="本轮返回空")
-            return 0
-        ok = sum(1 for v in costs.values() if v.get("ok"))
-        blocked = [v for v in costs.values()
-                   if not v.get("ok") and "风控" in str(v.get("依据") or "")]
-        if blocked:
-            log("  [成本] ⚠ 撞上 DD373 风控，本轮中止（已抓 %d 条不落库，"
-                "面板继续显示上一轮快照）" % ok)
-            _cost_gate_mark_blocked(cfg, log, why="%d 个区被拦" % len(blocked))
-            return 0
-        _cost_gate_mark_ok(cfg)      # 抓到数据 ⇒ 风控状态清零（下次撞从 30 分钟起）
-        # 最终售价：优先用**本轮目标价**（改价后），没有就退回我方现价
-        _price = {}
-        try:
-            for r in (store.gold_latest(con)[0] or []):
-                if engine.game_of(cfg, r.get("key")) != game:
-                    continue
-                tgt = None
-                if r.get("tgt_big") is not None and r.get("big_tier"):
-                    tgt = float(r["tgt_big"]) / float(r["big_tier"])
-                elif r.get("cost_target") is not None and r.get("divisor"):
-                    tgt = float(r["cost_target"]) / float(r["divisor"])
-                _price[r.get("key")] = tgt if tgt is not None else r.get("our_per_m")
-        except Exception:
-            pass
-        n = store.save_gold_cost(con, ts, costs, _price, game=game)
-        log("  [成本] 已落库 %d 条（有效 %d / 无报价 %d）→ 表 gold_cost"
-            % (n, ok, n - ok))
-        return n
+        # ── 2026-10-08 多游戏：`游戏列表` 优先（一次采多个游戏，各自一本账、各自一张 gold_cost 分区）
+        #    没配 `游戏列表` 时退回单个 `游戏` ⇒ 老配置行为一字不变。
+        _gs = cc.get("游戏列表")
+        if not isinstance(_gs, list) or not _gs:
+            _gs = [game]
+        _gs = [str(x) for x in _gs if x]
+        _all_sv = (cfg.get("金币") or {}).get("服务区") or []
+        _total = 0
+        for game in _gs:
+            svs = [s for s in _all_sv if s.get("游戏") == game]
+            if not svs:
+                log("  [成本] config 里没有 %s 的金币服务区，跳过" % game)
+                continue
+            log("  [成本] DD373 进货成本 · %s %d 个服务区 · 汇率 %.4f · 间隔 %.1fs"
+                % (game, len(svs), rate, gap))
+            try:
+                costs = core_dd373_cost.fetch_costs(
+                    svs, rate, log=log, gap=gap, refresh_tree=bool(force), game=game)
+            except Exception:
+                log("  [成本] ✘ %s 采集异常（不影响别的游戏）：%s"
+                    % (game, traceback.format_exc()[-300:]))
+                continue
+            if not costs:
+                log("  [成本] %s 本轮无数据（多为被风控），沿用上一轮快照" % game)
+                _cost_gate_mark_blocked(cfg, log, why="%s 本轮返回空" % game)
+                continue
+            ok = sum(1 for v in costs.values() if v.get("ok"))
+            blocked = [v for v in costs.values()
+                       if not v.get("ok") and "风控" in str(v.get("依据") or "")]
+            if blocked:
+                log("  [成本] %s ⚠ 撞上 DD373 风控，本轮中止（已抓 %d 条不落库，"
+                    "面板继续显示上一轮快照）" % (game, ok))
+                _cost_gate_mark_blocked(cfg, log, why="%s %d 个区被拦" % (game, len(blocked)))
+                continue
+            _cost_gate_mark_ok(cfg)      # 抓到数据 ⇒ 风控状态清零（下次撞从 30 分钟起）
+            # 最终售价：优先用**本轮目标价**（改价后），没有就退回我方现价
+            _price = {}
+            try:
+                for r in (store.gold_latest(con)[0] or []):
+                    if engine.game_of(cfg, r.get("key")) != game:
+                        continue
+                    tgt = None
+                    if r.get("tgt_big") is not None and r.get("big_tier"):
+                        tgt = float(r["tgt_big"]) / float(r["big_tier"])
+                    elif r.get("cost_target") is not None and r.get("divisor"):
+                        tgt = float(r["cost_target"]) / float(r["divisor"])
+                    _price[r.get("key")] = tgt if tgt is not None else r.get("our_per_m")
+            except Exception:
+                pass
+            n = store.save_gold_cost(con, ts, costs, _price, game=game)
+            log("  [成本] 已落库 %d 条（有效 %d / 无报价 %d）→ 表 gold_cost · %s"
+                % (n, ok, n - ok, game))
+            _total += n
+        return _total
 
     def brief(self):
         return {"id": self.id, "kind": self.kind, "title": self.title,
@@ -1153,8 +1169,18 @@ def eval_rows(cfg, con, with_history=True):
     iggm_prev = {r["goods_no"]: r for r in (store.iggm_rows(con, prev_t) if prev_t else [])}
     qd_map = build_qd_map(cfg, con, qd_ts) if qd_ts else {}
 
+    # 2026-10-09：**每个 key 各取自己最新的一条决策**，不再只取「全表最新那一个 ts」。
+    #   起因：多游戏「按各自周期采集」上线后，每轮只对**到期的游戏**写决策快照
+    #   （D4 3h ／ ARC·WarDogs·WoW 6h ／ POE2·D&D·MSCW 1h ／ AION2 30min），
+    #   而页面只读全表最新那份 ⇒ 未到期的游戏被整轮挤掉、道具详情区显示
+    #   「这个游戏还没有道具数据」。改为按 key 取各自最新后，任何游戏都能显示
+    #   「它最近一次」的结果，互不挤占。
+    #   ⚠ 展示口径与出单口径严格分开：出单（emit_record / 工单）只认本轮快照，
+    #   下面的 `_cur` 标记保证过期行不会把自己算进「待改」。
     decs = [dict(r) for r in con.execute(
-        "SELECT * FROM decisions WHERE ts=? ORDER BY key", (ts,))]
+        "SELECT d.* FROM decisions d JOIN"
+        " (SELECT key AS k, MAX(ts) AS mt FROM decisions GROUP BY key) x"
+        " ON d.key=x.k AND d.ts=x.mt ORDER BY d.key")]
 
     # 后台折扣：前端价 = 我方标价 × 折扣。页面同时展示两个口径，这里统一换算一次。
     # 2026-09-25：改为**按商品/按游戏**取（暗黑4=90、POE2=100），见 engine.disc_of。
@@ -1181,6 +1207,13 @@ def eval_rows(cfg, con, with_history=True):
         if not follow:
             _act, _sug, _tgt, _mnew = "hold", None, None, None
             _rsn = "未勾选跟价：只展示价格与毛利，不出目标价"
+        # 过期行（该 key 最近一次决策不是本轮）：动作降级成 hold 并注明来源轮次。
+        # 目的有两个：① 页面「待改 N 条」只反映本轮真会出单的行，与工单对得上；
+        #             ② 避免用户误以为这些行本轮会改价（本轮根本没重算它们）。
+        _cur = (d.get("ts") == ts)
+        if not _cur and _act in ("follow_up", "follow_down"):
+            _act, _sug = "hold", None
+            _rsn = "（上轮快照 %s ｜ 本轮未到期，未重算）%s" % (d.get("ts"), _rsn or "")
         rows.append({
             "key": d["key"],
             "title": d.get("title") or it.get("中文名") or d["key"],
@@ -1209,8 +1242,12 @@ def eval_rows(cfg, con, with_history=True):
             "iggmMissing": bool(gn) and not bool(it.get("无IGGM对应"))
                            and d.get("iggm_new") is None,
             "iggmNewSpec": d.get("iggm_old") is None and d.get("iggm_new") is not None,
+            # 该行决策来自哪一轮 / 是否本轮 —— 便于页面区分「刚算的」与「沿用上轮」
+            "snapTs": d.get("ts"),
+            "cur": _cur,
         })
-        if d.get("iggm_old") and d.get("iggm_new") and abs(d["iggm_new"] - d["iggm_old"]) > 1e-12:
+        if (_cur and d.get("iggm_old") and d.get("iggm_new")
+                and abs(d["iggm_new"] - d["iggm_old"]) > 1e-12):
             changed += 1
         if d.get("margin_old") is not None:
             margins.append(d["margin_old"])
@@ -1823,6 +1860,23 @@ def task_collect(t, opts):
                 t.log("  ↺ 本轮未读到的 %d 个 key 用库内快照兜底" % len(_fill))
         except Exception:
             pass
+        # ── 字段名统一 2026-10-08（修 `pack_size` / `_pack_size` 不一致）──────
+        # our_rows 混着两种来源的行：
+        #   · 本轮新抓行（core_front.to_our_rows）→ 字段名 `_pack_size` / `_前台折扣`
+        #   · 库内兜底行（store.our_latest 直出 DB 行）→ 字段名 `pack_size` / `front_disc`
+        # 下游各认一种：engine 读 `pack_size`、store.save_our 读 `_pack_size`/`_前台折扣`。
+        # 结果：① engine 的 `_our_unit` 对 D4 恒空 ⇒ 2026-10-05「隐藏档位同族单位价推算」
+        # 从未生效；② save_our 回写库内兜底行时把 `pack_size`/`front_disc` 写成 NULL。
+        # 双向补齐两种字段名后再写库 / 供 ours_now 消费。
+        for _r in our_rows:
+            if _r.get("pack_size") in (None, "") and _r.get("_pack_size") not in (None, ""):
+                _r["pack_size"] = _r["_pack_size"]
+            elif _r.get("_pack_size") in (None, "") and _r.get("pack_size") not in (None, ""):
+                _r["_pack_size"] = _r["pack_size"]
+            if _r.get("front_disc") in (None, "") and _r.get("_前台折扣") not in (None, ""):
+                _r["front_disc"] = _r["_前台折扣"]
+            elif _r.get("_前台折扣") in (None, "") and _r.get("front_disc") not in (None, ""):
+                _r["_前台折扣"] = _r["front_disc"]
         store.save_our(con, ts, our_rows)
     else:
         our_map, our_ts = store.our_latest(con)
@@ -1912,19 +1966,28 @@ def task_collect(t, opts):
     #   · dd373_markup → 直接拿它当定价基准（三级顺延的第 1 级）；
     #   · g2g_cheapold → 拿它做「成本兜底（竞品低于成本就按成本价）+ 利润率下限 −10%」。
     _dd_costs = {}
-    if _pol_aion2.get("模式") in ("dd373_markup", "g2g_cheapold", "dd373_only") \
-            and _costcfg.get("启用"):
+    # 2026-10-08 多游戏：注入**所有需要 DD373 成本的游戏**，不再只认 `进货成本.游戏` 那一个。
+    #   `iggm_undercut`（MSCW）也要成本 —— 它不做定价基准，但要做 +15% 利润率兜底。
+    try:
+        _need_cost_games = [g for g in (_goldgames or [])
+                            if (core_gold.pricing_policy(cfg, g) or {}).get("模式")
+                            in ("dd373_markup", "g2g_cheapold", "dd373_only",
+                                "iggm_undercut")]
+    except Exception:
+        _need_cost_games = [_cost_game]
+    if _need_cost_games and _costcfg.get("启用"):
         try:
             def _avail_wan(_s):
-                """从 gold_cost.stock 文本（「可买79390万基纳」）解析可买量（万基纳）。
+                """从 gold_cost.stock 文本（「可买79390万基纳」/「可买160万金」）解析可买量。
 
                 ⚠ gold_cost 表**没有**数字型的可买量列，只有这句文本（由
                   core_dd373_cost 生成）。dd373_only 的「不足 1 亿 → 无货兜底」判定
                   要用数字，所以在注入时解析一次。
                   解析失败返回 None ⇒ core_gold 按「有货」处理（宁可正常定价，
                   也不要把真有货的区误挂成 $19.9）。
+                2026-10-08：单位后缀放宽为 万(基纳|金) —— MSCW 专区单位是「万金」。
                 """
-                _m = re.search(r"可买\s*([0-9]+(?:\.[0-9]+)?)\s*万基纳", str(_s or ""))
+                _m = re.search(r"可买\s*([0-9]+(?:\.[0-9]+)?)\s*万(?:基纳|金)", str(_s or ""))
                 if not _m:
                     return None
                 try:
@@ -1932,19 +1995,22 @@ def task_collect(t, opts):
                 except (TypeError, ValueError):
                     return None
 
-            for _r in store.gold_cost_latest(con, game=_cost_game):
-                _dd_costs[_r.get("key")] = {
-                    "ok": _r.get("ok"), "cny_per_wan": _r.get("cny_per_wan"),
-                    "usd_per_m": _r.get("usd_per_m"), "n_items": _r.get("n_items"),
-                    "dd_zone": _r.get("dd_zone"), "basis": _r.get("basis"),
-                    "note": _r.get("note"), "stock": _r.get("stock"),
-                    # 2026-10-06 dd373_only 用：可买量（万基纳，数字）
-                    "avail_wan": _avail_wan(_r.get("stock"))}
+            for _g in _need_cost_games:
+                for _r in store.gold_cost_latest(con, game=_g):
+                    _dd_costs[_r.get("key")] = {
+                        "ok": _r.get("ok"), "cny_per_wan": _r.get("cny_per_wan"),
+                        "usd_per_m": _r.get("usd_per_m"), "n_items": _r.get("n_items"),
+                        "dd_zone": _r.get("dd_zone"), "basis": _r.get("basis"),
+                        "note": _r.get("note"), "stock": _r.get("stock"),
+                        "游戏": _g,
+                        # 2026-10-06 dd373_only 用：可买量（万基纳/万金，数字）
+                        "avail_wan": _avail_wan(_r.get("stock"))}
         except Exception:
             t.log("  ⚠ 读 gold_cost 失败（%s 本轮无成本 → 全部 hold）"
                   % _pol_aion2.get("口径"))
-        t.log("  [定价] 注入 DD373 成本 %d 条到 build_plan（有效 %d）"
-              % (len(_dd_costs), sum(1 for v in _dd_costs.values() if v.get("ok"))))
+        t.log("  [定价] 注入 DD373 成本 %d 条到 build_plan（有效 %d）｜ 成本游戏：%s"
+              % (len(_dd_costs), sum(1 for v in _dd_costs.values() if v.get("ok")),
+                 "、".join(_need_cost_games) or "-"))
 
     # ---- 3.6) 金币（Gold）· 算目标采购成本 ----
     # 金币与物品**不是一套机制**：一行 = 一个服务区，可改量是「采购成本」（￥/M），
@@ -2003,10 +2069,47 @@ def task_collect(t, opts):
                             it.get("基准价_原竞品"), it.get("DD373成本_USD每M"))
                     if it.get("利润率下限触发"):
                         _tflag += " ⛔利润下限"
-                    t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
-                          % (it.get("中文名"), it.get("基准来源") or "-",
-                             it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
-                             it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                    if it.get("基准来源") == "无货兜底":
+                        # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
+                        #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
+                        #   （保护价不打折），单独一条线写清楚。
+                        _av = it.get("DD373可买_万基纳")
+                        t.log("  [金币] %-22s ⛔货源闸 DD373 %s → 挂 $%s/M 高价保护"
+                              " ｜ 目标采购成本 %s ｜ %s"
+                              % (it.get("中文名"),
+                                 "无有效报价" if _av is None
+                                 else ("可买 %.0f 万基纳（不足 1 亿）" % _av),
+                                 it.get("无货兜底售价_USD每M") or 19.9,
+                                 it.get("采购成本_新"), it.get("动作") or "-"))
+                    else:
+                        # 🆕 2026-10-09：无 cheapold 卖家的区改按成本保 30% 利润定价，
+                        #   不能再按「G2G 基准 × (1−下浮%)」打印（那会写成 −1%，误导）。
+                        if it.get("无cheapold成本加价"):
+                            t.log("  [金币] %-22s 无 cheapold 卖家 → 成本 $%s/M × %.2f"
+                                  "（保 %.1f%% 利润，G2G 推荐前二 $%s 不跟）"
+                                  " → 目标采购成本 %s ｜ %s%s"
+                                  % (it.get("中文名"), it.get("DD373成本_USD每M"),
+                                     it.get("无cheapold成本加价"),
+                                     (1.0 - 1.0 / float(it["无cheapold成本加价"])) * 100,
+                                     it.get("无cheapold基准"),
+                                     it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                        else:
+                            t.log("  [金币] %-22s G2G %s $%s −%.0f%% → 目标采购成本 %s ｜ %s%s"
+                                  % (it.get("中文名"), it.get("基准来源") or "-",
+                                     it.get("基准价"), (it.get("下浮比例") or 0.03) * 100,
+                                     it.get("采购成本_新"), it.get("动作") or "-", _tflag))
+                elif it.get("定价模式") == "iggm_undercut":
+                    # 2026-10-08 MSCW：无脑跟 IGGM ×(1−让价%)，只保留 +15% 利润兜底
+                    _tflag = ""
+                    if it.get("利润率下限触发"):
+                        _tflag = " ⛔利润下限（抬到成本线）"
+                    t.log("  [金币] %-22s IGGM真价 $%s/%s × (1−%.0f%%) → 目标采购成本 %s"
+                          " ｜ %s%s ｜ DD373成本 $%s/%s"
+                          % (it.get("中文名"),
+                             it.get("IGGM每M_跟价用"), it.get("展示单位") or "",
+                             (it.get("让价比例") or 0.10) * 100,
+                             it.get("采购成本_新"), it.get("动作") or "-", _tflag,
+                             it.get("DD373成本_USD每M"), it.get("展示单位") or ""))
                 else:
                     t.log("  [金币] %-22s 利润率 %s ｜ 我方每M %s ｜ IGGM每M %s ｜ 目标采购成本 %s ｜ %s"
                           % (it.get("中文名"), it.get("利润率"),
@@ -2660,7 +2763,8 @@ def task_gold_apply(t, opts):
                      if _exec_mode == "server" else
                      "本机执行器（人工改派，服务器侧不执行）"),
             "游戏必填说明": "每个 item 的「游戏」字段决定执行器用哪个金币 gid 读后台列表"
-                    "（暗黑4=456 / AION2=826）。2026-10-01 前的老工单没有这个字段，"
+                    "（暗黑4=456 / AION2=826 / MapleStory Classic World=1300）。"
+                    "2026-10-01 前的老工单没有这个字段，"
                     "执行器会直接拒绝执行（防止把 AION2 写到暗黑4）。"
                     "本单只含一个游戏，多个游戏会被服务端拆成多张单。",
             "手动复现": "python p2pah_local.py writegold --plan <本文件> --confirm"
@@ -2733,7 +2837,10 @@ def api_gold():
             _u_cache[gm] = core_gold.display_mult_of(cfg, gm)
         r["游戏"] = gm
         r["unit"] = _u_cache[gm]
-        r["unitLabel"] = core_gold.unit_label(_u_cache[gm])
+        # 展示单位名优先用游戏参数里的显式声明（MSCW = "K"；AION2 倍率 1 → "M"）。
+        # ⚠ MSCW 的倍率与 AION2 同为 1，只靠倍率推不出「K」。
+        r["unitLabel"] = core_gold.unit_label(
+            _u_cache[gm], (core_gold.game_param(cfg, gm) or {}).get("展示单位名"))
     # 2026-10-02 用户要求（改价时间必须是最新一次该区改价、售价不滞后）：
     #   「改价操作」列改用 gold_ticket_map —— 数据源是**执行器回填的 gold_state**
     #   （后台采购成本真值）+ 工单 finished_at（真实完成时刻）。
@@ -2741,15 +2848,17 @@ def api_gold():
     #   且叠加 MMOEXP 前端 5~15 分钟推送延迟 → 页面显示「已改价但售价没变」。
     #   gold_action 仍保留在 /api/gold_action 供对账/审计。
     #
-    #   🔴 divisor 必须**按游戏**取（AION2=5.32，暗黑4=5.054）：
-    #      成本除数 = 汇率 ×(1−利润率)÷ 前台系数，而前台系数按游戏覆盖
-    #      （config.金币.游戏参数.AION2.前台系数 = 1.0，暗黑4走全局 1.0526）。
-    #      传错游戏 → 除数差 5%，页面价格对不上 MMOEXP 前台。
+    #   🔴 divisor 必须**按游戏**取（AION2=5.32，暗黑4=5.054，MSCW=4.655）：
+    #      成本除数 = 汇率 ×(1−利润率)÷ 前台系数，而**利润率与前台系数都按游戏覆盖**
+    #      （AION2 利润率 0.20/前台系数 1.0；暗黑4 利润率 0.20/前台系数 1.0526；
+    #        MSCW 利润率 **0.30**/前台系数 1.0 ⇒ 4.655）。
+    #      ⚠ 2026-10-08 起改用 cost_divisor_for_game —— 它会去服务区条目里读该游戏的利润率；
+    #        旧写法把利润率硬编码 0.20，MSCW 会被算成 5.32（页面「已生效售价」虚低 12.5%）。
     _tk = {}
     _games = sorted(set(g for g in _u_cache.keys() if g))
     for _gm in _games:
         try:
-            _div = core_gold.cost_divisor_of(cfg, 0.20, _gm)
+            _div = core_gold.cost_divisor_for_game(cfg, _gm)
         except Exception:
             _div = None
         try:
@@ -2795,6 +2904,16 @@ def api_gold():
         _pol_a = core_gold.pricing_policy(cfg, "AION2") or {}
     except Exception:
         _pol_a = {}
+    # 2026-10-08 多游戏：先把「每个游戏当前走什么模式」拼好（≥2 个游戏配了策略时才有内容）
+    try:
+        _pols_by_game = {_g2: (core_gold.pricing_policy(cfg, _g2) or {}) for _g2 in _games}
+        _pols_by_game = {k: v for k, v in _pols_by_game.items() if v}
+        _mg_prefix = (("【按游戏】" + "；".join(
+            "%s = %s（%s）" % (k, v.get("模式"), v.get("口径"))
+            for k, v in _pols_by_game.items()) + "。") if len(_pols_by_game) > 1 else "")
+    except Exception:
+        _pols_by_game = {}
+        _mg_prefix = ""
     return jsonify({
         "ok": True, "ts": ts,
         "tier": (cfg.get("金币") or {}).get("对标档位", 10000),
@@ -2804,34 +2923,51 @@ def api_gold():
         "unit": int(core_gold.PER_100K),
         "unitByGame": {k: v for k, v in _u_cache.items() if k is not None},
         "frontFactor": core_gold.front_factor_of(cfg),
-        # 🔴 成本除数**按游戏给**（AION2=5.32 / 暗黑4=5.054，差异来自前台系数）。
+        # 🔴 成本除数**按游戏给**（AION2=5.32 / 暗黑4=5.054 / MSCW=4.655，差异来自利润率+前台系数）。
         #   api_gold 是多游戏接口，不能用单一除数，也不能漏传 game（会拿到全局值 5.054）。
-        "divisorByGame": {_gm: core_gold.cost_divisor_of(cfg, 0.20, _gm)
+        #   2026-10-08：统一走 cost_divisor_for_game（按游戏读服务区条目的利润率）。
+        "divisorByGame": {_gm: core_gold.cost_divisor_for_game(cfg, _gm)
                           for _gm in _games},
-        "divisor": core_gold.cost_divisor_of(
-            cfg, 0.20, ((cfg.get("金币") or {}).get("进货成本") or {}).get("游戏")
-                        or "AION2"),
+        "divisor": core_gold.cost_divisor_for_game(
+            cfg, ((cfg.get("金币") or {}).get("进货成本") or {}).get("游戏")
+                 or "AION2"),
         "定价策略": {
             "AION2": _pol_a,
-            "说明": ("AION2 售价 = DD373 该区进货成本 × (1+%.1f%%)；DD373 无报价或"
-                     "可买量不足 1 亿的区统一挂 $%.2f/M；"
-                     "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
-                     % ((_pol_a.get("加价比例") or 0.07) * 100,
-                        (_pol_a.get("无货兜底售价_USD每M") or 19.9))
-                     if _pol_a.get("模式") == "dd373_only" else
-                     ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
-                      "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
-                      % ((_pol_a.get("加价比例") or 0) * 100)
-                      if _pol_a.get("模式") == "dd373_markup" else
-                      ("AION2 售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）"
-                       "× (1−%.1f%%)；⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
-                       "（成本 = 买满 1 亿基纳的订单簿加权均价），最后按利润率下限 %.0f%% 兜底；"
-                       "ELD/IGGM 继续采集监控但不参与定价。"
-                       % ((_pol_a.get("下浮比例") or 0.03) * 100,
-                          (_pol_a.get("利润率下限")
-                           if _pol_a.get("利润率下限") is not None else -0.10) * 100)
-                       if _pol_a.get("模式") == "g2g_cheapold" else
-                       ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
+            # 2026-10-08 多游戏：每个游戏各一份策略留证（看板表头直接读这段，不用猜）
+            "按游戏": {_g2: core_gold.pricing_policy(cfg, _g2)
+                       for _g2 in _games
+                       if core_gold.pricing_policy(cfg, _g2)},
+            "说明": _mg_prefix + (
+                "AION2 售价 = DD373 该区进货成本 × (1+%.1f%%)；DD373 无报价或"
+                "可买量不足 1 亿的区统一挂 $%.2f/M；"
+                "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
+                % ((_pol_a.get("加价比例") or 0.07) * 100,
+                   (_pol_a.get("无货兜底售价_USD每M") or 19.9))
+                if _pol_a.get("模式") == "dd373_only" else
+                ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
+                 "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
+                 % ((_pol_a.get("加价比例") or 0) * 100)
+                 if _pol_a.get("模式") == "dd373_markup" else
+                 ("AION2 售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
+                  "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f"
+                  "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
+                  "⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
+                  "（成本 = 买满 1 亿基纳的订单簿加权均价）；"
+                  "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟价后利润率 < %.0f%% 的"
+                  "**强制抬到 成本 ÷ %.2f**（含成本兜底那批，货源闸除外）；"
+                  "ELD/IGGM 继续采集监控但不参与定价。"
+                  % ((_pol_a.get("下浮比例") or 0.03) * 100,
+                     (_pol_a.get("无cheapold加价系数") or 1.30),
+                     ((_pol_a.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
+                     (1.0 - 1.0 / (_pol_a.get("无cheapold加价系数") or 1.30)) * 100,
+                     (_pol_a.get("利润率下限")
+                      if _pol_a.get("利润率下限") is not None else 0.20) * 100,
+                     (_pol_a.get("利润率下限")
+                      if _pol_a.get("利润率下限") is not None else 0.20) * 100,
+                     1.0 - (_pol_a.get("利润率下限")
+                            if _pol_a.get("利润率下限") is not None else 0.20))
+                  if _pol_a.get("模式") == "g2g_cheapold" else
+                  ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
         "items": rows,
     })
@@ -2896,6 +3032,14 @@ def api_gold_cost():
                    #   若继续取它，看板 G2G 列会整列空白。
                    "g2g": (r.get("src_g2g") if r.get("src_g2g") is not None
                            else r.get("src2_g2g")),
+                   # 2026-10-09（老板口径）：看板要看清「我方到底在跟哪个价」。
+                   #   g2g_base = **子服务器** G2G 上真正被跟的价（有 cheapold 用 cheapold，
+                   #   无则推荐前二较低者），且是**成本兜底前**的原竞品价（不受保本抬价影响）。
+                   #   g2g_base_src = 它的来源（"G2G·cheapold" / "G2G·推荐前二"）。
+                   #   与上面的 "g2g" 区别：那个是**三源·大区级** G2G 最低价，仅作参考，
+                   #   跟定价基准不是一个口径 —— 前端汇总区那一列改用这两个字段。
+                   "g2g_base": r.get("g2g_base"),
+                   "g2g_base_src": r.get("g2g_base_src"),
                    "eld": r.get("src_eld"),
                    "iggm": r.get("iggm_per_m"),
                    # 2026-10-02：竞品最低价与差距 —— 金币监控主表已按用户要求隐藏，
@@ -2975,12 +3119,12 @@ def api_gold_cost():
         })
     # 2026-10-02 用户要求：售价要和 MMOEXP 前台一致、不滞后。
     #   gold_state 是执行器回填的**后台采购成本真值**（工单写完立刻更新），
-    #   除以**成本除数**（AION2=5.32，来自 core_gold.cost_divisor_of）即为前台每 M 价。
+    #   除以**成本除数**（AION2=5.32 / MSCW=4.655，来自 core_gold.cost_divisor_for_game）即为前台每 M 价。
     #   ⚠ 绝不能用「汇率 6.65」换算 —— 那是后台美元成本口径，
     #     会把 5.04 算成 0.76，而前台真实价是 0.95（差 25%）。
     #   注：用户已要求页面不显示「前台已生效」列，这里只保留接口字段供对账/排障。
     try:
-        _div_g = core_gold.cost_divisor_of(cfg, 0.20, game)
+        _div_g = core_gold.cost_divisor_for_game(cfg, game)
         _tk_all = store.gold_ticket_map(con, game, _div_g)
     except Exception:
         _tk_all = {}
@@ -3011,13 +3155,24 @@ def api_gold_cost():
                 (_pol.get("无货最小可买万基纳") or 10000),
                 (_pol.get("无货兜底售价_USD每M") or 19.9)))
             if _pol.get("模式") == "dd373_only" else
-            ("售价 = G2G 该子服务器 cheapold 价（无则推荐前二较低者）× (1−%.1f%%)；"
+            ("售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
+             "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f 定价"
+             "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
              "⛔ 成本兜底（2026-10-06）：竞品价 < 我方 DD373 成本价时**不再跟降，"
-             "按成本价定价**；最后按利润率下限 %.0f%% 兜底。"
+             "按成本价定价**；"
+             "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟了 cheapold 后利润率 "
+             "(售价−成本)÷售价 < %.0f%% 的，**强制抬到 成本 ÷ %.2f**"
+             "（对含成本兜底在内的所有跟价行生效，货源闸 $%.2f/M 除外）。"
              "成本 = DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳）；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
              % ((_pol.get("下浮比例") or 0.03) * 100,
-                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else -0.10) * 100)
+                (_pol.get("无cheapold加价系数") or 1.30),
+                ((_pol.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
+                (1.0 - 1.0 / (_pol.get("无cheapold加价系数") or 1.30)) * 100,
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
+                1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20),
+                (_pol.get("无货兜底售价_USD每M") or 19.9))
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M × %.1f%%；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"
@@ -3148,8 +3303,8 @@ def api_config():
 def api_schedule():
     """保存每个游戏的「采集 + 改价」周期（小时）。
 
-    body: {"周期": {"暗黑破坏神4": 1, "ARC Raiders": 6, ...}}
-    可选值只有 SCHED_CHOICES（1/3/6/12/24）；写进服务器 config.json 的
+    body: {"周期": {"暗黑破坏神4": 1, "ARC Raiders": 2.5, ...}}
+    可选值只有 SCHED_CHOICES（0.25/0.5/1/2.5/3/6/12/24）；写进服务器 config.json 的
     `运行.采集周期小时`，重启也不丢。定时器 d4follow-collect.timer 每 15 分钟
     触发一次（心跳，比最细的 0.25h 档更密，不会漏触发）。
     """

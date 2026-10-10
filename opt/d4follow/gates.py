@@ -28,7 +28,9 @@
     改价时对撞上就停手，并指名道姓告诉哪几条撞了。
 
 闸三 · 单轮跟价幅度上限 clamp_round_step()
-    单轮目标价相对现价的变动不超过 ±`单轮幅度上限`(默认 50%)。
+    单轮目标价相对现价的变动不超过该方向的限幅（默认 ±50%）。
+    2026-10-10 起**分向**：`单轮幅度上限_涨` / `单轮幅度上限_跌` 各自独立，
+    缺键回落旧的 `单轮幅度上限`。老板要求「解锁跟涨、跟跌不变」⇒ 涨设 0（关闭）、跌保持 0.5。
     超了不跟随，判 blocked —— 宁可慢一拍，不让 $0.43 一步跳成 $25.87。
 """
 
@@ -295,28 +297,44 @@ def clamp_round_step(cfg, ours_bid, tgt):
     返回 (new_tgt, clamped_bool, limit_pct)。
     ⚠ 拦下时**不静默改价**，由调用方判 blocked 并写明原因。
 
-    旋钮语义：`引擎.单轮幅度上限` = 0.5 表示 ±50%；**设 0 或负数 = 关闭限幅**
-    （不是"回退到默认"，否则用户想关都关不掉 —— 分册铁律 15：
-    不确定的旋钮别留两头语义）。
+    旋钮语义（2026-10-10 拆成**分向**两个旋钮，方向独立）：
+      · `引擎.单轮幅度上限_涨` —— **涨**方向的限幅（ratio > 0 时用）
+      · `引擎.单轮幅度上限_跌` —— **跌**方向的限幅（ratio < 0 时用）
+      · `引擎.单轮幅度上限`   —— 兼容旧配置的兜底值（分了向的键缺哪个就用它）
+    **某一向的值设 0 或负数 = 该方向显式关闭限幅**（不是"回退到默认"，
+    否则用户想关都关不掉 —— 分册铁律 15：不确定的旋钮别留两头语义）。
+
+    2026-10-10 老板要求：**解锁跟涨**（涨方向设 0 = 不再挡超过 +50% 的涨），
+    **跟跌不变**（跌方向仍 0.5 = ±50%）。缺键时行为与拆分前**一字不差**。
     """
+    eng = ((cfg or {}).get("引擎") or {})
     try:
-        lim = float(((cfg or {}).get("引擎") or {}).get("单轮幅度上限", 0.5))
+        lim_both = float(eng.get("单轮幅度上限", 0.5))
     except (TypeError, ValueError):
-        lim = 0.5
-    if lim <= 0:                       # 显式关闭
-        return tgt, False, lim
+        lim_both = 0.5
     if not ours_bid or not tgt:
-        return tgt, False, lim
+        return tgt, False, lim_both
 
     try:
         ours_bid = float(ours_bid)
         tgt = float(tgt)
     except (TypeError, ValueError):
-        return tgt, False, lim
+        return tgt, False, lim_both
     if ours_bid <= 0:
-        return tgt, False, lim
+        return tgt, False, lim_both
 
     ratio = (tgt - ours_bid) / ours_bid
+    # 方向旋钮：本向显式给了键就用它，缺键回落 单轮幅度上限
+    _key = "单轮幅度上限_涨" if ratio > 0 else "单轮幅度上限_跌"
+    if _key in eng:
+        try:
+            lim = float(eng.get(_key))
+        except (TypeError, ValueError):
+            lim = lim_both
+    else:
+        lim = lim_both
+    if lim <= 0:                       # 该方向显式关闭
+        return tgt, False, lim
     if abs(ratio) <= lim:
         return tgt, False, lim
     cap = ours_bid * (1.0 + lim) if ratio > 0 else ours_bid * (1.0 - lim)
