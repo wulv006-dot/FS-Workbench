@@ -1,0 +1,9 @@
+{
+  "releaseReady": true,
+  "staticFiles": 1,
+  "sourceCAS": "passed",
+  "protectedCAS": "passed",
+  "oldPublisher": "still retired",
+  "mutations": false
+}
+Backend baseline inspection only; frontend expects this own-task backend after SHA and will inspect after apply.

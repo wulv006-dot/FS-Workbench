@@ -1,0 +1,5 @@
+{
+  "status": "applied-awaiting-real-desktop-URL-QA",
+  "backup": "/var/backups/fs-navigation-native-20261006/workspace-native-20261006-59c1aa395354",
+  "businessAuthCollectorTimerWrites": 0
+}

@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-09",
+  "profile": "FC27",
+  "orderCaptureAfterSelectionSeconds": 2.688,
+  "summaryRequestAfterSelectionSeconds": [
+    0.32,
+    0.87,
+    104.86
+  ],
+  "captureToNextSummaryRequestSeconds": 102.172,
+  "uiBeforeOrderAvailable": "not_provided",
+  "oldClientCacheSeconds": 60,
+  "oldUiIntervalSeconds": 60,
+  "actualAmountsExcluded": true
+}
