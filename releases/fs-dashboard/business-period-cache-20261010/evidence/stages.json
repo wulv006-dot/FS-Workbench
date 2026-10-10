@@ -1,0 +1,6 @@
+{
+  "backend": "/opt/fs-period-backend-20261010-56fd0e34",
+  "frontend": "/opt/fs-period-front-20261010-9d3ca003",
+  "backendUpload": "/tmp/fs-period-backend-56fd0e34.zip",
+  "frontendUpload": "/tmp/fs-period-front-9d3ca003.zip"
+}
