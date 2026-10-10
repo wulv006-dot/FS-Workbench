@@ -250,7 +250,7 @@ function render(host,d,key='MMOEXP',s=null){if(!host)return;hosts.add(host);
  }catch(e){if(abort.signal.aborted||states.get(host)!==state)return;state.loading=false;state.error=e.message;if(e.httpStatus===401||e.httpStatus===403){state.result=null;state.resultData=null;}draw(host,d,key,s,state);
  }finally{state.polling=false;}})();
 }
-root.FSExactRange={peek,render,requestRange,force:()=>{scope.summary=null;for(const host of hosts){const state=states.get(host);if(state)state.id=null;}},readSummary:async(key,s,signal,onWait)=>{const fresh=cache.get(keyOf(null,key,s));if(fresh&&Date.now()<fresh.clientExpiresAt)return fresh;return load(null,key,s,signal,onWait,data=>cache.set(keyOf(null,key,s),data),false);},permissionStatus:()=>deniedStatus};
+root.FSExactRange={peek,render,requestRange,force:(explicit=false)=>{if(explicit&&scope.summary?.query)cache.delete(keyOf(null,scope.summary.profile.key,scope.summary.query));scope.summary=null;for(const host of hosts){const state=states.get(host);if(state)state.id=null;}},readSummary:async(key,s,signal,onWait)=>{const fresh=cache.get(keyOf(null,key,s));if(fresh&&Date.now()<fresh.clientExpiresAt)return fresh;return load(null,key,s,signal,onWait,data=>cache.set(keyOf(null,key,s),data),false);},permissionStatus:()=>deniedStatus};
 renderBase=root.FSSupplementInsights.render;root.FSSupplementInsights.render=render;
 root.dispatchEvent(new Event('fs-exact-ready'));
 })(window);
@@ -1809,7 +1809,7 @@ const transactionWatcher=new FSBusinessSnapshots('/dashboard/fs-home/transaction
  const note=document.getElementById('transaction-status')||document.createElement('div');note.id='transaction-status';note.textContent=(state.status==='fresh'?'':'⚠ 数据过期/不可用 · ')+
   '历史图表 · 所有网站 · Order订单/金额 · Admin补充新客 · 更新时间 '+(state.generatedAt?new Date(state.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'不可用')+' 北京时间 · 120分钟采集；今天页面15分钟检查，历史页面进入或重查时检查 · 版本 '+(state.snapshotId||'—');
  meta.append(note);scope.snapshotState=state;scope.checkedAt=new Date().toISOString();workspaceSync();
-});transactionWatcher.start();let summaryRefreshTimer;function scheduleSummaryRefresh(data){clearTimeout(summaryRefreshTimer);if(!fsPeriodPolicy().active(currentSelection()))return;const pending=Object.values(data.sources||{}).some(x=>x.status==='pending');const seconds=pending?900:Math.max(1,((data.clientExpiresAt||Date.now()+900000)-Date.now())/1000+1);summaryRefreshTimer=setTimeout(()=>{if(document.hidden||scope.signal.aborted)return;window.FSExactRange.force();workspaceClearRanges();kpiCards();renderCross();},seconds*1000);}scope.signal.addEventListener('abort',()=>clearTimeout(summaryRefreshTimer),{once:true});
+});transactionWatcher.start();let summaryRefreshTimer;function refreshTodayAnchor(){if(RANGE==='today'&&!CUSTOM&&selectionAnchor!==todayStr()){selectionAnchor=todayStr();return true;}return false;}function scheduleSummaryRefresh(data){clearTimeout(summaryRefreshTimer);if(!fsPeriodPolicy().active(currentSelection()))return;const pending=Object.values(data.sources||{}).some(x=>x.status==='pending');const seconds=pending?900:Math.max(1,((data.clientExpiresAt||Date.now()+900000)-Date.now())/1000+1);summaryRefreshTimer=setTimeout(()=>{if(document.hidden||scope.signal.aborted)return;refreshTodayAnchor();window.FSExactRange.force();workspaceClearRanges();renderAll();},seconds*1000);}scope.signal.addEventListener('abort',()=>clearTimeout(summaryRefreshTimer),{once:true});
 window.addEventListener('fs-exact-permission-denied',renderExactPermissionFailure);
 window.addEventListener('fs-exact-ready',()=>{if(INSIGHTS_SNAPSHOT)refresh();});
 window.addEventListener('fs-exact-range',e=>{if(e.detail.key===KEY)refresh();});
@@ -2011,5 +2011,5 @@ scope.root.addEventListener('keydown',e=>{const t=e.target;if(t.matches('.navit'
 function rootTabs(){return scope.root.querySelectorAll('#sideNav .navit');}
 workspaceSync();kpiCards();
 
-return {state:workspaceState,apply:workspaceApply,resume:()=>{if(fsPeriodPolicy().active(currentSelection())&&(!scope.summary||Date.now()>=scope.summary.clientExpiresAt)){window.FSExactRange.force();kpiCards();}},update:async()=>{selectionAnchor=todayStr();window.FSExactRange.force();workspaceClearRanges();await transactionWatcher.check();renderAll();}};
+return {state:workspaceState,apply:workspaceApply,resume:()=>{if(refreshTodayAnchor()){window.FSExactRange.force();workspaceClearRanges();renderAll();}else if(fsPeriodPolicy().active(currentSelection())&&(!scope.summary||Date.now()>=scope.summary.clientExpiresAt)){window.FSExactRange.force();kpiCards();}},update:async()=>{selectionAnchor=todayStr();window.FSExactRange.force(true);workspaceClearRanges();await transactionWatcher.check();renderAll();}};
 }

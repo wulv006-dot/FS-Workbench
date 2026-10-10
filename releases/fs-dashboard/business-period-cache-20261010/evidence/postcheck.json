@@ -1,0 +1,31 @@
+{
+  "python": "3.9.18 (main, Sep  5 2026, 14:39:22) \n[GCC 4.8.5 20150623 (Red Hat 4.8.5-44)]",
+  "protectedFilesVerified": 208,
+  "summarySha256": "a6f9f1ff0cb4978f177371250711647c93a5dfec2faa0b15fb9fa0947b8b6dba",
+  "frontVersion": "workspace-native-20261006-0a6e228c6de6",
+  "services": {
+    "auth-portal.service": {
+      "MainPID": "32055",
+      "ActiveState": "active"
+    },
+    "fc27-cloud-api.service": {
+      "MainPID": "29930",
+      "ActiveState": "active"
+    },
+    "fc27-cloud-worker.service": {
+      "MainPID": "2720",
+      "ActiveState": "active"
+    },
+    "fc27-p2pah-session.service": {
+      "MainPID": "2713",
+      "ActiveState": "active"
+    },
+    "fs-business-range.service": {
+      "MainPID": "27367",
+      "ActiveState": "active"
+    }
+  },
+  "businessWorkerTimerActions": 0,
+  "sessionRestart": false,
+  "customerRecordsRead": false
+}

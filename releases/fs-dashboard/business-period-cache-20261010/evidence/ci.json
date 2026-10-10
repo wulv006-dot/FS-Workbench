@@ -1,0 +1,20 @@
+{
+  "pullRequest": "https://github.com/wulv006-dot/FS-Workbench/pull/55",
+  "head": "72e2ebb5100e71f7209b5d9f02001fecdf02036a",
+  "merged": "58328878d1d972e97c3fbb4c556903770de14ea4",
+  "testedAndMergedTree": "e0fe56b72b80f840337a04a121de1ab61a4fad79",
+  "check": "pr-fast",
+  "appId": 15368,
+  "job": 114181672411,
+  "run": 38041214405,
+  "conclusion": "success",
+  "python": "3.9.18",
+  "backendTests": 27,
+  "publisherTests": 9,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "jsChecks": ["projection/lifecycle", "bounded source follow-up", "actual entry asset references", "D1/timezone/year/month/leap/cache policy"],
+  "standardProtectedMerge": true,
+  "bypass": false
+}

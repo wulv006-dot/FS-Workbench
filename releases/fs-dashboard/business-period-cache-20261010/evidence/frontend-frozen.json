@@ -1,6 +1,7 @@
 {
-  "packageSha256": "9d3ca003a3bb490c462ee7447222fa180748e1b70821f54e06c9f0b50840d751",
-  "manifestSha256": "eed01ddd2e91c5895a766bc47fce65bdad7b1e6e5500dfaadfbbe74549377c71",
-  "releaseId": "workspace-native-20261006-0a6e228c6de6",
+  "packageSha256": "4c2a48732bee4897ec2b24a5a4144ce573797fa225707783476e893bf125131f",
+  "manifestSha256": "0692597f6fca802f4aaff2082777ae46d3bec8866f093ca09a1f7cdcc655ed87",
+  "releaseId": "workspace-native-20261006-0a809f54cc4e",
+  "baselineRelease": "workspace-native-20261006-0a6e228c6de6",
   "status": "frozen-awaiting-inspect"
 }
