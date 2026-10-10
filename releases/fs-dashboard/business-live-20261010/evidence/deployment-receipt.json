@@ -1,0 +1,60 @@
+{
+  "status": "deployed-real-desktop-accepted",
+  "frontendVersion": "workspace-native-20261006-f799b2a81b51",
+  "backendBackup": "/var/backups/fs-navigation-20261006/nav-20261010T065200Z",
+  "frontendBackup": "/var/backups/fs-navigation-native-20261006/workspace-native-20261006-cd6876c8a22a",
+  "forwardFixBackup": "/var/backups/fs-navigation-20261006/nav-20261010T070300Z",
+  "initialBackendManifestSha256": "4b187d3664f8f472423bb083add6b9a028d794376698f5fc69431b981d8ec472",
+  "frontendManifestSha256": "ecbb8c141d793a1ba7d643a0eb0827eb577a6c448603fa18d5244a4671f42ae9",
+  "forwardFixManifestSha256": "f54579bd0e53fd789096c3e065d861b3701ba5ddbc916e60b688454b1f350ca1",
+  "privateRuntimeDataRestored": false,
+  "gitHubPr": null,
+  "gitHubMerge": false,
+  "gitHubCi": "NOT_RUN",
+  "gitHubUploadBlock": null,
+  "desktopBlock": null,
+  "workerObservation": {
+    "dependency": "existing Requires=fc27-p2pah-session.service",
+    "stoppedAtUtc": "2026-10-10T06:51:19Z",
+    "startedAtUtc": "2026-10-10T06:51:29Z",
+    "beforePid": "29932",
+    "afterPid": "2720",
+    "currentState": "active",
+    "workerCodePolicyUnchanged": true
+  },
+  "initialTests": {
+    "backendSessionPublisher": 24,
+    "frontendPublisher": 9,
+    "browserIntegration": 7,
+    "frontendLogic": "PASS"
+  },
+  "forwardFixTests": {
+    "cache": 16,
+    "exactScopeAndRangeOnlyRestart": 2,
+    "python39Grammar": "PASS"
+  },
+  "upstreamActualWatermark": "UNKNOWN",
+  "finalFrontendBackup": "/var/backups/fs-navigation-native-20261006/workspace-native-20261006-f799b2a81b51",
+  "finalFrontendManifestSha256": "10a98261918eb2e7bdf2ab2016c1625b86d0f4c9820dfb214ffc354d0a2c32be",
+  "disclosureAuthorization": "User explicitly permitted code, production paths, non-secret hashes and rollback manifests in private wulv006-dot/FS-Workbench PR",
+  "finalTests": {
+    "backendSessionPublisherCache": 26,
+    "finalFrontendPublisher": 9,
+    "frontendLifecycle": "PASS",
+    "actualEntryReferences": "PASS",
+    "syntheticBrowserCases": 7
+  },
+  "realDesktopAcceptance": {
+    "userExistingLoginRestored": true,
+    "analysisLastSevenDays": true,
+    "analysisTodaySelectionClearsOldValues": true,
+    "homeAdminMainOrderReference": true,
+    "consoleErrors": 0,
+    "immutableEntryVersion": "workspace-native-20261006-f799b2a81b51"
+  },
+  "refusedRollback": {
+    "reason": "same-task live_summary protected source changed by stale-metadata forward fix",
+    "writes": 0,
+    "guardBypassed": false
+  }
+}

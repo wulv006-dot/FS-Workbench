@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": true,
+  "scope": "fs-business-live-20261010",
+  "sessionBaseImage": "sha256:dc5f3845c8d20b890614ee0e9330cad4e2c198e84a388db15d387fcc49341b29",
+  "files": [
+    {
+      "candidate": "live/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "65185cbd21f64144fd2c16f7140179407daec438ca2d5031bd72c133ba3db663",
+      "beforeSha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea"
+    },
+    {
+      "candidate": "live/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "387460bfe70fd2587d144937201da9181ec9386238492cc06174bfaa53aa93a6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "live/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "1482061c1eb5cd40b8c0bf1ad6d873d50a90f35196194b43fedef62849825e4f",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "87ea79ec6c167b31b3b891a945af2047b408382ffc152cc7ee607462f9b703a5",
+      "beforeSha256": "ec4c7ba41c3cc07f16e2dbdb294f9c467f490bb7765a8a74d2d3db8e6c4b26e9"
+    },
+    {
+      "candidate": "session/admin_summary.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_summary.py",
+      "sha256": "ceb3e7d2c47326cf11e88100b90d4f98944b9aa691fe16a21a1f4cd008316a8b",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/supplement_fields.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/Dockerfile.session",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "sha256": "abb75e2f676f80c924bd1ebbd785efe30466d4ed685161bce1e9ec08610fac82",
+      "beforeSha256": "e1ff6d139ffc56c953997299b0930d63feb39a87677446df0384d940ed7adeee"
+    },
+    {
+      "candidate": "fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "ac783f78773b57d63884fd1643d8079e9ac1aa35e069b87bd4684c9346899e73",
+      "beforeSha256": "3c690e92c3287f9295d7566f0eeb7ed894f074f5c3b02def116aa2e37e2d1a4d"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/opt/auth-portal/auth_portal.py",
+      "sha256": "6b00046a56b6292086f715df3e52fa247093ea1415375313e3b821d98b101baf"
+    },
+    {
+      "path": "/etc/nginx/conf.d/iggm-web.conf",
+      "sha256": "eab7a3cb4f2d533d423c77dc98e076069e0058555b8edf483496f76ff194e317"
+    },
+    {
+      "path": "/etc/nginx/fs-business-range.locations.conf",
+      "sha256": "75c410fea586c47253a19a7a1918d4575f389786f6481c45ad4ce6867ccd3571"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/collect_details.py",
+      "sha256": "6e9a5d1f4c6a27640a06cec60b5a847558cd7dcf21c6083826495379ca785c1c"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/detail_model.py",
+      "sha256": "9c9592549fa2162adda7ea8cb590ce2bf4bf95a7b8ce7ccb28ecdfc4e8326dc2"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/deployment/server_run_integrated.py",
+      "sha256": "a1174defb5db8405624f87b89d40e700bfceed6160ae004363fe913a0cd439e7"
+    },
+    {
+      "path": "/etc/systemd/system/mmoexp-marketing-daily.service",
+      "sha256": "0b35017d97ce636ef94f076c4e20a3c1ec7aac8223aea5760bda71425f5586dc"
+    },
+    {
+      "path": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+      "sha256": "133f98e7467c0507119e588128dcbf6856db58a7a34eb8887b3d9a5660f48188"
+    },
+    {
+      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "sha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58"
+    }
+  ],
+  "runtimeRequired": {
+    "auth-portal.service": {
+      "ActiveState": "active"
+    },
+    "fc27-cloud-api.service": {
+      "MainPID": "29930",
+      "ActiveState": "active"
+    },
+    "fc27-cloud-worker.service": {
+      "MainPID": "29932",
+      "ActiveState": "active"
+    }
+  }
+}

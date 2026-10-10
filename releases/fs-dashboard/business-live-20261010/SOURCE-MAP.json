@@ -1,0 +1,369 @@
+{
+  "module": "fs-dashboard-business-live",
+  "businessOwner": "\u5434\u5f8b",
+  "cacheSeconds": 120,
+  "formula": "existing Admin www.mmoexp.com revenue \u00d7 same-period Order profit margin, labelled estimated",
+  "upstreamActualWatermark": "UNKNOWN",
+  "backendTargets": [
+    {
+      "candidate": "live/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "65185cbd21f64144fd2c16f7140179407daec438ca2d5031bd72c133ba3db663",
+      "beforeSha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea"
+    },
+    {
+      "candidate": "live/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "387460bfe70fd2587d144937201da9181ec9386238492cc06174bfaa53aa93a6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "live/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "1482061c1eb5cd40b8c0bf1ad6d873d50a90f35196194b43fedef62849825e4f",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "87ea79ec6c167b31b3b891a945af2047b408382ffc152cc7ee607462f9b703a5",
+      "beforeSha256": "ec4c7ba41c3cc07f16e2dbdb294f9c467f490bb7765a8a74d2d3db8e6c4b26e9"
+    },
+    {
+      "candidate": "session/admin_summary.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_summary.py",
+      "sha256": "ceb3e7d2c47326cf11e88100b90d4f98944b9aa691fe16a21a1f4cd008316a8b",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/supplement_fields.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/Dockerfile.session",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "sha256": "abb75e2f676f80c924bd1ebbd785efe30466d4ed685161bce1e9ec08610fac82",
+      "beforeSha256": "e1ff6d139ffc56c953997299b0930d63feb39a87677446df0384d940ed7adeee"
+    },
+    {
+      "candidate": "fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "ac783f78773b57d63884fd1643d8079e9ac1aa35e069b87bd4684c9346899e73",
+      "beforeSha256": "3c690e92c3287f9295d7566f0eeb7ed894f074f5c3b02def116aa2e37e2d1a4d"
+    }
+  ],
+  "frontendAssets": [
+    {
+      "candidate": "assets/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/business.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/business.css",
+      "sha256": "3bf213fd69913109dbe31e8d1aaadffa7a8bea9eaaef909168719d5f58958fda",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/business.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/business.html",
+      "sha256": "04ec3e09ae7b9c97236b09f32437a98f5e1922247ee0a8a0b4f022eea3f679ec",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/business.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/business.js",
+      "sha256": "2260154873947f16461465a5e394a2999a733a9561d244c98b23c147f694492c",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/google.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/google.css",
+      "sha256": "aebd721edcd077ea9d6af3f080eb607ecff1ae7475bba003c1216507271b99c6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/google.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/google.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/google.js",
+      "sha256": "c7730146a194ca5346562f006a18f2d6816234d003b74ccb6eebf367bbc598f6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/home.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/home.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/home.html",
+      "sha256": "7066312ecd24ba827ea2ef49ac59048e6ea8a49534b805904016ae5af61b34c8",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/index.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/index.html",
+      "sha256": "e5ca6afe677f89bdbedc097685cb66ac28454836aa33d1cbe91c0ec2ac89f345",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/metrics.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/metrics.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/navigation.json",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/navigation.json",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/runtime.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/runtime.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/shell.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/shell.js",
+      "sha256": "0c2b890288bf57b04fa7688478978622f3555ea840c8793974d52161ebbad909",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/snapshot-client.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/snapshot-client.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/workspace.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-cd6876c8a22a/workspace.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-cd6876c8a22a/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d",
+      "beforeSha256": null
+    }
+  ],
+  "frontendMutableTargets": [
+    {
+      "candidate": "candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "1352209882aa90dc42acb49327ded5fd1af0dc80b48a6855b87352ee49e775f5",
+      "beforeSha256": "7066312ecd24ba827ea2ef49ac59048e6ea8a49534b805904016ae5af61b34c8"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "d59056ad6a21fddf700b5f376df6296666a28a609c9b162b2ef4afb414dce55e",
+      "beforeSha256": "bad4426b86d4996af91efc78d9455a112e6aec27c77e4c94dbc67f6578c223b0"
+    },
+    {
+      "candidate": "candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5",
+      "beforeSha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    }
+  ],
+  "preserved": [
+    "history snapshots",
+    "Google",
+    "FC/RPG pricing",
+    "Hook",
+    "Player",
+    "Gallery",
+    "permissions schema",
+    "collectors and timers"
+  ],
+  "publisherProvenance": "existing navigation/workspace publisher; exact live scope extension",
+  "privateStateExcluded": true,
+  "sourceBaseCommit": "019e744b364c340537688e9c6d2d99d73ac80bd6",
+  "forwardFix": [
+    {
+      "candidate": "live/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "387460bfe70fd2587d144937201da9181ec9386238492cc06174bfaa53aa93a6",
+      "sha256": "98d643f21e28e1b5af3024341a400f3a63aac0d5e1ce18f273f0db7fc79eda4a"
+    }
+  ],
+  "finalBackendTargets": [
+    {
+      "candidate": "live/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "65185cbd21f64144fd2c16f7140179407daec438ca2d5031bd72c133ba3db663",
+      "beforeSha256": "0a03f8027af56cb1448299c1009b4f7c03c1ac34f92fd44e1ed9121a50c31aea"
+    },
+    {
+      "candidate": "live/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "98d643f21e28e1b5af3024341a400f3a63aac0d5e1ce18f273f0db7fc79eda4a",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "live/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "1482061c1eb5cd40b8c0bf1ad6d873d50a90f35196194b43fedef62849825e4f",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "87ea79ec6c167b31b3b891a945af2047b408382ffc152cc7ee607462f9b703a5",
+      "beforeSha256": "ec4c7ba41c3cc07f16e2dbdb294f9c467f490bb7765a8a74d2d3db8e6c4b26e9"
+    },
+    {
+      "candidate": "session/admin_summary.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_summary.py",
+      "sha256": "ceb3e7d2c47326cf11e88100b90d4f98944b9aa691fe16a21a1f4cd008316a8b",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/supplement_fields.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/supplement_fields.py",
+      "sha256": "734fae7e85df275bfc657f8ecedc7a56925e6c8c31a2f7faf851fed76c55ffde",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/Dockerfile.session",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "sha256": "abb75e2f676f80c924bd1ebbd785efe30466d4ed685161bce1e9ec08610fac82",
+      "beforeSha256": "e1ff6d139ffc56c953997299b0930d63feb39a87677446df0384d940ed7adeee"
+    },
+    {
+      "candidate": "fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "ac783f78773b57d63884fd1643d8079e9ac1aa35e069b87bd4684c9346899e73",
+      "beforeSha256": "3c690e92c3287f9295d7566f0eeb7ed894f074f5c3b02def116aa2e37e2d1a4d"
+    }
+  ],
+  "finalFrontendAssets": [
+    {
+      "candidate": "assets/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/business.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/business.css",
+      "sha256": "3bf213fd69913109dbe31e8d1aaadffa7a8bea9eaaef909168719d5f58958fda",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/business.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/business.html",
+      "sha256": "04ec3e09ae7b9c97236b09f32437a98f5e1922247ee0a8a0b4f022eea3f679ec",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/business.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/business.js",
+      "sha256": "2260154873947f16461465a5e394a2999a733a9561d244c98b23c147f694492c",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/google.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/google.css",
+      "sha256": "aebd721edcd077ea9d6af3f080eb607ecff1ae7475bba003c1216507271b99c6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/google.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/google.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/google.js",
+      "sha256": "c7730146a194ca5346562f006a18f2d6816234d003b74ccb6eebf367bbc598f6",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/home.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/home.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/home.html",
+      "sha256": "75926fe5063a7b2d9cea32a8a8089756ca6fcec147fc2211106554fb93b6194a",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/index.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/index.html",
+      "sha256": "f824415c05b0457a6a47b889fd9b069d5115648458b614fd937b809f4c5527ef",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/metrics.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/metrics.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/navigation.json",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/navigation.json",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/navigation.json",
+      "sha256": "1fe09a5e14f32982a89ec76c6112b2c1c09e20e3dd4a4bd4c34c740aa7acefed",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/runtime.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/runtime.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/shell.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/shell.js",
+      "sha256": "0c2b890288bf57b04fa7688478978622f3555ea840c8793974d52161ebbad909",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/snapshot-client.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/snapshot-client.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/snapshot-client.js",
+      "sha256": "e3b9675f19f945b9386677dd46be2f69ba6a47c38f66f9e0702401f4705cbf4e",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/workspace.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-f799b2a81b51/workspace.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-f799b2a81b51/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d",
+      "beforeSha256": null
+    }
+  ],
+  "finalFrontendTargets": [
+    {
+      "candidate": "candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "75926fe5063a7b2d9cea32a8a8089756ca6fcec147fc2211106554fb93b6194a",
+      "beforeSha256": "1352209882aa90dc42acb49327ded5fd1af0dc80b48a6855b87352ee49e775f5"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "103d91868da70d0804ca5fc57a14f1ae959eabd838e7a16b872b3de9328e127f",
+      "beforeSha256": "d59056ad6a21fddf700b5f376df6296666a28a609c9b162b2ef4afb414dce55e"
+    },
+    {
+      "candidate": "candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5",
+      "beforeSha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    }
+  ],
+  "finalFrontendVersion": "workspace-native-20261006-f799b2a81b51"
+}
