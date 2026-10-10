@@ -1,7 +1,8 @@
 {
-  "packageSha256": "4c2a48732bee4897ec2b24a5a4144ce573797fa225707783476e893bf125131f",
-  "manifestSha256": "0692597f6fca802f4aaff2082777ae46d3bec8866f093ca09a1f7cdcc655ed87",
-  "releaseId": "workspace-native-20261006-0a809f54cc4e",
-  "baselineRelease": "workspace-native-20261006-0a6e228c6de6",
+  "packageSha256": null,
+  "packageArchive": "not produced: source-only change, the staging archive SHA is recorded when the frontend package is built",
+  "manifestSha256": "e74e76b48ded8136b7c7c6f09c75d1f076c36df6841e9b059378887439719f33",
+  "releaseId": "workspace-native-20261006-4f580f4929b8",
+  "baselineRelease": "workspace-native-20261006-0a809f54cc4e",
   "status": "frozen-awaiting-inspect"
 }
