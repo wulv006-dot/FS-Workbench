@@ -493,20 +493,46 @@ function publishedProfitDays(snapshot,key,start,end){
  for(let ts=a;ts<=b;ts+=86400000){const day=new Date(ts).toISOString().slice(0,10),r=records.get(day);out.push({day,rate:r?.status==='available'&&Number.isFinite(r.profitMarginPct)?r.profitMarginPct:null,orders:r?.orders??null,sales:r?.revenueUsd??null,capturedAt:r?.capturedAt??null,latestAttemptAt:r?.latestAttemptAt??null,stale:!!r?.stale});}
  return out;
 }
-function renderPublishedProfitHistory(){
+function renderPublishedProfitHistory(rateIn){
  const q=currentSelection();if(q.grain==='hour')return false;
  const pts=publishedProfitDays(INSIGHTS_SNAPSHOT,KEY,q.start,q.end);if(pts===null)return false;
  const wrap=document.getElementById('profitWrap'),pane=document.getElementById('pfPane'),div=document.getElementById('pfDiv'),el=document.getElementById('chartProfit'),hint=document.getElementById('profitHint'),legend=document.getElementById('profitLegend'),label=document.getElementById('lblProfit');
  if(wrap)wrap.style.display='none';if(pane)pane.style.display='';if(div)div.style.display='';if(!el)return true;
  const known=pts.filter(p=>p.rate!==null),fresh=known.filter(p=>!p.stale),stale=known.length-fresh.length;
- hint.textContent=`所选 ${pts.length} 日 · 已提供 ${known.length} 日 · 缺失 ${pts.length-known.length} 日${stale?' · '+stale+' 日保留旧值（过期）':''} · 完整北京自然日，今日未完成不冒充完整日`;
+ hint.textContent=`所选 ${pts.length} 日 · 已提供 ${known.length} 日 · 缺失 ${pts.length-known.length} 日${stale?' · '+stale+' 日保留旧值（过期）':''} · 完整北京自然日，今日未完成不冒充完整日 · 柱顶为该日数值，悬停看销售额/订单数/环比`;
  label.innerHTML=IC.chart+'利润率<span class="sl-hint">Order每日原值 · 所有网站 · '+esc(KEY)+' · 同快照 '+esc(INSIGHTS_SNAPSHOT.snapshotId)+'</span>';
- legend.innerHTML='<span>每日原始利润率，缺日留空；不平均每日比例、不反推利润金额。</span>';
- if(!pts.length){el.innerHTML='<div class="empty">该日期区间无完整日数据</div>';return true;}
- const W=1320,H=310,PL=64,PR=28,PT=18,PB=36,iw=W-PL-PR,ih=H-PT-PB,lo=Math.min(0,...known.map(p=>p.rate)),hi=Math.max(1,...known.map(p=>p.rate)),step=iw/pts.length,bw=Math.min(42,step*.6),y=v=>PT+ih-(v-lo)/(hi-lo)*ih;
- let svg=`<line x1="${PL}" y1="${y(0)}" x2="${W-PR}" y2="${y(0)}" stroke="currentColor" opacity=".3"/>`;
- pts.forEach((p,i)=>{const x=PL+step*i+step/2;if(p.rate!==null)svg+=`<rect data-profit-day="${p.day}" x="${x-bw/2}" y="${Math.min(y(p.rate),y(0))}" width="${bw}" height="${Math.max(1,Math.abs(y(p.rate)-y(0)))}" fill="${p.rate<0?'#d63a48':'#1a9e57'}" opacity="${p.stale?.45:.9}"><title>${esc(p.day)} · ${p.rate}% · Order · 采集 ${esc(p.capturedAt)}${p.stale?' · 过期，最新尝试 '+esc(p.latestAttemptAt):''}</title></rect>`;else svg+=`<text data-profit-missing="${p.day}" x="${x}" y="${H-PB-4}" text-anchor="middle" fill="currentColor" opacity=".5" font-size="10">缺失</text>`;if(i%Math.ceil(pts.length/12)===0||i===pts.length-1)svg+=`<text x="${x}" y="${H-10}" text-anchor="middle" font-size="10" fill="currentColor">${p.day.slice(5)}</text>`;});
- el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" height="310" preserveAspectRatio="none">${svg}</svg>`;return true;
+ if(!pts.length){legend.innerHTML='';el.innerHTML='<div class="empty">该日期区间无完整日数据</div>';return true;}
+ /* 轴取整到 10 的倍数（刻度才是整数），并留出顶部余量放柱顶数值 */
+ const rawMax=Math.max(0,...known.map(p=>p.rate)),rawMin=Math.min(0,...known.map(p=>p.rate));
+ const hi=Math.max(10,Math.ceil(rawMax*1.05/10)*10),lo=rawMin<0?Math.floor(rawMin*1.05/10)*10:0;
+ const W=1320,H=310,PL=64,PR=28,PT=34,PB=36,iw=W-PL-PR,ih=H-PT-PB;
+ const step=iw/pts.length,bw=Math.min(42,step*.6);
+ const y=v=>PT+ih-(v-lo)/(hi-lo)*ih,px=i=>PL+step*i+step/2;
+ const rate=Number.isFinite(rateIn)?rateIn:null;
+ let g='';
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,gy=y(v);
+  g+=`<line x1="${PL}" y1="${gy}" x2="${W-PR}" y2="${gy}" stroke="currentColor" opacity=".12"/>`;
+  g+=`<text x="${PL-8}" y="${gy+4}" text-anchor="end" font-size="11" fill="currentColor" opacity=".55">${v.toFixed(0)}%</text>`;}
+ if(rate!=null){const ya=y(rate*100);
+  g+=`<line x1="${PL}" y1="${ya}" x2="${W-PR}" y2="${ya}" stroke="#ff9500" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+  g+=`<text x="${W-PR}" y="${ya-6}" text-anchor="end" font-size="11" font-weight="600" fill="#ff9500">Order所选区间原值 ${fmtP(rate*100)}</text>`;}
+ pts.forEach((p,i)=>{const cx=px(i);
+  if(p.rate!==null){const by=Math.min(y(p.rate),y(0)),bh=Math.max(1,Math.abs(y(p.rate)-y(0)));
+   g+=`<rect data-profit-day="${p.day}" x="${cx-bw/2}" y="${by}" width="${bw}" height="${bh}" rx="2" fill="${p.rate<0?'#d63a48':'#1a9e57'}" opacity="${p.stale?.45:.9}"/>`;
+   g+=`<text data-profit-value="${p.day}" x="${cx}" y="${by-6}" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".8">${p.rate.toFixed(1)}%</text>`;}
+  else g+=`<text data-profit-missing="${p.day}" x="${cx}" y="${H-PB-4}" text-anchor="middle" fill="currentColor" opacity=".5" font-size="10">缺失</text>`;
+  if(i%Math.ceil(pts.length/12)===0||i===pts.length-1)g+=`<text x="${cx}" y="${H-10}" text-anchor="middle" font-size="10" fill="currentColor">${p.day.slice(5)}</text>`;});
+ pts.forEach((p,i)=>{g+=`<rect x="${PL+step*i}" y="${PT}" width="${step}" height="${ih}" fill="transparent" class="pzh" data-i="${i}"/>`;});
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" height="310" preserveAspectRatio="none">${g}</svg>`;
+ const gone=pts.length-known.length;
+ legend.innerHTML='<span><i style="background:#1a9e57"></i>当日利润率</span>'
+  +'<span><i style="background:#ff9500"></i>所选区间原值</span>'
+  +(stale?'<span><i style="background:#1a9e57;opacity:.45"></i>'+stale+' 日保留旧值（过期）</span>':'')
+  +(gone?'<span><i style="background:#d5d9df"></i>'+gone+' 日缺失</span>':'')
+  +'<span>每日原始利润率，缺日留空；不平均每日比例、不反推利润金额。悬停柱子看当日销售额与订单数。</span>';
+ bindProfitTip(el,pts.map(p=>({k:p.day,u:'日',r:p.rate==null?null:p.rate/100,a:p.sales,o:p.orders,z:false,
+  extra:'来源：Order · 所有网站<br>采集 '+esc(p.capturedAt||'—')+(p.stale?'<br><span style="color:#f5c26b">⚠ 该日保留旧值（采集已过期），最新尝试 '+esc(p.latestAttemptAt||'—')+'</span>':'')})),px,W);
+ return true;
 }
 
 
@@ -572,7 +598,7 @@ function renderProfit(){
     '</div><div class="s">' + i.s + '</div></div>').join('');
 
   /* Native exact-range cards above always refresh; only replace the historical chart. */
-  if(renderPublishedProfitHistory())return;
+  if(renderPublishedProfitHistory(rate))return;
 
   /* ---- 走势图 ---- */
   const pts = ctx ? profitSeriesInRange(ctx) : [];
@@ -643,7 +669,8 @@ function bindProfitTip(el, pts, x, W){
                   + (dd!=null ? ' <span class="' + (dd>=0?'up':'down') + '">(' + (dd>=0?'+':'') + dd.toFixed(2) + ' pp)</span>' : '')
                   + '<br>'))
         + '后台销售额：' + fmtM(p.a)
-        + '<br>订单数：' + fmtN(p.o);
+        + '<br>订单数：' + fmtN(p.o)
+        + (p.extra ? '<br>' + p.extra : '');
       const rect = el.getBoundingClientRect();
       tip.style.left = Math.min(window.innerWidth-230, rect.left + (x(i)/W)*rect.width + 12) + 'px';
       tip.style.top = (rect.top + 60) + 'px';
