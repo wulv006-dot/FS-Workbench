@@ -32,4 +32,7 @@ class LoginRelease(unittest.TestCase):
  def test_candidate_tamper_refuses(self):
   (self.stage/'candidate'/self.m['files'][0]['candidate']).write_bytes(b'changed')
   with self.assertRaises(ValueError):self.apply()
+ def test_exact_production_manifest_has_no_target_protection_overlap(self):
+  m=json.loads(Path(__file__).with_name('approved-manifest.json').read_text(encoding='utf-8'))
+  self.assertFalse({r['target'] for r in m['files']} & {r['path'] for r in m['unchangedRequired']})
 if __name__=='__main__':unittest.main()

@@ -252,10 +252,6 @@
       "sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed"
     },
     {
-      "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
-      "sha256": "ac1ec449d145c9ab6ff50f7296d56f208e665e8f823047af7ff7c753c9db2636"
-    },
-    {
       "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-3a65044a25f8/business.css",
       "sha256": "76c4b10c19c1d1cdcd50a846ec463705cbcd2b195870a7ea4a33cf02ff4c7532"
     },
