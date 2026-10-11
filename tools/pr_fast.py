@@ -220,6 +220,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/login-traffic-ui-20261011/"):
+            groups.add("fs-login-traffic-ui");continue
         if name.startswith("releases/fs-dashboard/traffic-member-20261009/"):
             groups.add("fs-traffic-member");continue
         if name.startswith("releases/fs-dashboard/traffic-yesterday-20261009/"):
@@ -325,6 +327,11 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-login-traffic-ui":
+            release="releases/fs-dashboard/login-traffic-ui-20261011"
+            units(release,["test_login_release"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/test-actions.cjs")
         elif group=="fs-traffic-member":
             release="releases/fs-dashboard/traffic-member-20261009"
             units(release,["test_backend","test_publisher"])
