@@ -3099,7 +3099,13 @@ def api_gold_cost():
                  else ("魔族" if ("（魔族）" in _cn or _g2g.endswith("Asmodian")) else ""))
         _names[_k] = {"服务器名": _serv,
                       "大区中文": _REGION_CN.get(_s.get("大区")) or (_s.get("大区") or ""),
-                      "种族": _race}
+                      "种族": _race,
+                      # 2026-10-12（老板口径）：「把服务区增加备注，参考的天1 魔1 天2 天3
+                      #   这种备注，方便我们查看对照」—— 取自 DD373 区服树快照里区名的
+                      #   括号后缀（`Siel（天1）`），看板贴在各区名旁边就能跟 DD373 对照。
+                      #   ⚠ 不占用已有 `备注` 字段（那是 DD373 的「无报价原因」）。
+                      "区服备注": (core_dd373_cost.zone_note(_s.get("大区"), _serv)
+                                     if core_dd373_cost else "")}
     out = []
     for c in costs:
         k = c.get("key")
@@ -3133,6 +3139,11 @@ def api_gold_cost():
             "服务器名": (_names.get(k) or {}).get("服务器名") or c.get("dd_zone") or "",
             "大区中文": (_names.get(k) or {}).get("大区中文") or c.get("dd_area") or "",
             "种族": (_names.get(k) or {}).get("种族") or c.get("dd_race") or "",
+            # 2026-10-12：「天1 / 魔1」这种区服备注 —— 配置表取不到时（暗黑4 等非 AION2 行）
+            #   回落从 DD373 区名括号里现取，最后才是空串（前端留空，不编数）。
+            "区服备注": ((_names.get(k) or {}).get("区服备注")
+                         or (core_dd373_cost.note_of_zone_name(c.get("dd_zone"))
+                             if core_dd373_cost else "") or ""),
             "依据": c.get("basis"), "备注": c.get("note"),
             "url": c.get("url"), "ts": c.get("ts"),
             "对照档位M": _tier.get(k),

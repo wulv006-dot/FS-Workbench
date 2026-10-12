@@ -1877,7 +1877,7 @@ function gcsApply(){
     if(GCS_FILTER.region && String(x.大区中文||x.DD区||'') !== GCS_FILTER.region) return false;
     if(kw){
       const hay = ((x.服务器名||'')+' '+(x.DD游戏区||'')+' '+(x.种族||'')+' '
-                   +(x.key||'')+' '+(x.依据||'')).toLowerCase();
+                   +(x.区服备注||'')+' '+(x.key||'')+' '+(x.依据||'')).toLowerCase();
       if(hay.indexOf(kw) < 0) return false;
     }
     /* 只看亏损行：利润率 < 0（真实结论，不淡化） */
@@ -1932,6 +1932,16 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
   }
   const rows = allRows;
   box.style.display='';
+  /* ======================================================================
+     2026-10-12（老板口径 · **仅 AION2 生效**）—— 本段四件事：
+       ① 「写后台 ￥x/M ≈ $y/M」这种字段**去掉**（每行都有，纯噪音）；
+       ② 成本列的「0.173102 元/万基纳」**标蓝**；
+       ③ 售价列的「前台 ≈ ￥0.2164 元/万基纳」**标蓝**；
+       ④ 「ELD 最低 $/M 仅参考」列**移除**。
+     ⚠ 同一张汇总表 暗黑4 / POE2 / MSCW 也在用 —— 不 gate 就会改到别的游戏。
+       所以四处一律走 `_isAion2`，其它游戏展示**逐字不变**。
+     ====================================================================== */
+  const _isAion2 = (String((g||{}).name||'') === 'AION2');
   const S = d.汇总||{};
   /* 数字格式：售价 $/M、成本 $/M 都保留 4 位（够看清差异又不至于太长） */
   const f4 = function(v){ if(v===null||v===undefined||v==='') return '--';
@@ -1992,12 +2002,14 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const costCell = noCost
       ? '<td class="num" style="color:var(--sub)">无报价</td>'
       : '<td class="num mono"><b>$'+f4(x.成本_USD每M)+'/M</b>'
-        + '<div class="small" style="color:var(--sub)">'
+        + '<div class="small" style="color:'+(_isAion2?'var(--blue)':'var(--sub)')+'">'
         + f6(x.成本_元每万基纳)+' 元/万基纳</div>'
-        + (_ct0!=null
-           ? '<div class="small" style="color:var(--blue)">写后台 ￥'+_ct0.toFixed(4)+'/M'
-             + (_tgtUsd0!=null ? ' ≈ $'+_tgtUsd0.toFixed(4)+'/M' : '')+'</div>'
-           : '')
+        /* 2026-10-12（老板口径 · AION2）：「写后台 ￥x/M ≈ $y/M」去掉，只留 DD373 实采。
+           原来两行并排（写后台旋钮值 + DD373 实采），老板要的是**真正抓到的成本**。 */
+        + ((_isAion2 || _ct0==null)
+           ? ''
+           : '<div class="small" style="color:var(--blue)">写后台 ￥'+_ct0.toFixed(4)+'/M'
+             + (_tgtUsd0!=null ? ' ≈ $'+_tgtUsd0.toFixed(4)+'/M' : '')+'</div>')
         + '</td>';
     const stockTip = (x.库存? (' · 库存 '+esc(x.库存)) : '')
       + (x.挂单数? (' · '+x.挂单数+' 条挂单') : '');
@@ -2120,7 +2132,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         + '</td>';
     };
     /* 竞品参考价单元格（ELD / IGGM）—— 用户要求汇总区也能一眼看到。
-       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
+       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。
+       2026-10-12：ELD 这一列 AION2 移除（见下方行渲染），只剩 IGGM。 */
     const cCell = function(v){ return (v==null||v==='')
       ? '<td class="num" style="color:var(--sub)">—</td>'
       : '<td class="num mono">$'+Number(v).toFixed(2)+'/M</td>'; };
@@ -2152,6 +2165,14 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + ' title="点击查看该服务区的调价历史"'
       + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
       + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
+        /* 2026-10-12（老板口径）：「把服务区增加备注，参考的天1 魔1 天2 天3 这种备注，
+           方便我们查看对照」—— 备注 = DD373 区名里的（天N）/（魔N）（实测 86/86 都有），
+           贴在各区名旁边，看板一眼就能跟 DD373 页面上的区名对上。取不到就不显示，不编数。 */
+        + (x.区服备注
+           ? '<span style="background:rgba(0,113,227,.10);color:var(--blue);'
+             + 'border:1px solid #bcd8f7;border-radius:3px;padding:0 4px;font-size:11px;'
+             + 'font-weight:600;margin-left:5px;white-space:nowrap">'+esc(x.区服备注)+'</span>'
+           : '')
         + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
         + (stockTip? esc(stockTip):'')+'</div></td>'
       + srcCell
@@ -2163,7 +2184,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         + (function(){
             const _cc = Number(x.成本_元每万基纳), _cu = Number(x.成本_USD每M), _su = Number(x.售价_USD每M);
             if(!(_cc>0) || !(_cu>0) || !(_su>0)) return '';
-            return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+            /* 2026-10-12（老板口径 · AION2）：这一行**标蓝** —— 与成本列的「X 元/万基纳」
+               同色，两行就是一套「DD373 实采人民币成本 vs 我方前台人民币价」的对照。 */
+            return '<div class="small" style="color:'+(_isAion2?'var(--blue)':'var(--yellow)')+'">前台 ≈ ￥'
                  + (_su*(_cc/_cu)).toFixed(4) + ' 元/万基纳</div>';
         })()
         + (x.对照档位M? '<div class="small" style="color:var(--sub)">按 '+x.对照档位M+'M 档</div>':'')+'</td>'
@@ -2174,7 +2197,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
          ⚠ 只在 g2g_cheapold 模式（或有新列 g2g_base）时才换；其它定价模式的每一行
            仍然走原来的 cCell(P.g2g) —— 保证 D4 / MSCW 那些行**逐字不变**。 */
       + ((_isG2GC || P.g2g_base!=null) ? g2gBaseCell() : cCell(P.g2g))
-      + cCell(P.eld) + cCell(P.iggm)
+      /* 2026-10-12（老板口径 · AION2）：「ELD 最低 $/M 仅参考」整列移除。
+         ⚠ 表头（thead 里的 ELD <th>）必须同步移除，否则整行错位一列。 */
+      + (_isAion2 ? '' : cCell(P.eld)) + cCell(P.iggm)
       + costCell
       + mCell(x.利润率)
       + gapCellSum(P)
@@ -2271,7 +2296,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     + (_isG2GC2
         ? '<th class="num">跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先 · 无则成本÷'+(1-_nc2).toFixed(2)+'</span></th>'
         : '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
-    + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    + (_isAion2 ? ''
+       : '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
     + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
     + '<th class="num">进货价 DD373<br><span class="small" style="color:var(--sub);font-weight:400">$/M（与售价同单位）</span></th>'
@@ -2297,7 +2323,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         return '<option value="'+esc(rg)+'"'+_sel(rg)+'>'+esc(rg)+'</option>';}).join('')
     + '</select>'
     + '<input type="text" id="gcsKw" value="'+esc(GCS_FILTER.kw)
-    + '" placeholder="搜服务器名 / 种族（如 Siel / Elyos）" oninput="gcsApply()">'
+    + '" placeholder="搜服务器名 / 种族 / 备注（如 Siel / 天1）" oninput="gcsApply()">'
     + '<label><input type="checkbox" id="gcsLoss" onchange="gcsApply()"'
     + (GCS_FILTER.loss?' checked':'')+'>只看亏损行</label>'
     + '<label><input type="checkbox" id="gcsMove" onchange="gcsApply()"'
