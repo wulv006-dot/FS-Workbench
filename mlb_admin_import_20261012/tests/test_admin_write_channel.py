@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
@@ -250,6 +251,136 @@ class CredentialHygiene(unittest.TestCase):
     def test_no_cred_path_inside_repo_as_default(self):
         text = (SRC / "mlb_write_cards.py").read_text(encoding="utf-8")
         self.assertNotIn('default=str(EVID / "_cred.json")', text)
+
+
+class _FakeAdmin:
+    """假 transport：只实现 `Writer` 用到的三个方法，零网络。
+
+    刻意**不**继承真实客户端 —— 一旦真实客户端改了协议签名，
+    这里会立刻报 AttributeError，等于顺手钉住了契约。
+    """
+
+    def __init__(self, rows=None, products=48):
+        self.rows = dict(rows or {})        # mid -> 写表单 row
+        self.products = products
+        self.posts = []                     # [(path, json_body)]
+        self.gets = []                      # [(path, params)]
+
+    def list_models(self, *, gid, cid, page=1, limit=200,
+                    order="sort,desc", search=None):
+        lst = [dict(v) for v in self.rows.values()]
+        return {"list": lst, "total": len(lst)}
+
+    def _json(self, method, path, **kw):
+        if method == "GET":
+            self.gets.append((path, dict(kw.get("params") or {})))
+            if path == W.EDIT_PATH:
+                mid = int(kw["params"]["id"])
+                if mid not in self.rows:
+                    raise RuntimeError("模型不存在 %s" % mid)
+                return {"code": 1, "data": {"row": json.loads(
+                    json.dumps(self.rows[mid]))}}
+            if path == "/admin/goods.Goods/index":
+                return {"code": 1, "data": {"total": self.products}}
+            raise AssertionError("未预期的 GET %s" % path)
+        self.posts.append((path, json.loads(json.dumps(kw.get("json_body")))))
+        return {"code": 1, "msg": "保存成功", "data": {}}
+
+
+def _row(mid, title="A B/99/SP/X/Awards", icon="101", zh="a" * 32):
+    return {
+        "id": mid, "title": title, "icon": icon, "price": "1.00",
+        "more": {"extend": [{"key": "zh_title", "value": zh}]},
+        "_format": {"icon_format": "https://x/%s.webp" % zh},
+        "_extend": {"num": 1, "total": 0, "all_site_ids": [1, 2],
+                    "all_aids": [3, 4, 5]},
+    }
+
+
+class ArchiveAndRestore(unittest.TestCase):
+    """写前基线存档 + 还原 —— 这是「写错能回退」的唯一依据，必须锁死。"""
+
+    def test_first_baseline_wins_never_overwritten(self):
+        """第二次跑同一个 mid 时，绝不能把「已被改过」的状态当基线覆盖掉。"""
+        with tempfile.TemporaryDirectory() as td:
+            c = _FakeAdmin({111: _row(111, title="ORIGINAL")})
+            p1 = W.Writer(c, False, log=lambda *a: None,
+                          archive_dir=td).snapshot(111)
+            self.assertTrue(p1.is_file())
+            self.assertEqual(json.loads(p1.read_text("utf-8"))["title"], "ORIGINAL")
+
+            c.rows[111]["title"] = "MUTATED"
+            p2 = W.Writer(c, False, log=lambda *a: None,
+                          archive_dir=td).snapshot(111)
+            self.assertEqual(p1, p2)
+            self.assertEqual(json.loads(p1.read_text("utf-8"))["title"], "ORIGINAL",
+                             "基线被覆盖了 —— 还原会还原成坏值")
+
+    def test_restore_replays_archived_row_with_mould_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            row = _row(222, title="RESTORE ME", icon="7")
+            Path(td, "222.before.json").write_text(
+                json.dumps(row, ensure_ascii=False), encoding="utf-8")
+            c = _FakeAdmin()
+            out = W.Writer(c, False, log=lambda *a: None,
+                           archive_dir=td).restore_all()
+            self.assertEqual(out, [{"mid": 222, "ok": True, "msg": "保存成功"}])
+            path, body = c.posts[-1]
+            self.assertEqual(path, W.EDIT_PATH)
+            self.assertEqual(body["icon"], "7")
+            self.assertEqual(body["title"], "RESTORE ME")
+            self.assertEqual(body["more"]["extend"][0]["value"], "a" * 32)
+            # 必须是「只写模型、不动产品」的最小影响面形态
+            self.assertEqual(body["_extend"]["gold_save_mode"], "mould_only")
+            self.assertEqual(body["_extend"]["confirm_mould_trigger"], 1)
+
+    def test_restore_without_archive_raises(self):
+        with tempfile.TemporaryDirectory() as td:
+            w = W.Writer(_FakeAdmin(), False, log=lambda *a: None, archive_dir=td)
+            with self.assertRaises(RuntimeError):
+                w.restore_all()
+
+    def test_created_manifest_lists_new_mids(self):
+        """新建模型没有 before 基线，必须被显式登记出来。"""
+        with tempfile.TemporaryDirectory() as td:
+            w = W.Writer(_FakeAdmin(), False, log=lambda *a: None, archive_dir=td)
+            w.created.extend([555, 666, 555])
+            p = w.write_manifest()
+            self.assertTrue(p.is_file())
+            self.assertEqual(json.loads(p.read_text("utf-8"))["created_mids"],
+                             [555, 666])
+
+    def test_dry_run_never_posts_and_never_archives(self):
+        with tempfile.TemporaryDirectory() as td:
+            # 已存在但字段不全 → 会走到「补全」分支
+            c = _FakeAdmin({333: _row(333, icon="999", zh="b" * 32)},
+                           products=0)
+            rec = W.Writer(c, True, log=lambda *a: None,
+                           archive_dir=td).write_one(
+                {"product_name": "A B/99/SP/X/Awards", "hash": "a" * 32,
+                 "sale_price": "1.00"})
+            self.assertEqual(rec["verdict"], "dry-run")
+            self.assertEqual(c.posts, [], "dry-run 不得发任何 POST")
+            self.assertEqual(list(Path(td).glob("*.before.json")), [],
+                             "dry-run 不该产生存档")
+
+    def test_real_write_archives_before_posting(self):
+        """非 dry-run 且模型已存在时，必须先落基线再写。"""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as td:
+            c = _FakeAdmin({444: _row(444, icon="999", zh="b" * 32)},
+                           products=48)
+            with mock.patch.object(W, "upload_network",
+                                   return_value={"id": 101,
+                                                 "full_url": "https://x/a.webp"}):
+                rec = W.Writer(c, False, log=lambda *a: None,
+                               archive_dir=td).write_one(
+                    {"product_name": "A B/99/SP/X/Awards", "hash": "a" * 32,
+                     "sale_price": "1.00"})
+            self.assertEqual(rec.get("archive"), str(Path(td, "444.before.json")))
+            self.assertTrue(Path(td, "444.before.json").is_file())
+            self.assertTrue(c.posts, "应发出 /edit")
+            self.assertEqual(c.posts[0][0], W.EDIT_PATH)
 
 
 _XLSX_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"

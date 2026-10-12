@@ -3,5 +3,16 @@
   "floor": "0.50",
   "interval": 120,
   "updates_url": "https://www.showdd.io/26/updates",
-  "note": "本服务【不】访问 showdd.io。服务器出口 IP（47.253.252.55）会被 Cloudflare 判定为机房来源并返回 chl_page 挑战；本机住宅 IP 可直连。故采集由本机执行器 mlb_agent.py 完成，这里只排队与托管结果。"
+  "note": "本服务【不】访问 showdd.io。服务器出口 IP（47.253.252.55）会被 Cloudflare 判定为机房来源并返回 chl_page 挑战；本机住宅 IP 可直连。故采集由本机执行器 mlb_agent.py 完成，这里只排队与托管结果。",
+  "writeback": {
+    "_note": "采集完成后自动直写 p2pah 后台。三道闸门：任务勾选 write_back + 此处 enabled + 脚本/凭据文件存在。dry_run=true 时全程只读、不产生任何写入；要真正上架必须显式改为 false（仓库里保持 true 作为安全默认，服务器上部署时改为 false）。",
+    "enabled": true,
+    "dry_run": true,
+    "python": "/opt/python39/bin/python3",
+    "script": "/opt/mlb-admin-write/src/mlb_write_cards.py",
+    "cred": "/opt/mlb-admin-write/_cred.json",
+    "archive_dir": "/opt/mlb-admin-write/evidence/_archive",
+    "confirm": "mlb26-players",
+    "timeout": 900
+  }
 }

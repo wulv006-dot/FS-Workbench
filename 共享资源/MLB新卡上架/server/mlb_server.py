@@ -41,10 +41,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import mlb_writeback as WB       # noqa: E402  自动上架桥（同目录本地模块）
+
 DB_LOCK = threading.Lock()
 ARGS = None
 CFG = {}
-SERVER_VERSION = "1.0"
+SERVER_VERSION = "1.1"
+
+#: 自动上架的中间产物落点（交给直写脚本的结果 JSON / 它回吐的逐卡报告）。
+#: 刻意**不**放 files/ —— 那里是「给人下载的交付物」，混在一起会让
+#: 下载列表里冒出一堆内部文件。
+WB_WORKDIR = os.path.join(HERE, "data", "writeback")
 
 # 执行器 30 秒一次心跳；120 秒内没动静就算掉线（采样一轮要等 120 秒，留足余量）
 AGENT_ONLINE_SEC = 150
@@ -110,8 +119,60 @@ def db():
 def init_db():
     os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
     os.makedirs(os.path.join(HERE, "files"), exist_ok=True)
+    os.makedirs(WB_WORKDIR, exist_ok=True)
     with db() as c:
         c.executescript(SCHEMA)
+
+
+def writeback_update(tid, patch):
+    """把自动上架的结果合并进 `tasks.result.write_back`。
+
+    刻意**不加新列**：线上 SQLite 是 3.7.17，`ALTER TABLE ADD COLUMN` 虽支持，
+    但一旦要回滚就得再删列（3.35+ 才有 DROP COLUMN），迁移风险不值得。
+    `result` 本来就是 JSON 文本，塞一个子键是最省事、可回退的做法。
+    """
+    with db() as c:
+        r = c.execute("SELECT result FROM tasks WHERE id=?", (tid,)).fetchone()
+        cur = {}
+        if r and r["result"]:
+            try:
+                cur = json.loads(r["result"])
+            except Exception:
+                cur = {}
+        if not isinstance(cur, dict):
+            cur = {}
+        cur["write_back"] = patch
+        c.execute("UPDATE tasks SET result=? WHERE id=?",
+                  (json.dumps(cur, ensure_ascii=False), tid))
+
+
+def mark_interrupted_writebacks():
+    """启动时把「上次进程死掉时卡在 running」的上架状态改成 interrupted。
+
+    否则网页会永远显示「上架中」，而线程早随进程没了 —— 典型的静默假象。
+    """
+    n = 0
+    with db() as c:
+        rows = c.execute("SELECT id, result FROM tasks WHERE result LIKE '%\"write_back\"%'"
+                         ).fetchall()
+        for r in rows:
+            try:
+                cur = json.loads(r["result"])
+            except Exception:
+                continue
+            wb = cur.get("write_back") or {}
+            if wb.get("status") != "running":
+                continue
+            wb["status"] = "interrupted"
+            wb["error"] = (wb.get("error") or "") + \
+                "（hub 重启：上架线程已随进程结束，未留下最终结论）"
+            cur["write_back"] = wb
+            c.execute("UPDATE tasks SET result=? WHERE id=?",
+                      (json.dumps(cur, ensure_ascii=False), r["id"]))
+            n += 1
+    if n:
+        print("[!] 有 %d 条上架记录停在 running，已标记为 interrupted" % n)
+    return n
 
 
 def task_brief(r, full=False):
@@ -213,8 +274,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(204, b"")
 
         if path == "/api/health":
-            return self._send(200, {"ok": True, "t": time.strftime("%Y-%m-%d %H:%M:%S"),
-                                    "version": SERVER_VERSION})
+            wb = WB.cfg(CFG)
+            return self._send(200, {
+                "ok": True, "t": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "version": SERVER_VERSION,
+                # 只回布尔量，不回路径 —— 页面不需要知道服务器上凭据放在哪
+                "writeback": {
+                    "enabled": wb["enabled"],
+                    "dry_run": wb["dry_run"],
+                    "script_ok": bool(wb["script"] and os.path.isfile(wb["script"])),
+                    "cred_ok": bool(wb["cred"] and os.path.isfile(wb["cred"])),
+                },
+            })
 
         if path == "/api/tasks":
             limit = min(int((q.get("limit") or ["60"])[0]), 300)
@@ -323,6 +394,8 @@ class Handler(BaseHTTPRequestHandler):
                 "show_browser": bool(body.get("show_browser")),
                 "interval": int(body.get("interval") or CFG.get("interval", 120)),
                 "template": body.get("template") or "",
+                # 采集跑完是否自动写 p2pah 后台（第三道闸门在服务配置里）
+                "write_back": bool(body.get("write_back")),
             }
             # 模板随任务下发：网页上传的 Excel 以 base64 带给执行器，
             # 否则执行器只能靠本地 --template / 工作目录里找。
@@ -433,7 +506,29 @@ class Handler(BaseHTTPRequestHandler):
                     col = "tasks_done" if st == "done" else "tasks_fail"
                     c.execute("UPDATE agents SET %s=%s+1, last_seen=? WHERE name=?"
                               % (col, col), (time.time(), agent))
-            return self._send(200, {"ok": True, "file": file_name})
+
+            # ---- 采集完成后自动上架（Fire & Forget，不拖住执行器的回传）----
+            wb_state = None
+            if st == "done":
+                with db() as c:
+                    r = c.execute("SELECT payload FROM tasks WHERE id=?", (tid,)).fetchone()
+                try:
+                    tpayload = json.loads(r["payload"]) if r and r["payload"] else {}
+                except Exception:
+                    tpayload = {}
+                try:
+                    wb_state = WB.start(
+                        tid=tid, payload=tpayload,
+                        cards=result.get("cards") or [],
+                        config=CFG, update=writeback_update,
+                        workdir=WB_WORKDIR,
+                        log=lambda m: sys.stderr.write("%s\n" % m))
+                except Exception as e:       # noqa: BLE001 —— 上架起不来也不能影响回传
+                    print("[!] 自动上架启动失败：%r" % e)
+                    wb_state = {"status": "failed", "reason": "%r" % e}
+
+            return self._send(200, {"ok": True, "file": file_name,
+                                    "writeback": wb_state})
 
         if path == "/api/tasks/requeue":
             tid = body.get("id")
@@ -484,6 +579,7 @@ def main():
     ARGS = ap.parse_args()
     load_cfg(ARGS.config)
     init_db()
+    mark_interrupted_writebacks()
     srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
     print("[+] MLB 在线工作台 已启动：http://%s:%d/  root=%s" % (ARGS.host, ARGS.port, ARGS.root))
     try:

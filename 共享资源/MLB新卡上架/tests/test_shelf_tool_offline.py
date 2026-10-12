@@ -19,7 +19,11 @@ BOM+chcp 回归、模板发现不到），事发时表现都跟真实原因毫�
 from __future__ import annotations
 
 import ast
+import json
+import os
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from decimal import Decimal
@@ -27,6 +31,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOL = HERE.parent                      # 共享资源/MLB新卡上架/
+
+sys.path.insert(0, str(TOOL / "server"))
+import mlb_writeback as WB              # noqa: E402
 
 
 def _text(rel: str) -> str:
@@ -272,6 +279,210 @@ class RepairReportPreserved(unittest.TestCase):
         """有变更就必须有回滚——这是交付规范的一部分。"""
         text = _text("故障修复报告_20261005.md")
         self.assertIn("回滚", text)
+
+
+class WritebackGate(unittest.TestCase):
+    """自动上架的三道闸门与结论判定 —— 判错就是「误写线上」或「该报的没报」。
+
+    闸门设计原则：**任何一项不确定，都往「不写」的方向倒**。
+    """
+
+    def _wb(self, **kw):
+        base = {"enabled": True, "dry_run": False, "python": sys.executable,
+                "script": __file__, "cred": __file__, "archive_dir": "/tmp/a",
+                "confirm": WB.DEFAULT_CONFIRM, "timeout": 60}
+        base.update(kw)
+        return base
+
+    def test_missing_task_flag_blocks(self):
+        ok, why = WB.gate({}, self._wb())
+        self.assertFalse(ok)
+        self.assertIn("勾选", why)
+
+    def test_service_switch_blocks(self):
+        ok, why = WB.gate({"write_back": True}, self._wb(enabled=False))
+        self.assertFalse(ok)
+        self.assertIn("enabled", why)
+
+    def test_missing_script_or_cred_blocks(self):
+        ok, why = WB.gate({"write_back": True}, self._wb(script="/nope/x.py"))
+        self.assertFalse(ok)
+        self.assertIn("写卡脚本", why)
+        ok, why = WB.gate({"write_back": True}, self._wb(cred="/nope/c.json"))
+        self.assertFalse(ok)
+        self.assertIn("凭据", why)
+
+    def test_all_gates_pass(self):
+        ok, why = WB.gate({"write_back": True}, self._wb())
+        self.assertTrue(ok, why)
+
+    def test_cfg_defaults_are_fail_safe(self):
+        """配置缺失时必须**关**、且是 dry_run —— 宁可不上架也不能误写。"""
+        wb = WB.cfg({})
+        self.assertFalse(wb["enabled"])
+        self.assertTrue(wb["dry_run"])
+        self.assertEqual(WB.cfg(None)["enabled"], False)
+
+    def test_build_cmd_dry_run_has_no_apply(self):
+        cmd = WB.build_cmd(self._wb(dry_run=True), "r.json", "o.json")
+        self.assertIn("--dry-run", cmd)
+        self.assertNotIn("--apply", cmd)
+        self.assertNotIn("--confirm", cmd)
+
+    def test_build_cmd_live_has_apply_and_confirm(self):
+        cmd = WB.build_cmd(self._wb(dry_run=False), "r.json", "o.json")
+        self.assertIn("--apply", cmd)
+        self.assertEqual(cmd[cmd.index("--confirm") + 1], WB.DEFAULT_CONFIRM)
+        self.assertNotIn("--dry-run", cmd)
+
+    def test_confirm_matches_writer_gate_literal(self):
+        """两边口令必须字面一致，否则生产写入会被写卡脚本自己的闸门拒掉。"""
+        self.assertEqual(WB.DEFAULT_CONFIRM, "mlb26-players")
+
+    def test_summarize_unknown_is_needs_review(self):
+        """`*-unknown(no-retry)` 是「不许重试」的信号，必须冒到顶层。"""
+        for v in ("add-unknown(no-retry)", "edit-unknown(no-retry)",
+                  "shelves-unknown(no-retry)"):
+            s = WB.summarize([{"verdict": v}])
+            self.assertEqual(s["status"], "needs_review", v)
+            self.assertEqual(s["counts"]["review"], 1)
+
+    def test_summarize_ok_and_skipped(self):
+        s = WB.summarize([{"verdict": "ok"}, {"verdict": "skipped"}])
+        self.assertEqual(s["status"], "ok")
+        self.assertEqual(s["counts"], {"ok": 1, "skipped": 1, "dry": 0, "review": 0})
+
+    def test_summarize_dry_run(self):
+        s = WB.summarize([{"verdict": "dry-run"}])
+        self.assertEqual(s["status"], "dry_run")
+
+    def test_summarize_tolerates_garbage(self):
+        self.assertEqual(WB.summarize(None)["cards"], 0)
+        self.assertEqual(WB.summarize([None, {}, {"verdict": None}])["status"],
+                         "needs_review")
+
+    def test_run_once_never_raises_and_reports_failure(self):
+        """脚本不存在时也必须返回结构化结果，不能把异常抛给 hub 线程。"""
+        with tempfile.TemporaryDirectory() as td:
+            res = WB.run_once(tid="t1", cards=[{"product_name": "X"}],
+                              wb=self._wb(script="/definitely/not/here.py"),
+                              workdir=td, log=lambda *a: None)
+            self.assertIn(res["status"], ("failed", "timeout"))
+            self.assertTrue(res.get("error") or res.get("log_tail") is not None)
+
+    def test_run_once_parses_report_and_summarizes(self):
+        """锁住 report→status 的映射。
+
+        ⚠️ 这里**不能真的起子进程**：pr_fast 的隔离运行会把 `subprocess.Popen`
+        直接换成抛断言的桩（`offline_test_external_process`），真跑必红。
+        所以注入一个假的 `run`，只验证「命令怎么拼、报告怎么读、状态怎么定」。
+        """
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as td:
+            seen = {}
+
+            def fake_run(cmd, **kw):
+                seen["cmd"] = cmd
+                out = cmd[cmd.index("--out") + 1]
+                with open(out, "w", encoding="utf-8") as f:
+                    json.dump([{"verdict": "ok", "mid": 1}], f)
+                return subprocess.CompletedProcess(cmd, 0, stdout=b"done\n")
+
+            with mock.patch.object(WB.subprocess, "run", fake_run):
+                res = WB.run_once(tid="t2", cards=[{"product_name": "X"}],
+                                  wb=self._wb(script="/opt/x/mlb_write_cards.py",
+                                              dry_run=True),
+                                  workdir=td, log=lambda *a: None)
+
+            self.assertEqual(res["status"], "ok")
+            self.assertEqual(res["returncode"], 0)
+            self.assertEqual(res["report"], [{"verdict": "ok", "mid": 1}])
+            self.assertEqual(res["cards_in"], 1)
+            # 结果 JSON 必须真的落盘给脚本读（CLI 契约就是文件，不是 stdin）
+            self.assertTrue(os.path.isfile(os.path.join(td, "t2.result.json")))
+            # 只读模式不得带 --apply
+            self.assertIn("--dry-run", seen["cmd"])
+
+    def test_start_skips_without_spawning_thread(self):
+        """闸门没过时不得起线程 —— 否则只是把「不该跑」藏进后台。"""
+        seen = []
+        out = WB.start(tid="t3", payload={}, cards=[], config={},
+                       update=lambda tid, patch: seen.append(patch),
+                       workdir="/tmp", log=lambda *a: None)
+        self.assertEqual(out["status"], "skipped")
+        self.assertEqual(seen, [])
+
+
+class HubWritebackWiring(unittest.TestCase):
+    """hub 侧接线：采集结果落地后自动触发上架，且不引入 schema 迁移。"""
+
+    def test_result_branch_triggers_writeback(self):
+        text = _text("server/mlb_server.py")
+        i = text.find('path.endswith("/result")')
+        self.assertGreater(i, 0, "找不到 /result 分支")
+        seg = text[i:i + 3000]
+        self.assertIn("WB.start(", seg)
+        self.assertIn('if st == "done"', seg)
+
+    def test_task_flag_read_from_request_body(self):
+        self.assertIn('"write_back": bool(body.get("write_back"))',
+                      _text("server/mlb_server.py"))
+
+    def test_no_schema_migration_for_writeback(self):
+        """写入状态塞进 result JSON —— 不 ADD COLUMN（回滚时删列很难）。
+
+        ⚠️ 只查「真的执行了 ALTER TABLE」，不查注释：`writeback_update` 的
+        docstring 里正是在解释**为什么不用**它。
+        """
+        text = _text("server/mlb_server.py")
+        self.assertIsNone(re.search(r"""c\.execute\(\s*['"]\s*ALTER\s+TABLE""",
+                                    text, re.I),
+                          "出现了真的 ALTER TABLE 调用")
+        self.assertIn("writeback_update", text)
+
+    def test_boot_sweep_marks_interrupted(self):
+        text = _text("server/mlb_server.py")
+        self.assertIn("mark_interrupted_writebacks()", text)
+        i = text.find("def main(")
+        self.assertIn("mark_interrupted_writebacks()", text[i:i + 900],
+                      "启动时未做 running 清扫，网页会永远显示「上架中」")
+
+    def test_health_exposes_only_booleans(self):
+        text = _text("server/mlb_server.py")
+        self.assertIn('"script_ok"', text)
+        self.assertIn('"cred_ok"', text)
+        i = text.find('path == "/api/health"')
+        seg = text[i:i + 900]
+        self.assertNotIn('"cred":', seg, "health 把凭据路径回给前端了")
+        self.assertNotIn('"script":', seg)
+
+    def test_workdir_is_not_the_download_dir(self):
+        """自动上架的中间产物不能混进 files/（那是给人下载的交付物）。"""
+        text = _text("server/mlb_server.py")
+        self.assertIn('WB_WORKDIR = os.path.join(HERE, "data", "writeback")', text)
+
+
+class WebWritebackUi(unittest.TestCase):
+    """网页侧必须能勾选、能看到上架结果 —— 否则整条链路是黑箱。"""
+
+    def test_form_has_writeback_checkbox(self):
+        text = _text("web/index.html")
+        self.assertIn('id="writeBack"', text)
+        self.assertIn("自动上架", text)
+
+    def test_submit_sends_write_back(self):
+        self.assertIn("write_back:", _text("web/index.html"))
+
+    def test_renders_writeback_report(self):
+        text = _text("web/index.html")
+        for kw in ("renderWriteback", "needs_review", "archive_dir", "mid"):
+            self.assertIn(kw, text, "网页缺少 %s" % kw)
+
+    def test_cards_table_has_upload_column(self):
+        """加了「上架」列就必须同步 colspan，否则空态那一行会错位。"""
+        text = _text("web/index.html")
+        self.assertIn("colspan=\"9\"", text)
+        self.assertIn("上架", text)
 
 
 if __name__ == "__main__":

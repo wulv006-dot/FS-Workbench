@@ -343,3 +343,134 @@ cp /var/www/mlb-online/files/agent.zip.bak-20261005b /var/www/mlb-online/files/a
 `Check` 却正常，说明是 scp 路径解析问题）。绕行方案：**base64 分块传输**
 （4000 字符/块 → 远端 `printf '%s' >>` 追加 → `base64 -d`），传输后必须核对
 sha256 与本地一致，再 `install -m 644` 覆盖并复验包内容。
+
+---
+
+## 十、2026-10-12：打通「采集 → 上架」全链路（自动直写后台）
+
+### 10.1 之前断在哪
+
+```
+执行器采集 → 三轮比价 → 写 Excel → 回传 ─┐
+                                        └─→ ✂️ 人工：下载 Excel → 浏览器手动导入后台
+```
+
+`mlb_admin_import_20261012/` 那套直写脚本（逆向出的 `add`/`edit`/`shelves` 通道）
+已经能把「执行器回传的 `cards[]`」直接写成后台的模型 + 主图 + 48 个产品，
+但它只是个**命令行**，得人工把它跟采集接起来。
+
+### 10.2 现在长这样
+
+```
+执行器采集 → 写 Excel → 回传 ─→ hub(/result)
+                                  │ 闸门判定通过
+                                  ▼
+                        mlb_writeback.py（后台线程）
+                                  │ 子进程 + 超时 kill
+                                  ▼
+            /opt/mlb-admin-write/src/mlb_write_cards.py
+             ⓿ 写前基线存档 ① 上传卡图 ② 建模型 ③ 回读 ④ 写 icon/zh_title ⑤ 建产品
+                                  │ 逐卡报告 JSON
+                                  ▼
+                       tasks.result.write_back → 网页展示
+```
+
+新增文件：
+
+| 文件 | 作用 |
+|---|---|
+| `server/mlb_writeback.py` | 闸门判定 + 起线程 + 跑子进程 + 结论归并（**不碰数据库**，`update` 由 hub 注入） |
+| `tests/verify_writeback_e2e.py` | 真起 hub 走完「建任务→回传→自动上架」的端到端冒烟（非 `test_*.py`，因为要起进程） |
+
+### 10.3 三道闸门（任一不满足就不触发）
+
+1. **任务级**：网页提交时勾了「自动上架」（`payload.write_back`）
+2. **服务级**：`server_config.json` → `writeback.enabled`
+3. **环境级**：写卡脚本与后台凭据文件都存在
+
+再叠一层 `writeback.dry_run`：为 `true` 时全程只读（只登录+回读），
+**要真正写入必须显式改成 false**。仓库里保持 `true` 作为安全默认，服务器上是 `false`。
+
+> ⚠️ 改 `server_config.json` 后必须 `systemctl restart mlb-online` 才生效（配置是启动时读入的）。
+
+### 10.4 为什么用子进程而不是 import
+
+| 理由 | 说明 |
+|---|---|
+| 可超时 kill | 写卡要连外网 + 有 `sleep`，挂住时 hub 不受影响 |
+| 依赖隔离 | 写卡要 `ddddocr`（实测峰值 RSS **86.9 MB**），hub 的依赖面完全不变 |
+| 各自演进 | 边界就是一个 CLI + 一个 JSON 文件；两组各有独立离线回归，不构成跨模块耦合 |
+
+### 10.5 可还原（本次重点）
+
+- **写前基线**：每张要写的卡，在**任何写入之前**把后台 `GET /edit` 的完整表单
+  落盘到 `writeback.archive_dir/<mid>.before.json`（148 个字段，全量）
+- **只存第一次**：同一 mid 第二次跑**不覆盖** —— 否则会把"被写坏之后"的状态当基线
+- **新建的模型**另记 `<archive>/_created.json`（它们没有 before，需人工判断去留）
+- **一键回退**：
+  ```bash
+  /opt/python39/bin/python3 /opt/mlb-admin-write/src/mlb_write_cards.py \
+      --cred /opt/mlb-admin-write/_cred.json \
+      --archive /opt/mlb-admin-write/evidence/_archive \
+      --restore --apply --confirm mlb26-players
+  ```
+  实测 4/4「保存成功」，写后只读核对与基线**逐字段差异 0**
+
+### 10.6 服务器写权限（实证，勿再凭旧记忆断言）
+
+`admin_api_client.py` 的 docstring 曾写「导入必须在本机跑」。**这条对 play187 不成立**：
+
+| 项 | 结果 |
+|---|---|
+| 服务器 IP | `47.85.224.112`（旧记的 403 是 `47.253.252.55`，**另一台**） |
+| 恒等写（原值回填 `POST /edit`） | `HTTP=200 code=1 msg='保存成功'` × 4 |
+| 写后逐字段 diff | 内容字段变化 **0** |
+
+存档/探针：`mlb_admin_import_20261012/evidence/_server_write_probe.py`，
+基线留在 `/opt/mlb-admin-write/evidence/_archive_wprobe/`。
+
+### 10.7 语义红线（接进主干后原样保留）
+
+- `add` / `edit` / `shelves` **绝不自动重试**：超时 ≠ 失败，重跑可能建出重复模型
+- 出现 `*-unknown(no-retry)` → 结论记 `needs_review`，网页弹黄条提示**不要重跑**
+- 子进程超时 → `status=timeout`，同样不重试
+- hub 重启时卡在 `running` 的记录 → 启动时统一改 `interrupted`（否则网页永远显示"上架中"）
+
+### 10.8 本次线上变更
+
+| 文件 | 说明 |
+|---|---|
+| `/opt/mlb-online/mlb_server.py` | v1.0 → **1.1**（`/result` 后触发上架；`/api/health` 暴露开关；启动清扫 interrupted） |
+| `/opt/mlb-online/mlb_writeback.py` | **新增** |
+| `/opt/mlb-online/server_config.json` | 新增 `writeback` 段（线上 `dry_run=false`） |
+| `/var/www/mlb-online/index.html` | 勾选框 + 上架结果表 + 上架列 |
+| `/opt/mlb-admin-write/src/mlb_write_cards.py` | 新增 `--archive` / `--restore` / `run_pipeline()` |
+| `/etc/systemd/system/mlb-online.service` | `MemoryLimit` 180M → **512M**（写卡的 87MB 峰值要和 hub 同 cgroup） |
+
+**备份/回滚**：`/opt/_bak_mlb_writeback_20261012_1528/`
+（`mlb-online/{mlb_server.py,server_config.json,mlb.db.bak}`、`www/index.html`、
+`admin-write/mlb_write_cards.py`、`etc/mlb-online.service`）
+
+```bash
+# 一键回滚
+B=/opt/_bak_mlb_writeback_20261012_1528
+cp $B/mlb-online/mlb_server.py     /opt/mlb-online/mlb_server.py
+rm -f /opt/mlb-online/mlb_writeback.py
+cp $B/mlb-online/server_config.json /opt/mlb-online/server_config.json
+cp $B/www/index.html                /var/www/mlb-online/index.html
+cp $B/admin-write/mlb_write_cards.py /opt/mlb-admin-write/src/mlb_write_cards.py
+cp $B/etc/mlb-online.service        /etc/systemd/system/mlb-online.service
+systemctl daemon-reload && systemctl restart mlb-online
+```
+
+### 10.9 上线验证（全部实跑）
+
+| 项 | 结果 |
+|---|---|
+| 离线单测 `mlb-admin` | `{"testsRun": 34, "failures": 0, "errors": 0, "skipped": 0}` |
+| 离线单测 `mlb-shelf-tool` | `{"testsRun": 50, "failures": 0, "errors": 0, "skipped": 0}` |
+| 隔离门禁复现（`-I` + Popen 桩） | 两组均全绿 |
+| 服务器 Python 3.9.18 端到端冒烟 | 17/17 |
+| 线上真实链路（真登录 + 真后台往返） | 16/16，4 张全部 `skipped`（幂等，无写入） |
+| `--restore` 回退路径 | 4/4 保存成功；只读核对与基线差异 0 |
+| nginx 认证门禁 | 未登录仍 302 → `/__auth/access/`（未被破坏） |
