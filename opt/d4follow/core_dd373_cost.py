@@ -173,6 +173,53 @@ def _norm(nm):
     return NAME_ALIAS.get(n, n)
 
 
+# ---------------------------------------------------------------------------
+# 区服备注「天N / 魔N」（2026-10-12 · 老板口径）
+# ---------------------------------------------------------------------------
+#   老板原话：「把服务区增加备注，参考的天1 魔1 天2 天3 这种备注，方便我们查看对照」。
+#   DD373 的第三层区名本来就带这个后缀（`Siel（天1）` / `Israphel（魔1）`），
+#   看板只要把它取出来贴在服务区名旁边，86 个区就能跟 DD373 页面对着一张表看。
+_RE_NOTE = re.compile(r"[（(]([^（()）]*)[）)]")
+
+
+def note_of_zone_name(nm):
+    """从 DD373 区名（`Siel（天1）`）里取括号内的备注（`天1`）；无括号后缀返回 ""。"""
+    m = _RE_NOTE.search(str(nm or ""))
+    return m.group(1).strip() if m else ""
+
+
+_ZONE_NOTE = {"sig": None, "map": {}}
+
+
+def zone_note_map():
+    """`{(大区, 归一化服务器名): "天1"}` —— 取自 DD373 区服树的**磁盘快照**。
+
+    ⚠ 特意读快照（`data/dd373_zone_tree.json`）而不是本轮采集结果：
+      本轮没抓到报价的区也要有备注；快照缺失就返回空表，前端留空，**绝不编数**。
+    缓存按文件 mtime/size 失效，免得每次请求都重读一遍。
+    """
+    try:
+        st = os.stat(_TREE_FILE)
+        sig = (st.st_mtime_ns, st.st_size)
+    except Exception:                                   # noqa: BLE001
+        sig = None
+    if _ZONE_NOTE["map"] and _ZONE_NOTE["sig"] == sig:
+        return _ZONE_NOTE["map"]
+    out = {}
+    for k, v in (_tree_disk_load() or {}).items():
+        n = note_of_zone_name((v or {}).get("dd_name"))
+        if n:
+            out[k] = n
+    _ZONE_NOTE["sig"] = sig
+    _ZONE_NOTE["map"] = out
+    return out
+
+
+def zone_note(area, name):
+    """单个服务区的「天N/魔N」备注；查不到返回 ""（键与区服树一致：`大区|归一化名`）。"""
+    return zone_note_map().get("%s|%s" % (str(area or ""), _norm(name or "")), "")
+
+
 def _get(url, referer=BASE + "/", timeout=25, tries=2):
     """GET + 手工 gzip 解压（这个站的坑，见模块 docstring 第 2 条）。
 
