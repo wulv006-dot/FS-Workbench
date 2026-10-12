@@ -1,0 +1,80 @@
+{
+  "verifiedAt": "2026-10-12",
+  "sources": [
+    "https://admin.p2pah.cn/#/admin/statics/orderEs",
+    "https://order.p2pah.cn/#/stats/admin_order/index.html"
+  ],
+  "source": "authenticated game selectors and game shipment aggregate rows",
+  "profiles": [
+    {
+      "key": "RS",
+      "name": "RS",
+      "orderGameId": 506,
+      "adminGameId": 506,
+      "group": "general",
+      "orderStatus": "",
+      "adminOrderStatus": ""
+    },
+    {
+      "key": "MAPLESTORY_CLASSIC",
+      "name": "MapleStory Classic World",
+      "orderGameId": 1300,
+      "adminGameId": 1333,
+      "group": "general",
+      "orderStatus": "",
+      "adminOrderStatus": ""
+    },
+    {
+      "key": "ARC_RAIDERS",
+      "name": "ARC Raiders",
+      "orderGameId": 864,
+      "adminGameId": 925,
+      "group": "general",
+      "orderStatus": "",
+      "adminOrderStatus": ""
+    },
+    {
+      "key": "DARK_AND_DARKER",
+      "name": "Dark and Darker",
+      "orderGameId": 588,
+      "adminGameId": 589,
+      "group": "rpg",
+      "orderStatus": "3",
+      "adminOrderStatus": "101"
+    },
+    {
+      "key": "WOW_FOREVER",
+      "name": "WoW Forever",
+      "orderGameId": 1364,
+      "adminGameId": 1367,
+      "group": "rpg",
+      "orderStatus": "3",
+      "adminOrderStatus": "101"
+    },
+    {
+      "key": "ARENA_BREAKOUT_INFINITE",
+      "name": "暗区突围无限",
+      "orderGameId": 836,
+      "adminGameId": 897,
+      "group": "general",
+      "orderStatus": "",
+      "adminOrderStatus": ""
+    },
+    {
+      "key": "COD_BO7",
+      "name": "CoD BO7",
+      "orderGameId": 838,
+      "adminGameId": 859,
+      "group": "general",
+      "orderStatus": "",
+      "adminOrderStatus": ""
+    }
+  ],
+  "unchangedCurrentBaselines": {
+    "collector.py": "85744def2704137c59052277b97d87df95d6817e698b2b534f9ad9ee59a96af1",
+    "admin_summary.py": "ceb3e7d2c47326cf11e88100b90d4f98944b9aa691fe16a21a1f4cd008316a8b",
+    "live_summary.py": "a6f9f1ff0cb4978f177371250711647c93a5dfec2faa0b15fb9fa0947b8b6dba",
+    "summary_bridge.py": "1482061c1eb5cd40b8c0bf1ad6d873d50a90f35196194b43fedef62849825e4f"
+  },
+  "gitMain": "79b8064431e58d1bb2a259be3ebe7829bc1ceeaf"
+}
