@@ -38,6 +38,7 @@ sys.path.insert(0, str(SRC))
 import admin_api_client as C            # noqa: E402
 import mlb_admin_import as M            # noqa: E402
 import mlb_write_cards as W             # noqa: E402
+import p2pah_price as P                 # noqa: E402
 
 
 class AdminProtocolContract(unittest.TestCase):
@@ -548,6 +549,196 @@ class EvidenceBundleShape(unittest.TestCase):
         """SQLite 运行时数据必须被排除表覆盖（本地存在不代表入库）。"""
         text = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
         self.assertIn("server/data", text, ".gitignore 必须排除 server/data")
+
+
+#: 金币价格管理页的**结构复刻**（2026-10-12 从 order.p2pah.cn 实抓后精简）。
+#: 保留了两个关键"坑"的形状：
+#:   ① 真正的数据列只有 7 个，c2c/g2g.com/eldorado.gg 三列**被注释掉**
+#:      ——不剥注释就会数出 10 个 td，列序整体错位；
+#:   ② gid 写在 `<td title="922">` 上，可用来校验取到的是不是这个游戏。
+_PRICE_HTML = """<!DOCTYPE html><html><body>
+<table class="table table-hover table-bordered table-list">
+  <thead><tr>
+    <th width="50">ID</th>
+    <th>\u6240\u5c5e\u6e38\u620f</th>
+    <th>\u6e38\u620f\u533a\u540d\u79f0</th>
+    <th>\u91c7\u8d2d\u6210\u672c</th>
+    <th>\u6700\u65b0\u91c7\u8d2d\u4ef7</th>
+    <th>\u5229\u6da6\u7387</th>
+    <th><label>b2c <input type="checkbox" class="jq_web" checked value="b2c" name="web[]"></label> </th>
+    <!-- <th><label>c2c </label></th>
+    <th><label>g2g.com </label></th>
+    <th><label>eldorado.gg </label></th> -->
+  </tr></thead>
+  <tbody>
+  <tr>
+    <td>20418</td>
+    <td title="922">MLB The Show 26</td>
+    <td class="toggle-input" data-refresh="1" data-type="title"
+        send-url="/game/admin_game_price/itemEdit?ids=20418">
+        <span><i class="fa fa-edit text-info"></i> PS 5</span>
+        <input class="input-text input-fw-7 jq-banEnter" type="text" value="PS 5">
+    </td>
+    <td class="toggle-input" data-type="costprice" data-callback="showprice">
+        <span class="jq_showprice_costprice_20418"><i class="fa fa-edit text-info"></i> 0.228228</span>
+        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.228228">
+    </td>
+    <td>0.200000</td>
+    <td class="toggle-input" data-type="lirunlv" data-callback="showprice">
+        <span class="jq_showprice_lirunlv_20418"><i class="fa fa-edit text-info"></i> 0.200000</span>
+        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.200000">
+    </td>
+    <td class="toggle-input" data-type="b2c" data-callback="showprice">
+        <span class="jq_showprice_b2c_20418"><i class="fa fa-edit text-info"></i> 0.0429</span>
+        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.0429">
+    </td>
+    <!-- <td class="toggle-input" data-type="c2c">
+        <span class="jq_showprice_c2c_20418"><i class="fa fa-edit text-info"></i> 0.037763</span>
+        <input class="input-text" type="text" value="0.100000">
+    </td>
+    <td class="toggle-input" data-type="g2g">
+        <span class="jq_showprice_g2g_20418"><i class="fa fa-edit text-info"></i> 0.037763</span>
+        <input class="input-text" type="text" value="0.100000">
+    </td>
+    <td class="toggle-input" data-type="eldorado">
+        <span class="jq_showprice_eldorado_20418"><i class="fa fa-edit text-info"></i> 0.039984</span>
+        <input class="input-text" type="text" value="0.100000">
+    </td> -->
+  </tr>
+  <tr>
+    <td>20420</td>
+    <td title="922">MLB The Show 26</td>
+    <td class="toggle-input" data-type="title">
+        <span><i class="fa fa-edit text-info"></i> XBOX</span></td>
+    <td class="toggle-input" data-type="costprice"><span>0.228228</span></td>
+    <td>0.200000</td>
+    <td class="toggle-input" data-type="lirunlv"><span>0.200000</span></td>
+    <td class="toggle-input" data-type="b2c"><span class="jq_showprice_b2c_20420">0.0429</span></td>
+  </tr>
+  <tr>
+    <td>20422</td>
+    <td title="922">MLB The Show 26</td>
+    <td class="toggle-input" data-type="title">
+        <span><i class="fa fa-edit text-info"></i> Switch</span></td>
+    <td class="toggle-input" data-type="costprice"><span>0.228228</span></td>
+    <td>0.080000</td>
+    <td class="toggle-input" data-type="lirunlv"><span>0.200000</span></td>
+    <td class="toggle-input" data-type="b2c"><span class="jq_showprice_b2c_20422">0.0429</span></td>
+  </tr>
+  </tbody>
+</table>
+</body></html>"""
+
+
+class CoinsPriceReader(unittest.TestCase):
+    """订单后台「金币价格管理」只读解析 —— 单位算错就是整批卡价打偏。
+
+    这是工作台「当期金币售价」的**唯一**数据来源，所以：
+      - 单位换算（USD/1K → USD/100K）必须被钉死；
+      - 列序必须靠"剥注释后按表头定位"，不能靠数第几列；
+      - 任何不确定一律 fail closed（返回 ok=False），绝不猜一个数出来。
+    """
+
+    def test_backend_endpoint_facts(self):
+        self.assertEqual(P.BASE, "https://order.p2pah.cn")
+        # ⚠️ 站点根相对：加了 /admin/ 前缀会 404（实测）
+        self.assertEqual(P.PRICE_PATH, "/game/admin_game_price/index.html")
+        self.assertEqual(P.DEFAULT_GID, 922)             # 922 = MLB The Show 26
+        self.assertEqual(P.DEFAULT_MULTIPLIER, 100.0)
+
+    def test_comment_stripping_is_required(self):
+        """★ 回归：c2c/g2g/eldorado 三列被 <!-- --> 注释，不剥就多出 3 列。"""
+        raw = _PRICE_HTML
+        first_row = re.findall(r"<tr\b[^>]*>(.*?)</tr>",
+                               re.search(r"<table\b.*?</table>", raw, re.S).group(0),
+                               re.S)[1]
+        self.assertEqual(len(re.findall(r"<td\b", first_row)), 10,
+                         "原始 HTML 应有 10 个 td（7 真 + 3 注释）")
+        stripped = P.strip_comments(first_row)
+        self.assertEqual(len(re.findall(r"<td\b", stripped)), 7,
+                         "剥注释后必须正好 7 个 td")
+        self.assertNotIn("eldorado", stripped)
+
+    def test_parse_headers_and_rows(self):
+        got = P.parse_price_html(_PRICE_HTML, 922)
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["headers"],
+                         ["ID", "所属游戏", "游戏区名称", "采购成本",
+                          "最新采购价", "利润率", "b2c"])
+        self.assertEqual([r["area"] for r in got["rows"]], ["PS 5", "XBOX", "Switch"])
+        self.assertEqual(got["rows"][0]["b2c"], "0.0429")
+        self.assertEqual(got["rows"][0]["id"], "20418")
+
+    def test_gid_is_read_from_row_title_attribute(self):
+        """用行的 title 属性反查 gid —— 取错游戏会静默给出别人的价格。"""
+        got = P.parse_price_html(_PRICE_HTML, 922)
+        self.assertEqual(got["gid_matched"], [922, 922, 922])
+
+    def test_multiplier_converts_per_k_to_per_100k(self):
+        """★ b2c 是 USD/1K，工作台 rate 是 USD/100K ⇒ ×100。"""
+        res = P.build_result(P.parse_price_html(_PRICE_HTML, 922), 922, "PS 5", 100)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["b2c"], 0.0429)
+        self.assertEqual(res["b2c_unit"], "USD/1K")
+        self.assertAlmostEqual(res["rate_usd_per_100k"], 4.29, places=6)
+        # 换算过程必须显式回吐（藏起来的话 100 倍错误一辈子发现不了）
+        self.assertIn("100", res["formula"])
+        self.assertIn("4.29", res["formula"])
+
+    def test_pick_row_exact_and_fallback(self):
+        parsed = P.parse_price_html(_PRICE_HTML, 922)
+        row, how = P.pick_row(parsed["rows"], "xbox")       # 大小写不敏感
+        self.assertEqual(how, "exact")
+        self.assertEqual(row["area"], "XBOX")
+        row, how = P.pick_row(parsed["rows"], "PC \u7aef")   # 不存在的区
+        self.assertEqual(how, "fallback")
+        self.assertEqual(row["area"], "PS 5")               # 退回第一行，且标明
+
+    def test_areas_inconsistent_is_flagged_not_guessed(self):
+        """三个平台价格不一致时必须**标出来**，不能默默取一个当全都对。"""
+        html = _PRICE_HTML.replace('jq_showprice_b2c_20422">0.0429',
+                                   'jq_showprice_b2c_20422">0.0555')
+        res = P.build_result(P.parse_price_html(html, 922), 922, "PS 5", 100)
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["areas_consistent"])
+        self.assertEqual(res["areas"], ["0.0429", "0.0555"])
+
+    def test_missing_b2c_column_fails_closed(self):
+        """表里没有 b2c 列 → 必须报错，不能拿别的列硬当价格。"""
+        html = _PRICE_HTML.replace("<label>b2c ", "<label>name ")
+        got = P.parse_price_html(html, 922)
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["step"], "parse")
+
+    def test_non_numeric_b2c_fails_closed(self):
+        html = _PRICE_HTML.replace("</i> 0.0429</span>\n        <input class=\"input-text input-fw-2 jq-banEnter\" type=\"text\" value=\"0.0429\">",
+                                   "</i> \u5f85\u5b9a</span>\n        <input type=\"text\" value=\"\">")
+        got = P.parse_price_html(html, 922)
+        if not got["ok"]:
+            self.skipTest("样例替换未命中，跳过")
+        res = P.build_result(got, 922, "PS 5", 100)
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["step"], "parse")
+
+    def test_module_imports_without_third_party(self):
+        """本模块必须能被离线用例直接 import。
+
+        服务器 `/opt/python39` **没有 requests**（实测），ddddocr 又要惰性加载
+        —— 所以顶层只能 import 标准库。
+        """
+        src = (SRC / "p2pah_price.py").read_text(encoding="utf-8")
+        self.assertNotRegex(src, r"(?m)^import requests", "顶层 import 了 requests")
+        self.assertNotRegex(src, r"(?m)^import ddddocr", "顶层 import 了 ddddocr")
+        # ddddocr 只能出现在函数体内（缩进）
+        for line in src.splitlines():
+            if "import ddddocr" in line:
+                self.assertTrue(line.startswith(" "), "ddddocr 必须是惰性 import")
+
+    def test_no_hardcoded_credentials(self):
+        src = (SRC / "p2pah_price.py").read_text(encoding="utf-8")
+        self.assertNotRegex(src, r"(?i)(password|passwd|pwd)\s*=\s*['\"][^'\"]{4,}['\"]",
+                            "脚本里硬编码了口令")
+        self.assertNotIn("Fsnet", src)
 
 
 if __name__ == "__main__":
