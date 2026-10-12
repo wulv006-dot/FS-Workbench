@@ -38,3 +38,9 @@ FC最新非核心来源应急与固定自愈已按11个活动源码核对生产�
 2026-10-05历史经营HTML为20261005-restore-v7，生产/账本/规范源SHA1d6a6084…一致；本候选以dashboard.template.html保留全部代码，只分离PROFIT私有历史JSON。完整source与template双SHA、精确重建合同见provenance/restored-v7.json。incident e53eccb3…仅在原工程忽略的raw证据保留，没有导入候选。当前漂移已恢复，具体旧上传者仍未查明。
 
 before_engine.py 和 range_parser_fix_20261005/baseline/range_api.py 仅是经过扫描的最小回归代码对照，不是活动规范源，不含实际订单或日志。3个本地一次性辅助入口没有作为活动线上路径验证，只供现有测试依赖，不能用其触发生产。配置模板/schema不等于已核实生产配置。
+
+
+## FC 清缓存续会话增量（2026-10-12）
+
+当前活动清缓存 helper 和 worker 已于北京时间11:14受控发布。映射、两份精确SHA、原发布器与直接检查见 [清缓存恢复增量](../releases/fc-coins/postwrite-cache-recovery-20261012/SOURCE-MAP.json)。生产未登录身份端点实测HTTP200/code302/登录路由；仅据同一精确失效合同续原账号会话并再次核chenchao，权限/未知拒绝仍停止。原失败响应未保存，不能据本补丁倒推09:49历史拒绝原因。下一原11:50自然周期待验；其余FC仍legacy-unreconciled，旧release与并行模块保持。
+

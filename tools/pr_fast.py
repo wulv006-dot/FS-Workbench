@@ -246,6 +246,8 @@ def select(paths):
             groups.add("fs-business-live");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
+        if name.startswith("releases/fc-coins/postwrite-cache-recovery-20261012/"):
+            groups.add("fc-cache-clear");continue
         if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
             groups.add("fc-public-readback");continue
         if name.startswith("releases/fc-coins/coupon-consistency-20261009/"):
@@ -388,6 +390,11 @@ def main():
             units(release+"/fc27_chrome_collector",["test_lootbar_server_collector"])
             subprocess.run(["node",str(ROOT/release/"fc27_chrome_collector/test_lootbar_collection.cjs")],
                 cwd=ROOT/release,check=True,timeout=30)
+        elif group=="fc-cache-clear":
+            release="releases/fc-coins/postwrite-cache-recovery-20261012"
+            units(release+"/fc27_cloud_browser",["test_clear_cache_after_write"])
+            units(release+"/fc27_cloud_browser",["test_public_readback_retry"])
+            units(release,["test_cache_publisher"])
         elif group=="fc-public-readback":
             release="releases/fc-coins/public-readback-retry-20261009"
             subprocess.run([sys.executable,"-I","-B","-c",
@@ -420,6 +427,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

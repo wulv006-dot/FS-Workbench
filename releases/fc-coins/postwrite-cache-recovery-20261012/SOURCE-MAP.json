@@ -1,0 +1,40 @@
+{
+  "module_id": "fc-cache-clear-recovery-20261012",
+  "owner": "wulv",
+  "root_fc_adoption": "legacy-unreconciled",
+  "parent_worker": "releases/fc-coins/public-readback-retry-20261009/fc27_cloud_browser/fc27_cloud_worker.py",
+  "runtime": [
+    {
+      "source": "fc27_cloud_browser/clear_cache_after_write.py",
+      "target": "/opt/fc27-cloud-browser/clear_cache_after_write.py",
+      "before": "efbebcde58125d1e8191115c8dc8ea252e3835da8fcc21652a66d7f85e1f8729",
+      "after": "a130c021ea04134c86dfcdd7ac81e324061d4be91f33c51d89f2833741be51a0"
+    },
+    {
+      "source": "fc27_cloud_browser/fc27_cloud_worker.py",
+      "target": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
+      "before": "06c89b902726f1266bc9b97d236b7ae5b6299b9e1447fb03542151fa0f362b29",
+      "after": "821710ff9f89dabfaa5338cf7ee13aba41d1579c0c89b0166bdf273cf4e54213"
+    }
+  ],
+  "published_at_utc": "2026-10-12T03:14:08.243930+00:00",
+  "backup": "/var/lib/fc27-cloud/rollback/public-readback-retry-20261012T031407Z",
+  "existing_publisher": "publish_worker.py (worker-only or fixed worker+cache helper)",
+  "direct_checks": {
+    "cache": 9,
+    "worker": 11,
+    "publisher": 8,
+    "linux_skipped": 0,
+    "windows_publisher_skipped": 2
+  },
+  "live_auth_contract": {
+    "http_status": 200,
+    "api_code": 302,
+    "login_route": true,
+    "read_only": true
+  },
+  "production_acceptance": "awaiting original next natural cycle; confirmed session-expiry recovery tested in isolation",
+  "historical_rejection_cause": "unknown: original response was not persisted",
+  "no_price_write_replay": true,
+  "no_new_schedule_or_credentials": true
+}
