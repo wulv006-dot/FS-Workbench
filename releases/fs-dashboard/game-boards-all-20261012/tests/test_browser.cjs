@@ -1,9 +1,11 @@
 // Existing business renderer, synthetic collector snapshot, no real sessions or data.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const root=path.resolve(__dirname,'..'),assets=path.join(root,'frontend','assets');
+const root=path.resolve(__dirname,'..'),assets=process.env.FS_ASSET_PATH||path.join(root,'frontend','assets');
 const rows=JSON.parse(fs.readFileSync(path.join(root,'evidence/game-map.json'))).profiles;
 const snapshot=JSON.parse(fs.readFileSync(path.join(root,'tests/synthetic-snapshot.json')));
+// A pre-release snapshot has only the original ten games; new selectors must still work.
+if(process.env.FS_OLD_CATALOG==='1'){for(const row of rows){delete snapshot.profiles[row.key];delete snapshot.dashboard.profiles[row.key];}snapshot.requiredProfiles=snapshot.requiredProfiles.filter(key=>!rows.some(r=>r.key===key));snapshot.dashboard.groups=snapshot.dashboard.groups.map(g=>({...g,profiles:g.profiles.filter(key=>!rows.some(r=>r.key===key))})).filter(g=>g.profiles.length);}
 let requests=[],errors=[],denied=false;
 const bytes=JSON.stringify(snapshot),manifest={schemaVersion:2,snapshotId:snapshot.snapshotId,scopeContractId:snapshot.scopeContractId,path:'snapshots/'+snapshot.snapshotId+'/snapshot.json',sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
 function summary(u){const key=u.searchParams.get('profile'),start=u.searchParams.get('start'),end=u.searchParams.get('end'),period={start:start+' 00:00',end:end+' 23:00'},stamp=new Date().toISOString();return {schemaVersion:1,status:'available',scopeContractId:'admin-main-order-labelled-supplement-v1',query:{profile:key,start,end,grain:'day'},rangeId:'a'.repeat(64),generatedAt:stamp,expiresInSeconds:7200,cachePolicy:'historical',profile:{key,name:rows.find(r=>r.key===key)?.name||key,period,primary:{period,status:'available',currency:'USD',capturedAt:stamp,metrics:{profitMarginPct:{status:'available',value:20}}},supplement:{period,status:'available',capturedAt:stamp,normalisedScope:'all-websites',filters:{site:''},metrics:{orders:{value:11,status:'available'},revenueUsd:{value:430,status:'available'},newCustomers:{value:4,status:'available'}},dimensions:{channels:[{code:'www.mmoexp.com',orders:2,revenueUsd:100}]}},metrics:{},dimensions:{}},sources:{Admin:{status:'available',capturedAt:stamp},Order:{status:'available',capturedAt:stamp}}};}
