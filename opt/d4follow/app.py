@@ -2072,7 +2072,7 @@ def task_collect(t, opts):
                     if it.get("利润率上限触发"):
                         # 2026-10-12：跟价后利润率超上限 ⇒ 被强行压价
                         _tflag += " ⛔利润率上限(压到成本÷%.2f)" % (
-                            1.0 / (1.0 - float(it.get("利润率上限") or 0.30)))
+                            1.0 - float(it.get("利润率上限") or 0.30))
                     if it.get("基准来源") == "无货兜底":
                         # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
                         #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
@@ -2975,8 +2975,8 @@ def api_gold():
                       if _pol_a.get("利润率上限") is not None else 0.30) * 100,
                      (_pol_a.get("利润率上限")
                       if _pol_a.get("利润率上限") is not None else 0.30) * 100,
-                     1.0 / (1.0 - (_pol_a.get("利润率上限")
-                            if _pol_a.get("利润率上限") is not None else 0.30)))
+                     1.0 - (_pol_a.get("利润率上限")
+                            if _pol_a.get("利润率上限") is not None else 0.30))
                   if _pol_a.get("模式") == "g2g_cheapold" else
                   ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
@@ -3188,7 +3188,7 @@ def api_gold_cost():
                 (_pol.get("无货兜底售价_USD每M") or 19.9),
                 (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
                 (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
-                1.0 / (1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30)))
+                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30))
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M ÷ (1−%.1f%%)；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"

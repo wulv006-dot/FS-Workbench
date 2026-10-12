@@ -1933,9 +1933,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
     const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
     /* 2026-10-09（老板口径「该区无 cheapold 卖家，则保持30%的利润」）：
-       无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 × 系数** 定价。
-       系数走 config（金币.定价策略.无cheapold利润率，默认 1.30）—— 看板文案跟着配置走，
-       日后改系数不会出现「看板还写着 1.30」的滞后。 */
+       无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 ÷ (1−利润率)** 定价。
+       利润率走 config（金币.定价策略.无cheapold利润率，默认 0.30）—— 看板文案跟着配置走，
+       日后改利润率不会出现「看板还写着旧值」的滞后。 */
     const _ncNum = Number(_pol['无cheapold利润率']);
     const _nc = (isNaN(_ncNum) || _ncNum < 0) ? 0.30 : _ncNum;
     const _ncAdd = Math.round(_nc * 100);                  // 30（利润率 30%）
@@ -1988,7 +1988,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                             + '永远优先 cheapold</div>'))) + '</td>'
         : (_bS0.indexOf('成本÷') >= 0
           /* 🆕 2026-10-09：该区无 cheapold 卖家 ⇒ 不再跟 G2G 推荐前二，
-             改按本区 DD373 成本 × 系数 定价（老板口径「保持 30% 的利润」）。 */
+             改按本区 DD373 成本 ÷ (1−利润率) 定价（老板口径「保持 30% 的利润」）。 */
           ? '<td style="color:var(--yellow);font-weight:600">利润率 '+_ncAdd+'%'
             + '<div class="small" style="color:var(--sub);font-weight:400">'
             + '该区无 cheapold → 成本÷'+(1-_nc).toFixed(2)
@@ -2009,7 +2009,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     /* ===== 2026-10-09（老板口径）· **跟价基准** 单元格 =====
        主数字 = 我方真正在跟的那个价：
          · 有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
-         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 × 系数（默认 1.30）**，
+         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 ÷ (1−利润率)（默认 0.30）**，
            不再跟 G2G 推荐前二（该口径已废止）。
        · 新列 g2g_base 落库后优先用；旧快照该列还是 NULL ⇒ 回落 src_base_v
          （两者等价；唯一差别是「成本兜底」那几行旧快照会短暂显示成本价，下一轮自动校正）。 */
@@ -2108,8 +2108,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
      dd373_only / dd373_markup。若表头写死「跟价来源 / G2G 跟价基准」而模式里每行渲染的
      还是「第N级 / 三源 G2G 最低」，就成了新的口径不一致。所以这里按模式分叉。 */
   const _isG2GC2 = _pol2['模式']==='g2g_cheapold';
-  /* 2026-10-09：无 cheapold 卖家的区改按「成本 × 系数」定价 ⇒ 表头副标与分布都要跟上，
-     系数从 config 读（金币.定价策略.无cheapold利润率，默认 1.30）。 */
+  /* 2026-10-09：无 cheapold 卖家的区改按「成本 ÷ (1−利润率)」定价 ⇒ 表头副标与分布都要跟上，
+     利润率从 config 读（金币.定价策略.无cheapold利润率，默认 0.30）。 */
   const _ncv2 = Number(_pol2['无cheapold利润率']);
   const _nc2 = (isNaN(_ncv2) || _ncv2 < 0) ? 0.30 : _ncv2;
   /* 2026-10-09：20% 利润下限（config 金币.定价策略.利润率下限）—— 表头/汇总条跟着配置走。 */

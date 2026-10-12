@@ -402,7 +402,7 @@ def pricing_policy(cfg, game=None):
                         "（与利润率下限对称：地板 %.0f%% / 天花板 %.0f%%；货源闸行除外）"
                         % (_cn, _cn, disc * 100, _cn, _nc, _need, _park,
                            _mlim * 100, _mlim * 100, 1.0 - _mlim,
-                           _capu * 100, _capu * 100, 1.0 / (1.0 - _capu), _mlim * 100, _capu * 100))}
+                           _capu * 100, _capu * 100, 1.0 - _capu, _mlim * 100, _capu * 100))}
     if mode == "dd373_only":
         # 2026-10-06 老板定案：**只跟 DD373 进货成本**，利润率 7%；
         #   无有效报价 / 可买量不足 1 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
@@ -1924,7 +1924,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                             "｜我方 $%s/%s（%+.2f%%）"
                             % (fmt_money(per_100k(tgt_m, _dm)), _ul, _capu_l * 100, _lbl,
                                fmt_money(per_100k(rec.get("基准价"), _dm)), _ul,
-                               (rec.get("利润率_压价前") or 0) * 100, 1.0 / (1.0 - _capu_l),
+                               (rec.get("利润率_压价前") or 0) * 100, 1.0 - _capu_l,
                                fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
                 else:
                     _pre = ("目标 $%s/%s（G2G %s $%s/%s × (1−%.1f%%)）｜我方 $%s/%s（%+.2f%%）"
