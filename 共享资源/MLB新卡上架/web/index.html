@@ -161,6 +161,16 @@ button.primary{color:#fff}
         <label>采样间隔（秒，默认 120）</label>
         <input type="number" id="interval" value="120" min="120" step="10">
 
+        <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer">
+          <input type="checkbox" id="writeBack" checked
+                 style="width:auto;margin:0;flex:none">
+          <span>采集完成后<b>自动上架</b>到 p2pah 后台</span>
+        </label>
+        <div class="hint" id="wbHint">
+          勾上后：采集 → 写 Excel → <b>直接建模型 + 主图 + 48 个产品</b>，
+          不再需要人工导入。写入前会自动把受影响模型的原值存档，随时可回退。
+        </div>
+
         <button class="primary full" id="btnNew" onclick="createTask()">提交采集任务</button>
         <div class="hint" id="msgNew" style="margin-top:9px"></div>
 
@@ -213,9 +223,9 @@ button.primary{color:#fff}
           <table>
             <thead><tr>
               <th>球员</th><th class="num">OVR</th><th>位置</th><th>球队</th><th>系列</th>
-              <th class="num">三次采样 / 中位数</th><th class="num">售价</th><th>状态</th>
+              <th class="num">三次采样 / 中位数</th><th class="num">售价</th><th>状态</th><th>上架</th>
             </tr></thead>
-            <tbody id="cards"><tr><td colspan="8" class="empty">等待任务结果…</td></tr></tbody>
+            <tbody id="cards"><tr><td colspan="9" class="empty">等待任务结果…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -283,13 +293,40 @@ async function createTask(){
   msg.textContent = '提交中…';
   try{
     const r = await api('/tasks', {method:'POST', body: JSON.stringify({
-      kind:'collect', rate: rate, batch: batch, interval: interval
+      kind:'collect', rate: rate, batch: batch, interval: interval,
+      write_back: document.getElementById('writeBack').checked
     })});
     msg.innerHTML = '<span style="color:var(--ok)">已排队：任务 ' + esc(r.id) + '</span>';
     refreshAll();
   }catch(e){
     msg.innerHTML = '<span style="color:var(--bad)">提交失败：' + esc(e.message) + '</span>';
   }finally{ btn.disabled = false; }
+}
+
+/* ---------------- 自动上架：服务端开关状态 ---------------- */
+async function refreshWritebackHint(){
+  const box = document.getElementById('wbHint');
+  try{
+    const h = await api('/health');
+    if(h.version) document.getElementById('verTag').textContent = 'v' + h.version;
+    const w = h.writeback || {};
+    if(!w.enabled){
+      box.innerHTML = '<span style="color:var(--warn)">服务端未开启自动上架' +
+        '（<code>writeback.enabled=false</code>），勾选也不会触发。</span>';
+      return;
+    }
+    if(!w.script_ok || !w.cred_ok){
+      box.innerHTML = '<span style="color:var(--bad)">服务端缺少' +
+        (!w.script_ok ? ' 写卡脚本' : '') + (!w.cred_ok ? ' 后台凭据' : '') +
+        '，勾选也不会触发。</span>';
+      return;
+    }
+    box.innerHTML = w.dry_run
+      ? '<span style="color:var(--warn)">⚠️ 服务端当前是<b>试运行</b>' +
+        '（<code>writeback.dry_run=true</code>）：全程跑一遍但<b>不写入</b>后台。</span>'
+      : '采集完成后直接建模型 + 主图 + 48 个产品，不再需要人工导入；' +
+        '写入前会自动把受影响模型的原值存档，随时可回退。';
+  }catch(e){ /* 状态拿不到就不改提示 */ }
 }
 
 /* ---------------- 统计 ---------------- */
@@ -337,9 +374,85 @@ function renderProgress(t){
     '<span>' + pct + '%</span></div>';
 }
 
+const WBS = {
+  running:['run','上架中'], ok:['done','已上架'], dry_run:['pend','试运行'],
+  needs_review:['fail','需人工'], failed:['fail','上架失败'],
+  timeout:['fail','上架超时'], interrupted:['off','已中断'],
+  skipped:['off','未触发']
+};
+const WB_HINT = {
+  needs_review:'有卡片结果未知或校验不符 —— <b>不要重跑</b>（重跑可能建出重复模型），' +
+               '先按 mid 去后台核对。',
+  timeout:'写卡进程超时被强制结束，<b>未自动重试</b>；请去后台核对后再决定。',
+  interrupted:'工作台重启时这次上架还没跑完，结论丢失，需人工核对后台。'
+};
+
+const wbBrief = wb => {
+  if(!wb || !wb.status) return '';
+  const st = WBS[wb.status] || ['off', wb.status];
+  return ' <span class="pill ' + st[0] + '">' + esc(st[1]) + '</span>';
+};
+
+/* 后台上架状态。返回 '' 表示这次任务没有触发上架。 */
+function renderWriteback(wb){
+  if(!wb || !wb.status) return '';
+  const st = WBS[wb.status] || ['off', wb.status];
+  let h = '<div class="rowline"><span class="k">后台上架</span><span>' +
+    '<span class="pill ' + st[0] + '">' + esc(st[1]) + '</span>' +
+    (wb.status !== 'skipped' && wb.dry_run
+      ? ' <span class="pill pend">试运行·未写入</span>' : '') +
+    '</span></div>';
+
+  if(wb.reason) h += '<div class="hint" style="margin-top:8px">' + esc(wb.reason) + '</div>';
+
+  const rep = wb.report || [];
+  if(rep.length){
+    const c = wb.counts || {};
+    h += '<div class="hint" style="margin-top:8px">达标 <b>' + fmtN(c.ok) +
+      '</b> · 已存在跳过 ' + fmtN(c.skipped) + ' · 试运行 ' + fmtN(c.dry) +
+      ' · 需人工 ' + fmtN(c.review) + '</div>' +
+      '<div class="tblwrap" style="margin-top:9px;max-height:220px"><table><thead><tr>' +
+      '<th>卡</th><th class="num">mid</th><th class="num">主图</th>' +
+      '<th class="num">产品</th><th>结论</th></tr></thead><tbody>' +
+      rep.map(x=>{
+        const v = String(x.verdict || '');
+        const cls = v === 'ok' ? 'done' : (v === 'skipped' ? 'off' : 'fail');
+        const nm = String(x.title || '').split('/')[0];
+        return '<tr><td>' + esc(nm) + '</td>' +
+          '<td class="num">' + esc(x.mid == null ? '-' : x.mid) + '</td>' +
+          '<td class="num">' + esc(x.icon_readback || x.icon || '-') + '</td>' +
+          '<td class="num">' + fmtN(x.products) + '</td>' +
+          '<td><span class="pill ' + cls + '">' + esc(v || '-') + '</span></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  if(WB_HINT[wb.status])
+    h += '<div class="banner warnb" style="margin-top:11px">' + WB_HINT[wb.status] + '</div>';
+  if(wb.error)
+    h += '<div class="banner warnb" style="margin-top:11px">' + esc(wb.error) + '</div>';
+  if(wb.archive_dir && rep.length)
+    h += '<div class="hint" style="margin-top:8px">写入前基线存档：<code>' +
+      esc(wb.archive_dir) + '</code>（写错时可用 <code>--restore</code> 原值回退）</div>';
+  return h;
+}
+
+function wbCell(rec){
+  if(!rec) return '<span class="pill off">-</span>';
+  const v = String(rec.verdict || '');
+  const cls = v === 'ok' ? 'done'
+            : v === 'skipped' ? 'off'
+            : v === 'dry-run' ? 'pend' : 'fail';
+  const txt = v === 'ok' ? ('mid ' + rec.mid)
+            : v === 'skipped' ? '已存在'
+            : v === 'dry-run' ? '试运行' : (v || '-');
+  return '<span class="pill ' + cls + '">' + esc(txt) + '</span>';
+}
+
 function renderResult(t){
   const r = t.result || {};
   const c = r.cards || [];
+  const wbRep = (r.write_back || {}).report || [];
+  const wbMap = {};
+  wbRep.forEach(x => { wbMap[String(x.title || '')] = x; });
   if(c.length){
     document.getElementById('cardCount').textContent =
       c.length + ' 张 · 可上架 ' + (r.eligible||0);
@@ -355,6 +468,7 @@ function renderResult(t){
         '<td class="num">' + (sp ? esc(sp) + ' → <b>' + fmtN(x.median) + '</b>' : '-') + '</td>' +
         '<td class="num">' + (x.sale_price ? '$' + esc(x.sale_price) : '-') + '</td>' +
         '<td><span class="pill ' + cls + '">' + esc(x.status) + '</span></td>' +
+        '<td>' + wbCell(wbMap[String(x.product_name||'')]) + '</td>' +
       '</tr>';
     }).join('');
   }
@@ -382,6 +496,8 @@ function renderResult(t){
     }
     if(r.file_error) html += '<div class="banner warnb" style="margin-top:12px">' +
       esc(r.file_error) + '</div>';
+    // 后台上架是采集完成后另起线程跑的，所以状态在 done 之后还会变
+    html += renderWriteback(r.write_back);
   }
   if(t.status === 'failed'){
     html = '<div class="rowline"><span class="k">状态</span><span class="pill fail">失败</span></div>' +
@@ -448,7 +564,7 @@ async function refreshHistory(){
         '<td class="num">' + (t.status==='done' ? fmtN(r.added) : '-') + '</td>' +
         '<td><span class="pill ' + st[0] + '">' + esc(st[1]) + '</span></td>' +
         '<td style="color:var(--tx2)">' +
-          (t.status==='done' ? esc(r.eligible) + ' 张可上架' :
+          (t.status==='done' ? esc(r.eligible) + ' 张可上架' + wbBrief(r.write_back) :
            t.status==='failed' ? '<span style="color:var(--bad)">出错</span>' : '-') + '</td>' +
         '<td>' + act + '</td>' +
       '</tr>';
@@ -467,7 +583,8 @@ async function requeue(id){
 
 /* ---------------- 总刷新 ---------------- */
 async function refreshAll(manual){
-  await Promise.all([refreshStats(), refreshAgents(), refreshCurrent(), refreshHistory()]);
+  await Promise.all([refreshStats(), refreshAgents(), refreshCurrent(),
+                     refreshHistory(), refreshWritebackHint()]);
 }
 
 refreshAll(true);
