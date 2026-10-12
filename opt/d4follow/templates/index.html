@@ -1945,6 +1945,12 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _limNum = Number(_pol['利润率下限']);
     const _limMg = isNaN(_limNum) ? 0.20 : _limNum;
     const _limAdd = Math.round(_limMg * 100);              // 20
+    /* 2026-10-12（老板口径「跟价后利润大于 30% 就强行压到 30% 利润左右」）：
+       跟价后**成本加价率**超过上限的行会被**强行压价**，看板要能一眼看出是哪几行被压过。
+       口径 = 成本加价率 (P−C)/C（config 金币.定价策略.成本加价上限，默认 0.30）。 */
+    const _capNum = Number(_pol['成本加价上限']);
+    const _capMg  = isNaN(_capNum) ? 0.30 : _capNum;
+    const _capAdd = Math.round(_capMg * 100);              // 30（成本加价上限 30%）
     /* 旧「定价级别」单元格 —— 只在 dd373 两种模式下还有意义（D4 等游戏仍走这里，逐字不变）。 */
     const tierCell = (tier==null)
       ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
@@ -1965,17 +1971,21 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _bS0 = _bS.replace(/→成本价$/,'');   // 去掉成本兜底尾巴，剩下的才是取价来源
     const _cf  = (_bS.indexOf('成本价') >= 0); // 竞品低于我方 DD373 成本 ⇒ 不再跟降（按成本价）
     const _fl  = (_bS.indexOf('利润下限') >= 0);  // 2026-10-09：被 20% 利润闸强制抬过价
+    const _cp  = (_bS.indexOf('加价上限') >= 0);  // 2026-10-12：被成本加价上限闸强行压过价
     const _cfTip = '<div class="small" style="color:var(--sub);font-weight:400">'
                  + '竞品低于成本 → 不再跟降</div>';
     const _flTip = '<div class="small" style="color:var(--red);font-weight:600">'
                  + '⛔ 利润率低于 '+_limAdd+'% → 已强制抬价</div>';
+    const _cpTip = '<div class="small" style="color:var(--red);font-weight:600">'
+                 + '⛔ 成本加价超 '+_capAdd+'% → 已强行压价</div>';
     const srcCell = !_isG2GC ? tierCell
       : (_bS0.indexOf('cheapold') >= 0
           ? '<td style="color:var(--green);font-weight:600">cheapold 卖家'
-            + (_fl ? _flTip
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
                    : (_cf ? _cfTip
                           : '<div class="small" style="color:var(--sub);font-weight:400">'
-                            + '永远优先 cheapold</div>')) + '</td>'
+                            + '永远优先 cheapold</div>'))) + '</td>'
         : (_bS0.indexOf('成本×') >= 0
           /* 🆕 2026-10-09：该区无 cheapold 卖家 ⇒ 不再跟 G2G 推荐前二，
              改按本区 DD373 成本 × 系数 定价（老板口径「保持 30% 的利润」）。 */
@@ -1986,10 +1996,11 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         : (_bS0.indexOf('推荐前二') >= 0
           /* ⚠ 2026-10-09 起本口径已废止，仅旧快照（新列落库前）还会出现。 */
           ? '<td style="color:var(--yellow);font-weight:600">推荐前二较低者'
-            + (_fl ? _flTip
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
                    : (_cf ? _cfTip
                           : '<div class="small" style="color:var(--sub);font-weight:400">'
-                            + '该区无 cheapold 卖家（旧口径）</div>')) + '</td>'
+                            + '该区无 cheapold 卖家（旧口径）</div>'))) + '</td>'
         : (_bS.indexOf('无货兜底') >= 0
           ? '<td style="color:var(--red);font-weight:600">货源闸'
             + '<div class="small" style="color:var(--sub);font-weight:400">DD373 无货 → $'
@@ -2104,6 +2115,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
   /* 2026-10-09：20% 利润下限（config 金币.定价策略.利润率下限）—— 表头/汇总条跟着配置走。 */
   const _limv2 = Number(_pol2['利润率下限']);
   const _limLbl2 = Math.round((isNaN(_limv2) ? 0.20 : _limv2) * 100);
+  /* 2026-10-12：成本加价上限（config 金币.定价策略.成本加价上限，默认 0.30）—— 同上。 */
+  const _capv2 = Number(_pol2['成本加价上限']);
+  const _capLbl2 = Math.round((isNaN(_capv2) ? 0.30 : _capv2) * 100);
   if(_pol2['模式']==='dd373_markup'){
     sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
@@ -2119,12 +2133,13 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
        一眼看出这轮有几个区在跟 cheapold、几个区该区没 cheapold 改走了「成本×系数」、
        几个区被 DD373 货源闸挂了 $19.9 保护价。（判据与「跟价来源」列完全同源。）
        ⚠「推荐前二」口径已于 2026-10-09 废止 —— 只有旧快照才会出现，有值才显示。 */
-    const _d2 = {cheapold:0, nc:0, rec:0, gate:0, floor:0, other:0};
+    const _d2 = {cheapold:0, nc:0, rec:0, gate:0, floor:0, cap:0, other:0};
     rows.forEach(function(x){
       const P3 = x['定价']||{};
       if(P3.mode!=='g2g_cheapold') return;
       const b = String(P3.base||'');
       if(b.indexOf('利润下限') >= 0) _d2.floor++;   // 2026-10-09：被 20% 利润闸抬过价（可与来源叠加）
+      if(b.indexOf('加价上限') >= 0) _d2.cap++;     // 2026-10-12：被成本加价上限闸压过价（可与来源叠加）
       if(b.indexOf('无货兜底')>=0) _d2.gate++;
       else if(b.indexOf('cheapold')>=0) _d2.cheapold++;
       else if(b.indexOf('成本×')>=0) _d2.nc++;
@@ -2140,6 +2155,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_d2.gate+'</span>');
     if(_d2.floor)
       _bits2.push('<span style="color:var(--red)">⛔ 利润下限抬价 '+_d2.floor+'</span>');
+    if(_d2.cap)
+      _bits2.push('<span style="color:var(--red)">⛔ 加价上限压价 '+_d2.cap+'</span>');
     sumBits.push('跟价来源：'+_bits2.join(' ｜ '));
   }
   const thead = '<tr><th>服务区 / 货源</th>'
@@ -2215,6 +2232,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + _nc2.toFixed(2)+' 保 '+Math.round((_nc2-1)*100)+'% 利润（不跟推荐前二）</b>；'
                  + '利润率低于 '+_limLbl2+'% ⇒ <b style="color:var(--red)">强制抬到 '
                  + _limLbl2+'% 利润</b>（含成本兜底那批）；'
+                 + '成本加价率超 '+_capLbl2+'% ⇒ <b style="color:var(--red)">强行压到 成本×'
+                 + (1 + (isNaN(_capv2) ? 0.30 : _capv2)).toFixed(2)+'</b>（只对正常跟 cheapold 的行）；'
                  + '竞品低于我方成本 ⇒ 不再跟降（按成本价，随后一样受上述利润下限约束）；'
                  + 'DD373 无货 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M 保护</b>')

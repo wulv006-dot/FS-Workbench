@@ -2069,6 +2069,10 @@ def task_collect(t, opts):
                             it.get("基准价_原竞品"), it.get("DD373成本_USD每M"))
                     if it.get("利润率下限触发"):
                         _tflag += " ⛔利润下限"
+                    if it.get("成本加价上限触发"):
+                        # 2026-10-12：跟价后成本加价率超上限 ⇒ 被强行压价
+                        _tflag += " ⛔加价上限(压到成本×%.2f)" % (
+                            1.0 + float(it.get("成本加价上限") or 0.30))
                     if it.get("基准来源") == "无货兜底":
                         # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
                         #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
@@ -2955,6 +2959,8 @@ def api_gold():
                   "（成本 = 买满 1 亿基纳的订单簿加权均价）；"
                   "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟价后利润率 < %.0f%% 的"
                   "**强制抬到 成本 ÷ %.2f**（含成本兜底那批，货源闸除外）；"
+                  "⛔ **成本加价上限 %.0f%%（2026-10-12 新增）**：跟价后成本加价率 > %.0f%% 的"
+                  "**强行压到 成本 × %.2f**（只对正常跟 cheapold 的行，货源闸除外）；"
                   "ELD/IGGM 继续采集监控但不参与定价。"
                   % ((_pol_a.get("下浮比例") or 0.03) * 100,
                      (_pol_a.get("无cheapold加价系数") or 1.30),
@@ -2965,7 +2971,13 @@ def api_gold():
                      (_pol_a.get("利润率下限")
                       if _pol_a.get("利润率下限") is not None else 0.20) * 100,
                      1.0 - (_pol_a.get("利润率下限")
-                            if _pol_a.get("利润率下限") is not None else 0.20))
+                            if _pol_a.get("利润率下限") is not None else 0.20),
+                     (_pol_a.get("成本加价上限")
+                      if _pol_a.get("成本加价上限") is not None else 0.30) * 100,
+                     (_pol_a.get("成本加价上限")
+                      if _pol_a.get("成本加价上限") is not None else 0.30) * 100,
+                     1.0 + (_pol_a.get("成本加价上限")
+                            if _pol_a.get("成本加价上限") is not None else 0.30))
                   if _pol_a.get("模式") == "g2g_cheapold" else
                   ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
@@ -3162,7 +3174,10 @@ def api_gold_cost():
              "按成本价定价**；"
              "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟了 cheapold 后利润率 "
              "(售价−成本)÷售价 < %.0f%% 的，**强制抬到 成本 ÷ %.2f**"
-             "（对含成本兜底在内的所有跟价行生效，货源闸 $%.2f/M 除外）。"
+             "（对含成本兜底在内的所有跟价行生效，货源闸 $%.2f/M 除外）；"
+             "⛔ **成本加价上限 %.0f%%（2026-10-12 新增）**：跟了 cheapold 后成本加价率 "
+             "(售价−成本)÷成本 > %.0f%% 的，**强行压到 成本 × %.2f**"
+             "（只对正常跟 cheapold 的行生效；无 cheapold 区 / 成本兜底 / 货源闸行不吃这条闸）。"
              "成本 = DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳）；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
              % ((_pol.get("下浮比例") or 0.03) * 100,
@@ -3172,7 +3187,10 @@ def api_gold_cost():
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
                 1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20),
-                (_pol.get("无货兜底售价_USD每M") or 19.9))
+                (_pol.get("无货兜底售价_USD每M") or 19.9),
+                (_pol.get("成本加价上限") if _pol.get("成本加价上限") is not None else 0.30) * 100,
+                (_pol.get("成本加价上限") if _pol.get("成本加价上限") is not None else 0.30) * 100,
+                1.0 + (_pol.get("成本加价上限") if _pol.get("成本加价上限") is not None else 0.30))
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M × %.1f%%；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"

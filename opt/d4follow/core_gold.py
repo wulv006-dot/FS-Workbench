@@ -370,10 +370,20 @@ def pricing_policy(cfg, game=None):
         _nc = _f(p.get("无cheapold加价系数"))
         if _nc is None or _nc <= 1.0:
             _nc = 1.30
+        # 🔴 2026-10-12 老板定案 · **成本加价上限闸**（「利润率下限」的对称"天花板"）
+        #   老板原话：「在跟进 cheapold 的价的同时，如果跟价后利润大于 30%，则强行将
+        #   价格压到 30% 利润左右」。口径经确认为 **成本加价率** (售价−成本)÷成本：
+        #     · 上限价 = 本区 DD373 成本 × (1 + 上限 30%)；
+        #     · 有 cheapold 的区目标 = min( cheapold价 × (1−下浮) , 成本 × (1+上限) )。
+        #   ⚠ 与「无 cheapold 卖家 ⇒ 成本 ×1.30」恰好同一个价位，两处口径天然一致。
+        #   ⚠ 系数走配置；缺失 / 非法 / 负数一律回落 0.30（＝成本 ×1.30）。
+        _capu = _f(p.get("成本加价上限"))
+        if _capu is None or _capu < 0:
+            _capu = 0.30
         return {"模式": mode, "下浮比例": disc, "乘数": 1.0 - disc, "成本源": "DD373",
                 "cheapold卖家": _cn, "利润率下限": _mlim,
                 "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
-                "无cheapold加价系数": _nc,
+                "无cheapold加价系数": _nc, "成本加价上限": _capu,
                 "口径": ("每个子服务器进 G2G 取价：有卖家 %s → 目标 = %s价 × (1−%.1f%%)；"
                         "无 %s 卖家 → 目标 = 本区 DD373 成本 × %.2f"
                         "（老板口径「保持 30%% 的利润」，不再跟推荐前二）。"
@@ -383,9 +393,13 @@ def pricing_policy(cfg, game=None):
                         "（= 买满 1 亿基纳的订单簿加权均价）时**不再跟降，直接按成本价定价**；"
                         "⚠ **利润率下限 %.0f%%（2026-10-09 新增）**：目标价算完后，"
                         "若利润率 (售价−成本)÷售价 < %.0f%% ⇒ **强制抬到 成本 ÷ %.2f**"
-                        "（对**所有** g2g_cheapold 行生效，含成本兜底那批；货源闸行除外）"
+                        "（对**所有** g2g_cheapold 行生效，含成本兜底那批；货源闸行除外）；"
+                        "⚠ **成本加价上限 %.0f%%（2026-10-12 新增）**：目标价算完后，"
+                        "若成本加价率 (售价−成本)÷成本 > %.0f%% ⇒ **强行压到 成本 × %.2f**"
+                        "（与利润率下限对称：地板 %.0f%% / 天花板 %.0f%%；货源闸行除外）"
                         % (_cn, _cn, disc * 100, _cn, _nc, _need, _park,
-                           _mlim * 100, _mlim * 100, 1.0 - _mlim))}
+                           _mlim * 100, _mlim * 100, 1.0 - _mlim,
+                           _capu * 100, _capu * 100, 1.0 + _capu, _mlim * 100, _capu * 100))}
     if mode == "dd373_only":
         # 2026-10-06 老板定案：**只跟 DD373 进货成本**，加价 7%；
         #   无有效报价 / 可买量不足 1 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
@@ -1595,6 +1609,56 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     # 把标记并进「基准来源」，前端据此加一句红字提示（不改表结构）。
                     rec["基准来源"] = "%s｜利润下限%.0f%%" % (
                         rec.get("基准来源") or "-", _lim * 100)
+        # ── 2026-10-12 成本加价上限闸（老板定案 · 仅 AION2 · g2g_cheapold）────────
+        # 老板原话：「在跟进 cheapold 的价的同时，如果跟价后利润大于 30%，则强行将
+        #   价格压到 30% 利润左右」——口径经确认为 **成本加价率** (售价−成本)÷成本。
+        #   推导：加价率 ≤ cap ⇔ (P−C)/C ≤ cap ⇔ P ≤ C×(1+cap)；
+        #        cap = +0.30 ⇒ P ≤ 1.30C（＝「无 cheapold 卖家」用的同一个价位）。
+        #   ⇒ 有 cheapold 的区最终目标 = min( cheapold价×(1−下浮) , 成本×(1+cap) )。
+        #   ⚠ 反方向的「利润率下限 20%」就在上面一段，两者**互斥**：压到加价 30%
+        #     对应平台利润率 23.08% > 20% ⇒ 永远不会再被下限抬回去，不会打架。
+        #   ⚠ **只对「正常跟 cheapold 的行」生效**（定价来源级别 1 且非成本兜底）：
+        #     老板说的是「跟了 cheapold 才受这条约束」——无 cheapold 区走「成本×系数」、
+        #     成本兜底区、货源闸 $19.9 保护价**都不吃这条闸**（否则会凭空改掉那些价位，
+        #     例如日后把「无cheapold加价系数」调到 1.35 时会被这条闸莫名压回 1.30）。
+        #   ⚠ 下限触发行也排除：那批本来利润就低，加价率必然远低于 30%，不该再被压。
+        if (tgt_m and gm == "AION2" and _mode_used == "g2g_cheapold"
+                and rec.get("定价来源级别") == 1
+                and not rec.get("目标来自成本兜底")
+                and not rec.get("利润率下限触发")
+                and rec.get("基准来源") != "无货兜底"):
+            _cost5 = _costs.get(sv.get("key")) or {}
+            _cu5 = _f(_cost5.get("usd_per_m"))
+            _capu = _row_pol.get("成本加价上限")
+            if _capu is None:
+                _capu = 0.30
+            try:
+                _capu = float(_capu)
+            except (TypeError, ValueError):
+                _capu = 0.30
+            if _capu < 0:
+                _capu = 0.0
+            if _cu5 and _cu5 > 0:
+                _mkup = (float(tgt_m) - _cu5) / _cu5
+                rec["成本加价率_压价前"] = round(_mkup, 6)
+                rec["成本加价上限"] = _capu
+                if _mkup > _capu + 1e-6:
+                    # P ≤ C×(1+cap)：cap=0.30 ⇒ 成本 × 1.30
+                    _cap_price = _cu5 * (1.0 + _capu)
+                    _pre_c = float(tgt_m)
+                    tgt_m = _cap_price
+                    rec["目标前端每M"] = tgt_m
+                    rec["成本加价上限前目标价"] = _pre_c
+                    rec["成本加价上限触发"] = (
+                        "按 $%.4f/M 卖成本加价 %.2f%% 高于上限 %.0f%% ⇒ 压到 $%.4f/M"
+                        "（= 成本 $%.4f × %.2f）"
+                        % (_pre_c, _mkup * 100, _capu * 100, _cap_price, _cu5, 1.0 + _capu))
+                    rec["目标前端每M_口径"] = (rec.get("目标前端每M_口径") or "") + \
+                        "；随后被成本加价上限 %.0f%% 压价 → $%.4f/M" % (_capu * 100, _cap_price)
+                    # 看板「跟价来源」列要能看出「这行的价被上限闸压过」——
+                    # 把标记并进「基准来源」（与利润下限同一做法，不改表结构）。
+                    rec["基准来源"] = "%s｜加价上限%.0f%%" % (
+                        rec.get("基准来源") or "-", _capu * 100)
         # ── 2026-10-08 利润率下限兜底（老板定案 · MSCW iggm_undercut 专用）─────────
         # 口径：利润率 = (售价 − 成本) ÷ 售价（同 AION2，**可为负**）。
         #   下限是**正数 +15%**：P(1−lim) ≥ C ⇒ 目标价 ≥ 成本 ÷ (1−lim) = 成本 ÷ 0.85。
@@ -1842,6 +1906,19 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                                fmt_money(per_100k(_cusd, _dm)), _ul, _nc_l,
                                (_nc_l - 1.0) * 100, (1.0 - 1.0 / _nc_l) * 100,
                                fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                elif rec.get("成本加价上限触发"):
+                    # 🆕 2026-10-12：跟 cheapold 后成本加价率超上限的行 ⇒ 被强行压价。
+                    #   压价后 tgt_m 已不是「cheapold × (1−下浮)」的乘积，必须显式写明
+                    #   「跟价算得多少 → 为什么压 → 压到多少（= 成本×(1+上限)）」，
+                    #   否则页面第一眼的价与算式对不上（同利润率下限的处理方式）。
+                    _capu_l = float(rec.get("成本加价上限") or 0.30)
+                    _pre = ("目标 $%s/%s（⛔ 成本加价上限 %.0f%%：按 %s $%s/%s 跟价算得 "
+                            "成本加价率 %.2f%% 超上限 ⇒ 强行压到 成本×%.2f）"
+                            "｜我方 $%s/%s（%+.2f%%）"
+                            % (fmt_money(per_100k(tgt_m, _dm)), _ul, _capu_l * 100, _lbl,
+                               fmt_money(per_100k(rec.get("基准价"), _dm)), _ul,
+                               (rec.get("成本加价率_压价前") or 0) * 100, 1.0 + _capu_l,
+                               fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
                 else:
                     _pre = ("目标 $%s/%s（G2G %s $%s/%s × (1−%.1f%%)）｜我方 $%s/%s（%+.2f%%）"
                             % (fmt_money(per_100k(tgt_m, _dm)), _ul, _lbl,
@@ -1859,6 +1936,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     _gz = _park_note
                 if rec.get("利润率下限触发"):
                     _gz += "｜%s" % rec["利润率下限触发"]
+                if rec.get("成本加价上限触发"):
+                    _gz += "｜%s" % rec["成本加价上限触发"]
                 if rec["动作"] == "hold":
                     rec["说明"] = _pre + "（在 ±%.1f%% 持平区间内）→ 不动%s" % (_thr * 100, _gz)
                 else:
