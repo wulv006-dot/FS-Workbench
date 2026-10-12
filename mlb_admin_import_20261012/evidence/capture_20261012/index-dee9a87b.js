@@ -1,0 +1,1 @@
+import{j as o,k as r}from"./index-6b2030fb.js";const e="/admin/index/";function a(){return o({url:e+"index",method:"get"})}function u(n,t={}){return o({url:e+"login",data:t,method:n})}function l(){const n=r();return o({url:e+"logout",method:"POST",data:{refresh_token:n.getToken("refresh")}})}export{u as a,a as i,l};

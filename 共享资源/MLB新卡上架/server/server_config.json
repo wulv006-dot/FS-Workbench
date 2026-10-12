@@ -1,0 +1,7 @@
+{
+  "markup": "1.1",
+  "floor": "0.50",
+  "interval": 120,
+  "updates_url": "https://www.showdd.io/26/updates",
+  "note": "本服务【不】访问 showdd.io。服务器出口 IP（47.253.252.55）会被 Cloudflare 判定为机房来源并返回 chl_page 挑战；本机住宅 IP 可直连。故采集由本机执行器 mlb_agent.py 完成，这里只排队与托管结果。"
+}
