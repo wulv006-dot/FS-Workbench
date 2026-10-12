@@ -1,6 +1,6 @@
 // Existing business renderer, synthetic collector snapshot, no real sessions or data.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/Administrator/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),assets=path.join(root,'frontend','assets');
 const rows=JSON.parse(fs.readFileSync(path.join(root,'evidence/game-map.json'))).profiles;
 const snapshot=JSON.parse(fs.readFileSync(path.join(root,'tests/synthetic-snapshot.json')));

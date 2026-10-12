@@ -334,6 +334,7 @@ def main():
             units(release+"/tests",["test_games","test_release"],root_owned=True)
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
             node(release+"/tests/test_all_sites.cjs")
+            node(release+"/tests/test_browser.cjs")
         elif group=="fs-login-traffic-ui":
             release="releases/fs-dashboard/login-traffic-ui-20261011"
             units(release,["test_login_release"],root_owned=True)
