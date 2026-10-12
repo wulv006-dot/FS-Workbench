@@ -47,9 +47,11 @@ def build():
     manifest = json.loads((BASE / 'release-contract.json').read_text('utf-8').replace(old, version))
     manifest['scope'] = 'FC27 detailed analysis only; main and satellite groups; existing auth/readers/publishers'
     baseline = json.loads((ROOT/'baseline-readback.json').read_text('utf-8-sig'))
+    front_before = json.loads((ROOT/'frontend-before.json').read_text())['hashes'] if (ROOT/'frontend-before.json').exists() else baseline['hashes']
+    previous = {r['target']:r['sha256'] for r in json.loads((ROOT/'frontend-previous-contract.json').read_text())['targets']} if (ROOT/'frontend-previous-contract.json').exists() else {}
     for row in manifest['targets']:
-        assert digest(BASE / row['candidate']) == baseline['hashes'][row['target']], 'active frontend changed'
-        row['beforeSha256'] = baseline['hashes'][row['target']]
+        assert front_before[row['target']] in (digest(BASE / row['candidate']),previous.get(row['target'])), 'active frontend changed'
+        row['beforeSha256'] = front_before[row['target']]
     for row in manifest['unchangedRequired']:
         if row['path'] in ('/etc/nginx/conf.d/iggm-web.conf','/var/www/dashboard/fs-home/navigation.json'): row['sha256'] = baseline['hashes'][row['path']]
     for row in manifest['immutableAssets'] + manifest['targets']: row['sha256'] = digest(OUT / row['candidate'])

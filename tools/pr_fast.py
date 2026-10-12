@@ -356,6 +356,7 @@ def main():
             release="releases/fs-dashboard/fc-detail-analytics-20261012"
             units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_publisher"])
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_fc_query.cjs")
         elif group=="fs-on-demand":
             release="releases/fs-dashboard/on-demand-20261012"
             units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
