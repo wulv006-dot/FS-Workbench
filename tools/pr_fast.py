@@ -354,9 +354,11 @@ def main():
             release="releases/fs-dashboard/on-demand-20261012"
             units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
-            entry=ROOT/release/"entry-profit-refresh/frontend"
+            units(release+"/tests",["test_native_boundary"],root_owned=True)
+            entry=ROOT/release/"entry-native-boundary-final/frontend"
+            if not entry.exists():entry=ROOT/release/"entry-profit-refresh/frontend"
             if entry.exists():
-                units(release+"/entry-profit-refresh/frontend",["test_release_workspace"],root_owned=True)
+                units(str(entry.relative_to(ROOT)),["test_release_workspace"],root_owned=True)
                 subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets")))
             else:node(release+"/tests/test_browser.cjs")
             node(release+"/tests/test_legacy.cjs")
@@ -458,6 +460,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
