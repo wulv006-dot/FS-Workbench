@@ -32,7 +32,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^releases/fs-dashboard/game-boards-all-20261012/'; then
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^releases/fs-dashboard/(game-boards-all-20261012|on-demand-20261012)/'; then
             npm install --prefix "$RUNNER_TEMP/fs-browser" --no-audit --no-fund playwright@1.62.1
             PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/fs-browser/browsers" "$RUNNER_TEMP/fs-browser/node_modules/.bin/playwright" install --with-deps chromium
           fi
@@ -52,3 +52,4 @@ jobs:
             ip link set lo up
             exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 NODE_PATH="$8" PLAYWRIGHT_BROWSERS_PATH="$9" "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
           ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR" "$RUNNER_TEMP/fs-browser/node_modules" "$RUNNER_TEMP/fs-browser/browsers"
+

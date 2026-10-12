@@ -1,0 +1,622 @@
+{
+  "schemaVersion": 2,
+  "catalogId": "catalog-06cb55a0f928e4b1",
+  "snapshotId": "catalog-06cb55a0f928e4b1",
+  "scopeContractId": "all-websites-order-primary-admin-supplement-v1",
+  "timezone": "Asia/Shanghai",
+  "currency": "USD",
+  "generatedAt": "2026-10-12T10:00:00+08:00",
+  "generatedAtShanghai": "2026-10-12 10:00",
+  "profiles": {
+    "MMOEXP": {
+      "key": "MMOEXP",
+      "name": "所有网站合计",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "0",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "POE2": {
+      "key": "POE2",
+      "name": "Path Of Exile 2",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "552",
+          "tid": "",
+          "status": "3"
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "D4": {
+      "key": "D4",
+      "name": "Diablo 4",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "456",
+          "tid": "",
+          "status": "3"
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "AION2": {
+      "key": "AION2",
+      "name": "Aion 2",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "826",
+          "tid": "",
+          "status": "3"
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "FC27": {
+      "key": "FC27",
+      "name": "FC27",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1322",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "NBA2K27": {
+      "key": "NBA2K27",
+      "name": "NBA2K27",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1306",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "NFL27": {
+      "key": "NFL27",
+      "name": "Madden NFL27",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1258",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "MLB26": {
+      "key": "MLB26",
+      "name": "MLB26",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "922",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "CFB27": {
+      "key": "CFB27",
+      "name": "CFB27",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1256",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "FC26": {
+      "key": "FC26",
+      "name": "FC26",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "824",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "RS": {
+      "key": "RS",
+      "name": "RS",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "506",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "MAPLESTORY_CLASSIC": {
+      "key": "MAPLESTORY_CLASSIC",
+      "name": "MapleStory Classic World",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1300",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "ARC_RAIDERS": {
+      "key": "ARC_RAIDERS",
+      "name": "ARC Raiders",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "864",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "DARK_AND_DARKER": {
+      "key": "DARK_AND_DARKER",
+      "name": "Dark and Darker",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "588",
+          "tid": "",
+          "status": "3"
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "WOW_FOREVER": {
+      "key": "WOW_FOREVER",
+      "name": "WoW Forever",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "1364",
+          "tid": "",
+          "status": "3"
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "ARENA_BREAKOUT_INFINITE": {
+      "key": "ARENA_BREAKOUT_INFINITE",
+      "name": "暗区突围无限",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "836",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    },
+    "COD_BO7": {
+      "key": "COD_BO7",
+      "name": "CoD BO7",
+      "period": {
+        "start": "2025-10-12 00:00",
+        "end": "2026-10-12 10:00"
+      },
+      "primary": {
+        "status": "not_provided",
+        "normalisedScope": "all-websites",
+        "filters": {
+          "gid": "838",
+          "tid": "",
+          "status": ""
+        }
+      },
+      "supplement": {
+        "status": "not_provided"
+      },
+      "metrics": {},
+      "dimensions": {}
+    }
+  },
+  "dashboard": {
+    "groups": [
+      {
+        "key": "mmoexp",
+        "label": "所有网站合计",
+        "profiles": [
+          "MMOEXP"
+        ]
+      },
+      {
+        "key": "rpg",
+        "label": "RPG · 已完成",
+        "profiles": [
+          "POE2",
+          "D4",
+          "AION2",
+          "DARK_AND_DARKER",
+          "WOW_FOREVER"
+        ]
+      },
+      {
+        "key": "sports",
+        "label": "球类 · 全部状态",
+        "profiles": [
+          "FC27",
+          "NBA2K27",
+          "NFL27",
+          "MLB26",
+          "CFB27",
+          "FC26"
+        ]
+      },
+      {
+        "key": "general",
+        "label": "综合游戏 · 全部状态",
+        "profiles": [
+          "RS",
+          "MAPLESTORY_CLASSIC",
+          "ARC_RAIDERS",
+          "ARENA_BREAKOUT_INFINITE",
+          "COD_BO7"
+        ]
+      }
+    ],
+    "profiles": {
+      "MMOEXP": {
+        "name": "MMOEXP主站",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "mmoexp"
+      },
+      "POE2": {
+        "name": "Path Of Exile 2",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "rpg"
+      },
+      "D4": {
+        "name": "Diablo 4",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "rpg"
+      },
+      "AION2": {
+        "name": "Aion 2",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "rpg"
+      },
+      "FC27": {
+        "name": "FC27",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "NBA2K27": {
+        "name": "NBA2K27",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "NFL27": {
+        "name": "Madden NFL27",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "MLB26": {
+        "name": "MLB26",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "CFB27": {
+        "name": "CFB27",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "FC26": {
+        "name": "FC26",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "sports"
+      },
+      "RS": {
+        "name": "RS",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "general"
+      },
+      "MAPLESTORY_CLASSIC": {
+        "name": "MapleStory Classic World",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "general"
+      },
+      "ARC_RAIDERS": {
+        "name": "ARC Raiders",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "general"
+      },
+      "DARK_AND_DARKER": {
+        "name": "Dark and Darker",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "rpg"
+      },
+      "WOW_FOREVER": {
+        "name": "WoW Forever",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "rpg"
+      },
+      "ARENA_BREAKOUT_INFINITE": {
+        "name": "暗区突围无限",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "general"
+      },
+      "COD_BO7": {
+        "name": "CoD BO7",
+        "series": [],
+        "hourly": [],
+        "coverage": {
+          "from": "2025-10-12",
+          "to": "2026-10-12",
+          "kind": "query-capability-window"
+        },
+        "group": "general"
+      }
+    }
+  },
+  "dataPolicy": "metadata-only; native values are queried by date",
+  "maximumRangeDays": 366
+}
