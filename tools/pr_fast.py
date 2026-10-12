@@ -335,6 +335,11 @@ def main():
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
             node(release+"/tests/test_all_sites.cjs")
             node(release+"/tests/test_browser.cjs")
+            entry=ROOT/release/"entry-cache/frontend"
+            if entry.exists():
+                units(release+"/entry-cache/frontend",["test_release_workspace"],root_owned=True)
+                subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,
+                    env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets"),FS_OLD_CATALOG="1"))
         elif group=="fs-login-traffic-ui":
             release="releases/fs-dashboard/login-traffic-ui-20261011"
             units(release,["test_login_release"],root_owned=True)
