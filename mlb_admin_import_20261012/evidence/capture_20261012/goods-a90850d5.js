@@ -1,0 +1,1 @@
+import{j as s,aK as e,aI as n}from"./index-6b2030fb.js";function l(o,t){return s({url:e+o,method:"get",params:t})}function g(o,t={}){return s({url:e+o,method:"post",data:t})}function h(o,t={}){return s({url:n+o,method:"get",params:t})}function i(o="",t={},r={},d={},u={}){return s({url:o,method:"post",data:t,params:r,headers:d},u)}export{l as a,h as g,i as h,g as p};

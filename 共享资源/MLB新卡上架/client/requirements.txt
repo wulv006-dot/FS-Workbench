@@ -1,0 +1,10 @@
+# MLB 新卡上架 · 执行器依赖
+#
+# 安装（在解压后的目录里执行）：
+#   pip install -r requirements.txt
+#   python -m playwright install chromium
+#
+# 注意：playwright 的浏览器内核必须单独安装一次，光装 pip 包不够。
+
+playwright>=1.40
+openpyxl>=3.1

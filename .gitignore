@@ -1,69 +1,66 @@
-# Explicit candidate only; do not import the existing working tree/history.
-.git/
-.venv/
-.testdeps/
-.checks/
-node_modules/
+# ===== 运行时与缓存（不入库）=====
+.agent_runtime/
 __pycache__/
-*.py[cod]
+*.pyc
+.workbuddy/
+
+# ===== 密钥与凭证（绝不入库）=====
 *.pem
 *.key
 *.p12
 *.pfx
-*.db
-*.sqlite*
-*.log
-*.zip
-*.tar*
-*.bak
-.env
+*.env
 .env.*
-!*.example.env
-!*.example.json
-!**/.env.example
-**/config.json
-**/*service-account*.json
-**/*credentials*.json
-**/*token*.json
-**/*session*.json
-**/*cookies*
-**/.tb-session
+**/*_ed25519
+**/*_ed25519.pub
+**/id_rsa
+**/id_rsa.pub
+**/.session.json*
+**/config.json*
+**/deploy_hub.json
+**/_payload.json
+**/API_只读接口_wulv.md
+共享资源/新服务器密钥/
+共享资源/服务器密钥/
+共享资源/公司资质与凭证/
+共享资源/MMOEXP统一看板/dashboard_api_key.txt
+
+# ===== 运行数据库与临时数据 =====
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
 **/data/raw/
-**/backup*/
-**/cache*/
-**/evidence/
-.agent_runtime/
-.workbuddy/
+共享资源/自助部署/tests/_tmp/
+
+# ===== 任务台线上验收用的临时会话令牌（2026-10-01 加）=====
+# tests/verify_live.py 会读取 evidence/live/.tb-session（两行：cookie 名 / 值）。
+# 该文件由服务器侧临时生成后下载、用完即删，绝不允许入库。
+taskboard_module_20261001/tests/evidence/live/.tb-session
+**/.tb-session
+
+# ===== 本地核对包的可再生副本 =====
+# bundle/ 可由 `python server_187/refresh_local.py` 重建，源文件均在库内；
+# manifest.json（同步记录）保留入库。
 server_187/bundle/
-server_187/live_snapshot/
 
-# Runtime outputs and credentials: independent of publisher content validation.
-**/_token.txt
-**/_ck.txt
-**/_api_body.tmp
-**/_adm_cap.png
-**/.captcha_tmp.png
-**/.admin_prices.tmp.json
-**/apply_log.jsonl
-**/deploy_client.json
-**/hub_config.json
-**/automation.json
-**/prices.json
-*.jsonl
-**/runtime/
-**/logs/
+# FC27 Players 的本地发布包；服务器从校验后的源码清单生成
+fc27_players_cloud/release.tar.gz
 fc27_players_cloud/data/
+# 原 ZIP 附带的历史说明/样例仅供本机核对，不进入源码仓库或发布包。
+fc27_players_cloud/球员维护工具/*.md
+fc27_players_cloud/球员维护工具/evidence/
+fc27_players_cloud/球员维护工具/生成完整脚本MD.py
 
-# First upload: source only; generated reviews and personal/runtime state excluded
-first_upload_staging/
-*.7z
-*.rar
-*.tgz
-*.sqlite
-*.db-*
-**/.git/
-**/receipts/
-**/locks/
-**/queue/
-**/*captcha*
-**/.library-helper/
+# FC natural-cycle runtime evidence: local only, never upload to Git (2026-10-08)
+docs/fc27-coins/player-price-rule-natural-closure-20261008/*.json
+
+# ===== MLB 后台直写：本地凭据与测试件（2026-10-12 加）=====
+# evidence/_cred.json 内含 admin-api 明文账号密码，绝不入库。
+# 生产运行请走环境变量 P2PAH_USERNAME / P2PAH_PASSWORD，或显式 --cred 指向库外文件。
+**/_cred.json
+mlb_admin_import_20261012/evidence/_cred.json
+
+# MLB 新卡上架工作台的 SQLite 运行时库（任务队列/结果），含订单与提交人信息，
+# 属运行时数据不是源码；本地保留，绝不入库（2026-10-12 加）。
+共享资源/MLB新卡上架/server/data/

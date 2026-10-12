@@ -1,0 +1,1 @@
+import{A as n}from"./vue-13600a61.js";function o(){if(!n())throw new Error("useCurrentInstance() can only be used inside setup() or functional components!");const{appContext:e}=n();return{proxy:e.config.globalProperties}}export{o as u};

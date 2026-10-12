@@ -1,0 +1,29 @@
+[
+  {
+    "title": "Ivan Rodriguez/99/C/Marlins/Awards",
+    "price": 1.32,
+    "add": "保存成功",
+    "mid": 44638391,
+    "shelves": "上架产品中……,已进入后台程序处理请稍后检查数据是否处理成功",
+    "products_after": 48,
+    "verdict": "ok"
+  },
+  {
+    "title": "George Springer/99/CF/Astros/The Show Classics",
+    "price": 1.23,
+    "add": "保存成功",
+    "mid": 44638393,
+    "shelves": "上架产品中……,已进入后台程序处理请稍后检查数据是否处理成功",
+    "products_after": 48,
+    "verdict": "ok"
+  },
+  {
+    "title": "Andy Pettitte/99/SP/Yankees/Awards",
+    "price": 1.14,
+    "add": "保存成功",
+    "mid": 44638395,
+    "shelves": "上架产品中……,已进入后台程序处理请稍后检查数据是否处理成功",
+    "products_after": 48,
+    "verdict": "ok"
+  }
+]
