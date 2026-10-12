@@ -220,6 +220,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
+            groups.add("fs-on-demand");continue
         if name.startswith("releases/fs-dashboard/game-boards-all-20261012/"):
             groups.add("fs-game-boards-all");continue
         if name.startswith("releases/fs-dashboard/login-traffic-ui-20261011/"):
@@ -329,6 +331,12 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-on-demand":
+            release="releases/fs-dashboard/on-demand-20261012"
+            units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_browser.cjs")
+            node(release+"/tests/test_legacy.cjs")
         elif group=="fs-game-boards-all":
             release="releases/fs-dashboard/game-boards-all-20261012"
             units(release+"/tests",["test_games","test_release"],root_owned=True)
@@ -420,6 +428,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
