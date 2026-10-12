@@ -588,3 +588,52 @@ systemctl daemon-reload && systemctl restart mlb-online
 端点 `POST /api/tasks/<tid>/writeback/approve`（body `{"names":[...]}`，`null` = 全选）
 与 `.../cancel`（body `{"reason":""}`）。
 
+### 11.5 线上（`47.85.224.112`）实测
+
+部署方式：备份 → base64 分块上传 → **逐个 md5 回验** → `systemctl restart mlb-online` → 复核。
+
+| 项 | 结果 |
+|---|---|
+| 版本 | `1.2`（`/api/health`） |
+| 健康位 | `writeback{enabled:true, dry_run:false, require_approval:true, script_ok:true, cred_ok:true}` |
+| 取价位 | `coins_rate{enabled:true, script_ok:true, cred_ok:true, gid:922, area:"PS 5", multiplier:100.0}` |
+| 生产闸门自检 `_server_gate_check.py` | **37/37** |
+| 服务器端端到端（Py3.9.18，用**已部署字节**跑 `_selftest/`） | **56/56** |
+
+`_server_gate_check.py` 里**刻意验的**（生产环境、**全程零写入**）：
+
+- `/result` 回传后 **10 秒**仍是 `awaiting_review`，且
+  `/opt/mlb-online/data/writeback/<tid>.writeback.json` **始终不存在** —— 闸门在生产上为真；
+- 放行名单塞快照外的卡 → `noop`；空名单 → `noop`；两者都不产生写卡产物；
+- `cancel` → `cancelled` + 留痕，全程零写卡产物；
+- 取价真跑（真登录订单后台 + 真过验证码）：耗时 **10.8 s**，
+  `b2c=0.0429 (USD/1K)` → `rate_usd_per_100k=4.29`，`areas_consistent=true`
+  （PS 5 / XBOX / Switch 三个区都是 `0.0429`）；
+  不 `force` 时命中缓存 **0.0008 s**。
+
+⚠️ 这里**没有**在生产环境做「放行 → 真写入」。上线的是 `dry_run=false` 的生产配置，
+放行只在那 4 张「已存在且完整」的卡上才是幂等安全的，**前提是它们此刻仍在** ——
+只要有一张缺失，放行就变成真实生产写入。所以「放行→写入」的完整链路改用
+**同一台服务器上的独立临时 hub + 假写卡脚本**验证（就是上面那条 56/56），
+用的是**同一批已部署字节**，不碰生产数据。
+
+> ⚠️ 部署踩坑记录：`Path(remote).parent` 在 Windows 上给出 `\opt\a\b`（反斜杠），
+> 丢给 bash 会被当转义符吃掉 → 在 `/root` 下建出 `optmlb-online_selftesttests`
+> 这种垃圾目录。远端路径的父目录必须用**字符串切分**求。
+
+**备份 / 回滚**：`/opt/_bak_mlb_20261012_gate/`
+（`mlb-online/{mlb_server.py,mlb_writeback.py,server_config.json,mlb.db.bak}`、
+`www/index.html`、`admin-write/p2pah_price.py`、`stale/verify_writeback_e2e.py`）
+
+```bash
+# 一键回滚
+B=/opt/_bak_mlb_20261012_gate
+cp $B/mlb-online/mlb_server.py      /opt/mlb-online/mlb_server.py
+cp $B/mlb-online/mlb_writeback.py   /opt/mlb-online/mlb_writeback.py
+rm -f /opt/mlb-online/mlb_coins_rate.py
+cp $B/mlb-online/server_config.json /opt/mlb-online/server_config.json
+cp $B/www/index.html                /var/www/mlb-online/index.html
+systemctl daemon-reload && systemctl restart mlb-online
+# ⚠️ 回滚后页面上的「当期金币售价」会退回人工填写（接口 404），不影响采集与上架
+```
+
