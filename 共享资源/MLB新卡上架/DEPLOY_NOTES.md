@@ -474,3 +474,117 @@ systemctl daemon-reload && systemctl restart mlb-online
 | 线上真实链路（真登录 + 真后台往返） | 16/16，4 张全部 `skipped`（幂等，无写入） |
 | `--restore` 回退路径 | 4/4 保存成功；只读核对与基线差异 0 |
 | nginx 认证门禁 | 未登录仍 302 → `/__auth/access/`（未被破坏） |
+
+---
+
+## 十一、2026-10-12（第二轮）：写前人工确认 + 当期金币售价自动取价
+
+老板原话两条：
+
+> 「这个页面做完采集，在正式写入后台的时候，应该有一步是让人工确认上架的卡片步骤。
+>   人工核对无误后才可点击放行，进行写入动作」
+> 「当期金币售价这里也应该可以自动拉取后台的 MLB Stub 的实时单价。不需要人工手动填写」
+
+### 11.1 需求 A：写前人工确认闸门（`awaiting_review`）
+
+**改前**：`/result` 一进来就 fire & forget 起写卡线程 → 人在网页上看到的永远是「已经写完了」。
+
+**改后**：采集回传后**只冻结快照，不写**；人逐条核对 → 勾选 → 点「确认放行」才写。
+
+| 文件 | 说明 |
+|---|---|
+| `/opt/mlb-online/mlb_writeback.py` | 新增 `freeze()` / `read_pending()` / `approve()` / `cancel()`；`start()` 在 `require_approval` 下改停 `awaiting_review` |
+| `/opt/mlb-online/mlb_server.py` | v1.1 → **1.2**；新增 `POST /api/tasks/<tid>/writeback/approve`、`.../cancel` |
+| `/opt/mlb-online/server_config.json` | `writeback.require_approval`（缺省 **true**） |
+| `/var/www/mlb-online/index.html` | 核对面板（逐卡勾选 + 「我已逐条核对」+ 放行/取消）；历史里可跳回待审任务 |
+
+四条设计要点（都不是可选项）：
+
+1. **冻结快照，不读 DB 里的 cards**
+   `tasks.result.cards` 会被后续 `/result` 覆盖（任务重跑 / 执行器补传）。
+   若人核对的是 A 而写的是 B，这道闸门就是假的。
+   ⇒ 快照写 `<workdir>/<tid>.pending.json`（含 `sha256`），**放行只从快照取卡**；
+     新结果**整份替换**快照 ⇒ 旧确认自动失效。
+2. **只写勾选的**
+   放行名单里出现快照外的 `product_name` ⇒ **拒绝**（防 UI 过期 / 人为构造），返回 `noop` + 原因。
+3. **一次性的 `awaiting_review → running`**
+   hub 是 `ThreadingHTTPServer`，双击「放行」会起两个写卡进程 → 建重复模型。
+   `APPROVE_LOCK` 把「读状态 → 判状态 → 落盘 → 起线程」做成原子；第二次拿到 `noop`。
+4. **审计留痕**
+   `approved_by` / `approved_at` / `approved_cards`(计数) / `approved_names`(名单) / `sha256`。
+   ⚠️ 名单与计数**都要**：只有计数回答不了「到底放行了哪几张」；
+     只有 sha256 得把快照翻出来重算。留痕经 `run_once(extra=...)` 用 `setdefault` 合并
+   —— **只做补充，绝不覆盖运行结论**。
+
+`cancel` **只在 `awaiting_review` 允许**。跑动中不给取消：kill 掉写卡子进程会留下
+"未知结果"的卡（比不写更危险），所以 `running` 时返回 `noop`。
+
+### 11.2 需求 B：当期金币售价自动取价
+
+来源（老板指定）：**订单后台** `order.p2pah.cn` → 游戏&产品 → 金币价格管理 →
+所属游戏 **922**（MLB The Show 26）→ 该行 **`b2c`** 字段。
+`b2c` 口径是 **USD/1K**，工作台 `rate` 口径是 **USD/100K** ⇒ `rate = b2c × 100`。
+
+⚠️ 注意：这是**订单后台**，与商品后台（`admin-api.p2pah.cn`，GID 927 / CID 8233）**是两套系统，GID 不通用**。
+
+| 文件 | 说明 |
+|---|---|
+| `/opt/mlb-admin-write/src/p2pah_price.py` | **新增**。纯标准库（服务端 `/opt/python39` **没有** `requests`/`urllib3`）；`ddddocr` 只在函数内惰性 import |
+| `/opt/mlb-admin-write/_cred_order.json` | **新增**，`chmod 600`。订单后台账号密码 |
+| `/opt/mlb-online/mlb_coins_rate.py` | **新增**。hub 侧桥接：子进程调用取价脚本，永不阻塞主链路、永不自动提交 |
+| `/opt/mlb-online/mlb_server.py` | `GET /api/coins-rate`；`/api/health` 暴露 `coins_rate`（仅布尔） |
+| `/var/www/mlb-online/index.html` | 表单自动预填 + 「重新取价」；人改过就不再覆盖 |
+
+逆向时踩到的三个坑（写进代码注释了，别再踩）：
+
+1. **菜单路径是「站点根相对」**（页面里 `WEB_ROOT = "/"`）。
+   加 `/admin/` 前缀 → 404。正解 `/game/admin_game_price/index.html`
+   （`/admin/index/index.html` 也能通，因为 `admin` 只是其中一个模块名，不是统一前缀）。
+2. **筛选参数是 `?gid=922`**。写成 `?gid[]=922`（axios 风格）→ **HTTP 500**。
+3. **表格里有 3 列被 `<!-- -->` 注释掉了**（`c2c` / `g2g.com` / `eldorado.gg`）。
+   **必须先把 HTML 注释剥掉再解析**，否则 7 列变 11 列、列序整体错位。
+   ⇒ `strip_comments()` 不是优化，是正确性前提。离线用例锁死了这条
+     （`10 个 <td> → 剥注释后 7 个`）。
+
+**两道防打爆后台的保护**（取价每次都要登录订单后台过验证码）：
+
+- 前端：**不每 5 秒重试**，只在首屏 + 手动「重新取价」时调一次；
+- 服务端：失败**负缓存 60 秒**（`FAIL_BACKOFF_SEC`）。
+  否则页面 5 秒一轮 = 每小时 720 次登录 → 账号可能被锁。
+
+取价失败**一律退回人工填写**，且**绝不影响**建任务 / 领任务 / 采集回传 / 上架。
+
+### 11.3 本批文件清单
+
+| 文件 | 变更 |
+|---|---|
+| `/opt/mlb-online/mlb_server.py` | 1.1 → **1.2** |
+| `/opt/mlb-online/mlb_writeback.py` | 改（放行闸门） |
+| `/opt/mlb-online/mlb_coins_rate.py` | **新增** |
+| `/opt/mlb-online/server_config.json` | 加 `writeback.require_approval` + `coins_rate` 段（线上 `dry_run=false`） |
+| `/var/www/mlb-online/index.html` | 核对面板 + 取价预填 |
+| `/opt/mlb-admin-write/src/p2pah_price.py` | **新增** |
+| `/opt/mlb-admin-write/_cred_order.json` | **新增**（600，订单后台凭据） |
+
+### 11.4 上线验证
+
+| 项 | 结果 |
+|---|---|
+| 离线单测 `mlb-admin`（Py 3.9.25） | `{"testsRun": 45, "failures": 0, "errors": 0, "skipped": 0}` |
+| 离线单测 `mlb-shelf-tool`（Py 3.9.25） | `{"testsRun": 102, "failures": 0, "errors": 0, "skipped": 0}` |
+| 门禁 `pr_fast.py`（3.9，main 基线 `7ae57b83`） | `{"result": "PASS", "affected_groups": ["mlb-admin", "mlb-shelf-tool"]}` |
+| 端到端冒烟（真起 hub / 真发 HTTP / 真等子进程，Py 3.9） | **56/56** |
+| 页面结构门禁（`frontend_structure`） | OK，41,450 B |
+
+端到端里**刻意验的几条**（这是"闸门是真的"的唯一硬证据）：
+
+- 回传后等 4 秒，`<tid>.writeback.json` **不存在** ⇒ 放行前确实没写；
+- 放行名单里塞快照外的卡 → `noop` + 精确原因，磁盘仍无产物；
+- 只勾 1 张 → 报告里就只能有 1 张；
+- 连点两次「放行」→ 第二次 `noop`，报告仍是 1 张；
+- 关掉闸门 → 回到旧的自动行为（加闸门不能把老路径弄坏）。
+
+⚠️ 字段/接口名（后端与本机一致）：状态 `awaiting_review` / `cancelled` / `review_lost`；
+端点 `POST /api/tasks/<tid>/writeback/approve`（body `{"names":[...]}`，`null` = 全选）
+与 `.../cancel`（body `{"reason":""}`）。
+

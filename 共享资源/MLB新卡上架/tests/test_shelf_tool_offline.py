@@ -25,6 +25,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -34,6 +35,7 @@ TOOL = HERE.parent                      # 共享资源/MLB新卡上架/
 
 sys.path.insert(0, str(TOOL / "server"))
 import mlb_writeback as WB              # noqa: E402
+import mlb_coins_rate as CR             # noqa: E402
 
 
 def _text(rel: str) -> str:
@@ -483,6 +485,603 @@ class WebWritebackUi(unittest.TestCase):
         text = _text("web/index.html")
         self.assertIn("colspan=\"9\"", text)
         self.assertIn("上架", text)
+
+
+#: 用于闸门用例的"存在即可"路径（闸门只判 isfile）
+_WB_SRC = str(TOOL / "server" / "mlb_writeback.py")
+
+
+def _wbcfg(**kw):
+    """一份"全开"的 writeback 配置，用例按需覆盖单项。"""
+    base = {"enabled": True, "dry_run": False, "require_approval": True,
+            "python": sys.executable, "script": _WB_SRC, "cred": _WB_SRC,
+            "archive_dir": "/tmp/a", "confirm": WB.DEFAULT_CONFIRM, "timeout": 60}
+    base.update(kw)
+    return base
+
+
+def _cards():
+    return [
+        {"name": "Dennis Eckersley", "ovr": "99", "position": "CP",
+         "team": "Athletics", "series": "Awards", "hash": "a" * 32,
+         "product_name": "Dennis Eckersley/99/CP/Athletics/Awards",
+         "sale_price": "1.49", "include": True},
+        {"name": "Andy Pettitte", "ovr": "99", "position": "SP",
+         "team": "Yankees", "series": "Awards", "hash": "b" * 32,
+         "product_name": "Andy Pettitte/99/SP/Yankees/Awards",
+         "sale_price": "1.14", "include": True},
+    ]
+
+
+class _FakeHub:
+    """把 hub 的 read/update/writeback_update 换成内存版，避免碰数据库。
+
+    ⚠️ `read` 必须真的返回**上一次写入的状态** —— 放行的幂等性就靠它，
+       注入一个恒空的 read 会让"二次放行"用例变成假的绿灯。
+    """
+
+    def __init__(self):
+        self.state = {}
+        self.patches = []
+
+    def read(self, tid):
+        return dict(self.state)
+
+    def update(self, tid, patch):
+        self.patches.append(dict(patch))
+        self.state.update(patch)
+
+
+class ApprovalGate(unittest.TestCase):
+    """★ 人工确认闸门：**采集完成后不许自己写**，必须有人点「确认放行」。
+
+    这道闸门存在的唯一意义是"防未经确认的线上写入"，所以用例的重点全在
+    **不该写的时候一个字节都不能写**：
+      · 没有 require_approval 之外的条件时也不许自动写；
+      · 二次放行不许起第二个子进程（会建重复模型）；
+      · 勾选之外的卡不许被顺手写进去；
+      · 快照丢了/状态不对时一律 fail closed。
+    """
+
+    def setUp(self):
+        self.hub = _FakeHub()
+        self.td = tempfile.mkdtemp(prefix="wbrev-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.td, True))
+
+    def _start(self, cards=None, **cfg):
+        return WB.start(tid="t1", payload={"write_back": True},
+                        cards=_cards() if cards is None else cards,
+                        config={"writeback": _wbcfg(**cfg)},
+                        update=self.hub.update, read=self.hub.read,
+                        workdir=self.td, log=lambda *a: None)
+
+    def _patch_runner(self):
+        """把真正的写卡子进程换成记录桩，并返回调用记录。"""
+        from unittest import mock
+        calls = []
+        obj = mock.Mock(side_effect=lambda **kw: (
+            calls.append(kw), {"status": "ok", "counts": {}})[1])
+        return mock.patch.object(WB, "run_once", obj), calls
+
+    # ---------------------------------------------------------------- 默认值
+    def test_require_approval_defaults_true(self):
+        """配置漏写时必须**停下来等人**，而不是直接写线上。"""
+        self.assertTrue(WB.cfg({})["require_approval"])
+        self.assertTrue(WB.cfg({"writeback": {}})["require_approval"])
+
+    def test_require_approval_can_be_turned_off_explicitly(self):
+        self.assertFalse(WB.cfg({"writeback": {"require_approval": False}})
+                         ["require_approval"])
+
+    # ---------------------------------------------------------------- 停下等人
+    def test_start_parks_and_writes_nothing(self):
+        patcher, calls = self._patch_runner()
+        with patcher:
+            out = self._start()
+        self.assertEqual(out["status"], "awaiting_review")
+        self.assertEqual(out["cards_in"], 2)
+        self.assertEqual(out["default_selected"], 2)
+        self.assertEqual(calls, [], "未放行就跑了写卡子进程")
+        self.assertEqual(self.hub.state.get("status"), "awaiting_review")
+        self.assertTrue(os.path.isfile(WB.pending_path(self.td, "t1")),
+                        "待审快照没落盘 → 重启后没法放行")
+
+    def test_snapshot_keeps_full_cards_for_the_writer(self):
+        """快照存的必须是**完整**卡片（写卡脚本要 hash/售价），不是预览精简版。"""
+        self._start()
+        snap = WB.read_pending(self.td, "t1")
+        self.assertEqual(len(snap["cards"]), 2)
+        self.assertEqual(snap["cards"][0]["hash"], "a" * 32)
+        self.assertEqual(snap["sha256"], WB.cards_sha(_cards()))
+
+    def test_new_result_replaces_snapshot(self):
+        """任务被重跑 → 新结果整份替换快照，旧的人工确认随之作废。"""
+        self._start()
+        first = WB.read_pending(self.td, "t1")["sha256"]
+        self._start(cards=_cards()[:1])
+        snap = WB.read_pending(self.td, "t1")
+        self.assertEqual(len(snap["cards"]), 1)
+        self.assertNotEqual(snap["sha256"], first)
+
+    def test_resume_review_after_hub_restart(self):
+        """待审是**持久态**：hub 重启后仍然能放行（不必重跑采集）。"""
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, by="tester", log=lambda *a: None)
+        self.assertEqual(r["status"], "running")
+        self.assertEqual(len(calls), 1)
+
+    def test_duplicate_result_does_not_double_fire(self):
+        """执行器补传一次结果时，不得把正在跑的上架再触发一遍。
+
+        ⚠️ 必须让假执行器**卡住**（Event）再断言：用秒返回的桩会立刻把状态
+           写成 ok，那就测不到"running 期间重复触发"这条分支了（会变成假绿）。
+        """
+        import threading
+        from unittest import mock
+        calls = []
+        release = threading.Event()
+
+        def slow(**kw):
+            calls.append(kw)
+            release.wait(5)
+            return {"status": "ok", "counts": {}}
+
+        with mock.patch.object(WB, "run_once", mock.Mock(side_effect=slow)):
+            self._start()
+            WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                       update=self.hub.update, read=self.hub.read,
+                       workdir=self.td, log=lambda *a: None)
+            self.assertEqual(self.hub.state.get("status"), "running")
+            again = self._start()                 # 此刻还在跑
+            release.set()
+            time.sleep(0.4)
+        self.assertEqual(again["status"], "running")
+        self.assertIn("忽略", again["reason"])
+        self.assertEqual(len(calls), 1, "重复触发起了第二个写卡进程")
+        self.assertEqual(len([p for p in self.hub.patches
+                              if p.get("status") == "running"]), 1)
+
+    # ---------------------------------------------------------------- 放行
+    def test_approve_only_writes_selected_cards(self):
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=["Andy Pettitte/99/SP/Yankees/Awards"],
+                           config={"writeback": _wbcfg()}, update=self.hub.update,
+                           read=self.hub.read, workdir=self.td, by="wulv",
+                           log=lambda *a: None)
+            time.sleep(0.3)
+        self.assertEqual(r["status"], "running")
+        self.assertEqual(r["approved_cards"], 1)
+        self.assertEqual(r["reviewed_cards"], 2)
+        self.assertEqual(r["approved_names"],
+                         ["Andy Pettitte/99/SP/Yankees/Awards"])
+        self.assertEqual([c["product_name"] for c in calls[0]["cards"]],
+                         ["Andy Pettitte/99/SP/Yankees/Awards"])
+        # 留痕要同时进「任务状态」和「最终运行结果」——后者是 extra 传下去的
+        self.assertEqual(self.hub.state["approved_names"],
+                         ["Andy Pettitte/99/SP/Yankees/Awards"])
+        self.assertEqual(calls[0]["extra"]["approved_names"],
+                         ["Andy Pettitte/99/SP/Yankees/Awards"])
+
+    def test_approve_all_when_names_missing(self):
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                       update=self.hub.update, read=self.hub.read,
+                       workdir=self.td, log=lambda *a: None)
+            time.sleep(0.3)
+        self.assertEqual(len(calls[0]["cards"]), 2)
+
+    def test_approve_is_idempotent(self):
+        """★ 双击/网络重发只放行一次 —— 第二次必须 noop，不进子进程。"""
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            ok = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                            update=self.hub.update, read=self.hub.read,
+                            workdir=self.td, log=lambda *a: None)
+            self.hub.state["status"] = "ok"          # 模拟线程已跑完
+            dup = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                             update=self.hub.update, read=self.hub.read,
+                             workdir=self.td, log=lambda *a: None)
+            time.sleep(0.3)
+        self.assertEqual(ok["status"], "running")
+        self.assertEqual(dup["status"], "noop")
+        self.assertEqual(len(calls), 1, "第二次放行又起了一个写卡进程")
+
+    def test_approve_rejects_names_outside_snapshot(self):
+        """前端传了快照里没有的名字（UI 过期/人为构造）必须拒 —— 不能凭空写。"""
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=["Someone/99/CF/XXX/Awards"],
+                           config={"writeback": _wbcfg()}, update=self.hub.update,
+                           read=self.hub.read, workdir=self.td, log=lambda *a: None)
+        self.assertEqual(r["status"], "noop")
+        self.assertIn("快照外", r["reason"])
+        self.assertEqual(calls, [])
+
+    def test_approve_rejects_empty_selection(self):
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=[], config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, log=lambda *a: None)
+        self.assertEqual(r["status"], "noop")
+        self.assertEqual(calls, [])
+
+    def test_approve_rejects_when_snapshot_missing(self):
+        self._start()
+        os.remove(WB.pending_path(self.td, "t1"))
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, log=lambda *a: None)
+        self.assertEqual(r["status"], "noop")
+        self.assertIn("快照", r["reason"])
+        self.assertEqual(calls, [], "快照丢了还照样写 —— 这是最危险的一条路径")
+
+    def test_approve_rejects_when_not_awaiting(self):
+        for st in ("skipped", "running", "ok", "cancelled", None):
+            self.hub.state = {} if st is None else {"status": st}
+            r = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, log=lambda *a: None)
+            self.assertEqual(r["status"], "noop", st)
+
+    def test_approve_records_who_approved(self):
+        self._start()
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, by="wulv", log=lambda *a: None)
+            time.sleep(0.3)
+        self.assertEqual(r["status"], "running")
+        self.assertEqual(self.hub.state["approved_by"], "wulv")
+        self.assertEqual(self.hub.state["sha256"],
+                         WB.read_pending(self.td, "t1")["sha256"])
+        # 留痕要一路带到最终结果里（否则事后查不到谁放行的）
+        self.assertEqual(calls[0]["extra"]["approved_by"], "wulv")
+
+    # ---------------------------------------------------------------- 取消
+    def test_cancel_from_awaiting(self):
+        self._start()
+        r = WB.cancel(tid="t1", read=self.hub.read, update=self.hub.update,
+                      workdir=self.td, by="wulv", log=lambda *a: None)
+        self.assertEqual(r["status"], "cancelled")
+        self.assertEqual(self.hub.state["status"], "cancelled")
+        self.assertEqual(self.hub.state["cancelled_by"], "wulv")
+
+    def test_cancel_refused_once_running(self):
+        """已经在跑的不给取消：中途 kill 会留下状态未知的模型，更危险。"""
+        self.hub.state = {"status": "running"}
+        r = WB.cancel(tid="t1", read=self.hub.read, update=self.hub.update,
+                      workdir=self.td, log=lambda *a: None)
+        self.assertEqual(r["status"], "noop")
+
+    # ---------------------------------------------------------------- 预览
+    def test_preview_flags_missing_fields(self):
+        cards = [{"product_name": "", "hash": "", "sale_price": "", "include": True}]
+        pre = WB.review_preview(cards)
+        self.assertEqual(pre[0]["issues"],
+                         ["缺 product_name", "缺卡图 hash", "缺售价"])
+
+    def test_preview_flags_duplicate_names(self):
+        cards = [{"product_name": "X/99/CP/A/B", "hash": "h", "sale_price": "1",
+                  "include": True}] * 2
+        pre = WB.review_preview(cards)
+        self.assertTrue(pre[1]["issues"], "同名重复没被标出来")
+
+    def test_preview_issues_do_not_block_release(self):
+        """静态提示只是提示 —— 人工确认后仍可放行（不代替人的判断）。"""
+        self._start(cards=[{"name": "A", "product_name": "A/99/CP/X/S",
+                            "include": True}])
+        patcher, calls = self._patch_runner()
+        with patcher:
+            r = WB.approve(tid="t1", names=None, config={"writeback": _wbcfg()},
+                           update=self.hub.update, read=self.hub.read,
+                           workdir=self.td, log=lambda *a: None)
+        self.assertEqual(r["status"], "running")
+
+    def test_preview_tolerates_garbage(self):
+        self.assertEqual(WB.review_preview(None), [])
+        self.assertEqual(WB.review_preview([None, 1, "x"]), [])
+
+    # ---------------------------------------------------------------- 其他
+    def test_cards_sha_changes_with_content(self):
+        a = WB.cards_sha(_cards())
+        b = WB.cards_sha(_cards()[:1])
+        self.assertNotEqual(a, b)
+        self.assertEqual(WB.cards_sha(None), WB.cards_sha([]))
+
+    def test_run_once_extra_cannot_override_status(self):
+        """审批留痕是补充信息，绝不能覆盖运行结论（否则会把失败写成功）。"""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as td:
+            def fake_run(cmd, **kw):
+                out = cmd[cmd.index("--out") + 1]
+                with open(out, "w", encoding="utf-8") as f:
+                    json.dump([{"verdict": "dry-run"}], f)
+                return subprocess.CompletedProcess(cmd, 0, stdout=b"x\n")
+
+            wb = _wbcfg(script="/opt/x/mlb_write_cards.py", dry_run=True)
+            with mock.patch.object(WB.subprocess, "run", fake_run):
+                res = WB.run_once(tid="t9", cards=_cards(), wb=wb, workdir=td,
+                                  log=lambda *a: None,
+                                  extra={"status": "ok", "approved_by": "wulv"})
+        self.assertEqual(res["status"], "dry_run", "审批留痕把结论覆盖了")
+        self.assertEqual(res["approved_by"], "wulv")
+
+    def test_gate_still_runs_before_approval_logic(self):
+        """四道闸门的第一道还是"任务勾选" —— 没勾就走不到冻结那一步。"""
+        out = WB.start(tid="t1", payload={}, cards=_cards(),
+                       config={"writeback": _wbcfg()}, update=self.hub.update,
+                       read=self.hub.read, workdir=self.td, log=lambda *a: None)
+        self.assertEqual(out["status"], "skipped")
+        self.assertFalse(os.path.isfile(WB.pending_path(self.td, "t1")))
+
+    def test_approval_off_keeps_old_auto_behaviour(self):
+        """显式关掉人工确认时，行为回到"闸门过了就直接跑"。"""
+        patcher, calls = self._patch_runner()
+        with patcher:
+            out = self._start(require_approval=False)
+            time.sleep(0.3)
+        self.assertEqual(out["status"], "running")
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(os.path.isfile(WB.pending_path(self.td, "t1")),
+                         "免确认模式不该产生待审快照")
+
+
+class CoinsRateBridge(unittest.TestCase):
+    """hub 侧取价：只做搬运 + 缓存，换算全在子进程里。
+
+    两个必须守住的性质：
+      ① 关掉/没配好时**绝不去连后台**（宁可让人工填）；
+      ② 失败要**负缓存**，否则页面 5 秒一轮 = 每小时 720 次登录，账号会被试锁。
+    """
+
+    def setUp(self):
+        CR._CACHE["data"] = None
+        CR._NEG["data"] = None
+        self.c = CR.cfg({"coins_rate": {
+            "enabled": True, "python": sys.executable, "script": _WB_SRC,
+            "cred": _WB_SRC, "gid": 922, "area": "PS 5", "multiplier": 100,
+            "timeout": 30, "cache_sec": 600, "cache_dir": ""}})
+
+    def test_cfg_defaults_are_fail_safe(self):
+        d = CR.cfg({})
+        self.assertFalse(d["enabled"], "配置缺失时必须**不**去连后台")
+        self.assertEqual(d["gid"], 922)
+        self.assertEqual(d["multiplier"], 100)
+        self.assertEqual(d["area"], "PS 5")
+
+    def test_status_exposes_booleans_not_paths(self):
+        s = CR.status(self.c)
+        blob = json.dumps(s)
+        self.assertNotIn("/opt/", blob, "health 把服务器路径回给前端了")
+        self.assertTrue(s["script_ok"] and s["cred_ok"])
+        self.assertEqual(s["gid"], 922)
+
+    def test_build_cmd_shape(self):
+        cmd = CR.build_cmd(self.c, "/tmp/o.json")
+        self.assertIn("--gid", cmd)
+        self.assertEqual(cmd[cmd.index("--gid") + 1], "922")
+        self.assertEqual(cmd[cmd.index("--multiplier") + 1], "100")
+        self.assertEqual(cmd[cmd.index("--area") + 1], "PS 5")
+        self.assertIn("--out", cmd)
+        self.assertIn("--json", cmd)
+
+    def test_disabled_never_spawns(self):
+        from unittest import mock
+        with mock.patch.object(CR.subprocess, "run") as run:
+            r = CR.fetch(CR.cfg({}))
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["step"], "disabled")
+        run.assert_not_called()
+
+    def test_missing_script_never_spawns(self):
+        from unittest import mock
+        with mock.patch.object(CR.subprocess, "run") as run:
+            r = CR.fetch(CR.cfg({"coins_rate": {"enabled": True,
+                                                "script": "/nope/x.py",
+                                                "cred": "/nope/c.json"}}))
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["step"], "config")
+        run.assert_not_called()
+
+    def test_fetch_parses_stdout_json(self):
+        from unittest import mock
+        payload = json.dumps({"ok": True, "b2c": 0.0429,
+                              "rate_usd_per_100k": 4.29,
+                              "formula": "0.0429(USD/1K) × 100 = 4.29(USD/100K)"})
+        with tempfile.TemporaryDirectory() as td:
+            def fake_run(cmd, **kw):
+                return subprocess.CompletedProcess(
+                    cmd, 0, stdout=("[price] 登录成功\n" + payload + "\n").encode(),
+                    stderr=b"")
+            with mock.patch.object(CR.subprocess, "run", fake_run):
+                r = CR.fetch(self.c, log=lambda *a: None, out_dir=td)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["rate_usd_per_100k"], 4.29)
+        self.assertIn("× 100", r["formula"])
+
+    def test_timeout_is_reported_not_raised(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as td:
+            def boom(cmd, **kw):
+                raise subprocess.TimeoutExpired(cmd, 1)
+            with mock.patch.object(CR.subprocess, "run", boom):
+                r = CR.fetch(self.c, log=lambda *a: None, out_dir=td)
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["step"], "timeout")
+
+    def test_failure_is_negatively_cached(self):
+        """★ 失败后 60 秒内不再登录后台 —— 防把账号试锁。"""
+        from unittest import mock
+        calls = []
+        with mock.patch.object(CR, "fetch",
+                               side_effect=lambda c, **kw: (calls.append(1),
+                                                            {"ok": False,
+                                                             "error": "x"})[1]):
+            CR.get(self.c, log=lambda *a: None)
+            CR.get(self.c, log=lambda *a: None)
+            CR.get(self.c, log=lambda *a: None)
+        self.assertEqual(len(calls), 1, "失败没有负缓存，会打爆后台登录")
+        # 显式强制重取时必须真的重取（页面上有「重试」）
+        with mock.patch.object(CR, "fetch",
+                               side_effect=lambda c, **kw: (calls.append(1),
+                                                            {"ok": False})[1]):
+            CR.get(self.c, force=True, log=lambda *a: None)
+        self.assertEqual(len(calls), 2)
+
+    def test_success_is_cached(self):
+        from unittest import mock
+        calls = []
+        with mock.patch.object(CR, "fetch",
+                               side_effect=lambda c, **kw: (calls.append(1),
+                                                            {"ok": True,
+                                                             "rate_usd_per_100k": 4.29})[1]):
+            CR.get(self.c, log=lambda *a: None)
+            r = CR.get(self.c, log=lambda *a: None)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(r["cached"])
+
+
+class HubApprovalWiring(unittest.TestCase):
+    """hub 侧接线：放行/取消两个接口，以及取价旁路的落点。"""
+
+    def test_approve_and_cancel_routes_exist(self):
+        text = _text("server/mlb_server.py")
+        self.assertIn('path.endswith("/writeback/approve")', text)
+        self.assertIn('path.endswith("/writeback/cancel")', text)
+        self.assertIn("WB.approve(", text)
+        self.assertIn("WB.cancel(", text)
+
+    def test_approve_reads_state_from_server_not_from_client(self):
+        """放行判断只认服务端状态（read=writeback_read），不信前端传参。"""
+        text = _text("server/mlb_server.py")
+        self.assertIn("def writeback_read(", text)
+        i = text.find('path.endswith("/writeback/approve")')
+        seg = text[i:i + 900]
+        self.assertIn("read=writeback_read", seg)
+        self.assertIn("update=writeback_update", seg)
+        self.assertNotIn("body.get(\"status\")", seg)
+
+    def test_start_receives_read_hook(self):
+        text = _text("server/mlb_server.py")
+        i = text.find("WB.start(")
+        self.assertIn("read=writeback_read", text[i:i + 500])
+
+    def test_health_exposes_require_approval_and_rate_booleans(self):
+        text = _text("server/mlb_server.py")
+        i = text.find('path == "/api/health"')
+        seg = text[i:i + 1100]
+        self.assertIn('"require_approval"', seg)
+        self.assertIn("CR.status(", seg)
+        self.assertNotIn('"script":', seg)      # 不回具体路径
+        self.assertNotIn('"cred":', seg)
+
+    def test_coins_rate_route_and_cache_dir(self):
+        text = _text("server/mlb_server.py")
+        self.assertIn('path == "/api/coins-rate"', text)
+        self.assertIn('RATE_DIR = os.path.join(HERE, "data", "pricing")', text)
+        self.assertNotIn('os.path.join(HERE, "files", "pricing")', text)
+
+    def test_boot_sweep_also_handles_lost_review_snapshot(self):
+        text = _text("server/mlb_server.py")
+        i = text.find("def mark_interrupted_writebacks(")
+        seg = text[i:i + 2200]
+        self.assertIn("WB.AWAITING", seg)
+        self.assertIn("review_lost", seg)
+        self.assertIn("mark_interrupted_writebacks()", text[text.find("def main("):][:900])
+
+    def test_no_schema_migration_still(self):
+        text = _text("server/mlb_server.py")
+        self.assertIsNone(re.search(r"""c\.execute\(\s*['"]\s*ALTER\s+TABLE""",
+                                    text, re.I))
+
+
+class WebApprovalUi(unittest.TestCase):
+    """网页：能核对、能勾选、能放行，且**勾选不会被轮询重绘抹掉**。"""
+
+    def test_review_panel_exists(self):
+        text = _text("web/index.html")
+        for kw in ("renderReview", "approveWriteback", "cancelWriteback",
+                   'id="wbGo"', 'id="wbAck"', 'id="wbCancel"',
+                   'id="wbSelCount"', 'id="wbMsg"'):
+            self.assertIn(kw, text, "网页缺少 %s" % kw)
+
+    def test_awaiting_review_has_status_and_label(self):
+        text = _text("web/index.html")
+        self.assertIn("awaiting_review", text)
+        self.assertIn("待人工确认", text)
+        self.assertIn("review_lost", text)
+
+    def test_selection_state_lives_outside_dom(self):
+        """★ 勾选状态必须存在 DOM 之外 —— 本页每 5 秒重绘一次当前任务。"""
+        text = _text("web/index.html")
+        self.assertIn("const WB_SEL = {}", text)
+        self.assertIn("wbSelBox", text)
+        self.assertRegex(text, r"if\(!\(nm in sel\)\) sel\[nm\]",
+                         "缺少「首绘预置勾选」的逻辑")
+
+    def test_approve_and_cancel_endpoints(self):
+        text = _text("web/index.html")
+        self.assertIn("/writeback/approve", text)
+        self.assertIn("/writeback/cancel", text)
+
+    def test_approve_button_requires_explicit_ack(self):
+        """光有按钮不算闸门 —— 必须还有一个"我已核对"的勾才能点。"""
+        text = _text("web/index.html")
+        i = text.find("function wbBtnState(")
+        self.assertGreater(i, 0)
+        seg = text[i:i + 700]
+        self.assertIn("ack.checked", seg)
+        self.assertIn("n > 0", seg)
+
+    def test_cancel_needs_two_clicks(self):
+        text = _text("web/index.html")
+        self.assertIn("WB_CANCEL_ARM", text)
+        self.assertIn("再点一次", text)
+
+    def test_stranded_review_task_can_be_reached_from_history(self):
+        """新任务把待审任务挤下去之后，必须还能从历史里跳回去放行。"""
+        text = _text("web/index.html")
+        self.assertIn("pinTask", text)
+        self.assertIn("去确认上架", text)
+        self.assertIn("let PIN = null", text)
+
+    def test_coins_rate_prefill_and_manual_override(self):
+        text = _text("web/index.html")
+        for kw in ("refreshCoinsRate", "/coins-rate", "RATE_TOUCHED",
+                   'id="rateHint"', "重新取价"):
+            self.assertIn(kw, text, "网页缺少 %s" % kw)
+        # 人工改过之后不许被自动值覆盖
+        self.assertIn("!RATE_TOUCHED || force", text)
+
+    def test_rate_not_retried_every_poll(self):
+        """取价失败不许每 5 秒重试（会打爆后台登录）。"""
+        text = _text("web/index.html")
+        self.assertIn("if(!RATE_AUTO || manual) jobs.push(refreshCoinsRate())", text)
+
+    def test_approved_names_shown_in_audit_line(self):
+        """留痕要能回答「到底放行了哪几张」—— 光有计数不够。"""
+        text = _text("web/index.html")
+        self.assertIn("approved_names", text)
+        self.assertIn("放行卡片：", text)
+
+    def test_cards_table_column_count_still_synced(self):
+        text = _text("web/index.html")
+        self.assertIn('colspan="9"', text)
 
 
 if __name__ == "__main__":
