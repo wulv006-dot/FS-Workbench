@@ -170,8 +170,23 @@ class WriteCardConstants(unittest.TestCase):
         self.assertEqual(W.B2C_BASE, "https://b2c-api.p2pah.cn")
 
     def test_expected_products_is_48(self):
-        """16 张卡 × 3 个 aid = 48；对不上说明 shelves 参数被改坏。"""
+        """48 = **单个模型**的渠道产品数 = 16 个站点 × 3 个 aid
+        （实测 site_ids 16 个：0,10,11,266,290,332,335,339,341,343,569,571,573,575,577,59）。
+
+        ⚠️ 这是**每张卡（每个模型）**的数量，不是某一批的总数 ——
+           `products_of(mid)` 只统计 `mid = 这一个模型` 的产品。
+           旧注释写成「16 张卡 × 3 个 aid = 48」很容易让人误读成批次总数，已改。
+        """
         self.assertEqual(W.EXPECTED_PRODUCTS, 48)
+
+    def test_products_of_counts_one_model_only(self):
+        """幂等与达标判定都靠这个数，口径必须是「按 mid 过滤后的 total」。"""
+        src = (SRC / "mlb_write_cards.py").read_text(encoding="utf-8")
+        i = src.find("def products_of(")
+        self.assertGreater(i, 0)
+        seg = src[i:i + 420]
+        self.assertIn('"field": "mid"', seg)
+        self.assertIn('str(mid)', seg)
 
     def test_upload_network_is_endpoint_on_b2c(self):
         self.assertTrue(W.B2C_BASE.endswith("b2c-api.p2pah.cn"))
