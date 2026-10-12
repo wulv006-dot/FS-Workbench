@@ -232,6 +232,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/fc-detail-analytics-20261012/"):
+            groups.add("fc-detail-analytics");continue
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
             groups.add("fs-on-demand");continue
         # MLB 后台直写链路（2026-10-12）：逆向证据 + 生产脚本 + 离线用例。
@@ -350,6 +352,10 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fc-detail-analytics":
+            release="releases/fs-dashboard/fc-detail-analytics-20261012"
+            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_publisher"])
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
         elif group=="fs-on-demand":
             release="releases/fs-dashboard/on-demand-20261012"
             units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
