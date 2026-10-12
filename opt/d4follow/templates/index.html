@@ -2301,13 +2301,17 @@ async function showGoldHistory(key, title){
       const pct=p.delta_pct, up=(pct!=null && Number(pct)>0);
       const col=(pct==null)?'var(--sub)':(up?'var(--red)':'var(--green)');
       const t=String(p.ts||'').replace('T',' ').slice(0,16);
+      /* 早期台账的 mode/basis 可能为空 —— Python 的 None 会原样带出来（实测线上有
+         "基准 - $None"）。这里只做**展示层兜底**，不改任何数据。 */
+      const modeTxt=(p.mode==null||p.mode==='') ? '--' : String(p.mode);
+      const basisTxt=(String(p.basis==null?'':p.basis).replace(/\bNone\b/g,'--') || '--');
       h+='<tr><td class="mono small">'+esc(t)+'</td>'
         + '<td class="mono">'+f(p.old_usd_m)+'</td>'
         + '<td class="mono">'+f(p.new_usd_m)+'</td>'
         + '<td style="color:'+col+';font-weight:600">'
         + (pct==null?'--':((pct>0?'\u25b2 +':'\u25bc ')+Number(pct).toFixed(2)+'%'))+'</td>'
-        + '<td class="small">'+esc(p.mode||'--')+'</td>'
-        + '<td class="small">'+esc(p.basis||'--')+'</td></tr>';
+        + '<td class="small">'+esc(modeTxt)+'</td>'
+        + '<td class="small">'+esc(basisTxt)+'</td></tr>';
     });
     h+='</tbody></table>';
     $('#histBody').innerHTML=h;
