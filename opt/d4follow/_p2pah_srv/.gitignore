@@ -1,0 +1,53 @@
+# 本目录 = 线上 /opt/d4follow/_p2pah_srv 的「源码留档」。
+# 只收运行态源码；凭据 / 会话 / 配置 / 运行时产物 / 历史备份 / 一次性脚本一律不入库。
+# 详见 README.md。
+
+# ── 凭据 / 会话（绝不可入库）──
+_accounts.json
+_admin_token.json
+_admin_account.json
+*cookies*.json
+_srv_profile/
+_edge_p2pah/
+_edge_adminp2pah/
+
+# ── 配置（含账号与业务配置）──
+_cfg/
+
+# ── 运行时产物 ──
+_jobs/
+_shots/
+_tmp_probe/
+data/
+__pycache__/
+*.log
+*.log.*
+*.jsonl
+p2pah_write_result_*.json
+p2pah_writegold_result_*.json
+srv_trial_result.json
+_bk_*.json
+_d4_*.json
+_read_*.json
+_gems_*.json
+_rune_dump.json
+_dump_*.json
+_mscw_gold.html
+item_cid.json
+_kw*.json
+
+# ── 历史备份（非当前源码）──
+_bak_*.py
+*.bak_*
+_bak_verify_gid_*/
+
+# ── 一次性 / 侦察 / 调试脚本（按需人工确认后入库，默认不收）──
+_evid_*.py
+_mscw_*.py
+_probe_pages.py
+_test_fetch_needed.py
+_dump_readonly.py
+_gold_rows_readonly.py
+_list_d4_keys.py
+_verify_*.py
+*_new_core_dd373_cost.py
