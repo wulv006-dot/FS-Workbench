@@ -1667,7 +1667,7 @@ async function renderGoldInner(pre){
       +'vs 竞品最低价</span></th>'
     +'<th class="num">利润率</th>'
     +'<th class="num">目标采购成本 ￥/M</th><th class="num">最大档对照</th><th>动作</th>'
-    +'<th>改价操作</th></tr>';
+    +'<th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
   const THEAD_ITEM='<tr><th>商品</th><th class="num">装量</th>'
     +'<th class="num">IGGM 上轮</th><th class="num">IGGM 现价</th><th class="num">变动</th>'
     +'<th class="num">我方现价</th><th class="num">目标价</th>'
@@ -1708,7 +1708,11 @@ async function renderGoldInner(pre){
         const tierChip = (tier==null) ? ''
           : '<div class="small" style="color:'+tcol+';font-weight:600">'
             + (_TIERLBL[tier] || ('第'+tier+'级')) + '</div>';
-        return '<tr'+(isOff?' style="opacity:.55"':'')+'><td><b>'+esc(x.title||x.key)+'</b>'
+        return '<tr style="cursor:pointer'+(isOff?';opacity:.55':'')+'"'
+          + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.title||x.key||'')+'"'
+          + ' title="点击查看该服务区的调价历史"'
+          + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
+          + '<td><b>'+esc(x.title||x.key)+'</b>'
           + tierChip
           + '<div class="small" style="color:var(--sub)">后台行 '+esc(x.row_id||'--')
           + ' ｜ 前端 aid '+esc(x.aid||'--')
@@ -2046,7 +2050,10 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         })();
     /* 2026-10-06 展示名统一：优先用后端补的 服务器名/大区中文/种族（DD373 优先、
        config 兜底），避免新子服务器在 DD373 无挂单时掉成裸 key AION2_XXX_E。 */
-    return '<tr>'
+    return '<tr style="cursor:pointer"'
+      + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.服务器名||x.DD游戏区||x.key||'')+'"'
+      + ' title="点击查看该服务区的调价历史"'
+      + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
       + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
         + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
         + (stockTip? esc(stockTip):'')+'</div></td>'
@@ -2158,7 +2165,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     + '<th class="num">利润率</th>'
     /* 2026-10-02 用户要求：金币监控主表已隐藏，把它的「差距对比」并到这里 */
     + '<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">vs 竞品最低价</span></th>'
-    + '<th>依据</th><th>改价操作</th></tr>';
+    + '<th>依据</th><th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
   const _isDD2 = _pol2['模式']==='dd373_markup';
   const _isOnly = _pol2['模式']==='dd373_only';
   /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
@@ -2260,6 +2267,53 @@ async function showHistory(key){
   }catch(e){ toast(e.message,'err'); }
 }
 function closeHist(){ $('#histModal').classList.remove('show'); }
+/* 金币货架 · 调价历史弹窗（2026-10-12 新增）
+   ------------------------------------------------------------------
+   为什么要它：物品行的「价格历史」读的是 decisions（跟价引擎**每轮**写一条），
+   而金币货架走的是另一条链路（gold_action 台账），过去那一列只显示「最近一次」，
+   点不开历史。后端 /api/gold_action?key= 早就存在，这次只把前端入口补上。
+
+   ⚠ 口径提醒（和上方「改价操作」列**不是**同一个来源，别对着看）
+     · 本弹窗     = gold_action 台账：采集时对比上一轮**我方前端实价**，
+                    **真的变了才记一行**；时间 = 采集观察到变化的时刻。
+     · 「改价操作」列 = gold_ticket_map：执行器回填的工单真值，
+                    时间 = 工单 finished_at。两者可能差几十分钟。 */
+async function showGoldHistory(key, title){
+  if(!key){ toast('这一行没有服务区标识，无法查历史','err'); return; }
+  try{
+    const r = await api('api/gold_action?key='+encodeURIComponent(key));
+    const items = r.items||[];
+    if(!items.length){ toast('该服务区还没有观察到调价（台账为空）'); return; }
+    const recent = items.slice(0, 12);
+    $('#histTitle').textContent = '调价历史 · ' + (title || key);
+    $('#histSub').textContent = '最近 '+recent.length+' 次（台账共 '+items.length+' 条）'
+      + ' ｜ 口径：我方前台每 M 价 USD ｜ 只记「我方前端价真的变了」的那些轮'
+      + '（工单没执行 / 前端未刷新都不算）';
+    let h='<table class="histtable"><thead><tr><th>时间</th><th>旧价</th><th>新价</th>'
+      + '<th>幅度</th><th>定价模式</th><th>依据</th></tr></thead><tbody>';
+    recent.forEach(function(p){
+      const f=function(v){
+        if(v==null||v==='') return '--';
+        const n=Number(v); if(!isFinite(n)) return '--';
+        const a=Math.abs(n);
+        return '$'+(a===0?'0':(a<0.01?n.toFixed(6):(a<1?n.toFixed(4):n.toFixed(2))));
+      };
+      const pct=p.delta_pct, up=(pct!=null && Number(pct)>0);
+      const col=(pct==null)?'var(--sub)':(up?'var(--red)':'var(--green)');
+      const t=String(p.ts||'').replace('T',' ').slice(0,16);
+      h+='<tr><td class="mono small">'+esc(t)+'</td>'
+        + '<td class="mono">'+f(p.old_usd_m)+'</td>'
+        + '<td class="mono">'+f(p.new_usd_m)+'</td>'
+        + '<td style="color:'+col+';font-weight:600">'
+        + (pct==null?'--':((pct>0?'\u25b2 +':'\u25bc ')+Number(pct).toFixed(2)+'%'))+'</td>'
+        + '<td class="small">'+esc(p.mode||'--')+'</td>'
+        + '<td class="small">'+esc(p.basis||'--')+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $('#histBody').innerHTML=h;
+    $('#histModal').classList.add('show');
+  }catch(e){ toast(e.message,'err'); }
+}
 
 /* ---------- 悬浮目录（快速跳转各模块）---------- */
 /* ⚠ 判定带的坑：`scrollIntoView({block:'start'})` + `scroll-margin-top:76px` 并不总是把
