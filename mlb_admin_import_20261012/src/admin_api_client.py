@@ -268,7 +268,8 @@ class AdminApiClient:
                        ocr=None, *, keep: bool = True, tries: int = 3) -> AuthState:
         """ddddocr 自动过码登录。ocr 为 None 时按需 import。
 
-        tries 次机会用于验证码识别失败（不是密码错误）——密码错立刻放弃。
+        tries 次机会**只**用于验证码识别失败（识别异常 / 后台判定验证码错）——
+        密码等凭据错误会立刻抛出，不消耗重试次数（避免把账号试到锁定）。
         """
         if ocr is None:
             import ddddocr  # 延迟导入，避免无 ddddocr 环境直接失败
@@ -288,10 +289,31 @@ class AdminApiClient:
                 last_err = "OCR 结果异常"
                 continue
             self.log("  [admin] 第 %d 次过码识别为 %s" % (n + 1, code))
-            payload = self._json("POST", "/admin/index/login", auth=False,
-                                 json_body={"username": username, "password": password,
-                                            "captcha": code, "captcha_id": captcha_id,
-                                            "keep": bool(keep)})
+            # ⛔ 验证码被后台判错时，后台返回的是**业务失败码**（code=0
+            #    msg='Please enter the correct verification code'），而 _json()
+            #    对任何非 code==1 都会抛 AdminContractError。
+            #    若不在这里兜住，tries 重试循环会被**第一次过码失手**直接打死
+            #    （表现为「第 1 次过码识别为 5676」紧接着 AdminContractError 退出），
+            #    与 docstring 承诺的语义（tries 只给验证码识别用）不符。
+            #    ⇒ 只对「验证码」类失败 continue，其余（尤其密码错）原样抛出。
+            try:
+                payload = self._json("POST", "/admin/index/login", auth=False,
+                                     json_body={"username": username,
+                                                "password": password,
+                                                "captcha": code,
+                                                "captcha_id": captcha_id,
+                                                "keep": bool(keep)})
+            except AdminAuthRequired:
+                raise
+            except AdminContractError as e:
+                msg = str(e)
+                low = msg.lower()
+                if "verification code" in low or "验证码" in msg:
+                    self.log("  [admin] 验证码被判定错误，换一张重试（%d/%d）"
+                             % (n + 1, tries))
+                    last_err = "验证码错误"
+                    continue
+                raise
             data = payload.get("data")
             if not isinstance(data, Mapping):
                 raise AdminContractError("登录响应缺少 data")

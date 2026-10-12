@@ -74,6 +74,91 @@ class AdminProtocolContract(unittest.TestCase):
             self.assertNotIn("b64encode(('%s:" % name, text)
 
 
+class LoginOcrRetryContract(unittest.TestCase):
+    """2026-10-12 线上实证缺陷的回归闸。
+
+    现象：`login_with_ocr` 的 tries 重试循环被 `_json()` 打死 —— 后台对
+    **验证码判错**返回的是业务失败码（`code=0 msg='Please enter the correct
+    verification code'`），而 `_json()` 对任何非 `code==1` 一律抛
+    `AdminContractError`。结果第一次过码失手就直接退出，tries 形同虚设。
+
+    这里用**假 transport** 离线复现两条路径，不需要网络、不需要 ddddocr：
+      · 验证码被判定错误 → 必须换图重试，最终成功（consumed > 1）
+      · 密码错误          → 必须立刻抛出，不消耗重试（consumed == 1）
+    """
+
+    class _FakeOcr:
+        """按预设序列吐识别结果，模拟 OCR 连续命中/失手。"""
+
+        def __init__(self, seq):
+            self.seq = list(seq)
+            self.calls = 0
+
+        def classification(self, _png):
+            self.calls += 1
+            return self.seq.pop(0) if self.seq else ""
+
+    _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+    def _client(self, login_codes):
+        """login_codes: 依次返回的 (code, msg) 序列。"""
+        state = {"consumed": 0}
+
+        def fake_request(_self, method, path, **kw):
+            if path == "/api/common/captcha":
+                return ({"code": 1}, self._PNG)[1]
+            if path == "/admin/index/login":
+                state["consumed"] += 1
+                code, msg = login_codes[min(state["consumed"] - 1,
+                                            len(login_codes) - 1)]
+                if code == 1:
+                    return json.dumps({"code": 1, "msg": "ok", "data": {
+                        "userInfo": {"token": "tk", "refreshToken": "rt"}}})
+                return json.dumps({"code": code, "msg": msg})
+            raise AssertionError("意外请求 %s %s" % (method, path))
+
+        c = C.AdminApiClient(log=lambda *_: None)
+        c._request = fake_request.__get__(c, type(c))
+        c._token = ""
+        return c, state
+
+    def test_captcha_rejection_retries_and_succeeds(self):
+        codes = [(0, "Please enter the correct verification code"),
+                 (0, "Please enter the correct verification code"),
+                 (1, "ok")]
+        c, st = self._client(codes)
+        ocr = self._FakeOcr(["1234", "5678", "9012"])
+        auth = c.login_with_ocr("u", "p", ocr=ocr, tries=3)
+        self.assertEqual(st["consumed"], 3, "验证码判错必须重试，不能被第一次打死")
+        self.assertEqual(auth.token, "tk")
+        self.assertEqual(ocr.calls, 3)
+
+    def test_wrong_password_fails_fast(self):
+        """凭据错误不是验证码问题 —— 立刻抛出，绝不重试（防账号锁定）。"""
+        c, st = self._client([(0, "用户名或密码错误")])
+        ocr = self._FakeOcr(["1234", "5678", "9012"])
+        with self.assertRaises(C.AdminContractError):
+            c.login_with_ocr("u", "wrong", ocr=ocr, tries=3)
+        self.assertEqual(st["consumed"], 1, "密码错只能试一次")
+
+    def test_ocr_garbage_consumes_no_login_attempt(self):
+        """识别结果连格式都不对时，连登录请求都不该发出去。"""
+        c, st = self._client([(1, "ok")])
+        ocr = self._FakeOcr(["ab", "###", "7788"])
+        auth = c.login_with_ocr("u", "p", ocr=ocr, tries=3)
+        self.assertEqual(st["consumed"], 1)
+        self.assertEqual(auth.token, "tk")
+        self.assertEqual(ocr.calls, 3)
+
+    def test_all_captcha_failures_raise_auth_error(self):
+        c, st = self._client([(0, "Please enter the correct verification code")])
+        ocr = self._FakeOcr(["1111", "2222", "3333"])
+        with self.assertRaises(C.AdminAuthError):
+            c.login_with_ocr("u", "p", ocr=ocr, tries=3)
+        self.assertEqual(st["consumed"], 3)
+
+
+
 class WriteCardConstants(unittest.TestCase):
     """`mlb_write_cards.py` 的契约常量——每一项都对应一条线上事实。"""
 
