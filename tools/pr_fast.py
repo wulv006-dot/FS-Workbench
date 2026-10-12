@@ -193,6 +193,18 @@ def selfcheck():
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
         raise RuntimeError("admin_entry_scope_missing")
+    if select(["mlb_admin_import_20261012/src/mlb_write_cards.py"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_scope_missing")
+    if select(["mlb_admin_import_20261012/evidence/capture_20261012/entry.js"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_evidence_scope_missing")
+    if select(["mlb_admin_import_20261012/tests/test_admin_write_channel.py"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_test_scope_missing")
+    if select(["共享资源/MLB新卡上架/server/mlb_server.py"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_scope_missing")
+    if select(["共享资源/MLB新卡上架/deploy/install_mlb.sh"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_sh_scope_missing")
+    if select(["共享资源/MLB新卡上架/client/启动执行器.bat"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_bat_scope_missing")
     if select(["releases/registration/account-management-20261009/source/web/app.js"]) != ["registration-management"]:
         raise RuntimeError("registration_management_scope_missing")
     if select(["releases/fs-dashboard/admin-main-20261009/assets/shell.js"]) != ["fs-admin-view"]:
@@ -222,6 +234,13 @@ def select(paths):
         suffix=Path(name).suffix
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
             groups.add("fs-on-demand");continue
+        # MLB 后台直写链路（2026-10-12）：逆向证据 + 生产脚本 + 离线用例。
+        # evidence/ 是交付物的一部分（它证明逆向过程可复核），必须保留。
+        if name.startswith("mlb_admin_import_20261012/"):
+            groups.add("mlb-admin");continue
+        # MLB 新卡上架工作台（2026-10-05 故障修复归档）。
+        if name.startswith("共享资源/MLB新卡上架/"):
+            groups.add("mlb-shelf-tool");continue
         if name.startswith("releases/fs-dashboard/game-boards-all-20261012/"):
             groups.add("fs-game-boards-all");continue
         if name.startswith("releases/fs-dashboard/login-traffic-ui-20261011/"):
@@ -339,9 +358,11 @@ def main():
             release="releases/fs-dashboard/on-demand-20261012"
             units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
-            entry=ROOT/release/"entry-profit-refresh/frontend"
+            units(release+"/tests",["test_native_boundary"],root_owned=True)
+            entry=ROOT/release/"entry-native-boundary-final/frontend"
+            if not entry.exists():entry=ROOT/release/"entry-profit-refresh/frontend"
             if entry.exists():
-                units(release+"/entry-profit-refresh/frontend",["test_release_workspace"],root_owned=True)
+                units(str(entry.relative_to(ROOT)),["test_release_workspace"],root_owned=True)
                 subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets")))
             else:node(release+"/tests/test_browser.cjs")
             node(release+"/tests/test_legacy.cjs")
@@ -438,6 +459,13 @@ def main():
         elif group=="green-plan":
             for name in ("candidate/backend/test_green_plan.py","check_release.py"):
                 subprocess.run([sys.executable,"-B",str(ROOT/"releases/green-plan/20261009"/name)],check=True,timeout=90,cwd=ROOT)
+        elif group=="mlb-admin":
+            # 离线用例：协议契约 / 幂等判定 / 凭据卫生 / 证据包结构。
+            # 不连网、不写后台、不需要凭据（CI 隔离环境下已验证 23 项全绿）。
+            units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
+        elif group=="mlb-shelf-tool":
+            # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
+            units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
         elif group=="builder":units("tools",["test_business_html_build"])
         elif group=="registration-delta":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)

@@ -1,0 +1,10 @@
+{
+  "GET": {
+    "status": 200,
+    "body": "{\"upload\":{\"network\":{\"code\":200,\"msg\":\"ok\",\"file\":{\"id\":16417939,\"path\":\"\\/images\\/202610\\/664088b50d2da05c32c4c8c9d7c3d09fa8165ae9.webp\",\"full_url\":\"https:\\/\\/b2c-static.p2pah.cn\\/images\\/202610\\/664088b50d2da05c32c4c8c9d7c3d09fa8165ae9.webp\",\"sha1\":\"664088b50d2da05c32c4c8c9d7c3d09fa8165ae9\"}}}}"
+  },
+  "POST": {
+    "status": 200,
+    "body": "{\"upload\":{\"network\":{\"code\":200,\"msg\":\"ok\",\"file\":{\"suffix\":\"file\",\"full_url\":\"https:\\/\\/b2c-static.p2pah.cn\\/images\\/202610\\/664088b50d2da05c32c4c8c9d7c3d09fa8165ae9.webp\",\"id\":16417939,\"topic\":\"uploads\\/images\",\"type\":0,\"name\":\"\",\"title\":\"\",\"path\":\"\\/images\\/202610\\/664088b50d2da05c32c4c8c9d7c3d09fa8165ae9.webp\",\"storage\":\"local\",\"quote\":0,\"watermark\":0,\"ext\":\"image\\/webp\",\"sha1\":\"664088b50d2da05c32c4c8c9d7c3d09fa8165ae9\",\"timestamp\":1791774424,\"token\":null,\"isuse\":1}}}}"
+  }
+}

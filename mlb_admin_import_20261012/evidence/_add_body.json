@@ -1,0 +1,38 @@
+{
+  "gid": 927,
+  "cid": 8233,
+  "top_cid": 2,
+  "sid": 0,
+  "aid": 0,
+  "title": "Dennis Eckersley/99/CP/Athletics/Awards",
+  "icon": 0,
+  "pic": "",
+  "price": 1.49,
+  "discount": 100,
+  "min_qty": 1,
+  "receiving_price": 0,
+  "sort": 1000,
+  "status": "1",
+  "is_put": "0",
+  "is_hot": "0",
+  "is_rec": "0",
+  "is_code": "0",
+  "auto_off": "0",
+  "buy_status": 0,
+  "attr_switch": "0",
+  "sku_switch": "0",
+  "partner": "",
+  "summary": "",
+  "desc": "",
+  "duration": "0",
+  "shelf_time": "0",
+  "tid": "0",
+  "more": {
+    "extend": []
+  },
+  "_extend": {
+    "site_ids": [],
+    "aids": [],
+    "duration": "0"
+  }
+}
