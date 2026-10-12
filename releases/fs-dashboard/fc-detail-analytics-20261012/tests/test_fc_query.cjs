@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync(__dirname+'/../frontend/fc-detail.js','utf8');
+const line=source.split('\n').find(s=>s.startsWith('const fcQuery='));
+const context={fcDetailState:{tab:'fulfillment'},fcPool:'current',fcFilters:{site_group:'main',platform:'PC'},currentSelection:()=>({start:'2026-10-11',end:'2026-10-11',grain:'day'})};
+vm.createContext(context);vm.runInContext(line+'\nthis.query=fcQuery;',context);
+assert.equal(context.query().pool,'current');
+context.fcDetailState.tab='consumption';assert.equal(context.query().pool,'paid');
+context.fcDetailState.tab='review';assert.equal(context.query().pool,'paid');
+assert.equal(context.query({pool:'current'}).pool,'current');
+assert.equal(context.query().platform,'PC');
+console.log('FC query context: 5 assertions passed; consumption/report paid, fulfillment current, drill override retained.');

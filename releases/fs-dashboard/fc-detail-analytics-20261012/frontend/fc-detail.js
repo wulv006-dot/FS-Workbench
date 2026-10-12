@@ -6,7 +6,7 @@ const fcFilters={platform:'all',site_group:'main',customer:'all',product:'all',b
 const fcMoney=v=>v==null?'暂缺':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fcName=v=>fcLabels[v]||v;
 const fcTable=(heads,rows)=>`<div class="fc-table-wrap"><table><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')||`<tr><td colspan="${heads.length}">当前筛选暂无记录。</td></tr>`}</tbody></table></div>`;
-const fcQuery=(extra={})=>({mode:'fc-detail',profile:'FC27',...currentSelection(),...fcFilters,pool:fcPool,...extra});
+const fcQuery=(extra={})=>({mode:'fc-detail',profile:'FC27',...currentSelection(),...fcFilters,pool:fcDetailState.tab==='fulfillment'?fcPool:'paid',...extra});
 const fcDownload=(name,content,type)=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 function fcDetailInit(){
