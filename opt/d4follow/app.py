@@ -1946,7 +1946,7 @@ def task_collect(t, opts):
                  else str(cfg_get(cfg, "金币.挂载游戏", "暗黑破坏神4") or "暗黑破坏神4"))
     _gold_due = bool(core_gold.enabled(cfg) and any(g in due for g in _goldgames))
     # ---- 3.5) DD373 进货成本（**先采**）──────────────────────────────────
-    # ⚠ 2026-10-02 顺序反转：改用「DD373 推荐价 + 加价%」定价后，**目标价依赖成本**，
+    # ⚠ 2026-10-02 顺序反转：改用「DD373 推荐价 ÷(1−利润率)」定价后，**目标价依赖成本**，
     #   所以成本必须先落库、再算价。原先成本在 3.6 采、算价在 3.5，
     #   新策略下那样会永远读到**上一轮**的成本（首轮更是全空 → 34 区全 hold）。
     #   仍保持独立表 gold_cost —— 只是现在它从「只读监控」升级为「定价输入」。
@@ -2044,12 +2044,12 @@ def task_collect(t, opts):
                 if it.get("定价模式") == "dd373_only":
                     if (it.get("定价来源级别") or 0) == 1:
                         t.log("  [金币] %-22s DD373进货 $%s/M（%s 元/万基纳·可买 %s 万基纳）"
-                              "+%.1f%% → 目标采购成本 %s ｜ %s"
+                              "÷(1−%.1f%%) → 目标采购成本 %s ｜ %s"
                               % (it.get("中文名"), it.get("DD373成本_USD每M"),
                                  it.get("DD373成本_元每万基纳"),
                                  ("%.0f" % it["DD373可买_万基纳"])
                                  if it.get("DD373可买_万基纳") is not None else "-",
-                                 (it.get("加价比例") or 0) * 100,
+                                 (it.get("利润率") or 0) * 100,
                                  it.get("采购成本_新"), it.get("动作") or "-"))
                     else:
                         t.log("  [金币] %-22s ⛔无货兜底 $%s/M ｜ %s ｜ %s"
@@ -2060,7 +2060,7 @@ def task_collect(t, opts):
                     t.log("  [金币] %-22s DD373 $%s（%s 条挂单）+%.1f%% → 目标采购成本 %s ｜ %s"
                           % (it.get("中文名"), it.get("DD373成本_USD每M"),
                              it.get("DD373挂单数"),
-                             (it.get("加价比例") or 0) * 100,
+                             (it.get("利润率") or 0) * 100,
                              it.get("采购成本_新"), it.get("动作") or "-"))
                 elif it.get("定价模式") == "g2g_cheapold":
                     _tflag = ""
@@ -2069,6 +2069,10 @@ def task_collect(t, opts):
                             it.get("基准价_原竞品"), it.get("DD373成本_USD每M"))
                     if it.get("利润率下限触发"):
                         _tflag += " ⛔利润下限"
+                    if it.get("利润率上限触发"):
+                        # 2026-10-12：跟价后利润率超上限 ⇒ 被强行压价
+                        _tflag += " ⛔利润率上限(压到成本÷%.2f)" % (
+                            1.0 - float(it.get("利润率上限") or 0.30))
                     if it.get("基准来源") == "无货兜底":
                         # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
                         #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
@@ -2084,13 +2088,13 @@ def task_collect(t, opts):
                     else:
                         # 🆕 2026-10-09：无 cheapold 卖家的区改按成本保 30% 利润定价，
                         #   不能再按「G2G 基准 × (1−下浮%)」打印（那会写成 −1%，误导）。
-                        if it.get("无cheapold成本加价"):
+                        if it.get("无cheapold利润率"):
                             t.log("  [金币] %-22s 无 cheapold 卖家 → 成本 $%s/M × %.2f"
                                   "（保 %.1f%% 利润，G2G 推荐前二 $%s 不跟）"
                                   " → 目标采购成本 %s ｜ %s%s"
                                   % (it.get("中文名"), it.get("DD373成本_USD每M"),
-                                     it.get("无cheapold成本加价"),
-                                     (1.0 - 1.0 / float(it["无cheapold成本加价"])) * 100,
+                                     it.get("无cheapold利润率"),
+                                     (1.0 - 1.0 / float(it["无cheapold利润率"])) * 100,
                                      it.get("无cheapold基准"),
                                      it.get("采购成本_新"), it.get("动作") or "-", _tflag))
                         else:
@@ -2938,34 +2942,41 @@ def api_gold():
                        for _g2 in _games
                        if core_gold.pricing_policy(cfg, _g2)},
             "说明": _mg_prefix + (
-                "AION2 售价 = DD373 该区进货成本 × (1+%.1f%%)；DD373 无报价或"
+                "AION2 售价 = DD373 该区进货成本 ÷ (1−%.1f%%)；DD373 无报价或"
                 "可买量不足 1 亿的区统一挂 $%.2f/M；"
                 "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
-                % ((_pol_a.get("加价比例") or 0.07) * 100,
+                % ((_pol_a.get("利润率") or 0.07) * 100,
                    (_pol_a.get("无货兜底售价_USD每M") or 19.9))
                 if _pol_a.get("模式") == "dd373_only" else
-                ("AION2 售价 = DD373 各区推荐价 × %.1f%%；G2G/ELD/IGGM 继续采集监控并展示，"
+                ("AION2 售价 = DD373 各区推荐价 ÷ (1−%.1f%%)；G2G/ELD/IGGM 继续采集监控并展示，"
                  "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
-                 % ((_pol_a.get("加价比例") or 0) * 100)
+                 % ((_pol_a.get("利润率") or 0) * 100)
                  if _pol_a.get("模式") == "dd373_markup" else
                  ("AION2 售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
-                  "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f"
-                  "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
+                  "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 ÷ (1−%.2f)"
+                  "（利润率 %.0f%%），不再跟推荐前二**（2026-10-09 定案）；"
                   "⛔ 成本兜底：竞品价 < 我方 DD373 成本价时**按成本价定价**"
                   "（成本 = 买满 1 亿基纳的订单簿加权均价）；"
                   "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟价后利润率 < %.0f%% 的"
                   "**强制抬到 成本 ÷ %.2f**（含成本兜底那批，货源闸除外）；"
+                  "⛔ **利润率上限 %.0f%%（2026-10-12 新增）**：跟价后利润率 > %.0f%% 的"
+                  "**强行压到 成本 ÷ %.2f**（只对正常跟 cheapold 的行，货源闸除外）；"
                   "ELD/IGGM 继续采集监控但不参与定价。"
                   % ((_pol_a.get("下浮比例") or 0.03) * 100,
-                     (_pol_a.get("无cheapold加价系数") or 1.30),
-                     ((_pol_a.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
-                     (1.0 - 1.0 / (_pol_a.get("无cheapold加价系数") or 1.30)) * 100,
+                     (_pol_a.get("无cheapold利润率") or 0.30),
+                     (_pol_a.get("无cheapold利润率") or 0.30) * 100,
                      (_pol_a.get("利润率下限")
                       if _pol_a.get("利润率下限") is not None else 0.20) * 100,
                      (_pol_a.get("利润率下限")
                       if _pol_a.get("利润率下限") is not None else 0.20) * 100,
                      1.0 - (_pol_a.get("利润率下限")
-                            if _pol_a.get("利润率下限") is not None else 0.20))
+                            if _pol_a.get("利润率下限") is not None else 0.20),
+                     (_pol_a.get("利润率上限")
+                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
+                     (_pol_a.get("利润率上限")
+                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
+                     1.0 - (_pol_a.get("利润率上限")
+                            if _pol_a.get("利润率上限") is not None else 0.30))
                   if _pol_a.get("模式") == "g2g_cheapold" else
                   ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
@@ -3021,6 +3032,13 @@ def api_gold_cost():
                    "dd_cny": r.get("dd_ref_cny"), "dd_items": r.get("dd_items"),
                    "action": r.get("action"), "reason": r.get("reason"),
                    "our": r.get("our_per_m"),
+                   # 2026-10-12（老板口径）：「你得在前端展示你真正抓取的平均成本」——
+                   #   看板原来只放 cost_target（= 目标售价 × 成本除数，是**控制前台价的
+                   #   旋钮值**，不是实付成本），别人一看就觉得「后台成本跟 DD373 页面对不上」。
+                   #   这里把 cost_target + divisor 一并下发，前端好与 dd_cny（DD373 实采）
+                   #   并排显示（同一口径换算后一眼可比）。
+                   "cost_target": r.get("cost_target"),
+                   "divisor": r.get("divisor"),
                    # 2026-10-02：DD373 采集到的我方前台价（**滞后一拍**，仅作参考）
                    "our_采集": r.get("our_per_m"),
                    "采集ts": r.get("ts"),
@@ -3146,38 +3164,43 @@ def api_gold_cost():
         "ok": True, "game": game, "rate": rate,
         "ts": (out[0]["ts"] if out else None),
         "口径": (
-            ("售价 $/M = DD373 该区进货成本 $/M × (1+%.1f%%)（加价）；"
+            ("售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.1f%%)（利润率）；"
              "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 1 亿）⇒ 统一挂 $%.2f/M"
              "（等该区有货下一轮自动跟回）。"
              "G2G最低价/ELD最低价/IGGM 仅采集监控展示，不参与定价；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
-             % ((_pol.get("加价比例") or 0.07) * 100,
+             % ((_pol.get("利润率") or 0.07) * 100,
                 (_pol.get("无货最小可买万基纳") or 10000),
                 (_pol.get("无货兜底售价_USD每M") or 19.9)))
             if _pol.get("模式") == "dd373_only" else
             ("售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
-             "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 × %.2f 定价"
-             "（成本加价 %.0f%%、利润率 %.1f%%），不再跟推荐前二**（2026-10-09 定案）；"
+             "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 ÷ (1−%.2f) 定价"
+             "（利润率 %.0f%%），不再跟推荐前二**（2026-10-09 定案）；"
              "⛔ 成本兜底（2026-10-06）：竞品价 < 我方 DD373 成本价时**不再跟降，"
              "按成本价定价**；"
              "⛔ **利润率下限 %.0f%%（2026-10-09 新增）**：跟了 cheapold 后利润率 "
              "(售价−成本)÷售价 < %.0f%% 的，**强制抬到 成本 ÷ %.2f**"
-             "（对含成本兜底在内的所有跟价行生效，货源闸 $%.2f/M 除外）。"
+             "（对含成本兜底在内的所有跟价行生效，货源闸 $%.2f/M 除外）；"
+             "⛔ **利润率上限 %.0f%%（2026-10-12 新增）**：跟了 cheapold 后利润率 "
+             "(售价−成本)÷售价 > %.0f%% 的，**强行压到 成本 ÷ %.2f**"
+             "（只对正常跟 cheapold 的行生效；无 cheapold 区 / 成本兜底 / 货源闸行不吃这条闸）。"
              "成本 = DD373 **买满 1 亿基纳的订单簿加权均价**（元/万基纳）；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
              % ((_pol.get("下浮比例") or 0.03) * 100,
-                (_pol.get("无cheapold加价系数") or 1.30),
-                ((_pol.get("无cheapold加价系数") or 1.30) - 1.0) * 100,
-                (1.0 - 1.0 / (_pol.get("无cheapold加价系数") or 1.30)) * 100,
+                (_pol.get("无cheapold利润率") or 0.30),
+                (_pol.get("无cheapold利润率") or 0.30) * 100,
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
                 1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20),
-                (_pol.get("无货兜底售价_USD每M") or 19.9))
+                (_pol.get("无货兜底售价_USD每M") or 19.9),
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
+                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30))
              if _pol.get("模式") == "g2g_cheapold" else
-             ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M × %.1f%%；"
+             ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M ÷ (1−%.1f%%)；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"
               "G2G/ELD/IGGM 仅监控展示，不参与定价。"
-              % ((_pol.get("加价比例") or 0) * 100)
+              % ((_pol.get("利润率") or 0) * 100)
               if _pol.get("模式") == "dd373_markup" else
               "成本 = DD373 永恒之塔2国际服·基纳·各区·买满 1 亿基纳的订单簿加权均价；"
               "利润率 = (售价 − 成本) / 售价，可为负。"))),
