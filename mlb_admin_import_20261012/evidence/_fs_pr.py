@@ -23,7 +23,7 @@ from pathlib import Path
 
 REPO = "wulv006-dot/FS-Workbench"
 API = "https://api.github.com"
-BRANCH = "wulv/mlb-gate-notes-20261012"
+BRANCH = "wulv/mlb-card-count-copy-20261012"
 OWNER = REPO.split("/")[0]
 
 

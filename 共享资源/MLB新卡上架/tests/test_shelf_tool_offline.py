@@ -1083,6 +1083,42 @@ class WebApprovalUi(unittest.TestCase):
         text = _text("web/index.html")
         self.assertIn('colspan="9"', text)
 
+    # ---- 写入量的口径：一张新卡 = 一个模型，同名卡不重建 ----
+
+    def test_no_hardcoded_product_count_in_copy(self):
+        """⛔ 上架提示里**不许**再出现写死的「N 个产品」。
+
+        写入量 = 本次新增的卡数（一张新卡一个模型），每批都不一样；
+        写死一个数字（曾经是 48）会让人以为那是本批总数 ——
+        实际 48 是**单个模型**的渠道产品数。这个断言就是防它回来。
+        """
+        text = _text("web/index.html")
+        self.assertNotRegex(text, r"\d+\s*个产品",
+                            "页面上又出现了写死的「N 个产品」，应改为按卡数/逐行给出")
+        # 只查这两段提示，别把 CSS 里的 `480px` 也算进来
+        i = text.find('id="wbHint"')
+        self.assertGreater(i, 0)
+        segs = {"wbHint": text[i:i + 620]}
+        k = text.find("function refreshWritebackHint(")
+        self.assertGreater(k, 0)
+        segs["refreshWritebackHint"] = text[k:k + 1600]
+        for name, seg in segs.items():
+            self.assertNotRegex(seg, r"\b48\b", "%s 里又写死了 48" % name)
+
+    def test_copy_states_one_card_one_model(self):
+        """文案必须讲清：一张新卡 = 一个模型；同名卡已存在不重复建。"""
+        text = _text("web/index.html")
+        self.assertIn("一张新卡 = 一个模型", text)
+        self.assertIn("不会重复建", text)        # 静态提示
+        self.assertIn("跳过不重建", text)        # 服务端状态刷新后的提示
+
+    def test_writeback_report_labels_products_as_per_model(self):
+        """报告里的「产品」是**每模型**的渠道产品数，不能让人当总数读。"""
+        text = _text("web/index.html")
+        self.assertIn("<th class=\"num\">渠道产品</th>", text)
+        self.assertIn("不是本批总数", text)
+        self.assertIn("模型（一张卡 = 一个）", text)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

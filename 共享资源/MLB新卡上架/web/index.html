@@ -169,7 +169,10 @@ button.primary{color:#fff}
         </label>
         <div class="hint" id="wbHint">
           勾上后：采集 → 写 Excel → <b>停下来等你逐条核对卡片</b> →
-          你点「确认放行」才建模型 + 主图 + 48 个产品。
+          你点「确认放行」才写入后台。<br>
+          写入范围 = <b>本次新采集到的球员卡</b>：<b>一张新卡 = 一个模型</b>
+          （模型下自动铺该卡的渠道产品）。同名卡已存在（图与 hash 都对得上）
+          <b>不会重复建</b>，只做补全。<br>
           写入前会自动把受影响模型的原值存档，随时可回退。
         </div>
 
@@ -368,11 +371,16 @@ async function refreshWritebackHint(){
     const steps = w.require_approval
       ? '<b>停下来等你逐条核对卡片</b>，你点「确认放行」才会写入后台；' +
         '<b>不点就永远不写</b>。'
-      : '<b>直接</b>建模型 + 主图 + 48 个产品（服务端关掉了人工确认）。';
+      : '<b>直接</b>写入后台（服务端关掉了人工确认）。';
+    // ⚠️ 这里**不要**写死任何「N 个产品」的数字：
+    //    写入量 = 本次**新增**的卡数（一张新卡 = 一个模型），每次都不一样；
+    //    同名卡已存在则跳过不重建。真正的数字在上架报告里按行给出。
     box.innerHTML = (w.dry_run
       ? '<span style="color:var(--warn)">⚠️ 服务端当前是<b>试运行</b>' +
         '（<code>writeback.dry_run=true</code>）：全程跑一遍但<b>不写入</b>后台。</span><br>'
       : '') + '勾上后：采集 → 写 Excel → ' + steps +
+      '<br>写入范围 = <b>本次新采集到的卡</b>：<b>一张新卡 = 一个模型</b>' +
+      '（模型下自动铺该卡的渠道产品）；同名卡已存在则<b>跳过不重建</b>。' +
       '写入前会自动把受影响模型的原值存档，随时可回退。';
   }catch(e){ /* 状态拿不到就不改提示 */ }
 }
@@ -632,9 +640,14 @@ function renderWriteback(wb, tid){
   const rep = wb.report || [];
   if(rep.length){
     const c = wb.counts || {};
-    h += '<div class="hint" style="margin-top:8px">达标 <b>' + fmtN(c.ok) +
-      '</b> · 已存在跳过 ' + fmtN(c.skipped) + ' · 试运行 ' + fmtN(c.dry) +
-      ' · 需人工 ' + fmtN(c.review) + '</div>' +
+    // ⚠️ 这里的口径必须写清楚，别再让人误读：
+    //    本次**写入量 = 模型数**（一张新卡 = 一个模型，同名卡已存在会跳过）；
+    //    「渠道产品」是**单个模型**下自动铺的站点×账号产品数（≥48 判为齐全），
+    //    跟本批卡片数量不是一个量级的东西，不能相加也不能当总数看。
+    h += '<div class="hint" style="margin-top:8px">' +
+      '模型（一张卡 = 一个）：达标 <b>' + fmtN(c.ok) + '</b> · 试运行 ' +
+      fmtN(c.dry) + ' · 同名已存在跳过 <b>' + fmtN(c.skipped) + '</b> 张 · 需人工 ' +
+      fmtN(c.review) + '</div>' +
       // 人工核对后剩余结论也要能追溯：谁在什么时候放行的
       (wb.approved_by ? '<div class="hint" style="margin-top:5px">人工放行：<b>' +
         esc(wb.approved_by) + '</b>' +
@@ -649,7 +662,7 @@ function renderWriteback(wb, tid){
           : '') : '') +
       '<div class="tblwrap" style="margin-top:9px;max-height:220px"><table><thead><tr>' +
       '<th>卡</th><th class="num">mid</th><th class="num">主图</th>' +
-      '<th class="num">产品</th><th>结论</th></tr></thead><tbody>' +
+      '<th class="num">渠道产品</th><th>结论</th></tr></thead><tbody>' +
       rep.map(x=>{
         const v = String(x.verdict || '');
         const cls = v === 'ok' ? 'done' : (v === 'skipped' ? 'off' : 'fail');
@@ -659,7 +672,11 @@ function renderWriteback(wb, tid){
           '<td class="num">' + esc(x.icon_readback || x.icon || '-') + '</td>' +
           '<td class="num">' + fmtN(x.products) + '</td>' +
           '<td><span class="pill ' + cls + '">' + esc(v || '-') + '</span></td></tr>';
-      }).join('') + '</tbody></table></div>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="hint" style="margin-top:5px">' +
+      '「渠道产品」= <b>该模型</b>自动铺到各站点×账号的产品数（≥48 判为齐全），' +
+      '<b>不是本批总数</b>；本次写入的模型数 = 上表达标行数（= 新增卡数）。' +
+      '「已存在」行是后台早就有这张同名卡，只补缺口、不重建。</div>';
   }
   if(WB_HINT[wb.status])
     h += '<div class="banner warnb" style="margin-top:11px">' + WB_HINT[wb.status] + '</div>';
