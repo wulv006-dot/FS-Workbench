@@ -1119,6 +1119,19 @@ class WebApprovalUi(unittest.TestCase):
         self.assertIn("不是本批总数", text)
         self.assertIn("模型（一张卡 = 一个）", text)
 
+    def test_review_panel_spells_out_cards_equal_models(self):
+        """核对面板（真正决定写多少的那一屏）也要写明「张 = 个模型」。
+
+        否则人在这一屏看到「本次将写入 N 张」，再到报告里看到每行 48 个
+        「渠道产品」，很容易又把两者当成一个量级。
+        """
+        text = _text("web/index.html")
+        self.assertIn("一张卡 = 一个模型，共", text)         # 待写行
+        self.assertIn("个模型）", text)                      # 本次将写入 N 张（= N 个模型）
+        # 两处计数点（首绘 + 勾选刷新）口径必须一致
+        self.assertEqual(text.count("本次将写入 <b>' + n + '</b> 张（= <b>' + n + '</b> 个模型）"),
+                         2, "两处选择计数文案不一致")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

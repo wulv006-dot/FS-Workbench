@@ -471,7 +471,9 @@ function wbBtnState(tid){
   const wb = ((CURRENT || {}).result || {}).write_back || {};
   const n = wbSelected(tid, wb).length;
   const cnt = document.getElementById('wbSelCount');
-  if(cnt) cnt.innerHTML = '本次将写入 <b>' + n + '</b> 张' +
+  // ⚠️ 口径：一张卡 = 一个模型。「张」与「个模型」是同一个数，
+  //    写出来是为了不让人以为下面那列「渠道产品」也是本次写入量。
+  if(cnt) cnt.innerHTML = '本次将写入 <b>' + n + '</b> 张（= <b>' + n + '</b> 个模型）' +
     (n === 0 ? ' —— <span style="color:var(--bad)">至少要选一张</span>' : '');
   const ack = document.getElementById('wbAck');
   const go  = document.getElementById('wbGo');
@@ -591,6 +593,7 @@ function renderReview(tid, wb){
     '</div>';
 
   h += '<div class="hint" style="margin-top:9px">待写 <b>' + fmtN(rows.length) + '</b> 张' +
+    '（一张卡 = 一个模型，共 <b>' + fmtN(rows.length) + '</b> 个）' +
     ' · 采集侧计入 ' + fmtN(wb.default_selected) + ' 张' +
     (wb.issues_total ? ' · <span style="color:var(--warn)">静态提示 ' +
       fmtN(wb.issues_total) + ' 条</span>' : '') +
@@ -613,7 +616,7 @@ function renderReview(tid, wb){
     '<button class="primary sm" id="wbGo"' + ((ack && n > 0) ? '' : ' disabled') +
     ' onclick="approveWriteback()">确认放行，写入后台</button>' +
     '<button class="sm" id="wbCancel" onclick="cancelWriteback()">取消本次上架</button>' +
-    '<span class="hint" id="wbSelCount">本次将写入 <b>' + n + '</b> 张' +
+    '<span class="hint" id="wbSelCount">本次将写入 <b>' + n + '</b> 张（= <b>' + n + '</b> 个模型）' +
     (n === 0 ? ' —— <span style="color:var(--bad)">至少要选一张</span>' : '') + '</span>' +
     '</div>';
   h += '<div class="hint" id="wbMsg" style="margin-top:8px"></div>';

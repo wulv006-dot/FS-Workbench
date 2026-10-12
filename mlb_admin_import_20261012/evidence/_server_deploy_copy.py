@@ -11,13 +11,17 @@
 ③ 远端 base64 -d 落盘 → chmod → **md5 双向回验**
 ④ 通过 nginx 与直连两种方式抓线上字节，确认新文案真的生效
 
-用法: _server_deploy_copy.py [plan|go]
+用法: _server_deploy_copy.py [plan|verify|go]
+  plan   —— 只读预演（本地/远端现状比对）
+  verify —— 只校验：远端 md5 + 线上实抓，不上传
+  go     —— 备份 → 上传 → md5 回验 → 线上实抓
 """
 from __future__ import annotations
 
 import base64
 import hashlib
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +48,20 @@ def ssh(cmd: str, timeout: int = 180) -> str:
     return (r.stdout or b"").decode("utf-8", "replace")
 
 
+def remote_md5(remote: str) -> str:
+    """取远端文件 md5。
+
+    ⚠️ 不能直接 `out.split()[0]` —— 这台 sshd 每次都会在 stdout 前面打一段
+       `** WARNING: connection is not using a post-quantum key exchange algorithm.`
+       （本工具把 stderr 并进了 stdout），`split()[0]` 会取到 `**`，
+       于是回验永远"不一致"。**看起来像部署失败，其实是解析错了。**
+       所以只认 32 位十六进制。
+    """
+    out = ssh("md5sum %s" % remote)
+    mm = re.search(r"\b([0-9a-f]{32})\b", out)
+    return mm.group(1) if mm else ""
+
+
 def sha(path: Path) -> str:
     h = hashlib.md5()
     h.update(path.read_bytes())
@@ -61,6 +79,34 @@ def upload(local: bytes, remote: str, mode: str):
         ssh("printf '%%s' '%s' >> %s" % (b64[i:i + CHUNK], tmp))
     ssh("base64 -d %s > %s && rm -f %s" % (tmp, remote, tmp))
     ssh("chmod %s %s" % (mode, remote))
+
+
+def probe_cmd() -> str:
+    """线上实抓脚本。
+
+    ⚠️ 抓内容必须走**直连端口**：nginx :80 上有统一鉴权（`auth_request`），
+       未登录一律 302 → `/__auth/access/`，抓回来的是登录跳转，
+       grep 文案永远是 0 —— 看起来像"部署失败"，其实只是没带 Cookie。
+       所以 nginx 那两条只验「门禁是否完好」，不验内容。
+    """
+    return (
+        'echo "  直连 :8897（应用本体，绕过 nginx）";'
+        ' curl -s -o /tmp/_new.html -w "    HTTP %{http_code}  %{size_download} B\\n"'
+        '   http://127.0.0.1:8897/;'
+        ' echo -n "    新文案「一张新卡 = 一个模型」命中 = ";'
+        ' grep -c "一张新卡 = 一个模型" /tmp/_new.html;'
+        ' echo -n "    新表头「渠道产品」命中 = ";'
+        ' grep -c "渠道产品" /tmp/_new.html;'
+        ' echo -n "    旧文案「48 个产品」命中（应为 0）= ";'
+        ' grep -c "48 个产品" /tmp/_new.html;'
+        ' echo "  nginx :80（鉴权门禁应完好）";'
+        ' curl -s -o /dev/null -w "    /mlb/ -> %{http_code} %{redirect_url}\\n"'
+        '   http://127.0.0.1/mlb/;'
+        ' curl -s -o /dev/null -w "    /mlb/api/health -> %{http_code} %{redirect_url}\\n"'
+        '   http://127.0.0.1/mlb/api/health;'
+        ' echo "  服务";'
+        ' systemctl is-active mlb-online'
+    )
 
 
 def main() -> int:
@@ -81,7 +127,22 @@ def main() -> int:
 
     print("\n② 远端现状")
     for rel, remote, perm in FILES:
-        print("  " + ssh("md5sum %s 2>&1; ls -la %s 2>&1" % (remote, remote)).rstrip())
+        print("  %s  md5 %s" % (remote, remote_md5(remote)))
+        print("  " + ssh("ls -la %s 2>&1" % remote).rstrip())
+
+    if mode == "verify":
+        print("\n[verify] 只校验，不上传")
+        allok = True
+        for rel, remote, perm in FILES:
+            rem = remote_md5(remote)
+            same = (rem == locals_[rel])
+            allok = allok and same
+            print("  %s  remote %s vs local %s → %s"
+                  % (remote, rem, locals_[rel], "一致" if same else "❌ 不一致"))
+        print("\n⑤ 线上实抓（确认新文案真的生效）")
+        print(ssh(probe_cmd()))
+        print("\n⑥ 结果:", "全部一致 ✅" if allok else "有不一致 ❌")
+        return 0 if allok else 1
 
     if mode != "go":
         print("\n[plan] 只预演，未做任何写入。执行请加 go")
@@ -97,34 +158,13 @@ def main() -> int:
     ok = True
     for rel, remote, perm in FILES:
         upload((ROOT / rel).read_bytes(), remote, perm)
-        rem = ssh("md5sum %s" % remote).split()[0] if ssh("md5sum %s" % remote) else ""
+        rem = remote_md5(remote)
         same = (rem == locals_[rel])
         ok = ok and same
         print("  %s  remote md5 = %s  → %s" % (remote, rem, "一致" if same else "❌ 不一致"))
 
     print("\n⑤ 线上实抓（确认新文案真的生效）")
-    # ⚠️ 必须走**直连端口**抓内容：nginx :80 上有统一鉴权（auth_request），
-    #    未登录一律 302 → /__auth/login，抓回来的是登录跳转，grep 文案永远是 0，
-    #    看起来像"部署失败"，其实只是没带 Cookie。
-    probe = (
-        'echo "  直连 :8897（应用本体，绕过 nginx）";'
-        ' curl -s -o /tmp/_new.html -w "    HTTP %{http_code}  %{size_download} B\\n"'
-        '   http://127.0.0.1:8897/;'
-        ' echo -n "    新文案「一张新卡 = 一个模型」命中 = ";'
-        ' grep -c "一张新卡 = 一个模型" /tmp/_new.html;'
-        ' echo -n "    新表头「渠道产品」命中 = ";'
-        ' grep -c "渠道产品" /tmp/_new.html;'
-        ' echo -n "    旧文案「48 个产品」命中（应为 0）= ";'
-        ' grep -c "48 个产品" /tmp/_new.html;'
-        ' echo "  nginx :80（鉴权门禁应完好）";'
-        ' curl -s -o /dev/null -w "    /mlb/ -> %{http_code} %{redirect_url}\\n"'
-        '   http://127.0.0.1/mlb/;'
-        ' curl -s -o /dev/null -w "    /mlb/api/health -> %{http_code} %{redirect_url}\\n"'
-        '   http://127.0.0.1/mlb/api/health;'
-        ' echo "  服务";'
-        ' systemctl is-active mlb-online'
-    )
-    print(ssh(probe))
+    print(ssh(probe_cmd()))
 
     print("\n⑥ 结果:", "全部一致 ✅" if ok else "有文件不一致 ❌")
     print("回滚: ssh -i <pem> %s 'cp -p %s/index.html /var/www/mlb-online/index.html'"
