@@ -1981,7 +1981,7 @@ def task_collect(t, opts):
                 """从 gold_cost.stock 文本（「可买79390万基纳」/「可买160万金」）解析可买量。
 
                 ⚠ gold_cost 表**没有**数字型的可买量列，只有这句文本（由
-                  core_dd373_cost 生成）。dd373_only 的「不足 1 亿 → 无货兜底」判定
+                  core_dd373_cost 生成）。dd373_only 的「不足 1.5 亿 → 无货兜底」判定
                   要用数字，所以在注入时解析一次。
                   解析失败返回 None ⇒ core_gold 按「有货」处理（宁可正常定价，
                   也不要把真有货的区误挂成 $19.9）。
@@ -2082,7 +2082,9 @@ def task_collect(t, opts):
                               " ｜ 目标采购成本 %s ｜ %s"
                               % (it.get("中文名"),
                                  "无有效报价" if _av is None
-                                 else ("可买 %.0f 万基纳（不足 1 亿）" % _av),
+                                 else ("可买 %.0f 万基纳（不足 %s）"
+                                       % (_av, core_gold.need_yi_txt(
+                                           it.get("无货最小可买万基纳") or 15000))),
                                  it.get("无货兜底售价_USD每M") or 19.9,
                                  it.get("采购成本_新"), it.get("动作") or "-"))
                     else:
@@ -2943,9 +2945,10 @@ def api_gold():
                        if core_gold.pricing_policy(cfg, _g2)},
             "说明": _mg_prefix + (
                 "AION2 售价 = DD373 该区进货成本 ÷ (1−%.1f%%)；DD373 无报价或"
-                "可买量不足 1 亿的区统一挂 $%.2f/M；"
+                "可买量不足 %.1f 亿的区统一挂 $%.2f/M；"
                 "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
                 % ((_pol_a.get("利润率") or 0.07) * 100,
+                   (_pol_a.get("无货最小可买万基纳") or 15000) / 10000.0,
                    (_pol_a.get("无货兜底售价_USD每M") or 19.9))
                 if _pol_a.get("模式") == "dd373_only" else
                 ("AION2 售价 = DD373 各区推荐价 ÷ (1−%.1f%%)；G2G/ELD/IGGM 继续采集监控并展示，"
@@ -3165,12 +3168,13 @@ def api_gold_cost():
         "ts": (out[0]["ts"] if out else None),
         "口径": (
             ("售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.1f%%)（利润率）；"
-             "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 1 亿）⇒ 统一挂 $%.2f/M"
+             "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 %.1f 亿）⇒ 统一挂 $%.2f/M"
              "（等该区有货下一轮自动跟回）。"
              "G2G最低价/ELD最低价/IGGM 仅采集监控展示，不参与定价；"
              "利润率 = (售价 − 成本) / 售价，可为负。"
              % ((_pol.get("利润率") or 0.07) * 100,
-                (_pol.get("无货最小可买万基纳") or 10000),
+                (_pol.get("无货最小可买万基纳") or 15000),
+                (_pol.get("无货最小可买万基纳") or 15000) / 10000.0,
                 (_pol.get("无货兜底售价_USD每M") or 19.9)))
             if _pol.get("模式") == "dd373_only" else
             ("售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"

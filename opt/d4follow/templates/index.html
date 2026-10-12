@@ -2317,7 +2317,8 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + '/M</b>')
               : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ÷(1−'
                  + (Math.round(Number(_pol2['利润率']||0)*1000)/10)+'%'
-                 + '；无报价或可买量 < 1 亿 ⇒ 统一挂 $'
+                 + '；无报价或可买量 < '
+                 + (Number(_pol2['无货最小可买万基纳']||15000)/10000)+' 亿 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
               /* 2026-10-09 修：原来 g2g_cheapold 落到「成本不参与改价，仅监控参考」这一支
                  —— 那是旧 dd373 时代的说法，现行口径下成本**参与**（成本兜底 + 货源闸），
