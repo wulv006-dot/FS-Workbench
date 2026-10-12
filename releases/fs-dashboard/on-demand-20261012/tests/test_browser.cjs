@@ -49,6 +49,7 @@ await page.waitForFunction(()=>document.querySelector('#host').shadowRoot.queryS
 assert.equal(await card('主站销售额').locator('strong').innerText(),'$100.00');
 
 await page.waitForFunction(()=>document.querySelector('#host').shadowRoot.querySelectorAll('[data-profit-day]').length>0);assert(await page.locator('#chartMain svg').count()>0);assert.deepEqual(legacy,[]);
+const readCount=Array.from(profitReads.values()).reduce((a,b)=>a+b,0);await page.evaluate(()=>window.api.update());for(let i=0;i<30&&Array.from(profitReads.values()).reduce((a,b)=>a+b,0)<=readCount;i++)await new Promise(r=>setTimeout(r,30));assert(Array.from(profitReads.values()).reduce((a,b)=>a+b,0)>readCount,'explicit update must re-read complete-day cache');
 // Custom dates must not be clamped to the previously displayed series.
 await page.locator('#dStart').fill('2025-01-01');await page.locator('#dEnd').fill('2025-01-30');await page.locator('#btnApply').click();
 await page.waitForFunction(()=>window.scope.summary?.query.start==='2025-01-01');assert.equal((await page.evaluate(()=>window.api.state())).period.end,'2025-01-30');assert(await page.locator('#chartMain svg').count()>0);

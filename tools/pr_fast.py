@@ -339,7 +339,11 @@ def main():
             release="releases/fs-dashboard/on-demand-20261012"
             units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
-            node(release+"/tests/test_browser.cjs")
+            entry=ROOT/release/"entry-profit-refresh/frontend"
+            if entry.exists():
+                units(release+"/entry-profit-refresh/frontend",["test_release_workspace"],root_owned=True)
+                subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets")))
+            else:node(release+"/tests/test_browser.cjs")
             node(release+"/tests/test_legacy.cjs")
         elif group=="fs-game-boards-all":
             release="releases/fs-dashboard/game-boards-all-20261012"
