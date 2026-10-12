@@ -1201,6 +1201,21 @@ async function followAll(on){
    都是「这个游戏怎么样」。现在指标下沉进游戏详情：点开哪张卡，就出那个游戏自己的指标。
    **指标项按该游戏真有的数据出** —— 没金币不出金币卡、无负毛利不出负毛利卡、
    没配采集周期不出周期卡 ⇒ 不同游戏的指标天然不一样，以后加指标只要往 cards 里 push。 */
+/* 2026-10-12（老板口径）：「前台展示利润按实际的来」——
+   金币行的利润率**一律按实际成本实算**：实际成本取 DD373 **实采均价** dd_ref_usd
+   （我自己抓的那条 = 买满目标量后的数量加权均价），利润 =（我方售价 − 实采成本）/ 我方售价。
+   不再用后台行里的 margin_rate —— 那只是**定价旋钮的存档值**，与真实利润差很多
+   （线上实测：MSCW 存档 30% 而实算 ≈ 50%；AION2 存档 20% 而实算 ≈ 30%）。
+   无 DD373 实采的行（ARC / ET / S15 等没有 DD373 成本源）才回退 margin_rate。
+   ⚠ 只用于「金币行」（带 dd_ref_usd / our_per_m 的行）；道具行的利润走 margin，不在此改。 */
+function goldRealMargin(x){
+  if(!x) return null;
+  const c = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+  const o = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+  if(c!=null && isFinite(c) && o && o>0) return (o-c)/o;
+  const m = (x.margin_rate!=null && x.margin_rate!=='') ? Number(x.margin_rate) : null;
+  return (m!=null && isFinite(m)) ? m : null;
+}
 function schedRec(name){
   const s=(STATE&&STATE.schedule)||{};
   return (s.列表||[]).find(r=>r.游戏===name)||null;
@@ -1217,12 +1232,12 @@ function renderGameKpis(){
   if(!g){ box.innerHTML=''; if(sum) sum.textContent=''; return; }
   const st=gStat(g), m=key2sec(), rows=(STATE&&STATE.rows)||[];
   const mine=r=>m.get(r.key)===g;
-  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 margin_rate（0~1）。
+  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 goldRealMargin()（按 DD373 实采成本实算）。
      口径不同但都是比例，同一个「平均毛利率」里合并没歧义 —— 只统计当前游戏的行。 */
   const propRows=rows.filter(r=>!isGoldKey(r.key) && mine(r));
   const  goldRows=rows.filter(r=>isGoldKey(r.key) && mine(r));
   const goldLive=((GOLD_DATA&&GOLD_DATA.items)||[]).filter(mine);
-  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(r=>r.margin_rate))
+  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(goldRealMargin))
     .filter(v=>typeof v==='number' && isFinite(v));
   const avg = mg.length? mg.reduce((a,b)=>a+b,0)/mg.length : null;
   const mn  = mg.length? Math.min.apply(null,mg) : null;
@@ -1238,7 +1253,13 @@ function renderGameKpis(){
   if(st.hasGold) cards.push(['金币', st.goldN||0, st.poeGold.length? 'Quick Gold 商品' : '服务区']);
   cards.push(['本轮待改', st.up+st.dn, (st.up+st.dn)? ('涨 '+st.up+' · 降 '+st.dn) : '全部持平']);
   cards.push(['已开跟价', st.onN+'/'+st.allN, st.allN? (Math.round(st.onN/st.allN*100)+'% 的商品在跟价') : '无商品']);
-  if(mg.length) cards.push(['平均毛利率', pct(avg), '最低 '+pct(mn)]);
+  /* 2026-10-12（老板口径）：金币行利润率已改为按 DD373 实采成本实算（见 goldRealMargin）。
+     只有**该游戏真有 DD373 实采成本**时才在副标标注口径 —— 避免别人误以为还是后台那个
+     不随价格变的存档利润率；没实采的游戏（ARC / D4 金币等）保持原样，不做不当表述
+     （它们的平均里还混着道具行 margin，笼统标「后台存档」反而更误导）。 */
+  const _mgReal = goldLive.some(r=>r.dd_ref_usd!=null && r.dd_ref_usd!=='');
+  if(mg.length) cards.push(['平均毛利率', pct(avg),
+    (_mgReal ? '金币按 DD373 实采成本实算 · ' : '') + '最低 '+pct(mn)]);
   cards.push(['负毛利商品', neg, neg? '⚠ 低于进货成本，需核对映射' : '正常']);
   if(noI)  cards.push(['IGGM 无对标', noI,  '⚠ 竞品可能已下架']);
   if(newS) cards.push(['IGGM 新增规格', newS, '先建基线，下一轮起跟价']);
@@ -1757,23 +1778,40 @@ async function renderGoldInner(pre){
              表头 9 列而数据行 11 格，整行错位两列。 */
           + (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : '')
           + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
-          + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b></td>'
+          /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价，
+             别人就不容易误解、也能直观看到差异」——
+             把**我方前台价也折成人民币**，且折到与 DD373 采集**完全同口径**（元/万金），
+             与成本列里的「DD373 实采 X 元/万金」直接可比、不用心算。
+             汇率系数**直接从同行的 dd_ref_cny ÷ dd_ref_usd 反推**
+             （= 元/万X ÷ USD/单位），既不必另配汇率、也不用猜单位；
+             只有真采到 DD373 成本的行才出这一行。 */
+          + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b>'
+            + (function(){
+                const _du = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+                const _ou = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+                if(_ddc==null || !_du || !_ou) return '';
+                const _cn = _ou * (_ddc/_du);      /* 我方前台价 · 人民币（元/万金） */
+                return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+                     + _cn.toFixed(2) + '/' + _wuN + '</div>';
+            })()
+          + '</td>'
           + gapCell(x)
           + (function(){
               /* 2026-10-09 · MSCW(iggm_undercut) 专用展示（老板口径）：
                  ① 利润率列**按「当前跟价 vs 进货均价」实算**，不再显示写死的后台利润率
                     （原来那个 30% 是后台行 21754 的存档值，不随价格变 → 现在算出来的才是真利润）；
-                 ② 单元格补一行**估算进货均价**（DD373「买满 100 万金」订单簿加权均价 = dd_ref_usd），
-                    同时给 行内单位($/K) 与 $/M 两个口径，一眼知道大致的进货价。 */
-              const _cst = (x.price_mode==='iggm_undercut' && x.dd_ref_usd!=null) ? Number(x.dd_ref_usd) : null;
-              const _our = (x.our_per_m!=null && x.our_per_m!=='') ? Number(x.our_per_m) : null;
-              const _mg  = (_cst!=null && _our && _our>0) ? (_our-_cst)/_our : null;
+                 ② 单元格补一行**估算进货均价**（DD373「买满目标量」订单簿加权均价 = dd_ref_usd，
+                    2026-10-12 目标量已提到 800 万金），同时给 行内单位($/K) 与 $/M 两个口径。
+                 ③ 2026-10-12：判定放宽为「只要有 dd_ref_usd 就用实采成本」，并统一走
+                    goldRealMargin()，与「平均毛利率」指标卡**同口径**（老板：「利润按实际的来」）。 */
+              const _cst = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+              const _mg  = goldRealMargin(x);
               let _cell = '<td class="num">';
               if(_mg!=null){
                   const _col = (_mg<0) ? 'var(--red)' : 'var(--green)';
                   _cell += '<span style="color:'+_col+';font-weight:600">'+(_mg*100).toFixed(1)+'%</span>';
               }else{
-                  _cell += (x.margin_rate!=null ? (Number(x.margin_rate)*100).toFixed(0)+'%' : '--');
+                  _cell += '--';
               }
               if(_cst!=null){
                   const _perM = _cst * (String(x.unitLabel)==='K' ? 1000 : 1);
@@ -2118,6 +2156,16 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         + (stockTip? esc(stockTip):'')+'</div></td>'
       + srcCell
       + '<td class="num mono">'+(x.售价_USD每M!=null?('$'+f4(x.售价_USD每M)+'/M') : '--')
+        /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价」——
+           把**我方前台价也折成人民币**（元/万基纳，与成本列同口径），不用心算汇率就能看差距。
+           系数 = 本行「成本_元每万基纳 ÷ 成本_USD每M」（= 元/万基纳 ÷ USD/M），
+           直接从**这一行的实采数据**反推，不依赖全局汇率配置。 */
+        + (function(){
+            const _cc = Number(x.成本_元每万基纳), _cu = Number(x.成本_USD每M), _su = Number(x.售价_USD每M);
+            if(!(_cc>0) || !(_cu>0) || !(_su>0)) return '';
+            return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+                 + (_su*(_cc/_cu)).toFixed(4) + ' 元/万基纳</div>';
+        })()
         + (x.对照档位M? '<div class="small" style="color:var(--sub)">按 '+x.对照档位M+'M 档</div>':'')+'</td>'
       /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列 ——
          该列用成本除数换算，与 MMOEXP 前台口径重复且易误读，直接移除。
