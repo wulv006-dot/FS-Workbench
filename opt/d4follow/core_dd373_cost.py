@@ -650,6 +650,8 @@ def to_usd_per_m(price_yuan_per_wan, rate):
 #
 # 实测（2026-10-08，服务器出口 IP 47.85.224.112 · 未被风控）：
 #   · 北美NA 段 `k5faqj`：117 条 / 6 页，第 1 页可买 **75 万金**（< 100 万 ⇒ 必须翻页）
+#     【2026-10-12 复测】北美NA **203 条 / 11 页**，第 1 页可买 **1653 万金**（≥ 500 万 ⇒ 首页即够）；
+#       欧洲EU 仍恒为 0 条；6 页合计可买 1.15 亿金（余量充足）。
 #   · 欧洲EU 段 `sphpwv`：**0 条挂单**（页面正常渲染，非风控；并入后不改变结果）
 #   · 单价口径：`<input class="goods-num" max="3" singleprice="16.6112957">`
 #       ⇒ singleprice = **元/万金**，页面单位串 = 「万金」
@@ -658,9 +660,13 @@ def to_usd_per_m(price_yuan_per_wan, rate):
 #           ✅ **只改长 URL 的第 13 段**（`…-0-0-0-et9e1b-0-0-0-0-0-{页}-0-0-0.html`）
 #              实测 page=2 内容与 page=1 不重复、可正常解析（page2 首单价 18.0 vs page1 16.61）
 #
-# 🔴 目标量（用户口径 2026-10-08）：
-#     「以存货 100W 货币为兜底，遍历页面直到够 100w 金币，然后计算这 100w 金币的平均价」
-#     ⇒ target_wan = **100 万金**（不是 AION2 的 1 亿 = 10000 万基纳）
+# 🔴 目标量：
+#   2026-10-08 用户口径：「以存货 100W 货币为兜底，遍历页面直到够 100w 金币，
+#                         然后计算这 100w 金币的平均价」⇒ target_wan = 100 万金。
+#   2026-10-12 用户口径：**拉高到 500 万金**（「由 100w 提高至 500w」）⇒ target_wan = 500 万金。
+#     实测（2026-10-12 · 服务器出口 IP 47.85.224.112）：北美NA 首页即可买 **1653 万金**、
+#     前 3 条单价同为 6.373490 元/万金 ⇒ **500 万仍在第 1 页内吃满**，请求数不变（仍 2 次/轮）。
+#     （不是 AION2 的 1 亿 = 10000 万基纳；两者目标量本来就不同。）
 #
 # ⚠ `wan_per_unit` = 前端 1 个单位合多少个「万」：
 #     前端单位是 **K**（档位 10/20/…/500，data-unit="K"）⇒ 1 K = 1000 金 = 0.1 万金。
@@ -672,8 +678,8 @@ FLAT_ZONES = {
         "type_seg": "et9e1b",       # 商品类型段（游戏币）
         "unit_name": "万金",        # 页面上的单位串（parse_first 自校验用）
         "wan_per_unit": 0.1,        # 前端单位 = K ⇒ 1 K = 0.1 万金
-        "target_wan": 100.0,        # 目标：买满 100 万金
-        "max_pages": 6,             # 站点实测共 6 页；够量即停
+        "target_wan": 500.0,        # 目标：买满 500 万金（2026-10-12 老板：100w → 500w）
+        "max_pages": 6,             # 够量即停；2026-10-12 实测首页即可买 1653 万金 ≫ 500 万
         "sub": {                    # 我方「大区」→ (DD373 子区展示名, URL 段)
             "Global": ("北美NA+欧洲EU", "k5faqj"),
         },
@@ -705,7 +711,7 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
     """
     z = FLAT_ZONES[game]
     subs = list(z.get("sub_segs") or list((z.get("sub") or {}).values()))
-    tgt = float(z.get("target_wan") or 100.0)
+    tgt = float(z.get("target_wan") or 500.0)
     unit_name = z.get("unit_name") or "万金"
     wpu = float(z.get("wan_per_unit") or WAN_PER_M)
     quotes = []
@@ -744,7 +750,7 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
                              "备注": _chk.get("自校验"), "URL": url}, site)
             if gap:
                 time.sleep(gap)
-        # 本页（两个子区）都吃完了：够量就停（用户口径「遍历页面直到够 100w」）
+        # 本页（两个子区）都吃完了：够量就停（用户口径「遍历页面直到够目标量」）
         if sum(q for q, _, _ in quotes) >= tgt - 1e-6:
             break
         if pages_used == 0:
