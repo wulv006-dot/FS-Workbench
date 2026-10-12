@@ -1,0 +1,32 @@
+{
+  "module_id": "fc-prewrite-recovery-20261012",
+  "owner": "wulv",
+  "parent_source": "releases/fc-coins/noncore-emergency-20261009",
+  "root_fc_adoption": "legacy-unreconciled",
+  "runtime": [
+    {
+      "source": "source/monitor/collector.py",
+      "target": "/opt/fc-ops-readonly-monitor/collector.py",
+      "before": "6be99222f26921f941ad0a65d5740ef16fe39e95560ad8b2a1a9260daeee16a0",
+      "after": "902114ac2bc2d02abbcc32c24cdcf9d433751ebd01712ad9c096e838a5a6a2f6"
+    },
+    {
+      "source": "source/monitor/read_only_status.py",
+      "target": "/opt/fc-ops-readonly-monitor/read_only_status.py",
+      "before": "45746777d5d546b14be280bc8db188b28192c1c72ef028cd8e81f93440c70f7f",
+      "after": "9190aded77dddafb76fe6065e89207c9c646cd7f6db1111dc344eba070fa439e"
+    }
+  ],
+  "writer_and_policy_unchanged": true,
+  "no_new_job_or_schedule": true,
+  "failure_and_unknown_records_preserved": true,
+  "published_at_utc": "2026-10-12T01:40:47+00:00",
+  "backup": "/var/lib/fc-ops-readonly-monitor/code-backups/noncore-emergency-20261012T014047Z",
+  "direct_checks": {
+    "monitor": 24,
+    "publisher": 13,
+    "linux": true,
+    "windows": true
+  },
+  "production_acceptance": "awaiting existing two healthy observations and natural cycle"
+}
