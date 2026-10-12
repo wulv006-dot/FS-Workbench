@@ -267,6 +267,10 @@ def select(paths):
             groups.add("fs-business-live");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
+        if name.startswith("releases/fc-coins/postwrite-cache-recovery-20261012/"):
+            groups.add("fc-cache-clear");continue
+        if name.startswith("releases/ops/dashboard-on-demand-monitor-20261012/"):
+            groups.add("dashboard-query-monitor");continue
         if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
             groups.add("fc-public-readback");continue
         if name.startswith("releases/fc-coins/coupon-consistency-20261009/"):
@@ -421,6 +425,13 @@ def main():
             units(release+"/fc27_chrome_collector",["test_lootbar_server_collector"])
             subprocess.run(["node",str(ROOT/release/"fc27_chrome_collector/test_lootbar_collection.cjs")],
                 cwd=ROOT/release,check=True,timeout=30)
+        elif group=="fc-cache-clear":
+            release="releases/fc-coins/postwrite-cache-recovery-20261012"
+            units(release+"/fc27_cloud_browser",["test_clear_cache_after_write"])
+            units(release+"/fc27_cloud_browser",["test_public_readback_retry"])
+            units(release,["test_cache_publisher"])
+        elif group=="dashboard-query-monitor":
+            units("releases/ops/dashboard-on-demand-monitor-20261012/tests",["test_monitor","test_publisher"])
         elif group=="fc-public-readback":
             release="releases/fc-coins/public-readback-retry-20261009"
             subprocess.run([sys.executable,"-I","-B","-c",

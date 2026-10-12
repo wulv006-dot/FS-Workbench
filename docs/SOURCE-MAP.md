@@ -38,3 +38,11 @@ FC最新非核心来源应急与固定自愈已按11个活动源码核对生产�
 2026-10-05历史经营HTML为20261005-restore-v7，生产/账本/规范源SHA1d6a6084…一致；本候选以dashboard.template.html保留全部代码，只分离PROFIT私有历史JSON。完整source与template双SHA、精确重建合同见provenance/restored-v7.json。incident e53eccb3…仅在原工程忽略的raw证据保留，没有导入候选。当前漂移已恢复，具体旧上传者仍未查明。
 
 before_engine.py 和 range_parser_fix_20261005/baseline/range_api.py 仅是经过扫描的最小回归代码对照，不是活动规范源，不含实际订单或日志。3个本地一次性辅助入口没有作为活动线上路径验证，只供现有测试依赖，不能用其触发生产。配置模板/schema不等于已核实生产配置。
+
+
+## FC 缓存恢复及新版目录巡检（2026-10-12）
+
+FC两份精确活动源见 [写后缓存恢复](../releases/fc-coins/postwrite-cache-recovery-20261012/SOURCE-MAP.json)，11:14受控发布；精确会话失效仅续原账号一次、身份复核后补清，未知/权限拒绝停止。09:49原响应未保存，历史原因仍unknown。下一原11:50自然周期待验，旧FC根源仍legacy-unreconciled。
+
+按需看板消费者适配见 [目录巡检](../releases/ops/dashboard-on-demand-monitor-20261012/SOURCE-MAP.json)。11:43原monitor publisher仅替换hooks.py，九项核心SHA/六服务PID保持。复用已有query_api的metadata-only调用，真实17目录queryable；目录generatedAt不表示财务新鲜度，无周期业务查询；旧合法快照作为historical_only保留。看板错误继续独立于FC写价门禁，RPG共享恢复接口保持。旧timer是否退役由按需迁移任务按其真实验收合同确认，本增量不改timer。
+
