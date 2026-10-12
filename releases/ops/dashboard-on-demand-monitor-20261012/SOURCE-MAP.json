@@ -1,0 +1,28 @@
+{
+  "module_id": "dashboard-on-demand-monitor-20261012",
+  "owner": "wulv",
+  "source": "source/hooks.py",
+  "target": "/opt/fc-ops-readonly-monitor/hooks.py",
+  "before": "9eb21fc0dc69b598ae7053022605639cda5ea0b0fb827b6178c862b57d09237d",
+  "after": "ad59b2fe0c7b37f5c5b467f64e993cdba791b18d90d49bcd3340c8bf7804c32a",
+  "published_at_utc": "2026-10-12T03:43:09+00:00",
+  "backup": "/var/lib/fc-ops-readonly-monitor/code-backups/20261012T034309Z",
+  "existing_publisher": "monitor-publisher.py --upgrade fixed hooks-only manifest scope",
+  "checks": {
+    "catalog_contract": 7,
+    "publisher": 4,
+    "linux_skipped": 0
+  },
+  "actual_runtime": {
+    "status": "queryable",
+    "catalog_id": "catalog-06cb55a0f928e4b1",
+    "profile_count": 17,
+    "data_freshness": "not_observed_no_business_query",
+    "semantic_queries_verified": false,
+    "legal_snapshot_retained": true
+  },
+  "fc_price_cache_and_rpg_rules_unchanged": true,
+  "service_restarts": 0,
+  "new_business_queries": 0,
+  "old_timer_actions": 0
+}
