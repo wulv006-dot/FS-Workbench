@@ -272,6 +272,20 @@ def response():
 
 
 class ResponseTests(unittest.TestCase):
+    def test_management_target_language_is_not_an_execution_claim(self):
+        projected = project_context(management())
+        for text in ['项目已完成营收目标，无需补数据，建议核对后续交付。', '建议立即关注落后项目，可直接查看页面进度。']:
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': text})
+            self.assertEqual(validate_response(raw, projected)['status'], 'succeeded')
+        for text in ['已完成业务调整，请查看结果。', '已提交新计划，请查看结果。', '已退款并派单，请查看结果。']:
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': text})
+            with self.assertLogs(level='WARNING') as logs, self.assertRaises(ValueError):
+                validate_response(raw, projected)
+            self.assertTrue(any('reason=execution_or_price' in line for line in logs.output))
+            self.assertTrue(all(text not in line for line in logs.output))
+
     def test_management_rejects_game_topics_and_unqualified_profit(self):
         for text in ['建议先核对上线日期，再评估经营进度。', '建议先核对倒计时，再评估经营进度。',
                      '利润表现良好，建议继续保持当前经营安排。']:
