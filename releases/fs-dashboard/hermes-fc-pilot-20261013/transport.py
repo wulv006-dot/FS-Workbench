@@ -109,8 +109,13 @@ class Proxy:
                                 expected_sha256=body['sha256'])
         if (method, path) != ('POST', '/v1/chat/completions'):
             raise PermissionError('route_denied')
-        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream'}:
+        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'reasoning_effort'}:
             raise ValueError('request_fields')
+        # Fixed Hermes encodes an explicit disabled config as "none". This one
+        # compatibility value maps to FS's existing enable_thinking=False;
+        # it is discarded, never forwarded as a provider-controlled parameter.
+        if 'reasoning_effort' in body and body['reasoning_effort'] not in (None, 'none'):
+            raise ValueError('reasoning_policy')
         if body.get('model') != gateway.budget.policy['model'] or body.get('stream', False) is not False:
             raise ValueError('provider_override')
         if body.get('tool_choice', 'auto') != 'auto':

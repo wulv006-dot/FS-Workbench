@@ -32,6 +32,15 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.call()['id'], first['id'])
         self.assertEqual(self.fixture.calls, 1)
 
+    def test_explicit_disabled_reasoning_maps_to_existing_provider_policy(self):
+        first = self.call(reasoning_effort='none')
+        self.assertEqual(self.call()['id'], first['id'])
+        self.assertEqual(self.fixture.calls, 1)
+        for value in ('low', 'medium', 'high', 'invented', True, {'enabled': False}):
+            with self.assertRaisesRegex(ValueError, 'reasoning_policy'):
+                self.call(reasoning_effort=value)
+        self.assertEqual(self.fixture.calls, 1)
+
     def test_short_token_can_renew_without_total_runtime_cap(self):
         for _ in range(20):
             self.clock += 500
