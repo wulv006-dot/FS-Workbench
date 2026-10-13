@@ -1,0 +1,2 @@
+/* Duplicate business displays use the maintained date-query page. Google views remain independent. */
+window.MMOEXPBusiness={mount(panel){const title=document.createElement('h2'),note=document.createElement('p'),link=document.createElement('a');title.textContent='经营分析';note.textContent='经营数据已统一到全局分析，可选择项目、网站与自定义日期。';link.href='/dashboard/analytics/?mode=business';link.textContent='打开经营分析 →';panel.replaceChildren(title,note,link);},unmount(){},refresh(){}};
