@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-10-13",
+  "phase": "isolated-build-only",
+  "production_started": false,
+  "hermes_commit": "71d34bad1045610252eda02ee79549436896e784",
+  "official_archive_sha256": "a88ae3f634a3fd45050d3418d80b30ee5af51c89b9de40ec1ea3039d3024d77a",
+  "runtime_base_manifest": "sha256:998acd06f485adfd6890e3e15a4b542543e0cf22ff904310095da328a5e3e561",
+  "builder_base_manifest": "sha256:d686a5de867d5af0bce88112d8dee7dcdf8bbf1a8cadf5d0589f48381f229638",
+  "sqlite_source_sha256": "0e9483900e92cd5de8fd48d16bf9200145a61f7fd5be542a5ac81d8a9516eb9c",
+  "sqlite_download_approval": "direct-user-20261013",
+  "sqlite_runtime": "3.53.4",
+  "uv_version": "0.12.3",
+  "uv_source_sha256": "600cf9a742aca00d292673b16b5acffaa7b8c269a364ad0c2e79498dcb1fe101",
+  "recipe_sha256": "f08be38eb1614b33f37d2e55e3ce5c298e656e1a72a9dd984d7b9d0ae90f4fab",
+  "image_id": "sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544",
+  "checks": {
+    "python": "3.14.7",
+    "host_kernel": "3.10.0-1160.119.1.el7.x86_64",
+    "official_api_import": true,
+    "official_agent_import": true,
+    "network": "none",
+    "rootfs": "readonly",
+    "uid": 65534,
+    "host_business_mounts": []
+  },
+  "not_yet_verified": [
+    "real_FS_proxy",
+    "runtime_tool_allowlist",
+    "real_Bailian_tool_call",
+    "cancel",
+    "restart",
+    "production_egress_rules",
+    "actual_FC_week_investigation"
+  ]
+}

@@ -1,0 +1,10 @@
+model:
+  streaming: false
+  context_length: 128000
+  reasoning_echo: true
+tools:
+  tool_search:
+    enabled: off
+gateway:
+  api_server:
+    max_concurrent_runs: 0

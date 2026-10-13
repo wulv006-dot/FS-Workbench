@@ -1,0 +1,72 @@
+{
+  "version": "0.3.0-candidate",
+  "hermes_commit": "71d34bad1045610252eda02ee79549436896e784",
+  "anthropic_commit": "02ffa99ff00ce4d3046ccebabb8357cb39f3ab06",
+  "upstream_licenses": [
+    "MIT",
+    "Apache-2.0"
+  ],
+  "active_skill": "fs-fc-operations-analysis",
+  "runtime_loaded": false,
+  "production_installed": false,
+  "permissions_added": [],
+  "scripts_installed": false,
+  "upstream_notice": "No root NOTICE in fixed Anthropic tree; LICENSE retained verbatim including upstream trailing text. Four skill blob hashes verified against fixed tree.",
+  "files": [
+    {
+      "path": "skills/fs-fc-operations-analysis/references/methods.md",
+      "sha256": "9d671d63d6c3e002f638a93d0c5a645fc00fd98aff2d8d6b07e2bbdf55d61cc9",
+      "bytes": 3211
+    },
+    {
+      "path": "skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574",
+      "bytes": 1848
+    },
+    {
+      "path": "skills/fs-fc-operations-analysis/SKILL.md",
+      "sha256": "28ed69f3d913924e5dc0f358256d28e4c6e264855991c97db48d00c5b05909ba",
+      "bytes": 8639
+    },
+    {
+      "path": "skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
+      "sha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d",
+      "bytes": 11051
+    },
+    {
+      "path": "skills/upstream/anthropic/data/skills/explore-data/SKILL.md",
+      "sha256": "af7590fa616360259da712b5ede5f79b817beb854c47a465f95774354988e8a2",
+      "bytes": 11520
+    },
+    {
+      "path": "skills/upstream/anthropic/data/skills/statistical-analysis/SKILL.md",
+      "sha256": "91a15cfc144efffcd622b09827362a73993a3ff30e3a78114801832477c9f8a0",
+      "bytes": 10434
+    },
+    {
+      "path": "skills/upstream/anthropic/data/skills/validate-data/SKILL.md",
+      "sha256": "1e424822043480375b80aef9416227b1c8083af749ca536568716265f79ca54b",
+      "bytes": 14916
+    },
+    {
+      "path": "skills/upstream/anthropic/LICENSE",
+      "sha256": "a6946284993aeec75c7d75906064b66210c46051e562077efb30eb6dcfe72e26",
+      "bytes": 11607
+    },
+    {
+      "path": "skills/upstream/hermes/LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+      "bytes": 1070
+    },
+    {
+      "path": "skills/upstream/hermes/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b",
+      "bytes": 9655
+    },
+    {
+      "path": "skills/upstream/hermes/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6",
+      "bytes": 12652
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "status": "blocked",
+  "checked_at": "2026-10-13",
+  "environment": "Windows / Python 3.14.7",
+  "items": [
+    {
+      "library_file_id": "libfile_b12d6f8e7df88191a0f23719996973f6",
+      "file_id": "file_000000000d5881f58a8e15b6e45f558f",
+      "file_name": "FS云端Hermes与FC试点施工规划.md",
+      "size_bytes": 47575,
+      "version": 0
+    },
+    {
+      "library_file_id": "libfile_8592a55f05188191bbf7b9c8b76e4811",
+      "file_id": "file_000000005f508230b3501b81b9d16d87",
+      "file_name": "FS云端Hermes与FC试点施工规划.docx",
+      "size_bytes": 67125,
+      "version": 0
+    }
+  ],
+  "attempt": {
+    "item": "libfile_b12d6f8e7df88191a0f23719996973f6",
+    "helper": "current Library skill library_file_transfer.py",
+    "outcome": "AttributeError: module 'os' has no attribute 'setxattr'",
+    "original_archived": false
+  },
+  "word_original_archived": false,
+  "content_read": {
+    "route": "Library read",
+    "markdown_lines": 492,
+    "not_a_local_original": true
+  },
+  "forbidden_fallbacks": "No guessed URL, raw transfer, helper patch, or metadata bypass."
+}

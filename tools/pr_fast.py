@@ -194,6 +194,9 @@ def selfcheck():
             raise RuntimeError("fs_boss_workspaces_scope_missing")
     if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
         raise RuntimeError("fc_deep_advisor_scope_missing")
+    for path in ("controller.py","fs-hermes-fc.service","shared_candidate/range_api.py","skills/manifest.json"):
+        if select(["releases/fs-dashboard/hermes-fc-pilot-20261013/"+path]) != ["hermes-fc-pilot"]:
+            raise RuntimeError("hermes_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
@@ -247,6 +250,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
+            groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
             groups.add("fc-deep-advisor");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/homefix/"):
@@ -424,6 +429,11 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="hermes-fc-pilot":
+            release="releases/fs-dashboard/hermes-fc-pilot-20261013"
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release","test_fs_evidence"])
+            node(release+"/check_ui.cjs")
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"runtime_ci.py"),"--test"],check=True,timeout=420)
         elif group=="fc-deep-advisor":
             release="releases/fs-dashboard/ai-advisor-20261013/deep"
             units(release+"/tests",["test_ci"],root_owned=True)
@@ -534,6 +544,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

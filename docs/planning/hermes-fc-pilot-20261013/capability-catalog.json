@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-13T13:19:17Z",
+  "environment": "play187",
+  "source_commit": "ccfd94605b53dd573cbd5e62a641693b1dd3b876",
+  "source_tree": "dc9922a66a0198190ae2ffa2375ce6c193a8ac01",
+  "verifier": "Hermes local task / fixed Git content + read-only SSH",
+  "coordination": {
+    "advisor_thread": "01a13409-725a-70f5-b7a7-4b3c213b20d5",
+    "release_window_returned": true,
+    "advisor_acceptance_complete": true,
+    "latest_owner_report": "PR107 revision10 accepted; all windows returned; next natural 09:15 not yet verified",
+    "merge": "7359c004ea15e343439ff9a26f96daca0b1aa4e4",
+    "rollback": "/var/backups/fs-navigation-20261006/nav-20261013T132637Z",
+    "fresh_readback_at": "2026-10-13T14:12:38Z",
+    "fresh_sha256": {
+      "fc_deep_model.py": "15965d1d331444635dd8ef677cacb2f05d2e21fa6c33ff6ae7bf53315b76b067",
+      "range_api.py": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a",
+      "boss_insights.py": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c"
+    },
+    "historical_mapping_note": "Top-level source commit/tree and other item readbacks are timestamped historical observations, not refreshed claims."
+  },
+  "items": [
+    {
+      "id": "old-collaboration-status",
+      "evidence_level": "historical_reference",
+      "source": "docs/collaboration/CURRENT-STATUS.md",
+      "version": "2026-10-08 snapshot",
+      "status": "not-current-runtime-proof"
+    },
+    {
+      "id": "machine-statistics",
+      "evidence_level": "production_readback",
+      "source": "/opt/fs-query-api/query_api.py",
+      "version": "26cf6292894aab698b1cef6675b27df04fe97eb1c900cf133e799920810c3c82",
+      "status": "service active; source SHA reconciled; Hermes client not granted",
+      "paths": [
+        "GET /api/fs/v1/profiles",
+        "GET /api/fs/v1/statistics"
+      ],
+      "auth": "expiring hashed bearer registry; project scope; no shared all-project client reuse",
+      "limitations": "summary statistics only; no Hermes identity or tool proxy demonstrated"
+    },
+    {
+      "id": "native-range",
+      "evidence_level": "production_readback",
+      "source": "/opt/fs-exact-range-20261001/range_api.py",
+      "version": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a",
+      "status": "existing service active; code/hash reconciled",
+      "paths": [
+        "GET /range",
+        "GET /advisor"
+      ],
+      "limitations": "existing authenticated front end uses identity headers; direct Hermes trust/identity adapter absent"
+    },
+    {
+      "id": "fc-evidence",
+      "evidence_level": "code_confirmed",
+      "source": "fc_deep_sources.EvidenceReader.collect_bundle",
+      "version": "3c86d88361df2d064d22557a11b7102933ab5612",
+      "status": "one FCDetails capture; shared queue/cache; deterministic windows + bounded problem sample",
+      "limitations": "not an external FC-only MCP endpoint; source acquisition can take 920s and exceeds ordinary per-tool 30s proposed ceiling; need asynchronous capture phase"
+    },
+    {
+      "id": "report-storage",
+      "evidence_level": "code_confirmed",
+      "source": "DailyReports / Advisor / DeepService",
+      "version": "current mapped Git source",
+      "status": "existing per-owner history and persistent daily/model records reusable",
+      "limitations": "dedicated Hermes result namespace and owner projections not implemented"
+    },
+    {
+      "id": "model-accounting",
+      "evidence_level": "production_readback",
+      "source": "fc_daily.DailyReports.bounded_model",
+      "version": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7",
+      "status": "existing durable model_calls fingerprint journal and provider_slot lock",
+      "limitations": "no generic chat/tool protocol; current usage returned as total tokens; task/turn reservations and monetary cost mapping need additive contract"
+    },
+    {
+      "id": "model-gateway",
+      "evidence_level": "code_confirmed",
+      "source": "ai_advisor_model.request_model",
+      "version": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e",
+      "status": "NOT a reusable Hermes HTTP gateway",
+      "limitations": "Python internal function; stream=False; body has no tools/tool_choice; response validators expect final report; key must stay in existing process"
+    },
+    {
+      "id": "coins",
+      "evidence_level": "production_readback",
+      "source": "systemctl metadata",
+      "version": "2026-10-13T13:10:30Z",
+      "status": "fc27-cloud-api/worker active, automation-tick.timer waiting",
+      "limitations": "service/timer observation only; no price/sample/rule recheck"
+    },
+    {
+      "id": "gallery",
+      "evidence_level": "production_readback",
+      "source": "/var/lib/fc27-gallery/settings.json two-field projection",
+      "version": "revision 8",
+      "status": "enabled false; service active",
+      "limitations": "user OFF preserved; active service does not mean enabled business automation"
+    },
+    {
+      "id": "boss",
+      "evidence_level": "production_readback",
+      "source": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "version": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c",
+      "status": "fresh protected SHA matched",
+      "limitations": "old /opt/fs-boss-workspaces/backend/boss_insights.py path absent; historical path not used"
+    },
+    {
+      "id": "hermes-runtime",
+      "evidence_level": "code_confirmed",
+      "source": "NousResearch/hermes-agent v0.21.7",
+      "version": "71d34bad1045610252eda02ee79549436896e784",
+      "status": "not installed or started in this task",
+      "limitations": "no matching systemd unit found in this enumeration; this is not proof that every possible process/container is absent"
+    }
+  ],
+  "coordination_history": [
+    {
+      "advisor_thread": "01a13409-725a-70f5-b7a7-4b3c213b20d5",
+      "release_window_returned": false,
+      "advisor_acceptance_complete": false,
+      "latest_owner_report": "PR106 deployed; job9 started 2026-10-13 21:07:57 Asia/Shanghai and still collecting at last owner message",
+      "rollback": "/var/backups/fs-navigation-20261006/nav-20261013T130726Z",
+      "shared_backend_owner": "existing advisor task",
+      "boss_owner": "01a1345d-4b90-7602-83f5-fb7fbd4f0531"
+    }
+  ]
+}

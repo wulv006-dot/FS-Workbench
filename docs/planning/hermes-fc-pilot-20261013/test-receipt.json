@@ -1,0 +1,16 @@
+{
+  "scope": "offline synthetic candidate",
+  "environment": "Windows Python 3.14.7",
+  "command": "python -B -m unittest discover -s hermes_fc_pilot_20261013 -v",
+  "tests": 29,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "dispatcher": "new main 31708cf + additive Hermes group; units isolated interpreter passed 29",
+  "scope_checks": [
+    "Hermes+self selected",
+    "pack-bundles selection retained"
+  ],
+  "full_dispatcher_selfcheck": "requires complete CI checkout; not claimed locally",
+  "runtime_model_ui_business_acceptance": false
+}
