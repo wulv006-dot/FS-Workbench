@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import threading
+import secrets
 from copy import deepcopy
 from pilot import digest
 
@@ -180,7 +181,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     read_start=(lo-timedelta(days=max(7,(hi-lo).days+1))).isoformat()
     dataset,config=source_capture(detail,read_start,end)
     skills=load_bundle(source_root)
-    scope=hashlib.sha256((owner+dataset['snapshot_id']).encode()).hexdigest()
+    scope=secrets.token_hex(32)
     clue_read=AsyncRead(lambda:problem_projection(diagnostics(),scope))
     history=ReportHistory(daily)
     def reference(args):
@@ -200,6 +201,14 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
                 'source_records':{k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)},
                 'source_status':raw.get('sources'),'consistentPeriod':raw.get('consistentPeriod'),
                 'rule':'须读取各记录system/source/scope；Admin权威主源，Order仅参考，不按primary字段名猜实际源'}
+    from admin_order_capabilities_20261014.provider import CapabilityProvider
+    from admin_order_capabilities_20261014.fs_reader import admin_read,order_read
+    capability=CapabilityProvider(config,detail.pool,admin_read,lambda q:order_read(q,detail.config,'/var/www/dashboard/fs-home/transactions'))
     pins=SourcePins()
+    pinned_capability=pins.wrap(capability.get,'Admin-Order-capability')
+    def capability_read(args):
+        # User OFF is a live barrier checked before any task snapshot/cache reply.
+        if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
+        return pinned_capability(args)
     return ResearchBook(dataset,config,{'start':start,'end':end},history=pins.wrap(history.read,'FC-report-history'),history_index=history.index,reference=pins.wrap(reference,'Order-reference'),
-                        clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'))
+                        clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'),capability=capability_read)

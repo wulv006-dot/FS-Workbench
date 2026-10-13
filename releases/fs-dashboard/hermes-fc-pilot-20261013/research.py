@@ -14,12 +14,13 @@ from pilot import digest, encoded, SHANGHAI
 
 RESEARCH_NAMES = ('fc.get_data_catalog', 'fc.query_business', 'fc.query_queue',
                   'fc.read_history', 'fc.query_reference', 'fc.get_problem_clues',
-                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics')
+                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics','fc.query_capability')
 DIMENSIONS = ('platform', 'product', 'country', 'device', 'payment', 'site_group', 'status', 'day', 'hour')
 QUEUE_DIMENSIONS = DIMENSIONS + ('age_band', 'progress')
 
 
 def tool_schemas():
+    from admin_order_capabilities_20261014.provider import tool_schema
     string={'type':'string'}
     groups={'type':'array','items':{'type':'string','enum':list(QUEUE_DIMENSIONS)},'maxItems':3}
     filters={'type':'object','properties':{k:string for k in QUEUE_DIMENSIONS},'additionalProperties':False}
@@ -44,7 +45,7 @@ def tool_schemas():
                   'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     return [{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
                 'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk','section','item'))],'additionalProperties':False}}}
-            for n,p,description in zip(RESEARCH_NAMES,properties,descriptions)]
+            for n,p,description in zip(RESEARCH_NAMES[:-1],properties,descriptions)]+[tool_schema()]
 
 
 def label(value):
@@ -132,7 +133,7 @@ def calculation(args):
 
 
 class ResearchBook:
-    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None):
+    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None,capability=None):
         self.data, self.config, self.target = deepcopy(dataset), deepcopy(config), deepcopy(target)
         self.capture_id = dataset['snapshot_id']
         if not re.fullmatch(r'fc-detail-[A-Za-z0-9_.-]+', self.capture_id): raise ValueError('capture_identity')
@@ -141,7 +142,7 @@ class ResearchBook:
         self.history, self.reference, self.clues = history, reference, clues
         self.history_index=deepcopy(history_index)
         self.skills, self.persist = skills, persist
-        self.native=native
+        self.native=native;self.capability=capability
         self.background=None
         self.evidence, self.trace, self._lock = {}, [], threading.RLock()
         self.history_output_bytes=0
@@ -185,9 +186,16 @@ class ResearchBook:
                 'captured_period':self.data['coverage']['period'],'coverage':self.data['coverage'],
                 'dimensions':list(DIMENSIONS),'queue_dimensions':list(QUEUE_DIMENSIONS),
                 'status_basis':'读取时当前状态；历史支付日状态不同成熟度，不能直接当日末履约率',
+                'unavailable_field_scope':'Admin paid-order capture only; current problem samples may supply quantities/events through the capability tool. Unprojected does not mean backend absent',
                 'unavailable_fields':['delivered_quantity','assigned_supplier','delivery_event_times','verified_cost','FC-only-attributed-marketing'],
                 'history_available':self.history is not None,'history_index':self.history_index,'reference_available':self.reference is not None,
+                'capabilities':{'tool':'fc.query_capability','kinds':['native_loss','product_sales','fulfillment_samples'],'status':'on_demand' if self.capability else 'not_wired','native_and_product_scope':'FC27/main/Admin game1327/site266; inclusive dates up to31days','fulfillment_scope':'current main Order problem-pool samples; quantity/events do not establish full history or verified cost','product_completeness':'partial paging; duplicate/changed total/unknown units explicit','unprojected_is_not_backend_missing':True},
                 'problem_clues_available':self.clues is not None,'permission':'readonly','skills_version':self.skills['version'] if self.skills else None})
+        if name=='fc.query_capability':
+            from admin_order_capabilities_20261014.capabilities import checked_query
+            checked_query(args,self.config)
+            value=self.capability(args) if self.capability else {'status':'not_available','reason':'capability_adapter_missing'}
+            return self.register(name,args,value,'Order当前问题池数量/事件脱敏样本；非总体因果/实际成本' if args['kind']=='fulfillment_samples' else 'Admin FC27主站原生统计/商品销量；完整性与定义限制随源保留',value.get('captured_at'))
         if name=='fc.query_native_statistics':
             if set(args)!={'profile','start','end'} or args['profile'] not in {'FC27','FC26'}:raise ValueError('native_fields')
             period(args['start'],args['end'])

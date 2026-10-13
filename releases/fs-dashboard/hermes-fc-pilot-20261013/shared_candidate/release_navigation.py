@@ -77,6 +77,23 @@ HERMES_TARGETS={'hermes/shared/range_api.py': '/opt/fs-exact-range-20261001/rang
 HERMES_UPDATE_TARGETS={k:HERMES_TARGETS[k] for k in ('hermes/shared/ai_advisor_model.py','hermes/runtime/proxy_gateway.py','hermes/runtime/controller.py','hermes/runtime/fs_inprocess.py','hermes/index.html')}
 HERMES_WORKER_TARGETS={'hermes/runtime/hermes_worker.py':HERMES_TARGETS['hermes/runtime/hermes_worker.py']}
 HERMES_HISTORY_TARGETS={k:HERMES_TARGETS[k] for k in ('hermes/runtime/fs_evidence.py','hermes/runtime/research.py','hermes/runtime/controller.py')}
+HERMES_CAPABILITY_SCOPE='hermes-fc-admin-order-capabilities-20261014'
+CAP_SESSION_ROOT='/opt/fc27-cloud/marketing-session-20261009'
+CAP_SESSION_TAG='fc27-cloud-session:business-live-20261010'
+CAP_SESSION_BASE_TAG='fc27-cloud-session:traffic-20261009-ec4c7ba41c3c'
+CAP_FS_PACKAGE=('__init__.py','capabilities.py','admin_session_entry.py','fs_reader.py','order_detail_projection.py','provider.py')
+CAP_SESSION_PACKAGE=('__init__.py','capabilities.py','admin_session_entry.py')
+HERMES_CAPABILITY_TARGETS={
+ **{k:HERMES_TARGETS[k] for k in ('hermes/runtime/fs_evidence.py','hermes/runtime/research.py')},
+ 'capability/session/p2pah_session_service.py':CAP_SESSION_ROOT+'/p2pah_session_service.py',
+ 'capability/session/Dockerfile.session':CAP_SESSION_ROOT+'/Dockerfile.session',
+ 'capability/order/fc_order_reader.py':'/opt/fs-exact-range-20261001/fc_order_reader.py',
+ **{'capability/fs-package/'+n:'/opt/fs-hermes-fc/admin_order_capabilities_20261014/'+n for n in CAP_FS_PACKAGE},
+ **{'capability/session-package/'+n:CAP_SESSION_ROOT+'/admin_order_capabilities_20261014/'+n for n in CAP_SESSION_PACKAGE},
+}
+CAP_EXISTING_TARGETS={k for k in HERMES_CAPABILITY_TARGETS if '/fs-package/' not in k and '/session-package/' not in k}
+CAP_PROTECTED_SESSION={CAP_SESSION_ROOT+'/admin_summary.py',CAP_SESSION_ROOT+'/supplement_fields.py','/etc/systemd/system/fc27-p2pah-session.service','/opt/fs-exact-range-20261001/fc_order_diagnostics.py'}
+
 DEEP_TARGETS={'deep/fc_deep_model.py':'/opt/fs-exact-range-20261001/fc_deep_model.py'}
 ADVISOR_SCOPE='fs-ai-advisor-20261013'
 ADVISOR_TARGETS={'advisor/'+n:'/opt/fs-exact-range-20261001/'+n for n in ('range_api.py', 'fc_daily.py', 'ai_advisor.py', 'ai_advisor_model.py', 'boss_insights.py')}
@@ -86,6 +103,7 @@ DETAIL_TARGETS={'fc/'+name:'/opt/fs-exact-range-20261001/'+name for name in ('ra
 
 
 def expected_files(manifest):
+ if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:return set(HERMES_CAPABILITY_TARGETS)
  if manifest.get('scope')==HERMES_HISTORY_SCOPE:return set(HERMES_HISTORY_TARGETS)
  if manifest.get('scope')==HERMES_WORKER_SCOPE:return set(HERMES_WORKER_TARGETS)
  if manifest.get('scope')==HERMES_UPDATE_SCOPE:return set(HERMES_UPDATE_TARGETS)
@@ -106,6 +124,7 @@ def expected_files(manifest):
  return set(GREEN_TARGETS) if manifest.get('scope')=='green-plan-20261009' else RELATIVE
 
 def target_for(rel):
+ if rel in HERMES_CAPABILITY_TARGETS:return HERMES_CAPABILITY_TARGETS[rel]
  if rel in HERMES_TARGETS:return HERMES_TARGETS[rel]
  if rel in DEEP_TARGETS:return DEEP_TARGETS[rel]
  if rel in ADVISOR_TARGETS:return ADVISOR_TARGETS[rel]
@@ -204,13 +223,32 @@ def validate(manifest,stage):
    if manifest.get('runtimeRequired',{}).get(unit)!={'ActiveState':'active'}:raise ValueError('active Hermes update services required')
   if manifest.get('imageId')!='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544':raise ValueError('fixed Hermes artifact required')
   if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:raise ValueError('Hermes readonly/schedule boundary')
+ if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:
+  helper=stage/'capability_image_lifecycle.py'
+  if helper.is_symlink() or not HASH.fullmatch(manifest.get('imageLifecycleSha256','')) or digest(helper)!=manifest['imageLifecycleSha256']:raise ValueError('frozen capability image lifecycle required')
+  if any(r.get('beforeSha256') is None for r in files if r['candidate'] in CAP_EXISTING_TARGETS):raise ValueError('existing capability source baseline required')
+  for unit in ('fs-business-range.service','fs-hermes-fc.service','fc27-p2pah-session.service'):
+   if manifest.get('runtimeRequired',{}).get(unit)!={'ActiveState':'active'}:raise ValueError('active capability services required')
+  if manifest.get('imageId')!='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544':raise ValueError('fixed Hermes artifact required')
+  for key in ('sessionCurrentImage','sessionBaseImage'):
+   if not re.fullmatch(r'sha256:[a-f0-9]{64}',manifest.get(key,'')):raise ValueError('pinned capability session image required')
+  if not re.fullmatch(r'[a-f0-9]{40}',manifest.get('sourceCommit','')):raise ValueError('capability source commit required')
+  if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:raise ValueError('capability readonly/schedule boundary')
+  docker=(stage/'candidate/capability/session/Dockerfile.session').read_text('utf-8')
+  if docker.splitlines()[0]!='FROM '+CAP_SESSION_BASE_TAG:raise ValueError('capability base Dockerfile differs')
+  exact='COPY '+' '.join('admin_order_capabilities_20261014/'+n for n in CAP_SESSION_PACKAGE)+' /usr/local/bin/admin_order_capabilities_20261014/'
+  if exact not in docker.splitlines() or any(line.startswith('COPY admin_order_capabilities_20261014 ') for line in docker.splitlines()):raise ValueError('exact three session package copies required')
+  for n in CAP_SESSION_PACKAGE:
+   if (stage/'candidate/capability/fs-package'/n).read_bytes()!=(stage/'candidate/capability/session-package'/n).read_bytes():raise ValueError('paired capability projection differs')
  protected={x['path']:x['sha256'] for x in manifest['unchangedRequired']}
- if manifest.get('scope') in (HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):
+ if manifest.get('scope') in (HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):
   required={'/opt/fs-exact-range-20261001/'+n for n in ('boss_insights.py','fc_deep_model.py','fc_daily.py','fc_daily_model.py','fc_detail.py','fc_detail_model.py','fc_detail_reader.py','fc_detail_config.json','fc_deep_sources.py','summary_bridge.py')}
   required|={'/var/www/dashboard/index.html','/var/www/dashboard/fs-home/index.html','/var/www/dashboard/fs-home/navigation.js','/opt/fs-access-policy/access_policy.py'}
-  targets=HERMES_HISTORY_TARGETS if manifest.get('scope')==HERMES_HISTORY_SCOPE else HERMES_WORKER_TARGETS if manifest.get('scope')==HERMES_WORKER_SCOPE else HERMES_UPDATE_TARGETS if manifest.get('scope')==HERMES_UPDATE_SCOPE else HERMES_TARGETS
-  if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):required|=set(HERMES_TARGETS.values())-set(targets.values())
+  targets=HERMES_CAPABILITY_TARGETS if manifest.get('scope')==HERMES_CAPABILITY_SCOPE else HERMES_HISTORY_TARGETS if manifest.get('scope')==HERMES_HISTORY_SCOPE else HERMES_WORKER_TARGETS if manifest.get('scope')==HERMES_WORKER_SCOPE else HERMES_UPDATE_TARGETS if manifest.get('scope')==HERMES_UPDATE_SCOPE else HERMES_TARGETS
+  if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):required|=set(HERMES_TARGETS.values())-set(targets.values())
   if not required.issubset(protected) or set(protected)&set(targets.values()):raise ValueError('Hermes protected consumer boundary differs')
+ if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:
+  if not CAP_PROTECTED_SESSION.issubset(protected):raise ValueError('capability protected session dependencies required')
  if manifest.get('scope')==DEEP_SCOPE:
   required={'/opt/fs-exact-range-20261001/'+n for n in ('boss_insights.py','ai_advisor_model.py','fc_daily_model.py','fc_detail.py','fc_detail_model.py','fc_detail_reader.py','fc_detail_config.json','summary_bridge.py')}
   required|={'/opt/fs-exact-range-20261001/'+n for n in ('range_api.py','fc_daily.py','ai_advisor.py','fc_deep_analysis.py','fc_deep_sources.py','fc_deep_service.py','advisor_memory.py','fc_order_diagnostics.py','fc_order_reader.py')}
@@ -221,9 +259,9 @@ def validate(manifest,stage):
  if not HASH.fullmatch(protected.get('/var/www/dashboard/index.html','')):raise ValueError('protected business HTML SHA is required')
  return files
 def guards(manifest,root):
- if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):hermes_quiescent(root)
- if manifest.get('scope') in (DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):
-  for target in (HERMES_HISTORY_TARGETS if manifest.get('scope')==HERMES_HISTORY_SCOPE else HERMES_WORKER_TARGETS if manifest.get('scope')==HERMES_WORKER_SCOPE else HERMES_UPDATE_TARGETS if manifest.get('scope')==HERMES_UPDATE_SCOPE else HERMES_TARGETS if manifest.get('scope')==HERMES_SCOPE else DEEP_TARGETS if manifest.get('scope')==DEEP_SCOPE else ADVISOR_TARGETS if manifest.get('scope')==ADVISOR_SCOPE else DAILY_TARGETS).values():
+ if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):hermes_quiescent(root)
+ if manifest.get('scope') in (DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):
+  for target in (HERMES_CAPABILITY_TARGETS if manifest.get('scope')==HERMES_CAPABILITY_SCOPE else HERMES_HISTORY_TARGETS if manifest.get('scope')==HERMES_HISTORY_SCOPE else HERMES_WORKER_TARGETS if manifest.get('scope')==HERMES_WORKER_SCOPE else HERMES_UPDATE_TARGETS if manifest.get('scope')==HERMES_UPDATE_SCOPE else HERMES_TARGETS if manifest.get('scope')==HERMES_SCOPE else DEEP_TARGETS if manifest.get('scope')==DEEP_SCOPE else ADVISOR_TARGETS if manifest.get('scope')==ADVISOR_SCOPE else DAILY_TARGETS).values():
    path=rooted(root,target);no_target_link(path)
    for item in (path,*path.parents):
     if item.exists():
@@ -309,8 +347,28 @@ def locks(root):
   yield
  finally:
   for f in reversed(handles):f.close()
+def capability_lifecycle(manifest):
+ import types
+ path=Path(__file__).with_name('capability_image_lifecycle.py');no_target_link(path)
+ raw=path.read_bytes()
+ if hashlib.sha256(raw).hexdigest()!=manifest.get('imageLifecycleSha256'):raise ValueError('image lifecycle source changed')
+ # Compile reviewed source directly; no unverified import/bytecode cache.
+ module=types.ModuleType('_reviewed_capability_image_lifecycle')
+ exec(compile(raw,str(path),'exec'),module.__dict__)
+ return module
+
+def capability_image_baseline(manifest):
+ capability_lifecycle(manifest).baseline(manifest)
+
+def capability_session_apply(manifest,backup,journal,root):
+ capability_lifecycle(manifest).apply(manifest,backup,journal,root,atomic,journal_write,digest,no_target_link)
+
+def capability_session_restore(backup,journal):
+ capability_lifecycle(journal['manifest']).restore(backup,journal,journal_write)
+
 def inspect(manifest,stage,root=Path('/')):
  files=validate(manifest,stage);guards(manifest,root);retirement(root)
+ if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:capability_image_baseline(manifest)
  if manifest.get('scope')==DEMAND_SCOPE:
   from grant_dy import grant_all
   registry=json.loads(rooted(root,'/etc/fs-query-api/clients.json').read_text())
@@ -376,6 +434,7 @@ def rollback_journal(backup,journal,root):
    path.unlink();directory_sync(path.parent)
   else:atomic(path,payload,row['beforeMode'])
   row['written']=False;journal_write(backup,journal)
+ if journal['manifest'].get('scope')==HERMES_CAPABILITY_SCOPE:capability_session_restore(backup,journal)
  journal['status']='rolled-back';journal_write(backup,journal)
 
 def db_state(root):
@@ -495,6 +554,12 @@ def restart_games(manifest):
   else:raise ValueError('game range/session health unavailable')
 
 def restart_for(manifest,admission_fence=None):
+ if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:
+  if admission_fence is None:raise ValueError('capability admission fence required')
+  admission_fence.stop_then_unlock_database()
+  restart_for(dict(manifest,scope=HERMES_WORKER_SCOPE),admission_fence)
+  restart_for(dict(manifest,scope=DEEP_SCOPE))
+  return
  if manifest.get('scope')==HERMES_HISTORY_SCOPE:
   if admission_fence is None:raise ValueError('Hermes admission fence required for history update')
   admission_fence.stop_then_unlock_database()
@@ -549,7 +614,7 @@ def restart_for(manifest,admission_fence=None):
      time.sleep(.1)
   return
  if manifest.get('scope')==GAMES_SCOPE:restart_games(manifest);return
- if manifest.get('scope') in (CACHE_FIX_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):
+ if manifest.get('scope') in (CACHE_FIX_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):
   subprocess.run(['systemctl','restart','fs-business-range.service'],check=True)
   subprocess.run(['systemctl','is-active','--quiet','fs-business-range.service'],check=True)
   for _ in range(50):
@@ -578,7 +643,7 @@ def restart_for(manifest,admission_fence=None):
 
 @contextlib.contextmanager
 def live_lock(manifest,root):
- if manifest.get('scope') not in (LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):
+ if manifest.get('scope') not in (LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):
   yield;return
  import fcntl
  path=rooted(root,'/var/www/dashboard/fs-home/transactions/collector.lock')
@@ -622,7 +687,7 @@ class HermesAdmissionFence:
 
 @contextlib.contextmanager
 def hermes_admission_fence(manifest,root):
- if manifest.get('scope') not in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):yield None;return
+ if manifest.get('scope') not in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):yield None;return
  fence=HermesAdmissionFence(root)
  try:yield fence
  finally:
@@ -640,7 +705,7 @@ def hermes_quiescent(root):
 
 @contextlib.contextmanager
 def model_release_lock(manifest,root):
- if manifest.get('scope') not in (DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):
+ if manifest.get('scope') not in (DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):
   yield;return
  import fcntl
  path=rooted(root,'/var/lib/fs-business-ranges/fc-daily/provider.lock');no_target_link(path)
@@ -655,7 +720,7 @@ def model_release_lock(manifest,root):
    if not database.is_file():raise ValueError('existing job database missing')
    with contextlib.closing(sqlite3.connect('file:'+str(database)+'?mode=ro',uri=True)) as db:
     if db.execute("SELECT count(*) FROM jobs WHERE state IN ('pending','running')").fetchone()[0]:raise ValueError('active report; defer restart')
-  if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):hermes_quiescent(root)
+  if manifest.get('scope') in (HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):hermes_quiescent(root)
   yield
  finally:os.close(fd)
 
@@ -671,6 +736,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
   no_target_link(backup)
   backup.mkdir(parents=True,mode=0o700);directory_sync(backup.parent)
   journal=dict(status='prepared',approvedManifestSha256=approved_sha,manifest=manifest,files=[])
+  if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:journal['sessionImageBefore']=manifest['sessionCurrentImage']
   for row in files:
    path=rooted(root,row['target'])
    saved={**row,'beforeMode':stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644,'written':False}
@@ -698,7 +764,8 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
     if admission_fence is not None:admission_fence.modified=True
     atomic(path,payload,row['beforeMode']);row['written']=True;journal_write(backup,journal)
    guards(manifest,root);retirement(root)
-   if manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):restart_for(manifest,admission_fence)
+   if manifest.get('scope')==HERMES_CAPABILITY_SCOPE:capability_session_apply(manifest,backup,journal,root)
+   if manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):restart_for(manifest,admission_fence)
    if green:
     restart_for(manifest,admission_fence)
     journal['databaseAfter']=db_state(root)
@@ -714,7 +781,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
    try:journal_write(backup,journal)
    except OSError:pass
    rollback_journal(backup,journal,root)
-   if green or manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE):restart_for(manifest,admission_fence)
+   if green or manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_CAPABILITY_SCOPE):restart_for(manifest,admission_fence)
    if admission_fence is not None:admission_fence.confirmed=True
    raise
   return dict(backup=str(backup),status=journal['status'],staticFiles=len(files),businessWorkerTimerActions=0)
