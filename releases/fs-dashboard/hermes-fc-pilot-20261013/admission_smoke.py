@@ -3,9 +3,16 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import unittest,json
+from unittest.mock import patch
 from test_release import ReleaseTests
 
 class AdmissionProcessTest(ReleaseTests):
+    def setUp(self):
+        super().setUp()
+        # Always isolate service control, including a failing-test cleanup path.
+        service_mock=patch.object(self.publisher.subprocess,'run')
+        service_mock.start();self.addCleanup(service_mock.stop)
+
     def test_bootstrap_fence_blocks_legacy_writer_until_process_stops_and_new_admission_stays_closed(self):
         from contextlib import closing
         import sqlite3,subprocess,sys
