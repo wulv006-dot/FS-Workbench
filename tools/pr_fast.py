@@ -192,6 +192,8 @@ def selfcheck():
     for path in ("source/game-monitor/index.html", "source/management/targets.json", "backend/boss_insights.py", "tests/management_polling.cjs"):
         if select(["releases/fs-dashboard/boss-workspaces-20261013/"+path]) != ["fs-boss-workspaces"]:
             raise RuntimeError("fs_boss_workspaces_scope_missing")
+    if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
+        raise RuntimeError("fc_deep_advisor_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
@@ -235,6 +237,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
+            groups.add("fc-deep-advisor");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/homefix/"):
             groups.add("ai-advisor-home");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/routefix/"):
@@ -403,6 +407,11 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="fc-deep-advisor":
+            release="releases/fs-dashboard/ai-advisor-20261013/deep"
+            units(release+"/tests",["test_ci"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/check_deep_ui.cjs")
         elif group=="ai-advisor-home":
             units("releases/fs-dashboard/ai-advisor-20261013/homefix/frontend",["test_release_workspace"],root_owned=True)
         elif group=="ai-advisor-route":
@@ -500,6 +509,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
