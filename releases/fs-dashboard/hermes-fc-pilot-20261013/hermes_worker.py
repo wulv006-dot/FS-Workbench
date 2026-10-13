@@ -62,9 +62,30 @@ def make_adapter(api_key):
     from aiohttp import web
     from gateway.config import PlatformConfig
     from gateway.platforms.api_server import APIServerAdapter
+    from gateway.platforms import api_server_runs
     from tools.registry import registry
     from toolsets import create_custom_toolset
     from run_agent import AIAgent
+
+    # Pinned Runs calls _create_agent on its event loop before starting the
+    # executor. Wait cooperatively here so its HTTP202 can actually be flushed.
+    # Retain the official executor for terminal state, cancellation and cleanup.
+    if not getattr(api_server_runs._execute_run,'_fs_async_gate',False):
+        original_executor=api_server_runs._execute_run
+        async def admitted_executor(adapter,run,*,_api_server):
+            if getattr(adapter,'_fs_handshake',False):
+                deadline=time.monotonic()+30
+                try:
+                    while run.run_id not in adapter._stopping_run_ids and run.run_id not in adapter._shutdown_interrupted_run_ids:
+                        try:item=admission(run.session_id)
+                        except (ValueError,PermissionError,OSError):break
+                        if item.get('ready',True) or time.monotonic()>=deadline:break
+                        await asyncio.sleep(.1)
+                except asyncio.CancelledError:
+                    adapter._stopping_run_ids.add(run.run_id)
+            await original_executor(adapter,run,_api_server=_api_server)
+        admitted_executor._fs_async_gate=True
+        api_server_runs._execute_run=admitted_executor
 
     for schema in schemas():
         name = schema['function']['name']
@@ -74,6 +95,7 @@ def make_adapter(api_key):
     create_custom_toolset('fs_fc_readonly', 'FS FC aggregate readonly', tools=list(WIRE_TOOLS))
 
     class ReadonlyAdapter(APIServerAdapter):
+        _fs_handshake=True
         def _http_route_table(self):
             allowed = {('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
                        ('GET', '/v1/runs/{run_id}'), ('POST', '/v1/runs/{run_id}/stop')}
@@ -106,10 +128,7 @@ def make_adapter(api_key):
             item = admission(session_id)
             # Official Runs can start the worker before POST returns. FS must bind
             # the actual run_id durably before granting any tool/model access.
-            ready_deadline=time.monotonic()+30
-            while item.get('ready',True) is False:
-                if time.monotonic()>=ready_deadline: raise PermissionError('admission_handshake_timeout')
-                time.sleep(0.1);item=admission(session_id)
+            if item.get('ready',True) is False:raise PermissionError('admission_handshake_timeout')
             from skill_bundle import load_bundle, prompt
             bundle=load_bundle(Path(__file__).parent)
             task_prompt=prompt(bundle,{'instruction':item['prompt']})

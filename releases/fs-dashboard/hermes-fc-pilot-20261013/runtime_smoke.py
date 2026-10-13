@@ -115,10 +115,24 @@ async def run(effort):
                 if followup['status'] not in {'queued','running','stopping'}:break
                 await asyncio.sleep(.5)
             assert followup['status']=='completed' and fixture.calls==3, ('second_user_turn',followup)
+            cancelled_session='fc_'+'b'*64
+            cancelled_admission=dict(admitted,session_id=cancelled_session,ready=False)
+            (hermes_worker.ADMISSIONS/(cancelled_session+'.json')).write_text(json.dumps(cancelled_admission),encoding='utf-8')
+            async with client.post('http://127.0.0.1:8941/v1/runs',headers={'Idempotency-Key':'fixture-handshake-cancel'},json={
+                    'input':'Cancel this synthetic run before FS binds it.','session_id':cancelled_session}) as response:
+                cancelled=await response.json();cancelled_id=validate_admission(response.status,cancelled)
+            async with client.post('http://127.0.0.1:8941/v1/runs/'+cancelled_id+'/stop',json={}) as response:
+                assert response.status in (200,202), 'handshake_stop_ack'
+            for _ in range(30):
+                async with client.get('http://127.0.0.1:8941/v1/runs/'+cancelled_id) as response:cancelled=await response.json()
+                if cancelled['status'] not in {'queued','running','stopping'}:break
+                await asyncio.sleep(.1)
+            assert cancelled['status']=='cancelled' and fixture.calls==3, ('handshake_cancel',cancelled)
         print(json.dumps({'official_runs': 'pass', 'official_agent': 'pass', 'tools': tool_hits,
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass',
                           'actual_started_admission_and_run_binding':'pass',
+                          'cancel_before_handshake_no_model_call':'pass',
                           'real_business_data': False, 'real_model_call': False}))
     finally:
         if adapter is not None:
