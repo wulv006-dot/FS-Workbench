@@ -488,7 +488,12 @@ def restart_games(manifest):
    time.sleep(1)
   else:raise ValueError('game range/session health unavailable')
 
-def restart_for(manifest):
+def restart_for(manifest,admission_fence=None):
+ if manifest.get('scope')==HERMES_UPDATE_SCOPE:
+  if admission_fence is None:raise ValueError('Hermes admission fence required for update')
+  admission_fence.stop_then_unlock_database()
+  restart_for(dict(manifest,scope=DEEP_SCOPE))
+  return
  if manifest.get('scope')==HERMES_SCOPE:
   subprocess.run(['systemctl','daemon-reload'],check=True)
   if Path('/etc/systemd/system/fs-hermes-fc.service').is_file():
@@ -556,6 +561,46 @@ def live_lock(manifest,root):
   yield
  finally:os.close(fd)
 
+class HermesAdmissionFence:
+ def __init__(self,root):
+  import fcntl
+  self.root=root;self.db=None;self.modified=False
+  path=rooted(root,'/var/lib/fs-hermes-fc/fs/admission.lock');no_target_link(path)
+  self.fd=os.open(str(path),os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+  try:
+   info=os.fstat(self.fd)
+   if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.geteuid() or info.st_mode&0o077:raise ValueError('unsafe Hermes admission lock')
+   fcntl.flock(self.fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+   database=rooted(root,'/var/lib/fs-hermes-fc/fs/tasks.sqlite3');no_target_link(database)
+   if not database.is_file():raise ValueError('existing Hermes task database required')
+   self.db=sqlite3.connect('file:'+str(database)+'?mode=rw',uri=True,timeout=0)
+   # This also fences the currently installed pre-lock controller. No row changes.
+   self.db.execute('BEGIN IMMEDIATE')
+   hermes_quiescent(root)
+  except Exception:
+   self.close();raise
+ def unlock_database(self):
+  if self.db is not None:self.db.rollback();self.db.close();self.db=None
+ def stop_then_unlock_database(self):
+  # Old admissions remain blocked until their process has stopped. The new
+  # controller honors the file fence throughout startup and final readback.
+  subprocess.run(['systemctl','stop','fs-business-range.service'],check=True)
+  self.unlock_database()
+ def close(self):
+  self.unlock_database()
+  if self.fd is not None:os.close(self.fd);self.fd=None
+
+@contextlib.contextmanager
+def hermes_admission_fence(manifest,root):
+ if manifest.get('scope')!=HERMES_UPDATE_SCOPE:yield None;return
+ fence=HermesAdmissionFence(root)
+ try:yield fence
+ finally:
+  try:
+   # Unconfirmed rollback must not reopen the old pre-lock admission path.
+   if fence.modified and fence.db is not None:fence.stop_then_unlock_database()
+  finally:fence.close()
+
 def hermes_quiescent(root):
  path=rooted(root,'/var/lib/fs-hermes-fc/fs/tasks.sqlite3');no_target_link(path)
  if not path.is_file():raise ValueError('existing Hermes task database required')
@@ -589,7 +634,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
  if hashlib.sha256(manifest_bytes).hexdigest()!=approved_sha:raise ValueError('reviewed manifest approval SHA differs')
  if not re.fullmatch(r'nav-[0-9]{8}T[0-9]{6}Z',release_id):raise ValueError('release id must be nav-YYYYMMDDTHHMMSSZ')
  files=validate(manifest,stage)
- with locks(root),live_lock(manifest,root),model_release_lock(manifest,root):
+ with locks(root),live_lock(manifest,root),hermes_admission_fence(manifest,root) as admission_fence,model_release_lock(manifest,root):
   inspect(manifest,stage,root)
   backup=rooted(root,'/var/backups/fs-navigation-20261006/'+release_id)
   if backup.exists():raise ValueError('release id already used; do not retry blindly')
@@ -620,11 +665,12 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
     if hashlib.sha256(payload).hexdigest()!=row['sha256']:raise ValueError('staged source changed during release')
     # Journal intent before rename; recovery can classify old/new hashes after a crash.
     row['intent']=True;journal_write(backup,journal)
+    if admission_fence is not None:admission_fence.modified=True
     atomic(path,payload,row['beforeMode']);row['written']=True;journal_write(backup,journal)
    guards(manifest,root);retirement(root)
-   if manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE):restart_for(manifest)
+   if manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE):restart_for(manifest,admission_fence)
    if green:
-    restart_for(manifest)
+    restart_for(manifest,admission_fence)
     journal['databaseAfter']=db_state(root)
     if journal['databaseAfter']!=journal['databaseBefore']:raise ValueError('Existing database tables/members changed during initialization')
    if any(digest(rooted(root,row['target']))!=row['sha256'] for row in journal['files']):raise ValueError('post-release SHA mismatch')
@@ -637,7 +683,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
    try:journal_write(backup,journal)
    except OSError:pass
    rollback_journal(backup,journal,root)
-   if green or manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE):restart_for(manifest)
+   if green or manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE):restart_for(manifest,admission_fence)
    raise
   return dict(backup=str(backup),status=journal['status'],staticFiles=len(files),businessWorkerTimerActions=0)
 def rollback(backup,approved_sha,root=Path('/')):
@@ -645,9 +691,10 @@ def rollback(backup,approved_sha,root=Path('/')):
   no_target_link(backup/'journal.json')
   journal=json.loads((backup/'journal.json').read_text())
   rollback_credentials(backup,journal,approved_sha)
-  with live_lock(journal['manifest'],root),model_release_lock(journal['manifest'],root):
+  with live_lock(journal['manifest'],root),hermes_admission_fence(journal['manifest'],root) as admission_fence,model_release_lock(journal['manifest'],root):
+   if admission_fence is not None:admission_fence.modified=True
    rollback_journal(backup,journal,root)
-   restart_for(journal['manifest'])
+   restart_for(journal['manifest'],admission_fence)
  return dict(status='rolled-back',backup=str(backup),businessWorkerTimerActions=0)
 
 def retire_collection(manifest,raw,approval,release_id,root=Path('/')):
