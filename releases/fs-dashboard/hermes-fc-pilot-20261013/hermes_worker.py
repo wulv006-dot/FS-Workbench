@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import signal
+import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from proxy_gateway import schemas
@@ -32,8 +33,11 @@ def admission(session_id):
     if path.is_symlink() or path.stat().st_size > 32000:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
-    if set(item) != {'session_id', 'token', 'model', 'prompt'} or item['session_id'] != session_id:
+    if set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
+    if 'ready' in item and type(item['ready']) is not bool:
+        raise PermissionError('admission_invalid')
+    if item.get('reasoning_effort','none') not in ('none','low','high','max'):raise PermissionError('admission_reasoning')
     if item['model'] != 'deepseek-v4.1-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
         raise PermissionError('admission_invalid')
     if not isinstance(item['prompt'], str):
@@ -100,23 +104,34 @@ def make_adapter(api_key):
 
         def _create_agent(self, ephemeral_system_prompt=None, session_id=None, **kwargs):
             item = admission(session_id)
+            # Official Runs can start the worker before POST returns. FS must bind
+            # the actual run_id durably before granting any tool/model access.
+            ready_deadline=time.monotonic()+30
+            while item.get('ready',True) is False:
+                if time.monotonic()>=ready_deadline: raise PermissionError('admission_handshake_timeout')
+                time.sleep(0.1);item=admission(session_id)
+            from skill_bundle import load_bundle, prompt
+            bundle=load_bundle(Path(__file__).parent)
+            task_prompt=prompt(bundle,{'instruction':item['prompt']})
             callbacks = {k: kwargs[k] for k in ('stream_delta_callback', 'tool_progress_callback',
                          'tool_start_callback', 'tool_complete_callback', 'interim_assistant_callback',
                          'reasoning_callback', 'status_callback') if k in kwargs}
             agent = AIAgent(base_url=PROXY+'/v1', api_key=item['token'], provider='custom',
                             api_mode='chat_completions', model=item['model'],
                             enabled_toolsets=['fs_fc_readonly'], session_id=session_id,
-                            ephemeral_system_prompt=item['prompt'], platform='api_server',
+                            ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
                             fallback_model=None, quiet_mode=True, max_tokens=6000,
-                            reasoning_config={'enabled': False},
+                            reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()
                 raise PermissionError('unexpected_runtime_tools:'+','.join(observed_tools))
-            agent._hermes_api_runtime = {'provider': 'custom', 'model': item['model'], 'route_source': 'fs_task_admission'}
+            agent._hermes_api_runtime = {'provider': 'custom', 'model': item['model'], 'route_source': 'fs_task_admission',
+                                        'fs_skill_version':bundle['version'],'fs_skill_sha256':bundle['sha256'],
+                                        'fs_reasoning_effort':item.get('reasoning_effort','none')}
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={

@@ -66,10 +66,14 @@ class PilotTests(unittest.TestCase):
         for mutation in [{'project_id': 'D4'}, {'allowed_tools': ['terminal']}, {'api_key': 'secret'}]:
             with self.assertRaises(ValueError):
                 validate_spec(dict(spec(), **mutation))
-        for key, value in [('start', '2026-10-06'), ('end_exclusive', '2026-10-05'), ('timezone', 'UTC')]:
+        for key, value in [('start', '2026-10-6'), ('end_exclusive', '2026-10-05'), ('timezone', 'UTC')]:
             item = spec(); item['period'][key] = value
             with self.assertRaises(ValueError):
                 validate_spec(item)
+
+    def test_day_and_non_monday_complete_periods_are_supported(self):
+        item=spec();item['period'].update(start='2026-10-12',end_exclusive='2026-10-13')
+        self.assertEqual(validate_spec(item)['period']['start'],'2026-10-12')
 
     def test_idempotent_same_owner_and_new_snapshot_new_task(self):
         first = self.store.create('owner', spec())

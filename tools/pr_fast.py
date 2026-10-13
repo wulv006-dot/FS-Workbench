@@ -422,7 +422,7 @@ def main():
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
-            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection"])
+            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research"])
             subprocess.run([sys.executable,"-B",str(ROOT/"releases/fs-dashboard/hermes-fc-pilot-20261013/runtime_ci.py"),"--test"],check=True,timeout=210,cwd=ROOT)
         elif group=="fc-deep-advisor":
             release="releases/fs-dashboard/ai-advisor-20261013/deep"

@@ -24,6 +24,7 @@ class Grant:
     task_id: str
     lease: str
     expires: float
+    reasoning_effort: str = 'none'
 
 
 class Grants:
@@ -32,12 +33,14 @@ class Grants:
         self._items = {}
         self._lock = threading.Lock()
 
-    def mint(self, owner, task_id, lease, ttl=600):
+    def mint(self, owner, task_id, lease, ttl=600, reasoning_effort='none'):
         if type(ttl) is not int or not 1 <= ttl <= 600:
             raise ValueError('grant_ttl')
+        if reasoning_effort not in ('none','low','high','max'):
+            raise ValueError('grant_reasoning')
         token = secrets.token_urlsafe(32)
         with self._lock:
-            self._items[self._key(token)] = Grant(owner, task_id, lease, self.clock()+ttl)
+            self._items[self._key(token)] = Grant(owner, task_id, lease, self.clock()+ttl,reasoning_effort)
         return token
 
     @staticmethod
@@ -63,7 +66,7 @@ class Grants:
                 raise PermissionError('grant_invalid')
             if (item.owner, item.task_id, item.lease) != (owner, task_id, lease):
                 raise PermissionError('grant_scope')
-            self._items[self._key(token)] = Grant(owner, task_id, lease, self.clock()+600)
+            self._items[self._key(token)] = Grant(owner, task_id, lease, self.clock()+600,item.reasoning_effort)
 
     def revoke(self, token):
         with self._lock:
@@ -112,10 +115,11 @@ class Proxy:
             raise PermissionError('route_denied')
         if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'reasoning_effort'}:
             raise ValueError('request_fields')
-        # Fixed Hermes encodes an explicit disabled config as "none". This one
-        # compatibility value maps to FS's existing enable_thinking=False;
-        # it is discarded, never forwarded as a provider-controlled parameter.
-        if 'reasoning_effort' in body and body['reasoning_effort'] not in (None, 'none'):
+        # The FS-issued grant pins the business model mode. The client cannot
+        # escalate, disable or silently downgrade it using a body parameter.
+        effort=grant.reasoning_effort
+        if (effort=='none' and body.get('reasoning_effort') not in (None,'none') or
+                effort!='none' and body.get('reasoning_effort')!=effort):
             raise ValueError('reasoning_policy')
         if body.get('model') != gateway.budget.policy['model'] or body.get('stream', False) is not False:
             raise ValueError('provider_override')
@@ -130,13 +134,17 @@ class Proxy:
             for message in messages:
                 if isinstance(message,dict) and 'reasoning_content' in message:
                     pad=message['reasoning_content']
-                    if message.get('role')!='assistant' or (pad is not None and (not isinstance(pad,str) or len(pad)>8 or pad.strip())):
+                    if message.get('role')!='assistant' or (pad is not None and not isinstance(pad,str)):
                         raise ValueError('reasoning_content_policy')
-                    # Official DeepSeek replay may insert a whitespace-only pad
-                    # even with reasoning disabled. FS's non-thinking request
-                    # omits it; nonempty reasoning is never silently discarded.
-                    message.pop('reasoning_content')
+                    if effort=='none':
+                        if pad is not None and (len(pad)>8 or pad.strip()): raise ValueError('reasoning_content_policy')
+                        message.pop('reasoning_content')
+                    elif pad is None:
+                        message.pop('reasoning_content')
+                    elif len(pad.encode())>96000:
+                        raise ValueError('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
+        if effort!='none':request['reasoning_effort']=effort
         # Validate before recording request identity or changing any ledger table.
         from proxy_gateway import request_body
         request_body(request, gateway.budget.policy['model'])

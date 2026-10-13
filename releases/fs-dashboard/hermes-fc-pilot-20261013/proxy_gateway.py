@@ -46,8 +46,10 @@ class ScopedTools:
 
 def request_body(body, model):
     # No client endpoint, credentials, system identity or tool definitions accepted.
-    if not isinstance(body, dict) or set(body) != {'messages', 'max_tokens'}:
+    if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens','reasoning_effort'} or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
+    effort=body.get('reasoning_effort')
+    if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
     if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= 6000:
         raise ValueError('output_limit')
     messages = body['messages']
@@ -61,12 +63,14 @@ def request_body(body, model):
         allowed = {'role', 'content'}
         if role == 'assistant':
             allowed.add('tool_calls')
+            if effort is not None:allowed.add('reasoning_content')
         elif role == 'tool':
             allowed.add('tool_call_id')
         elif role not in {'system', 'user'}:
             raise ValueError('role_invalid')
         if set(message)-allowed or not isinstance(message.get('content'), (str, type(None))):
             raise ValueError('message_fields')
+        if 'reasoning_content' in message and not isinstance(message['reasoning_content'],str):raise ValueError('reasoning_content_invalid')
         if role != 'assistant' and not isinstance(message.get('content'), str):
             raise ValueError('message_content')
         if role == 'tool':
@@ -87,8 +91,10 @@ def request_body(body, model):
     serialized = encoded(messages)
     if len(serialized.encode()) > 96000 or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
         raise ValueError('context_rejected')
-    return {'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
-            'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': False}
+    result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
+            'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
+    if effort is not None:result['reasoning_effort']=effort
+    return result
 
 
 def validate_tool_call(call):
@@ -189,10 +195,12 @@ class UnifiedBudget:
             if not isinstance(message, dict):
                 raise ValueError('response_message_invalid')
             # Providers may include an empty reasoning slot even with thinking off.
-            if message.get('reasoning_content', None) is None:
+            if message.get('reasoning_content', None) is None or message.get('reasoning_content')=='':
                 message.pop('reasoning_content', None)
-            if not isinstance(message, dict) or message.get('role') != 'assistant' or set(message)-{'role','content','tool_calls'}:
+            allowed={'role','content','tool_calls'} | ({'reasoning_content'} if request['enable_thinking'] else set())
+            if not isinstance(message, dict) or message.get('role') != 'assistant' or set(message)-allowed:
                 raise ValueError('response_message_invalid')
+            if 'reasoning_content' in message and not isinstance(message['reasoning_content'],str):raise ValueError('response_reasoning_invalid')
             if message.get('content') is not None and not isinstance(message['content'], str):
                 raise ValueError('response_content_invalid')
             calls = message.get('tool_calls', [])
@@ -210,7 +218,12 @@ class UnifiedBudget:
             receipt = {'status':'succeeded', 'provider_request_id':response['id'], 'usage':usage,
                        'cost_microcny':usage['prompt_tokens']*p['input_microcny']+usage['completion_tokens']*p['output_microcny'],
                        'price_version':p['price_version'], 'model':p['model'], 'message':message,
-                       'cost_basis':'configured_public_rate_estimate_not_account_invoice'}
+                       'cost_basis':'configured_public_rate_estimate_not_account_invoice',
+                       'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
+            reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
+            if reasoning_tokens is not None:
+                if type(reasoning_tokens)is not int or not 0<=reasoning_tokens<=usage['completion_tokens']:raise ValueError('reasoning_usage_invalid')
+                receipt['reasoning_tokens']=reasoning_tokens  # Already included in completion, never double charged.
         except (ValueError, TypeError, KeyError):
             self.hold(fingerprint)
             raise ValueError('unverified_provider_result') from None

@@ -52,6 +52,27 @@ class TransportTests(unittest.TestCase):
                 self.proxy.dispatch('POST','/v1/chat/completions',self.token,body)
         self.assertEqual(self.fixture.calls,1)
 
+    def test_thinking_grant_pins_effort_and_preserves_private_tool_replay(self):
+        token=self.grants.mint('owner',self.fixture.task['id'],'lease',reasoning_effort='high')
+        seen=[]
+        def provider(request):
+            seen.append(request)
+            result=self.fixture.answer(request)
+            result['choices'][0]['message']['reasoning_content']='Synthetic provider thought'
+            result['usage']['completion_tokens_details']={'reasoning_tokens':4}
+            return result
+        self.fixture.provider=provider
+        body=self.body();body['reasoning_effort']='high'
+        result=self.proxy.dispatch('POST','/v1/chat/completions',token,body)
+        self.assertEqual(result['choices'][0]['message']['reasoning_content'],'Synthetic provider thought')
+        self.assertTrue(seen[0]['enable_thinking']);self.assertEqual(seen[0]['reasoning_effort'],'high')
+        for value in (None,'none','low','max','medium'):
+            body['reasoning_effort']=value
+            with self.assertRaisesRegex(ValueError,'reasoning_policy'):self.proxy.dispatch('POST','/v1/chat/completions',token,body)
+        self.assertEqual(self.fixture.calls,1)
+        self.grants.renew(token,'owner',self.fixture.task['id'],'lease')
+        self.assertEqual(self.grants.resolve(token).reasoning_effort,'high')
+
     def test_short_token_can_renew_without_total_runtime_cap(self):
         for _ in range(20):
             self.clock += 500

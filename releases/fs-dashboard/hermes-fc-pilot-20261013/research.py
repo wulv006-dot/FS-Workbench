@@ -190,7 +190,7 @@ class ResearchBook:
             return self.register(name,args,calculation(args),'受控Decimal计算；输入仍需对应已读证据')
         if name == 'fc.read_skill':
             if args != {'topic':'methods'} or not self.skills: raise ValueError('skill_topic')
-            return {'status':'available','version':self.skills['version'],'sha256':self.skills['sha256'],'text':self.skills['text'],'provenance':'method_only','permissions':[]}
+            return {'status':'available','version':self.skills['version'],'sha256':self.skills['sha256'],'text':self.skills['methods_text'],'provenance':'method_only','permissions':[]}
         raise PermissionError('tool_denied')
 
     def query(self,args,current=False):

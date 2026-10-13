@@ -55,8 +55,8 @@ def validate_spec(spec):
         lo, hi = date.fromisoformat(period['start']), date.fromisoformat(period['end_exclusive'])
     except (ValueError, TypeError):
         raise ValueError('period_invalid') from None
-    if lo.isoformat() != period['start'] or hi.isoformat() != period['end_exclusive'] or lo.weekday() or hi-lo != timedelta(days=7):
-        raise ValueError('complete_week_required')
+    if lo.isoformat() != period['start'] or hi.isoformat() != period['end_exclusive'] or not timedelta(days=1) <= hi-lo <= timedelta(days=366):
+        raise ValueError('complete_period_required')
     for key in fields-{'period'}:
         if not isinstance(spec[key], str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,120}', spec[key]):
             raise ValueError('invalid_identifier')
@@ -96,7 +96,7 @@ class TaskStore:
         if not isinstance(owner, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', owner):
             raise PermissionError('identity_required')
         spec = validate_spec(spec)
-        fingerprint = digest({'project': 'FC27', 'type': 'fc_weekly_diagnosis', 'spec': spec})
+        fingerprint = digest({'project': 'FC27', 'type': 'fc_operations_diagnosis', 'spec': spec})
         task_id = digest({'owner': owner, 'fingerprint': fingerprint})[:32]
         with self.db() as db:
             db.execute('INSERT OR IGNORE INTO tasks VALUES(?,?,?,?,?,0,NULL,NULL,0,0)',

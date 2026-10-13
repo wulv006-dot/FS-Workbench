@@ -23,7 +23,7 @@ async def run():
     fixture.budget.policy['model'] = 'deepseek-v4.1-flash'
     fixture.scope.deadline = None
     grants = Grants()
-    token = grants.mint('owner', fixture.task['id'], 'lease')
+    token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort='high')
     tool_hits = []
     original_call = fixture.scope.call
     def observe(*args, **kwargs):
@@ -31,13 +31,18 @@ async def run():
         return original_call(*args, **kwargs)
     fixture.scope.call = observe
     def provider(request):
+        assert request['enable_thinking'] is True and request['reasoning_effort']=='high', 'thinking_not_enabled'
+        assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
         result = fixture.answer(request)
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
                 'tool_calls': [{'id': 'call_fixture', 'type': 'function', 'function': {
                     'name': WIRE_TOOLS[0], 'arguments': '{}'}}]}
+            result['choices'][0]['message']['reasoning_content']='Synthetic private reasoning for the first tool call.'
         else:
+            assert request['messages'][2]['reasoning_content']=='Synthetic private reasoning for the first tool call.', 'reasoning_replay_missing'
             result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'}
+        result['usage']['completion_tokens_details']={'reasoning_tokens':3}
         return result
     fixture.provider = provider
     proxy = Proxy(grants, lambda grant: fixture.gateway)
@@ -60,6 +65,7 @@ async def run():
         hermes_worker.ADMISSIONS.mkdir()
         (hermes_worker.ADMISSIONS/(session_id+'.json')).write_text(json.dumps({
             'session_id': session_id, 'token': token, 'model': 'deepseek-v4.1-flash',
+            'reasoning_effort':'high',
             'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}), encoding='utf-8')
         home = Path(os.environ['HERMES_HOME']); home.mkdir(parents=True, exist_ok=True)
         (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
