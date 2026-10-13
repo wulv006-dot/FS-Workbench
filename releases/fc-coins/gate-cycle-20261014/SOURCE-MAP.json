@@ -1,0 +1,28 @@
+{
+  "module": "fc-coins",
+  "owner": "wulv",
+  "canonicalLocalSource": "fc27_gate_cycle_20261014/source",
+  "targets": {
+    "automation_policy.py": {
+      "target": "/opt/fc27-cloud-browser/automation_policy.py",
+      "before": "82514d34da4cf1ec0bd9c484c26861d815b87c6f61e7092cfd855626553da674",
+      "after": "f8f96eeb0a9b5bbbcbdfa149b9445c79be7f335389033b9aaf37e0996fbcf13f"
+    },
+    "coin_all_sync_job.py": {
+      "target": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "before": "c0ca9ec45fc2b4e7be3337ae4ca50b6d5f4effab6a8eb7cb829718dabdc0b2ab",
+      "after": "cc3ada0510b9590d959ec3ba681b521061a424544e7d4191aeab10d9c635fb7e"
+    },
+    "hooks.py": {
+      "target": "/opt/fc-ops-readonly-monitor/hooks.py",
+      "before": "ad59b2fe0c7b37f5c5b467f64e993cdba791b18d90d49bcd3340c8bf7804c32a",
+      "after": "b326c54808bacdda43d0f5b29e065d503256502d7765a0e75eee35b674223f0d"
+    },
+    "price_writer.py": {
+      "target": "/opt/fc27-cloud-browser/price_writer.py",
+      "before": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d",
+      "after": "b54ab99335bea22cff4cda8b844694be8b23c8db43fe6124cf0b22d07502b6b1"
+    }
+  },
+  "changedBehavior": "Only current authorized collection can supersede older collection-age gate; unknown and costs retained"
+}
