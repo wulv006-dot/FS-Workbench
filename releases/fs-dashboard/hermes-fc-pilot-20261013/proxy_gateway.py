@@ -341,6 +341,7 @@ class ModelGateway:
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
+        if len(encoded(request).encode())>96000:raise ValueError('provider_payload_too_large')
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:
