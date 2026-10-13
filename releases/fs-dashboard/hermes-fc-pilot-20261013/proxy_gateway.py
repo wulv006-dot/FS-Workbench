@@ -177,6 +177,27 @@ class UnifiedBudget:
                          'tokens INTEGER NOT NULL, microcny INTEGER NOT NULL, '
                          'UNIQUE(owner,task,turn))')
 
+    def restore_tool_indexes(self,owner,task,turn,request):
+        # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
+        # Restore only metadata from this task's already-paid successful receipts.
+        if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
+        with self.db() as conn:
+            rows=conn.execute("SELECT m.content FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
+        calls={}
+        for row in rows:
+            for call in json.loads(row[0]).get('message',{}).get('tool_calls',[]):
+                if 'index' in call:calls[call['id']]=call
+        for message in request['messages']:
+            for call in message.get('tool_calls',[]):
+                original=calls.get(call['id'])
+                if original is None:continue
+                if (call['function']['name']!=original['function']['name'] or
+                    json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
+                    'index' in call and call['index']!=original['index']):raise ValueError('provider_tool_history_changed')
+                call['index']=original['index']
+        if len(encoded(request['messages']).encode())>96000:raise ValueError('context_rejected')
+        return request
+
     def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
         if type(turn) is not int or turn < 0:
             raise ValueError('turn_invalid')
@@ -317,7 +338,7 @@ class ModelGateway:
 
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
-        request = request_body(body, self.budget.policy['model'])
+        request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:

@@ -257,9 +257,29 @@ class GatewayTests(unittest.TestCase):
             return value
         self.provider=indexed
         first=self.call();self.assertEqual(first['message']['tool_calls'][0]['index'],0);self.assertNotIn('refusal',first['message'])
-        result=self.call(1,body={'messages':[{'role':'user','content':'query'},first['message'],{'role':'tool','tool_call_id':'call_indexed','content':'{}'}],'max_tokens':50})
+        replay=__import__('copy').deepcopy(first['message']);replay['tool_calls'][0].pop('index')
+        result=self.call(1,body={'messages':[{'role':'user','content':'query'},replay,{'role':'tool','tool_call_id':'call_indexed','content':'{}'}],'max_tokens':50})
+        self.assertNotIn('index',replay['tool_calls'][0])
         self.assertEqual(result['status'],'succeeded');self.assertEqual(self.calls,2)
         self.assertIn('index',call)  # Original provider object is never mutated.
+
+    def test_paid_index_cannot_be_attached_to_changed_tool_history_or_other_task(self):
+        def indexed(req):
+            value=self.answer(req);value['choices'][0]['message']['tool_calls']=[{'id':'call_bound','type':'function','index':2,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]
+            return value
+        self.provider=indexed;first=self.call()
+        import copy
+        for mutate in ('arguments','name','index'):
+            message=copy.deepcopy(first['message'])
+            if mutate=='arguments':message['tool_calls'][0]['function']['arguments']='{"changed":true}'
+            if mutate=='name':message['tool_calls'][0]['function']['name']=WIRE_TOOLS[1]
+            if mutate=='index':message['tool_calls'][0]['index']=1
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):
+                self.call(1,body={'messages':[{'role':'user','content':'query'},message,{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50})
+        request=request_body({'messages':[{'role':'user','content':'query'},first['message'],{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50},self.policy['model'])
+        request['messages'][1]['tool_calls'][0].pop('index')
+        self.budget.restore_tool_indexes('other','different',1,request)
+        self.assertNotIn('index',request['messages'][1]['tool_calls'][0]);self.assertEqual(self.calls,1)
 
     def test_index_extension_never_accepts_unknown_fields_or_invalid_metadata(self):
         for patch in ({'index':True},{'index':-1},{'index':'0'},{'extra':'private secret'}, {'index':0,'extra':'private secret'}):
