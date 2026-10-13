@@ -112,8 +112,9 @@ def make_adapter(api_key):
                             fallback_model=None, quiet_mode=True, max_tokens=6000,
                             session_db=self._ensure_session_db(), **callbacks)
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
+                observed_tools = sorted(agent.valid_tool_names)
                 agent.close()
-                raise PermissionError('unexpected_runtime_tools')
+                raise PermissionError('unexpected_runtime_tools:'+','.join(observed_tools))
             agent._hermes_api_runtime = {'provider': 'custom', 'model': item['model'], 'route_source': 'fs_task_admission'}
             return agent
 

@@ -174,8 +174,8 @@ class UnifiedBudget:
 
     def settle(self, fingerprint, response, request, input_bound):
         try:
-            usage = response['usage']
-            if set(usage) != {'prompt_tokens','completion_tokens','total_tokens'} or any(type(x) is not int or x < 0 for x in usage.values()):
+            usage = {key: response['usage'][key] for key in ('prompt_tokens','completion_tokens','total_tokens')}
+            if any(type(x) is not int or x < 0 for x in usage.values()):
                 raise ValueError('usage_invalid')
             if usage['total_tokens'] != usage['prompt_tokens']+usage['completion_tokens'] or usage['prompt_tokens'] > input_bound or usage['completion_tokens'] > request['max_tokens']:
                 raise ValueError('usage_outside_reservation')
@@ -184,7 +184,12 @@ class UnifiedBudget:
             choices = response['choices']
             if not isinstance(choices, list) or len(choices) != 1:
                 raise ValueError('choices_invalid')
-            message = choices[0]['message']
+            message = deepcopy(choices[0]['message'])
+            if not isinstance(message, dict):
+                raise ValueError('response_message_invalid')
+            # Providers may include an empty reasoning slot even with thinking off.
+            if message.get('reasoning_content', None) is None:
+                message.pop('reasoning_content', None)
             if not isinstance(message, dict) or message.get('role') != 'assistant' or set(message)-{'role','content','tool_calls'}:
                 raise ValueError('response_message_invalid')
             if message.get('content') is not None and not isinstance(message['content'], str):
@@ -203,7 +208,8 @@ class UnifiedBudget:
             p = self.policy
             receipt = {'status':'succeeded', 'provider_request_id':response['id'], 'usage':usage,
                        'cost_microcny':usage['prompt_tokens']*p['input_microcny']+usage['completion_tokens']*p['output_microcny'],
-                       'price_version':p['price_version'], 'model':p['model'], 'message':message}
+                       'price_version':p['price_version'], 'model':p['model'], 'message':message,
+                       'cost_basis':'configured_public_rate_estimate_not_account_invoice'}
         except (ValueError, TypeError, KeyError):
             self.hold(fingerprint)
             raise ValueError('unverified_provider_result') from None

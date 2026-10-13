@@ -1,0 +1,9 @@
+model:
+  streaming: false
+  context_length: 128000
+tools:
+  tool_search:
+    enabled: off
+gateway:
+  api_server:
+    max_concurrent_runs: 0

@@ -51,7 +51,7 @@ async def run():
             'session_id': session_id, 'token': token, 'model': 'deepseek-v4.1-flash',
             'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}), encoding='utf-8')
         home = Path(os.environ['HERMES_HOME']); home.mkdir(parents=True, exist_ok=True)
-        (home/'config.yaml').write_text('model:\n  streaming: false\n  context_length: 128000\ngateway:\n  api_server:\n    max_concurrent_runs: 0\n', encoding='utf-8')
+        (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
         api_key = secrets.token_urlsafe(32)
         adapter = hermes_worker.make_adapter(api_key)
         assert await adapter.connect(), 'official_runtime_start'

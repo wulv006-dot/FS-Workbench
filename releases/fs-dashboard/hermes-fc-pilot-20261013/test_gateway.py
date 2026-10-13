@@ -119,6 +119,18 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(tuple(row),('unknown',None))
         with self.assertRaisesRegex(ValueError,'pilot_usage_hold'): self.call(1)
 
+    def test_provider_usage_extensions_and_empty_reasoning_are_supported(self):
+        def extended(req):
+            result=self.answer(req)
+            result['usage']['prompt_tokens_details']={'cached_tokens':0}
+            result['choices'][0]['message']['reasoning_content']=None
+            return result
+        self.provider=extended
+        result=self.call()
+        self.assertEqual(result['usage']['total_tokens'],60)
+        self.assertNotIn('reasoning_content',result['message'])
+        self.assertIn('not_account_invoice',result['cost_basis'])
+
     def test_excess_usage_holds(self):
         def over(req):
             result=self.answer(req); result['usage']={'prompt_tokens':101,'completion_tokens':10,'total_tokens':111}; return result
