@@ -109,14 +109,20 @@ FS 工作台球类专区新增「FC27 捆绑包定价」工具：按 Futbin ID �
   写后 sleep 2s 回读验证（mismatch 留痕）；审计 `data/write_log.json`（cap 200）。
 
 ## 部署（在 v1 基础上）
-| 文件 | sha256 前 16 |
+| 文件 | sha256 前 16（**2026-10-13 22:xx 最终版**） |
 |---|---|
-| /opt/fc27-pack-bundles/pack_bundles_server.py | 2dd7c2d7fcbeed97 |
+| /opt/fc27-pack-bundles/pack_bundles_server.py | 见「Codex review 修复」节末（每轮迭代留 .bak-vN） |
 | /opt/fc27-pack-bundles/vendor/p2pah_price.py | 39fb0becb9713521 |
 | /opt/fc27-pack-bundles/vendor/admin_api_client.py | 14b7ed16dd0bd5b8 |
-| /var/www/dashboard/modules/sports/bundles/index.html | 1f51f10898d854db |
-- 旧版备份 `.bak-v1` / `.bak-v2`；config 轻迁移：缺 products 绑定的 bundle 自动补默认表（只补缺）。
-- 回滚：还原 .bak-v2 + restart。
+| /var/www/dashboard/modules/sports/bundles/index.html | 见「Codex review 修复」节末 |
+- 备份链：`pack_bundles_server.py.bak-v1/v2/v3/v4`、`index.html.bak-v1/v2/v3`（同目录）。
+- ⚠️ **回滚必须外科式**（Codex review #13）：`navigation.json` 与 `iggm-web.conf` 在本工具之后
+  可能已被其它任务继续改动，**整体还原日期备份会顶掉别人的新改动**。正确做法：
+  ① nginx：只删 `# >>> fc27-bundles-api (auto) >>>` … `# <<< fc27-bundles-api (auto) <<<` 之间的块；
+  ② 导航：只从 `sections[sports].ids` 移除 `fc27-bundles`、从 `tools` 里删 id 为 `fc27-bundles` 的条目；
+  ③ 服务：`systemctl disable --now fc27-pack-bundles`；
+  ④ 文件：还原 `pack_bundles_server.py` / `index.html` 的 `.bak-vN`。
+- config 轻迁移：**仅键缺失**的 bundle 补默认 products（显式 `{}` 是有效状态，不重填，Codex #9）。
 
 ## 已验证
 - 离线：23/23（一期 16 + 二期 7：闸门/dry_run/Xbox 共用 PS 目标/needs_review/日志上限/校验器）
@@ -129,3 +135,42 @@ FS 工作台球类专区新增「FC27 捆绑包定价」工具：按 Futbin ID �
 ## 待办
 - ⏳ **老大批准后**：关 dry_run 实际写一次（6 产品）→ 前台回读验收 → 再评估开 write_auto。
 - 当前线上开关状态：write_enabled=true / write_dry_run=true / write_auto=false（安全：只出计划）。
+
+---
+
+# Codex review 修复（2026-10-13 深夜，16 条批注逐条处置）
+
+PR #95 上 Codex 自动 review 提了 16 条（评了 4 个中间提交）。逐条核验后：**13 条真问题全部修复**，
+2 条属"评的旧提交、已自行修复"，1 条为误报（详见下）。
+
+## 已修复（附回归用例）
+| # | 问题 | 修法 |
+|---|---|---|
+| 1 | 改价前不校验产品身份（错填 ID 会改到别的商品） | `write_price` 校验 `gid=1327/cid=10255/site_id=0/aid=平台/title=包名`，不符 → `rejected_identity`（零写入） |
+| 2 | 球员缺价时仍按剩余球员总价写价（11 人包按 10 人价） | `compute_bundle` 输出 `players_counted/players_expected`；不齐 → `skipped_incomplete` |
+| 4 | 请求体 `{"dry_run": false}` 可放宽配置的试运行闸门 | `eff_dry = 配置 or 请求`（**只能收紧**） |
+| 5 | `WRITE_LOCK` 起线程后立即释放 → 并发写价 | 锁移至 worker `finally` 释放；起线程失败即回滚释放 |
+| 6 | `/api/state` 不回传 `products` → 前端保存清空绑定 | `compute_state` 回填配置的 products |
+| 7 | 订单页面返回未过滤行 → 别的游戏 b2c 被采用 | `_overlay_order_b2c` 校验行 `gid == order_gid`，不符 → `gid_mismatch` 拒绝并回退 |
+| 9 | 重启把"故意清空的 products:{}"重填回默认 ID | 轻迁移只补**键缺失**，`{}` 视为有效状态 |
+| 10 | `running` 卡死 → 调度永久停摆 | 启动清扫（`interrupted`）+ 运行中 `running` 超 2h 视为 abandoned 重跑 |
+| 11 | 自动写价不与手动写价互斥 | 自动路径同样取 `WRITE_LOCK`（拿不到即跳过本轮） |
+| 13 | README 回滚整文件还原会顶掉后续部署 | 改为外科式（只删本工具的 nav 条目 / nginx 块 / service） |
+| 14 | README 记录 sha 与实际部署不符 | 改为按 `sha256sum` 实测填写 + 备份链 `.bak-vN` |
+| 16 | `bool("false")` 恒 True → 关闸变开闸 | 四个闸门只接受真 JSON bool，否则 400 |
+| 17 | 前端把 409 当成功（"已启动"但没启动） | `api()` 对非 2xx 统一抛错；错误文案区分"进行中" |
+| 7b | `dryrun_write.sh` 失败不中止（可能真写） | `set -e` + `curl -fsS` + 写价前**再读持久闸门**校验 |
+| 8 | 0.1~1 小时间隔被静默抬成 1 小时 | `interval_seconds` 下限对齐校验器 0.1h |
+
+## 已自行修复 / 误报
+- **#3 refresh 锁泄漏**（评 `bad88417`）：19:36 已修（`self.refresh_lock` → `self.store.refresh_lock`），
+  Codex 后续 review 未再提。
+- **#12 `pr_fast.py` 顶掉 `fc-deep-advisor`**（评 `418a98d3`）：**已在 `13ac6566` 自修**——
+  该中间提交的补丁基线落后（`aa2827bd`），我在发现 main 推进到 `ac176f31` 后重拉字节重打三件套。
+  核验结论：main 最终版（`31708cf8`）同时含 `fc-deep-advisor` 与 `fc27-pack-bundles`，**无顶掉**。
+  教训登记：**每次打补丁前必须重拉远端最新字节**（本批已执行 3 次，正是此流程抓出了这次回退风险）。
+
+## 回归
+- 离线 **31/31**（新增 9 条 Codex 防护用例：bool 严格 / 0.5h 间隔 / 空 products 保留 / state 回传绑定 /
+  dry_run 只能收紧 / 不完整平台拒写 / 身份校验 fail-closed / 外来 gid b2c 拒绝）
+- 本地 CI 彩排 + 真实 CI（PR #96）双绿
