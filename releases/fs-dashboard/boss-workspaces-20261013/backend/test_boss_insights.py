@@ -206,6 +206,11 @@ class ProjectionTests(unittest.TestCase):
         self.assertNotIn('date为null', messages[0]['content'])
         self.assertIn('绝不能说接近', messages[0]['content'])
         self.assertIn('Order全站参考估算', messages[0]['content'])
+        sent = json.loads(messages[1]['content'])
+        self.assertEqual(set(sent), {'scope', 'analysis'})
+        self.assertEqual(sent['analysis']['projects'][0]['revenue_target_status'], 'reached')
+        self.assertEqual(set(sent['analysis']['projects'][0]), {'key', 'missing', 'revenue_target_status', 'forecast_target_status', 'revenue_time_progress_status'})
+        self.assertNotRegex(messages[1]['content'], r'\d')
 
     def test_management_missing_zero_and_uncomparable_periods(self):
         body = management()
@@ -246,11 +251,12 @@ class ProjectionTests(unittest.TestCase):
                 self.assertEqual(projected, params)
                 sent = json.loads(messages[1]['content'])
                 self.assertEqual(sent['scope'], params['scope'])
-                self.assertEqual(sent['context'], params['context'])
                 if params['scope'] == 'management':
-                    self.assertEqual(sent['analysis_revision'], MANAGEMENT_REVISION)
-                    self.assertIn('analysis', sent)
-                else: self.assertEqual(set(sent), {'scope', 'context'})
+                    self.assertEqual(set(sent), {'scope', 'analysis'})
+                    self.assertNotIn('revenue_usd', messages[1]['content'])
+                else:
+                    self.assertEqual(set(sent), {'scope', 'context'})
+                    self.assertEqual(sent['context'], params['context'])
                 return validator(response(), projected)
             with patch.object(provider, 'request_model', side_effect=request) as called:
                 result = provider.explain_boss(params)
