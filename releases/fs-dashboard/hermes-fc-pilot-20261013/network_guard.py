@@ -33,7 +33,9 @@ def directory(path,uid,gid,mode):
 def rules(binary):
     if binary=='iptables':
         return [['-d','127.0.0.1/32','-p','tcp','--dport','8940','-j','ACCEPT'],
-                ['-d','127.0.0.1/32','-p','tcp','--dport','8941','-j','ACCEPT'],['-j','REJECT']]
+                ['-d','127.0.0.1/32','-p','tcp','--dport','8941','-j','ACCEPT'],
+                ['-d','127.0.0.1/32','-p','tcp','--sport','8941','-m','conntrack','--ctstate','ESTABLISHED','-j','ACCEPT'],
+                ['-j','REJECT']]
     return [['-j','REJECT']]
 
 

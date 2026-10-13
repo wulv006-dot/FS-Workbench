@@ -53,6 +53,8 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(network_guard.UID,9876)
         self.assertEqual([r[r.index('--dport')+1] for r in network_guard.rules('iptables') if '--dport' in r],['8940','8941'])
         self.assertEqual(network_guard.rules('ip6tables'),[['-j','REJECT']])
+        replies=[r for r in network_guard.rules('iptables') if '--sport' in r]
+        self.assertEqual(replies,[['-d','127.0.0.1/32','-p','tcp','--sport','8941','-m','conntrack','--ctstate','ESTABLISHED','-j','ACCEPT']])
         unit=(Path(__file__).parent/'fs-hermes-fc.service').read_text('utf-8')
         self.assertIn('--user 9876:9876',unit);self.assertIn('--read-only',unit)
         for denied in ('FS_DAILY_MODEL_KEY_FILE','docker.sock','/var/lib/fs-business-ranges','DEEPSEEK_API_KEY'):self.assertNotIn(denied,unit)
