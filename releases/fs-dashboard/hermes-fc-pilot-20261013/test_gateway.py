@@ -116,7 +116,9 @@ class GatewayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
         with self.db() as db:
             row=db.execute('SELECT state,content FROM model_calls').fetchone()
-            self.assertEqual(tuple(row),('unknown',None))
+            import json
+            self.assertEqual(row['state'],'unknown');self.assertEqual(json.loads(row['content'])['status'],'unknown')
+            self.assertNotIn('provider_usage',json.loads(row['content']))
         with self.assertRaisesRegex(ValueError,'pilot_usage_hold'): self.call(1)
 
     def test_provider_usage_extensions_and_empty_reasoning_are_supported(self):
@@ -136,6 +138,53 @@ class GatewayTests(unittest.TestCase):
             result=self.answer(req); result['usage']={'prompt_tokens':101,'completion_tokens':10,'total_tokens':111}; return result
         self.provider=over
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
+
+    def test_invalid_response_retains_safe_usage_and_shape_without_private_content(self):
+        def malformed(req):
+            value=self.answer(req);value['model']=req['model']
+            value['choices'][0]['message']['private_field']='password=secret; sk-SECRET'
+            value['choices'][0]['message']['reasoning_content']='private reasoning must never reach diagnostics'
+            return value
+        self.provider=malformed
+        with self.assertRaisesRegex(ValueError,'unverified_provider_result'):self.call()
+        import json
+        with self.db() as db:receipt=json.loads(db.execute('SELECT content FROM model_calls').fetchone()[0])
+        self.assertEqual(receipt['reason'],'response_message_invalid')
+        self.assertEqual(receipt['provider_usage']['total_tokens'],60)
+        self.assertEqual(receipt['response_shape']['unknown_message_field_count'],1)
+        self.assertNotIn('private reasoning',json.dumps(receipt));self.assertNotIn('sk-SECRET',json.dumps(receipt))
+        self.assertEqual(receipt['status'],'invalid_response')
+        self.assertEqual(receipt['usage']['total_tokens'],60);self.assertEqual(receipt['cost_microcny'],140)
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'invalid_previous_result'):self.call(1)
+        self.provider=self.answer
+        newer=spec();newer['template_version']='after-invalid-response'
+        task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','newlease');self.tasks.bind_run(task['id'],'owner','newlease','run_after_invalid')
+        gateway=ModelGateway(ScopedTools(self.tasks,book(),lambda:self.now),self.budget,self.slot,self.answer,lambda _:100,lambda:0)
+        self.assertEqual(gateway.call('owner',task['id'],'newlease',0,{'messages':[{'role':'user','content':'new task'}],'max_tokens':50})['status'],'succeeded')
+
+    def test_explicit_unknown_acceptance_only_allows_new_task_same_owner_exact_bound(self):
+        def fail(req):raise TimeoutError('secret error body')
+        self.provider=fail
+        with self.assertRaisesRegex(ValueError,'provider_outcome_unknown'):self.call()
+        with self.db() as db:row=db.execute('SELECT fingerprint,microcny FROM hermes_reservations').fetchone()
+        newer=spec();newer['template_version']='new-approved-diagnostic'
+        task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','newlease');self.tasks.bind_run(task['id'],'owner','newlease','run_new')
+        scope=ScopedTools(self.tasks,book(),lambda:self.now)
+        budget=UnifiedBudget(self.db,self.policy,lambda:self.now,accepted_unknowns={row['fingerprint']:row['microcny']})
+        gateway=ModelGateway(scope,budget,self.slot,self.answer,lambda _:100,lambda:0)
+        result=gateway.call('owner',task['id'],'newlease',0,{'messages':[{'role':'user','content':'new task'}],'max_tokens':50})
+        self.assertEqual(result['status'],'succeeded')
+        self.gateway.budget=budget
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT state FROM model_calls WHERE fingerprint=?',(row['fingerprint'],)).fetchone()[0],'unknown')
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):
+            budget.reserve('other','other_task',0,request_body({'messages':[{'role':'user','content':'new'}],'max_tokens':50},self.policy['model']),100)
+        wrong=UnifiedBudget(self.db,self.policy,lambda:self.now,accepted_unknowns={row['fingerprint']:row['microcny']+1})
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):
+            wrong.reserve('owner','third_task',0,request_body({'messages':[{'role':'user','content':'new'}],'max_tokens':50},self.policy['model']),100)
 
     def test_foreign_owner_cancel_and_deadline_refuse(self):
         with self.assertRaises(PermissionError): self.call(owner='other')
@@ -196,6 +245,16 @@ class GatewayTests(unittest.TestCase):
             return result
         self.provider=bad
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
+
+    def test_research_turn_supports_more_than_legacy_five_readonly_calls(self):
+        def parallel(req):
+            value=self.answer(req)
+            value['choices'][0]['finish_reason']='tool_calls'
+            value['choices'][0]['message']['tool_calls']=[{'id':'call_'+str(i),'type':'function',
+                'function':{'name':name,'arguments':'{}'}} for i,name in enumerate(WIRE_TOOLS[:6])]
+            return value
+        self.provider=parallel
+        self.assertEqual(len(self.call()['message']['tool_calls']),6)
 
     def test_runtime_proposal_inert_and_environment_has_no_inherited_secrets(self):
         self.assertFalse(validate(candidate())['launch_allowed'])

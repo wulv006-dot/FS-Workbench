@@ -82,7 +82,17 @@ def request_model(messages, projected, validator, *, max_tokens=220, timeout=40,
         with urllib.request.build_opener(NoRedirect).open(request,timeout=timeout) as response: raw=response.read(96001)
         if len(raw)>96000:return {'status':'invalid_response'}
         return validator(json.loads(raw),projected)
-    except urllib.error.HTTPError:return {'status':'http_rejected'}
+    except urllib.error.HTTPError as error:
+        if tools is None:return {'status':'http_rejected'}
+        result={'status':'http_rejected','http_status':error.code}
+        try:
+            raw=error.read(4097)
+            if len(raw)<=4096:
+                value=json.loads(raw);nested=value.get('error') if isinstance(value,dict) else None
+                code=(nested.get('code') if isinstance(nested,dict) else None) or (value.get('code') if isinstance(value,dict) else None)
+                if isinstance(code,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}',code):result['provider_error_code']=code
+        except Exception:pass
+        return result
     except (OSError,TimeoutError):return {'status':'unknown_transport'}
     except (ValueError,KeyError,IndexError,TypeError):return {'status':'invalid_response'}
 

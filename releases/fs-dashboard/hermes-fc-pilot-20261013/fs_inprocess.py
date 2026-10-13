@@ -2,6 +2,9 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import os
+import re
+import stat
 
 from background import import_background
 from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget
@@ -23,6 +26,27 @@ def source_book(detail, at):
     return project_capture(evidence)
 
 
+def approved_unknowns(tasks):
+    """Explicit owner confirmation lives outside all Hermes mounts and tools."""
+    path=Path(tasks.path).parent/'unknown-usage-approvals.json'
+    if not path.exists():return {}
+    info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_uid!=os.geteuid() or info.st_size>4096:
+        raise ValueError('unknown_approval_file_invalid')
+    value=json.loads(path.read_text('utf-8'))
+    if set(value)!={'contract','approvals'} or value['contract']!='explicit-unknown-usage-acceptance-v1' or not isinstance(value['approvals'],list):
+        raise ValueError('unknown_approval_contract')
+    result={}
+    for item in value['approvals']:
+        if (not isinstance(item,dict) or set(item)!={'fingerprint','reserved_upper_microcny','confirmation_reference','scope'} or
+                item['scope']!='new_tasks_only' or not isinstance(item['fingerprint'],str) or not re.fullmatch(r'[a-f0-9]{64}',item['fingerprint']) or
+                type(item['reserved_upper_microcny']) is not int or item['reserved_upper_microcny']<=0 or
+                not isinstance(item['confirmation_reference'],str) or not re.fullmatch(r'[A-Za-z0-9_:/.-]{4,160}',item['confirmation_reference']) or item['fingerprint'] in result):
+            raise ValueError('unknown_approval_fields')
+        result[item['fingerprint']]=item['reserved_upper_microcny']
+    return result
+
+
 def gateway(daily, tasks, book):
     from fc_daily import provider_slot, model_daily_limit
     from fc_daily_model import MODEL
@@ -37,10 +61,15 @@ def gateway(daily, tasks, book):
                             max_tokens=request['max_tokens'], timeout=120, tools=request['tools'],
                             reasoning_effort=request.get('reasoning_effort'))
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
-            raise ValueError('provider_identity_or_outcome')
+            status=raw.get('status') if isinstance(raw,dict) else None
+            known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport'}
+            code=raw.get('http_status') if isinstance(raw,dict) else None
+            error=ValueError('provider_'+status+('_'+str(code) if type(code) is int and 100<=code<=599 else '') if status in known else 'provider_identity_or_outcome')
+            error.response=raw
+            raise error
         return raw
     return ModelGateway(ScopedTools(tasks, book, lambda: datetime.now(timezone.utc)),
-                        UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc)),
+                        UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc),accepted_unknowns=approved_unknowns(tasks)),
                         lambda: provider_slot(daily.root), provider,
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
