@@ -50,6 +50,20 @@ class ReleaseTests(unittest.TestCase):
         value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_UPDATE_TARGETS.values())]
         return value
 
+    def test_history_scope_exact_two_existing_sources_and_46_protected(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_HISTORY_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_HISTORY_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_HISTORY_TARGETS.values())]
+        self.assertEqual(len(self.publisher.validate(value,self.stage)),2);self.assertEqual(len(value['unchangedRequired']),46)
+        for change in ('baseline','protected','extra'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='protected':bad['unchangedRequired'].pop()
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
     def worker_manifest(self):
         value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_WORKER_SCOPE
         value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_WORKER_TARGETS]

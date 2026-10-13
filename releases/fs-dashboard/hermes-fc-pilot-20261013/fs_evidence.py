@@ -69,6 +69,32 @@ def old_report_projection(report):
     return out
 
 
+class ReportHistory:
+    """Freeze the version boundary once, then expose complete versions in pages."""
+    def __init__(self,daily):
+        self.daily=daily
+        with daily.db() as db:
+            self.maximum=db.execute('SELECT COALESCE(MAX(job_id),0) FROM reports').fetchone()[0]
+            rows=db.execute('SELECT day,count(*) FROM reports WHERE job_id<=? GROUP BY day ORDER BY day DESC LIMIT 90',(self.maximum,)).fetchall()
+        self.index={'available_days':[{'day':r[0],'versions':r[1]} for r in rows],
+                    'date_basis':'stored report business day; generation/analysis periods are distinct and must be inspected',
+                    'captured_at':datetime.now(timezone.utc).isoformat(),'coverage':'recent 90 stored business days',
+                    'version_boundary':'versions present at analysis creation; later generated reports excluded',
+                    'snapshot_id':'hist_'+digest({'maximum':self.maximum,'days':[list(r) for r in rows]})[:24]}
+    def read(self,args):
+        page=args.get('page',1)
+        if type(page) is not int or not 1<=page<=100000:raise ValueError('history_page')
+        with self.daily.db() as db:
+            query=(args['start'],args['end'],self.maximum)
+            total=db.execute('SELECT count(*) FROM reports WHERE day>=? AND day<=? AND job_id<=?',query).fetchone()[0]
+            rows=db.execute('SELECT content FROM reports WHERE day>=? AND day<=? AND job_id<=? ORDER BY job_id DESC LIMIT 1 OFFSET ?',(*query,page-1)).fetchall()
+        return {'http_status':200,'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
+                'pagination':{'page':page,'page_size':1,'total_reports':total,'has_more':page<total},
+                'history_index_snapshot_id':self.index['snapshot_id'], 'captured_at':self.index['captured_at'],
+                'scope':'FC stored complete report versions; inspect actual Admin/Order periods before comparison',
+                'date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']}
+
+
 def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
     read_start=(lo-timedelta(days=max(7,(hi-lo).days+1))).isoformat()
@@ -76,11 +102,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     skills=load_bundle(source_root)
     scope=hashlib.sha256((owner+dataset['snapshot_id']).encode()).hexdigest()
     clue_read=AsyncRead(lambda:problem_projection(diagnostics(),scope))
-    def history(args):
-        with daily.db() as db:
-            rows=db.execute('SELECT content FROM reports WHERE day>=? AND day<=? ORDER BY job_id DESC LIMIT 30',(args['start'],args['end'])).fetchall()
-        return {'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
-                'max_versions':30,'scope':'FC已存日报版本；Admin支付主站口径与各原生聚合需核来源后比较'}
+    history=ReportHistory(daily)
     def reference(args):
         params={k:[v] for k,v in dict(mode='profit-history',grain='day',**args).items()}
         status,raw=read_range(params)
@@ -99,5 +121,5 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
                 'source_status':raw.get('sources'),'consistentPeriod':raw.get('consistentPeriod'),
                 'rule':'须读取各记录system/source/scope；Admin权威主源，Order仅参考，不按primary字段名猜实际源'}
     pins=SourcePins()
-    return ResearchBook(dataset,config,{'start':start,'end':end},history=history,reference=pins.wrap(reference,'Order-reference'),
+    return ResearchBook(dataset,config,{'start':start,'end':end},history=pins.wrap(history.read,'FC-report-history'),history_index=history.index,reference=pins.wrap(reference,'Order-reference'),
                         clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'))
