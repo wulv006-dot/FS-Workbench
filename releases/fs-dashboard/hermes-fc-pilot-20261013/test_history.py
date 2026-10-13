@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 import json,sqlite3,tempfile,unittest
 from pathlib import Path
-from fs_evidence import ReportHistory,SourcePins
+from fs_evidence import ReportHistory,SourcePins,attach_owner_history
 from research import ResearchBook,tool_schemas
 from test_research import dataset
 
@@ -43,5 +43,25 @@ class HistoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):book.call('fc.read_history',{'start':'2026-10-12','end':'2026-10-12','page':value})
         schema=next(s['function']['parameters'] for s in tool_schemas() if s['function']['name']=='mcp__fcro__fc_read_history')
         self.assertIn('page',schema['properties']);self.assertNotIn('page',schema['required'])
+
+    def test_completed_hermes_versions_are_owner_scoped_paged_and_not_appended_to_daily(self):
+        with self.daily.db() as db:
+            db.execute('CREATE TABLE requests(id TEXT,owner TEXT,state TEXT,body TEXT,result TEXT)')
+            body=json.dumps({'start':'2026-10-05','end':'2026-10-11'})
+            for i,owner in enumerate(['owner']*5+['other']):
+                result=json.dumps({'summary':'full summary '+str(i),'findings':['x'*18000],'actions':['action'],'reviews':['review'],'limitations':['gap']})
+                db.execute('INSERT INTO requests VALUES(?,?,?,?,?)',(str(i),owner,'COMPLETED',body,result))
+        daily=ReportHistory(self.daily);book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},history=daily.read,history_index=daily.index)
+        attach_owner_history(book,self.daily,'owner')
+        daily_page=book.call('fc.read_history',{'start':'2026-10-12','end':'2026-10-12'})['data']
+        self.assertNotIn('hermes_reports',daily_page)
+        q={'start':'2026-10-05','end':'2026-10-11','source':'hermes'}
+        first=book.call('fc.read_history',q)['data'];self.assertEqual(first['pagination']['total_reports'],5)
+        self.assertEqual(first['hermes_reports'][0]['report_id'],'4');self.assertEqual(len(first['hermes_reports']),1)
+        with self.daily.db() as db:db.execute('INSERT INTO requests VALUES(?,?,?,?,?)',('later','owner','COMPLETED',body,result))
+        second=book.call('fc.read_history',dict(q,page=2))['data'];self.assertEqual(second['hermes_reports'][0]['report_id'],'3');self.assertEqual(second['pagination']['total_reports'],5)
+        self.assertEqual(len(second['hermes_reports'][0]['findings'][0]),18000);self.assertLess(len(json.dumps(first)),20000)
+        self.assertEqual(book.history_index['hermes']['total_versions'],5)
+        self.assertNotIn('other',json.dumps(first));self.assertNotIn('later',json.dumps(second))
 
 if __name__=='__main__':unittest.main()

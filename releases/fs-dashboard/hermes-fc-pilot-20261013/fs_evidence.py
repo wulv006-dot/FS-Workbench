@@ -95,6 +95,45 @@ class ReportHistory:
                 'date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']}
 
 
+class OwnerRunHistory:
+    """Freeze completed canonical owner requests, never append all reports to a page."""
+    def __init__(self,tasks,owner):
+        self.tasks,self.owner=tasks,owner
+        with tasks.db() as db:
+            rows=db.execute("SELECT id,body FROM requests WHERE owner=? AND state='COMPLETED' ORDER BY rowid DESC",(owner,)).fetchall()
+        self.entries=[{'id':r[0],'period':{k:json.loads(r[1])[k] for k in ('start','end')}} for r in rows]
+        self.index={'available_periods':[r['period'] for r in self.entries[:90]],'total_versions':len(self.entries),
+                    'coverage':'latest 90 period descriptors; all captured versions remain paged',
+                    'captured_at':datetime.now(timezone.utc).isoformat(),'date_basis':'completed own investigation period overlaps query',
+                    'version_boundary':'only completed canonical requests present at analysis creation',
+                    'snapshot_id':'ownhist_'+digest({'owner':owner,'entries':self.entries})[:24]}
+    def read(self,args):
+        page=args.get('page',1)
+        if type(page) is not int or not 1<=page<=100000:raise ValueError('history_page')
+        matches=[r for r in self.entries if r['period']['start']<=args['end'] and r['period']['end']>=args['start']]
+        selected=matches[page-1:page];previous=[]
+        if selected:
+            with self.tasks.db() as db:row=db.execute("SELECT result FROM requests WHERE id=? AND owner=? AND state='COMPLETED'",(selected[0]['id'],self.owner)).fetchone()
+            if row is None or not row[0]:return {'http_status':503,'status':'not_available','reason':'history_version_missing'}
+            saved=json.loads(row[0]);previous=[{'report_id':selected[0]['id'],'period':selected[0]['period'],
+                **{k:saved[k] for k in ('summary','findings','actions','reviews','limitations')},
+                'rule':'原证据ID属于原任务；复盘须重查当前证据，未执行建议不能归因效果'}]
+        return {'http_status':200,'status':'available' if previous else 'empty','reports':[],'hermes_reports':previous,
+                'pagination':{'page':page,'page_size':1,'total_reports':len(matches),'has_more':page<len(matches)},
+                'captured_at':self.index['captured_at'],'history_index_snapshot_id':self.index['snapshot_id'],
+                'owner_context':'current_owner_only','date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']}
+
+
+def attach_owner_history(book,tasks,owner):
+    daily=book.history;owned=OwnerRunHistory(tasks,owner);pins=SourcePins()
+    read_owned=pins.wrap(owned.read,'FC-owner-investigation-history')
+    def history(args):
+        if args.get('source','daily')=='hermes':return read_owned(args)
+        return daily(args) if daily else {'status':'not_available','reason':'daily_history_missing'}
+    book.history=history
+    book.history_index=dict(book.history_index or {},hermes=owned.index)
+
+
 def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
     read_start=(lo-timedelta(days=max(7,(hi-lo).days+1))).isoformat()
