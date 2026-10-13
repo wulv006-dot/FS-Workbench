@@ -92,9 +92,10 @@ class HermesService:
             if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hermes_reservations'").fetchone():
                 return {'status':'ledger_initializing','calls':None,'total_tokens':None,'estimated_microcny':None}
             rows=db.execute('SELECT m.state,m.content FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint WHERE r.task=? AND r.owner=?',(task_id,owner)).fetchall()
-        out={'calls':len(rows),'total_tokens':0,'reasoning_tokens':0,'estimated_microcny':0,'unknown_calls':0,'cost_basis':'public_peak_rate_estimate_not_invoice'}
+        out={'calls':len(rows),'total_tokens':0,'reasoning_tokens':0,'estimated_microcny':0,'unknown_calls':0,'invalid_response_calls':0,'cost_basis':'public_peak_rate_estimate_not_invoice'}
         for row in rows:
-            if row['state']!='succeeded':out['unknown_calls']+=1;continue
+            if row['state'] not in ('succeeded','invalid_response'):out['unknown_calls']+=1;continue
+            if row['state']=='invalid_response':out['invalid_response_calls']+=1
             receipt=json.loads(row['content']);out['total_tokens']+=receipt['usage']['total_tokens'];out['reasoning_tokens']+=receipt.get('reasoning_tokens',0);out['estimated_microcny']+=receipt['cost_microcny']
         return out
 

@@ -55,5 +55,26 @@ class ProviderTests(unittest.TestCase):
             self.assertEqual(self.run_request(**kwargs)['status'],'configuration_invalid')
         self.assertEqual(self.sent,[])
 
+    def test_http_diagnostics_only_expose_status_for_hermes(self):
+        from urllib.error import HTTPError
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect=HTTPError('https://fixture.invalid',400,'secret upstream body',{},None)
+            legacy=self.provider.request_model([],{},lambda v,_:v)
+            pilot=self.provider.request_model([],{},lambda v,_:v,tools=schemas(),reasoning_effort='max')
+        self.assertEqual(legacy,{'status':'http_rejected'})
+        self.assertEqual(pilot,{'status':'http_rejected','http_status':400})
+
+    def test_unknown_approval_requires_private_exact_contract(self):
+        from fs_inprocess import approved_unknowns
+        root=Path(self.tmp.name);tasks=SimpleNamespace(path=str(root/'tasks.sqlite3'))
+        self.assertEqual(approved_unknowns(tasks),{})
+        path=root/'unknown-usage-approvals.json'
+        item={'fingerprint':'a'*64,'reserved_upper_microcny':206294,'confirmation_reference':'user-reply-20261014','scope':'new_tasks_only'}
+        path.write_text(json.dumps({'contract':'explicit-unknown-usage-acceptance-v1','approvals':[item]}));path.chmod(0o600)
+        self.assertEqual(approved_unknowns(tasks),{'a'*64:206294})
+        item['scope']='replay_old_task'
+        path.write_text(json.dumps({'contract':'explicit-unknown-usage-acceptance-v1','approvals':[item]}))
+        with self.assertRaisesRegex(ValueError,'unknown_approval_fields'):approved_unknowns(tasks)
+
 
 if __name__=='__main__':unittest.main()

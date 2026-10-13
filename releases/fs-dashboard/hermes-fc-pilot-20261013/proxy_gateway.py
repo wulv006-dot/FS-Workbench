@@ -113,14 +113,45 @@ def validate_tool_call(call):
         raise ValueError('tool_arguments')
 
 
+def safe_diagnostic(response, request, reason):
+    """Keep billing/shape evidence, never provider messages or private reasoning."""
+    out={'status':'unknown','reason':reason if isinstance(reason,str) and re.fullmatch(r'[a-z0-9_]{3,80}',reason) else 'provider_result_unverified'}
+    if not isinstance(response,dict):return out
+    if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
+    code=response.get('provider_error_code')
+    if isinstance(code,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}',code):out['provider_error_code']=code
+    identity=response.get('id')
+    if isinstance(identity,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',identity):out['provider_request_id']=identity
+    usage=response.get('usage')
+    if isinstance(usage,dict):
+        projected={k:usage.get(k) for k in ('prompt_tokens','completion_tokens','total_tokens')}
+        if all(type(v) is int and v>=0 for v in projected.values()) and projected['total_tokens']==projected['prompt_tokens']+projected['completion_tokens']:
+            out['provider_usage']=projected
+    choices=response.get('choices')
+    shape={'model_matches':response.get('model')==request.get('model'),'choices_count':len(choices) if isinstance(choices,list) else None}
+    if isinstance(choices,list) and choices and isinstance(choices[0],dict):
+        choice=choices[0];message=choice.get('message')
+        if choice.get('finish_reason') in ('stop','tool_calls','length','content_filter'):shape['finish_reason']=choice['finish_reason']
+        if isinstance(message,dict):
+            shape.update(message_fields=[k for k in ('role','content','tool_calls','reasoning_content','refusal','function_call') if k in message],
+                         unknown_message_field_count=len(set(message)-{'role','content','tool_calls','reasoning_content','refusal','function_call'}))
+            calls=message.get('tool_calls')
+            if isinstance(calls,list):shape['tool_call_count']=len(calls)
+    out['response_shape']=shape
+    return out
+
+
 class UnifiedBudget:
     """Use existing daily.db() and model_calls. New table is reservation metadata only.
 
     Constructor is an explicit migration; instantiate ONLY against an isolated fixture
     until shared DB migration is reviewed. No default production path is present.
     """
-    def __init__(self, db, policy, clock):
+    def __init__(self, db, policy, clock, accepted_unknowns=None):
         self.db, self.clock = db, clock
+        self.accepted_unknowns=dict(accepted_unknowns or {})
+        if any(not isinstance(k,str) or not re.fullmatch(r'[a-f0-9]{64}',k) or type(v) is not int or v<=0 for k,v in self.accepted_unknowns.items()):
+            raise ValueError('unknown_acceptance_invalid')
         required = {'id', 'model', 'price_version', 'input_microcny', 'output_microcny'}
         if set(policy) != required or any(not isinstance(policy[k], str) or not policy[k]
                 for k in ('id', 'model', 'price_version')):
@@ -166,7 +197,15 @@ class UnifiedBudget:
             task_cost = task_tokens = day_cost = turns = 0
             for row in rows:
                 # An unknown request anywhere in the pilot holds further pilot spending.
-                if row['state'] != 'succeeded':
+                if row['state']=='invalid_response' and row['owner']==owner and row['task']==task:
+                    raise ValueError('invalid_previous_result')
+                if row['state'] not in ('succeeded','invalid_response'):
+                    # Only an explicit FS-owned approval for this exact reservation
+                    # permits a different task by the same owner. Never replay the
+                    # old turn, accept an in-flight call, or claim its usage is zero.
+                    if (row['state']=='unknown' and row['owner']==owner and row['task']!=task and
+                            self.accepted_unknowns.get(row['fingerprint'])==row['microcny']):
+                        continue
                     raise ValueError('pilot_usage_hold')
                 receipt = json.loads(row['content'])
                 if row['day'] == day:
@@ -228,8 +267,23 @@ class UnifiedBudget:
             if reasoning_tokens is not None:
                 if type(reasoning_tokens)is not int or not 0<=reasoning_tokens<=usage['completion_tokens']:raise ValueError('reasoning_usage_invalid')
                 receipt['reasoning_tokens']=reasoning_tokens  # Already included in completion, never double charged.
-        except (ValueError, TypeError, KeyError):
-            self.hold(fingerprint)
+        except (ValueError, TypeError, KeyError) as error:
+            diagnostic=safe_diagnostic(response,request,str(error))
+            usage=diagnostic.get('provider_usage')
+            # A malformed model message must fail the run, while a verified
+            # receipt/usage still accounts paid work exactly once. No fake success.
+            if (usage and 'provider_request_id' in diagnostic and
+                    diagnostic.get('response_shape',{}).get('model_matches') is True and
+                    usage['prompt_tokens']<=input_bound and usage['completion_tokens']<=request['max_tokens']):
+                receipt=dict(diagnostic,status='invalid_response',usage=usage,
+                             cost_microcny=usage['prompt_tokens']*self.policy['input_microcny']+usage['completion_tokens']*self.policy['output_microcny'],
+                             price_version=self.policy['price_version'],model=self.policy['model'],
+                             cost_basis='configured_public_rate_estimate_not_account_invoice',
+                             enable_thinking=request['enable_thinking'],reasoning_effort=request.get('reasoning_effort'))
+                with self.db() as conn:
+                    updated=conn.execute("UPDATE model_calls SET state='invalid_response',content=? WHERE fingerprint=? AND state='started'",(encoded(receipt),fingerprint))
+                    if updated.rowcount!=1:raise ValueError('settlement_state')
+            else:self.hold(fingerprint,diagnostic)
             raise ValueError('unverified_provider_result') from None
         with self.db() as conn:
             updated = conn.execute("UPDATE model_calls SET state='succeeded',content=? WHERE fingerprint=? AND state='started'",
@@ -238,9 +292,9 @@ class UnifiedBudget:
                 raise ValueError('settlement_state')
         return deepcopy(receipt)
 
-    def hold(self, fingerprint):
+    def hold(self, fingerprint, diagnostic=None):
         with self.db() as conn:
-            conn.execute("UPDATE model_calls SET state='unknown' WHERE fingerprint=? AND state='started'", (fingerprint,))
+            conn.execute("UPDATE model_calls SET state='unknown',content=? WHERE fingerprint=? AND state='started'", (encoded(diagnostic) if diagnostic else None,fingerprint))
 
 
 class ModelGateway:
@@ -266,8 +320,8 @@ class ModelGateway:
             try:
                 self.scope.context(owner,task_id,lease)
                 response = self.provider(request)
-            except Exception:
-                self.budget.hold(fingerprint)
+            except Exception as error:
+                self.budget.hold(fingerprint,safe_diagnostic(getattr(error,'response',None),request,str(error)))
                 raise ValueError('provider_outcome_unknown') from None
             receipt = self.budget.settle(fingerprint,response,request,bound)
             # Paid work is accounted even when cancellation arrives during the request.
