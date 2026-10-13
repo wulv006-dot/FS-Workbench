@@ -48,7 +48,8 @@ async def run():
         except Exception as exc:
             # Synthetic CI only: print shape and validation code, never token/body.
             print(json.dumps({'proxy_error': str(exc), 'keys': sorted(body or {}),
-                              'message_shapes': [sorted(m) for m in (body or {}).get('messages', [])]}), flush=True)
+                              'message_shapes': [sorted(m) for m in (body or {}).get('messages', [])],
+                              'tool_call_shapes': [sorted(c) for m in (body or {}).get('messages', []) for c in m.get('tool_calls', [])]}), flush=True)
             raise
     proxy.dispatch = diagnose
     server, thread = start_loopback(proxy)

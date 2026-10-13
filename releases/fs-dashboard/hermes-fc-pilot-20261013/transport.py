@@ -5,6 +5,7 @@ HTTP routes. A grant binds one task, owner and lease. Runtime receives only that
 short-lived token. Existing ModelGateway remains the sole provider caller.
 """
 from dataclasses import dataclass
+from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import json
@@ -124,7 +125,18 @@ class Proxy:
             names = [x.get('function', {}).get('name') for x in body['tools'] if isinstance(x, dict)]
             if len(names) != len(body['tools']) or len(names) != len(set(names)) or set(names) != set(WIRE_TOOLS):
                 raise ValueError('tool_allowlist')
-        request = {'messages': body.get('messages'), 'max_tokens': body.get('max_tokens')}
+        messages = deepcopy(body.get('messages'))
+        if isinstance(messages,list):
+            for message in messages:
+                if isinstance(message,dict) and 'reasoning_content' in message:
+                    pad=message['reasoning_content']
+                    if message.get('role')!='assistant' or (pad is not None and (not isinstance(pad,str) or len(pad)>8 or pad.strip())):
+                        raise ValueError('reasoning_content_policy')
+                    # Official DeepSeek replay may insert a whitespace-only pad
+                    # even with reasoning disabled. FS's non-thinking request
+                    # omits it; nonempty reasoning is never silently discarded.
+                    message.pop('reasoning_content')
+        request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         # Validate before recording request identity or changing any ledger table.
         from proxy_gateway import request_body
         request_body(request, gateway.budget.policy['model'])

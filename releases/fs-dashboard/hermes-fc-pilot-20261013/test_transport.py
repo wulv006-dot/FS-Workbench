@@ -41,6 +41,17 @@ class TransportTests(unittest.TestCase):
                 self.call(reasoning_effort=value)
         self.assertEqual(self.fixture.calls, 1)
 
+    def test_only_empty_assistant_reasoning_pad_is_normalized(self):
+        body=self.body();body['messages']=[{'role':'assistant','content':'continue','reasoning_content':' '}]
+        first=self.proxy.dispatch('POST','/v1/chat/completions',self.token,body)
+        body['messages'][0].pop('reasoning_content')
+        self.assertEqual(self.proxy.dispatch('POST','/v1/chat/completions',self.token,body)['id'],first['id'])
+        for value in ('private thought',' ' * 9,42):
+            body['messages'][0]['reasoning_content']=value
+            with self.assertRaisesRegex(ValueError,'reasoning_content_policy'):
+                self.proxy.dispatch('POST','/v1/chat/completions',self.token,body)
+        self.assertEqual(self.fixture.calls,1)
+
     def test_short_token_can_renew_without_total_runtime_cap(self):
         for _ in range(20):
             self.clock += 500

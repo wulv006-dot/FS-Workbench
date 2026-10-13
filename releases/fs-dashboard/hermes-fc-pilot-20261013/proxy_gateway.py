@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 import re
 from pilot import digest, encoded, TOOLS, SHANGHAI
-from runs_contract import WIRE_TOOLS
+from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 
 
 def schemas():
@@ -20,7 +20,8 @@ def schemas():
             'description': 'FC aggregate evidence only: '+semantic,
             'parameters': {'type': 'object', 'properties': fields,
                            'required': list(fields), 'additionalProperties': False}}})
-    return result
+    from research import tool_schemas
+    return result+tool_schemas()
 
 
 class ScopedTools:
@@ -39,7 +40,7 @@ class ScopedTools:
         self.context(owner, task_id, lease)
         if name not in WIRE_TOOLS:
             raise PermissionError('tool_denied')
-        result = self.book.call(TOOLS[WIRE_TOOLS.index(name)], arguments)
+        result = self.book.call(SEMANTIC_TOOLS[WIRE_TOOLS.index(name)], arguments)
         return {'snapshot_id': self.book.capture_id, 'tool': name, 'data': result}
 
 
