@@ -132,6 +132,13 @@ class Proxy:
         messages = deepcopy(body.get('messages'))
         if isinstance(messages,list):
             for message in messages:
+                if isinstance(message,dict) and 'reasoning' in message:
+                    # Fixed Hermes stores a generic carrier beside DeepSeek's
+                    # native carrier. Strip only a provably identical duplicate;
+                    # divergent/non-native reasoning is an explicit failure.
+                    if message.get('role')!='assistant' or message.get('reasoning')!=message.get('reasoning_content'):
+                        raise ValueError('reasoning_carrier_mismatch')
+                    message.pop('reasoning')
                 if isinstance(message,dict) and 'reasoning_content' in message:
                     pad=message['reasoning_content']
                     if message.get('role')!='assistant' or (pad is not None and not isinstance(pad,str)):

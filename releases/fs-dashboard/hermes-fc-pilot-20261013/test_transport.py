@@ -73,6 +73,16 @@ class TransportTests(unittest.TestCase):
         self.grants.renew(token,'owner',self.fixture.task['id'],'lease')
         self.assertEqual(self.grants.resolve(token).reasoning_effort,'high')
 
+    def test_only_identical_native_reasoning_duplicate_is_stripped(self):
+        token=self.grants.mint('owner',self.fixture.task['id'],'lease',reasoning_effort='max')
+        body=self.body();body['reasoning_effort']='max'
+        body['messages']=[{'role':'assistant','content':'next','reasoning_content':'synthetic','reasoning':'synthetic'}]
+        self.proxy.dispatch('POST','/v1/chat/completions',token,body)
+        body['messages'][0]['reasoning']='different'
+        with self.assertRaisesRegex(ValueError,'reasoning_carrier_mismatch'):
+            self.proxy.dispatch('POST','/v1/chat/completions',token,body)
+        self.assertEqual(self.fixture.calls,1)
+
     def test_short_token_can_renew_without_total_runtime_cap(self):
         for _ in range(20):
             self.clock += 500
