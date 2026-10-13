@@ -55,7 +55,7 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
         raw = response.read(128001)
     if len(raw) > 128000:
         raise ValueError('tool_response_size')
-    return json.loads(raw)
+    return json.dumps(json.loads(raw),ensure_ascii=False,separators=(',',':'),allow_nan=False)
 
 
 def make_adapter(api_key):

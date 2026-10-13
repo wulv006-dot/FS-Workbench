@@ -50,6 +50,37 @@ class ReleaseTests(unittest.TestCase):
         value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_UPDATE_TARGETS.values())]
         return value
 
+    def worker_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_WORKER_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_WORKER_TARGETS]
+        value['files'][0]['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_WORKER_TARGETS.values())]
+        return value
+
+    def test_worker_update_is_one_existing_target_and_all_47_other_files_protected(self):
+        value=self.worker_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),1)
+        self.assertEqual(len(value['unchangedRequired']),47)
+        for change in ('baseline','omission','extra'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='omission':bad['unchangedRequired'].pop()
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_worker_restart_stays_inside_admission_fence_and_does_not_restart_range(self):
+        class Fence:root=self.root
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_):return b'{"status":"ready"}'
+        events=[]
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            with self.assertRaisesRegex(ValueError,'fence required'):self.publisher.restart_for(self.worker_manifest())
+            self.publisher.restart_for(self.worker_manifest(),Fence())
+        self.assertEqual(events,[['systemctl','restart','fs-hermes-fc.service'],['systemctl','is-active','--quiet','fs-hermes-fc.service']])
+
     def test_update_scope_is_exact_five_and_preserves_initial_gate(self):
         value=self.update_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),5)
         self.assertEqual(len(self.publisher.validate(self.manifest,self.stage)),34)
