@@ -144,6 +144,13 @@ class ControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'unbound_report_number'):validate_output(encoded(value),self.book)
         finding['statement']='已知金额$10.00。';claim['text']='10.00';value['number_claims']=[claim]
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
+        scenario=self.book.call('fc.calculate',{'operation':'sum','values':['999.00'],'evidence_ids':[ref],
+              'value_paths':[None],'assumptions':['假设销售目标']})['evidence_id']
+        finding.update(statement='假设金额$999.00。',evidence_ids=[scenario])
+        claim.update(text='999.00',evidence_id=scenario,path='/data/result/sum')
+        with self.assertRaisesRegex(ValueError,'scenario_presented_as_fact'):validate_output(encoded(value),self.book)
+        finding.update(claim_type='hypothesis',alternative='只是情景输入，并非真实销售')
+        self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
 
 
 if __name__=='__main__':unittest.main()
