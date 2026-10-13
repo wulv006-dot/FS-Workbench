@@ -6,6 +6,8 @@ import json
 import threading
 import hashlib
 import unittest
+import io
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 from urllib.error import HTTPError
 
@@ -14,6 +16,7 @@ from .capabilities import (checked_query, collect_admin, fulfillment_projection,
 from .admin_session_entry import collect_with_manager
 from .provider import CapabilityProvider, tool_schema, response_budget
 from .order_detail_projection import read_open_detail
+from .fs_reader import admin_read
 
 CONFIG = {'enabled':True,'game_id':1327,'main_site_id':266}
 NOW = datetime(2026,10,14,0,30,tzinfo=timezone.utc)
@@ -93,6 +96,60 @@ class ProjectionTests(unittest.TestCase):
             out=collect_admin(lambda path,body:(status,json.dumps(payload)),NATIVE,CONFIG,NOW)
             self.assertEqual(out['status'],'denied')
             self.assertNotIn('not-for-model',json.dumps(out))
+
+    def test_failed_native_shape_has_only_fixed_safe_diagnostic(self):
+        raw=native();raw['data']['data']['game_rank']=[]
+        out=collect_admin(lambda *_:(200,json.dumps(raw)),NATIVE,CONFIG,NOW)
+        self.assertEqual(out['reason'],'native_shape')
+        self.assertNotIn('not-for-model',json.dumps(out))
+        out=collect_admin(lambda *_:(200,'not-for-model'),NATIVE,CONFIG,NOW)
+        self.assertEqual(out['reason'],'source_contract_or_read_failed')
+        self.assertNotIn('not-for-model',json.dumps(out))
+
+    def test_loopback_failure_preserves_projected_reason_for_provider(self):
+        for status,kind,reason in ((503,'not_available','native_shape'),):
+            projected=collect_admin(lambda *_:(200,json.dumps({'code':403})),NATIVE,CONFIG,NOW)
+            projected.update(status=kind,reason=reason)
+            error=HTTPError('http://127.0.0.1:8767/business/fc-capability',status,'fixed-local',{},io.BytesIO(json.dumps(projected).encode()))
+            with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
+                opener.return_value.open.side_effect=error
+                out=admin_read(NATIVE)
+            self.assertEqual(out,projected)
+            provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),lambda _:out,None,TASK_A,date_clock=lambda:NOW)
+            provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['reason'],reason)
+
+    def test_loopback403_never_revives_good_cache_for_any_body(self):
+        good=collect_admin(lambda *_:(200,json.dumps(native())),NATIVE,CONFIG,NOW)
+        for body in (b'{"status":"denied"}',b'{',b'x'*1000001,json.dumps(good).encode()):
+            clock=[0];calls=[0]
+            def read(args):
+                calls[0]+=1
+                if calls[0]==1:return good
+                error=HTTPError('http://127.0.0.1:8767/business/fc-capability',403,'fixed-local',{},io.BytesIO(body))
+                with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
+                    opener.return_value.open.side_effect=error
+                    return admin_read(args)
+            provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),read,None,TASK_A,lambda:clock[0],lambda:NOW)
+            provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['status'],'available')
+            clock[0]=7201;provider.get(NATIVE);out=provider.get(NATIVE)
+            self.assertEqual(out['status'],'denied');self.assertNotIn('source_amount_usd',out)
+            self.assertNotIn('stale',out)
+
+    def test_loopback503_cannot_become_a_fresh_success(self):
+        good=collect_admin(lambda *_:(200,json.dumps(native())),NATIVE,CONFIG,NOW)
+        for body in (json.dumps(good).encode(),b'{"status":"partial"}',b'{',b'x'*1000001):
+            clock=[0];calls=[0]
+            def read(args):
+                calls[0]+=1
+                if calls[0]==1:return good
+                error=HTTPError('http://127.0.0.1:8767/business/fc-capability',503,'fixed-local',{},io.BytesIO(body))
+                with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
+                    opener.return_value.open.side_effect=error
+                    return admin_read(args)
+            provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),read,None,TASK_A,lambda:clock[0],lambda:NOW)
+            provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['status'],'available')
+            clock[0]=7201;provider.get(NATIVE);out=provider.get(NATIVE)
+            self.assertTrue(out['stale']);self.assertEqual(out['refresh_status'],'not_available')
 
     def test_disabled_makes_no_query(self):
         out=collect_admin(lambda *a:self.fail('disabled called source'),NATIVE,dict(CONFIG,enabled=False),NOW)

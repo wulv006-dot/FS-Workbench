@@ -90,8 +90,8 @@ class CapabilityProvider:
             common = {'contract','kind','status','readonly','source_system','scope','query','timezone','captured_at','source_data_as_of','immutable_watermark','reason'}
             fields = {'endpoint','method','response_time','currency','source_orders','source_amount_usd','categories','loss_groups','peak','coverage','period_basis','rule'} if q['kind']=='native_loss' else {'endpoint','method','currency','rows','coverage','errors','period_basis','rule'}
             if set(value)-common-fields:raise ValueError('admin_projected_fields')
-        value['http_status'] = 200 if value['status'] in ('available','partial') else 403 if value['status']=='denied' else 503
-        return response_budget(value)
+        http_status = 200 if value['status'] in ('available','partial') else 403 if value['status']=='denied' else 503
+        return response_budget(dict(value,http_status=http_status))
 
     def _finish(self,args,q):
         try:value = self._read(args,q)

@@ -218,7 +218,13 @@ def collect_admin(request, args, config, now=None):
                       rule='SKU order_count is not distinct orders across products; sale_total unit unknown; title cannot infer historical coin K. Partial results cannot establish full revenue contribution.')
     except PermissionError:
         return result(q, 'denied', reason='source_denied')
-    except (OSError, ValueError, TypeError, KeyError):
+    except ValueError as error:
+        safe = ('source_unavailable','source_contract','native_shape','native_game_filter',
+                'native_site_filter','native_missing_game','native_category_shape',
+                'product_scope_filter','product_dimension_filter','product_pagination_contract')
+        reason = str(error) if str(error) in safe else 'source_contract_or_read_failed'
+        return result(q, 'not_available', reason=reason)
+    except (OSError, TypeError, KeyError):
         return result(q, 'not_available', reason='source_contract_or_read_failed')
 
 
