@@ -185,8 +185,34 @@ class Daily(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.validate_response(raw, self.batch)
         system = m.messages(self.batch)[0]['content']
-        for boundary in ('事实与因果假设明确分开', '验证指标及复盘窗口', '单期累计不能声称增长', '不写数字、金额', '不修改目标或负责人'):
+        for boundary in ('事实与因果假设明确分开', '验证指标及复盘窗口', '单期累计不能声称增长', '项目key以外不写数字、金额或指标数值', '不修改目标或负责人'):
             self.assertIn(boundary, system)
+
+    def test_exact_project_keys_allowed_without_allowing_business_numbers(self):
+        keys = {p['key'] for p in self.batch['projects']}
+        self.assertIn('FC27', keys)
+        allowed = ['优先核对FC27目标压力，下一次日报复盘。']
+        allowed += [key + '：建议核对来源，下一次日报复盘。' for key in keys if any(c.isdigit() for c in key)]
+        forbidden = ['优先核对FC999目标压力。', 'FC27营收需改善10美元。', 'FC27目标差距为20%。',
+                     'FC27预计收入$100。', 'FC27采购成本¥100。', 'XFC27需核对来源。',
+                     'FC270需核对来源。', 'FC27_extra需核对来源。', 'FC27-未知需核对来源。',
+                     'FC27经营表现已核实。', 'FC27经营安排已执行。',
+                     'FC27由' + self.batch['projects'][0]['owner'] + '负责核对。']
+        for field in ('summary', 'advice'):
+            for text in allowed + forbidden:
+                raw = self.envelope()
+                result = json.loads(raw['choices'][0]['message']['content'])
+                if field == 'summary':
+                    result['summary'] = text
+                else:
+                    result['projects'][0]['advice'] = text
+                raw['choices'][0]['message']['content'] = json.dumps(result, ensure_ascii=False)
+                with self.subTest(field=field, text=text):
+                    if text in allowed:
+                        self.assertEqual(m.validate_response(raw, self.batch)['status'], 'succeeded')
+                    else:
+                        with self.assertRaises(ValueError):
+                            m.validate_response(raw, self.batch)
 
     def test_failed_ai_keeps_facts_and_failed_source_marks_retained(self):
         first = m.build_snapshot(self.batch, {'status': 'failed', 'error': 'provider_timeout'})

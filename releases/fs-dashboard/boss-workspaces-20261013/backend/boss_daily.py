@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import json
 import os
+import re
 from pathlib import Path
 import stat
 import tempfile
@@ -173,7 +174,8 @@ class DailyRunner:
         for path, mode in [(self.root, 0o755), (self.root / 'public', 0o755),
                            (self.root / 'locks', 0o700), (self.root / 'journal', 0o700),
                            (self.root / 'journal' / kind, 0o700), (self.root / 'history', 0o700),
-                           (self.root / 'history' / kind, 0o700)]:
+                           (self.root / 'history' / kind, 0o700), (self.root / 'diagnostics', 0o700),
+                           (self.root / 'diagnostics' / kind, 0o700)]:
             checked_path(path)
             path.mkdir(parents=True, exist_ok=True, mode=mode)
             path.chmod(mode)
@@ -182,7 +184,7 @@ class DailyRunner:
         checked_path(paths['public'])
         current = paths['public'].read_bytes() if paths['public'].exists() else None
         result = {key: journal.get(key) for key in ('kind', 'day', 'run_id', 'trigger', 'started_at',
-                'finished_at', 'status', 'phase', 'source_sha256', 'ai_status', 'fact_status', 'error_code')} | {
+                'finished_at', 'status', 'phase', 'source_sha256', 'ai_status', 'fact_status', 'error_code', 'analysis_of')} | {
                 'public_available': current is not None,
                 'public_sha256': digest(current) if current is not None else None,
                 'publication_matches_journal': bool(current and journal.get('publish_sha256') == digest(current)),
@@ -221,19 +223,47 @@ class DailyRunner:
         except BlockingIOError:
             return {'kind': kind, 'day': at.date().isoformat(), 'status': 'busy', 'same_day_replay_disabled': True}
 
-    def execute(self, kind, trigger, at, paths):
+    def analyse(self, kind, after_run_id):
+        at = checked_time(self.clock())
+        paths = self.paths(kind, at.date().isoformat())
+        if not isinstance(after_run_id, str) or not re.fullmatch(re.escape(kind)+r'-\d{4}-\d{2}-\d{2}-[a-f0-9]{32}', after_run_id):
+            raise ValueError('invalid_prior_run_id')
+        if not paths['journal'].parent.is_dir():
+            raise ValueError('prior_run_not_found')
+        with file_lock(paths['lock']):
+            priors = [read_json(p) for p in paths['journal'].parent.glob('*.json')]
+            matches = [j for j in priors if j and j.get('run_id') == after_run_id]
+            if len(matches) != 1:
+                raise ValueError('prior_run_not_found')
+            prior = matches[0]
+            if (prior.get('day') != at.date().isoformat() or prior.get('phase') != 'completed' or
+                    prior.get('status') not in ('model_failed', 'facts_only') or prior.get('ai_status') != 'invalid_response'):
+                raise ValueError('only_completed_invalid_response_can_be_reanalysed')
+            batch = prior['projected']
+            if digest(encoded(batch)) != prior['source_sha256']:
+                raise ValueError('prior_source_changed')
+            paths['journal'] = paths['journal'].with_name(at.date().isoformat()+'-analysis-'+digest(after_run_id.encode())[:16]+'.json')
+            existing = read_json(paths['journal'])
+            if existing:
+                return self.summary(existing, paths)
+            self.prepare(kind)
+            batch = dict(batch, manual_analysis_of=after_run_id)
+            return self.execute(kind, 'manual_analysis', at, paths, batch=batch, analysis_of=after_run_id)
+
+    def execute(self, kind, trigger, at, paths, batch=None, analysis_of=None):
         checked_path(paths['public'])
         previous_bytes = paths['public'].read_bytes() if paths['public'].exists() else None
         previous = json.loads(previous_bytes) if previous_bytes else None
         journal = {'schema_version': 1, 'kind': kind, 'day': at.date().isoformat(),
                    'run_id': kind + '-' + at.date().isoformat() + '-' + uuid.uuid4().hex,
                    'trigger': trigger, 'started_at': at.isoformat(), 'status': 'running',
-                   'phase': 'collecting', 'ai_status': 'not_requested'}
+                   'phase': 'collecting', 'ai_status': 'not_requested', 'analysis_of': analysis_of}
         save = lambda: atomic(paths['journal'], encoded(journal), 0o600)
         save()
         try:
             module = self.modules[kind] if self.modules else importlib.import_module(MODULES[kind])
-            batch = module.collect(at, reader=self.reader) if kind == 'management' else module.collect(at)
+            if batch is None:
+                batch = module.collect(at, reader=self.reader) if kind == 'management' else module.collect(at)
             journal.update(projected=batch, source_sha256=digest(encoded(batch)), phase='source_ready',
                            fact_status=batch.get('status', 'available' if batch.get('documents') else 'unavailable'))
             save()
@@ -244,8 +274,23 @@ class DailyRunner:
                 messages = module.messages(batch)
                 journal.update(phase='model_pending', ai_status='unknown')
                 save()
+                def validate_with_diagnostic(raw, projected):
+                    response = encoded(raw)
+                    if len(response) > 96000:
+                        return {'status': 'invalid_response', 'error_code': 'response_too_large'}
+                    diagnostic = self.root / 'diagnostics' / kind / (journal['run_id'] + '.json')
+                    # Keep only this task's bounded response privately, never credentials or request headers.
+                    atomic(diagnostic, response, 0o600)
+                    try:
+                        return module.validate_response(raw, projected)
+                    except (ValueError, KeyError, IndexError, TypeError) as error:
+                        code = str(error) if re.fullmatch(r'[a-z_]{1,64}', str(error)) else 'response_validation_failed'
+                        receipt = raw.get('id') if isinstance(raw, dict) else None
+                        return {'status': 'invalid_response', 'error_code': code,
+                                'receipt': receipt if isinstance(receipt, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}', receipt) else None,
+                                'response_sha256': digest(response)}
                 def callback(projected):
-                    return self.provider(messages, projected, module.validate_response,
+                    return self.provider(messages, projected, validate_with_diagnostic,
                                          max_tokens=6000 if kind == 'game-monitor' else 5000, timeout=120)
                 try:
                     result = self.model_runner(batch, callback)
@@ -296,11 +341,15 @@ def main():
     run = sub.add_parser('run', help='Creates a daily journal and may call the paid model; same-day repeats only read back.')
     run.add_argument('--kind', choices=SCHEDULES, required=True)
     run.add_argument('--trigger', choices=('manual', 'scheduled'), required=True)
+    analysis = sub.add_parser('analyse', help='Explicit new manual analysis after a completed invalid response; preserves the original run.')
+    analysis.add_argument('--kind', choices=SCHEDULES, required=True)
+    analysis.add_argument('--after-run-id', required=True)
     args = parser.parse_args()
     runner = DailyRunner()
-    result = runner.inspect(args.kind) if args.action == 'inspect' else runner.run(args.kind, args.trigger)
+    result = (runner.inspect(args.kind) if args.action == 'inspect' else
+              runner.analyse(args.kind, args.after_run_id) if args.action == 'analyse' else runner.run(args.kind, args.trigger))
     print(encoded(result).decode('utf-8'))
-    if args.action == 'run' and result.get('status') not in ('succeeded', 'not_due'):
+    if args.action != 'inspect' and result.get('status') not in ('succeeded', 'not_due'):
         raise SystemExit(2)
 
 

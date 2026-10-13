@@ -119,7 +119,19 @@ const Management = (() => {
     return data.period?.start===targets.period+'-01'&&(data.period.end===null||/^\d{4}-\d{2}-\d{2}$/.test(data.period.end)&&data.period.end>=data.period.start&&data.period.end<=targets.period+'-31');
   }
   function dailyForRange(snapshot,query,mode){return mode==='daily'&&snapshot?.period?.start===query.start&&snapshot?.period?.end===query.end?snapshot:null;}
-  return {numeric,esc,fmt,sum,percent,pct,progressConcern,day,previous,validateSummary,catalogProfiles,wait,pollSummary,runTwo,pollAdvisor,validateDaily,dailyForRange};
+  function dailyForecastLabel(snapshot,query,mode,expired,key,metric){
+    if(mode!=='daily')return '人工区间不套用每日预测';
+    if(expired)return '目标期不匹配，未预测';
+    const match=dailyForRange(snapshot,query,mode),field={rev:'revenue_usd',ord:'orders',prof:'estimated_profit_usd'}[metric];
+    const value=match?.projects?.find(p=>p.key===key)?.forecast?.values?.[field];
+    return numeric(value)?'月末线性预测 '+fmt(value,metric):'每日预测暂无有效数据';
+  }
+  function placeDailyPanel(doc,panel){
+    const anchor=doc.getElementById('groupCards')||doc.querySelector('.wrap > .hero');
+    if(anchor)anchor.after(panel,doc.getElementById('fs-controls'),doc.getElementById('fs-status'));
+    else doc.getElementById('fs-status').after(panel);
+  }
+  return {numeric,esc,fmt,sum,percent,pct,progressConcern,day,previous,validateSummary,catalogProfiles,wait,pollSummary,runTwo,pollAdvisor,validateDaily,dailyForRange,dailyForecastLabel,placeDailyPanel};
 })();
 
 if(typeof module !== 'undefined') module.exports = {Management,fsMainSite};
@@ -161,7 +173,7 @@ if(typeof document !== 'undefined') (async function boot(){
   function controls(){
     $('fs-controls').innerHTML='<label>实际开始日期 <input id="fs-start" type="date" value="'+query.start+'"></label><label>实际结束日期 <input id="fs-end" type="date" value="'+query.end+'"></label><button id="fs-daily-refresh" type="button">查看每日分析</button><button id="fs-refresh" type="button">查询所选日期</button><span>Asia/Shanghai · 美元 · 默认截至昨日完整日</span><p>目标固定为原包 2026-10；跨月或非月初区间只展示实际，不作月目标进度比较。缺失、排队或失败不会填零。</p><details><summary>AI 经营解读</summary><p>管理员手动发送当前已读取的经营汇总与目标至公司 DeepSeek；不含负责人姓名、订单或客户信息。AI 输出仅供参考。</p><button id="fs-ai" type="button" disabled>生成 AI 经营解读</button><button id="fs-ai-resume" type="button" hidden>查询已有任务</button><pre id="fs-ai-result" role="status"></pre></details>';
     $('fs-daily-refresh').onclick=()=>loadDaily();$('fs-refresh').onclick=()=>load();$('fs-start').onchange=()=>load();$('fs-end').onchange=()=>load();$('fs-ai').onclick=insight;$('fs-ai-resume').onclick=resumeInsight;
-    const panel=document.createElement('section');panel.id='fs-daily';panel.className='panel';$('fs-status').after(panel);
+    const panel=document.createElement('section');panel.id='fs-daily';panel.className='panel';Management.placeDailyPanel(document,panel);
     try{const saved=JSON.parse(sessionStorage.getItem('fs-management-ai:'+encodeURIComponent(identity))||'null');if(saved?.user===identity&&typeof saved.requestId==='string'&&(saved.jobId===null||(typeof saved.jobId==='string'&&saved.jobId.length<=160))){aiJob=saved;$('fs-ai-result').textContent='已有 AI 任务 '+saved.jobId+'；可只读查询原任务。';}}catch{}aiButtons();
   }
   const games=()=>config.overview.games;
@@ -174,7 +186,9 @@ if(typeof document !== 'undefined') (async function boot(){
     $('topKpis').innerHTML=[['全盘营收目标',fmt(t('rev')),'原包 2026-10 · 15 款'],['所选区间营收',fmt(a('rev')),'已读取 '+all.filter(g=>numeric(actual(g).rev)).length+'/15；缺项时不合计'],['所选区间订单',fmt(a('ord'),'ord'),'仅 MMOEXP 主站'],['所选区间预估利润',fmt(a('prof'),'prof'),'Admin 销售额 × Order 利润率，非实结利润']].map(x=>'<div class="kp"><div class="l">'+x[0]+'</div><div class="n">'+x[1]+'</div><div class="s">'+x[2]+'</div></div>').join('');
     $('groupCards').innerHTML=config.overview.groups.map(g=>{const list=all.filter(x=>x.grp===g.key),rev=sum(list.map(x=>actual(x).rev)),target=sum(list.map(x=>x.tgt.rev));return '<button type="button" class="gc'+(group===g.key?' on':'')+'" data-group="'+esc(g.key)+'"><div class="gh"><span class="gn">'+esc(g.key)+'</span><span class="gl">组长 '+esc(g.leader)+'</span></div><div class="pct">'+pct(percent(rev,target,eligible()))+'</div><div class="sub">实际 '+fmt(rev)+' · 目标 '+fmt(target)+'<br>完整读取 '+list.filter(x=>numeric(actual(x).rev)).length+'/'+list.length+' · 进度与预测见每日分析</div></button>';}).join('');
     $('groupCards').querySelectorAll('button').forEach(b=>b.onclick=()=>{group=group===b.dataset.group?'ALL':b.dataset.group;overview();});
-    $('rows').innerHTML=rows.map(g=>{const a=actual(g)[metric],t=g.tgt[metric];return '<tr><td><a class="gname" href="'+esc(g.file)+'">'+esc(g.name)+'</a><div class="gmeta">'+esc(g.grp)+' · '+esc(g.owner)+'</div></td><td class="barcell">'+bar(a,t)+'<div class="note">'+esc(metadata(g))+'</div></td><td class="nums">'+pct(percent(a,t,eligible()))+'</td><td class="nums"><div class="act">'+fmt(a,metric)+'</div><div class="tgt">目标 '+fmt(t,metric)+'</div></td><td class="nums">'+(eligible()?'时间进度 '+pct(timePercent()):'期间不可比较')+'<div class="note">预测未评估</div></td></tr>';}).join('');
+    $('rows').innerHTML=rows.map(g=>{const a=actual(g)[metric],t=g.tgt[metric];return '<tr><td><a class="gname" href="'+esc(g.file)+'">'+esc(g.name)+'</a><div class="gmeta">'+esc(g.grp)+' · '+esc(g.owner)+'</div></td><td class="barcell">'+bar(a,t)+'<div class="note">'+esc(metadata(g))+'</div></td><td class="nums">'+pct(percent(a,t,eligible()))+'</td><td class="nums"><div class="act">'+fmt(a,metric)+'</div><div class="tgt">目标 '+fmt(t,metric)+'</div></td><td class="nums">'+(eligible()?'时间进度 '+pct(timePercent()):'期间不可比较')+'<div class="note">'+esc(Management.dailyForecastLabel(dailySnapshot,query,viewMode,dailyExpired(),g.profile,metric))+'</div></td></tr>';}).join('');
+    const predictionLegend=document.querySelector('.legend > span:nth-child(2)');
+    if(predictionLegend)predictionLegend.textContent=viewMode==='daily'?'月末线性预测与方法详见每日分析':'人工区间不套用每日预测';
     $('footrow').innerHTML='<td>所选组完整合计</td><td colspan="4">实际 '+fmt(sum(rows.map(g=>actual(g)[metric])),metric)+' · 原包目标 '+fmt(sum(rows.map(g=>g.tgt[metric])),metric)+' · 任一游戏缺项时不汇总实际</td>';
     const progress=all.map(g=>({g,p:Management.progressConcern(actual(g).rev,g.tgt.rev,timePercent(),eligible())}));
     for(const [id,state] of [['hbGood','ahead'],['hbBad','behind']]){
@@ -205,6 +219,7 @@ if(typeof document !== 'undefined') (async function boot(){
   function render(){if(!config)return;if(view==='overview')overview();else if(view==='game')game();else sandbox?.update(values);renderDaily();}
   function renderDaily(){
     const panel=$('fs-daily');if(!panel)return;
+    const expanded=!!panel.querySelector('details')?.open;
     if(viewMode!=='daily'){panel.innerHTML='<h2>人工区间查询</h2><p>下方为所选日期实际；每日预测与 AI 建议已停止套用。点击「查看每日分析」返回服务器每日结果。</p>';return;}
     const snapshot=Management.dailyForRange(dailySnapshot,query,viewMode);
     if(!snapshot){panel.innerHTML='<h2>每日目标分析</h2><p>服务器每日 09:30（Asia/Shanghai）更新。尚无可用每日结果，可点击「查询所选日期」读取实际。</p><p>最近尝试 '+esc(dailyStatus?.finished_at||dailyStatus?.started_at||'未提供')+' · '+esc(dailyStatus?.fact_status||dailyStatus?.status||'未提供')+'</p>';return;}
@@ -216,12 +231,13 @@ if(typeof document !== 'undefined') (async function boot(){
     const state=day().slice(0,7)!=='2026-10'||dailyStatus?.fact_status==='target_period_expired'?'target_period_expired':dailyStatus?.fact_status==='no_complete_days'?'no_complete_days':snapshot.status,canForecast=!dailyExpired();
     const advice=snapshot.advice,notes=advice?.status==='succeeded'?advice.analysis:null;
     const warning=w=>w.kind==='progress'?'进度落后 ≥15p':({revenue_usd:'营收',orders:'订单',estimated_profit_usd:'预估利润'}[w.metric]||'指标')+'线性预测低于目标';
-    panel.innerHTML='<h2>每日目标分析 · '+esc(statuses[state]||state)+'</h2><p>每日 09:30 · 自动生成 '+esc(snapshot.generatedAt)+' · 实际 '+esc(snapshot.period.start)+' 至 '+esc(snapshot.period.end||'尚无完整日')+(stale?' · 当前保留的是上一版或历史区间':'')+'</p><p class="note">最近尝试 '+esc(lastAt)+' · '+esc(lastState)+(dailyStatus?.error_code?' · '+esc(dailyStatus.error_code):'')+'。完成率与线性预测为程序计算；AI 只提供定性建议，不修改目标。</p><p>线性月末预测 = 累计实际 ÷ 已过完整日 × 目标月份天数；假设未来维持当前日均，不代表承诺。缺失指标不预测，来源统计水位未知时保留提示。</p>'+
+    panel.innerHTML='<h2>每日目标分析 · '+esc(statuses[state]||state)+'</h2><p class="note">每日 09:30 · 更新 '+esc(snapshot.generatedAt)+' · 实际截至 '+esc(snapshot.period.end||'尚无完整日')+(stale?' · 保留上版或历史区间':'')+'</p><p class="fs-daily-summary"><b>本版经营建议：</b>'+esc(canForecast?notes?.summary||'AI 建议暂不可用；实际完成率与程序预测可展开查看。':'目标期不匹配，未套用旧建议')+'</p><p class="note">AI '+esc(advice?.status||'not_requested')+(advice?.error?' · '+esc(advice.error):'')+' · 最近尝试 '+esc(lastAt)+' · '+esc(lastState)+(dailyStatus?.error_code?' · '+esc(dailyStatus.error_code):'')+'</p>'+
+      '<details id="fs-daily-details"'+(expanded?' open':'')+'><summary>查看 '+list.length+' 个项目的完成率、剩余日均、预测与建议</summary><p class="note">完成率与线性预测为程序计算；AI 只提供定性建议，不修改目标。实际区间 '+esc(snapshot.period.start)+' 至 '+esc(snapshot.period.end||'尚无完整日')+'。</p><p class="note">线性月末预测 = 累计实际 ÷ 已过完整日 × 目标月份天数；假设未来维持当前日均，不代表承诺。缺失指标不预测，来源统计水位未知时保留提示。</p>'+
       '<div class="board"><table><thead><tr><th>项目 / 负责人</th><th>目标完成率</th><th>剩余所需日均</th><th>月末线性预测</th><th>观察与预警</th><th>AI 定性建议</th></tr></thead><tbody>'+list.map(p=>{
         const g=games().find(g=>g.profile===p.key),forecast=p.forecast||{},vals=canForecast?forecast.values||{}:{},adviceRow=canForecast?notes?.projects?.find(x=>x.key===p.key):null,alerts=canForecast&&Array.isArray(p.warnings)?p.warnings:[];
         const completion=canForecast?p.completionPct||{}:{},required=canForecast?p.requiredDaily||{}:{};
         return '<tr><td><a href="'+esc(g.file)+'">'+esc(g.name)+'</a><div class="note">'+esc(g.owner)+' · '+esc(p.coverage?.status||'未提供')+'</div></td><td>收入 '+pct(completion.revenue_usd)+'<br>订单 '+pct(completion.orders)+'<br>预估利润 '+pct(completion.estimated_profit_usd)+'</td><td>收入 '+fmt(required.revenue_usd)+'<br>订单 '+fmt(required.orders,'ord')+'<br>预估利润 '+fmt(required.estimated_profit_usd,'prof')+'</td><td>收入 '+fmt(vals.revenue_usd)+'<br>订单 '+fmt(vals.orders,'ord')+'<br>预估利润 '+fmt(vals.estimated_profit_usd,'prof')+'</td><td>'+esc(forecast.observedCompleteDays??'—')+'/'+esc(forecast.monthDays??'—')+' 个完整日<br>'+esc(alerts.length?alerts.map(warning).join('；'):numeric(vals.revenue_usd)?'未触发进度/预测预警':'未评估')+'<div class="note">'+(p.coverage?.sourceWatermarkKnown?'有上游统计水位':'上游统计水位未提供')+'</div></td><td>'+esc(adviceRow?.advice||'AI 尚未成功返回或目标期不匹配；不套用旧建议')+'</td></tr>';
-      }).join('')+'</tbody></table></div><p><b>AI 每日总建议：</b>'+esc(canForecast?notes?.summary||'尚无成功建议':'目标期不匹配，未套用旧建议')+'</p><p class="note">AI 状态 '+esc(advice?.status||'not_requested')+(advice?.error?' · '+esc(advice.error):'')+(advice?.receipt?' · 回执 '+esc(advice.receipt):'')+'</p>';
+      }).join('')+'</tbody></table></div>'+(advice?.receipt?'<p class="note">AI 回执 '+esc(advice.receipt)+'</p>':'')+'</details>';
   }
   function activateDaily(data){
     dailySnapshot=data;query={...data.period};$('fs-start').value=query.start;$('fs-end').value=query.end||'';

@@ -195,6 +195,83 @@ class BackendRelease(unittest.TestCase):
         self.assertTrue(all(not (self.root / row['target'].lstrip('/')).exists() for row in self.manifest['files']))
         self.assert_preserved()
 
+    def prepare_update(self):
+        previous = self.stage / 'approved-manifest.json'
+        previous.write_text(json.dumps(self.manifest))
+        previous_raw = previous.read_bytes()
+        self.original_sources = {}
+        for row in self.manifest['files']:
+            data = (self.stage / 'candidate' / row['candidate']).read_bytes()
+            self.write(row['target'], data)
+            self.original_sources[row['target']] = data
+        source = self.builder.ROOT / 'backend/boss_daily.py'
+        source.write_bytes(source.read_bytes() + b'\n# isolated candidate update\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.builder.build(update_from=previous)
+        self.assertEqual(previous.read_bytes(), previous_raw)
+        self.stage = self.builder.ROOT / 'backend-update-release'
+        evidence = self.stage / ('previous-manifest.' + hashlib.sha256(previous_raw).hexdigest() + '.json')
+        self.assertEqual(evidence.read_bytes(), previous_raw)
+        self.publisher = load('boss_update_publisher_test', self.stage / 'release_navigation.py')
+        if os.name == 'nt':
+            item = patch.object(self.publisher, 'directory_sync', lambda path: self.assertTrue(path.is_dir()))
+            item.start()
+            self.addCleanup(item.stop)
+        self.manifest = json.loads((self.stage / 'approved-manifest.json').read_text())
+        self.assertFalse(self.manifest['releaseReady'])
+        self.manifest['releaseReady'] = True
+
+    def test_update_apply_and_rollback_preserve_exact_existing_bytes(self):
+        self.prepare_update()
+        self.assertEqual(self.manifest['scope'], self.builder.UPDATE_SCOPE)
+        for row in self.manifest['files']:
+            self.assertEqual(row['beforeSha256'], hashlib.sha256(self.original_sources[row['target']]).hexdigest())
+        result = self.apply()
+        backup = Path(result['backup'])
+        for row in self.manifest['files']:
+            self.assertEqual(self.publisher.digest(self.root / row['target'].lstrip('/')), row['sha256'])
+            self.assertEqual((backup / 'files' / row['candidate']).read_bytes(), self.original_sources[row['target']])
+        self.publisher.rollback(backup, self.sha, self.root)
+        for path, data in self.original_sources.items():
+            self.assertEqual((self.root / path.lstrip('/')).read_bytes(), data)
+        self.assertEqual(self.actions, [['systemctl', 'daemon-reload']] * 2)
+        self.assert_preserved()
+
+    def test_update_before_drift_blocks_without_daemon_reload(self):
+        self.prepare_update()
+        self.write(self.manifest['files'][0]['target'], b'parallel-update')
+        with self.assertRaises(ValueError): self.apply()
+        self.assertEqual(self.actions, [])
+        self.assert_preserved()
+
+    def test_update_manifest_missing_before_hash_or_target_tamper_rejected(self):
+        self.prepare_update()
+        for value in (None, '', 'x' * 64):
+            changed = copy.deepcopy(self.manifest)
+            changed['files'][0]['beforeSha256'] = value
+            with self.assertRaises(ValueError): self.publisher.validate(changed, self.stage)
+        self.manifest['files'][0]['target'] = '/opt/other-module/source.py'
+        with self.assertRaises(ValueError): self.apply()
+        self.assertEqual(self.actions, [])
+
+    def test_update_previous_manifest_requires_exact_approved_hashes_and_paths(self):
+        original = self.stage / 'approved-manifest.json'
+        original_bytes = original.read_bytes()
+        for variant in ('missing_sha', 'bad_sha', 'target', 'extra', 'duplicate', 'scope', 'not_approved'):
+            manifest = copy.deepcopy(self.manifest)
+            if variant == 'missing_sha': del manifest['files'][0]['sha256']
+            elif variant == 'bad_sha': manifest['files'][0]['sha256'] = 'not-a-sha'
+            elif variant == 'target': manifest['files'][0]['target'] = '/etc/other-file'
+            elif variant == 'extra': manifest['files'].append(copy.deepcopy(manifest['files'][0]))
+            elif variant == 'duplicate': manifest['files'][1] = copy.deepcopy(manifest['files'][0])
+            elif variant == 'scope': manifest['scope'] = 'fc-daily-20261013'
+            else: manifest['releaseReady'] = False
+            fake = self.work / 'invalid-approved.json'
+            fake.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError): self.builder.build(update_from=fake)
+        self.assertEqual(original.read_bytes(), original_bytes)
+        self.assertFalse((self.builder.ROOT / 'backend-update-release').exists())
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

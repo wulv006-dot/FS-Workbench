@@ -35,6 +35,48 @@ def envelope(events):
 
 
 class IntelligenceTests(unittest.TestCase):
+    def test_receipt_matches_shared_provider_contract(self):
+        b = batch()
+        for receipt in ['chatcmpl-test12345678', '12345678-1234-1234-1234-123456789abc', 'a', 'x' * 150]:
+            raw = envelope([event(b)]); raw['id'] = receipt
+            self.assertEqual(g.validate_response(raw, b)['receipt'], receipt)
+        for receipt in ['', None, 123, 'x' * 151, 'bad/id', 'bad\nreceipt']:
+            raw = envelope([event(b)]); raw['id'] = receipt
+            with self.subTest(receipt=receipt), self.assertRaisesRegex(ValueError, 'invalid_model_receipt'):
+                g.validate_response(raw, b)
+
+    def test_shared_source_requires_longest_complete_game_name(self):
+        b = batch(); e = event(b)
+        b['documents'][0]['game_keys'] = ['poe1', 'poe2']
+        for field in ['event_date', 'date_evidence', 'event_time', 'time_evidence', 'timezone', 'timezone_evidence']:
+            e[field] = None
+        e.update(game_key='poe1', game_name=g.GAMES['poe1'])
+        for quote in ['Path of Exile 2: new official update announced.', 'XPath of Exile: new official update announced.', 'Path of Exiles: new official update announced.']:
+            b['documents'][0]['text'] = quote; e['evidence'] = quote
+            with self.subTest(quote=quote), self.assertRaisesRegex(ValueError, 'ungrounded_game'):
+                g.validate_response(envelope([e]), b)
+        quote = 'Path of Exile 2 and Path of Exile: both receive new official updates.'
+        b['documents'][0]['text'] = quote; e['evidence'] = quote
+        for key in ['poe1', 'poe2']:
+            e.update(game_key=key, game_name=g.GAMES[key])
+            self.assertEqual(g.validate_response(envelope([e]), b)['events'][0]['game_key'], key)
+        self.assertEqual(g.named_games('PATH OF EXILE 2: update'), {'poe2'})
+
+    def test_unsupported_time_forms_stay_null_without_relaxing_evidence(self):
+        b = batch(); e = event(b); e.update(event_date=None, date_evidence=None)
+        with self.assertRaisesRegex(ValueError, 'unsupported_event_time'):
+            g.validate_response(envelope([e]), b)
+        e = event(b)
+        b['documents'][0]['text'] = QUOTE.replace('07:00', '7:00 AM')
+        e.update(evidence=b['documents'][0]['text'], time_evidence='7:00 AM')
+        with self.assertRaisesRegex(ValueError, 'unsupported_event_time'):
+            g.validate_response(envelope([e]), b)
+        e.update(event_time=None, time_evidence=None)
+        self.assertIsNone(g.validate_response(envelope([e]), b)['events'][0]['event_time'])
+        prompt = g.messages(b)[0]['content']
+        self.assertIn('event_date已有可验证的完整日期', prompt)
+        self.assertIn('不补零、不转换AM/PM', prompt)
+
     def test_all_existing_games_have_configured_official_source(self):
         self.assertEqual(set(g.GAMES), {key for s in g.SOURCES for key in s['games']})
         self.assertEqual(len(g.GAMES), 30)

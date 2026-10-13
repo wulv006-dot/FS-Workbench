@@ -276,7 +276,7 @@ def messages(batch):
         '例如待来源补齐后核对主站营收与订单是否同步改善，在下一次日报复盘；具体选择必须基于该项目证据，不逐项复制同一句模板。'
         '事实与因果假设明确分开：输入只能证明累计实绩与目标差距，不能证明流量、转化、供给或人员导致差距；确需提出原因假设时标为待验证，并给验证所需证据。'
         '缺失数据时优先说清要补齐或核对的来源及补齐后再作的判断，不猜经营表现；单期累计不能声称增长、下降或趋势反转。'
-        '只提出定性、可由人员审核的经营建议；不写数字、金额、具体售价或调价建议，不修改目标或负责人，不宣称已经完成操作，不把预估利润当实结。'
+        '只提出定性、可由人员审核的经营建议；可用输入中完整项目key明确指出项目，项目key以外不写数字、金额或指标数值，不写具体售价或调价建议，不修改目标或负责人，不宣称已经完成操作，不把预估利润当实结。'
         '不臆造情报、原因、细分或可查询能力；线性预测只是实际除已过完整日乘月天数，假设日均不变，不是承诺，也不是因果证据。不要输出人员或客户信息。'
     )
     return [{'role': 'system', 'content': instructions},
@@ -306,10 +306,13 @@ def validate_response(raw, batch):
     if not isinstance(result, dict) or set(result) != {'summary', 'projects'}:
         raise ValueError('invalid_analysis_fields')
     names = {p['owner'] for p in batch['projects'] if p.get('owner')}
-    blocked = re.compile(r'\d|[$¥%<>`@]|https?://|sk-|bearer|api[_ -]?key|password|token|secret|密码|密钥|客户姓名|手机号|邮箱|售价|调价|降价|涨价|采购价|自动执行|已执行|已修改|已核实|已确认|修改目标|调整目标|更换负责人|忽略.{0,12}指令', re.I)
+    # ASCII identifier boundaries permit Chinese prose beside a key, never a key prefix inside another identifier.
+    allowed_keys = re.compile(r'(?<![A-Za-z0-9_-])(?:' + '|'.join(re.escape(p['key']) for p in context['projects']) + r')(?![A-Za-z0-9_-])')
+    numeric_blocked = re.compile(r'\d|[$¥%]')
+    blocked = re.compile(r'[<>`@]|https?://|sk-|bearer|api[_ -]?key|password|token|secret|密码|密钥|客户姓名|手机号|邮箱|售价|调价|降价|涨价|采购价|自动执行|已执行|已修改|已核实|已确认|修改目标|调整目标|更换负责人|忽略.{0,12}指令', re.I)
     def text(value, limit):
         if (not isinstance(value, str) or not 4 <= len(value) <= limit or not re.search(r'[\u4e00-\u9fff]', value) or
-                blocked.search(value) or any(name in value for name in names) or any(ord(c) < 32 for c in value)):
+                numeric_blocked.search(allowed_keys.sub('', value)) or blocked.search(value) or any(name in value for name in names) or any(ord(c) < 32 for c in value)):
             raise ValueError('unsafe_model_advice')
     text(result['summary'], 150)
     rows = result['projects']
