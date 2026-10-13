@@ -71,6 +71,22 @@ def old_report_projection(report):
 
 def bounded_history(value,args):
     """Keep large report bytes available in declared Unicode-safe JSON fragments."""
+    sections=('readings','previous_judgments','summary','findings','actions','reviews','limitations')
+    collection='hermes_reports' if value.get('hermes_reports') else 'reports'
+    entries=value.get(collection,[])
+    section=args.get('section')
+    if section is not None and section not in ('overview',)+sections:raise ValueError('history_section')
+    item=args.get('item',1)
+    if type(item) is not int or not 1<=item<=100000:raise ValueError('history_item')
+    full=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+    if entries and (section is not None or len(full)>12000 and 'chunk' not in args):
+        report=entries[0]
+        index={k:{'items':len(report[k]) if isinstance(report[k],list) else 1,'bytes':len(json.dumps(report[k],ensure_ascii=False,separators=(',',':')).encode())} for k in sections if k in report}
+        chosen={k:v for k,v in report.items() if k not in sections}
+        if section not in (None,'overview') and section in report:
+            source=report[section];chosen[section]=source[item-1:item] if isinstance(source,list) else source if item==1 else None
+        value={**value,collection:[chosen],'content_index':index,'selected_section':section or 'overview','selected_item':item,
+               'complete_version_sha256':hashlib.sha256(full).hexdigest(),'coverage':'selected metadata/section only; omitted fields remain in the original report'}
     chunk=args.get('chunk',1)
     if type(chunk) is not int or not 1<=chunk<=100000:raise ValueError('history_chunk')
     raw=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
@@ -89,7 +105,7 @@ def bounded_history(value,args):
         report_chunks={'format':'canonical-json-fragments','chunk':chunk,'total_chunks':len(fragments),'has_more':chunk<len(fragments),
                        'text':fragments[chunk-1] if chunk<=len(fragments) else '',
                        'sha256':hashlib.sha256(raw).hexdigest(),'full_payload_bytes':len(raw),
-                       'rule':'Read requested fragments, concatenate text in chunk order, parse JSON; a partial reading is not complete-version evidence. No source text or numeric field deleted.'})
+                       'rule':'Partial fragment only. Select a needed section/item; do not collect/concatenate the entire version in model context. The analysis cumulative history budget stops further output. Original report is unchanged.'})
     if len(json.dumps(out,ensure_ascii=False,separators=(',',':')).encode())>12000:raise ValueError('history_fragment_budget')
     return out
 
