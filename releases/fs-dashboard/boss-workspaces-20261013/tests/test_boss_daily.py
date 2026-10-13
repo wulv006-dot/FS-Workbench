@@ -48,6 +48,67 @@ class DailyTests(unittest.TestCase):
         self.runner = daily.DailyRunner(self.root, clock=lambda: self.at, modules=self.modules,
                                        model_runner=ledger, provider=provider, wait=lambda seconds: None)
 
+    def test_invalid_response_diagnostic_preserves_receipt_without_publication_or_retry(self):
+        self.result = {'id': 'chatcmpl-diagnostic', 'choices': [{'message': {'content': 'invalid'}}]}
+        def invalid(raw, batch): raise ValueError('ungrounded_evidence')
+        self.modules['game-monitor'].validate_response = invalid
+        result = self.runner.run('game-monitor', 'manual')
+        self.assertEqual(result['ai_status'], 'invalid_response')
+        self.assertFalse(result['public_available'])
+        journal = json.loads((self.root/'journal/game-monitor/2026-10-13.json').read_bytes())
+        self.assertEqual(journal['model_result']['error_code'], 'ungrounded_evidence')
+        self.assertEqual(journal['model_result']['receipt'], 'chatcmpl-diagnostic')
+        path = self.root/'diagnostics/game-monitor'/(result['run_id']+'.json')
+        self.assertEqual(json.loads(path.read_bytes()), self.result)
+        self.assertNotIn('invalid', str(result.get('receipt', '')))
+        self.assertEqual(result, self.runner.run('game-monitor', 'manual'))
+        self.assertEqual(self.calls['provider'], 1)
+
+    def test_response_size_bound_and_exception_text_not_exposed(self):
+        self.result = {'id': 'receipt', 'content': 'x'*96001}
+        result = self.runner.run('game-monitor', 'manual')
+        self.assertEqual(result['ai_status'], 'invalid_response')
+        self.assertFalse(list((self.root/'diagnostics/game-monitor').glob('*.json')))
+        self.at += timedelta(days=1)
+        self.result = {'id': 'receipt', 'choices': []}
+        def invalid(raw, batch): raise ValueError('sk-test-secret should never reach status')
+        self.modules['game-monitor'].validate_response = invalid
+        result = self.runner.run('game-monitor', 'manual')
+        journal = json.loads((self.root/'journal/game-monitor/2026-10-14.json').read_bytes())
+        self.assertEqual(journal['model_result']['error_code'], 'response_validation_failed')
+        self.assertNotIn('sk-test-secret', daily.encoded(journal).decode())
+
+    def test_explicit_new_analysis_preserves_failed_run_and_does_not_recollect(self):
+        self.result = {'status': 'invalid_response'}
+        first = self.runner.run('game-monitor', 'manual')
+        path = self.root/'journal/game-monitor/2026-10-13.json'
+        original = path.read_bytes()
+        self.result = {'status': 'succeeded', 'events': []}
+        second = self.runner.analyse('game-monitor', first['run_id'])
+        self.assertEqual(second['status'], 'succeeded')
+        self.assertEqual(second['analysis_of'], first['run_id'])
+        self.assertEqual(path.read_bytes(), original)
+        self.assertNotEqual(first['run_id'], second['run_id'])
+        self.assertEqual(self.calls['source'], 1)
+        self.assertEqual(self.calls['provider'], 2)
+        self.assertEqual(second, self.runner.analyse('game-monitor', first['run_id']))
+        self.assertEqual(self.calls['provider'], 2)
+
+    def test_manual_analysis_refuses_unknown_success_old_day_and_drift(self):
+        for state in ('unknown_transport', 'succeeded'):
+            self.result = {'status': state}
+            first = self.runner.run('game-monitor', 'manual')
+            with self.assertRaises(ValueError): self.runner.analyse('game-monitor', first['run_id'])
+            self.at += timedelta(days=1)
+        self.result = {'status': 'invalid_response'}
+        first = self.runner.run('game-monitor', 'manual')
+        self.at += timedelta(days=1)
+        with self.assertRaises(ValueError): self.runner.analyse('game-monitor', first['run_id'])
+        self.at -= timedelta(days=1)
+        path = self.runner.paths('game-monitor', self.at.date().isoformat())['journal']
+        journal = json.loads(path.read_bytes());journal['projected']['status']='changed';path.write_bytes(daily.encoded(journal))
+        with self.assertRaises(ValueError): self.runner.analyse('game-monitor', first['run_id'])
+
     def test_inspect_is_read_only_and_schedules_are_shanghai(self):
         result = self.runner.inspect()
         self.assertTrue(result['read_only'])

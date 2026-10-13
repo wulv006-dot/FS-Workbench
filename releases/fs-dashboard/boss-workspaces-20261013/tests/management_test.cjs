@@ -48,4 +48,23 @@ const wrong=structuredClone(daily);wrong.projects[0].targets.revenue_usd++;
 assert.equal(M.validateDaily(wrong,targets),false);
 const wrongDays=structuredClone(daily);wrongDays.projects[0].forecast.observedCompleteDays=11;
 assert.equal(M.validateDaily(wrongDays,targets),false);
+const forecastDaily=structuredClone(daily),project=forecastDaily.projects[0];
+project.forecast.values={revenue_usd:3100,orders:0,estimated_profit_usd:-310};
+assert.equal(M.dailyForecastLabel(forecastDaily,query,'daily',false,project.key,'rev'),'月末线性预测 $3,100');
+assert.equal(M.dailyForecastLabel(forecastDaily,query,'daily',false,project.key,'ord'),'月末线性预测 0');
+assert.equal(M.dailyForecastLabel(forecastDaily,query,'daily',false,project.key,'prof'),'月末线性预测 $-310');
+assert.equal(M.dailyForecastLabel(forecastDaily,query,'manual',false,project.key,'rev'),'人工区间不套用每日预测');
+assert.equal(M.dailyForecastLabel(forecastDaily,query,'daily',true,project.key,'rev'),'目标期不匹配，未预测');
+assert.equal(M.dailyForecastLabel(forecastDaily,{...query,end:'2026-10-11'},'daily',false,project.key,'rev'),'每日预测暂无有效数据');
+assert.equal(M.dailyForecastLabel(daily,query,'daily',false,project.key,'rev'),'每日预测暂无有效数据');
+// Exercise actual node moves: original title/group overview must precede daily content and controls.
+for(const hasGroups of [true,false]){
+  const ids=['nav','fs-controls','fs-status','topbar','hero',...(hasGroups?['groupCards']:[]),'table'];
+  const siblings=[],nodes={};
+  for(const id of [...ids,'daily'])nodes[id]={id,after(...items){for(const item of items){const old=siblings.indexOf(item);if(old>=0)siblings.splice(old,1);}siblings.splice(siblings.indexOf(this)+1,0,...items);}};
+  siblings.push(...ids.map(id=>nodes[id]));
+  const doc={getElementById:id=>nodes[id],querySelector:()=>nodes.hero};
+  M.placeDailyPanel(doc,nodes.daily);
+  assert.deepEqual(siblings.map(n=>n.id),['nav','topbar','hero',...(hasGroups?['groupCards']:[]),'daily','fs-controls','fs-status','table']);
+}
 console.log('management: contract/null/scope and original progress-threshold assertions passed');

@@ -19,6 +19,9 @@ sha = lambda data: hashlib.sha256(data).hexdigest()
 
 
 def replace(text, before, after):
+    if before not in text:
+        assert text.count(after) == 1, 'Unexpected live source: '+before[:120]
+        return text
     assert text.count(before) == 1, before[:120]
     return text.replace(before, after, 1)
 
@@ -83,6 +86,8 @@ def build():
     for section in registry['sections']:
         section['ids'] = [x for x in section['ids'] if x != 'release-radar']
     registry['tools'] = [t for t in registry['tools'] if t['id'] != 'release-radar']
+    registry['sections'] = [r for r in registry['sections'] if r['id'] not in {x[0] for x in sections}]
+    registry['tools'] = [r for r in registry['tools'] if r['id'] not in {x[0] for x in sections}]
     for key, title, intro, icon in sections:
         registry['sections'].append(dict(id=key, title=title, intro=intro, icon=icon,
                                          ids=[key], path='/dashboard/'+key+'/'))
@@ -100,7 +105,8 @@ def build():
     content['shell.js'] = shell.encode()
     css = content['workspace.css'].decode()
     css = replace(css, '.workspace-grid{display:grid;grid-template-columns:repeat(4,', '.workspace-grid{display:grid;grid-template-columns:repeat(3,')
-    css += '\n.workspace-card.game-monitor .workspace-icon{background:#e8f3ff;color:#2660a4}.workspace-card.management .workspace-icon{background:#f8efe2;color:#996721}.global-nav{flex-wrap:wrap}@media(max-width:600px){.global-nav{justify-content:flex-start;gap:8px}}\n'
+    if '.workspace-card.game-monitor .workspace-icon' not in css:
+        css += '\n.workspace-card.game-monitor .workspace-icon{background:#e8f3ff;color:#2660a4}.workspace-card.management .workspace-icon{background:#f8efe2;color:#996721}.global-nav{flex-wrap:wrap}@media(max-width:600px){.global-nav{justify-content:flex-start;gap:8px}}\n'
     content['workspace.css'] = css.encode()
     for module in ('game-monitor', 'management'):
         for file in sorted((ROOT/'source'/module).rglob('*')):
@@ -120,6 +126,9 @@ def build():
         if 'location = '+url+' {' not in fragment:
             fragment += static_location(url,prefix+key)
     for module in ('game-monitor','management'):
+        if 'location = /dashboard/'+module+' {' in fragment:
+            assert all('location = /dashboard/'+key+' {' in fragment for key in content if key.startswith(module+'/')), 'Missing current module routes'
+            continue
         fragment += '\nlocation = /dashboard/'+module+' { return 302 /dashboard/'+module+'/; }\n'
         # nginx treats a trailing-slash file alias as a directory and appends index.html.
         fragment += 'location = /dashboard/'+module+'/ { rewrite ^ /dashboard/'+module+'/index.html last; }\n'
@@ -129,8 +138,10 @@ def build():
             fragment += static_location('/dashboard/'+module+'/daily.'+suffix,
                                         '/var/lib/fs-boss-workspaces/public/'+module+'.'+suffix)
         fragment += 'location ^~ /dashboard/'+module+'/ { return 404; }\n'
-    assert 'location = /dashboard/boss-api/insight {' not in fragment, 'Boss route already exists; reconcile live source'
-    fragment += api_location('/dashboard/boss-api/insight','/boss-insight','POST')
+    if 'location = /dashboard/boss-api/insight {' not in fragment:
+        fragment += api_location('/dashboard/boss-api/insight','/boss-insight','POST')
+    locations = re.findall(r'location (=|\^~) (\S+) \{', fragment)
+    assert len(locations) == len(set(locations)), 'Duplicate generated Nginx route'
     retired='''# Replaced by the two workspaces; original static release retained for rollback.
 location = /dashboard/release-radar { return 302 /dashboard/game-monitor/; }
 location = /dashboard/release-radar/ { return 302 /dashboard/game-monitor/; }
