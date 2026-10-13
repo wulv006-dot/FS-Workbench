@@ -135,6 +135,22 @@ class ProjectionTests(unittest.TestCase):
             self.assertEqual(out['status'],'denied');self.assertNotIn('source_amount_usd',out)
             self.assertNotIn('stale',out)
 
+    def test_loopback503_cannot_become_a_fresh_success(self):
+        good=collect_admin(lambda *_:(200,json.dumps(native())),NATIVE,CONFIG,NOW)
+        for body in (json.dumps(good).encode(),b'{"status":"partial"}',b'{',b'x'*1000001):
+            clock=[0];calls=[0]
+            def read(args):
+                calls[0]+=1
+                if calls[0]==1:return good
+                error=HTTPError('http://127.0.0.1:8767/business/fc-capability',503,'fixed-local',{},io.BytesIO(body))
+                with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
+                    opener.return_value.open.side_effect=error
+                    return admin_read(args)
+            provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),read,None,TASK_A,lambda:clock[0],lambda:NOW)
+            provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['status'],'available')
+            clock[0]=7201;provider.get(NATIVE);out=provider.get(NATIVE)
+            self.assertTrue(out['stale']);self.assertEqual(out['refresh_status'],'not_available')
+
     def test_disabled_makes_no_query(self):
         out=collect_admin(lambda *a:self.fail('disabled called source'),NATIVE,dict(CONFIG,enabled=False),NOW)
         self.assertEqual(out['reason'],'fc_detail_disabled')

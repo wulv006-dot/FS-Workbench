@@ -22,6 +22,11 @@ def admin_read(args):
         # 503 carries this service's projected failure; the provider validates its envelope.
         try:data=error.read(1000001)
         finally:error.close()
+        if len(data)>1000000:raise error
+        try:value=json.loads(data)
+        except (ValueError,TypeError):raise error
+        if not isinstance(value,dict) or value.get('status')!='not_available':raise error
+        return value
     if len(data)>1000000:raise ValueError('projected_response_size')
     return json.loads(data)
 
