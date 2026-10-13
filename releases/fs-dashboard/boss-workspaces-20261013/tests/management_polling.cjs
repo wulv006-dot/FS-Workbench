@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {Management:M}=require('../source/management/management.js');
+const query={start:'2026-10-01',end:'2026-10-12'},profile='FC27';
+const data={status:'available',scopeContractId:'admin-main-order-labelled-supplement-v1',profile:{key:profile},query,sources:{Admin:{status:'available'},Order:{status:'available'}}};
+const response=(status,body,header)=>({status,ok:status>=200&&status<300,json:async()=>body,headers:{get:()=>header||null}});
+(async()=>{
+  let clock=0,paths=[],updates=[],delays=[];
+  const results=[response(202,{retryAfter:1}),response(429,{},'99'),response(200,{...data,sources:{Order:{status:'pending'}}}),response(200,data)];
+  const result=await M.pollSummary({profile,query,read:async path=>{paths.push(path);return results.shift();},update:(d,phase)=>updates.push(phase),now:()=>clock,sleep:async ms=>{delays.push(ms);clock+=ms;}});
+  assert.equal(result.timedOut,false);assert.equal(paths.length,4);assert.equal(new Set(paths).size,1);assert.ok(paths[0].includes('mode=summary'));
+  assert.deepEqual(delays,[2000,10000,2000]);assert.deepEqual(updates,['pending','pending','available','available']);
+  clock=0;let calls=0;
+  const timeout=await M.pollSummary({profile,query,budget:10000,read:async()=>{calls++;return response(202,{});},update(){},now:()=>clock,sleep:async ms=>{clock+=ms;}});
+  assert.equal(timeout.timedOut,true);assert.equal(timeout.current,null);assert.equal(calls,5);
+  const controller=new AbortController();calls=0;
+  await assert.rejects(M.pollSummary({profile,query,signal:controller.signal,read:async()=>{calls++;controller.abort();return response(202,{});},update(){throw Error('must not display cancelled result');}}),{name:'AbortError'});assert.equal(calls,1);
+  let active=0,peak=0,finished=0;
+  await M.runTwo(Array.from({length:15},(_,i)=>i),async()=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setImmediate(resolve));active--;finished++;});
+  assert.equal(peak,2);assert.equal(finished,15);
+  clock=0;paths=[];
+  await assert.rejects(M.pollAdvisor({jobId:'same-job',budget:6500,read:async path=>{paths.push(path);return response(200,{job:{state:'running'}});},now:()=>clock,sleep:async ms=>{clock+=ms;}}),/等待超时/);
+  const job=await M.pollAdvisor({jobId:'same-job',read:async path=>{paths.push(path);return response(200,{job:{state:'completed',result:{status:'succeeded',text:'test'}}});}});
+  assert.equal(job.state,'completed');assert.equal(new Set(paths).size,1);assert.equal(paths[0],'/dashboard/fs-home/advisor.json?id=same-job');
+  const denied=await M.pollAdvisor({jobId:'same-job',read:async()=>response(200,{job:{state:'failed',error:'source_permission_denied'}})});
+  assert.equal(denied.error,'source_permission_denied');
+  console.log('management polling: bounded same-query GET, Order follow-up, cancellation, concurrency=2, timeout and resume-same-job passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

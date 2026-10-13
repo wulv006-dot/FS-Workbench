@@ -189,6 +189,9 @@ def selfcheck():
     require_changed_file("old-record.md",False)
     for name in ("fc27_ops_cloud/index.html","fc27_ops_cloud/data/fc-analytics.css"):
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
+    for path in ("source/game-monitor/index.html", "source/management/targets.json", "backend/boss_insights.py", "tests/management_polling.cjs"):
+        if select(["releases/fs-dashboard/boss-workspaces-20261013/"+path]) != ["fs-boss-workspaces"]:
+            raise RuntimeError("fs_boss_workspaces_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
@@ -240,6 +243,8 @@ def select(paths):
             groups.add("ai-advisor-live");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/"):
             groups.add("ai-advisor");continue
+        if name.startswith("releases/fs-dashboard/boss-workspaces-20261013/"):
+            groups.add("fs-boss-workspaces");continue
         if name.startswith("releases/fs-dashboard/fc-daily-20261013/"):
             groups.add("fc-daily");continue
         if name.startswith("releases/fs-dashboard/fc-detail-analytics-20261012/"):
@@ -410,6 +415,12 @@ def main():
         elif group=="ai-advisor":
             units("releases/fs-dashboard/ai-advisor-20261013/source",["test_ai_advisor","test_boss_insights","test_fc_daily","test_advisor_release"])
             node("releases/fs-dashboard/ai-advisor-20261013/source/check_ui.cjs")
+        elif group=="fs-boss-workspaces":
+            release="releases/fs-dashboard/boss-workspaces-20261013"
+            for name in ("game-monitor.cjs","game-daily.cjs","management_test.cjs","management_polling.cjs","management_sandbox.cjs"):
+                node(release+"/tests/"+name)
+            units(release+"/backend",["test_boss_insights"])
+            units(release+"/tests",["test_game_intelligence","management_daily_test","test_boss_daily","test_backend_release"],root_owned=True)
         elif group=="fc-daily":
             units("releases/fs-dashboard/fc-daily-20261013/source",["test_fc_daily","test_fc_release"])
         elif group=="fs-business-period-cache":
