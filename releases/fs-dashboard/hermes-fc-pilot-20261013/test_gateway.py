@@ -246,15 +246,17 @@ class GatewayTests(unittest.TestCase):
         self.provider=bad
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 
-    def test_documented_bailian_index_canonicalized_and_tool_roundtrip_preserved(self):
+    def test_documented_bailian_index_and_tool_roundtrip_preserved(self):
         call={'id':'call_indexed','type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}
         def indexed(req):
             value=self.answer(req)
             if self.calls==1:value['choices'][0]['message']={'role':'assistant','content':None,'tool_calls':[call],'refusal':None,'audio':None,'function_call':None}
-            else:value['choices'][0]['message']['tool_calls']=None
+            else:
+                self.assertEqual(req['messages'][1]['tool_calls'][0]['index'],0)
+                value['choices'][0]['message']['tool_calls']=None
             return value
         self.provider=indexed
-        first=self.call();self.assertNotIn('index',first['message']['tool_calls'][0]);self.assertNotIn('refusal',first['message'])
+        first=self.call();self.assertEqual(first['message']['tool_calls'][0]['index'],0);self.assertNotIn('refusal',first['message'])
         result=self.call(1,body={'messages':[{'role':'user','content':'query'},first['message'],{'role':'tool','tool_call_id':'call_indexed','content':'{}'}],'max_tokens':50})
         self.assertEqual(result['status'],'succeeded');self.assertEqual(self.calls,2)
         self.assertIn('index',call)  # Original provider object is never mutated.

@@ -99,8 +99,9 @@ def request_body(body, model):
 
 
 def validate_tool_call(call):
-    if not isinstance(call, dict) or set(call) != {'id', 'type', 'function'} or call['type'] != 'function':
+    if not isinstance(call, dict) or not {'id','type','function'}<=set(call) or set(call)-{'id','type','function','index'} or call['type'] != 'function':
         raise ValueError('tool_call_fields')
+    if 'index' in call and (type(call['index']) is not int or call['index']<0):raise ValueError('tool_call_index')
     if not isinstance(call['id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call['id']):
         raise ValueError('tool_call_id')
     function = call['function']
@@ -261,12 +262,7 @@ class UnifiedBudget:
                 raise ValueError('response_tools_limit')
             ids = set()
             for call in calls:
-                # Bailian documents optional tool-call index metadata for both
-                # parallel replies and assistant history; canonicalize only that
-                # known field before enforcing the original tool/id/args contract.
-                if isinstance(call,dict) and 'index' in call:
-                    if type(call['index']) is not int or call['index']<0:raise ValueError('tool_call_index')
-                    call.pop('index')
+                # Retain verified Bailian index metadata in provider replay.
                 validate_tool_call(call)
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')

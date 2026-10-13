@@ -38,10 +38,11 @@ async def run(effort):
         result = fixture.answer(request)
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
-                'tool_calls': [{'id': 'call_fixture', 'type': 'function', 'function': {
+                'tool_calls': [{'id': 'call_fixture', 'type': 'function', 'index':0, 'function': {
                     'name': WIRE_TOOLS[0], 'arguments': '{}'}}]}
             result['choices'][0]['message']['reasoning_content']='Synthetic private reasoning for the first tool call.'
         elif fixture.calls==2:
+            assert request['messages'][2]['tool_calls'][0].get('index')==0, 'tool_index_replay_missing'
             assert request['messages'][2]['reasoning_content']=='Synthetic private reasoning for the first tool call.', 'reasoning_replay_missing'
             result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'}
         else:
@@ -130,7 +131,7 @@ async def run(effort):
             assert cancelled['status']=='cancelled' and fixture.calls==3, ('handshake_cancel',cancelled)
         print(json.dumps({'official_runs': 'pass', 'official_agent': 'pass', 'tools': tool_hits,
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
-                          'reasoning_effort':effort,'second_user_turn':'pass',
+                          'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass',
                           'actual_started_admission_and_run_binding':'pass',
                           'cancel_before_handshake_no_model_call':'pass',
                           'real_business_data': False, 'real_model_call': False}))
