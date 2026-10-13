@@ -44,6 +44,10 @@ async function fixture(initial=snapshot()) {
   assert.ok(f.ids.fcGrid.innerHTML.includes('&lt;script&gt;'));
   assert.ok(!f.ids.fcGrid.innerHTML.includes('<script>'));
   assert.ok(f.ids.fsDailyCoverage.textContent.includes('1/30'));
+  const partial=snapshot();partial.coverage.reject_count=3;
+  const partialView=await fixture(partial);
+  assert.ok(partialView.ids.fsDailyCoverage.textContent.includes('3 条未通过证据校验'));
+  assert.ok(partialView.ids.fsDailyCoverage.textContent.includes('部分结果'));
   const oldVersion=f.applied.at(-1).version;
   await f.refresh(null,true);
   assert.equal(f.applied.at(-1).version,oldVersion,'failed GET keeps last good');

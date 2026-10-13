@@ -420,7 +420,7 @@ def main():
             for name in ("game-monitor.cjs","game-daily.cjs","management_test.cjs","management_polling.cjs","management_sandbox.cjs"):
                 node(release+"/tests/"+name)
             units(release+"/backend",["test_boss_insights"])
-            units(release+"/tests",["test_game_intelligence","management_daily_test","test_boss_daily","test_backend_release"],root_owned=True)
+            units(release+"/tests",["test_game_intelligence","management_daily_test","test_boss_daily","test_backend_release","test_insights_release"],root_owned=True)
         elif group=="fc-daily":
             units("releases/fs-dashboard/fc-daily-20261013/source",["test_fc_daily","test_fc_release"])
         elif group=="fs-business-period-cache":

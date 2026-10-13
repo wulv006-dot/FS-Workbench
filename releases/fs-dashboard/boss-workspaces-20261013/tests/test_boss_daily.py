@@ -109,6 +109,24 @@ class DailyTests(unittest.TestCase):
         journal = json.loads(path.read_bytes());journal['projected']['status']='changed';path.write_bytes(daily.encoded(journal))
         with self.assertRaises(ValueError): self.runner.analyse('game-monitor', first['run_id'])
 
+    def test_revalidate_saved_response_never_calls_provider_or_ledger(self):
+        self.result = {'id': 'chatcmpl-existing', 'events': []}
+        def invalid(raw, batch): raise ValueError('ungrounded_evidence')
+        self.modules['game-monitor'].validate_response = invalid
+        first = self.runner.run('game-monitor', 'manual')
+        original = (self.root/'journal/game-monitor/2026-10-13.json').read_bytes()
+        self.modules['game-monitor'].validate_response = lambda raw, batch: dict(raw, status='succeeded')
+        second = self.runner.analyse('game-monitor', first['run_id'], recorded=True)
+        self.assertEqual(second['status'], 'succeeded')
+        self.assertEqual(second['trigger'], 'manual_revalidation')
+        self.assertEqual(self.calls, {'source': 1, 'provider': 1, 'ledger': 1})
+        self.assertEqual((self.root/'journal/game-monitor/2026-10-13.json').read_bytes(), original)
+        self.assertEqual(second, self.runner.analyse('game-monitor', first['run_id'], recorded=True))
+        diagnostic = self.root/'diagnostics/game-monitor'/(first['run_id']+'.json')
+        diagnostic.write_bytes(b'{}')
+        with self.assertRaisesRegex(ValueError, 'recorded_response_changed'):
+            self.runner.analyse('game-monitor', first['run_id'], recorded=True)
+
     def test_inspect_is_read_only_and_schedules_are_shanghai(self):
         result = self.runner.inspect()
         self.assertTrue(result['read_only'])

@@ -223,7 +223,7 @@ class DailyRunner:
         except BlockingIOError:
             return {'kind': kind, 'day': at.date().isoformat(), 'status': 'busy', 'same_day_replay_disabled': True}
 
-    def analyse(self, kind, after_run_id):
+    def analyse(self, kind, after_run_id, *, recorded=False):
         at = checked_time(self.clock())
         paths = self.paths(kind, at.date().isoformat())
         if not isinstance(after_run_id, str) or not re.fullmatch(re.escape(kind)+r'-\d{4}-\d{2}-\d{2}-[a-f0-9]{32}', after_run_id):
@@ -242,22 +242,32 @@ class DailyRunner:
             batch = prior['projected']
             if digest(encoded(batch)) != prior['source_sha256']:
                 raise ValueError('prior_source_changed')
-            paths['journal'] = paths['journal'].with_name(at.date().isoformat()+'-analysis-'+digest(after_run_id.encode())[:16]+'.json')
+            recorded_response = None
+            if recorded:
+                diagnostic = self.root / 'diagnostics' / kind / (after_run_id + '.json')
+                checked_path(diagnostic)
+                raw = diagnostic.read_bytes()
+                if len(raw) > 96000 or digest(raw) != prior.get('model_result', {}).get('response_sha256'):
+                    raise ValueError('recorded_response_changed')
+                recorded_response = json.loads(raw)
+            action = 'revalidation' if recorded else 'analysis'
+            paths['journal'] = paths['journal'].with_name(at.date().isoformat()+'-'+action+'-'+digest(after_run_id.encode())[:16]+'.json')
             existing = read_json(paths['journal'])
             if existing:
                 return self.summary(existing, paths)
             self.prepare(kind)
             batch = dict(batch, manual_analysis_of=after_run_id)
-            return self.execute(kind, 'manual_analysis', at, paths, batch=batch, analysis_of=after_run_id)
+            return self.execute(kind, 'manual_'+action, at, paths, batch=batch, analysis_of=after_run_id, recorded_response=recorded_response)
 
-    def execute(self, kind, trigger, at, paths, batch=None, analysis_of=None):
+    def execute(self, kind, trigger, at, paths, batch=None, analysis_of=None, recorded_response=None):
         checked_path(paths['public'])
         previous_bytes = paths['public'].read_bytes() if paths['public'].exists() else None
         previous = json.loads(previous_bytes) if previous_bytes else None
         journal = {'schema_version': 1, 'kind': kind, 'day': at.date().isoformat(),
                    'run_id': kind + '-' + at.date().isoformat() + '-' + uuid.uuid4().hex,
                    'trigger': trigger, 'started_at': at.isoformat(), 'status': 'running',
-                   'phase': 'collecting', 'ai_status': 'not_requested', 'analysis_of': analysis_of}
+                   'phase': 'collecting', 'ai_status': 'not_requested', 'analysis_of': analysis_of,
+                   'recorded_response_reused': recorded_response is not None}
         save = lambda: atomic(paths['journal'], encoded(journal), 0o600)
         save()
         try:
@@ -293,7 +303,7 @@ class DailyRunner:
                     return self.provider(messages, projected, validate_with_diagnostic,
                                          max_tokens=6000 if kind == 'game-monitor' else 5000, timeout=120)
                 try:
-                    result = self.model_runner(batch, callback)
+                    result = validate_with_diagnostic(recorded_response, batch) if recorded_response is not None else self.model_runner(batch, callback)
                     if type(result) is dict and result.get('status') == 'model_busy' and not result.get('receipt'):
                         # The shared ledger explicitly confirms no provider request was sent.
                         journal.update(phase='model_waiting', ai_status='model_busy', busy_retry=1)
@@ -344,10 +354,11 @@ def main():
     analysis = sub.add_parser('analyse', help='Explicit new manual analysis after a completed invalid response; preserves the original run.')
     analysis.add_argument('--kind', choices=SCHEDULES, required=True)
     analysis.add_argument('--after-run-id', required=True)
+    analysis.add_argument('--recorded-response', action='store_true', help='Revalidate a SHA-pinned saved response without any model request.')
     args = parser.parse_args()
     runner = DailyRunner()
     result = (runner.inspect(args.kind) if args.action == 'inspect' else
-              runner.analyse(args.kind, args.after_run_id) if args.action == 'analyse' else runner.run(args.kind, args.trigger))
+              runner.analyse(args.kind, args.after_run_id, recorded=args.recorded_response) if args.action == 'analyse' else runner.run(args.kind, args.trigger))
     print(encoded(result).decode('utf-8'))
     if args.action != 'inspect' and result.get('status') not in ('succeeded', 'not_due'):
         raise SystemExit(2)

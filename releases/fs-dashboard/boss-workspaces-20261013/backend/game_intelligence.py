@@ -321,6 +321,64 @@ def named_games(evidence):
     return {names[match.group().casefold()] for match in re.finditer(pattern, evidence, re.I)}
 
 
+EVENT_REJECTION_REASONS = frozenset(('invalid_event_fields', 'ungrounded_source',
+    'invalid_event_text', 'ungrounded_evidence', 'instruction_in_event', 'ungrounded_game',
+    'wrong_game_name', 'invalid_event_kind', 'orphan_date_evidence', 'ungrounded_event_date',
+    'unsupported_event_date', 'unsupported_event_time', 'unsupported_timezone'))
+
+
+def validate_event(event, batch, docs):
+    fields = set('game_key game_name source_id document_id title kind summary evidence event_date date_evidence event_time time_evidence timezone timezone_evidence'.split())
+    zones = {'UTC': 'UTC', 'GMT': 'UTC', 'PST': 'UTC-08:00', 'PDT': 'UTC-07:00', 'EST': 'UTC-05:00', 'EDT': 'UTC-04:00', 'JST': 'UTC+09:00', 'KST': 'UTC+09:00'}
+    if type(event) is not dict or set(event) != fields:
+        raise ValueError('invalid_event_fields')
+    doc = docs.get(event['document_id'])
+    if not doc or event['source_id'] != doc['source_id']:
+        raise ValueError('ungrounded_source')
+    for key, limit in [('game_key', 80), ('game_name', 100), ('title', 100), ('summary', 240), ('evidence', 500)]:
+        plain(event[key], limit)
+    if len(event['evidence']) < 15 or event['evidence'] not in doc['text']:
+        raise ValueError('ungrounded_evidence')
+    if re.search(r'ignore (?:all |previous )?(?:instructions|prompts)|system prompt|api[_ -]?key|忽略.{0,8}指令|系统提示|泄露|密钥|删除文件', event['title'] + event['summary'] + event['evidence'], re.I):
+        raise ValueError('instruction_in_event')
+    if event['game_key'] not in doc['game_keys']:
+        if not doc['discovery'] or not re.fullmatch(r'new-[a-z0-9-]{2,60}', event['game_key']) or event['game_name'].casefold() not in event['evidence'].casefold():
+            raise ValueError('ungrounded_game')
+    elif event['game_name'] != GAMES[event['game_key']]:
+        raise ValueError('wrong_game_name')
+    elif len(doc['game_keys']) > 1 and event['game_key'] not in named_games(event['evidence']):
+        raise ValueError('ungrounded_game')
+    if event['kind'] not in KINDS:
+        raise ValueError('invalid_event_kind')
+    for field, evidence in [('event_date', 'date_evidence'), ('event_time', 'time_evidence'), ('timezone', 'timezone_evidence')]:
+        if event[field] is None:
+            if event[evidence] is not None:
+                raise ValueError('orphan_date_evidence')
+        else:
+            plain(event[field], 32)
+            plain(event[evidence], 250)
+            if event[evidence] not in doc['text'] or event[evidence] not in event['evidence']:
+                raise ValueError('ungrounded_event_date')
+    if event['event_date'] is not None:
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', event['event_date']) or not supported_date(event['event_date'], event['date_evidence']):
+            raise ValueError('unsupported_event_date')
+    if event['event_time'] is not None:
+        if not event['event_date'] or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', event['event_time']) or event['event_time'] not in event['time_evidence']:
+            raise ValueError('unsupported_event_time')
+    if event['timezone'] is not None:
+        quote = event['timezone_evidence']
+        matches = {offset for name, offset in zones.items() if re.search(r'\b' + name + (r'\b(?!\s*[+-])' if name in ('UTC', 'GMT') else r'\b'), quote)}
+        for match in re.finditer(r'\b(?:UTC|GMT)\s*([+-])(\d{1,2})(?::([0-5]\d))?', quote):
+            if int(match[2]) <= 14:
+                matches.add('UTC{}{:02d}:{}'.format(match[1], int(match[2]), match[3] or '00'))
+        if event['timezone'] not in matches:
+            raise ValueError('unsupported_timezone')
+    row = dict(event, source_url=doc['source_url'], published_at=doc['published_at'], collected_at=batch['collected_at'], source_sha256=doc['sha256'])
+    identity = sha256(encoded([event['game_key'], doc['document_id'], event['kind'], event['title']]).encode()).hexdigest()[:24]
+    row['event_id'] = identity
+    return row
+
+
 def validate_response(raw, batch):
     from fc_daily_model import MODEL
     if type(raw) is not dict or type(raw.get('id')) is not str or not re.fullmatch(r'[A-Za-z0-9_-]{1,150}', raw['id']):
@@ -334,66 +392,28 @@ def validate_response(raw, batch):
     result = json.loads(content)
     if type(result) is not dict or set(result) != {'events'} or type(result['events']) is not list or len(result['events']) > MAX_EVENTS:
         raise ValueError('invalid_events')
-    docs = {d['document_id']: d for d in batch['documents']}
-    fields = set('game_key game_name source_id document_id title kind summary evidence event_date date_evidence event_time time_evidence timezone timezone_evidence'.split())
-    validated, seen = [], set()
-    zones = {'UTC': 'UTC', 'GMT': 'UTC', 'PST': 'UTC-08:00', 'PDT': 'UTC-07:00', 'EST': 'UTC-05:00', 'EDT': 'UTC-04:00', 'JST': 'UTC+09:00', 'KST': 'UTC+09:00'}
-    for event in result['events']:
-        if type(event) is not dict or set(event) != fields:
-            raise ValueError('invalid_event_fields')
-        doc = docs.get(event['document_id'])
-        if not doc or event['source_id'] != doc['source_id']:
-            raise ValueError('ungrounded_source')
-        for key, limit in [('game_key', 80), ('game_name', 100), ('title', 100), ('summary', 240), ('evidence', 500)]:
-            plain(event[key], limit)
-        if len(event['evidence']) < 15 or event['evidence'] not in doc['text']:
-            raise ValueError('ungrounded_evidence')
-        if re.search(r'ignore (?:all |previous )?(?:instructions|prompts)|system prompt|api[_ -]?key|忽略.{0,8}指令|系统提示|泄露|密钥|删除文件', event['title'] + event['summary'] + event['evidence'], re.I):
-            raise ValueError('instruction_in_event')
-        if event['game_key'] not in doc['game_keys']:
-            if not doc['discovery'] or not re.fullmatch(r'new-[a-z0-9-]{2,60}', event['game_key']) or event['game_name'].casefold() not in event['evidence'].casefold():
-                raise ValueError('ungrounded_game')
-        elif event['game_name'] != GAMES[event['game_key']]:
-            raise ValueError('wrong_game_name')
-        elif len(doc['game_keys']) > 1 and event['game_key'] not in named_games(event['evidence']):
-            raise ValueError('ungrounded_game')
-        if event['kind'] not in KINDS:
-            raise ValueError('invalid_event_kind')
-        for field, evidence in [('event_date', 'date_evidence'), ('event_time', 'time_evidence'), ('timezone', 'timezone_evidence')]:
-            if event[field] is None:
-                if event[evidence] is not None:
-                    raise ValueError('orphan_date_evidence')
-            else:
-                plain(event[field], 32)
-                plain(event[evidence], 250)
-                if event[evidence] not in doc['text'] or event[evidence] not in event['evidence']:
-                    raise ValueError('ungrounded_event_date')
-        if event['event_date'] is not None:
-            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', event['event_date']) or not supported_date(event['event_date'], event['date_evidence']):
-                raise ValueError('unsupported_event_date')
-        if event['event_time'] is not None:
-            if not event['event_date'] or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', event['event_time']) or event['event_time'] not in event['time_evidence']:
-                raise ValueError('unsupported_event_time')
-        if event['timezone'] is not None:
-            quote = event['timezone_evidence']
-            matches = {offset for name, offset in zones.items() if re.search(r'\b' + name + (r'\b(?!\s*[+-])' if name in ('UTC', 'GMT') else r'\b'), quote)}
-            for match in re.finditer(r'\b(?:UTC|GMT)\s*([+-])(\d{1,2})(?::([0-5]\d))?', quote):
-                if int(match[2]) <= 14:
-                    matches.add('UTC{}{:02d}:{}'.format(match[1], int(match[2]), match[3] or '00'))
-            if event['timezone'] not in matches:
-                raise ValueError('unsupported_timezone')
-        row = dict(event, source_url=doc['source_url'], published_at=doc['published_at'], collected_at=batch['collected_at'], source_sha256=doc['sha256'])
-        identity = sha256(encoded([event['game_key'], doc['document_id'], event['kind'], event['title']]).encode()).hexdigest()[:24]
-        if identity not in seen:
-            row['event_id'] = identity
-            validated.append(row)
-            seen.add(identity)
     usage = raw.get('usage', {})
-    if any(type(usage.get(k)) is not int or not 0 <= usage[k] <= 1000000 for k in ('prompt_tokens', 'completion_tokens', 'total_tokens')) or usage['total_tokens'] != usage['prompt_tokens'] + usage['completion_tokens']:
+    if type(usage) is not dict or any(type(usage.get(k)) is not int or not 0 <= usage[k] <= 1000000 for k in ('prompt_tokens', 'completion_tokens', 'total_tokens')) or usage['total_tokens'] != usage['prompt_tokens'] + usage['completion_tokens']:
         raise ValueError('invalid_model_usage')
     if raw.get('model') != MODEL:
         raise ValueError('unexpected_model')
-    return dict(status='succeeded', events=validated, model=raw['model'], receipt=raw['id'], tokens=usage['total_tokens'])
+    docs = {d['document_id']: d for d in batch['documents']}
+    validated, seen, rejected = [], set(), {}
+    for event in result['events']:
+        try:
+            row = validate_event(event, batch, docs)
+        except (ValueError, KeyError, TypeError, OverflowError) as error:
+            reason = str(error) if isinstance(error, ValueError) and str(error) in EVENT_REJECTION_REASONS else 'invalid_event_fields'
+            rejected[reason] = rejected.get(reason, 0) + 1
+            continue
+        if row['event_id'] not in seen:
+            validated.append(row)
+            seen.add(row['event_id'])
+    if result['events'] and not validated:
+        # Keep single-row callers and provider failure behavior; never publish an all-rejected batch.
+        raise ValueError(next(iter(rejected)))
+    return dict(status='succeeded', events=validated, model=raw['model'], receipt=raw['id'],
+                tokens=usage['total_tokens'], reject_count=sum(rejected.values()), reject_reasons=rejected)
 
 
 def build_snapshot(batch, validated, previous=None):
@@ -413,6 +433,8 @@ def build_snapshot(batch, validated, previous=None):
                 coverage=batch['coverage'], source_status=batch['source_status'],
                 model=validated['model'], receipt=validated['receipt'], tokens=validated['tokens'],
                 notice='每日官方来源采集与AI整理；来源覆盖以本批状态为准，未注明完整日期的事件不生成倒计时。')
-    base['coverage'] = dict(batch['coverage'], event_covered_games=sorted({e['game_key'] for e in validated['events']}))
+    base['coverage'] = dict(batch['coverage'], event_covered_games=sorted({e['game_key'] for e in validated['events']}),
+                            reject_count=validated.get('reject_count', 0), reject_reasons=validated.get('reject_reasons', {}),
+                            partial=bool(batch['coverage'].get('partial') or validated.get('reject_count')))
     base['version'] = 'game-intel-' + sha256(encoded(base).encode()).hexdigest()[:20]
     return base

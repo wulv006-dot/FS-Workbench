@@ -29,7 +29,7 @@
       : `${outdated || failed || refreshError ? '⚠ 过期或本轮未完成，保留上一成功版本 · ' : '每日官方情报 · '}最近成功 ${new Date(latest.collected_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京） · 每日09:00计划更新`;
     const c = latest?.coverage;
     $('fsDailyCoverage').textContent = c
-      ? `官方入口可读映射 ${c.covered_games?.length || 0}/${c.total_games} 款；本批有证据事件覆盖 ${c.event_covered_games?.length || 0} 款。缺口：${(c.missing_games || []).join('、') || '无入口缺口'}。${c.source_documents_omitted ? `本批容量限制省略 ${c.source_documents_omitted} 份文档。` : ''}只有明确日期、时间及偏移才生成小时倒计时；游戏资料与评级仍沿用原包。`
+      ? `官方入口可读映射 ${c.covered_games?.length || 0}/${c.total_games} 款；本批有证据事件覆盖 ${c.event_covered_games?.length || 0} 款。${Number.isInteger(c.reject_count) && c.reject_count > 0 ? `另有 ${c.reject_count} 条未通过证据校验，已排除；本批为部分结果。` : ''}缺口：${(c.missing_games || []).join('、') || '无入口缺口'}。${c.source_documents_omitted ? `本批容量限制省略 ${c.source_documents_omitted} 份文档。` : ''}只有明确日期、时间及偏移才生成小时倒计时；游戏资料与评级仍沿用原包。`
       : '尚未取得成功版本的来源覆盖结果。';
     const list = $('fsDailySources'); list.replaceChildren();
     for (const row of latest?.source_status || []) {
