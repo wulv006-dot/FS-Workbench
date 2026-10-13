@@ -1,15 +1,19 @@
 """Offline contract tests; never call a model or touch existing credential files."""
 import copy
+from datetime import date
+import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 WORKSPACE = Path(__file__).resolve().parents[2]
 MODEL_SOURCES = [WORKSPACE / 'fc_daily_20261013/candidate', WORKSPACE / 'fc-daily-20261013/source']
 sys.path.insert(0, str(next(path for path in MODEL_SOURCES if (path / 'fc_daily_model.py').exists())))
 from fc_daily_model import MODEL
-from boss_insights import build_messages, project_context, validate_response
+from boss_insights import build_messages, project_context, validate_response, management_analysis, MANAGEMENT_REVISION
 
 
 def management():
@@ -36,7 +40,7 @@ class ProjectionTests(unittest.TestCase):
     def test_management_aggregate_only_and_snapshot(self):
         body = management()
         projected = project_context(body)
-        self.assertEqual(set(projected), {'scope', 'context'})
+        self.assertEqual(set(projected), {'scope', 'context', 'analysis_revision'})
         self.assertNotIn('request_id', json.dumps(projected))
         body['context']['projects'][0]['orders'] = 42
         self.assertEqual(projected['context']['projects'][0]['orders'], 10)
@@ -172,6 +176,87 @@ class ProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'context_too_large'):
             project_context(body)
 
+    def test_management_revision_is_internal_and_changes_shared_fingerprint(self):
+        body = management()
+        projected = project_context(body)
+        previous = {key: projected[key] for key in ('scope', 'context')}
+        hashed = lambda item: hashlib.sha256(json.dumps(item, sort_keys=True).encode()).hexdigest()
+        self.assertNotEqual(hashed(projected), hashed(previous))
+        self.assertEqual(projected['analysis_revision'], MANAGEMENT_REVISION)
+        self.assertEqual(set(project_context(game())), {'scope', 'context'})
+        for value in (MANAGEMENT_REVISION, 'old', None):
+            with self.assertRaises(ValueError): project_context(dict(body, analysis_revision=value))
+        with self.assertRaises(ValueError): build_messages(dict(body, analysis_revision='old'))
+        with self.assertRaises(ValueError): build_messages(dict(game(), analysis_revision=MANAGEMENT_REVISION))
+        with self.assertRaises(ValueError): validate_response(response(), previous)
+
+    def test_management_reached_and_linear_forecast_are_derived_from_complete_days(self):
+        body = management()
+        body['context']['period']['end'] = '2026-10-12'
+        body['context']['projects'][0].update(revenue_usd=110.6, target_revenue_usd=100)
+        analysis = management_analysis(body['context'], date(2026, 10, 13))
+        row = analysis['projects'][0]
+        self.assertEqual(row['revenue_target_status'], 'reached')
+        self.assertEqual(row['revenue_completion_ratio'], 1.106)
+        self.assertEqual(row['revenue_forecast_usd'], 285.72)
+        self.assertEqual(row['revenue_time_progress_status'], 'at_or_ahead')
+        self.assertEqual(analysis['month_to_date_complete_days'], 12)
+        self.assertAlmostEqual(analysis['time_progress_ratio'], 12 / 31, places=6)
+        messages = build_messages(body)
+        self.assertNotIn('date为null', messages[0]['content'])
+        self.assertIn('绝不能说接近', messages[0]['content'])
+        self.assertIn('Order全站参考估算', messages[0]['content'])
+
+    def test_management_missing_zero_and_uncomparable_periods(self):
+        body = management()
+        body['context']['period']['end'] = '2026-10-12'
+        row = body['context']['projects'][0]
+        row.update(revenue_usd=None, missing=['revenue_usd'])
+        fact = management_analysis(body['context'], date(2026, 10, 13))['projects'][0]
+        self.assertEqual(fact['revenue_target_status'], 'missing')
+        self.assertIsNone(fact['revenue_completion_ratio'])
+        self.assertIsNone(fact['revenue_forecast_usd'])
+        row.update(revenue_usd=0, target_revenue_usd=0, missing=[])
+        fact = management_analysis(body['context'], date(2026, 10, 13))['projects'][0]
+        self.assertEqual(fact['revenue_target_status'], 'reached')
+        self.assertIsNone(fact['revenue_completion_ratio'])
+        for start, end in [('2026-10-02', '2026-10-12'), ('2026-09-01', '2026-10-12'),
+                           ('2026-11-01', '2026-11-12'), ('2026-10-01', '2026-10-13')]:
+            body['context']['period'] = dict(start=start, end=end)
+            analysis = management_analysis(body['context'], date(2026, 10, 13))
+            self.assertFalse(analysis['period_comparable'])
+            self.assertIsNone(analysis['time_progress_ratio'])
+            self.assertEqual(analysis['projects'][0]['revenue_target_status'], 'period_not_comparable')
+            self.assertIsNone(analysis['projects'][0]['revenue_forecast_usd'])
+
+    def test_real_explain_boss_reprojects_and_validates_internal_revision(self):
+        candidates = [Path('D:/codex/2026-10-13/task/advisor/activation/source/ai_advisor_model.py'),
+                      WORKSPACE / 'ai-advisor-20261013/activation/source/ai_advisor_model.py']
+        source = next(path for path in candidates if path.exists())
+        spec = importlib.util.spec_from_file_location('real_advisor_model_fixture', source)
+        provider = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(provider)
+        for body in (management(), game()):
+            params = project_context(body)
+            # Exact server management reproject -> shared bounded-model callback shape.
+            if body['scope'] == 'management':
+                params = project_context({'scope': params['scope'], 'context': params['context'],
+                                          'request_id': 'server_verified_facts'})
+            def request(messages, projected, validator):
+                self.assertEqual(projected, params)
+                sent = json.loads(messages[1]['content'])
+                self.assertEqual(sent['scope'], params['scope'])
+                self.assertEqual(sent['context'], params['context'])
+                if params['scope'] == 'management':
+                    self.assertEqual(sent['analysis_revision'], MANAGEMENT_REVISION)
+                    self.assertIn('analysis', sent)
+                else: self.assertEqual(set(sent), {'scope', 'context'})
+                return validator(response(), projected)
+            with patch.object(provider, 'request_model', side_effect=request) as called:
+                result = provider.explain_boss(params)
+            self.assertEqual(result['status'], 'succeeded')
+            self.assertEqual(called.call_count, 1)
+
 
 def response():
     return {'model': MODEL, 'id': 'chatcmpl_example-1234',
@@ -181,6 +266,18 @@ def response():
 
 
 class ResponseTests(unittest.TestCase):
+    def test_management_rejects_game_topics_and_unqualified_profit(self):
+        for text in ['建议先核对上线日期，再评估经营进度。', '建议先核对倒计时，再评估经营进度。',
+                     '利润表现良好，建议继续保持当前经营安排。']:
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': text})
+            with self.assertRaisesRegex(ValueError, 'invalid_management_output'):
+                validate_response(raw, project_context(management()))
+        for qualifier in ('Order全站参考估算', 'Order 全站参考估算', 'Order\n全站参考估算'):
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': '利润仅为' + qualifier + '，建议结合营收进度核对经营安排。'})
+            self.assertEqual(validate_response(raw, project_context(management()))['status'], 'succeeded')
+
     def test_verified_receipt_usage_and_source_kind(self):
         for body, source_kind in [(game(), 'imported_snapshot'), (management(), 'fs_summary')]:
             result = validate_response(response(), project_context(body))
