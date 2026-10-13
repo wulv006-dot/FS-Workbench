@@ -2,6 +2,7 @@
 from pathlib import Path
 import json,subprocess
 from urllib.request import Request,build_opener,HTTPRedirectHandler
+from urllib.error import HTTPError
 from .capabilities import checked_query,result
 
 class NoRedirect(HTTPRedirectHandler):
@@ -11,7 +12,13 @@ def admin_read(args):
     raw=json.dumps(args,separators=(',',':')).encode()
     if len(raw)>4096:raise ValueError('capability_body')
     req=Request('http://127.0.0.1:8767/business/fc-capability',data=raw,headers={'Content-Type':'application/json'},method='POST')
-    with build_opener(NoRedirect).open(req,timeout=60) as response:data=response.read(1000001)
+    try:
+        with build_opener(NoRedirect).open(req,timeout=60) as response:data=response.read(1000001)
+    except HTTPError as error:
+        if error.code not in (403,503):raise
+        # These statuses carry this service's already-projected failure, not raw Admin data.
+        try:data=error.read(1000001)
+        finally:error.close()
     if len(data)>1000000:raise ValueError('projected_response_size')
     return json.loads(data)
 
