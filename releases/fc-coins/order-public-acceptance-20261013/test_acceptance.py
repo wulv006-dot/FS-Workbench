@@ -13,7 +13,7 @@ def function(name,file,namespace):
     exec(compile(ast.Module(body=[selected],type_ignores=[]),file,'exec'),namespace)
     return namespace[name]
 
-JID='e0c637de-f366-4d61-a9d1-b3cc276986e8'
+JID='11111111-1111-4111-8111-111111111111'
 def basis():
     rows=[{'platform':p,'b2c':'0.1'} for p in ('PS','XBOX','PC')]
     execution={'execution_id':JID,'status':'CONFIRMED','sync_confirmed':True,
