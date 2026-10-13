@@ -232,6 +232,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/fc-daily-20261013/"):
+            groups.add("fc-daily");continue
         if name.startswith("releases/fs-dashboard/fc-detail-analytics-20261012/"):
             groups.add("fc-detail-analytics");continue
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
@@ -388,6 +390,8 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="fc-daily":
+            units("releases/fs-dashboard/fc-daily-20261013/source",["test_fc_daily","test_fc_release"])
         elif group=="fs-business-period-cache":
             release="releases/fs-dashboard/business-period-cache-20261010"
             units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope","test_period_cache"],root_owned=True)
@@ -465,6 +469,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
