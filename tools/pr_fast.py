@@ -206,6 +206,10 @@ def selfcheck():
         raise RuntimeError("mlb_admin_test_scope_missing")
     if select(["fc27_pack_bundles_20261013/src/pack_bundles_server.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_scope_missing")
+    if select(["releases/fc-coins/lock-gate-hardening-20261013/source/coin_all_sync_job.py"]) != ["fc-lock-gate-hardening"]:
+        raise RuntimeError("fc_hardening_mapping_missing")
+    if select(["releases/fc-coins/order-public-acceptance-20261013/source/report.py"]) != ["fc-order-public"]:
+        raise RuntimeError("fc_order_public_mapping_missing")
     if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
     if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
@@ -261,6 +265,10 @@ def select(paths):
             groups.add("fc-detail-analytics");continue
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
             groups.add("fs-on-demand");continue
+        if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
+            groups.add("fc-lock-gate-hardening");continue
+        if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
+            groups.add("fc-order-public");continue
         # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
         if name.startswith("fc27_pack_bundles_20261013/"):
             groups.add("fc27-pack-bundles");continue
@@ -510,6 +518,10 @@ def main():
             # 离线用例：协议契约 / 幂等判定 / 凭据卫生 / 证据包结构。
             # 不连网、不写后台、不需要凭据（CI 隔离环境下已验证 23 项全绿）。
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
+        elif group=="fc-lock-gate-hardening":
+            units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-order-public":
+            units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。

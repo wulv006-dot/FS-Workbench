@@ -1,0 +1,29 @@
+{
+  "module": "fc-coins",
+  "canonicalLocalSource": "fc27_order_public_acceptance_20261013/source",
+  "owner": "wulv",
+  "targets": {
+    "price_writer.py": {
+      "target": "/opt/fc27-cloud-browser/price_writer.py",
+      "before": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d",
+      "after": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d"
+    },
+    "report.py": {
+      "target": "/opt/fc-ops-readonly-monitor/report.py",
+      "before": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b",
+      "after": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b"
+    },
+    "probe_worker.py": {
+      "target": "/opt/fc-ops-readonly-monitor/probe_worker.py",
+      "before": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec",
+      "after": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec"
+    },
+    "hooks_notifier.py": {
+      "target": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
+      "before": "12bda6bc314662b7db2593b8ae1fac0f560082218c5504c4c087b1a23a0f7b0f",
+      "after": "37103b18ac4433c387d8e025b71b3384e85f7dea65ba3ac48af0b96afae013e2"
+    }
+  },
+  "success_scope": "order_b2c_and_public_price",
+  "actual_all_unknown_gate_preserved": true
+}
