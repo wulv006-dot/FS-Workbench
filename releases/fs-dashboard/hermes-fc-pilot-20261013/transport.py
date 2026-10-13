@@ -54,10 +54,14 @@ class Grants:
 
     def renew(self, token, owner, task_id, lease):
         # Trusted FS controller calls this after rechecking task/worker liveness.
-        item = self.resolve(token)
-        if (item.owner, item.task_id, item.lease) != (owner, task_id, lease):
-            raise PermissionError('grant_scope')
+        if not isinstance(token, str) or not 40 <= len(token) <= 80 or not token.isascii():
+            raise PermissionError('grant_invalid')
         with self._lock:
+            item = self._items.get(self._key(token))
+            if item is None or self.clock() >= item.expires:
+                raise PermissionError('grant_invalid')
+            if (item.owner, item.task_id, item.lease) != (owner, task_id, lease):
+                raise PermissionError('grant_scope')
             self._items[self._key(token)] = Grant(owner, task_id, lease, self.clock()+600)
 
     def revoke(self, token):
@@ -150,6 +154,8 @@ def start_loopback(proxy, port=8940):
                 if self.headers.get('Transfer-Encoding'):
                     raise ValueError('transfer_encoding')
                 sizes = self.headers.get_all('Content-Length', [])
+                if len(sizes) > 1 or (sizes and not sizes[0].isdigit()):
+                    raise ValueError('content_length')
                 if method == 'POST' and (len(sizes) != 1 or not sizes[0].isdigit()):
                     raise ValueError('content_length')
                 size = int(sizes[0]) if sizes else 0
