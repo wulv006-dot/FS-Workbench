@@ -136,7 +136,15 @@ def safe_diagnostic(response, request, reason):
             shape.update(message_fields=[k for k in ('role','content','tool_calls','reasoning_content','refusal','function_call') if k in message],
                          unknown_message_field_count=len(set(message)-{'role','content','tool_calls','reasoning_content','refusal','function_call'}))
             calls=message.get('tool_calls')
-            if isinstance(calls,list):shape['tool_call_count']=len(calls)
+            if isinstance(calls,list):
+                shape['tool_call_count']=len(calls)
+                shape['tool_shapes']=[{'known_fields':[k for k in ('id','type','function','index') if k in c],
+                    'unknown_field_count':len(set(c)-{'id','type','function','index'}),
+                    'index_valid':type(c.get('index')) is int and c['index']>=0 if 'index' in c else None,
+                    'function_fields':[k for k in ('name','arguments') if isinstance(c.get('function'),dict) and k in c['function']],
+                    'unknown_function_field_count':len(set(c['function'])-{'name','arguments'}) if isinstance(c.get('function'),dict) else None}
+                    if isinstance(c,dict) else {'object':False} for c in calls[:64]]
+                shape['omitted_tool_shapes']=max(0,len(calls)-64)
     out['response_shape']=shape
     return out
 
@@ -239,6 +247,9 @@ class UnifiedBudget:
             # Providers may include an empty reasoning slot even with thinking off.
             if message.get('reasoning_content', None) is None or message.get('reasoning_content')=='':
                 message.pop('reasoning_content', None)
+            # Standard optional null slots carry no instruction or authority.
+            for optional in ('refusal','audio','function_call','tool_calls'):
+                if optional in message and message[optional] is None:message.pop(optional)
             allowed={'role','content','tool_calls'} | ({'reasoning_content'} if request['enable_thinking'] else set())
             if not isinstance(message, dict) or message.get('role') != 'assistant' or set(message)-allowed:
                 raise ValueError('response_message_invalid')
@@ -250,6 +261,12 @@ class UnifiedBudget:
                 raise ValueError('response_tools_limit')
             ids = set()
             for call in calls:
+                # Bailian documents optional tool-call index metadata for both
+                # parallel replies and assistant history; canonicalize only that
+                # known field before enforcing the original tool/id/args contract.
+                if isinstance(call,dict) and 'index' in call:
+                    if type(call['index']) is not int or call['index']<0:raise ValueError('tool_call_index')
+                    call.pop('index')
                 validate_tool_call(call)
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')
