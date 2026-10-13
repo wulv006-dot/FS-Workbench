@@ -417,9 +417,10 @@ def main():
             node("releases/fs-dashboard/ai-advisor-20261013/source/check_ui.cjs")
         elif group=="fs-boss-workspaces":
             release="releases/fs-dashboard/boss-workspaces-20261013"
-            for name in ("game-monitor.cjs","management_test.cjs","management_polling.cjs","management_sandbox.cjs"):
+            for name in ("game-monitor.cjs","game-daily.cjs","management_test.cjs","management_polling.cjs","management_sandbox.cjs"):
                 node(release+"/tests/"+name)
             units(release+"/backend",["test_boss_insights"])
+            units(release+"/tests",["test_game_intelligence","management_daily_test","test_boss_daily","test_backend_release"],root_owned=True)
         elif group=="fc-daily":
             units("releases/fs-dashboard/fc-daily-20261013/source",["test_fc_daily","test_fc_release"])
         elif group=="fs-business-period-cache":

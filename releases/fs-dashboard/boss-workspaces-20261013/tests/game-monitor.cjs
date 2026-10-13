@@ -18,7 +18,7 @@ const snapshotButton = {disabled:false,addEventListener:(type,fn)=>snapshotClick
 const bindSnapshot = html.slice(html.indexOf('function bindFC(){'), html.indexOf('function renderFCtoast(msg){'));
 vm.runInNewContext(bindSnapshot + '\nbindFC();', {document:{getElementById:id=>id === 'fcCollectBtn' ? snapshotButton : null},renderFCtoast:text=>snapshotNotice=text});
 snapshotClick(); snapshotClick();
-assert.ok(snapshotNotice.includes('未执行新采集'));
+assert.ok(snapshotNotice.includes('历史模式仅展示原包资料'));
 assert.equal(snapshotButton.disabled,false,'snapshot information remains reusable');
 const day = {textContent:''}, hour = {textContent:''};
 const countdown = {dataset:{target:'2026-10-15T03:00:00Z'},querySelector:selector=>selector === '.d' ? day : hour};

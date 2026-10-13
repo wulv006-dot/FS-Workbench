@@ -14,4 +14,8 @@ body[data-fs-session="ready"] #fsSessionStatus{display:none}
 #fsInsightButton:disabled{opacity:.5;cursor:not-allowed}
 #fsInsightText{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.8;margin-top:12px}
 .fs-insight button:focus-visible,.fs-insight select:focus-visible,.fs-links a:focus-visible{outline:3px solid var(--ac-2);outline-offset:3px}
+.fs-snapshot p{margin:0 0 7px}.fs-snapshot button{padding:7px 12px;border:1px solid #c99a44;border-radius:7px;margin:6px 0}.fs-snapshot details{margin-top:8px}.fs-snapshot ul{padding-left:20px}
+.fs-daily-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+.fs-daily-item{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;line-height:1.7;overflow-wrap:anywhere}
+.fs-daily-item h3{font-size:16px;margin:6px 0}.fs-daily-item p{margin:7px 0;color:var(--tx2);font-size:12px}.fs-daily-label{font-size:11px;color:var(--ac)}.fs-daily-item blockquote{margin:10px 0;padding-left:12px;border-left:3px solid var(--line);font-size:12px}.fs-daily-item a{color:var(--ac)}
 @media(max-width:720px){.topbar-inner{flex-wrap:wrap;padding:12px 16px}.fs-links{order:3;width:100%}.wrap{padding:18px 16px 60px}.hero-notice{font-size:9px;max-width:90%;bottom:8px}.fs-insight-controls label{min-width:100%}#fsInsightButton{width:100%}}

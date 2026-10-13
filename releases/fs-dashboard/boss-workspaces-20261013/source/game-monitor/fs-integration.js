@@ -24,7 +24,7 @@
 
   function context() {
     const game = games[Number(gameSelect.value)];
-    const event = game?.events?.[Number(eventSelect.value)];
+    const event = (game?.insight_events || game?.events)?.[Number(eventSelect.value)];
     if (!event || !/^\d{4}-\d{2}-\d{2}$/.test(event.date || '')) return null;
     const date = new Date(event.date + 'T00:00:00Z');
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== event.date) return null;
@@ -37,7 +37,7 @@
 
   function updateButton() {
     button.disabled = revoked || !identity || identity.role !== 'admin' || !!request || !context() || storageError || !!(pending && !pending.job_id);
-    button.textContent = pending ? pending.job_id ? '查询已有解读任务' : '原请求待核对' : '根据导入情报解读';
+    button.textContent = pending ? pending.job_id ? '查询已有解读任务' : '原请求待核对' : '解读选中情报';
   }
   function clearResult() { output.textContent = ''; receipt.textContent = ''; }
   function selected() {
@@ -55,7 +55,7 @@
   }
   function events() {
     eventSelect.replaceChildren();
-    (games[Number(gameSelect.value)]?.events || []).forEach((event, index) => {
+    (games[Number(gameSelect.value)]?.insight_events || games[Number(gameSelect.value)]?.events || []).forEach((event, index) => {
       const option = document.createElement('option');
       option.value = String(index); option.textContent = `${event.date || '待确认'} · ${event.title}`;
       eventSelect.append(option);
@@ -135,7 +135,7 @@
     request = controller;
     gameSelect.disabled = eventSelect.disabled = true;
     updateButton(); clearResult();
-    status.textContent = '正在根据导入快照生成解读，请勿重复提交…';
+    status.textContent = '正在根据选中情报生成解读，请勿重复提交…';
     const record = pending || {request_id: crypto.randomUUID(), job_id: null, state: 'unknown', user: submittedUser, context: submittedContext};
     const requestId = record.request_id;
     receipt.textContent = `请求编号：${requestId}` + (record.job_id ? ` · 任务编号：${record.job_id}` : '');
@@ -149,7 +149,7 @@
       source_permission_denied: '当前账号无权读取该任务来源。',
       job_not_found: '该任务不存在或不属于当前账号，请核对任务编号。',
       unknown: '模型请求结果尚未确认，请先核对任务编号。',
-      unavailable: 'AI 暂不可用；导入情报仍可查阅。'
+      unavailable: 'AI 暂不可用；情报记录仍可查阅。'
     };
     const reasonText = code => Object.hasOwn(reasons, code) ? reasons[code] : '';
     async function read(url, options = {}) {
@@ -210,7 +210,7 @@
       if (result.status === 'succeeded' && typeof result.text === 'string') {
         output.textContent = result.text;
         receipt.textContent = `${jobId ? `任务编号：${jobId} · ` : ''}模型：${result.model || 'DeepSeek'} · 回执：${result.receipt || '未提供'} · tokens：${result.tokens ?? '未提供'}`;
-        status.textContent = '解读已生成，仅依据导入快照；请核实来源后再决策。';
+        status.textContent = '解读已生成，仅依据选中情报，未重新联网核验；请核实来源后再决策。';
       } else {
         status.textContent = reasonText(result.reason) || reasonText(result.status) || reasons.unavailable;
       }
@@ -228,6 +228,17 @@
     }
   });
   window.addEventListener('focus', checkSession);
+  window.fsVerifyGameSession = checkSession;
+  window.fsGameSessionKey = () => identity?.user || null;
+  window.addEventListener('fs-game-data-updated', () => {
+    const chosen = gameSelect.value;
+    gameSelect.replaceChildren();
+    games.forEach((game, index) => {
+      const option = document.createElement('option'); option.value = String(index); option.textContent = game.name_cn || game.name_en; gameSelect.append(option);
+    });
+    if (games[Number(chosen)]) gameSelect.value = chosen;
+    events();
+  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSession(); });
   window.addEventListener('pagehide', () => { request?.abort(); clearResult(); document.body.removeAttribute('data-fs-session'); });
   window.addEventListener('pageshow', checkSession);
