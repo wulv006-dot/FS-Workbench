@@ -1,0 +1,82 @@
+"""Real local HTTP transport with an isolated SQLite ledger and fake provider."""
+import json
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+import unittest
+import test_gateway as fixtures
+from transport import Grants, Proxy, start_loopback
+
+
+class TransportTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = fixtures.GatewayTests()
+        self.fixture.setUp()
+        self.clock = 0
+        self.grants = Grants(lambda: self.clock)
+        self.token = self.grants.mint('owner', self.fixture.task['id'], 'lease')
+        self.proxy = Proxy(self.grants, lambda grant: self.fixture.gateway)
+
+    def tearDown(self):
+        self.fixture.tearDown()
+
+    def body(self):
+        return {'model': 'fake-deepseek', 'messages': [{'role': 'user', 'content': 'investigate'}], 'max_tokens': 50}
+
+    def call(self, **changes):
+        body = self.body(); body.update(changes)
+        return self.proxy.dispatch('POST', '/v1/chat/completions', self.token, body)
+
+    def test_provider_retry_after_transport_restart_has_one_charge(self):
+        first = self.call()
+        self.proxy = Proxy(self.grants, lambda grant: self.fixture.gateway)
+        self.assertEqual(self.call()['id'], first['id'])
+        self.assertEqual(self.fixture.calls, 1)
+
+    def test_short_token_can_renew_without_total_runtime_cap(self):
+        for _ in range(20):
+            self.clock += 500
+            self.grants.renew(self.token, 'owner', self.fixture.task['id'], 'lease')
+        self.assertEqual(self.call()['object'], 'chat.completion')
+
+    def test_expired_revoked_and_foreign_tokens_denied(self):
+        with self.assertRaises(PermissionError): self.grants.renew(self.token, 'foreign', self.fixture.task['id'], 'lease')
+        self.clock = 600
+        with self.assertRaises(PermissionError): self.call()
+        self.clock = 0
+        self.grants.revoke(self.token)
+        with self.assertRaises(PermissionError): self.call()
+        self.assertEqual(self.fixture.calls, 0)
+
+    def test_cancel_denies_even_still_valid_token(self):
+        self.fixture.tasks.cancel(self.fixture.task['id'], 'owner')
+        with self.assertRaises(PermissionError): self.call()
+        self.assertEqual(self.fixture.calls, 0)
+
+    def test_unknown_routes_and_provider_overrides_do_not_spend(self):
+        for route in ('/api/skills', '/v1/runs', '/fc/context/../../secret'):
+            with self.assertRaises(PermissionError): self.proxy.dispatch('GET', route, self.token)
+        for change in ({'model': 'another'}, {'stream': True}, {'tools': []}, {'base_url': 'https://invalid'}):
+            with self.assertRaises(ValueError): self.call(**change)
+        self.assertEqual(self.fixture.calls, 0)
+
+    def test_real_http_is_loopback_authenticated_and_openai_compatible(self):
+        server, worker = start_loopback(self.proxy, port=0)
+        try:
+            self.assertEqual(server.server_address[0], '127.0.0.1')
+            url = 'http://127.0.0.1:%s/v1/chat/completions' % server.server_address[1]
+            data = json.dumps(self.body()).encode()
+            with self.assertRaises(HTTPError) as rejected:
+                urlopen(Request(url, data=data), timeout=3)
+            self.assertEqual(rejected.exception.code, 403)
+            rejected.exception.close()
+            request = Request(url, data=data, headers={'Authorization': 'Bearer '+self.token})
+            with urlopen(request, timeout=3) as response:
+                result = json.load(response)
+            self.assertEqual(result['choices'][0]['finish_reason'], 'stop')
+            self.assertEqual(result['usage']['total_tokens'], 60)
+            self.assertEqual(self.fixture.calls, 1)
+        finally:
+            server.shutdown(); server.server_close(); worker.join(timeout=3)
+
+
+if __name__ == '__main__': unittest.main()

@@ -8,7 +8,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
-from gateway import ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
+from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
 from pilot import TaskStore
 from runtime_contract import candidate, validate, clean_environment
 from runs_contract import WIRE_TOOLS
@@ -26,8 +26,7 @@ class GatewayTests(unittest.TestCase):
         self.now = datetime(2026,10,13,15,tzinfo=timezone.utc)
         self.scope = ScopedTools(self.tasks,book(),lambda:self.now,self.now+timedelta(seconds=600))
         self.policy = {'id':'fixture-only','model':'fake-deepseek','price_version':'fake-v1',
-                       'input_microcny':2,'output_microcny':4,'task_microcny':10000,
-                       'day_microcny':20000,'task_tokens':32000,'rounds':12}
+                       'input_microcny':2,'output_microcny':4}
         with self.db() as db:
             db.execute('CREATE TABLE model_calls(fingerprint TEXT PRIMARY KEY,day TEXT NOT NULL,state TEXT NOT NULL,content TEXT)')
         self.budget = UnifiedBudget(self.db,self.policy,lambda:self.now)
@@ -90,17 +89,18 @@ class GatewayTests(unittest.TestCase):
             self.call(body={'messages':[{'role':'user','content':'changed'}],'max_tokens':50})
         self.assertEqual(self.calls,1)
 
-    def test_worst_case_budget_blocks_before_request(self):
-        self.budget.policy['task_microcny']=399
-        with self.assertRaisesRegex(ValueError,'budget_exhausted'): self.call()
-        self.assertEqual(self.calls,0)
+    def test_user_rejected_pilot_quotas_are_not_enforced(self):
+        self.scope.deadline = None
+        self.now += timedelta(seconds=3600)
+        for turn in range(20):
+            result = self.call(turn)
+            self.assertEqual(result['status'], 'succeeded')
+        self.assertEqual(self.calls, 20)
 
-    def test_day_budget_and_token_budget_independently_block(self):
-        for key,value in [('day_microcny',399),('task_tokens',149)]:
-            original=self.budget.policy[key]; self.budget.policy[key]=value
-            with self.assertRaisesRegex(ValueError,'budget_exhausted'): self.call()
-            self.budget.policy[key]=original
-        self.assertEqual(self.calls,0)
+    def test_pilot_quota_fields_cannot_be_reintroduced(self):
+        policy = dict(self.policy, task_microcny=1)
+        with self.assertRaisesRegex(ValueError, 'policy_fields'):
+            UnifiedBudget(self.db, policy, lambda:self.now)
 
     def test_unknown_provider_persists_across_adapter_restart(self):
         def fail(req): self.calls+=1; raise TimeoutError('untrusted details')

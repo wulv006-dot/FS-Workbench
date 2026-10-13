@@ -96,11 +96,11 @@ class PilotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restarted.reserve_dispatch(task['id'], 'owner', 'lease2')
 
-    def test_single_pilot_concurrency(self):
+    def test_independent_tasks_have_no_pilot_concurrency_cap(self):
         self.running()
         task = self.store.create('other', spec())
-        with self.assertRaisesRegex(ValueError, 'pilot_busy'):
-            self.store.reserve_dispatch(task['id'], 'other', 'lease2')
+        result = self.store.reserve_dispatch(task['id'], 'other', 'lease2')
+        self.assertEqual(result['state'], 'DISPATCH_UNKNOWN')
 
     def test_bad_run_id_and_lease_refused(self):
         task = self.store.create('owner', spec())
@@ -131,17 +131,15 @@ class PilotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'stale_version'):
             self.store.change(task, 'FAILED')
 
-    def test_budget_cap_requests_stop_counts_last_usage(self):
+    def test_usage_accounting_does_not_impose_pilot_caps(self):
         task = self.running()
-        result = self.store.record_usage(task['id'], 'owner', 'lease1', 20, 1, token_cap=20, round_cap=12)
-        self.assertEqual((result['tokens'], result['state']), (20, 'CANCEL_REQUESTED'))
-        with self.assertRaises(ValueError):
-            self.store.record_usage(task['id'], 'owner', 'lease1', 1, 1, token_cap=20, round_cap=12)
+        result = self.store.record_usage(task['id'], 'owner', 'lease1', 64000, 20)
+        self.assertEqual((result['tokens'], result['rounds'], result['state']), (64000, 20, 'RUNNING'))
 
     def test_unknown_usage_not_zero(self):
         task = self.running()
         with self.assertRaises(ValueError):
-            self.store.record_usage(task['id'], 'owner', 'lease1', None, 1, token_cap=20, round_cap=12)
+            self.store.record_usage(task['id'], 'owner', 'lease1', None, 1)
 
     def test_interruption_needs_reconciliation(self):
         task = self.running()

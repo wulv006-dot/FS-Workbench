@@ -24,13 +24,14 @@ def schemas():
 
 
 class ScopedTools:
-    def __init__(self, tasks, book, clock, deadline):
+    def __init__(self, tasks, book, clock, deadline=None):
         self.tasks, self.book, self.clock, self.deadline = tasks, book, clock, deadline
 
     def context(self, owner, task_id, lease):
         task = self.tasks.get(task_id, owner)
         if (task['state'] != 'RUNNING' or task['lease'] != lease or
-                task['spec']['snapshot_id'] != self.book.capture_id or self.clock() >= self.deadline):
+                task['spec']['snapshot_id'] != self.book.capture_id or
+                (self.deadline is not None and self.clock() >= self.deadline)):
             raise PermissionError('inactive_task')
         return task
 
@@ -112,13 +113,12 @@ class UnifiedBudget:
     """
     def __init__(self, db, policy, clock):
         self.db, self.clock = db, clock
-        required = {'id', 'model', 'price_version', 'input_microcny', 'output_microcny',
-                    'task_microcny', 'day_microcny', 'task_tokens', 'rounds'}
+        required = {'id', 'model', 'price_version', 'input_microcny', 'output_microcny'}
         if set(policy) != required or any(not isinstance(policy[k], str) or not policy[k]
                 for k in ('id', 'model', 'price_version')):
             raise ValueError('policy_fields')
         if any(type(policy[k]) is not int or policy[k] <= 0 for k in required-{'id','model','price_version'}):
-            raise ValueError('positive_budget_required')
+            raise ValueError('positive_price_required')
         self.policy = deepcopy(policy)
         with db() as conn:
             if [r[1] for r in conn.execute('PRAGMA table_info(model_calls)')] != ['fingerprint','day','state','content']:
@@ -130,8 +130,8 @@ class UnifiedBudget:
                          'UNIQUE(owner,task,turn))')
 
     def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
-        if type(turn) is not int or not 0 <= turn < self.policy['rounds']:
-            raise ValueError('turn_limit')
+        if type(turn) is not int or turn < 0:
+            raise ValueError('turn_invalid')
         if type(input_bound) is not int or input_bound <= 0:
             raise ValueError('trusted_token_bound_required')
         day = self.clock().astimezone(SHANGHAI).date().isoformat()
@@ -167,8 +167,6 @@ class UnifiedBudget:
                     if row['policy'] != encoded(p):
                         raise ValueError('task_policy_changed')
                     task_cost += receipt['cost_microcny']; task_tokens += receipt['usage']['total_tokens']; turns += 1
-            if turns >= p['rounds'] or task_cost+cost > p['task_microcny'] or day_cost+cost > p['day_microcny'] or task_tokens+tokens > p['task_tokens']:
-                raise ValueError('budget_exhausted')
             conn.execute("INSERT INTO model_calls VALUES(?,?,'started',NULL)", (fingerprint,day))
             conn.execute('INSERT INTO hermes_reservations VALUES(?,?,?,?,?,?,?,?)',
                          (fingerprint,owner,task,turn,request_hash,encoded(p),tokens,cost))

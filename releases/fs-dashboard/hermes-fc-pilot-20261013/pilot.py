@@ -133,10 +133,6 @@ class TaskStore:
                 raise PermissionError('task_not_found')
             if row['state'] != 'QUEUED':
                 raise ValueError('dispatch_requires_queued')
-            busy = db.execute("SELECT COUNT(*) FROM tasks WHERE state IN "
-                              "('DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE')").fetchone()[0]
-            if busy:
-                raise ValueError('pilot_busy')
             db.execute("UPDATE tasks SET state='DISPATCH_UNKNOWN',version=version+1,lease=? WHERE id=?", (lease, task_id))
         # This durable reservation precedes any future network admission.
         return self.get(task_id, owner)
@@ -178,15 +174,14 @@ class TaskStore:
             raise ValueError('not_in_flight')
         return self.change(task, 'NEEDS_RECONCILE')
 
-    def record_usage(self, task_id, owner, lease, tokens, rounds, *, token_cap, round_cap):
+    def record_usage(self, task_id, owner, lease, tokens, rounds):
         task = self.get(task_id, owner)
         if task['state'] != 'RUNNING' or task['lease'] != lease:
             raise ValueError('worker_fenced')
-        if any(type(x) is not int or x < 0 for x in (tokens, rounds, token_cap, round_cap)) or not token_cap or not round_cap:
+        if any(type(x) is not int or x < 0 for x in (tokens, rounds)):
             raise ValueError('usage_invalid')
         total, turns = task['tokens']+tokens, task['rounds']+rounds
-        state = 'CANCEL_REQUESTED' if total >= token_cap or turns >= round_cap else 'RUNNING'
-        return self.change(task, state, lease=lease, tokens=total, rounds=turns)
+        return self.change(task, 'RUNNING', lease=lease, tokens=total, rounds=turns)
 
     def validate_result(self, task_id, owner, report, book):
         task = self.get(task_id, owner)

@@ -192,7 +192,7 @@ def selfcheck():
     for path in ("source/game-monitor/index.html", "source/management/targets.json", "backend/boss_insights.py", "tests/management_polling.cjs"):
         if select(["releases/fs-dashboard/boss-workspaces-20261013/"+path]) != ["fs-boss-workspaces"]:
             raise RuntimeError("fs_boss_workspaces_scope_missing")
-    for name in ("pilot.py", "runs_contract.py", "test_pilot.py", "test_runs_contract.py", "gateway.py", "runtime_contract.py", "test_gateway.py", "background.py", "test_background.py"):
+    for name in ("pilot.py", "runs_contract.py", "test_pilot.py", "test_runs_contract.py", "proxy_gateway.py", "runtime_contract.py", "test_gateway.py", "background.py", "test_background.py", "transport.py", "test_transport.py", "source_projection.py", "test_source_projection.py", "hermes_worker.py"):
         if select(["releases/fs-dashboard/hermes-fc-pilot-20261013/"+name]) != ["hermes-fc-pilot"]:
             raise RuntimeError("hermes_fc_pilot_scope_missing")
     if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
@@ -422,7 +422,7 @@ def main():
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
-            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_pilot","test_runs_contract","test_gateway","test_background"])
+            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection"])
         elif group=="fc-deep-advisor":
             release="releases/fs-dashboard/ai-advisor-20261013/deep"
             units(release+"/tests",["test_ci"],root_owned=True)
