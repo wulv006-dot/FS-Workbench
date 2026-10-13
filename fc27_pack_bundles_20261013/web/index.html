@@ -1,0 +1,286 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>FC27 捆绑包定价 · FS 运营工作台</title><link rel="stylesheet" href="/dashboard/fs-home/navigation.css?v=20261006nav1"><script defer src="/dashboard/fs-home/navigation.js?v=20261006nav1"></script><style>
+.tool-wrap{max-width:1180px;margin:0 auto;display:grid;gap:18px}
+.status-chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 14px;min-width:150px}
+.chip b{display:block;font-size:15px}
+.chip small{color:var(--muted);font-size:11px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.toolbar label{color:var(--muted);font-size:13px}
+.toolbar input[type=number]{width:80px;border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);color:var(--ink)}
+.button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bundle-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.bundle-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.bundle-head h2{margin:0;font-size:17px}
+.bundle-head .meta{color:var(--muted);font-size:12px}
+.bundle-head .actions{margin-left:auto;display:flex;gap:8px}
+table.pl{width:100%;border-collapse:collapse;font-size:13px}
+table.pl th,table.pl td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:right;white-space:nowrap}
+table.pl th{color:var(--muted);font-weight:600;font-size:12px}
+table.pl td.l,table.pl th.l{text-align:left}
+table.pl tr.warn-row td{color:var(--muted)}
+.num-k{color:var(--muted)}
+.price-main{color:var(--accent);font-weight:700;font-size:15px}
+.price-orig{color:var(--muted);text-decoration:line-through;margin-left:6px}
+.sum-row{display:flex;flex-wrap:wrap;gap:22px;margin-top:12px;background:var(--soft);border-radius:9px;padding:12px 16px}
+.sum-row .blk b{font-size:16px}
+.sum-row .blk small{color:var(--muted)}
+.badge{display:inline-block;background:var(--soft);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600}
+.badge.bad{background:#fdeaea;color:#c0392b}
+.switchline{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted)}
+/* ── 改价开关：与 FC / RPG 改价台同款卡片式开关（swcell + 绿色胶囊）── */
+.swbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0;width:100%}
+.swcell{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:11px;padding:7px 13px 7px 11px;background:var(--panel);cursor:pointer;user-select:none;transition:.16s;min-width:186px}
+.swcell:hover{border-color:var(--accent);box-shadow:0 2px 10px -5px rgba(16,24,40,.35)}
+.swcell .swtxt{display:flex;flex-direction:column;line-height:1.35;flex:1 1 auto;min-width:0}
+.swcell .swtxt b{font-size:13px}
+.swcell .swst{font-size:11.5px;font-weight:700;color:var(--muted);flex:none}
+.swcell .swpill{position:relative;width:46px;height:24px;border-radius:13px;background:#d1d1d6;flex:none;transition:.2s}
+.swcell .swpill::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(16,24,40,.2)}
+.swcell.on{border-color:#0a8f4d;background:#f1fbf5}
+.swcell.on .swpill{background:#0a8f4d}
+.swcell.on .swpill::after{transform:translateX(22px)}
+.swcell.on .swst{color:#0a8f4d}
+@media(prefers-color-scheme:dark){.swcell{background:var(--bg)}.swcell.on{background:rgba(10,143,77,.12)}}
+/* ── 主操作按钮：与 FC 改价台同款蓝渐变实心 ── */
+.button.primary{background:linear-gradient(180deg,#0a80f0,#0071e3);border-color:#0071e3;color:#fff;font-weight:600;box-shadow:0 2px 8px -4px rgba(0,113,227,.7)}
+.button.primary:hover{background:linear-gradient(180deg,#1a8bf5,#0a77e6);border-color:#0a77e6}
+.badge.st-skip{background:var(--soft);color:var(--muted)}
+.badge.st-written{background:#e6f6ec;color:#1e8e4e}
+.badge.st-planned{background:#fff6e0;color:#b07d1a}
+.badge.st-needs_review,.badge.st-mismatch,.badge.st-error{background:#fdeaea;color:#c0392b}
+.prod-line{display:flex;gap:8px;align-items:center;font-size:12px;margin-top:6px;flex-wrap:wrap}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:0;width:min(860px,94vw)}
+dialog::backdrop{background:rgba(15,25,45,.45)}
+.dlg-head,.dlg-foot{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.dlg-foot{border-bottom:0;border-top:1px solid var(--line);justify-content:flex-end}
+.dlg-body{padding:14px 18px;max-height:60vh;overflow:auto}
+.dlg-body input[type=text]{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);color:var(--ink);width:100%}
+.p-row{display:grid;grid-template-columns:90px 1fr 130px 40px;gap:8px;margin-bottom:8px;align-items:center}
+.searchbox{position:relative}
+.search-pop{position:absolute;top:38px;left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:9px;z-index:50;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(20,30,60,.15)}
+.search-pop div{padding:8px 10px;cursor:pointer;font-size:13px;display:flex;gap:8px;justify-content:space-between}
+.search-pop div:hover{background:var(--soft)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:9px;opacity:0;transition:opacity .25s;z-index:99;pointer-events:none}
+.toast.show{opacity:1}
+.empty-tip{color:var(--muted);padding:30px;text-align:center}
+@media(max-width:900px){.shell{margin-left:0}}
+</style></head><body data-fs-shell data-page="sports"><a class="skip" href="#main">跳到主内容</a><aside class="sidebar" id="sidebar" aria-label="主导航"><a class="brand" href="/dashboard/"><span class="brand-mark">F</span><span>FS Operations<small>MMOEXP 工作空间</small></span></a><div class="nav-label">工作空间</div><nav id="navigation"></nav><div class="sidebar-bottom"><a href="/dashboard/modules/about/">ⓘ 平台介绍</a><a href="/__auth/status" id="profile-name">当前账号</a><small>沿用原有访问范围</small></div></aside><div class="scrim" id="scrim" hidden></div><div class="shell"><header class="topbar"><button class="icon-button" id="menu" aria-label="展开导航" aria-expanded="false" aria-controls="sidebar">☰</button><nav class="breadcrumb" aria-label="面包屑"><a href="/dashboard/">首页</a><span>/</span><a href="/dashboard/modules/sports/">球类工作区</a><span>/</span><span aria-current="page">FC27 捆绑包定价</span></nav><div class="top-actions"><button id="theme" class="icon-button" aria-label="切换显示主题">◐</button><button id="copy-url" class="button">复制链接</button></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">MMOEXP OPERATIONS</div><h1>FC27 捆绑包定价</h1><p>Futbin 球员金币价 × 后台金币单价 → 自动算捆绑包页面原价与折扣售价（一期：只读定价，不写后台）</p></div><a class="back-link" href="/dashboard/modules/sports/">← 返回球类工作区</a></div>
+<div class="tool-wrap">
+  <div class="status-chips" id="chips"></div>
+  <div class="toolbar">
+    <label>采集间隔（小时）</label><input type="number" id="interval" min="0.1" max="168" step="0.5">
+    <button class="button" id="save-interval">保存间隔</button>
+    <span id="refresh-state" class="meta" style="color:var(--muted);font-size:12px"></span>
+    <button class="button" id="refresh-now">立即刷新</button>
+    <button class="button" id="add-bundle">＋ 新建捆绑包</button>
+  </div>
+  <div class="toolbar" style="flex-direction:column;align-items:stretch">
+    <div class="swbar" id="swbar">
+      <div class="swcell" id="sw-enabled" role="switch" tabindex="0" aria-checked="false"><div class="swtxt"><b>改价总闸</b><span class="swst">已关闭</span></div><span class="swpill"></span></div>
+      <div class="swcell" id="sw-dry" role="switch" tabindex="0" aria-checked="true"><div class="swtxt"><b>试运行</b><span class="swst">已开启</span></div><span class="swpill"></span></div>
+      <div class="swcell" id="sw-auto" role="switch" tabindex="0" aria-checked="false"><div class="swtxt"><b>采集后自动写</b><span class="swst">已关闭</span></div><span class="swpill"></span></div>
+      <span style="flex:1"></span>
+      <button class="button" id="save-switches">保存开关</button>
+      <button class="button primary" id="write-now">执行写价</button>
+    </div>
+  </div>
+  <div id="bundles"></div>
+  <div class="bundle-card"><h2 style="margin:0 0 8px;font-size:15px">写价日志（最近 10 条）</h2><div id="writelog" style="font-size:12px;color:var(--muted)"></div></div>
+</div>
+</main></div>
+<dialog id="editor"><div class="dlg-head"><b id="dlg-title">编辑捆绑包</b><span style="flex:1"></span><button class="icon-button" id="dlg-close">✕</button></div><div class="dlg-body">
+  <div style="margin-bottom:12px"><small style="color:var(--muted)">捆绑包标题（与商品页一致）</small><input type="text" id="f-title" maxlength="120"></div>
+  <div style="margin-bottom:6px;display:flex;align-items:center;gap:10px"><small style="color:var(--muted)">球员列表（位置 + Futbin ID；输入 ID 或点🔍搜索选人）</small><span style="flex:1"></span><button class="button" id="add-row">＋ 加一行</button></div>
+  <div id="p-rows"></div>
+</div><div class="dlg-foot"><span id="dlg-err" style="color:#c0392b;font-size:12px;margin-right:auto"></span><button class="button" id="dlg-cancel">取消</button><button class="button primary" id="dlg-save">保存</button></div></dialog>
+<div id="toast" class="toast" role="status"></div>
+<script>
+"use strict";
+var API="/dashboard/fc27-bundles-api";
+var STATE=null,EDITING=null;
+function $(s,r){return (r||document).querySelector(s)}
+function toast(msg){var t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
+function esc(s){return String(s==null?"":s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]})}
+function money(v){return v==null?"—":"$"+Number(v).toFixed(2)}
+function coinsK(v){if(v==null)return "—";var k=v/1000;return (Math.round(k*100)/100)+"K"}
+function fmtTime(s){return s||"—"}
+var SWSTATE={};
+function paintSw(){
+  ["enabled","dry","auto"].forEach(function(k){
+    var el=$("#sw-"+k);if(!el)return;
+    var on=!!SWSTATE[k];
+    el.classList.toggle("on",on);
+    el.setAttribute("aria-checked",on?"true":"false");
+    el.querySelector(".swst").textContent=on?"已开启":"已关闭";
+  });
+}
+["enabled","dry","auto"].forEach(function(k){
+  var el=$("#sw-"+k);
+  if(el){el.onclick=function(){SWSTATE[k]=!SWSTATE[k];paintSw()};
+    el.onkeydown=function(ev){if(ev.key===" "||ev.key==="Enter"){ev.preventDefault();SWSTATE[k]=!SWSTATE[k];paintSw()}}}
+});
+async function api(path,opt){var r=await fetch(API+path,opt);var d=await r.json().catch(function(){return {}});if(!r.ok&&r.status!==409){throw new Error(d.error||("HTTP "+r.status))}return d}
+async function load(){try{STATE=await api("/api/state");render()}catch(e){$("#bundles").innerHTML='<div class="empty-tip">加载失败：'+esc(e.message)+"</div>"}}
+function render(){
+  var s=STATE;
+  var r=s.rates||{};
+  function rateChip(p){var x=r[p]||{};var v=x.usd_per_k?("$"+Number(x.usd_per_k).toFixed(4)):"—";
+    var detail=x.package_usd?("$"+x.package_usd+" / "+x.base_k+"K"+(x.bonus_k&&Number(x.bonus_k)>0?"（+"+x.bonus_k+"K赠不摊入）":"")):"";
+    return '<div class="chip"><small>金币单价 '+p+'</small><b>'+v+'</b><small>'+esc(detail||fmtTime(x.checked_at))+'</small></div>'}
+  $("#chips").innerHTML=rateChip("PS")+rateChip("XBOX")+rateChip("PC")+
+    '<div class="chip"><small>Futbin 球员缓存</small><b>'+(s.futbin.players_cached||0)+' 名</b><small>更新 '+esc(fmtTime(s.futbin.updated_at))+'</small></div>'+
+    '<div class="chip"><small>上次刷新</small><b>'+esc(s.last_refresh?s.last_refresh.status:"—")+'</b><small>'+esc(fmtTime(s.last_refresh&&s.last_refresh.finished_at))+'</small></div>';
+  $("#interval").value=s.settings.interval_hours;
+  SWSTATE={enabled:!!s.write.enabled,dry:!!s.write.dry_run,auto:!!s.write.auto};paintSw();
+  $("#refresh-state").textContent=s.last_refresh&&s.last_refresh.status==="running"?"采集中…":"";
+  var wl=$("#writelog");
+  var lg=s.write.log||[];
+  wl.innerHTML=lg.length?lg.slice(-10).reverse().map(function(e){
+    var st=(e.action||e.results&&e.results.length?"":"error");
+    var parts=(e.results||[]).map(function(r){return '<span class="badge st-'+(r.action||"error")+'">'+esc(r.bundle)+"·"+esc(r.platform)+"："+(r.action||"error")+"</span>"}).join(" ");
+    return '<div style="margin:4px 0">'+esc(e.time||"")+" · "+esc(e.actor||"")+(e.dry_run?" · 试运行":" · <b>实际写入</b>")+" "+parts+(e.error?" <span class='badge st-error'>error</span> "+esc(e.error):"")+"</div>"}).join("")
+    :"暂无写价记录";
+  var box=$("#bundles");box.innerHTML="";
+  if(!s.bundles.length){box.innerHTML='<div class="empty-tip">还没有捆绑包，点右上「新建捆绑包」</div>';return}
+  s.bundles.forEach(function(b){box.appendChild(bundleCard(b))});
+}
+function bundleCard(b){
+  var el=document.createElement("div");el.className="bundle-card";el.setAttribute("data-bid",b.id);
+  var warn=b.warnings&&b.warnings.length?'<span class="badge bad">'+b.warnings.length+" 项待补</span>":'';
+  var rows=b.players.map(function(p){
+    if(p.status==="not_found"){return '<tr class="warn-row"><td class="l">'+esc(p.position||"—")+'</td><td class="l" colspan="6">Futbin '+esc(p.futbin_id)+' · 未收录</td><td></td></tr>'}
+    return '<tr'+(p.status==="no_price"?' class="warn-row"':'')+'><td class="l">'+esc(p.position||"—")+'</td><td class="l">'+esc(p.name)+(p.rating?' <span class="num-k">'+p.rating+"</span>":"")+'</td><td>'+esc(p.futbin_id)+'</td><td class="num-k">'+coinsK(p.ps_coins)+'</td><td class="num-k">'+coinsK(p.pc_coins)+'</td><td>'+money(p.ps_strike)+' <span class="num-k">/ '+money(p.ps_actual)+"</span></td><td>"+money(p.pc_strike)+' <span class="num-k">/ '+money(p.pc_actual)+"</span></td></tr>"}).join("");
+  function sumBlk(tag,d){if(!d)return '<div class="blk"><small>'+tag+'</small><b>—</b></div>';
+    return '<div class="blk"><small>'+tag+' · 页面原价</small><b><span class="price-orig">'+money(d.orig)+'</span></b><br><small>页面售价 <span class="price-main">'+money(d.sale)+'</span> · 对比实际让利 '+d.discount_vs_actual_pct+"%</small></div>"}
+  el.innerHTML='<div class="bundle-head"><h2>'+esc(b.title)+'</h2>'+warn+'<span class="meta">'+b.players_count+" 名球员 · 有效 "+b.players_ok+'</span><span class="actions"><button class="button" data-act="edit">编辑</button></span></div>'+
+   '<table class="pl"><thead><tr><th class="l">位置</th><th class="l">球员</th><th>Futbin ID</th><th>PS/Xbox 金币</th><th>PC 金币</th><th>PS 划线/实际</th><th>PC 划线/实际</th></tr></thead><tbody>'+rows+"</tbody></table>"+
+   '<div class="sum-row">'+sumBlk("PS/Xbox",b.ps)+sumBlk("PC",b.pc)+"</div>";
+  var prods=b.products||{};
+  var pline=["ps","xbox","pc"].map(function(p){
+    var pid=prods[p];var tgt=p==="pc"?b.pc:b.ps;
+    var tgtTxt=tgt?("→ 原价 "+money(tgt.orig)+" / 售价 "+money(tgt.sale)):"";
+    return '<span class="badge" style="background:var(--bg)">'+p.toUpperCase()+' <input type="text" class="prod-id" data-plat="'+p+'" value="'+(pid||"")+'" style="width:110px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--bg);color:var(--ink)"></span> '+tgtTxt}
+  ).join("");
+  el.innerHTML+='<div class="prod-line"><b style="font-size:12px">Admin 产品（站点-ALL）：</b>'+pline+'</div>';
+  el.querySelector('[data-act=edit]').onclick=function(){openEditor(b)};
+  return el;
+}
+/* ---------- 编辑器 ---------- */
+function openEditor(b){
+  EDITING=b?JSON.parse(JSON.stringify(b)):null;
+  $("#dlg-title").textContent=b?("编辑捆绑包 · "+b.title):"新建捆绑包";
+  $("#f-title").value=b?b.title:"";
+  $("#dlg-err").textContent="";
+  var rows=$("#p-rows");rows.innerHTML="";
+  var players=b?b.players:[{futbin_id:"",position:""}];
+  players.forEach(function(p){addRow(p.futbin_id,p.position)});
+  $("#editor").showModal();
+}
+function addRow(fid,pos){
+  var wrap=document.createElement("div");wrap.className="p-row";
+  wrap.innerHTML='<input type="text" class="pos" placeholder="位置" value="'+esc(pos||"")+'" maxlength="8">'+
+    '<div class="searchbox"><input type="text" class="fid" placeholder="Futbin ID（点此处🔍）" value="'+esc(fid==null?"":fid)+'"><div class="search-pop" hidden></div></div>'+
+    '<span class="pname" style="color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'+
+    '<button class="icon-button del" title="删除该行">🗑</button>';
+  wrap.querySelector(".del").onclick=function(){wrap.remove()};
+  var input=wrap.querySelector(".fid"),pop=wrap.querySelector(".search-pop"),pname=wrap.querySelector(".pname");
+  function markName(){var id=parseInt(input.value,10);pname.textContent="";if(!id)return;
+    (STATE.bundles||[]).forEach(function(b){(b.players||[]).forEach(function(p){if(p.futbin_id===id&&p.name){pname.textContent=p.name}})})}
+  input.addEventListener("change",markName);
+  input.addEventListener("focus",function(){doSearch("",pop,input,pname)});
+  input.addEventListener("input",function(){doSearch(input.value,pop,input,pname)});
+  $("#p-rows").appendChild(wrap);markName();
+}
+var searchTimer=null;
+function doSearch(q,pop,input,pname){
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(async function(){
+    if(!q||q.length<2){try{var st=await api("/api/search?q="+encodeURIComponent(input.value.length>=2?input.value:"0"));fillPop(st.items)}catch(e){pop.hidden=true}return}
+    try{var st2=await api("/api/search?q="+encodeURIComponent(q));fillPop(st2.items)}catch(e){pop.hidden=true}
+  },200);
+  function fillPop(items){
+    if(!items.length){pop.hidden=true;return}
+    pop.innerHTML=items.map(function(it){return '<div data-id="'+it.futbin_id+'" data-name="'+esc(it.name)+'"><span>'+esc(it.name)+' '+ (it.rating||"")+'</span><span style="color:var(--muted)">'+esc(it.position||"")+" · ID "+it.futbin_id+"</span></div>"}).join("");
+    pop.hidden=false;
+    Array.prototype.forEach.call(pop.children,function(node){
+      node.onclick=function(){input.value=node.getAttribute("data-id");pname.textContent=node.getAttribute("data-name");pop.hidden=true};
+    });
+  }
+  document.addEventListener("click",function h(ev){if(!pop.contains(ev.target)&&ev.target!==input){pop.hidden=true}},{once:true});
+}
+$("#dlg-close").onclick=$("#dlg-cancel").onclick=function(){$("#editor").close()};
+$("#add-row").onclick=function(){addRow("","")};
+$("#dlg-save").onclick=async function(){
+  var title=$("#f-title").value.trim();
+  var rows=Array.prototype.map.call(document.querySelectorAll("#p-rows .p-row"),function(w){
+    return {futbin_id:parseInt(w.querySelector(".fid").value,10),position:w.querySelector(".pos").value.trim()}});
+  var err=$("#dlg-err");
+  if(!title){err.textContent="标题不能为空";return}
+  if(rows.some(function(r){return !r.futbin_id||r.futbin_id<=0})){err.textContent="有行的 Futbin ID 无效";return}
+  var bundles=JSON.parse(JSON.stringify(STATE.bundles||[]));
+  var payload={expected_revision:STATE.revision,bundles:bundles,settings:STATE.settings};
+  function readProds(scope){
+    var out={};
+    Array.prototype.forEach.call(document.querySelectorAll(scope+" .prod-id"),function(inp){
+      var v=parseInt(inp.value,10);if(v>0){out[inp.getAttribute("data-plat")]=v}
+    });
+    return out;
+  }
+  if(EDITING){
+    var found=bundles.filter(function(x){return x.id===EDITING.id})[0];
+    if(!found){err.textContent="原捆绑包不存在（已被删除？）";return}
+    found.title=title;found.players=rows;
+    var card=document.querySelector(".bundle-card[data-bid='"+EDITING.id+"']");
+    found.products=readProds(card||document);
+  }else{
+    var base=(title.replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-+|-+$/g,"").toLowerCase()||"bundle").slice(0,40);
+    var id=base,n=1;while(bundles.some(function(x){return x.id===id})){id=base+"-"+(++n)}
+    bundles.push({id:id,title:title,players:rows,products:{}});
+  }
+  payload.bundles=bundles.map(function(x){return {id:x.id,title:x.title,players:x.players,products:x.products||{}}});
+  try{
+    await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    $("#editor").close();toast("已保存");load();
+  }catch(e){err.textContent="保存失败："+e.message}
+};
+$("#save-interval").onclick=async function(){
+  var v=parseFloat($("#interval").value);
+  if(!(v>0&&v<=168)){toast("间隔需在 0.1~168 小时");return}
+  try{
+    await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({expected_revision:STATE.revision,settings:Object.assign({},STATE.settings,{interval_hours:v})})});
+    toast("采集间隔已保存："+v+" 小时");load();
+  }catch(e){toast("保存失败："+e.message)}
+};
+$("#refresh-now").onclick=async function(){
+  try{await api("/api/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    toast("已触发刷新，采集中…");pollRefreshing()}catch(e){toast(e.message==="refresh_in_progress"?"已有刷新在进行":"触发失败："+e.message)}
+};
+function pollRefreshing(){
+  var t=setInterval(async function(){
+    await load();
+    if(!STATE.last_refresh||STATE.last_refresh.status!=="running"){clearInterval(t);toast("刷新完成")}
+  },4000);
+}
+$("#save-switches").onclick=async function(){
+  try{
+    await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({expected_revision:STATE.revision,settings:Object.assign({},STATE.settings,{
+        write_enabled:SWSTATE.enabled,
+        write_dry_run:SWSTATE.dry,
+        write_auto:SWSTATE.auto})})});
+    toast("写价开关已保存");load();
+  }catch(e){toast("保存失败："+e.message)}
+};
+$("#write-now").onclick=async function(){
+  if(!SWSTATE.enabled){toast("先打开「改价总闸」");return}
+  var msg=SWSTATE.dry?"试运行（只出计划不写后台）确认执行？":"⚠️ 实际写入 Admin 后台价格，确认执行？";
+  if(!confirm(msg))return;
+  try{await api("/api/write-prices",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({})});
+    toast("写价任务已启动，稍后看日志");setTimeout(load,3000);setTimeout(load,15000);
+  }catch(e){toast(e.message==="write_in_progress"?"已有写价在进行":"触发失败："+e.message)}
+};
+$("#add-bundle").onclick=function(){openEditor(null)};
+load();
+</script></body></html>
