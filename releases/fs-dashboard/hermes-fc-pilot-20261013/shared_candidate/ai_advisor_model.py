@@ -77,8 +77,10 @@ def request_model(messages, projected, validator, *, max_tokens=220, timeout=40,
         if reasoning_effort is not None:
             if tools is None or reasoning_effort not in ('low','high','max'):return {'status':'configuration_invalid'}
             body.update(enable_thinking=True,reasoning_effort=reasoning_effort)
-        if len(json.dumps(body).encode())>96000:return {'status':'input_too_large'}
-        request = urllib.request.Request(ENDPOINT,json.dumps(body).encode(),{'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+        # Hermes wire bytes match the proxy preflight; legacy consumers keep their original encoding.
+        payload=json.dumps(body,ensure_ascii=False,separators=(',',':')).encode('utf-8') if tools is not None else json.dumps(body).encode()
+        if len(payload)>96000:return {'status':'input_too_large'}
+        request = urllib.request.Request(ENDPOINT,payload,{'Authorization':'Bearer '+key,'Content-Type':'application/json'})
         with urllib.request.build_opener(NoRedirect).open(request,timeout=timeout) as response: raw=response.read(96001)
         if len(raw)>96000:return {'status':'invalid_response'}
         return validator(json.loads(raw),projected)

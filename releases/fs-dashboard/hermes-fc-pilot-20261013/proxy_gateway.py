@@ -95,6 +95,8 @@ def request_body(body, model):
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
+    # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
+    if len(encoded(result).encode())>96000:raise ValueError('provider_payload_too_large')
     return result
 
 
