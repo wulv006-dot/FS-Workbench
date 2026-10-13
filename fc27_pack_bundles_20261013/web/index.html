@@ -119,7 +119,10 @@ function paintSw(){
   if(el){el.onclick=function(){SWSTATE[k]=!SWSTATE[k];paintSw()};
     el.onkeydown=function(ev){if(ev.key===" "||ev.key==="Enter"){ev.preventDefault();SWSTATE[k]=!SWSTATE[k];paintSw()}}}
 });
-async function api(path,opt){var r=await fetch(API+path,opt);var d=await r.json().catch(function(){return {}});if(!r.ok&&r.status!==409){throw new Error(d.error||("HTTP "+r.status))}return d}
+async function api(path,opt){var r=await fetch(API+path,opt);var d=await r.json().catch(function(){return {}});
+  if(!r.ok){var e=new Error(d.error||("HTTP "+r.status));e.status=r.status;throw e}return d}
+function apiErrMsg(e){if(e.message==="refresh_in_progress")return "已有刷新在进行中（未启动新任务）";
+  if(e.message==="write_in_progress")return "已有写价在进行中（未启动新任务）";return e.message}
 async function load(){try{STATE=await api("/api/state");render()}catch(e){$("#bundles").innerHTML='<div class="empty-tip">加载失败：'+esc(e.message)+"</div>"}}
 function render(){
   var s=STATE;
@@ -254,7 +257,7 @@ $("#save-interval").onclick=async function(){
 };
 $("#refresh-now").onclick=async function(){
   try{await api("/api/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
-    toast("已触发刷新，采集中…");pollRefreshing()}catch(e){toast(e.message==="refresh_in_progress"?"已有刷新在进行":"触发失败："+e.message)}
+    toast("已触发刷新，采集中…");pollRefreshing()}catch(e){toast(apiErrMsg(e))}
 };
 function pollRefreshing(){
   var t=setInterval(async function(){
@@ -279,7 +282,7 @@ $("#write-now").onclick=async function(){
   try{await api("/api/write-prices",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({})});
     toast("写价任务已启动，稍后看日志");setTimeout(load,3000);setTimeout(load,15000);
-  }catch(e){toast(e.message==="write_in_progress"?"已有写价在进行":"触发失败："+e.message)}
+  }catch(e){toast(apiErrMsg(e))}
 };
 $("#add-bundle").onclick=function(){openEditor(null)};
 load();

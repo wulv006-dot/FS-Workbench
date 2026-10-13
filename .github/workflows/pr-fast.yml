@@ -36,6 +36,16 @@ jobs:
             npm install --prefix "$RUNNER_TEMP/fs-browser" --no-audit --no-fund playwright@1.62.1
             PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/fs-browser/browsers" "$RUNNER_TEMP/fs-browser/node_modules/.bin/playwright" install --with-deps chromium
           fi
+      - name: Prepare fixed Hermes runtime dependencies
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^releases/fs-dashboard/hermes-fc-pilot-20261013/'; then
+            python releases/fs-dashboard/hermes-fc-pilot-20261013/runtime_ci.py --prepare
+          fi
       - name: Diff and isolated affected checks
         shell: bash
         env:
