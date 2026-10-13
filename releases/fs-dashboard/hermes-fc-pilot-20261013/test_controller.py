@@ -88,6 +88,21 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.service.post(self.body,'other',self.headers)[0],403)
         self.assertEqual(self.service.post(self.body,'owner',dict(self.headers,**{'Sec-Fetch-Site':'cross-site'}))[0],403)
 
+    def test_release_exclusive_lock_refuses_admission_without_creating_task(self):
+        import os
+        path=self.service.root/'admission.lock'
+        fd=os.open(str(path),os.O_RDWR|os.O_CREAT,0o600)
+        try:
+            if os.name=='posix':
+                import fcntl
+                fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            else:
+                import msvcrt
+                msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+            self.assertEqual(self.service.post(self.body,'owner',self.headers),(503,{'error':'release_in_progress'}))
+            with self.service.tasks.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM requests').fetchone()[0],0)
+        finally:os.close(fd)
+
     def test_cancel_while_sources_load_never_admits_runtime(self):
         key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
         def load(*args):

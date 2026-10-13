@@ -1,10 +1,13 @@
 """Controller loaded by the existing FS process. No provider key enters Hermes."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import threading
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
@@ -19,6 +22,37 @@ from runs_contract import submission,validate_admission,run_path
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+
+
+@contextmanager
+def admission_guard(path):
+    path=Path(path)
+    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('linked_admission_lock')
+    fd=os.open(str(path),os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+    locked=False
+    try:
+        info=os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or (os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077)):
+            raise ValueError('admission_lock_boundary')
+        try:
+            if os.name=='posix':
+                import fcntl
+                fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
+            else:
+                import msvcrt
+                msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+            locked=True
+        except OSError:pass
+        yield locked
+    finally:
+        if locked:
+            if os.name=='posix':
+                import fcntl
+                fcntl.flock(fd,fcntl.LOCK_UN)
+            else:
+                import msvcrt
+                os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
+        os.close(fd)
 
 
 def atomic(path,value,mode=0o640):
@@ -108,6 +142,20 @@ class HermesService:
     def post(self,body,user,headers):
         if not user:return 401,{'error':'login_required'}
         if not self.authorizer(user):return 403,{'error':'admin_required'}
+        with admission_guard(self.root/'admission.lock') as acquired:
+            if not acquired:return 503,{'error':'release_in_progress'}
+            result=self._post(body,user,headers,defer_submit=True)
+        if len(result)==3:
+            key,owner,value=result[2]
+            # PREPARING is durable before releasing admission. A publisher which
+            # wins here observes it and refuses, before the worker is scheduled.
+            self.pool.submit(self.execute,key,owner,value)
+            return result[0],self.get_job(owner,key)
+        return result
+
+    def _post(self,body,user,headers,defer_submit=False):
+        if not user:return 401,{'error':'login_required'}
+        if not self.authorizer(user):return 403,{'error':'admin_required'}
         if headers.get('X-FS-Advisor-Action')!='submit' or headers.get('Sec-Fetch-Site')!='same-origin':return 403,{'error':'same_origin_required'}
         if not isinstance(body,dict):return 422,{'error':'invalid_request'}
         if body.get('kind')=='hermes_cancel':
@@ -143,6 +191,7 @@ class HermesService:
                 if old[0]!=encoded(body):return 409,{'error':'idempotency_conflict'}
                 return 200,self.get_job(user,key)
             db.execute("INSERT INTO requests VALUES(?,?,?,?,'PREPARING',NULL,NULL,NULL)",(key,user,body['request_id'],encoded(body)))
+        if defer_submit:return 202,self.get_job(user,key),(key,user,body)
         self.pool.submit(self.execute,key,user,body)
         return 202,self.get_job(user,key)
 

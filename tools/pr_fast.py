@@ -433,6 +433,7 @@ def main():
             release="releases/fs-dashboard/hermes-fc-pilot-20261013"
             units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release","test_fs_evidence"])
             node(release+"/check_ui.cjs")
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"admission_smoke.py")],check=True,timeout=30)
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"runtime_ci.py"),"--test"],check=True,timeout=420)
         elif group=="fc-deep-advisor":
             release="releases/fs-dashboard/ai-advisor-20261013/deep"
