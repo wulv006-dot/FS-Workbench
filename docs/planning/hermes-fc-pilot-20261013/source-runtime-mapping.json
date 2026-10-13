@@ -1,0 +1,100 @@
+{
+  "source_commit": "ccfd94605b53dd573cbd5e62a641693b1dd3b876",
+  "source_tree": "dc9922a66a0198190ae2ffa2375ce6c193a8ac01",
+  "live_checked_at": "2026-10-13T13:11:09Z",
+  "environment": "play187",
+  "evidence_level": "production_readback",
+  "verifier": "local Hermes task / approved SSH SHA read",
+  "files": [
+    {
+      "name": "range_api.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/source/range_api.py",
+      "blob": "5e28c8d8f2a2c6b11f45e3666116f18cbf9f6bc4",
+      "live_sha256": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a",
+      "runtime": "/opt/fs-exact-range-20261001/range_api.py",
+      "source_sha256": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a",
+      "matched": true
+    },
+    {
+      "name": "fc_daily.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_daily.py",
+      "blob": "d94c70634360facfd20022e2ce3468cb12f8ff87",
+      "live_sha256": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7",
+      "runtime": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "source_sha256": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7",
+      "matched": true
+    },
+    {
+      "name": "fc_daily_model.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/source/fc_daily_model.py",
+      "blob": "ef1da8ab80245095c1b88495c22cf4925eb4285d",
+      "live_sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec",
+      "runtime": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "source_sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec",
+      "matched": true
+    },
+    {
+      "name": "ai_advisor.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/source/ai_advisor.py",
+      "blob": "dc95c5dd1a6a51777bbe2f55847268b9caf973cd",
+      "live_sha256": "870316877bccb58164b17272aa1016519b99d7c8f98dea43e065496cefddd9b2",
+      "runtime": "/opt/fs-exact-range-20261001/ai_advisor.py",
+      "source_sha256": "870316877bccb58164b17272aa1016519b99d7c8f98dea43e065496cefddd9b2",
+      "matched": true
+    },
+    {
+      "name": "ai_advisor_model.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/activation/source/ai_advisor_model.py",
+      "blob": "78dcb8d346ac1783d68779d8b309976fc16785df",
+      "live_sha256": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e",
+      "runtime": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "source_sha256": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e",
+      "matched": true
+    },
+    {
+      "name": "fc_deep_service.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py",
+      "blob": "fe6e33b565267eb9ddf90c77ce247c5d43dfd501",
+      "live_sha256": "cbbb810e40bf53c4b90b496a538a61cab39166941fc414f348fd226c3a470e10",
+      "runtime": "/opt/fs-exact-range-20261001/fc_deep_service.py",
+      "source_sha256": "cbbb810e40bf53c4b90b496a538a61cab39166941fc414f348fd226c3a470e10",
+      "matched": true
+    },
+    {
+      "name": "fc_deep_model.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/comparison_fix/source/fc_deep_model.py",
+      "blob": "004c1157b972b94d2cfe406854a127e44be6e983",
+      "live_sha256": "6cbac1f33376d48e17e073734c34c7e62528cb59ae3bd76fd41ee846d3b595d9",
+      "runtime": "/opt/fs-exact-range-20261001/fc_deep_model.py",
+      "source_sha256": "6cbac1f33376d48e17e073734c34c7e62528cb59ae3bd76fd41ee846d3b595d9",
+      "matched": true
+    },
+    {
+      "name": "fc_deep_analysis.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/scope_fix/source/fc_deep_analysis.py",
+      "blob": "3ef8800caa6354feeb9b1475f8ff1d26228d4d79",
+      "live_sha256": "2879ab1d70f02af59e88d78cef563132fa9d98c1f273527de7d707d7185a4ceb",
+      "runtime": "/opt/fs-exact-range-20261001/fc_deep_analysis.py",
+      "source_sha256": "2879ab1d70f02af59e88d78cef563132fa9d98c1f273527de7d707d7185a4ceb",
+      "matched": true
+    },
+    {
+      "name": "fc_order_diagnostics.py",
+      "path": "releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_order_diagnostics.py",
+      "blob": "debd9864ccf62a3d853148e617599f121811ee10",
+      "live_sha256": "a3a870efea3113ab51127430715ca95d8318af428731583fe43d262c49437c05",
+      "runtime": "/opt/fs-exact-range-20261001/fc_order_diagnostics.py",
+      "source_sha256": "a3a870efea3113ab51127430715ca95d8318af428731583fe43d262c49437c05",
+      "matched": true
+    },
+    {
+      "name": "query_api.py",
+      "path": "releases/fs-dashboard/on-demand-20261012/source/query_api.py",
+      "blob": "ac89f18ae783d8b45a1f74948090dbca00978262",
+      "live_sha256": "26cf6292894aab698b1cef6675b27df04fe97eb1c900cf133e799920810c3c82",
+      "runtime": "/opt/fs-query-api/query_api.py",
+      "source_sha256": "26cf6292894aab698b1cef6675b27df04fe97eb1c900cf133e799920810c3c82",
+      "matched": true
+    }
+  ]
+}
