@@ -246,7 +246,7 @@ class UnifiedBudget:
             if message.get('content') is not None and not isinstance(message['content'], str):
                 raise ValueError('response_content_invalid')
             calls = message.get('tool_calls', [])
-            if not isinstance(calls, list) or len(calls) > 5:
+            if not isinstance(calls, list):
                 raise ValueError('response_tools_limit')
             ids = set()
             for call in calls:

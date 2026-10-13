@@ -246,6 +246,16 @@ class GatewayTests(unittest.TestCase):
         self.provider=bad
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 
+    def test_research_turn_supports_more_than_legacy_five_readonly_calls(self):
+        def parallel(req):
+            value=self.answer(req)
+            value['choices'][0]['finish_reason']='tool_calls'
+            value['choices'][0]['message']['tool_calls']=[{'id':'call_'+str(i),'type':'function',
+                'function':{'name':name,'arguments':'{}'}} for i,name in enumerate(WIRE_TOOLS[:6])]
+            return value
+        self.provider=parallel
+        self.assertEqual(len(self.call()['message']['tool_calls']),6)
+
     def test_runtime_proposal_inert_and_environment_has_no_inherited_secrets(self):
         self.assertFalse(validate(candidate())['launch_allowed'])
         plan=candidate(); plan['network']['public_listeners']=['0.0.0.0:8080']
