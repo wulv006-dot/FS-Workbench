@@ -69,6 +69,112 @@ def old_report_projection(report):
     return out
 
 
+def bounded_history(value,args):
+    """Keep large report bytes available in declared Unicode-safe JSON fragments."""
+    sections=('readings','previous_judgments','summary','findings','actions','reviews','limitations')
+    collection='hermes_reports' if value.get('hermes_reports') else 'reports'
+    entries=value.get(collection,[])
+    section=args.get('section')
+    if section is not None and section not in ('overview',)+sections:raise ValueError('history_section')
+    item=args.get('item',1)
+    if type(item) is not int or not 1<=item<=100000:raise ValueError('history_item')
+    full=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+    if entries and (section is not None or len(full)>12000 and 'chunk' not in args):
+        report=entries[0]
+        index={k:{'items':len(report[k]) if isinstance(report[k],list) else 1,'bytes':len(json.dumps(report[k],ensure_ascii=False,separators=(',',':')).encode())} for k in sections if k in report}
+        chosen={k:v for k,v in report.items() if k not in sections}
+        if section not in (None,'overview') and section in report:
+            source=report[section];chosen[section]=source[item-1:item] if isinstance(source,list) else source if item==1 else None
+        value={**value,collection:[chosen],'content_index':index,'selected_section':section or 'overview','selected_item':item,
+               'complete_version_sha256':hashlib.sha256(full).hexdigest(),'coverage':'selected metadata/section only; omitted fields remain in the original report'}
+    chunk=args.get('chunk',1)
+    if type(chunk) is not int or not 1<=chunk<=100000:raise ValueError('history_chunk')
+    raw=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+    if len(raw)<=12000:
+        if chunk!=1:return dict(value,status='empty',reports=[],hermes_reports=[],report_chunks={'chunk':chunk,'total_chunks':1,'has_more':False})
+        return value
+    fragments=[];lo=0
+    while lo<len(raw):
+        hi=min(lo+4096,len(raw))
+        while True:
+            try:text=raw[lo:hi].decode('utf-8');break
+            except UnicodeDecodeError:hi-=1
+        fragments.append(text);lo=hi
+    out={k:value[k] for k in ('http_status','captured_at','pagination','scope','owner_context','date_basis','version_boundary','history_index_snapshot_id') if k in value}
+    out.update(status='partial' if chunk<=len(fragments) else 'empty',reports=[],hermes_reports=[],
+        report_chunks={'format':'canonical-json-fragments','chunk':chunk,'total_chunks':len(fragments),'has_more':chunk<len(fragments),
+                       'text':fragments[chunk-1] if chunk<=len(fragments) else '',
+                       'sha256':hashlib.sha256(raw).hexdigest(),'full_payload_bytes':len(raw),
+                       'rule':'Partial fragment only. Select a needed section/item; do not collect/concatenate the entire version in model context. The analysis cumulative history budget stops further output. Original report is unchanged.'})
+    if len(json.dumps(out,ensure_ascii=False,separators=(',',':')).encode())>12000:raise ValueError('history_fragment_budget')
+    return out
+
+
+class ReportHistory:
+    """Freeze the version boundary once, then expose complete versions in pages."""
+    def __init__(self,daily):
+        self.daily=daily
+        with daily.db() as db:
+            self.maximum=db.execute('SELECT COALESCE(MAX(job_id),0) FROM reports').fetchone()[0]
+            rows=db.execute('SELECT day,count(*) FROM reports WHERE job_id<=? GROUP BY day ORDER BY day DESC LIMIT 90',(self.maximum,)).fetchall()
+        self.index={'available_days':[{'day':r[0],'versions':r[1]} for r in rows],
+                    'date_basis':'stored report business day; generation/analysis periods are distinct and must be inspected',
+                    'captured_at':datetime.now(timezone.utc).isoformat(),'coverage':'recent 90 stored business days',
+                    'version_boundary':'versions present at analysis creation; later generated reports excluded',
+                    'snapshot_id':'hist_'+digest({'maximum':self.maximum,'days':[list(r) for r in rows]})[:24]}
+    def read(self,args):
+        page=args.get('page',1)
+        if type(page) is not int or not 1<=page<=100000:raise ValueError('history_page')
+        with self.daily.db() as db:
+            query=(args['start'],args['end'],self.maximum)
+            total=db.execute('SELECT count(*) FROM reports WHERE day>=? AND day<=? AND job_id<=?',query).fetchone()[0]
+            rows=db.execute('SELECT content FROM reports WHERE day>=? AND day<=? AND job_id<=? ORDER BY job_id DESC LIMIT 1 OFFSET ?',(*query,page-1)).fetchall()
+        return bounded_history({'http_status':200,'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
+                'pagination':{'page':page,'page_size':1,'total_reports':total,'has_more':page<total},
+                'history_index_snapshot_id':self.index['snapshot_id'], 'captured_at':self.index['captured_at'],
+                'scope':'FC stored complete report versions; inspect actual Admin/Order periods before comparison',
+                'date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']},args)
+
+
+class OwnerRunHistory:
+    """Freeze completed canonical owner requests, never append all reports to a page."""
+    def __init__(self,tasks,owner):
+        self.tasks,self.owner=tasks,owner
+        with tasks.db() as db:
+            rows=db.execute("SELECT id,body FROM requests WHERE owner=? AND state='COMPLETED' ORDER BY rowid DESC",(owner,)).fetchall()
+        self.entries=[{'id':r[0],'period':{k:json.loads(r[1])[k] for k in ('start','end')}} for r in rows]
+        self.index={'available_periods':[r['period'] for r in self.entries[:90]],'total_versions':len(self.entries),
+                    'coverage':'latest 90 period descriptors; all captured versions remain paged',
+                    'captured_at':datetime.now(timezone.utc).isoformat(),'date_basis':'completed own investigation period overlaps query',
+                    'version_boundary':'only completed canonical requests present at analysis creation',
+                    'snapshot_id':'ownhist_'+digest({'owner':owner,'entries':self.entries})[:24]}
+    def read(self,args):
+        page=args.get('page',1)
+        if type(page) is not int or not 1<=page<=100000:raise ValueError('history_page')
+        matches=[r for r in self.entries if r['period']['start']<=args['end'] and r['period']['end']>=args['start']]
+        selected=matches[page-1:page];previous=[]
+        if selected:
+            with self.tasks.db() as db:row=db.execute("SELECT result FROM requests WHERE id=? AND owner=? AND state='COMPLETED'",(selected[0]['id'],self.owner)).fetchone()
+            if row is None or not row[0]:return {'http_status':503,'status':'not_available','reason':'history_version_missing'}
+            saved=json.loads(row[0]);previous=[{'report_id':selected[0]['id'],'period':selected[0]['period'],
+                **{k:saved[k] for k in ('summary','findings','actions','reviews','limitations')},
+                'rule':'原证据ID属于原任务；复盘须重查当前证据，未执行建议不能归因效果'}]
+        return bounded_history({'http_status':200,'status':'available' if previous else 'empty','reports':[],'hermes_reports':previous,
+                'pagination':{'page':page,'page_size':1,'total_reports':len(matches),'has_more':page<len(matches)},
+                'captured_at':self.index['captured_at'],'history_index_snapshot_id':self.index['snapshot_id'],
+                'owner_context':'current_owner_only','date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']},args)
+
+
+def attach_owner_history(book,tasks,owner):
+    daily=book.history;owned=OwnerRunHistory(tasks,owner);pins=SourcePins()
+    read_owned=pins.wrap(owned.read,'FC-owner-investigation-history')
+    def history(args):
+        if args.get('source','daily')=='hermes':return read_owned(args)
+        return daily(args) if daily else {'status':'not_available','reason':'daily_history_missing'}
+    book.history=history
+    book.history_index=dict(book.history_index or {},hermes=owned.index)
+
+
 def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
     read_start=(lo-timedelta(days=max(7,(hi-lo).days+1))).isoformat()
@@ -76,11 +182,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     skills=load_bundle(source_root)
     scope=hashlib.sha256((owner+dataset['snapshot_id']).encode()).hexdigest()
     clue_read=AsyncRead(lambda:problem_projection(diagnostics(),scope))
-    def history(args):
-        with daily.db() as db:
-            rows=db.execute('SELECT content FROM reports WHERE day>=? AND day<=? ORDER BY job_id DESC LIMIT 30',(args['start'],args['end'])).fetchall()
-        return {'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
-                'max_versions':30,'scope':'FC已存日报版本；Admin支付主站口径与各原生聚合需核来源后比较'}
+    history=ReportHistory(daily)
     def reference(args):
         params={k:[v] for k,v in dict(mode='profit-history',grain='day',**args).items()}
         status,raw=read_range(params)
@@ -99,5 +201,5 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
                 'source_status':raw.get('sources'),'consistentPeriod':raw.get('consistentPeriod'),
                 'rule':'须读取各记录system/source/scope；Admin权威主源，Order仅参考，不按primary字段名猜实际源'}
     pins=SourcePins()
-    return ResearchBook(dataset,config,{'start':start,'end':end},history=history,reference=pins.wrap(reference,'Order-reference'),
+    return ResearchBook(dataset,config,{'start':start,'end':end},history=pins.wrap(history.read,'FC-report-history'),history_index=history.index,reference=pins.wrap(reference,'Order-reference'),
                         clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'))

@@ -15,7 +15,7 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from pilot import TaskStore, SHANGHAI, digest, encoded, complete_week
 from transport import Grants, Proxy, start_loopback
 from fs_inprocess import gateway, approved_background
-from fs_evidence import build_book
+from fs_evidence import build_book,attach_owner_history
 from report_validation import FORMAT, validate_output
 from runs_contract import submission,validate_admission,run_path
 
@@ -227,20 +227,7 @@ class HermesService:
                     self.update(key,state='ALIASED',task_id=task['id']);task=None;return
                 self.tasks.reserve_dispatch(task['id'],owner,lease)
                 self.update(key,state='DISPATCH_UNKNOWN',task_id=task['id'])
-            original_history=book.history
-            def history(args):
-                result=original_history(args) if original_history else {'reports':[]}
-                with self.tasks.db() as db:
-                    rows=db.execute("SELECT id,body,result FROM requests WHERE owner=? AND state='COMPLETED' ORDER BY rowid DESC",(owner,)).fetchall()
-                previous=[]
-                for row in rows:
-                    request=json.loads(row['body'])
-                    if request['start']<=args['end'] and request['end']>=args['start']:
-                        saved=json.loads(row['result']);previous.append({'report_id':row['id'],'period':{'start':request['start'],'end':request['end']},
-                          'summary':saved['summary'],'findings':saved['findings'],'actions':saved['actions'],'reviews':saved['reviews'],'limitations':saved['limitations'],
-                          'rule':'原证据ID属于原任务；复盘时须重新查询当前证据，未执行建议不能归因效果'})
-                return dict(result,hermes_reports=previous,owner_context='current_owner_only')
-            book.history=history
+            attach_owner_history(book,self.tasks,owner)
             def save_evidence(value):
                 with self.tasks.db() as db:db.execute('INSERT OR IGNORE INTO evidence VALUES(?,?,?)',(task['id'],value['evidence_id'],encoded(value)))
             book.persist=save_evidence

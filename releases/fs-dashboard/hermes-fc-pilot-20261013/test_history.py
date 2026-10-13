@@ -1,0 +1,111 @@
+from contextlib import contextmanager
+import json,sqlite3,tempfile,unittest
+from pathlib import Path
+from fs_evidence import ReportHistory,SourcePins,attach_owner_history
+from research import ResearchBook,tool_schemas
+from test_research import dataset
+
+class HistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        path=Path(self.temp.name)/'history.db'
+        class Daily:
+            @contextmanager
+            def db(self):
+                conn=sqlite3.connect(path)
+                try:
+                    with conn:yield conn
+                finally:conn.close()
+        self.daily=Daily()
+        with self.daily.db() as db:
+            db.execute('CREATE TABLE reports(job_id INTEGER PRIMARY KEY,day TEXT,content TEXT)')
+            for i in range(1,11):
+                report={'date':'2026-10-12','revision':i,'report_id':'stored_'+str(i),'main':{'revenue':'10.00'},'deep':{'evidence':[{'ref':'old-period','kind':'period_facts','value':{'revenue_usd':'10.00'},'period':{'start':'2026-10-05','end':'2026-10-11'}}],'decision':{'findings':[{'title':'旧判断','observation':'whole reviewed statement '+('x'*9000),'hypothesis':'competing explanation','refs':['old-period']}]}}}
+                db.execute('INSERT INTO reports VALUES(?,?,?)',(i,'2026-10-12',json.dumps(report)))
+
+    def test_versions_are_complete_paged_and_later_appends_do_not_shift_the_boundary(self):
+        history=ReportHistory(self.daily);q={'start':'2026-09-28','end':'2026-10-12'}
+        first=history.read(q);self.assertEqual(first['pagination']['total_reports'],10);self.assertTrue(first['pagination']['has_more'])
+        self.assertEqual(first['reports'][0]['revision'],10);self.assertIn('x'*9000,first['reports'][0]['previous_judgments'][0]['observation'])
+        with self.daily.db() as db:db.execute('INSERT INTO reports VALUES(11,?,?)',('2026-10-12','{}'))
+        second=history.read(dict(q,page=2));self.assertEqual(second['reports'][0]['revision'],9);self.assertEqual(second['pagination']['total_reports'],10)
+        self.assertFalse(history.read(dict(q,page=10))['pagination']['has_more']);self.assertEqual(history.read(dict(q,page=11))['status'],'empty')
+        self.assertLess(len(json.dumps(first).encode()),16000)
+
+    def test_report_business_day_is_discoverable_and_not_confused_with_analysis_period(self):
+        history=ReportHistory(self.daily);self.assertEqual(history.index['available_days'],[{'day':'2026-10-12','versions':10}])
+        book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},history=SourcePins().wrap(history.read,'history'),history_index=history.index)
+        self.assertEqual(book.call('fc.get_data_catalog',{})['data']['history_index']['available_days'][0]['day'],'2026-10-12')
+        result=book.call('fc.read_history',{'start':'2026-10-12','end':'2026-10-12'})
+        self.assertEqual(result['data']['reports'][0]['readings'][0]['period']['end'],'2026-10-11')
+        self.assertNotEqual(result['snapshot_id'],book.capture_id)
+        for value in (True,0,-1,'2'):
+            with self.assertRaises(ValueError):book.call('fc.read_history',{'start':'2026-10-12','end':'2026-10-12','page':value})
+        schema=next(s['function']['parameters'] for s in tool_schemas() if s['function']['name']=='mcp__fcro__fc_read_history')
+        self.assertIn('page',schema['properties']);self.assertNotIn('page',schema['required'])
+
+    def test_completed_hermes_versions_are_owner_scoped_paged_and_not_appended_to_daily(self):
+        with self.daily.db() as db:
+            db.execute('CREATE TABLE requests(id TEXT,owner TEXT,state TEXT,body TEXT,result TEXT)')
+            body=json.dumps({'start':'2026-10-05','end':'2026-10-11'})
+            for i,owner in enumerate(['owner']*5+['other']):
+                result=json.dumps({'summary':'full summary '+str(i),'findings':['x'*18000],'actions':['action'],'reviews':['review'],'limitations':['gap']})
+                db.execute('INSERT INTO requests VALUES(?,?,?,?,?)',(str(i),owner,'COMPLETED',body,result))
+        daily=ReportHistory(self.daily);book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},history=daily.read,history_index=daily.index)
+        attach_owner_history(book,self.daily,'owner')
+        daily_page=book.call('fc.read_history',{'start':'2026-10-12','end':'2026-10-12'})['data']
+        self.assertNotIn('hermes_reports',daily_page)
+        q={'start':'2026-10-05','end':'2026-10-11','source':'hermes'}
+        overview=book.call('fc.read_history',q)['data'];self.assertEqual(overview['content_index']['findings']['items'],1)
+        self.assertNotIn('findings',overview['hermes_reports'][0])
+        first=book.call('fc.read_history',dict(q,chunk=1))['data'];self.assertEqual(first['pagination']['total_reports'],5)
+        self.assertEqual(first['report_chunks']['chunk'],1);self.assertGreater(first['report_chunks']['total_chunks'],1)
+        # Lossless archival fragments are verified on the adapter, not accumulated in model context.
+        from fs_evidence import OwnerRunHistory
+        owned=OwnerRunHistory(self.daily,'owner')
+        fragments=[owned.read(dict(q,chunk=i))['report_chunks']['text'] for i in range(1,first['report_chunks']['total_chunks']+1)]
+        restored=json.loads(''.join(fragments));self.assertEqual(restored['hermes_reports'][0]['report_id'],'4');self.assertEqual(len(restored['hermes_reports']),1)
+        with self.daily.db() as db:db.execute('INSERT INTO requests VALUES(?,?,?,?,?)',('later','owner','COMPLETED',body,result))
+        second=book.call('fc.read_history',dict(q,page=2))['data'];self.assertEqual(second['pagination']['total_reports'],5)
+        self.assertEqual(len(restored['hermes_reports'][0]['findings'][0]),18000);self.assertLess(len(json.dumps(first).encode()),12000)
+        self.assertEqual(second['hermes_reports'][0]['report_id'],'3')
+        self.assertEqual(book.history_index['hermes']['total_versions'],5)
+        self.assertNotIn('other',json.dumps(first));self.assertNotIn('later',json.dumps(second))
+
+    def test_single_large_unicode_version_is_lossless_bounded_and_invalid_chunk_rejected(self):
+        from fs_evidence import bounded_history
+        import hashlib
+        value={'http_status':200,'status':'available','reports':[{'summary':'中文 "quote" \n'*18000,'numeric_value':'123.45'}],'pagination':{'page':1,'total_reports':1,'has_more':False}}
+        parts=[];checks=[]
+        first=bounded_history(value,{'chunk':1});count=first['report_chunks']['total_chunks']
+        for i in range(1,count+1):
+            part=bounded_history(value,{'chunk':i});self.assertLess(len(json.dumps(part,ensure_ascii=False).encode()),12000)
+            self.assertEqual(part['status'],'partial');parts.append(part['report_chunks']['text']);checks.append(part['report_chunks']['sha256'])
+        raw=''.join(parts).encode();self.assertEqual(hashlib.sha256(raw).hexdigest(),checks[0]);self.assertEqual(len(set(checks)),1)
+        self.assertEqual(json.loads(raw),value);self.assertFalse(bounded_history(value,{'chunk':count})['report_chunks']['has_more'])
+        for bad in (True,0,'1'):
+            with self.assertRaises(ValueError):bounded_history(value,{'chunk':bad})
+        self.assertEqual(bounded_history(value,{'chunk':count+1})['status'],'empty')
+
+    def test_cumulative_budget_counts_cache_repeats_and_section_projection_is_useful(self):
+        history=ReportHistory(self.daily)
+        book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},history=SourcePins().wrap(history.read,'history'))
+        q={'start':'2026-10-12','end':'2026-10-12','section':'readings','item':1}
+        selected=book.call('fc.read_history',q)
+        self.assertEqual(selected['data']['reports'][0]['readings'][0]['value']['revenue_usd'],'10.00')
+        self.assertNotIn('previous_judgments',selected['data']['reports'][0])
+        retained=len(json.dumps(selected,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
+        self.assertEqual(book.history_output_bytes,retained)
+        while True:
+            result=book.call('fc.read_history',q)
+            if result['data']['status']=='limited':break
+            retained+=len(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
+        self.assertEqual(book.history_output_bytes,retained);self.assertLessEqual(retained,24000)
+        self.assertNotIn('report_chunks',result['data']);self.assertEqual(result['data']['reports'],[])
+        # No single 300KB version can be gathered into a >96KB provider history.
+        large={'http_status':200,'status':'available','reports':[{'summary':'x'*300000}]}
+        from fs_evidence import bounded_history
+        self.assertNotIn('report_chunks',bounded_history(large,{}))
+        self.assertEqual(bounded_history(large,{'section':'summary'})['status'],'partial')
+
+if __name__=='__main__':unittest.main()

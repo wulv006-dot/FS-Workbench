@@ -25,7 +25,7 @@ def tool_schemas():
     filters={'type':'object','properties':{k:string for k in QUEUE_DIMENSIONS},'additionalProperties':False}
     page={'type':'integer','minimum':1}
     properties=({}, {'start':string,'end':string,'group_by':groups,'filters':filters,'page':page},
-                {'group_by':groups,'filters':filters,'page':page}, {'start':string,'end':string},
+                {'group_by':groups,'filters':filters,'page':page}, {'start':string,'end':string,'page':page,'chunk':page,'section':{'type':'string','enum':['overview','readings','previous_judgments','summary','findings','actions','reviews','limitations']},'item':page,'source':{'type':'string','enum':['daily','hermes']}},
                 {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string}, {},
                 {'operation':{'type':'string','enum':['difference','ratio','sum','multiply','extrema','interval_overlap','required_daily','price_scenario']},
                  'values':{'type':'array','items':{'type':'string'}},'evidence_ids':{'type':'array','items':string},
@@ -36,14 +36,14 @@ def tool_schemas():
     descriptions=('Read source/field/time/coverage definitions and unavailable capabilities before investigation.',
                   'Query immutable Admin main-site paid orders by dates and up to three dimensions. All dates inclusive; paginate grouped results.',
                   'Drill current Admin open pool by age/platform/product/status. Progress is explicitly missing, never assume zero delivery.',
-                  'Read previous report facts/judgments and same-business-day readings; prior claims are not current verified causes.',
+                  'Read one previous report version per page, newest first. source defaults daily; hermes includes only this owner completed investigations. Daily dates mean stored business day; Hermes dates mean investigation period overlap; consult history_index. Large versions default to overview/content_index: select section and item for a needed judgment/action, rather than collecting the entire version. Explicit chunks are partial canonical JSON, not complete-version evidence. All history results, including repeated queries, share a 24KB cumulative retained-output budget per analysis; status limited means stop reading history and disclose the gap. Never concatenate all chunks in the model context or treat historical claims as verified current causes.',
                   'Read exact Order FC27/FC26 reference profit and history. Async pending is not zero. Never use as verified pricing cost.',
                   'Read existing bounded Order problem-log clues asynchronously; historical sample does not establish current overall causes.',
                   'Perform Decimal arithmetic. Each value needs value_paths item {evidence_id,path:JSON-pointer from evidence root}; null allowed only with matching nonempty assumption label. Non-assumed labels must be empty. Every input value must equal its resolved evidence field. Assumptions mark the result as scenario, never an observed fact.',
                   'Read reviewed FC analysis methods, with version/hash; no authority is added.',
                   'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     return [{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
-                'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id'],'additionalProperties':False}}}
+                'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk','section','item'))],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES,properties,descriptions)]
 
 
@@ -132,17 +132,19 @@ def calculation(args):
 
 
 class ResearchBook:
-    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None):
+    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None):
         self.data, self.config, self.target = deepcopy(dataset), deepcopy(config), deepcopy(target)
         self.capture_id = dataset['snapshot_id']
         if not re.fullmatch(r'fc-detail-[A-Za-z0-9_.-]+', self.capture_id): raise ValueError('capture_identity')
         self.at = datetime.fromisoformat(dataset['as_of'])
         if self.at.tzinfo is None: raise ValueError('capture_time')
         self.history, self.reference, self.clues = history, reference, clues
+        self.history_index=deepcopy(history_index)
         self.skills, self.persist = skills, persist
         self.native=native
         self.background=None
         self.evidence, self.trace, self._lock = {}, [], threading.RLock()
+        self.history_output_bytes=0
 
     def register(self, name, args, data, source='Admin FC支付明细', captured_at=None):
         result = {'source':source, 'project':'FC27', 'scope':'main' if source.startswith('Admin') else 'source_defined',
@@ -184,7 +186,7 @@ class ResearchBook:
                 'dimensions':list(DIMENSIONS),'queue_dimensions':list(QUEUE_DIMENSIONS),
                 'status_basis':'读取时当前状态；历史支付日状态不同成熟度，不能直接当日末履约率',
                 'unavailable_fields':['delivered_quantity','assigned_supplier','delivery_event_times','verified_cost','FC-only-attributed-marketing'],
-                'history_available':self.history is not None,'reference_available':self.reference is not None,
+                'history_available':self.history is not None,'history_index':self.history_index,'reference_available':self.reference is not None,
                 'problem_clues_available':self.clues is not None,'permission':'readonly','skills_version':self.skills['version'] if self.skills else None})
         if name=='fc.query_native_statistics':
             if set(args)!={'profile','start','end'} or args['profile'] not in {'FC27','FC26'}:raise ValueError('native_fields')
@@ -194,10 +196,22 @@ class ResearchBook:
         if name == 'fc.query_business': return self.query(args)
         if name == 'fc.query_queue': return self.query(args,current=True)
         if name == 'fc.read_history':
-            if set(args) != {'start','end'}: raise ValueError('history_fields')
+            if not {'start','end'}<=set(args) or set(args)-{'start','end','page','source','chunk','section','item'}: raise ValueError('history_fields')
             period(args['start'],args['end'])
-            value = self.history(args) if self.history else {'status':'not_available','reason':'history_adapter_missing'}
-            return self.register(name,args,value,'历史报告/同业务日读数；非当前事实')
+            args=deepcopy(args);args.setdefault('page',1);args.setdefault('source','daily')
+            if args['source'] not in ('daily','hermes'):raise ValueError('history_source')
+            if type(args['page']) is not int or not 1<=args['page']<=100000:raise ValueError('history_page')
+            for key in ('chunk','item'):
+                if key in args and (type(args[key]) is not int or not 1<=args[key]<=100000):raise ValueError('history_'+key)
+            if 'section' in args and args['section'] not in ('overview','readings','previous_judgments','summary','findings','actions','reviews','limitations'):raise ValueError('history_section')
+            with self._lock:
+                value = self.history(args) if self.history else {'status':'not_available','reason':'history_adapter_missing'}
+                # Count the complete retained evidence envelope, including cache repeats.
+                size=len(encoded({'source':'历史报告/同业务日读数；非当前事实','project':'FC27','scope':'source_defined','snapshot_id':value.get('source_snapshot_id',self.capture_id),'analysis_anchor_id':self.capture_id,'captured_at':value.get('captured_at',self.data['as_of']),'timezone':'Asia/Shanghai','query':args,'data':value,'evidence_id':'ev_'+'0'*24}).encode())
+                if self.history_output_bytes+size>24000:
+                    value={'status':'limited','reason':'history_cumulative_context_budget','retained_output_bytes':self.history_output_bytes,'maximum_output_bytes':24000,'reports':[],'hermes_reports':[],'rule':'Stop history reads; disclose unread historical sections. Original saved reports remain unchanged.'}
+                else:self.history_output_bytes+=size
+                return self.register(name,args,value,'历史报告/同业务日读数；非当前事实')
         if name == 'fc.query_reference':
             if set(args) != {'profile','start','end'} or args['profile'] not in {'FC27','FC26'}: raise ValueError('reference_fields')
             period(args['start'],args['end'])
