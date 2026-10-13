@@ -25,7 +25,7 @@ class InsightsRelease(unittest.TestCase):
         self.builder = load('single_insights_builder', ROOT / 'build_insights_release.py')
         self.builder.ROOT = f.builder.ROOT
         shutil.copyfile(ROOT / 'backend/boss_insights.py', self.builder.ROOT / 'backend/boss_insights.py')
-        self.old = (self.builder.BASE.parents[1] / 'source/boss_insights.py').read_bytes()
+        self.old = (ROOT / 'tests/fixtures/boss_insights_pr94.txt').read_bytes()
         self.assertEqual(hashlib.sha256(self.old).hexdigest(), self.builder.BEFORE)
         f.write(self.builder.TARGET, self.old)
         self.dependencies = []
