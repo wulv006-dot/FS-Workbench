@@ -5,7 +5,9 @@ from pathlib import Path
 import sys
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'fc-daily-20261013' / 'source'))
+WORKSPACE = Path(__file__).resolve().parents[2]
+MODEL_SOURCES = [WORKSPACE / 'fc_daily_20261013/candidate', WORKSPACE / 'fc-daily-20261013/source']
+sys.path.insert(0, str(next(path for path in MODEL_SOURCES if (path / 'fc_daily_model.py').exists())))
 from fc_daily_model import MODEL
 from boss_insights import build_messages, project_context, validate_response
 
@@ -101,7 +103,7 @@ class ProjectionTests(unittest.TestCase):
                 project_context(body)
 
     def test_rejects_invalid_dates_and_order(self):
-        for value in ['2026-02-30', '20261013', '2026-1-2', None]:
+        for value in ['2026-02-30', '20261013', '2026-1-2', '', False, 0, [], {}]:
             body = game()
             body['context']['events'][0]['date'] = value
             with self.subTest(value=value), self.assertRaises(ValueError):
@@ -110,6 +112,21 @@ class ProjectionTests(unittest.TestCase):
         body['context']['period']['start'] = '2026-10-14'
         with self.assertRaises(ValueError):
             project_context(body)
+
+    def test_unknown_game_date_keeps_null_and_forbids_inference_in_prompt(self):
+        body = game()
+        body['context']['events'][0]['date'] = None
+        projected = project_context(body)
+        self.assertIsNone(projected['context']['events'][0]['date'])
+        messages = build_messages(body)
+        self.assertIsNone(json.loads(messages[1]['content'])['context']['events'][0]['date'])
+        self.assertIn('date为null表示日期未知', messages[0]['content'])
+        self.assertIn('不得推断上线日期、已上线、即将上线或倒计时', messages[0]['content'])
+        self.assertEqual(validate_response(response(), projected)['status'], 'succeeded')
+        for key in ('start', 'end'):
+            business = management()
+            business['context']['period'][key] = None
+            with self.assertRaises(ValueError): project_context(business)
 
     def test_rejects_empty_oversized_lists_duplicate_projects(self):
         for body, field, count in [(game(), 'events', 0), (game(), 'events', 16),

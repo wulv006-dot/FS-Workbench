@@ -94,6 +94,18 @@ async function fixture(role = 'admin', eventDate = '2026-10-13', mode = 'direct'
   const invalid = await fixture('admin','2026-02-30');
   assert.equal(invalid.ids.fsInsightButton.disabled,true);
   await invalid.ids.fsInsightButton.listeners.click(); assert.equal(invalid.requests.length,0);
+  const undated = await fixture('admin',null);
+  assert.equal(undated.ids.fsInsightButton.disabled,false,'explicit unknown date remains explainable');
+  assert.ok(undated.ids.fsInsightStatus.textContent.includes('日期待确认'));
+  await undated.ids.fsInsightButton.listeners.click();
+  assert.equal(undated.requests.length,1);
+  assert.equal(undated.requests[0].context.events[0].date,null,'unknown date is transmitted unchanged, never invented');
+  for (const badDate of ['', '待确认', '2026-2-03', 0]) {
+    const bad = await fixture('admin',badDate);
+    assert.equal(bad.ids.fsInsightButton.disabled,true);
+    await bad.ids.fsInsightButton.listeners.click();
+    assert.equal(bad.requests.length,0,'invalid non-null dates cannot submit');
+  }
   const member = await fixture('member');
   assert.equal(member.ids.fsInsightButton.disabled,true);
   await member.ids.fsInsightButton.listeners.click(); assert.equal(member.requests.length,0);

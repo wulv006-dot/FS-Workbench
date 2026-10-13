@@ -35,6 +35,39 @@ def envelope(events):
 
 
 class IntelligenceTests(unittest.TestCase):
+    def test_mixed_batch_isolates_rejected_rows_with_safe_counts(self):
+        b = batch(); good = event(b)
+        changed_quote = dict(good, evidence=QUOTE.replace('Diablo IV', 'Diablo  IV'))
+        wrong_date = dict(good, event_date='2026-10-12')
+        malformed = dict(good, document_id=['untrusted-private-looking-data'])
+        out = g.validate_response(envelope([changed_quote, good, wrong_date, malformed, good]), b)
+        self.assertEqual(len(out['events']), 1)
+        self.assertEqual(out['events'][0]['evidence'], QUOTE)
+        self.assertEqual(out['reject_count'], 3)
+        self.assertEqual(out['reject_reasons'], {'ungrounded_evidence': 1, 'unsupported_event_date': 1, 'invalid_event_fields': 1})
+        self.assertNotIn('untrusted-private-looking-data', json.dumps(out))
+        snapshot = g.build_snapshot(b, out)
+        self.assertEqual(snapshot['coverage']['reject_count'], 3)
+        self.assertEqual(snapshot['coverage']['reject_reasons'], out['reject_reasons'])
+        self.assertTrue(snapshot['coverage']['partial'])
+
+    def test_all_rejected_nonempty_batch_fails_but_explicit_empty_is_valid(self):
+        b = batch(); bad = dict(event(b), evidence=QUOTE.replace('Diablo IV', 'Diablo  IV'))
+        with self.assertRaisesRegex(ValueError, 'ungrounded_evidence'):
+            g.validate_response(envelope([bad, bad]), b)
+        empty = g.validate_response(envelope([]), b)
+        self.assertEqual(empty['events'], [])
+        self.assertEqual(empty['reject_count'], 0)
+        self.assertEqual(empty['reject_reasons'], {})
+
+    def test_bad_model_envelope_rejects_whole_batch_despite_good_rows(self):
+        b = batch(); rows = [event(b), dict(event(b), evidence='Invented unsupported evidence quote')]
+        cases = [('model', 'wrong-model'), ('id', 'bad/receipt'), ('usage', {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 999}), ('usage', None)]
+        for key, value in cases:
+            raw = envelope(rows); raw[key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                g.validate_response(raw, b)
+
     def test_receipt_matches_shared_provider_contract(self):
         b = batch()
         for receipt in ['chatcmpl-test12345678', '12345678-1234-1234-1234-123456789abc', 'a', 'x' * 150]:

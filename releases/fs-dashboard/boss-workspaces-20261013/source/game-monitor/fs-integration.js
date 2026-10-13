@@ -25,9 +25,12 @@
   function context() {
     const game = games[Number(gameSelect.value)];
     const event = (game?.insight_events || game?.events)?.[Number(eventSelect.value)];
-    if (!event || !/^\d{4}-\d{2}-\d{2}$/.test(event.date || '')) return null;
-    const date = new Date(event.date + 'T00:00:00Z');
-    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== event.date) return null;
+    if (!event) return null;
+    if (event.date !== null) {
+      if (typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date)) return null;
+      const date = new Date(event.date + 'T00:00:00Z');
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== event.date) return null;
+    }
     let url;
     try { url = new URL(event.source); } catch { return null; }
     if (url.protocol !== 'https:' || url.username || url.password) return null;
@@ -43,8 +46,11 @@
   function selected() {
     request?.abort(); restoreRecord();
     clearResult();
-    status.textContent = !context() ? '该事件缺少有效日期或 HTTPS 来源，暂不可调用。'
-      : identity?.role === 'admin' ? '点击后仅发送所选游戏名、事件名、日期与来源链接。'
+    const data = context();
+    status.textContent = !data ? '该情报的日期格式无效或缺少 HTTPS 来源，暂不可调用。'
+      : identity?.role === 'admin' ? data.events[0].date === null
+        ? '事件日期待确认；点击后发送所选游戏名、事件名、空日期与来源链接，不推测日期。'
+        : '点击后仅发送所选游戏名、事件名、日期与来源链接。'
       : '需要 FS 管理员权限才可调用 AI 解读。';
     if (storageError) status.textContent = '无法安全读取本页请求记录，已暂停新提交；请先核对已有请求。';
     if (pending) {

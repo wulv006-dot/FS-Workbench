@@ -262,7 +262,18 @@ def _projection(batch):
     states = ('available', 'partial', 'unavailable', 'target_period_expired', 'no_complete_days')
     if batch.get('status') not in states:
         raise ValueError('invalid_batch_status')
+    observed = (datetime.fromisoformat(period['end']) - datetime.fromisoformat(period['start'])).days + 1 if period['end'] else 0
+    month_days = monthrange(2026, 10)[1]
+    for row in projects:
+        # Reuse the same deterministic calculation as the published facts; never forward free-form source fields.
+        row.update(calculations(row['actuals'], row['targets'], observed, month_days))
+        row['dataComplete'] = not row['missing']
+        row['targetAttainment'] = {key: 'not_evaluated' if row['actuals'][key] is None or not observed else
+                                   'achieved' if row['actuals'][key] >= row['targets'][key] else 'not_yet_achieved'
+                                   for key in METRICS}
     return {'targetPeriod': '2026-10', 'period': period, 'projects': projects, 'snapshotState': batch['status'],
+            'observedCompleteDays': observed, 'monthDays': month_days, 'timeProgressPct': rounded(observed / month_days * 100),
+            'profitScope': 'estimated profit from Admin main-site revenue multiplied by Order all-sites reference margin; not main-site settled or actual gross profit',
             'forecastMethod': FORECAST_METHOD, 'targetChangesAllowed': False}
 
 
@@ -273,9 +284,13 @@ def messages(batch):
         '输出严格JSON，恰好包含summary和projects；projects逐项包含key、advice且覆盖输入所有项目。'
         f'总输出预算为{MAX_TOKENS} tokens，优先完整覆盖全部项目；summary不超过150个中文字符，每项advice约60至100个中文字符且不得超过120字。'
         'summary优先说明最值得处理的问题或机会及安排顺序，不泛泛复述数字。每项advice围绕该项目最重要的一件事，写清建议人工执行的动作、执行条件或风险、验证指标及复盘窗口；'
-        '例如待来源补齐后核对主站营收与订单是否同步改善，在下一次日报复盘；具体选择必须基于该项目证据，不逐项复制同一句模板。'
+        '依据每个项目实际差异选择动作，不逐项复制模板：进度落后时建议人工核对可承接需求与交付约束，预测不足时核对达标所需资源，已达标时关注交付与利润保护；上述均为待人工评估的动作，不代表已有需求、供给问题或新增操作权限。'
+        '程序已提供observedCompleteDays、monthDays、timeProgressPct及每项目completionPct、requiredDaily、forecast、progress、warnings和targetAttainment；直接采用这些确定性判断，不自行猜测或重算。'
+        '月中累计未到整月目标只叫尚未达成月目标，不等于进度落后；只有progress.state为behind才称进度落后，ahead为超前、within为接近时间进度。预测不足须对应warnings中该指标的forecast预警，不可把预测当事实。'
+        'targetAttainment某指标为achieved时必须承认该指标已达月目标，不能说该指标未达标；各指标分开判断，收入达标不代表订单或预估利润达标，某指标不足也不代表整个项目都落后。'
         '事实与因果假设明确分开：输入只能证明累计实绩与目标差距，不能证明流量、转化、供给或人员导致差距；确需提出原因假设时标为待验证，并给验证所需证据。'
-        '缺失数据时优先说清要补齐或核对的来源及补齐后再作的判断，不猜经营表现；单期累计不能声称增长、下降或趋势反转。'
+        'dataComplete为true且missing为空代表本次核心指标完整，不能要求补齐这些数据；完整汇总没有日趋势或因果细分，不等于核心数据缺失。只有missing明确列出的指标才可要求补齐，并说明补齐后判断什么。'
+        '单期累计不能声称增长、下降、改善、恶化或趋势反转；验证指标是未来复盘要观察的指标，不是已经发生的变化。预估利润为负时只能称预估利润为负，不能据此声称负毛利或实结亏损；非负时不得臆造负利润。'
         '只提出定性、可由人员审核的经营建议；可用输入中完整项目key明确指出项目，项目key以外不写数字、金额或指标数值，不写具体售价或调价建议，不修改目标或负责人，不宣称已经完成操作，不把预估利润当实结。'
         '不臆造情报、原因、细分或可查询能力；线性预测只是实际除已过完整日乘月天数，假设日均不变，不是承诺，也不是因果证据。不要输出人员或客户信息。'
     )
@@ -309,10 +324,15 @@ def validate_response(raw, batch):
     # ASCII identifier boundaries permit Chinese prose beside a key, never a key prefix inside another identifier.
     allowed_keys = re.compile(r'(?<![A-Za-z0-9_-])(?:' + '|'.join(re.escape(p['key']) for p in context['projects']) + r')(?![A-Za-z0-9_-])')
     numeric_blocked = re.compile(r'\d|[$¥%]')
-    blocked = re.compile(r'[<>`@]|https?://|sk-|bearer|api[_ -]?key|password|token|secret|密码|密钥|客户姓名|手机号|邮箱|售价|调价|降价|涨价|采购价|自动执行|已执行|已修改|已核实|已确认|修改目标|调整目标|更换负责人|忽略.{0,12}指令', re.I)
+    blocked = re.compile(r'[<>`@]|https?://|sk-|bearer|api[_ -]?key|password|token|secret|密码|密钥|客户姓名|手机号|邮箱|售价|调价|降价|涨价|采购价|自动执行|已执行|已修改|已核实|已确认|忽略.{0,12}指令', re.I)
+    protected_actions = re.compile(r'修改目标|调整目标|更换负责人')
+    # Only a directly negated protected action is exempt; double negatives and other action occurrences still fail.
+    negated_actions = re.compile(r'(?<![不无非没未能得要])(?:不要|不得|禁止|不)(?:修改目标|调整目标|更换负责人)')
+    negation_reversal = re.compile(r'(?:不是|不能|不得|不要|不必|不应|不该|不宜|并非|反对|取消|解除|撤销)(?:不|不要|不得|禁止)(?:修改目标|调整目标|更换负责人)')
     def text(value, limit):
         if (not isinstance(value, str) or not 4 <= len(value) <= limit or not re.search(r'[\u4e00-\u9fff]', value) or
-                numeric_blocked.search(allowed_keys.sub('', value)) or blocked.search(value) or any(name in value for name in names) or any(ord(c) < 32 for c in value)):
+                numeric_blocked.search(allowed_keys.sub('', value)) or blocked.search(value) or
+                negation_reversal.search(value) or protected_actions.search(negated_actions.sub('', value)) or any(name in value for name in names) or any(ord(c) < 32 for c in value)):
             raise ValueError('unsafe_model_advice')
     text(result['summary'], 150)
     rows = result['projects']
