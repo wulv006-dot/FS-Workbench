@@ -41,6 +41,43 @@ class ReleaseTests(unittest.TestCase):
             if change=='scope':value['files'].pop()
             with self.assertRaises(ValueError):self.publisher.validate(value,self.stage)
 
+    def update_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_UPDATE_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_UPDATE_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_UPDATE_TARGETS.values())]
+        return value
+
+    def test_update_scope_is_exact_five_and_preserves_initial_gate(self):
+        value=self.update_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),5)
+        self.assertEqual(len(self.publisher.validate(self.manifest,self.stage)),34)
+        attempted=json.loads(json.dumps(self.manifest))
+        for row in attempted['files']:row['beforeSha256']='b'*64
+        with self.assertRaisesRegex(ValueError,'initial target baselines'):self.publisher.validate(attempted,self.stage)
+        for change in ('baseline','omitted_target','extra_target','omitted_protected','unit','image','business_write'):
+            changed=json.loads(json.dumps(value))
+            if change=='baseline':changed['files'][0]['beforeSha256']=None
+            if change=='omitted_target':changed['files'].pop()
+            if change=='extra_target':changed['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='omitted_protected':changed['unchangedRequired']=[r for r in changed['unchangedRequired'] if not r['path'].endswith('/range_api.py')]
+            if change=='unit':del changed['runtimeRequired']['fs-hermes-fc.service']
+            if change=='image':changed['imageId']='unreviewed'
+            if change=='business_write':changed['businessWrites']=True
+            with self.assertRaises(ValueError):self.publisher.validate(changed,self.stage)
+
+    def test_update_waits_for_pending_running_and_unreconciled_hermes(self):
+        import sqlite3
+        from contextlib import closing
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        self.publisher.hermes_quiescent(self.root)
+        for state in ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE'):
+            with closing(sqlite3.connect(path)) as db,db:db.execute('DELETE FROM requests');db.execute('INSERT INTO requests VALUES(?)',(state,))
+            with self.assertRaisesRegex(ValueError,'defer update'):self.publisher.hermes_quiescent(self.root)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('DELETE FROM requests');db.execute("INSERT INTO requests VALUES('FAILED')")
+        self.publisher.hermes_quiescent(self.root)
+
     def test_uses_original_locks_and_active_report_guard(self):
         import inspect
         source=inspect.getsource(self.publisher.apply)
