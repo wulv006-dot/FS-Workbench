@@ -7,7 +7,7 @@
 <p class="muted">Admin 经营主源，Order 参考利润与明细补源。缺失与估算会单独标注。建议尚未执行，当前入口和定时任务的默认分析层未切换。</p></main>
 <script>
 'use strict';
-const api='/dashboard/fs-home/api/advisor';
+const api='/dashboard/fs-home/advisor.json';
 let current=null,timer=null;
 const $=id=>document.getElementById(id);
 function node(tag,text,parent){const e=document.createElement(tag);e.textContent=text;parent.appendChild(e);return e;}
