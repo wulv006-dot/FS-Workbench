@@ -1,12 +1,13 @@
 """Strict projections for the existing shared bounded-model adapter; no I/O."""
 from datetime import date, datetime, timedelta, timezone
 import json
+import logging
 import math
 import re
 import urllib.parse
 
 METRICS = {'revenue_usd', 'orders', 'estimated_profit_usd', 'target_revenue_usd'}
-MANAGEMENT_REVISION = 'management-revenue-progress-v4'
+MANAGEMENT_REVISION = 'management-revenue-progress-v5'
 SECRET = re.compile(r'sk-[A-Za-z0-9]|bearer|api[_ -]?key|password|token|secret|密码|密钥|客户|手机号|邮箱|负责人|@', re.I)
 
 
@@ -178,7 +179,17 @@ def validate_response(raw, projected):
         if management and isinstance(text, str):
             keys = '|'.join(re.escape(p['key']) for p in projected['context']['projects'])
             checked_text = re.sub(r'(?<![A-Za-z0-9_-])(?:' + keys + r')(?![A-Za-z0-9_-])', '', text)
-        if type(text) is not str or not 8 <= len(text) <= 300 or not re.search(r'[\u4e00-\u9fff]', text) or SECRET.search(text) or re.search(r'\d|[$¥%<>]|https?://|售价|调价|降价|涨价|采购价|卖价|自动执行|无需|无须|已完成|可直接|立即|已执行|已修改|已核实|已确认|联网检索', checked_text) or any(ord(c) < 32 and c != '\n' for c in text):
+        forbidden = r'售价|调价|降价|涨价|采购价|卖价|自动执行|已执行|已修改|已核实|已确认|联网检索'
+        forbidden += r'|已提交|已退款|已派单|已完成业务' if management else r'|无需|无须|已完成|可直接|立即'
+        reason = ('text_type' if type(text) is not str else
+                  'text_length' if not 8 <= len(text) <= 300 else
+                  'text_language' if not re.search(r'[\u4e00-\u9fff]', text) else
+                  'sensitive_text' if SECRET.search(text) else
+                  'numeric_or_markup' if re.search(r'\d|[$¥%<>]|https?://', checked_text) else
+                  'execution_or_price' if re.search(forbidden, checked_text) else
+                  'control_character' if any(ord(c) < 32 and c != '\n' for c in text) else None)
+        if reason:
+            logging.warning('boss_insight_validation scope=%s reason=%s', projected['scope'], reason)
             raise ValueError('invalid_model_output')
         compact_text = re.sub(r'\s+', '', text)
         if management and (re.search(r'上线|开服|赛季|倒计时', text) or
@@ -190,5 +201,9 @@ def validate_response(raw, projected):
         return {'status': 'succeeded', 'text': text, 'model': MODEL, 'receipt': raw['id'],
                 'tokens': usage['total_tokens'],
                 'source_kind': 'imported_snapshot' if projected['scope'] == 'game-monitor' else 'fs_summary'}
+    except ValueError as error:
+        known = {'invalid_model_response', 'incomplete_model_response', 'invalid_model_output', 'invalid_management_output', 'invalid_model_usage', 'invalid_fields'}
+        logging.warning('boss_insight_validation scope=%s error=%s', projected['scope'], str(error) if str(error) in known else 'invalid_json_or_value')
+        raise
     except (KeyError, IndexError, TypeError, AttributeError, UnicodeError):
         raise ValueError('invalid_model_response') from None
