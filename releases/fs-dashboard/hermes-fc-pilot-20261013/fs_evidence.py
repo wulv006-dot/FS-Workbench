@@ -69,6 +69,31 @@ def old_report_projection(report):
     return out
 
 
+def bounded_history(value,args):
+    """Keep large report bytes available in declared Unicode-safe JSON fragments."""
+    chunk=args.get('chunk',1)
+    if type(chunk) is not int or not 1<=chunk<=100000:raise ValueError('history_chunk')
+    raw=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+    if len(raw)<=12000:
+        if chunk!=1:return dict(value,status='empty',reports=[],hermes_reports=[],report_chunks={'chunk':chunk,'total_chunks':1,'has_more':False})
+        return value
+    fragments=[];lo=0
+    while lo<len(raw):
+        hi=min(lo+4096,len(raw))
+        while True:
+            try:text=raw[lo:hi].decode('utf-8');break
+            except UnicodeDecodeError:hi-=1
+        fragments.append(text);lo=hi
+    out={k:value[k] for k in ('http_status','captured_at','pagination','scope','owner_context','date_basis','version_boundary','history_index_snapshot_id') if k in value}
+    out.update(status='partial' if chunk<=len(fragments) else 'empty',reports=[],hermes_reports=[],
+        report_chunks={'format':'canonical-json-fragments','chunk':chunk,'total_chunks':len(fragments),'has_more':chunk<len(fragments),
+                       'text':fragments[chunk-1] if chunk<=len(fragments) else '',
+                       'sha256':hashlib.sha256(raw).hexdigest(),'full_payload_bytes':len(raw),
+                       'rule':'Read requested fragments, concatenate text in chunk order, parse JSON; a partial reading is not complete-version evidence. No source text or numeric field deleted.'})
+    if len(json.dumps(out,ensure_ascii=False,separators=(',',':')).encode())>12000:raise ValueError('history_fragment_budget')
+    return out
+
+
 class ReportHistory:
     """Freeze the version boundary once, then expose complete versions in pages."""
     def __init__(self,daily):
@@ -88,11 +113,11 @@ class ReportHistory:
             query=(args['start'],args['end'],self.maximum)
             total=db.execute('SELECT count(*) FROM reports WHERE day>=? AND day<=? AND job_id<=?',query).fetchone()[0]
             rows=db.execute('SELECT content FROM reports WHERE day>=? AND day<=? AND job_id<=? ORDER BY job_id DESC LIMIT 1 OFFSET ?',(*query,page-1)).fetchall()
-        return {'http_status':200,'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
+        return bounded_history({'http_status':200,'status':'available' if rows else 'empty','reports':[old_report_projection(json.loads(r[0])) for r in rows],
                 'pagination':{'page':page,'page_size':1,'total_reports':total,'has_more':page<total},
                 'history_index_snapshot_id':self.index['snapshot_id'], 'captured_at':self.index['captured_at'],
                 'scope':'FC stored complete report versions; inspect actual Admin/Order periods before comparison',
-                'date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']}
+                'date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']},args)
 
 
 class OwnerRunHistory:
@@ -118,10 +143,10 @@ class OwnerRunHistory:
             saved=json.loads(row[0]);previous=[{'report_id':selected[0]['id'],'period':selected[0]['period'],
                 **{k:saved[k] for k in ('summary','findings','actions','reviews','limitations')},
                 'rule':'原证据ID属于原任务；复盘须重查当前证据，未执行建议不能归因效果'}]
-        return {'http_status':200,'status':'available' if previous else 'empty','reports':[],'hermes_reports':previous,
+        return bounded_history({'http_status':200,'status':'available' if previous else 'empty','reports':[],'hermes_reports':previous,
                 'pagination':{'page':page,'page_size':1,'total_reports':len(matches),'has_more':page<len(matches)},
                 'captured_at':self.index['captured_at'],'history_index_snapshot_id':self.index['snapshot_id'],
-                'owner_context':'current_owner_only','date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']}
+                'owner_context':'current_owner_only','date_basis':self.index['date_basis'],'version_boundary':self.index['version_boundary']},args)
 
 
 def attach_owner_history(book,tasks,owner):

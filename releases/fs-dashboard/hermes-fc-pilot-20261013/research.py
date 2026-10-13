@@ -25,7 +25,7 @@ def tool_schemas():
     filters={'type':'object','properties':{k:string for k in QUEUE_DIMENSIONS},'additionalProperties':False}
     page={'type':'integer','minimum':1}
     properties=({}, {'start':string,'end':string,'group_by':groups,'filters':filters,'page':page},
-                {'group_by':groups,'filters':filters,'page':page}, {'start':string,'end':string,'page':page,'source':{'type':'string','enum':['daily','hermes']}},
+                {'group_by':groups,'filters':filters,'page':page}, {'start':string,'end':string,'page':page,'chunk':page,'source':{'type':'string','enum':['daily','hermes']}},
                 {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string}, {},
                 {'operation':{'type':'string','enum':['difference','ratio','sum','multiply','extrema','interval_overlap','required_daily','price_scenario']},
                  'values':{'type':'array','items':{'type':'string'}},'evidence_ids':{'type':'array','items':string},
@@ -36,14 +36,14 @@ def tool_schemas():
     descriptions=('Read source/field/time/coverage definitions and unavailable capabilities before investigation.',
                   'Query immutable Admin main-site paid orders by dates and up to three dimensions. All dates inclusive; paginate grouped results.',
                   'Drill current Admin open pool by age/platform/product/status. Progress is explicitly missing, never assume zero delivery.',
-                  'Read one complete previous report version from selected source per page, newest first, with total/has_more. source defaults daily; source hermes reads only completed investigations owned by this user. Daily dates filter stored report business day; Hermes dates match investigation period overlap. Consult history_index available days/periods. Compare full facts/judgments without treating prior claims as verified current causes.',
+                  'Read one complete previous report version from selected source per page, newest first, with total/has_more. source defaults daily; source hermes reads only completed investigations owned by this user. Daily dates filter stored report business day; Hermes dates match investigation period overlap. Consult history_index available days/periods. Large versions return bounded canonical JSON fragments; use chunk (default1) and report_chunks.total_chunks/sha256 to read needed fragments. Partial chunks are not a complete version. Compare full facts/judgments without treating prior claims as verified current causes.',
                   'Read exact Order FC27/FC26 reference profit and history. Async pending is not zero. Never use as verified pricing cost.',
                   'Read existing bounded Order problem-log clues asynchronously; historical sample does not establish current overall causes.',
                   'Perform Decimal arithmetic. Each value needs value_paths item {evidence_id,path:JSON-pointer from evidence root}; null allowed only with matching nonempty assumption label. Non-assumed labels must be empty. Every input value must equal its resolved evidence field. Assumptions mark the result as scenario, never an observed fact.',
                   'Read reviewed FC analysis methods, with version/hash; no authority is added.',
                   'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     return [{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
-                'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source'))],'additionalProperties':False}}}
+                'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk'))],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES,properties,descriptions)]
 
 
@@ -195,11 +195,12 @@ class ResearchBook:
         if name == 'fc.query_business': return self.query(args)
         if name == 'fc.query_queue': return self.query(args,current=True)
         if name == 'fc.read_history':
-            if not {'start','end'}<=set(args) or set(args)-{'start','end','page','source'}: raise ValueError('history_fields')
+            if not {'start','end'}<=set(args) or set(args)-{'start','end','page','source','chunk'}: raise ValueError('history_fields')
             period(args['start'],args['end'])
-            args=deepcopy(args);args.setdefault('page',1);args.setdefault('source','daily')
+            args=deepcopy(args);args.setdefault('page',1);args.setdefault('source','daily');args.setdefault('chunk',1)
             if args['source'] not in ('daily','hermes'):raise ValueError('history_source')
             if type(args['page']) is not int or not 1<=args['page']<=100000:raise ValueError('history_page')
+            if type(args['chunk']) is not int or not 1<=args['chunk']<=100000:raise ValueError('history_chunk')
             value = self.history(args) if self.history else {'status':'not_available','reason':'history_adapter_missing'}
             return self.register(name,args,value,'历史报告/同业务日读数；非当前事实')
         if name == 'fc.query_reference':

@@ -57,11 +57,29 @@ class HistoryTests(unittest.TestCase):
         self.assertNotIn('hermes_reports',daily_page)
         q={'start':'2026-10-05','end':'2026-10-11','source':'hermes'}
         first=book.call('fc.read_history',q)['data'];self.assertEqual(first['pagination']['total_reports'],5)
-        self.assertEqual(first['hermes_reports'][0]['report_id'],'4');self.assertEqual(len(first['hermes_reports']),1)
+        self.assertEqual(first['report_chunks']['chunk'],1);self.assertGreater(first['report_chunks']['total_chunks'],1)
+        fragments=[book.call('fc.read_history',dict(q,chunk=i))['data']['report_chunks']['text'] for i in range(1,first['report_chunks']['total_chunks']+1)]
+        restored=json.loads(''.join(fragments));self.assertEqual(restored['hermes_reports'][0]['report_id'],'4');self.assertEqual(len(restored['hermes_reports']),1)
         with self.daily.db() as db:db.execute('INSERT INTO requests VALUES(?,?,?,?,?)',('later','owner','COMPLETED',body,result))
-        second=book.call('fc.read_history',dict(q,page=2))['data'];self.assertEqual(second['hermes_reports'][0]['report_id'],'3');self.assertEqual(second['pagination']['total_reports'],5)
-        self.assertEqual(len(second['hermes_reports'][0]['findings'][0]),18000);self.assertLess(len(json.dumps(first)),20000)
+        second=book.call('fc.read_history',dict(q,page=2))['data'];self.assertEqual(second['pagination']['total_reports'],5)
+        self.assertEqual(len(restored['hermes_reports'][0]['findings'][0]),18000);self.assertLess(len(json.dumps(first).encode()),12000)
+        self.assertEqual(second['report_chunks']['chunk'],1)
         self.assertEqual(book.history_index['hermes']['total_versions'],5)
         self.assertNotIn('other',json.dumps(first));self.assertNotIn('later',json.dumps(second))
+
+    def test_single_large_unicode_version_is_lossless_bounded_and_invalid_chunk_rejected(self):
+        from fs_evidence import bounded_history
+        import hashlib
+        value={'http_status':200,'status':'available','reports':[{'summary':'中文 "quote" \n'*18000,'numeric_value':'123.45'}],'pagination':{'page':1,'total_reports':1,'has_more':False}}
+        parts=[];checks=[]
+        first=bounded_history(value,{});count=first['report_chunks']['total_chunks']
+        for i in range(1,count+1):
+            part=bounded_history(value,{'chunk':i});self.assertLess(len(json.dumps(part,ensure_ascii=False).encode()),12000)
+            self.assertEqual(part['status'],'partial');parts.append(part['report_chunks']['text']);checks.append(part['report_chunks']['sha256'])
+        raw=''.join(parts).encode();self.assertEqual(hashlib.sha256(raw).hexdigest(),checks[0]);self.assertEqual(len(set(checks)),1)
+        self.assertEqual(json.loads(raw),value);self.assertFalse(bounded_history(value,{'chunk':count})['report_chunks']['has_more'])
+        for bad in (True,0,'1'):
+            with self.assertRaises(ValueError):bounded_history(value,{'chunk':bad})
+        self.assertEqual(bounded_history(value,{'chunk':count+1})['status'],'empty')
 
 if __name__=='__main__':unittest.main()
