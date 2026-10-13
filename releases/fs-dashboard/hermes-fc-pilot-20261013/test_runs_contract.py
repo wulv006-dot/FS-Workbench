@@ -34,6 +34,7 @@ class RunsTests(unittest.TestCase):
     def test_admission_requires_actual_protocol_shape(self):
         run = 'run_'+'a'*32
         self.assertEqual(validate_admission(202, {'run_id': run, 'status': 'running'}), run)
+        self.assertEqual(validate_admission(202, {'run_id': run, 'status': 'started'}), run)
         for status, value in [(200, {'run_id': run, 'status': 'running'}), (202, {'run_id': '../secret', 'status': 'running'}), (202, {'run_id': run, 'status': 'unknown'})]:
             with self.assertRaises(ValueError): validate_admission(status, value)
 

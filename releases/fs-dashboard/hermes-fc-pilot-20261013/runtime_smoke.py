@@ -12,7 +12,7 @@ import tempfile
 
 import hermes_worker
 from transport import Grants, Proxy, start_loopback
-from runs_contract import WIRE_TOOLS
+from runs_contract import WIRE_TOOLS,validate_admission
 import test_gateway as fixtures
 
 
@@ -22,6 +22,8 @@ async def run(effort):
     fixture.setUp()
     fixture.budget.policy['model'] = 'deepseek-v4.1-flash'
     fixture.scope.deadline = None
+    fixture.task=fixture.tasks.create('owner',dict(fixture.task['spec'],template_version='official-'+effort))
+    fixture.task=fixture.tasks.reserve_dispatch(fixture.task['id'],'owner','lease')
     grants = Grants()
     token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort=effort)
     tool_hits = []
@@ -67,10 +69,12 @@ async def run(effort):
         session_id = 'fc_'+'a'*64
         hermes_worker.ADMISSIONS = fixture.root/'admissions'
         hermes_worker.ADMISSIONS.mkdir()
-        (hermes_worker.ADMISSIONS/(session_id+'.json')).write_text(json.dumps({
+        admitted={
             'session_id': session_id, 'token': token, 'model': 'deepseek-v4.1-flash',
-            'reasoning_effort':effort,
-            'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}), encoding='utf-8')
+            'reasoning_effort':effort,'ready':False,
+            'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}
+        admission_file=hermes_worker.ADMISSIONS/(session_id+'.json')
+        admission_file.write_text(json.dumps(admitted),encoding='utf-8')
         home = Path(os.environ['HERMES_HOME']); home.mkdir(parents=True, exist_ok=True)
         (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
         api_key = secrets.token_urlsafe(32)
@@ -84,7 +88,11 @@ async def run(effort):
                     'input': 'Check FC metric definitions, then finish.', 'session_id': session_id}) as response:
                 result = await response.json()
                 assert response.status == 202, ('admission', response.status, result)
-            run_id = result['run_id']
+            run_id=validate_admission(response.status,result)
+            assert result['status']=='started','pinned_admission_shape'
+            fixture.tasks.bind_run(fixture.task['id'],'owner','lease',run_id)
+            admitted['ready']=True
+            temporary=admission_file.with_suffix('.tmp');temporary.write_text(json.dumps(admitted),encoding='utf-8');temporary.replace(admission_file)
             for _ in range(90):
                 async with client.get('http://127.0.0.1:8941/v1/runs/'+run_id) as response:
                     result = await response.json()
@@ -110,6 +118,7 @@ async def run(effort):
         print(json.dumps({'official_runs': 'pass', 'official_agent': 'pass', 'tools': tool_hits,
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass',
+                          'actual_started_admission_and_run_binding':'pass',
                           'real_business_data': False, 'real_model_call': False}))
     finally:
         if adapter is not None:

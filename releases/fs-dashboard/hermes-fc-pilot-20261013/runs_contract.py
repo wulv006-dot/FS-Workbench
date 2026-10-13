@@ -44,7 +44,7 @@ def validate_admission(http_status, payload):
         raise ValueError('admission_unknown_or_rejected')
     if not re.fullmatch(r'run_[a-f0-9]{32}', payload.get('run_id', '')):
         raise ValueError('run_identity_invalid')
-    if payload.get('status') not in {'queued', 'running', 'stopping', 'completed', 'failed', 'cancelled', 'interrupted'}:
+    if payload.get('status') not in {'started','queued', 'running', 'stopping', 'completed', 'failed', 'cancelled', 'interrupted'}:
         raise ValueError('run_status_invalid')
     return payload['run_id']
 
