@@ -6,6 +6,8 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import tempfile
+import shutil
 import threading
 import time
 
@@ -52,9 +54,14 @@ def main():
         for rule in rules(binary):subprocess.run([executable,'-A',CHAIN]+rule,check=True)
         subprocess.run([executable,'-I','OUTPUT','1','-m','owner','--uid-owner',str(UID),'-j',CHAIN],check=True)
     def identity():os.setgroups([]);os.setgid(UID);os.setuid(UID)
-    child=subprocess.Popen([sys.executable,'-B',__file__,'--worker'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,preexec_fn=identity)
+    fixture=tempfile.TemporaryDirectory(prefix='hermes-uid-network-');folder=Path(fixture.name);folder.chmod(0o755)
+    for name in ('network_smoke.py','network_guard.py'):
+        target=folder/name;shutil.copyfile(Path(__file__).parent/name,target);target.chmod(0o444)
+    child=subprocess.Popen([sys.executable,'-B',str(folder/'network_smoke.py'),'--worker'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,preexec_fn=identity)
     try:
-        assert child.stdout.readline().strip()=='ready','worker_start_failed'
+        if child.stdout.readline().strip()!='ready':
+            out,error=child.communicate(timeout=5)
+            raise AssertionError(('worker_start_failed',out,error))
         assert connect(8941)==b'ok','runtime_response_blocked'
         out,error=child.communicate(timeout=15)
         assert child.returncode==0,(out,error)
@@ -62,6 +69,7 @@ def main():
     finally:
         if child.poll() is None:child.kill();child.wait(timeout=5)
         for sock,thread in servers:sock.close()
+        fixture.cleanup()
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--worker',action='store_true');args=parser.parse_args()
