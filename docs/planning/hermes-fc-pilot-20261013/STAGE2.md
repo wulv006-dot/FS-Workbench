@@ -1,6 +1,6 @@
 # 阶段二：受限代理、预算与背景接口
 
-沿用PR108，没有新建任务。新增gateway.py、runtime_contract.py、background.py及两组测试。全部55项离线测试通过，0失败/错误/跳过；测试使用临时数据库、假provider/锁、合成聚合数据，没有真实网络或秘密。
+沿用PR108，没有新建任务。新增gateway.py、runtime_contract.py、background.py及两组测试。全部58项离线测试通过，0失败/错误/跳过；测试使用临时数据库、假provider/锁、合成聚合数据，没有真实网络或秘密。
 
 ## 本次实现
 
@@ -20,7 +20,7 @@ runtime_contract.py是惰性的FS隔离提案校验器，不冒充Hermes原生�
 
 ## 背景导入
 
-主对话用户要求业务背景/画像/偏好，正式文档尚未收到。background.py只接收显式传入正文及FS审核元数据，不查聊天或文件。按UTF-8精确SHA、版本、来源导入，保留原版本；修改字节须重新审核。背景、任务状态和实时证据引用分区。背景权限为空、context_only；文中任何“授予权限”不会改FS策略。敏感令牌/密码模式拒绝；该检测不是完整PII脱敏保证，正式文档仍需人工审核。
+主对话用户要求业务背景/画像/偏好，正式文档libfile_d2de6fdbc8d08191b3d0b91567c61ff9已完整读取（v1.0，243行，18904字节），但当前官方物化程序在Windows的os.setxattr处失败，目标本地文件不存在，未导入Hermes。身份/版本/实际失败见background-materialization.json。background.py只接收显式传入正文及FS审核元数据，不查聊天或文件。按UTF-8精确SHA、版本、来源导入，保留原版本；修改字节须重新审核。背景、任务状态和实时证据引用分区。背景权限为空、context_only；文中任何“授予权限”不会改FS策略。敏感令牌/密码模式拒绝；该检测不是完整PII脱敏保证，正式文档仍需人工审核。
 
 ## 最新接入意向与待确认
 
@@ -32,6 +32,8 @@ runtime_contract.py是惰性的FS隔离提案校验器，不冒充Hermes原生�
 
 ## 验证记录
 
-命令：python -B -m unittest discover -s hermes_fc_pilot_20261013。55不同用例包含上一阶段29项。一次背景测试错误地在说明词query_for_values中查找子串value，已改成验证证据对象字段集合；另一次命令目录拼写错误未执行测试。最终完整55项通过，不隐藏上述调试过程。
+命令：python -B -m unittest discover -s hermes_fc_pilot_20261013。58不同用例包含上一阶段29项。一次背景测试错误地在说明词query_for_values中查找子串value，已改成验证证据对象字段集合；另一次命令目录拼写错误未执行测试。最终完整58项通过，不隐藏上述调试过程。
 
 捆绑包协作定位仅查看任务列表与其HANDOFF段，未发现直接负责人任务ID；可验证入口为PR95及docs/planning/fc27-pack-bundles-20261013/README.md。未改模块、未触发验收或旧任务。
+
+背景入口采用简短文档引言和章节索引，按version/SHA读取详细章节，单章上限8000字节；不默认注入全文，不开放任意文件路径。真实文档尚未本地物化，58项测试仅含合成背景样本，不冒称正式导入验收。
