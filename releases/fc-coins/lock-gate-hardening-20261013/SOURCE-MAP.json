@@ -1,0 +1,32 @@
+{
+  "moduleId": "fc-coins",
+  "businessOwner": "wulv",
+  "scope": "two exact active source files only",
+  "canonicalLocalSource": "fc27_lock_gate_hardening_20261013/source",
+  "packagePath": "releases/fc-coins/lock-gate-hardening-20261013",
+  "files": [
+    {
+      "source": "source/coin_all_sync_job.py",
+      "runtime": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "before": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
+      "sha256": "c0ca9ec45fc2b4e7be3337ae4ca50b6d5f4effab6a8eb7cb829718dabdc0b2ab",
+      "bytes": 22514
+    },
+    {
+      "source": "source/collect_competitor_browser.py",
+      "runtime": "/opt/fc27-cloud-browser/collector/collect_competitor_browser.py",
+      "before": "13691edfef8f739c33f37566a75cc6fd7ec8ef88b1ae5e7f334b5acd06383c8c",
+      "sha256": "790c5adc0abae4bb46c9975c60517e8457517af4700c6b21bd481d95027ebcc6",
+      "bytes": 11298
+    }
+  ],
+  "runtimeAccepted": "2026-10-13T11:51:31Z",
+  "linuxIsolatedTests": 34,
+  "linuxRequiredSkips": 0,
+  "productionFaultBranchesExercised": false,
+  "newNaturalCycleObserved": false,
+  "businessPolicyChanged": false,
+  "priceActionsDuringRelease": 0,
+  "remainingModuleAdoption": "legacy-unreconciled",
+  "runtimeDataIncluded": false
+}

@@ -194,6 +194,8 @@ def selfcheck():
             raise RuntimeError("fs_boss_workspaces_scope_missing")
     if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
         raise RuntimeError("fc_deep_advisor_scope_missing")
+    if select(["releases/fc-coins/lock-gate-hardening-20261013/source/coin_all_sync_job.py"]) != ["fc-lock-gate-hardening"]:
+        raise RuntimeError("fc_lock_gate_hardening_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
@@ -237,6 +239,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
+            groups.add("fc-lock-gate-hardening");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
             groups.add("fc-deep-advisor");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/homefix/"):
@@ -350,7 +354,8 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="engine":units(".",["test_fc27_quote_engine"])
+        if group=="fc-lock-gate-hardening":units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
         elif group=="registration-management":
             release="releases/registration/account-management-20261009"
