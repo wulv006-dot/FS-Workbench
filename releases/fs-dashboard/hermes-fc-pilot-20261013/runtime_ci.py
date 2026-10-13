@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from urllib.parse import urlsplit
 from urllib.request import build_opener, HTTPRedirectHandler
@@ -53,6 +54,7 @@ def main():
                 raise ValueError('official_source_digest_changed: '+name)
         subprocess.run(['docker', 'build', '-t', 'fs-hermes-fc:ci', str(context)], check=True, timeout=900)
     if args.test:
+      subprocess.run(['unshare','--net',sys.executable,'-B',str(root/'network_smoke.py')],check=True,timeout=45)
       for effort in ('high','max'):
         subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
                         '--security-opt', 'no-new-privileges', '--user', '65534:65534',
