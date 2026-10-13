@@ -15,8 +15,11 @@ def admin_read(args):
     try:
         with build_opener(NoRedirect).open(req,timeout=60) as response:data=response.read(1000001)
     except HTTPError as error:
-        if error.code not in (403,503):raise
-        # These statuses carry this service's already-projected failure, not raw Admin data.
+        if error.code != 503:
+            error.close()
+            raise
+        # 403 always keeps its denial barrier, even when its body is bare or malformed.
+        # 503 carries this service's projected failure; the provider validates its envelope.
         try:data=error.read(1000001)
         finally:error.close()
     if len(data)>1000000:raise ValueError('projected_response_size')
