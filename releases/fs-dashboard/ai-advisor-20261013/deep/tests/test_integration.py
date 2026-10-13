@@ -37,7 +37,7 @@ class Integration(unittest.TestCase):
         self.advisor=ai_advisor.Advisor(lambda:CAT,lambda _:(_ for _ in ()).throw(AssertionError('unexpected_old_source')),self.daily,self.root/'advisor',clock=lambda:AT,authorizer=lambda u:u=='admin',deep=self.deep)
 
     def test_imports_use_candidate_not_frozen_release(self):
-        self.assertIn('deep',str(Path(ai_advisor.__file__)))
+        self.assertEqual(Path(ai_advisor.__file__).resolve(),Path(__file__).resolve().parents[1]/'source'/'ai_advisor.py')
         self.assertTrue(hasattr(self.advisor,'memory_action'))
 
     def test_deep_job_and_idempotent_model_same_pack(self):
