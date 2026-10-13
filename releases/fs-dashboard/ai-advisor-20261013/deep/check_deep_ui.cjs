@@ -1,0 +1,20 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const path=require('node:path'),root=__dirname;
+const html=fs.readFileSync(path.join(root,'source/advisor.html'),'utf8');
+const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
+const elements=new Map(),el=id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);};
+const ctx={ $:el,esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+ format:(v,u)=>v===null||v===undefined?'暂缺':(u==='USD'?'$':'')+Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(u==='%'?'%':''), aiStatus:{unknown_transport:'结果不确定，未重试'} };
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'deep_ui.js'),'utf8'),ctx);
+const report=JSON.parse(fs.readFileSync(path.join(root,'demo-report.json'),'utf8'));
+let rendered=vm.runInContext('deepView('+JSON.stringify(report)+')',ctx);
+for(const label of ['负责人下一步','待证原因','采用条件','复盘','自动历史比较','此前完整 30 日日均','当前积压','证据来源'])assert(rendered.includes(label),label);
+const attack=structuredClone(report);attack.deep.decision.findings[0].observation='<img src=x onerror=alert(1)>';
+attack.deep.diagnostics={status:'available',pages:1,listed:1,sampled:1,categories:{unclear:1},samples:[{ref:'<script>',platform:'PS',category:'unclear',review_url:'javascript:alert(1)'}]};
+rendered=vm.runInContext('deepView('+JSON.stringify(attack)+')',ctx);
+assert(!rendered.includes('<img'));assert(!rendered.includes('href="javascript:'));assert(rendered.includes('&lt;script&gt;'));
+assert(!/localStorage|sessionStorage|FS_DAILY_MODEL_KEY_FILE/.test(script));
+assert(script.includes("$('memory-list').innerHTML=''"));
+assert(script.includes("identity!==data.user"));
+assert(script.includes("X-FS-Advisor-Action"));
+console.log('Deep frontend: syntax, actionable output, XSS, private-memory clearing and source-link boundaries passed');

@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "scope": "fc-deep-advisor-exact-entry-20261013",
+  "releaseId": "workspace-native-20261006-0e3f0e26372f",
+  "releaseReady": false,
+  "immutableAssets": [
+    {
+      "candidate": "assets/advisor.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0e3f0e26372f/advisor.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-0e3f0e26372f/advisor.html",
+      "beforeSha256": null,
+      "sha256": "2afb076d1b2f523ea339c3264b2a539d26bca8402bbb0b0887a3aa7b2b23cf85"
+    }
+  ],
+  "targets": [
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "0c17ae72f46bdc2f6f29a3f9af96fa6ac9eeaa5bb007c744331241be42b502d4",
+      "sha256": "2a6cb43dbb435f2f3e562ffb2b7801210aad4ccbfb916a0ad343ec3d1bf69a9e"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "1b8d4c94a8b1ed1524a900ccf30d13c83583da1c5936fde437ac78ca0bc959b1"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "0eb8e37cf6e483f2c14f2f241cbca12c18eb85d9fcaaa4e8bfc8963a6d9e5341"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "98b6429ba6c84d3ebbf061b0299703b6d49dc753e7b5ac45c72061b544e568ce"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_config.json",
+      "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "a6f9f1ff0cb4978f177371250711647c93a5dfec2faa0b15fb9fa0947b8b6dba"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "66ff09deef5cd54f9e789bd875b76f26f7c811323645a93396db25d1699cc24c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "sha256": "bf133ffa7a9ea55e7ca3f87cd7e45d7aa1a1be2fee543eed34e94b14cd2db2c4"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/catalog.py",
+      "sha256": "8ad7720c7aee4fb2238651a4a652fbbd94072eba6e69ebb5ae7c382df74dc618"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fs-business-range.locations.conf",
+      "sha256": "090cb29c4052691f60acf4b3db3a430815a94389f5a70bbd9928184a9f0dfc9f"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "4666642d58241d37215e6d234675eb7affb0a9aeb45393059a063f21b711478d"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor.py",
+      "sha256": "870316877bccb58164b17272aa1016519b99d7c8f98dea43e065496cefddd9b2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_analysis.py",
+      "sha256": "135faa4799fbfc22b74da4a00d42e3cbde9f2b7d09ccfa01a1f9b4837d7c4164"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_sources.py",
+      "sha256": "f83e7605f08d26052a743ea7ad5cce78c421d9439c67ce29f32415c0dce18c5a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_model.py",
+      "sha256": "fcdc8e82d1560e7aabb840657159965cc2d88b78d6b6b313462d796fb6f7cb3a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_service.py",
+      "sha256": "cbbb810e40bf53c4b90b496a538a61cab39166941fc414f348fd226c3a470e10"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/advisor_memory.py",
+      "sha256": "830063f522c5c66de4c50c89f2b1aa595a1e56d7db9010fafd2c1dfd1ca2fe8d"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_order_diagnostics.py",
+      "sha256": "a3a870efea3113ab51127430715ca95d8318af428731583fe43d262c49437c05"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_order_reader.py",
+      "sha256": "e516d46859f48b0c36356a7144aaf968547760f17450dd89f2d9ec612ce162f2"
+    }
+  ],
+  "requiredBusinessLedger": {
+    "schemaVersion": 1,
+    "releaseId": "20261006-profit-daily-v4",
+    "version": 20261006113600,
+    "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba",
+    "publishedAt": "2026-10-06T11:54:06.870247+00:00",
+    "previousReleaseId": "20261006-fc-range-v4",
+    "previousSha256": "c4d5adea021ec5e0ae394b2cbc91fde20f1803c54659d58bd6fd95d92f13fcb4",
+    "backup": "/var/backups/fs-dashboard-releases/20261006T115406867934Z",
+    "manifestSha256": "63f0c299f1dc6d8df8e973536c7b9124f6a777c8c1fd294daa526d7deeffecf7",
+    "intentionalRollback": false,
+    "protectedPath": "/var/www/dashboard/index.html"
+  }
+}
