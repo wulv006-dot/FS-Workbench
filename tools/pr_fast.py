@@ -232,6 +232,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/activation/"):
+            groups.add("ai-advisor-live");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/"):
             groups.add("ai-advisor");continue
         if name.startswith("releases/fs-dashboard/fc-daily-20261013/"):
@@ -392,6 +394,11 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="ai-advisor-live":
+            release="releases/fs-dashboard/ai-advisor-20261013/activation"
+            units(release+"/source",["test_ai_advisor","test_boss_insights","test_fc_daily","test_advisor_release"])
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/source/check_ui.cjs")
         elif group=="ai-advisor":
             units("releases/fs-dashboard/ai-advisor-20261013/source",["test_ai_advisor","test_boss_insights","test_fc_daily","test_advisor_release"])
             node("releases/fs-dashboard/ai-advisor-20261013/source/check_ui.cjs")
