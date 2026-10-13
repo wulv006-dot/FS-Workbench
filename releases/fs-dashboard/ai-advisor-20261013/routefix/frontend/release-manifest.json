@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "releaseId": "workspace-native-20261006-d4eb2e013560",
+  "scope": "Advisor trailing-slash route fix; preserve exact authenticated index endpoint",
+  "immutableAssets": [
+    {
+      "candidate": "assets/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/business.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/business.css",
+      "sha256": "7c5c406d58632e16933a78e4eae420d92789c1b5aeb0f13d3e9d4a16130941e4",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/business.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/business.html",
+      "sha256": "82ea9b8f540ff54d2ce90b6e37802df72d5a8e8f7b0f28f71bd666441db00537",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/business.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/business.js",
+      "sha256": "9f4dfdea89d4b0a91bda196d467e52b09ecb9e43957744eea4112eb1cf137607",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/google.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/google.css",
+      "sha256": "fdc30ac01f85e4bfb2fd3351ba066aac48e82f5d5dabd98f501c078a0dd05106",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/google.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/google.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/google.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/google.js",
+      "sha256": "29544ee5fc6a066e98404fae0b6655a2c66c200f7b0737a896d4b10d8fefd217",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/home.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/home.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/home.html",
+      "sha256": "a17e2ba07973f35c2268ac3eb0e14dcf101b4ed23e0cabc655452ff799d21ce4",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/index.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/index.html",
+      "sha256": "321d2873ea15c258c3e1367586741b3dcf7eb654da778a5cbbaeabb7dd8cdc67",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/metrics.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/metrics.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/navigation.json",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/navigation.json",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/navigation.json",
+      "sha256": "7c0f6e0cb95117f3076b630c640dcf5695103aa2c0decb26452b16e2f17f497e",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/runtime.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/runtime.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/shell.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/shell.js",
+      "sha256": "d11c3506887a315ab0bbc2dde39605e45e4f5d1e792b4c7c7abacdc0c29103b9",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/snapshot-client.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/snapshot-client.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/snapshot-client.js",
+      "sha256": "557e92ce67c27c00290575e0dbf581b622c425c6e397e0753e73a16193390b73",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/workspace.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/workspace.css",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/workspace.css",
+      "sha256": "325ec6dd69a7d7ed368d49c9ef68f5c7d2cb8697cfe230cbc4abf9a7e940804d",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/legacy-business.js",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/legacy-business.js",
+      "sha256": "a22bd5c975306c4caaae968fe00657616baed95ab7601942541be538b6adbef1",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "assets/advisor.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/advisor.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/advisor.html",
+      "beforeSha256": null,
+      "sha256": "c40cf336467a7050e891e0db8fa88381501dd881e926148ec32c9087e5c34f2d"
+    },
+    {
+      "candidate": "assets/weekly-legacy.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-d4eb2e013560/weekly-legacy.html",
+      "url": "/dashboard/workspace-assets/workspace-native-20261006-d4eb2e013560/weekly-legacy.html",
+      "beforeSha256": null,
+      "sha256": "6bc0d92cda7031261bb76c059d2ee5be8df3fa85c554960381704f67109c409e"
+    }
+  ],
+  "targets": [
+    {
+      "candidate": "candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "b600fa8ed32ea22a853cab535eb3e5b8dfbac929681c5da8f344627e0b25d6c8",
+      "beforeSha256": "b600fa8ed32ea22a853cab535eb3e5b8dfbac929681c5da8f344627e0b25d6c8"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "e13b6abcf3efc28eb6e11676ea5073591b222e046440622c0e0e4b416eea0ce6",
+      "beforeSha256": "8cbb62e59a46e8986b64670685ab1b15c21f9e20d92c4353a8dc57ca626cdc88"
+    },
+    {
+      "candidate": "candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5",
+      "beforeSha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "0eb8e37cf6e483f2c14f2f241cbca12c18eb85d9fcaaa4e8bfc8963a6d9e5341"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "98b6429ba6c84d3ebbf061b0299703b6d49dc753e7b5ac45c72061b544e568ce"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_config.json",
+      "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "a6f9f1ff0cb4978f177371250711647c93a5dfec2faa0b15fb9fa0947b8b6dba"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "66ff09deef5cd54f9e789bd875b76f26f7c811323645a93396db25d1699cc24c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "sha256": "bf133ffa7a9ea55e7ca3f87cd7e45d7aa1a1be2fee543eed34e94b14cd2db2c4"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/catalog.py",
+      "sha256": "8ad7720c7aee4fb2238651a4a652fbbd94072eba6e69ebb5ae7c382df74dc618"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fs-business-range.locations.conf",
+      "sha256": "090cb29c4052691f60acf4b3db3a430815a94389f5a70bbd9928184a9f0dfc9f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "edd05a407d8dbb3de9fc7ef6c44fe48711d780346ac91e3b175084e1f01bbc89"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "aa46fbf806163396a09c3ebdfa77e8127aa8bd7a6d4d146f418a4a841efe9a58"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor.py",
+      "sha256": "effffbc8969afb3bf11b34c946a925bc941b4915c5bb489671cfbe27ce43b225"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "0bc0ca3ccdc536a036cd22a7df9afb311bb37cd1bba5b4e7f30b7a20c99fadd6"
+    },
+    {
+      "path": "/opt/mmoexp-weekly-report/public/index.html",
+      "sha256": "6bc0d92cda7031261bb76c059d2ee5be8df3fa85c554960381704f67109c409e"
+    }
+  ],
+  "requiredBusinessLedger": {
+    "schemaVersion": 1,
+    "releaseId": "20261006-profit-daily-v4",
+    "version": 20261006113600,
+    "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba",
+    "publishedAt": "2026-10-06T11:54:06.870247+00:00",
+    "previousReleaseId": "20261006-fc-range-v4",
+    "previousSha256": "c4d5adea021ec5e0ae394b2cbc91fde20f1803c54659d58bd6fd95d92f13fcb4",
+    "backup": "/var/backups/fs-dashboard-releases/20261006T115406867934Z",
+    "manifestSha256": "63f0c299f1dc6d8df8e973536c7b9124f6a777c8c1fd294daa526d7deeffecf7",
+    "intentionalRollback": false,
+    "protectedPath": "/var/www/dashboard/index.html"
+  },
+  "status": "ON_DEMAND_CANDIDATE",
+  "sourcePolicy": {
+    "adminMain": "MMOEXP",
+    "orderProfitRate": "labelled cross-scope reference",
+    "estimatedProfit": "Admin MMOEXP revenue * Order margin / 100",
+    "satellites": "optional reference only",
+    "differences": "accepted by user; backend owners investigate; not release blocker",
+    "collectorWrites": 0,
+    "permissionWrites": 1
+  },
+  "uiStyle": {
+    "scope": "original Admin main/All; native Order dated series and complete-day rates",
+    "previousRelease": "workspace-native-20261006-ee520a564c4f"
+  }
+}
