@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(__dirname+'/advisor.html','utf8');
+const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
+assert(!/localStorage|sessionStorage|FS_DAILY_MODEL_KEY_FILE/.test(script));
+assert(script.includes("ai?.status==='succeeded'"));
+assert(script.includes("if(identity&&identity!==data.user)"));
+assert(script.includes("const endpoint='/dashboard/fs-home/advisor.json'"));
+assert(script.includes("request_id:crypto.randomUUID()"));
+assert(script.includes("job.state==='completed'"));
+console.log('Advisor JavaScript syntax and session/model boundaries passed');
