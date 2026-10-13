@@ -564,7 +564,7 @@ def live_lock(manifest,root):
 class HermesAdmissionFence:
  def __init__(self,root):
   import fcntl
-  self.root=root;self.db=None;self.modified=False
+  self.root=root;self.db=None;self.modified=False;self.confirmed=False
   path=rooted(root,'/var/lib/fs-hermes-fc/fs/admission.lock');no_target_link(path)
   self.fd=os.open(str(path),os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
   try:
@@ -598,7 +598,7 @@ def hermes_admission_fence(manifest,root):
  finally:
   try:
    # Unconfirmed rollback must not reopen the old pre-lock admission path.
-   if fence.modified and fence.db is not None:fence.stop_then_unlock_database()
+   if fence.modified and not fence.confirmed:fence.stop_then_unlock_database()
   finally:fence.close()
 
 def hermes_quiescent(root):
@@ -675,6 +675,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
     if journal['databaseAfter']!=journal['databaseBefore']:raise ValueError('Existing database tables/members changed during initialization')
    if any(digest(rooted(root,row['target']))!=row['sha256'] for row in journal['files']):raise ValueError('post-release SHA mismatch')
    journal['status']='applied-awaiting-actual-http-role-acceptance';journal_write(backup,journal)
+   if admission_fence is not None:admission_fence.confirmed=True
   except Exception as error:
    # The rename may have succeeded before a later fsync/journal error.
    for row in journal['files']:
@@ -684,6 +685,7 @@ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
    except OSError:pass
    rollback_journal(backup,journal,root)
    if green or manifest.get('scope') in (QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_UPDATE_SCOPE):restart_for(manifest,admission_fence)
+   if admission_fence is not None:admission_fence.confirmed=True
    raise
   return dict(backup=str(backup),status=journal['status'],staticFiles=len(files),businessWorkerTimerActions=0)
 def rollback(backup,approved_sha,root=Path('/')):
@@ -695,6 +697,7 @@ def rollback(backup,approved_sha,root=Path('/')):
    if admission_fence is not None:admission_fence.modified=True
    rollback_journal(backup,journal,root)
    restart_for(journal['manifest'],admission_fence)
+   if admission_fence is not None:admission_fence.confirmed=True
  return dict(status='rolled-back',backup=str(backup),businessWorkerTimerActions=0)
 
 def retire_collection(manifest,raw,approval,release_id,root=Path('/')):

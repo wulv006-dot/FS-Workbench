@@ -119,6 +119,38 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(events,[['systemctl','stop','fs-business-range.service']])
         with closing(sqlite3.connect(path)) as db,db:db.execute("INSERT INTO requests VALUES('FAILED')")
 
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_failed_rollback_after_startup_stops_new_process_before_reopening_admission(self):
+        from contextlib import closing
+        import sqlite3
+        from controller import admission_guard
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        events=[]
+        def control(args,**unused):
+            with admission_guard(path.with_name('admission.lock')) as allowed:self.assertFalse(allowed)
+            events.append(args)
+        with patch.object(self.publisher.subprocess,'run',side_effect=control):
+            with self.assertRaisesRegex(RuntimeError,'rollback CAS drift'):
+                with self.publisher.hermes_admission_fence(self.update_manifest(),self.root) as fence:
+                    fence.modified=True;fence.stop_then_unlock_database()
+                    self.assertIsNone(fence.db)
+                    raise RuntimeError('rollback CAS drift')
+        self.assertEqual(events,[['systemctl','stop','fs-business-range.service']]*2)
+        with admission_guard(path.with_name('admission.lock')) as allowed:self.assertTrue(allowed)
+
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_confirmed_release_does_not_stop_service_on_fence_exit(self):
+        from contextlib import closing
+        import sqlite3
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        events=[]
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)):
+            with self.publisher.hermes_admission_fence(self.update_manifest(),self.root) as fence:
+                fence.modified=True;fence.stop_then_unlock_database();fence.confirmed=True
+        self.assertEqual(events,[['systemctl','stop','fs-business-range.service']])
+
     def test_uid_firewall_policy_never_exposes_other_service_or_key(self):
         import network_guard
         self.assertEqual(network_guard.UID,9876)
