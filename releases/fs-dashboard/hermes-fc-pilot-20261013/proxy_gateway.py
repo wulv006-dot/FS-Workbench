@@ -95,6 +95,8 @@ def request_body(body, model):
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
+    # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
+    if len(encoded(result).encode())>96000:raise ValueError('provider_payload_too_large')
     return result
 
 
@@ -339,6 +341,7 @@ class ModelGateway:
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
+        if len(encoded(request).encode())>96000:raise ValueError('provider_payload_too_large')
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:

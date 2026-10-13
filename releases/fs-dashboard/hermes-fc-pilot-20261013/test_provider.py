@@ -55,6 +55,26 @@ class ProviderTests(unittest.TestCase):
             self.assertEqual(self.run_request(**kwargs)['status'],'configuration_invalid')
         self.assertEqual(self.sent,[])
 
+    def test_chinese_hermes_payload_uses_exact_utf8_and_preserves_legacy_encoding(self):
+        from proxy_gateway import request_body
+        messages=[{'role':'user','content':'中文经营调查'*4500}]
+        body=request_body({'messages':messages,'max_tokens':16384,'reasoning_effort':'max'},'deepseek-v4.1-flash')
+        expected=json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
+        self.assertLess(len(expected),96000);self.assertGreater(len(json.dumps(body).encode()),96000)
+        sent=[]
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect=lambda request,timeout:(sent.append(request.data) or Response())
+            result=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=16384)
+        self.assertEqual(result['id'],'fake_receipt');self.assertEqual(len(sent[0]),len(expected))
+        self.assertIn('中文经营调查'.encode(),sent[0]);self.assertEqual(json.loads(sent[0]),body)
+
+    def test_tool_schema_framing_is_rejected_before_provider_reservation(self):
+        from proxy_gateway import request_body
+        messages=[{'role':'user','content':'x'*94000}]
+        self.assertLess(len(json.dumps(messages).encode()),96000)
+        with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):
+            request_body({'messages':messages,'max_tokens':16384,'reasoning_effort':'max'},'deepseek-v4.1-flash')
+
     def test_http_diagnostics_only_expose_status_for_hermes(self):
         from urllib.error import HTTPError
         with patch('urllib.request.build_opener') as opener:

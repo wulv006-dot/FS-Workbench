@@ -307,6 +307,24 @@ class GatewayTests(unittest.TestCase):
         self.provider=parallel
         self.assertEqual(len(self.call()['message']['tool_calls']),6)
 
+    def test_restored_index_bytes_rejected_before_slot_and_new_reservation(self):
+        import json
+        def indexed(req):
+            value=self.answer(req)
+            value['choices'][0]['message']={'role':'assistant','content':None,'tool_calls':[{'id':'call_size','type':'function','index':100000,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
+            return value
+        self.provider=indexed;first=self.call()
+        message=deepcopy(first['message']);message['tool_calls'][0].pop('index')
+        body={'messages':[{'role':'user','content':''},message,{'role':'tool','tool_call_id':'call_size','content':'{}'}],'max_tokens':50}
+        base=request_body(body,self.policy['model'])
+        body['messages'][0]['content']='x'*(95995-len(json.dumps(base,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()))
+        self.assertEqual(len(json.dumps(request_body(body,self.policy['model']),ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()),95995)
+        with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):self.call(1,body=body)
+        self.assertEqual(self.calls,1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM model_calls WHERE state='unknown'").fetchone()[0],0)
+
     def test_runtime_proposal_inert_and_environment_has_no_inherited_secrets(self):
         self.assertFalse(validate(candidate())['launch_allowed'])
         plan=candidate(); plan['network']['public_listeners']=['0.0.0.0:8080']
