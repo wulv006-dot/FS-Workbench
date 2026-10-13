@@ -140,7 +140,7 @@ def build():
         fragment += 'location ^~ /dashboard/'+module+'/ { return 404; }\n'
     if 'location = /dashboard/boss-api/insight {' not in fragment:
         fragment += api_location('/dashboard/boss-api/insight','/boss-insight','POST')
-    locations = re.findall(r'location (?:=|\^~) (\S+) \{', fragment)
+    locations = re.findall(r'location (=|\^~) (\S+) \{', fragment)
     assert len(locations) == len(set(locations)), 'Duplicate generated Nginx route'
     retired='''# Replaced by the two workspaces; original static release retained for rollback.
 location = /dashboard/release-radar { return 302 /dashboard/game-monitor/; }
