@@ -64,8 +64,10 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(result['data']['status'],'not_available')
 
     def test_workbuddy_arithmetic_contradictions_recomputed(self):
-        ref=self.query()['evidence_id']
-        def compute(op,v):return self.book.call('fc.calculate',{'operation':op,'values':v,'evidence_ids':[ref]})['data']['result']
+        def compute(op,v):
+            ref=self.book.register('fixture',{}, {'benchmark_values':v},'合成算术基准')['evidence_id']
+            return self.book.call('fc.calculate',{'operation':op,'values':v,'evidence_ids':[ref],
+                'value_paths':[{'evidence_id':ref,'path':f'/data/benchmark_values/{i}'} for i in range(len(v))],'assumptions':['']*len(v)})['data']['result']
         self.assertEqual(compute('interval_overlap',['92.62','97.67','88.48','93.98']),{'overlap':True,'start':'92.62','end':'93.98'})
         self.assertEqual(compute('extrema',['68.75','69.81','69.17'])['maximum'],'69.81')
         result=compute('difference',['31623.20','28085.29'])
@@ -79,6 +81,15 @@ class ResearchTests(unittest.TestCase):
     def test_calculation_requires_existing_evidence_and_no_code(self):
         with self.assertRaises(ValueError):self.book.call('fc.calculate',{'operation':'sum','values':['1'],'evidence_ids':['fabricated']})
         with self.assertRaises(ValueError):calculation({'operation':'sum','values':['__import__("os")'],'evidence_ids':['fixture']})
+
+    def test_calculation_operands_bind_exact_fields_and_assumptions_stay_scenarios(self):
+        ref=self.query()['evidence_id']
+        args={'operation':'sum','values':['999.00'],'evidence_ids':[ref],
+              'value_paths':[{'evidence_id':ref,'path':'/data/total/known_revenue_usd'}],'assumptions':['']}
+        with self.assertRaisesRegex(ValueError,'calculation_operand_mismatch'):self.book.call('fc.calculate',args)
+        args['values']=['10.00'];self.assertEqual(self.book.call('fc.calculate',args)['data']['result']['sum'],'10.00')
+        args.update(values=['999.00'],value_paths=[None],assumptions=['假设销售目标，不是实际销售'])
+        self.assertEqual(self.book.call('fc.calculate',args)['data']['basis'],'declared_scenario')
 
     def test_methods_are_loaded_on_request_only(self):
         result=self.book.call('fc.read_skill',{'topic':'methods'})

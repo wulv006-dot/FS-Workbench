@@ -28,7 +28,9 @@ def tool_schemas():
                 {'group_by':groups,'filters':filters,'page':page}, {'start':string,'end':string},
                 {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string}, {},
                 {'operation':{'type':'string','enum':['difference','ratio','sum','multiply','extrema','interval_overlap','required_daily','price_scenario']},
-                 'values':{'type':'array','items':{'type':'string'}},'evidence_ids':{'type':'array','items':string}},
+                 'values':{'type':'array','items':{'type':'string'}},'evidence_ids':{'type':'array','items':string},
+                 'value_paths':{'type':'array','items':{'type':['object','null'],'properties':{'evidence_id':string,'path':string},'required':['evidence_id','path'],'additionalProperties':False}},
+                 'assumptions':{'type':'array','items':string}},
                 {'topic':{'type':'string','enum':['methods','background','governance']},'section_id':string},
                 {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string})
     descriptions=('Read source/field/time/coverage definitions and unavailable capabilities before investigation.',
@@ -37,7 +39,7 @@ def tool_schemas():
                   'Read previous report facts/judgments and same-business-day readings; prior claims are not current verified causes.',
                   'Read exact Order FC27/FC26 reference profit and history. Async pending is not zero. Never use as verified pricing cost.',
                   'Read existing bounded Order problem-log clues asynchronously; historical sample does not establish current overall causes.',
-                  'Perform deterministic Decimal arithmetic over cited evidence or declared scenario assumptions, without arbitrary code.',
+                  'Perform Decimal arithmetic. Each value needs value_paths item {evidence_id,path:JSON-pointer from evidence root}; null allowed only with matching nonempty assumption label. Non-assumed labels must be empty. Every input value must equal its resolved evidence field. Assumptions mark the result as scenario, never an observed fact.',
                   'Read reviewed FC analysis methods, with version/hash; no authority is added.',
                   'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     return [{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
@@ -53,9 +55,20 @@ def label(value):
 
 
 def decimal(value):
-    if isinstance(value, bool) or not isinstance(value, (int, str)) or not re.fullmatch(r'-?\d{1,18}(?:\.\d{1,8})?', str(value)):
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)) or not re.fullmatch(r'-?\d{1,18}(?:\.\d{1,8})?', str(value)):
         raise ValueError('decimal_required')
     return Decimal(str(value))
+
+
+def resolve(evidence,path):
+    if not isinstance(path,str) or not path.startswith('/data/') or len(path)>500:raise ValueError('evidence_path')
+    value=evidence
+    try:
+        for part in path[1:].split('/'):
+            part=part.replace('~1','/').replace('~0','~')
+            value=value[int(part)] if isinstance(value,list) and re.fullmatch(r'0|[1-9][0-9]*',part) else value[part]
+    except (IndexError,KeyError,TypeError,ValueError):raise ValueError('evidence_path') from None
+    return value
 
 
 def rounded(value):
@@ -196,7 +209,19 @@ class ResearchBook:
         if name == 'fc.calculate':
             refs=args.get('evidence_ids')
             if not isinstance(refs,list) or not refs or any(x not in self.evidence for x in refs): raise ValueError('calculation_evidence')
-            return self.register(name,args,calculation(args),'受控Decimal计算；输入仍需对应已读证据')
+            if set(args)!={'operation','values','evidence_ids','value_paths','assumptions'}:raise ValueError('calculation_bindings')
+            if not isinstance(args['value_paths'],list) or not isinstance(args['assumptions'],list) or len(args['values'])!=len(args['value_paths']) or len(args['values'])!=len(args['assumptions']):raise ValueError('calculation_bindings')
+            assumed=False
+            for value,path,assumption in zip(args['values'],args['value_paths'],args['assumptions']):
+                if path is None:
+                    if not isinstance(assumption,str) or not assumption.strip():raise ValueError('calculation_assumption')
+                    assumed=True
+                else:
+                    if not isinstance(path,dict) or set(path)!={'evidence_id','path'} or path['evidence_id'] not in refs or assumption!='':raise ValueError('calculation_bindings')
+                    if decimal(resolve(self.evidence[path['evidence_id']],path['path']))!=decimal(value):raise ValueError('calculation_operand_mismatch')
+            value=calculation({k:args[k] for k in ('operation','values','evidence_ids')})
+            value.update(value_paths=args['value_paths'],assumptions=args['assumptions'],basis='declared_scenario' if assumed else 'evidence_bound_calculation')
+            return self.register(name,args,value,'声明假设的情景计算；非已观测事实' if assumed else '证据字段绑定的Decimal计算')
         if name == 'fc.read_skill':
             if args.get('topic')=='background' and self.background:
                 from background import background_index,read_section

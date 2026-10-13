@@ -76,6 +76,10 @@ class HermesService:
     def get_job(self,owner,key):
         with self.tasks.db() as db:row=db.execute('SELECT * FROM requests WHERE id=? AND owner=?',(key,owner)).fetchone()
         if row is None:return None
+        if row['state']=='ALIASED':
+            with self.tasks.db() as db:canonical=db.execute("SELECT id FROM requests WHERE task_id=? AND state!='ALIASED' ORDER BY rowid LIMIT 1",(row['task_id'],)).fetchone()
+            if not canonical:raise ValueError('canonical_request_missing')
+            return self.get_job(owner,canonical[0])
         item=dict(row);item['body']=json.loads(item['body']);item['result']=json.loads(item['result']) if item['result'] else None
         if item['task_id']:
             task=self.tasks.get(item['task_id'],owner)
@@ -154,7 +158,7 @@ class HermesService:
                 return (200,json.loads(row[0])) if row else (404,{'error':'not_found'})
             return 200,job
         if 'evidence' in params:return 422,{'error':'evidence_task_required'}
-        with self.tasks.db() as db:rows=db.execute('SELECT id,state,error,body FROM requests WHERE owner=? ORDER BY rowid DESC LIMIT 20',(user,)).fetchall()
+        with self.tasks.db() as db:rows=db.execute("SELECT id,state,error,body FROM requests WHERE owner=? AND state!='ALIASED' ORDER BY rowid DESC LIMIT 20",(user,)).fetchall()
         return 200,{'contract':'hermes-fc-investigation-v2','can_generate':self.authorizer(user),'items':[dict(r,body=json.loads(r['body'])) for r in rows],
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
@@ -164,11 +168,13 @@ class HermesService:
             book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
             book.background=self.proxy.background
             spec={'period':{'start':body['start'],'end_exclusive':(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),'timezone':'Asia/Shanghai'},
-                  'snapshot_id':book.capture_id,'template_version':'v2-'+digest(body)[:20],
+                  'snapshot_id':book.capture_id,'template_version':'v2-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
                   'knowledge_version':book.skills['version'],'budget_policy_id':'existing-ledger-public-estimate'}
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':self.update(key,state='CANCELLED');return
                 task=self.tasks.create(owner,spec);lease=secrets.token_hex(16)
+                if task['state']!='QUEUED':
+                    self.update(key,state='ALIASED',task_id=task['id']);task=None;return
                 self.tasks.reserve_dispatch(task['id'],owner,lease)
                 self.update(key,state='DISPATCH_UNKNOWN',task_id=task['id'])
             original_history=book.history

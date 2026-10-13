@@ -68,7 +68,7 @@ class ControllerTests(unittest.TestCase):
         return 200,{'status':'completed','output':encoded({'summary':'合成调查完成，仍需业务验收。',
                'findings':[{'statement':'主站已读两单，其中一单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付进度未提供'}],
                'actions':[{'target':'PS问题单','action':'复核最新障碍','condition':'仍为问题状态','cost_risk':'人工时间，旧备注可能失效','review_at':'次日','success_check':'状态与障碍复核','evidence_ids':[ref]}],
-               'reviews':[],'limitations':['合成输入不能作经营事实。']})}
+               'reviews':[],'limitations':['合成输入不能作经营事实。'],'number_claims':[]})}
 
     def test_end_to_end_handshake_model_receipt_and_owner_idempotency(self):
         with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote),patch.dict('sys.modules',{'ai_advisor_model':type('Module',(),{'clean_question':staticmethod(lambda q:q)})()}):
@@ -78,6 +78,8 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(job['model_usage']['calls'],1)
             self.assertEqual(job['result']['reasoning_effort'],'max')
             self.assertEqual(self.service.post(self.body,'owner',self.headers)[0],200)
+            _,retry=self.service.post(dict(self.body,request_id='different_transport_request'),'owner',self.headers)
+            self.assertEqual(retry['id'],job['id']);self.assertEqual(retry['run_id'],job['run_id']);self.assertEqual(retry['model_usage']['calls'],1)
             self.assertEqual(self.service.get_job('other',job['id']),None)
             self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
 
@@ -123,10 +125,25 @@ class ControllerTests(unittest.TestCase):
     def test_report_reference_integrity_has_no_three_item_or_number_ban(self):
         ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
         row={'statement':'已读2单，已知金额$10.00，1单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付数据缺失'}
-        result={'summary':'合成数据数值验证。','findings':[row]*4,'actions':[],'reviews':[],'limitations':[]}
+        claims=[]
+        for i in range(4):
+            for token,path in [('2','/data/total/orders'),('10.00','/data/total/known_revenue_usd'),('1','/data/total/unpriced_orders')]:
+                claims.append({'report_field':f'/findings/{i}/statement','text':token,'evidence_id':ref,'path':path,'scale':'as_stored'})
+        result={'summary':'合成数据数值验证。','findings':[dict(row) for _ in range(4)],'actions':[],'reviews':[],'limitations':[],'number_claims':claims}
         self.assertEqual(len(validate_output(encoded(result),self.book)['findings']),4)
         result['findings'][0]['evidence_ids']=['fabricated']
         with self.assertRaisesRegex(ValueError,'fabricated_evidence'):validate_output(encoded(result),self.book)
+
+    def test_incorrect_or_unbound_numbers_with_valid_reference_are_rejected(self):
+        ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
+        finding={'statement':'已知金额$999.00。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}
+        claim={'report_field':'/findings/0/statement','text':'999.00','evidence_id':ref,'path':'/data/total/known_revenue_usd','scale':'as_stored'}
+        value={'summary':'核实金额。','findings':[finding],'actions':[],'reviews':[],'limitations':[],'number_claims':[claim]}
+        with self.assertRaisesRegex(ValueError,'number_claim_mismatch'):validate_output(encoded(value),self.book)
+        value['number_claims']=[]
+        with self.assertRaisesRegex(ValueError,'unbound_report_number'):validate_output(encoded(value),self.book)
+        finding['statement']='已知金额$10.00。';claim['text']='10.00';value['number_claims']=[claim]
+        self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
 
 
 if __name__=='__main__':unittest.main()
