@@ -26,6 +26,7 @@
 """
 
 import argparse
+import gc
 import gzip
 import json
 import os
@@ -132,11 +133,12 @@ class Store:
             cfg = self._default_config()
             self._save_config(cfg)
         else:
-            # 轻迁移：缺 products 绑定的 bundle 从默认表补（只补缺，不覆盖）
+            # 轻迁移：**键缺失**的 bundle 才从默认表补 products（Codex #9：
+            # 操作员故意清空绑定的 products:{} 是有效状态，不能被重启重填回默认 ID）
             defaults = {b["id"]: b.get("products")
                         for b in self._default_config()["bundles"]}
             for b in cfg.get("bundles") or []:
-                if isinstance(b, dict) and not b.get("products"):
+                if isinstance(b, dict) and "products" not in b:
                     if b.get("id") in defaults:
                         b["products"] = defaults[b["id"]]
             self._save_config(cfg)
@@ -144,6 +146,20 @@ class Store:
         # 启动时尽量把缓存捡回来（没有也不阻塞服务）
         self._load_players_cache()
         self._load_rates(force_read=True)
+        self._sweep_stale_running()
+
+    def _sweep_stale_running(self):
+        """开机清扫：上一进程被 OOM/重启打断时 last_refresh 会卡在 running，
+        调度器判 due=False → 永不自动刷新（MLB §10.6 同款教训）。
+        本进程启动时未见任何在跑线程 ⇒ 标记 interrupted 让调度恢复。
+        """
+        last = load_json(self.refresh_path, None)
+        if isinstance(last, dict) and last.get("status") == "running":
+            last["status"] = "interrupted"
+            last["note"] = ("startup sweep: previous run interrupted "
+                            "(OOM/restart? see journalctl -u fc27-pack-bundles)")
+            atomic_write(str(self.refresh_path),
+                         json.dumps(last, ensure_ascii=False, indent=2).encode("utf-8"))
 
     # ---------- 默认配置（首次启动预置腾讯文档两个捆绑包） ----------
 
@@ -208,7 +224,9 @@ class Store:
             hours = float(self.settings().get("interval_hours") or 1)
         except (TypeError, ValueError):
             hours = 1.0
-        return max(1.0, hours) * 3600.0
+        # ⚠️ 下限对齐校验器的 0.1 小时（Codex #8）：原 max(1.0, …) 会把
+        #    0.5 小时静默抬成 1 小时——设置显示已保存却不生效。
+        return max(0.1, hours) * 3600.0
 
     def save_config(self, payload):
         """校验并保存整份配置，返回新 revision。"""
@@ -285,6 +303,10 @@ class Store:
             }
         if not slim:
             raise ValueError("futbin_export_empty")
+        # ★ 内存：22.7MB 原文 + 全量 dict 峰值可达数百 MB（曾 OOM 被内核 KILL），
+        #   落盘后立刻释放大对象，压低峰值。
+        del data, items, raw
+        gc.collect()
         payload = json.dumps(slim, ensure_ascii=False,
                              separators=(",", ":")).encode("utf-8")
         atomic_write(str(self.players_path), gzip.compress(payload))
@@ -374,14 +396,24 @@ class Store:
             if not parsed.get("ok"):
                 raise ValueError("parse_failed:%s" % parsed.get("error"))
             got = {}
+            mismatched = []
             for r in parsed.get("rows") or []:
                 area = (r.get("area") or "").strip().upper()
+                row_gid = r.get("gid")
                 try:
                     b2c = float(r.get("b2c"))
                 except (TypeError, ValueError):
                     continue
-                if area in ("PS", "XBOX", "PC") and b2c > 0:
-                    got[area] = b2c
+                if area not in ("PS", "XBOX", "PC") or b2c <= 0:
+                    continue
+                # ★ 行 gid 校验（Codex #7）：页面若返回未过滤的其它游戏行，
+                #   会把别人的 b2c 喂进自动写价 ⇒ 必须匹配 order_gid。
+                if row_gid is not None and int(row_gid) != int(s.get("order_gid") or 1322):
+                    mismatched.append("%s:gid=%s" % (area, row_gid))
+                    continue
+                got[area] = b2c
+            if mismatched:
+                raise ValueError("gid_mismatch:%s" % ",".join(mismatched))
             if not got:
                 raise ValueError("no_b2c_rows")
             for plat, b2c in got.items():
@@ -430,19 +462,32 @@ class Store:
         summary["finished_at"] = fmt_ts(finished)
         summary["duration_seconds"] = round((finished - started).total_seconds(), 1)
         summary["status"] = "ok" if not summary["errors"] else "partial"
-        self._write_refresh(summary)
-        self._append_history(summary)
         # ---- 二期：采集后自动写价（三开关全开才真正写）----
+        # ⚠️ 必须放在 _write_refresh 之前，否则写价结果不进 last_refresh（排查盲点）
         s = self.settings()
         if (s.get("write_enabled") and s.get("write_auto")):
-            try:
-                entry = execute_write(self, actor="auto",
-                                      dry_run=bool(s.get("write_dry_run")))
-                summary["write"] = {"dry_run": entry["dry_run"],
-                                    "count": len(entry["results"])}
-            except Exception as exc:
-                self._append_write_log({"time": fmt_ts(now8()), "actor": "auto",
-                                        "action": "error", "error": repr(exc)[:200]})
+            # ★ 与手动写价互斥（Codex #11）：拿不到锁就跳过本轮（下轮再写），
+            #   绝不并发操作同一批产品/审计日志。
+            if WRITE_LOCK.acquire(blocking=False):
+                try:
+                    entry = execute_write(self, actor="auto",
+                                          dry_run=bool(s.get("write_dry_run")))
+                    summary["write"] = {
+                        "dry_run": entry["dry_run"],
+                        "count": len(entry["results"]),
+                        "actions": [r.get("action") for r in entry["results"]],
+                    }
+                except Exception as exc:
+                    summary["errors"].append("auto_write: %r" % exc)
+                    self._append_write_log({"time": fmt_ts(now8()), "actor": "auto",
+                                            "action": "error",
+                                            "error": repr(exc)[:200]})
+                finally:
+                    WRITE_LOCK.release()
+            else:
+                summary["write"] = {"skipped": "write_in_progress"}
+        self._write_refresh(summary)
+        self._append_history(summary)
         return summary
 
     def _write_refresh(self, summary):
@@ -498,6 +543,12 @@ class Store:
         if not bad:
             for b in bundles_cfg:
                 bundles_out.append(compute_bundle(b, players_snapshot, rates, markups))
+            # ★ 回填配置里的 products 绑定（Codex #6）：/api/state 若不回传，
+            #   前端编辑保存时会发 products:{} 把绑定清空（连带停掉自动写价）。
+            cfg_products = {b.get("id"): (b.get("products") or {})
+                            for b in bundles_cfg}
+            for out_b in bundles_out:
+                out_b["products"] = cfg_products.get(out_b.get("id"), {})
         return {
             "revision": revision,
             "settings": settings,
@@ -545,6 +596,7 @@ def compute_bundle(bundle_cfg, players, rates, markups):
     sum_strike_ps = sum_strike_pc = Decimal(0)
     sum_actual_ps = sum_actual_pc = Decimal(0)
     count_ok = 0
+    cnt_ps = cnt_pc = 0   # ★ 参与各平台求和的球员数（完整性判据，Codex #2）
     for entry in bundle_cfg.get("players") or []:
         fid = entry.get("futbin_id")
         info = players.get(int(fid)) if isinstance(fid, int) else None
@@ -573,6 +625,7 @@ def compute_bundle(bundle_cfg, players, rates, markups):
             row["ps_strike"] = float(money2(actual_ps / sd))
             sum_actual_ps += actual_ps
             sum_strike_ps += actual_ps / sd
+            cnt_ps += 1
         else:
             row.update({"ps_actual": None, "ps_strike": None})
             warn.append("%s：PS 价缺失" % (info.get("name") or fid))
@@ -582,6 +635,7 @@ def compute_bundle(bundle_cfg, players, rates, markups):
             row["pc_strike"] = float(money2(actual_pc / sd))
             sum_actual_pc += actual_pc
             sum_strike_pc += actual_pc / sd
+            cnt_pc += 1
         else:
             row.update({"pc_actual": None, "pc_strike": None})
             warn.append("%s：PC 价缺失" % (info.get("name") or fid))
@@ -606,6 +660,8 @@ def compute_bundle(bundle_cfg, players, rates, markups):
             "sum_actual": float(money2(sum_actual_ps)),
             "sale": float(money2(sale_ps)),
             "orig": float(money2(sale_ps / od)),
+            "players_counted": cnt_ps,          # ★ 完整性判据（Codex #2）
+            "players_expected": len(players_out),
             "discount_vs_actual_pct": float(
                 ((sale_ps - sum_actual_ps) / sum_actual_ps * 100)
                 .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
@@ -619,6 +675,8 @@ def compute_bundle(bundle_cfg, players, rates, markups):
             "sum_actual": float(money2(sum_actual_pc)),
             "sale": float(money2(sale_pc)),
             "orig": float(money2(sale_pc / od)),
+            "players_counted": cnt_pc,          # ★ 完整性判据（Codex #2）
+            "players_expected": len(players_out),
             "discount_vs_actual_pct": float(
                 ((sale_pc - sum_actual_pc) / sum_actual_pc * 100)
                 .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
@@ -666,7 +724,11 @@ def validate_settings(payload, base):
             out[key] = text
         elif key in ("order_price_enabled", "write_enabled",
                      "write_dry_run", "write_auto"):
-            out[key] = bool(value)
+            # ⚠️ 只收真 JSON bool（Codex review #16）：bool("false") 恒 True，
+            #    字符串值会把"关闸"变成"开闸"。
+            if not isinstance(value, bool):
+                raise ValueError("bool_required:%s" % key)
+            out[key] = value
         else:
             d = dec(value)
             if not d or d <= 0 or d > 100:
@@ -729,6 +791,9 @@ def validate_bundles(payload):
 # ---------- 二期：Admin 后台写价（goods.Goods，站点-ALL） ----------
 
 MIN_DELTA = Decimal("0.005")   # 变化小于此视为无变化（幂等跳过）
+EXPECT_GID = 1327              # 商品后台 FC27
+EXPECT_CID = 10255             # FC27-Packs 分类
+EXPECT_SITE_ID = 0             # 站点-ALL
 
 
 class AdminWriter:
@@ -773,12 +838,33 @@ class AdminWriter:
         return row
 
     def write_price(self, pid: int, unit_price: Decimal,
-                    before_dir: Path, dry_run: bool):
+                    before_dir: Path, dry_run: bool,
+                    *, expect_platform=None, expect_title=None):
         """按后台现值 discount 折算 target price = unit × discount/100。
 
-        返回 {action: skip|planned|written|mismatch|needs_review, ...}
+        ★ 身份校验（Codex #1）：错填的产品 ID 必须 fail closed，
+          绝不能因为配置笔误改到目录里的其它商品。
+        返回 {action: skip|planned|written|mismatch|rejected_identity|needs_review, ...}
         """
         row = self.get_product(pid)
+        # ---- 身份校验：gid/cid/site_id/aid/标题 全部要匹配 ----
+        problems = []
+        if int(row.get("gid") or 0) != EXPECT_GID:
+            problems.append("gid=%s≠%s" % (row.get("gid"), EXPECT_GID))
+        if int(row.get("cid") or 0) != EXPECT_CID:
+            problems.append("cid=%s≠%s" % (row.get("cid"), EXPECT_CID))
+        if int(row.get("site_id") if row.get("site_id") is not None else -1) != 0:
+            problems.append("site_id=%s≠0(站点-ALL)" % row.get("site_id"))
+        if expect_platform:
+            aid = PLATFORM_AID.get(expect_platform)
+            if aid and int(row.get("aid") or 0) != aid:
+                problems.append("aid=%s≠%s(%s)" % (row.get("aid"), aid,
+                                                   expect_platform))
+        if expect_title and (row.get("title") or "").strip() != expect_title.strip():
+            problems.append("title=%r≠%r" % (row.get("title"), expect_title))
+        if problems:
+            return {"product_id": pid, "action": "rejected_identity",
+                    "title": row.get("title"), "problems": problems}
         cur_unit = dec(row.get("unit_price"))
         cur_price = dec(row.get("price"))
         discount = dec(row.get("discount")) or Decimal(100)
@@ -819,11 +905,16 @@ class AdminWriter:
 
 
 def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
-    """对绑定产品执行写价。四道闸门：enabled / dry_run / auto(手动触发豁免) / delta。"""
+    """对绑定产品执行写价。四道闸门：enabled / dry_run / auto(手动触发豁免) / delta。
+
+    ★ 并发互斥（Codex #5/#11）：**调用方**必须已持有 WRITE_LOCK；
+      本函数自身不再取锁（避免手动/自动两条路径重入死锁）。
+    ★ dry_run 只能收紧（Codex #4）：请求参数无法把配置的试运行放宽为真实写入。
+    """
     s = store.settings()
     if not s.get("write_enabled"):
         raise ValueError("write_disabled")
-    eff_dry = bool(s.get("write_dry_run")) if dry_run is None else bool(dry_run)
+    eff_dry = bool(s.get("write_dry_run")) or bool(dry_run)
     rates = store.cached_rates()
     players = dict(store.players)
     markups = {k: dec(s.get(k)) for k in
@@ -848,9 +939,20 @@ def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
             side = computed.get(key)
             if not pid or not side:
                 continue
+            # ★ 完整性闸门（Codex #2）：该平台不是全员有价 ⇒ 拒绝写，
+            #   否则 11 人包可能按 10 人价被写进去（少收钱/价格失真）。
+            if side.get("players_counted") != side.get("players_expected"):
+                results.append({
+                    "product_id": pid, "platform": plat, "bundle": b.get("id"),
+                    "action": "skipped_incomplete", "dry_run": eff_dry,
+                    "detail": "%s/%s 名球员有价（缺价或未收录）" % (
+                        side.get("players_counted"), side.get("players_expected"))})
+                continue
             unit = money2(Decimal(str(side["orig"])))
             try:
-                rec = writer.write_price(int(pid), unit, before_dir, eff_dry)
+                rec = writer.write_price(int(pid), unit, before_dir, eff_dry,
+                                         expect_platform=plat,
+                                         expect_title=b.get("title"))
             except Exception as exc:
                 rec = {"product_id": pid, "platform": plat,
                        "target": {"unit_price": str(unit)},
@@ -954,6 +1056,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parts == ["api", "write-prices"]:
                 # 手动写价（受 write_enabled / write_dry_run 闸门约束）
+                # ★ 锁由 worker 的 finally 释放（Codex #5）：
+                #   原实现在起线程后立刻释放，第二次请求可并发进入。
                 if not WRITE_LOCK.acquire(blocking=False):
                     self._json(409, {"error": "write_in_progress"})
                     return
@@ -964,8 +1068,11 @@ class Handler(BaseHTTPRequestHandler):
                               data.get("dry_run") if isinstance(data.get("dry_run"), bool)
                               else None),
                         daemon=True).start()
-                finally:
+                except Exception as exc:
                     WRITE_LOCK.release()
+                    self._json(500, {"error": "write_start_failed",
+                                     "detail": repr(exc)[:120]})
+                    return
                 self._json(202, {"ok": True, "status": "started"})
                 return
         except ValueError as exc:
@@ -993,6 +1100,8 @@ class Handler(BaseHTTPRequestHandler):
             self.store._append_write_log({"time": fmt_ts(now8()),
                                           "actor": "manual", "action": "error",
                                           "error": repr(exc)[:200]})
+        finally:
+            WRITE_LOCK.release()   # ★ 与 do_POST 的 acquire 配对（Codex #5）
 
 
 def scheduler_loop(store: Store, state: dict):
@@ -1002,12 +1111,15 @@ def scheduler_loop(store: Store, state: dict):
             last = store.last_refresh() or {}
             last_ok = last.get("finished_at") or last.get("started_at")
             due = True
-            if last.get("status") == "running":
-                due = False
-            elif last_ok:
+            if last_ok:
                 last_dt = datetime.strptime(last_ok, "%Y-%m-%d %H:%M:%S")
-                due = (now8() - last_dt.replace(tzinfo=TZ8)).total_seconds() \
-                    >= store.interval_seconds()
+                age = (now8() - last_dt.replace(tzinfo=TZ8)).total_seconds()
+                if last.get("status") == "running":
+                    # ★ 卡死保护（Codex #10）：正常一轮 <2 分钟；
+                    #   running 超过 2 小时视为 abandoned，恢复调度。
+                    due = age >= 7200
+                else:
+                    due = age >= store.interval_seconds()
             if due and store.refresh_lock.acquire(blocking=False):
                 try:
                     state["refreshing"] = True
