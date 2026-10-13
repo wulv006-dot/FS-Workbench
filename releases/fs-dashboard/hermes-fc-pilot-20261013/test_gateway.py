@@ -246,6 +246,57 @@ class GatewayTests(unittest.TestCase):
         self.provider=bad
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 
+    def test_documented_bailian_index_and_tool_roundtrip_preserved(self):
+        call={'id':'call_indexed','type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}
+        def indexed(req):
+            value=self.answer(req)
+            if self.calls==1:value['choices'][0]['message']={'role':'assistant','content':None,'tool_calls':[call],'refusal':None,'audio':None,'function_call':None}
+            else:
+                self.assertEqual(req['messages'][1]['tool_calls'][0]['index'],0)
+                value['choices'][0]['message']['tool_calls']=None
+            return value
+        self.provider=indexed
+        first=self.call();self.assertEqual(first['message']['tool_calls'][0]['index'],0);self.assertNotIn('refusal',first['message'])
+        replay=__import__('copy').deepcopy(first['message']);replay['tool_calls'][0].pop('index')
+        result=self.call(1,body={'messages':[{'role':'user','content':'query'},replay,{'role':'tool','tool_call_id':'call_indexed','content':'{}'}],'max_tokens':50})
+        self.assertNotIn('index',replay['tool_calls'][0])
+        self.assertEqual(result['status'],'succeeded');self.assertEqual(self.calls,2)
+        self.assertIn('index',call)  # Original provider object is never mutated.
+
+    def test_paid_index_cannot_be_attached_to_changed_tool_history_or_other_task(self):
+        def indexed(req):
+            value=self.answer(req);value['choices'][0]['message']['tool_calls']=[{'id':'call_bound','type':'function','index':2,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]
+            return value
+        self.provider=indexed;first=self.call()
+        import copy
+        for mutate in ('arguments','name','index'):
+            message=copy.deepcopy(first['message'])
+            if mutate=='arguments':message['tool_calls'][0]['function']['arguments']='{"changed":true}'
+            if mutate=='name':message['tool_calls'][0]['function']['name']=WIRE_TOOLS[1]
+            if mutate=='index':message['tool_calls'][0]['index']=1
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):
+                self.call(1,body={'messages':[{'role':'user','content':'query'},message,{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50})
+        request=request_body({'messages':[{'role':'user','content':'query'},first['message'],{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50},self.policy['model'])
+        request['messages'][1]['tool_calls'][0].pop('index')
+        self.budget.restore_tool_indexes('other','different',1,request)
+        self.assertNotIn('index',request['messages'][1]['tool_calls'][0]);self.assertEqual(self.calls,1)
+
+    def test_index_extension_never_accepts_unknown_fields_or_invalid_metadata(self):
+        for patch in ({'index':True},{'index':-1},{'index':'0'},{'extra':'private secret'}, {'index':0,'extra':'private secret'}):
+            def invalid(req,patch=patch):
+                value=self.answer(req);value['model']=req['model']
+                value['choices'][0]['message']['tool_calls']=[{'id':'invalid','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'},**patch}]
+                return value
+            self.provider=invalid
+            newer=spec();newer['template_version']='invalid-index-'+str(len(patch))+str(patch.get('index'))+str('extra' in patch)
+            task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','lease');self.tasks.bind_run(task['id'],'owner','lease','run_'+task['id'])
+            gateway=ModelGateway(ScopedTools(self.tasks,book(),lambda:self.now),self.budget,self.slot,invalid,lambda _:100,lambda:0)
+            with self.assertRaisesRegex(ValueError,'unverified_provider_result'):gateway.call('owner',task['id'],'lease',0,{'messages':[{'role':'user','content':'new'}],'max_tokens':50})
+        import json
+        with self.db() as db:receipts=[json.loads(r[0]) for r in db.execute('SELECT content FROM model_calls')]
+        self.assertTrue(all('private secret' not in json.dumps(r) for r in receipts))
+        self.assertTrue(any(r['response_shape']['tool_shapes'][0]['unknown_field_count']==1 for r in receipts))
+
     def test_research_turn_supports_more_than_legacy_five_readonly_calls(self):
         def parallel(req):
             value=self.answer(req)

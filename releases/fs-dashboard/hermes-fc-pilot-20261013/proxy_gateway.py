@@ -99,8 +99,9 @@ def request_body(body, model):
 
 
 def validate_tool_call(call):
-    if not isinstance(call, dict) or set(call) != {'id', 'type', 'function'} or call['type'] != 'function':
+    if not isinstance(call, dict) or not {'id','type','function'}<=set(call) or set(call)-{'id','type','function','index'} or call['type'] != 'function':
         raise ValueError('tool_call_fields')
+    if 'index' in call and (type(call['index']) is not int or call['index']<0):raise ValueError('tool_call_index')
     if not isinstance(call['id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call['id']):
         raise ValueError('tool_call_id')
     function = call['function']
@@ -136,7 +137,15 @@ def safe_diagnostic(response, request, reason):
             shape.update(message_fields=[k for k in ('role','content','tool_calls','reasoning_content','refusal','function_call') if k in message],
                          unknown_message_field_count=len(set(message)-{'role','content','tool_calls','reasoning_content','refusal','function_call'}))
             calls=message.get('tool_calls')
-            if isinstance(calls,list):shape['tool_call_count']=len(calls)
+            if isinstance(calls,list):
+                shape['tool_call_count']=len(calls)
+                shape['tool_shapes']=[{'known_fields':[k for k in ('id','type','function','index') if k in c],
+                    'unknown_field_count':len(set(c)-{'id','type','function','index'}),
+                    'index_valid':type(c.get('index')) is int and c['index']>=0 if 'index' in c else None,
+                    'function_fields':[k for k in ('name','arguments') if isinstance(c.get('function'),dict) and k in c['function']],
+                    'unknown_function_field_count':len(set(c['function'])-{'name','arguments'}) if isinstance(c.get('function'),dict) else None}
+                    if isinstance(c,dict) else {'object':False} for c in calls[:64]]
+                shape['omitted_tool_shapes']=max(0,len(calls)-64)
     out['response_shape']=shape
     return out
 
@@ -167,6 +176,27 @@ class UnifiedBudget:
                          'turn INTEGER NOT NULL, request_digest TEXT NOT NULL, policy TEXT NOT NULL, '
                          'tokens INTEGER NOT NULL, microcny INTEGER NOT NULL, '
                          'UNIQUE(owner,task,turn))')
+
+    def restore_tool_indexes(self,owner,task,turn,request):
+        # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
+        # Restore only metadata from this task's already-paid successful receipts.
+        if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
+        with self.db() as conn:
+            rows=conn.execute("SELECT m.content FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
+        calls={}
+        for row in rows:
+            for call in json.loads(row[0]).get('message',{}).get('tool_calls',[]):
+                if 'index' in call:calls[call['id']]=call
+        for message in request['messages']:
+            for call in message.get('tool_calls',[]):
+                original=calls.get(call['id'])
+                if original is None:continue
+                if (call['function']['name']!=original['function']['name'] or
+                    json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
+                    'index' in call and call['index']!=original['index']):raise ValueError('provider_tool_history_changed')
+                call['index']=original['index']
+        if len(encoded(request['messages']).encode())>96000:raise ValueError('context_rejected')
+        return request
 
     def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
         if type(turn) is not int or turn < 0:
@@ -239,6 +269,9 @@ class UnifiedBudget:
             # Providers may include an empty reasoning slot even with thinking off.
             if message.get('reasoning_content', None) is None or message.get('reasoning_content')=='':
                 message.pop('reasoning_content', None)
+            # Standard optional null slots carry no instruction or authority.
+            for optional in ('refusal','audio','function_call','tool_calls'):
+                if optional in message and message[optional] is None:message.pop(optional)
             allowed={'role','content','tool_calls'} | ({'reasoning_content'} if request['enable_thinking'] else set())
             if not isinstance(message, dict) or message.get('role') != 'assistant' or set(message)-allowed:
                 raise ValueError('response_message_invalid')
@@ -250,6 +283,7 @@ class UnifiedBudget:
                 raise ValueError('response_tools_limit')
             ids = set()
             for call in calls:
+                # Retain verified Bailian index metadata in provider replay.
                 validate_tool_call(call)
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')
@@ -304,7 +338,7 @@ class ModelGateway:
 
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
-        request = request_body(body, self.budget.policy['model'])
+        request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:
