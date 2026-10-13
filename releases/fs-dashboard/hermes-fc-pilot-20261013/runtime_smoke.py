@@ -41,6 +41,16 @@ async def run():
         return result
     fixture.provider = provider
     proxy = Proxy(grants, lambda grant: fixture.gateway)
+    original_dispatch = proxy.dispatch
+    def diagnose(method, path, token, body=None):
+        try:
+            return original_dispatch(method, path, token, body)
+        except Exception as exc:
+            # Synthetic CI only: print shape and validation code, never token/body.
+            print(json.dumps({'proxy_error': str(exc), 'keys': sorted(body or {}),
+                              'message_shapes': [sorted(m) for m in (body or {}).get('messages', [])]}), flush=True)
+            raise
+    proxy.dispatch = diagnose
     server, thread = start_loopback(proxy)
     adapter = None
     try:
