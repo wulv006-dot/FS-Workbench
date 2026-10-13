@@ -9,10 +9,10 @@ ROOT = Path(__file__).resolve().parent
 BASE = Path('D:/codex/2026-10-13/task/advisor/activation/deploy/release_navigation.py')
 if not BASE.exists():
     BASE = ROOT.parent / 'ai-advisor-20261013/activation/deploy/release_navigation.py'
-SCOPE = 'fs-boss-insights-context-20261013'
+SCOPE = 'fs-boss-insights-identifiers-20261013'
 CANDIDATE = 'advisor/boss_insights.py'
 TARGET = '/opt/fs-exact-range-20261001/boss_insights.py'
-BEFORE = 'eb0b53ddb50d5a1a562dc43e60b0c458d42c55e0ec940244db63dd5ab87d3196'
+BEFORE = '15877219ab8276b116e60cc1c3b9cbc26541ff3887bb224e8dab470cca7073d4'
 SHARED = {'/opt/fs-exact-range-20261001/' + name for name in
           ('range_api.py', 'fc_daily.py', 'ai_advisor.py', 'ai_advisor_model.py')}
 
