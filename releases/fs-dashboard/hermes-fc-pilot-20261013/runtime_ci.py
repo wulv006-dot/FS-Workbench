@@ -53,12 +53,13 @@ def main():
                 raise ValueError('official_source_digest_changed: '+name)
         subprocess.run(['docker', 'build', '-t', 'fs-hermes-fc:ci', str(context)], check=True, timeout=900)
     if args.test:
+      for effort in ('high','max'):
         subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
                         '--security-opt', 'no-new-privileges', '--user', '65534:65534',
                         '--tmpfs', '/tmp:rw,nosuid,nodev,size=268435456',
                         '-e', 'HOME=/tmp/hermes', '-e', 'HERMES_HOME=/tmp/hermes',
                         '-e', 'PYTHONPATH=/opt/hermes:/opt/pilot',
-                        '-v', str(root)+':/opt/pilot:ro', 'fs-hermes-fc:ci', '/opt/pilot/runtime_smoke.py'],
+                        '-v', str(root)+':/opt/pilot:ro', 'fs-hermes-fc:ci', '/opt/pilot/runtime_smoke.py','--effort',effort],
                        check=True, timeout=180)
 
 

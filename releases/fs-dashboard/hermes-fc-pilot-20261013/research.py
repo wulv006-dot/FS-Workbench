@@ -14,7 +14,7 @@ from pilot import digest, encoded, SHANGHAI
 
 RESEARCH_NAMES = ('fc.get_data_catalog', 'fc.query_business', 'fc.query_queue',
                   'fc.read_history', 'fc.query_reference', 'fc.get_problem_clues',
-                  'fc.calculate', 'fc.read_skill')
+                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics')
 DIMENSIONS = ('platform', 'product', 'country', 'device', 'payment', 'site_group', 'status', 'day', 'hour')
 QUEUE_DIMENSIONS = DIMENSIONS + ('age_band', 'progress')
 
@@ -29,7 +29,8 @@ def tool_schemas():
                 {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string}, {},
                 {'operation':{'type':'string','enum':['difference','ratio','sum','multiply','extrema','interval_overlap','required_daily','price_scenario']},
                  'values':{'type':'array','items':{'type':'string'}},'evidence_ids':{'type':'array','items':string}},
-                {'topic':{'type':'string','enum':['methods']}})
+                {'topic':{'type':'string','enum':['methods','background','governance']},'section_id':string},
+                {'profile':{'type':'string','enum':['FC27','FC26']},'start':string,'end':string})
     descriptions=('Read source/field/time/coverage definitions and unavailable capabilities before investigation.',
                   'Query immutable Admin main-site paid orders by dates and up to three dimensions. All dates inclusive; paginate grouped results.',
                   'Drill current Admin open pool by age/platform/product/status. Progress is explicitly missing, never assume zero delivery.',
@@ -37,9 +38,10 @@ def tool_schemas():
                   'Read exact Order FC27/FC26 reference profit and history. Async pending is not zero. Never use as verified pricing cost.',
                   'Read existing bounded Order problem-log clues asynchronously; historical sample does not establish current overall causes.',
                   'Perform deterministic Decimal arithmetic over cited evidence or declared scenario assumptions, without arbitrary code.',
-                  'Read reviewed FC analysis methods, with version/hash; no authority is added.')
+                  'Read reviewed FC analysis methods, with version/hash; no authority is added.',
+                  'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     return [{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
-                'parameters':{'type':'object','properties':p,'required':list(p),'additionalProperties':False}}}
+                'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id'],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES,properties,descriptions)]
 
 
@@ -117,7 +119,7 @@ def calculation(args):
 
 
 class ResearchBook:
-    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None):
+    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None):
         self.data, self.config, self.target = deepcopy(dataset), deepcopy(config), deepcopy(target)
         self.capture_id = dataset['snapshot_id']
         if not re.fullmatch(r'fc-detail-[A-Za-z0-9_.-]+', self.capture_id): raise ValueError('capture_identity')
@@ -125,6 +127,8 @@ class ResearchBook:
         if self.at.tzinfo is None: raise ValueError('capture_time')
         self.history, self.reference, self.clues = history, reference, clues
         self.skills, self.persist = skills, persist
+        self.native=native
+        self.background=None
         self.evidence, self.trace, self._lock = {}, [], threading.RLock()
 
     def register(self, name, args, data, source='Admin FC支付明细', captured_at=None):
@@ -168,6 +172,11 @@ class ResearchBook:
                 'unavailable_fields':['delivered_quantity','assigned_supplier','delivery_event_times','verified_cost','FC-only-attributed-marketing'],
                 'history_available':self.history is not None,'reference_available':self.reference is not None,
                 'problem_clues_available':self.clues is not None,'permission':'readonly','skills_version':self.skills['version'] if self.skills else None})
+        if name=='fc.query_native_statistics':
+            if set(args)!={'profile','start','end'} or args['profile'] not in {'FC27','FC26'}:raise ValueError('native_fields')
+            period(args['start'],args['end'])
+            value=self.native(args) if self.native else {'status':'not_available','reason':'native_statistics_adapter_missing'}
+            return self.register(name,args,value,'Admin原生订单统计（权威）与显式Order参考；各源范围分别读取')
         if name == 'fc.query_business': return self.query(args)
         if name == 'fc.query_queue': return self.query(args,current=True)
         if name == 'fc.read_history':
@@ -189,8 +198,13 @@ class ResearchBook:
             if not isinstance(refs,list) or not refs or any(x not in self.evidence for x in refs): raise ValueError('calculation_evidence')
             return self.register(name,args,calculation(args),'受控Decimal计算；输入仍需对应已读证据')
         if name == 'fc.read_skill':
-            if args != {'topic':'methods'} or not self.skills: raise ValueError('skill_topic')
-            return {'status':'available','version':self.skills['version'],'sha256':self.skills['sha256'],'text':self.skills['methods_text'],'provenance':'method_only','permissions':[]}
+            if args.get('topic')=='background' and self.background:
+                from background import background_index,read_section
+                if set(args)=={'topic'}:return background_index(self.background)
+                if set(args)=={'topic','section_id'}:return read_section(self.background,args['section_id'],expected_version=self.background['version'],expected_sha256=self.background['sha256'])
+                raise ValueError('background_fields')
+            if args not in ({'topic':'methods'},{'topic':'governance'}) or not self.skills: raise ValueError('skill_topic')
+            return {'status':'available','version':self.skills['version'],'sha256':self.skills['sha256'],'text':self.skills[args['topic']+'_text'],'provenance':'method_only','permissions':[]}
         raise PermissionError('tool_denied')
 
     def query(self,args,current=False):

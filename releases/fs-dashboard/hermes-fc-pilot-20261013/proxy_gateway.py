@@ -50,7 +50,8 @@ def request_body(body, model):
         raise ValueError('request_fields')
     effort=body.get('reasoning_effort')
     if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
-    if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= 6000:
+    output_limit=16384 if effort in ('high','max') else 6000
+    if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= output_limit:
         raise ValueError('output_limit')
     messages = body['messages']
     if not isinstance(messages, list) or not 1 <= len(messages) <= 64:
@@ -191,6 +192,8 @@ class UnifiedBudget:
             choices = response['choices']
             if not isinstance(choices, list) or len(choices) != 1:
                 raise ValueError('choices_invalid')
+            finish_reason=choices[0].get('finish_reason','tool_calls' if choices[0].get('message',{}).get('tool_calls') else 'stop')
+            if finish_reason not in ('stop','tool_calls','length','content_filter'):raise ValueError('finish_reason_invalid')
             message = deepcopy(choices[0]['message'])
             if not isinstance(message, dict):
                 raise ValueError('response_message_invalid')
@@ -220,6 +223,7 @@ class UnifiedBudget:
                        'price_version':p['price_version'], 'model':p['model'], 'message':message,
                        'cost_basis':'configured_public_rate_estimate_not_account_invoice',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
+            receipt['finish_reason']=finish_reason
             reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
             if reasoning_tokens is not None:
                 if type(reasoning_tokens)is not int or not 0<=reasoning_tokens<=usage['completion_tokens']:raise ValueError('reasoning_usage_invalid')

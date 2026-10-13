@@ -192,11 +192,11 @@ def selfcheck():
     for path in ("source/game-monitor/index.html", "source/management/targets.json", "backend/boss_insights.py", "tests/management_polling.cjs"):
         if select(["releases/fs-dashboard/boss-workspaces-20261013/"+path]) != ["fs-boss-workspaces"]:
             raise RuntimeError("fs_boss_workspaces_scope_missing")
-    for name in ("pilot.py", "runs_contract.py", "test_pilot.py", "test_runs_contract.py", "proxy_gateway.py", "runtime_contract.py", "test_gateway.py", "background.py", "test_background.py", "transport.py", "test_transport.py", "source_projection.py", "test_source_projection.py", "hermes_worker.py"):
-        if select(["releases/fs-dashboard/hermes-fc-pilot-20261013/"+name]) != ["hermes-fc-pilot"]:
-            raise RuntimeError("hermes_fc_pilot_scope_missing")
     if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
         raise RuntimeError("fc_deep_advisor_scope_missing")
+    for path in ("controller.py","fs-hermes-fc.service","shared_candidate/range_api.py","skills/manifest.json"):
+        if select(["releases/fs-dashboard/hermes-fc-pilot-20261013/"+path]) != ["hermes-fc-pilot"]:
+            raise RuntimeError("hermes_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
@@ -209,6 +209,10 @@ def selfcheck():
         raise RuntimeError("mlb_admin_test_scope_missing")
     if select(["fc27_pack_bundles_20261013/src/pack_bundles_server.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_scope_missing")
+    if select(["releases/fc-coins/lock-gate-hardening-20261013/source/coin_all_sync_job.py"]) != ["fc-lock-gate-hardening"]:
+        raise RuntimeError("fc_hardening_mapping_missing")
+    if select(["releases/fc-coins/order-public-acceptance-20261013/source/report.py"]) != ["fc-order-public"]:
+        raise RuntimeError("fc_order_public_mapping_missing")
     if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
     if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
@@ -266,6 +270,10 @@ def select(paths):
             groups.add("fc-detail-analytics");continue
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
             groups.add("fs-on-demand");continue
+        if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
+            groups.add("fc-lock-gate-hardening");continue
+        if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
+            groups.add("fc-order-public");continue
         # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
         if name.startswith("fc27_pack_bundles_20261013/"):
             groups.add("fc27-pack-bundles");continue
@@ -422,8 +430,10 @@ def main():
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
-            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research"])
-            subprocess.run([sys.executable,"-B",str(ROOT/"releases/fs-dashboard/hermes-fc-pilot-20261013/runtime_ci.py"),"--test"],check=True,timeout=210,cwd=ROOT)
+            release="releases/fs-dashboard/hermes-fc-pilot-20261013"
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release"])
+            node(release+"/check_ui.cjs")
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"runtime_ci.py"),"--test"],check=True,timeout=420)
         elif group=="fc-deep-advisor":
             release="releases/fs-dashboard/ai-advisor-20261013/deep"
             units(release+"/tests",["test_ci"],root_owned=True)
@@ -518,6 +528,10 @@ def main():
             # 离线用例：协议契约 / 幂等判定 / 凭据卫生 / 证据包结构。
             # 不连网、不写后台、不需要凭据（CI 隔离环境下已验证 23 项全绿）。
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
+        elif group=="fc-lock-gate-hardening":
+            units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-order-public":
+            units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
@@ -530,6 +544,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

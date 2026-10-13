@@ -108,7 +108,7 @@ class TaskStore:
             raise ValueError('terminal_task')
         transitions = {'QUEUED': {'CANCELLED'}, 'DISPATCH_UNKNOWN': {'RUNNING', 'CANCEL_REQUESTED', 'NEEDS_RECONCILE'},
                        'RUNNING': {'RUNNING', 'CANCEL_REQUESTED', 'NEEDS_RECONCILE', 'VALIDATING', 'FAILED', 'CANCELLED'},
-                       'CANCEL_REQUESTED': {'CANCELLED', 'NEEDS_RECONCILE'}, 'VALIDATING': {'SUCCEEDED', 'PARTIAL', 'FAILED'}}
+                       'CANCEL_REQUESTED': {'CANCEL_REQUESTED', 'CANCELLED', 'NEEDS_RECONCILE'}, 'VALIDATING': {'SUCCEEDED', 'PARTIAL', 'FAILED'}}
         if state not in transitions.get(task['state'], set()):
             raise ValueError('transition_invalid')
         with self.db() as db:
@@ -139,11 +139,11 @@ class TaskStore:
 
     def bind_run(self, task_id, owner, lease, run_id):
         task = self.get(task_id, owner)
-        if task['state'] != 'DISPATCH_UNKNOWN' or task['lease'] != lease:
+        if task['state'] not in {'DISPATCH_UNKNOWN','CANCEL_REQUESTED'} or task['lease'] != lease:
             raise ValueError('dispatch_lease_mismatch')
         if not isinstance(run_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', run_id):
             raise ValueError('invalid_run_id')
-        return self.change(task, 'RUNNING', run_id=run_id, lease=lease)
+        return self.change(task, 'CANCEL_REQUESTED' if task['state']=='CANCEL_REQUESTED' else 'RUNNING', run_id=run_id, lease=lease)
 
     def cancel(self, task_id, owner):
         task = self.get(task_id, owner)

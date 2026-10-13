@@ -76,6 +76,10 @@ class Grants:
 class Proxy:
     def __init__(self, grants, gateway_for, background=None):
         self.grants, self.gateway_for, self.background = grants, gateway_for, background
+        self._active={};self._active_lock=threading.Lock()
+
+    def active(self,task_id):
+        with self._active_lock:return self._active.get(task_id,0)
 
     @staticmethod
     def _turn(db_factory, grant, request):
@@ -136,7 +140,9 @@ class Proxy:
                     # Fixed Hermes stores a generic carrier beside DeepSeek's
                     # native carrier. Strip only a provably identical duplicate;
                     # divergent/non-native reasoning is an explicit failure.
-                    if message.get('role')!='assistant' or message.get('reasoning')!=message.get('reasoning_content'):
+                    if message.get('role')!='assistant' or (message.get('reasoning')!=message.get('reasoning_content') and
+                            not (isinstance(message.get('reasoning'),str) and isinstance(message.get('reasoning_content'),str) and
+                                 message['reasoning'].strip()==message['reasoning_content'].strip())):
                         raise ValueError('reasoning_carrier_mismatch')
                     message.pop('reasoning')
                 if isinstance(message,dict) and 'reasoning_content' in message:
@@ -156,12 +162,15 @@ class Proxy:
         from proxy_gateway import request_body
         request_body(request, gateway.budget.policy['model'])
         turn = self._turn(gateway.budget.db, grant, request)
-        receipt = gateway.call(grant.owner, grant.task_id, grant.lease, turn, request)
+        with self._active_lock:self._active[grant.task_id]=self._active.get(grant.task_id,0)+1
+        try:receipt = gateway.call(grant.owner, grant.task_id, grant.lease, turn, request)
+        finally:
+            with self._active_lock:self._active[grant.task_id]-=1
         message = receipt['message']
         return {'id': receipt['provider_request_id'], 'object': 'chat.completion',
                 'created': int(time.time()), 'model': receipt['model'], 'usage': receipt['usage'],
                 'choices': [{'index': 0, 'message': message,
-                             'finish_reason': 'tool_calls' if message.get('tool_calls') else 'stop'}]}
+                             'finish_reason':receipt['finish_reason']}]}
 
 
 def start_loopback(proxy, port=8940):

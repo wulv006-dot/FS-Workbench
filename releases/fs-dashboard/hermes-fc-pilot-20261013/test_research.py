@@ -84,5 +84,13 @@ class ResearchTests(unittest.TestCase):
         result=self.book.call('fc.read_skill',{'topic':'methods'})
         self.assertIn('先核每行代表什么',result['text']);self.assertEqual(result['permissions'],[])
 
+    def test_background_is_explicit_context_without_fact_authority(self):
+        from fs_inprocess import approved_background
+        self.book.background=approved_background(Path(__file__).parent)
+        index=self.book.call('fc.read_skill',{'topic':'background'})
+        section=self.book.call('fc.read_skill',{'topic':'background','section_id':index['sections'][1]['id']})
+        self.assertEqual(section['authority'],'context_only');self.assertEqual(section['permissions'],[])
+        with self.assertRaises(ValueError):self.book.call('fc.read_skill',{'topic':'background','section_id':'../../secret'})
+
 
 if __name__=='__main__':unittest.main()

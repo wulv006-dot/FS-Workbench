@@ -122,7 +122,7 @@ def make_adapter(api_key):
                             ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
-                            fallback_model=None, quiet_mode=True, max_tokens=6000,
+                            fallback_model=None, quiet_mode=True, max_tokens=16384 if item.get('reasoning_effort','none') in ('high','max') else 6000,
                             reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):

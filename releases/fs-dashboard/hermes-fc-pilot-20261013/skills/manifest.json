@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0-candidate",
+  "version": "0.3.0-candidate",
   "hermes_commit": "71d34bad1045610252eda02ee79549436896e784",
   "anthropic_commit": "02ffa99ff00ce4d3046ccebabb8357cb39f3ab06",
   "upstream_licenses": [
@@ -19,9 +19,14 @@
       "bytes": 3211
     },
     {
+      "path": "skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574",
+      "bytes": 1848
+    },
+    {
       "path": "skills/fs-fc-operations-analysis/SKILL.md",
-      "sha256": "56fb85bf9b51905532f5c4a9edcd05e6ac1161735f3e6b5aac90527750f6b31c",
-      "bytes": 8116
+      "sha256": "28ed69f3d913924e5dc0f358256d28e4c6e264855991c97db48d00c5b05909ba",
+      "bytes": 8639
     },
     {
       "path": "skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",

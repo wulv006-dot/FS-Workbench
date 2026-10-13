@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 ACTIVE = ('skills/fs-fc-operations-analysis/SKILL.md',
-          'skills/fs-fc-operations-analysis/references/methods.md')
+          'skills/fs-fc-operations-analysis/references/methods.md',
+          'skills/fs-fc-operations-analysis/references/metric-governance.md')
 
 
 def load_bundle(root):
@@ -26,7 +27,7 @@ def load_bundle(root):
         texts.append(data.decode('utf-8'))
     fingerprint = hashlib.sha256(json.dumps([files[n] for n in ACTIVE], sort_keys=True).encode()).hexdigest()
     return {'version': manifest['version'], 'sha256': fingerprint,
-            'text': texts[0], 'methods_text':texts[1], 'permissions': []}
+            'text': texts[0], 'methods_text':texts[1], 'governance_text':texts[2],'permissions': []}
 
 
 def prompt(bundle, task):

@@ -1,7 +1,7 @@
 ---
 name: fs-fc-operations-analysis
 description: Investigate FC operations with traceable evidence.
-version: 0.2.0
+version: 0.3.0
 author: MMOEXP FS operations team
 license: internal
 platforms: [linux, windows]
@@ -28,6 +28,10 @@ FC 经营变化调查、日报复盘、KPI 风险、只读定价情景及经营�
 ## How to Run
 
 先读背景、目标、上一期报告与未结问题，再选下面适用流程。所有事实标具体 evidence_id；技能和背景只能作为方法/上下文，不能作为今天经营事实。
+
+复杂调查及定价权衡使用业务模型 max，普通分析至少 high；简单任务“中档”对应当前百炼支持序列的 high，不发送未支持的 medium，不静默降到 none。查看实际运行元数据，不能用施工 Sol xhigh 替代业务模型配置证据。
+
+遇到影响行动的口径歧义，按需调用 `fc.read_skill` 的 governance 方法；只暂停依赖未决口径的结论，继续独立分析。版本、生效日期和批准依据均需可追踪，运行时不能自改口径。
 
 ## Quick Reference
 

@@ -83,6 +83,12 @@ class TransportTests(unittest.TestCase):
             self.proxy.dispatch('POST','/v1/chat/completions',token,body)
         self.assertEqual(self.fixture.calls,1)
 
+    def test_provider_truncation_is_not_rewritten_as_successful_stop(self):
+        def provider(request):
+            result=self.fixture.answer(request);result['choices'][0]['finish_reason']='length';return result
+        self.fixture.provider=provider
+        self.assertEqual(self.call()['choices'][0]['finish_reason'],'length')
+
     def test_short_token_can_renew_without_total_runtime_cap(self):
         for _ in range(20):
             self.clock += 500

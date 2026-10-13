@@ -16,14 +16,14 @@ from runs_contract import WIRE_TOOLS
 import test_gateway as fixtures
 
 
-async def run():
+async def run(effort):
     import aiohttp
     fixture = fixtures.GatewayTests()
     fixture.setUp()
     fixture.budget.policy['model'] = 'deepseek-v4.1-flash'
     fixture.scope.deadline = None
     grants = Grants()
-    token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort='high')
+    token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort=effort)
     tool_hits = []
     original_call = fixture.scope.call
     def observe(*args, **kwargs):
@@ -31,7 +31,7 @@ async def run():
         return original_call(*args, **kwargs)
     fixture.scope.call = observe
     def provider(request):
-        assert request['enable_thinking'] is True and request['reasoning_effort']=='high', 'thinking_not_enabled'
+        assert request['enable_thinking'] is True and request['reasoning_effort']==effort, 'thinking_not_enabled'
         assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
         result = fixture.answer(request)
         if fixture.calls == 1:
@@ -39,9 +39,13 @@ async def run():
                 'tool_calls': [{'id': 'call_fixture', 'type': 'function', 'function': {
                     'name': WIRE_TOOLS[0], 'arguments': '{}'}}]}
             result['choices'][0]['message']['reasoning_content']='Synthetic private reasoning for the first tool call.'
-        else:
+        elif fixture.calls==2:
             assert request['messages'][2]['reasoning_content']=='Synthetic private reasoning for the first tool call.', 'reasoning_replay_missing'
             result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'}
+        else:
+            assert any(m.get('role')=='user' and m.get('content')=='Reassess the previous conclusion with a competing explanation.' for m in request['messages']), 'second_user_turn_missing'
+            assert any(m.get('role')=='assistant' and m.get('content')=='Fixture investigation complete.' for m in request['messages']), 'previous_judgment_missing'
+            result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
         result['usage']['completion_tokens_details']={'reasoning_tokens':3}
         return result
     fixture.provider = provider
@@ -65,7 +69,7 @@ async def run():
         hermes_worker.ADMISSIONS.mkdir()
         (hermes_worker.ADMISSIONS/(session_id+'.json')).write_text(json.dumps({
             'session_id': session_id, 'token': token, 'model': 'deepseek-v4.1-flash',
-            'reasoning_effort':'high',
+            'reasoning_effort':effort,
             'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}), encoding='utf-8')
         home = Path(os.environ['HERMES_HOME']); home.mkdir(parents=True, exist_ok=True)
         (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
@@ -94,8 +98,18 @@ async def run():
                     'input': 'Check FC metric definitions, then finish.', 'session_id': session_id}) as response:
                 replay = await response.json()
             assert replay['run_id'] == run_id and fixture.calls == 2, 'durable_admission_replay'
+            async with client.post('http://127.0.0.1:8941/v1/runs',headers={'Idempotency-Key':'fixture-second-user-turn'},json={
+                    'input':'Reassess the previous conclusion with a competing explanation.','session_id':session_id}) as response:
+                followup=await response.json()
+                assert response.status==202 and followup['run_id']!=run_id, 'second_turn_admission'
+            for _ in range(90):
+                async with client.get('http://127.0.0.1:8941/v1/runs/'+followup['run_id']) as response:followup=await response.json()
+                if followup['status'] not in {'queued','running','stopping'}:break
+                await asyncio.sleep(.5)
+            assert followup['status']=='completed' and fixture.calls==3, ('second_user_turn',followup)
         print(json.dumps({'official_runs': 'pass', 'official_agent': 'pass', 'tools': tool_hits,
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
+                          'reasoning_effort':effort,'second_user_turn':'pass',
                           'real_business_data': False, 'real_model_call': False}))
     finally:
         if adapter is not None:
@@ -105,4 +119,6 @@ async def run():
 
 
 if __name__ == '__main__':
-    asyncio.run(run())
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--effort',choices=['high','max'],required=True)
+    asyncio.run(run(parser.parse_args().effort))

@@ -1,0 +1,132 @@
+from contextlib import contextmanager
+from datetime import datetime,timezone
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from controller import HermesService
+from pilot import digest,encoded
+from proxy_gateway import ModelGateway,ScopedTools,UnifiedBudget
+from research import ResearchBook
+from skill_bundle import load_bundle
+from test_research import dataset
+from report_validation import validate_output
+from runs_contract import WIRE_TOOLS
+
+
+class InlinePool:
+    def submit(self,fn,*args):fn(*args)
+
+
+class Daily:
+    def __init__(self,root):
+        self.root=root;self.path=root/'daily.db'
+        with self.db() as db:db.execute('CREATE TABLE model_calls(fingerprint TEXT PRIMARY KEY,day TEXT,state TEXT,content TEXT)')
+    @contextmanager
+    def db(self):
+        db=sqlite3.connect(self.path);db.row_factory=sqlite3.Row
+        try:
+            with db:yield db
+        finally:db.close()
+
+
+class ControllerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.run_root=self.root/'run';(self.run_root/'admissions').mkdir(parents=True)
+        self.daily=Daily(self.root);self.at=datetime(2026,10,13,15,tzinfo=timezone.utc)
+        self.service=HermesService(None,self.daily,None,None,self.root/'state',self.run_root,Path(__file__).parent,lambda u:u=='owner',clock=lambda:self.at)
+        self.service.pool.shutdown();self.service.pool=InlinePool()
+        self.body={'kind':'hermes_report','request_id':'request_fixture','start':'2026-10-05','end':'2026-10-11','question':'调查销售与积压的经营变化并给出行动。','mode':'investigation'}
+        self.headers={'X-FS-Advisor-Action':'submit','Sec-Fetch-Site':'same-origin'}
+        self.book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},skills=load_bundle(Path(__file__).parent))
+
+    def build_gateway(self,daily,tasks,book):
+        budget=UnifiedBudget(daily.db,{'id':'fixture','model':'deepseek-v4.1-flash','price_version':'fake','input_microcny':2,'output_microcny':8},lambda:self.at)
+        @contextmanager
+        def slot():yield True
+        def provider(request):
+            self.assertTrue(request['enable_thinking']);self.assertEqual(request['reasoning_effort'],'max')
+            return {'id':'receipt_fixture','usage':{'prompt_tokens':20,'completion_tokens':10,'total_tokens':30},'choices':[{'message':{'role':'assistant','content':'fixture'}}]}
+        return ModelGateway(ScopedTools(tasks,book,lambda:self.at),budget,slot,provider,lambda _:100000,lambda:0)
+
+    def remote(self,method,path,body=None,idempotency=None):
+        admission_path=next((self.run_root/'admissions').glob('fc_*.json'))
+        admission=json.loads(admission_path.read_text('utf-8'))
+        grant=self.service.grants.resolve(admission['token'])
+        task=self.service.tasks.get(grant.task_id,grant.owner)
+        if method=='POST':
+            self.assertFalse(admission['ready']);self.assertEqual(task['state'],'DISPATCH_UNKNOWN')
+            return 202,{'run_id':'run_'+'a'*32,'status':'queued'}
+        self.assertTrue(admission['ready']);self.assertEqual(task['state'],'RUNNING')
+        ref=self.service.proxy.dispatch('POST','/fc/tools/call',admission['token'],{'name':WIRE_TOOLS[6],
+             'arguments':{'start':'2026-10-05','end':'2026-10-11','group_by':['platform'],'filters':{},'page':1}})['data']['evidence_id']
+        self.service.proxy.dispatch('POST','/v1/chat/completions',admission['token'],{'model':'deepseek-v4.1-flash','reasoning_effort':'max','max_tokens':50,'messages':[{'role':'user','content':'fixture'}]})
+        return 200,{'status':'completed','output':encoded({'summary':'合成调查完成，仍需业务验收。',
+               'findings':[{'statement':'主站已读两单，其中一单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付进度未提供'}],
+               'actions':[{'target':'PS问题单','action':'复核最新障碍','condition':'仍为问题状态','cost_risk':'人工时间，旧备注可能失效','review_at':'次日','success_check':'状态与障碍复核','evidence_ids':[ref]}],
+               'reviews':[],'limitations':['合成输入不能作经营事实。']})}
+
+    def test_end_to_end_handshake_model_receipt_and_owner_idempotency(self):
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote),patch.dict('sys.modules',{'ai_advisor_model':type('Module',(),{'clean_question':staticmethod(lambda q:q)})()}):
+            code,job=self.service.post(self.body,'owner',self.headers)
+            self.assertEqual(code,202);self.assertEqual(job['state'],'COMPLETED',job)
+            self.assertTrue(job['result']['model_generated']);self.assertEqual(job['result']['business_acceptance'],'user_review_required')
+            self.assertEqual(job['model_usage']['calls'],1)
+            self.assertEqual(job['result']['reasoning_effort'],'max')
+            self.assertEqual(self.service.post(self.body,'owner',self.headers)[0],200)
+            self.assertEqual(self.service.get_job('other',job['id']),None)
+            self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
+
+    def test_anonymous_foreign_role_and_cross_origin_cannot_submit(self):
+        self.assertEqual(self.service.post(self.body,None,self.headers)[0],401)
+        self.assertEqual(self.service.post(self.body,'other',self.headers)[0],403)
+        self.assertEqual(self.service.post(self.body,'owner',dict(self.headers,**{'Sec-Fetch-Site':'cross-site'}))[0],403)
+
+    def test_cancel_while_sources_load_never_admits_runtime(self):
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
+        def load(*args):
+            self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers)
+            return self.book
+        with patch('controller.build_book',side_effect=load),patch.object(self.service,'remote') as remote,patch.dict('sys.modules',{'ai_advisor_model':type('Module',(),{'clean_question':staticmethod(lambda q:q)})()}):
+            _,job=self.service.post(self.body,'owner',self.headers)
+            self.assertEqual(job['state'],'CANCELLED');self.assertIsNone(job['task_id']);remote.assert_not_called()
+
+    def test_cancel_during_admission_keeps_run_mapping_and_revokes_spending(self):
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32];calls=[]
+        def remote(method,path,body=None,idempotency=None):
+            calls.append((method,path))
+            if path=='/v1/runs':
+                self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers)
+                return 202,{'run_id':'run_'+'a'*32,'status':'queued'}
+            if path.endswith('/stop'):return 200,{'status':'stopping'}
+            admission=json.loads(next((self.run_root/'admissions').glob('*.json')).read_text('utf-8'))
+            with self.assertRaises(PermissionError):self.service.grants.resolve(admission['token'])
+            return 200,{'status':'cancelled'}
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote),patch.dict('sys.modules',{'ai_advisor_model':type('Module',(),{'clean_question':staticmethod(lambda q:q)})()}):
+            _,job=self.service.post(self.body,'owner',self.headers)
+            self.assertEqual(job['state'],'CANCELLED',job);self.assertEqual(job['task_state'],'CANCELLED')
+            self.assertEqual(job['run_id'],'run_'+'a'*32);self.assertEqual(job['model_usage']['calls'],0)
+            self.assertEqual(calls.count(('POST','/v1/runs')),1)
+
+    def test_restart_preserves_unknown_without_spending(self):
+        key=digest({'owner':'owner','request_id':'fixture'})[:32]
+        with self.service.tasks.db() as db:db.execute("INSERT INTO requests VALUES(?,?,?,?,'RUNNING',NULL,NULL,NULL)",(key,'owner','fixture',encoded(self.body)))
+        again=HermesService(None,self.daily,None,None,self.root/'state',self.run_root,Path(__file__).parent,lambda _:True,clock=lambda:self.at)
+        self.addCleanup(again.pool.shutdown)
+        self.assertEqual(again.get_job('owner',key)['state'],'NEEDS_RECONCILE')
+        self.assertIsNone(again.server)
+
+    def test_report_reference_integrity_has_no_three_item_or_number_ban(self):
+        ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
+        row={'statement':'已读2单，已知金额$10.00，1单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付数据缺失'}
+        result={'summary':'合成数据数值验证。','findings':[row]*4,'actions':[],'reviews':[],'limitations':[]}
+        self.assertEqual(len(validate_output(encoded(result),self.book)['findings']),4)
+        result['findings'][0]['evidence_ids']=['fabricated']
+        with self.assertRaisesRegex(ValueError,'fabricated_evidence'):validate_output(encoded(result),self.book)
+
+
+if __name__=='__main__':unittest.main()
