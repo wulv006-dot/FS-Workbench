@@ -41,12 +41,12 @@
   }
   function dailyCards(snapshot) {
     $('fcMeta').textContent = '每日官方情报与AI整理 · 发布日期与事件时间分开列示';
-    $('fcBriefCount').textContent = snapshot.events.length + ' 条节点';
+    $('fcBriefCount').textContent = latest ? snapshot.events.length + ' 条节点' : '待确认';
     const grid = $('fcGrid');
     grid.innerHTML = snapshot.events.length ? snapshot.events.map(e => {
       const when = e.event_date ? e.event_date + (e.event_time ? ' '+e.event_time : '') + (e.timezone ? ' '+e.timezone : ' · 时区未注明') : '事件日期待确认，不生成倒计时';
       return `<article class="fs-daily-item"><div class="fs-daily-label">${esc(e.game_name)} · ${esc(labels[e.kind])}${e.carried_forward?' · 沿用已验证节点':''}</div><h3>${esc(e.title)}</h3><p>${esc(e.summary)}</p><p><b>事件：</b>${esc(when)}</p><p><b>新闻发布：</b>${esc(e.published_at || '来源未注明')}<br><b>采集：</b>${esc(e.collected_at)}</p><details><summary>官方原文证据</summary><blockquote>${esc(e.evidence)}</blockquote><a href="${esc(e.source_url)}" target="_blank" rel="noopener noreferrer">查看官方来源</a></details></article>`;
-    }).join('') : '<p class="fs-daily-item">本批官方来源未提取出可验证的新节点；未编造事件或日期。</p>';
+    }).join('') : latest ? '<p class="fs-daily-item">本批官方来源未提取出可验证的新节点；请结合来源覆盖缺口查看。</p>' : '<p class="fs-daily-item">尚无可用采集结果，暂无法判断预警与新节点。</p>';
     grid.classList.add('fs-daily-grid');
   }
   function apply() {
@@ -57,7 +57,7 @@
       const snapshot = latest || {events:[],collected_at:null};
       window.fsApplyGameDaily(snapshot);
       window.REGION_RELEASES = {
-        updated: snapshot.collected_at || '尚未成功', window:'官方发布节点', regions:['范围未注明'], sources:{}, notes:[],
+        collection_available:!!latest, updated: snapshot.collected_at || '尚未成功', window:'官方发布节点', regions:['范围未注明'], sources:{}, notes:[],
         items:snapshot.events.map(e=>({daily_verified:true,event_time:e.event_time,timezone:e.timezone,title:e.title,name_en:e.game_name,publisher:e.source_id,platform:'来源详见原文',regions:['范围未注明'],type:labels[e.kind],date:e.event_date || '待确认',ip_tier:'待评估',biz_note:e.summary,source_url:e.source_url,source_name:'官方原文'}))
       };
       dailyCards(snapshot);

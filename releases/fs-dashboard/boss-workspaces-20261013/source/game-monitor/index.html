@@ -925,7 +925,7 @@ button.rg-hide.on{background:var(--ac-soft);color:#5e5ce6;border-color:#c7c6f7}
 
   <section class="fs-insight" aria-labelledby="fsInsightTitle">
     <h2 id="fsInsightTitle">AI 情报解读</h2>
-    <p>根据选中的导入事件解读机会与待核实事项；不联网核实，不自动执行经营决策。仅管理员可调用。</p>
+    <p>根据选中情报解读机会与待核实事项；不联网核实，不自动执行经营决策。仅管理员可调用。</p>
     <div class="fs-insight-controls">
       <label>游戏<select id="fsGame"></select></label>
       <label>事件<select id="fsEvent"></select></label>
@@ -6332,11 +6332,15 @@ function renderTierTabs(){
 }
 function renderUrgent(){
   const strip=document.getElementById("urgentScroll");
+  if(window.FS_GAME_DAILY_MODE==="empty"){
+    strip.innerHTML='<div class="empty">尚无可用采集结果，暂无法判断预警。</div>';
+    document.getElementById("urgentCount").textContent="待确认";return;
+  }
   const items=radarItems.filter(it=>{
     const d=remainDays(it.ev,it.st);
     return d>=0&&d<=7;
   });
-  if(!items.length){strip.innerHTML=`<div class="empty">未来 7 天暂无节点 🎉</div>`;document.getElementById("urgentCount").textContent=0;return;}
+  if(!items.length){strip.innerHTML=window.FS_GAME_DAILY_MODE==="live"?'<div class="empty">已验证情报中，未来 7 天暂无明确时间的预警节点；请结合来源缺口与待确认日期查看。</div>':`<div class="empty">历史资料中未来 7 天暂无节点</div>`;document.getElementById("urgentCount").textContent=0;return;}
   strip.innerHTML=items.map(it=>{
     const {g,ev,st}=it;
     const targetUTC=evTarget(ev,st);
@@ -6717,7 +6721,7 @@ function renderFCtoast(msg){
     {name:"⚠ 必盯-七日内预警",ic:"⏱",id:"sec-urgent",desc:"近一周节点高优先级预警",children:[
         {name:"🔔 必盯节点带",anchor:"sec-urgent"}
     ]},
-    {name:"📡 周报-游戏情报",ic:"📡",id:"sec-fc",desc:"7 维度情报 · 导入快照",childrenKey:"fc"}
+    {name:"📡 周报-游戏情报",ic:"📡",id:"sec-fc",desc:"官方每日情报与历史资料",childrenKey:"fc"}
   ];
   function fcChildren(){
     var D=(typeof DATA!=="undefined"?DATA:window.GAME_TIMELINE_DATA)||[];
@@ -6877,6 +6881,7 @@ function renderFCtoast(msg){
 
 const fsGameSeed = DATA.map(g=>({...g,events:(g.events||[]).map(e=>({...e}))}));
 window.fsApplyGameDaily = function(snapshot){
+  window.FS_GAME_DAILY_MODE=snapshot?(snapshot.status==="succeeded"?"live":"empty"):"history";
   DATA.splice(0,DATA.length,...fsGameSeed.map(g=>({...g,events:snapshot?[]:g.events.map(e=>({...e})),insight_events:snapshot?[]:undefined})));
   if(snapshot){
     const names={release:"新作发售",season:"赛季",update:"更新",server:"新服",maintenance:"维护",delay:"延期",announcement:"公告"};
@@ -7067,7 +7072,7 @@ function render(){
   $("rgSrcPanel").innerHTML=sourcesHtml(curReg);
   var arr=visibleItems();
   $("rgCount").textContent=arr.length+" 条";
-  $("rgGrid").innerHTML=arr.length?arr.map(cardHtml).join(""):'<div class="rg-empty">该筛选条件下暂无条目</div>';
+  $("rgGrid").innerHTML=arr.length?arr.map(cardHtml).join(""):DATA().collection_available===false?'<div class="rg-empty">尚无可用采集结果，暂无法判断新游节点。</div>':'<div class="rg-empty">该筛选条件下暂无条目</div>';
   var nb=$("rgNotes");
   if(nb){nb.innerHTML=(DATA().notes||[]).map(function(n){return "<li>"+esc(n)+"</li>";}).join("");}
 }
