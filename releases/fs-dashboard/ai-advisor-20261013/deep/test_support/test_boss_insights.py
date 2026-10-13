@@ -329,6 +329,20 @@ class ResponseTests(unittest.TestCase):
             with self.subTest(content_type=type(content).__name__), self.assertRaises(ValueError):
                 validate_response(raw, project_context(game()))
 
+    def test_management_known_project_keys_are_not_unverified_numbers(self):
+        body = management()
+        body['context']['projects'][0]['key'] = 'FC27'
+        projected = project_context(body)
+        for value in ('FC27营收进度可按给定完整日数据核对。', '利润为Order全站估算，建议人工核对口径。', '利润为Order 全站参考估算，建议人工核对口径。'):
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': value})
+            self.assertEqual(validate_response(raw, projected)['status'], 'succeeded')
+        for value in ('FC270营收已达到目标，请核对安排。', 'FC27营收已有123美元，请核对安排。', 'AION2营收已达到目标，请核对安排。'):
+            raw = response()
+            raw['choices'][0]['message']['content'] = json.dumps({'text': value})
+            with self.assertRaises(ValueError):
+                validate_response(raw, projected)
+
     def test_revalidates_projected_context(self):
         projected = project_context(management())
         projected['context']['projects'][0]['owner'] = 'private'

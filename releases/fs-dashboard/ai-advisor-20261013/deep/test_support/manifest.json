@@ -5,7 +5,7 @@
   },
   {
     "file": "boss_insights.py",
-    "sha256": "15877219ab8276b116e60cc1c3b9cbc26541ff3887bb224e8dab470cca7073d4"
+    "sha256": "1b8d4c94a8b1ed1524a900ccf30d13c83583da1c5936fde437ac78ca0bc959b1"
   },
   {
     "file": "fc_daily_model.py",
@@ -29,7 +29,7 @@
   },
   {
     "file": "manifest.json",
-    "sha256": "9566f941f1e7d426521b19a359dea4f1766602e9183f8e5f129079c427416c66"
+    "sha256": "aeb5a78b2713b53d053baecbc3a122374d105026ede6863d874bb49fc9d07f7a"
   },
   {
     "file": "range_api.py",
@@ -41,7 +41,7 @@
   },
   {
     "file": "test_boss_insights.py",
-    "sha256": "bd8ba396be16e5b4eb37615cc63b7c595ed24bb6a613841e50a3309d6f8d9338"
+    "sha256": "cf435d58f3eed19cc5b5b8895b6b1820f8092af4dfce79c8e21a55f3943a3d7f"
   },
   {
     "file": "test_fc_daily.py",
