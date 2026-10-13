@@ -246,7 +246,7 @@ class DailyRunner:
                 save()
                 def callback(projected):
                     return self.provider(messages, projected, module.validate_response,
-                                         max_tokens=6000 if kind == 'game-monitor' else 2500, timeout=120)
+                                         max_tokens=6000 if kind == 'game-monitor' else 5000, timeout=120)
                 try:
                     result = self.model_runner(batch, callback)
                     if type(result) is dict and result.get('status') == 'model_busy' and not result.get('receipt'):

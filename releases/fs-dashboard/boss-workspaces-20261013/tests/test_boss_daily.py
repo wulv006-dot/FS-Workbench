@@ -72,7 +72,7 @@ class DailyTests(unittest.TestCase):
         first = self.runner.run('game-monitor', 'manual')
         second = self.runner.run('management', 'scheduled')
         self.assertNotEqual(first['run_id'], second['run_id'])
-        self.assertEqual(self.provider_kwargs, {'max_tokens': 2500, 'timeout': 120})
+        self.assertEqual(self.provider_kwargs, {'max_tokens': 5000, 'timeout': 120})
         self.assertEqual(self.calls['provider'], 2)
 
     def test_unknown_not_reposted_and_old_game_snapshot_preserved(self):
@@ -285,7 +285,7 @@ class DailyTests(unittest.TestCase):
         management = self.runner.run('management', 'manual')
         self.assertEqual(game['status'], 'succeeded')
         self.assertEqual(management['status'], 'succeeded')
-        self.assertEqual([item['max_tokens'] for item in seen], [6000, 2500])
+        self.assertEqual([item['max_tokens'] for item in seen], [6000, 5000])
         self.assertTrue(all(item['timeout'] == 120 for item in seen))
         snapshot = json.loads((self.root / 'public/management.json').read_bytes())
         self.assertEqual(snapshot['advice']['status'], 'succeeded')

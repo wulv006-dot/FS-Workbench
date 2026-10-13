@@ -142,7 +142,7 @@ location ^~ /dashboard/release-radar/ { return 410; }
                'candidate/formal.conf': (FRAGMENT,fragment),
                'candidate/retired-radar.conf': (RADAR,retired)}
     for key, (_,data) in mutable.items():
-        file=out/key;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(data,encoding='utf-8',newline='\n')
+        file=out/key;file.parent.mkdir(parents=True,exist_ok=True);file.write_bytes(data.encode('utf-8'))
     # Pin direct data/auth dependencies; the other task supplies its final backend bytes before release.
     protected=[dict(path=p,sha256=v['sha256']) for p,v in texts.items() if p.startswith('/opt/fs-') or p=='/etc/nginx/fs-business-range.locations.conf']
     protected += [dict(path=p,sha256=value) for p,value in live['protected_hashes'].items()]
@@ -166,7 +166,7 @@ location ^~ /dashboard/release-radar/ { return 410; }
     publisher=publisher.replace("{p.name for p in (stage/'assets').iterdir()}", "{p.relative_to(stage/'assets').as_posix() for p in (stage/'assets').rglob('*') if p.is_file()}")
     publisher=publisher.replace('assets=15,mutableTargets=3', 'assets=len(NAMES),mutableTargets=len(MUTABLE)')
     publisher=publisher.replace('Exact 15 assets required','Exact frozen assets required').replace('Exact three mutable targets required','Exact frozen mutable targets required')
-    (out/'release_workspace.py').write_text(publisher,'utf-8',newline='\n')
+    (out/'release_workspace.py').write_bytes(publisher.encode('utf-8'))
     shutil.copyfile(PREVIOUS/'release_navigation.py',out/'release_navigation.py')
     summary=dict(releaseId=version,assetCount=len(content),mutableCount=len(mutable),contractSha256=sha(raw),advisorPreserved=advisor_live,backendDependencySupplied=dependency.exists(),releaseReady=False)
     (out/'build-summary.json').write_text(json.dumps(summary,indent=2)+'\n','utf-8')

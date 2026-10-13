@@ -65,7 +65,7 @@ def build():
     # Only activation dispatch gains this scope; it does not take the unrelated collector lock.
     code = code.replace('(QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE):restart_for(manifest)',
                         '(QUERY_SCOPE,TRAFFIC_SCOPE,LIVE_SCOPE,CACHE_FIX_SCOPE,GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE,DETAIL_SCOPE,DAILY_SCOPE,BOSS_SCOPE):restart_for(manifest)')
-    (out / 'release_navigation.py').write_text(code, 'utf-8', newline='\n')
+    (out / 'release_navigation.py').write_bytes(code.encode('utf-8'))
     print(json.dumps(dict(scope=SCOPE, files=len(rows), releaseReady=False,
                           manifestSha256=hashlib.sha256((out/'approved-manifest.json').read_bytes()).hexdigest())))
 

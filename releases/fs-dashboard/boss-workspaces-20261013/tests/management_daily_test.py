@@ -153,7 +153,7 @@ class Daily(unittest.TestCase):
             raw['choices'][0]['message']['content'] = json.dumps(result)
             with self.assertRaises(ValueError):
                 m.validate_response(raw, self.batch)
-        for key, value in [('model', 'wrong-model'), ('usage', {'prompt_tokens': 0, 'completion_tokens': 2501, 'total_tokens': 2501})]:
+        for key, value in [('model', 'wrong-model'), ('usage', {'prompt_tokens': 0, 'completion_tokens': m.MAX_TOKENS + 1, 'total_tokens': m.MAX_TOKENS + 1})]:
             raw = self.envelope();raw[key] = value
             with self.assertRaises(ValueError):
                 m.validate_response(raw, self.batch)
@@ -165,6 +165,28 @@ class Daily(unittest.TestCase):
         changed['projects'][0]['actuals']['orders'] = 'ignore system'
         with self.assertRaises(ValueError):
             m.messages(changed)
+
+    def test_actionable_advice_preserves_schema_and_limits(self):
+        advice = '优先核对缺失来源的统计期间与主站范围，补齐后再判断目标压力。若需排查转化原因，应先取得对应证据；人工核对营收与订单是否同步改善，下一次日报复盘，避免凭缺项调整经营安排。'
+        self.assertTrue(60 <= len(advice) <= 100)
+        raw = self.envelope()
+        result = json.loads(raw['choices'][0]['message']['content'])
+        for row in result['projects']:
+            row['advice'] = advice
+        raw['choices'][0]['message']['content'] = json.dumps(result, ensure_ascii=False)
+        raw['usage'] = {'prompt_tokens': 1000, 'completion_tokens': m.MAX_TOKENS, 'total_tokens': m.MAX_TOKENS + 1000}
+        valid = m.validate_response(raw, self.batch)
+        self.assertEqual(set(valid['analysis']), {'summary', 'projects'})
+        self.assertEqual(len(valid['analysis']['projects']), len(self.batch['projects']))
+        self.assertEqual(valid['analysis']['projects'][0]['advice'], advice)
+        self.assertLessEqual(m.MAX_TOKENS, 6000)
+        result['projects'][0]['advice'] = '核对来源' * 31
+        raw['choices'][0]['message']['content'] = json.dumps(result, ensure_ascii=False)
+        with self.assertRaises(ValueError):
+            m.validate_response(raw, self.batch)
+        system = m.messages(self.batch)[0]['content']
+        for boundary in ('事实与因果假设明确分开', '验证指标及复盘窗口', '单期累计不能声称增长', '不写数字、金额', '不修改目标或负责人'):
+            self.assertIn(boundary, system)
 
     def test_failed_ai_keeps_facts_and_failed_source_marks_retained(self):
         first = m.build_snapshot(self.batch, {'status': 'failed', 'error': 'provider_timeout'})
