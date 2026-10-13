@@ -1,8 +1,1 @@
-{
-  "hashes": {
-    "/var/www/dashboard/fs-home/index.html": "80734c32fcea86fad2c09edcc207db445ff8eae325d127661eba136a447707d8",
-    "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf": "18c88088a8bd036d26fb1763845adb53fe8942d52d03efb64137bb264b2bc645",
-    "/var/www/dashboard/fs-home/navigation.js": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"
-  },
-  "releaseId": "workspace-native-20261006-dfb1c7764fd8"
-}
+{"hashes": {"/var/www/dashboard/fs-home/index.html": "327a0794a093e1af6e522b9318469df0315b7e4c5167baeafdb82ae4e24a5602", "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf": "b40457b8baa76a3e1e4c52955dafc42fb7b2cb223a23310a4e17d2f8b386dbc7", "/var/www/dashboard/fs-home/navigation.js": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5"}}
