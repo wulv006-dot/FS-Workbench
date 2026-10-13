@@ -204,6 +204,12 @@ def selfcheck():
         raise RuntimeError("mlb_admin_evidence_scope_missing")
     if select(["mlb_admin_import_20261012/tests/test_admin_write_channel.py"]) != ["mlb-admin"]:
         raise RuntimeError("mlb_admin_test_scope_missing")
+    if select(["fc27_pack_bundles_20261013/src/pack_bundles_server.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_scope_missing")
+    if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
+    if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_test_scope_missing")
     if select(["共享资源/MLB新卡上架/server/mlb_server.py"]) != ["mlb-shelf-tool"]:
         raise RuntimeError("mlb_shelf_tool_scope_missing")
     if select(["共享资源/MLB新卡上架/deploy/install_mlb.sh"]) != ["mlb-shelf-tool"]:
@@ -255,6 +261,9 @@ def select(paths):
             groups.add("fc-detail-analytics");continue
         if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
             groups.add("fs-on-demand");continue
+        # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
+        if name.startswith("fc27_pack_bundles_20261013/"):
+            groups.add("fc27-pack-bundles");continue
         # MLB 后台直写链路（2026-10-12）：逆向证据 + 生产脚本 + 离线用例。
         # evidence/ 是交付物的一部分（它证明逆向过程可复核），必须保留。
         if name.startswith("mlb_admin_import_20261012/"):
@@ -501,6 +510,10 @@ def main():
             # 离线用例：协议契约 / 幂等判定 / 凭据卫生 / 证据包结构。
             # 不连网、不写后台、不需要凭据（CI 隔离环境下已验证 23 项全绿）。
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
+        elif group=="fc27-pack-bundles":
+            # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
+            # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
+            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
