@@ -22,9 +22,17 @@ def tool_schema():
                 'page_size':{'type':'integer','enum':[10,20,50,100]},
                 'area_id':{'type':'integer','minimum':0,'maximum':999999999},
                 'category_id':{'type':'integer','minimum':0,'maximum':999999999},
-                'sort':{'type':'string','enum':['order_count,desc','total_amount,desc']},
+                'sort':{'type':'string','enum':['order_count,descending']},
                 'platform':{'type':'string','enum':['all','PS','PC','XBOX','unknown']},
-                'samples':{'type':'integer','minimum':1,'maximum':6}}}}}
+                'samples':{'type':'integer','minimum':1,'maximum':6}},
+            'oneOf':[
+                {'properties':{'kind':{'enum':['native_loss']}, **{k:False for k in
+                    ('page','pages','page_size','area_id','category_id','sort','platform','samples')}},
+                 'required':['start','end']},
+                {'properties':{'kind':{'enum':['product_sales']},'platform':False,'samples':False},
+                 'required':['start','end']},
+                {'properties':{'kind':{'enum':['fulfillment_samples']}, **{k:False for k in
+                    ('start','end','page','page_size','area_id','category_id','sort')}}}]}}}
 
 
 def response_budget(value):
@@ -44,7 +52,6 @@ def response_budget(value):
             else:value['samples'].pop()
             removed += 1
         else:raise ValueError('capability_response_budget')
-    if removed:
         value['status'] = 'partial'
         value.setdefault('coverage',{})['output_truncated'] = True
         value['coverage']['output_removed_entries'] = removed
@@ -83,9 +90,8 @@ class CapabilityProvider:
             common = {'contract','kind','status','readonly','source_system','scope','query','timezone','captured_at','source_data_as_of','immutable_watermark','reason'}
             fields = {'endpoint','method','response_time','currency','source_orders','source_amount_usd','categories','loss_groups','peak','coverage','period_basis','rule'} if q['kind']=='native_loss' else {'endpoint','method','currency','rows','coverage','errors','period_basis','rule'}
             if set(value)-common-fields:raise ValueError('admin_projected_fields')
-        value = response_budget(value)
         value['http_status'] = 200 if value['status'] in ('available','partial') else 403 if value['status']=='denied' else 503
-        return value
+        return response_budget(value)
 
     def _finish(self,args,q):
         try:value = self._read(args,q)

@@ -120,6 +120,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertFalse(out['coverage']['complete'])
         self.assertNotIn('not-for-model',json.dumps(out))
         params=parse_qs(urlsplit(calls[0][0]).query)
+        self.assertEqual(params['order'],['order_count,descending'])
         self.assertIn('2026-10-13 00:00:00,2026-10-13 23:59:59',params['search[2][val]'])
         self.assertTrue(all(body is None for _,body in calls))
 
@@ -213,14 +214,47 @@ class ProjectionTests(unittest.TestCase):
         self.assertNotIn('url',params['properties'])
         self.assertNotIn('token',params['properties'])
 
+    def test_kind_schema_rejects_missing_dates_and_irrelevant_fields(self):
+        params=tool_schema()['function']['parameters']
+        branches={b['properties']['kind']['enum'][0]:b for b in params['oneOf']}
+        for kind in ('native_loss','product_sales'):
+            self.assertEqual(branches[kind]['required'],['start','end'])
+        for kind,args in [('native_loss',NATIVE),('product_sales',PRODUCT),
+                          ('fulfillment_samples',{'kind':'fulfillment_samples','profile':'FC27','platform':'PS'})]:
+            checked_query(args,CONFIG,NOW)
+            branch=branches[kind]
+            self.assertTrue(set(branch.get('required',[]))<=set(args))
+            self.assertFalse(any(branch['properties'].get(k) is False for k in args))
+        self.assertIs(branches['product_sales']['properties']['samples'],False)
+        self.assertIs(branches['native_loss']['properties']['pages'],False)
+        self.assertIs(branches['fulfillment_samples']['properties']['start'],False)
+        self.assertEqual(params['properties']['sort']['enum'],['order_count,descending'])
+        for sort in ('order_count,desc','total_amount,desc','total_amount,descending'):
+            with self.assertRaises(ValueError):checked_query(dict(PRODUCT,sort=sort),CONFIG,NOW)
+
+    def test_order_reader_errors_are_bounded_safe_coverage(self):
+        raw=events();raw['samples']=[]
+        raw['errors']=['read_budget','sample_budget','sample_unavailable','read_budget','private-note',{'token':'private-note'}]*100
+        out=fulfillment_projection(raw,checked_query({'kind':'fulfillment_samples','profile':'FC27'},CONFIG,NOW),TASK_A)
+        self.assertEqual(out['coverage']['errors'],['read_budget','sample_budget','sample_unavailable'])
+        self.assertEqual(out['coverage']['sampled'],0)
+        self.assertNotIn('private-note',json.dumps(out))
+
     def test_transport_budget_reports_truncation(self):
         value={'status':'partial','rows':[{'title':'字'*160,'area':'字'*160} for _ in range(300)],
                'coverage':{'complete':False,'received_rows':300}}
         out=response_budget(value)
-        self.assertLess(len(json.dumps(out,ensure_ascii=True,separators=(',',':')).encode()),12500)
+        self.assertLessEqual(len(json.dumps(out,ensure_ascii=True,separators=(',',':')).encode()),12000)
         self.assertTrue(out['coverage']['output_truncated'])
         self.assertEqual(out['coverage']['received_rows'],300)
         self.assertLess(len(out['rows']),300)
+
+    def test_transport_budget_includes_truncation_metadata_at_boundary(self):
+        value={'status':'available','http_status':200,'rows':[{'title':'x'*28} for _ in range(300)],'coverage':{'complete':True}}
+        before=deepcopy(value);out=response_budget(value)
+        self.assertLessEqual(len(json.dumps(out,ensure_ascii=True,separators=(',',':')).encode()),12000)
+        self.assertTrue(out['coverage']['output_truncated'])
+        self.assertEqual(value,before)
 
 
 class ImmediatePool:

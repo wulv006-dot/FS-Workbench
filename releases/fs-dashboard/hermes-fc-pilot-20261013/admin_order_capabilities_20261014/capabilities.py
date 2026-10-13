@@ -82,8 +82,8 @@ def checked_query(args, config, now=None):
         for key in ('area_id', 'category_id'):
             if key in q and (type(q[key]) is not int or not 0 <= q[key] <= 999999999):
                 raise ValueError('capability_filter')
-        q['sort'] = q.get('sort', 'order_count,desc')
-        if q['sort'] not in ('order_count,desc', 'total_amount,desc'):
+        q['sort'] = q.get('sort', 'order_count,descending')
+        if q['sort'] != 'order_count,descending':
             raise ValueError('capability_sort')
     elif kind == 'fulfillment_samples':
         q['platform'] = q.get('platform', 'all')
@@ -274,6 +274,8 @@ def fulfillment_projection(raw, q, task_key):
                   capture_time_basis='captured_at is projection time; source_captured_at is reader time when supplied; neither is immutable watermark', samples=samples,
                   coverage={'listed':number(raw.get('listed'), True), 'pages':number(raw.get('pages'), True),
                             'sampled':len(samples), 'has_more':raw.get('has_more') if type(raw.get('has_more')) is bool else None,
+                            'errors':list(dict.fromkeys(e for e in raw.get('errors', [])
+                                if isinstance(e,str) and e in ('read_budget','sample_budget','sample_unavailable'))),
                             'complete':False, 'history_complete':False},
                   identity='task-scoped HMAC pseudonyms for order/event/item IDs; Order game/area/category dictionary IDs are distinct from Admin IDs',
                   period_basis='current problem pool status=6; event display time retained verbatim, not inferred historic day-end state',
