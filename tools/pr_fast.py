@@ -431,7 +431,7 @@ def main():
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
             release="releases/fs-dashboard/hermes-fc-pilot-20261013"
-            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release"])
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release","test_fs_evidence"])
             node(release+"/check_ui.cjs")
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"runtime_ci.py"),"--test"],check=True,timeout=420)
         elif group=="fc-deep-advisor":

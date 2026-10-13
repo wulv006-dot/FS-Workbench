@@ -146,7 +146,8 @@ class ResearchBook:
 
     def register(self, name, args, data, source='Admin FC支付明细', captured_at=None):
         result = {'source':source, 'project':'FC27', 'scope':'main' if source.startswith('Admin') else 'source_defined',
-                  'snapshot_id':self.capture_id, 'captured_at':captured_at or self.data['as_of'],
+                  'snapshot_id':data.get('source_snapshot_id',self.capture_id) if isinstance(data,dict) else self.capture_id,
+                  'analysis_anchor_id':self.capture_id, 'captured_at':captured_at or data.get('captured_at',self.data['as_of']) if isinstance(data,dict) else self.data['as_of'],
                   'timezone':'Asia/Shanghai', 'query':deepcopy(args), 'data':deepcopy(data)}
         result['evidence_id'] = 'ev_'+digest(result)[:24]
         with self._lock:

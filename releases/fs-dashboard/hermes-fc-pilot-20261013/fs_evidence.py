@@ -4,9 +4,28 @@ from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import threading
+from copy import deepcopy
+from pilot import digest
 
 from research import ResearchBook, label
 from skill_bundle import load_bundle
+
+
+class SourcePins:
+    """Freeze the first usable reply per query, retaining its actual source times."""
+    def __init__(self):self.values={};self.lock=threading.RLock()
+    def wrap(self,reader,family):
+        def read(args):
+            key=digest({'family':family,'query':args})
+            with self.lock:
+                if key in self.values:return deepcopy(self.values[key])
+                value=deepcopy(reader(args))
+                value['source_snapshot_id']='src_'+digest({'family':family,'query':args,'reply':value})[:24]
+                value['snapshot_policy']='first_usable_source_reply_per_query; source timestamps remain distinct from Admin capture'
+                if value.get('http_status')==200 and value.get('status') not in {None,'pending','reading','running','queued','failed','error','not_available','unavailable','not_sent'}:
+                    self.values[key]=deepcopy(value)
+                return value
+        return read
 
 
 class AsyncRead:
@@ -67,6 +86,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
         status,raw=read_range(params)
         return {'status':raw.get('status'),'http_status':status,'query':args,'source_scope':'Order/all-websites',
                 'reference_only':True,'not_verified_pricing_cost':True,'captured_at':datetime.now(timezone.utc).isoformat(),
+                'source_metadata':{k:raw[k] for k in ('snapshot_id','snapshotId','version','generatedAt','capturedAt','sourceDataAsOf','stale') if k in raw},
                 'missingDays':raw.get('missingDays'), 'rows':raw.get('history',{}).get('daily',[]),'error':raw.get('error') or raw.get('lastError')}
     def native(args):
         params={k:[v] for k,v in dict(mode='summary',grain='day',**args).items()}
@@ -74,8 +94,10 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
         if raw.get('scopeContractId') not in (None,'admin-main-order-labelled-supplement-v1'):raise ValueError('native_source_contract')
         profile=raw.get('profile') or {}
         return {'http_status':status,'status':raw.get('status'),'query':args,'source_contract':raw.get('scopeContractId'),
+                'captured_at':datetime.now(timezone.utc).isoformat(),'capture_time_basis':'supplement_retrieved_at; each sourceDataAsOf retained below',
                 'source_records':{k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)},
                 'source_status':raw.get('sources'),'consistentPeriod':raw.get('consistentPeriod'),
                 'rule':'须读取各记录system/source/scope；Admin权威主源，Order仅参考，不按primary字段名猜实际源'}
-    return ResearchBook(dataset,config,{'start':start,'end':end},history=history,reference=reference,
-                        clues=clue_read.get,skills=skills,persist=persist,native=native)
+    pins=SourcePins()
+    return ResearchBook(dataset,config,{'start':start,'end':end},history=history,reference=pins.wrap(reference,'Order-reference'),
+                        clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'))
