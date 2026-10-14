@@ -83,10 +83,22 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
 
     def test_real_credential_markers_remain_blocked_before_spend(self):
-        for marker in ('sk-a','sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only'):
+        for marker in ('sk-a','sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
+                       '\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','\x00sk-SYNTHETIC123',
+                       '{"note":"\\nsk-SYNTHETIC123"}','Tool response: {"note":"\\u0000sk-SYNTHETIC123"}'):
             with self.subTest(marker=marker):
                 with self.assertRaisesRegex(ValueError,'context_rejected'):
                     self.call(body={'messages':[{'role':'user','content':marker}],'max_tokens':50})
+        for marker in ('\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','Tool response: {"note":"\\nsk-SYNTHETIC123"}'):
+            for field in ('tool_content','assistant_reasoning'):
+                messages=[{'role':'user','content':'Check the readonly sample.'}]
+                if field=='tool_content':
+                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_call','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                                     {'role':'tool','tool_call_id':'fixture_call','content':marker}])
+                else:messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
+                with self.subTest(marker=marker,field=field):
+                    with self.assertRaisesRegex(ValueError,'context_rejected'):
+                        self.call(body={'messages':messages,'max_tokens':50,'reasoning_effort':'max'})
         self.assertEqual(self.calls,0)
         with self.db() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],0)
