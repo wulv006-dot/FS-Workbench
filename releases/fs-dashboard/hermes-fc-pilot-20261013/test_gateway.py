@@ -438,4 +438,38 @@ class GatewayTests(unittest.TestCase):
         with self.db() as db: self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],2)
 
 
+    def test_reasoning_output_over_old_ceiling_preserves_verified_usage(self):
+        from proxy_gateway import MAX_HERMES_OUTPUT_TOKENS
+        def large(req):
+            value=self.answer(req)
+            value['usage']={'prompt_tokens':50,'completion_tokens':20000,'total_tokens':20050,
+                            'completion_tokens_details':{'reasoning_tokens':17000}}
+            return value
+        self.provider=large
+        result=self.call(body={'messages':[{'role':'user','content':'synthetic only'}],
+                               'max_tokens':MAX_HERMES_OUTPUT_TOKENS,'reasoning_effort':'max'})
+        self.assertEqual(result['usage']['completion_tokens'],20000)
+        self.assertEqual(result['reasoning_tokens'],17000)
+        self.assertEqual(result['status'],'succeeded')
+        self.assertEqual(result['cost_microcny'],80100)
+
+    def test_truncated_tool_arguments_have_safe_diagnostic_and_no_success(self):
+        def truncated(req):
+            value=self.answer(req)
+            value['model']=req['model']
+            value['choices'][0]={'finish_reason':'length','message':{'role':'assistant','content':None,
+                'reasoning_content':'SYNTHETIC_PRIVATE_NOT_FOR_DIAGNOSTIC','tool_calls':[{'id':'cut','type':'function',
+                'function':{'name':WIRE_TOOLS[0],'arguments':'{"cut":'}}]}}
+            return value
+        self.provider=truncated
+        with self.assertRaisesRegex(ValueError,'unverified_provider_result'):self.call(body={
+            'messages':[{'role':'user','content':'synthetic only'}],'max_tokens':65536,'reasoning_effort':'max'})
+        with self.db() as db:
+            row=db.execute('SELECT state,content FROM model_calls').fetchone()
+        receipt=json.loads(row['content'])
+        self.assertEqual(row['state'],'invalid_response')
+        self.assertEqual(receipt['reason'],'tool_arguments_json_invalid')
+        self.assertEqual(receipt['response_shape']['finish_reason'],'length')
+        self.assertNotIn('SYNTHETIC_PRIVATE',row['content'])
+
 if __name__=='__main__': unittest.main()

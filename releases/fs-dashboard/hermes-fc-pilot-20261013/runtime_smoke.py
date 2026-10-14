@@ -13,7 +13,7 @@ import resource
 
 import hermes_worker
 from transport import Grants, Proxy, start_loopback
-from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES, MAX_HERMES_OUTPUT_TOKENS
 from runs_contract import WIRE_TOOLS,validate_admission
 import test_gateway as fixtures
 
@@ -65,7 +65,7 @@ async def run(effort):
             elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'}
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
             tokens=min(17000,size)
-            result['usage']={'prompt_tokens':tokens,'completion_tokens':10,'total_tokens':tokens+10,'completion_tokens_details':{'reasoning_tokens':3}}
+            result['usage']={'prompt_tokens':tokens,'completion_tokens':20000,'total_tokens':tokens+20000,'completion_tokens_details':{'reasoning_tokens':17000}}
             return result
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
@@ -117,6 +117,7 @@ async def run(effort):
         original_agent_init=run_agent.AIAgent.__init__
         def observe_agent_init(agent,*args,**kwargs):
             original_agent_init(agent,*args,**kwargs)
+            assert agent.max_tokens==MAX_HERMES_OUTPUT_TOKENS, 'native_output_limit_not_applied'
             read_timeout=getattr(agent.client.timeout,'read',agent.client.timeout)
             stale_timeout=agent._compute_non_stream_stale_timeout({'messages':[]})
             outer_timeout=agent._resolved_api_call_timeout()
@@ -182,7 +183,7 @@ async def run(effort):
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
                           'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
-                          'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'complete_tool_results_retained':not any(saw_prune),
+                          'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'native_output_limit_tokens':MAX_HERMES_OUTPUT_TOKENS,'verified_response_completion_tokens':20000,'complete_tool_results_retained':not any(saw_prune),
                           'ordinary_task_scope_description_preserved':True,'rpc_client_timeout_checks':rpc_timeouts,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',

@@ -45,7 +45,7 @@ class ProviderTests(unittest.TestCase):
         self.assertFalse(self.sent[0]['enable_thinking']);self.assertNotIn('tools',self.sent[0]);self.assertNotIn('reasoning_effort',self.sent[0])
 
     def test_hermes_max_is_explicit_and_uses_exact_tools(self):
-        result=self.run_request(tools=schemas(),reasoning_effort='max',max_tokens=16384)
+        result=self.run_request(tools=schemas(),reasoning_effort='max',max_tokens=65536)
         self.assertEqual(result['id'],'fake_receipt');self.assertTrue(self.sent[0]['enable_thinking'])
         self.assertEqual(self.sent[0]['reasoning_effort'],'max');self.assertEqual(self.sent[0]['tool_choice'],'auto')
         self.assertEqual(self.sent[0]['tools'],schemas())
@@ -73,13 +73,13 @@ class ProviderTests(unittest.TestCase):
     def test_chinese_hermes_payload_uses_exact_utf8_and_preserves_legacy_encoding(self):
         from proxy_gateway import request_body
         messages=[{'role':'user','content':'中文经营调查'*4500}]
-        body=request_body({'messages':messages,'max_tokens':16384,'reasoning_effort':'max'},'deepseek-v4.1-flash')
+        body=request_body({'messages':messages,'max_tokens':65536,'reasoning_effort':'max'},'deepseek-v4.1-flash')
         expected=json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
         self.assertLess(len(expected),96000);self.assertGreater(len(json.dumps(body).encode()),96000)
         sent=[]
         with patch('urllib.request.build_opener') as opener:
             opener.return_value.open.side_effect=lambda request,timeout:(sent.append(request.data) or Response())
-            result=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=16384)
+            result=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=65536)
         self.assertEqual(result['id'],'fake_receipt');self.assertEqual(len(sent[0]),len(expected))
         self.assertIn('中文经营调查'.encode(),sent[0]);self.assertEqual(json.loads(sent[0]),body)
 
@@ -89,7 +89,7 @@ class ProviderTests(unittest.TestCase):
         messages=[{'role':'user','content':'x'*(MAX_PROVIDER_WIRE_BYTES-2000)}]
         self.assertLess(len(json.dumps(messages).encode()),MAX_PROVIDER_WIRE_BYTES)
         with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):
-            request_body({'messages':messages,'max_tokens':16384,'reasoning_effort':'max'},'deepseek-v4.1-flash')
+            request_body({'messages':messages,'max_tokens':65536,'reasoning_effort':'max'},'deepseek-v4.1-flash')
 
     def test_http_diagnostics_only_expose_status_for_hermes(self):
         from urllib.error import HTTPError
@@ -106,7 +106,7 @@ class ProviderTests(unittest.TestCase):
         with patch('urllib.request.build_opener') as opener:
             opener.return_value.open.side_effect=lambda request,timeout:(sent.append(request.data) or Response())
             legacy=self.provider.request_model(messages,{},lambda v,_:v)
-            hermes=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=16384)
+            hermes=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=65536)
         self.assertEqual(legacy,{'status':'input_too_large'})
         self.assertEqual(hermes['id'],'fake_receipt')
         self.assertEqual(len(sent),1)
