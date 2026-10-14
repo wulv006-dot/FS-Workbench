@@ -93,5 +93,15 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(codes[0][0],409);self.assertEqual(job['state'],'REPORT_PENDING')
         f.service.recover_reports();self.assertEqual(f.service.get_job('owner',job['id'])['state'],'COMPLETED')
 
+    def test_unexpected_json_index_type_failure_preserves_original_and_html(self):
+        f=self.f
+        def invalid(raw,book):raise TypeError('unhashable claim type')
+        raw=json.dumps({'summary':'Original completed investigation','findings':[{'claim_type':['fact']}]})
+        result=deliver_output(raw,f.book,validator=invalid)
+        self.assertEqual(result['delivery_status'],'raw_saved');self.assertEqual(result['raw_model_text'],raw)
+        with patch('controller.validate_output',side_effect=invalid):job=self.run_native(raw)
+        self.assertEqual(job['state'],'COMPLETED');self.assertEqual(job['task_state'],'PARTIAL')
+        self.assertEqual(f.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['html']},'owner')[0],200)
+
 
 if __name__=='__main__':unittest.main()

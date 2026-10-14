@@ -33,8 +33,8 @@ def deliver_output(text,book,validator=validate_output):
         try:
             result=validator(text,book)
             return dict(result,report_format='structured',delivery_status='ready',raw_model_text=text)
-        except ValueError as error:
-            if str(error)=='sensitive_analysis':raise
+        except Exception as error:
+            if isinstance(error,ValueError) and str(error)=='sensitive_analysis':raise
             warning.append('原始报告已保存；结构化索引待整理：'+str(error))
     elif text.lstrip().startswith('{'):warning.append('原始报告已保存；JSON索引未解析，完整原文保留。')
     ids=re.findall(r'\bev_[a-f0-9]{24}\b',text)
