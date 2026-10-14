@@ -83,7 +83,7 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
 
     def test_real_credential_markers_remain_blocked_before_spend(self):
-        for marker in ('sk-a','sk-SYNTHETIC123','xsk-SYNTHETIC123','prefix_sk-SYNTHETIC123','xtask-scoped','task-scopedSECRET123','task-scoped-'+32*'A','task-scoped.'+32*'A','prefix.task-scoped HMAC pseudonyms for order/event/item IDs','prefix-task-scoped HMAC pseudonyms for order/event/item IDs','task-scoped sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
+        for marker in ('sk-a','sk-SYNTHETIC123','xsk-SYNTHETIC123','prefix_sk-SYNTHETIC123','xtask-scoped','task-scopedSECRET123','task-scoped-'+32*'A','task-scoped.'+32*'A','中文task-scoped HMAC pseudonyms for order/event/item IDs','étask-scoped HMAC pseudonyms for order/event/item IDs','Ωtask-scoped HMAC pseudonyms for order/event/item IDs','prefix.task-scoped HMAC pseudonyms for order/event/item IDs','prefix-task-scoped HMAC pseudonyms for order/event/item IDs','task-scoped sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
                        '\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','\x00sk-SYNTHETIC123',
                        '{"note":"\\nsk-SYNTHETIC123"}','Tool response: {"note":"\\u0000sk-SYNTHETIC123"}'):
             with self.subTest(marker=marker):

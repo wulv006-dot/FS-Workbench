@@ -16,7 +16,7 @@ def sensitive_context(value):
     if isinstance(value, str):
         # The fixed FC projection describes task-scoped HMAC pseudonyms.
         # Exempt only the verified full public phrase in a scan copy; transmit originals.
-        scan = re.sub(r'(?<![A-Za-z0-9_.-])task-scoped(?= HMAC pseudonyms for order/event/item IDs)', 'task_scoped', value, flags=re.I)
+        scan = re.sub(r'(?<![\w.-])task-scoped(?= HMAC pseudonyms for order/event/item IDs)', 'task_scoped', value, flags=re.I)
         return re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', scan, re.I) is not None
     if isinstance(value, dict):
         return any(sensitive_context(k) or sensitive_context(v) for k, v in value.items())
