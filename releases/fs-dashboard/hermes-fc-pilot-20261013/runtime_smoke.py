@@ -28,6 +28,8 @@ async def run(effort):
     token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort=effort)
     tool_hits = []
     stress = True  # Every official high/max check now exercises long-context pruning.
+    if stress:
+        fixture.gateway.input_bound = lambda request: len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
     request_sizes = []
     saw_prune = []
     original_call = fixture.scope.call
@@ -59,7 +61,8 @@ async def run(effort):
                     'tool_calls':[{'id':'stress_'+str(fixture.calls),'type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
             elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'}
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
-            result['usage']={'prompt_tokens':17000,'completion_tokens':10,'total_tokens':17010,'completion_tokens_details':{'reasoning_tokens':3}}
+            tokens=min(17000,size)
+            result['usage']={'prompt_tokens':tokens,'completion_tokens':10,'total_tokens':tokens+10,'completion_tokens_details':{'reasoning_tokens':3}}
             return result
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
