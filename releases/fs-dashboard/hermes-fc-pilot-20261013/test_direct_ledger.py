@@ -23,6 +23,28 @@ class DirectLedgerTests(unittest.TestCase):
         self.budget=UnifiedBudget(self.db,POLICY,lambda:self.now,allow_unknown_costs=True)
         self.gateway.budget=self.budget
 
+    def test_safe_trace_is_saved_on_success_and_unknown_without_private_headers(self):
+        self.use_direct()
+        trace={'local_trace_id':'a'*32,'provider_http_request_id':'header-id',
+               'provider_response_id':'body-id','request_started_at':'2026-10-14T10:00:00.123456+00:00',
+               'response_headers_received':True,'transport_phase':'reading_stream',
+               'response_bytes_received':1200,'stream_events_received':4,
+               'Authorization':'NEVER_STORE','raw_headers':'NEVER_STORE'}
+        self.provider=lambda req:dict(self.answer(req),**trace)
+        receipt=self.call()
+        self.assertEqual(receipt['provider_http_request_id'],'header-id')
+        self.assertEqual(receipt['local_trace_id'],'a'*32)
+        self.assertNotIn('NEVER_STORE',json.dumps(receipt))
+        self.provider=lambda req:dict(trace,status='unknown_transport',transport_error_type='ConnectionResetError')
+        with self.assertRaises(ValueError):self.call(turn=1)
+        with self.db() as db:
+            raw=json.loads(db.execute("SELECT content FROM model_calls WHERE state='unknown'").fetchone()[0])
+        self.assertEqual(raw['provider_http_request_id'],'header-id')
+        self.assertEqual(raw['provider_response_id'],'body-id')
+        self.assertEqual(raw['transport_phase'],'reading_stream')
+        self.assertNotIn('NEVER_STORE',json.dumps(raw))
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call(turn=1)
+
     def test_known_tokens_unknown_amount_and_exact_once_replay(self):
         self.use_direct()
         first=self.call();again=self.call()

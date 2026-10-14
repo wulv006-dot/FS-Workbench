@@ -154,10 +154,30 @@ def validate_tool_call(call):
         raise ValueError('tool_arguments')
 
 
+def transport_trace(response):
+    """Non-secret correlation only; headers and model text never enter this projection."""
+    if not isinstance(response,dict):return {}
+    out={}
+    for key in ('local_trace_id','provider_http_request_id','provider_response_id'):
+        value=response.get(key)
+        if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',value):out[key]=value
+    value=response.get('request_started_at')
+    if isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?\+00:00',value):out['request_started_at']=value
+    value=response.get('response_headers_received')
+    if type(value) is bool:out['response_headers_received']=value
+    value=response.get('transport_phase')
+    if value in ('opening','reading_stream','reading_body','http_rejected'):out['transport_phase']=value
+    for key in ('response_bytes_received','stream_events_received'):
+        value=response.get(key)
+        if type(value) is int and 0<=value<=1000000000:out[key]=value
+    return out
+
+
 def safe_diagnostic(response, request, reason):
     """Keep billing/shape evidence, never provider messages or private reasoning."""
     out={'status':'unknown','reason':reason if isinstance(reason,str) and re.fullmatch(r'[a-z0-9_]{3,80}',reason) else 'provider_result_unverified'}
     if not isinstance(response,dict):return out
+    out.update(transport_trace(response))
     if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
     for key in ('transport_error_type','transport_reason_type'):
         if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected','IncompleteRead'):
@@ -355,6 +375,7 @@ class UnifiedBudget:
                        'cost_basis':'configured_public_rate_estimate_not_account_invoice' if p['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
             receipt['finish_reason']=finish_reason
+            receipt.update(transport_trace(response))
             reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
             if reasoning_tokens is not None:
                 if type(reasoning_tokens)is not int or not 0<=reasoning_tokens<=usage['completion_tokens']:raise ValueError('reasoning_usage_invalid')
