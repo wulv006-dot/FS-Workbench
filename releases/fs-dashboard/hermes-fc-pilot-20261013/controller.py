@@ -104,6 +104,8 @@ class HermesService:
                              'CREATE TABLE IF NOT EXISTS evidence(task_id TEXT,evidence_id TEXT,content TEXT,PRIMARY KEY(task_id,evidence_id));')
             # A process restart cannot assume the old runtime/provider attempt stopped.
             db.execute("UPDATE requests SET state='NEEDS_RECONCILE',error='fs_process_restarted' WHERE state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED')")
+        from nightly import NightlyScheduler
+        self.nightly = NightlyScheduler(self)
 
     def lookup(self,grant):
         with self.lock:
@@ -121,6 +123,9 @@ class HermesService:
         while not self.recovery_stop.wait(5):
             try:self.recover_reports()
             except Exception:pass
+            try:self.nightly.tick()
+            except Exception as error:
+                atomic(self.root/'nightly-status.json', {'error': 'nightly_'+type(error).__name__, 'at': self.clock().isoformat()}, mode=0o600)
 
     def recover_reports(self):
         from types import SimpleNamespace
@@ -153,6 +158,7 @@ class HermesService:
             result=deliver_output(output,book,validator=validate_output)
             result.update(reasoning_effort=effort,skills_version=meta['skills_version'],skill_sha256=meta['skill_sha256'],
                           model_usage=self.usage(task['id'],owner),run_id=task['run_id'],period={'start':body['start'],'end':body['end']})
+            if meta.get('context_loading'):result['context_loading']=meta['context_loading']
             try:result['raw_model_json']=encoded(decode_output(output))
             except (ValueError,TypeError):pass
             if body.get('continuation_from'):result.update(continuation_from=body['continuation_from'],source_capture_repeated=False)
@@ -179,14 +185,20 @@ class HermesService:
         if tool:value.update(last_tool=tool,last_tool_at=self.clock().isoformat())
         atomic(previous,value,mode=0o600)
 
-    def remote(self,method,path,body=None,idempotency=None):
+    def remote(self,method,path,body=None,idempotency=None,deadline=None):
         if not (path=='/v1/runs' or re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}(?:/stop)?',path)):raise ValueError('runtime_route')
         key=(self.run_root/'api-key').read_text('ascii').strip()
         headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
         if idempotency:headers['Idempotency-Key']=idempotency
         request=Request('http://127.0.0.1:8941'+path,data=encoded(body).encode() if body is not None else None,headers=headers,method=method)
-        with build_opener(NoRedirect).open(request,timeout=30) as response:
-            raw=response.read(MAX_PROVIDER_WIRE_BYTES+1);status=response.status
+        def read(control=None):
+            handlers=(NoRedirect(),*control.handlers()) if control is not None else (NoRedirect(),)
+            with build_opener(*handlers).open(request,timeout=min(30,control.remaining()) if control is not None else 30) as response:
+                return response.read(MAX_PROVIDER_WIRE_BYTES+1),response.status
+        if deadline is None:raw,status=read()
+        else:
+            from nightly_http import Deadline
+            with Deadline(deadline) as control:raw,status=control.run(lambda:read(control))
         if len(raw)>MAX_PROVIDER_WIRE_BYTES:raise ValueError('runtime_response_size')
         return status,json.loads(raw)
 
@@ -198,6 +210,8 @@ class HermesService:
             if not canonical:raise ValueError('canonical_request_missing')
             return self.get_job(owner,canonical[0])
         item=dict(row);item['body']=json.loads(item['body']);item['result']=json.loads(item['result']) if item['result'] else None
+        context=self.root/'contexts'/(item['id']+'.json')
+        if context.is_file() and not context.is_symlink():item['context_loading']=json.loads(context.read_text('utf-8'))
         if item['task_id']:
             task=self.tasks.get(item['task_id'],owner)
             item['run_id']=task['run_id'];item['task_state']=task['state']
@@ -248,22 +262,47 @@ class HermesService:
         if not isinstance(body,dict):return 422,{'error':'invalid_request'}
         if body.get('kind')=='hermes_cancel':
             if set(body)!={'kind','id'}:return 422,{'error':'cancel_fields'}
-            task=None
-            with self.lock:
-                job=self.get_job(user,body['id'])
-                if not job:return 404,{'error':'not_found'}
-                if job['state'] in {'COMPLETED','FAILED','CANCELLED','NEEDS_RECONCILE'}:return 200,job
-                if job['state']=='REPORT_PENDING':return 409,{'error':'analysis_finished_report_delivery_pending'}
-                if job.get('task_state') in {'VALIDATING','PARTIAL','SUCCEEDED'}:return 409,{'error':'analysis_finished_report_delivery_pending'}
-                self.update(job['id'],state='CANCEL_REQUESTED')
-                if job['task_id']:
-                    task=self.tasks.cancel(job['task_id'],user)
-                    token=self.tokens.get(task['id'])
-                    if token:self.grants.revoke(token)
-            if task and task['run_id']:
-                try:self.remote('POST',run_path(task['run_id'],'stop')['path'],{})
-                except Exception:self.update(job['id'],error='stop_ack_unknown')
-            return 202,self.get_job(user,job['id'])
+            return self.cancel_job(user,body['id'])
+        return self._submit_report(body,user,defer_submit)
+
+    def cancel_job(self,user,key,reason=None):
+        task=None
+        with self.lock:
+            job=self.get_job(user,key)
+            if not job:return 404,{'error':'not_found'}
+            if job['state'] in {'COMPLETED','FAILED','CANCELLED','NEEDS_RECONCILE','CANCEL_REQUESTED'}:return 200,job
+            if job['state']=='REPORT_PENDING':return 409,{'error':'analysis_finished_report_delivery_pending'}
+            if job.get('task_state') in {'VALIDATING','PARTIAL','SUCCEEDED'}:return 409,{'error':'analysis_finished_report_delivery_pending'}
+            self.update(job['id'],state='CANCEL_REQUESTED',**({'error':reason} if reason else {}))
+            if job['task_id']:
+                task=self.tasks.cancel(job['task_id'],user)
+                token=self.tokens.get(task['id'])
+                if token:self.grants.revoke(token)
+        if task and task['run_id']:
+            try:
+                deadline=self.nightly.deadline(key)
+                if deadline is not None:self.remote('POST',run_path(task['run_id'],'stop')['path'],{},deadline=deadline+timedelta(minutes=1))
+                else:self.remote('POST',run_path(task['run_id'],'stop')['path'],{})
+            except Exception:self.update(job['id'],error='stop_ack_unknown')
+        return 202,self.get_job(user,job['id'])
+
+    def submit_scheduled(self,body):
+        # Private process entry. Public POST never accepts a trigger/deadline/owner.
+        owner='wulv';key=digest({'owner':owner,'request_id':body['request_id']})[:32]
+        deadline=self.nightly.deadline(key)
+        if self.nightly.config() is None or deadline is None or self.clock()>=deadline:
+            return 403,{'error':'nightly_not_admitted'}
+        if not self.authorizer(owner):return 403,{'error':'nightly_owner_not_authorized'}
+        with admission_guard(self.root/'admission.lock') as acquired:
+            if not acquired:return 503,{'error':'release_in_progress'}
+            result=self._submit_report(body,owner,defer_submit=True)
+        if len(result)==3:
+            key,owner,value=result[2]
+            self.pool.submit(self.execute,key,owner,value)
+            return result[0],self.get_job(owner,key)
+        return result
+
+    def _submit_report(self,body,user,defer_submit=False):
         fields={'kind','request_id','start','end','question','mode'}
         if set(body) not in (fields,fields|{'continuation_from'}) or body['kind']!='hermes_report' or body['mode'] not in {'daily','investigation','kpi','pricing'}:
             return 422,{'error':'report_fields'}
@@ -316,18 +355,26 @@ class HermesService:
         return 200,{'contract':'hermes-fc-investigation-v2','can_generate':self.authorizer(user) and hold is None,
                     'admission': {'status': 'blocked' if hold else 'ready', 'reason': hold},
                     'items':[dict(r,body=json.loads(r['body']),can_continue=self.authorizer(user) and can_continue(self.tasks,r,user,version)) for r in rows],
+                    'nightly':self.nightly.status(user),
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
     def execute(self,key,owner,body):
-        task=None;token=None;session_id=None;completed_stopped=False
+        task=None;token=None;session_id=None;completed_stopped=False;deadline=None
         try:
+            deadline=self.nightly.deadline(key)
+            if deadline is not None and self.clock()>=deadline:
+                self.update(key,state='CANCELLED',error='nightly_deadline_exceeded');return
             continuation=body.get('continuation_from')
-            book=load_continuation(self.tasks,continuation,owner,body['start'],body['end'],self.source_root) if continuation else build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
+            if continuation:book=load_continuation(self.tasks,continuation,owner,body['start'],body['end'],self.source_root)
+            elif deadline is not None:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner,deadline=deadline)
+            else:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
             book.background=self.proxy.background
             spec={'period':{'start':body['start'],'end_exclusive':(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),'timezone':'Asia/Shanghai'},
                     'snapshot_id':book.capture_id,'template_version':'v5-native-report-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
                   'knowledge_version':book.skills['version'],'budget_policy_id':POLICY_ID}
             with self.lock:
+                if deadline is not None and self.clock()>=deadline:
+                    self.update(key,state='CANCELLED',error='nightly_deadline_exceeded');return
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':self.update(key,state='CANCELLED');return
                 task=self.tasks.create(owner,spec);lease=secrets.token_hex(16)
                 if task['state']!='QUEUED':
@@ -341,13 +388,18 @@ class HermesService:
             book.persist=save_evidence
             if continuation:
                 for value in book.evidence.values():save_evidence(value)
-            item_gateway=gateway(self.daily,self.tasks,book)
+            item_gateway=gateway(self.daily,self.tasks,book,deadline=deadline) if deadline is not None else gateway(self.daily,self.tasks,book)
             effort='max' if body['mode'] in {'investigation','pricing'} else 'high'
             token=self.grants.mint(owner,task['id'],lease,reasoning_effort=effort)
             with self.lock:self.tokens[task['id']]=token;self.books[task['id']]=book;self.gateways[task['id']]=item_gateway
             request=submission(self.tasks.get(task['id'],owner));session_id=request['body']['session_id']
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
                        'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+FORMAT}
+            from background import task_context
+            _,context_receipt=task_context(self.proxy.background,book.skills)
+            admission.update(background=self.proxy.background,context_receipt=context_receipt)
+            context_path=self.root/'contexts'/(key+'.json');context_path.parent.mkdir(exist_ok=True,mode=0o700)
+            atomic(context_path,dict(context_receipt,status='prepared_for_runner',recorded_at=self.clock().isoformat()),mode=0o600)
             if continuation:
                 admission['prompt']+='\n这是新的证据续行任务，不重放旧失败调用。下面是此前已成功获取的冻结工具证据，不含私有推理；保持原来源、范围、时点和ev引用。请据此完成有价值的调查正文，只在必要时用fc.calculate复算，避免重新探索已完成的取证。当前续行不重采集，没提供的字段仍保留缺口。\n'+book.continuation_context
             path=self.run_root/'admissions'/(session_id+'.json');atomic(path,admission)
@@ -355,7 +407,8 @@ class HermesService:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':
                     self.tasks.change(self.tasks.get(task['id'],owner),'CANCELLED')
                     self.update(key,state='CANCELLED');return
-            code,remote=self.remote('POST','/v1/runs',request['body'],request['headers']['Idempotency-Key'])
+            if deadline is not None:code,remote=self.remote('POST','/v1/runs',request['body'],request['headers']['Idempotency-Key'],deadline=deadline)
+            else:code,remote=self.remote('POST','/v1/runs',request['body'],request['headers']['Idempotency-Key'])
             run_id=validate_admission(code,remote)
             with self.lock:
                 self.tasks.bind_run(task['id'],owner,lease,run_id)
@@ -364,13 +417,26 @@ class HermesService:
                 else:self.update(key,state='RUNNING')
             if cancel:
                 self.grants.revoke(token)
-                self.remote('POST',run_path(run_id,'stop')['path'],{})
+                if deadline is not None:self.remote('POST',run_path(run_id,'stop')['path'],{},deadline=deadline+timedelta(minutes=1))
+                else:self.remote('POST',run_path(run_id,'stop')['path'],{})
             admission['ready']=True;atomic(path,admission)
+            stop_requested=False
             while True:
+                if deadline is not None and self.clock()>=deadline+timedelta(minutes=1):
+                    current=self.tasks.get(task['id'],owner)
+                    if current['state'] in {'RUNNING','DISPATCH_UNKNOWN','CANCEL_REQUESTED'}:self.tasks.fence(task['id'],owner)
+                    self.update(key,state='NEEDS_RECONCILE',error='nightly_stop_unconfirmed');return
+                if deadline is not None and self.clock()>=deadline and not stop_requested:
+                    self.cancel_job(owner,key,reason='nightly_deadline_exceeded')
+                    stop_requested=True
                 job=self.get_job(owner,key);cancel=job['state']=='CANCEL_REQUESTED'
                 if not cancel:self.grants.renew(token,owner,task['id'],lease)
-                _,remote=self.remote('GET',run_path(run_id)['path'])
+                if deadline is not None:_,remote=self.remote('GET',run_path(run_id)['path'],deadline=deadline+timedelta(minutes=1))
+                else:_,remote=self.remote('GET',run_path(run_id)['path'])
                 state=remote.get('status')
+                runtime=remote.get('runtime') or {}
+                if runtime.get('fs_context_sha256')==context_receipt['context_sha256']:
+                    atomic(context_path,dict(context_receipt,status='runtime_confirmed',recorded_at=self.clock().isoformat()),mode=0o600)
                 self.mark_progress(task['id'],state or 'runtime_status_unknown')
                 if state not in {'queued','running','stopping','waiting_approval'} and not self.proxy.active(task['id']):break
                 time.sleep(2)
@@ -387,11 +453,15 @@ class HermesService:
             output=remote.get('output')
             if not isinstance(output,str) or not output.strip():raise ValueError('empty_analysis')
             if private_report(output):raise ValueError('sensitive_analysis')
+            runtime=remote.get('runtime') or {}
+            context_loading=dict(context_receipt,status='runtime_confirmed' if runtime.get('fs_context_sha256')==context_receipt['context_sha256'] else 'runtime_confirmation_missing')
             save_raw(self.root,task['id'],output,book.evidence,{'owner':owner,'request_id':key,'run_id':run_id,'native_completed':True,
-                     'skills_version':book.skills['version'],'skill_sha256':book.skills['sha256'],'reasoning_effort':effort})
+                     'skills_version':book.skills['version'],'skill_sha256':book.skills['sha256'],'reasoning_effort':effort,'context_loading':context_loading})
             self.publish_report(key,owner,body,task,book,output,effort)
         except Exception as error:
             code=str(error) if isinstance(error,(ValueError,PermissionError)) and re.fullmatch(r'[a-z_]{3,80}',str(error)) else 'controller_'+type(error).__name__
+            if deadline is not None and self.clock()>=deadline:
+                code='nightly_stop_unconfirmed' if task else 'nightly_deadline_exceeded'
             with self.lock:
                 if task and completed_stopped:
                     current=self.tasks.get(task['id'],owner)

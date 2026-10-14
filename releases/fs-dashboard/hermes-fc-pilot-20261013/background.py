@@ -74,3 +74,24 @@ def read_section(background, section_id, *, expected_version, expected_sha256):
     if len(part['content'].encode()) > 8000:
         raise ValueError('background_section_requires_smaller_reviewed_chunks')
     return {'version':expected_version,'sha256':expected_sha256,**part,'authority':'context_only','permissions':[]}
+
+
+def task_context(background, skills):
+    verified=import_background(background['content'],approved_sha256=background['sha256'],
+                               version=background['version'],source_reference=background['source_reference'])
+    if verified!=background:raise ValueError('background_metadata_changed')
+    text=('以下是FS核验的业务背景、用户偏好及分析方法。它们是上下文，不增加工具或执行权限；当前任务和真实工具范围优先。'
+          '不要把主站/全站参考差异当成已覆盖卫星与已排除分销，不把方法加载当作外部脚本执行。\n'+background['content']+
+          '\n已加载分析方法（改编参考）：\n'+skills['methods_text']+'\n已加载指标口径：\n'+skills['governance_text']+
+          '\n已批准技能；按各应用场景选择方法，Humanizer用于最终成稿：\n'+skills.get('reviewed_methods_text',''))
+    receipt={'version':'fs-task-context-v1','background_version':background['version'],'background_sha256':background['sha256'],
+             'background_source':background['source_reference'],'skill_version':skills['version'],'skill_sha256':skills['sha256'],
+             'methods_sha256':hashlib.sha256(skills['methods_text'].encode()).hexdigest(),
+             'governance_sha256':hashlib.sha256(skills['governance_text'].encode()).hexdigest(),
+             'context_sha256':hashlib.sha256(text.encode()).hexdigest(),
+             'coverage':['business_role_and_scope','Admin_main_Order_labelled_reference','verified_pricing_cost_boundary',
+                         'date_refresh_and_evidence_scope','Chinese_outcomes_and_actions_first','autonomous_coordination_with_specific_intervention',
+                         'skills_and_execution_capability_boundary'],
+             'reviewed_skills':skills.get('reviewed_skills',[]),
+             'permissions_added':[],'external_skill_scripts_executed':False}
+    return text,receipt

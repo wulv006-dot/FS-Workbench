@@ -33,8 +33,10 @@ def admission(session_id):
     if path.is_symlink() or path.stat().st_size > MAX_PROVIDER_WIRE_BYTES:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
-    if set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
+    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
+    if ('background' in item)!=('context_receipt' in item) or any(not isinstance(item[n],dict) for n in ('background','context_receipt') if n in item):
+        raise PermissionError('admission_context_invalid')
     if 'ready' in item and type(item['ready']) is not bool:
         raise PermissionError('admission_invalid')
     if item.get('reasoning_effort','none') not in ('none','low','high','max'):raise PermissionError('admission_reasoning')
@@ -132,6 +134,12 @@ def make_adapter(api_key):
             from skill_bundle import load_bundle, prompt
             bundle=load_bundle(Path(__file__).parent)
             task_prompt=prompt(bundle,{'instruction':item['prompt']})
+            context_receipt=None
+            if item.get('background') is not None:
+                from background import task_context
+                context_text,context_receipt=task_context(item['background'],bundle)
+                if item.get('context_receipt')!=context_receipt:raise PermissionError('task_context_identity_changed')
+                task_prompt=context_text+'\n'+task_prompt
             callbacks = {k: kwargs[k] for k in ('stream_delta_callback', 'tool_progress_callback',
                          'tool_start_callback', 'tool_complete_callback', 'interim_assistant_callback',
                          'reasoning_callback', 'status_callback') if k in kwargs}
@@ -162,6 +170,10 @@ def make_adapter(api_key):
             agent._hermes_api_runtime = {'provider': 'custom', 'model': item['model'], 'route_source': 'fs_task_admission',
                                         'fs_skill_version':bundle['version'],'fs_skill_sha256':bundle['sha256'],
                                         'fs_reasoning_effort':item.get('reasoning_effort','none')}
+            if context_receipt:
+                agent._hermes_api_runtime.update(fs_context_version=context_receipt['version'],fs_context_sha256=context_receipt['context_sha256'],
+                                                fs_background_version=context_receipt['background_version'],fs_background_sha256=context_receipt['background_sha256'],
+                                                fs_methods_sha256=context_receipt['methods_sha256'],fs_governance_sha256=context_receipt['governance_sha256'])
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={

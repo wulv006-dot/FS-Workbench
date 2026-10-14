@@ -16,10 +16,14 @@ import boss_daily as daily
 
 class DailyTests(unittest.TestCase):
     def setUp(self):
+        import os,contextlib
+        if os.name=='nt':
+            guard=patch.object(daily,'scheduled_deadline',lambda seconds:contextlib.nullcontext())
+            guard.start();self.addCleanup(guard.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / 'state'
-        self.at = datetime(2026, 10, 13, 9, 40, tzinfo=daily.SHANGHAI)
+        self.at = datetime(2026, 10, 13, 0, 40, tzinfo=daily.SHANGHAI)
         self.calls = {'source': 0, 'provider': 0, 'ledger': 0}
         self.batch = {'status': 'available', 'documents': [{'source_url': 'https://example.com/news'}],
                       'projects': [{'key': 'FC27', 'orders': 5}]}
@@ -131,8 +135,8 @@ class DailyTests(unittest.TestCase):
         result = self.runner.inspect()
         self.assertTrue(result['read_only'])
         self.assertFalse(self.root.exists())
-        self.assertEqual(result['workspaces']['game-monitor']['schedule'], '09:00 Asia/Shanghai')
-        self.assertEqual(result['workspaces']['management']['schedule'], '09:30 Asia/Shanghai')
+        self.assertEqual(result['workspaces']['game-monitor']['schedule'], '00:05 Asia/Shanghai')
+        self.assertEqual(result['workspaces']['management']['schedule'], '00:20 Asia/Shanghai')
         self.assertEqual(self.calls, {'source': 0, 'provider': 0, 'ledger': 0})
 
     def test_success_same_day_readback_history_and_private_projection(self):
@@ -199,13 +203,16 @@ class DailyTests(unittest.TestCase):
         self.assertEqual(self.calls['provider'], 0)
         self.assertFalse((self.root / 'public/management.json').exists())
 
-    def test_shanghai_date_and_persistent_catchup_are_once_after_due(self):
+    def test_shanghai_date_and_night_runs_are_once_with_no_daytime_catchup(self):
         self.at = datetime(2026, 10, 12, 23, 30, tzinfo=timezone.utc)
         result = self.runner.run('game-monitor', 'scheduled')
         self.assertEqual(result['day'], '2026-10-13')
         self.assertEqual(result['status'], 'not_due')
         self.assertFalse(self.root.exists())
         self.at = datetime(2026, 10, 13, 6, tzinfo=timezone.utc)
+        self.assertEqual(self.runner.run('game-monitor','scheduled')['status'],'not_due')
+        self.assertEqual(self.calls['provider'],0)
+        self.at = datetime(2026, 10, 12, 16, 30,tzinfo=timezone.utc)
         first = self.runner.run('game-monitor', 'scheduled')
         self.assertEqual(first['day'], '2026-10-13')
         self.runner.run('game-monitor', 'scheduled')
@@ -327,12 +334,12 @@ class DailyTests(unittest.TestCase):
             self.assertEqual(daily.read_summary('/dashboard/fs-home/range.json?mode=catalog'), {'http_status': 200, 'body': {'schemaVersion': 2}})
 
     def test_units_are_two_persistent_timers_with_ten_minute_oneshots(self):
-        for kind, hour in [('game-monitor', '09:00:00'), ('management', '09:30:00')]:
+        for kind, hour in [('game-monitor', '00:05:00'), ('management', '00:20:00')]:
             timer = (ROOT / 'deploy' / ('fs-boss-' + kind + '.timer')).read_text('utf-8')
             service = (ROOT / 'deploy' / ('fs-boss-' + kind + '.service')).read_text('utf-8')
             self.assertIn('OnCalendar=*-*-* ' + hour + '\n', timer)
             self.assertNotIn('StateDirectory', service)
-            self.assertIn('Persistent=true', timer)
+            self.assertIn('Persistent=false', timer)
             self.assertIn('Type=oneshot', service)
             self.assertIn('TimeoutStartSec=600', service)
             self.assertIn('ExecStart=/opt/python39/bin/python3 ', service)
