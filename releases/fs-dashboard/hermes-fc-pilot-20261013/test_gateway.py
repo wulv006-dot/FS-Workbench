@@ -133,6 +133,28 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
             self.assertEqual([x[1] for x in db.execute('PRAGMA table_info(model_calls)')],['fingerprint','day','state','content'])
 
+    def test_optional_costs_allow_new_task_but_not_replay_or_inflight(self):
+        self.call();self.budget.allow_unknown_costs=True
+        with self.db() as db:db.execute("UPDATE model_calls SET state='unknown',content=NULL")
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(turn=1)
+        other=self.tasks.create('owner',dict(spec(),template_version='different_task'))
+        self.tasks.reserve_dispatch(other['id'],'owner','different_lease');self.tasks.bind_run(other['id'],'owner','different_lease','run_different')
+        self.call(task_id=other['id'],lease='different_lease')
+        self.assertEqual(self.calls,2)
+        with self.db() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM model_calls WHERE state='unknown'").fetchone()[0],1)
+            db.execute("UPDATE model_calls SET state='started' WHERE state='unknown'")
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(task_id=other['id'],lease='different_lease',turn=1)
+        self.assertEqual(self.calls,2)
+
+    def test_transport_diagnostic_never_saves_private_error_text(self):
+        from proxy_gateway import safe_diagnostic
+        value={'transport_error_type':'TimeoutError','transport_reason_type':'private diagnostic','elapsed_seconds':120.1,'timeout_seconds':600,'message':'private error'}
+        result=safe_diagnostic(value,{'model':'fake'},'provider_unknown_transport')
+        self.assertEqual(result['transport_error_type'],'TimeoutError');self.assertEqual(result['timeout_seconds'],600)
+        self.assertNotIn('private',str(result))
+
     def test_replay_has_no_second_provider_call(self):
         result=self.call()
         self.gateway.daily_limit=lambda:1

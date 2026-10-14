@@ -8,3 +8,7 @@ tools:
 gateway:
   api_server:
     max_concurrent_runs: 0
+providers:
+  custom:
+    request_timeout_seconds: 660
+    stale_timeout_seconds: 660

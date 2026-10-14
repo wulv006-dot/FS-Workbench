@@ -16,7 +16,7 @@ class AdmissionHoldTests(unittest.TestCase):
             db.execute('INSERT INTO model_calls VALUES(?,?,?,NULL)', (self.fp, '2026-10-14', state))
 
     def test_hold_rejects_before_capture_task_runtime_or_spending(self):
-        self.seed_hold()
+        self.seed_hold('started')
         with patch('controller.build_book') as capture, patch.object(self.service, 'remote') as remote, patch.dict('sys.modules', {'ai_advisor_model': type('Module', (), {'clean_question': staticmethod(lambda q: q)})()}):
             status, body = self.service.post(self.body, 'owner', self.headers)
         self.assertEqual((status, body), (503, {'error': 'pilot_usage_hold'}))
@@ -26,10 +26,10 @@ class AdmissionHoldTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0], 0)
         with self.daily.db() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0], 1)
-            self.assertEqual(db.execute('SELECT state,content FROM model_calls').fetchone()[:], ('unknown', None))
+            self.assertEqual(db.execute('SELECT state,content FROM model_calls').fetchone()[:], ('started', None))
 
     def test_history_exposes_safe_hold_without_private_reservation(self):
-        self.seed_hold()
+        self.seed_hold('started')
         status, body = self.service.get({'mode': ['hermes']}, 'owner')
         self.assertEqual(status, 200); self.assertFalse(body['can_generate'])
         self.assertEqual(body['admission'], {'status': 'blocked', 'reason': 'pilot_usage_hold'})
@@ -39,7 +39,7 @@ class AdmissionHoldTests(unittest.TestCase):
         self.seed_hold()
         with patch('fs_inprocess.approved_unknowns', return_value={self.fp: 344416}):
             self.assertIsNone(spending_hold(self.daily, self.service.tasks, 'owner'))
-            self.assertEqual(spending_hold(self.daily, self.service.tasks, 'different_owner'), 'pilot_usage_hold')
+            self.assertIsNone(spending_hold(self.daily, self.service.tasks, 'different_owner'))
         with self.daily.db() as db:
             self.assertEqual(db.execute('SELECT state,content FROM model_calls').fetchone()[:], ('unknown', None))
 
@@ -48,10 +48,10 @@ class AdmissionHoldTests(unittest.TestCase):
         with patch('fs_inprocess.approved_unknowns', return_value={self.fp: 344416}):
             self.assertEqual(spending_hold(self.daily, self.service.tasks, 'owner'), 'pilot_usage_hold')
 
-    def test_wrong_amount_remains_blocked(self):
+    def test_unknown_costs_do_not_require_new_amount_confirmations(self):
         self.seed_hold()
         with patch('fs_inprocess.approved_unknowns', return_value={self.fp: 344415}):
-            self.assertEqual(spending_hold(self.daily, self.service.tasks, 'owner'), 'pilot_usage_hold')
+            self.assertIsNone(spending_hold(self.daily, self.service.tasks, 'owner'))
 
     def test_initial_ledger_ready_without_mutation(self):
         status, body = self.service.get({'mode': ['hermes']}, 'owner')

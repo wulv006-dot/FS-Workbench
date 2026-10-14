@@ -49,14 +49,13 @@ def approved_unknowns(tasks):
 
 def spending_hold(daily, tasks, owner):
     from proxy_gateway import require_reconciled_usage
-    approved = approved_unknowns(tasks)
     with daily.db() as db:
         if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hermes_reservations'").fetchone():
             return None
         rows = db.execute('SELECT r.fingerprint,r.owner,r.task,r.microcny,m.state FROM hermes_reservations r '
                           'JOIN model_calls m ON m.fingerprint=r.fingerprint').fetchall()
     try:
-        require_reconciled_usage(rows, approved, owner, None)
+        require_reconciled_usage(rows, {}, owner, None, allow_unknown_costs=True)
     except ValueError as error:
         if str(error) != 'pilot_usage_hold':
             raise
@@ -75,7 +74,7 @@ def gateway(daily, tasks, book):
         # request_model continues to load its existing key inside this process.
         # Its opt-in tools argument is the only shared provider-source delta.
         raw = request_model(request['messages'], {}, lambda value, _: value,
-                            max_tokens=request['max_tokens'], timeout=120, tools=request['tools'],
+                            max_tokens=request['max_tokens'], timeout=600, tools=request['tools'],
                             reasoning_effort=request.get('reasoning_effort'))
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None
@@ -86,7 +85,7 @@ def gateway(daily, tasks, book):
             raise error
         return raw
     return ModelGateway(ScopedTools(tasks, book, lambda: datetime.now(timezone.utc)),
-                        UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc),accepted_unknowns=approved_unknowns(tasks)),
+                        UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc),allow_unknown_costs=True),
                         lambda: provider_slot(daily.root), provider,
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
