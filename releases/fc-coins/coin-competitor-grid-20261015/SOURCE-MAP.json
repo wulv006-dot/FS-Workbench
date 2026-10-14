@@ -1,0 +1,47 @@
+{
+  "module": "fc-coins",
+  "owner": "wulv",
+  "canonicalLocalSource": "fc27_coins_layout_fix_20261015/source",
+  "targets": {
+    "fc27-coins.html": {
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "host": "47.85.224.112",
+      "before": "a93423caebaf5dc274735472550eff48f9eab56e05a1bdbf5dd215e0403979d7",
+      "beforeBytes": 25447,
+      "beforeMtime": "2026-10-07T22:01:45+08:00",
+      "after": "a34e06c876fd7f2f79f957bf747c2231c1f17bfc25c094a07251b18ee75001d2",
+      "afterBytes": 26268
+    },
+    "fc27-quote-cloud.js": {
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "host": "47.85.224.112",
+      "before": "fd66de7014befc39cfc6cb3028aa9843d89fc0836311c0c1bb5e03f54dba319f",
+      "beforeBytes": 79139,
+      "beforeMtime": "2026-10-09T10:01:30+08:00",
+      "after": "acb597221e36372c5874a8935c6b9bedd1b1dd9d5a40b013ea3b28619cd40efd",
+      "afterBytes": 80029
+    }
+  },
+  "backups": {
+    "beforeCompetitorGrid": "/var/lib/fc27-cloud/rollback/fc-coin-competitor-grid-20261014T164008Z",
+    "beforeCostFootnote": "/var/lib/fc27-cloud/rollback/fc-coin-competitor-grid-20261014T165549Z"
+  },
+  "cacheBuster": {
+    "before": "?v=20261007-price-verification-off",
+    "after": "?v=20261015-competitor-grid"
+  },
+  "changedBehavior": "The competitor card grid now renders PLATFORMS x fixed-sources slots (3 x 4 = 12) regardless of how many rows arrived this round; a source with no row gets a 'not collected' placeholder card instead of letting later cards shift up, so the column-per-site / row-per-platform layout can no longer misalign. A source beyond the fixed four is appended as an extra column. Separately, the cost-basis footnote (P2PAH delivery records, 100K tier priority, delivered-price formula, bonus handling, margin counted on purchase unit price only) is restored verbatim from the 2026-09-26 standalone snapshot page. No rule, price formula, margin-tier, cost source, write path, schedule or config was touched.",
+  "notRestoredOnPurpose": {
+    "item": "The sentence 'strategy: 1% below the lowest comparable, purchase margin >= 10%'",
+    "reason": "Superseded on 2026-09-28 by the Lootbar-anchored policy plus the margin-tier discount table, which is still live on the page."
+  },
+  "notDeployedByThisPackage": false,
+  "deployedAt": "2026-10-15T00:55:00+08:00",
+  "verification": {
+    "node": "tests/test_competitor_grid.cjs",
+    "scenarios": 5,
+    "assertions": 22,
+    "offline": true,
+    "network": false
+  }
+}
