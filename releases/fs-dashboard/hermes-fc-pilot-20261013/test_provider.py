@@ -70,8 +70,9 @@ class ProviderTests(unittest.TestCase):
 
     def test_tool_schema_framing_is_rejected_before_provider_reservation(self):
         from proxy_gateway import request_body
-        messages=[{'role':'user','content':'x'*94000}]
-        self.assertLess(len(json.dumps(messages).encode()),96000)
+        from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+        messages=[{'role':'user','content':'x'*(MAX_PROVIDER_WIRE_BYTES-2000)}]
+        self.assertLess(len(json.dumps(messages).encode()),MAX_PROVIDER_WIRE_BYTES)
         with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):
             request_body({'messages':messages,'max_tokens':16384,'reasoning_effort':'max'},'deepseek-v4.1-flash')
 
@@ -83,6 +84,30 @@ class ProviderTests(unittest.TestCase):
             pilot=self.provider.request_model([],{},lambda v,_:v,tools=schemas(),reasoning_effort='max')
         self.assertEqual(legacy,{'status':'http_rejected'})
         self.assertEqual(pilot,{'status':'http_rejected','http_status':400})
+
+    def test_large_hermes_input_does_not_change_legacy_input_limit(self):
+        messages=[{'role':'user','content':'capacity fixture '*13000}]
+        sent=[]
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect=lambda request,timeout:(sent.append(request.data) or Response())
+            legacy=self.provider.request_model(messages,{},lambda v,_:v)
+            hermes=self.provider.request_model(messages,{},lambda v,_:v,tools=schemas(),reasoning_effort='max',max_tokens=16384)
+        self.assertEqual(legacy,{'status':'input_too_large'})
+        self.assertEqual(hermes['id'],'fake_receipt')
+        self.assertEqual(len(sent),1)
+        self.assertGreater(len(sent[0]),128000)
+        self.assertEqual(json.loads(sent[0])['messages'],messages)
+
+    def test_large_hermes_response_does_not_change_legacy_response_limit(self):
+        raw=json.dumps({'model':'deepseek-v4.1-flash','id':'fake_receipt','fixture':'x'*130000}).encode()
+        response=Response();response.read=lambda n:raw[:n]
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.return_value=response
+            legacy=self.provider.request_model([{'role':'user','content':'fixture'}],{},lambda v,_:v)
+            hermes=self.provider.request_model([{'role':'user','content':'fixture'}],{},lambda v,_:v,tools=schemas(),reasoning_effort='max')
+        self.assertEqual(legacy,{'status':'invalid_response'})
+        self.assertEqual(hermes['id'],'fake_receipt')
+        self.assertEqual(len(hermes['fixture']),130000)
 
     def test_unknown_approval_requires_private_exact_contract(self):
         from fs_inprocess import approved_unknowns

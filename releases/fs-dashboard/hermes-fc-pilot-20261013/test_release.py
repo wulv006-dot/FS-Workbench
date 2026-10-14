@@ -27,6 +27,57 @@ class ReleaseTests(unittest.TestCase):
             'unchangedRequired':[{'path':p,'sha256':'a'*64} for p in protected],'runtimeRequired':{'fs-business-range.service':{'ActiveState':'active'}},
             'imageId':'sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544','businessWrites':False,'timersChanged':False}
 
+    def wire_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_WIRE_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_WIRE_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_WIRE_TARGETS.values())]
+        known={r['path'] for r in value['unchangedRequired']}
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        value['unchangedRequired'] += [{'path':p,'sha256':'d'*64} for p in sorted(required-known)]
+        return value
+
+    def test_wire_requires_every_active_capability_and_session_dependency(self):
+        value=self.wire_manifest()
+        self.assertEqual(len(value['unchangedRequired']),56)
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        for target in sorted(required):
+            with self.subTest(target=target):
+                bad=json.loads(json.dumps(value))
+                bad['unchangedRequired']=[r for r in bad['unchangedRequired'] if r['path']!=target]
+                with self.assertRaisesRegex(ValueError,'protected consumer boundary'):
+                    self.publisher.validate(bad,self.stage)
+
+    def test_wire_scope_is_exact_eight_and_legacy_scopes_still_validate(self):
+        value=self.wire_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),8)
+        self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
+        self.assertEqual(len(self.publisher.validate(self.worker_manifest(),self.stage)),1)
+        for change in ('baseline','extra','protected','unit'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='protected':bad['unchangedRequired']=[r for r in bad['unchangedRequired'] if not r['path'].endswith('/range_api.py')]
+            if change=='unit':bad['runtimeRequired'].pop('fs-hermes-fc.service')
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_wire_restart_stops_old_fs_then_restarts_worker_and_fs_inside_fence(self):
+        events=[]
+        class Fence:
+            root=self.root
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"status":"ready","ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            self.publisher.restart_for(self.wire_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
     def test_exact_scope_keeps_other_publishers_unchanged(self):
         self.assertEqual(len(self.publisher.validate(self.manifest,self.stage)),34)
         self.assertEqual(self.publisher.expected_files({'scope':self.publisher.DEEP_SCOPE}),set(self.publisher.DEEP_TARGETS))

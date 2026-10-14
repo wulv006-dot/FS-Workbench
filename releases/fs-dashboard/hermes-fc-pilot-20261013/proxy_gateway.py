@@ -5,6 +5,22 @@ import re
 from pilot import digest, encoded, TOOLS, SHANGHAI
 from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 
+# FS transport protection, not a Hermes or provider context-window claim.
+# This applies only to the task-scoped Hermes bridge; legacy advisor stays 96 KB.
+MAX_PROVIDER_WIRE_BYTES = 1000000
+# Authenticated Bailian model-page readback: both input and context are 1M.
+MAX_PROVIDER_CONTEXT_TOKENS = 1000000
+
+
+def conservative_input_bound(request):
+    # Byte fallback plus tool/framing allowance; deliberately not an exact tokenizer.
+    return len(encoded(request).encode('utf-8')) + 8192 + 128 * len(request['messages'])
+
+
+def require_context_window(request):
+    if conservative_input_bound(request) + request['max_tokens'] > MAX_PROVIDER_CONTEXT_TOKENS:
+        raise ValueError('context_window_exceeded')
+
 
 def schemas():
     result = []
@@ -54,7 +70,7 @@ def request_body(body, model):
     if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= output_limit:
         raise ValueError('output_limit')
     messages = body['messages']
-    if not isinstance(messages, list) or not 1 <= len(messages) <= 64:
+    if not isinstance(messages, list) or not messages:
         raise ValueError('messages_limit')
     pending = set()
     for message in messages:
@@ -90,13 +106,14 @@ def request_body(body, model):
     if pending:
         raise ValueError('tool_result_missing')
     serialized = encoded(messages)
-    if len(serialized.encode()) > 96000 or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
+    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
-    if len(encoded(result).encode())>96000:raise ValueError('provider_payload_too_large')
+    if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
+    require_context_window(result)
     return result
 
 
@@ -152,6 +169,17 @@ def safe_diagnostic(response, request, reason):
     return out
 
 
+def require_reconciled_usage(rows, accepted_unknowns, owner, task):
+    for row in rows:
+        if row['state'] == 'invalid_response' and row['owner'] == owner and row['task'] == task:
+            raise ValueError('invalid_previous_result')
+        if row['state'] not in ('succeeded', 'invalid_response'):
+            if (row['state'] == 'unknown' and row['owner'] == owner and row['task'] != task and
+                    accepted_unknowns.get(row['fingerprint']) == row['microcny']):
+                continue
+            raise ValueError('pilot_usage_hold')
+
+
 class UnifiedBudget:
     """Use existing daily.db() and model_calls. New table is reservation metadata only.
 
@@ -197,7 +225,7 @@ class UnifiedBudget:
                     json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
                     'index' in call and call['index']!=original['index']):raise ValueError('provider_tool_history_changed')
                 call['index']=original['index']
-        if len(encoded(request['messages']).encode())>96000:raise ValueError('context_rejected')
+        if len(encoded(request['messages']).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('context_rejected')
         return request
 
     def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
@@ -226,19 +254,11 @@ class UnifiedBudget:
                 raise ValueError('daily_model_limit')
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
                                 'ON r.fingerprint=m.fingerprint').fetchall()
+            require_reconciled_usage(rows, self.accepted_unknowns, owner, task)
             task_cost = task_tokens = day_cost = turns = 0
             for row in rows:
-                # An unknown request anywhere in the pilot holds further pilot spending.
-                if row['state']=='invalid_response' and row['owner']==owner and row['task']==task:
-                    raise ValueError('invalid_previous_result')
-                if row['state'] not in ('succeeded','invalid_response'):
-                    # Only an explicit FS-owned approval for this exact reservation
-                    # permits a different task by the same owner. Never replay the
-                    # old turn, accept an in-flight call, or claim its usage is zero.
-                    if (row['state']=='unknown' and row['owner']==owner and row['task']!=task and
-                            self.accepted_unknowns.get(row['fingerprint'])==row['microcny']):
-                        continue
-                    raise ValueError('pilot_usage_hold')
+                if row['state'] not in ('succeeded', 'invalid_response'):
+                    continue  # Already confirmed for a different task; never settle it as zero.
                 receipt = json.loads(row['content'])
                 if row['day'] == day:
                     day_cost += receipt['cost_microcny']
@@ -290,7 +310,7 @@ class UnifiedBudget:
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')
                 ids.add(call['id'])
-            if len(encoded(message).encode()) > 96000:
+            if len(encoded(message).encode()) > MAX_PROVIDER_WIRE_BYTES:
                 raise ValueError('response_size')
             p = self.policy
             receipt = {'status':'succeeded', 'provider_request_id':response['id'], 'usage':usage,
@@ -341,7 +361,8 @@ class ModelGateway:
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
-        if len(encoded(request).encode())>96000:raise ValueError('provider_payload_too_large')
+        if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
+        require_context_window(request)  # Recheck after trusted replay metadata is restored.
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:

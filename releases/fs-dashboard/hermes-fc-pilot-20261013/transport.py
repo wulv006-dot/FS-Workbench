@@ -13,9 +13,13 @@ import secrets
 import threading
 import time
 
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
+SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded',
+                              'provider_payload_too_large', 'context_rejected',
+                              'model_busy', 'provider_outcome_unknown', 'unverified_provider_result'})
 
 
 @dataclass(frozen=True)
@@ -154,7 +158,7 @@ class Proxy:
                         message.pop('reasoning_content')
                     elif pad is None:
                         message.pop('reasoning_content')
-                    elif len(pad.encode())>96000:
+                    elif len(pad.encode())>MAX_PROVIDER_WIRE_BYTES:
                         raise ValueError('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         if effort!='none':request['reasoning_effort']=effort
@@ -200,7 +204,8 @@ def start_loopback(proxy, port=8940):
                 if method == 'POST' and (len(sizes) != 1 or not sizes[0].isdigit()):
                     raise ValueError('content_length')
                 size = int(sizes[0]) if sizes else 0
-                if size > 128000 or (method == 'GET' and size):
+                limit = MAX_PROVIDER_WIRE_BYTES if self.path == '/v1/chat/completions' else 128000
+                if size > limit or (method == 'GET' and size):
                     raise ValueError('request_size')
                 raw = self.rfile.read(size)
                 if len(raw) != size:
@@ -210,8 +215,10 @@ def start_loopback(proxy, port=8940):
                 status = 200
             except PermissionError:
                 status, result = 403, {'error': {'message': 'request denied', 'type': 'permission_error'}}
-            except (ValueError, TypeError, KeyError):
-                status, result = 400, {'error': {'message': 'invalid or unreconciled request', 'type': 'invalid_request_error'}}
+            except (ValueError, TypeError, KeyError) as error:
+                code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
+                message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
+                status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
             except Exception:
                 status, result = 503, {'error': {'message': 'request unavailable', 'type': 'server_error'}}
             data = encoded(result).encode('utf-8')

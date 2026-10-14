@@ -79,10 +79,14 @@ def request_model(messages, projected, validator, *, max_tokens=220, timeout=40,
             body.update(enable_thinking=True,reasoning_effort=reasoning_effort)
         # Hermes wire bytes match the proxy preflight; legacy consumers keep their original encoding.
         payload=json.dumps(body,ensure_ascii=False,separators=(',',':')).encode('utf-8') if tools is not None else json.dumps(body).encode()
-        if len(payload)>96000:return {'status':'input_too_large'}
+        wire_limit=96000
+        if tools is not None:
+            from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+            wire_limit=MAX_PROVIDER_WIRE_BYTES
+        if len(payload)>wire_limit:return {'status':'input_too_large'}
         request = urllib.request.Request(ENDPOINT,payload,{'Authorization':'Bearer '+key,'Content-Type':'application/json'})
-        with urllib.request.build_opener(NoRedirect).open(request,timeout=timeout) as response: raw=response.read(96001)
-        if len(raw)>96000:return {'status':'invalid_response'}
+        with urllib.request.build_opener(NoRedirect).open(request,timeout=timeout) as response: raw=response.read(wire_limit+1)
+        if len(raw)>wire_limit:return {'status':'invalid_response'}
         return validator(json.loads(raw),projected)
     except urllib.error.HTTPError as error:
         if tools is None:return {'status':'http_rejected'}

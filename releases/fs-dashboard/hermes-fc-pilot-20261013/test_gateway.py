@@ -8,7 +8,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
-from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES, MAX_PROVIDER_CONTEXT_TOKENS, conservative_input_bound, ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
 from pilot import TaskStore
 from runtime_contract import candidate, validate, clean_environment
 from runs_contract import WIRE_TOOLS
@@ -63,6 +63,22 @@ class GatewayTests(unittest.TestCase):
               'body':{'messages':[{'role':'user','content':'分析聚合证据。'}],'max_tokens':50}}
         args.update(overrides)
         return self.gateway.call(**args)
+
+    def test_large_hermes_context_and_many_rows_preserve_originals(self):
+        messages=[{'role':'user' if i%2==0 else 'assistant','content':'capacity '+str(i)+' '+'x'*2000} for i in range(80)]
+        result=request_body({'messages':messages,'max_tokens':50},self.policy['model'])
+        self.assertEqual(result['messages'],messages)
+        self.assertGreater(len(str(messages)),128000)
+        self.assertEqual(len(result['messages']),80)
+
+    def test_oversized_wire_rejected_before_any_reservation_or_provider(self):
+        body={'messages':[{'role':'user','content':'x'*MAX_PROVIDER_WIRE_BYTES}],'max_tokens':50}
+        with self.assertRaisesRegex(ValueError,'context_rejected'):
+            self.call(body=body)
+        self.assertEqual(self.calls,0)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],0)
 
     def test_same_ledger_reserve_before_provider_and_settle_actual_cost(self):
         result=self.call()
@@ -317,9 +333,9 @@ class GatewayTests(unittest.TestCase):
         message=deepcopy(first['message']);message['tool_calls'][0].pop('index')
         body={'messages':[{'role':'user','content':''},message,{'role':'tool','tool_call_id':'call_size','content':'{}'}],'max_tokens':50}
         base=request_body(body,self.policy['model'])
-        body['messages'][0]['content']='x'*(95995-len(json.dumps(base,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()))
-        self.assertEqual(len(json.dumps(request_body(body,self.policy['model']),ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()),95995)
-        with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):self.call(1,body=body)
+        body['messages'][0]['content']='x'*(MAX_PROVIDER_CONTEXT_TOKENS-5-body['max_tokens']-conservative_input_bound(base))
+        self.assertEqual(conservative_input_bound(request_body(body,self.policy['model']))+body['max_tokens'],MAX_PROVIDER_CONTEXT_TOKENS-5)
+        with self.assertRaisesRegex(ValueError,'context_window_exceeded'):self.call(1,body=body)
         self.assertEqual(self.calls,1)
         with self.db() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)
