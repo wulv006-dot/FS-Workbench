@@ -10,6 +10,8 @@ from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 MAX_PROVIDER_WIRE_BYTES = 1000000
 # Authenticated Bailian model-page readback: both input and context are 1M.
 MAX_PROVIDER_CONTEXT_TOKENS = 1000000
+# Pilot ceiling includes reasoning and tool arguments; Bailian allows up to384K.
+MAX_HERMES_OUTPUT_TOKENS = 65536
 
 
 def sensitive_context(value):
@@ -77,7 +79,7 @@ def request_body(body, model):
         raise ValueError('request_fields')
     effort=body.get('reasoning_effort')
     if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
-    output_limit=16384 if effort in ('high','max') else 6000
+    output_limit=MAX_HERMES_OUTPUT_TOKENS if effort in ('high','max') else 6000
     if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= output_limit:
         raise ValueError('output_limit')
     messages = body['messages']
@@ -139,7 +141,10 @@ def validate_tool_call(call):
         raise ValueError('tool_call_denied')
     if not isinstance(function['arguments'], str) or len(function['arguments']) > 4096:
         raise ValueError('tool_arguments')
-    args = json.loads(function['arguments'])
+    try:
+        args = json.loads(function['arguments'])
+    except json.JSONDecodeError:
+        raise ValueError('tool_arguments_json_invalid') from None
     if not isinstance(args, dict):
         raise ValueError('tool_arguments')
 

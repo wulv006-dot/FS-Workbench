@@ -13,7 +13,7 @@ import signal
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS
+from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS
 from runs_contract import WIRE_TOOLS, PIN
 
 
@@ -141,7 +141,7 @@ def make_adapter(api_key):
                             ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
-                            fallback_model=None, quiet_mode=True, max_tokens=16384 if item.get('reasoning_effort','none') in ('high','max') else 6000,
+                            fallback_model=None, quiet_mode=True, max_tokens=MAX_HERMES_OUTPUT_TOKENS if item.get('reasoning_effort','none') in ('high','max') else 6000,
                             reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
             from agent.context_compressor import ContextCompressor

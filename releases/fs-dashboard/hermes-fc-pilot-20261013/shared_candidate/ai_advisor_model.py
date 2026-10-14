@@ -58,7 +58,7 @@ def validate(raw, projected):
 
 def request_model(messages, projected, validator, *, max_tokens=220, timeout=40, tools=None, reasoning_effort=None):
     timeout_limit=600 if tools is not None and reasoning_effort in ('high','max') else 120
-    output_limit=16384 if tools is not None and reasoning_effort in ('high','max') else 6000
+    output_limit=65536 if tools is not None and reasoning_effort in ('high','max') else 6000
     if type(max_tokens) is not int or not 1<=max_tokens<=output_limit or type(timeout) is not int or not 1<=timeout<=timeout_limit:
         return {'status':'configuration_invalid'}
     name = os.environ.get('FS_DAILY_MODEL_KEY_FILE')

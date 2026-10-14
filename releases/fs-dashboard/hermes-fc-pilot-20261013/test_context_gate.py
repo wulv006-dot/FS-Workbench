@@ -1,6 +1,6 @@
 import unittest
 import test_gateway as fixture
-from proxy_gateway import request_body, MAX_PROVIDER_WIRE_BYTES, MAX_PROVIDER_CONTEXT_TOKENS, conservative_input_bound
+from proxy_gateway import request_body, MAX_PROVIDER_WIRE_BYTES, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS, conservative_input_bound
 
 
 class ContextGateTests(unittest.TestCase):
@@ -12,15 +12,15 @@ class ContextGateTests(unittest.TestCase):
 
     def test_wide_utf8_evidence_fits_verified_window(self):
         body = {'messages': [{'role': 'user', 'content': '经营证据与替代解释。' * 8000}],
-                'max_tokens': 16384, 'reasoning_effort': 'max'}
+                'max_tokens': MAX_HERMES_OUTPUT_TOKENS, 'reasoning_effort': 'max'}
         request = request_body(body, self.policy['model'])
         self.assertGreater(len(request['messages'][0]['content'].encode()), 128000)
-        self.assertLess(conservative_input_bound(request) + 16384, MAX_PROVIDER_CONTEXT_TOKENS)
+        self.assertLess(conservative_input_bound(request) + MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_CONTEXT_TOKENS)
 
     def test_under_wire_but_over_context_is_rejected_before_spend(self):
-        body = {'messages': [{'role': 'user', 'content': ''}], 'max_tokens': 16384, 'reasoning_effort': 'max'}
+        body = {'messages': [{'role': 'user', 'content': ''}], 'max_tokens': MAX_HERMES_OUTPUT_TOKENS, 'reasoning_effort': 'max'}
         base = request_body(body, self.policy['model'])
-        size = MAX_PROVIDER_CONTEXT_TOKENS - conservative_input_bound(base) - 16384 + 1
+        size = MAX_PROVIDER_CONTEXT_TOKENS - conservative_input_bound(base) - MAX_HERMES_OUTPUT_TOKENS + 1
         body['messages'][0]['content'] = 'x' * size
         self.assertLess(size, MAX_PROVIDER_WIRE_BYTES)
         with self.assertRaisesRegex(ValueError, 'context_window_exceeded'):
@@ -31,10 +31,10 @@ class ContextGateTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0], 0)
 
     def test_many_small_rows_account_for_framing_and_output(self):
-        body = {'messages': [{'role': 'user', 'content': 'x'}] * 2000, 'max_tokens': 16384, 'reasoning_effort': 'high'}
+        body = {'messages': [{'role': 'user', 'content': 'x'}] * 2000, 'max_tokens': MAX_HERMES_OUTPUT_TOKENS, 'reasoning_effort': 'high'}
         request = request_body(body, self.policy['model'])
         self.assertGreater(conservative_input_bound(request), 128 * 2000)
-        self.assertLess(conservative_input_bound(request) + 16384, MAX_PROVIDER_CONTEXT_TOKENS)
+        self.assertLess(conservative_input_bound(request) + MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_CONTEXT_TOKENS)
 
 
 if __name__ == '__main__':
