@@ -119,8 +119,9 @@ async def run(effort):
             original_agent_init(agent,*args,**kwargs)
             read_timeout=agent.client.timeout.read
             stale_timeout=agent._compute_non_stream_stale_timeout({'messages':[]})
-            assert read_timeout>=660 and stale_timeout>=660, 'rpc_timeout_less_than_provider_wait'
-            rpc_timeouts.append({'read':read_timeout,'stale':stale_timeout,'outer':agent._resolved_api_call_timeout()})
+            outer_timeout=agent._resolved_api_call_timeout()
+            assert min(read_timeout,stale_timeout,outer_timeout)>=660, 'rpc_timeout_less_than_provider_wait'
+            rpc_timeouts.append({'read':read_timeout,'stale':stale_timeout,'outer':outer_timeout})
         run_agent.AIAgent.__init__=observe_agent_init
         api_key = secrets.token_urlsafe(32)
         adapter = hermes_worker.make_adapter(api_key)
