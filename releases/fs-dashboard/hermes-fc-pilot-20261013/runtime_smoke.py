@@ -27,7 +27,7 @@ async def run(effort):
     from proxy_gateway import UnifiedBudget, schemas
     from direct_provider import MODEL, request_model as direct_request, prepare_request
     from unittest.mock import patch
-    fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-tokens-only-v1','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
+    fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
     fixture.gateway.budget=fixture.budget
     fixture.gateway.preflight=lambda req:prepare_request(req,schemas())
     fixture.scope.deadline = None
@@ -57,7 +57,7 @@ async def run(effort):
             return {'id':'native_summary_receipt','model':'deepseek-flash',
                 'usage':{'prompt_tokens':30,'completion_tokens':50,'total_tokens':80},
                 'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'Native complete synthetic summary.'}}]}
-        assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
+        assert '��������������' in request['messages'][0]['content'], 'skill_not_loaded'
         result = dict(fixture.answer(request), model=MODEL)
         if stress:
             size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
@@ -106,6 +106,7 @@ async def run(effort):
             assert body['model']=='deepseek-flash' and body['thinking']=={'type':'enabled'},'direct_provider_identity_or_thinking'
             assert body['reasoning_effort']==effort and body['max_tokens']==MAX_HERMES_OUTPUT_TOKENS,'direct_parameters_not_pinned'
             assert 'enable_thinking' not in body,'bailian_fields_in_direct_payload'
+            assert body['stream'] is True and body['stream_options']=={'include_usage':True},'direct_stream_keepalive_missing'
             converted=dict(body,tools=body.get('tools',[]),enable_thinking=True)
             return provider(converted)
         with patch('direct_provider._open',side_effect=fake_open):return direct_request(request,schemas())

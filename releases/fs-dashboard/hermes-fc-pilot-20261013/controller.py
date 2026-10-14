@@ -27,7 +27,7 @@ def clean_hermes_question(value):
     if not isinstance(value,str) or not 2 <= len(value.strip()) <= 600:
         raise ValueError('question_length')
     value=value.strip()
-    if re.search(r'Bearer\s|password\s*[:=]|密码\s*[:：=]|Cookie\s*[:=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|https?://|\b\d{10,}\b',value,re.I):
+    if re.search(r'Bearer\s|password\s*[:=]|����\s*[:��=]|Cookie\s*[:=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|https?://|\b\d{10,}\b',value,re.I):
         raise ValueError('sensitive_question')
     return value
 
@@ -139,7 +139,7 @@ class HermesService:
                 return {'status':'ledger_initializing','calls':None,'total_tokens':None,'estimated_microcny':None}
             rows=db.execute('SELECT m.state,m.content,r.policy FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint WHERE r.task=? AND r.owner=?',(task_id,owner)).fetchall()
         out={'calls':len(rows),'total_tokens':0,'reasoning_tokens':0,'estimated_microcny':0,'unknown_calls':0,'invalid_response_calls':0,'cost_basis':'public_peak_rate_estimate_not_invoice'}
-        if any(json.loads(row['policy']).get('id')=='no-pilot-quotas-deepseek-direct-tokens-only-v1' for row in rows):out['estimated_microcny']=None
+        if any(json.loads(row['policy']).get('id') in {'no-pilot-quotas-deepseek-direct-tokens-only-v1',POLICY_ID} for row in rows):out['estimated_microcny']=None
         for row in rows:
             if row['state'] not in ('succeeded','invalid_response'):out['unknown_calls']+=1;continue
             if row['state']=='invalid_response':out['invalid_response_calls']+=1
@@ -256,7 +256,7 @@ class HermesService:
             with self.lock:self.tokens[task['id']]=token;self.books[task['id']]=book;self.gateways[task['id']]=item_gateway
             request=submission(self.tasks.get(task['id'],owner));session_id=request['body']['session_id']
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
-                       'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+FORMAT}
+                       'prompt':body['question']+'\nĿ�����䣺'+body['start']+' �� '+body['end']+'�����գ�'+book.capture_id+'\n'+FORMAT}
             path=self.run_root/'admissions'/(session_id+'.json');atomic(path,admission)
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':

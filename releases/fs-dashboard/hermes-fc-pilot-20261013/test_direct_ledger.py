@@ -7,7 +7,7 @@ from proxy_gateway import UnifiedBudget, schemas
 from controller import HermesService
 from pilot import encoded
 
-POLICY={'id':'no-pilot-quotas-deepseek-direct-tokens-only-v1','model':'deepseek-flash',
+POLICY={'id':'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2','model':'deepseek-flash',
         'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None}
 
 
@@ -63,7 +63,7 @@ class DirectLedgerTests(unittest.TestCase):
             raw=self.answer(body);raw['model']='deepseek-flash';return raw
         self.gateway.provider=lambda req:request_model(req,schemas())
         with patch('direct_provider._open',side_effect=response):
-            raw=self.call(body={'messages':[{'role':'user','content':'合成聚合'}],'max_tokens':393216,'reasoning_effort':'max'})
+            raw=self.call(body={'messages':[{'role':'user','content':'�ϳɾۺ�'}],'max_tokens':393216,'reasoning_effort':'max'})
         self.assertEqual(raw['model'],'deepseek-flash')
         self.assertIsNone(raw['cost_microcny'])
 
@@ -80,8 +80,10 @@ class DirectLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):self.call(body=body)
         self.assertEqual(self.calls,0)
         with self.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM model_calls').fetchone()[0],0)
-        # Seven-byte native framing is accounted, without shrinking the transport maximum.
-        body['messages'][0]['content']='x'*(size-7)
+        # Pin the actual final native framing, including streaming usage options.
+        overhead=len(prepare_request(empty,schemas()))-len(encoded(empty).encode())
+        self.assertGreater(overhead,0)
+        body['messages'][0]['content']='x'*(size-overhead)
         self.assertEqual(len(prepare_request(request_body(body,'deepseek-flash'),schemas())),WIRE_BYTES)
         self.call(body=body)
         self.assertEqual(self.calls,1)

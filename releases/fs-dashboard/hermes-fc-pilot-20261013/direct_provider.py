@@ -4,6 +4,7 @@ No credential values, response prose, or request body are included in diagnostic
 No redirects or automatic retry, and no API key is exposed to Hermes.
 """
 import json
+from http.client import HTTPException
 import os
 from pathlib import Path
 import re
@@ -14,7 +15,7 @@ import urllib.request
 
 BASE_URL = 'https://api.deepseek.com'
 MODEL = 'deepseek-flash'
-POLICY_ID = 'no-pilot-quotas-deepseek-direct-tokens-only-v1'
+POLICY_ID = 'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2'
 CONTEXT_TOKENS = 1048576
 OUTPUT_TOKENS = 393216
 WIRE_BYTES = 10000000
@@ -78,6 +79,97 @@ def _safe_http_error(error):
     return out
 
 
+def _stream_events(response):
+    parts = []; size = 0
+    for raw in iter(lambda: response.readline(WIRE_BYTES+1), b''):
+        if len(raw) > WIRE_BYTES:
+            raise ValueError('stream_event_too_large')
+        line = raw.rstrip(b'\r\n')
+        if not line:
+            if parts:
+                yield b'\n'.join(parts)
+                parts = []; size = 0
+        elif line.startswith(b'data:'):
+            part = line[5:].lstrip(b' '); size += len(part)
+            if size > WIRE_BYTES:
+                raise ValueError('stream_event_too_large')
+            parts.append(part)
+        # SSE comments are vendor keep-alives, not response content.
+    if parts:
+        yield b'\n'.join(parts)
+
+
+def _read_stream(response):
+    identity = model = finish = usage = None
+    text = []; reasoning = []; calls = {}; size = 0; done = False
+    for payload in _stream_events(response):
+        if payload == b'[DONE]':
+            done = True; break
+        chunk = json.loads(payload)
+        if not isinstance(chunk, dict) or chunk.get('error'):
+            raise ValueError('invalid_stream_chunk')
+        for key, old in (('id', identity), ('model', model)):
+            value = chunk.get(key)
+            if value is not None and (not isinstance(value, str) or old is not None and value != old):
+                raise ValueError('stream_identity_changed')
+        identity = chunk.get('id', identity); model = chunk.get('model', model)
+        if chunk.get('usage') is not None:
+            usage = chunk['usage']
+        choices = chunk.get('choices')
+        if choices == [] and usage is not None:
+            continue
+        if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0],dict) or choices[0].get('index') != 0:
+            raise ValueError('stream_choices')
+        choice = choices[0]; delta = choice.get('delta', {})
+        if not isinstance(delta, dict) or delta.get('role') not in (None, 'assistant'):
+            raise ValueError('stream_delta')
+        if finish is not None and any(delta.get(k) for k in ('content','reasoning_content','tool_calls')):
+            raise ValueError('content_after_stream_finish')
+        for key, parts in (('content', text), ('reasoning_content', reasoning)):
+            value = delta.get(key)
+            if value is not None:
+                if not isinstance(value, str):raise ValueError('stream_text')
+                size += len(value.encode('utf-8')); parts.append(value)
+        items = delta.get('tool_calls') or []
+        if not isinstance(items,list):raise ValueError('stream_tools')
+        for item in items:
+            if not isinstance(item,dict):raise ValueError('stream_tool')
+            index = item.get('index')
+            if type(index) is not int or index < 0:raise ValueError('stream_tool_index')
+            tool = calls.setdefault(index, {'id':None,'type':None,'name':[],'arguments':[]})
+            for key in ('id','type'):
+                value = item.get(key)
+                if value is not None:
+                    if not isinstance(value,str) or tool[key] is not None and value != tool[key]:raise ValueError('stream_tool_identity')
+                    if tool[key] is None:size += len(value.encode('utf-8'))
+                    tool[key] = value
+            function = item.get('function', {})
+            if not isinstance(function, dict):raise ValueError('stream_function')
+            for key in ('name','arguments'):
+                value = function.get(key)
+                if value is not None:
+                    if not isinstance(value,str):raise ValueError('stream_tool_text')
+                    size += len(value.encode('utf-8')); tool[key].append(value)
+        if size > WIRE_BYTES:raise ValueError('stream_response_too_large')
+        value = choice.get('finish_reason')
+        if value is not None:
+            if not isinstance(value,str) or finish is not None and finish != value:raise ValueError('stream_finish_changed')
+            finish = value
+    if not done or finish is None or not isinstance(usage,dict) or not identity or model != MODEL:
+        raise ValueError('stream_incomplete')
+    message = {'role':'assistant','content':''.join(text) if text else None}
+    if reasoning:message['reasoning_content'] = ''.join(reasoning)
+    if calls:
+        message['tool_calls'] = [{'id':tool['id'],'type':tool['type'],
+            'function':{'name':''.join(tool['name']),'arguments':''.join(tool['arguments'])}}
+            for _,tool in sorted(calls.items())]
+    result = {'id':identity,'model':model,'object':'chat.completion','usage':usage,
+              'choices':[{'index':0,'finish_reason':finish,'message':message}]}
+    if len(json.dumps(result,ensure_ascii=False,separators=(',',':')).encode('utf-8')) > WIRE_BYTES:
+        raise ValueError('stream_response_too_large')
+    return result
+
+
 def _open(path, payload=None):
     key = _load_key()
     headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
@@ -85,6 +177,8 @@ def _open(path, payload=None):
     started = time.monotonic()
     try:
         with urllib.request.build_opener(NoRedirect()).open(req, timeout=WAIT_SECONDS) as response:
+            if payload is not None and json.loads(payload).get('stream') is True:
+                return _read_stream(response)
             raw = response.read(WIRE_BYTES+1)
         if len(raw) > WIRE_BYTES:
             return {'status': 'invalid_response'}
@@ -94,7 +188,7 @@ def _open(path, payload=None):
         return result
     except urllib.error.HTTPError as error:
         return _safe_http_error(error)
-    except (OSError, TimeoutError) as error:
+    except (OSError, TimeoutError, HTTPException) as error:
         return {'status': 'unknown_transport', 'transport_error_type': type(error).__name__,
                 'elapsed_seconds': round(time.monotonic()-started, 3), 'timeout_seconds': WAIT_SECONDS}
     except (ValueError, TypeError):
@@ -136,7 +230,8 @@ def prepare_request(request, approved_tools):
             request.get('tools') not in (approved_tools, []) or not approved_tools):
         raise ValueError('configuration_invalid')
     body = {'model': MODEL, 'messages': request['messages'], 'max_tokens': OUTPUT_TOKENS,
-            'thinking': {'type': 'enabled'}, 'reasoning_effort': request['reasoning_effort'], 'stream': False}
+            'thinking': {'type': 'enabled'}, 'reasoning_effort': request['reasoning_effort'],
+            'stream': True, 'stream_options': {'include_usage': True}}
     if request['tools']:
         body.update(tools=approved_tools, tool_choice='auto')
     payload = json.dumps(body, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
