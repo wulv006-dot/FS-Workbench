@@ -9,7 +9,7 @@
    ⇒ 目标量 TARGET_WAN 2 亿 → 1 亿 → **5 亿（50000 万基纳，2026-10-12 老板定案）**；
      对应的「无货兜底」阈值（config `金币.定价策略.无货最小可买万基纳`）同步 20000 → 10000。
 
-【2026-10-14 · **现行：跳过最低 1 条**（老板定案，**仅 AION2**）】老板原话：
+【2026-10-14 · **现行：跳过最低 1 条**（老板定案；当日晚**扩展至 MSCW**）】老板原话：
    「新增一个 DD373 成本扒取的规则，跳过第一个挂售的订单，因为这些订单往往会挂
      很低价格影响整体价格预测」。
    ⇒ `SKIP_LOWEST_QUOTES = 1`：先按单价升序**整条剔除最低的 1 条**（价格与库存都
@@ -25,8 +25,10 @@
    ⇒ 在 orderbook_avg 里先把单价**最低的 2 条整条剔除**（价格与库存都不计入，
      可买量随之少算这两条），再从第 3 条起「吃」满 1 亿。
    ⇒ 页面「综合排序」本身按价格升序给 ⇒「页面第 1、2 条」= 排序后最便宜的 2 条。
-   ⚠ MSCW（扁平专区）**不套用**：`_collect_flat_game` 显式传 `skip_lowest=0`，
-     那边合并两区翻页后条数多、没有「首页 1、2 条超低价」这个问题，别顺手改掉它的口径。
+   ⚠ 【2026-10-14 晚更新】MSCW（扁平专区）**已改为同口径**：`_collect_flat_game`
+     改读本专区配置 `FLAT_ZONES["MapleStory Classic World"]["skip_lowest"] = 1`
+     （老板：冒险岛第一条超低价同样会把整区成本拉崩）。本条上午曾是 `skip_lowest=0`，
+     现两专区（AION2 / MSCW）口径一致 = 跳过最低 1 条。
    ⚠ 薄区（可买挂单 ≤ 2 条）**不做兜底保留**：剔完即为空 ⇒ 按「无报价」进无货兜底。
      理由：那两条本来就是它唯一的挂单，宁可挂兜底价，也不拿一条可疑超低价去定价。
 
@@ -493,8 +495,8 @@ FALLBACK_ITEMS = 10         # 可买量不足目标量时，改「按条数」�
 # ── 2026-10-14 **老板重新定案：跳过最低 1 条** ⇒ 1（第一个挂售订单整条剔除，
 #    价格与库存都不计入成本）。理由：「这些订单往往会挂很低价格影响整体价格预测」。
 #    · 沿革：2026-10-09 上午设 2 → 当天下午改成 0（前两条一样抓）→ **2026-10-14 定 1**。
-#    · 保留 skip_lowest 入参机制（orderbook_avg 仍接受）；AION2 走本常量默认值，
-#      MSCW（扁平专区）在 _collect_flat_game 里显式传 0，**不套用**。
+#    · AION2 走本常量默认值；**MSCW（扁平专区）2026-10-14 晚起同口径** ——
+#      _collect_flat_game 读 FLAT_ZONES[...]["skip_lowest"]（当前 = 1，缺省回落本常量）。
 SKIP_LOWEST_QUOTES = 1
 REQ_BUDGET = 400            # 单轮总请求预算（含每个区的首屏）；用尽则剩余区沿用上一轮快照
                             #   2026-10-06 深夜（取消翻页后）：每轮 ≈ 86 区 × 1 次首屏
@@ -560,8 +562,8 @@ def orderbook_avg(quotes, target_wan=TARGET_WAN, skip_lowest=SKIP_LOWEST_QUOTES,
     `skip_lowest`（2026-10-14 现行 = 1）：先**整条剔除单价最低的 N 条**（价格与库存都
       不计入，可买量也随之少算），再从第 N+1 条起向下「吃」。默认取模块常量 = 1 ——
       页面「综合排序」按价格升序给，所谓「第一个挂售的订单」就是排序后最便宜的 1 条；
-      这类挂单常是超低价占位/挂错，留着会把整区成本拉低（老板口径）。MSCW 那条链路
-      显式传 0（不跳过）。
+      这类挂单常是超低价占位/挂错，留着会把整区成本拉低（老板口径）。AION2 与 MSCW
+      （扁平专区）**现均取 1**（2026-10-14 晚 MSCW 已对齐）。
       ⚠ 与 `fallback_items` 的关系：**先跳过、再决定吃法** —— 剔掉最低 1 条后若剩余
         可买量仍 ≥ 目标量则按量吃满；不足则从第 2 条起按条数吃满 `fallback_items` 条。
 
@@ -734,6 +736,9 @@ def to_usd_per_m(price_yuan_per_wan, rate):
 #     实测（2026-10-12 · 服务器出口 IP 47.85.224.112）：北美NA 首页即可买 **1653 万金**、
 #     前 3 条单价同为 6.373490 元/万金 ⇒ **800 万仍在第 1 页内吃满**，请求数不变（仍 2 次/轮）。
 #     （不是 AION2 的 1 亿 = 10000 万基纳；两者目标量本来就不同。）
+#   2026-10-14 晚 用户口径：**800 万 → 1000 万**（「将 800w 换成 1000w」）⇒ target_wan = 1000 万金。
+#     ⚠ 同日起**跳过订单簿最低 1 条**（「跟 aion2 一样」，老板：AION2 曾因第一条超低价
+#       把整区成本拉崩）。首页可买量远超 1000 万 ⇒ 剔掉最低 1 条后仍在第 1 页内吃满，请求数不变。
 #
 # ⚠ `wan_per_unit` = 前端 1 个单位合多少个「万」：
 #     前端单位是 **K**（档位 10/20/…/500，data-unit="K"）⇒ 1 K = 1000 金 = 0.1 万金。
@@ -745,8 +750,9 @@ FLAT_ZONES = {
         "type_seg": "et9e1b",       # 商品类型段（游戏币）
         "unit_name": "万金",        # 页面上的单位串（parse_first 自校验用）
         "wan_per_unit": 0.1,        # 前端单位 = K ⇒ 1 K = 0.1 万金
-        "target_wan": 800.0,        # 目标：买满 800 万金（2026-10-12 老板：100w → 500w → 800w）
-        "max_pages": 6,             # 够量即停；2026-10-12 实测首页即可买 1653 万金 ≫ 800 万
+        "target_wan": 1000.0,       # 目标：买满 1000 万金（沿革 100w → 500w → 800w → 1000w）
+        "skip_lowest": 1,           # 2026-10-14 老板：跳过订单簿最低 1 条（与 AION2 同口径）
+        "max_pages": 6,             # 够量即停；首页可买量远超目标 ⇒ 通常仍只请求 1 页
         "sub": {                    # 我方「大区」→ (DD373 子区展示名, URL 段)
             "Global": ("北美NA+欧洲EU", "k5faqj"),
         },
@@ -778,7 +784,7 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
     """
     z = FLAT_ZONES[game]
     subs = list(z.get("sub_segs") or list((z.get("sub") or {}).values()))
-    tgt = float(z.get("target_wan") or 800.0)
+    tgt = float(z.get("target_wan") or 1000.0)
     unit_name = z.get("unit_name") or "万金"
     wpu = float(z.get("wan_per_unit") or WAN_PER_M)
     quotes = []
@@ -822,9 +828,11 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
             break
         if pages_used == 0:
             break                       # 一页都没抓到（全失败）→ 别空转到底
-    # ⚠ 2026-10-14：**MSCW 不套用「跳过最低 N 条」**（老板那条要求是 AION2 的）——
-    #   这里显式传 skip_lowest=0，保持本专区口径一字不变。
-    ob = orderbook_avg(quotes, tgt, skip_lowest=0)
+    # ✅ 2026-10-14 晚：MSCW **改为一并跳过最低 N 条**（老板：「跳过订单簿的第一条，
+    #   跟 aion2 一样，之前 aion2 因为第一条超低价导致价格崩了」）。
+    #   数值取自本专区配置 `skip_lowest`，缺省回落模块常量 SKIP_LOWEST_QUOTES（=1）。
+    _skip = int(z.get("skip_lowest", SKIP_LOWEST_QUOTES))
+    ob = orderbook_avg(quotes, tgt, skip_lowest=_skip)
     if not ob:
         return ({"ok": False, "依据": "DD373 该专区暂无在售商品",
                  "备注": "页面正常渲染（未被风控）；两子区合并后 0 条可买挂单；"
@@ -854,8 +862,11 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
         "翻页数": pages_used,
         "DD区": z.get("sub", {}).get("Global", ("", ""))[0],
         "DD种族": "-", "DD游戏区": "Global（NA+EU 合并）",
-        "依据": "北美NA+欧洲EU 合并 · 买满 %.0f 万金订单簿加权(吃%d/%d条·翻%d页)"
-                % (tgt, ob["参与条数"], ob["报价条数"], pages_used),
+        "跳过条数": ob.get("跳过条数", 0),
+        "跳过明细": ob.get("跳过明细") or [],
+        "依据": "北美NA+欧洲EU 合并 · 买满 %.0f 万金订单簿加权(吃%d/%d条·翻%d页%s)"
+                % (tgt, ob["参与条数"], ob["报价条数"], pages_used,
+                   ("·跳过最低%d条" % ob["跳过条数"]) if ob.get("跳过条数") else ""),
         "URL": urls[0] if urls else "",
     }
     _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short,
@@ -866,9 +877,11 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
         rec["备注"] = _own
     if log:
         log("  [DD373] %-24s 买满 %.0f 万金 → %.6f 元/万金 = $%.6f/K "
-            "(吃%d/%d条·翻%d页·可买%.0f万金%s)"
+            "(吃%d/%d条·翻%d页%s·可买%.0f万金%s)"
             % (z.get("sub", {}).get("Global", ("", "-"))[0], tgt, _pr, _usd or 0,
-               ob["参与条数"], ob["报价条数"], pages_used, ob["可供量"],
+               ob["参与条数"], ob["报价条数"], pages_used,
+               ("·跳过最低%d条" % ob["跳过条数"]) if ob.get("跳过条数") else "",
+               ob["可供量"],
                "" if ob["够量"] else "·不足%.0f万" % tgt))
     return (rec, site)
 
