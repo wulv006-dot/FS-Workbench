@@ -14,4 +14,6 @@
 
 官方依据：[Hermes doctor](https://hermes-agent.nousresearch.com/docs/reference/cli-commands#hermes-doctor)、[DeepSeek流式协议](https://api-docs.deepseek.com/api/create-chat-completion/)。官方公开API文档未核到保证每次异常都带X-Request-ID；按实际收到的头捕获，不把缺失ID当成功/未出网证明。
 
-放行链：冻结UTF8字节（ASCII JSON传递）→对应Linux pr-fast/官方high-max Runs回归→draft PR/确切树合并→原publisher/CAS备份→独立生产读回→新的wulv任务验收。本文为候选设计记录，不声称尚未执行的CI/发布或实际报告已成功。
+10:21:51 UTC实际原FS解释器无认证GET /models返回401，TLSv1.2/证书校验成功。实际响应头包含x-ds-trace-id、不含X-Request-ID，因此候选同步捕获provider_ds_trace_id；两类头分别记录，不冒称都是Request ID。该探针无Key读取、无模型调用，不能证明大请求与长期流稳定。
+
+用户最新要求修复后先真实验证、通过后再补PR，覆盖此前先合并发布的顺序。现有draft PR135保留，精确冻结候选/本地回归后按原publisher/CAS备份部署验证版本，独立生产读回与新wulv调查先验；正式CI及确切树PR收尾继续完成。本文为候选记录，不声称尚未执行的发布或真实报告已成功。

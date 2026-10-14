@@ -158,9 +158,12 @@ def transport_trace(response):
     """Non-secret correlation only; headers and model text never enter this projection."""
     if not isinstance(response,dict):return {}
     out={}
-    for key in ('local_trace_id','provider_http_request_id','provider_response_id'):
+    for key in ('local_trace_id','provider_response_id'):
         value=response.get(key)
         if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',value):out[key]=value
+    for key in ('provider_http_request_id','provider_ds_trace_id'):
+        value=response.get(key)
+        if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}',value):out[key]=value
     value=response.get('request_started_at')
     if isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?\+00:00',value):out['request_started_at']=value
     value=response.get('response_headers_received')

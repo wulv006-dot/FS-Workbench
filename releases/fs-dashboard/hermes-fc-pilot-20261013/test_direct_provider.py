@@ -5,6 +5,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 import urllib.error
+from http.client import IncompleteRead
 
 import direct_provider as provider
 
@@ -152,10 +153,24 @@ STREAM_USAGE={'prompt_tokens':10,'completion_tokens':5,'total_tokens':15,
 
 
 class StreamingContractTests(unittest.TestCase):
+    def test_http_error_body_disconnect_still_preserves_received_header_trace(self):
+        class BrokenErrorBody(io.BytesIO):
+            def read(self,*args):raise IncompleteRead(b'NEVER_STORE_PARTIAL_ERROR')
+        error=urllib.error.HTTPError(provider.BASE_URL,429,'PRIVATE',{'x-ReQuEsT-iD':'synthetic-http-error','X-Ds-TrAcE-Id':'synthetic-ds-error'},BrokenErrorBody())
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener') as build:
+            build.return_value.open.side_effect=error
+            result=provider.request_model(request(),TOOLS)
+        self.assertEqual(result['status'],'http_rejected')
+        self.assertEqual(result['http_status'],429)
+        self.assertEqual(result['provider_http_request_id'],'synthetic-http-error')
+        self.assertEqual(result['provider_ds_trace_id'],'synthetic-ds-error')
+        self.assertTrue(result['response_headers_received'])
+        self.assertRegex(result['local_trace_id'],r'^[a-f0-9]{32}$')
+        self.assertNotIn('NEVER_STORE',json.dumps(result))
     def test_reset_after_headers_keeps_header_id_and_partial_stream_id(self):
         first=io.BytesIO(sse_body([sse_chunk({'reasoning_content':'NEVER_STORE_PARTIAL_THOUGHT'})],done=False))
         class Response:
-            headers={'X-Request-ID':'synthetic-header-uuid'}
+            headers={'X-Request-ID':'synthetic-header-uuid','x-ds-trace-id':'synthetic:ds.trace-1'}
             def __enter__(self):return self
             def __exit__(self,*args):pass
             def readline(self,limit):
@@ -167,6 +182,7 @@ class StreamingContractTests(unittest.TestCase):
             result=provider.request_model(request(),TOOLS)
         self.assertEqual(result['status'],'unknown_transport')
         self.assertEqual(result['provider_http_request_id'],'synthetic-header-uuid')
+        self.assertEqual(result['provider_ds_trace_id'],'synthetic:ds.trace-1')
         self.assertEqual(result['provider_response_id'],'synthetic-stream')
         self.assertTrue(result['response_headers_received'])
         self.assertEqual(result['transport_phase'],'reading_stream')
@@ -176,6 +192,17 @@ class StreamingContractTests(unittest.TestCase):
         self.assertIn('+00:00',result['request_started_at'])
         self.assertNotIn('NEVER_STORE',json.dumps(result))
         self.assertEqual(send.call_count,1)
+
+    def test_actual_vendor_trace_header_without_request_id_is_not_mislabelled(self):
+        class Response(io.BytesIO):
+            headers={'x-ds-trace-id':'synthetic-ds-only'}
+        body=sse_body([sse_chunk({'content':'synthetic'},finish='stop',usage=STREAM_USAGE)])
+        opener=type('Opener',(),{'open':lambda self,*args,**kwargs:Response(body)})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener',return_value=opener):
+            reply=provider.request_model(request(),TOOLS)
+        self.assertEqual(reply['provider_ds_trace_id'],'synthetic-ds-only')
+        self.assertNotIn('provider_http_request_id',reply)
+        self.assertEqual(reply['id'],'synthetic-stream')
 
     def test_reset_before_headers_has_only_local_correlation(self):
         opener=type('Opener',(),{'open':lambda *args,**kwargs:(_ for _ in ()).throw(ConnectionResetError('PRIVATE'))})()

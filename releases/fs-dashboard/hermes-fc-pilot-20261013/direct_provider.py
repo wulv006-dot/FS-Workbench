@@ -51,10 +51,19 @@ def _identifier(value):
     return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}', value) else None
 
 
+def _header_trace(headers):
+    out={};headers=headers or {}
+    fields={'x-request-id':'provider_http_request_id','x-ds-trace-id':'provider_ds_trace_id'}
+    for header,value in headers.items():
+        key=fields.get(header.lower())
+        if key and isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}',value):out[key]=value
+    return out
+
+
 def _safe_http_error(error):
     out = {'status': 'http_rejected', 'http_status': error.code}
-    headers = error.headers or {}
-    identity = _identifier(headers.get('X-Request-ID') or headers.get('x-request-id'))
+    out.update(_header_trace(error.headers))
+    identity = _identifier(out.get('provider_http_request_id'))
     if identity:
         out['provider_request_id'] = identity
     try:
@@ -75,7 +84,7 @@ def _safe_http_error(error):
                  'Input or output data may contain inappropriate content.': 'unknown'}
         if message in forms:
             out['inspection_direction'] = forms[message]
-    except (ValueError, TypeError, OSError):
+    except (ValueError, TypeError, OSError, HTTPException):
         pass
     finally:
         error.close()
@@ -191,8 +200,7 @@ def _open(path, payload=None):
         with urllib.request.build_opener(NoRedirect()).open(req, timeout=WAIT_SECONDS) as response:
             trace['response_headers_received'] = True
             response_headers = getattr(response,'headers',None) or {}
-            request_id = _identifier(response_headers.get('X-Request-ID') or response_headers.get('x-request-id'))
-            if request_id:trace['provider_http_request_id'] = request_id
+            trace.update(_header_trace(response_headers))
             if payload is not None and json.loads(payload).get('stream') is True:
                 trace['transport_phase'] = 'reading_stream'
                 result = _read_stream(response,trace)
@@ -210,7 +218,7 @@ def _open(path, payload=None):
         trace['response_headers_received'] = True
         trace['transport_phase'] = 'http_rejected'
         result = _safe_http_error(error)
-        if result.get('provider_request_id'):trace['provider_http_request_id'] = result['provider_request_id']
+        trace.update({k:result[k] for k in ('provider_http_request_id','provider_ds_trace_id') if k in result})
         return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
     except (OSError, TimeoutError, HTTPException) as error:
         result = dict(trace,status='unknown_transport',transport_error_type=type(error).__name__,

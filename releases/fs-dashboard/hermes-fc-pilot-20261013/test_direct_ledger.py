@@ -25,7 +25,7 @@ class DirectLedgerTests(unittest.TestCase):
 
     def test_safe_trace_is_saved_on_success_and_unknown_without_private_headers(self):
         self.use_direct()
-        trace={'local_trace_id':'a'*32,'provider_http_request_id':'header-id',
+        trace={'local_trace_id':'a'*32,'provider_http_request_id':'header-id','provider_ds_trace_id':'synthetic:ds.trace-1',
                'provider_response_id':'body-id','request_started_at':'2026-10-14T10:00:00.123456+00:00',
                'response_headers_received':True,'transport_phase':'reading_stream',
                'response_bytes_received':1200,'stream_events_received':4,
@@ -33,6 +33,7 @@ class DirectLedgerTests(unittest.TestCase):
         self.provider=lambda req:dict(self.answer(req),**trace)
         receipt=self.call()
         self.assertEqual(receipt['provider_http_request_id'],'header-id')
+        self.assertEqual(receipt['provider_ds_trace_id'],'synthetic:ds.trace-1')
         self.assertEqual(receipt['local_trace_id'],'a'*32)
         self.assertNotIn('NEVER_STORE',json.dumps(receipt))
         self.provider=lambda req:dict(trace,status='unknown_transport',transport_error_type='ConnectionResetError')
@@ -40,6 +41,7 @@ class DirectLedgerTests(unittest.TestCase):
         with self.db() as db:
             raw=json.loads(db.execute("SELECT content FROM model_calls WHERE state='unknown'").fetchone()[0])
         self.assertEqual(raw['provider_http_request_id'],'header-id')
+        self.assertEqual(raw['provider_ds_trace_id'],'synthetic:ds.trace-1')
         self.assertEqual(raw['provider_response_id'],'body-id')
         self.assertEqual(raw['transport_phase'],'reading_stream')
         self.assertNotIn('NEVER_STORE',json.dumps(raw))
