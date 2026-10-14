@@ -96,7 +96,7 @@ class AdmissionHoldTests(unittest.TestCase):
         self.assertEqual((replay_status, replay['task_id']), (200, old['id']))
         self.assertEqual(runtime.call_count, before)
         self.assertEqual(self.service.tasks.get(old['id'], 'owner')['state'], 'FAILED')
-        self.assertTrue(self.service.tasks.get(result['task_id'], 'owner')['spec']['template_version'].startswith('v3-1m-'))
+        self.assertTrue(self.service.tasks.get(result['task_id'], 'owner')['spec']['template_version'].startswith('v5-native-report-'))
 
 
 if __name__ == '__main__':

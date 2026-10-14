@@ -16,10 +16,15 @@ from pilot import TaskStore, SHANGHAI, digest, encoded, complete_week
 from transport import Grants, Proxy, start_loopback, SAFE_MODEL_ERRORS
 from fs_inprocess import gateway, approved_background, spending_hold
 from fs_evidence import build_book,attach_owner_history
-from report_validation import FORMAT, validate_output
+from report_validation import FORMAT, validate_output, decode_output
+from report_delivery import FORMAT,deliver_output,private_report
+from report_artifacts import save_raw,save_result,read_file,directory
+from report_html import render_report
 from runs_contract import submission,validate_admission,run_path
 from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from direct_provider import POLICY_ID
+from continuation import load_continuation,can_continue
+from skill_bundle import load_bundle
 
 
 def clean_hermes_question(value):
@@ -92,6 +97,8 @@ class HermesService:
         self.pool=ThreadPoolExecutor(max_workers=4,thread_name_prefix='fs-hermes-controller')
         self.proxy=Proxy(self.grants,self.lookup,approved_background(self.source_root))
         self.server=None;self.thread=None
+        self.recovery_stop=threading.Event();self.recovery_thread=None
+        self.delivery_retries={}
         with self.tasks.db() as db:
             db.executescript('CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,owner TEXT,request_id TEXT,body TEXT,state TEXT,task_id TEXT,error TEXT,result TEXT,UNIQUE(owner,request_id));'
                              'CREATE TABLE IF NOT EXISTS evidence(task_id TEXT,evidence_id TEXT,content TEXT,PRIMARY KEY(task_id,evidence_id));')
@@ -107,6 +114,70 @@ class HermesService:
     def start(self):
         if self.server is not None:raise ValueError('proxy_already_started')
         self.server,self.thread=start_loopback(self.proxy)
+        self.recovery_thread=threading.Thread(target=self._recover_loop,name='fs-hermes-report-receipts',daemon=True)
+        self.recovery_thread.start()
+
+    def _recover_loop(self):
+        while not self.recovery_stop.wait(5):
+            try:self.recover_reports()
+            except Exception:pass
+
+    def recover_reports(self):
+        from types import SimpleNamespace
+        from hashlib import sha256
+        for path in (self.root/'reports').glob('*/metadata.json'):
+            if path.is_symlink():continue
+            attempt,not_before=self.delivery_retries.get(str(path),(0,0))
+            if time.monotonic()<not_before:continue
+            try:
+                meta=json.loads(path.read_text('utf-8'));job=self.get_job(meta['owner'],meta['request_id'])
+                if not job or job['task_id']!=meta['task'] or job['state'] in {'COMPLETED','CANCELLED','CANCEL_REQUESTED'}:continue
+                task=self.tasks.get(meta['task'],meta['owner'])
+                if task['run_id']!=meta['run_id'] or task['state'] not in {'RUNNING','VALIDATING','PARTIAL','SUCCEEDED'}:continue
+                raw=read_file(self.root,meta['task'],'raw');ev=(path.parent/'evidence.json').read_bytes()
+                if raw['sha256']!=meta['raw_sha256'] or sha256(ev).hexdigest()!=meta['evidence_sha256'] or meta.get('native_completed') is not True:continue
+                book=SimpleNamespace(evidence=json.loads(ev),capture_id=task['spec']['snapshot_id'])
+                self.publish_report(job['id'],meta['owner'],job['body'],task,book,raw['content'],meta['reasoning_effort'])
+                self.delivery_retries.pop(str(path),None)
+            except Exception:
+                self.delivery_retries[str(path)]=(attempt+1,time.monotonic()+min(60,5*2**min(attempt,4)))
+                continue
+
+    def publish_report(self,key,owner,body,task,book,output,effort):
+        task=self.tasks.get(task['id'],owner)
+        path=directory(self.root,task['id']);meta=json.loads((path/'metadata.json').read_text('utf-8'))
+        if (path/'ready.json').exists():
+            result=json.loads(read_file(self.root,task['id'],'json')['content']);read_file(self.root,task['id'],'html')
+            hashes=json.loads((path/'ready.json').read_text('utf-8'))
+        else:
+            result=deliver_output(output,book,validator=validate_output)
+            result.update(reasoning_effort=effort,skills_version=meta['skills_version'],skill_sha256=meta['skill_sha256'],
+                          model_usage=self.usage(task['id'],owner),run_id=task['run_id'],period={'start':body['start'],'end':body['end']})
+            try:result['raw_model_json']=encoded(decode_output(output))
+            except (ValueError,TypeError):pass
+            if body.get('continuation_from'):result.update(continuation_from=body['continuation_from'],source_capture_repeated=False)
+            hashes=save_result(self.root,task['id'],result,render_report(result,book.evidence,result['period']))
+        receipt=dict(result);receipt.pop('raw_model_text',None);receipt.pop('raw_model_json',None)
+        receipt['artifact']=dict(task=task['id'],raw_sha256=meta['raw_sha256'],**hashes)
+        for name in ('findings','actions','reviews','number_claims'):receipt[name]=[]
+        receipt['summary']=result['summary'][:1600]
+        with self.lock:
+            if self.get_job(owner,key)['state'] in {'CANCELLED','CANCEL_REQUESTED'}:
+                current=self.tasks.get(task['id'],owner)
+                if current['state']=='CANCEL_REQUESTED':self.tasks.observe(task['id'],owner,current['lease'],'cancelled',worker_stopped=True)
+                self.update(key,state='CANCELLED');return
+            current=self.tasks.get(task['id'],owner)
+            if current['state']=='RUNNING':current=self.tasks.observe(task['id'],owner,current['lease'],'completed',worker_stopped=True)
+            if current['state']=='VALIDATING':self.tasks.change(current,'PARTIAL' if result['limitations'] else 'SUCCEEDED')
+            self.update(key,state='COMPLETED',error=None,result=receipt)
+
+    def mark_progress(self,task_id,stage,tool=None):
+        path=self.root/'progress';path.mkdir(exist_ok=True,mode=0o700)
+        previous=path/(task_id+'.json')
+        value=json.loads(previous.read_text('utf-8')) if previous.exists() else {}
+        value.update(stage=stage,heartbeat_at=self.clock().isoformat())
+        if tool:value.update(last_tool=tool,last_tool_at=self.clock().isoformat())
+        atomic(previous,value,mode=0o600)
 
     def remote(self,method,path,body=None,idempotency=None):
         if not (path=='/v1/runs' or re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}(?:/stop)?',path)):raise ValueError('runtime_route')
@@ -131,6 +202,9 @@ class HermesService:
             task=self.tasks.get(item['task_id'],owner)
             item['run_id']=task['run_id'];item['task_state']=task['state']
             item['model_usage']=self.usage(item['task_id'],owner)
+            with self.tasks.db() as db:item['evidence_count']=db.execute('SELECT count(*) FROM evidence WHERE task_id=?',(item['task_id'],)).fetchone()[0]
+            path=self.root/'progress'/(item['task_id']+'.json')
+            item['progress']=json.loads(path.read_text('utf-8')) if path.exists() else {}
         return item
 
     def usage(self,task_id,owner):
@@ -179,6 +253,8 @@ class HermesService:
                 job=self.get_job(user,body['id'])
                 if not job:return 404,{'error':'not_found'}
                 if job['state'] in {'COMPLETED','FAILED','CANCELLED','NEEDS_RECONCILE'}:return 200,job
+                if job['state']=='REPORT_PENDING':return 409,{'error':'analysis_finished_report_delivery_pending'}
+                if job.get('task_state') in {'VALIDATING','PARTIAL','SUCCEEDED'}:return 409,{'error':'analysis_finished_report_delivery_pending'}
                 self.update(job['id'],state='CANCEL_REQUESTED')
                 if job['task_id']:
                     task=self.tasks.cancel(job['task_id'],user)
@@ -188,7 +264,8 @@ class HermesService:
                 try:self.remote('POST',run_path(task['run_id'],'stop')['path'],{})
                 except Exception:self.update(job['id'],error='stop_ack_unknown')
             return 202,self.get_job(user,job['id'])
-        if set(body)!={'kind','request_id','start','end','question','mode'} or body['kind']!='hermes_report' or body['mode'] not in {'daily','investigation','kpi','pricing'}:
+        fields={'kind','request_id','start','end','question','mode'}
+        if set(body) not in (fields,fields|{'continuation_from'}) or body['kind']!='hermes_report' or body['mode'] not in {'daily','investigation','kpi','pricing'}:
             return 422,{'error':'report_fields'}
         try:
             question=clean_hermes_question(body['question']);lo,hi=date.fromisoformat(body['start']),date.fromisoformat(body['end'])
@@ -203,6 +280,10 @@ class HermesService:
             if old:
                 if old[0]!=encoded(body):return 409,{'error':'idempotency_conflict'}
                 return 200,self.get_job(user,key)
+            if 'continuation_from' in body:
+                try:load_continuation(self.tasks,body['continuation_from'],user,body['start'],body['end'],self.source_root)
+                except PermissionError:return 403,{'error':'continuation_owner_or_state'}
+                except (ValueError,TypeError,KeyError):return 422,{'error':'invalid_continuation_source'}
             hold = spending_hold(self.daily, self.tasks, user)
             if hold:
                 return 503, {'error': hold}
@@ -213,31 +294,38 @@ class HermesService:
 
     def get(self,params,user):
         if not user:return 401,{'error':'login_required'}
-        if set(params)-{'mode','id','evidence'} or params.get('mode')!=['hermes'] or any(len(v)!=1 for v in params.values()):return 422,{'error':'invalid_parameters'}
+        if set(params)-{'mode','id','evidence','artifact'} or params.get('mode')!=['hermes'] or any(len(v)!=1 for v in params.values()):return 422,{'error':'invalid_parameters'}
         if 'id' in params:
             job=self.get_job(user,params['id'][0])
             if not job:return 404,{'error':'not_found'}
+            if 'artifact' in params:
+                if 'evidence' in params:return 422,{'error':'invalid_parameters'}
+                if job['state'] not in {'COMPLETED','REPORT_PENDING'}:return 404,{'error':'report_artifact_not_found'}
+                try:return 200,read_file(self.root,job['task_id'],params['artifact'][0])
+                except (ValueError,OSError):return 404,{'error':'report_artifact_not_found'}
             if 'evidence' in params:
                 ref=params['evidence'][0]
                 if not re.fullmatch(r'ev_[a-f0-9]{24}',ref):return 422,{'error':'invalid_evidence'}
                 with self.tasks.db() as db:row=db.execute('SELECT content FROM evidence WHERE task_id=? AND evidence_id=?',(job['task_id'],ref)).fetchone()
                 return (200,json.loads(row[0])) if row else (404,{'error':'not_found'})
             return 200,job
-        if 'evidence' in params:return 422,{'error':'evidence_task_required'}
+        if 'evidence' in params or 'artifact' in params:return 422,{'error':'evidence_task_required'}
         with self.tasks.db() as db:rows=db.execute("SELECT id,state,error,body FROM requests WHERE owner=? AND state!='ALIASED' ORDER BY rowid DESC LIMIT 20",(user,)).fetchall()
         hold = spending_hold(self.daily, self.tasks, user)
+        version=load_bundle(self.source_root)['version']
         return 200,{'contract':'hermes-fc-investigation-v2','can_generate':self.authorizer(user) and hold is None,
                     'admission': {'status': 'blocked' if hold else 'ready', 'reason': hold},
-                    'items':[dict(r,body=json.loads(r['body'])) for r in rows],
+                    'items':[dict(r,body=json.loads(r['body']),can_continue=self.authorizer(user) and can_continue(self.tasks,r,user,version)) for r in rows],
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
     def execute(self,key,owner,body):
-        task=None;token=None;session_id=None
+        task=None;token=None;session_id=None;completed_stopped=False
         try:
-            book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
+            continuation=body.get('continuation_from')
+            book=load_continuation(self.tasks,continuation,owner,body['start'],body['end'],self.source_root) if continuation else build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
             book.background=self.proxy.background
             spec={'period':{'start':body['start'],'end_exclusive':(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),'timezone':'Asia/Shanghai'},
-                  'snapshot_id':book.capture_id,'template_version':'v3-1m-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
+                    'snapshot_id':book.capture_id,'template_version':'v5-native-report-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
                   'knowledge_version':book.skills['version'],'budget_policy_id':POLICY_ID}
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':self.update(key,state='CANCELLED');return
@@ -246,10 +334,13 @@ class HermesService:
                     self.update(key,state='ALIASED',task_id=task['id']);task=None;return
                 self.tasks.reserve_dispatch(task['id'],owner,lease)
                 self.update(key,state='DISPATCH_UNKNOWN',task_id=task['id'])
-            attach_owner_history(book,self.tasks,owner)
+            if not continuation:attach_owner_history(book,self.tasks,owner)
             def save_evidence(value):
                 with self.tasks.db() as db:db.execute('INSERT OR IGNORE INTO evidence VALUES(?,?,?)',(task['id'],value['evidence_id'],encoded(value)))
+                self.mark_progress(task['id'],'investigating',tool=value.get('source','readonly_tool'))
             book.persist=save_evidence
+            if continuation:
+                for value in book.evidence.values():save_evidence(value)
             item_gateway=gateway(self.daily,self.tasks,book)
             effort='max' if body['mode'] in {'investigation','pricing'} else 'high'
             token=self.grants.mint(owner,task['id'],lease,reasoning_effort=effort)
@@ -257,6 +348,8 @@ class HermesService:
             request=submission(self.tasks.get(task['id'],owner));session_id=request['body']['session_id']
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
                        'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+FORMAT}
+            if continuation:
+                admission['prompt']+='\n这是新的证据续行任务，不重放旧失败调用。下面是此前已成功获取的冻结工具证据，不含私有推理；保持原来源、范围、时点和ev引用。请据此完成有价值的调查正文，只在必要时用fc.calculate复算，避免重新探索已完成的取证。当前续行不重采集，没提供的字段仍保留缺口。\n'+book.continuation_context
             path=self.run_root/'admissions'/(session_id+'.json');atomic(path,admission)
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':
@@ -278,6 +371,7 @@ class HermesService:
                 if not cancel:self.grants.renew(token,owner,task['id'],lease)
                 _,remote=self.remote('GET',run_path(run_id)['path'])
                 state=remote.get('status')
+                self.mark_progress(task['id'],state or 'runtime_status_unknown')
                 if state not in {'queued','running','stopping','waiting_approval'} and not self.proxy.active(task['id']):break
                 time.sleep(2)
             with self.lock:
@@ -286,22 +380,30 @@ class HermesService:
                 if state!='completed':
                     self.tasks.observe(task['id'],owner,lease,state,worker_stopped=True)
                     safe_error = next((code for code in sorted(SAFE_MODEL_ERRORS) if
-                        re.search(r'FC model request blocked: '+code+r'\b', str(remote.get('error', '')))), None)
+                        re.search(r'FC model (?:request blocked|connection recovery exhausted): '+code+r'\b', str(remote.get('error', '')))), None)
                     self.update(key,state='NEEDS_RECONCILE' if state=='interrupted' else 'FAILED',error=safe_error or 'runtime_'+str(state));return
-            result=validate_output(remote.get('output'),book)
-            with self.lock:
-                if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':
-                    self.tasks.observe(task['id'],owner,lease,'cancelled',worker_stopped=True);self.update(key,state='CANCELLED');return
-                self.tasks.observe(task['id'],owner,lease,state,worker_stopped=True)
-                task=self.tasks.get(task['id'],owner)
-                self.tasks.change(task,'PARTIAL' if result['limitations'] else 'SUCCEEDED')
-                result.update(reasoning_effort=effort,skills_version=book.skills['version'],skill_sha256=book.skills['sha256'],trace=book.trace,
-                              model_usage=self.usage(task['id'],owner),run_id=run_id)
-                self.update(key,state='COMPLETED',result=result)
+            completed_stopped=True
+            self.mark_progress(task['id'],'saving_report')
+            output=remote.get('output')
+            if not isinstance(output,str) or not output.strip():raise ValueError('empty_analysis')
+            if private_report(output):raise ValueError('sensitive_analysis')
+            save_raw(self.root,task['id'],output,book.evidence,{'owner':owner,'request_id':key,'run_id':run_id,'native_completed':True,
+                     'skills_version':book.skills['version'],'skill_sha256':book.skills['sha256'],'reasoning_effort':effort})
+            self.publish_report(key,owner,body,task,book,output,effort)
         except Exception as error:
             code=str(error) if isinstance(error,(ValueError,PermissionError)) and re.fullmatch(r'[a-z_]{3,80}',str(error)) else 'controller_'+type(error).__name__
-            state='NEEDS_RECONCILE' if task and self.tasks.get(task['id'],owner)['state'] in {'DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE'} else 'FAILED'
-            self.update(key,state=state,error=code)
+            with self.lock:
+                if task and completed_stopped:
+                    current=self.tasks.get(task['id'],owner)
+                    if current['state'] in {'RUNNING','CANCEL_REQUESTED'}:
+                        current=self.tasks.observe(task['id'],owner,lease,'completed',worker_stopped=True)
+                    if current['state']=='CANCELLED':
+                        self.update(key,state='CANCELLED');return
+                    if (self.root/'reports'/task['id']/'metadata.json').is_file():
+                        self.update(key,state='REPORT_PENDING',error='report_delivery_pending');return
+                    if current['state']=='VALIDATING':self.tasks.change(current,'FAILED')
+                state='NEEDS_RECONCILE' if task and self.tasks.get(task['id'],owner)['state'] in {'DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE'} else 'FAILED'
+                self.update(key,state=state,error=code)
         finally:
             if token:self.grants.revoke(token)
             if session_id and self.get_job(owner,key)['state']!='NEEDS_RECONCILE':

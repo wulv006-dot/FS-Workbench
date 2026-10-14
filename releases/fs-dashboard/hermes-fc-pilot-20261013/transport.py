@@ -17,7 +17,7 @@ from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
-SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded',
+SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded','provider_transport_recovery_exhausted',
                               'provider_payload_too_large', 'context_rejected',
                               'model_busy', 'provider_outcome_unknown', 'unverified_provider_result', 'stream_not_supported'})
 
@@ -234,6 +234,7 @@ def start_loopback(proxy, port=8940):
                 code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
                 message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
                 status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
+                if code=='provider_transport_recovery_exhausted':status,result=503,{'error':{'message':'FC model connection recovery exhausted: provider_transport_recovery_exhausted','type':'upstream_transport_error'}}
             except Exception:
                 status, result = 503, {'error': {'message': 'request unavailable', 'type': 'server_error'}}
             data = encoded(result).encode('utf-8')
