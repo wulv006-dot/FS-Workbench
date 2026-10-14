@@ -38,7 +38,7 @@ async def run(effort):
     def observe(*args, **kwargs):
         tool_hits.append(args[3])
         value = original_call(*args, **kwargs)
-        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100,synthetic_identity='task-scoped HMAC pseudonyms')
+        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100,synthetic_identity='task-scoped HMAC pseudonyms for order/event/item IDs')
         return value
     fixture.scope.call = observe
     def provider(request):
@@ -54,7 +54,7 @@ async def run(effort):
                 latest=next(m['content'] for m in reversed(request['messages']) if m.get('role')=='tool')
                 assert '"main_source":"Admin"' in latest and '"reference_source":"Order"' in latest, 'stress_actual_evidence_missing'
                 assert 'tool_result_contract' not in latest, 'stress_tool_error_received'
-                assert 'task-scoped HMAC pseudonyms' in latest, 'safe_task_scope_description_not_received'
+                assert 'task-scoped HMAC pseudonyms for order/event/item IDs' in latest, 'safe_task_scope_description_not_received'
             for message in request['messages']:
                 for call in message.get('tool_calls',[]):
                     assert call.get('index')==0 and call['function']['arguments']=='{}', 'stress_tool_history_changed'
