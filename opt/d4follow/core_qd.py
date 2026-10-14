@@ -147,7 +147,8 @@ DEFAULT_BOOK = {
     "批量档": 1000,     # 整批卖 → 我们按这个补货批量 Q 算单价
     "单件档": 50,       # 零售（可单个买）→ 按这个 Q 算单价
     "占比阈值": 0.5,    # 「整批卖」的库存量占比 >= 此值 → 判为批量档
-    "跳过倍数": 2.0,    # 为凑剩余需求要买 > need×倍数 的整条 → 跳过
+    # 「跳过倍数」已于 2026-10-14 退役（方案A）：剩余需求小于某档起售量时不再跳过该档，
+    # 改为整条买下，避免被尾部高价小单拉高成本。旧键留在线上 config.json 里但不再被读取。
     "超深倍数": 3.0,    # Q > 全簿可售库存 × 此值 → 判定不适用，退回单件档
     "最大翻页": 8,
 }
@@ -208,11 +209,22 @@ def pick_q(rows, th=10, bulk_q=1000, single_q=50, share=0.5):
     return (bulk_q if ratio >= share else single_q), ratio, tot
 
 
-def book_cost(rows, q, skip_ratio=2.0):
+def book_cost(rows, q):
     """从低价往上吃深度，算加权均价（VWAP）。返回 (单价, 实吃量, 备注)
 
     用户口径的正式化：库存 300@1 元 + 700@1.5 元，Q=1000
     → (300×1 + 700×1.5) / 1000 = 1.35 元。
+
+    ── 2026-10-14 去掉「跳过倍数」闸（方案A：宁可超买便宜档）──
+    旧逻辑：剩余需求 need 小于该档起售量 moq 时，若 moq > need×2 就**跳过这一档**。
+    实测「强力巢穴钥匙」（国际服/赛季/普通，订单簿 2026-10-14 09:09）：
+      15 档里最便宜的档库存 3.8 万把 @0.0027、6 万把 @0.0032，起售量都在 500~5000。
+      吃到 need=113 时，吃剩的便宜档被这道闸整片跳过，只能用单价 0.05~0.10 的
+      尾部小单补齐最后 12% 的量 → VWAP 0.010403，是真实最低价 0.0027 的 **3.85 倍**，
+      比更高档的「精良巢穴钥匙」（0.0034）还贵 3 倍，价格层级倒挂、深度亏损。
+    现在改为**整条买下**（`take = min(stk, moq)`）：只为凑够量多买一点便宜档，
+    单价绝不会高于该档报价，成本回归真实最低可成交价。副作用是可能小幅超出 Q
+    （超出量 ≤ moq ≤ Q，只发生在更便宜的档位上，不会拉低成本以外的东西）。
     """
     used, cost, skipped = 0, 0.0, 0
     for r in rows:
@@ -222,15 +234,12 @@ def book_cost(rows, q, skip_ratio=2.0):
         pr = _f(r.get("rmbPrice"))
         stk = max(0, _int(r.get("stock")))
         moq = max(1, _int(r.get("minBuyCount"), 1))
-        if stk <= 0 or moq > q:            # 买不到 / 起售量比我们的批量还大 → 跳过
+        if stk <= 0 or moq > q:            # 买不到 / 起售量比我们的批量还大 → 这一档用不上
             skipped += 1
             continue
         take = min(stk, need)
-        if take < moq:                     # 剩余需求不足这一条的最小起售
-            if moq > need * skip_ratio:    # 为一点点余量再吃一大坨 → 不值当
-                skipped += 1
-                continue
-            take = min(stk, moq)           # 整条买下（会小幅超出 Q）
+        if take < moq:                     # 剩余需求不足这一条的最小起售 → 整条买下
+            take = min(stk, moq)           # 会小幅超出 Q：宁可超买便宜档，不买贵尾单
         cost += pr * take
         used += take
     if used <= 0:
@@ -239,7 +248,7 @@ def book_cost(rows, q, skip_ratio=2.0):
     if used < q:
         note.append("深度不足")
     if skipped:
-        note.append("跳过%d档" % skipped)
+        note.append("跳过%d档(起售超Q或零库存)" % skipped)
     return cost / used, used, "/".join(note)
 
 
@@ -261,7 +270,7 @@ def book_price(rows, qcfg=None):
         thin = tot < q_tier
         q = _int(c["单件档"], 50)
         tier = "整簿不足Q退回单件档" if thin else "退回单件档"
-    v, u, n = book_cost(rs, q, _f(c.get("跳过倍数"), 2.0))
+    v, u, n = book_cost(rs, q)
     if not v:
         return None
     return {"q": q, "vwap": v, "used": u, "depth": tot, "bulk_share": ratio,
