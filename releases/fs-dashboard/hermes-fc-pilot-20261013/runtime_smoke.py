@@ -9,9 +9,11 @@ import os
 from pathlib import Path
 import secrets
 import tempfile
+import resource
 
 import hermes_worker
 from transport import Grants, Proxy, start_loopback
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from runs_contract import WIRE_TOOLS,validate_admission
 import test_gateway as fixtures
 
@@ -27,7 +29,7 @@ async def run(effort):
     grants = Grants()
     token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort=effort)
     tool_hits = []
-    stress = True  # Every official high/max check now exercises long-context pruning.
+    stress = True  # Preserve eight complete large tool results; do not prune early.
     if stress:
         fixture.gateway.input_bound = lambda request: len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
     request_sizes = []
@@ -45,7 +47,7 @@ async def run(effort):
         result = fixture.answer(request)
         if stress:
             size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
-            assert size<=96000,'stress_request_exceeds_original_wire'
+            assert size<=MAX_PROVIDER_WIRE_BYTES,'stress_request_exceeds_hermes_wire'
             request_sizes.append(size)
             saw_prune.append(any(m.get('role')=='tool' and len(str(m.get('content') or ''))<4000 for m in request['messages']))
             if fixture.calls>1:
@@ -135,7 +137,9 @@ async def run(effort):
             expected_calls = 9 if stress else 2
             assert fixture.calls == expected_calls, ('provider_calls', fixture.calls)
             assert tool_hits == [WIRE_TOOLS[0]]*(8 if stress else 1), ('tool_calls', tool_hits)
-            if stress:assert any(saw_prune), 'native_prune_not_observed'
+            if stress:
+                assert not any(saw_prune), 'unexpected_early_prune'
+                assert max(request_sizes)>128000, 'larger_wire_not_exercised'
             async with client.post('http://127.0.0.1:8941/v1/runs', json={
                     'input': 'Check FC metric definitions, then finish.', 'session_id': session_id}) as response:
                 replay = await response.json()
@@ -166,6 +170,8 @@ async def run(effort):
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
                           'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
+                          'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'complete_tool_results_retained':not any(saw_prune),
+                          'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',
                           'cancel_before_handshake_no_model_call':'pass',
                           'real_business_data': False, 'real_model_call': False}))

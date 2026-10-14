@@ -13,6 +13,7 @@ import secrets
 import threading
 import time
 
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
@@ -154,7 +155,7 @@ class Proxy:
                         message.pop('reasoning_content')
                     elif pad is None:
                         message.pop('reasoning_content')
-                    elif len(pad.encode())>96000:
+                    elif len(pad.encode())>MAX_PROVIDER_WIRE_BYTES:
                         raise ValueError('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         if effort!='none':request['reasoning_effort']=effort
@@ -200,7 +201,8 @@ def start_loopback(proxy, port=8940):
                 if method == 'POST' and (len(sizes) != 1 or not sizes[0].isdigit()):
                     raise ValueError('content_length')
                 size = int(sizes[0]) if sizes else 0
-                if size > 128000 or (method == 'GET' and size):
+                limit = MAX_PROVIDER_WIRE_BYTES if self.path == '/v1/chat/completions' else 128000
+                if size > limit or (method == 'GET' and size):
                     raise ValueError('request_size')
                 raw = self.rfile.read(size)
                 if len(raw) != size:

@@ -151,13 +151,13 @@ def make_adapter(api_key):
                     'proactive_prune_min_result_chars','proactive_prune_min_reclaim_tokens')):
                 agent.close()
                 raise PermissionError('unexpected_context_compressor')
-            # Official deterministic pruning archives originals in the bound SessionDB.
-            # This is a live-context trigger, not a cumulative token or spending quota.
-            compressor.protect_first_n = 1
-            compressor.protect_last_n = 4
-            compressor.proactive_prune_tokens = 4000
-            compressor.proactive_prune_min_result_chars = 200
-            compressor.proactive_prune_min_reclaim_tokens = 1024
+            # Keep the official head/tail protection. Prune only substantial old
+            # results in long investigations, not at the legacy 96-KB wire boundary.
+            compressor.protect_first_n = 3
+            compressor.protect_last_n = 20
+            compressor.proactive_prune_tokens = 48000
+            compressor.proactive_prune_min_result_chars = 8000
+            compressor.proactive_prune_min_reclaim_tokens = 4096
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()

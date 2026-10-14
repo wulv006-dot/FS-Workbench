@@ -5,6 +5,10 @@ import re
 from pilot import digest, encoded, TOOLS, SHANGHAI
 from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 
+# FS transport protection, not a Hermes or provider context-window claim.
+# This applies only to the task-scoped Hermes bridge; legacy advisor stays 96 KB.
+MAX_PROVIDER_WIRE_BYTES = 1000000
+
 
 def schemas():
     result = []
@@ -54,7 +58,7 @@ def request_body(body, model):
     if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= output_limit:
         raise ValueError('output_limit')
     messages = body['messages']
-    if not isinstance(messages, list) or not 1 <= len(messages) <= 64:
+    if not isinstance(messages, list) or not messages:
         raise ValueError('messages_limit')
     pending = set()
     for message in messages:
@@ -90,13 +94,13 @@ def request_body(body, model):
     if pending:
         raise ValueError('tool_result_missing')
     serialized = encoded(messages)
-    if len(serialized.encode()) > 96000 or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
+    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
-    if len(encoded(result).encode())>96000:raise ValueError('provider_payload_too_large')
+    if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
     return result
 
 
@@ -197,7 +201,7 @@ class UnifiedBudget:
                     json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
                     'index' in call and call['index']!=original['index']):raise ValueError('provider_tool_history_changed')
                 call['index']=original['index']
-        if len(encoded(request['messages']).encode())>96000:raise ValueError('context_rejected')
+        if len(encoded(request['messages']).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('context_rejected')
         return request
 
     def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
@@ -290,7 +294,7 @@ class UnifiedBudget:
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')
                 ids.add(call['id'])
-            if len(encoded(message).encode()) > 96000:
+            if len(encoded(message).encode()) > MAX_PROVIDER_WIRE_BYTES:
                 raise ValueError('response_size')
             p = self.policy
             receipt = {'status':'succeeded', 'provider_request_id':response['id'], 'usage':usage,
@@ -341,7 +345,7 @@ class ModelGateway:
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
-        if len(encoded(request).encode())>96000:raise ValueError('provider_payload_too_large')
+        if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:

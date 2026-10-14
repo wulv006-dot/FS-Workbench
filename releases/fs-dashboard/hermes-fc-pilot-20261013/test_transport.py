@@ -26,6 +26,19 @@ class TransportTests(unittest.TestCase):
         body = self.body(); body.update(changes)
         return self.proxy.dispatch('POST', '/v1/chat/completions', self.token, body)
 
+    def test_real_loopback_accepts_large_model_request_without_pruning(self):
+        server,thread=start_loopback(self.proxy,port=0)
+        try:
+            body=self.body();body['messages']=[{'role':'user','content':'large evidence '*12000}]
+            raw=json.dumps(body).encode()
+            self.assertGreater(len(raw),128000)
+            request=Request('http://127.0.0.1:'+str(server.server_address[1])+'/v1/chat/completions',raw,{'Authorization':'Bearer '+self.token,'Content-Type':'application/json'})
+            with urlopen(request,timeout=5) as response:result=json.loads(response.read())
+            self.assertEqual(result['id'],'fake_receipt_1')
+            self.assertEqual(self.fixture.calls,1)
+        finally:
+            server.shutdown();server.server_close();thread.join(timeout=3)
+
     def test_provider_retry_after_transport_restart_has_one_charge(self):
         first = self.call()
         self.proxy = Proxy(self.grants, lambda grant: self.fixture.gateway)
