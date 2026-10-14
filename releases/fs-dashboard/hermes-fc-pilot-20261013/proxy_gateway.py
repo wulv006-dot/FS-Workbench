@@ -12,6 +12,19 @@ MAX_PROVIDER_WIRE_BYTES = 1000000
 MAX_PROVIDER_CONTEXT_TOKENS = 1000000
 
 
+def sensitive_context(value):
+    if isinstance(value, str):
+        # The fixed FC projection describes task-scoped HMAC pseudonyms.
+        # Exempt only the verified full public phrase in a scan copy; transmit originals.
+        scan = re.sub(r'(?<![\w.-])task-scoped(?= HMAC pseudonyms for order/event/item IDs)', 'task_scoped', value, flags=re.I)
+        return re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', scan, re.I) is not None
+    if isinstance(value, dict):
+        return any(sensitive_context(k) or sensitive_context(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(sensitive_context(v) for v in value)
+    return False
+
+
 def conservative_input_bound(request):
     # Byte fallback plus tool/framing allowance; deliberately not an exact tokenizer.
     return len(encoded(request).encode('utf-8')) + 8192 + 128 * len(request['messages'])
@@ -106,7 +119,7 @@ def request_body(body, model):
     if pending:
         raise ValueError('tool_result_missing')
     serialized = encoded(messages)
-    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
+    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or sensitive_context(messages):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
