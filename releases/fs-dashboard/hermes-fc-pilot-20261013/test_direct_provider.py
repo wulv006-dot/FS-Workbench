@@ -33,6 +33,8 @@ class ProviderContractTests(unittest.TestCase):
                 self.assertEqual(body['reasoning_effort'], effort)
                 self.assertNotIn('enable_thinking', body)
                 self.assertEqual(body['tools'], TOOLS)
+                self.assertIs(body['stream'], True)
+                self.assertEqual(body['stream_options'], {'include_usage':True})
                 self.assertIn('调查FC'.encode(), encoded)
 
     def test_native_summary_does_not_send_empty_tools_or_tool_choice(self):
@@ -127,6 +129,116 @@ class ProviderContractTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(2)
+
+
+def sse_chunk(delta=None, finish=None, usage=None, **overrides):
+    chunk={'id':'synthetic-stream','model':provider.MODEL,'choices':[{
+        'index':0,'delta':delta or {},'finish_reason':finish}]}
+    if usage is not None:chunk['usage']=usage
+    chunk.update(overrides)
+    return chunk
+
+
+def sse_body(chunks, done=True):
+    events=[b': keep-alive\r\n\r\n']
+    for chunk in chunks:
+        events.append(b'data: '+json.dumps(chunk,ensure_ascii=False).encode('utf-8')+b'\r\n\r\n')
+    if done:events.append(b'data: [DONE]\r\n\r\n')
+    return b''.join(events)
+
+
+STREAM_USAGE={'prompt_tokens':10,'completion_tokens':5,'total_tokens':15,
+              'completion_tokens_details':{'reasoning_tokens':3}}
+
+
+class StreamingContractTests(unittest.TestCase):
+    def test_actual_http_keepalive_utf8_native_high_max_and_auxiliary(self):
+        seen=[]
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));seen.append(body)
+                chunks=[sse_chunk({'role':'assistant','reasoning_content':'SYNTHETIC_THOUGHT'}),
+                        sse_chunk({'content':'FC 合成报告'}),sse_chunk(finish='stop',usage=STREAM_USAGE)]
+                self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
+                self.wfile.write(sse_body(chunks));self.wfile.flush()
+            def log_message(self,*args):pass
+        server=HTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            with patch.object(provider,'BASE_URL','http://127.0.0.1:'+str(server.server_port)),patch.object(provider,'_load_key',return_value='sk-SYNTHETIC-NOT-REAL'):
+                for effort in ('high','max'):
+                    reply=provider.request_model(request(reasoning_effort=effort),TOOLS)
+                    self.assertEqual(reply['usage'],STREAM_USAGE)
+                    self.assertEqual(reply['choices'][0]['message']['content'],'FC 合成报告')
+                    self.assertEqual(reply['choices'][0]['message']['reasoning_content'],'SYNTHETIC_THOUGHT')
+                provider.request_model(request(tools=[]),TOOLS)
+            self.assertEqual(len(seen),3)
+            for body in seen:
+                self.assertIs(body['stream'],True);self.assertEqual(body['stream_options'],{'include_usage':True})
+                self.assertEqual(body['max_tokens'],393216);self.assertEqual(body['thinking'],{'type':'enabled'})
+            self.assertNotIn('tools',seen[-1]);self.assertNotIn('tool_choice',seen[-1])
+        finally:server.shutdown();server.server_close();thread.join(2)
+
+    def test_fragmented_parallel_tools_preserve_exact_arguments_and_order(self):
+        chunks=[sse_chunk({'tool_calls':[{'index':1,'id':'tool-b','type':'function','function':{'name':'fc_b','arguments':'{"v":'}}]}),
+                sse_chunk({'tool_calls':[{'index':0,'id':'tool-a','type':'function','function':{'name':'fc_a','arguments':'{}'}},
+                                         {'index':1,'function':{'arguments':'"中文"}'}}]}),
+                sse_chunk(finish='tool_calls',usage=STREAM_USAGE)]
+        reply=provider._read_stream(io.BytesIO(sse_body(chunks)))
+        calls=reply['choices'][0]['message']['tool_calls']
+        self.assertEqual([c['id'] for c in calls],['tool-a','tool-b'])
+        self.assertEqual([c['index'] for c in calls],[0,1])
+        self.assertEqual(calls[1]['function'],{'name':'fc_b','arguments':'{"v":"中文"}'})
+        self.assertEqual(reply['choices'][0]['finish_reason'],'tool_calls')
+
+    def test_usage_only_and_vendor_final_chunk_are_both_supported(self):
+        for chunks in ([sse_chunk({'content':'final'}),sse_chunk(finish='stop',usage=STREAM_USAGE)],
+                       [sse_chunk({'content':'final'},finish='stop'),sse_chunk(usage=STREAM_USAGE,choices=[])]):
+            with self.subTest(chunks=len(chunks)):
+                reply=provider._read_stream(io.BytesIO(sse_body(chunks)))
+                self.assertEqual(reply['usage'],STREAM_USAGE)
+                self.assertEqual(reply['choices'][0]['message']['content'],'final')
+
+    def test_truncated_missing_usage_and_changed_identity_never_succeed(self):
+        variants=[sse_body([sse_chunk({'content':'partial'})],done=False),
+                  sse_body([sse_chunk({'content':'partial'},finish='stop')]),
+                  sse_body([sse_chunk({'content':'partial'}),sse_chunk(finish='stop',usage=STREAM_USAGE,id='changed')]),
+                  sse_body([sse_chunk({'content':'first'}),sse_chunk(id=None,model=None),sse_chunk({'content':'second'},finish='stop',usage=STREAM_USAGE,id='changed')]),
+                  sse_body([sse_chunk({'content':'first'},usage=STREAM_USAGE),sse_chunk({'content':'second'},finish='stop')]),
+                  sse_body([sse_chunk({'content':'first'},finish='stop',usage=STREAM_USAGE),sse_chunk(usage=STREAM_USAGE)]),
+                  sse_body([sse_chunk({'content':'partial'},finish='stop',usage=STREAM_USAGE),sse_chunk({'content':'late'})])]
+        for raw in variants:
+            with self.subTest(raw_bytes=len(raw)),self.assertRaises(ValueError):provider._read_stream(io.BytesIO(raw))
+
+    def test_length_and_aborted_finish_reason_are_not_rewritten_as_stop(self):
+        for finish in ('length','aborted','insufficient_system_resource','content_filter'):
+            reply=provider._read_stream(io.BytesIO(sse_body([sse_chunk({'content':'partial'},finish=finish,usage=STREAM_USAGE)])))
+            self.assertEqual(reply['choices'][0]['finish_reason'],finish)
+
+    def test_connection_reset_preserves_unknown_and_never_retries(self):
+        first=io.BytesIO(sse_body([sse_chunk({'content':'SYNTHETIC_PARTIAL_PRIVATE'})],done=False))
+        class BrokenResponse:
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+            def readline(self,limit):
+                part=first.readline(limit)
+                if part:return part
+                raise ConnectionResetError('NEVER_SAVE_EXCEPTION_PROSE')
+        opener=type('Opener',(),{'open':lambda self,*args,**kwargs:BrokenResponse()})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC-NOT-REAL'),patch('urllib.request.build_opener',return_value=opener) as call:
+            reply=provider.request_model(request(),TOOLS)
+        self.assertEqual(reply['status'],'unknown_transport');self.assertEqual(reply['transport_error_type'],'ConnectionResetError')
+        self.assertEqual(call.call_count,1);self.assertNotIn('PRIVATE',json.dumps(reply));self.assertNotIn('PROSE',json.dumps(reply))
+        self.assertEqual(reply['timeout_seconds'],1800)
+
+    def test_sse_framing_is_not_an_artificial_output_quota(self):
+        chunks=[sse_chunk({'content':'a'}) for _ in range(20)]+[sse_chunk(finish='stop',usage=STREAM_USAGE)]
+        raw=sse_body(chunks);self.assertGreater(len(raw),512)
+        with patch.object(provider,'WIRE_BYTES',512):reply=provider._read_stream(io.BytesIO(raw))
+        self.assertEqual(reply['choices'][0]['message']['content'],'a'*20)
+
+    def test_reconstructed_response_still_respects_existing_wire_bound(self):
+        chunks=[sse_chunk({'content':'a'*180}) for _ in range(4)]+[sse_chunk(finish='stop',usage=STREAM_USAGE)]
+        with patch.object(provider,'WIRE_BYTES',512),self.assertRaises(ValueError):provider._read_stream(io.BytesIO(sse_body(chunks)))
 
 
 if __name__ == '__main__':

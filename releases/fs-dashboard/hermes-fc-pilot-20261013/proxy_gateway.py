@@ -160,7 +160,7 @@ def safe_diagnostic(response, request, reason):
     if not isinstance(response,dict):return out
     if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
     for key in ('transport_error_type','transport_reason_type'):
-        if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected'):
+        if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected','IncompleteRead'):
             out[key]=response[key]
     for key in ('elapsed_seconds','timeout_seconds'):
         value=response.get(key)
@@ -226,7 +226,7 @@ class UnifiedBudget:
         if set(policy) != required or any(not isinstance(policy[k], str) or not policy[k]
                 for k in ('id', 'model', 'price_version')):
             raise ValueError('policy_fields')
-        unknown_price = (policy['id']=='no-pilot-quotas-deepseek-direct-tokens-only-v1' and policy['model']=='deepseek-flash' and
+        unknown_price = (policy['id']=='no-pilot-quotas-deepseek-direct-stream-tokens-only-v2' and policy['model']=='deepseek-flash' and
                          policy['price_version']=='deepseek-direct-no-cny-invoice-or-fx-v1' and
                          policy['input_microcny'] is None and policy['output_microcny'] is None)
         if not unknown_price and any(type(policy[k]) is not int or policy[k] <= 0 for k in required-{'id','model','price_version'}):

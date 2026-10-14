@@ -27,7 +27,7 @@ async def run(effort):
     from proxy_gateway import UnifiedBudget, schemas
     from direct_provider import MODEL, request_model as direct_request, prepare_request
     from unittest.mock import patch
-    fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-tokens-only-v1','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
+    fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
     fixture.gateway.budget=fixture.budget
     fixture.gateway.preflight=lambda req:prepare_request(req,schemas())
     fixture.scope.deadline = None
@@ -80,6 +80,7 @@ async def run(effort):
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
             tokens=min(17000,size)
             result['usage']={'prompt_tokens':tokens,'completion_tokens':20000,'total_tokens':tokens+20000,'completion_tokens_details':{'reasoning_tokens':17000}}
+            result['choices'][0]['finish_reason']='tool_calls' if result['choices'][0]['message'].get('tool_calls') else 'stop'
             return result
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
@@ -98,6 +99,7 @@ async def run(effort):
             assert any(m.get('role')=='assistant' and m.get('content')=='Fixture investigation complete.' for m in request['messages']), 'previous_judgment_missing'
             result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
         result['usage']['completion_tokens_details']={'reasoning_tokens':3}
+        result['choices'][0]['finish_reason']='tool_calls' if result['choices'][0]['message'].get('tool_calls') else 'stop'
         return result
     def through_direct(request):
         def fake_open(path, payload):
@@ -106,8 +108,20 @@ async def run(effort):
             assert body['model']=='deepseek-flash' and body['thinking']=={'type':'enabled'},'direct_provider_identity_or_thinking'
             assert body['reasoning_effort']==effort and body['max_tokens']==MAX_HERMES_OUTPUT_TOKENS,'direct_parameters_not_pinned'
             assert 'enable_thinking' not in body,'bailian_fields_in_direct_payload'
+            assert body['stream'] is True and body['stream_options']=={'include_usage':True},'direct_stream_keepalive_missing'
             converted=dict(body,tools=body.get('tools',[]),enable_thinking=True)
-            return provider(converted)
+            result=provider(converted)
+            message=result['choices'][0]['message'];chunks=[]
+            def chunk(delta,finish=None,usage=None):
+                return dict(id=result['id'],model=result['model'],choices=[dict(index=0,delta=delta,finish_reason=finish)],usage=usage)
+            if message.get('reasoning_content'):chunks.append(chunk({'reasoning_content':message['reasoning_content']}))
+            if message.get('content'):chunks.append(chunk({'content':message['content']}))
+            for index,tool in enumerate(message.get('tool_calls') or []):chunks.append(chunk({'tool_calls':[dict(tool,index=index)]}))
+            chunks.append(chunk({},result['choices'][0]['finish_reason'],result['usage']))
+            import io
+            from direct_provider import _read_stream
+            events=b': keep-alive\n\n'+b''.join(b'data: '+json.dumps(row,ensure_ascii=False).encode()+b'\n\n' for row in chunks)+b'data: [DONE]\n\n'
+            return _read_stream(io.BytesIO(events))
         with patch('direct_provider._open',side_effect=fake_open):return direct_request(request,schemas())
     fixture.provider = through_direct
     proxy = Proxy(grants, lambda grant: fixture.gateway)

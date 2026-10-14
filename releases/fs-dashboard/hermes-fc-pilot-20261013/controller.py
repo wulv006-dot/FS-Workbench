@@ -139,7 +139,7 @@ class HermesService:
                 return {'status':'ledger_initializing','calls':None,'total_tokens':None,'estimated_microcny':None}
             rows=db.execute('SELECT m.state,m.content,r.policy FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint WHERE r.task=? AND r.owner=?',(task_id,owner)).fetchall()
         out={'calls':len(rows),'total_tokens':0,'reasoning_tokens':0,'estimated_microcny':0,'unknown_calls':0,'invalid_response_calls':0,'cost_basis':'public_peak_rate_estimate_not_invoice'}
-        if any(json.loads(row['policy']).get('id')=='no-pilot-quotas-deepseek-direct-tokens-only-v1' for row in rows):out['estimated_microcny']=None
+        if any(json.loads(row['policy']).get('id') in {'no-pilot-quotas-deepseek-direct-tokens-only-v1',POLICY_ID} for row in rows):out['estimated_microcny']=None
         for row in rows:
             if row['state'] not in ('succeeded','invalid_response'):out['unknown_calls']+=1;continue
             if row['state']=='invalid_response':out['invalid_response_calls']+=1

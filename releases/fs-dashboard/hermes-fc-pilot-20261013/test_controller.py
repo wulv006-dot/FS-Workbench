@@ -97,10 +97,16 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(self.service.get_job('owner',job['id'])['result'],job['result'])
 
     def test_direct_provider_identity_never_aliases_same_input_old_bailian_failure(self):
+        self.assert_separate_failed_policy('existing-ledger-public-estimate')
+
+    def test_stream_transport_identity_never_aliases_nonstream_failed_task(self):
+        self.assert_separate_failed_policy('no-pilot-quotas-deepseek-direct-tokens-only-v1')
+
+    def assert_separate_failed_policy(self, old_policy):
         from direct_provider import POLICY_ID
         old_spec={'period':{'start':self.body['start'],'end_exclusive':'2026-10-12','timezone':'Asia/Shanghai'},
                   'snapshot_id':self.book.capture_id,'template_version':'v3-1m-'+digest({k:v for k,v in self.body.items() if k!='request_id'})[:20],
-                  'knowledge_version':self.book.skills['version'],'budget_policy_id':'existing-ledger-public-estimate'}
+                  'knowledge_version':self.book.skills['version'],'budget_policy_id':old_policy}
         old=self.service.tasks.create('owner',old_spec)
         self.service.tasks.reserve_dispatch(old['id'],'owner','old_lease')
         self.service.tasks.bind_run(old['id'],'owner','old_lease','run_'+'b'*32)
