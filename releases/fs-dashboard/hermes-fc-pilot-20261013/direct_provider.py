@@ -101,7 +101,7 @@ def _stream_events(response):
 
 def _read_stream(response):
     identity = model = finish = usage = None
-    text = []; reasoning = []; calls = {}; size = 0; done = False
+    text = []; reasoning = []; calls = {}; size = 0; done = False; terminal_usage = False
     for payload in _stream_events(response):
         if payload == b'[DONE]':
             done = True; break
@@ -112,11 +112,12 @@ def _read_stream(response):
             value = chunk.get(key)
             if value is not None and (not isinstance(value, str) or old is not None and value != old):
                 raise ValueError('stream_identity_changed')
-        identity = chunk.get('id', identity); model = chunk.get('model', model)
-        if chunk.get('usage') is not None:
-            usage = chunk['usage']
+        if chunk.get('id') is not None:identity = chunk['id']
+        if chunk.get('model') is not None:model = chunk['model']
+        usage = chunk.get('usage'); terminal_usage = False
         choices = chunk.get('choices')
-        if choices == [] and usage is not None:
+        if choices == [] and isinstance(usage,dict) and finish is not None:
+            terminal_usage = True
             continue
         if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0],dict) or choices[0].get('index') != 0:
             raise ValueError('stream_choices')
@@ -155,7 +156,8 @@ def _read_stream(response):
         if value is not None:
             if not isinstance(value,str) or finish is not None and finish != value:raise ValueError('stream_finish_changed')
             finish = value
-    if not done or finish is None or not isinstance(usage,dict) or not identity or model != MODEL:
+            terminal_usage = isinstance(usage,dict)
+    if not done or finish is None or not terminal_usage or not identity or model != MODEL:
         raise ValueError('stream_incomplete')
     message = {'role':'assistant','content':''.join(text) if text else None}
     if reasoning:message['reasoning_content'] = ''.join(reasoning)

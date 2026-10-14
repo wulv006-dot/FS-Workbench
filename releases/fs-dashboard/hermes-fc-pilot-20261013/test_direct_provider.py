@@ -201,6 +201,9 @@ class StreamingContractTests(unittest.TestCase):
         variants=[sse_body([sse_chunk({'content':'partial'})],done=False),
                   sse_body([sse_chunk({'content':'partial'},finish='stop')]),
                   sse_body([sse_chunk({'content':'partial'}),sse_chunk(finish='stop',usage=STREAM_USAGE,id='changed')]),
+                  sse_body([sse_chunk({'content':'first'}),sse_chunk(id=None,model=None),sse_chunk({'content':'second'},finish='stop',usage=STREAM_USAGE,id='changed')]),
+                  sse_body([sse_chunk({'content':'first'},usage=STREAM_USAGE),sse_chunk({'content':'second'},finish='stop')]),
+                  sse_body([sse_chunk({'content':'first'},finish='stop',usage=STREAM_USAGE),sse_chunk(usage=STREAM_USAGE)]),
                   sse_body([sse_chunk({'content':'partial'},finish='stop',usage=STREAM_USAGE),sse_chunk({'content':'late'})])]
         for raw in variants:
             with self.subTest(raw_bytes=len(raw)),self.assertRaises(ValueError):provider._read_stream(io.BytesIO(raw))
