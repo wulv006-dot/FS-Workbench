@@ -80,6 +80,7 @@ async def run(effort):
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
             tokens=min(17000,size)
             result['usage']={'prompt_tokens':tokens,'completion_tokens':20000,'total_tokens':tokens+20000,'completion_tokens_details':{'reasoning_tokens':17000}}
+            result['choices'][0]['finish_reason']='tool_calls' if result['choices'][0]['message'].get('tool_calls') else 'stop'
             return result
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
@@ -98,6 +99,7 @@ async def run(effort):
             assert any(m.get('role')=='assistant' and m.get('content')=='Fixture investigation complete.' for m in request['messages']), 'previous_judgment_missing'
             result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
         result['usage']['completion_tokens_details']={'reasoning_tokens':3}
+        result['choices'][0]['finish_reason']='tool_calls' if result['choices'][0]['message'].get('tool_calls') else 'stop'
         return result
     def through_direct(request):
         def fake_open(path, payload):
