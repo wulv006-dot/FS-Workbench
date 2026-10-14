@@ -10,10 +10,12 @@
 
 候选只改现有FS/Hermes接线：独立direct_provider.py仅原FS进程使用受控Key，固定api.deepseek.com、无重定向、无自动重试；复用原provider锁、model_calls/任务账本、19个只读工具和同一profile。原共享ai_advisor_model.py、range/daily/deep/boss及Admin会话源不改。Hermes只接任务短期token，不获得直连Key。
 
+PR132自动审查的供应商身份碰撞P1在上线前补修：控制器任务spec与FS模型政策共同引用direct_provider.POLICY_ID，避免相同问题/期间/快照别名到旧百炼结果或FAILED。回归实际保留旧FAILED并产生新task、只POST一次Runs；同新政策的既有幂等不变。132已合并但未安装Key/部署，必须补修CI/合并后一起七目标发布。
+
 费用只有Token回执有可靠来源，未核供应商实际金额或USD/CNY换算。直连成功回执cost_microcny为null、UI显示费用未知；现有NOT NULL reservation.microcny用-1表示未获取人民币金额，不改为0。历史百炼行不改；新行同turn失败/未知不重放、成功幂等缓存不重复扣用量，跨任务允许用户已授权的费用未知。此候选没有新增金额拦截或账单服务。
 
 原publisher新增精确7-target scope `hermes-fc-deepseek-direct-20261014`：proxy_gateway、controller、fs_inprocess、hermes_worker、runtime-config、Hermes index和新direct_provider。沿用原锁内CAS、FS admission/SQLite/共享provider锁、保护依赖和备份/回滚；仅原FS和Hermes重启，Admin/boss/采集频率/价格写保持。新代码文件允许beforeSha256为空，6份活动源必须精确基线。Key安装独立于Git/发布manifest：目标 `/var/lib/fs-hermes-fc/fs/secrets/deepseek.key`，root:root/0600、父目录0700，不在容器mount内。
 
 回退：使用本次原publisher备份恢复这7份代码/配置和原FS/Hermes，保留profile、FS任务、原账本/证据；删除这枚专用Key撤销持久访问。失败请求不重标成功/零费用，不部署旧整包，不恢复旧两小时全页快照或旧顾问生成。
 
-准备基线PR131/main d3cf8f0ec892386cacccc73c44caa23bd098d812，独立候选 `.agent_runtime/hermes-deepseek-direct-qa-20261014/`。叶适配10项Windows测试已通过，新增5项账本/接线与3项精确发布范围测试。组合Windows243项=239pass/4实际POSIX门禁skip；正式Linux/固定官方SDK high/max、原摘要和真实新任务均按各自证据另验。初次旧百炼1M边界2fail、后续新测试类名/辅助fixture问题已修正，旧PR131冻结保持。独立复核发现原生请求多7字节边界问题后，已用同一prepare_request构建器在reserve前校验，精确10MB+7拒绝/0账本/0发送与扣7B后恰好10MB成功回归通过；不增大上限或记假0。未把本地准备或无费用GET当真实调查完成。
+准备基线PR131/main d3cf8f0ec892386cacccc73c44caa23bd098d812，独立候选 `.agent_runtime/hermes-deepseek-direct-qa-20261014/`。叶适配10项、5项账本/接线、3项精确发布范围和新增任务身份隔离回归。组合Windows244项=240pass/4实际POSIX门禁skip。PR132正式CI38535665028成功：242 Linux单测0skip，固定官方SDK high/max和摘要原生往返通过；身份补修正式CI/真实新任务另验。初次旧百炼1M边界2fail、后续新测试类名/辅助fixture问题已修正，旧PR131冻结保持。独立复核发现原生请求多7字节边界问题后，已用同一prepare_request构建器在reserve前校验，精确10MB+7拒绝/0账本/0发送与扣7B后恰好10MB成功回归通过；不增大上限或记假0。未把本地准备或无费用GET当真实调查完成。

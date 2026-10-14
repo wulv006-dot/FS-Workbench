@@ -19,6 +19,7 @@ from fs_evidence import build_book,attach_owner_history
 from report_validation import FORMAT, validate_output
 from runs_contract import submission,validate_admission,run_path
 from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+from direct_provider import POLICY_ID
 
 
 def clean_hermes_question(value):
@@ -237,7 +238,7 @@ class HermesService:
             book.background=self.proxy.background
             spec={'period':{'start':body['start'],'end_exclusive':(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),'timezone':'Asia/Shanghai'},
                   'snapshot_id':book.capture_id,'template_version':'v3-1m-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
-                  'knowledge_version':book.skills['version'],'budget_policy_id':'existing-ledger-public-estimate'}
+                  'knowledge_version':book.skills['version'],'budget_policy_id':POLICY_ID}
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':self.update(key,state='CANCELLED');return
                 task=self.tasks.create(owner,spec);lease=secrets.token_hex(16)

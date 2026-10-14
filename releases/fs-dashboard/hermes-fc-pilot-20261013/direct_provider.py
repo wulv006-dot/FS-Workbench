@@ -14,6 +14,7 @@ import urllib.request
 
 BASE_URL = 'https://api.deepseek.com'
 MODEL = 'deepseek-flash'
+POLICY_ID = 'no-pilot-quotas-deepseek-direct-tokens-only-v1'
 CONTEXT_TOKENS = 1048576
 OUTPUT_TOKENS = 393216
 WIRE_BYTES = 10000000
