@@ -8,6 +8,23 @@ import test_release
 
 
 class NightlyReleaseTests(unittest.TestCase):
+    def test_only_exact_existing_readonly_runtime_parent_group_is_compatible(self):
+        from types import SimpleNamespace
+        fixture=test_release.ReleaseTests('test_exact_scope_keeps_other_publishers_unchanged')
+        fixture.setUp()
+        try:
+            pub=fixture.publisher;root=fixture.root
+            item=root/'var/lib/fs-hermes-fc'
+            info=SimpleNamespace(st_uid=0,st_gid=9876,st_mode=0o750)
+            self.assertTrue(pub.approved_daily_group({'scope':pub.HERMES_NIGHT_SCOPE},root,item,info))
+            for scope,path,uid,gid,mode in [(pub.HERMES_AUTO_SCOPE,item,0,9876,0o750),
+                    (pub.HERMES_NIGHT_SCOPE,root/'var/lib/other',0,9876,0o750),
+                    (pub.HERMES_NIGHT_SCOPE,item,9876,9876,0o750),
+                    (pub.HERMES_NIGHT_SCOPE,item,0,9877,0o750),
+                    (pub.HERMES_NIGHT_SCOPE,item,0,9876,0o770)]:
+                self.assertFalse(pub.approved_daily_group({'scope':scope},root,path,SimpleNamespace(st_uid=uid,st_gid=gid,st_mode=mode)))
+        finally:fixture.doCleanups()
+
     def setUp(self):
         fixture=test_release.ReleaseTests('test_exact_scope_keeps_other_publishers_unchanged')
         fixture.setUp();self.addCleanup(fixture.doCleanups)
