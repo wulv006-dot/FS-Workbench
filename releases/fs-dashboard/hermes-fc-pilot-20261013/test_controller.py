@@ -167,5 +167,20 @@ class ControllerTests(unittest.TestCase):
         finding.update(claim_type='hypothesis',alternative='只是情景输入，并非真实销售')
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
 
+    def test_report_uses_same_prose_boundary_and_retains_private_field_rejection(self):
+        ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
+        value={'summary':'Readonly task-scoped evidence.',
+               'findings':[{'statement':'A task-scoped sample is partial.','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}],
+               'actions':[],'reviews':[],'limitations':[],'number_claims':[]}
+        self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
+        for marker in ('sk-SYNTHETIC','task-scoped sk-SYNTHETIC','task-scopedSECRET','task-scoped-'+32*'A',
+                       'prefix.task-scoped','prefix-task-scoped','中文task-scoped','étask-scoped',
+                       'Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com',
+                       *('{"identity":"task-scoped'+suffix+32*'A'+'"}' for suffix in (r'\u002e',r'\u002d',r'\u0041',r'.\u0041'))):
+            value['summary']=marker
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(ValueError,'sensitive_analysis'):
+                    validate_output(encoded(value),self.book)
+
 
 if __name__=='__main__':unittest.main()

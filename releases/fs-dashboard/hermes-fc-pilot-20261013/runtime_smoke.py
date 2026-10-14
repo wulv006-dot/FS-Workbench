@@ -58,9 +58,9 @@ async def run(effort):
             for message in request['messages']:
                 for call in message.get('tool_calls',[]):
                     assert call.get('index')==0 and call['function']['arguments']=='{}', 'stress_tool_history_changed'
-                if message.get('tool_calls'):assert message.get('reasoning_content')=='Synthetic reasoning.', 'stress_reasoning_changed'
+                if message.get('tool_calls'):assert message.get('reasoning_content')=='Synthetic task-scoped reasoning.', 'stress_reasoning_changed'
             if fixture.calls<=8:
-                result['choices'][0]['message']={'role':'assistant','content':None,'reasoning_content':'Synthetic reasoning.',
+                result['choices'][0]['message']={'role':'assistant','content':None,'reasoning_content':'Synthetic task-scoped reasoning.',
                     'tool_calls':[{'id':'stress_'+str(fixture.calls),'type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
             elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'}
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
