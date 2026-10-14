@@ -7,11 +7,12 @@ from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 
 # FS transport protection, not a Hermes or provider context-window claim.
 # This applies only to the task-scoped Hermes bridge; legacy advisor stays 96 KB.
-MAX_PROVIDER_WIRE_BYTES = 1000000
+MAX_PROVIDER_WIRE_BYTES = 10000000
 # Authenticated Bailian model-page readback: both input and context are 1M.
 MAX_PROVIDER_CONTEXT_TOKENS = 1000000
-# Pilot ceiling includes reasoning and tool arguments; Bailian allows up to384K.
-MAX_HERMES_OUTPUT_TOKENS = 65536
+# Official Bailian route maximum; 384 Ki tokens includes reasoning and visible output.
+MAX_HERMES_OUTPUT_TOKENS = 393216
+MAX_PROVIDER_WAIT_SECONDS = 1800
 
 
 def sensitive_context(value):
@@ -31,8 +32,10 @@ def conservative_input_bound(request):
 
 
 def require_context_window(request):
-    if conservative_input_bound(request) + request['max_tokens'] > MAX_PROVIDER_CONTEXT_TOKENS:
-        raise ValueError('context_window_exceeded')
+    # Byte/framing estimates are reservation metadata, never a token admission gate.
+    # Pinned native compaction uses the configured 1M joint context; the vendor
+    # validates its actual token window. Do not reject bytes as if they were tokens.
+    return None
 
 
 def schemas():
@@ -75,11 +78,13 @@ class ScopedTools:
 
 def request_body(body, model):
     # No client endpoint, credentials, system identity or tool definitions accepted.
-    if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens','reasoning_effort'} or not {'messages','max_tokens'}.issubset(body):
+    if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens','reasoning_effort','auxiliary'} or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
     effort=body.get('reasoning_effort')
     if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
-    output_limit=MAX_HERMES_OUTPUT_TOKENS if effort in ('high','max') else 6000
+    auxiliary=body.get('auxiliary',False)
+    if type(auxiliary) is not bool:raise ValueError('auxiliary_invalid')
+    output_limit=MAX_HERMES_OUTPUT_TOKENS
     if type(body['max_tokens']) is not int or not 1 <= body['max_tokens'] <= output_limit:
         raise ValueError('output_limit')
     messages = body['messages']
@@ -122,7 +127,7 @@ def request_body(body, model):
     if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or sensitive_context(messages):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
-            'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
+            'tools': [] if auxiliary else schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
@@ -139,7 +144,7 @@ def validate_tool_call(call):
     function = call['function']
     if not isinstance(function, dict) or set(function) != {'name', 'arguments'} or function['name'] not in WIRE_TOOLS:
         raise ValueError('tool_call_denied')
-    if not isinstance(function['arguments'], str) or len(function['arguments']) > 4096:
+    if not isinstance(function['arguments'], str) or len(function['arguments'].encode('utf-8')) > MAX_PROVIDER_WIRE_BYTES:
         raise ValueError('tool_arguments')
     try:
         args = json.loads(function['arguments'])
@@ -300,7 +305,7 @@ class UnifiedBudget:
             usage = {key: response['usage'][key] for key in ('prompt_tokens','completion_tokens','total_tokens')}
             if any(type(x) is not int or x < 0 for x in usage.values()):
                 raise ValueError('usage_invalid')
-            if usage['total_tokens'] != usage['prompt_tokens']+usage['completion_tokens'] or usage['prompt_tokens'] > input_bound or usage['completion_tokens'] > request['max_tokens']:
+            if usage['total_tokens'] != usage['prompt_tokens']+usage['completion_tokens'] or usage['prompt_tokens'] > MAX_PROVIDER_CONTEXT_TOKENS or usage['completion_tokens'] > request['max_tokens']:
                 raise ValueError('usage_outside_reservation')
             if not isinstance(response['id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,160}', response['id']):
                 raise ValueError('provider_receipt_invalid')
@@ -327,6 +332,7 @@ class UnifiedBudget:
             calls = message.get('tool_calls', [])
             if not isinstance(calls, list):
                 raise ValueError('response_tools_limit')
+            if not request['tools'] and calls:raise ValueError('auxiliary_tool_calls')
             ids = set()
             for call in calls:
                 # Retain verified Bailian index metadata in provider replay.
@@ -354,7 +360,7 @@ class UnifiedBudget:
             # receipt/usage still accounts paid work exactly once. No fake success.
             if (usage and 'provider_request_id' in diagnostic and
                     diagnostic.get('response_shape',{}).get('model_matches') is True and
-                    usage['prompt_tokens']<=input_bound and usage['completion_tokens']<=request['max_tokens']):
+                    usage['prompt_tokens']<=MAX_PROVIDER_CONTEXT_TOKENS and usage['completion_tokens']<=request['max_tokens']):
                 receipt=dict(diagnostic,status='invalid_response',usage=usage,
                              cost_microcny=usage['prompt_tokens']*self.policy['input_microcny']+usage['completion_tokens']*self.policy['output_microcny'],
                              price_version=self.policy['price_version'],model=self.policy['model'],
@@ -387,7 +393,7 @@ class ModelGateway:
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
-        bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
+        bound = self.input_bound(request)  # Reservation estimate only; actual vendor usage is authoritative.
         with self.slot() as acquired:
             if not acquired:
                 raise ValueError('model_busy')

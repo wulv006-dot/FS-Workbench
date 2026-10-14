@@ -10,5 +10,9 @@ gateway:
     max_concurrent_runs: 0
 providers:
   custom:
-    request_timeout_seconds: 660
-    stale_timeout_seconds: 660
+    request_timeout_seconds: 1860
+    stale_timeout_seconds: 1860
+auxiliary:
+  compression:
+    timeout: 1860
+    no_progress_timeout: 1860

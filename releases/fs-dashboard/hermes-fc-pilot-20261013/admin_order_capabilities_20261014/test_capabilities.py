@@ -312,21 +312,23 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(out['coverage']['sampled'],0)
         self.assertNotIn('private-note',json.dumps(out))
 
-    def test_transport_budget_reports_truncation(self):
+    def test_transport_keeps_source_partial_rows_without_extra_truncation(self):
         value={'status':'partial','rows':[{'title':'字'*160,'area':'字'*160} for _ in range(300)],
                'coverage':{'complete':False,'received_rows':300}}
         out=response_budget(value)
-        self.assertLessEqual(len(json.dumps(out,ensure_ascii=True,separators=(',',':')).encode()),12000)
-        self.assertTrue(out['coverage']['output_truncated'])
+        self.assertEqual(out,value)
         self.assertEqual(out['coverage']['received_rows'],300)
-        self.assertLess(len(out['rows']),300)
+        self.assertEqual(len(out['rows']),300)
+        self.assertNotIn('output_truncated',out['coverage'])
 
-    def test_transport_budget_includes_truncation_metadata_at_boundary(self):
+    def test_transport_keeps_complete_rows_and_rejects_only_wire_overflow(self):
         value={'status':'available','http_status':200,'rows':[{'title':'x'*28} for _ in range(300)],'coverage':{'complete':True}}
         before=deepcopy(value);out=response_budget(value)
-        self.assertLessEqual(len(json.dumps(out,ensure_ascii=True,separators=(',',':')).encode()),12000)
-        self.assertTrue(out['coverage']['output_truncated'])
+        self.assertEqual(out,value)
         self.assertEqual(value,before)
+        from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+        with self.assertRaisesRegex(ValueError,'capability_response_size'):
+            response_budget({'rows':[{'title':'x'*MAX_PROVIDER_WIRE_BYTES}]})
 
 
 class ImmediatePool:

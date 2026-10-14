@@ -13,7 +13,7 @@ import signal
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS
+from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_WIRE_BYTES
 from runs_contract import WIRE_TOOLS, PIN
 
 
@@ -30,7 +30,7 @@ def admission(session_id):
     if not isinstance(session_id, str) or not re.fullmatch(r'fc_[a-f0-9]{64}', session_id):
         raise PermissionError('session_not_admitted')
     path = ADMISSIONS/(session_id+'.json')
-    if path.is_symlink() or path.stat().st_size > 32000:
+    if path.is_symlink() or path.stat().st_size > MAX_PROVIDER_WIRE_BYTES:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
     if set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
@@ -52,8 +52,8 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
     request = Request(PROXY+'/fc/tools/call', body,
                       {'Authorization': 'Bearer '+item['token'], 'Content-Type': 'application/json'})
     with build_opener(NoRedirect).open(request, timeout=30) as response:
-        raw = response.read(128001)
-    if len(raw) > 128000:
+        raw = response.read(MAX_PROVIDER_WIRE_BYTES+1)
+    if len(raw) > MAX_PROVIDER_WIRE_BYTES:
         raise ValueError('tool_response_size')
     return json.dumps(json.loads(raw),ensure_ascii=False,separators=(',',':'),allow_nan=False)
 
@@ -141,7 +141,7 @@ def make_adapter(api_key):
                             ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
-                            fallback_model=None, quiet_mode=True, max_tokens=MAX_HERMES_OUTPUT_TOKENS if item.get('reasoning_effort','none') in ('high','max') else 6000,
+                            fallback_model=None, quiet_mode=True, max_tokens=MAX_HERMES_OUTPUT_TOKENS,
                             reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
             from agent.context_compressor import ContextCompressor

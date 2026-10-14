@@ -7,7 +7,7 @@ import re
 import stat
 
 from background import import_background
-from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, conservative_input_bound
+from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, conservative_input_bound, MAX_PROVIDER_WAIT_SECONDS
 from source_projection import project_capture
 
 
@@ -74,7 +74,7 @@ def gateway(daily, tasks, book):
         # request_model continues to load its existing key inside this process.
         # Its opt-in tools argument is the only shared provider-source delta.
         raw = request_model(request['messages'], {}, lambda value, _: value,
-                            max_tokens=request['max_tokens'], timeout=600, tools=request['tools'],
+                            max_tokens=request['max_tokens'], timeout=MAX_PROVIDER_WAIT_SECONDS, tools=request['tools'],
                             reasoning_effort=request.get('reasoning_effort'))
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None

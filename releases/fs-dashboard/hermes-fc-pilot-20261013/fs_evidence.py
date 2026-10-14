@@ -106,7 +106,7 @@ def bounded_history(value,args):
         report_chunks={'format':'canonical-json-fragments','chunk':chunk,'total_chunks':len(fragments),'has_more':chunk<len(fragments),
                        'text':fragments[chunk-1] if chunk<=len(fragments) else '',
                        'sha256':hashlib.sha256(raw).hexdigest(),'full_payload_bytes':len(raw),
-                       'rule':'Partial fragment only. Select a needed section/item; do not collect/concatenate the entire version in model context. The analysis cumulative history budget stops further output. Original report is unchanged.'})
+                       'rule':'Partial canonical JSON fragment. Read relevant sections/items or reconstruct every fragment and verify sha256 before treating a version as complete. There is no cumulative history byte quota; native Hermes manages context. Original report is unchanged.'})
     if len(json.dumps(out,ensure_ascii=False,separators=(',',':')).encode())>12000:raise ValueError('history_fragment_budget')
     return out
 

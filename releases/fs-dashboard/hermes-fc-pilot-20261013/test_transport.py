@@ -95,6 +95,8 @@ class TransportTests(unittest.TestCase):
             return result
         self.fixture.provider=provider
         body=self.body();body['reasoning_effort']='high'
+        from proxy_gateway import schemas
+        body['tools']=schemas()
         result=self.proxy.dispatch('POST','/v1/chat/completions',token,body)
         self.assertEqual(result['choices'][0]['message']['reasoning_content'],'Synthetic provider thought')
         self.assertTrue(seen[0]['enable_thinking']);self.assertEqual(seen[0]['reasoning_effort'],'high')
