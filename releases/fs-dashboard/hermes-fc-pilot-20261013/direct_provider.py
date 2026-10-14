@@ -4,6 +4,7 @@ No credential values, response prose, or request body are included in diagnostic
 No redirects or automatic retry, and no API key is exposed to Hermes.
 """
 import json
+from datetime import datetime, timezone
 from http.client import HTTPException
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import stat
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 BASE_URL = 'https://api.deepseek.com'
 MODEL = 'deepseek-flash'
@@ -49,9 +51,19 @@ def _identifier(value):
     return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}', value) else None
 
 
+def _header_trace(headers):
+    out={};headers=headers or {}
+    fields={'x-request-id':'provider_http_request_id','x-ds-trace-id':'provider_ds_trace_id'}
+    for header,value in headers.items():
+        key=fields.get(header.lower())
+        if key and isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}',value):out[key]=value
+    return out
+
+
 def _safe_http_error(error):
     out = {'status': 'http_rejected', 'http_status': error.code}
-    identity = _identifier((error.headers or {}).get('x-request-id'))
+    out.update(_header_trace(error.headers))
+    identity = _identifier(out.get('provider_http_request_id'))
     if identity:
         out['provider_request_id'] = identity
     try:
@@ -72,16 +84,17 @@ def _safe_http_error(error):
                  'Input or output data may contain inappropriate content.': 'unknown'}
         if message in forms:
             out['inspection_direction'] = forms[message]
-    except (ValueError, TypeError, OSError):
+    except (ValueError, TypeError, OSError, HTTPException):
         pass
     finally:
         error.close()
     return out
 
 
-def _stream_events(response):
+def _stream_events(response, trace=None):
     parts = []; size = 0
     for raw in iter(lambda: response.readline(WIRE_BYTES+1), b''):
+        if trace is not None:trace['response_bytes_received'] += len(raw)
         if len(raw) > WIRE_BYTES:
             raise ValueError('stream_event_too_large')
         line = raw.rstrip(b'\r\n')
@@ -99,10 +112,11 @@ def _stream_events(response):
         yield b'\n'.join(parts)
 
 
-def _read_stream(response):
+def _read_stream(response, trace=None):
     identity = model = finish = usage = None
     text = []; reasoning = []; calls = {}; size = 0; done = False; terminal_usage = False
-    for payload in _stream_events(response):
+    for payload in _stream_events(response, trace):
+        if trace is not None:trace['stream_events_received'] += 1
         if payload == b'[DONE]':
             done = True; break
         chunk = json.loads(payload)
@@ -113,6 +127,7 @@ def _read_stream(response):
             if value is not None and (not isinstance(value, str) or old is not None and value != old):
                 raise ValueError('stream_identity_changed')
         if chunk.get('id') is not None:identity = chunk['id']
+        if trace is not None and _identifier(identity):trace['provider_response_id'] = identity
         if chunk.get('model') is not None:model = chunk['model']
         usage = chunk.get('usage'); terminal_usage = False
         choices = chunk.get('choices')
@@ -177,24 +192,42 @@ def _open(path, payload=None):
     headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
     req = urllib.request.Request(BASE_URL+path, payload, headers)
     started = time.monotonic()
+    trace = {'local_trace_id':uuid.uuid4().hex,
+             'request_started_at':datetime.now(timezone.utc).isoformat(),
+             'response_headers_received':False,'transport_phase':'opening',
+             'response_bytes_received':0,'stream_events_received':0}
     try:
         with urllib.request.build_opener(NoRedirect()).open(req, timeout=WAIT_SECONDS) as response:
+            trace['response_headers_received'] = True
+            response_headers = getattr(response,'headers',None) or {}
+            trace.update(_header_trace(response_headers))
             if payload is not None and json.loads(payload).get('stream') is True:
-                return _read_stream(response)
+                trace['transport_phase'] = 'reading_stream'
+                result = _read_stream(response,trace)
+                return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
+            trace['transport_phase'] = 'reading_body'
             raw = response.read(WIRE_BYTES+1)
+            trace['response_bytes_received'] = len(raw)
         if len(raw) > WIRE_BYTES:
-            return {'status': 'invalid_response'}
+            return dict(trace,status='invalid_response')
         result = json.loads(raw)
         if not isinstance(result, dict):
-            return {'status': 'invalid_response'}
-        return result
+            return dict(trace,status='invalid_response')
+        return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
     except urllib.error.HTTPError as error:
-        return _safe_http_error(error)
+        trace['response_headers_received'] = True
+        trace['transport_phase'] = 'http_rejected'
+        result = _safe_http_error(error)
+        trace.update({k:result[k] for k in ('provider_http_request_id','provider_ds_trace_id') if k in result})
+        return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
     except (OSError, TimeoutError, HTTPException) as error:
-        return {'status': 'unknown_transport', 'transport_error_type': type(error).__name__,
-                'elapsed_seconds': round(time.monotonic()-started, 3), 'timeout_seconds': WAIT_SECONDS}
+        result = dict(trace,status='unknown_transport',transport_error_type=type(error).__name__,
+                      elapsed_seconds=round(time.monotonic()-started,3),timeout_seconds=WAIT_SECONDS)
+        reason = getattr(error,'reason',None)
+        if isinstance(reason,BaseException):result['transport_reason_type'] = type(reason).__name__
+        return result
     except (ValueError, TypeError):
-        return {'status': 'invalid_response'}
+        return dict(trace,status='invalid_response',elapsed_seconds=round(time.monotonic()-started,3))
 
 
 def discover_models():

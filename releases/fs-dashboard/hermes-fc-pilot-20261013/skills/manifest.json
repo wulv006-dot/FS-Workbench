@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0-candidate",
+  "version": "0.5.0-autonomous-report",
   "hermes_commit": "71d34bad1045610252eda02ee79549436896e784",
   "anthropic_commit": "02ffa99ff00ce4d3046ccebabb8357cb39f3ab06",
   "upstream_licenses": [
@@ -7,8 +7,6 @@
     "Apache-2.0"
   ],
   "active_skill": "fs-fc-operations-analysis",
-  "runtime_loaded": false,
-  "production_installed": false,
   "permissions_added": [],
   "scripts_installed": false,
   "upstream_notice": "No root NOTICE in fixed Anthropic tree; LICENSE retained verbatim including upstream trailing text. Four skill blob hashes verified against fixed tree.",
@@ -25,8 +23,8 @@
     },
     {
       "path": "skills/fs-fc-operations-analysis/SKILL.md",
-      "sha256": "28ed69f3d913924e5dc0f358256d28e4c6e264855991c97db48d00c5b05909ba",
-      "bytes": 8639
+      "sha256": "098f6e09b77f25bf0cb5d852500e602d682be5c8bae0cdb504d21058edfe428d",
+      "bytes": 13442
     },
     {
       "path": "skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
@@ -68,5 +66,6 @@
       "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6",
       "bytes": 12652
     }
-  ]
+  ],
+  "installation_status_basis": "Verified from actual run skill version and fingerprint, not this source manifest."
 }

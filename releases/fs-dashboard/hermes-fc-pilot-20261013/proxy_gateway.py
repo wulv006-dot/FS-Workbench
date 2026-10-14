@@ -154,10 +154,33 @@ def validate_tool_call(call):
         raise ValueError('tool_arguments')
 
 
+def transport_trace(response):
+    """Non-secret correlation only; headers and model text never enter this projection."""
+    if not isinstance(response,dict):return {}
+    out={}
+    for key in ('local_trace_id','provider_response_id'):
+        value=response.get(key)
+        if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',value):out[key]=value
+    for key in ('provider_http_request_id','provider_ds_trace_id'):
+        value=response.get(key)
+        if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}',value):out[key]=value
+    value=response.get('request_started_at')
+    if isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?\+00:00',value):out['request_started_at']=value
+    value=response.get('response_headers_received')
+    if type(value) is bool:out['response_headers_received']=value
+    value=response.get('transport_phase')
+    if value in ('opening','reading_stream','reading_body','http_rejected'):out['transport_phase']=value
+    for key in ('response_bytes_received','stream_events_received'):
+        value=response.get(key)
+        if type(value) is int and 0<=value<=1000000000:out[key]=value
+    return out
+
+
 def safe_diagnostic(response, request, reason):
     """Keep billing/shape evidence, never provider messages or private reasoning."""
     out={'status':'unknown','reason':reason if isinstance(reason,str) and re.fullmatch(r'[a-z0-9_]{3,80}',reason) else 'provider_result_unverified'}
     if not isinstance(response,dict):return out
+    out.update(transport_trace(response))
     if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
     for key in ('transport_error_type','transport_reason_type'):
         if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected','IncompleteRead'):
@@ -198,12 +221,16 @@ def safe_diagnostic(response, request, reason):
     return out
 
 
-def require_reconciled_usage(rows, accepted_unknowns, owner, task, allow_unknown_costs=False):
+def transport_reset(value):
+    return isinstance(value,dict) and (value.get('transport_error_type')=='ConnectionResetError' or value.get('transport_reason_type')=='ConnectionResetError')
+
+
+def require_reconciled_usage(rows, accepted_unknowns, owner, task, allow_unknown_costs=False, current_transport_unknowns=()):
     for row in rows:
         if row['state'] == 'invalid_response' and row['owner'] == owner and row['task'] == task:
             raise ValueError('invalid_previous_result')
         if row['state'] not in ('succeeded', 'invalid_response'):
-            if (row['state'] == 'unknown' and row['task'] != task and
+            if (row['state'] == 'unknown' and (row['task'] != task or allow_unknown_costs and row['fingerprint'] in current_transport_unknowns) and
                     (allow_unknown_costs or row['owner'] == owner and accepted_unknowns.get(row['fingerprint']) == row['microcny'])):
                 continue
             raise ValueError('pilot_usage_hold')
@@ -289,7 +316,8 @@ class UnifiedBudget:
                 raise ValueError('daily_model_limit')
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
                                 'ON r.fingerprint=m.fingerprint').fetchall()
-            require_reconciled_usage(rows, self.accepted_unknowns, owner, task, self.allow_unknown_costs)
+            transport_unknowns={row['fingerprint'] for row in rows if row['state']=='unknown' and row['owner']==owner and row['task']==task and row['content'] and transport_reset(json.loads(row['content']))}
+            require_reconciled_usage(rows, self.accepted_unknowns, owner, task, self.allow_unknown_costs,transport_unknowns)
             task_cost = task_tokens = day_cost = turns = 0
             for row in rows:
                 if row['state'] not in ('succeeded', 'invalid_response'):
@@ -305,6 +333,12 @@ class UnifiedBudget:
             conn.execute('INSERT INTO hermes_reservations VALUES(?,?,?,?,?,?,?,?)',
                          (fingerprint,owner,task,turn,request_hash,encoded(p),tokens,cost))
         return fingerprint, None
+
+    def prior_transport_reset(self,owner,task,turn,request):
+        if not self.allow_unknown_costs:return False
+        with self.db() as conn:
+            row=conn.execute('SELECT r.request_digest,r.policy,m.state,m.content FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn=?',(owner,task,turn)).fetchone()
+        return bool(row and row['state']=='unknown' and row['request_digest']==digest(request) and row['policy']==encoded(self.policy) and row['content'] and transport_reset(json.loads(row['content'])))
 
     def settle(self, fingerprint, response, request, input_bound):
         try:
@@ -355,6 +389,7 @@ class UnifiedBudget:
                        'cost_basis':'configured_public_rate_estimate_not_account_invoice' if p['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
             receipt['finish_reason']=finish_reason
+            receipt.update(transport_trace(response))
             reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
             if reasoning_tokens is not None:
                 if type(reasoning_tokens)is not int or not 0<=reasoning_tokens<=usage['completion_tokens']:raise ValueError('reasoning_usage_invalid')
@@ -390,14 +425,30 @@ class UnifiedBudget:
 
 
 class ModelGateway:
-    def __init__(self, scope, budget, provider_slot, provider, input_bound, daily_limit, preflight=None):
+    def __init__(self, scope, budget, provider_slot, provider, input_bound, daily_limit, preflight=None,transport_retries=0,retry_wait=None):
         self.scope, self.budget, self.slot = scope, budget, provider_slot
         self.provider, self.input_bound, self.daily_limit = provider, input_bound, daily_limit
         self.preflight = preflight
+        if type(transport_retries) is not int or transport_retries not in (0,2):raise ValueError('transport_retry_policy')
+        if transport_retries and (budget.policy['model']!='deepseek-flash' or budget.policy['id']!='no-pilot-quotas-deepseek-direct-stream-tokens-only-v2' or not budget.allow_unknown_costs):raise ValueError('transport_retry_scope')
+        self.transport_retries=transport_retries
+        self.retry_wait=retry_wait or self._retry_wait
+
+    def _retry_wait(self,seconds,check):
+        import time
+        until=time.monotonic()+seconds
+        while True:
+            check();remaining=until-time.monotonic()
+            if remaining<=0:return
+            time.sleep(min(0.2,remaining))
 
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
-        request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
+        if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
+        # Logical turn identity remains in hermes_turns. Existing reservation slots encode
+        # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
+        base_turn=turn*(self.transport_retries+1)
+        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model']))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.
@@ -410,16 +461,25 @@ class ModelGateway:
             if type(limit) is not int or limit < 0:
                 raise ValueError('daily_limit_invalid')
             # Existing global call-count limit is checked atomically for new calls only.
-            fingerprint, prior = self.budget.reserve(owner,task_id,turn,request,bound,limit)
-            if prior is not None:
-                return prior
-            try:
+            for attempt in range(self.transport_retries+1):
                 self.scope.context(owner,task_id,lease)
-                response = self.provider(request)
-            except Exception as error:
-                self.budget.hold(fingerprint,safe_diagnostic(getattr(error,'response',None),request,str(error)))
-                raise ValueError('provider_outcome_unknown') from None
-            receipt = self.budget.settle(fingerprint,response,request,bound)
-            # Paid work is accounted even when cancellation arrives during the request.
-            self.scope.context(owner,task_id,lease)
-            return receipt
+                if attempt:self.retry_wait(2**attempt,lambda:self.scope.context(owner,task_id,lease))
+                physical_turn=base_turn+attempt
+                try:fingerprint,prior=self.budget.reserve(owner,task_id,physical_turn,request,bound,limit)
+                except ValueError as error:
+                    if str(error)=='unknown_previous_attempt' and self.transport_retries and self.budget.prior_transport_reset(owner,task_id,physical_turn,request):continue
+                    raise
+                if prior is not None:return prior
+                try:
+                    self.scope.context(owner,task_id,lease)
+                    response = self.provider(request)
+                except Exception as error:
+                    diagnostic=safe_diagnostic(getattr(error,'response',None),request,str(error))
+                    self.budget.hold(fingerprint,diagnostic)
+                    if attempt<self.transport_retries and transport_reset(diagnostic):continue
+                    raise ValueError('provider_transport_recovery_exhausted' if self.transport_retries and transport_reset(diagnostic) else 'provider_outcome_unknown') from None
+                receipt = self.budget.settle(fingerprint,response,request,bound)
+                # Each real request keeps its own record, including unknown cost after reset.
+                self.scope.context(owner,task_id,lease)
+                return receipt
+            raise ValueError('provider_transport_recovery_exhausted')

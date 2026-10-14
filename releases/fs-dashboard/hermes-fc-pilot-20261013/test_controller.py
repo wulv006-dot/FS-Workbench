@@ -93,8 +93,69 @@ class ControllerTests(unittest.TestCase):
         with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote):
             _,job=self.service.post(self.body,'owner',self.headers)
             self.assertEqual(job['state'],'COMPLETED',job)
-            self.assertGreater(len(encoded(job['result']).encode()),128000)
+            self.assertLess(len(encoded(job['result']).encode()),16000)
+            code,raw=self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'owner')
+            self.assertEqual(code,200);self.assertGreater(len(raw['content'].encode()),128000)
+            self.assertEqual(json.loads(raw['content'])['summary'],'Synthetic completed report. '*8000)
+            self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['html']},'owner')[0],200)
+            self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'other')[0],404)
             self.assertEqual(self.service.get_job('owner',job['id'])['result'],job['result'])
+
+    def test_completed_native_run_with_invalid_json_saves_original_without_false_validation(self):
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):payload['output']='{"summary":"truncated"'
+            return code,payload
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote):
+            _,job=self.service.post(self.body,'owner',self.headers)
+        self.assertEqual(job['state'],'COMPLETED',job)
+        self.assertEqual(job['task_state'],'PARTIAL')
+        self.assertEqual(job['result']['delivery_status'],'raw_saved')
+        self.assertEqual(job['result']['business_acceptance'],'user_review_required')
+        self.assertNotEqual(job['result']['validation'],'verified')
+        self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'owner')[1]['content'],'{"summary":"truncated"')
+        self.assertEqual(job['model_usage']['calls'],1)
+        self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
+
+    def test_cancel_after_completed_run_before_validation_cannot_publish(self):
+        from report_validation import validate_output as real_validate
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
+        def validate(raw,book):
+            self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers)
+            return real_validate(raw,book)
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote),patch('controller.validate_output',side_effect=validate):
+            _,job=self.service.post(self.body,'owner',self.headers)
+        self.assertEqual(job['state'],'CANCELLED',job);self.assertIsNone(job['result'])
+
+    def test_cancel_competes_with_completed_parse_failure_finalization_without_orphan(self):
+        import threading
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
+        ready=threading.Event();attempted=threading.Event();cancel_results=[];cancel_errors=[]
+        real_change=self.service.tasks.change
+        def change(task,state,**kwargs):
+            if state=='VALIDATING':
+                self.assertTrue(self.service.lock._is_owned())
+                ready.set();self.assertTrue(attempted.wait(1))
+            return real_change(task,state,**kwargs)
+        def cancel():
+            try:
+                self.assertTrue(ready.wait(1));attempted.set()
+                cancel_results.append(self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers))
+            except Exception as error:cancel_errors.append(error)
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):payload['output']='{"summary":"truncated"'
+            return code,payload
+        thread=threading.Thread(target=cancel);thread.start()
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote),patch.object(self.service.tasks,'change',side_effect=change):
+            self.service.post(self.body,'owner',self.headers)
+        thread.join(2);self.assertFalse(thread.is_alive());self.assertEqual(cancel_errors,[])
+        job=self.service.get_job('owner',key)
+        self.assertIn(job['state'],{'COMPLETED','CANCELLED'});self.assertIn(job['task_state'],{'PARTIAL','CANCELLED'})
+        if job['state']=='COMPLETED':self.assertEqual(job['result']['delivery_status'],'raw_saved')
+        else:self.assertIsNone(job['result'])
+        self.assertEqual(job['model_usage']['calls'],1)
+        self.assertEqual(self.service.gateways,{})
 
     def test_direct_provider_identity_never_aliases_same_input_old_bailian_failure(self):
         self.assert_separate_failed_policy('existing-ledger-public-estimate')

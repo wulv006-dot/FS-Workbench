@@ -86,7 +86,7 @@ def gateway(daily, tasks, book):
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
                         conservative_input_bound,
-                        model_daily_limit, preflight=lambda req:prepare_request(req,schemas()))
+                          model_daily_limit, preflight=lambda req:prepare_request(req,schemas()),transport_retries=2)
 
 
 def approved_background(root):

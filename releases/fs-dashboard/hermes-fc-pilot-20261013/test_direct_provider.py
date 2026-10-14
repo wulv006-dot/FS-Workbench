@@ -5,6 +5,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 import urllib.error
+from http.client import IncompleteRead
 
 import direct_provider as provider
 
@@ -152,6 +153,87 @@ STREAM_USAGE={'prompt_tokens':10,'completion_tokens':5,'total_tokens':15,
 
 
 class StreamingContractTests(unittest.TestCase):
+    def test_http_error_body_disconnect_still_preserves_received_header_trace(self):
+        class BrokenErrorBody(io.BytesIO):
+            def read(self,*args):raise IncompleteRead(b'NEVER_STORE_PARTIAL_ERROR')
+        error=urllib.error.HTTPError(provider.BASE_URL,429,'PRIVATE',{'x-ReQuEsT-iD':'synthetic-http-error','X-Ds-TrAcE-Id':'synthetic-ds-error'},BrokenErrorBody())
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener') as build:
+            build.return_value.open.side_effect=error
+            result=provider.request_model(request(),TOOLS)
+        self.assertEqual(result['status'],'http_rejected')
+        self.assertEqual(result['http_status'],429)
+        self.assertEqual(result['provider_http_request_id'],'synthetic-http-error')
+        self.assertEqual(result['provider_ds_trace_id'],'synthetic-ds-error')
+        self.assertTrue(result['response_headers_received'])
+        self.assertRegex(result['local_trace_id'],r'^[a-f0-9]{32}$')
+        self.assertNotIn('NEVER_STORE',json.dumps(result))
+    def test_reset_after_headers_keeps_header_id_and_partial_stream_id(self):
+        first=io.BytesIO(sse_body([sse_chunk({'reasoning_content':'NEVER_STORE_PARTIAL_THOUGHT'})],done=False))
+        class Response:
+            headers={'X-Request-ID':'synthetic-header-uuid','x-ds-trace-id':'synthetic:ds.trace-1'}
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+            def readline(self,limit):
+                raw=first.readline(limit)
+                if raw:return raw
+                raise ConnectionResetError('NEVER_STORE_EXCEPTION')
+        opener=type('Opener',(),{'open':lambda self,*args,**kwargs:Response()})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener',return_value=opener) as send:
+            result=provider.request_model(request(),TOOLS)
+        self.assertEqual(result['status'],'unknown_transport')
+        self.assertEqual(result['provider_http_request_id'],'synthetic-header-uuid')
+        self.assertEqual(result['provider_ds_trace_id'],'synthetic:ds.trace-1')
+        self.assertEqual(result['provider_response_id'],'synthetic-stream')
+        self.assertTrue(result['response_headers_received'])
+        self.assertEqual(result['transport_phase'],'reading_stream')
+        self.assertGreater(result['response_bytes_received'],0)
+        self.assertEqual(result['stream_events_received'],1)
+        self.assertRegex(result['local_trace_id'],r'^[a-f0-9]{32}$')
+        self.assertIn('+00:00',result['request_started_at'])
+        self.assertNotIn('NEVER_STORE',json.dumps(result))
+        self.assertEqual(send.call_count,1)
+
+    def test_actual_vendor_trace_header_without_request_id_is_not_mislabelled(self):
+        class Response(io.BytesIO):
+            headers={'x-ds-trace-id':'synthetic-ds-only'}
+        body=sse_body([sse_chunk({'content':'synthetic'},finish='stop',usage=STREAM_USAGE)])
+        opener=type('Opener',(),{'open':lambda self,*args,**kwargs:Response(body)})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener',return_value=opener):
+            reply=provider.request_model(request(),TOOLS)
+        self.assertEqual(reply['provider_ds_trace_id'],'synthetic-ds-only')
+        self.assertNotIn('provider_http_request_id',reply)
+        self.assertEqual(reply['id'],'synthetic-stream')
+
+    def test_reset_before_headers_has_only_local_correlation(self):
+        opener=type('Opener',(),{'open':lambda *args,**kwargs:(_ for _ in ()).throw(ConnectionResetError('PRIVATE'))})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener',return_value=opener):
+            first=provider.request_model(request(),TOOLS)
+            second=provider.request_model(request(),TOOLS)
+        self.assertFalse(first['response_headers_received'])
+        self.assertEqual(first['transport_phase'],'opening')
+        self.assertNotIn('provider_http_request_id',first)
+        self.assertNotIn('provider_response_id',first)
+        self.assertEqual(first['response_bytes_received'],0)
+        self.assertNotEqual(first['local_trace_id'],second['local_trace_id'])
+
+    def test_success_and_http_rejection_preserve_distinct_header_ids(self):
+        body=sse_body([sse_chunk({'content':'synthetic'},finish='stop',usage=STREAM_USAGE)])
+        class Response(io.BytesIO):
+            headers={'x-request-id':'synthetic-header-id'}
+        opener=type('Opener',(),{'open':lambda self,*args,**kwargs:Response(body)})()
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener',return_value=opener):
+            result=provider.request_model(request(),TOOLS)
+        self.assertEqual(result['provider_http_request_id'],'synthetic-header-id')
+        self.assertEqual(result['id'],'synthetic-stream')
+        error=urllib.error.HTTPError(provider.BASE_URL,429,'PRIVATE',{'X-Request-ID':'synthetic-rejected-id'},io.BytesIO(b'{}'))
+        with patch.object(provider,'_load_key',return_value='sk-SYNTHETIC'),patch('urllib.request.build_opener') as build:
+            build.return_value.open.side_effect=error
+            rejected=provider.request_model(request(),TOOLS)
+        self.assertEqual(rejected['http_status'],429)
+        self.assertEqual(rejected['provider_http_request_id'],'synthetic-rejected-id')
+        self.assertTrue(rejected['response_headers_received'])
+        self.assertEqual(rejected['transport_phase'],'http_rejected')
+
     def test_actual_http_keepalive_utf8_native_high_max_and_auxiliary(self):
         seen=[]
         class Handler(BaseHTTPRequestHandler):
