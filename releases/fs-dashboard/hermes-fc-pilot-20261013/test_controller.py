@@ -83,6 +83,19 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(self.service.get_job('other',job['id']),None)
             self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
 
+    def test_large_final_report_survives_validation_storage_and_readback(self):
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):
+                result=json.loads(payload['output']);result['summary']='Synthetic completed report. '*8000
+                payload['output']=encoded(result)
+            return code,payload
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote):
+            _,job=self.service.post(self.body,'owner',self.headers)
+            self.assertEqual(job['state'],'COMPLETED',job)
+            self.assertGreater(len(encoded(job['result']).encode()),128000)
+            self.assertEqual(self.service.get_job('owner',job['id'])['result'],job['result'])
+
     def test_anonymous_foreign_role_and_cross_origin_cannot_submit(self):
         self.assertEqual(self.service.post(self.body,None,self.headers)[0],401)
         self.assertEqual(self.service.post(self.body,'other',self.headers)[0],403)

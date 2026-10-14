@@ -10,6 +10,7 @@ from pathlib import Path
 import secrets
 import tempfile
 import resource
+import time
 
 import hermes_worker
 from transport import Grants, Proxy, start_loopback
@@ -34,6 +35,7 @@ async def run(effort):
         fixture.gateway.input_bound = lambda request: len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
     request_sizes = []
     saw_prune = []
+    aux_calls=[]
     original_call = fixture.scope.call
     def observe(*args, **kwargs):
         tool_hits.append(args[3])
@@ -43,6 +45,12 @@ async def run(effort):
     fixture.scope.call = observe
     def provider(request):
         assert request['enable_thinking'] is True and request['reasoning_effort']==effort, 'thinking_not_enabled'
+        if request['tools']==[]:
+            aux_calls.append(request)
+            assert request['max_tokens']==MAX_HERMES_OUTPUT_TOKENS,'aux_output_maximum'
+            return {'id':'native_summary_receipt','model':'deepseek-v4.1-flash',
+                'usage':{'prompt_tokens':30,'completion_tokens':50,'total_tokens':80},
+                'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'Native complete synthetic summary.'}}]}
         assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
         result = fixture.answer(request)
         if stress:
@@ -62,7 +70,7 @@ async def run(effort):
             if fixture.calls<=8:
                 result['choices'][0]['message']={'role':'assistant','content':None,'reasoning_content':'Synthetic task-scoped reasoning.',
                     'tool_calls':[{'id':'stress_'+str(fixture.calls),'type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
-            elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'}
+            elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'+' Synthetic report.'*10000}
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
             tokens=min(17000,size)
             result['usage']={'prompt_tokens':tokens,'completion_tokens':20000,'total_tokens':tokens+20000,'completion_tokens_details':{'reasoning_tokens':17000}}
@@ -78,7 +86,7 @@ async def run(effort):
             assert 'tool_result_contract' not in tool_text, 'tool_contract_error_received'
             assert request['messages'][2]['tool_calls'][0].get('index')==0, 'tool_index_replay_missing'
             assert request['messages'][2]['reasoning_content']=='Synthetic private reasoning for the first tool call.', 'reasoning_replay_missing'
-            result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'}
+            result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'+' Synthetic report.'*10000}
         else:
             assert any(m.get('role')=='user' and m.get('content')=='Reassess the previous conclusion with a competing explanation.' for m in request['messages']), 'second_user_turn_missing'
             assert any(m.get('role')=='assistant' and m.get('content')=='Fixture investigation complete.' for m in request['messages']), 'previous_judgment_missing'
@@ -114,14 +122,16 @@ async def run(effort):
         (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
         import run_agent
         rpc_timeouts=[]
+        actual_agents=[]
         original_agent_init=run_agent.AIAgent.__init__
         def observe_agent_init(agent,*args,**kwargs):
             original_agent_init(agent,*args,**kwargs)
+            actual_agents.append(agent)
             assert agent.max_tokens==MAX_HERMES_OUTPUT_TOKENS, 'native_output_limit_not_applied'
             read_timeout=getattr(agent.client.timeout,'read',agent.client.timeout)
             stale_timeout=agent._compute_non_stream_stale_timeout({'messages':[]})
             outer_timeout=agent._resolved_api_call_timeout()
-            assert min(read_timeout,stale_timeout,outer_timeout)>=660, 'rpc_timeout_less_than_provider_wait'
+            assert min(read_timeout,stale_timeout,outer_timeout)>=1860, 'rpc_timeout_less_than_provider_wait'
             rpc_timeouts.append({'read':read_timeout,'stale':stale_timeout,'outer':outer_timeout})
         run_agent.AIAgent.__init__=observe_agent_init
         api_key = secrets.token_urlsafe(32)
@@ -147,6 +157,14 @@ async def run(effort):
                     break
                 await asyncio.sleep(0.5)
             assert result['status'] == 'completed', result
+            assert len(result['output'])>128000,'large_official_final_report_not_exercised'
+            summary=await asyncio.to_thread(actual_agents[0].context_compressor._call_summary_llm,
+                    'Summarize this synthetic FC-only evidence for native compaction.',time.monotonic())
+            assert summary=='Native complete synthetic summary.','official_summary_roundtrip'
+            assert len(aux_calls)==1,'auxiliary_probe_or_retry_billed_twice'
+            with fixture.db() as db:
+                receipts=[json.loads(row[0]) for row in db.execute("SELECT content FROM model_calls WHERE state='succeeded'")]
+            assert len([r for r in receipts if r['provider_request_id']=='native_summary_receipt'])==1,'aux_receipt_missing_or_duplicate'
             expected_calls = 9 if stress else 2
             assert fixture.calls == expected_calls, ('provider_calls', fixture.calls)
             assert tool_hits == [WIRE_TOOLS[0]]*(8 if stress else 1), ('tool_calls', tool_hits)
@@ -187,7 +205,7 @@ async def run(effort):
                           'ordinary_task_scope_description_preserved':True,'rpc_client_timeout_checks':rpc_timeouts,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',
-                          'cancel_before_handshake_no_model_call':'pass',
+                          'cancel_before_handshake_no_model_call':'pass','official_native_summary_roundtrip':'pass','auxiliary_paid_calls':len(aux_calls),'large_terminal_output_bytes':len(result['output'].encode()),
                           'real_business_data': False, 'real_model_call': False}))
     finally:
         if adapter is not None:

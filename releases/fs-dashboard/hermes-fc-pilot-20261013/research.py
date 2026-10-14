@@ -37,7 +37,7 @@ def tool_schemas():
     descriptions=('Read source/field/time/coverage definitions and unavailable capabilities before investigation.',
                   'Query immutable Admin main-site paid orders by dates and up to three dimensions. All dates inclusive; paginate grouped results.',
                   'Drill current Admin open pool by age/platform/product/status. Progress is explicitly missing, never assume zero delivery.',
-                  'Read one previous report version per page, newest first. source defaults daily; hermes includes only this owner completed investigations. Daily dates mean stored business day; Hermes dates mean investigation period overlap; consult history_index. Large versions default to overview/content_index: select section and item for a needed judgment/action, rather than collecting the entire version. Explicit chunks are partial canonical JSON, not complete-version evidence. All history results, including repeated queries, share a 24KB cumulative retained-output budget per analysis; status limited means stop reading history and disclose the gap. Never concatenate all chunks in the model context or treat historical claims as verified current causes.',
+                  'Read one previous report version per page, newest first. source defaults daily; hermes includes only this owner completed investigations. Daily dates mean stored business day; Hermes dates mean investigation period overlap; consult history_index. Large versions default to overview/content_index: select section and item for a needed judgment/action, rather than collecting the entire version. Explicit chunks are partial canonical JSON, not complete-version evidence. History has no cumulative byte quota; read the relevant pages/sections needed to test previous judgments. Native Hermes manages context compaction. Partial chunks must be fully reconstructed before calling them complete-version evidence. Never treat historical claims as verified current causes.',
                   'Read exact Order FC27/FC26 reference profit and history. Async pending is not zero. Never use as verified pricing cost.',
                   'Read existing bounded Order problem-log clues asynchronously; historical sample does not establish current overall causes.',
                   'Perform Decimal arithmetic. Each value needs value_paths item {evidence_id,path:JSON-pointer from evidence root}; null allowed only with matching nonempty assumption label. Non-assumed labels must be empty. Every input value must equal its resolved evidence field. Assumptions mark the result as scenario, never an observed fact.',
@@ -216,9 +216,7 @@ class ResearchBook:
                 value = self.history(args) if self.history else {'status':'not_available','reason':'history_adapter_missing'}
                 # Count the complete retained evidence envelope, including cache repeats.
                 size=len(encoded({'source':'历史报告/同业务日读数；非当前事实','project':'FC27','scope':'source_defined','snapshot_id':value.get('source_snapshot_id',self.capture_id),'analysis_anchor_id':self.capture_id,'captured_at':value.get('captured_at',self.data['as_of']),'timezone':'Asia/Shanghai','query':args,'data':value,'evidence_id':'ev_'+'0'*24}).encode())
-                if self.history_output_bytes+size>24000:
-                    value={'status':'limited','reason':'history_cumulative_context_budget','retained_output_bytes':self.history_output_bytes,'maximum_output_bytes':24000,'reports':[],'hermes_reports':[],'rule':'Stop history reads; disclose unread historical sections. Original saved reports remain unchanged.'}
-                else:self.history_output_bytes+=size
+                self.history_output_bytes+=size
                 return self.register(name,args,value,'历史报告/同业务日读数；非当前事实')
         if name == 'fc.query_reference':
             if set(args) != {'profile','start','end'} or args['profile'] not in {'FC27','FC26'}: raise ValueError('reference_fields')

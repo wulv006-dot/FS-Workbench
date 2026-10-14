@@ -36,27 +36,11 @@ def tool_schema():
 
 
 def response_budget(value):
-    """Bound evidence for the existing model context, recording every output truncation."""
-    value = deepcopy(value)
-    def size():return len(json.dumps(value,ensure_ascii=True,separators=(',',':')).encode())
-    removed = 0
-    while size() > 12000:
-        if value.get('rows'):
-            value['rows'].pop();removed += 1
-        elif value.get('samples'):
-            sample = value['samples'][-1]
-            if sample.get('events'):
-                sample['events'].pop();sample['truncated'] = True
-            elif sample.get('items'):
-                sample['items'].pop();sample['truncated'] = True
-            else:value['samples'].pop()
-            removed += 1
-        else:raise ValueError('capability_response_budget')
-        value['status'] = 'partial'
-        value.setdefault('coverage',{})['output_truncated'] = True
-        value['coverage']['output_removed_entries'] = removed
-        value['coverage']['complete'] = False
-    return value
+    """Keep the entire authorized projection; never discard rows to save context/cost."""
+    from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+    raw=json.dumps(value,ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    if len(raw)>MAX_PROVIDER_WIRE_BYTES:raise ValueError('capability_response_size')
+    return deepcopy(value)
 
 
 class CapabilityProvider:

@@ -57,8 +57,12 @@ def validate(raw, projected):
 
 
 def request_model(messages, projected, validator, *, max_tokens=220, timeout=40, tools=None, reasoning_effort=None):
-    timeout_limit=600 if tools is not None and reasoning_effort in ('high','max') else 120
-    output_limit=65536 if tools is not None and reasoning_effort in ('high','max') else 6000
+    timeout_limit=120
+    output_limit=6000
+    if tools is not None:
+        from proxy_gateway import MAX_PROVIDER_WAIT_SECONDS, MAX_HERMES_OUTPUT_TOKENS
+        timeout_limit=MAX_PROVIDER_WAIT_SECONDS
+        output_limit=MAX_HERMES_OUTPUT_TOKENS
     if type(max_tokens) is not int or not 1<=max_tokens<=output_limit or type(timeout) is not int or not 1<=timeout<=timeout_limit:
         return {'status':'configuration_invalid'}
     name = os.environ.get('FS_DAILY_MODEL_KEY_FILE')
@@ -75,8 +79,8 @@ def request_model(messages, projected, validator, *, max_tokens=220, timeout=40,
         if tools is not None:
             # Explicit Hermes opt-in; all pre-existing consumers keep their old body.
             from proxy_gateway import schemas
-            if tools != schemas(): return {'status':'configuration_invalid'}
-            body.update(tools=tools, tool_choice='auto')
+            if tools != schemas() and tools != []: return {'status':'configuration_invalid'}
+            if tools:body.update(tools=tools, tool_choice='auto')
         if reasoning_effort is not None:
             if tools is None or reasoning_effort not in ('low','high','max'):return {'status':'configuration_invalid'}
             body.update(enable_thinking=True,reasoning_effort=reasoning_effort)

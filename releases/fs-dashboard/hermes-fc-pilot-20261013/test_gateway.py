@@ -218,7 +218,7 @@ class GatewayTests(unittest.TestCase):
 
     def test_excess_usage_holds(self):
         def over(req):
-            result=self.answer(req); result['usage']={'prompt_tokens':101,'completion_tokens':10,'total_tokens':111}; return result
+            result=self.answer(req); result['usage']={'prompt_tokens':1000001,'completion_tokens':10,'total_tokens':1000011}; return result
         self.provider=over
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 
@@ -400,9 +400,9 @@ class GatewayTests(unittest.TestCase):
         message=deepcopy(first['message']);message['tool_calls'][0].pop('index')
         body={'messages':[{'role':'user','content':''},message,{'role':'tool','tool_call_id':'call_size','content':'{}'}],'max_tokens':50}
         base=request_body(body,self.policy['model'])
-        body['messages'][0]['content']='x'*(MAX_PROVIDER_CONTEXT_TOKENS-5-body['max_tokens']-conservative_input_bound(base))
-        self.assertEqual(conservative_input_bound(request_body(body,self.policy['model']))+body['max_tokens'],MAX_PROVIDER_CONTEXT_TOKENS-5)
-        with self.assertRaisesRegex(ValueError,'context_window_exceeded'):self.call(1,body=body)
+        body['messages'][0]['content']='x'*(MAX_PROVIDER_WIRE_BYTES-5-len(json.dumps(base,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()))
+        self.assertEqual(len(json.dumps(request_body(body,self.policy['model']),ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()),MAX_PROVIDER_WIRE_BYTES-5)
+        with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):self.call(1,body=body)
         self.assertEqual(self.calls,1)
         with self.db() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)

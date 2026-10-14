@@ -17,18 +17,16 @@ class ContextGateTests(unittest.TestCase):
         self.assertGreater(len(request['messages'][0]['content'].encode()), 128000)
         self.assertLess(conservative_input_bound(request) + MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_CONTEXT_TOKENS)
 
-    def test_under_wire_but_over_context_is_rejected_before_spend(self):
+    def test_wire_bytes_are_not_mistaken_for_tokens(self):
         body = {'messages': [{'role': 'user', 'content': ''}], 'max_tokens': MAX_HERMES_OUTPUT_TOKENS, 'reasoning_effort': 'max'}
         base = request_body(body, self.policy['model'])
         size = MAX_PROVIDER_CONTEXT_TOKENS - conservative_input_bound(base) - MAX_HERMES_OUTPUT_TOKENS + 1
         body['messages'][0]['content'] = 'x' * size
         self.assertLess(size, MAX_PROVIDER_WIRE_BYTES)
-        with self.assertRaisesRegex(ValueError, 'context_window_exceeded'):
-            self.gateway.call('owner', self.task['id'], 'lease', 0, body)
-        self.assertEqual(self.calls, 0)
-        with self.db() as db:
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0], 0)
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0], 0)
+        request=request_body(body,self.policy['model'])
+        self.assertGreater(conservative_input_bound(request)+MAX_HERMES_OUTPUT_TOKENS,MAX_PROVIDER_CONTEXT_TOKENS)
+        self.gateway.call('owner',self.task['id'],'lease',0,body)
+        self.assertEqual(self.calls,1)
 
     def test_many_small_rows_account_for_framing_and_output(self):
         body = {'messages': [{'role': 'user', 'content': 'x'}] * 2000, 'max_tokens': MAX_HERMES_OUTPUT_TOKENS, 'reasoning_effort': 'high'}
@@ -39,3 +37,5 @@ class ContextGateTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+from capacity_fixtures import MaximumCapacityTests

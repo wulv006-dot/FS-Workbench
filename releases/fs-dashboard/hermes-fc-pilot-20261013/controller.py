@@ -18,6 +18,7 @@ from fs_inprocess import gateway, approved_background, spending_hold
 from fs_evidence import build_book,attach_owner_history
 from report_validation import FORMAT, validate_output
 from runs_contract import submission,validate_admission,run_path
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 
 
 def clean_hermes_question(value):
@@ -113,8 +114,8 @@ class HermesService:
         if idempotency:headers['Idempotency-Key']=idempotency
         request=Request('http://127.0.0.1:8941'+path,data=encoded(body).encode() if body is not None else None,headers=headers,method=method)
         with build_opener(NoRedirect).open(request,timeout=30) as response:
-            raw=response.read(128001);status=response.status
-        if len(raw)>128000:raise ValueError('runtime_response_size')
+            raw=response.read(MAX_PROVIDER_WIRE_BYTES+1);status=response.status
+        if len(raw)>MAX_PROVIDER_WIRE_BYTES:raise ValueError('runtime_response_size')
         return status,json.loads(raw)
 
     def get_job(self,owner,key):

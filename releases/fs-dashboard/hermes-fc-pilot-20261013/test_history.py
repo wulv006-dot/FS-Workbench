@@ -87,7 +87,7 @@ class HistoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):bounded_history(value,{'chunk':bad})
         self.assertEqual(bounded_history(value,{'chunk':count+1})['status'],'empty')
 
-    def test_cumulative_budget_counts_cache_repeats_and_section_projection_is_useful(self):
+    def test_history_has_no_cumulative_context_quota_and_sections_remain_useful(self):
         history=ReportHistory(self.daily)
         book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},history=SourcePins().wrap(history.read,'history'))
         q={'start':'2026-10-12','end':'2026-10-12','section':'readings','item':1}
@@ -96,13 +96,13 @@ class HistoryTests(unittest.TestCase):
         self.assertNotIn('previous_judgments',selected['data']['reports'][0])
         retained=len(json.dumps(selected,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
         self.assertEqual(book.history_output_bytes,retained)
-        while True:
+        for _ in range(40):
             result=book.call('fc.read_history',q)
-            if result['data']['status']=='limited':break
+            self.assertNotEqual(result['data']['status'],'limited')
             retained+=len(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
-        self.assertEqual(book.history_output_bytes,retained);self.assertLessEqual(retained,24000)
-        self.assertNotIn('report_chunks',result['data']);self.assertEqual(result['data']['reports'],[])
-        # No single 300KB version can be gathered into a >96KB provider history.
+        self.assertEqual(book.history_output_bytes,retained);self.assertGreater(retained,24000)
+        self.assertIn('reports',result['data'])
+        # Large versions remain lossless through explicit sections/chunks.
         large={'http_status':200,'status':'available','reports':[{'summary':'x'*300000}]}
         from fs_evidence import bounded_history
         self.assertNotIn('report_chunks',bounded_history(large,{}))

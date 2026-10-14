@@ -38,6 +38,44 @@ class ReleaseTests(unittest.TestCase):
         value['unchangedRequired'] += [{'path':p,'sha256':'d'*64} for p in sorted(required-known)]
         return value
 
+    def capacity_manifest(self):
+        value=self.wire_manifest();value['scope']=self.publisher.HERMES_CAPACITY_SCOPE
+        for rel,target in self.publisher.HERMES_CAPACITY_TARGETS.items():
+            if any(r['candidate']==rel for r in value['files']):continue
+            path=self.stage/'candidate'/rel;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'reviewed fixture')
+            value['files'].append({'candidate':rel,'target':target,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'beforeSha256':'b'*64})
+        value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_CAPACITY_TARGETS.values()]
+        return value
+
+    def test_capacity_scope_exact_ten_protects_all_others_and_requires_baselines(self):
+        value=self.capacity_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),10)
+        self.assertEqual(len(value['unchangedRequired']),54)
+        for row in value['unchangedRequired']:
+            bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)
+            with self.subTest(target=row['path']):
+                with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+        for row in value['files']:
+            bad=json.loads(json.dumps(value));next(r for r in bad['files'] if r['candidate']==row['candidate'])['beforeSha256']=None
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_capacity_restart_uses_original_fence_and_keeps_admin(self):
+        events=[]
+        class Fence:
+            root=self.root
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"status":"ready","ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            with self.assertRaisesRegex(ValueError,'fence required'):self.publisher.restart_for(self.capacity_manifest())
+            self.publisher.restart_for(self.capacity_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
     def test_wire_requires_every_active_capability_and_session_dependency(self):
         value=self.wire_manifest()
         self.assertEqual(len(value['unchangedRequired']),56)
