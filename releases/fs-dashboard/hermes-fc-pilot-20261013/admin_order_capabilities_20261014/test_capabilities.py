@@ -205,8 +205,23 @@ class ProjectionTests(unittest.TestCase):
         self.assertNotIn('passwd',json.dumps(out))
 
     def test_non_numeric_is_not_zero(self):
-        for value in (None,True,[],{},'1e3','NaN','1,234'):
+        for value in (None,True,[],{},'1e3','NaN','1,23'):
             self.assertIsNone(number(value))
+
+    def test_native_grouped_numbers_match_existing_statistics_contract(self):
+        self.assertEqual(number('1,234',True),1234)
+        self.assertEqual(number('1,234.50'),'1234.50')
+        self.assertEqual(number('-1,234.50'),'-1234.50')
+        for value in ('1,23','1234,567','1,,000','1.234,56','1,234.123456789'):
+            self.assertIsNone(number(value))
+        raw=native();raw['data']['data']['total']='3,426';raw['data']['data']['amount']='227,259.77'
+        raw['data']['data']['game_rank']['FC 27']['peak_order_count']='1,000'
+        out=collect_admin(lambda *_:(200,json.dumps(raw)),NATIVE,CONFIG,NOW)
+        self.assertEqual(out['status'],'available');self.assertEqual(out['source_orders'],3426)
+        self.assertEqual(out['source_amount_usd'],'227259.77');self.assertEqual(out['peak']['count'],1000)
+        raw['data']['data']['total']='3,42'
+        out=collect_admin(lambda *_:(200,json.dumps(raw)),NATIVE,CONFIG,NOW)
+        self.assertEqual(out['status'],'not_available');self.assertEqual(out['reason'],'native_total_invalid')
 
     def test_events_keep_same_second_distinct_and_task_scope(self):
         q=checked_query({'kind':'fulfillment_samples','profile':'FC27'},CONFIG,NOW)

@@ -26,6 +26,9 @@ def number(value, integer=False):
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         return None
     text = str(value)
+    if ',' in text:
+        if not re.fullmatch(r'-?\d{1,3}(?:,\d{3})+(?:\.\d{1,8})?',text):return None
+        text = text.replace(',','')
     if not re.fullmatch(r'-?\d{1,18}(?:\.\d{1,8})?', text):
         return None
     try:
@@ -133,7 +136,8 @@ def native_projection(payload, q):
     if any(not isinstance(s, dict) or s.get('site_name') != 'www.mmoexp.com' for s in sites):
         raise ValueError('native_site_filter')
     total = number(raw.get('total'), True)
-    if total is None or (total > 0 and (not games or not sites)):
+    if total is None:raise ValueError('native_total_invalid')
+    if total > 0 and (not games or not sites):
         raise ValueError('native_missing_game')
     g = games[0] if games else {}
     if g.get('cat') is not None and not isinstance(g['cat'], dict):raise ValueError('native_category_shape')
@@ -219,7 +223,7 @@ def collect_admin(request, args, config, now=None):
     except PermissionError:
         return result(q, 'denied', reason='source_denied')
     except ValueError as error:
-        safe = ('source_unavailable','source_contract','native_shape','native_game_filter',
+        safe = ('source_unavailable','source_contract','native_shape','native_game_filter','native_total_invalid',
                 'native_site_filter','native_missing_game','native_category_shape',
                 'product_scope_filter','product_dimension_filter','product_pagination_contract')
         reason = str(error) if str(error) in safe else 'source_contract_or_read_failed'
