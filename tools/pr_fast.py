@@ -438,7 +438,7 @@ def main():
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
             release="releases/fs-dashboard/hermes-fc-pilot-20261013"
-            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_direct_provider","test_direct_ledger","test_direct_release","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
             node(release+"/check_ui.cjs")
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"test_browser_ui.py")],check=True,timeout=30)
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"admission_smoke.py")],check=True,timeout=30)
@@ -553,6 +553,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

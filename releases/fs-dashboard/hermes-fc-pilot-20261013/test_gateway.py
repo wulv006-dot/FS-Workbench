@@ -218,7 +218,7 @@ class GatewayTests(unittest.TestCase):
 
     def test_excess_usage_holds(self):
         def over(req):
-            result=self.answer(req); result['usage']={'prompt_tokens':1000001,'completion_tokens':10,'total_tokens':1000011}; return result
+            result=self.answer(req); result['usage']={'prompt_tokens':1048577,'completion_tokens':10,'total_tokens':1048587}; return result
         self.provider=over
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 

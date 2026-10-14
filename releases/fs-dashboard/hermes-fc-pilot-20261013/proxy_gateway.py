@@ -8,9 +8,9 @@ from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 # FS transport protection, not a Hermes or provider context-window claim.
 # This applies only to the task-scoped Hermes bridge; legacy advisor stays 96 KB.
 MAX_PROVIDER_WIRE_BYTES = 10000000
-# Authenticated Bailian model-page readback: both input and context are 1M.
-MAX_PROVIDER_CONTEXT_TOKENS = 1000000
-# Official Bailian route maximum; 384 Ki tokens includes reasoning and visible output.
+# Official DeepSeek /models authenticated readback: joint context is 1,048,576.
+MAX_PROVIDER_CONTEXT_TOKENS = 1048576
+# Official direct maximum; 384 Ki tokens includes reasoning and visible output.
 MAX_HERMES_OUTPUT_TOKENS = 393216
 MAX_PROVIDER_WAIT_SECONDS = 1800
 
@@ -167,7 +167,9 @@ def safe_diagnostic(response, request, reason):
         if type(value) in (int,float) and 0<=value<=86400:out[key]=value
     code=response.get('provider_error_code')
     if isinstance(code,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}',code):out['provider_error_code']=code
-    identity=response.get('id')
+    direction=response.get('inspection_direction')
+    if direction in ('input','output','unknown'):out['inspection_direction']=direction
+    identity=response.get('provider_request_id') or response.get('id')
     if isinstance(identity,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',identity):out['provider_request_id']=identity
     usage=response.get('usage')
     if isinstance(usage,dict):
@@ -224,7 +226,10 @@ class UnifiedBudget:
         if set(policy) != required or any(not isinstance(policy[k], str) or not policy[k]
                 for k in ('id', 'model', 'price_version')):
             raise ValueError('policy_fields')
-        if any(type(policy[k]) is not int or policy[k] <= 0 for k in required-{'id','model','price_version'}):
+        unknown_price = (policy['id']=='no-pilot-quotas-deepseek-direct-tokens-only-v1' and policy['model']=='deepseek-flash' and
+                         policy['price_version']=='deepseek-direct-no-cny-invoice-or-fx-v1' and
+                         policy['input_microcny'] is None and policy['output_microcny'] is None)
+        if not unknown_price and any(type(policy[k]) is not int or policy[k] <= 0 for k in required-{'id','model','price_version'}):
             raise ValueError('positive_price_required')
         self.policy = deepcopy(policy)
         with db() as conn:
@@ -267,7 +272,8 @@ class UnifiedBudget:
         fingerprint = digest({'hermes': 1, 'owner': owner, 'task': task, 'turn': turn, 'request': request_hash})
         p = self.policy
         tokens = input_bound+request['max_tokens']
-        cost = input_bound*p['input_microcny']+request['max_tokens']*p['output_microcny']
+        # Existing NOT NULL column: -1 explicitly means unavailable CNY amount, never zero cost.
+        cost = input_bound*p['input_microcny']+request['max_tokens']*p['output_microcny'] if p['input_microcny'] is not None else -1
         with self.db() as conn:
             conn.execute('BEGIN IMMEDIATE')
             old = conn.execute('SELECT r.*,m.state,m.content FROM hermes_reservations r JOIN model_calls m '
@@ -290,11 +296,11 @@ class UnifiedBudget:
                     continue  # Already confirmed for a different task; never settle it as zero.
                 receipt = json.loads(row['content'])
                 if row['day'] == day:
-                    day_cost += receipt['cost_microcny']
+                    day_cost += receipt['cost_microcny'] if receipt['cost_microcny'] is not None else 0
                 if row['owner'] == owner and row['task'] == task:
                     if row['policy'] != encoded(p):
                         raise ValueError('task_policy_changed')
-                    task_cost += receipt['cost_microcny']; task_tokens += receipt['usage']['total_tokens']; turns += 1
+                    task_cost += receipt['cost_microcny'] if receipt['cost_microcny'] is not None else 0; task_tokens += receipt['usage']['total_tokens']; turns += 1
             conn.execute("INSERT INTO model_calls VALUES(?,?,'started',NULL)", (fingerprint,day))
             conn.execute('INSERT INTO hermes_reservations VALUES(?,?,?,?,?,?,?,?)',
                          (fingerprint,owner,task,turn,request_hash,encoded(p),tokens,cost))
@@ -344,9 +350,9 @@ class UnifiedBudget:
                 raise ValueError('response_size')
             p = self.policy
             receipt = {'status':'succeeded', 'provider_request_id':response['id'], 'usage':usage,
-                       'cost_microcny':usage['prompt_tokens']*p['input_microcny']+usage['completion_tokens']*p['output_microcny'],
+                       'cost_microcny':usage['prompt_tokens']*p['input_microcny']+usage['completion_tokens']*p['output_microcny'] if p['input_microcny'] is not None else None,
                        'price_version':p['price_version'], 'model':p['model'], 'message':message,
-                       'cost_basis':'configured_public_rate_estimate_not_account_invoice',
+                       'cost_basis':'configured_public_rate_estimate_not_account_invoice' if p['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
             receipt['finish_reason']=finish_reason
             reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
@@ -362,9 +368,9 @@ class UnifiedBudget:
                     diagnostic.get('response_shape',{}).get('model_matches') is True and
                     usage['prompt_tokens']<=MAX_PROVIDER_CONTEXT_TOKENS and usage['completion_tokens']<=request['max_tokens']):
                 receipt=dict(diagnostic,status='invalid_response',usage=usage,
-                             cost_microcny=usage['prompt_tokens']*self.policy['input_microcny']+usage['completion_tokens']*self.policy['output_microcny'],
+                             cost_microcny=usage['prompt_tokens']*self.policy['input_microcny']+usage['completion_tokens']*self.policy['output_microcny'] if self.policy['input_microcny'] is not None else None,
                              price_version=self.policy['price_version'],model=self.policy['model'],
-                             cost_basis='configured_public_rate_estimate_not_account_invoice',
+                             cost_basis='configured_public_rate_estimate_not_account_invoice' if self.policy['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                              enable_thinking=request['enable_thinking'],reasoning_effort=request.get('reasoning_effort'))
                 with self.db() as conn:
                     updated=conn.execute("UPDATE model_calls SET state='invalid_response',content=? WHERE fingerprint=? AND state='started'",(encoded(receipt),fingerprint))
@@ -384,15 +390,17 @@ class UnifiedBudget:
 
 
 class ModelGateway:
-    def __init__(self, scope, budget, provider_slot, provider, input_bound, daily_limit):
+    def __init__(self, scope, budget, provider_slot, provider, input_bound, daily_limit, preflight=None):
         self.scope, self.budget, self.slot = scope, budget, provider_slot
         self.provider, self.input_bound, self.daily_limit = provider, input_bound, daily_limit
+        self.preflight = preflight
 
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
+        if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.
         bound = self.input_bound(request)  # Reservation estimate only; actual vendor usage is authoritative.
         with self.slot() as acquired:
             if not acquired:

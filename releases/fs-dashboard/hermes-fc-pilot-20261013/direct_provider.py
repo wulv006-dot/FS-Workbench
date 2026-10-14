@@ -1,0 +1,159 @@
+"""Unwired FC-only candidate: original FS process owns the direct API key.
+
+No credential values, response prose, or request body are included in diagnostics.
+No redirects or automatic retry, and no API key is exposed to Hermes.
+"""
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import time
+import urllib.error
+import urllib.request
+
+BASE_URL = 'https://api.deepseek.com'
+MODEL = 'deepseek-flash'
+CONTEXT_TOKENS = 1048576
+OUTPUT_TOKENS = 393216
+WIRE_BYTES = 10000000
+WAIT_SECONDS = 1800
+KEY_ENV = 'FS_HERMES_DEEPSEEK_KEY_FILE'
+DEFAULT_KEY_FILE = '/var/lib/fs-hermes-fc/fs/secrets/deepseek.key'
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _load_key():
+    name = os.environ.get(KEY_ENV, DEFAULT_KEY_FILE)
+    path = Path(name)
+    if not path.exists():
+        raise ValueError('configuration_missing')
+    info = path.lstat()
+    # Production Linux ownership; NTFS tests explicitly inject a POSIX fixture.
+    if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or
+            info.st_uid != os.geteuid() or not 1 <= info.st_size <= 1024):
+        raise ValueError('configuration_invalid')
+    key = path.read_text('utf-8-sig').strip()
+    if not re.fullmatch(r'sk-[A-Za-z0-9._-]+', key):
+        raise ValueError('configuration_invalid')
+    return key
+
+
+def _identifier(value):
+    return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}', value) else None
+
+
+def _safe_http_error(error):
+    out = {'status': 'http_rejected', 'http_status': error.code}
+    identity = _identifier((error.headers or {}).get('x-request-id'))
+    if identity:
+        out['provider_request_id'] = identity
+    try:
+        raw = error.read(4097)
+        if len(raw) > 4096:
+            return out
+        body = json.loads(raw)
+        nested = body.get('error') if isinstance(body, dict) else None
+        if not isinstance(nested, dict):
+            return out
+        code = nested.get('code')
+        if isinstance(code, str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}', code):
+            out['provider_error_code'] = code
+        # Save a category only for these exact documented forms, never raw prose.
+        message = nested.get('message')
+        forms = {'Input data may contain inappropriate content.': 'input',
+                 'Output data may contain inappropriate content.': 'output',
+                 'Input or output data may contain inappropriate content.': 'unknown'}
+        if message in forms:
+            out['inspection_direction'] = forms[message]
+    except (ValueError, TypeError, OSError):
+        pass
+    finally:
+        error.close()
+    return out
+
+
+def _open(path, payload=None):
+    key = _load_key()
+    headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
+    req = urllib.request.Request(BASE_URL+path, payload, headers)
+    started = time.monotonic()
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=WAIT_SECONDS) as response:
+            raw = response.read(WIRE_BYTES+1)
+        if len(raw) > WIRE_BYTES:
+            return {'status': 'invalid_response'}
+        result = json.loads(raw)
+        if not isinstance(result, dict):
+            return {'status': 'invalid_response'}
+        return result
+    except urllib.error.HTTPError as error:
+        return _safe_http_error(error)
+    except (OSError, TimeoutError) as error:
+        return {'status': 'unknown_transport', 'transport_error_type': type(error).__name__,
+                'elapsed_seconds': round(time.monotonic()-started, 3), 'timeout_seconds': WAIT_SECONDS}
+    except (ValueError, TypeError):
+        return {'status': 'invalid_response'}
+
+
+def discover_models():
+    """Harmless GET only; no balance query or completion, no secret in receipt."""
+    try:
+        result = _open('/models')
+    except (ValueError, OSError) as error:
+        code = str(error) if isinstance(error, ValueError) and str(error) in ('configuration_missing', 'configuration_invalid') else 'configuration_invalid'
+        return {'status': code}
+    if result.get('object') != 'list' or not isinstance(result.get('data'), list):
+        return result if result.get('status') else {'status': 'invalid_response'}
+    entries = []
+    for item in result['data']:
+        if not isinstance(item, dict) or item.get('id') != MODEL:
+            continue
+        context, output = item.get('context_window'), item.get('max_output_tokens')
+        levels = item.get('effort', {}).get('supported_levels') if isinstance(item.get('effort'), dict) else None
+        if (type(context) is not int or type(output) is not int or
+                context != CONTEXT_TOKENS or output != OUTPUT_TOKENS or
+                not isinstance(levels, list) or not {'high', 'max'}.issubset(levels)):
+            return {'status': 'model_capability_changed'}
+        entries.append({'id': MODEL, 'context_window': context, 'max_output_tokens': output,
+                        'effort_levels': [v for v in levels if v in ('low', 'high', 'max')]})
+    return {'status': 'verified' if len(entries) == 1 else 'model_unavailable', 'models': entries}
+
+
+def prepare_request(request, approved_tools):
+    """Pure native wire builder, shared by pre-reservation validation and send."""
+    if (not isinstance(request, dict) or request.get('model') != MODEL or
+            set(request)-{'model', 'messages', 'max_tokens', 'tools', 'tool_choice', 'stream', 'enable_thinking', 'reasoning_effort'} or
+            request.get('reasoning_effort') not in ('high', 'max') or
+            request.get('enable_thinking') is not True or request.get('stream') is not False or
+            type(request.get('max_tokens')) is not int or request['max_tokens'] != OUTPUT_TOKENS or
+            not isinstance(request.get('messages'), list) or not request['messages'] or
+            request.get('tools') not in (approved_tools, []) or not approved_tools):
+        raise ValueError('configuration_invalid')
+    body = {'model': MODEL, 'messages': request['messages'], 'max_tokens': OUTPUT_TOKENS,
+            'thinking': {'type': 'enabled'}, 'reasoning_effort': request['reasoning_effort'], 'stream': False}
+    if request['tools']:
+        body.update(tools=approved_tools, tool_choice='auto')
+    payload = json.dumps(body, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
+    if len(payload) > WIRE_BYTES:
+        raise ValueError('provider_payload_too_large')
+    return payload
+
+
+def request_model(request, approved_tools):
+    """Only a trusted ModelGateway request; not an arbitrary endpoint proxy."""
+    try:
+        payload = prepare_request(request, approved_tools)
+        result = _open('/chat/completions', payload)
+    except (ValueError, OSError, TypeError) as error:
+        code = ('input_too_large' if str(error)=='provider_payload_too_large' else str(error)) if isinstance(error, ValueError) and str(error) in ('configuration_missing', 'configuration_invalid', 'provider_payload_too_large') else 'configuration_invalid'
+        return {'status': code}
+    if result.get('status'):
+        return result
+    if result.get('model') != MODEL:
+        return {'status': 'invalid_response'}
+    return result
