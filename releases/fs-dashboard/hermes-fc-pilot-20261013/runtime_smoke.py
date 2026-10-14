@@ -117,7 +117,7 @@ async def run(effort):
         original_agent_init=run_agent.AIAgent.__init__
         def observe_agent_init(agent,*args,**kwargs):
             original_agent_init(agent,*args,**kwargs)
-            read_timeout=agent.client.timeout.read
+            read_timeout=getattr(agent.client.timeout,'read',agent.client.timeout)
             stale_timeout=agent._compute_non_stream_stale_timeout({'messages':[]})
             outer_timeout=agent._resolved_api_call_timeout()
             assert min(read_timeout,stale_timeout,outer_timeout)>=660, 'rpc_timeout_less_than_provider_wait'
