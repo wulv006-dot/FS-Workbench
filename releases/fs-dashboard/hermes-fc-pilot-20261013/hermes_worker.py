@@ -155,7 +155,7 @@ def make_adapter(api_key):
             # This is a live-context trigger, not a cumulative token or spending quota.
             compressor.protect_first_n = 1
             compressor.protect_last_n = 4
-            compressor.proactive_prune_tokens = 10000
+            compressor.proactive_prune_tokens = 4000
             compressor.proactive_prune_min_result_chars = 200
             compressor.proactive_prune_min_reclaim_tokens = 1024
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
