@@ -144,6 +144,20 @@ def make_adapter(api_key):
                             fallback_model=None, quiet_mode=True, max_tokens=16384 if item.get('reasoning_effort','none') in ('high','max') else 6000,
                             reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
+            from agent.context_compressor import ContextCompressor
+            compressor = agent.context_compressor
+            if not isinstance(compressor,ContextCompressor) or not all(hasattr(compressor,k) for k in (
+                    'protect_first_n','protect_last_n','proactive_prune_tokens',
+                    'proactive_prune_min_result_chars','proactive_prune_min_reclaim_tokens')):
+                agent.close()
+                raise PermissionError('unexpected_context_compressor')
+            # Official deterministic pruning archives originals in the bound SessionDB.
+            # This is a live-context trigger, not a cumulative token or spending quota.
+            compressor.protect_first_n = 1
+            compressor.protect_last_n = 4
+            compressor.proactive_prune_tokens = 10000
+            compressor.proactive_prune_min_result_chars = 200
+            compressor.proactive_prune_min_reclaim_tokens = 1024
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()

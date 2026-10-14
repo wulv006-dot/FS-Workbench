@@ -27,15 +27,40 @@ async def run(effort):
     grants = Grants()
     token = grants.mint('owner', fixture.task['id'], 'lease',reasoning_effort=effort)
     tool_hits = []
+    stress = True  # Every official high/max check now exercises long-context pruning.
+    request_sizes = []
+    saw_prune = []
     original_call = fixture.scope.call
     def observe(*args, **kwargs):
         tool_hits.append(args[3])
-        return original_call(*args, **kwargs)
+        value = original_call(*args, **kwargs)
+        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100)
+        return value
     fixture.scope.call = observe
     def provider(request):
         assert request['enable_thinking'] is True and request['reasoning_effort']==effort, 'thinking_not_enabled'
         assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
         result = fixture.answer(request)
+        if stress:
+            size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
+            assert size<=96000,'stress_request_exceeds_original_wire'
+            request_sizes.append(size)
+            saw_prune.append(any(m.get('role')=='tool' and len(str(m.get('content') or ''))<4000 for m in request['messages']))
+            if fixture.calls>1:
+                latest=next(m['content'] for m in reversed(request['messages']) if m.get('role')=='tool')
+                assert '"main_source":"Admin"' in latest and '"reference_source":"Order"' in latest, 'stress_actual_evidence_missing'
+                assert 'tool_result_contract' not in latest, 'stress_tool_error_received'
+            for message in request['messages']:
+                for call in message.get('tool_calls',[]):
+                    assert call.get('index')==0 and call['function']['arguments']=='{}', 'stress_tool_history_changed'
+                if message.get('tool_calls'):assert message.get('reasoning_content')=='Synthetic reasoning.', 'stress_reasoning_changed'
+            if fixture.calls<=8:
+                result['choices'][0]['message']={'role':'assistant','content':None,'reasoning_content':'Synthetic reasoning.',
+                    'tool_calls':[{'id':'stress_'+str(fixture.calls),'type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
+            elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'}
+            else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
+            result['usage']={'prompt_tokens':17000,'completion_tokens':10,'total_tokens':17010,'completion_tokens_details':{'reasoning_tokens':3}}
+            return result
         if fixture.calls == 1:
             result['choices'][0]['message'] = {'role': 'assistant', 'content': None,
                 'tool_calls': [{'id': 'call_fixture', 'type': 'function', 'index':0, 'function': {
@@ -104,12 +129,14 @@ async def run(effort):
                     break
                 await asyncio.sleep(0.5)
             assert result['status'] == 'completed', result
-            assert fixture.calls == 2, ('provider_calls', fixture.calls)
-            assert tool_hits == [WIRE_TOOLS[0]], ('tool_calls', tool_hits)
+            expected_calls = 9 if stress else 2
+            assert fixture.calls == expected_calls, ('provider_calls', fixture.calls)
+            assert tool_hits == [WIRE_TOOLS[0]]*(8 if stress else 1), ('tool_calls', tool_hits)
+            if stress:assert any(saw_prune), 'native_prune_not_observed'
             async with client.post('http://127.0.0.1:8941/v1/runs', json={
                     'input': 'Check FC metric definitions, then finish.', 'session_id': session_id}) as response:
                 replay = await response.json()
-            assert replay['run_id'] == run_id and fixture.calls == 2, 'durable_admission_replay'
+            assert replay['run_id'] == run_id and fixture.calls == expected_calls, 'durable_admission_replay'
             async with client.post('http://127.0.0.1:8941/v1/runs',headers={'Idempotency-Key':'fixture-second-user-turn'},json={
                     'input':'Reassess the previous conclusion with a competing explanation.','session_id':session_id}) as response:
                 followup=await response.json()
@@ -118,7 +145,7 @@ async def run(effort):
                 async with client.get('http://127.0.0.1:8941/v1/runs/'+followup['run_id']) as response:followup=await response.json()
                 if followup['status'] not in {'queued','running','stopping'}:break
                 await asyncio.sleep(.5)
-            assert followup['status']=='completed' and fixture.calls==3, ('second_user_turn',followup)
+            assert followup['status']=='completed' and fixture.calls==expected_calls+1, ('second_user_turn',followup)
             cancelled_session='fc_'+'b'*64
             cancelled_admission=dict(admitted,session_id=cancelled_session,ready=False)
             (hermes_worker.ADMISSIONS/(cancelled_session+'.json')).write_text(json.dumps(cancelled_admission),encoding='utf-8')
@@ -131,10 +158,11 @@ async def run(effort):
                 async with client.get('http://127.0.0.1:8941/v1/runs/'+cancelled_id) as response:cancelled=await response.json()
                 if cancelled['status'] not in {'queued','running','stopping'}:break
                 await asyncio.sleep(.1)
-            assert cancelled['status']=='cancelled' and fixture.calls==3, ('handshake_cancel',cancelled)
+            assert cancelled['status']=='cancelled' and fixture.calls==expected_calls+1, ('handshake_cancel',cancelled)
         print(json.dumps({'official_runs': 'pass', 'official_agent': 'pass', 'tools': tool_hits,
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
+                          'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
                           'actual_started_admission_and_run_binding':'pass',
                           'cancel_before_handshake_no_model_call':'pass',
                           'real_business_data': False, 'real_model_call': False}))
