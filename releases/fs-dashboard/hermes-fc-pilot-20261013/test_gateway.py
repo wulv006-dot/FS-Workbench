@@ -74,7 +74,7 @@ class GatewayTests(unittest.TestCase):
     def test_official_tool_task_marker_is_not_a_secret_prefix(self):
         messages=[{'role':'user','content':'Check the readonly sample.'},
                   {'role':'assistant','content':None,'tool_calls':[{'id':'fixture_call','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
-                  {'role':'tool','tool_call_id':'fixture_call','content':'Tool response: {"task_id":"task-a-safe-local-handle","note":"risk-adjusted desk-review"}'}]
+                  {'role':'tool','tool_call_id':'fixture_call','content':'Tool response: {"identity":"task-scoped HMAC pseudonyms for order/event/item IDs"}'}]
         body={'messages':messages,'max_tokens':50}
         self.assertEqual(request_body(body,self.policy['model'])['messages'],messages)
         self.call(body=body)
@@ -83,7 +83,7 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
 
     def test_real_credential_markers_remain_blocked_before_spend(self):
-        for marker in ('sk-a','sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
+        for marker in ('sk-a','sk-SYNTHETIC123','xsk-SYNTHETIC123','prefix_sk-SYNTHETIC123','xtask-scoped','task-scopedSECRET123','task-scoped sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
                        '\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','\x00sk-SYNTHETIC123',
                        '{"note":"\\nsk-SYNTHETIC123"}','Tool response: {"note":"\\u0000sk-SYNTHETIC123"}'):
             with self.subTest(marker=marker):
