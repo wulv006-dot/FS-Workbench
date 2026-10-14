@@ -96,7 +96,7 @@ HERMES_CAPABILITY_TARGETS={
  **{'capability/fs-package/'+n:'/opt/fs-hermes-fc/admin_order_capabilities_20261014/'+n for n in CAP_FS_PACKAGE},
  **{'capability/session-package/'+n:CAP_SESSION_ROOT+'/admin_order_capabilities_20261014/'+n for n in CAP_SESSION_PACKAGE},
 }
-HERMES_CAPACITY_TARGETS={**HERMES_WIRE_TARGETS, 'hermes/runtime/research.py':HERMES_TARGETS['hermes/runtime/research.py'], 'capability/fs-package/provider.py':HERMES_CAPABILITY_TARGETS['capability/fs-package/provider.py']}
+HERMES_CAPACITY_TARGETS={**HERMES_WIRE_TARGETS, 'hermes/runtime/research.py':HERMES_TARGETS['hermes/runtime/research.py'], 'hermes/runtime/fs_evidence.py':HERMES_TARGETS['hermes/runtime/fs_evidence.py'], 'capability/fs-package/provider.py':HERMES_CAPABILITY_TARGETS['capability/fs-package/provider.py']}
 CAP_EXISTING_TARGETS={k for k in HERMES_CAPABILITY_TARGETS if '/fs-package/' not in k and '/session-package/' not in k}
 CAP_PROTECTED_SESSION={CAP_SESSION_ROOT+'/admin_summary.py',CAP_SESSION_ROOT+'/supplement_fields.py','/etc/systemd/system/fc27-p2pah-session.service','/opt/fs-exact-range-20261001/fc_order_diagnostics.py'}
 

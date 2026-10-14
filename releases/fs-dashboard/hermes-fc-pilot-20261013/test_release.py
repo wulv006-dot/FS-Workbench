@@ -47,9 +47,9 @@ class ReleaseTests(unittest.TestCase):
         value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_CAPACITY_TARGETS.values()]
         return value
 
-    def test_capacity_scope_exact_ten_protects_all_others_and_requires_baselines(self):
-        value=self.capacity_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),10)
-        self.assertEqual(len(value['unchangedRequired']),54)
+    def test_capacity_scope_exact_eleven_protects_all_others_and_requires_baselines(self):
+        value=self.capacity_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),11)
+        self.assertEqual(len(value['unchangedRequired']),53)
         for row in value['unchangedRequired']:
             bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)
             with self.subTest(target=row['path']):

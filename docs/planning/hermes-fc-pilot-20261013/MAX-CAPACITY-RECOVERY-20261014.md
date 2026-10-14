@@ -24,4 +24,4 @@
 
 固定官方源仍为 `71d34bad1045610252eda02ee79549436896e784` / v0.21.7，原镜像不重建。摘要依据：官方 `agent/context_compressor.py` 的 `_call_summary_llm` 不传 max_tokens；`agent/auxiliary_client.py` 的 `_create_with_progress_once` 对非鉴权/付款/瞬断错误先尝试 stream，再退 plain。主工具请求仍须匹配 FS 颁发档位和 19 工具名单。摘要无工具权限，结算/取消/短期任务 token 与主请求同链。
 
-独立候选 `.agent_runtime/hermes-max-capacity-qa-20261014/`；冻结 `MAX-CAPACITY-LOCAL-FREEZE-20261014.json`。原 publisher 新增精确十目标范围（原八目标＋research＋capability provider）；347 文件现场栅栏中另337保护。只重启原 FS 与 Hermes，Admin 保持。正式 CI、固定官方摘要往返、最终发布/独立读回、真实新任务报告分别验收。本文件为候选设计，不声明部署或业务通过。
+独立候选 `.agent_runtime/hermes-max-capacity-qa-20261014/`；冻结 `MAX-CAPACITY-LOCAL-FREEZE-20261014.json`。原 publisher 新增精确十一目标范围（原八目标＋research＋fs_evidence＋capability provider）；347 文件现场栅栏中另336保护。只重启原 FS 与 Hermes，Admin 保持。正式 CI、固定官方摘要往返、最终发布/独立读回、真实新任务报告分别验收。本文件为候选设计，不声明部署或业务通过。
