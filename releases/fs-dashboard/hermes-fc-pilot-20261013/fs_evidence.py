@@ -43,8 +43,12 @@ class AsyncRead:
         except Exception:return {'status':'unavailable','reason':'source_read_failed'}
 
 
-def source_capture(detail,start,end):
+def source_capture(detail,start,end,deadline=None):
     from fc_deep_sources import EvidenceReader
+    if deadline is not None:
+        remaining=(deadline-datetime.now(timezone.utc)).total_seconds()
+        if remaining<=0:raise TimeoutError('nightly_deadline_exceeded')
+        return EvidenceReader(detail).capture({'read_start':start,'read_end':end},timeout=min(920,remaining))
     return EvidenceReader(detail).capture({'read_start':start,'read_end':end})
 
 
@@ -176,10 +180,10 @@ def attach_owner_history(book,tasks,owner):
     book.history_index=dict(book.history_index or {},hermes=owned.index)
 
 
-def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None):
+def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None,deadline=None):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
     read_start=(lo-timedelta(days=max(7,(hi-lo).days+1))).isoformat()
-    dataset,config=source_capture(detail,read_start,end)
+    dataset,config=source_capture(detail,read_start,end,deadline=deadline) if deadline is not None else source_capture(detail,read_start,end)
     skills=load_bundle(source_root)
     scope=secrets.token_hex(32)
     clue_read=AsyncRead(lambda:problem_projection(diagnostics(),scope))

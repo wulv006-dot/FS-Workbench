@@ -26,6 +26,11 @@ async def run(effort):
     fixture.setUp()
     from proxy_gateway import UnifiedBudget, schemas
     from direct_provider import MODEL, request_model as direct_request, prepare_request
+    from fs_inprocess import approved_background
+    from skill_bundle import load_bundle
+    from background import task_context
+    background=approved_background(Path(__file__).parent)
+    context_text,context_receipt=task_context(background,load_bundle(Path(__file__).parent))
     from unittest.mock import patch
     fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
     fixture.gateway.budget=fixture.budget
@@ -58,6 +63,8 @@ async def run(effort):
                 'usage':{'prompt_tokens':30,'completion_tokens':50,'total_tokens':80},
                 'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'Native complete synthetic summary.'}}]}
         assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
+        assert background['content'] in request['messages'][0]['content'], 'business_background_not_loaded'
+        assert context_text in request['messages'][0]['content'], 'reviewed_methods_and_preferences_not_loaded'
         result = dict(fixture.answer(request), model=MODEL)
         if stress:
             size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
@@ -145,6 +152,7 @@ async def run(effort):
         admitted={
             'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
             'reasoning_effort':effort,'ready':False,
+            'background':background,'context_receipt':context_receipt,
             'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}
         admission_file=hermes_worker.ADMISSIONS/(session_id+'.json')
         admission_file.write_text(json.dumps(admitted),encoding='utf-8')
@@ -187,6 +195,7 @@ async def run(effort):
                     break
                 await asyncio.sleep(0.5)
             assert result['status'] == 'completed', result
+            assert result.get('runtime',{}).get('fs_context_sha256')==context_receipt['context_sha256'], 'runtime_context_receipt_missing'
             assert len(result['output'])>128000,'large_official_final_report_not_exercised'
             summary=await asyncio.to_thread(actual_agents[0].context_compressor._call_summary_llm,
                     'Summarize this synthetic FC-only evidence for native compaction.',time.monotonic())
@@ -235,6 +244,8 @@ async def run(effort):
                           'ordinary_task_scope_description_preserved':True,'rpc_client_timeout_checks':rpc_timeouts,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',
+                          'actual_background_and_methods_prompt':'pass','runtime_context_receipt':'pass',
+                          'background_version':context_receipt['background_version'],'background_sha256':context_receipt['background_sha256'],
                           'cancel_before_handshake_no_model_call':'pass','official_native_summary_roundtrip':'pass','auxiliary_paid_calls':len(aux_calls),'large_terminal_output_bytes':len(result['output'].encode()),
                           'real_business_data': False, 'real_model_call': False}))
     finally:

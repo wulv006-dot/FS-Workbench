@@ -11,13 +11,14 @@ from pathlib import Path
 import stat
 import tempfile
 import time
+import signal
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 
 SHANGHAI = timezone(timedelta(hours=8))
-SCHEDULES = {'game-monitor': (9, 0), 'management': (9, 30)}
+SCHEDULES = {'game-monitor': (0, 5), 'management': (0, 20)}
 MODULES = {'game-monitor': 'game_intelligence', 'management': 'management_daily'}
 STATE_ROOT = Path('/var/lib/fs-boss-workspaces')
 MODEL_ROOT = '/var/lib/fs-business-ranges/fc-daily'
@@ -40,6 +41,26 @@ def checked_time(value):
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError('aware_time_required')
     return value.astimezone(SHANGHAI)
+
+
+@contextmanager
+def scheduled_deadline(seconds):
+    if seconds is None:
+        yield
+        return
+    if seconds <= 0:
+        raise TimeoutError('nightly_deadline_exceeded')
+    if not hasattr(signal,'setitimer'):
+        raise RuntimeError('scheduled_deadline_requires_posix')
+    def expired(*args):
+        raise TimeoutError('nightly_deadline_exceeded')
+    previous=signal.signal(signal.SIGALRM,expired)
+    signal.setitimer(signal.ITIMER_REAL,seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL,0)
+        signal.signal(signal.SIGALRM,previous)
 
 
 def checked_path(path):
@@ -115,7 +136,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def read_summary(path):
+def read_summary(path,deadline=None):
     """Only the explicitly authorized existing wulv read path on loopback."""
     parsed = urllib.parse.urlsplit(path)
     query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
@@ -135,11 +156,15 @@ def read_summary(path):
     request = urllib.request.Request('http://127.0.0.1:8931/range?' + parsed.query,
                                      headers={'X-Auth-User': 'wulv', 'Accept': 'application/json'})
     try:
-        with urllib.request.build_opener(NoRedirect).open(request, timeout=20) as response:
-            raw = response.read(2000001)
-            if len(raw) > 2000000:
-                raise ValueError('source_response_too_large')
-            return {'http_status': response.status, 'body': json.loads(raw)}
+        def read(control=None):
+            handlers=(NoRedirect(),*control.handlers()) if control is not None else (NoRedirect(),)
+            with urllib.request.build_opener(*handlers).open(request, timeout=min(20,control.remaining()) if control is not None else 20) as response:
+                raw = response.read(2000001)
+                if len(raw) > 2000000:raise ValueError('source_response_too_large')
+                return {'http_status': response.status, 'body': json.loads(raw)}
+        if deadline is None:return read()
+        from nightly_http import Deadline
+        with Deadline(deadline) as control:return control.run(lambda:read(control))
     except urllib.error.HTTPError as error:
         return {'http_status': error.code, 'body': {}}
 
@@ -161,6 +186,11 @@ class DailyRunner:
         self.modules, self.reader = modules, reader
         self.model_runner, self.provider = model_runner, provider
         self.wait = wait
+        self.deadline = None
+
+    def check_deadline(self):
+        if self.deadline is not None and checked_time(self.clock())>=self.deadline:
+            raise TimeoutError('nightly_deadline_exceeded')
 
     def paths(self, kind, day):
         if kind not in SCHEDULES:
@@ -206,12 +236,13 @@ class DailyRunner:
         return {'read_only': True, 'at': at.isoformat(), 'workspaces': result}
 
     def run(self, kind, trigger):
+        self.deadline=None
         if trigger not in ('manual', 'scheduled'):
             raise ValueError('invalid_trigger')
         at = checked_time(self.clock())
         paths = self.paths(kind, at.date().isoformat())
         hour, minute = SCHEDULES[kind]
-        if trigger == 'scheduled' and at < at.replace(hour=hour, minute=minute, second=0, microsecond=0):
+        if trigger == 'scheduled' and (at.hour>=7 or at < at.replace(hour=hour, minute=minute, second=0, microsecond=0)):
             return {'kind': kind, 'day': at.date().isoformat(), 'status': 'not_due', 'same_day_replay_disabled': True}
         self.prepare(kind)
         try:
@@ -219,11 +250,15 @@ class DailyRunner:
                 previous_run = read_json(paths['journal'])
                 if previous_run:
                     return self.summary(previous_run, paths)
-                return self.execute(kind, trigger, at, paths)
+                self.deadline=at.replace(hour=6,minute=59,second=0,microsecond=0) if trigger=='scheduled' else None
+                remaining=(self.deadline-at).total_seconds() if self.deadline is not None else None
+                with scheduled_deadline(remaining):
+                    return self.execute(kind, trigger, at, paths)
         except BlockingIOError:
             return {'kind': kind, 'day': at.date().isoformat(), 'status': 'busy', 'same_day_replay_disabled': True}
 
     def analyse(self, kind, after_run_id, *, recorded=False):
+        self.deadline=None
         at = checked_time(self.clock())
         paths = self.paths(kind, at.date().isoformat())
         if not isinstance(after_run_id, str) or not re.fullmatch(re.escape(kind)+r'-\d{4}-\d{2}-\d{2}-[a-f0-9]{32}', after_run_id):
@@ -273,7 +308,11 @@ class DailyRunner:
         try:
             module = self.modules[kind] if self.modules else importlib.import_module(MODULES[kind])
             if batch is None:
-                batch = module.collect(at, reader=self.reader) if kind == 'management' else module.collect(at)
+                if self.deadline is None:
+                    batch = module.collect(at, reader=self.reader) if kind == 'management' else module.collect(at)
+                else:
+                    reader=(lambda path:read_summary(path,deadline=self.deadline)) if self.reader is read_summary else self.reader
+                    batch = module.collect(at, reader=reader, deadline_at=self.deadline) if kind=='management' else module.collect(at,deadline_at=self.deadline)
             journal.update(projected=batch, source_sha256=digest(encoded(batch)), phase='source_ready',
                            fact_status=batch.get('status', 'available' if batch.get('documents') else 'unavailable'))
             save()
@@ -300,9 +339,12 @@ class DailyRunner:
                                 'receipt': receipt if isinstance(receipt, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}', receipt) else None,
                                 'response_sha256': digest(response)}
                 def callback(projected):
+                    self.check_deadline()
                     return self.provider(messages, projected, validate_with_diagnostic,
-                                         max_tokens=6000 if kind == 'game-monitor' else 5000, timeout=120)
+                                         max_tokens=6000 if kind == 'game-monitor' else 5000,
+                                         timeout=min(120,max(.1,(self.deadline-checked_time(self.clock())).total_seconds())) if self.deadline is not None else 120)
                 try:
+                    self.check_deadline()
                     result = validate_with_diagnostic(recorded_response, batch) if recorded_response is not None else self.model_runner(batch, callback)
                     if type(result) is dict and result.get('status') == 'model_busy' and not result.get('receipt'):
                         # The shared ledger explicitly confirms no provider request was sent.
@@ -316,6 +358,7 @@ class DailyRunner:
                         result = {'status': 'invalid_response'}
                 except Exception:
                     result = {'status': 'unknown_model_error'}
+                self.check_deadline()
                 journal.update(model_result=result, ai_status=result['status'], phase='model_finished')
                 save()
                 if kind == 'game-monitor' and result['status'] != 'succeeded':
@@ -332,8 +375,11 @@ class DailyRunner:
                     current = paths['public'].read_bytes() if paths['public'].exists() else None
                     if current != previous_bytes:
                         raise ValueError('public_changed')
+                    self.check_deadline()
                     atomic(paths['public'], data, 0o644)
                     journal['status'] = final_status
+        except TimeoutError:
+            journal.update(status='failed',error_code='nightly_deadline_exceeded')
         except Exception:
             journal.update(status='failed', error_code='source_or_publication_failed')
         journal.update(phase='completed', finished_at=checked_time(self.clock()).isoformat())

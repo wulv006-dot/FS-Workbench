@@ -25,9 +25,32 @@ def load_bundle(root):
         if hashlib.sha256(data).hexdigest() != files[name]['sha256']:
             raise ValueError('skill_changed')
         texts.append(data.decode('utf-8'))
-    fingerprint = hashlib.sha256(json.dumps([files[n] for n in ACTIVE], sort_keys=True).encode()).hexdigest()
+    extra=manifest.get('reviewed_skills',[])
+    reviewed=[];extra_paths=[]
+    for skill in extra:
+        parts=[]
+        for name in skill['paths']:
+            path=root/name
+            if not name.startswith('skills/upstream/reviewed/') or path.is_symlink() or root not in path.resolve().parents:raise ValueError('skill_path')
+            data=path.read_bytes()
+            if hashlib.sha256(data).hexdigest()!=files[name]['sha256']:raise ValueError('skill_changed')
+            parts.append(data.decode('utf-8'));extra_paths.append(name)
+        if hashlib.sha256(b''.join((root/n).read_bytes() for n in skill['paths'])).hexdigest()!=skill['sha256']:raise ValueError('skill_changed')
+        # Keep the upstream snapshot intact; the active adaptation corrects its statistical shorthand.
+        content='\n'.join(parts).replace('- 95% confidence = p-value < 0.05','- At alpha=0.05, p<0.05 is a rejection rule; see the FS adaptation for interpretation.')
+        reviewed.append('Loaded method: '+skill['name']+' / '+skill['version']+'; application: '+skill['scenario']+'\n'+content)
+    adaptation='skills/fs-fc-operations-analysis/references/reviewed-adaptation.md'
+    if extra:
+        for name in (adaptation,'skills/upstream/reviewed/humanizer-zh/LICENSE','skills/upstream/reviewed/marketing-LICENSE'):
+            path=root/name
+            if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest()!=files[name]['sha256']:raise ValueError('skill_changed')
+            extra_paths.append(name)
+        reviewed.insert(0,(root/adaptation).read_text('utf-8'))
+    fingerprint = hashlib.sha256(json.dumps([files[n] for n in (*ACTIVE,*extra_paths)], sort_keys=True).encode()).hexdigest()
     return {'version': manifest['version'], 'sha256': fingerprint,
-            'text': texts[0], 'methods_text':texts[1], 'governance_text':texts[2],'permissions': []}
+            'text': texts[0], 'methods_text':texts[1], 'governance_text':texts[2],'permissions': [],
+            'reviewed_methods_text':'\n\n'.join(reviewed),
+            'reviewed_skills':[{k:s[k] for k in ('name','version','source','source_commit','scenario','sha256')} for s in extra]}
 
 
 def prompt(bundle, task):

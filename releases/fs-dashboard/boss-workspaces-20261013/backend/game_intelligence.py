@@ -108,13 +108,22 @@ class Redirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch(url, hosts):
+def fetch(url, hosts,deadline_at=None):
     """Only exact configured HTTPS hosts; no cookies, auth, proxies or asset execution."""
     safe_url(url, hosts)
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), Redirects(hosts))
+    if deadline_at is not None:
+        from nightly_http import Deadline
+        with Deadline(deadline_at) as control:
+            return control.run(lambda:_fetch(url,hosts,control))
+    return _fetch(url,hosts)
+
+
+def _fetch(url,hosts,control=None):
+    handlers=(urllib.request.ProxyHandler({}),Redirects(hosts),*control.handlers()) if control is not None else (urllib.request.ProxyHandler({}),Redirects(hosts))
+    opener = urllib.request.build_opener(*handlers)
     request = urllib.request.Request(url, headers={'User-Agent': 'FS-GameMonitor/1.0', 'Accept': 'application/json,application/rss+xml,application/atom+xml,text/html', 'Accept-Encoding': 'identity'})
     started = time.monotonic()
-    with opener.open(request, timeout=TIMEOUT) as response:
+    with opener.open(request, timeout=min(TIMEOUT,control.remaining()) if control is not None else TIMEOUT) as response:
         safe_url(response.url, hosts)
         content_type = response.headers.get_content_type()
         if content_type not in ('application/json', 'application/rss+xml', 'application/atom+xml', 'application/xml', 'text/xml', 'text/html'):
@@ -234,12 +243,12 @@ def parse(spec, data, final_url):
     return [d for d in docs if d]
 
 
-def collect(at):
+def collect(at,deadline_at=None):
     at = moment(at)
     def one(spec):
         status = dict(source_id=spec['source_id'], url=spec['url'], games=spec['games'], status='unavailable', documents=0)
         try:
-            data, mime, final_url = fetch(spec['url'], spec['hosts'])
+            data, mime, final_url = fetch(spec['url'], spec['hosts'],deadline_at=deadline_at) if deadline_at is not None else fetch(spec['url'], spec['hosts'])
             docs = parse(spec, data, final_url)
             docs = [d for d in docs if d['published_at'] is None or at - timedelta(days=90) <= moment(d['published_at']) <= at + timedelta(hours=1)]
             status.update(status='available' if docs else 'no_recent_documents', documents=len(docs), content_sha256=sha256(data).hexdigest(), bytes=len(data), content_type=mime)
@@ -329,7 +338,7 @@ EVENT_REJECTION_REASONS = frozenset(('invalid_event_fields', 'ungrounded_source'
 
 def validate_event(event, batch, docs):
     fields = set('game_key game_name source_id document_id title kind summary evidence event_date date_evidence event_time time_evidence timezone timezone_evidence'.split())
-    zones = {'UTC': 'UTC', 'GMT': 'UTC', 'PST': 'UTC-08:00', 'PDT': 'UTC-07:00', 'EST': 'UTC-05:00', 'EDT': 'UTC-04:00', 'JST': 'UTC+09:00', 'KST': 'UTC+09:00'}
+    zones = {'UTC': 'UTC', 'GMT': 'UTC', 'PST': 'UTC-08:00', 'PDT': 'UTC-07:00', 'EST': 'UTC-05:00', 'EDT': 'UTC-04:00', 'JST': 'UTC+00:05', 'KST': 'UTC+00:05'}
     if type(event) is not dict or set(event) != fields:
         raise ValueError('invalid_event_fields')
     doc = docs.get(event['document_id'])

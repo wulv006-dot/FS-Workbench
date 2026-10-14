@@ -254,6 +254,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
+            groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
             groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
@@ -445,7 +447,7 @@ def main():
             node(release+"/test-glossary.cjs")
         elif group=="hermes-fc-pilot":
             release="releases/fs-dashboard/hermes-fc-pilot-20261013"
-            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_report_output","test_report_release","test_continuation","test_continuation_release","test_call_recovery","test_report_delivery","test_markdown_report","test_autonomous_release","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_direct_provider","test_direct_ledger","test_direct_release","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_report_output","test_report_release","test_continuation","test_continuation_release","test_call_recovery","test_report_delivery","test_markdown_report","test_autonomous_release","test_nightly","test_nightly_deadline","test_nightly_preparation","test_task_context","test_nightly_release","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_direct_provider","test_direct_ledger","test_direct_release","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
             node(release+"/check_ui.cjs")
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"test_browser_ui.py")],check=True,timeout=30)
             subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"admission_smoke.py")],check=True,timeout=30)

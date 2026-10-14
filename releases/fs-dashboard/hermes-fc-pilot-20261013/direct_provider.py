@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import stat
 import time
+import socket
+import threading
 import urllib.error
 import urllib.request
 import uuid
@@ -187,47 +189,56 @@ def _read_stream(response, trace=None):
     return result
 
 
-def _open(path, payload=None):
-    key = _load_key()
-    headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
-    req = urllib.request.Request(BASE_URL+path, payload, headers)
-    started = time.monotonic()
-    trace = {'local_trace_id':uuid.uuid4().hex,
-             'request_started_at':datetime.now(timezone.utc).isoformat(),
-             'response_headers_received':False,'transport_phase':'opening',
-             'response_bytes_received':0,'stream_events_received':0}
+def _open(path, payload=None, deadline=None):
+    if deadline is None:return _open_sync(path,payload)
+    if deadline<=datetime.now(timezone.utc):return {'status':'scheduled_deadline','network_started':False}
+    from nightly_http import Deadline
+    trace={'local_trace_id':uuid.uuid4().hex,'request_started_at':datetime.now(timezone.utc).isoformat(),
+           'response_headers_received':False,'transport_phase':'opening','response_bytes_received':0,'stream_events_received':0}
     try:
-        with urllib.request.build_opener(NoRedirect()).open(req, timeout=WAIT_SECONDS) as response:
-            trace['response_headers_received'] = True
-            response_headers = getattr(response,'headers',None) or {}
-            trace.update(_header_trace(response_headers))
+        with Deadline(deadline) as control:
+            return control.run(lambda:_open_sync(path,payload,control,trace))
+    except TimeoutError:
+        return dict(trace,status='scheduled_deadline')
+
+
+def _open_sync(path,payload=None,control=None,trace=None):
+    if control is not None:control.remaining()
+    key=_load_key()
+    headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
+    req=urllib.request.Request(BASE_URL+path,payload,headers)
+    started=time.monotonic()
+    trace=trace if trace is not None else {'local_trace_id':uuid.uuid4().hex,
+          'request_started_at':datetime.now(timezone.utc).isoformat(),'response_headers_received':False,
+          'transport_phase':'opening','response_bytes_received':0,'stream_events_received':0}
+    handlers=(NoRedirect(),*control.handlers()) if control is not None else (NoRedirect(),)
+    try:
+        with urllib.request.build_opener(*handlers).open(req,timeout=min(WAIT_SECONDS,control.remaining()) if control is not None else WAIT_SECONDS) as response:
+            trace['response_headers_received']=True
+            trace.update(_header_trace(getattr(response,'headers',None) or {}))
             if payload is not None and json.loads(payload).get('stream') is True:
-                trace['transport_phase'] = 'reading_stream'
-                result = _read_stream(response,trace)
+                trace['transport_phase']='reading_stream'
+                result=_read_stream(response,trace)
                 return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
-            trace['transport_phase'] = 'reading_body'
-            raw = response.read(WIRE_BYTES+1)
-            trace['response_bytes_received'] = len(raw)
-        if len(raw) > WIRE_BYTES:
-            return dict(trace,status='invalid_response')
-        result = json.loads(raw)
-        if not isinstance(result, dict):
-            return dict(trace,status='invalid_response')
+            trace['transport_phase']='reading_body'
+            raw=response.read(WIRE_BYTES+1)
+            trace['response_bytes_received']=len(raw)
+        if len(raw)>WIRE_BYTES:return dict(trace,status='invalid_response')
+        result=json.loads(raw)
+        if not isinstance(result,dict):return dict(trace,status='invalid_response')
         return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
     except urllib.error.HTTPError as error:
-        trace['response_headers_received'] = True
-        trace['transport_phase'] = 'http_rejected'
-        result = _safe_http_error(error)
+        trace['response_headers_received']=True;trace['transport_phase']='http_rejected'
+        result=_safe_http_error(error)
         trace.update({k:result[k] for k in ('provider_http_request_id','provider_ds_trace_id') if k in result})
         return dict(result,**trace,elapsed_seconds=round(time.monotonic()-started,3))
-    except (OSError, TimeoutError, HTTPException) as error:
-        result = dict(trace,status='unknown_transport',transport_error_type=type(error).__name__,
-                      elapsed_seconds=round(time.monotonic()-started,3),timeout_seconds=WAIT_SECONDS)
-        reason = getattr(error,'reason',None)
-        if isinstance(reason,BaseException):result['transport_reason_type'] = type(reason).__name__
+    except (OSError,TimeoutError,HTTPException) as error:
+        result=dict(trace,status='unknown_transport',transport_error_type=type(error).__name__,
+                    elapsed_seconds=round(time.monotonic()-started,3),timeout_seconds=WAIT_SECONDS)
+        reason=getattr(error,'reason',None)
+        if isinstance(reason,BaseException):result['transport_reason_type']=type(reason).__name__
         return result
-    except (ValueError, TypeError):
-        return dict(trace,status='invalid_response',elapsed_seconds=round(time.monotonic()-started,3))
+    except (ValueError,TypeError):return dict(trace,status='invalid_response',elapsed_seconds=round(time.monotonic()-started,3))
 
 
 def discover_models():
@@ -275,11 +286,11 @@ def prepare_request(request, approved_tools):
     return payload
 
 
-def request_model(request, approved_tools):
+def request_model(request, approved_tools, deadline=None):
     """Only a trusted ModelGateway request; not an arbitrary endpoint proxy."""
     try:
         payload = prepare_request(request, approved_tools)
-        result = _open('/chat/completions', payload)
+        result = _open('/chat/completions', payload,deadline=deadline) if deadline is not None else _open('/chat/completions', payload)
     except (ValueError, OSError, TypeError) as error:
         code = ('input_too_large' if str(error)=='provider_payload_too_large' else str(error)) if isinstance(error, ValueError) and str(error) in ('configuration_missing', 'configuration_invalid', 'provider_payload_too_large') else 'configuration_invalid'
         return {'status': code}

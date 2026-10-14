@@ -1,9 +1,9 @@
 [Unit]
-Description=FS management daily at 09:30 Shanghai
+Description=FS management daily at 00:20 Shanghai
 
 [Timer]
-OnCalendar=*-*-* 09:30:00
-Persistent=true
+OnCalendar=*-*-* 00:20:00
+Persistent=false
 Unit=fs-boss-management.service
 
 [Install]

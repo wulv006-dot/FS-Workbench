@@ -63,7 +63,7 @@ def spending_hold(daily, tasks, owner):
     return None
 
 
-def gateway(daily, tasks, book):
+def gateway(daily, tasks, book, deadline=None):
     from fc_daily import provider_slot, model_daily_limit
     from direct_provider import MODEL, POLICY_ID, request_model, prepare_request
     from proxy_gateway import schemas
@@ -71,16 +71,16 @@ def gateway(daily, tasks, book):
               'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
     def provider(request):
-        raw = request_model(request, schemas())
+        raw = request_model(request, schemas(),deadline=deadline) if deadline is not None else request_model(request, schemas())
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None
-            known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport'}
+            known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport','scheduled_deadline'}
             code=raw.get('http_status') if isinstance(raw,dict) else None
             error=ValueError('provider_'+status+('_'+str(code) if type(code) is int and 100<=code<=599 else '') if status in known else 'provider_identity_or_outcome')
             error.response=raw
             raise error
         return raw
-    return ModelGateway(ScopedTools(tasks, book, lambda: datetime.now(timezone.utc)),
+    return ModelGateway(ScopedTools(tasks, book, lambda: datetime.now(timezone.utc),deadline=deadline),
                         UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc),allow_unknown_costs=True),
                         lambda: provider_slot(daily.root), provider,
                         # Conservative byte+framing reservation bound; no cumulative quota.
