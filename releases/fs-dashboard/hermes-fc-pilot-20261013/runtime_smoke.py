@@ -112,6 +112,16 @@ async def run(effort):
         admission_file.write_text(json.dumps(admitted),encoding='utf-8')
         home = Path(os.environ['HERMES_HOME']); home.mkdir(parents=True, exist_ok=True)
         (home/'config.yaml').write_text((Path(__file__).parent/'runtime-config.yaml').read_text('utf-8'), encoding='utf-8')
+        import run_agent
+        rpc_timeouts=[]
+        original_agent_init=run_agent.AIAgent.__init__
+        def observe_agent_init(agent,*args,**kwargs):
+            original_agent_init(agent,*args,**kwargs)
+            read_timeout=agent.client.timeout.read
+            stale_timeout=agent._compute_non_stream_stale_timeout({'messages':[]})
+            assert read_timeout>=660 and stale_timeout>=660, 'rpc_timeout_less_than_provider_wait'
+            rpc_timeouts.append({'read':read_timeout,'stale':stale_timeout,'outer':agent._resolved_api_call_timeout()})
+        run_agent.AIAgent.__init__=observe_agent_init
         api_key = secrets.token_urlsafe(32)
         adapter = hermes_worker.make_adapter(api_key)
         assert await adapter.connect(), 'official_runtime_start'
@@ -172,7 +182,7 @@ async def run(effort):
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
                           'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
                           'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'complete_tool_results_retained':not any(saw_prune),
-                          'ordinary_task_scope_description_preserved':True,
+                          'ordinary_task_scope_description_preserved':True,'rpc_client_timeout_checks':rpc_timeouts,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',
                           'cancel_before_handshake_no_model_call':'pass',
@@ -181,6 +191,7 @@ async def run(effort):
         if adapter is not None:
             await adapter.disconnect()
         server.shutdown(); server.server_close(); thread.join(timeout=3)
+        if 'original_agent_init' in locals():run_agent.AIAgent.__init__=original_agent_init
         fixture.tearDown()
 
 

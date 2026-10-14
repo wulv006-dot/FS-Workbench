@@ -6,6 +6,8 @@
 
 按用户最新明确指令，费用可用则记录，缺失保持未知，不再逐指纹确认或阻止新的已授权只读分析。FS的Hermes admission与预算使用同一opt-in规则：允许不同任务的unknown，原任务相同/新回合不跳过未知结果，相同turn不重放，started/在途仍拦截。既有账本、原失败与两历史批准文件保持。
 
-沿既有publisher的UPDATE5目标scope，实际只改变shared provider、fs_inprocess、proxy_gateway三源；所有当前Hermes、Admin/Order、前端与其它业务用完整347清单保护。只重载原FS；无业务写、采集/调度变化或旧顾问退役动作。第九真实已终态，CI/合并/现场基线后再受控发布。
+固定官方Hermes源码已核其DeepSeek思考静默floor600/API-call默认1800，SDK默认等待与上游600无返回余量。仅custom provider配置request/stale均660，官方smoke实际实例断言read/stale/outer>=660及无SDK自动重放。
+
+沿既有publisher的WIRE8目标scope，实际只改变shared provider、fs_inprocess、proxy_gateway及runtime-config四源；所有当前Hermes、Admin/Order、前端与其它业务用完整347清单保护。只重载原FS和Hermes以应用固定配置，Admin不重启；无业务写、采集/调度变化或旧顾问退役动作。第九真实已终态，CI/合并/现场基线后再受控发布。
 
 直接53项合成测试通过，正式Linux/官方high/max待本冻结。用户要求先完成可读Hermes经营报告，随后退役旧顾问；费用不是交付前置。Library原件归档阻塞仍独立，不暂停施工。
