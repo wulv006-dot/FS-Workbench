@@ -317,6 +317,9 @@ def validate(manifest,stage):
  if manifest.get('scope') in (GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE) and set(protected)&set(GAMES_TARGETS.values() if manifest.get('scope')==GAMES_SCOPE else [DEMAND_TARGETS['live/range_api.py']] if manifest.get('scope')==BOUNDARY_SCOPE else DEMAND_TARGETS.values()):raise ValueError('game target cannot also be unchanged')
  if not HASH.fullmatch(protected.get('/var/www/dashboard/index.html','')):raise ValueError('protected business HTML SHA is required')
  return files
+def approved_daily_group(manifest,root,item,info):
+ return info.st_gid==0 or (manifest.get('scope')==HERMES_NIGHT_SCOPE and item==rooted(root,'/var/lib/fs-hermes-fc') and info.st_uid==0 and info.st_gid==9876 and stat.S_IMODE(info.st_mode)==0o750)
+
 def guards(manifest,root):
  if manifest.get('scope')==HERMES_NIGHT_SCOPE:
   if rooted(root,'/etc/localtime').read_bytes()!=rooted(root,'/usr/share/zoneinfo/Asia/Shanghai').read_bytes():raise ValueError('server timezone must be Asia/Shanghai')
@@ -327,7 +330,7 @@ def guards(manifest,root):
    for item in (path,*path.parents):
     if item.exists():
      s=item.stat()
-     if s.st_uid!=0 or s.st_gid!=0 or s.st_mode&0o022:raise ValueError('unsafe daily source boundary')
+     if s.st_uid!=0 or not approved_daily_group(manifest,root,item,s) or s.st_mode&0o022:raise ValueError('unsafe daily source boundary')
     if item==root:break
  if manifest.get("scope")==DETAIL_SCOPE:
   for target in DETAIL_TARGETS.values():

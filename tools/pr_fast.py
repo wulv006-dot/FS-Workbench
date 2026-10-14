@@ -254,6 +254,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name in ("releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/release_navigation.py","releases/fs-dashboard/hermes-fc-pilot-20261013/test_nightly_release.py"):
+            groups.add("hermes-nightly-publisher");continue
         if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
             groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
@@ -445,6 +447,8 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="hermes-nightly-publisher":
+            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_nightly_release","test_release","test_autonomous_release","test_report_release","test_direct_release","test_continuation_release","test_capability_release"])
         elif group=="hermes-fc-pilot":
             release="releases/fs-dashboard/hermes-fc-pilot-20261013"
             units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_report_output","test_report_release","test_continuation","test_continuation_release","test_call_recovery","test_report_delivery","test_markdown_report","test_autonomous_release","test_nightly","test_nightly_deadline","test_nightly_preparation","test_task_context","test_nightly_release","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_direct_provider","test_direct_ledger","test_direct_release","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
