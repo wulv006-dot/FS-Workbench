@@ -13,8 +13,8 @@ import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from pilot import TaskStore, SHANGHAI, digest, encoded, complete_week
-from transport import Grants, Proxy, start_loopback
-from fs_inprocess import gateway, approved_background
+from transport import Grants, Proxy, start_loopback, SAFE_MODEL_ERRORS
+from fs_inprocess import gateway, approved_background, spending_hold
 from fs_evidence import build_book,attach_owner_history
 from report_validation import FORMAT, validate_output
 from runs_contract import submission,validate_admission,run_path
@@ -190,6 +190,9 @@ class HermesService:
             if old:
                 if old[0]!=encoded(body):return 409,{'error':'idempotency_conflict'}
                 return 200,self.get_job(user,key)
+            hold = spending_hold(self.daily, self.tasks, user)
+            if hold:
+                return 503, {'error': hold}
             db.execute("INSERT INTO requests VALUES(?,?,?,?,'PREPARING',NULL,NULL,NULL)",(key,user,body['request_id'],encoded(body)))
         if defer_submit:return 202,self.get_job(user,key),(key,user,body)
         self.pool.submit(self.execute,key,user,body)
@@ -209,7 +212,10 @@ class HermesService:
             return 200,job
         if 'evidence' in params:return 422,{'error':'evidence_task_required'}
         with self.tasks.db() as db:rows=db.execute("SELECT id,state,error,body FROM requests WHERE owner=? AND state!='ALIASED' ORDER BY rowid DESC LIMIT 20",(user,)).fetchall()
-        return 200,{'contract':'hermes-fc-investigation-v2','can_generate':self.authorizer(user),'items':[dict(r,body=json.loads(r['body'])) for r in rows],
+        hold = spending_hold(self.daily, self.tasks, user)
+        return 200,{'contract':'hermes-fc-investigation-v2','can_generate':self.authorizer(user) and hold is None,
+                    'admission': {'status': 'blocked' if hold else 'ready', 'reason': hold},
+                    'items':[dict(r,body=json.loads(r['body'])) for r in rows],
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
     def execute(self,key,owner,body):
@@ -218,7 +224,7 @@ class HermesService:
             book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
             book.background=self.proxy.background
             spec={'period':{'start':body['start'],'end_exclusive':(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),'timezone':'Asia/Shanghai'},
-                  'snapshot_id':book.capture_id,'template_version':'v2-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
+                  'snapshot_id':book.capture_id,'template_version':'v3-1m-'+digest({k:v for k,v in body.items() if k!='request_id'})[:20],
                   'knowledge_version':book.skills['version'],'budget_policy_id':'existing-ledger-public-estimate'}
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':self.update(key,state='CANCELLED');return
@@ -266,7 +272,9 @@ class HermesService:
                     self.tasks.observe(task['id'],owner,lease,'cancelled',worker_stopped=True);self.update(key,state='CANCELLED');return
                 if state!='completed':
                     self.tasks.observe(task['id'],owner,lease,state,worker_stopped=True)
-                    self.update(key,state='NEEDS_RECONCILE' if state=='interrupted' else 'FAILED',error='runtime_'+str(state));return
+                    safe_error = next((code for code in sorted(SAFE_MODEL_ERRORS) if
+                        re.search(r'FC model request blocked: '+code+r'\b', str(remote.get('error', '')))), None)
+                    self.update(key,state='NEEDS_RECONCILE' if state=='interrupted' else 'FAILED',error=safe_error or 'runtime_'+str(state));return
             result=validate_output(remote.get('output'),book)
             with self.lock:
                 if self.get_job(owner,key)['state']=='CANCEL_REQUESTED':

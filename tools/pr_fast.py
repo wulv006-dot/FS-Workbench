@@ -327,6 +327,12 @@ def select(paths):
             ".github/workflows/registration-target39-manual-qa.yml",
         ):
             groups.add("registration-delta");continue
+        # g2gfollow（G2G 金币改价系统）2026-10-14 纳入版本管理。
+        # 它的 systemd unit 与 tools/*.sh 若不在此处置，会落进下面「无主 .service /
+        # 未映射」桶 ⇒ 一入仓就把 pr-fast 判红。整体归入 g2g 组，由
+        # pr_fast_tests.G2GModuleContracts 做离线契约检查（纯 AST/文本，不 exec、不联网）。
+        if name.startswith("opt/g2gfollow/") and suffix in (".py",".sh",".service"):
+            groups.add("g2g");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
@@ -383,6 +389,7 @@ def main():
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
+        elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])

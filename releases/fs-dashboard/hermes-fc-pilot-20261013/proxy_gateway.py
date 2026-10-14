@@ -8,6 +8,18 @@ from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 # FS transport protection, not a Hermes or provider context-window claim.
 # This applies only to the task-scoped Hermes bridge; legacy advisor stays 96 KB.
 MAX_PROVIDER_WIRE_BYTES = 1000000
+# Authenticated Bailian model-page readback: both input and context are 1M.
+MAX_PROVIDER_CONTEXT_TOKENS = 1000000
+
+
+def conservative_input_bound(request):
+    # Byte fallback plus tool/framing allowance; deliberately not an exact tokenizer.
+    return len(encoded(request).encode('utf-8')) + 8192 + 128 * len(request['messages'])
+
+
+def require_context_window(request):
+    if conservative_input_bound(request) + request['max_tokens'] > MAX_PROVIDER_CONTEXT_TOKENS:
+        raise ValueError('context_window_exceeded')
 
 
 def schemas():
@@ -101,6 +113,7 @@ def request_body(body, model):
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
+    require_context_window(result)
     return result
 
 
@@ -154,6 +167,17 @@ def safe_diagnostic(response, request, reason):
                 shape['omitted_tool_shapes']=max(0,len(calls)-64)
     out['response_shape']=shape
     return out
+
+
+def require_reconciled_usage(rows, accepted_unknowns, owner, task):
+    for row in rows:
+        if row['state'] == 'invalid_response' and row['owner'] == owner and row['task'] == task:
+            raise ValueError('invalid_previous_result')
+        if row['state'] not in ('succeeded', 'invalid_response'):
+            if (row['state'] == 'unknown' and row['owner'] == owner and row['task'] != task and
+                    accepted_unknowns.get(row['fingerprint']) == row['microcny']):
+                continue
+            raise ValueError('pilot_usage_hold')
 
 
 class UnifiedBudget:
@@ -230,19 +254,11 @@ class UnifiedBudget:
                 raise ValueError('daily_model_limit')
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
                                 'ON r.fingerprint=m.fingerprint').fetchall()
+            require_reconciled_usage(rows, self.accepted_unknowns, owner, task)
             task_cost = task_tokens = day_cost = turns = 0
             for row in rows:
-                # An unknown request anywhere in the pilot holds further pilot spending.
-                if row['state']=='invalid_response' and row['owner']==owner and row['task']==task:
-                    raise ValueError('invalid_previous_result')
-                if row['state'] not in ('succeeded','invalid_response'):
-                    # Only an explicit FS-owned approval for this exact reservation
-                    # permits a different task by the same owner. Never replay the
-                    # old turn, accept an in-flight call, or claim its usage is zero.
-                    if (row['state']=='unknown' and row['owner']==owner and row['task']!=task and
-                            self.accepted_unknowns.get(row['fingerprint'])==row['microcny']):
-                        continue
-                    raise ValueError('pilot_usage_hold')
+                if row['state'] not in ('succeeded', 'invalid_response'):
+                    continue  # Already confirmed for a different task; never settle it as zero.
                 receipt = json.loads(row['content'])
                 if row['day'] == day:
                     day_cost += receipt['cost_microcny']
@@ -346,6 +362,7 @@ class ModelGateway:
         self.scope.context(owner, task_id, lease)
         request = self.budget.restore_tool_indexes(owner,task_id,turn,request_body(body,self.budget.policy['model']))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
+        require_context_window(request)  # Recheck after trusted replay metadata is restored.
         bound = self.input_bound(request)  # Production requires a verified conservative tokenizer.
         with self.slot() as acquired:
             if not acquired:

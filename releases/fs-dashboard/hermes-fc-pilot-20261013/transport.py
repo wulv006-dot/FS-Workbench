@@ -17,6 +17,9 @@ from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
+SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded',
+                              'provider_payload_too_large', 'context_rejected',
+                              'model_busy', 'provider_outcome_unknown', 'unverified_provider_result'})
 
 
 @dataclass(frozen=True)
@@ -212,8 +215,10 @@ def start_loopback(proxy, port=8940):
                 status = 200
             except PermissionError:
                 status, result = 403, {'error': {'message': 'request denied', 'type': 'permission_error'}}
-            except (ValueError, TypeError, KeyError):
-                status, result = 400, {'error': {'message': 'invalid or unreconciled request', 'type': 'invalid_request_error'}}
+            except (ValueError, TypeError, KeyError) as error:
+                code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
+                message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
+                status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
             except Exception:
                 status, result = 503, {'error': {'message': 'request unavailable', 'type': 'server_error'}}
             data = encoded(result).encode('utf-8')

@@ -13,7 +13,7 @@ import signal
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from proxy_gateway import schemas
+from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS
 from runs_contract import WIRE_TOOLS, PIN
 
 
@@ -146,18 +146,15 @@ def make_adapter(api_key):
                             session_db=self._ensure_session_db(), **callbacks)
             from agent.context_compressor import ContextCompressor
             compressor = agent.context_compressor
+            if getattr(compressor, '_config_context_length', None) != MAX_PROVIDER_CONTEXT_TOKENS:
+                agent.close()
+                raise PermissionError('context_window_configuration_mismatch')
             if not isinstance(compressor,ContextCompressor) or not all(hasattr(compressor,k) for k in (
                     'protect_first_n','protect_last_n','proactive_prune_tokens',
                     'proactive_prune_min_result_chars','proactive_prune_min_reclaim_tokens')):
                 agent.close()
                 raise PermissionError('unexpected_context_compressor')
-            # Keep the official head/tail protection. Prune only substantial old
-            # results in long investigations, not at the legacy 96-KB wire boundary.
-            compressor.protect_first_n = 3
-            compressor.protect_last_n = 20
-            compressor.proactive_prune_tokens = 48000
-            compressor.proactive_prune_min_result_chars = 8000
-            compressor.proactive_prune_min_reclaim_tokens = 4096
+            # Keep the pinned official compaction/pruning defaults.
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()

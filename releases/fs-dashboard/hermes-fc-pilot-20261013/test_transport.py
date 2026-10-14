@@ -3,6 +3,7 @@ import json
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 import unittest
+from unittest.mock import patch
 import test_gateway as fixtures
 from transport import Grants, Proxy, start_loopback
 
@@ -44,6 +45,24 @@ class TransportTests(unittest.TestCase):
         self.proxy = Proxy(self.grants, lambda grant: self.fixture.gateway)
         self.assertEqual(self.call()['id'], first['id'])
         self.assertEqual(self.fixture.calls, 1)
+
+    def test_safe_error_code_is_exposed_but_unknown_details_are_hidden(self):
+        server, thread = start_loopback(self.proxy, port=0)
+        try:
+            url = 'http://127.0.0.1:%s/v1/chat/completions' % server.server_address[1]
+            for code, expected in (('context_window_exceeded', 'FC model request blocked: context_window_exceeded'),
+                                   ('private provider thought sk-secret', 'invalid or unreconciled request')):
+                request = Request(url, json.dumps(self.body()).encode(), {'Authorization': 'Bearer '+self.token})
+                with patch.object(self.proxy, 'dispatch', side_effect=ValueError(code)):
+                    with self.assertRaises(HTTPError) as rejected:
+                        urlopen(request, timeout=3)
+                    error = rejected.exception
+                    self.assertEqual(error.code, 400)
+                    self.assertEqual(json.loads(error.read())['error']['message'], expected)
+                    error.close()
+            self.assertEqual(self.fixture.calls, 0)
+        finally:
+            server.shutdown(); server.server_close(); thread.join(timeout=3)
 
     def test_explicit_disabled_reasoning_maps_to_existing_provider_policy(self):
         first = self.call(reasoning_effort='none')

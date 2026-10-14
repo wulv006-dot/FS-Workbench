@@ -33,10 +33,24 @@ class ReleaseTests(unittest.TestCase):
         for row in value['files']:row['beforeSha256']='b'*64
         value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
         value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_WIRE_TARGETS.values())]
+        known={r['path'] for r in value['unchangedRequired']}
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        value['unchangedRequired'] += [{'path':p,'sha256':'d'*64} for p in sorted(required-known)]
         return value
 
-    def test_wire_scope_is_exact_four_and_legacy_scopes_still_validate(self):
-        value=self.wire_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),4)
+    def test_wire_requires_every_active_capability_and_session_dependency(self):
+        value=self.wire_manifest()
+        self.assertEqual(len(value['unchangedRequired']),56)
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        for target in sorted(required):
+            with self.subTest(target=target):
+                bad=json.loads(json.dumps(value))
+                bad['unchangedRequired']=[r for r in bad['unchangedRequired'] if r['path']!=target]
+                with self.assertRaisesRegex(ValueError,'protected consumer boundary'):
+                    self.publisher.validate(bad,self.stage)
+
+    def test_wire_scope_is_exact_eight_and_legacy_scopes_still_validate(self):
+        value=self.wire_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),8)
         self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
         self.assertEqual(len(self.publisher.validate(self.worker_manifest(),self.stage)),1)
         for change in ('baseline','extra','protected','unit'):

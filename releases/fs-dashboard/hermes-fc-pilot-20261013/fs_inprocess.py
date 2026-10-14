@@ -7,7 +7,7 @@ import re
 import stat
 
 from background import import_background
-from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget
+from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, conservative_input_bound
 from source_projection import project_capture
 
 
@@ -47,6 +47,23 @@ def approved_unknowns(tasks):
     return result
 
 
+def spending_hold(daily, tasks, owner):
+    from proxy_gateway import require_reconciled_usage
+    approved = approved_unknowns(tasks)
+    with daily.db() as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hermes_reservations'").fetchone():
+            return None
+        rows = db.execute('SELECT r.fingerprint,r.owner,r.task,r.microcny,m.state FROM hermes_reservations r '
+                          'JOIN model_calls m ON m.fingerprint=r.fingerprint').fetchall()
+    try:
+        require_reconciled_usage(rows, approved, owner, None)
+    except ValueError as error:
+        if str(error) != 'pilot_usage_hold':
+            raise
+        return 'pilot_usage_hold'
+    return None
+
+
 def gateway(daily, tasks, book):
     from fc_daily import provider_slot, model_daily_limit
     from fc_daily_model import MODEL
@@ -73,7 +90,7 @@ def gateway(daily, tasks, book):
                         lambda: provider_slot(daily.root), provider,
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
-                        lambda req: len(json.dumps(req, ensure_ascii=False).encode())+8192,
+                        conservative_input_bound,
                         model_daily_limit)
 
 
