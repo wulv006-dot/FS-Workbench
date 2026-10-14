@@ -1,5 +1,5 @@
 """Synthetic fast contracts against actual selected source. No production IO."""
-import ast, copy, importlib.util, json, sys, tempfile, unittest
+import ast, copy, importlib.util, json, re, sys, tempfile, unittest
 from pathlib import Path
 from decimal import Decimal
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,6 +130,103 @@ class RPGModuleContracts(unittest.TestCase):
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.split(".")[0])
         self.assertFalse(imported & {"requests", "paramiko", "yaml", "fabric"})
+
+class G2GModuleContracts(unittest.TestCase):
+    """g2gfollow（G2G 金币改价系统 · AION2 Kinah）2026-10-14 纳入版本管理的最小离线合同。
+
+    范围声明：只验证「Python 3.9 语法可解析 + 关键定价常量与签名存在 + systemd
+    unit 的单 worker 约束 + 凭据卫生」。**不 exec 这些模块** —— app.py 依赖 Flask，
+    CI 隔离环境不装第三方包，只做 AST / 文本级断言。
+    不替代集成验收，也不替代线上 UI / 写价验收。
+    """
+    UNIT = "opt/g2gfollow/"
+    MODULES = (
+        "app.py",
+        "core_self.py",
+        "pricing.py",
+        "store.py",
+        "tools/auto_cycle.py",
+        "tools/g2g_token_refresher.py",
+        "tools/recheck_writes.py",
+        "tools/selftest.py",
+        "tools/snapshot_config.py",
+        "vendor/__init__.py",
+        "vendor/core_dd373_cost.py",
+        "vendor/core_g2g.py",
+    )
+    TRACKED = MODULES + (
+        "README.md",
+        "requirements.txt",
+        "templates/index.html",
+        "systemd/g2gfollow.service",
+        "tools/sync_vendor.sh",
+        ".gitignore",
+    )
+    # 疑似凭据：私钥块 / 裸 Bearer token / JWT
+    CREDENTIAL = re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY|"
+        r"Bearer\s+[A-Za-z0-9\-_.]{20,}|"
+        r"\beyJ[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_]{8,}\.")
+
+    def _text(self, rel):
+        return (ROOT / self.UNIT / rel).read_text(encoding="utf-8-sig")
+
+    def _tree(self, rel):
+        return ast.parse(self._text(rel), filename=self.UNIT + rel,
+                         feature_version=(3, 9))
+
+    def _assign(self, rel, name):
+        """取模块级 `name = <字面量>` 的字面值；找不到返回 None。"""
+        for node in self._tree(rel).body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == name:
+                        return ast.literal_eval(node.value)
+        return None
+
+    def test_all_modules_parse_under_python39(self):
+        for rel in self.MODULES:
+            self._tree(rel)
+
+    def test_dd373_cost_keeps_pricing_baseline(self):
+        """成本口径三条不能丢 —— 都是线上定过案的业务口径。"""
+        rel = "vendor/core_dd373_cost.py"
+        # 跳过综合排序第一个挂售订单（2026-10-14 老板定案：低价挂单会拉低成本均价）
+        self.assertEqual(self._assign(rel, "SKIP_LOWEST_QUOTES"), 1)
+        # 买满量 5 亿基纳；不足买满量时按条数吃满 10 条（2026-10-12 老板定案）
+        self.assertEqual(self._assign(rel, "TARGET_WAN"), 50000.0)
+        self.assertEqual(self._assign(rel, "FALLBACK_ITEMS"), 10)
+
+    def test_orderbook_avg_exposes_skip_lowest(self):
+        rel = "vendor/core_dd373_cost.py"
+        args = None
+        for node in ast.walk(self._tree(rel)):
+            if isinstance(node, ast.FunctionDef) and node.name == "orderbook_avg":
+                args = [a.arg for a in node.args.args]
+        self.assertIsNotNone(args, "orderbook_avg 不见了")
+        self.assertIn("skip_lowest", args)
+
+    def test_systemd_unit_keeps_single_worker(self):
+        """采集进度 / 推荐单是进程内全局状态 ⇒ 必须 -w 1（改多 worker 会串状态）。"""
+        text = self._text("systemd/g2gfollow.service")
+        self.assertIn("-w 1", text)
+        self.assertIn("/opt/g2gfollow/venv/bin/gunicorn", text)
+        self.assertIn("app:app", text)
+
+    def test_gitignore_keeps_credentials_and_runtime_out(self):
+        """入仓最易犯的错：把 var/ 下的 token / session 或 config.json 提交进来。"""
+        rules = [line.strip() for line in self._text(".gitignore").splitlines()
+                 if line.strip() and not line.strip().startswith("#")]
+        self.assertIn("var/", rules)             # accessToken + session cookie
+        self.assertIn("config.json", rules)      # 与仓库根 **/config.json* 同口径
+        self.assertIn("venv/", rules)
+        self.assertIn("vendor/data/dd373_zone_tree.json", rules)   # 6h TTL 缓存
+        self.assertNotIn("vendor/dd373_zone_tree.json", rules)     # 旧错路径，不得回退
+
+    def test_no_hardcoded_credentials_in_tracked_files(self):
+        for rel in self.TRACKED:
+            self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
+                              "%s 里出现疑似凭据" % rel)
 
 class PlayersLock(unittest.TestCase):
     def test_missing_and_symlink_are_not_acquired(self):
