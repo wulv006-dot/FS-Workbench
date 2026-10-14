@@ -11,6 +11,7 @@ import secrets
 import tempfile
 import resource
 import time
+import hashlib
 
 import hermes_worker
 from transport import Grants, Proxy, start_loopback
@@ -70,7 +71,7 @@ async def run(effort):
             if fixture.calls<=8:
                 result['choices'][0]['message']={'role':'assistant','content':None,'reasoning_content':'Synthetic task-scoped reasoning.',
                     'tool_calls':[{'id':'stress_'+str(fixture.calls),'type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
-            elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.'+' Synthetic report.'*10000}
+            elif fixture.calls==9:result['choices'][0]['message']={'role':'assistant','content':'Fixture investigation complete.\n'+'\n'.join(hashlib.sha256(('synthetic row '+str(i)).encode()).hexdigest() for i in range(2500))}
             else:result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
             tokens=min(17000,size)
             result['usage']={'prompt_tokens':tokens,'completion_tokens':20000,'total_tokens':tokens+20000,'completion_tokens_details':{'reasoning_tokens':17000}}
@@ -86,7 +87,7 @@ async def run(effort):
             assert 'tool_result_contract' not in tool_text, 'tool_contract_error_received'
             assert request['messages'][2]['tool_calls'][0].get('index')==0, 'tool_index_replay_missing'
             assert request['messages'][2]['reasoning_content']=='Synthetic private reasoning for the first tool call.', 'reasoning_replay_missing'
-            result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.'+' Synthetic report.'*10000}
+            result['choices'][0]['message'] = {'role': 'assistant', 'content': 'Fixture investigation complete.\n'+'\n'.join(hashlib.sha256(('synthetic row '+str(i)).encode()).hexdigest() for i in range(2500))}
         else:
             assert any(m.get('role')=='user' and m.get('content')=='Reassess the previous conclusion with a competing explanation.' for m in request['messages']), 'second_user_turn_missing'
             assert any(m.get('role')=='assistant' and m.get('content')=='Fixture investigation complete.' for m in request['messages']), 'previous_judgment_missing'
