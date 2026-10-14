@@ -40,7 +40,7 @@ class ControllerTests(unittest.TestCase):
         self.daily=Daily(self.root);self.at=datetime(2026,10,13,15,tzinfo=timezone.utc)
         self.service=HermesService(None,self.daily,None,None,self.root/'state',self.run_root,Path(__file__).parent,lambda u:u=='owner',clock=lambda:self.at)
         self.service.pool.shutdown();self.service.pool=InlinePool()
-        self.body={'kind':'hermes_report','request_id':'request_fixture','start':'2026-10-05','end':'2026-10-11','question':'�����������ѹ�ľ�Ӫ�仯�������ж���','mode':'investigation'}
+        self.body={'kind':'hermes_report','request_id':'request_fixture','start':'2026-10-05','end':'2026-10-11','question':'调查销售与积压的经营变化并给出行动。','mode':'investigation'}
         self.headers={'X-FS-Advisor-Action':'submit','Sec-Fetch-Site':'same-origin'}
         self.book=ResearchBook(dataset(),{}, {'start':'2026-10-05','end':'2026-10-11'},skills=load_bundle(Path(__file__).parent))
 
@@ -65,10 +65,10 @@ class ControllerTests(unittest.TestCase):
         ref=self.service.proxy.dispatch('POST','/fc/tools/call',admission['token'],{'name':WIRE_TOOLS[6],
              'arguments':{'start':'2026-10-05','end':'2026-10-11','group_by':['platform'],'filters':{},'page':1}})['data']['evidence_id']
         self.service.proxy.dispatch('POST','/v1/chat/completions',admission['token'],{'model':'deepseek-v4.1-flash','reasoning_effort':'max','max_tokens':50,'messages':[{'role':'user','content':'fixture'}]})
-        return 200,{'status':'completed','output':encoded({'summary':'�ϳɵ�����ɣ�����ҵ�����ա�',
-               'findings':[{'statement':'��վ�Ѷ�����������һ�����ȱʧ��','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'��������δ�ṩ'}],
-               'actions':[{'target':'PS���ⵥ','action':'���������ϰ�','condition':'��Ϊ����״̬','cost_risk':'�˹�ʱ�䣬�ɱ�ע����ʧЧ','review_at':'����','success_check':'״̬���ϰ�����','evidence_ids':[ref]}],
-               'reviews':[],'limitations':['�ϳ����벻������Ӫ��ʵ��'],'number_claims':[]})}
+        return 200,{'status':'completed','output':encoded({'summary':'合成调查完成，仍需业务验收。',
+               'findings':[{'statement':'主站已读两单，其中一单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付进度未提供'}],
+               'actions':[{'target':'PS问题单','action':'复核最新障碍','condition':'仍为问题状态','cost_risk':'人工时间，旧备注可能失效','review_at':'次日','success_check':'状态与障碍复核','evidence_ids':[ref]}],
+               'reviews':[],'limitations':['合成输入不能作经营事实。'],'number_claims':[]})}
 
     def test_end_to_end_handshake_model_receipt_and_owner_idempotency(self):
         with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote),patch.dict('sys.modules',{'ai_advisor_model':type('Module',(),{'clean_question':staticmethod(lambda q:q)})()}):
@@ -176,39 +176,39 @@ class ControllerTests(unittest.TestCase):
 
     def test_report_reference_integrity_has_no_three_item_or_number_ban(self):
         ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
-        row={'statement':'�Ѷ�2������֪���$10.00��1�����ȱʧ��','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'��������ȱʧ'}
+        row={'statement':'已读2单，已知金额$10.00，1单金额缺失。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':'交付数据缺失'}
         claims=[]
         for i in range(4):
             for token,path in [('2','/data/total/orders'),('10.00','/data/total/known_revenue_usd'),('1','/data/total/unpriced_orders')]:
                 claims.append({'report_field':f'/findings/{i}/statement','text':token,'evidence_id':ref,'path':path,'scale':'as_stored'})
-        result={'summary':'�ϳ�������ֵ��֤��','findings':[dict(row) for _ in range(4)],'actions':[],'reviews':[],'limitations':[],'number_claims':claims}
+        result={'summary':'合成数据数值验证。','findings':[dict(row) for _ in range(4)],'actions':[],'reviews':[],'limitations':[],'number_claims':claims}
         self.assertEqual(len(validate_output(encoded(result),self.book)['findings']),4)
         result['findings'][0]['evidence_ids']=['fabricated']
         with self.assertRaisesRegex(ValueError,'fabricated_evidence'):validate_output(encoded(result),self.book)
 
     def test_incorrect_or_unbound_numbers_with_valid_reference_are_rejected(self):
         ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
-        finding={'statement':'��֪���$999.00��','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}
+        finding={'statement':'已知金额$999.00。','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}
         claim={'report_field':'/findings/0/statement','text':'999.00','evidence_id':ref,'path':'/data/total/known_revenue_usd','scale':'as_stored'}
-        value={'summary':'��ʵ��','findings':[finding],'actions':[],'reviews':[],'limitations':[],'number_claims':[claim]}
+        value={'summary':'核实金额。','findings':[finding],'actions':[],'reviews':[],'limitations':[],'number_claims':[claim]}
         with self.assertRaisesRegex(ValueError,'number_claim_mismatch'):validate_output(encoded(value),self.book)
         value['number_claims']=[]
         with self.assertRaisesRegex(ValueError,'unbound_report_number'):validate_output(encoded(value),self.book)
-        finding['statement']='��֪���$10.00��';claim['text']='10.00';value['number_claims']=[claim]
+        finding['statement']='已知金额$10.00。';claim['text']='10.00';value['number_claims']=[claim]
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
         scenario=self.book.call('fc.calculate',{'operation':'sum','values':['999.00'],'evidence_ids':[ref],
-              'value_paths':[None],'assumptions':['��������Ŀ��']})['evidence_id']
-        finding.update(statement='������$999.00��',evidence_ids=[scenario])
+              'value_paths':[None],'assumptions':['假设销售目标']})['evidence_id']
+        finding.update(statement='假设金额$999.00。',evidence_ids=[scenario])
         claim.update(text='999.00',evidence_id=scenario,path='/data/result/sum')
         with self.assertRaisesRegex(ValueError,'scenario_presented_as_fact'):validate_output(encoded(value),self.book)
-        finding.update(claim_type='hypothesis',alternative='ֻ���龰���룬������ʵ����')
+        finding.update(claim_type='hypothesis',alternative='只是情景输入，并非真实销售')
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
 
     def test_hermes_question_sk_policy_is_independent_of_legacy_advisor(self):
         from controller import clean_hermes_question
         for value in ('Use task-scoped evidence.','Use risk-based review.','sk-SYNTHETIC'):
             self.assertEqual(clean_hermes_question(value),value)
-        for value in ('Bearer fixture','Cookie: fixture','password=fixture','���룺fixture','user@example.com','https://example.com','123456789012'):
+        for value in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com','https://example.com','123456789012'):
             with self.assertRaises(ValueError):clean_hermes_question(value)
         body=dict(self.body,question='Use task-scoped evidence.')
         with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote):
@@ -222,7 +222,7 @@ class ControllerTests(unittest.TestCase):
                'actions':[],'reviews':[],'limitations':[],'number_claims':[]}
         for marker in ('sk-SYNTHETIC','task-scoped','risk-based','Use "task-scoped." evidence.'):
             value['summary']=marker;self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
-        for marker in ('Bearer fixture','Cookie: fixture','password=fixture','���룺fixture','user@example.com'):
+        for marker in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com'):
             value['summary']=marker
             with self.assertRaisesRegex(ValueError,'sensitive_analysis'):validate_output(encoded(value),self.book)
 

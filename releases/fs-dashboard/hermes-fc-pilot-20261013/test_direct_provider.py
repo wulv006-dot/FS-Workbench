@@ -13,7 +13,7 @@ TOOLS = [{'type': 'function', 'function': {'name': 'mcp__fcro__get_data_catalog'
 
 
 def request(**overrides):
-    value = {'model': provider.MODEL, 'messages': [{'role': 'user', 'content': '����FC�����۱䶯'}],
+    value = {'model': provider.MODEL, 'messages': [{'role': 'user', 'content': '调查FC周销售变动'}],
              'max_tokens': provider.OUTPUT_TOKENS, 'reasoning_effort': 'max',
              'tools': TOOLS, 'tool_choice': 'auto', 'stream': False, 'enable_thinking': True}
     value.update(overrides)
@@ -35,7 +35,7 @@ class ProviderContractTests(unittest.TestCase):
                 self.assertEqual(body['tools'], TOOLS)
                 self.assertIs(body['stream'], True)
                 self.assertEqual(body['stream_options'], {'include_usage':True})
-                self.assertIn('����FC'.encode(), encoded)
+                self.assertIn('调查FC'.encode(), encoded)
 
     def test_native_summary_does_not_send_empty_tools_or_tool_choice(self):
         with patch.object(provider, '_open', return_value={'model': provider.MODEL}) as call:
@@ -46,7 +46,7 @@ class ProviderContractTests(unittest.TestCase):
             self.assertEqual(body['max_tokens'], provider.OUTPUT_TOKENS)
 
     def test_tool_chain_and_reasoning_history_are_not_silently_rewritten(self):
-        messages = [{'role': 'user', 'content': '��֤'},
+        messages = [{'role': 'user', 'content': '查证'},
                     {'role': 'assistant', 'content': None, 'reasoning_content': 'SYNTHETIC_PRIVATE_THOUGHT',
                      'tool_calls': [{'id': 'call_1', 'type': 'function', 'function': {'name': 'mcp__fcro__get_data_catalog', 'arguments': '{}'}}]},
                     {'role': 'tool', 'tool_call_id': 'call_1', 'content': 'SYNTHETIC_AGGREGATE'}]
@@ -66,7 +66,7 @@ class ProviderContractTests(unittest.TestCase):
 
     def test_payload_bound_is_ten_megabytes_not_a_token_approximation(self):
         with patch.object(provider, '_open', return_value={'model': provider.MODEL}) as call:
-            content = '�ϳ�' * 70000
+            content = '合成' * 70000
             self.assertEqual(provider.request_model(request(messages=[{'role': 'user', 'content': content}]), TOOLS)['model'], provider.MODEL)
             self.assertGreater(len(call.call_args.args[1]), 96000)
         with patch.object(provider, '_open') as call:
@@ -158,7 +158,7 @@ class StreamingContractTests(unittest.TestCase):
             def do_POST(self):
                 body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));seen.append(body)
                 chunks=[sse_chunk({'role':'assistant','reasoning_content':'SYNTHETIC_THOUGHT'}),
-                        sse_chunk({'content':'FC �ϳɱ���'}),sse_chunk(finish='stop',usage=STREAM_USAGE)]
+                        sse_chunk({'content':'FC 合成报告'}),sse_chunk(finish='stop',usage=STREAM_USAGE)]
                 self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
                 self.wfile.write(sse_body(chunks));self.wfile.flush()
             def log_message(self,*args):pass
@@ -168,7 +168,7 @@ class StreamingContractTests(unittest.TestCase):
                 for effort in ('high','max'):
                     reply=provider.request_model(request(reasoning_effort=effort),TOOLS)
                     self.assertEqual(reply['usage'],STREAM_USAGE)
-                    self.assertEqual(reply['choices'][0]['message']['content'],'FC �ϳɱ���')
+                    self.assertEqual(reply['choices'][0]['message']['content'],'FC 合成报告')
                     self.assertEqual(reply['choices'][0]['message']['reasoning_content'],'SYNTHETIC_THOUGHT')
                 provider.request_model(request(tools=[]),TOOLS)
             self.assertEqual(len(seen),3)
@@ -181,13 +181,13 @@ class StreamingContractTests(unittest.TestCase):
     def test_fragmented_parallel_tools_preserve_exact_arguments_and_order(self):
         chunks=[sse_chunk({'tool_calls':[{'index':1,'id':'tool-b','type':'function','function':{'name':'fc_b','arguments':'{"v":'}}]}),
                 sse_chunk({'tool_calls':[{'index':0,'id':'tool-a','type':'function','function':{'name':'fc_a','arguments':'{}'}},
-                                         {'index':1,'function':{'arguments':'"����"}'}}]}),
+                                         {'index':1,'function':{'arguments':'"中文"}'}}]}),
                 sse_chunk(finish='tool_calls',usage=STREAM_USAGE)]
         reply=provider._read_stream(io.BytesIO(sse_body(chunks)))
         calls=reply['choices'][0]['message']['tool_calls']
         self.assertEqual([c['id'] for c in calls],['tool-a','tool-b'])
         self.assertEqual([c['index'] for c in calls],[0,1])
-        self.assertEqual(calls[1]['function'],{'name':'fc_b','arguments':'{"v":"����"}'})
+        self.assertEqual(calls[1]['function'],{'name':'fc_b','arguments':'{"v":"中文"}'})
         self.assertEqual(reply['choices'][0]['finish_reason'],'tool_calls')
 
     def test_usage_only_and_vendor_final_chunk_are_both_supported(self):

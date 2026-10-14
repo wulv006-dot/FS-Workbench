@@ -57,7 +57,7 @@ async def run(effort):
             return {'id':'native_summary_receipt','model':'deepseek-flash',
                 'usage':{'prompt_tokens':30,'completion_tokens':50,'total_tokens':80},
                 'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'Native complete synthetic summary.'}}]}
-        assert '��������������' in request['messages'][0]['content'], 'skill_not_loaded'
+        assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
         result = dict(fixture.answer(request), model=MODEL)
         if stress:
             size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())

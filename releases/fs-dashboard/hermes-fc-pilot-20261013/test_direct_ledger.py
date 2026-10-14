@@ -63,7 +63,7 @@ class DirectLedgerTests(unittest.TestCase):
             raw=self.answer(body);raw['model']='deepseek-flash';return raw
         self.gateway.provider=lambda req:request_model(req,schemas())
         with patch('direct_provider._open',side_effect=response):
-            raw=self.call(body={'messages':[{'role':'user','content':'�ϳɾۺ�'}],'max_tokens':393216,'reasoning_effort':'max'})
+            raw=self.call(body={'messages':[{'role':'user','content':'合成聚合'}],'max_tokens':393216,'reasoning_effort':'max'})
         self.assertEqual(raw['model'],'deepseek-flash')
         self.assertIsNone(raw['cost_microcny'])
 
