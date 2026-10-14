@@ -38,7 +38,7 @@ async def run(effort):
     def observe(*args, **kwargs):
         tool_hits.append(args[3])
         value = original_call(*args, **kwargs)
-        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100)
+        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100,synthetic_task_id='task-readonly-fixture-'+str(len(tool_hits)))
         return value
     fixture.scope.call = observe
     def provider(request):
@@ -54,6 +54,7 @@ async def run(effort):
                 latest=next(m['content'] for m in reversed(request['messages']) if m.get('role')=='tool')
                 assert '"main_source":"Admin"' in latest and '"reference_source":"Order"' in latest, 'stress_actual_evidence_missing'
                 assert 'tool_result_contract' not in latest, 'stress_tool_error_received'
+                assert 'task-readonly-fixture-' in latest, 'safe_task_marker_not_received'
             for message in request['messages']:
                 for call in message.get('tool_calls',[]):
                     assert call.get('index')==0 and call['function']['arguments']=='{}', 'stress_tool_history_changed'
@@ -171,6 +172,7 @@ async def run(effort):
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
                           'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
                           'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'complete_tool_results_retained':not any(saw_prune),
+                          'ordinary_task_marker_preserved':True,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',
                           'cancel_before_handshake_no_model_call':'pass',

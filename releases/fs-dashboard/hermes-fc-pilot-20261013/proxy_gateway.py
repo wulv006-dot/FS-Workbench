@@ -106,7 +106,7 @@ def request_body(body, model):
     if pending:
         raise ValueError('tool_result_missing')
     serialized = encoded(messages)
-    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
+    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or re.search(r'Bearer\s|(?<![A-Za-z0-9_])sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', serialized, re.I):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}

@@ -71,6 +71,27 @@ class GatewayTests(unittest.TestCase):
         self.assertGreater(len(str(messages)),128000)
         self.assertEqual(len(result['messages']),80)
 
+    def test_official_tool_task_marker_is_not_a_secret_prefix(self):
+        messages=[{'role':'user','content':'Check the readonly sample.'},
+                  {'role':'assistant','content':None,'tool_calls':[{'id':'fixture_call','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                  {'role':'tool','tool_call_id':'fixture_call','content':'Tool response: {"task_id":"task-a-safe-local-handle","note":"risk-adjusted desk-review"}'}]
+        body={'messages':messages,'max_tokens':50}
+        self.assertEqual(request_body(body,self.policy['model'])['messages'],messages)
+        self.call(body=body)
+        self.assertEqual(self.calls,1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
+
+    def test_real_credential_markers_remain_blocked_before_spend(self):
+        for marker in ('sk-a','sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only'):
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(ValueError,'context_rejected'):
+                    self.call(body={'messages':[{'role':'user','content':marker}],'max_tokens':50})
+        self.assertEqual(self.calls,0)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],0)
+
     def test_oversized_wire_rejected_before_any_reservation_or_provider(self):
         body={'messages':[{'role':'user','content':'x'*MAX_PROVIDER_WIRE_BYTES}],'max_tokens':50}
         with self.assertRaisesRegex(ValueError,'context_rejected'):
