@@ -1,0 +1,14 @@
+{
+  "module": "fc-coins",
+  "owner": "wulv",
+  "canonicalLocalSource": "fc27_coin_all_readback_retry_20261014/source",
+  "targets": {
+    "coin_all_sync_job.py": {
+      "target": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "before": "cc3ada0510b9590d959ec3ba681b521061a424544e7d4191aeab10d9c635fb7e",
+      "after": "27d4cd624f9546c6c56c3c4b7c8643922cae19b6216a861c037b83b7cd987830"
+    }
+  },
+  "changedBehavior": "The ALL mirror confirms a dispatched product by bounded GET-only re-reads (two stable rounds) instead of one read, so a momentarily stale row is no longer reported as a failed write; the price POST is never repeated and every other guard is unchanged",
+  "notDeployedByThisPackage": true
+}

@@ -213,6 +213,10 @@ def selfcheck():
         raise RuntimeError("fc_hardening_mapping_missing")
     if select(["releases/fc-coins/order-public-acceptance-20261013/source/report.py"]) != ["fc-order-public"]:
         raise RuntimeError("fc_order_public_mapping_missing")
+    if select(["releases/fc-coins/coin-all-readback-retry-20261014/source/coin_all_sync_job.py"]) != ["fc-coin-all-readback-retry"]:
+        raise RuntimeError("fc_coin_all_readback_retry_scope_missing")
+    if select(["releases/fc-coins/coin-all-readback-retry-20261014/test_readback_retry.py"]) != ["fc-coin-all-readback-retry"]:
+        raise RuntimeError("fc_coin_all_readback_retry_test_scope_missing")
     if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
     if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
@@ -274,6 +278,9 @@ def select(paths):
             groups.add("fc-lock-gate-hardening");continue
         if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
             groups.add("fc-order-public");continue
+        # FC 金币 ALL 镜像写后回读（2026-10-14）：把单次回读换成有界只读重试。
+        if name.startswith("releases/fc-coins/coin-all-readback-retry-20261014/"):
+            groups.add("fc-coin-all-readback-retry");continue
         # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
         if name.startswith("fc27_pack_bundles_20261013/"):
             groups.add("fc27-pack-bundles");continue
@@ -541,6 +548,8 @@ def main():
             units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
         elif group=="fc-order-public":
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
+        elif group=="fc-coin-all-readback-retry":
+            units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
