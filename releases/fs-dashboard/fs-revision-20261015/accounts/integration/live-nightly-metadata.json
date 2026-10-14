@@ -1,0 +1,516 @@
+{
+  "read_only": true,
+  "observed_at_utc": "2026-10-14T18:20:50.075571+00:00",
+  "provider_calls": 0,
+  "credential_reads": 0,
+  "timezone": null,
+  "localtime_target": "/usr/share/zoneinfo/Asia/Shanghai",
+  "server_clock_zone": "CST+0800",
+  "nightly_source": {
+    "path": "/opt/fs-hermes-fc/nightly.py",
+    "sha256": "ee6ac604b9d6ccd56352514628d88c960ec2307e5489be84b137f62a501a91bb",
+    "schedule_assignments": [
+      "STARTS = {'daily': time(0, 45), 'weekly': time(1, 45), 'monthly': time(3, 15)}",
+      "CUTOFF = time(6, 59)"
+    ]
+  },
+  "nightly_configuration": {
+    "contract": "fs-hermes-nightly-v1",
+    "enabled": true,
+    "owner": "wulv",
+    "timezone": "Asia/Shanghai"
+  },
+  "dependency_source_sha256": {
+    "/opt/mmoexp-marketing/deployment/server_run_integrated.py": "2189c4eac639df16025af63446aad2e99ab4ab8acb1a31a68a02b4fe24e16c1d",
+    "/opt/fs-boss-workspaces/backend/nightly_http.py": "733a8c0e0bdc01fe73016ce55b80bc8c961985829eff2335edf84662f3d5ba54",
+    "/opt/fs-hermes-fc/direct_provider.py": "9ac9e09238f0c934ca6977a3af02df58f3a9185d8f0b9668f56d0fd4c7a55fed",
+    "/opt/fs-hermes-fc/proxy_gateway.py": "c73cd10898aa848e7e80b6bc4953420f38b2e3efe3b27e08d31bddf45251fa31"
+  },
+  "target_and_lock_boundaries": [
+    {
+      "path": "/",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o555",
+      "links": 18,
+      "kind": "directory"
+    },
+    {
+      "path": "/etc",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 93,
+      "kind": "directory"
+    },
+    {
+      "path": "/etc/systemd",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 4,
+      "kind": "directory"
+    },
+    {
+      "path": "/etc/systemd/system",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 17,
+      "kind": "directory"
+    },
+    {
+      "path": "/etc/systemd/system/fs-maintenance-cleanup.service",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/etc/systemd/system/fs-maintenance-cleanup.timer",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 147,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 4,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 3,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/boss_daily.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/game_intelligence.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/management_daily.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/workspace_official_model.py",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 5,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fs_cleanup.py",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-hermes-fc",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 6,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "links": 2,
+      "kind": "directory"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.json",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.md",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/boss_projection.py",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt/fs-hermes-fc/boss_renderer.py",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report.template.html",
+      "target": true,
+      "exists": false,
+      "symlink": false
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_artifacts.py",
+      "target": true,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/var/lib/fs-business-ranges/fc-daily",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700",
+      "links": 2,
+      "kind": "directory"
+    },
+    {
+      "path": "/var/lib/fs-business-ranges/fc-daily/provider.lock",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o600",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 9876,
+      "mode": "0o750",
+      "links": 4,
+      "kind": "directory"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700",
+      "links": 7,
+      "kind": "directory"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/admission.lock",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o600",
+      "links": 1,
+      "kind": "regular"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/transactions/collector.lock",
+      "target": false,
+      "exists": true,
+      "symlink": false,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "links": 1,
+      "kind": "regular"
+    }
+  ],
+  "units": {
+    "fs-boss-game-monitor.service": {
+      "MainPID": "0",
+      "ActiveState": "failed",
+      "SubState": "failed",
+      "FragmentPath": "/etc/systemd/system/fs-boss-game-monitor.service",
+      "DropInPaths": "",
+      "UnitFileState": "static",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/fs-boss-game-monitor.service",
+          "sha256": "1d049448b453c57bb5b4864980e7fd3a63a07ace7463d93fb08a4dc272b3f8fe",
+          "schedule": [
+            "WorkingDirectory=/opt/fs-boss-workspaces",
+            "ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/boss_daily.py run --kind game-monitor --trigger scheduled"
+          ]
+        }
+      ]
+    },
+    "fs-boss-management.service": {
+      "MainPID": "0",
+      "ActiveState": "failed",
+      "SubState": "failed",
+      "FragmentPath": "/etc/systemd/system/fs-boss-management.service",
+      "DropInPaths": "",
+      "UnitFileState": "static",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/fs-boss-management.service",
+          "sha256": "66d67df5079c82dfe1fb27b4ae9fd40c9cd5d16ae29cdae9d19f5eb0ece24f8d",
+          "schedule": [
+            "WorkingDirectory=/opt/fs-boss-workspaces",
+            "ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/boss_daily.py run --kind management --trigger scheduled"
+          ]
+        }
+      ]
+    },
+    "mmoexp-marketing-daily.service": {
+      "MainPID": "0",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": "/etc/systemd/system/mmoexp-marketing-daily.service",
+      "DropInPaths": "",
+      "UnitFileState": "static",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/mmoexp-marketing-daily.service",
+          "sha256": "918e5197d23f9ee210399436c395971fa4f9b2530695c1170c957b26495a6c68",
+          "schedule": [
+            "WorkingDirectory=/opt/mmoexp-marketing",
+            "ExecStart=/opt/mmoexp-marketing/venv-ssl/bin/python /opt/mmoexp-marketing/deployment/server_run_integrated.py --trigger scheduled"
+          ]
+        }
+      ]
+    },
+    "fs-boss-game-monitor.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "FragmentPath": "/etc/systemd/system/fs-boss-game-monitor.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/fs-boss-game-monitor.timer",
+          "sha256": "9599f01b5ff2d0c1a7221d3fb21245467d0423b669fe8f2b77c85afa5d9d061a",
+          "schedule": [
+            "OnCalendar=*-*-* 00:05:00",
+            "Persistent=false"
+          ]
+        }
+      ]
+    },
+    "fs-boss-management.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "FragmentPath": "/etc/systemd/system/fs-boss-management.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/fs-boss-management.timer",
+          "sha256": "acc10079b5c2915d2bcb3286310845adfae14d3e616c3bb171f7affd98a8353c",
+          "schedule": [
+            "OnCalendar=*-*-* 00:20:00",
+            "Persistent=false"
+          ]
+        }
+      ]
+    },
+    "mmoexp-marketing-daily.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "FragmentPath": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+          "sha256": "4c33049ad25063f3d6354b0e4a462a10a3cfb658012fd0768b6736e527db582f",
+          "schedule": [
+            "OnCalendar=*-*-* 00:10:00",
+            "Persistent=false"
+          ]
+        }
+      ]
+    },
+    "mmoexp-weekly-report.timer": {
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": "/etc/systemd/system/mmoexp-weekly-report.timer",
+      "DropInPaths": "",
+      "UnitFileState": "disabled",
+      "selected_sources": [
+        {
+          "path": "/etc/systemd/system/mmoexp-weekly-report.timer",
+          "sha256": "99f7efb6367dbb21789de5143c09def50ec4a206db92f40c1a163a866b5a1867",
+          "schedule": [
+            "OnCalendar=Mon *-*-* 02:00:00",
+            "Persistent=true"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "releaseId": "workspace-native-20261006-261bedcc395a",
+  "assetCount": 139,
+  "mutableCount": 4,
+  "protectedCount": 149,
+  "changedAssets": [
+    "business.js",
+    "game-monitor/daily.js",
+    "game-monitor/index.html",
+    "index.html",
+    "management/management.js",
+    "navigation.json",
+    "shell.js"
+  ],
+  "contractSha256": "1e789b3bdbc8fa60db9e8c02880f7268b79712e7bae42c3a08ed5c0d9115a626",
+  "navigationInjectedHtmlLocations": [
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/game-monitor/index.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/aion2.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/arc_raiders.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/arena_breakout_infinite.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/cfb27.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/cod_bo7.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/d4.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/dark_and_darker.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/fc27.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/index.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/maplestory_classic.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/mlb26.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/nba2k27.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/nfl27.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/poe2.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/rs.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/sandbox.html",
+    "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/management/wow_forever.html",
+    "/dashboard/game-monitor/index.html",
+    "/dashboard/management/aion2.html",
+    "/dashboard/management/arc_raiders.html",
+    "/dashboard/management/arena_breakout_infinite.html",
+    "/dashboard/management/cfb27.html",
+    "/dashboard/management/cod_bo7.html",
+    "/dashboard/management/d4.html",
+    "/dashboard/management/dark_and_darker.html",
+    "/dashboard/management/fc27.html",
+    "/dashboard/management/index.html",
+    "/dashboard/management/maplestory_classic.html",
+    "/dashboard/management/mlb26.html",
+    "/dashboard/management/nba2k27.html",
+    "/dashboard/management/nfl27.html",
+    "/dashboard/management/poe2.html",
+    "/dashboard/management/rs.html",
+    "/dashboard/management/sandbox.html",
+    "/dashboard/management/wow_forever.html"
+  ],
+  "retiredHtmlRoutes": {
+    "weekly": [
+      "/dashboard/marketing/weekly/index.html",
+      "/dashboard/marketing/weekly/legacy-index.html",
+      "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/advisor.html",
+      "/dashboard/workspace-assets/workspace-native-20261006-261bedcc395a/weekly-legacy.html"
+    ],
+    "google": [
+      "/dashboard/marketing/",
+      "/dashboard/marketing/index.html"
+    ],
+    "weeklyDestination": "/dashboard/fs-home/brain/index.html?report_kind=weekly#reports",
+    "googleDestination": "/dashboard/analytics/?mode=google"
+  },
+  "releaseReady": false,
+  "actualImmutableByteChanges": [
+    "business.js",
+    "game-monitor/daily.js",
+    "game-monitor/index.html",
+    "home.html",
+    "index.html",
+    "management/management.js",
+    "navigation.json",
+    "shell.js"
+  ],
+  "versionOnlyAssets": [
+    "home.html"
+  ]
+}
