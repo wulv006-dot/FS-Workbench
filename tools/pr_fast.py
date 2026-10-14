@@ -217,6 +217,14 @@ def selfcheck():
         raise RuntimeError("fc_coin_all_readback_retry_scope_missing")
     if select(["releases/fc-coins/coin-all-readback-retry-20261014/test_readback_retry.py"]) != ["fc-coin-all-readback-retry"]:
         raise RuntimeError("fc_coin_all_readback_retry_test_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/source/fc27-quote-cloud.js"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/tests/test_competitor_grid.cjs"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_test_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/source/fc27-coins.html"]) != ["frontend"]:
+        raise RuntimeError("fc_coin_competitor_grid_html_scope_changed")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/baseline/fc27-quote-cloud.js"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_baseline_scope_missing")
     if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
         raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
     if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
@@ -285,6 +293,13 @@ def select(paths):
         # FC 金币 ALL 镜像写后回读（2026-10-14）：把单次回读换成有界只读重试。
         if name.startswith("releases/fc-coins/coin-all-readback-retry-20261014/"):
             groups.add("fc-coin-all-readback-retry");continue
+        # FC27 金币工作台竞品卡片栅格（2026-10-15）：列=竞品、行=区服，
+        # 缺来源必须补「暂未获取」占位卡（否则第 4 列被下一区服首卡顶掉）；
+        # 同批把成本口径说明段按 2026-09-26 原文补回页面。
+        # ⚠️ 只管 .js/.cjs：本包的 .html 与仓库既有约定一致，继续走 frontend 结构校验
+        #    （与 releases/fc-coins/player-price-verification-off-20261007 同口径）。
+        if suffix in (".js",".cjs") and name.startswith("releases/fc-coins/coin-competitor-grid-20261015/"):
+            groups.add("fc-coin-competitor-grid");continue
         # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
         if name.startswith("fc27_pack_bundles_20261013/"):
             groups.add("fc27-pack-bundles");continue
@@ -556,6 +571,10 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="fc-coin-competitor-grid":
+            # Node 契约用例：把候选 JS 的渲染块原样抽出跑 5 场景 22 断言，
+            # 校验 3x4 槽位不变量（缺来源补占位、列序不位移）。零网络、零依赖。
+            node("releases/fc-coins/coin-competitor-grid-20261015/tests/test_competitor_grid.cjs")
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
