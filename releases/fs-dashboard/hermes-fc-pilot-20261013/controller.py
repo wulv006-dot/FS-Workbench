@@ -20,6 +20,16 @@ from report_validation import FORMAT, validate_output
 from runs_contract import submission,validate_admission,run_path
 
 
+def clean_hermes_question(value):
+    # Hermes has an explicit user-authorized text policy; the legacy advisor stays independent.
+    if not isinstance(value,str) or not 2 <= len(value.strip()) <= 600:
+        raise ValueError('question_length')
+    value=value.strip()
+    if re.search(r'Bearer\s|password\s*[:=]|密码\s*[:：=]|Cookie\s*[:=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|https?://|\b\d{10,}\b',value,re.I):
+        raise ValueError('sensitive_question')
+    return value
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):return None
 
@@ -177,8 +187,7 @@ class HermesService:
         if set(body)!={'kind','request_id','start','end','question','mode'} or body['kind']!='hermes_report' or body['mode'] not in {'daily','investigation','kpi','pricing'}:
             return 422,{'error':'report_fields'}
         try:
-            from ai_advisor_model import clean_question
-            question=clean_question(body['question']);lo,hi=date.fromisoformat(body['start']),date.fromisoformat(body['end'])
+            question=clean_hermes_question(body['question']);lo,hi=date.fromisoformat(body['start']),date.fromisoformat(body['end'])
             today=self.clock().astimezone(SHANGHAI).date()
             if lo.isoformat()!=body['start'] or hi.isoformat()!=body['end'] or hi>=today or lo>hi or (hi-lo).days>92:raise ValueError('complete_period')
             if not isinstance(body['request_id'],str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}',body['request_id']):raise ValueError('request_id')

@@ -14,11 +14,8 @@ MAX_PROVIDER_CONTEXT_TOKENS = 1000000
 
 def sensitive_context(value):
     if isinstance(value, str):
-        # The fixed FC projection describes task-scoped HMAC pseudonyms.
-        # The model also abbreviates that description to the ordinary word task-scoped.
-        # Exempt only this complete word in a scan copy; transmit original bytes.
-        scan = re.sub(r'(?<![\w.-])task-scoped(?![\w\\-]|\.[\w.\\-])', 'task_scoped', value, flags=re.I)
-        return re.search(r'Bearer\s|sk-[A-Za-z0-9]|Cookie\s*[:=]|password\s*[:=]', scan, re.I) is not None
+        # Explicit user instruction: sk- text is allowed in this FC pilot.
+        return re.search(r'Bearer\s|Cookie\s*[:=]|password\s*[:=]', value, re.I) is not None
     if isinstance(value, dict):
         return any(sensitive_context(k) or sensitive_context(v) for k, v in value.items())
     if isinstance(value, list):

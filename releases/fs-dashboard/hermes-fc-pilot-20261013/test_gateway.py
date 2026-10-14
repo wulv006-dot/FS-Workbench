@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
@@ -82,30 +83,31 @@ class GatewayTests(unittest.TestCase):
         with self.db() as db:
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
 
-    def test_public_task_scoped_word_in_reasoning_preserves_native_bytes(self):
-        for marker in ('task-scoped', 'Task-Scoped.', '(task-scoped)', 'task-scoped HMAC pseudonyms for order/event/item IDs'):
-            messages=[{'role':'user','content':'Check the readonly sample.'},
-                      {'role':'assistant','content':'Safe public text.','reasoning_content':marker}]
-            result=request_body({'messages':messages,'max_tokens':50,'reasoning_effort':'max'},self.policy['model'])
-            self.assertEqual(result['messages'],messages)
+    def test_sk_text_is_allowed_in_user_tool_and_native_reasoning(self):
+        markers=('sk-SYNTHETIC','task-scoped','risk-based','Use "task-scoped." evidence.',
+                 r'{"identity":"task-scoped.AAAA"}')
+        for marker in markers:
+            for field in ('user','tool','reasoning'):
+                messages=[{'role':'user','content':marker if field=='user' else 'Check the readonly sample.'}]
+                if field=='tool':
+                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_sk','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                                     {'role':'tool','tool_call_id':'fixture_sk','content':json.dumps({'note':marker})}])
+                if field=='reasoning':messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
+                with self.subTest(marker=marker,field=field):
+                    self.assertEqual(request_body({'messages':messages,'max_tokens':50,'reasoning_effort':'max'},self.policy['model'])['messages'],messages)
         self.call(body={'messages':messages,'max_tokens':50,'reasoning_effort':'max'})
         self.assertEqual(self.calls,1)
 
-    def test_real_credential_markers_remain_blocked_before_spend(self):
-        for marker in ('sk-a','sk-SYNTHETIC123','xsk-SYNTHETIC123','prefix_sk-SYNTHETIC123','xtask-scoped','task-scopedSECRET123','task-scoped-'+32*'A','task-scoped.'+32*'A','中文task-scoped HMAC pseudonyms for order/event/item IDs','étask-scoped HMAC pseudonyms for order/event/item IDs','Ωtask-scoped HMAC pseudonyms for order/event/item IDs','prefix.task-scoped HMAC pseudonyms for order/event/item IDs','prefix-task-scoped HMAC pseudonyms for order/event/item IDs','task-scoped sk-SYNTHETIC123','task-sk-SYNTHETIC123','中文sk-a','Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
-                       '\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','\x00sk-SYNTHETIC123',
-                       '{"note":"\\nsk-SYNTHETIC123"}','Tool response: {"note":"\\u0000sk-SYNTHETIC123"}'):
-            with self.subTest(marker=marker):
-                with self.assertRaisesRegex(ValueError,'context_rejected'):
-                    self.call(body={'messages':[{'role':'user','content':marker}],'max_tokens':50})
-        for marker in ('\nsk-SYNTHETIC123','\tsk-SYNTHETIC123','\rsk-SYNTHETIC123','Tool response: {"note":"\\nsk-SYNTHETIC123"}',
-                       *('Tool response: {"identity":"task-scoped'+suffix+32*'A'+'"}' for suffix in (r'\u002e',r'\u002d',r'\u0041',r'.\u0041'))):
-            for field in ('tool_content','assistant_reasoning'):
-                messages=[{'role':'user','content':'Check the readonly sample.'}]
-                if field=='tool_content':
-                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_call','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
-                                     {'role':'tool','tool_call_id':'fixture_call','content':marker}])
-                else:messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
+    def test_other_credential_markers_remain_blocked_before_spend(self):
+        for marker in ('Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
+                       '\nBearer fixture-only','\tCookie: fixture-only','\rpassword=fixture-only',
+                       'Tool response: {"note":"password=fixture-only"}'):
+            for field in ('user','tool','reasoning'):
+                messages=[{'role':'user','content':marker if field=='user' else 'Check the readonly sample.'}]
+                if field=='tool':
+                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_secret','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                                     {'role':'tool','tool_call_id':'fixture_secret','content':marker}])
+                if field=='reasoning':messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
                 with self.subTest(marker=marker,field=field):
                     with self.assertRaisesRegex(ValueError,'context_rejected'):
                         self.call(body={'messages':messages,'max_tokens':50,'reasoning_effort':'max'})

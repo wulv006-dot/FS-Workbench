@@ -103,8 +103,8 @@ class ReleaseTests(unittest.TestCase):
         value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_SECRET_TARGETS.values()]
         return value
 
-    def test_secret_scope_is_exact_pair_and_each_shared_dependency_is_required(self):
-        value=self.secret_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),2)
+    def test_secret_scope_is_exact_six_and_each_shared_dependency_is_required(self):
+        value=self.secret_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),6)
         self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
         for row in value['unchangedRequired']:
             bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)

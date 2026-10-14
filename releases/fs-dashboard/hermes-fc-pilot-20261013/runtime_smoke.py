@@ -38,7 +38,7 @@ async def run(effort):
     def observe(*args, **kwargs):
         tool_hits.append(args[3])
         value = original_call(*args, **kwargs)
-        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100,synthetic_identity='task-scoped HMAC pseudonyms for order/event/item IDs')
+        if stress:value=dict(value,synthetic_payload=('synthetic-only-'+str(len(tool_hits))+' ')*1100,synthetic_identity='task-scoped HMAC pseudonyms for order/event/item IDs',synthetic_public_note='Use "task-scoped" evidence.')
         return value
     fixture.scope.call = observe
     def provider(request):

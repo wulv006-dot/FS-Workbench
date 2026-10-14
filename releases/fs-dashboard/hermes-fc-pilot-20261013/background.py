@@ -16,7 +16,7 @@ def import_background(document, *, approved_sha256, version, source_reference):
         raise ValueError('background_version')
     if not isinstance(source_reference, str) or not 1 <= len(source_reference) <= 240:
         raise ValueError('background_source')
-    if re.search(r'-----BEGIN .*PRIVATE KEY|Bearer\s|Cookie\s*[:=]|sk-[A-Za-z0-9]|password\s*[:=]', document, re.I):
+    if re.search(r'-----BEGIN .*PRIVATE KEY|Bearer\s|Cookie\s*[:=]|password\s*[:=]', document, re.I):
         raise ValueError('background_secret_rejected')
     return {'kind':'stable_background','version':version,'sha256':actual,'source_reference':source_reference,
             'content':document,'authority':'context_only','permissions':[]}
