@@ -65,9 +65,9 @@ def spending_hold(daily, tasks, owner):
 
 def gateway(daily, tasks, book):
     from fc_daily import provider_slot, model_daily_limit
-    from direct_provider import MODEL, request_model, prepare_request
+    from direct_provider import MODEL, POLICY_ID, request_model, prepare_request
     from proxy_gateway import schemas
-    policy = {'id': 'no-pilot-quotas-deepseek-direct-tokens-only-v1', 'model': MODEL,
+    policy = {'id': POLICY_ID, 'model': MODEL,
               'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
     def provider(request):
