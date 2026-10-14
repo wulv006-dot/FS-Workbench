@@ -186,6 +186,7 @@ class StreamingContractTests(unittest.TestCase):
         reply=provider._read_stream(io.BytesIO(sse_body(chunks)))
         calls=reply['choices'][0]['message']['tool_calls']
         self.assertEqual([c['id'] for c in calls],['tool-a','tool-b'])
+        self.assertEqual([c['index'] for c in calls],[0,1])
         self.assertEqual(calls[1]['function'],{'name':'fc_b','arguments':'{"v":"����"}'})
         self.assertEqual(reply['choices'][0]['finish_reason'],'tool_calls')
 

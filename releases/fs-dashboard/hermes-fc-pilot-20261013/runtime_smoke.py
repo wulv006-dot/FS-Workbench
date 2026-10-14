@@ -108,7 +108,18 @@ async def run(effort):
             assert 'enable_thinking' not in body,'bailian_fields_in_direct_payload'
             assert body['stream'] is True and body['stream_options']=={'include_usage':True},'direct_stream_keepalive_missing'
             converted=dict(body,tools=body.get('tools',[]),enable_thinking=True)
-            return provider(converted)
+            result=provider(converted)
+            message=result['choices'][0]['message'];chunks=[]
+            def chunk(delta,finish=None,usage=None):
+                return dict(id=result['id'],model=result['model'],choices=[dict(index=0,delta=delta,finish_reason=finish)],usage=usage)
+            if message.get('reasoning_content'):chunks.append(chunk({'reasoning_content':message['reasoning_content']}))
+            if message.get('content'):chunks.append(chunk({'content':message['content']}))
+            for index,tool in enumerate(message.get('tool_calls') or []):chunks.append(chunk({'tool_calls':[dict(tool,index=index)]}))
+            chunks.append(chunk({},result['choices'][0]['finish_reason'],result['usage']))
+            import io
+            from direct_provider import _read_stream
+            events=b': keep-alive\n\n'+b''.join(b'data: '+json.dumps(row,ensure_ascii=False).encode()+b'\n\n' for row in chunks)+b'data: [DONE]\n\n'
+            return _read_stream(io.BytesIO(events))
         with patch('direct_provider._open',side_effect=fake_open):return direct_request(request,schemas())
     fixture.provider = through_direct
     proxy = Proxy(grants, lambda grant: fixture.gateway)

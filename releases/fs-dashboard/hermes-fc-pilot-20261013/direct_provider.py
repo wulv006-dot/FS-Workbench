@@ -162,9 +162,9 @@ def _read_stream(response):
     message = {'role':'assistant','content':''.join(text) if text else None}
     if reasoning:message['reasoning_content'] = ''.join(reasoning)
     if calls:
-        message['tool_calls'] = [{'id':tool['id'],'type':tool['type'],
+        message['tool_calls'] = [{'index':index,'id':tool['id'],'type':tool['type'],
             'function':{'name':''.join(tool['name']),'arguments':''.join(tool['arguments'])}}
-            for _,tool in sorted(calls.items())]
+            for index,tool in sorted(calls.items())]
     result = {'id':identity,'model':model,'object':'chat.completion','usage':usage,
               'choices':[{'index':0,'finish_reason':finish,'message':message}]}
     if len(json.dumps(result,ensure_ascii=False,separators=(',',':')).encode('utf-8')) > WIRE_BYTES:
