@@ -1,0 +1,55 @@
+{
+  "releaseId": "workspace-native-20261006-261bedcc395a",
+  "releaseReady": false,
+  "contractSha256": "1e789b3bdbc8fa60db9e8c02880f7268b79712e7bae42c3a08ed5c0d9115a626",
+  "previousLocalContractSha256": [
+    "aabcf3a6ecd24f5f74623d35e48455d0b34cdfd004d2befc13d5a18bcefface2",
+    "266c24a23e4464993f9dfe08e7ffb84751f6bab044af870695c077768db8bc3b",
+    "aa3b06463eeff3b7befca464a1b198e7c8ad7ce96a353ae700e90355a8069ac4"
+  ],
+  "actualImmutableByteChanges": [
+    "business.js",
+    "game-monitor/daily.js",
+    "game-monitor/index.html",
+    "home.html",
+    "index.html",
+    "management/management.js",
+    "navigation.json",
+    "shell.js"
+  ],
+  "unchangedImmutableCount": 131,
+  "mutableTargets": [
+    {
+      "candidate": "candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "beforeSha256": "18b592649dfb80188a819333894dfafa39c352f5d46c6b4d2c7a3c250d590b4a",
+      "sha256": "18fb60613c1bfb1947937ce55338dc575e4062633bc895e14e38610487a0f041"
+    },
+    {
+      "candidate": "candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "beforeSha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5",
+      "sha256": "ce0fc0a453ecae955bb8e7e2ae9ff6619de81c09691822935e5b9a3edc2c2aa1"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "a64bd2a6692aaa27eb02dbaadd72aa2eeaf8f1ff31a629c3301311fbc9d636c9",
+      "sha256": "d9c6ce2d75d5220ff11f975a6248b4aa4f9fc264c70fa4e3f72edcc852224a41"
+    },
+    {
+      "candidate": "candidate/retired-radar.conf",
+      "target": "/etc/nginx/release-radar.locations.conf",
+      "beforeSha256": "fd4f81135da9c5539bb12c6a5269bccf01bb758f606105337b139d143d6b1f4f",
+      "sha256": "fd4f81135da9c5539bb12c6a5269bccf01bb758f606105337b139d143d6b1f4f"
+    }
+  ],
+  "checks": {
+    "browser": 143,
+    "pageErrors": 0,
+    "postRequests": 0,
+    "WindowsNativePass": 3,
+    "LinuxTestsPending": 4
+  },
+  "productionWrites": 0
+}

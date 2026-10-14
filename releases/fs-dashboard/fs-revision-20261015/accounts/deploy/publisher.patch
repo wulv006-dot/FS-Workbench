@@ -1,0 +1,112 @@
+--- release_navigation.py
++++ release_navigation.py
+@@ -36,6 +36,8 @@
+  **{'permission-runtime/'+n:'/opt/auth-portal/registration-runtime/20261007-ca6258ad/'+n for n in ('runtime.py','module_permissions.py','consumer_seams.py','vendor/auth_candidate.py')},
+  'permission-taskboard/taskboard_server.py':'/opt/mmoexp-taskboard/taskboard_server.py',
+ }
++ACCOUNT_SCOPE='fs-account-management-20261015'
++ACCOUNT_TARGETS={'account-runtime/'+name:'/opt/auth-portal/registration-runtime/20261007-ca6258ad/'+name for name in ('runtime.py','module_permissions.py','consumer_seams.py','vendor/auth_candidate.py','portal_bridge.py','account_management.py','web/app.js','web/index.html','web/access.css')}
+ QUERY_SCOPE='fs-internal-query-api-20261009'
+ QUERY_TARGETS={
+  'query_api.py':'/opt/fs-query-api/query_api.py',
+@@ -129,6 +131,7 @@
+ 
+ 
+ def expected_files(manifest):
++ if manifest.get('scope')==ACCOUNT_SCOPE:return set(ACCOUNT_TARGETS)
+  if manifest.get('scope')==HERMES_NIGHT_SCOPE:return set(HERMES_NIGHT_TARGETS)
+  if manifest.get('scope')==HERMES_CONTINUE_SCOPE:return set(HERMES_CONTINUE_TARGETS)
+  if manifest.get('scope')==HERMES_AUTO_SCOPE:return set(HERMES_AUTO_TARGETS)
+@@ -158,6 +161,7 @@
+  return set(GREEN_TARGETS) if manifest.get('scope')=='green-plan-20261009' else RELATIVE
+ 
+ def target_for(rel):
++ if rel in ACCOUNT_TARGETS:return ACCOUNT_TARGETS[rel]
+  if rel in HERMES_NIGHT_TARGETS:return HERMES_NIGHT_TARGETS[rel]
+  if rel in HERMES_CONTINUE_TARGETS:return HERMES_CONTINUE_TARGETS[rel]
+  if rel in HERMES_AUTO_TARGETS:return HERMES_AUTO_TARGETS[rel]
+@@ -212,12 +216,14 @@
+   rel=row['candidate'];src=stage/'candidate'/rel
+   if row.get('target')!=target_for(rel) or not HASH.fullmatch(row.get('sha256','')):raise ValueError('invalid target or hash')
+   if row.get('beforeSha256') is not None and not HASH.fullmatch(row['beforeSha256']):raise ValueError('invalid baseline hash')
++  if manifest.get('scope')==ACCOUNT_SCOPE and rel!='account-runtime/account_management.py' and row.get('beforeSha256') is None:raise ValueError('existing account target baseline required')
+   if manifest.get('scope')==GREEN_FIX_SCOPE and row.get('beforeSha256') is None:raise ValueError('review-fix existing target baseline required')
+   if manifest.get('scope')==PERMISSION_SCOPE and rel!='permission-runtime/module_permissions.py' and row.get('beforeSha256') is None:raise ValueError('existing permission target baseline required')
+   if manifest.get('scope')=='green-plan-20261009' and rel in ('backend/taskboard_server.py','fs-home/navigation.json') and row.get('beforeSha256') is None:raise ValueError('existing green-plan consumer baseline required')
+   if manifest.get('scope') in (GAMES_SCOPE,DEMAND_SCOPE,BOUNDARY_SCOPE) and rel not in ('live/catalog.py','live/profit_queries.py') and row.get('beforeSha256') is None:raise ValueError('existing game target baseline required')
+   if src.is_symlink() or (stage/'candidate').resolve() not in src.resolve().parents:raise ValueError('candidate escaped stage')
+   if digest(src)!=row['sha256']:raise ValueError('staged candidate SHA differs from reviewed manifest')
++ if manifest.get('scope')==ACCOUNT_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('account release requires active auth service')
+  if manifest.get('scope')==GREEN_FIX_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('review-fix requires active auth service without PID pinning')
+  if manifest.get('scope')==PERMISSION_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('permission release requires active auth service')
+  if manifest.get('scope')==QUERY_SCOPE:
+@@ -464,6 +470,10 @@
+  if journal['manifest'].get('scope')==HERMES_SCOPE:
+   subprocess.run(['systemctl','stop','fs-hermes-fc.service'],check=True)
+  rollback_credentials(backup,journal,journal['approvedManifestSha256'])
++ if journal['manifest'].get('scope')==ACCOUNT_SCOPE:
++  path=rooted(root,'/opt/auth-portal/data/registration-approval/registration.sqlite3');no_target_link(path)
++  with contextlib.closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
++   if db.execute('PRAGMA user_version').fetchone()[0]>=5:raise ValueError('account changes are active; pre-schema5 code rollback refused; preserve database/checkpoint/audit and use compatible forward repair')
+  if journal['manifest'].get('scope')==PERMISSION_SCOPE:
+   path=rooted(root,'/opt/auth-portal/data/registration-approval/registration.sqlite3');no_target_link(path)
+   with contextlib.closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
+@@ -709,7 +719,7 @@
+  if manifest.get('scope') in (LIVE_SCOPE,CACHE_FIX_SCOPE):restart_live(manifest);return
+  if manifest.get("scope")==TRAFFIC_SCOPE:restart_traffic(manifest);return
+  if manifest.get("scope")==QUERY_SCOPE:restart_query();return
+- if manifest.get('scope') in (GREEN_FIX_SCOPE,PERMISSION_SCOPE):
++ if manifest.get('scope') in (GREEN_FIX_SCOPE,PERMISSION_SCOPE,ACCOUNT_SCOPE):
+   subprocess.run(['systemctl','restart','auth-portal.service'],check=True)
+   subprocess.run(['systemctl','is-active','--quiet','auth-portal.service'],check=True)
+   for attempt in range(50):
+@@ -721,7 +731,7 @@
+    except OSError:
+     if attempt==49:raise ValueError('auth verify unavailable after restart')
+     time.sleep(0.1)
+- if manifest.get('scope') in ('green-plan-20261009',GREEN_FIX_SCOPE,PERMISSION_SCOPE):restart_taskboard()
++ if manifest.get('scope') in ('green-plan-20261009',GREEN_FIX_SCOPE,PERMISSION_SCOPE,ACCOUNT_SCOPE):restart_taskboard()
+ 
+ @contextlib.contextmanager
+ def live_lock(manifest,root):
+@@ -806,6 +816,18 @@
+   yield
+  finally:os.close(fd)
+ 
++@contextlib.contextmanager
++def account_snapshot(root):
++ import fcntl
++ path=rooted(root,'/opt/auth-portal/data/registration-approval/namespace.lock');no_target_link(path)
++ fd=os.open(path,os.O_RDWR|getattr(os,'O_NOFOLLOW',0))
++ try:
++  info=os.fstat(fd)
++  if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1 or info.st_mode&0o077:raise ValueError('unsafe account namespace lock')
++  fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
++  yield
++ finally:os.close(fd)
++
+ def apply(manifest,stage,approved_sha,manifest_bytes,release_id,root=Path('/')):
+  if manifest.get('releaseReady') is not True:raise ValueError('releaseReady=false; permission/real-role gate remains OPEN')
+  if hashlib.sha256(manifest_bytes).hexdigest()!=approved_sha:raise ValueError('reviewed manifest approval SHA differs')
+@@ -826,13 +848,20 @@
+    if saved['beforeSha256'] is not None and digest(backup/'files'/row['candidate'])!=saved['beforeSha256']:raise ValueError('backup source drift')
+    journal['files'].append(saved)
+   atomic(backup/'approved-manifest.json',manifest_bytes,0o600);journal_write(backup,journal)
+-  green=manifest.get('scope') in ('green-plan-20261009',GREEN_FIX_SCOPE,PERMISSION_SCOPE)
++  green=manifest.get('scope') in ('green-plan-20261009',GREEN_FIX_SCOPE,PERMISSION_SCOPE,ACCOUNT_SCOPE)
+   if green:
+    journal['databaseBefore']=db_state(root)
+    source=rooted(root,'/opt/mmoexp-taskboard/data/taskboard.db')
+    saved=backup/'taskboard-private.sqlite3'
+    with contextlib.closing(sqlite3.connect('file:'+str(source)+'?mode=ro',uri=True)) as src, contextlib.closing(sqlite3.connect(str(saved))) as dst:src.backup(dst)
+    os.chmod(saved,0o600);journal_write(backup,journal)
++  if manifest.get('scope')==ACCOUNT_SCOPE:
++   with account_snapshot(root):
++    source=rooted(root,'/opt/auth-portal/data/registration-approval/registration.sqlite3');no_target_link(source)
++    with contextlib.closing(sqlite3.connect(source.as_uri()+'?mode=ro',uri=True)) as src, contextlib.closing(sqlite3.connect(str(backup/'registration-private.sqlite3'))) as dst:src.backup(dst)
++    os.chmod(backup/'registration-private.sqlite3',0o600)
++    witness=rooted(root,'/opt/auth-portal/data/.registration-checkpoint/state.json');no_target_link(witness)
++    atomic(backup/'registration-checkpoint-private.json',witness.read_bytes(),0o600)
+   ordered=sorted(journal['files'],key=lambda row:(row['candidate']=='fs-home/index.html',row['candidate']=='hubnav.js',row['candidate']))
+   try:
+    for row in ordered:

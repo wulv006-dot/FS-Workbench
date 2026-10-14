@@ -262,6 +262,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/fs-revision-20261015/"):
+            groups.add("fs-revision-20261015");continue
         if name in ("releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/release_navigation.py","releases/fs-dashboard/hermes-fc-pilot-20261013/test_nightly_release.py"):
             groups.add("hermes-nightly-publisher");continue
         if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
@@ -426,6 +428,19 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="fs-revision-20261015":
+            release="releases/fs-dashboard/fs-revision-20261015"
+            units(release+"/reports/tests",["test_renderer"])
+            units(release+"/accounts/tests",["test_accounts","test_http","test_publisher"],root_owned=True)
+            units(release+"/accounts/integration",["test_ai_publisher"],root_owned=True)
+            units(release+"/ai",["test_retirement","test_official_workspace","test_boss_projection","test_boss_artifacts","test_business_context"])
+            units(release+"/analytics",["test_fc_detail","test_fc_pool"])
+            units(release+"/cleanup/tests",["test_cleanup","test_profit_queries"],root_owned=True)
+            units(release+"/shared-release",["test_ui_release","test_combined_publisher"],root_owned=True)
+            units(release+"/frontend-release",["test_native_release"],root_owned=True)
+            for name in ("test_fc_lifecycle.cjs","test_management_existing.cjs","test_management_actuals.cjs","test_game_cards.cjs"):
+                node(release+"/analytics/"+name)
+            subprocess.run([sys.executable,"-B",str(ROOT/release/"ai/run_regression.py")],check=True,timeout=90,cwd=ROOT)
         elif group=="fc-detail-analytics":
             release="releases/fs-dashboard/fc-detail-analytics-20261012"
             units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_publisher"])
@@ -587,6 +602,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

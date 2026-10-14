@@ -1,0 +1,14 @@
+{
+  "render_report.py": "5d96232a32bfb9842ef71c86647b640523508e0ec888badd20dda2ba78de09d2",
+  "report.template.html": "3fb337174de764eb5e8680cb5f4688f3eedb1fd6067cfdd5213948f57c8e8ef0",
+  "build_sample.py": "ed1f06af9dffd4c66fda0fb7271967f62a215f8a92f53ad18028a3b27687e1e9",
+  "sample.content.json": "17e43d438ea833363448dccc307051a8ff73839ca336d4c88bf8a72921724658",
+  "evidence-public.json": "15c6c7eb1b5a1f823be6e031c3123ed3b8d5beaef419e70f9597944788258c75",
+  "sample_semantic_sha256": "09939644e3d1bdaa205c17c339bc96d244cc4ba9a438c796be53bfce18fc4ecf",
+  "report_html_fixture_sha256": "749ed5dbd0f9dd70428a8fbd6a2fc3d686ccb2ed61a200b330eeff4eb35238e5",
+  "real_result_source": {
+    "path": "docs\\planning\\hermes-fc-pilot-20261013\\archive\\autonomous-report-73063411f295-20261014\\delivery\\complete-public-evidence.json",
+    "sha256": "5790ba9e85f874ed3f9b96973c8ec3af79f2833f528c0f66958d3ab123188e95",
+    "raw_text_matches_delivery": true
+  }
+}

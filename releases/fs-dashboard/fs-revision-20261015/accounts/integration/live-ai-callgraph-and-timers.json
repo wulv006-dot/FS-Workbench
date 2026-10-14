@@ -1,0 +1,330 @@
+{
+  "files": [
+    {
+      "file": "boss_insights.py",
+      "sha256": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c",
+      "imports": [
+        {
+          "line": 159,
+          "module": "fc_daily_model",
+          "names": [
+            "MODEL"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_deep_analysis.py",
+      "sha256": "2879ab1d70f02af59e88d78cef563132fa9d98c1f273527de7d707d7185a4ceb",
+      "imports": [
+        {
+          "line": 108,
+          "module": "fc_detail_model",
+          "names": [
+            "aggregate",
+            "facts",
+            "amount_bucket"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "ai_advisor_model.py",
+      "sha256": "4c0ab3fb6f7132a404dfd22f6570311d0243638aa462fdf2537eba782be0cf88",
+      "imports": [
+        {
+          "line": 10,
+          "module": "fc_daily_model",
+          "names": [
+            "MODEL",
+            "ENDPOINT",
+            "NoRedirect"
+          ]
+        }
+      ],
+      "calls": [
+        {
+          "line": 126,
+          "function": "request_model"
+        },
+        {
+          "line": 131,
+          "function": "request_model"
+        }
+      ],
+      "definitions": [
+        {
+          "line": 59,
+          "name": "request_model"
+        },
+        {
+          "line": 120,
+          "name": "explain"
+        }
+      ],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_deep_sources.py",
+      "sha256": "f83e7605f08d26052a743ea7ad5cce78c421d9439c67ce29f32415c0dce18c5a",
+      "imports": [
+        {
+          "line": 6,
+          "module": "fc_deep_analysis",
+          "names": [
+            "build_evidence",
+            "plan",
+            "attach_diagnostics",
+            "fallback"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_deep_service.py",
+      "sha256": "cbbb810e40bf53c4b90b496a538a61cab39166941fc414f348fd226c3a470e10",
+      "imports": [
+        {
+          "line": 4,
+          "module": "advisor_memory",
+          "names": [
+            "Memory"
+          ]
+        },
+        {
+          "line": 5,
+          "module": "fc_deep_analysis",
+          "names": [
+            "fallback"
+          ]
+        },
+        {
+          "line": 6,
+          "module": "fc_deep_model",
+          "names": [
+            "project",
+            "explain"
+          ]
+        },
+        {
+          "line": 7,
+          "module": "fc_deep_sources",
+          "names": [
+            "EvidenceReader"
+          ]
+        },
+        {
+          "line": 72,
+          "module": "fc_detail_model",
+          "names": [
+            "aggregate"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_detail.py",
+      "sha256": "0eb8e37cf6e483f2c14f2f241cbca12c18eb85d9fcaaa4e8bfc8963a6d9e5341",
+      "imports": [
+        {
+          "line": 7,
+          "module": "fc_detail_model",
+          "names": [
+            "aggregate",
+            "selected",
+            "CONTRACT"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_daily.py",
+      "sha256": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7",
+      "imports": [
+        {
+          "line": 13,
+          "module": "fc_daily_model",
+          "names": [
+            "configured",
+            "explain",
+            "projection"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_daily_model.py",
+      "sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec",
+      "imports": [],
+      "calls": [],
+      "definitions": [
+        {
+          "line": 57,
+          "name": "configured"
+        },
+        {
+          "line": 62,
+          "name": "explain"
+        }
+      ],
+      "provider_domains": []
+    },
+    {
+      "file": "ai_advisor.py",
+      "sha256": "870316877bccb58164b17272aa1016519b99d7c8f98dea43e065496cefddd9b2",
+      "imports": [
+        {
+          "line": 18,
+          "module": "ai_advisor_model",
+          "names": [
+            "clean_question",
+            "projection",
+            "explain",
+            "explain_boss"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_deep_model.py",
+      "sha256": "15965d1d331444635dd8ef677cacb2f05d2e21fa6c33ff6ae7bf53315b76b067",
+      "imports": [
+        {
+          "line": 5,
+          "module": "fc_daily_model",
+          "names": [
+            "MODEL"
+          ]
+        },
+        {
+          "line": 6,
+          "module": "ai_advisor_model",
+          "names": [
+            "request_model",
+            "clean_question"
+          ]
+        }
+      ],
+      "calls": [
+        {
+          "line": 254,
+          "function": "request_model"
+        }
+      ],
+      "definitions": [
+        {
+          "line": 238,
+          "name": "explain"
+        }
+      ],
+      "provider_domains": []
+    },
+    {
+      "file": "range_api.py",
+      "sha256": "e4fbc9ff856e7f5007a6c7cf3c2ea04478c6cb983eddc4d355615cee7404a22f",
+      "imports": [
+        {
+          "line": 170,
+          "module": "ai_advisor",
+          "names": [
+            "Advisor"
+          ]
+        },
+        {
+          "line": 171,
+          "module": "fc_deep_service",
+          "names": [
+            "DeepService"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    },
+    {
+      "file": "fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f",
+      "imports": [
+        {
+          "line": 8,
+          "module": "fc_detail_model",
+          "names": [
+            "normalize",
+            "deduplicate"
+          ]
+        }
+      ],
+      "calls": [],
+      "definitions": [],
+      "provider_domains": []
+    }
+  ],
+  "timers": {
+    "fs-boss-game-monitor.timer": {
+      "TimersCalendar": "[unprintable]",
+      "NextElapseUSecRealtime": "56y 9month 1w 6d 17h 35min",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/fs-boss-game-monitor.timer",
+      "UnitFileState": "enabled",
+      "calendar_source": [
+        "OnCalendar=*-*-* 00:05:00",
+        "Persistent=false"
+      ]
+    },
+    "fs-boss-management.timer": {
+      "TimersCalendar": "[unprintable]",
+      "NextElapseUSecRealtime": "56y 9month 1w 6d 17h 50min",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/fs-boss-management.timer",
+      "UnitFileState": "enabled",
+      "calendar_source": [
+        "OnCalendar=*-*-* 00:20:00",
+        "Persistent=false"
+      ]
+    },
+    "mmoexp-marketing-daily.timer": {
+      "TimersCalendar": "[unprintable]",
+      "NextElapseUSecRealtime": "56y 9month 1w 6d 17h 40min",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+      "UnitFileState": "enabled",
+      "calendar_source": [
+        "OnCalendar=*-*-* 00:10:00",
+        "Persistent=false"
+      ]
+    },
+    "mmoexp-weekly-report.timer": {
+      "TimersCalendar": "[unprintable]",
+      "NextElapseUSecRealtime": "infinity",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/mmoexp-weekly-report.timer",
+      "UnitFileState": "disabled",
+      "calendar_source": [
+        "OnCalendar=Mon *-*-* 02:00:00",
+        "Persistent=true"
+      ]
+    }
+  }
+}
