@@ -38,7 +38,7 @@ def admission(session_id):
     if 'ready' in item and type(item['ready']) is not bool:
         raise PermissionError('admission_invalid')
     if item.get('reasoning_effort','none') not in ('none','low','high','max'):raise PermissionError('admission_reasoning')
-    if item['model'] != 'deepseek-v4.1-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
+    if item['model'] != 'deepseek-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
         raise PermissionError('admission_invalid')
     if not isinstance(item['prompt'], str):
         raise PermissionError('admission_invalid')
@@ -165,7 +165,7 @@ def make_adapter(api_key):
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={
-        'host': '127.0.0.1', 'port': 8941, 'key': api_key, 'model_name': 'deepseek-v4.1-flash'}))
+        'host': '127.0.0.1', 'port': 8941, 'key': api_key, 'model_name': 'deepseek-flash'}))
 
 
 async def main():

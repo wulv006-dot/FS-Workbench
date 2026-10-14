@@ -24,7 +24,12 @@ async def run(effort):
     import aiohttp
     fixture = fixtures.GatewayTests()
     fixture.setUp()
-    fixture.budget.policy['model'] = 'deepseek-v4.1-flash'
+    from proxy_gateway import UnifiedBudget, schemas
+    from direct_provider import MODEL, request_model as direct_request, prepare_request
+    from unittest.mock import patch
+    fixture.budget=UnifiedBudget(fixture.db,{'id':'no-pilot-quotas-deepseek-direct-tokens-only-v1','model':MODEL,'price_version':'deepseek-direct-no-cny-invoice-or-fx-v1','input_microcny':None,'output_microcny':None},lambda:fixture.now,allow_unknown_costs=True)
+    fixture.gateway.budget=fixture.budget
+    fixture.gateway.preflight=lambda req:prepare_request(req,schemas())
     fixture.scope.deadline = None
     fixture.task=fixture.tasks.create('owner',dict(fixture.task['spec'],template_version='official-'+effort))
     fixture.task=fixture.tasks.reserve_dispatch(fixture.task['id'],'owner','lease')
@@ -49,11 +54,11 @@ async def run(effort):
         if request['tools']==[]:
             aux_calls.append(request)
             assert request['max_tokens']==MAX_HERMES_OUTPUT_TOKENS,'aux_output_maximum'
-            return {'id':'native_summary_receipt','model':'deepseek-v4.1-flash',
+            return {'id':'native_summary_receipt','model':'deepseek-flash',
                 'usage':{'prompt_tokens':30,'completion_tokens':50,'total_tokens':80},
                 'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'Native complete synthetic summary.'}}]}
         assert '自主按线索下钻' in request['messages'][0]['content'], 'skill_not_loaded'
-        result = fixture.answer(request)
+        result = dict(fixture.answer(request), model=MODEL)
         if stress:
             size=len(json.dumps(request,ensure_ascii=False,separators=(',',':')).encode())
             assert size<=MAX_PROVIDER_WIRE_BYTES,'stress_request_exceeds_hermes_wire'
@@ -94,7 +99,17 @@ async def run(effort):
             result['choices'][0]['message']={'role':'assistant','content':'Fixture follow-up complete.'}
         result['usage']['completion_tokens_details']={'reasoning_tokens':3}
         return result
-    fixture.provider = provider
+    def through_direct(request):
+        def fake_open(path, payload):
+            assert path=='/chat/completions','direct_endpoint_not_chat'
+            body=json.loads(payload)
+            assert body['model']=='deepseek-flash' and body['thinking']=={'type':'enabled'},'direct_provider_identity_or_thinking'
+            assert body['reasoning_effort']==effort and body['max_tokens']==MAX_HERMES_OUTPUT_TOKENS,'direct_parameters_not_pinned'
+            assert 'enable_thinking' not in body,'bailian_fields_in_direct_payload'
+            converted=dict(body,tools=body.get('tools',[]),enable_thinking=True)
+            return provider(converted)
+        with patch('direct_provider._open',side_effect=fake_open):return direct_request(request,schemas())
+    fixture.provider = through_direct
     proxy = Proxy(grants, lambda grant: fixture.gateway)
     original_dispatch = proxy.dispatch
     def diagnose(method, path, token, body=None):
@@ -114,7 +129,7 @@ async def run(effort):
         hermes_worker.ADMISSIONS = fixture.root/'admissions'
         hermes_worker.ADMISSIONS.mkdir()
         admitted={
-            'session_id': session_id, 'token': token, 'model': 'deepseek-v4.1-flash',
+            'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
             'reasoning_effort':effort,'ready':False,
             'prompt': 'Use only the registered FC readonly tools. This is synthetic integration validation.'}
         admission_file=hermes_worker.ADMISSIONS/(session_id+'.json')
@@ -202,7 +217,7 @@ async def run(effort):
                           'model': 'fake-provider', 'provider_calls': fixture.calls,
                           'reasoning_effort':effort,'second_user_turn':'pass','tool_index_replay':'pass','actual_tool_evidence_received':'pass',
                           'native_prune_stress':stress,'native_prune_observed':any(saw_prune),'largest_request_bytes':max(request_sizes or [0]),
-                          'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'native_output_limit_tokens':MAX_HERMES_OUTPUT_TOKENS,'verified_response_completion_tokens':20000,'complete_tool_results_retained':not any(saw_prune),
+                          'fs_transport_limit_bytes':MAX_PROVIDER_WIRE_BYTES,'native_output_limit_tokens':MAX_HERMES_OUTPUT_TOKENS,'direct_provider_wire_verified':True,'direct_context_tokens':1048576,'verified_response_completion_tokens':20000,'complete_tool_results_retained':not any(saw_prune),
                           'ordinary_task_scope_description_preserved':True,'rpc_client_timeout_checks':rpc_timeouts,
                           'process_peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                           'actual_started_admission_and_run_binding':'pass',

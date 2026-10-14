@@ -21,8 +21,8 @@ class MaximumCapacityTests(unittest.TestCase):
     slot=fixture.GatewayTests.slot
     answer=fixture.GatewayTests.answer
 
-    def test_exact_bailian_units_and_three_megabyte_request(self):
-        self.assertEqual(MAX_PROVIDER_CONTEXT_TOKENS,1000000)
+    def test_exact_deepseek_direct_units_and_three_megabyte_request(self):
+        self.assertEqual(MAX_PROVIDER_CONTEXT_TOKENS,1048576)
         self.assertEqual(MAX_HERMES_OUTPUT_TOKENS,393216)
         request=request_body({'messages':[{'role':'user','content':'汉'*1000000}],
             'max_tokens':393216,'reasoning_effort':'max'},self.policy['model'])

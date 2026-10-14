@@ -65,17 +65,13 @@ def spending_hold(daily, tasks, owner):
 
 def gateway(daily, tasks, book):
     from fc_daily import provider_slot, model_daily_limit
-    from fc_daily_model import MODEL
-    from ai_advisor_model import request_model
-    policy = {'id': 'no-pilot-quotas-public-peak-estimate-v1', 'model': MODEL,
-              'price_version': 'bailian-public-20261013-beijing-peak-no-discounts',
-              'input_microcny': 2, 'output_microcny': 8}
+    from direct_provider import MODEL, request_model, prepare_request
+    from proxy_gateway import schemas
+    policy = {'id': 'no-pilot-quotas-deepseek-direct-tokens-only-v1', 'model': MODEL,
+              'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
+              'input_microcny': None, 'output_microcny': None}
     def provider(request):
-        # request_model continues to load its existing key inside this process.
-        # Its opt-in tools argument is the only shared provider-source delta.
-        raw = request_model(request['messages'], {}, lambda value, _: value,
-                            max_tokens=request['max_tokens'], timeout=MAX_PROVIDER_WAIT_SECONDS, tools=request['tools'],
-                            reasoning_effort=request.get('reasoning_effort'))
+        raw = request_model(request, schemas())
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None
             known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport'}
@@ -90,7 +86,7 @@ def gateway(daily, tasks, book):
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
                         conservative_input_bound,
-                        model_daily_limit)
+                        model_daily_limit, preflight=lambda req:prepare_request(req,schemas()))
 
 
 def approved_background(root):
