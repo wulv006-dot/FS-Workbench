@@ -60,6 +60,17 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
     return json.dumps(json.loads(raw),ensure_ascii=False,separators=(',',':'),allow_nan=False)
 
 
+def loaded_context_metadata(agent):
+    source=getattr(agent,'_hermes_api_runtime',{}) or {}
+    result={}
+    for key in ('fs_context_version','fs_context_sha256','fs_background_version','fs_background_sha256',
+                'fs_methods_sha256','fs_governance_sha256','fs_skill_version','fs_skill_sha256'):
+        value=source.get(key)
+        pattern=r'[a-f0-9]{64}' if key.endswith('sha256') else r'[A-Za-z0-9_.-]{1,80}'
+        if isinstance(value,str) and re.fullmatch(pattern,value):result[key]=value
+    return result
+
+
 def make_adapter(api_key):
     from aiohttp import web
     from gateway.config import PlatformConfig
@@ -98,6 +109,13 @@ def make_adapter(api_key):
 
     class ReadonlyAdapter(APIServerAdapter):
         _fs_handshake=True
+        def _set_run_status(self,run_id,status,**fields):
+            # Pinned official Runs emits only provider/model. Preserve the actual
+            # constructed agent's verified FS context receipt in its pollable record.
+            loaded=loaded_context_metadata(self._active_run_agents.get(run_id))
+            if loaded:fields['runtime']={**(fields.get('runtime') or {}),**loaded}
+            return super()._set_run_status(run_id,status,**fields)
+
         def _http_route_table(self):
             allowed = {('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
                        ('GET', '/v1/runs/{run_id}'), ('POST', '/v1/runs/{run_id}/stop')}

@@ -10,6 +10,16 @@ from skill_bundle import load_bundle
 
 
 class TaskContextTests(unittest.TestCase):
+    def test_runtime_receipt_only_preserves_bounded_verified_context_fields(self):
+        import hermes_worker
+        from types import SimpleNamespace
+        source={'fs_context_sha256':'a'*64,'fs_context_version':'fs-task-context-v1',
+                'api_key':'synthetic-never-expose','reasoning_content':'private',
+                'fs_background_version':'unsafe\nvalue','fs_skill_sha256':'bad'}
+        self.assertEqual(hermes_worker.loaded_context_metadata(SimpleNamespace(_hermes_api_runtime=source)),
+                         {'fs_context_sha256':'a'*64,'fs_context_version':'fs-task-context-v1'})
+        self.assertEqual(hermes_worker.loaded_context_metadata(None),{})
+
     def test_real_admission_accepts_paired_context_and_rejects_partial_context(self):
         import hermes_worker
         root=Path(__file__).parent
