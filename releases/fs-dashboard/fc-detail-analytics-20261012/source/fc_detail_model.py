@@ -95,13 +95,57 @@ def facts(rows):
             'unfinished': sum(r['backlog'] for r in rows), 'funding': sum(r['funding'] for r in rows),
             'completed': sum(r['terminal'] and r['status'].startswith('已完成') for r in rows)}
 
+def elapsed_hours(row, at):
+    value = row.get('paid_at') or row.get('created_at')
+    try:
+        stamp = datetime.fromisoformat(value) if value else None
+        if at is None or stamp is None or stamp.tzinfo is None: return None
+        hours = (at - stamp).total_seconds() / 3600
+        return hours if hours >= 0 else None
+    except (ValueError, TypeError):
+        return None
+
+def current_risks(backlog, coverage, as_of, config):
+    result = {'source': 'Admin', 'as_of': as_of, 'currency': 'USD',
+              'basis': 'current_paid_open_pool_not_selected_payment_period',
+              'waiting_hours': 24, 'high_amount_usd': config['attention_amount_usd']}
+    if coverage.get('backlog_status') != 'available' or coverage.get('backlog_failed_groups'):
+        return {**result, 'status': 'not_available', 'reason': 'current_pool_incomplete_or_unverified'}
+    try:
+        at = datetime.fromisoformat(as_of)
+        if at.tzinfo is None: at = None
+    except (ValueError, TypeError): at = None
+    def money(rows, unknown_selection=0):
+        valid = [r['amount_cents'] for r in rows if type(r.get('amount_cents')) is int and r['amount_cents'] >= 0]
+        missing = len(rows) - len(valid)
+        known = sum(valid) / 100 if valid or not rows else None
+        return {'orders': len(rows) if not unknown_selection else None, 'known_orders': len(rows),
+                'amount_usd': known if not missing and not unknown_selection else None,
+                'known_amount_usd': known, 'missing_amount_orders': missing,
+                'unknown_selection_orders': unknown_selection}
+    waiting = [r for r in backlog if r['backlog']]
+    aging = {'under24': 0, '24to72': 0, 'at_least72': 0, 'unknown_time': 0, 'created_time_fallback': 0}
+    old = []
+    for row in waiting:
+        hours = elapsed_hours(row, at)
+        if hours is None: aging['unknown_time'] += 1; continue
+        if not row.get('paid_at'): aging['created_time_fallback'] += 1
+        aging['under24' if hours < 24 else '24to72' if hours < 72 else 'at_least72'] += 1
+        if hours >= 24: old.append(row)
+    unknown_amount = sum(type(r.get('amount_cents')) is not int or r['amount_cents'] < 0 for r in backlog)
+    high = [r for r in backlog if type(r.get('amount_cents')) is int and r['amount_cents'] >= config['attention_amount_usd'] * 100]
+    return {**result, 'status': 'partial' if unknown_amount or aging['unknown_time'] else 'available',
+            'issues': money([r for r in backlog if r['issue']]),
+            'waiting24': money(old, aging['unknown_time']), 'aging': aging,
+            'high_amount': money(high, unknown_amount)}
+
 def aggregate(dataset, query, config, now=None):
     now = now or datetime.now(SHANGHAI)
     if not config.get('trust_customer_flag'):
         dataset = {**dataset, 'orders': [{**r, 'customer': 'unknown'} for r in dataset['orders']],
                    'backlog': [{**r, 'customer': 'unknown'} for r in dataset['backlog']]}
     rows = [r for r in dataset['orders'] if selected(r, query, config)]
-    backlog = [r for r in dataset['backlog'] if selected(r, query, config, True) and not r['terminal']]
+    backlog = [r for r in deduplicate(dataset['backlog']) if selected(r, query, config, True) and not r['terminal']]
     edges = config['amount_edges_usd']
     buckets = []
     for i, lower in enumerate(edges):
@@ -139,12 +183,14 @@ def aggregate(dataset, query, config, now=None):
         key = cursor.isoformat()
         if key not in missing_days: trend.append({'date': key, **facts(days[key])})
         cursor += timedelta(days=1)
+    wait_hours = {}
     for index, original in enumerate(backlog):
         row = dict(original)
-        paid = row['paid_at'] or row['created_at']
-        row['age_hours'] = round(max(0, (now - datetime.fromisoformat(paid)).total_seconds() / 3600), 1) if paid else None
+        hours = elapsed_hours(row, now)
+        wait_hours[row['id']] = hours
+        row['age_hours'] = round(hours, 1) if hours is not None else None
         row['age_basis'] = '支付时间' if row['paid_at'] else '下单时间' if row['created_at'] else '时间暂缺'
-        row['attention'] = (['等待较久'] if row['age_hours'] is not None and row['age_hours'] >= config['attention_hours'] else [])
+        row['attention'] = (['等待较久'] if hours is not None and hours >= config['attention_hours'] else [])
         if row['amount_cents'] is not None and row['amount_cents'] >= config['attention_amount_usd'] * 100: row['attention'].append('高金额')
         if row['customer'] == 'new': row['attention'].append('后台新客')
         backlog[index] = row
@@ -155,7 +201,7 @@ def aggregate(dataset, query, config, now=None):
     page = int(query.get('page', 1))
     public = lambda r: {k: v for k, v in r.items() if k not in ('customer_key', 'amount_cents', 'terminal')} | {'amount_usd': None if r['amount_cents'] is None else r['amount_cents'] / 100}
     signals = []
-    slow = sum((r['age_hours'] or 0) >= config['attention_hours'] for r in backlog)
+    slow = sum(wait_hours[r['id']] is not None and wait_hours[r['id']] >= config['attention_hours'] for r in backlog)
     if slow: signals.append({'text': '当前有 %s 单等待超过 %s 小时，优先核查。' % (slow, config['attention_hours']), 'tab': 'fulfillment'})
     if facts(rows)['issues']: signals.append({'text': '所选支付日订单当前有 %s 单问题，查看具体订单。' % facts(rows)['issues'], 'tab': 'fulfillment'})
     missing = sum(r['amount_cents'] is None for r in rows)
@@ -171,5 +217,6 @@ def aggregate(dataset, query, config, now=None):
             'user_buckets': user_buckets, 'users_identified': len(users),
             'orders_without_customer_id': sum(not r['customer_key'] for r in rows),
             'dimensions': dimensions, 'trend': trend, 'backlog_summary': facts(backlog) if dataset['coverage'].get('backlog_status','available')=='available' else None, 'slow_orders': slow if dataset['coverage'].get('backlog_status','available')=='available' else None,
+            'current_risks': current_risks(backlog, dataset['coverage'], dataset['as_of'], config),
             'signals': signals[:3], 'orders': [public(r) for r in (listing if query.get('format') == 'csv' else listing[(page - 1) * 10:page * 10])],
             'list_total': len(listing), 'page': page, 'page_size': 10}

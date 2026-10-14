@@ -27,6 +27,86 @@ def data(rows, backlog=None):
 Q={'start':'2026-10-11','end':'2026-10-11','pool':'paid','page':'1'}
 
 class FactsTest(unittest.TestCase):
+    def risk_data(self, rows, complete=True):
+        value=data([],rows)
+        value['as_of']='2026-10-14T12:00:00+08:00'
+        if complete:value['coverage']['backlog_status']='available'
+        return value
+
+    def test_current_risks_use_full_pool_before_ui_paging(self):
+        rows=[row(n,'300.00',status=91,status_format='问题单',paytime='2026-10-12 12:00:00') for n in range(1,25)]
+        value=self.risk_data(rows)
+        q={**Q,'pool':'current','site_group':'main'}
+        result=aggregate(value,q,CFG)
+        risks=result['current_risks']
+        self.assertEqual(len(result['orders']),10)
+        self.assertEqual(risks['issues']['orders'],24)
+        self.assertEqual(risks['issues']['amount_usd'],7200)
+        self.assertEqual(risks['waiting24']['orders'],24)
+        self.assertEqual(risks['high_amount']['orders'],24)
+        self.assertEqual(aggregate(value,{**q,'page':'3','start':'2026-09-01','end':'2026-09-02'},CFG)['current_risks'],risks)
+
+    def test_risks_deduplicate_before_terminal_filter_and_respect_scope(self):
+        live=row(1,'400.00',status=91,status_format='问题单',lasttime='2026-10-12 00:00:00')
+        done=row(1,'400.00',status=101,status_format='已完成',lasttime='2026-10-13 00:00:00')
+        main=row(2,'300.00',status=91,status_format='问题单')
+        satellite=row(3,'500.00',site_id=141,status=91,status_format='问题单')
+        result=aggregate(self.risk_data([live,done,main,copy.deepcopy(main),satellite]),{**Q,'site_group':'main'},CFG)
+        self.assertEqual(result['backlog_summary']['orders'],1)
+        self.assertEqual(result['current_risks']['issues']['amount_usd'],300)
+        self.assertEqual(result['current_risks']['high_amount']['orders'],1)
+        self.assertEqual(aggregate(self.risk_data([main]),{**Q,'platform':'PS'},CFG)['current_risks']['issues']['orders'],0)
+
+    def test_exact_24_and_72_hour_boundaries_and_money_threshold(self):
+        rows=[row(1,'299.99',paytime='2026-10-13 12:00:01'),row(2,'300.00',paytime='2026-10-13 12:00:00'),
+              row(3,'300.01',paytime='2026-10-11 12:00:01'),row(4,'400.00',paytime='2026-10-11 12:00:00')]
+        at=datetime.fromisoformat('2026-10-14T12:00:00+08:00')
+        result=aggregate(self.risk_data(rows),{**Q,'pool':'current'},CFG,now=at)
+        r=result['current_risks']
+        self.assertEqual(r['aging'],{'under24':1,'24to72':2,'at_least72':1,'unknown_time':0,'created_time_fallback':0})
+        self.assertEqual(r['waiting24']['orders'],3)
+        self.assertEqual(r['high_amount']['orders'],3)
+        near=next(x for x in result['orders'] if x['id']=='TEST1')
+        self.assertEqual(near['age_hours'],24.0)
+        self.assertNotIn('等待较久',near['attention'])
+        self.assertEqual(result['slow_orders'],3)
+
+    def test_money_and_time_unknowns_do_not_become_zero(self):
+        rows=[row(1,'',status=91,status_format='问题单',paytime='',timestamp_format=''),
+              row(2,'40.00',status=91,status_format='问题单',paytime='',timestamp_format='2026-10-12 12:00:00'),
+              row(3,'400.00',paytime='2026-10-14 13:00:00')]
+        r=aggregate(self.risk_data(rows),Q,CFG)['current_risks']
+        self.assertEqual(r['status'],'partial')
+        self.assertEqual(r['issues']['orders'],2);self.assertIsNone(r['issues']['amount_usd'])
+        self.assertEqual(r['issues']['known_amount_usd'],40)
+        self.assertEqual(r['issues']['missing_amount_orders'],1)
+        self.assertEqual(r['aging']['unknown_time'],2);self.assertEqual(r['aging']['created_time_fallback'],1)
+        self.assertIsNone(r['waiting24']['orders']);self.assertEqual(r['waiting24']['known_orders'],1)
+        self.assertIsNone(r['high_amount']['orders']);self.assertEqual(r['high_amount']['known_orders'],1)
+        self.assertIsNone(r['high_amount']['amount_usd'])
+
+    def test_pool_incomplete_or_unverified_suppresses_all_three_totals(self):
+        value=self.risk_data([row(1)],complete=False)
+        for coverage in ({},{'backlog_status':'partial'},{'backlog_status':'available','backlog_failed_groups':[2]}):
+            value['coverage'].update(coverage)
+            r=aggregate(value,Q,CFG)['current_risks']
+            self.assertEqual(r['status'],'not_available');self.assertNotIn('issues',r)
+
+    def test_financial_states_overlap_without_becoming_loss(self):
+        rows=[row(1,'400.00',status_format='投诉·调查中'),row(2,'20.00',status=91,status_format='问题单')]
+        r=aggregate(self.risk_data(rows),Q,CFG)['current_risks']
+        self.assertEqual(r['issues']['orders'],2);self.assertEqual(r['high_amount']['orders'],1)
+        self.assertEqual(r['waiting24']['orders'],1)
+        self.assertNotIn('loss',r);self.assertNotIn('profit',r)
+
+    def test_snapshot_aging_is_reproducible_and_empty_verified_pool_is_zero(self):
+        value=self.risk_data([row(1,paytime='2026-10-13 12:00:01')])
+        first=aggregate(value,Q,CFG,now=datetime.fromisoformat('2026-10-14T12:00:00+08:00'))['current_risks']
+        later=aggregate(value,Q,CFG,now=datetime.fromisoformat('2026-10-15T12:00:00+08:00'))['current_risks']
+        self.assertEqual(first,later);self.assertEqual(first['waiting24']['orders'],0)
+        empty=aggregate(self.risk_data([]),Q,CFG)['current_risks']
+        self.assertEqual(empty['issues']['amount_usd'],0);self.assertEqual(empty['high_amount']['orders'],0)
+
     def test_money_boundaries_and_missing(self):
         r=aggregate(data([row(1,'19.99'),row(2,'20.00'),row(3,'40.00'),row(4,'500.00'),row(5,'')]),Q,CFG)
         self.assertEqual([b['orders'] for b in r['buckets']], [1,1,1,0,0,0,0,0,0,1,1])
