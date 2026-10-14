@@ -371,13 +371,22 @@ def scrape(cfg, log=print, info=None):
             return _r.get("rows") or []
         except Exception as e:
             log("  [千岛] ⚠ 容器渲染后端异常(%r)" % (e,))
-    if not local_fallback_allowed(cfg):
-        log("  [千岛] ✘ 容器不可用，本机回退已关闭（生产宿主无浏览器内核）"
-            "—— 本轮跳过，沿用上次快照")
-        if info is not None:
-            info["missed"], info["counts"] = [], {}
-        return []
-    log("  [千岛] 容器不可用 -> 回退本机 Playwright（QD_LOCAL_FALLBACK 已开启）")
+        # ── 2026-10-14 修「闸写错层级」──
+        # 这道闸原先写在**函数体层级**（缩进 4 空格），于是容器内跑 core_qd.scrape()
+        # 时（QD_RENDER_URL=off ⇒ render_url() 返回 ""，直接落到这里）也撞闸：容器里
+        # QD_LOCAL_FALLBACK 未设、config 允许本机回退未设 ⇒ 恒为 False ⇒ 聚合价永远
+        # 「容器不可用，本机回退已关闭」而返回 0 条。后果：平台聚合价自 2026-10-08
+        # 起冻结（qd_cost 时间戳卡在 10-08T15:46:19），184 项成本里 142 项拿不到新价。
+        # scrape_books() 的同一道闸本来就写在 if _u: 块**内部**（所以订单簿正常），
+        # 这里补成一致：只有「容器试过且失败」才需要判要不要回退；容器自己（_u 为空）
+        # 直接往下走本机 Playwright（容器自带浏览器，这正是它存在的意义）。
+        if not local_fallback_allowed(cfg):
+            log("  [千岛] ✘ 容器不可用，本机回退已关闭（生产宿主无浏览器内核）"
+                "—— 本轮跳过，沿用上次快照")
+            if info is not None:
+                info["missed"], info["counts"] = [], {}
+            return []
+    log("  [千岛] 本机 Playwright 抓取（渲染后端未启用或不可用）")
     from playwright.sync_api import sync_playwright        # 懒 import：不抓千岛时不依赖
 
     spec_map = {str(k): canon_spec(v) for k, v in (qd.get("区服") or {}).items()}
