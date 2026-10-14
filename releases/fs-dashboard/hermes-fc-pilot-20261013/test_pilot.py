@@ -217,6 +217,11 @@ class PilotTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_report(item, book())
 
+    def test_sk_prose_allowed_in_legacy_pilot_report_contract(self):
+        for text in ('task-scoped evidence','risk-based evidence','sk-SYNTHETIC'):
+            value=report();value['findings'][0]['text']=text
+            validate_report(value,book())
+
     def test_returned_projection_does_not_mutate_snapshot(self):
         source = book(); args = {'snapshot_id': source.capture_id, 'window': 'target'}
         first = source.call('fc.get_business_snapshot', args)

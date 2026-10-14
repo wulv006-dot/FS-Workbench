@@ -93,6 +93,45 @@ class ReleaseTests(unittest.TestCase):
             if change=='scope':value['files'].pop()
             with self.assertRaises(ValueError):self.publisher.validate(value,self.stage)
 
+    def secret_manifest(self):
+        value=self.wire_manifest();value['scope']=self.publisher.HERMES_SECRET_SCOPE
+        removed=[r for r in value['files'] if r['candidate'] not in self.publisher.HERMES_SECRET_TARGETS]
+        value['files']=[r for r in self.manifest['files'] if r['candidate'] in self.publisher.HERMES_SECRET_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        paths={r['path'] for r in value['unchangedRequired']}
+        value['unchangedRequired'] += [{'path':r['target'],'sha256':'c'*64} for r in removed if r['target'] not in paths]
+        value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_SECRET_TARGETS.values()]
+        return value
+
+    def test_secret_scope_is_exact_six_and_each_shared_dependency_is_required(self):
+        value=self.secret_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),6)
+        self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
+        for row in value['unchangedRequired']:
+            bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)
+            with self.subTest(path=row['path']):
+                with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+        for change in ('baseline','extra','unit'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='unit':bad['runtimeRequired'].pop('fs-hermes-fc.service')
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_secret_restart_stops_original_fs_and_keeps_worker_and_session(self):
+        events=[]
+        class Fence:
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            self.publisher.restart_for(self.secret_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
     def update_manifest(self):
         value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_UPDATE_SCOPE
         value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_UPDATE_TARGETS]

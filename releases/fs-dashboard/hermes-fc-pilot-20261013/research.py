@@ -50,7 +50,7 @@ def tool_schemas():
 
 def label(value):
     value = str(value or 'unknown')
-    if len(value) > 80 or re.search(r'[@<>\r\n]|https?://|sk-|Bearer|密码|password|Cookie', value, re.I):
+    if len(value) > 80 or re.search(r'[@<>\r\n]|https?://|Bearer|密码|password|Cookie', value, re.I):
         return 'unknown'
     return value
 

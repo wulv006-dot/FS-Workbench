@@ -326,5 +326,5 @@ def validate_report(report, book):
     # Narrative numbers are rendered from validated metric cards in this first candidate.
     if any(re.search(r'\d|[$¥%]', x) for x in strings):
         raise ValueError('unverified_narrative_number')
-    if re.search(r'sk-[A-Za-z0-9]|Bearer\s|Cookie\s*[:=]|password\s*[:=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|已改价|已派单|已退款|已开启图库', encoded(strings), re.I):
+    if re.search(r'Bearer\s|Cookie\s*[:=]|password\s*[:=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|已改价|已派单|已退款|已开启图库', encoded(strings), re.I):
         raise ValueError('sensitive_or_executed_statement')

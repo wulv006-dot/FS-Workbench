@@ -24,6 +24,11 @@ class ResearchTests(unittest.TestCase):
         args={'start':'2026-10-05','end':'2026-10-11','group_by':['country','product'],'filters':{},'page':1};args.update(change)
         return self.book.call('fc.query_business',args)
 
+    def test_group_label_keeps_sk_prose_and_other_private_markers_stay_redacted(self):
+        from research import label
+        for text in ('Desk-Label','task-scoped','sk-SYNTHETIC'):self.assertEqual(label(text),text)
+        for text in ('user@example.com','Bearer fixture','password=fixture'):self.assertEqual(label(text),'unknown')
+
     def test_cross_dimensions_include_other_products_without_secret_or_order_ids(self):
         result=self.query();text=str(result)
         self.assertIn('Boosting',text)

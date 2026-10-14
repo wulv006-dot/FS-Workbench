@@ -4,6 +4,7 @@ import re
 from decimal import Decimal,ROUND_HALF_UP
 from pilot import encoded
 from research import resolve,decimal
+from proxy_gateway import sensitive_context
 
 FORMAT = ('最终输出JSON：summary（中文短结论），findings数组（statement、claim_type=fact/hypothesis、'
           'evidence_ids、alternative、missing），actions数组（target、action、condition、cost_risk、review_at、'
@@ -65,7 +66,7 @@ def validate_output(text,book):
         value=re.sub(r'\b\d{4}-\d{2}-\d{2}\b','DATE',value)
         tokens=set(re.findall(r'(?<![A-Za-z0-9_])-?\d+(?:,\d{3})*(?:\.\d+)?(?![A-Za-z0-9_])',value))
         if tokens-bound[location]:raise ValueError('unbound_report_number')
-    if re.search(r'sk-[A-Za-z0-9]|Bearer\s|Cookie\s*[:=]|password\s*[:=]|密码\s*[:：=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}',encoded(result),re.I):raise ValueError('sensitive_analysis')
+    if sensitive_context(result) or re.search(r'密码\s*[:：=]|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}',encoded(result),re.I):raise ValueError('sensitive_analysis')
     return dict(result,analysis_completed=True,business_acceptance='user_review_required',
                 model_generated=True,actions_executed=False,snapshot_id=book.capture_id,
                 validation='schema_evidence_and_numeric_binding_not_causal_quality_approval')

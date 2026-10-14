@@ -23,6 +23,11 @@ class BackgroundTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'background_secret_rejected'):
             self.imported('password=fixture')
 
+    def test_approved_sk_prose_is_retained_without_expanding_permissions(self):
+        for text in ('task-scoped context','risk-based review','sk-SYNTHETIC'):
+            value=self.imported(text)
+            self.assertEqual(value['content'],text);self.assertEqual(value['permissions'],[])
+
     def test_new_version_is_new_bundle_old_object_unchanged(self):
         task={'id':'fixture','state':'RUNNING','spec':spec(),'owner':'private'}
         old=self.imported(); newer=self.imported('业务背景更正。','v2')

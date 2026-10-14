@@ -167,5 +167,27 @@ class ControllerTests(unittest.TestCase):
         finding.update(claim_type='hypothesis',alternative='只是情景输入，并非真实销售')
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
 
+    def test_hermes_question_sk_policy_is_independent_of_legacy_advisor(self):
+        from controller import clean_hermes_question
+        for value in ('Use task-scoped evidence.','Use risk-based review.','sk-SYNTHETIC'):
+            self.assertEqual(clean_hermes_question(value),value)
+        for value in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com','https://example.com','123456789012'):
+            with self.assertRaises(ValueError):clean_hermes_question(value)
+        body=dict(self.body,question='Use task-scoped evidence.')
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote):
+            code,job=self.service.post(body,'owner',self.headers)
+        self.assertEqual(code,202);self.assertEqual(job['state'],'COMPLETED',job)
+
+    def test_report_sk_text_allowed_and_other_private_markers_rejected(self):
+        ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
+        value={'summary':'Use "task-scoped" evidence.',
+               'findings':[{'statement':'A task-scoped sample is partial.','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}],
+               'actions':[],'reviews':[],'limitations':[],'number_claims':[]}
+        for marker in ('sk-SYNTHETIC','task-scoped','risk-based','Use "task-scoped." evidence.'):
+            value['summary']=marker;self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
+        for marker in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com'):
+            value['summary']=marker
+            with self.assertRaisesRegex(ValueError,'sensitive_analysis'):validate_output(encoded(value),self.book)
+
 
 if __name__=='__main__':unittest.main()
