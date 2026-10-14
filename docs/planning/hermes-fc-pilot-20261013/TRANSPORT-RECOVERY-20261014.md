@@ -1,0 +1,11 @@
+# 真实调查传输恢复
+
+第九新调查58d25aaf32d8773fd21e215779fbe113已FAILED/provider_outcome_unknown，6次模型回执已确认，最后一笔保留unknown。已保存安全诊断为provider_unknown_transport；没有更具体异常类型，因此不能认定确切上游根因。原请求不重放，不把缺失费用改成零或成功。
+
+本地单次120秒限制已核。Hermes工具高/极高思考请求改为600秒，并保存异常类别与耗时/等待上限，不存异常正文或私有推理。仍使用现有百炼DeepSeek与原FS进程凭据，不新加模型、密钥、端点或网络。
+
+按用户最新明确指令，费用可用则记录，缺失保持未知，不再逐指纹确认或阻止新的已授权只读分析。FS的Hermes admission与预算使用同一opt-in规则：允许不同任务的unknown，原任务相同/新回合不跳过未知结果，相同turn不重放，started/在途仍拦截。既有账本、原失败与两历史批准文件保持。
+
+沿既有publisher的UPDATE5目标scope，实际只改变shared provider、fs_inprocess、proxy_gateway三源；所有当前Hermes、Admin/Order、前端与其它业务用完整347清单保护。只重载原FS；无业务写、采集/调度变化或旧顾问退役动作。第九真实已终态，CI/合并/现场基线后再受控发布。
+
+直接53项合成测试通过，正式Linux/官方high/max待本冻结。用户要求先完成可读Hermes经营报告，随后退役旧顾问；费用不是交付前置。Library原件归档阻塞仍独立，不暂停施工。

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import time
 import urllib.error
 import urllib.request
 from fc_daily_model import MODEL, ENDPOINT, NoRedirect
@@ -56,11 +57,13 @@ def validate(raw, projected):
 
 
 def request_model(messages, projected, validator, *, max_tokens=220, timeout=40, tools=None, reasoning_effort=None):
+    timeout_limit=600 if tools is not None and reasoning_effort in ('high','max') else 120
     output_limit=16384 if tools is not None and reasoning_effort in ('high','max') else 6000
-    if type(max_tokens) is not int or not 1<=max_tokens<=output_limit or type(timeout) is not int or not 1<=timeout<=120:
+    if type(max_tokens) is not int or not 1<=max_tokens<=output_limit or type(timeout) is not int or not 1<=timeout<=timeout_limit:
         return {'status':'configuration_invalid'}
     name = os.environ.get('FS_DAILY_MODEL_KEY_FILE')
     if not name: return {'status': 'configuration_missing'}
+    started=time.monotonic()
     try:
         path = Path(name); info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_uid != os.geteuid() or info.st_size > 1024:
@@ -99,7 +102,14 @@ def request_model(messages, projected, validator, *, max_tokens=220, timeout=40,
                 if isinstance(code,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}',code):result['provider_error_code']=code
         except Exception:pass
         return result
-    except (OSError,TimeoutError):return {'status':'unknown_transport'}
+    except (OSError,TimeoutError) as error:
+        result={'status':'unknown_transport'}
+        if tools is not None:
+            reason=getattr(error,'reason',None)
+            result.update(transport_error_type=type(error).__name__,
+                          transport_reason_type=type(reason).__name__ if isinstance(reason,BaseException) else None,
+                          elapsed_seconds=round(time.monotonic()-started,3),timeout_seconds=timeout)
+        return result
     except (ValueError,KeyError,IndexError,TypeError):return {'status':'invalid_response'}
 
 

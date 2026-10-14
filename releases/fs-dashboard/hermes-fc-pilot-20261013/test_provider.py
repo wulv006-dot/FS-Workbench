@@ -50,6 +50,21 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(self.sent[0]['reasoning_effort'],'max');self.assertEqual(self.sent[0]['tool_choice'],'auto')
         self.assertEqual(self.sent[0]['tools'],schemas())
 
+    def test_hermes_long_thinking_timeout_and_safe_transport_diagnostics(self):
+        observed=[]
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect=lambda request,timeout:(observed.append(timeout) or Response())
+            self.provider.request_model([],{},lambda v,_:v,tools=schemas(),reasoning_effort='max',timeout=600)
+            self.assertEqual(self.provider.request_model([],{},lambda v,_:v,timeout=600),{'status':'configuration_invalid'})
+        self.assertEqual(observed,[600])
+        with patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect=TimeoutError('private network diagnostic')
+            result=self.provider.request_model([],{},lambda v,_:v,tools=schemas(),reasoning_effort='max',timeout=600)
+            legacy=self.provider.request_model([],{},lambda v,_:v)
+        self.assertEqual(result['status'],'unknown_transport');self.assertEqual(result['transport_error_type'],'TimeoutError')
+        self.assertEqual(result['timeout_seconds'],600);self.assertGreaterEqual(result['elapsed_seconds'],0)
+        self.assertNotIn('private',str(result));self.assertEqual(legacy,{'status':'unknown_transport'})
+
     def test_unsupported_parameters_or_tools_never_send(self):
         for kwargs in ({'reasoning_effort':'max'},{'tools':schemas(),'reasoning_effort':'medium'},{'tools':[]},{'max_tokens':7000}):
             self.assertEqual(self.run_request(**kwargs)['status'],'configuration_invalid')

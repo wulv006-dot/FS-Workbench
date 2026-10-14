@@ -149,6 +149,12 @@ def safe_diagnostic(response, request, reason):
     out={'status':'unknown','reason':reason if isinstance(reason,str) and re.fullmatch(r'[a-z0-9_]{3,80}',reason) else 'provider_result_unverified'}
     if not isinstance(response,dict):return out
     if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
+    for key in ('transport_error_type','transport_reason_type'):
+        if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected'):
+            out[key]=response[key]
+    for key in ('elapsed_seconds','timeout_seconds'):
+        value=response.get(key)
+        if type(value) in (int,float) and 0<=value<=86400:out[key]=value
     code=response.get('provider_error_code')
     if isinstance(code,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,79}',code):out['provider_error_code']=code
     identity=response.get('id')
@@ -180,13 +186,13 @@ def safe_diagnostic(response, request, reason):
     return out
 
 
-def require_reconciled_usage(rows, accepted_unknowns, owner, task):
+def require_reconciled_usage(rows, accepted_unknowns, owner, task, allow_unknown_costs=False):
     for row in rows:
         if row['state'] == 'invalid_response' and row['owner'] == owner and row['task'] == task:
             raise ValueError('invalid_previous_result')
         if row['state'] not in ('succeeded', 'invalid_response'):
-            if (row['state'] == 'unknown' and row['owner'] == owner and row['task'] != task and
-                    accepted_unknowns.get(row['fingerprint']) == row['microcny']):
+            if (row['state'] == 'unknown' and row['task'] != task and
+                    (allow_unknown_costs or row['owner'] == owner and accepted_unknowns.get(row['fingerprint']) == row['microcny'])):
                 continue
             raise ValueError('pilot_usage_hold')
 
@@ -197,8 +203,10 @@ class UnifiedBudget:
     Constructor is an explicit migration; instantiate ONLY against an isolated fixture
     until shared DB migration is reviewed. No default production path is present.
     """
-    def __init__(self, db, policy, clock, accepted_unknowns=None):
+    def __init__(self, db, policy, clock, accepted_unknowns=None, allow_unknown_costs=False):
         self.db, self.clock = db, clock
+        if type(allow_unknown_costs) is not bool:raise ValueError('unknown_cost_policy_invalid')
+        self.allow_unknown_costs=allow_unknown_costs
         self.accepted_unknowns=dict(accepted_unknowns or {})
         if any(not isinstance(k,str) or not re.fullmatch(r'[a-f0-9]{64}',k) or type(v) is not int or v<=0 for k,v in self.accepted_unknowns.items()):
             raise ValueError('unknown_acceptance_invalid')
@@ -265,7 +273,7 @@ class UnifiedBudget:
                 raise ValueError('daily_model_limit')
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
                                 'ON r.fingerprint=m.fingerprint').fetchall()
-            require_reconciled_usage(rows, self.accepted_unknowns, owner, task)
+            require_reconciled_usage(rows, self.accepted_unknowns, owner, task, self.allow_unknown_costs)
             task_cost = task_tokens = day_cost = turns = 0
             for row in rows:
                 if row['state'] not in ('succeeded', 'invalid_response'):
