@@ -642,6 +642,7 @@ def main():
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/visual",["test_visual"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation","test_intel_selection"])
+            node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
         elif group=="hermes-report-tracks":
             units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
             node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
