@@ -14,7 +14,7 @@ class Recovery(unittest.TestCase):
             self.assertEqual(hashlib.sha256((HERE/'native'/row['candidate']).read_bytes()).hexdigest(),row['sha256'])
     def test_ui_scope(self):
         m=json.loads((HERE/'ui/candidate-manifest.json').read_text('utf-8'))
-        self.assertEqual(len(ui.validate(m,HERE/'ui')),4)
+        self.assertEqual(len(ui.validate(m,HERE/'ui')),5)
         bad=copy.deepcopy(m);bad['files'][0]['target']='/opt/g2gfollow/pricing.py'
         with self.assertRaises(ValueError):ui.validate(bad,HERE/'ui')
         bad=copy.deepcopy(m);bad['files'][0]['beforeSha256']=None
@@ -29,5 +29,8 @@ class Recovery(unittest.TestCase):
     def test_old_destinations_preserved(self):
         old=json.loads((HERE/'baseline-fixture.json').read_text('utf-8'))
         new=json.loads((HERE/'ui/candidate/fs-home/navigation.json').read_text('utf-8'))
+        old=json.loads(json.dumps(old,ensure_ascii=False).replace('LV决策大脑','Hermes智体'))
         self.assertEqual({t['id']:t for t in old['oldTools']},{t['id']:t for t in new['tools'] if t['id'] in {t['id'] for t in old['oldTools']}})
+        self.assertEqual(next(s['title'] for s in new['sections'] if s['id']=='brain'),'Hermes智体')
+        self.assertNotIn('LV决策大脑',(HERE/'ui/candidate/brain/index.html').read_text('utf-8'))
 if __name__=='__main__':unittest.main()
