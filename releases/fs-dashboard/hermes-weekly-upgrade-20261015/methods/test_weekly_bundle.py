@@ -17,6 +17,8 @@ CANDIDATE = HERE / 'source'
 ROOTS = [CANDIDATE, BASE,
          WORKSPACE / 'hermes_fs_research_integration_20261015/source',
          WORKSPACE / 'hermes_market_sources_20261015/regression',
+         WORKSPACE / 'releases/fs-dashboard/hermes-fs-research-integration-20261015/source',
+         WORKSPACE / 'releases/fs-dashboard/hermes-market-sources-20261015',
          WORKSPACE / 'releases/fs-dashboard/hermes-fc-pilot-20261013',
          WORKSPACE / 'releases/fs-dashboard/hermes-report-tracks-20261015/source',
          WORKSPACE / 'releases/fs-dashboard/hermes-report-tracks-20261015']
