@@ -1,0 +1,22 @@
+[Unit]
+Description=Shugo-bot - AION 2 Kinah Discord onboarding bot
+Documentation=file:///opt/shugo-bot/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shugo-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+# 令牌优先取环境变量；此处故意留空，真实值由 /opt/shugo-bot/token.txt 提供
+# （线上权限 600），或在 drop-in 里覆盖。**凭据不写进版本库。**
+Environment=SHUGO_TOKEN=
+ExecStart=/opt/shugo-bot/.venv/bin/python /opt/shugo-bot/bot.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

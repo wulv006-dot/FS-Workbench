@@ -361,6 +361,16 @@ def select(paths):
         # pr_fast_tests.G2GModuleContracts 做离线契约检查（纯 AST/文本，不 exec、不联网）。
         if name.startswith("opt/g2gfollow/") and suffix in (".py",".sh",".service"):
             groups.add("g2g");continue
+        # Discord 机器人（2026-10-15 纳入版本管理）：MMOEXP GuardBot（防冒充守卫）
+        # + Shugo-bot（AION2 迎新）+ 管这两个机器人的控制台页面 /bots/。
+        # 与 g2g 同一个坑：它们的 systemd unit（.service）若不在此处置，会落进
+        # 下面「无主 .service」桶 ⇒ 一入仓就把 pr-fast 判红。整体归入 bots 组，
+        # 由 pr_fast_tests.BotModuleContracts 做离线契约检查（纯 AST / 文本，
+        # 不 exec、不联网）。.mjs 一并归组：它不在下面的按后缀分流表里，
+        # 不入组就只有 selfcheck 会跑，改了也没人看。
+        if name.startswith(("opt/mmoexp-guardbot/","opt/shugo-bot/","opt/bot-console/")) \
+                and suffix in (".py",".js",".cjs",".mjs",".service"):
+            groups.add("bots");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
@@ -418,6 +428,7 @@ def main():
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
+        elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])

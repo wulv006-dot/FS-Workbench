@@ -1,0 +1,16 @@
+{
+  "name": "mmoexp-guardbot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MMOEXP Discord 防冒充守卫机器人：mmoexp 开头且不在白名单 → 加入即处置",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}

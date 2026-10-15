@@ -1,0 +1,16 @@
+[Unit]
+Description=MMOEXP-GuardBot - Discord anti-impersonation guard (mmoexp prefix -> kick/ban)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mmoexp-guardbot
+ExecStart=/usr/local/bin/node /opt/mmoexp-guardbot/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
