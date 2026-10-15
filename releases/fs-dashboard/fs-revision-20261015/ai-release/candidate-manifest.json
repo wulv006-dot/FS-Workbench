@@ -121,7 +121,7 @@
       "candidate": "revision-ai/units/fs-maintenance-cleanup.timer",
       "target": "/etc/systemd/system/fs-maintenance-cleanup.timer",
       "beforeSha256": null,
-      "sha256": "93aef79009f2a97d9d8744202600eca6543e80ebdd98d86dc41f4ce0640977b5"
+      "sha256": "22f2e6e5a46116b27fe7bdbb2f1a0005488be508cc4edd84b79dd32330074a2b"
     }
   ],
   "runtimeRequired": {
@@ -1276,7 +1276,7 @@
     },
     {
       "path": "/var/www/dashboard/fs-home/brain/brain.js",
-      "sha256": "be775156cf959080978267ca99db518531d48f53ed67cb929c45ceaed5c9773b"
+      "sha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d"
     },
     {
       "path": "/var/www/dashboard/fs-home/brain/index.html",
@@ -1297,6 +1297,10 @@
     {
       "path": "/var/www/dashboard/fs-home/navigation.js",
       "sha256": "ce0fc0a453ecae955bb8e7e2ae9ff6619de81c09691822935e5b9a3edc2c2aa1"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.json",
+      "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
     },
     {
       "path": "/var/www/dashboard/index.html",

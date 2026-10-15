@@ -1,6 +1,6 @@
 # FS工作台与Hermes改版施工索引
 
-日期：2026-10-15（Asia/Shanghai）。状态：组合候选已完成，正在私库 Linux QA 与发布前核对，尚未发布本次改版。
+日期：2026-10-15（Asia/Shanghai）。最新状态：PR141 已合并，Linux CI 38656338852 通过，原生前端及共享 UI 已发布。真实验收发现目录和 Hermes API 接线遗漏；AI 发布因 systemd 219 不接受日历时区后缀而自动回滚，正在最小补修。账号尚未发布。最新生产记录见 deployment/COMPATIBILITY-FIX.md；下面施工进度为历史快照。
 
 ## 本轮授权与目标
 

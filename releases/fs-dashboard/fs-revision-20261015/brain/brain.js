@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  const API = '/dashboard/fs-home/range.json';
+  const API = '/dashboard/fs-home/advisor.json';
   const active = new Set(['PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','REPORT_PENDING']);
   const labels = {PREPARING:'准备数据',DISPATCH_UNKNOWN:'派发待核对',RUNNING:'调查中',COMPLETED:'已成稿',FAILED:'失败',CANCELLED:'已取消',CANCEL_REQUESTED:'正在取消',NEEDS_RECONCILE:'需核对',REPORT_PENDING:'正在保存报告'};
   let items = [], selected = null, busy = false, timer = null, uncertain = false, submitting = false;

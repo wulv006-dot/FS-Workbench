@@ -1,0 +1,22 @@
+{
+  "releaseReady": false,
+  "targets": 9,
+  "contentChanges": [
+    {
+      "candidate": "revision/brain/brain.js",
+      "target": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "be775156cf959080978267ca99db518531d48f53ed67cb929c45ceaed5c9773b",
+      "sha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d"
+    },
+    {
+      "candidate": "revision/navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json",
+      "beforeSha256": "b5a57f95a514513e69159a867e1feb22303537cf2f2fbf779fd3e8f29c3d1842",
+      "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
+    }
+  ],
+  "nativeNavigationSource": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/navigation.json",
+  "baselineEvidence": "navigation-live-baseline.json",
+  "previousEightTargetManifest": "pre-registry-fix-8target-manifest.json",
+  "productionWrites": 0
+}
