@@ -625,7 +625,7 @@ def main():
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
         elif group=="hermes-market-sources":
-            units("releases/fs-dashboard/hermes-market-sources-20261015",["test_market","test_release_market"])
+            units("releases/fs-dashboard/hermes-market-sources-20261015",["test_market","test_release_market","test_runtime_isolation"])
         elif group=="hermes-report-filter-race":
             node("releases/fs-dashboard/hermes-report-filter-race-20261015/check_refresh.cjs")
         elif group=="hermes-shared-reports":
