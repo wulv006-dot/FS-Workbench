@@ -192,8 +192,21 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
                 evidence_ids=list(dict.fromkeys([main[0]]+daily[1]+references)))
 
 
+def native_envelope(text):
+    """Read one complete envelope after prose; reject trailing or multiple objects."""
+    match=re.search(r'(?m)^[ \t]*\{',text)
+    if not match:return None
+    body=text[match.start():].lstrip()
+    try:value,end=json.JSONDecoder().raw_decode(body)
+    except (ValueError,TypeError):return None
+    if body[end:].strip() or not isinstance(value,dict) or value.get('report_contract')!='fs-report-v2':return None
+    return value
+
+
 def narrative(text):
     """Recover Markdown following one fs-report-v2 envelope; never drop raw text."""
+    value=native_envelope(text)
+    if value and isinstance(value.get('research_text'),str) and value['research_text'].strip():return value['research_text']
     for match in re.finditer(r'(?ms)^```(?:json)?\s*\n(.*?)^```\s*$',text):
         try:value=json.loads(match[1])
         except (ValueError,TypeError):continue
@@ -233,10 +246,10 @@ def constraints(content,evidence):
 
 def review_paragraph(text,bounds):
     reasons=[];ids=[]
-    cautious=re.compile(r'不能|无法|不足以|尚未|未证|待证|未知|未验证|未闭合|未核实|不证明|不等于|交集未知|撤回')
+    cautious=re.compile(r'不能|无法|不足以|尚未|未证|待证|未知|未验证|未闭合|未核实|不证明|不等于|交集未知|撤回|不做关联|不用.{0,60}(?:推断|断言|证明)|不以.{0,60}(?:推断|断言|证明)')
     for sentence in re.split(r'[。；\n]|[，,](?!\d{3}(?:\D|$))',text):
         if cautious.search(sentence):continue
-        if not bounds['verified_quantity_price_discount'] and re.search(r'单件|件数叠加|数量(?:叠加|堆叠)|(?:无|非|不是|排除).{0,10}(?:多件|捆绑)|同\s*SKU.{0,12}(?:涨价|提价|单价)',sentence,re.I):
+        if not bounds['verified_quantity_price_discount'] and re.search(r'单件|多件\s*(?:Items|商品|道具)|件数叠加|数量(?:叠加|堆叠)|(?:无|非|不是|排除).{0,10}(?:多件|捆绑)|同\s*SKU.{0,12}(?:涨价|提价|单价)',sentence,re.I):
             reasons.append(('quantity_mechanism_unbound','数量、规格与优惠缺少已验证订单行定义；不能证明单件或排除多件/捆绑。'))
     # Coreference ("those Items ..., they are all ...") crosses commas but
     # does not cross independent paragraphs. Keep its sentence scope intact.
@@ -288,7 +301,7 @@ def apply_constraints(content,evidence):
     for i,row in enumerate(content['hypotheses']):row['text']=reviewed_text(row['text'],bounds,ledger,'hypotheses/'+str(i))
     for i,action in enumerate(content['actions']):
         fields=' '.join(action.get(k,'') for k in ('trigger','steps','metric','stop'))
-        threshold=re.search(r'[≥≤<>]\s*\$?\d|超\s*\d+\s*(?:小时|天)|\d+\s*(?:日|天|小时)内|(?:高于|低于|收窄至)\s*\d',fields)
+        threshold=re.search(r'[≥≤<>]\s*\$?\d|超\s*\d+\s*(?:小时|天)|\d+\s*(?:日|天|小时)内|(?:高于|低于|收窄至)\s*\d|持续.{0,8}\d+(?:[-–]\d+)?\s*%',fields)
         policy_ids=[key for key in action.get('evidence_ids',[]) if evidence.get(key,{}).get('data',{}).get('contract')=='fc-approved-policy-v1'
                     and evidence[key]['data'].get('status')=='approved']
         if threshold and not policy_ids:
@@ -300,7 +313,7 @@ def apply_constraints(content,evidence):
                           metric='固定对象、成熟度与事件口径闭合后按现行SLA复查；原数值标准待确认。',
                           stop='缺合法关联、事件或政策依据时停止率值/因果推断，不自动执行业务操作。')
         if (re.search(r'池|账龄|over14d',action.get('title','')+' '+action.get('metric',''),re.I)
-                and re.search(r'占比下降|数量不降|存量减少|总量下降|数量下降',action.get('metric',''))):
+                and re.search(r'占比下降|数量不降|存量减少|总量下降|数量下降|数量.{0,16}(?:净减少|减少)',action.get('metric',''))):
             ledger.append({'location':'actions/'+str(i),'codes':['pool_outcome_unbound'],
                 'reasons':['单点总池或高龄占比变化不能判定处置成功；缺固定队列真实退出/再入池及新流入事件。'],
                 'evidence_ids':action.get('evidence_ids',[]),'status':'outcome_withheld_pending_cohort_events'})

@@ -11,11 +11,77 @@ from test_support import SOURCE_ROOT
 sys.path.insert(0,str(SOURCE_ROOT))
 from boss_projection import project
 from boss_renderer import render
-from report_constraints import review_paragraph,complete_projection
+from report_constraints import review_paragraph,complete_projection,native_envelope
 from report_delivery import deliver_output
 
 HERE=Path(__file__).resolve().parent
 QUEUE='ev_80552fde601a2693e42aa184'
+
+
+class PrefacedEnvelope(unittest.TestCase):
+    def setUp(self):
+        f=json.loads((HERE/'inputs/real-07-fixture.json').read_text('utf-8'))
+        self.result,self.evidence=f['result'],f['evidence']
+        self.value={'report_contract':'fs-report-v2','summary':'两期金额已核；机制待证。',
+            'comparison_period':{'start':'2026-10-06','end':'2026-10-07'},
+            'research_text':'## 关键判断\n\n不用 sale_total≈order_count 推断单件或排除数量/组合效应。',
+            'findings':[{'statement':'机制待证。','claim_type':'hypothesis','evidence_ids':[]}],
+            'actions':[{'target':'当前未结池','action':'只读核队列。','condition':'依现行规则',
+                'success_check':'老年池数量在两份快照间净减少，或每单有明确处置路径。','evidence_ids':[]}],
+            'intel':{'status':'not_conducted','reason':'官方工具未接通。'},'limitations':[]}
+        self.text='核平计算全部完成，现在输出成品。\n\n'+json.dumps(self.value,ensure_ascii=False)
+
+    def test_delivery_recovers_one_prefaced_envelope_without_forging_original_format(self):
+        book=SimpleNamespace(evidence=self.evidence,capture_id=self.result['snapshot_id'],target=self.result['period'])
+        out=deliver_output(self.text,book)
+        self.assertEqual(out['raw_model_text'],self.text)
+        self.assertEqual(out['comparison_period'],self.value['comparison_period'])
+        self.assertEqual(out['report_format'],'structured_v2_recovered')
+        self.assertTrue(out['format_recovery'])
+        self.assertEqual(len(out['actions']),1)
+        self.assertEqual(out['intel'],[])
+        self.assertTrue(any('intel' in x for x in out['limitations']))
+
+    def test_saved_fallback_recovers_comparison_actions_and_both_profit_periods(self):
+        import copy
+        saved=dict(self.result,report_format='markdown',raw_model_text=self.text,research_text=self.text,
+                   summary='未识别独立结论',findings=[],actions=[])
+        saved.pop('comparison_period',None);before=copy.deepcopy(saved)
+        c=project(saved,self.evidence,{'artifact_written_at':'2026-10-15T07:30:00+00:00'},'f'*64)
+        self.assertEqual(c['report']['period']['comparison_start'],'2026-10-06')
+        self.assertEqual(c['report']['period']['comparison_end'],'2026-10-07')
+        self.assertEqual(len(c['actions']),1)
+        self.assertEqual(c['finance']['estimates']['previous']['amount_usd'],'14709.61')
+        self.assertIn('pool_outcome_unbound',{k for i in c['quality_review']['issues'] for k in i['codes']})
+        self.assertIn('固定观察队列',c['actions'][0]['metric'])
+        self.assertEqual(saved,before)
+
+    def test_ambiguous_or_trailing_objects_are_not_silently_selected(self):
+        self.assertIsNone(native_envelope(self.text+'\n{}'))
+        self.assertIsNone(native_envelope('{}\n'+self.text))
+        self.assertIsNone(native_envelope(self.text+'\n尾注'))
+
+    def test_complete_group_population_can_supply_missing_standalone_total(self):
+        ev={k:v for k,v in self.evidence.items() if not (v.get('query',{}).get('start')=='2026-10-06' and v.get('query',{}).get('group_by') in ([],['day']))}
+        c=project(self.result,ev,{'artifact_written_at':'2026-10-15T07:30:00+00:00'},'f'*64)
+        self.assertEqual(c['metrics'][0]['previous'],'$63,705.55')
+
+    def test_incomplete_group_page_cannot_supply_population_total(self):
+        ev={k:v for k,v in self.evidence.items() if v.get('query',{}).get('start')!='2026-10-06' or v.get('query',{}).get('group_by')==['country','payment']}
+        ev={k:v for k,v in ev.items() if v.get('query',{}).get('start')!='2026-10-06' or v.get('data',{}).get('pagination',{}).get('complete') is True}
+        c=project(self.result,ev,{'artifact_written_at':'2026-10-15T07:30:00+00:00'},'f'*64)
+        self.assertIsNone(c['report']['period']['comparison_start'])
+
+    def test_quantity_caution_is_kept_but_unverified_multi_item_assertion_is_withheld(self):
+        bounds={'verified_quantity_price_discount':False,'payment_delta':{},'payment_evidence_ids':[]}
+        self.assertEqual(review_paragraph(self.value['research_text'],bounds)[0],[])
+        self.assertIn('quantity_mechanism_unbound',{k for k,_ in review_paragraph('样本含XBOX多件Items。',bounds)[0]})
+
+    def test_percentage_band_trigger_remains_unapproved(self):
+        self.value['actions'][0].update(target='参考利润率',condition='后续日率持续处于21-22%低位时',success_check='核实定义。')
+        saved=dict(self.result,raw_model_text=json.dumps(self.value,ensure_ascii=False),report_format='markdown')
+        c=project(saved,self.evidence,{'artifact_written_at':'2026-10-15T07:30:00+00:00'},'f'*64)
+        self.assertIn('threshold_policy_unbound',{k for i in c['quality_review']['issues'] for k in i['codes']})
 
 
 class TemporaryProfitPolicy(unittest.TestCase):

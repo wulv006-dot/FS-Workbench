@@ -88,9 +88,12 @@ def project(result, evidence, metadata, research_sha):
                 and not data.get('coverage', {}).get('missing_days') and row.get('query', {}).get('filters') == {})
     def total(lo,hi):
         candidates = []
+        standalone=any(eligible(row) and row.get('query',{}).get('start')==lo and row.get('query',{}).get('end')==hi
+                       and row.get('query',{}).get('group_by') in ([],['day']) and row.get('data',{}).get('filters_applied')=={}
+                       for row in evidence.values())
         for key,row in sorted(evidence.items()):
             q=row.get('query', {});data=row.get('data', {})
-            if not eligible(row) or q.get('start') != lo or q.get('end') != hi or q.get('group_by') not in ([],['day']) or data.get('pagination',{}).get('complete') is not True or data.get('filters_applied')!={}:continue
+            if not eligible(row) or q.get('start') != lo or q.get('end') != hi or not isinstance(q.get('group_by'),list) or data.get('pagination',{}).get('complete') is not True or data.get('filters_applied')!={}:continue
             try:
                 value=data['total'];revenue=number(value['revenue_usd']);orders=number(value['orders'])
                 if orders < 0 or orders != orders.to_integral_value() or number(value.get('unpriced_orders')) != 0:continue
@@ -100,6 +103,9 @@ def project(result, evidence, metadata, research_sha):
                     if len(keys)!=len(set(keys)) or set(keys)!=days or any(set(g['group'])!={'day'} for g in groups):continue
                     if any(number(g['unpriced_orders'])!=0 or number(g['orders'])<0 or number(g['orders'])!=number(g['orders']).to_integral_value() or number(g['revenue_usd'])<0 for g in groups):continue
                     if (sum(number(g['revenue_usd']) for g in groups),sum(number(g['orders']) for g in groups))!=(revenue,orders):continue
+                elif q['group_by']:
+                    if standalone:continue
+                    if not complete_projection(evidence,q['group_by'][0],lo,hi,row['captured_at'],eligible,(revenue,orders)):continue
                 candidates.append((key,revenue,orders,row))
             except (KeyError,ValueError,TypeError,ArithmeticError):continue
         if len({(v[1],v[2],v[3].get('captured_at')) for v in candidates}) != 1:return None

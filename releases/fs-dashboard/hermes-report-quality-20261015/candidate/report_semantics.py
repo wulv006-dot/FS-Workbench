@@ -15,13 +15,17 @@ def structured(value, evidence):
     if not isinstance(value.get('summary'),str) or not value['summary'].strip():raise ValueError('semantic_summary')
     if not isinstance(value.get('research_text',''),str):raise ValueError('semantic_research_text')
     result=dict(value);warnings=[]
+    intel=result.get('intel')
+    if isinstance(intel,dict) and set(intel)=={'status','reason'} and intel['status']=='not_conducted' and isinstance(intel['reason'],str):
+        result['intel']=[]
+        warnings.append('模型intel状态对象已恢复为未开展说明；原格式不合数组合同：'+intel['reason'])
     if 'comparison_period' in value:
         from datetime import date
         period=value['comparison_period']
         if not isinstance(period,dict) or set(period)!={'start','end'}:raise ValueError('semantic_comparison_period')
         if date.fromisoformat(period['end'])<date.fromisoformat(period['start']):raise ValueError('semantic_comparison_period')
     for name in ('findings','actions','reviews','limitations','hypotheses','context','intel','decisions','timeline'):
-        rows=value.get(name,[])
+        rows=result.get(name,[])
         if not isinstance(rows,list):raise ValueError('semantic_list_'+name)
         result[name]=list(rows)
     for name in ('findings','actions','reviews','hypotheses','context','intel','decisions','timeline'):
@@ -65,6 +69,10 @@ def declared_comparison(result):
     from datetime import date
     period=result['period'];start=date.fromisoformat(period['start'])
     explicit=result.get('comparison_period')
+    if explicit is None:
+        from report_constraints import native_envelope
+        recovered=native_envelope(result.get('raw_model_text') or result.get('research_text',''))
+        if recovered:explicit=recovered.get('comparison_period')
     if explicit is None and any(k in period for k in ('comparison_start','comparison_end')):
         explicit={'start':period.get('comparison_start'),'end':period.get('comparison_end')}
     if explicit is not None:
@@ -228,7 +236,13 @@ def markdown_actions(parts, evidence):
 
 
 def index(result, evidence):
-    from report_constraints import narrative
+    from report_constraints import narrative,native_envelope
+    if not result.get('report_format','').startswith('structured'):
+        recovered=native_envelope(result.get('raw_model_text') or result.get('research_text',''))
+        if recovered:
+            try:value=structured(recovered,evidence)
+            except (ValueError,TypeError):pass
+            else:result=dict(result,**value,report_format='structured_v2_recovered')
     text = narrative(result.get("research_text") or result.get("raw_model_text", ""))
     parts = sections(text) if not text.lstrip().startswith(("{", "```json")) else []
     findings = []

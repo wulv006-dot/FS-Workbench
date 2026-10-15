@@ -50,6 +50,16 @@ class ProofRelease(unittest.TestCase):
             release.guards({'scope':release.HERMES_PROOF_SCOPE,'unchangedRequired':[]},Path('/'))
         self.assertEqual({call.args[1] for call in rooted.call_args_list},set(release.HERMES_PROOF_TARGETS.values()))
 
+    def test_existing_repair_scope_requires_all_eleven_baselines(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);m=self.stage(root);m['scope']=release.HERMES_PROOF_REPAIR_SCOPE
+            for row in m['files']:
+                if row['beforeSha256'] is None:row['beforeSha256']='a'*64
+            self.assertEqual(len(release.validate(m,root)),11)
+            self.assertEqual(release.quality_new(m),set())
+            m['files'][0]['beforeSha256']=None
+            with self.assertRaises(ValueError):release.validate(m,root)
+
     def test_new_scope_reuses_fence_before_service_reload(self):
         with patch.object(release.subprocess,'run') as run:
             with self.assertRaisesRegex(ValueError,'admission fence'):release.restart_for({'scope':release.HERMES_PROOF_SCOPE})
