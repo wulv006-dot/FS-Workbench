@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "scope": "fs-ui-system-20261015",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "runtimeRequired": {},
+  "files": [
+    {
+      "candidate": "ui/hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "beforeSha256": "7cb572d2d5f63f4095844a9baf561140cd83b891c4ebaef32aaed5c3c32c268d",
+      "sha256": "d839c01a19a4e0e3a12674affb965a29b321c9ace05dea1f1db4b3f0f7021887"
+    },
+    {
+      "candidate": "ui/hubnav.css",
+      "target": "/var/www/dashboard/fs-home/hubnav.css",
+      "beforeSha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3",
+      "sha256": "af128b11edf03c6bc168d3a0f3b94f79e0e13be47ff6af7146b8b8607c270e9a"
+    },
+    {
+      "candidate": "ui/navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json",
+      "beforeSha256": "496fe59571e43c1afeb584caafee6cdcd86f8e09bcc70477e7ca7e0f695db5fd",
+      "sha256": "201dd5d6cdf7bd703a5385ac6c8341a0b6baeb86412cb6c21f188da7ceb2201d"
+    },
+    {
+      "candidate": "ui/brain.css",
+      "target": "/var/www/dashboard/fs-home/brain/brain.css",
+      "beforeSha256": "15ff7f0c59920a42e8ed7ed76d74e3e320c954846ba2c1aba4b34e70685c054b",
+      "sha256": "ac8d2ceb9bd758c64d3c0a286fefac253d18851b8314dbf9c7969ee6ba567ec0"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js",
+      "sha256": "b9fa6f6a30fafab089db7a9b7d3f5190c08ca05b8232b57064cd5171cbe54910"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css",
+      "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css",
+      "sha256": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/hubnav.css",
+      "sha256": "af128b11edf03c6bc168d3a0f3b94f79e0e13be47ff6af7146b8b8607c270e9a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/legacy.css",
+      "sha256": "5431b4de33217810f7a9d50d5322abf13a4aaad0096d55be25214c0109085245"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/native-alias.css",
+      "sha256": "6765bc2397e7132647ff02c5df93cf986aaaf23ec2cb5db1cfb273e11b4157ff"
+    }
+  ]
+}
