@@ -14,7 +14,7 @@
 |---|---|---|
 | `fs-ip-allowlist.conf` | `/etc/nginx/conf.d/fs-ip-allowlist.conf` | http 级：`geo` 定义白名单、`map` 组合出 `$fs_ip_block` |
 | `fs-ip-allowlist.locations.conf` | `/etc/nginx/fs-ip-allowlist.locations.conf` | server 级：拦截判定 + 拒绝页 + 被拒日志 |
-| `fs_ip_alert.py` | `/opt/auth-portal/fs_ip_alert.py` | 扫描被拒日志，新来源推钉钉 |
+| `fs_ip_alert.py` | `/opt/auth-portal/fs_ip_alert.py` | 扫描被拒日志，新来源推钉钉（群「服务器及Github报警」） |
 | `fs-ip-alert.service` / `.timer` | `/etc/systemd/system/` | 每 2 分钟触发一次告警 |
 
 `iggm-web.conf` 的 server 块内以标记块引用：
@@ -81,7 +81,25 @@ nginx -t && systemctl reload nginx
 - 新来源 2 分钟内收到钉钉告警；
 - ACME 续期不受影响（`fc27-ip-certificate.timer` 下次运行正常）。
 
-## 八、已知未纳入自动检查项
+## 八、告警推送到哪个群
+
+告警使用 **fc-ops 监控体系共用的那个钉钉机器人**（群「**服务器及Github报警**」，
+即「服务器脚本运行情况 / Github 报警」所在群），凭据直接读：
+
+```
+/etc/fc-ops-readonly-monitor/hooks-bot.json   # root 私有 0600
+```
+
+读取时做端点校验：必须 `https://oapi.dingtalk.com/robot/send`、
+`access_token` 为 64 位 hex、`group` 必须等于 `服务器及Github报警`，
+任一不符即拒绝发送（避免误配把告警发到别的群）。该机器人**免加签**（`secret` 为空），
+脚本已兼容：`secret` 非空时自动算 `timestamp` + `sign`。
+
+> 2026-10-15 调整：原先复用 `/opt/d4follow/dingtalk.env`（AION2 金币价机器人），
+> 现改为上面的 fc-ops 机器人。金币机器人不再接收本告警。
+> `fs_ip_alert.py` 的旧版本留在 `/opt/auth-portal/fs_ip_alert.py.bak-20261015-aion2bot`。
+
+## 九、已知未纳入自动检查项
 
 按 `tools/pr_fast.py` 的后缀分流规则（第 374、378、391 行）：
 
