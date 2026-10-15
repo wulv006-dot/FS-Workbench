@@ -274,6 +274,8 @@ def select(paths):
             groups.add("fs-ui-system");continue
         if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
             groups.add("hermes-weekly-upgrade");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-import-20261015/"):
+            groups.add("hermes-report-import");continue
         if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
             groups.add("hermes-report-tracks");continue
         if name.startswith("releases/fs-dashboard/hermes-fs-research-integration-20261015/"):
@@ -649,6 +651,9 @@ def main():
             node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
+        elif group=="hermes-report-import":
+            units("releases/fs-dashboard/hermes-report-import-20261015",["test_imported_reports","test_release"])
+            node("releases/fs-dashboard/hermes-report-import-20261015/test_import_ui.cjs")
         elif group=="hermes-report-tracks":
             units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
             node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
