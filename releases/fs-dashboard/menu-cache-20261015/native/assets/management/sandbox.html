@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>目标沙盘 · 经营管理台</title>
+<style>
+:root{--bg:#e9edf2;--card:#fff;--ink:#1b2632;--muted:#74819a;--teal:#1f6f73;--teal-d:#12434b;--teal-l:#e3f0ef;
+ --green:#2f9e7d;--green-l:#e2f3ec;--amber:#cf8a2e;--amber-l:#faf0dd;--red:#c0563f;--red-l:#fae7e2;
+ --shadow:0 10px 30px -16px rgba(20,45,60,.35)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+a{color:inherit;text-decoration:none}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#0f4048,#166b6c);color:#fff;display:flex;align-items:center;justify-content:center}
+.topbar .t{font-weight:800;font-size:18px}.topbar .s{font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:700}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;font:inherit;font-weight:700;font-size:13px;padding:9px 16px;border-radius:10px}
+.btn.ghost{background:#fff;color:var(--teal-d);box-shadow:var(--shadow)}
+.btn.amber{background:var(--amber);color:#fff;box-shadow:var(--shadow)}
+.btn.light{background:#eef2f5;color:var(--ink)}
+.hero{border-radius:22px;padding:24px 30px;color:#eaf4f2;background:linear-gradient(118deg,#0b2632,#0f4048 48%,#166b6c);box-shadow:var(--shadow);margin-bottom:20px}
+.hero .kick{font-size:11.5px;letter-spacing:3px;font-weight:700;color:#9fc8c3}
+.hero h1{font-size:24px;margin:6px 0 6px;font-weight:800}
+.hero p{margin:0;color:#c3dcd8;font-size:13px}
+.balance{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;align-items:center}
+.bal-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 18px;min-width:150px}
+.bal-card .k{font-size:11px;letter-spacing:1px;color:#bcd6d2;font-weight:700}
+.bal-card .v{font-size:24px;font-weight:800;margin-top:2px}
+.bal-card .v small{font-size:12px;font-weight:600;opacity:.8}
+.bal-ok{background:rgba(47,158,125,.28);border-color:rgba(120,220,180,.5)}
+.bal-bad{background:rgba(192,86,63,.3);border-color:rgba(240,150,130,.6)}
+.panel{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px}
+.panel h2{margin:0 0 4px;font-size:16px}
+.panel .sub{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:700;font-size:11.5px;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid #edf0f4;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid #f2f5f8;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.gname{font-weight:700}.meta{color:var(--muted);font-size:11.5px;margin-top:1px}
+.tag{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:1px}
+.t-S{background:#0f4048;color:#fff}.t-A{background:var(--teal-l);color:var(--teal-d)}.t-B{background:#eef1f5;color:#51607a}.t-X{background:#f3eee2;color:#8a6a2c}
+input.tgt{width:104px;padding:7px 9px;border:1.5px solid #d5dde5;border-radius:8px;font:inherit;font-weight:700;text-align:right;color:var(--ink)}
+input.tgt:focus{outline:none;border-color:var(--teal)}
+input.tgt.edited{border-color:var(--amber);background:var(--amber-l)}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap}
+.p.ok{background:var(--green-l);color:var(--green)}.p.warn{background:var(--amber-l);color:var(--amber)}.p.risk{background:var(--red-l);color:var(--red)}.p.lock{background:#eef1f5;color:#8a94a6}
+.delta{font-size:11.5px;font-weight:700;white-space:nowrap}
+.delta.up{color:var(--red)}.delta.dn{color:var(--green)}.delta.flat{color:var(--faint)}
+.tfoot td{font-weight:800;border-top:2px solid #e2e8ee;background:#fafbfc}
+.note{font-size:12px;color:var(--muted)}
+.warnbox{background:var(--amber-l);border:1px solid #ecd2a4;color:#8a5e1c;border-radius:12px;padding:11px 14px;font-size:12.5px;margin-bottom:14px;display:none}
+textarea#export{width:100%;height:120px;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;border:1px solid #dce3ea;border-radius:10px;padding:10px;resize:vertical;background:#fafbfc}
+.row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.gtab{display:inline-flex;gap:4px;background:#eef2f5;border-radius:10px;padding:4px;margin-bottom:14px}
+.gtab button{border:0;background:transparent;font:inherit;font-weight:700;font-size:12.5px;color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer}
+.gtab button.on{background:#fff;color:var(--teal);box-shadow:var(--shadow)}
+</style>
+
+<link rel="stylesheet" href="management.css">
+</head>
+<body data-view="sandbox" data-profile="">
+<div class="wrap"><nav class="fs-nav"><a href="/dashboard/">← FS 工作台</a><span>经营管理台 · 2026-10 原包目标与负责人保留</span></nav><section id="fs-controls" class="fs-controls"></section><p id="fs-status" role="status" aria-live="polite">正在验证 FS 登录…</p>
+  <div class="topbar">
+    <span class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v9h-6v-6h-6v6H3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+    <div><div class="t">目标沙盘</div><div class="s">TARGET SANDBOX · OCTOBER</div></div>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="index.html">← 返回总览</a>
+  </div>
+
+  <section class="hero">
+    <div class="kick">FENGSHI NETWORK · WHAT-IF</div>
+    <h1>调整模拟目标，自动平账至 150 万</h1>
+    <p>锁总目标 $1,500,000。你改任意一款的月营收目标，其余游戏按「原包规划假设预测余量」加权自动平账：有空间的多担、爬坡/预热款少压、每款守住 $2,000 地板。旧预测、客单价和利润率仅作为原包 2026-10-11 规划假设；不代表当前经营事实。仅作推演，定稿后点「复制配置」发给管理员重发布，需另行审核后才能修改正式目标。</p>
+    <div class="balance">
+      <div class="bal-card" id="balTotal"><div class="k">当前分配合计</div><div class="v">$<span id="vTotal">0</span></div></div>
+      <div class="bal-card"><div class="k">锁定总目标</div><div class="v">$1,500,000</div></div>
+      <div class="bal-card"><div class="k">差额</div><div class="v" id="vDiff">0</div></div>
+      <div class="bal-card"><div class="k">模拟订单目标合计</div><div class="v"><span id="vOrd">0</span><small> 单</small></div></div>
+      <div class="bal-card"><div class="k">模拟利润目标合计</div><div class="v">$<span id="vProf">0</span></div></div>
+    </div>
+  </section>
+
+  <div class="warnbox" id="warnBox"></div>
+
+  <div class="panel">
+    <h2>单款营收目标调整</h2>
+    <p class="sub">直接改「我的目标」列数字（$），回车或点别处即自动平账。可行性仅相对原包旧预测假设计算，未按当前数据评估。</p>
+    <div class="gtab" id="gtab">
+      <button data-g="ALL" class="on">全部</button>
+      <button data-g="球类运营组">球类·吴律</button>
+      <button data-g="RPG运营组">RPG·陈超</button>
+      <button data-g="综合运营组">综合·刘乐</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th>游戏 / 负责人</th><th class="r">FS 所选区间实际</th><th class="r">原包规划假设预测</th>
+        <th class="r">原包目标</th><th class="r">我的目标 $</th><th class="r">模拟订单目标</th><th class="r">模拟利润目标</th>
+        <th class="r">vs 原包</th><th class="r">可行性</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+      <tfoot class="tfoot"><tr>
+        <td id="footName">全盘 · 15 款</td><td class="r" id="fAct"></td><td class="r" id="fFc"></td>
+        <td class="r" id="fPub"></td><td class="r" id="fMine"></td><td class="r" id="fOrd"></td><td class="r" id="fProf"></td>
+        <td></td><td></td>
+      </tr></tfoot>
+    </table>
+    <div class="row-actions">
+      <button class="btn amber" id="btnReset">↺ 恢复为原包目标</button>
+      <button class="btn light" id="btnCopy">复制模拟配置</button>
+      <span class="note" style="align-self:center">草稿仅本机保存，按当前 FS 账号隔离；不写正式目标，不同步团队。</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>本机模拟配置</h2>
+    <p class="sub">以下为模拟配置；复制不会发布或修改正式目标。订单、利润为原包假设推算值。</p>
+    <textarea id="export" readonly></textarea>
+  </div>
+</div>
+
+
+<script src="sandbox.js"></script>
+<script src="management.js"></script>
+</body>
+</html>

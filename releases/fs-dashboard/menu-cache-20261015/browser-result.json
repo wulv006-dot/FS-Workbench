@@ -1,0 +1,7 @@
+{
+  "checks": 13,
+  "result": "PASS",
+  "initialProbeRequests": 20,
+  "cachedNavigationProbeRequests": 0,
+  "realAccountWrites": 0
+}
