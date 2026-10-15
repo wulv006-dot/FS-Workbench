@@ -264,6 +264,8 @@ def select(paths):
         suffix=Path(name).suffix
         if name.startswith("releases/fs-dashboard/hermes-desktop-20261015/"):
             groups.add("hermes-desktop");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-quality-20261015/"):
+            groups.add("hermes-report-quality");continue
         if name.startswith("releases/fs-dashboard/menu-cache-20261015/"):
             groups.add("fs-menu-cache");continue
         if name.startswith("releases/fs-dashboard/navigation-recovery-20261015/"):
@@ -447,6 +449,8 @@ def main():
             node(release+"/tests/test_js.cjs")
         elif group=="hermes-desktop":
             units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
+        elif group=="hermes-report-quality":
+            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_quality","test_release_quality","test_report_delivery","test_skill_bundle","test_research"])
         elif group=="navigation-recovery":
             units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
         elif group=="fs-revision-20261015":

@@ -1,0 +1,44 @@
+[
+  {
+    "name": "pilot.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/pilot.py",
+    "git_blob": "005277374cf0bc742472b544e36f2f4692240e54",
+    "bytes": 19439,
+    "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+  },
+  {
+    "name": "proxy_gateway.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/proxy_gateway.py",
+    "git_blob": "26f77849b12e7b5674d175ed647c900ad969d5dc",
+    "bytes": 32202,
+    "sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"
+  },
+  {
+    "name": "report_html.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/report_html.py",
+    "git_blob": "4956f380565a716d2254ff793769146e0d2d0124",
+    "bytes": 21747,
+    "sha256": "749ed5dbd0f9dd70428a8fbd6a2fc3d686ccb2ed61a200b330eeff4eb35238e5"
+  },
+  {
+    "name": "background.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/background.py",
+    "git_blob": "f3122892a41a6bf4785a938101869498fc16ace7",
+    "bytes": 6430,
+    "sha256": "7155ed5490358ccc1d714f49810d8ef3130de736b1fbbae7e1f0783fd1acbbee"
+  },
+  {
+    "name": "runs_contract.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/runs_contract.py",
+    "git_blob": "b19b7b8dadec97205fdd2befe8dc5499b7b2fbc7",
+    "bytes": 3244,
+    "sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78"
+  },
+  {
+    "name": "test_research.py",
+    "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/test_research.py",
+    "git_blob": "9d92d6acf23798e989520143e316f38ebf4bac55",
+    "bytes": 7538,
+    "sha256": "c914412521124d99293bf91aa5aab4a1fade693ee1aa40c5993810ddf40e42f2"
+  }
+]
