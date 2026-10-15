@@ -133,6 +133,15 @@ class ReportQuality(unittest.TestCase):
         ev=copy.deepcopy(self.ev);ev.pop(REFERENCE)
         self.assertEqual(len(self.reference(ev)[0]['rows']),7)
 
+    def test_complete_wider_query_is_sliced_to_two_declared_windows(self):
+        value,gap=order_series({REFERENCE:self.ev[REFERENCE]},self.result['snapshot_id'],'2026-10-01','2026-10-02','2026-10-08','2026-10-09')
+        self.assertIsNone(gap)
+        self.assertEqual([(r['previous_date'],r['current_date']) for r in value['rows']],[('2026-10-01','2026-10-08'),('2026-10-02','2026-10-09')])
+
+    def test_wider_query_still_requires_every_declared_source_day(self):
+        row=copy.deepcopy(self.ev[REFERENCE]);row['data']['rows']=[r for r in row['data']['rows'] if r['date']!='2026-10-05']
+        self.assertIsNone(order_series({REFERENCE:row},self.result['snapshot_id'],'2026-10-01','2026-10-02','2026-10-08','2026-10-09')[0])
+
     def test_missing_reference_day_not_filled_zero(self):
         ev=copy.deepcopy(self.ev)
         for v in ev.values():
