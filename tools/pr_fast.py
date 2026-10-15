@@ -142,6 +142,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
+        raise AssertionError('report track release must run affected checks')
     if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
         raise RuntimeError('hermes_research_integration_mapping_missing')
     class Good(unittest.TestCase):
@@ -264,6 +266,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
+            groups.add("hermes-report-tracks");continue
         if name.startswith("releases/fs-dashboard/hermes-fs-research-integration-20261015/"):
             groups.add("hermes-fs-research-integration");continue
         if name.startswith("releases/fs-dashboard/hermes-market-sources-20261015/"):
@@ -628,6 +632,9 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="hermes-report-tracks":
+            units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
+            node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
         elif group=="hermes-fs-research-integration":
             units("releases/fs-dashboard/hermes-fs-research-integration-20261015/tests",["test_integration","test_official_intelligence","test_intel_binding","test_practical_review","test_executive_render","test_release"])
         elif group=="hermes-market-sources":

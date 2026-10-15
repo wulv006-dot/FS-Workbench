@@ -1,0 +1,88 @@
+{
+  "scope": "hermes-fc-report-tracks-20261015",
+  "base_commit": "fb7e2e310ff0ddc8818ce96414b0880f4dd87a30",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/controller.py",
+      "candidate": "research/runtime/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "4377e57c1319ae71ac8a438066524a1f862404f7c1092e100fa6a69d8f1bfc61",
+      "sha256": "67bb8c6d66e5cf05f9fbd31418100cae235cbda54c3c4879a0c16ad14f257efb",
+      "bytes": 42323
+    },
+    {
+      "source": "source/hermes_worker.py",
+      "candidate": "research/runtime/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "3b864e47a2c593085bb74b6f62dbed7875dcb93def3c35a8fc3378f1dbce143b",
+      "sha256": "c5a9c1d0d42bba89f53e3c02a33b6e22ac06a4df3a9bb295b6ddc5d937454110",
+      "bytes": 13093
+    },
+    {
+      "source": "source/report_artifacts.py",
+      "candidate": "research/runtime/report_artifacts.py",
+      "runtime": "/opt/fs-hermes-fc/report_artifacts.py",
+      "beforeSha256": "769159b6d56b9abaf683e840cd8961b74b9b917dab843cea03e1bfa1f661d725",
+      "sha256": "35b7b3086a04ae182adce19ef5a9cab92d7ca4dad9b86f55cf7a86e9b6b98865",
+      "bytes": 6901
+    },
+    {
+      "source": "source/skill_bundle.py",
+      "candidate": "research/runtime/skill_bundle.py",
+      "runtime": "/opt/fs-hermes-fc/skill_bundle.py",
+      "beforeSha256": "83450fb502e765570b916bfc71cf87c753c6fcc1c8c1f170b0780b2062c4e935",
+      "sha256": "1c26da86e6599ee715dc1604560e98877adaf547a66ada547eeaa6835737d7e9",
+      "bytes": 5708
+    },
+    {
+      "source": "source/report_tracks.py",
+      "candidate": "research/runtime/report_tracks.py",
+      "runtime": "/opt/fs-hermes-fc/report_tracks.py",
+      "beforeSha256": null,
+      "sha256": "1d9f29f9a18934b5a908f9477b5557c73c0e01484093356c9d4ec435f869066a",
+      "bytes": 368
+    },
+    {
+      "source": "source/pricing_report.py",
+      "candidate": "research/runtime/pricing_report.py",
+      "runtime": "/opt/fs-hermes-fc/pricing_report.py",
+      "beforeSha256": null,
+      "sha256": "1522530972f3715f92411174c2a0a6bc3d2a210264ad9cbd51d797ffcfd8aac7",
+      "bytes": 18394
+    },
+    {
+      "source": "source/skills/manifest.json",
+      "candidate": "research/skills/manifest.json",
+      "runtime": "/opt/fs-hermes-fc/skills/manifest.json",
+      "beforeSha256": "e4de0dbfee355bf070d4f7522ae85478ebc99837e740501a98f892aefc9e84c9",
+      "sha256": "191632175b072ccf6d0ae293d9374a7161b78e06c6a50cbcae340843cda4148b",
+      "bytes": 9002
+    },
+    {
+      "source": "source/skills/fs-fc-pricing-research/SKILL.md",
+      "candidate": "research/skills/fs-fc-pricing-research/SKILL.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-pricing-research/SKILL.md",
+      "beforeSha256": null,
+      "sha256": "c34607d8c1d01bb1759efc5a30a9578576a23b6fddcb96f4520e27e73d2d3e1d",
+      "bytes": 5734
+    },
+    {
+      "source": "source/index.html",
+      "candidate": "research/brain/index.html",
+      "runtime": "/var/www/dashboard/fs-home/brain/index.html",
+      "beforeSha256": "33eb4f72191044782b0367fc24f641f7e48417c522a05182e7f782a510acf4d0",
+      "sha256": "cbeabe29f17e1fd67a8a7c0db9fc5d05cf92e4e0a3fbbdec3acdfdb825412ff8",
+      "bytes": 10623
+    },
+    {
+      "source": "source/brain.js",
+      "candidate": "research/brain/brain.js",
+      "runtime": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "125f4d15488601faa3164f364ee8ceb145a5041e907a3e4d4a55d8b13b9e2cd6",
+      "sha256": "75391af6a21a95450e1bfad4e90eb9fcb5410608f28e03777d0790f6d9138675",
+      "bytes": 19892
+    }
+  ]
+}
