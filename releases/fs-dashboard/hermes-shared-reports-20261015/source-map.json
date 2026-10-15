@@ -1,0 +1,52 @@
+[
+  {
+    "name": "controller.py",
+    "path": "/opt/fs-hermes-fc/controller.py",
+    "sha256": "70ded65d38f8337d36b276eeec19d1cde9154b63f32b9fd9932e864c0608f9d1"
+  },
+  {
+    "name": "continuation.py",
+    "path": "/opt/fs-hermes-fc/continuation.py",
+    "sha256": "2209bba3bdce09e16034b3b0a417febc3a1dfcade295c5dfa88bc9b7a94f9872"
+  },
+  {
+    "name": "pilot.py",
+    "path": "/opt/fs-hermes-fc/pilot.py",
+    "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+  },
+  {
+    "name": "report_artifacts.py",
+    "path": "/opt/fs-hermes-fc/report_artifacts.py",
+    "sha256": "63a12771312fde75ad1cb2a2405e394ba3e30f74b82fdab1d2b0a253df2e5511"
+  },
+  {
+    "name": "report_delivery.py",
+    "path": "/opt/fs-hermes-fc/report_delivery.py",
+    "sha256": "dabbbcb973ecfa13c86c2e60c6436dcd2116822bd1cdab38c1debc746f1157a7"
+  },
+  {
+    "name": "runs_contract.py",
+    "path": "/opt/fs-hermes-fc/runs_contract.py",
+    "sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78"
+  },
+  {
+    "name": "brain.js",
+    "path": "/var/www/dashboard/fs-home/brain/brain.js",
+    "sha256": "5240739523642b421a20af445464044bba71b57c70203627af5b4552547c39df"
+  },
+  {
+    "name": "index.html",
+    "path": "/var/www/dashboard/fs-home/brain/index.html",
+    "sha256": "dd4294a312d1cb6ae398a50042b116fbf7884664d78e2163f8520240a2adcce0"
+  },
+  {
+    "name": "brain.css",
+    "path": "/var/www/dashboard/fs-home/brain/brain.css",
+    "sha256": "1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b"
+  },
+  {
+    "name": "fc_daily.py",
+    "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+    "sha256": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80"
+  }
+]

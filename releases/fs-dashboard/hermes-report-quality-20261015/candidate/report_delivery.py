@@ -88,12 +88,15 @@ def deliver_output(text,book,validator=validate_output):
     warning=[]
     try:
         parsed=decode_output(text)
-    except (ValueError,TypeError):parsed=None
+    except (ValueError,TypeError):
+        from report_constraints import native_envelope
+        parsed=native_envelope(text)
+        if parsed:warning.append('模型JSON前有额外前言，已恢复结构化正文；原格式不合合同，原文保留。')
     if isinstance(parsed,dict):
         try:
-            recovery=[]
+            recovery=list(warning)
             if parsed.get('report_contract')==CONTRACT:
-                parsed,recovery=envelope(parsed,text,book)
+                parsed,extra=envelope(parsed,text,book);recovery+=extra
                 result=structured(parsed,book.evidence)
             else:result=validator(text,book)
             delivered=dict(result,report_format='structured_v2' if parsed.get('report_contract')==CONTRACT else 'structured',delivery_status='ready',raw_model_text=text)
