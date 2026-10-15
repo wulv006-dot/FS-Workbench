@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "scope": "hermes-report-actions-20261015",
+  "releaseReady": false,
+  "files": [{
+    "candidate": "brain.js",
+    "target": "/var/www/dashboard/fs-home/brain/brain.js",
+    "beforeSha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d",
+    "sha256": "5240739523642b421a20af445464044bba71b57c70203627af5b4552547c39df"
+  }],
+  "unchangedRequired": [
+    {"path":"/var/www/dashboard/index.html","sha256":"5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"},
+    {"path":"/var/www/dashboard/fs-home/brain/brain.css","sha256":"1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b"},
+    {"path":"/var/www/dashboard/fs-home/brain/index.html","sha256":"dd4294a312d1cb6ae398a50042b116fbf7884664d78e2163f8520240a2adcce0"},
+    {"path":"/var/www/hub/hubnav.js","sha256":"7cb572d2d5f63f4095844a9baf561140cd83b891c4ebaef32aaed5c3c32c268d"},
+    {"path":"/var/www/dashboard/fs-home/navigation.js","sha256":"ac400b30ff3d01879a49321b7f76994a93f6c140adb56ca21a300db9efb81c3b"},
+    {"path":"/opt/fs-exact-range-20261001/range_api.py","sha256":"02914f0d9dff42b04b34670e7f9b081e26ecd8ffdc5b67ac8e24d11ea54f33cd"},
+    {"path":"/opt/fs-hermes-fc/proxy_gateway.py","sha256":"1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"}
+  ]
+}

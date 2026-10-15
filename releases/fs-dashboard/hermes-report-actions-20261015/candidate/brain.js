@@ -1,0 +1,75 @@
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const API = '/dashboard/fs-home/advisor.json';
+  const active = new Set(['PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','REPORT_PENDING']);
+  const labels = {PREPARING:'准备数据',DISPATCH_UNKNOWN:'派发待核对',RUNNING:'调查中',COMPLETED:'已成稿',FAILED:'失败',CANCELLED:'已取消',CANCEL_REQUESTED:'正在取消',NEEDS_RECONCILE:'需核对',REPORT_PENDING:'正在保存报告'};
+  let items = [], selected = null, busy = false, timer = null, uncertain = false, submitting = false;
+  const requestedKind = new URLSearchParams(location.search).get('report_kind');
+  const completedResults = new Map();
+  let reportKind = ['daily','weekly','monthly'].includes(requestedKind) ? requestedKind : 'all';
+  function kindOf(item) { const b=item.body||{};const match=/^(?:night|brain)_(daily|weekly|monthly)_/.exec(b.request_id||'');if(match)return match[1];return b.start&&b.end?periodKind(b.start,b.end):'investigation'; }
+  function periodKind(start,end) { const a=new Date(start+'T00:00:00Z'),b=new Date(end+'T00:00:00Z');if(start===end)return 'daily';if(a.getUTCDay()===1&&b-a===6*86400000)return 'weekly';if(a.getUTCDate()===1&&a.getUTCMonth()===b.getUTCMonth()&&a.getUTCFullYear()===b.getUTCFullYear()&&b.getUTCDate()===new Date(Date.UTC(b.getUTCFullYear(),b.getUTCMonth()+1,0)).getUTCDate())return 'monthly';return 'investigation'; }
+  function closedPeriod(kind) { const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));let end=new Date(today),start;end.setHours(12,0,0,0);if(kind==='weekly'){end.setDate(end.getDate()-((end.getDay()+6)%7)-1);start=new Date(end);start.setDate(start.getDate()-6);}else if(kind==='monthly'){end.setDate(0);start=new Date(end);start.setDate(1);}else{end.setDate(end.getDate()-1);start=new Date(end);}const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');$('start').value=fmt(start);$('end').value=fmt(end);$('mode').value=kind==='daily'?'daily':'investigation';$('question').value='请基于同口径证据撰写 FC '+({daily:'昨日经营日报',weekly:'上周运营周报',monthly:'上月经营月报'}[kind]||'经营报告')+'。核对目标与实绩、量价及结构变化，区分事实和假说，给出行动优先级、停止条件与复查标准；缺项明确说明。'; }
+  function node(tag, text, parent, cls) { const n=document.createElement(tag); if(text!==null)n.textContent=text; if(cls)n.className=cls; if(parent)parent.append(n); return n; }
+  function message(text, error=false) { $('notice').textContent=text; $('notice').classList.toggle('error',error); }
+  async function request(query='', body) {
+    const response = await fetch(API+query, {method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000),headers:body?{'Content-Type':'application/json','X-FS-Advisor-Action':'submit'}:{},body:body?JSON.stringify(body):undefined});
+    if(!response.headers.get('content-type')?.includes('application/json'))throw Error('登录状态或返回内容异常，请重新登录 FS。');
+    const value=await response.json();
+    if(!response.ok){const error=Error(({login_required:'请登录 FS。',admin_required:'发起调查需要管理员权限。',release_in_progress:'正在发布，请稍后重试。',invalid_period_or_question:'请核对完整日期范围与提问内容。',pilot_usage_hold:'存在需核对的模型任务，请先查看任务记录。'})[value.error]||('请求未完成：'+(value.error||response.status)));error.rejected=response.status>=400&&response.status<500;throw error;}
+    return value;
+  }
+  function dates() { const civil=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));civil.setDate(civil.getDate()-1);const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');$('end').value=fmt(civil);$('end').max=fmt(civil);$('start').max=fmt(civil);civil.setDate(civil.getDate()-6);$('start').value=fmt(civil); }
+  function list() {
+    $('running').textContent=items.filter(i=>active.has(i.state)).length;
+    $('completed').textContent=items.filter(i=>i.state==='COMPLETED').length;
+    $('attention').textContent=items.filter(i=>['FAILED','NEEDS_RECONCILE','DISPATCH_UNKNOWN'].includes(i.state)).length;
+    $('tasks').replaceChildren();
+    const visible=items.filter(i=>reportKind==='all'||kindOf(i)===reportKind);
+    if(!visible.length)node('p','最近记录中没有此类报告。未生成或不在最近20条内，请切换全部查看。',$('tasks'),'empty');
+    for(const item of visible){const b=node('button',null,$('tasks'),'task-item'+(selected===item.id?' selected':''));b.type='button';node('b',item.body.start+' — '+item.body.end,b);node('span',labels[item.state]||item.state,b);node('p',item.body.question,b);b.onclick=()=>select(item.id);}
+  }
+  function schedules(data) {
+    $('nightly').replaceChildren();$('nightly').className='';
+    if(!data?.enabled){node('p','当前账号没有已启用的自动报告计划。',$('nightly'),'muted');return;}
+    for(const [title,time] of [['每日经营复盘','00:45'],['周一 · 上周周报','01:45'],['每月1日 · 上月月报','03:15']]){const row=node('div',null,$('nightly'),'schedule-row');node('span',title,row);node('strong',time,row);}
+    for(const plan of data.items||[])node('p',(plan.kind==='daily'?'日报':plan.kind==='weekly'?'周报':'月报')+' · '+(labels[plan.state]||plan.state)+(plan.error?' · '+plan.error:''),$('nightly'),'muted');
+  }
+  async function report(job, kind, download=false) {
+    const value=await request('?mode=hermes&id='+encodeURIComponent(job.id)+'&artifact='+kind);
+    const url=URL.createObjectURL(new Blob([value.content],{type:value.mime}));const a=document.createElement('a');a.href=url;if(download)a.download=value.filename;else{a.target='_blank';a.rel='noopener';}document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  function detail(job) {
+    if(job.id!==selected)return;
+    if(completedResults.has(job.id))job={...job,result:completedResults.get(job.id)};
+    $('decision-list').replaceChildren();
+    node('p','当前记录尚未提供可展示的结构化行动清单。',$('decision-list'),'empty');
+    const host=$('report-detail');host.replaceChildren();node('div',labels[job.state]||job.state,host,'eyebrow');node('h3',job.body.start+' — '+job.body.end,host);node('p',job.body.question,host,'muted');
+    if(job.error)node('p','状态说明：'+job.error,host,'danger');
+    const progress=job.progress; if(progress?.heartbeat_at)node('p','最近进度：'+new Date(progress.heartbeat_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})+' · '+(progress.stage||''),host,'muted');
+    if(job.evidence_count!==undefined)node('p','已保存 '+job.evidence_count+' 份证据',host,'muted');
+    if(job.model_usage?.calls!==null&&job.model_usage?.calls!==undefined)node('p','模型调用 '+job.model_usage.calls+' 次 · 已知用量 '+job.model_usage.total_tokens+' tokens'+(job.model_usage.unknown_calls?' · 部分用量未确认':''),host,'muted');
+    $('context-receipt').textContent=job.context_loading?JSON.stringify(job.context_loading,null,2):'该任务尚无背景与技能加载回执。';
+    if(job.state!=='COMPLETED'||job.result?.model_generated!==true)return;
+    const result=job.result;node('p',result.summary||'报告已保存，请打开完整正文。',host);
+    for(const [label,download] of [['打开汇报',false],['下载汇报',true]]){const b=node('button',label,host,'primary');b.onclick=()=>report(job,'boss',download).catch(e=>message('汇报暂未就绪：'+e.message+' 可先查看研究详情。',true));}
+    for(const [label,download] of [['打开研究详情',false],['下载研究详情',true]]){const b=node('button',label,host,'quiet');b.onclick=()=>report(job,'html',download).catch(e=>message(e.message,true));}
+    $('decision-list').replaceChildren();
+    if(!result.actions?.length)node('p','这份结果未提供结构化行动清单，请查看完整报告；不会自动补造待办。',$('decision-list'),'empty');
+    for(const action of result.actions||[]){const card=node('div',null,$('decision-list'),'decision');node('h3',action.target,card);node('p',action.action,card);node('p','条件：'+action.condition,card);node('p','复查：'+action.review_at+' · '+action.success_check,card);}
+  }
+  async function select(id) {selected=id;list();try{const job=await request('?mode=hermes&id='+encodeURIComponent(id));detail(job);if(job.state==='COMPLETED'&&!completedResults.has(id)){const artifact=await request('?mode=hermes&id='+encodeURIComponent(id)+'&artifact=json');completedResults.set(id,JSON.parse(artifact.content));detail(job);}}catch(e){message(e.message,true);}}
+  async function refresh() {
+    if(busy||document.hidden)return;busy=true;clearTimeout(timer);
+    try {const value=await request('?mode=hermes');items=value.items||[];list();schedules(value.nightly);$('submit').disabled=!value.can_generate||uncertain||submitting;$('connection').textContent='已连接云端 Hermes';document.querySelector('.live-dot').classList.add('connected');message(value.admission?.reason?'新调查暂缓：'+value.admission.reason:'仅显示当前账号的最近记录。报告结论与建议不代表已执行。',!!value.admission?.reason);if(selected)detail(await request('?mode=hermes&id='+encodeURIComponent(selected)));}
+    catch(e){message(e.message,true);$('connection').textContent='连接待恢复';document.querySelector('.live-dot').classList.remove('connected');$('submit').disabled=true;}
+    finally{busy=false;if(!document.hidden)timer=setTimeout(refresh,15000);}
+  }
+  const prompts={diagnose:'调查所选期间 FC 经营变化。先核对数据范围与基准，再比较量价和结构变化；给出支持证据、其他可能解释，以及最值得做的下一步和复查条件。',target:'依据当前有效的 DY 原版 FC 目标，核对所选期间实绩、周期进度和缺口。目标版本或指标范围不一致时明确说明；提出需要什么证据才能判断原因，以及下一步可验证的行动。',method:'请先说明你已加载的业务背景和技能版本，再用所选期间的具体证据解释：销售额、订单数、客单价、复购率、当前未结池、预估利润和目标达成率的定义、分母、时间范围与来源。没有实际字段就说明缺口，最后指出哪些结论能下、哪些还不能下。'};
+  document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('question').value=prompts[b.dataset.prompt];$('question').focus();});
+  $('investigate').onsubmit=async event=>{event.preventDefault();if(uncertain||submitting)return;submitting=true;$('submit').disabled=true;const body={kind:'hermes_report',request_id:'brain_'+periodKind($('start').value,$('end').value)+'_'+crypto.randomUUID().replaceAll('-',''),start:$('start').value,end:$('end').value,question:$('question').value,mode:$('mode').value};try{const job=await request('',body);selected=job.id;reportKind='all';$('report-kind').value='all';$('submit-state').textContent='已交给云端 Hermes，关闭页面后任务仍继续。';await select(job.id);$('reports').scrollIntoView();}catch(e){uncertain=!e.rejected;$('submit-state').textContent=uncertain?'提交结果需核对：'+e.message+' 请先查看任务列表，避免重复派发。请求编号：'+body.request_id:e.message;}finally{submitting=false;await refresh();}};
+  $('report-kind').value=reportKind;$('report-kind').onchange=()=>{reportKind=$('report-kind').value;list();};
+  document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{closedPeriod(b.dataset.period);$('ask').scrollIntoView();});
+  $('refresh').onclick=refresh;document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(timer);else refresh();});dates();if(reportKind!=='all')closedPeriod(reportKind);refresh();
+})();
