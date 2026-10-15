@@ -47,6 +47,29 @@ class ReleaseContract(unittest.TestCase):
  def test_ui_no_backend_or_secret_target(self):
   m=json.loads((D/'shared/approved-manifest.json').read_text());self.assertTrue(all(r['target'].startswith('/var/www/') for r in m['files']))
   self.assertTrue(all(r['target'].endswith(('.css','.js','.json')) for r in m['files']))
+ def test_module_polish_scope_and_payload(self):
+  p=D/'module-polish';pub=mod('module_polish',p/'release_navigation.py');m=json.loads((p/'approved-manifest.json').read_text())
+  self.assertEqual(len(pub.validate(m,p)),5)
+  self.assertTrue(all(r['target'].endswith(('.css','.html','.js')) for r in m['files']))
+ def test_login_handlers_unchanged(self):
+  old=(ROOT/'opt/auth-portal/login.html').read_text();new=(D/'module-polish/candidate/ui/login.html').read_text()
+  strip=lambda s:re.sub(r'<style>.*?</style>','<style></style>',s,flags=re.S)
+  self.assertEqual(strip(old),strip(new))
+ def test_task_script_retained(self):
+  old=(ROOT/'opt/mmoexp-taskboard/web/index.html').read_text();new=(D/'module-polish/candidate/ui/tasks.html').read_text()
+  self.assertEqual(old,new.replace('<script defer src="/__hub/hubnav.js?v=ui-polish-20261015"></script>','').replace('styles.css?v=ui-20261015','styles.css?v=20261001-1'))
+ def test_task_navigation_moved_not_cloned(self):
+  s=(D/'module-polish/candidate/ui/hubnav.js').read_text();self.assertIn('main.prepend(local)',s);self.assertNotIn('cloneNode',s)
  def test_private_theme_no_invalid_shadow_selector(self):
   self.assertNotIn(':host[data-theme', (D/'native/assets/business.css').read_text())
 if __name__=='__main__':unittest.main()
+
+class FollowupReleaseContract(unittest.TestCase):
+ def test_followup_manifests(self):
+  for name,count in [('navfix',1),('module-polish',5),('contrastfix',1)]:
+   p=D/name;m=json.loads((p/'approved-manifest.json').read_text());pub=mod('publisher_'+name.replace('-','_'),p/'release_navigation.py')
+   self.assertEqual(len(pub.validate(m,p)),count)
+   for row in m['files']:self.assertEqual(sha(p/'candidate'/row['candidate']),row['sha256'])
+ def test_pricing_labels_and_final_source(self):
+  s=(ROOT/'ui-system/adapters/hubnav.js').read_text();self.assertIn('.automation-grid>label',s)
+  self.assertEqual(s.replace('__FS_UI_ROOT__','/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/'),(D/'contrastfix/candidate/ui/hubnav.js').read_text())

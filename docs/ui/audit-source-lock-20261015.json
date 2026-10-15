@@ -1,0 +1,683 @@
+{
+  "status": "runtime_sources_locked_implementation_not_started",
+  "observed_at": "2026-10-15T10:05:16Z",
+  "modules": [
+    {
+      "moduleId": "home",
+      "route": "/dashboard/",
+      "source_candidate": "releases/fs-dashboard/menu-cache-20261015/native/candidate/fs-home/index.html",
+      "evidence_level": "A",
+      "release_ready": false,
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/fs-home/index.html",
+          "realpath": "/var/www/dashboard/fs-home/index.html",
+          "inode": 2236657,
+          "device": 66305,
+          "bytes": 2774,
+          "sha256": "08c56193dc9c2b87a2a2a1b43099d3841b5d2ce160fc7da16053d3981cc721bb"
+        }
+      ],
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "adopted_maintenance_target": "ui-system/modules/home/",
+      "publisher_verified": false,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "unified-business",
+      "route": "/dashboard/analytics/?mode=business",
+      "label": "数据看板",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": "releases/fs-dashboard/menu-cache-20261015/native/assets/index.html",
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/index.html",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/index.html",
+          "inode": 6691446,
+          "device": 66305,
+          "bytes": 2635,
+          "sha256": "59de9c31ecc8c9dbd65fc91d79908751a1528735e493bd06a4ce60a43dd76192"
+        },
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/business.css",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/business.css",
+          "inode": 6691330,
+          "device": 66305,
+          "bytes": 59720,
+          "sha256": "7c5c406d58632e16933a78e4eae420d92789c1b5aeb0f13d3e9d4a16130941e4"
+        },
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/workspace.css",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/workspace.css",
+          "inode": 6691476,
+          "device": 66305,
+          "bytes": 11058,
+          "sha256": "f7e29326bc3778077f1084cb7a78036e798cd517e713fd186f268a97b102c695"
+        },
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/shell.js",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/shell.js",
+          "inode": 6691473,
+          "device": 66305,
+          "bytes": 26621,
+          "sha256": "97299b84f8c4d850ee42052c794b0307a063749a76a6f392832c9e7b1265662a"
+        },
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/runtime.js",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/runtime.js",
+          "inode": 6691472,
+          "device": 66305,
+          "bytes": 9638,
+          "sha256": "7d021464703e02dbd879fa1c4eede18f948416e15998b9531bab8d2e4607c41c"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/unified-business/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "tasks",
+      "route": "/dashboard/tasks/",
+      "label": "项目工作任务台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/tasks/index.html",
+          "realpath": "/var/www/dashboard/tasks/index.html",
+          "inode": 3288511,
+          "device": 66305,
+          "bytes": 15066,
+          "sha256": "b7570335c5e7e0ae2a8fcd8f3103378d668c8a746806e4093c7b737fec9ec4d0"
+        },
+        {
+          "path": "/var/www/dashboard/tasks/styles.css",
+          "bytes": 18904,
+          "sha256": "eb1d37714a4fbc31f3cb70c88ebbb3e4944945ce4c1e289d2a72b078a7558d63"
+        },
+        {
+          "path": "/var/www/dashboard/tasks/app.js",
+          "bytes": 39840,
+          "sha256": "392dd2b813689da580d42d84a0e6c48dbc829f0a9398efb32ae89f43cbeeadfe"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/tasks/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "coins",
+      "route": "/dashboard/fc27-coins.html",
+      "label": "FC27 金币控制台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/fc27-coins.html",
+          "realpath": "/var/www/dashboard/fc27-coins.html",
+          "inode": 2233816,
+          "device": 66305,
+          "bytes": 26268,
+          "sha256": "a34e06c876fd7f2f79f957bf747c2231c1f17bfc25c094a07251b18ee75001d2"
+        },
+        {
+          "path": "/var/www/dashboard/fc27-quote-cloud.js",
+          "bytes": 80029,
+          "sha256": "acb597221e36372c5874a8935c6b9bedd1b1dd9d5a40b013ea3b28619cd40efd"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/coins/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "ops",
+      "route": "/s/wulv/fc27-ops/",
+      "label": "FC27 运营看板",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": "releases/fs-dashboard/menu-cache-20261015/native/assets/index.html",
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/index.html",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/index.html",
+          "inode": 6691446,
+          "device": 66305,
+          "bytes": 2635,
+          "sha256": "59de9c31ecc8c9dbd65fc91d79908751a1528735e493bd06a4ce60a43dd76192"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/ops/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "players",
+      "route": "/tools/fc27-players/",
+      "label": "FC27 球员维护",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/app/player_web/static/index.html",
+          "container": "fc27-player-tool",
+          "sha256": "4eb99b14f36076878669782974730378efff822e72be7022cc7ba7ae656c86c9",
+          "image_id": "sha256:f0802e35938bef214b7a89e215f2c219148b5f05186d8e2f27e4977ff24ff9c0"
+        },
+        {
+          "path": "/app/player_web/static/app.js",
+          "container": "fc27-player-tool",
+          "sha256": "e1afd2bcde343ad87f4629b23144075fe32487d5f1656fca3076add1c36b40b9",
+          "image_id": "sha256:f0802e35938bef214b7a89e215f2c219148b5f05186d8e2f27e4977ff24ff9c0"
+        },
+        {
+          "path": "/app/player_web/static/app.css",
+          "container": "fc27-player-tool",
+          "sha256": "e6c8788119aea1558520f002d01f33214fcbdcfa9d81ad2843ca82f9c7264087",
+          "image_id": "sha256:f0802e35938bef214b7a89e215f2c219148b5f05186d8e2f27e4977ff24ff9c0"
+        },
+        {
+          "path": "/app/player_web/static/models.html",
+          "container": "fc27-player-tool",
+          "sha256": "73e04ae4f8e0d789e3cbca62b7c8104ae7cf93ee4514c2eb1030cb72e532516a",
+          "image_id": "sha256:f0802e35938bef214b7a89e215f2c219148b5f05186d8e2f27e4977ff24ff9c0"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/players/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "gallery",
+      "route": "/tools/fc27-gallery/",
+      "label": "FC27 图片图库",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/opt/fc27-gallery/index.html",
+          "realpath": "/opt/fc27-gallery/index.html",
+          "inode": 2626925,
+          "device": 66305,
+          "bytes": 7492,
+          "sha256": "078fc64211f6ae26f47c31f0c08d5df3ca7d6c157931bb122f29aa73079a3a9f"
+        },
+        {
+          "path": "/opt/fc27-gallery/app.js",
+          "bytes": 9140,
+          "sha256": "30dac4f014ef606eee7a1ec2947f0bca45cd942919f641c3491af234bcae6fb7"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/gallery/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "mlb",
+      "route": "/mlb/",
+      "label": "MLB 新卡工作台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/mlb-online/index.html",
+          "realpath": "/var/www/mlb-online/index.html",
+          "inode": 2236313,
+          "device": 66305,
+          "bytes": 43319,
+          "sha256": "1acdbb0c9b4e048687bc3b327123013aebbab5e64c03e4c862ba1689072f45e2"
+        }
+      ],
+      "security_gate": "Password literal and Basic authorization pattern detected; no value disclosed or tested. Do not copy raw file into candidate.",
+      "adopted_maintenance_target": "ui-system/modules/mlb/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "nba",
+      "route": "/nba2k27/",
+      "label": "NBA2K 业务工具",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/nba2k27/index.html",
+          "realpath": "/var/www/nba2k27/index.html",
+          "inode": 4728723,
+          "device": 66305,
+          "bytes": 85764,
+          "sha256": "87b5481d9e2ee0271e88d10fe1cef492e5f3190298c9354c420aeea4ecf77db8"
+        }
+      ],
+      "open_dependency": "/page/page_comm/inject.js origin not resolved; preserve reference until verified.",
+      "adopted_maintenance_target": "ui-system/modules/nba/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "d4",
+      "route": "/d4/",
+      "label": "RPG 游戏改价系统",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/opt/d4follow/templates/index.html",
+          "realpath": "/opt/d4follow/templates/index.html",
+          "inode": 2235671,
+          "device": 66305,
+          "bytes": 175373,
+          "sha256": "4a79cc7eb2026654dd199e2139d7a574b18ed0599c1aef40bf6e9adf9ab154a2"
+        },
+        {
+          "path": "/opt/d4follow/app.py",
+          "realpath": "/opt/d4follow/app.py",
+          "inode": 152292,
+          "device": 66305,
+          "bytes": 202119,
+          "sha256": "14f532b5c5fda192d9df61de8502ce24876c08bfe2c1d5b76a87a6c65281cd1c"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/d4/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "docs",
+      "route": "/docs/",
+      "label": "部门手册",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/docs/index.html",
+          "realpath": "/var/www/docs/index.html",
+          "inode": 3943302,
+          "device": 66305,
+          "bytes": 12262,
+          "sha256": "4457a813fa7d8923b8a08b210919fad0cf4ff72e0288eb1461896a7a5531d3ca"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/docs/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "sites",
+      "route": "/s/",
+      "label": "团队工具目录",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "route_verified_no_index",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Nginx alias /var/www/sites/; autoindex off; index.html absent. No source page to migrate.",
+      "runtime_sources": [],
+      "adopted_maintenance_target": null,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "deploy",
+      "route": "/deploy/",
+      "label": "现有部署工作台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/opt/deploy-hub/deploy_server.py",
+          "bytes": 34680,
+          "sha256": "c63eec2a9d5ae12721df1119bb64c9c0bdd05f8cdc29bc8223b37a0bf169d164"
+        }
+      ],
+      "adopted_maintenance_target": null,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "weekly",
+      "route": "/dashboard/fs-home/brain/index.html?report_kind=weekly#reports",
+      "label": "运营报告",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "route_verified_no_index",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [],
+      "adopted_maintenance_target": "ui-system/modules/weekly/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "madden",
+      "route": "/dashboard/madden27-coins.html",
+      "label": "Madden 金币看板",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/madden27-coins.html",
+          "realpath": "/var/www/dashboard/madden27-coins.html",
+          "inode": 2232569,
+          "device": 66305,
+          "bytes": 21183,
+          "sha256": "d8e78efbdf8812cbaaff6b1b21071903f6cf8f67b43b450cbec1bb9a1e7d8f5e"
+        },
+        {
+          "path": "/var/www/dashboard/madden-quote-cloud.js",
+          "bytes": 61325,
+          "sha256": "af49f3353019041713033911cf967b1af6e5c61a892f5c37ddfd04089b15c053"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/madden/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "odds",
+      "route": "/s/wulv/fc-odds/",
+      "label": "FC 赔率工具",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/sites/wulv/fc-odds/index.html",
+          "bytes": 6573,
+          "sha256": "e0cbd89b359e69431192aabb7d9adcf3512b7688a6722b95252c8f5163175f1d"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/odds/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "game-monitor",
+      "route": "/dashboard/game-monitor/",
+      "label": "游戏监控台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": "releases/fs-dashboard/menu-cache-20261015/native/assets/game-monitor/",
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/game-monitor/index.html",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/game-monitor/index.html",
+          "inode": 6691441,
+          "device": 66305,
+          "bytes": 774050,
+          "sha256": "5f8de7d978db05453cbff167992b0d0626f05a197205c26cfea263c62ddda033"
+        }
+      ],
+      "data_gate": "Daily service failed at 2026-10-15 00:58/00:59 CST; timer enabled; data freshness/provider path not verified.",
+      "adopted_maintenance_target": "ui-system/modules/game-monitor/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "management",
+      "route": "/dashboard/management/",
+      "label": "经营管理台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": "releases/fs-dashboard/menu-cache-20261015/native/assets/management/",
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/management/index.html",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/management/index.html",
+          "inode": 6691457,
+          "device": 66305,
+          "bytes": 12468,
+          "sha256": "f3c379b0636e11e31213728e5e257a30b6703f01b93d1aa4abb9717e91b1144a"
+        },
+        {
+          "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/management/nba2k27.html",
+          "realpath": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/management/nba2k27.html",
+          "inode": 6691462,
+          "device": 66305,
+          "bytes": 13455,
+          "sha256": "f1be9dbec2a7bed7a4503021830bf42919115266e52764e034888f4c863bffcc"
+        }
+      ],
+      "data_gate": "Daily service failed at 2026-10-15 00:58/00:59 CST; timer enabled; data freshness/provider path not verified.",
+      "adopted_maintenance_target": "ui-system/modules/management/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "brain",
+      "route": "/dashboard/fs-home/brain/index.html",
+      "label": "Hermes智体",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/fs-home/brain/index.html",
+          "realpath": "/var/www/dashboard/fs-home/brain/index.html",
+          "inode": 2891189,
+          "device": 66305,
+          "bytes": 10274,
+          "sha256": "33eb4f72191044782b0367fc24f641f7e48417c522a05182e7f782a510acf4d0"
+        },
+        {
+          "path": "/var/www/dashboard/fs-home/brain/brain.js",
+          "realpath": "/var/www/dashboard/fs-home/brain/brain.js",
+          "inode": 2891191,
+          "device": 66305,
+          "bytes": 18766,
+          "sha256": "125f4d15488601faa3164f364ee8ceb145a5041e907a3e4d4a55d8b13b9e2cd6"
+        },
+        {
+          "path": "/var/www/dashboard/fs-home/brain/brain.css",
+          "realpath": "/var/www/dashboard/fs-home/brain/brain.css",
+          "inode": 2891121,
+          "device": 66305,
+          "bytes": 9191,
+          "sha256": "15ff7f0c59920a42e8ed7ed76d74e3e320c954846ba2c1aba4b34e70685c054b"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/brain/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "fc27-bundles",
+      "route": "/dashboard/modules/sports/bundles/",
+      "label": "FC27 捆绑包改价",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/var/www/dashboard/modules/sports/bundles/index.html",
+          "bytes": 23212,
+          "sha256": "03bc2f08b9023a88d8d166ee0fd8463b55d7e89f4ebe9e81233feed9d3121145"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/fc27-bundles/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "g2g",
+      "route": "/g2g/",
+      "label": "G2G 自动改价",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/opt/g2gfollow/templates/index.html",
+          "bytes": 28790,
+          "sha256": "8452f7ba3b5146ec42c764bdfb00df75d441137525fd72f8d40e58cb9a96c884"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/g2g/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "bot-console",
+      "route": "/bots/",
+      "label": "Discord 机器人控制台",
+      "fixed_git_commit": "cb5ce0ff6ebc77a5daeb99c61aa399876c891567",
+      "source_candidate": null,
+      "evidence_level": "A",
+      "publisher_verified": false,
+      "release_ready": false,
+      "note": "Runtime source verified. UI implementation, candidate tests and deployment not performed.",
+      "runtime_sources": [
+        {
+          "path": "/opt/bot-console/static/index.html",
+          "bytes": 66158,
+          "sha256": "05c648ede4a04fecf860ad4c63d3f2ab5d89525ac2482888b41e264bd8c097ae"
+        }
+      ],
+      "adopted_maintenance_target": "ui-system/modules/bot-console/",
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "auth-login",
+      "route": "/__auth/login",
+      "runtime_sources": [
+        {
+          "path": "/opt/auth-portal/login.html",
+          "bytes": 19562,
+          "sha256": "786addbc6d699faf7bd4d0611046e670e1fae4b6797273995eafbe5c732a93ce"
+        }
+      ],
+      "evidence_level": "A",
+      "release_ready": false,
+      "note": "Source locked, implementation not started.",
+      "publisher_verified": false,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "auth-access",
+      "route": "/__auth/access/",
+      "runtime_sources": [
+        {
+          "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+          "bytes": 5548,
+          "sha256": "f4ba52c43e2217c1743644740b9b36db7e96b0c46fe3a8f2fa4e56d0797eed79"
+        },
+        {
+          "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/base.css",
+          "realpath": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/base.css",
+          "inode": 3415836,
+          "device": 66305,
+          "bytes": 7581,
+          "sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040"
+        },
+        {
+          "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+          "bytes": 2883,
+          "sha256": "757b1a4b696e4a47c48e031124065f7f00765d443c1f38b20f6e8b38f1dad346"
+        },
+        {
+          "path": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+          "bytes": 20313,
+          "sha256": "ae67661f0b4692832bd1e047d7b0ddf0f46e66b2f2e4232237fae47279183b07"
+        }
+      ],
+      "evidence_level": "A",
+      "release_ready": false,
+      "note": "Source locked, implementation not started.",
+      "publisher_verified": false,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    },
+    {
+      "moduleId": "shared-navigation",
+      "route": "/__hub/hubnav.js",
+      "runtime_sources": [
+        {
+          "path": "/var/www/hub/hubnav.js",
+          "realpath": "/var/www/hub/hubnav.js",
+          "inode": 2236652,
+          "device": 66305,
+          "bytes": 7747,
+          "sha256": "7cb572d2d5f63f4095844a9baf561140cd83b891c4ebaef32aaed5c3c32c268d"
+        },
+        {
+          "path": "/var/www/dashboard/fs-home/hubnav.css",
+          "realpath": "/var/www/dashboard/fs-home/hubnav.css",
+          "inode": 2236635,
+          "device": 66305,
+          "bytes": 3178,
+          "sha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3"
+        },
+        {
+          "path": "/var/www/dashboard/fs-home/navigation.css",
+          "realpath": "/var/www/dashboard/fs-home/navigation.css",
+          "inode": 2236932,
+          "device": 66305,
+          "bytes": 7817,
+          "sha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171"
+        },
+        {
+          "path": "/var/www/dashboard/fs-home/navigation.js",
+          "realpath": "/var/www/dashboard/fs-home/navigation.js",
+          "inode": 2237374,
+          "device": 66305,
+          "bytes": 10176,
+          "sha256": "ac400b30ff3d01879a49321b7f76994a93f6c140adb56ca21a300db9efb81c3b"
+        }
+      ],
+      "evidence_level": "A",
+      "release_ready": false,
+      "note": "Source locked, implementation not started.",
+      "publisher_verified": false,
+      "publication_note": "Existing publisher policy retained; this is not an approved deployment manifest."
+    }
+  ],
+  "server": "play187",
+  "file_index": "live-source-files.json",
+  "sources_unchanged": true,
+  "verification_scope": "Routes, runtime roots and 48 key file hashes; complete asset closure must be frozen per implementation batch."
+}
