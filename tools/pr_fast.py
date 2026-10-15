@@ -268,6 +268,8 @@ def select(paths):
         suffix=Path(name).suffix
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
             groups.add("fs-ui-system");continue
+        if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
+            groups.add("hermes-weekly-upgrade");continue
         if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
             groups.add("hermes-report-tracks");continue
         if name.startswith("releases/fs-dashboard/hermes-fs-research-integration-20261015/"):
@@ -634,6 +636,11 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="hermes-weekly-upgrade":
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/data",["test_weekly_data"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/methods",["test_weekly_bundle"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/visual",["test_visual"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
         elif group=="hermes-report-tracks":
             units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
             node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
