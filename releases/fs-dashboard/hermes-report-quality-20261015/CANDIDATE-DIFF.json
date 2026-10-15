@@ -62,8 +62,8 @@
       "name": "report_semantics.py",
       "target": "/opt/fs-hermes-fc/report_semantics.py",
       "base_sha256": null,
-      "sha256": "36d5e87c0fb2153aad600ce372321c94984fc8d358331e67ba19f71c0634e9bc",
-      "bytes": 19645
+      "sha256": "4a00651bb23c7496eb1bd6178c2d24f341b1e845e403ca4cfc879ee8015b9034",
+      "bytes": 19875
     },
     {
       "name": "skills/fs-fc-operations-analysis/references/report-contract.md",

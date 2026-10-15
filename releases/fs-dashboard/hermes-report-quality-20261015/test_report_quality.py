@@ -299,7 +299,7 @@ class ReportQuality(unittest.TestCase):
         self.assertEqual(len(actions),2);self.assertEqual(actions[0]['action'],'核查支付失败样本')
 
     def test_descriptive_text_is_not_invented_as_action(self):
-        for raw in ['## 建议与复查\n当前销售下降，原因尚不明确。','## R1 现状\n订单下降，暂无行动。','## 数据概览\n动作：该字段未定义']:
+        for raw in ['## 建议与复查\n当前销售下降，原因尚不明确。','## R1 现状\n订单下降，暂无行动。','## 数据概览\n动作：该字段未定义','## 建议与复查\n- 核查结果显示数量下降\n- 对支付进行核对后未发现异常']:
             self.assertEqual(index({'raw_model_text':raw},self.ev)['actions'],[])
 
     def intel_envelope(self):

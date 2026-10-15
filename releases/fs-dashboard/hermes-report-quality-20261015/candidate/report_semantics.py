@@ -166,7 +166,9 @@ def markdown_actions(parts, evidence):
     actions=[]
     area=re.compile(r'建议|行动|Actions|Recommendations',re.I)
     def proposed(value):
-        return bool(re.match(r'^(?:建议\s*[:：]?\s*)?(?:核查|核对|复核|验证|补充|读取|检查|抽查|跟踪|建立|记录|比对|确认|调查|收集|对.+进行)',plain(value)))
+        value=plain(value)
+        if not value.startswith('建议') and re.search(r'^(?:核查|核对|复核|验证|检查|抽查|调查)(?:结果|发现|显示)|后(?:发现|显示|确认|未发现)|已经完成',value):return False
+        return bool(re.match(r'^(?:建议\s*[:：]?\s*)?(?:核查|核对|复核|验证|补充|读取|检查|抽查|跟踪|建立|记录|比对|确认|调查|收集|对.+进行)',value))
     def emit(target,body,full,location,explicit=None):
         action=explicit or field(body,['最小动作','动作','建议动作'],None)
         if not action:return
