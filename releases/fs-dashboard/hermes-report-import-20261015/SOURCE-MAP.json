@@ -1,0 +1,57 @@
+{
+  "scope": "hermes-fc-report-import-20261015",
+  "base_commit": "1b0f4a2b6bdb3643534629e2bd407332ff7fef8d",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/controller.py",
+      "candidate": "imports/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "8c00a029feb0845a110b3f4347396621212e0022427ecc913b11a8a7f7805829",
+      "sha256": "3559bed45e1a928da06c0c7d5dd91f905fdb55973bc3aa74dc4d3a2164a3558b",
+      "bytes": 43888
+    },
+    {
+      "source": "source/imported_reports.py",
+      "candidate": "imports/imported_reports.py",
+      "runtime": "/opt/fs-hermes-fc/imported_reports.py",
+      "beforeSha256": null,
+      "sha256": "54e2d96f3663ce2b59905d68dd73a4553bfa7dd6892a10ab7add15800d45d29c",
+      "bytes": 11486
+    },
+    {
+      "source": "source/brain.js",
+      "candidate": "imports/brain.js",
+      "runtime": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "5ecf55e014b74abf7b83c379d721b612d87806084b4b93c91e1032c109852a2f",
+      "sha256": "9e7ffb5d52ce3fabe6d2ed6f34d7473b090ea6df657cfcea370ceebe9b2f0e3e",
+      "bytes": 23104
+    }
+  ],
+  "preserved_management_context": true,
+  "runtime_source_status": "controller reconciled exactly from reviewed Git source plus approved two-function management additions; unrelated methods preserved",
+  "preserved_method_hashes": {
+    "__init__": "6022acb5468630d07e641c27146b48f5b281e1606c266eee9903e2d22288fb46",
+    "lookup": "19fc16bcc865215d328b6d24aceec19efd6032931dfa1052dfdd41b381364160",
+    "start": "2296017bc9e3dd945357229b6293ade7495cb46c439834ec806597c147ccb825",
+    "_recover_loop": "04cfdef765b72b74064a7b650f7e850ccc7f6ccf64c1ed26a355758554538a70",
+    "recover_reports": "9062277d283f22c80d7377a0d20ffbf26b932fa021c79e8359cc6f0e7639f11c",
+    "publish_report": "ad1e052bb91967328595842c9a26692db04f2d8897485275e795797a45beaf8f",
+    "mark_progress": "063931e53f54dc59a2128eb82d6f11dbab471225ead5864a9d3fd724844d6193",
+    "remote": "b5e09899ccefa42c11cace94f8bf905a1d0477ed552d3490603e234a564fbfe4",
+    "get_job": "ca4173fe9071dbe1d2e8180a3f8d19334d2ccd5e6aa10cf6bf668722faa1c232",
+    "visible_job": "df3a3dad3f43690f58e0c69639cc5152e443b193ec91a87937279f0f06eb5b07",
+    "trash_report": "23caea6d53a1361f60fb20ed0aa7467f51a368fed6709680ec07b916d5cf2842",
+    "matching_report": "27021c2d64d62d9898be133d100f303c72b616960d7b9edd214668f2c8bf8b8d",
+    "report_thread": "8396495db1c4e44f0367272545b61193e8780d44247b639e3f1a41144569e302",
+    "usage": "da725ac5d86a030a0b23d6d450da21b2f489f9bbfe030df845422c682ed40589",
+    "update": "843b8bbd3888449216c546631ec3ca839316ce4d5d7376e655c338c695569648",
+    "post": "85ccb642890435f93fd822bb6d6350afb7bc7e2572fe9048e873dde366b2e375",
+    "_post": "05c3c44713d27c4a1acf334afd66e385aa277b339ac141c75e043f6dd537095b",
+    "cancel_job": "e1b759a24d7219043e1261f4c98633e8100e22e12c2e28014cfb60a4d6c7f447",
+    "submit_scheduled": "fb90950fa3a45f77e3f5df004342abe14a7fb510732800f84744a320307d069d",
+    "_submit_report": "24e26240e3ee176cd445ea943d2aff8a4245846c4341332639552ce30f8ada5b",
+    "execute": "ba4fdfcca1259664780a1af1d59a89ce65cd8bac6c09d7de70865e46c7be596a"
+  }
+}
