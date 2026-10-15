@@ -472,4 +472,49 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(receipt['response_shape']['finish_reason'],'length')
         self.assertNotIn('SYNTHETIC_PRIVATE',row['content'])
 
+class ToolContractRegressionTests(unittest.TestCase):
+    def research_book(self):
+        from research import ResearchBook
+        from test_research import dataset
+        source = dataset()
+        source['orders'] = source['orders'][:1]
+        return ResearchBook(source, {}, {'start': '2026-10-05', 'end': '2026-10-11'})
+
+    def test_advertised_breakdowns_map_to_legal_research_groups(self):
+        from research import DIMENSIONS
+        declared = next(item['function']['parameters']['properties']['dimension']['enum']
+                        for item in schemas() if item['function']['name'].endswith('fc_get_breakdown'))
+        self.assertEqual(declared, ['platform', 'product'])
+        book = self.research_book()
+        for dimension in declared:
+            self.assertIn(dimension, DIMENSIONS)
+            for window in ('target', 'previous'):
+                result = book.call('fc.get_breakdown', {
+                    'snapshot_id': book.capture_id, 'window': window, 'dimension': dimension})
+                self.assertEqual(result['query']['group_by'], [dimension])
+        with self.assertRaisesRegex(ValueError, 'group_fields'):
+            book.call('fc.get_breakdown', {
+                'snapshot_id': book.capture_id, 'window': 'target', 'dimension': 'bucket'})
+
+    def test_calculator_equal_length_bindings_succeed_and_bad_bindings_fail(self):
+        book = self.research_book()
+        evidence = book.call('fc.query_business', {
+            'start': '2026-10-05', 'end': '2026-10-11', 'group_by': [], 'filters': {}, 'page': 1})
+        ref = evidence['evidence_id']
+        arguments = {
+            'operation': 'ratio', 'values': ['10.00', '1'], 'evidence_ids': [ref],
+            'value_paths': [{'evidence_id': ref, 'path': '/data/total/revenue_usd'},
+                            {'evidence_id': ref, 'path': '/data/total/orders'}],
+            'assumptions': ['', '']}
+        result = book.call('fc.calculate', arguments)
+        self.assertEqual(result['data']['result']['ratio'], '10.00')
+        self.assertEqual(result['data']['basis'], 'evidence_bound_calculation')
+        with self.assertRaisesRegex(ValueError, 'calculation_bindings'):
+            book.call('fc.calculate', {**arguments, 'assumptions': []})
+        with self.assertRaisesRegex(ValueError, 'calculation_operand_mismatch'):
+            book.call('fc.calculate', {**arguments, 'values': ['11.00', '1']})
+        with self.assertRaisesRegex(ValueError, 'calculation_assumption'):
+            book.call('fc.calculate', {**arguments, 'value_paths': [None, None]})
+
+
 if __name__=='__main__': unittest.main()
