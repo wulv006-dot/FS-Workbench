@@ -56,7 +56,7 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
             checked=[]
             for value in rows:
                 if (value.get('status')!='available' or value.get('stale') is not False or value.get('profileKey')!='FC27' or
-                        value.get('currency')!='USD' or value.get('timezone')!='Asia/Shanghai' or value.get('source')!='order.p2pah.cn' or
+                        value.get('currency')!='USD' or value.get('timezone')!='Asia/Shanghai' or value.get('source')!='order.p2pah.cn' or value.get('marginUnit')!='percent' or
                         value.get('scope')!={'orderGameId':'1322','orderProductType':'','orderStatus':'','sites':'all-websites'}):raise ValueError('reference_scope')
                 margin=number(value['profitMarginPct']);stamp=datetime.fromisoformat(value['capturedAt'].replace('Z','+00:00'))
                 if stamp.tzinfo is None:raise ValueError('reference_time')
@@ -70,10 +70,11 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
     return {'rows':[{'label':b[5:],'previous_date':a,'current_date':b,'previous':str(values[a][0]),'current':str(values[b][0]),
                      'previous_captured_at':values[a][1],'current_captured_at':values[b][1]} for a,b in zip(old_days,new_days)],
             'evidence_ids':references,'as_of':max(stamps),'scope':'Order FC27 / all-websites / USD / Asia/Shanghai；上游日率原值，公式未知',
-            'interpretation':'按声明的双期区间逐日配对展示参考日率；未据此认定同星期可比，日均不等于整段利润率，不生成主站利润金额或目标实绩。'},None
+            'interpretation':'按声明的双期区间逐日配对展示参考日率；未据此认定同星期可比，日均不等于整段利润率。主站预估利润按临时公式另列，不作为实际结算或目标实绩。'},None
 
 
 def project(result, evidence, metadata, research_sha):
+    from report_constraints import complete_projection,apply_constraints,estimated_profit
     period = result['period'];start, end = period['start'], period['end']
     kind, old_start, old_end = periods(period);old_start, old_end = old_start.isoformat(), old_end.isoformat()
     explicit,comparison_basis,comparison_ambiguous=declared_comparison(result)
@@ -113,39 +114,8 @@ def project(result, evidence, metadata, research_sha):
         return revenue,orders
     def grouped(dimension,lo,hi,item,pool=False):
         if not current:return None
-        pages={};expected_groups=None;page_size=None;grand=None
-        for key,row in sorted(evidence.items()):
-            q=row.get('query',{});data=row.get('data',{})
-            if not eligible(row) or row.get('captured_at')!=current[3].get('captured_at') or q.get('group_by')!=[dimension]:continue
-            if q.get('start')!=lo or q.get('end')!=hi or data.get('filters_applied')!={}:continue
-            if pool and (data.get('coverage',{}).get('backlog_status')!='available' or data.get('state_basis')!='current_at_capture_not_historical_day_end'):continue
-            try:
-                pagination=data['pagination'];page=pagination['page'];size=pagination['page_size'];count=pagination['total_groups']
-                if any(type(v) is not int for v in (page,size,count)) or page<1 or size<1 or not 0<=count<=10000 or page!=q.get('page') or type(pagination['complete']) is not bool:continue
-                total_value=facts(data['total'])
-                if item and total_value!=(item[1],item[2]):continue
-                groups=data['groups']
-                if not isinstance(groups,list) or len(groups)>size or any(set(g.get('group',{}))!={dimension} for g in groups):continue
-                if expected_groups is not None and (expected_groups,page_size,grand)!=(count,size,total_value):return None
-                expected_groups,page_size,grand=count,size,total_value
-                signature=json.dumps(groups,sort_keys=True,separators=(',',':'))
-                if page in pages and pages[page][1]!=signature:return None
-                pages[page]=(key,signature,groups,pagination['complete'])
-            except (KeyError,TypeError,ValueError,ArithmeticError):continue
-        if expected_groups is None:return None
-        last=max(1,(expected_groups+page_size-1)//page_size)
-        if set(pages)!=set(range(1,last+1)) or any(pages[p][3]!=(p==last) for p in pages):return None
-        values={};references=[]
-        try:
-            for page in range(1,last+1):
-                key,_,groups,_=pages[page];references.append(key)
-                for group in groups:
-                    label=group['group'][dimension]
-                    if not isinstance(label,str) or label in values:return None
-                    facts(group);values[label]=group
-            if len(values)!=expected_groups or (sum((facts(v)[0] for v in values.values()),Decimal(0)),sum((facts(v)[1] for v in values.values()),Decimal(0)))!=grand:return None
-        except (KeyError,TypeError,ValueError,ArithmeticError):return None
-        return values,references
+        return complete_projection(evidence,dimension,lo,hi,current[3]['captured_at'],eligible,
+                                   (item[1],item[2]) if item else None,pool)
     def comparison_rows(old,new):
         # A group absent from a fully reconciled complete population has zero orders/amount.
         rows=[]
@@ -255,11 +225,17 @@ def project(result, evidence, metadata, research_sha):
     semantic=index(result,evidence)
     corrections=['本版独立保存；原始研究、原始老板版及冻结证据保持原字节。','索引提取不代表业务验证，建议均待复核、未下发或执行。']
     reference,reference_gap=(None,comparison_basis) if comparison_ambiguous else order_series(evidence,anchor,old_start,old_end,start,end)
-    if reference:charts[5].update(reference,note='全站上游参考日率，非主站结算利润；不与 Admin 销售额相乘，不当作成本或整周利润率。')
+    if reference:charts[5].update(reference,note='全站上游参考日率，非主站结算利润；可按用户临时口径乘对应日期主站金额估算，不当作采购成本或整周利润率。')
     else:gaps.append(reference_gap)
+    estimates={'current':estimated_profit(evidence,anchor,start,end,current,eligible),
+               'previous':estimated_profit(evidence,anchor,old_start,old_end,previous,eligible)}
+    corrections.append('2026-10-15临时利润口径优先：主站预估利润=主站订单金额×对应参考利润率÷100；允许Order参考范围与主站不同并披露。旧研究中禁止据参考率估算的限制不再适用；仍非实际结算、核实成本或目标实绩。')
+    for item in estimates.values():
+        if item['status']=='missing':gaps.append(item['period']['start']+' — '+item['period']['end']+'：'+item['reason'])
     context=[]
     for dimension,label in [('country','地域覆盖行'),('device','设备结构')]:
-        a,b=(None if comparison_ambiguous else covered(dimension,old_start,old_end)),covered(dimension,start,end)
+        a=(None if comparison_ambiguous else grouped(dimension,old_start,old_end,previous) or covered(dimension,old_start,old_end))
+        b=grouped(dimension,start,end,current) or covered(dimension,start,end)
         if not a or not b:
             context.append({'label':label,'text':'未取得同口径可比覆盖行；与客户身份/复购缺口分开。','evidence_ids':[]});continue
         labels=set(a[0])&set(b[0])
@@ -336,7 +312,7 @@ def project(result, evidence, metadata, research_sha):
                         'evidence_ids':[x for x in item.get('evidence_ids',[]) if x in evidence]})
     intel,intel_pending,intel_note=intelligence(result,evidence)
     blob=json.dumps(evidence,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
-    return {'schema_version':'1.0','business_model':{'fulfillment':'order_driven','holds_inventory':False,'supplier_settlement':'monthly'},
+    content={'schema_version':'1.0','business_model':{'fulfillment':'order_driven','holds_inventory':False,'supplier_settlement':'monthly'},
             'report':{'id':anchor+'-boss-semantic-v2-'+start+'-'+end,'title':title,'subtitle':'同一研究任务 · 冻结证据 · 阅读校正版 v2','kind':kind,'filename':'FC27_boss_reviewed_v2_'+start+'_'+end+'.html',
                       'period':dict(period,comparison_start=old_start if previous else None,comparison_end=old_end if previous else None,comparison_basis=comparison_basis,timezone='Asia/Shanghai'),
                       'generated_at':stable_generated_at(result,evidence,metadata),'business_data_captured_at':captured,'source_data_as_of':None,
@@ -349,10 +325,13 @@ def project(result, evidence, metadata, research_sha):
             'key_findings':[dict(row,statement=reviewed_text(row['statement'])) for row in semantic['findings']],
             'metrics':metrics,'charts':charts,'payment':payment,'payment_evidence_ids':payment_ids,
             'hypotheses':[dict(row,text=reviewed_text(row['text'])) for row in semantic['hypotheses']],'context':context,
-            'finance':{'title':'利润与目标保持范围一致','basis':'不把全站参考利润乘主站销售额当作已结算利润或目标实绩。','next':'先补同范围成本、利润定义和目标版本，再判断达成。'},
+            'finance':{'title':'主站预估利润（临时参考口径）','estimates':estimates,
+                       'basis':'按2026-10-15用户临时口径，主站预估利润=主站订单金额×对应参考利润率÷100。优先同区间原生参考率；缺区间率时逐日匹配金额和参考率求和，不平均日率。允许来源范围不同并列明，缺值不补零。',
+                       'next':'用于经营参考，非实际结算利润；不改变采购成本、结算账本或打款。取得准确利润渠道后按用户指令更新；目标须另核版本与口径。'},
             'intel':intel,'intel_pending':intel_pending,'intel_note':intel_note,
             'actions':actions,'timeline':[dict(row) for row in result.get('timeline',[]) if isinstance(row,dict) and all(isinstance(row.get(k),str) for k in ('date','text'))],
             'decisions':[dict(row,**{k:row.get(k) or '待补：'+k for k in ('topic','status','recommended','alternative','tradeoff')}) for row in result.get('decisions',[]) if isinstance(row,dict)],
             'gaps':gaps,'corrections':list(dict.fromkeys(corrections)),
-            'research_text':semantic['research_text'],'reviewed_research_text':reviewed_text(semantic['research_text']),'research_url':'https://47.85.224.112/dashboard/fs-home/brain/index.html#reports',
+            'research_text':result.get('raw_model_text') or semantic['research_text'],'reviewed_research_text':reviewed_text(semantic['research_text']),'research_url':'https://47.85.224.112/dashboard/fs-home/brain/index.html#reports',
             'provenance':{'evidence_count':len(evidence),'scope':'本任务冻结公开证据；原研究文件保持原字节','research_html_sha256':research_sha,'package_sha256':hashlib.sha256(blob).hexdigest()}}
+    return apply_constraints(content,evidence)

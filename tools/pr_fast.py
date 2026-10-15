@@ -455,7 +455,7 @@ def main():
             units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
             subprocess.run(["pwsh","-NoLogo","-NoProfile","-File",str(ROOT/"releases/fs-dashboard/hermes-desktop-20261015/Test-Connect.ps1")],check=True,timeout=30,cwd=ROOT)
         elif group=="hermes-report-quality":
-            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_quality","test_release_quality","test_report_delivery","test_skill_bundle","test_research"])
+            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_constraints","test_report_quality","test_release_quality","test_proof_release","test_report_delivery","test_skill_bundle","test_research"])
         elif group=="navigation-recovery":
             units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
         elif group=="fs-revision-20261015":
@@ -641,6 +641,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

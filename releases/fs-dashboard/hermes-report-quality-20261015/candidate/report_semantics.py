@@ -99,7 +99,8 @@ def declared_comparison(result):
 
 
 def blocks(text):
-    return [plain(v) for v in re.split(r"\n\s*\n|\n(?=\s*(?:\d+[.、]|[-*])\s)", text) if v.strip() and not v.lstrip().startswith("#") and not re.fullmatch(r'\s*[-*_]{3,}\s*',v)]
+    values=[plain(v) for v in re.split(r"\n\s*\n|\n(?=\s*(?:\d+[.、]|[-*])\s)", text) if v.strip() and not v.lstrip().startswith("#") and not re.fullmatch(r'\s*[-*_]{3,}\s*',v)]
+    return [v for v in values if not v.lstrip().startswith('|') and not re.fullmatch(r'[^。\n]{1,30}[:：]',v)]
 
 
 def field(text, names, default):
@@ -160,7 +161,9 @@ def intelligence(result,evidence):
 def resource_cost(item):
     if item.get('cost'):return item['cost']
     match=re.search(r'(?:约\s*)?\d+(?:\.\d+)?(?:[~～–—-]\d+(?:\.\d+)?)?\s*人日',item.get('cost_risk',''))
-    return match[0] if match else '待补：原文未单列资源投入'
+    if match:return match[0]
+    match=re.search(r'(?:人工|抽样|核查|采集|投入)[^。；]{0,40}',item.get('cost_risk',''))
+    return match[0]+'（原建议估计，待确认）' if match else '待补：原文未单列资源投入'
 
 
 def markdown_actions(parts, evidence):
@@ -225,7 +228,8 @@ def markdown_actions(parts, evidence):
 
 
 def index(result, evidence):
-    text = result.get("research_text") or result.get("raw_model_text", "")
+    from report_constraints import narrative
+    text = narrative(result.get("research_text") or result.get("raw_model_text", ""))
     parts = sections(text) if not text.lstrip().startswith(("{", "```json")) else []
     findings = []
     for part in parts:
@@ -237,15 +241,22 @@ def index(result, evidence):
     if (typed and result.get('report_format','').startswith('structured')) or not findings:
         findings = typed
     summary = "\n".join(row["statement"] for row in findings[:3])
-    if result.get("report_format",'').startswith("structured") and result.get("summary"):
+    if isinstance(result.get('summary'),str) and result['summary'].strip() and not re.search(r'(?m)^\s*[#|`]|\|\s*-{3}',result['summary']):
         summary = result["summary"]
     if not summary:
         candidate = result.get("summary", "")
         summary = candidate if candidate and not candidate.lstrip().startswith("#") else "未识别独立结论；完整原文保留，请先复核正文。"
     actions = [dict(row,**{key:row.get(key) or '待补：'+key for key in ACTION_FIELDS},source_section=row.get('source_section','/actions/'+str(i)))
                for i,row in enumerate(result.get('actions',[])) if isinstance(row,dict) and (row.get('action') or row.get('target'))] or markdown_actions(parts, evidence)
-    hypotheses = [{"title": "竞争解释（待证）", "text": plain(line), "evidence_ids": refs(line, evidence)}
-                  for part in parts for line in part["text"].splitlines() if re.search(r"竞争解释|替代解释|待证假设", line)]
+    hypotheses=[]
+    for part in parts:
+        if re.search(r'方法|Method',part['heading'],re.I):continue
+        active=bool(re.search(r'竞争解释|替代解释|待证假设',part['heading']))
+        for block in re.split(r'\n\s*\n',part['text']):
+            value=plain(block)
+            if re.match(r'^(?:竞争解释|替代解释|待证假设)',value):active=True;continue
+            if re.match(r'^(?:可推翻|建议|缺口|复查)',value):active=False
+            if active and value:hypotheses.append({'title':'竞争解释（待证）','text':value,'evidence_ids':refs(value,evidence)})
     hypotheses += [{"title": "竞争解释（待证）", "text": row["statement"]+"；替代解释："+row.get("alternative", "未给出"),
                     "evidence_ids": [x for x in row.get("evidence_ids", []) if x in evidence]}
                    for row in typed if row.get("claim_type") == "hypothesis"]
