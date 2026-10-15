@@ -15,10 +15,17 @@
 
 用法
 ----
-    python dd373_local_collect.py            # 全量 86 区
-    python dd373_local_collect.py --limit 5  # 只抓前 5 个区（联调）
-    python dd373_local_collect.py --gap 1.6  # 请求间隔秒
-输出：`<归档根>/验证/local_costs_<时间戳>.json`
+    python dd373_local_collect.py                    # AION2 全量 + MSCW（各推一次）
+    python dd373_local_collect.py --limit 5          # 每个游戏只抓前 5 个区（联调）
+    python dd373_local_collect.py --only-game AION2  # 只抓某一个游戏
+    python dd373_local_collect.py --gap 1.6          # 请求间隔秒
+输出：`<归档根>/验证/local_costs_<游戏>_<时间戳>.json`
+
+⚠ 2026-10-15（方案 A）：本机代抓必须覆盖**服务器采集目标里的每一个游戏**。
+    服务器侧「优先本机推送」是**整轮跳过自抓**（不按游戏区分），而
+    `金币.进货成本.游戏列表 = [AION2, MapleStory Classic World]`；以前只推 AION2
+    的 86 区 ⇒ **MSCW（冒险岛）被顺带跳过**，成本自 2026-10-14 13:06 起冻结 5.5 小时。
+    现在两个游戏各抓一轮、各推一次（MSCW 走扁平专区，仅 1 个服务区、约 2 次请求）。
 """
 import os
 import sys
@@ -47,15 +54,28 @@ import core_dd373_cost as dd          # noqa: E402
 PROFILE = r"C:\Users\yi\AppData\Local\Temp\dd_edge_profile"
 HOME = "https://www.dd373.com/"
 
+# 代抓的游戏 → 输出文件名 slug
+GAME_SLUG = {"AION2": "aion2", "MapleStory Classic World": "mscw"}
+# 代抓顺序：MSCW 先、AION2 后 —— 服务器的 `data/dd373_local_push.json` 只记
+# **最后一次**推送的 saved/ok_rows，把 AION2（86 条）放最后，可让采集日志里
+# 「本机推来 N 条」与历史一致（否则会显示成 MSCW 的 1 条，看着像推送丢了）。
+GAMES_DEFAULT = ("MapleStory Classic World", "AION2")
 
-def grab_cookie(verbose=True):
-    """用真实 Edge（可见）访问首页，取回 dd373 域的整串 cookie。"""
+
+def grab_cookie(verbose=True, headless=True):
+    """用真实 Edge 访问首页，取回 dd373 域的整串 cookie。
+
+    2026-10-14：默认改为**无头**（headless=True）——原先 headless=False 会在
+    cookie 每 6 小时过期时弹一个可见浏览器窗口，影响办公。
+    仍靠 --disable-blink-features=AutomationControlled 绕自动化检测；
+    调用处对取回的 cookie 做探针校验，失败会自动回退 headless=False。
+    """
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(
             PROFILE,
             channel="msedge",
-            headless=False,
+            headless=headless,
             args=["--no-proxy-server",
                   "--disable-blink-features=AutomationControlled"],
             locale="zh-CN",
@@ -171,12 +191,16 @@ def push_to_server(js_path, key, host, verbose=True):
     所以改成 `ssh host "cat > 远端"`，用标准输入把文件内容喂过去。
     """
     import subprocess
+    # ⚠ 2026-10-07：本脚本由 pythonw.exe 启动（无控制台）。
+    #   从这里 spawn 控制台程序 ssh.exe 必须带 CREATE_NO_WINDOW，
+    #   否则 Windows 新开控制台 ⇒ Win11 交给 Windows Terminal ⇒ 弹黑框。
+    _nw = 0x08000000 if os.name == "nt" else 0
     remote = "/tmp/dd373_push.json"
     _b = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=25"]
     with open(js_path, "rb") as _f:
         _data = _f.read()
     r1 = subprocess.run(["ssh", "-i", key] + _b + [host, "cat > %s" % remote],
-                        input=_data, capture_output=True)
+                        input=_data, capture_output=True, creationflags=_nw)
     if r1.returncode != 0:
         print("[push] 上传失败（ssh cat）：%s"
               % (r1.stderr or b"").decode("utf-8", "ignore")[-300:])
@@ -184,7 +208,8 @@ def push_to_server(js_path, key, host, verbose=True):
     cmd = ("curl -s -m 60 -X POST http://127.0.0.1:8900/api/dd373_cost"
            " -H 'Content-Type: application/json; charset=utf-8'"
            " --data-binary @%s" % remote)
-    r2 = subprocess.run(["ssh", "-i", key] + _b + [host, cmd], capture_output=True)
+    r2 = subprocess.run(["ssh", "-i", key] + _b + [host, cmd], capture_output=True,
+                        creationflags=_nw)
     out = r2.stdout.decode("utf-8", "ignore").strip()
     if out:
         print("[push] 服务器响应：%s" % out[:300])
@@ -195,7 +220,10 @@ def push_to_server(js_path, key, host, verbose=True):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--limit", type=int, default=0,
+                    help="每个游戏只抓前 N 个服务区（联调），0 = 全量")
+    ap.add_argument("--only-game", default="",
+                    help="只抓指定游戏（默认两个都抓：MSCW + AION2）")
     ap.add_argument("--gap", type=float, default=1.5)
     ap.add_argument("--cookie-only", action="store_true")
     ap.add_argument("--no-refresh-tree", action="store_true")
@@ -213,12 +241,11 @@ def main():
 
     cfg = json.load(open(os.path.join(SRC, "config.json"), encoding="utf-8"))
     g = cfg.get("金币") or {}
-    svs = [s for s in (g.get("服务区") or []) if s.get("游戏") == "AION2"]
-    if a.limit:
-        svs = svs[:a.limit]
+    all_sv = g.get("服务区") or []
     rate = float((cfg.get("汇率") or {}).get("USDCNY") or 6.65)
-    print("[配置] AION2 服务区 %d 个 · 汇率 %.4f · 间隔 %.1fs"
-          % (len(svs), rate, a.gap))
+    games = [a.only_game] if a.only_game else list(GAMES_DEFAULT)
+    print("[配置] 本轮代抓 %d 个游戏：%s · 汇率 %.4f · 间隔 %.1fs"
+          % (len(games), "、".join(games), rate, a.gap))
 
     # cookie：优先复用本地缓存（免弹窗），探针失效才开浏览器
     ck = "" if a.refresh_cookie else load_cookie(a.max_cookie_age)
@@ -228,7 +255,18 @@ def main():
             print("[cookie] 缓存失效 —— 改用真实浏览器重新取")
             ck = ""
     if not ck:
-        ck = grab_cookie()
+        # 2026-10-14：无头优先（办公时不弹窗）；拿回的 cookie 先过探针，
+        # 无效再回退可见模式一次，保证采集链不因无头检测而中断。
+        for _hl in (True, False):
+            _c = grab_cookie(headless=_hl)
+            if not _c:
+                continue
+            dd._get = make_get(_c)
+            if cookie_alive():
+                ck = _c
+                print("[cookie] %s模式可用" % ("无头" if _hl else "可见"))
+                break
+            print("[cookie] %s模式取到的 cookie 探针未通过" % ("无头" if _hl else "可见"))
         if not ck:
             print("FATAL 拿不到 cookie")
             return 2
@@ -237,38 +275,78 @@ def main():
     if a.cookie_only:
         return 0
 
-    t0 = time.time()
-    costs = dd.fetch_costs(svs, rate, log=print, gap=a.gap,
-                           refresh_tree=not a.no_refresh_tree)
-    dt = time.time() - t0
+    results = {}
+    for game in games:
+        svs = [s for s in all_sv if s.get("游戏") == game]
+        if not svs:
+            print("[配置] config 里没有 %s 的金币服务区，跳过" % game)
+            continue
+        if a.limit:
+            svs = svs[:a.limit]
+        # 扁平专区（MSCW）没有三层服务区树 ⇒ refresh_tree 只对 AION2 有意义
+        _rt = (not a.no_refresh_tree) and (game == "AION2")
+        print()
+        print("[配置] %-26s 服务区 %d 个" % (game, len(svs)))
 
-    ok = [k for k, v in costs.items() if v.get("ok")]
-    blk = [k for k, v in costs.items()
-           if not v.get("ok") and "风控" in str(v.get("依据") or "")]
+        t0 = time.time()
+        try:
+            costs = dd.fetch_costs(svs, rate, log=print, gap=a.gap,
+                                   refresh_tree=_rt, game=game)
+        except Exception as e:                       # noqa: BLE001
+            print("[采集] %s 异常（不影响其它游戏）：%r" % (game, e))
+            results[game] = {"ok": 0, "total": len(svs), "pushed": False}
+            continue
+        dt = time.time() - t0
+
+        ok = [k for k, v in costs.items() if v.get("ok")]
+        blk = [k for k, v in costs.items()
+               if not v.get("ok") and "风控" in str(v.get("依据") or "")]
+        print()
+        print("=== 结果 === %s · 用时 %.1fs · 共 %d 区 · 有报价 %d · 风控 %d"
+              % (game, dt, len(costs), len(ok), len(blk)))
+        print("--- 样例 3 区 ---")
+        for k in list(costs.keys())[:3]:
+            v = costs[k]
+            print("  %-24s ok=%s 成本=%s $/M=%s | %s"
+                  % (k, v.get("ok"), v.get("成本_元每万基纳"),
+                     v.get("成本_USD每M"), str(v.get("依据"))[:70]))
+
+        out_dir = os.path.join(ROOT, "验证")
+        os.makedirs(out_dir, exist_ok=True)
+        out = os.path.join(out_dir, "local_costs_%s_%s.json"
+                           % (GAME_SLUG.get(game, "other"),
+                              datetime.datetime.now().strftime("%Y%m%d_%H%M%S")))
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump({"ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                       "game": game, "rate": rate,
+                       "costs": costs}, f, ensure_ascii=False, indent=1)
+        print("[输出] %s" % out)
+
+        _pushed = False
+        if a.push:
+            if blk and len(blk) == len(costs):
+                # 全被风控 ≠ 无货：推上去会把「被拦」写成「无报价」
+                # ⇒ 跳过推送，让服务器沿用上一轮快照（与服务器自抓口径一致）
+                print("[push] ⚠ %s 本轮全部被风控 —— 跳过推送（沿用上一轮快照）" % game)
+            else:
+                _pushed = push_to_server(out, a.ssh_key, a.ssh_host)
+                print("[push] %s %s" % (game, "成功 ✅" if _pushed else "失败 ❌"))
+        results[game] = {"ok": len(ok), "total": len(costs), "pushed": _pushed}
+
     print()
-    print("=== 结果 === 用时 %.1fs · 共 %d 区 · 有报价 %d · 风控 %d"
-          % (dt, len(costs), len(ok), len(blk)))
-    print("--- 样例 3 区 ---")
-    for k in list(costs.keys())[:3]:
-        v = costs[k]
-        print("  %-24s ok=%s 成本=%s $/M=%s | %s"
-              % (k, v.get("ok"), v.get("成本_元每万基纳"),
-                 v.get("成本_USD每M"), str(v.get("依据"))[:70]))
-
-    out_dir = os.path.join(ROOT, "验证")
-    os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, "local_costs_%s.json"
-                       % datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
-    with open(out, "w", encoding="utf-8") as f:
-        json.dump({"ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                   "game": "AION2", "rate": rate,
-                   "costs": costs}, f, ensure_ascii=False, indent=1)
-    print("[输出] %s" % out)
+    print("=== 汇总 ===")
+    for _g in games:
+        if _g not in results:
+            continue
+        _r = results[_g]
+        print("  %-26s 有报价 %d/%d · 推送 %s"
+              % (_g, _r["ok"], _r["total"],
+                 "✅" if _r["pushed"] else ("-" if not a.push else "❌")))
+    if not results:
+        return 2
     if a.push:
-        _pushed = push_to_server(out, a.ssh_key, a.ssh_host)
-        print("[push] %s" % ("成功 ✅" if _pushed else "失败 ❌"))
-        return 0 if (ok and _pushed) else 1
-    return 0 if ok else 1
+        return 0 if all(_r["pushed"] for _r in results.values()) else 1
+    return 0 if all(_r["ok"] for _r in results.values()) else 1
 
 
 if __name__ == "__main__":
