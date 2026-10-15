@@ -1,0 +1,1 @@
+{"case": "after", "constructed": true, "context": 1048576, "expectedContext": 1048576, "toolsExact": true, "toolCount": 15, "toolSearchDisabled": true, "streaming": false, "reasoningEcho": true, "maxConcurrentRuns": 0, "configOwnedByFS": true, "skillVersion": "0.7.0-report-semantic-quality", "blockedSocketAttempts": 0, "modelCalls": 0}
