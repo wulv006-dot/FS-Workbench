@@ -262,6 +262,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/hermes-desktop-20261015/"):
+            groups.add("hermes-desktop");continue
         if name.startswith("releases/fs-dashboard/menu-cache-20261015/"):
             groups.add("fs-menu-cache");continue
         if name.startswith("releases/fs-dashboard/navigation-recovery-20261015/"):
@@ -443,6 +445,8 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="hermes-desktop":
+            units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
         elif group=="navigation-recovery":
             units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
         elif group=="fs-revision-20261015":

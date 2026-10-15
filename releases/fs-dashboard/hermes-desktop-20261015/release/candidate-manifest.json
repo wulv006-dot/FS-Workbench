@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "scope": "hermes-desktop-full-20261015",
+  "releaseReady": false,
+  "files": [
+    {
+      "candidate": "desktop/serve.py",
+      "target": "/opt/fs-hermes-desktop/serve.py",
+      "beforeSha256": null,
+      "sha256": "8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30"
+    },
+    {
+      "candidate": "desktop/fs-hermes-desktop.service",
+      "target": "/etc/systemd/system/fs-hermes-desktop.service",
+      "beforeSha256": null,
+      "sha256": "dea9cbdd8aa15729b7b36ced474956b6505d84ec83b0a968252c6d1489f7f083"
+    },
+    {
+      "candidate": "desktop/desktop-context-instructions.md",
+      "target": "/var/lib/fs-hermes-fc/profile/AGENTS.md",
+      "beforeSha256": null,
+      "sha256": "31bacb8cc5808830a2f5bea8e86a11cdeaa2d94c053c22d0022a13aaab1fca0d"
+    },
+    {
+      "candidate": "hermes/runtime/business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": null,
+      "sha256": "b879b0fbd559fe4041f6f4b16e7973ff88db821ea494fc469957e8241e140ab3"
+    },
+    {
+      "candidate": "hermes/runtime/controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "f248be58416147ed42bbcd19bd1b58433d17a7e29024309a1ec6b260142721c6",
+      "sha256": "70ded65d38f8337d36b276eeec19d1cde9154b63f32b9fd9932e864c0608f9d1"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-hermes-fc/hermes_worker.py",
+      "sha256": "0b77d245181f3ce7b71129557432aa18bad3bc800af92820a9317cffdfba2f05"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "sha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/research.py",
+      "sha256": "cefcbe77611282edb13cbf5624c414122f866b931352b796363ebf33a7c10ccb"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runtime-config.yaml",
+      "sha256": "f9d0872391ddb12c9b62dbd73ea3e50ddfe57fbfbf18ed253546d563c7af61cd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/network_guard.py",
+      "sha256": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runs_contract.py",
+      "sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skill_bundle.py",
+      "sha256": "b28ec913ac8078a51d864f5fc7ff05f35deed67c7914b2ea4a28ff3e4e37de85"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/pilot.py",
+      "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/transport.py",
+      "sha256": "6cd2082d366139822a25cf702bdc3c18bd81a13a34407d220a82cf255c8d8744"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    }
+  ],
+  "runtimeRequired": {
+    "fs-hermes-fc.service": {
+      "ActiveState": "active"
+    },
+    "fs-business-range.service": {
+      "ActiveState": "active"
+    }
+  }
+}
