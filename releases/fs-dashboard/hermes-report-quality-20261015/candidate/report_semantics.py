@@ -78,9 +78,10 @@ def declared_comparison(result):
     label=r'(?:对比|环比|对照)(?:期|窗(?:口)?)?'
     token=r'(\d{4}-\d{2}-\d{2}|\d{2}-\d{2})'
     for line in text.splitlines():
-        stripped=line.lstrip()
-        if not (stripped.startswith('#') or re.match(r'(?:\*\*)?'+label+r'\s*[:：]',stripped)):continue
-        for m in re.finditer(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,line):
+        stripped=re.sub(r'^(?:[-+*]|\d+[.)、])\s+','',plain(line))
+        stripped=re.sub(r'^([*_])('+label+r')\1',r'\2',stripped)
+        if not (stripped.startswith('#') or re.match(label+r'\s*[:：]',stripped)):continue
+        for m in re.finditer(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,stripped):
             declarations.append(m[0]);a,b=m[1],m[2]
             try:
                 year=start.year
@@ -90,7 +91,7 @@ def declared_comparison(result):
                 if b<a or b>=start:raise ValueError('invalid_comparison_period')
                 pairs.append((a.isoformat(),b.isoformat()))
             except ValueError:invalid=True
-        if re.search(r'(?:对比|环比|对照)(?:期|窗(?:口)?|\s*[:：]|\s*(?:上周|前|待定|未知|\d))',stripped) and not re.search(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,line):invalid=True
+        if re.search(r'(?:对比|环比|对照)(?:期|窗(?:口)?|\s*[:：]|\s*(?:上周|前|待定|未知|\d))',stripped) and not re.search(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,stripped):invalid=True
     unique=set(pairs)
     if invalid or len(unique)>1:return None,'原文对照声明有歧义或日期不完整；未擅自使用默认窗口',True
     if unique:return next(iter(unique)),'原文明确声明的对照区间；声明不是经营证据',False

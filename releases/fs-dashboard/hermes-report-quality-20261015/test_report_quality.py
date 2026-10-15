@@ -275,6 +275,26 @@ class ReportQuality(unittest.TestCase):
             c=project(result,f['evidence'],{},'f'*64)
             self.assertEqual(c['metrics'][0]['previous'],'$93,139.27',declaration)
 
+    def declared_probe_content(self,declaration):
+        full=HERE/'model-probe'
+        if (full/'evidence.json').exists():
+            result=json.loads((full/'result.json').read_text(encoding='utf-8'));ev=json.loads((full/'evidence.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(ev),79)
+        else:
+            fixture=json.loads((HERE/'inputs/cross-period-fixture.json').read_text(encoding='utf-8'));result,ev=fixture['result'],fixture['evidence']
+        return project(dict(result,raw_model_text=declaration),ev,{},'f'*64)
+
+    def test_bold_comparison_label_keeps_declared_period(self):
+        c=self.declared_probe_content('**对照期**：2026-10-05～2026-10-07')
+        self.assertEqual((c['report']['period']['comparison_start'],c['report']['period']['comparison_end']),('2026-10-05','2026-10-07'))
+        self.assertEqual(c['metrics'][0]['previous'],'$93,139.27')
+        self.assertIn('声明的双期区间',c['charts'][5]['interpretation'])
+
+    def test_list_comparison_label_keeps_declared_period(self):
+        c=self.declared_probe_content('- 对照期：2026-10-05～2026-10-07')
+        self.assertEqual((c['report']['period']['comparison_start'],c['report']['period']['comparison_end']),('2026-10-05','2026-10-07'))
+        self.assertEqual(c['metrics'][0]['previous'],'$93,139.27')
+
     def test_ambiguous_or_incomplete_comparison_never_uses_default(self):
         f=json.loads((HERE/'inputs/cross-period-fixture.json').read_text(encoding='utf-8'))
         for declaration in ['# 对比10-05至10-07\n## 环比10-09至10-11','## 对照期：2026-10-05','## 对照窗口待定']:

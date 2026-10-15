@@ -70,7 +70,7 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
     return {'rows':[{'label':b[5:],'previous_date':a,'current_date':b,'previous':str(values[a][0]),'current':str(values[b][0]),
                      'previous_captured_at':values[a][1],'current_captured_at':values[b][1]} for a,b in zip(old_days,new_days)],
             'evidence_ids':references,'as_of':max(stamps),'scope':'Order FC27 / all-websites / USD / Asia/Shanghai；上游日率原值，公式未知',
-            'interpretation':'两期按同星期展示参考日率；日均不等于整周利润率，不生成主站利润金额或目标实绩。'},None
+            'interpretation':'按声明的双期区间逐日配对展示参考日率；未据此认定同星期可比，日均不等于整段利润率，不生成主站利润金额或目标实绩。'},None
 
 
 def project(result, evidence, metadata, research_sha):
