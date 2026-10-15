@@ -266,6 +266,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
+            groups.add("fs-ui-system");continue
         if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
             groups.add("hermes-weekly-upgrade");continue
         if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
@@ -654,6 +656,11 @@ def main():
             units("releases/fs-dashboard/hermes-fs-config-isolation-20261015",["test_isolation"])
         elif group=="hermes-report-actions":
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
+        elif group=="fs-ui-system":
+            units("ui-system/tests",["test_ui","test_release"])
+            node("ui-system/tests/syntax.cjs")
+            node("ui-system/tests/theme.cjs")
+            node("ui-system/tests/navigation.cjs")
         elif group=="fs-menu-cache":
             release="releases/fs-dashboard/menu-cache-20261015"
             node(release+"/test_cache.cjs")
