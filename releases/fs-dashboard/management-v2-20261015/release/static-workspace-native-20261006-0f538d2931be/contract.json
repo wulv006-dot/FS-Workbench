@@ -1,0 +1,157 @@
+{
+  "scope": "fs-management-v2-static",
+  "releaseId": "workspace-native-20261006-0f538d2931be",
+  "businessWrites": false,
+  "phase": "production-entry",
+  "runtimeDataPolicy": "Targets remain on the existing protected server; verify pinned bytes at publication. No production business dataset is stored in this repository.",
+  "files": [
+    {
+      "candidate": "assets/aion2.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/aion2.html",
+      "beforeSha256": null,
+      "sha256": "9e2bec1ee17c95bf62f8e85f3cbcac35a26d26f51c15c8bbf4a3fda9689f382a"
+    },
+    {
+      "candidate": "assets/arc_raiders.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/arc_raiders.html",
+      "beforeSha256": null,
+      "sha256": "1e7254846d91663e725774efecfddf79f23301300bfcc520ebaa486820b69594"
+    },
+    {
+      "candidate": "assets/arena_breakout_infinite.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/arena_breakout_infinite.html",
+      "beforeSha256": null,
+      "sha256": "6c3a64682272663b1dc7aaa8d693bc96a7101f22aa76dfd2e108174b44078a9b"
+    },
+    {
+      "candidate": "assets/cfb27.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/cfb27.html",
+      "beforeSha256": null,
+      "sha256": "d11a18b8ac773907ab1ecf48e98f3e964e892be98228baa14469705525be5752"
+    },
+    {
+      "candidate": "assets/cod_bo7.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/cod_bo7.html",
+      "beforeSha256": null,
+      "sha256": "534270e9d341db4f753721d74c52112070d147f5b604f2d25869f716a7a54b0e"
+    },
+    {
+      "candidate": "assets/d4.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/d4.html",
+      "beforeSha256": null,
+      "sha256": "c25d660f5f46614c3f44c078bd1b5f76860a924bd425f457352ca879f6083e2f"
+    },
+    {
+      "candidate": "assets/dark_and_darker.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/dark_and_darker.html",
+      "beforeSha256": null,
+      "sha256": "d7b5845b932675221df5d8ca35a9ea1d44cb0dd9ff97f7a0de0cd2e78a8ad5a9"
+    },
+    {
+      "candidate": "assets/fc27.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/fc27.html",
+      "beforeSha256": null,
+      "sha256": "c1b631822b224b735977c5e21d29dd8f3fc4cb8759b49e8d10c4893b1555e196"
+    },
+    {
+      "candidate": "assets/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/index.html",
+      "beforeSha256": null,
+      "sha256": "57f044c89491d31bb38a2cfbe7c9368f4637cbdc13069fb8e9b97550d5f16737"
+    },
+    {
+      "candidate": "assets/management-live.css",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/management-live.css",
+      "beforeSha256": null,
+      "sha256": "dda84c35f403783f90f3d608acb7a9069e4a034327c799df96028152f866e4d5"
+    },
+    {
+      "candidate": "assets/management-live.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/management-live.js",
+      "beforeSha256": null,
+      "sha256": "53bb2ecafe1272058d49d0b47f9852142f27899d8f6731b06f6b5a2ebb7309be"
+    },
+    {
+      "candidate": "assets/maplestory_classic.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/maplestory_classic.html",
+      "beforeSha256": null,
+      "sha256": "c2434a08ba882a75a5d1b9e2b6ed788df9d162bb5af0bf38c6d49d6db423ca04"
+    },
+    {
+      "candidate": "assets/mlb26.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/mlb26.html",
+      "beforeSha256": null,
+      "sha256": "2df2acda98d8a5e7762c6b7892c74c3ebeab8c3ed4ef8538d160db0b6e1aa322"
+    },
+    {
+      "candidate": "assets/nba2k27.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/nba2k27.html",
+      "beforeSha256": null,
+      "sha256": "a6904f494087b050e891ee1ac219697d7465154c42df04af9e817db6f9e228cc"
+    },
+    {
+      "candidate": "assets/nfl27.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/nfl27.html",
+      "beforeSha256": null,
+      "sha256": "13b966218524664c5b8d696c9ab1eec44ad9083f227ed413c707618f45b317bc"
+    },
+    {
+      "candidate": "assets/poe2.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/poe2.html",
+      "beforeSha256": null,
+      "sha256": "4f86c4b1a66ee8f10b14857ebd4e6a9b813f0f5fdeb92cd65011da3237dc2132"
+    },
+    {
+      "candidate": "assets/rs.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/rs.html",
+      "beforeSha256": null,
+      "sha256": "27626fb6e5b0a6435f85b65a3e17ccbf2bcc3f3290edda7c1bf1e3eb791363e4"
+    },
+    {
+      "candidate": "assets/sandbox-live.js",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/sandbox-live.js",
+      "beforeSha256": null,
+      "sha256": "06c28daadb3e591ca00a7755f48c93fa81464cbaa5c4c1acfe3c73c936ac6917"
+    },
+    {
+      "candidate": "assets/sandbox.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/sandbox.html",
+      "beforeSha256": null,
+      "sha256": "9895ac7913491a56fb3244a5f156c4887a9255fa63f9bdfee27580140d11dbfe"
+    },
+    {
+      "candidate": "assets/wow_forever.html",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/wow_forever.html",
+      "beforeSha256": null,
+      "sha256": "8171ecab05f83a1fffb07589721abea94f9e789cb751a8689dcd45b13dffda21"
+    },
+    {
+      "candidate": "assets/targets.json",
+      "target": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-0f538d2931be/management/targets.json",
+      "beforeSha256": null,
+      "sha256": "77b32a25489148646ca7e7c5a2e2e17428212dd821dbef8deb743182d65aa57e"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "f76b5e5590615c84886973920051ea57d87a443998b2a3b5500013c5b704227b",
+      "sha256": "0d25382fbabaa87ee1f940d4e631b099eee98d324efb45ac93cd494ca5e759ce"
+    },
+    {
+      "candidate": "candidate/hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "beforeSha256": "7291b40a997d0f14b559a8394951f6dc64ea0b2fc1bd88464bb2645d7089b43c",
+      "sha256": "7291b40a997d0f14b559a8394951f6dc64ea0b2fc1bd88464bb2645d7089b43c"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "ff05e65f207773a3e1fb4fb0cdc51ac526e3706d9397a22804b472e6fb9bd463"
+    }
+  ]
+}

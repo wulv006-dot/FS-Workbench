@@ -4,12 +4,16 @@ No environment guessing or server reads; a fresh manifest CAS protects publicati
 from pathlib import Path
 import argparse,hashlib,json,shutil,re
 ROOT=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('--previous',required=True,type=Path);p.add_argument('--activate',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--previous',required=True,type=Path);p.add_argument('--activate',action='store_true');p.add_argument('--controller-sha');p.add_argument('--home-sha');a=p.parse_args()
+home_sha=a.home_sha or hashlib.sha256((ROOT/'baseline/ui/home.html').read_bytes()).hexdigest()
+if not re.fullmatch(r'[a-f0-9]{64}',home_sha):raise SystemExit('verified home sha required')
+controller_sha=a.controller_sha or hashlib.sha256((ROOT/'source/backend/controller.py').read_bytes()).hexdigest()
+if not re.fullmatch(r'[a-f0-9]{64}',controller_sha):raise SystemExit('verified controller sha required')
 previous=a.previous.resolve();oldformal=(previous/'candidate/formal.conf').read_bytes();oldhub=(previous/'candidate/hubnav.js').read_bytes()
 files={p.name:p.read_bytes() for p in (ROOT/'source/frontend').iterdir() if p.is_file() and p.name!='targets.json'}
 DATA_SHA='77b32a25489148646ca7e7c5a2e2e17428212dd821dbef8deb743182d65aa57e'
 phase='production-entry' if a.activate else 'protected-preview-only'
-rid='workspace-native-20261006-'+hashlib.sha256((phase+DATA_SHA+hashlib.sha256((ROOT/'source/backend/controller.py').read_bytes()).hexdigest()).encode()+b''.join(k.encode()+files[k] for k in sorted(files))).hexdigest()[:12]
+rid='workspace-native-20261006-'+hashlib.sha256((phase+DATA_SHA+controller_sha+home_sha).encode()+b''.join(k.encode()+files[k] for k in sorted(files))).hexdigest()[:12]
 stage=ROOT/'release'/('static-'+rid)
 if stage.exists():raise SystemExit('immutable stage exists')
 (stage/'assets').mkdir(parents=True);(stage/'candidate').mkdir()
@@ -44,7 +48,7 @@ if a.activate:update('/dashboard/management/daily-v2.json',public)
 (stage/'candidate/formal.conf').write_text(new)
 for name,target,old in [('formal.conf','/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf',oldformal),('hubnav.js','/var/www/hub/hubnav.js',oldhub)]:
  rows.append({'candidate':'candidate/'+name,'target':target,'beforeSha256':hashlib.sha256(old).hexdigest(),'sha256':hashlib.sha256((stage/'candidate'/name).read_bytes()).hexdigest()})
-m={'scope':'fs-management-v2-static','releaseId':rid,'businessWrites':False,'phase':phase,'runtimeDataPolicy':'Targets remain on the existing protected server; verify pinned bytes at publication. No production business dataset is stored in this repository.','files':rows,'unchangedRequired':[{'path':'/opt/fs-hermes-fc/controller.py','sha256':hashlib.sha256((ROOT/'source/backend/controller.py').read_bytes()).hexdigest()},{'path':'/var/www/dashboard/fs-home/index.html','sha256':hashlib.sha256((ROOT/'baseline/ui/home.html').read_bytes()).hexdigest()}]}
+m={'scope':'fs-management-v2-static','releaseId':rid,'businessWrites':False,'phase':phase,'runtimeDataPolicy':'Targets remain on the existing protected server; verify pinned bytes at publication. No production business dataset is stored in this repository.','files':rows,'unchangedRequired':[{'path':'/opt/fs-hermes-fc/controller.py','sha256':controller_sha},{'path':'/var/www/dashboard/fs-home/index.html','sha256':home_sha}]}
 (stage/'contract.json').write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
 shutil.copy(ROOT/'release/publish_static.py',stage/'publish_static.py');shutil.copy(ROOT/'baseline/release_navigation_base.py',stage/'release_navigation_base.py')
 print(stage);print(hashlib.sha256((stage/'contract.json').read_bytes()).hexdigest())
