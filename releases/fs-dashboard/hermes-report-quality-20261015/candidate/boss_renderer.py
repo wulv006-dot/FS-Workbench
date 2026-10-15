@@ -252,7 +252,7 @@ def render(c,e):
     for key,label in [('current','本期'),('previous','对照期')]:
         item=c['finance'].get('estimates',{}).get(key)
         if not item:continue
-        p=item['period'];estimate_html+='<h4>'+esc(label+' '+p['start']+' — '+p['end'])+'</h4>'
+        estimate_period=item['period'];estimate_html+='<h4>'+esc(label+' '+estimate_period['start']+' — '+estimate_period['end'])+'</h4>'
         if item['status']!='estimated':
             estimate_html+='<p class="missing">'+esc(item['reason'])+'</p>';continue
         rate=item.get('reference_margin_percent')

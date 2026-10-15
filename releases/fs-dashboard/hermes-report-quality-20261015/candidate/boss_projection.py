@@ -52,7 +52,7 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
                 data.get('status')!='available' or data.get('reference_only') is not True or data.get('missingDays')!=[] or q.get('profile')!='FC27'):continue
         try:
             dates=expected(q['start'],q['end'])
-            if not set(dates)<=wanted or len(rows)!=len(dates) or {v['date'] for v in rows}!=set(dates):continue
+            if not set(dates)&wanted or len(rows)!=len(dates) or {v['date'] for v in rows}!=set(dates):continue
             checked=[]
             for value in rows:
                 if (value.get('status')!='available' or value.get('stale') is not False or value.get('profileKey')!='FC27' or
@@ -62,6 +62,7 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
                 if stamp.tzinfo is None:raise ValueError('reference_time')
                 checked.append((value['date'],margin,stamp.isoformat()))
             for day,margin,stamp in checked:
+                if day not in wanted:continue
                 if day in values and values[day]!=(margin,stamp):return None,'完整成功参考结果冲突，须明确版本后再展示。'
                 values[day]=(margin,stamp)
             references.append(key);stamps.append(row['captured_at'])
