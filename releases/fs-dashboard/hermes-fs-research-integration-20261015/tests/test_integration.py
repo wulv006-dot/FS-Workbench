@@ -14,7 +14,8 @@ ROOT=Path(__file__).resolve().parents[1]
 MARKET=ROOT.parent/'hermes-market-sources-20261015'
 if not MARKET.exists():MARKET=ROOT.parent/'hermes_market_sources_20261015'
 BASE=MARKET/'deps' if (MARKET/'deps').exists() else ROOT.parent/'hermes-fc-pilot-20261013'
-sys.path[:0]=[str(ROOT/'source'),str(ROOT/'baseline'),str(MARKET/'source'),str(BASE)]
+sys.path[:0]=[str(ROOT/'source'),str(ROOT/'baseline'),str(MARKET/'source')]
+sys.path.append(str(BASE))
 from research import ResearchBook,RESEARCH_NAMES,tool_schemas
 from fs_evidence import SourcePins,build_book
 from report_semantics import intelligence
