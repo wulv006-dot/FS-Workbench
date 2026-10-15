@@ -1,6 +1,6 @@
 {
   "scope": "hermes-fc-weekly-render-compat-20261015",
-  "base_commit": "8713daf5dc3e629baf4bd2e54a2185ac561fbecc",
+  "base_commit": "0ecd5d2aaa140e3e00e2142a4f8a07efca5313c6",
   "businessWrites": false,
   "timersChanged": false,
   "files": [
@@ -19,6 +19,14 @@
       "beforeSha256": "882437d02436c461e66eefa28adfecaf73cd3145960504d18b4e8e917994ef21",
       "sha256": "239926e1d84ba6caaf4ea48493bd85c50a44041ce4c07e6b7d161142a8cc35a7",
       "bytes": 47336
+    },
+    {
+      "source": "source/report_semantics.py",
+      "candidate": "research/runtime/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "1ef9402c56b1e4353caf85dd28547ff8aa5d193cf4da5bf00e122ae98fe210b0",
+      "sha256": "5e375e4f2fd66bdc42d9878067a1923e71ddfe456635e6ca0cc323bca493df2e",
+      "bytes": 26367
     }
   ]
 }
