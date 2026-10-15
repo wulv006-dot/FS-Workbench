@@ -280,6 +280,8 @@ def select(paths):
             groups.add("fs-ui-system");continue
         if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
             groups.add("hermes-weekly-upgrade");continue
+        if name.startswith("releases/fs-dashboard/mmoexp-news-integration-20261016/"):
+            groups.add("mmoexp-news");continue
         if name.startswith("releases/fs-dashboard/hermes-report-import-20261015/"):
             groups.add("hermes-report-import");continue
         if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
@@ -657,6 +659,9 @@ def main():
             node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
+        elif group=="mmoexp-news":
+            units("releases/fs-dashboard/mmoexp-news-integration-20261016/tests",["test_mmoexp_news","test_research_news","test_release_news","test_nightly_news"])
+            node("releases/fs-dashboard/mmoexp-news-integration-20261016/tests/test_news_ui.cjs")
         elif group=="hermes-report-import":
             units("releases/fs-dashboard/hermes-report-import-20261015",["test_imported_reports","test_release"])
             node("releases/fs-dashboard/hermes-report-import-20261015/test_import_ui.cjs")
