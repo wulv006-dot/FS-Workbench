@@ -1,0 +1,20 @@
+{
+  "scope": "fs-desktop-learning-v1",
+  "releaseId": "desktop-learning-8641c3d1a740",
+  "businessWrites": false,
+  "credentialsChanged": false,
+  "files": [
+    {
+      "candidate": "business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "b879b0fbd559fe4041f6f4b16e7973ff88db821ea494fc469957e8241e140ab3",
+      "sha256": "8641c3d1a740cda0e4c379fb8988c4492fde56410bbb66bc56f457040c1229ac"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3"
+    }
+  ]
+}
