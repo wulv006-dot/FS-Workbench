@@ -449,6 +449,7 @@ def main():
             node(release+"/tests/test_js.cjs")
         elif group=="hermes-desktop":
             units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
+            subprocess.run(["pwsh","-NoLogo","-NoProfile","-File",str(ROOT/"releases/fs-dashboard/hermes-desktop-20261015/Test-Connect.ps1")],check=True,timeout=30,cwd=ROOT)
         elif group=="hermes-report-quality":
             units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_quality","test_release_quality","test_report_delivery","test_skill_bundle","test_research"])
         elif group=="navigation-recovery":
