@@ -1,0 +1,69 @@
+{
+  "sourceCommit": "f5348817774b66a850cf378789edf191217d75bd",
+  "files": [
+    {
+      "path": "/opt/fs-hermes-fc/boss_projection.py",
+      "sha256": "48fe8479d81b8e513de98a10d75ce56fd6d39bd2210f6a8f604fad25b1e13997",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/boss_renderer.py",
+      "sha256": "e669d276ed2751786f9a548c111e00c69ed479a42e9b423da5c549194c8a34b8",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_artifacts.py",
+      "sha256": "63a12771312fde75ad1cb2a2405e394ba3e30f74b82fdab1d2b0a253df2e5511",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_delivery.py",
+      "sha256": "dabbbcb973ecfa13c86c2e60c6436dcd2116822bd1cdab38c1debc746f1157a7",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skill_bundle.py",
+      "sha256": "a623cae14cacbfd29c2467a5d9cfd97f0d880bfe3bd2c962e3b9d6ff9c5b7aa9",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/research.py",
+      "sha256": "8b4547160e779ab99fec3e33ae427f782fcbb7c532cb1065f9156a387a149098",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/manifest.json",
+      "sha256": "5d038934ac6f8e363492fc0a5a28ebc2bfd048a42d476dccbb416f8829438275",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "sha256": "950043c541f704d891de09c7015753f362684f1040af7aa0b6069b02ecaec90d",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_semantics.py",
+      "sha256": "edac724f67da96a18abab4f66ccd170fa80e545ba486f2d7d094ecddf548b5fb",
+      "matches": true
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/report-contract.md",
+      "sha256": "09fb19f8e39e16549477ef8b187b304c150c01ce91af9c5ceda106319275d88f",
+      "matches": true
+    }
+  ],
+  "protected_artifacts_unchanged": 27,
+  "protected_artifacts_changed": [],
+  "skills": {
+    "version": "0.7.0-report-semantic-quality",
+    "sha256": "496354b74612b7ca142dc7c81024a4662bfd947e0c058599ef83a06154c0ac0a",
+    "permissions": [],
+    "reviewed_skills": [
+      "humanizer-zh",
+      "attribution",
+      "customer-research",
+      "ab-testing",
+      "marketing-psychology"
+    ]
+  }
+}

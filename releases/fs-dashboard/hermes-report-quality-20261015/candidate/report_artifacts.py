@@ -67,7 +67,7 @@ def save_boss(root,task):
     result.setdefault('raw_model_text',original.decode('utf-8'))
     context=dict(receipt,artifact_written_at=datetime.fromtimestamp((path/'model.txt').stat().st_mtime,timezone.utc).isoformat())
     source_root=Path(__file__).resolve().parent
-    sources={name:digest_bytes((source_root/name).read_bytes()) for name in ('report_artifacts.py','boss_projection.py','boss_renderer.py','report_semantics.py','report.template.html')}
+    sources={name:digest_bytes((source_root/name).read_bytes()) for name in ('report_artifacts.py','boss_projection.py','boss_renderer.py','report_semantics.py','report_constraints.py','report.template.html')}
     revision=digest_bytes(json.dumps({'contract':'fs-hermes-boss-artifact-v2','sources':sources,'raw':receipt['raw_sha256'],
                                      'evidence':receipt['evidence_sha256'],'result':ready['result_sha256'],'research':ready['html_sha256']},sort_keys=True).encode())[:16]
     prefix='boss-semantic-v2-'+revision

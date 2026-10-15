@@ -36,7 +36,7 @@ else:
         shutil.copyfile(HERE/'qa_dependencies/current_controller.py',SOURCE_ROOT/'controller.py')
 for source in (HERE/'candidate').rglob('*'):
     if source.is_file():
-        if source.suffix=='.py' and source.name not in ('boss_projection.py','boss_renderer.py','report_artifacts.py','report_delivery.py','report_semantics.py','skill_bundle.py','research.py'):
+        if source.suffix=='.py' and source.name not in ('boss_projection.py','boss_renderer.py','report_artifacts.py','report_delivery.py','report_semantics.py','report_constraints.py','skill_bundle.py','research.py'):
             continue
         target = SOURCE_ROOT/source.relative_to(HERE/'candidate')
         target.parent.mkdir(parents=True, exist_ok=True)

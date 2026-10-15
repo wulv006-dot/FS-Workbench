@@ -220,6 +220,13 @@ def render(c,e):
     body+='</header>'
     if c.get('corrections'):
         body+='<section class="note" id="review-corrections"><h2>阅读校正与审核边界</h2><p>原研究保持原文；以下校正适用于本阅读版。提取出的结论和建议仍须业务复核。</p><ul>'+''.join('<li>'+esc(x)+'</li>' for x in c['corrections'])+'</ul></section>'
+    if c.get('quality_review'):
+        review=c['quality_review']
+        body+='<section class="note" id="evidence-review"><h2>证据约束审核</h2><p>'+esc(review['scope'])+'</p><p>原始研究及证据不改写；拦截段落在历史原文保留，不作为已审核结论。通过有限检查不等于因果或业务批准。</p><ul>'
+        for issue in review['issues']:
+            body+='<li><strong>'+esc(issue['location'])+'</strong>：'+esc('；'.join(issue['reasons']))+' '+refs(issue.get('evidence_ids',[]))+'</li>'
+        if not review['issues']:body+='<li>本次有限规则未发现上述类型的冲突；仍须业务复核。</li>'
+        body+='</ul></section>'
     if c.get('key_findings'):
         body+='<section class="note"><details><summary>原研究关键判断 · '+str(len(c['key_findings']))+' 项（待业务复核）</summary>'
         for finding in c['key_findings']:
@@ -241,7 +248,25 @@ def render(c,e):
     pay+='<p class="sub">'+esc(c.get('payment_note','成功交易金额不是支付成功率；缺少尝试与失败分母时不能判断通道故障。'))+'</p><span class="source">'+esc(r['source_policy'])+'。'+refs(c.get('payment_evidence_ids',[]))+'</span>'
     body+=section('03','客户、支付与当前存量','<div class="two equal"><div>'+pay+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</div>'+chart_figure(charts['queue'])+'</div>')
     for x in c['context'][3:]:body+='<div class="note"><strong>'+esc(x['label'])+'</strong><p>'+esc(x['text'])+'</p>'+refs(x.get('evidence_ids',[]))+'</div>'
-    body+=section('04','利润、成本与目标口径','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">'+esc(c['finance']['title'])+'</h3><p style="font-size:13px;color:var(--muted)">'+esc(c['finance']['basis'])+'</p><div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p style="font-size:13px;color:var(--muted)">'+esc(c['finance']['next'])+'</p></div></div>')
+    estimate_html=''
+    for key,label in [('current','本期'),('previous','对照期')]:
+        item=c['finance'].get('estimates',{}).get(key)
+        if not item:continue
+        p=item['period'];estimate_html+='<h4>'+esc(label+' '+p['start']+' — '+p['end'])+'</h4>'
+        if item['status']!='estimated':
+            estimate_html+='<p class="missing">'+esc(item['reason'])+'</p>';continue
+        rate=item.get('reference_margin_percent')
+        estimate_html+=table(['主站金额 USD','参考率','预估利润 USD（非实际结算）'],
+                             [[number(item['main_revenue_usd']),number(rate)+'%' if rate is not None else '按同日率逐日计算',number(item['amount_usd'])]])
+        estimate_html+='<p class="source">'+esc(item['formula'])+' '+refs(item['evidence_ids'])+'</p>'
+        for source in item['sources']:
+            scope=source['scope'];period=source['period']
+            scope_text=('FC27 / Order全站参考' if scope.get('sites')=='all-websites' else
+                        'FC27 / Order原生查询；已报告渠道 '+('、'.join(scope.get('reported_channels',[])) or '未提供')+'；渠道完整性未知')
+            estimate_html+='<p class="source">'+esc(source['system']+'；参考范围 '+scope_text
+                +'；区间 '+period['start']+' 至 '+period['end']+'（截止不含）'+'；参考率 '+source['reference_margin_percent']+'%'
+                +'；捕获 '+source['captured_at']+'；上游业务水位 '+str(source['source_data_as_of'] or 'UNKNOWN'))+'</p>'
+    body+=section('04','利润、成本与目标口径','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">'+esc(c['finance']['title'])+'</h3><p style="font-size:13px;color:var(--muted)">'+esc(c['finance']['basis'])+'</p>'+estimate_html+'<div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p style="font-size:13px;color:var(--muted)">'+esc(c['finance']['next'])+'</p></div></div>')
     if 'amount-band' in charts:body+=chart_figure(charts['amount-band'])
     intel=''
     for x in c['intel']:

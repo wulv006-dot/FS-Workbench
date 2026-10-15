@@ -32,6 +32,56 @@ FORMAT=('请用完整、可读的中文经营调查报告直接回答，可用Ma
         '不要求逐数字number_claims表；缺少动作字段明示待补而不是删掉整条，引用只能用本次真实证据。旧结构化合同仍兼容。')
 
 
+def envelope(parsed,text,book):
+    """Recover a complete native body, while disclosing format recovery."""
+    from report_constraints import narrative
+    value=dict(parsed);warnings=[]
+    metadata={'project','scope','snapshot_id','captured_at','period','timezone','currency','grain','skill'}
+    core={'report_contract','summary','research_text','comparison_period','findings','actions','reviews','limitations','hypotheses','context','intel','decisions','timeline'}
+    if set(value)-core-metadata:return value,warnings
+    if value.get('project','FC27')!='FC27' or value.get('snapshot_id',book.capture_id)!=book.capture_id:
+        raise ValueError('declared_metadata_conflict')
+    target=getattr(book,'target',None)
+    if target and value.get('period') and value['period']!={k:target[k] for k in ('start','end')}:
+        raise ValueError('declared_period_conflict')
+    if set(value)&metadata:
+        warnings.append('模型额外元数据仅保留原文；实际范围、快照和加载指纹由运行时绑定。')
+        for key in metadata:value.pop(key,None)
+    if not value.get('research_text'):
+        recovered=narrative(text)
+        if recovered==text or not re.search(r'(?m)^#{1,3}\s+',recovered):raise ValueError('complete_research_text_missing')
+        value['research_text']=recovered;warnings.append('完整Markdown从JSON围栏后恢复；模型未按约定填research_text，恢复不等于原输出格式合格。')
+    for row in value.get('findings',[]):
+        if isinstance(row,dict) and row.get('claim_type') not in ('fact','hypothesis','unreviewed'):
+            row['claim_type']='unreviewed';warnings.append('非合同claim_type降为待审核，未将其自动认定事实。')
+    return value,list(dict.fromkeys(warnings))
+
+
+def attach_review(result,book):
+    target=getattr(book,'target',None)
+    if not isinstance(target,dict) or not all(k in target for k in ('start','end')):return result
+    from boss_projection import project
+    value=dict(result,period={k:target[k] for k in ('start','end')},snapshot_id=book.capture_id)
+    try:content=project(value,book.evidence,{},'0'*64)
+    except (ValueError,KeyError,TypeError) as error:
+        # Native text must still be saved when the optional audit lacks a stable
+        # evidence timestamp/population. Record the failed coverage, never green it.
+        result['quality_review']={'contract':'fc-report-review-v1','status':'not_evaluable','issues':[],
+            'reason':type(error).__name__+':'+str(error),'original_preserved':True,'actions_executed':False,
+            'scope':'证据约束审核未能完成，不能据此认定业务通过。'}
+        result['limitations']=result.get('limitations',[])+['证据约束审核未能完成；原文保留，自动检查不算通过。']
+        return result
+    result['quality_review']=content['quality_review'];result['evidence_constraints']=content['evidence_constraints']
+    result['deterministic_payment_partition']=content['payment']
+    result['business_review_status']=content['quality_review']['status']
+    if content['quality_review']['issues']:
+        # "ready" is the existing artifact/submission receipt contract. Business
+        # approval is separate and must not break idempotent receipt recovery.
+        result['summary']='[证据约束待复核] '+content['executive']['summary']
+        result['limitations']=result.get('limitations',[])+['证据约束发现待证或未核平内容；阅读版公开拦截原因，原文保留，业务未放行。']
+    return result
+
+
 def deliver_output(text,book,validator=validate_output):
     if not isinstance(text,str) or not text.strip():raise ValueError('empty_analysis')
     if private_report(text):raise ValueError('sensitive_analysis')
@@ -41,10 +91,16 @@ def deliver_output(text,book,validator=validate_output):
     except (ValueError,TypeError):parsed=None
     if isinstance(parsed,dict):
         try:
-            result=structured(parsed,book.evidence) if parsed.get('report_contract')==CONTRACT else validator(text,book)
+            recovery=[]
+            if parsed.get('report_contract')==CONTRACT:
+                parsed,recovery=envelope(parsed,text,book)
+                result=structured(parsed,book.evidence)
+            else:result=validator(text,book)
             delivered=dict(result,report_format='structured_v2' if parsed.get('report_contract')==CONTRACT else 'structured',delivery_status='ready',raw_model_text=text)
+            delivered['format_recovery']=recovery
+            if recovery:delivered['report_format']+='_recovered';delivered['limitations']+=recovery
             delivered['semantic_index']=index(delivered,book.evidence)
-            return delivered
+            return attach_review(delivered,book)
         except Exception as error:
             if isinstance(error,ValueError) and str(error)=='sensitive_analysis':raise
             warning.append('原始报告已保存；结构化索引待整理：'+str(error))
@@ -65,8 +121,9 @@ def deliver_output(text,book,validator=validate_output):
             rows=parsed.get(key,[])
             if isinstance(rows,list):candidate[key]=[dict(row,claim_type='unreviewed') if key=='findings' else row for row in rows if isinstance(row,dict) and all(isinstance(v,str) for k,v in row.items() if k!='evidence_ids') and isinstance(row.get('evidence_ids',[]),list)]
     semantic=index(candidate,book.evidence)
-    return {'summary':semantic['summary'],'findings':semantic['findings'],'actions':semantic['actions'],'reviews':[],'limitations':warning,'number_claims':[],
+    output={'summary':semantic['summary'],'findings':semantic['findings'],'actions':semantic['actions'],'reviews':[],'limitations':warning,'number_claims':[],
             'analysis_completed':True,'business_acceptance':'user_review_required','model_generated':True,'actions_executed':False,
             'snapshot_id':book.capture_id,'validation':'original_native_report_with_evidence_index_key_conclusions_need_review',
             'report_format':'raw_json' if isinstance(parsed,dict) or text.lstrip().startswith('{') else 'markdown',
             'delivery_status':'raw_saved' if warning else 'ready','raw_model_text':text,'research_text':candidate.get('research_text',text),'report_evidence_ids':refs,'semantic_index':semantic}
+    return attach_review(output,book)

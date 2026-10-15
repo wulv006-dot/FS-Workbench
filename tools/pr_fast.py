@@ -262,6 +262,10 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/hermes-fs-config-isolation-20261015/"):
+            groups.add("hermes-fs-config-isolation");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-actions-20261015/"):
+            groups.add("hermes-report-actions");continue
         if name.startswith("releases/fs-dashboard/hermes-desktop-20261015/"):
             groups.add("hermes-desktop");continue
         if name.startswith("releases/fs-dashboard/hermes-report-quality-20261015/"):
@@ -451,7 +455,7 @@ def main():
             units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
             subprocess.run(["pwsh","-NoLogo","-NoProfile","-File",str(ROOT/"releases/fs-dashboard/hermes-desktop-20261015/Test-Connect.ps1")],check=True,timeout=30,cwd=ROOT)
         elif group=="hermes-report-quality":
-            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_quality","test_release_quality","test_report_delivery","test_skill_bundle","test_research"])
+            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_constraints","test_report_quality","test_release_quality","test_proof_release","test_report_delivery","test_skill_bundle","test_research"])
         elif group=="navigation-recovery":
             units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
         elif group=="fs-revision-20261015":
@@ -613,6 +617,10 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="hermes-fs-config-isolation":
+            units("releases/fs-dashboard/hermes-fs-config-isolation-20261015",["test_isolation"])
+        elif group=="hermes-report-actions":
+            node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="fs-menu-cache":
             release="releases/fs-dashboard/menu-cache-20261015"
             node(release+"/test_cache.cjs")
@@ -633,6 +641,9 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
+
+
 
 
 

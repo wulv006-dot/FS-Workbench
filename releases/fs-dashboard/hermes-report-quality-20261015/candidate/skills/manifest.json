@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0-report-semantic-quality",
+  "version": "0.8.0-proof-constraints",
   "hermes_commit": "71d34bad1045610252eda02ee79549436896e784",
   "anthropic_commit": "02ffa99ff00ce4d3046ccebabb8357cb39f3ab06",
   "upstream_licenses": [
@@ -23,8 +23,8 @@
     },
     {
       "path": "skills/fs-fc-operations-analysis/SKILL.md",
-      "sha256": "950043c541f704d891de09c7015753f362684f1040af7aa0b6069b02ecaec90d",
-      "bytes": 13842
+      "sha256": "cd43b4d89abc7c965ccbd0a9a707958ee2e155891ffff04c5a436bcc9308b1cc",
+      "bytes": 15144
     },
     {
       "path": "skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
@@ -143,9 +143,9 @@
     },
     {
       "path": "skills/fs-fc-operations-analysis/references/report-contract.md",
-      "sha256": "09fb19f8e39e16549477ef8b187b304c150c01ce91af9c5ceda106319275d88f",
+      "sha256": "7e32e0973076bc2c5bd0324d4ee842e8933db7a11db8f9a230d2bf029e154f58",
       "source": "local reviewed adaptation",
-      "bytes": 5400
+      "bytes": 8881
     }
   ],
   "installation_status_basis": "Verified from actual run skill version and fingerprint, not this source manifest.",

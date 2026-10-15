@@ -193,9 +193,9 @@ class ReportQuality(unittest.TestCase):
         self.assertIn('固定观察队列',c['actions'][1]['trigger'])
         self.assertIn('无持货库存',c['actions'][2]['steps'])
 
-    def test_no_fake_official_intelligence_or_profit_amount(self):
+    def test_no_fake_official_intelligence_and_profit_is_labelled_estimate(self):
         c=self.content();self.assertEqual(c['intel'],[]);self.assertIn('未开展',c['intel_note'])
-        self.assertIn('不生成主站利润金额',c['charts'][5]['interpretation'])
+        self.assertIn('临时公式',c['charts'][5]['interpretation']);self.assertIn('非实际结算',c['finance']['estimates']['current']['label'])
 
     def test_closed_daily_monthly_contracts_do_not_reuse_week_numbers(self):
         for period,kind in [({'start':'2026-10-13','end':'2026-10-13'},'daily'),({'start':'2026-09-01','end':'2026-09-30'},'monthly')]:
@@ -233,7 +233,7 @@ class ReportQuality(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'artifact_changed'):save_boss(temp,TASK)
 
     def test_skill_loaded_contract_and_permissions_unchanged(self):
-        bundle=load_bundle(SOURCE_ROOT);self.assertEqual(bundle['version'],'0.7.0-report-semantic-quality')
+        bundle=load_bundle(SOURCE_ROOT);self.assertEqual(bundle['version'],'0.8.0-proof-constraints')
         self.assertIn('经营调查生成与审核合同 v2',bundle['methods_text']);self.assertEqual(bundle['permissions'],[])
         self.assertTrue(any(x['name']=='humanizer-zh' for x in bundle['reviewed_skills']))
 
