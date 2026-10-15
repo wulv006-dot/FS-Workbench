@@ -15,6 +15,7 @@
 在仓库根目录执行：
 
     python -m unittest discover -s ui-system/tests -v
+    node ui-system/tests/syntax.cjs
     node ui-system/tests/theme.cjs
     node ui-system/tests/navigation.cjs
 

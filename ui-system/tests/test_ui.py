@@ -37,9 +37,9 @@ class UIContract(unittest.TestCase):
   for n in ['business.css','google.css']:
    s=(ROOT/'modules/native'/n).read_text()
    for v in ['bg','tx','tx2','ac','surface','card']:self.assertNotRegex(s,r'--'+v+r'\s*:')
- def test_syntax(self):
-  for p in list((ROOT/'adapters').glob('*.js'))+[ROOT/'modules/native/shell.js']:
-   result=subprocess.run(['node','--check',str(p)],capture_output=True,text=True);self.assertEqual(result.returncode,0,result.stderr)
+ def test_syntax_runner_is_wired(self):
+  runner=(ROOT/'tests/syntax.cjs').read_text();self.assertIn('--check',runner)
+  self.assertIn('ui-system/tests/syntax.cjs',(ROOT.parent/'tools/pr_fast.py').read_text())
  def test_no_auto_switch(self):
   for p in (ROOT/'adapters').glob('*.js'):
    self.assertNotRegex(p.read_text(),r'\.checked\s*=')

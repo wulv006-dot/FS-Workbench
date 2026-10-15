@@ -651,6 +651,7 @@ def main():
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="fs-ui-system":
             units("ui-system/tests",["test_ui","test_release"])
+            node("ui-system/tests/syntax.cjs")
             node("ui-system/tests/theme.cjs")
             node("ui-system/tests/navigation.cjs")
         elif group=="fs-menu-cache":
