@@ -29,7 +29,7 @@
       "source": "source/daily.js",
       "runtime": "/dashboard/game-monitor/daily.js",
       "before_sha256": null,
-      "sha256": "d49866bed15726fb1d58a10c66a6db5cef5dd59989f91352e770a43ead0227b8"
+      "sha256": "05aa4698c470515908ccfc7538954df5f3cbb8e24d13221d83552c090d3eabd3"
     }
   ],
   "shared_snapshot": "/var/lib/fs-boss-workspaces/public/seo-news.json",

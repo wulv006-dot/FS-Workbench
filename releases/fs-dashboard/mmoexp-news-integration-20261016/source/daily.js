@@ -9,12 +9,12 @@
     let section = $('fsSeoNews');
     if (!section) {
       section = document.createElement('section'); section.id = 'fsSeoNews';
-      section.className = $('sec-fc')?.className || '';
-      $('sec-fc').after(section);
+      section.className = 'fs-seo-news';
+      $('fcGrid').after(section);
     }
     section.hidden = history;
     const outdated = latestSeo && Date.now() > Date.parse(latestSeo.stale_after);
-    section.innerHTML = `<h2>MMOEXP News <small>主站 SEO 资讯</small></h2><p>${latestSeo ? `采集 ${esc(new Date(latestSeo.collected_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}（北京） · ${latestSeo.documents.length} 篇 · ${latestSeo.coverage.game_keys.length} 款游戏${seoError || outdated ? ' · 本轮未更新，保留上次结果' : latestSeo.status === 'partial' ? ' · 部分文章未读取成功' : ''}` : '等待夜间采集结果'}。本站编辑内容与官方公告分开列示；新闻发布日期不作为活动倒计时。</p><div class="fs-daily-grid">${(latestSeo?.documents || []).map(row => `<article class="fs-daily-item"><div class="fs-daily-label">主站 SEO 资讯 · ${esc(row.profiles?.join(' / ') || row.game_keys.join(' / '))}</div><h3>${esc(row.title)}</h3><p>${esc(row.summary)}</p><p>新闻发布：${esc(row.published_at)}</p><a href="${esc(row.source_url)}" target="_blank" rel="noopener noreferrer">阅读 MMOEXP 原文 ↗</a></article>`).join('')}</div><details><summary>采集范围与版本</summary><p>从主站新闻索引选取近期文章，优先兼顾不同游戏；这是有数量上限的资讯样本。${esc(latestSeo?.version || '')}</p></details>`;
+    section.innerHTML = `<h2 class="section-title">MMOEXP News <small>主站 SEO 资讯</small></h2><p>${latestSeo ? `采集 ${esc(new Date(latestSeo.collected_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}（北京） · ${latestSeo.documents.length} 篇 · ${latestSeo.coverage.game_keys.length} 款游戏${seoError || outdated ? ' · 本轮未更新，保留上次结果' : latestSeo.status === 'partial' ? ' · 部分文章未读取成功' : ''}` : '等待夜间采集结果'}。本站编辑内容与官方公告分开列示；新闻发布日期不作为活动倒计时。</p><div class="fs-daily-grid">${(latestSeo?.documents || []).map(row => `<article class="fs-daily-item"><div class="fs-daily-label">主站 SEO 资讯 · ${esc(row.profiles?.join(' / ') || row.game_keys.join(' / '))}</div><h3>${esc(row.title)}</h3><p>${esc(row.summary)}</p><p>新闻发布：${esc(row.published_at)}</p><a href="${esc(row.source_url)}" target="_blank" rel="noopener noreferrer">阅读 MMOEXP 原文 ↗</a></article>`).join('')}</div><details><summary>采集范围与版本</summary><p>从主站新闻索引选取近期文章，优先兼顾不同游戏；这是有数量上限的资讯样本。${esc(latestSeo?.version || '')}</p></details>`;
   }
   function validateSeo(value) {
     if (value?.contract !== 'mmoexp-seo-news-v1' || value.source_kind !== 'mmoexp_seo' || !/^mmoexp-news-[a-f0-9]{20}$/.test(value.version || '') || !Array.isArray(value.documents) || value.documents.length > 12 || !Number.isFinite(Date.parse(value.collected_at)) || !Number.isFinite(Date.parse(value.stale_after)) || !Array.isArray(value.coverage?.game_keys)) throw Error('invalid_seo_news');
