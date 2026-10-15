@@ -262,6 +262,8 @@ def select(paths):
     groups=set();unmapped=[]
     for name in paths:
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/menu-cache-20261015/"):
+            groups.add("fs-menu-cache");continue
         if name.startswith("releases/fs-dashboard/navigation-recovery-20261015/"):
             groups.add("navigation-recovery");continue
         if name.startswith("releases/fs-dashboard/fs-revision-20261015/"):
@@ -602,6 +604,10 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="fs-menu-cache":
+            release="releases/fs-dashboard/menu-cache-20261015"
+            node(release+"/test_cache.cjs")
+            units(release,["test_release"],root_owned=True)
         elif group=="fc-coin-competitor-grid":
             # Node 契约用例：把候选 JS 的渲染块原样抽出跑 5 场景 22 断言，
             # 校验 3x4 槽位不变量（缺来源补占位、列序不位移）。零网络、零依赖。
@@ -618,6 +624,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

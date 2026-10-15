@@ -1,0 +1,50 @@
+{
+  "sourceBaseline": "2b75a99115785563fa22a7495f1d21ac4cab08e9",
+  "immutableVersion": "workspace-native-20261006-fd4cfd0a70aa",
+  "date": "2026-10-15",
+  "targets": [
+    {
+      "candidate": "candidate/fs-home/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "beforeSha256": "f20af2d74baf3122e83772b5e11d38f4c9c20c1641b5ce32c78d90cfcac8bb00",
+      "sha256": "08c56193dc9c2b87a2a2a1b43099d3841b5d2ce160fc7da16053d3981cc721bb"
+    },
+    {
+      "candidate": "candidate/fs-home/navigation.js",
+      "target": "/var/www/dashboard/fs-home/navigation.js",
+      "beforeSha256": "ce0fc0a453ecae955bb8e7e2ae9ff6619de81c09691822935e5b9a3edc2c2aa1",
+      "sha256": "ac400b30ff3d01879a49321b7f76994a93f6c140adb56ca21a300db9efb81c3b"
+    },
+    {
+      "candidate": "candidate/formal.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "661065e497c018d0f4f9e7d37b72adc5e87857e11d96c810051a967cbad05ecd",
+      "sha256": "ad04821b87ac78d65e2ab99fb94302c44dd5171747c476f0ec53748c6791c94b"
+    },
+    {
+      "candidate": "candidate/retired-radar.conf",
+      "target": "/etc/nginx/release-radar.locations.conf",
+      "beforeSha256": "fd4f81135da9c5539bb12c6a5269bccf01bb758f606105337b139d143d6b1f4f",
+      "sha256": "fd4f81135da9c5539bb12c6a5269bccf01bb758f606105337b139d143d6b1f4f"
+    },
+    {
+      "candidate": "hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "beforeSha256": "b45a9d2a8c1c11e30f80d3bd6cb1c28de9be7ddf0c0f0cb9fc631bd6ea9c4d2e",
+      "sha256": "7cb572d2d5f63f4095844a9baf561140cd83b891c4ebaef32aaed5c3c32c268d"
+    },
+    {
+      "candidate": "account-app.js",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "beforeSha256": "e43edc38ce5db5868f0a7b36c8b053afd7b953ef069cf532d360c57290a198ef",
+      "sha256": "ae67661f0b4692832bd1e047d7b0ddf0f46e66b2f2e4232237fae47279183b07"
+    }
+  ],
+  "consumers": [
+    "native home and analytics",
+    "module directory",
+    "shared business sidebar",
+    "account UI"
+  ],
+  "backendChanged": false
+}
