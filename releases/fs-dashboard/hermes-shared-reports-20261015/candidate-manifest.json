@@ -10,7 +10,7 @@
       "candidate": "hermes/runtime/controller.py",
       "target": "/opt/fs-hermes-fc/controller.py",
       "beforeSha256": "70ded65d38f8337d36b276eeec19d1cde9154b63f32b9fd9932e864c0608f9d1",
-      "sha256": "ead668feabb3b906ab84bcd8a00e4b1b879708074d50aaacbee40356a3978a13"
+      "sha256": "227f7e19642661adb5f9225e752330ca808414181b31aa03fb4e8e23a54c5043"
     },
     {
       "candidate": "hermes/runtime/continuation.py",

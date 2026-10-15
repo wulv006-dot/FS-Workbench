@@ -19,3 +19,5 @@
 沿用既有release_navigation，增加本次5个已有文件的精确scope，保留发布锁、模型锁、admission fence、空闲/未知任务拒绝、CAS、备份、重载与读回。回退保持DB/报告/费用；若回收站已有记录，旧代码不认识软删除，publisher明确拒绝盲回退，须先核定兼容恢复方案。candidate-manifest保持releaseReady=false，部署批准与最终事实另记，不据本索引冒认上线。
 
 可重跑python -X utf8 test_shared_reports.py及test_release.py；verify_browser.cjs为本机纯合成、独立Chrome验收。生产apply同ID不可重放；未知先查原journal。
+
+第二次CI38698190023的SHA门禁拦住修订后的controller与旧manifest不一致；修正精确manifest同步后再验，不放宽SHA检查，失败运行保留。
