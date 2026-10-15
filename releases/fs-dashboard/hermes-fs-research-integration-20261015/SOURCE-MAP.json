@@ -1,0 +1,112 @@
+{
+  "scope": "hermes-fc-research-integration-20261015",
+  "base_commit": "17b67719f0df3ea0714e933afba325df4ed4258b",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/research.py",
+      "candidate": "research/runtime/research.py",
+      "runtime": "/opt/fs-hermes-fc/research.py",
+      "beforeSha256": "92bc83053c2f7bdd7c8e11fac1f60458935bf924832efbb2e08879482e05cf7f",
+      "sha256": "29da998b1fd8962b454688593c7f20a8defd8689145bde5655da1f497a243a86",
+      "bytes": 27947
+    },
+    {
+      "source": "source/fs_evidence.py",
+      "candidate": "research/runtime/fs_evidence.py",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "beforeSha256": "7547307eadf53738cdcc5a09e2f03435c42ff780655bb44ff195c8a578a962a0",
+      "sha256": "588607ddb73e0d6f8908c3fb0655ca2c7bc2ab37e21aeb523dc6b5cb402d7f04",
+      "bytes": 16701
+    },
+    {
+      "source": "source/official_intelligence.py",
+      "candidate": "research/runtime/official_intelligence.py",
+      "runtime": "/opt/fs-hermes-fc/official_intelligence.py",
+      "beforeSha256": null,
+      "sha256": "0659c7dc6683ff9caf7042b5bd9e4ca459a2567e072bd372c390b7104d8f4e1a",
+      "bytes": 10902
+    },
+    {
+      "source": "source/skill_bundle.py",
+      "candidate": "research/runtime/skill_bundle.py",
+      "runtime": "/opt/fs-hermes-fc/skill_bundle.py",
+      "beforeSha256": "a623cae14cacbfd29c2467a5d9cfd97f0d880bfe3bd2c962e3b9d6ff9c5b7aa9",
+      "sha256": "83450fb502e765570b916bfc71cf87c753c6fcc1c8c1f170b0780b2062c4e935",
+      "bytes": 4673
+    },
+    {
+      "source": "source/report_semantics.py",
+      "candidate": "research/runtime/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "5c46fb71c6fceca1997b03f57e76c79bb847362cbbaf06574ab2a2f6c50b6341",
+      "sha256": "fbab32c109c5c1813cde93c67eee2f2367812e4e3d462fdd9ec7de82f7595162",
+      "bytes": 22705
+    },
+    {
+      "source": "source/report_constraints.py",
+      "candidate": "research/runtime/report_constraints.py",
+      "runtime": "/opt/fs-hermes-fc/report_constraints.py",
+      "beforeSha256": "cbe37ca7663e176e7c90ce59b2b4d7ecf1dc969f3e55fe88192f3902bd0ffbc3",
+      "sha256": "958279718b7f7c557b9e6babf641d011abd619a135fb74bfffca628f41766903",
+      "bytes": 26329
+    },
+    {
+      "source": "source/report_delivery.py",
+      "candidate": "research/runtime/report_delivery.py",
+      "runtime": "/opt/fs-hermes-fc/report_delivery.py",
+      "beforeSha256": "c7be821362ab7645d50ca3e73a3e07517fd04c00cc6c7e6e8208ec1667fbd760",
+      "sha256": "ba7e218eb7cc6e39258a9237f300cc6a4e3f23c2167e7959c038190d66b2a48c",
+      "bytes": 10247
+    },
+    {
+      "source": "source/boss_projection.py",
+      "candidate": "research/runtime/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "2e1da688f84a9dbabfe0c03f5fd7046f45dc7719880426ad33eb3903bbea5ed4",
+      "sha256": "41ea6e5e0baf378196a32124cc4021da27b0e1dfd9ab1ff3d6cc3eae11756edf",
+      "bytes": 33798
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "candidate": "research/runtime/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "615db80e82e2c7c9895c9d495f9417d8a333f435f862460a2e0c34fc6aca6fa9",
+      "sha256": "1a7943018ea84b0887ca62b38712ee41cfa6dc09be5cd698697e20817823ef15",
+      "bytes": 34281
+    },
+    {
+      "source": "source/skills/manifest.json",
+      "candidate": "research/skills/manifest.json",
+      "runtime": "/opt/fs-hermes-fc/skills/manifest.json",
+      "beforeSha256": "6912eafae0d308e6fcf0446c38f0cf43d27d00359af7a07859667e7ea5422872",
+      "sha256": "e4de0dbfee355bf070d4f7522ae85478ebc99837e740501a98f892aefc9e84c9",
+      "bytes": 8829
+    },
+    {
+      "source": "source/skills/fs-fc-operations-analysis/SKILL.md",
+      "candidate": "research/skills/fs-fc-operations-analysis/SKILL.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "beforeSha256": "cd43b4d89abc7c965ccbd0a9a707958ee2e155891ffff04c5a436bcc9308b1cc",
+      "sha256": "f9f9d7d45e5321d12fd8b854f8234050f419b211c034596fbbc5bac85429eaba",
+      "bytes": 18751
+    },
+    {
+      "source": "source/skills/fs-fc-operations-analysis/references/methods.md",
+      "candidate": "research/skills/fs-fc-operations-analysis/references/methods.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/methods.md",
+      "beforeSha256": "9d671d63d6c3e002f638a93d0c5a645fc00fd98aff2d8d6b07e2bbdf55d61cc9",
+      "sha256": "164483fb23c0f13dbf2ca27081d3033de99a1bf0f4aec3805df8d472ad64ef41",
+      "bytes": 6847
+    },
+    {
+      "source": "source/skills/fs-fc-operations-analysis/references/report-contract.md",
+      "candidate": "research/skills/fs-fc-operations-analysis/references/report-contract.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/report-contract.md",
+      "beforeSha256": "7e32e0973076bc2c5bd0324d4ee842e8933db7a11db8f9a230d2bf029e154f58",
+      "sha256": "2a75d4cf0f56c6b48a80bc4730d6888e3ff6a437828bc457d8bf0a6c32f6d6f3",
+      "bytes": 12488
+    }
+  ]
+}
