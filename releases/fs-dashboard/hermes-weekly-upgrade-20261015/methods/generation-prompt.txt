@@ -1,0 +1,5 @@
+请依已加载方法写FC27经营周报：2026-10-05—2026-10-11，对照2026-09-28—2026-10-04，生成日2026-10-15，Asia/Shanghai。聚焦经营策略、活动促销和履约，定价另轨。
+按既有fs-report-v2输出单个JSON，research_text保留完整中文正文，摘要3—4句。列每日7天销售金额/单数、当前未结池金额/单数/账龄/脱敏备注原因；预估利润遵已批准规则。
+真实调用fc.query_marketing_snapshot读取上述两周GA4/GSC国家、source_medium和Ads系列，给获客方向；全站背景不冒充FC归因，Ads没有真实geo。
+真实读官方工具，intel中文消息卡按title/fact/hypothesis/action/source/published_at/event_at/applies/url/retrieved_at/evidence_ids填写，URL和读取时间绑定同篇document的source_url/observed_at。
+actions显式填role、first_check、review_at（YYYY-MM-DD）、指标和条件；建议日期可调整，不是强制排班。约90%以上可验证/覆盖为实用目标，允许不改方向的小差异，有据就给判断与反转条件；建议不执行。
