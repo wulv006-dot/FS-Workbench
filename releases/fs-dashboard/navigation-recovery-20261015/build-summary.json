@@ -1,0 +1,16 @@
+{
+  "version": "workspace-native-20261006-fa9eaad37a21",
+  "nativeAssets": 139,
+  "nativeTargets": 4,
+  "uiTargets": 4,
+  "nativeContractSha256": "7fa003c3ec6d503c0570b3bab8f1d9afc5274d6b8917274afb8ca75b824a3796",
+  "sections": [
+    "数据分析",
+    "LV决策大脑",
+    "球类工作区",
+    "RPG 游戏改价系统",
+    "机器人管理",
+    "协作工具"
+  ],
+  "businessWrites": false
+}
