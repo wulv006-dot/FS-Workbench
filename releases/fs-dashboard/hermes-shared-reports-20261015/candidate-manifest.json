@@ -28,7 +28,7 @@
       "candidate": "brain/brain.js",
       "target": "/var/www/dashboard/fs-home/brain/brain.js",
       "beforeSha256": "5240739523642b421a20af445464044bba71b57c70203627af5b4552547c39df",
-      "sha256": "f1a1f1a88312e2e2b6142609b26fdc56f354d951e3870a9020b35ab6d9b3cd0a"
+      "sha256": "fab902c89c64ecf1e825c56cde5e8e293d8e7bada17e6bc6dc7f647723bfd251"
     },
     {
       "candidate": "brain/brain.css",
