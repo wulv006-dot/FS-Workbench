@@ -25,7 +25,7 @@ addEventListener('storage',event=>{if(event.key===menuEpochSlot||event.key===nul
 
  if(window.parent!==window||document.getElementById('hubNav')||location.pathname.startsWith('/__auth/')||location.pathname.startsWith('/fc27/'))return;
  const uiRoot='__FS_UI_ROOT__';
- const styledModule=location.pathname.startsWith('/dashboard/')||location.pathname.startsWith('/tools/fc27-gallery/')||location.pathname.startsWith('/tools/fc27-players/');
+ const styledModule=!document.body.hasAttribute('data-management-v2')&&(location.pathname.startsWith('/dashboard/')||location.pathname.startsWith('/tools/fc27-gallery/')||location.pathname.startsWith('/tools/fc27-players/'));
  // Older tools retain their own content palette until their module-specific adapter is verified.
  for(const name of (styledModule?['fs-tokens.css','fs-ui.css','legacy.css','hubnav.css']:['fs-tokens.css','hubnav.css'])){const css=document.createElement('link');css.rel='stylesheet';css.href=uiRoot+name;document.head.append(css);}
  if(location.pathname.startsWith('/dashboard/tasks/')){const local=document.querySelector('#nav'),main=document.querySelector('main');if(local&&main){local.classList.add('fs-module-nav');local.setAttribute('aria-label','任务视图');main.prepend(local);}}

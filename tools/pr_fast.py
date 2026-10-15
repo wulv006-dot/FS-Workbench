@@ -270,6 +270,8 @@ def select(paths):
         if name.startswith("releases/fc-sbc/security-20261015/"):
             groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
+            groups.add("fs-management-v2");continue
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
             groups.add("fs-ui-system");continue
         if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
@@ -669,6 +671,11 @@ def main():
             units("releases/fs-dashboard/hermes-fs-config-isolation-20261015",["test_isolation"])
         elif group=="hermes-report-actions":
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
+        elif group=="fs-management-v2":
+            release="releases/fs-dashboard/management-v2-20261015"
+            units(release+"/tests",["test_management_facts","test_management_context","test_management_runner","test_static_publisher","test_backend_publisher","test_skill_identity"])
+            node(release+"/tests/check_frontend.cjs")
+            node(release+"/tests/check_syntax.cjs")
         elif group=="fs-ui-system":
             units("ui-system/tests",["test_ui","test_release"])
             node("ui-system/tests/syntax.cjs")

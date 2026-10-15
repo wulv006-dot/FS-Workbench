@@ -72,4 +72,4 @@ class FollowupReleaseContract(unittest.TestCase):
    for row in m['files']:self.assertEqual(sha(p/'candidate'/row['candidate']),row['sha256'])
  def test_pricing_labels_and_final_source(self):
   s=(ROOT/'ui-system/adapters/hubnav.js').read_text();self.assertIn('.automation-grid>label',s)
-  self.assertEqual(s.replace('__FS_UI_ROOT__','/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/'),(D/'home-card-copy/candidate/ui/hubnav.js').read_text())
+  self.assertEqual(s.replace('__FS_UI_ROOT__','/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/'),(ROOT/'releases/fs-dashboard/management-v2-20261015/source/shared/hubnav.js').read_text())
