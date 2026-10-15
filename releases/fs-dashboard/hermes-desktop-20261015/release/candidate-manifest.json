@@ -13,7 +13,7 @@
       "candidate": "desktop/fs-hermes-desktop.service",
       "target": "/etc/systemd/system/fs-hermes-desktop.service",
       "beforeSha256": null,
-      "sha256": "86094a78fdea711de6cc5deaf1531ebc2450dbec6d6e52c248cb9677242cee85"
+      "sha256": "dea9cbdd8aa15729b7b36ced474956b6505d84ec83b0a968252c6d1489f7f083"
     },
     {
       "candidate": "desktop/desktop-context-instructions.md",
