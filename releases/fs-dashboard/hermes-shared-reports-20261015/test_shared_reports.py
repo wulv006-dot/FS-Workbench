@@ -10,7 +10,7 @@ quality=(repo/'releases/fs-dashboard/hermes-report-quality-20261015') if repo el
 spec=importlib.util.spec_from_file_location('shared_quality_support',quality/'test_support.py');support=importlib.util.module_from_spec(spec);spec.loader.exec_module(support)
 ROOT=support.SOURCE_ROOT
 for source in (HERE/'candidate').glob('*.py'):shutil.copyfile(source,ROOT/source.name)
-sys.path.insert(0,str(ROOT))
+sys.path.insert(1,str(ROOT))
 from controller import HermesService
 from pilot import encoded,digest
 from continuation import load_report_followup
@@ -168,6 +168,12 @@ class SharedReports(unittest.TestCase):
         key,_,_=self.seed('DY')
         self.assertEqual(self.get('viewer',id=key,thread='1')[0],404)
         self.assertEqual(self.service.post(self.body(parent_report=key),'viewer',self.headers)[0],403)
+
+    def test_failed_continuation_remains_owner_only(self):
+        key,_,_=self.seed('DY',state='FAILED')
+        with self.service.tasks.db() as db:db.execute('UPDATE requests SET error=? WHERE id=?',('provider_outcome_unknown',key))
+        self.assertFalse(next(r for r in self.get()[1]['items'] if r['id']==key)['can_continue'])
+        self.assertTrue(next(r for r in self.get('DY')[1]['items'] if r['id']==key)['can_continue'])
 
     def test_followup_full_controller_delivery_reuses_evidence_and_creates_new_version(self):
         parent,task,body=self.seed('DY');original=read_file(self.service.root,task,'json');prompts=[]

@@ -439,7 +439,7 @@ class HermesService:
         return 200,{'contract':'hermes-fc-shared-reports-v1','can_generate':self.authorizer(user) and hold is None,
                     'pool_scope':scope if self.authorizer(user) else ('trash' if scope=='trash' else 'mine'),
                     'admission':{'status':'blocked' if hold else 'ready','reason':hold},
-                    'items':[dict(r,body=json.loads(r['body']),can_continue=self.authorizer(user) and can_continue(self.tasks,r,r['owner'],version)) for r in rows],
+                    'items':[dict(r,body=json.loads(r['body']),can_continue=r['owner']==user and self.authorizer(user) and can_continue(self.tasks,r,r['owner'],version)) for r in rows],
                     'next_before':rows[-1]['cursor'] if more else None,'nightly':self.nightly.status(user),
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
