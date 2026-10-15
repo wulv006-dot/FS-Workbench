@@ -47,7 +47,7 @@ def schemas():
             if semantic != 'fc.compare_periods':
                 fields['window'] = {'type': 'string', 'enum': ['target', 'previous']}
             if semantic == 'fc.get_breakdown':
-                fields['dimension'] = {'type': 'string', 'enum': ['platform', 'product', 'bucket']}
+                fields['dimension'] = {'type': 'string', 'enum': ['platform', 'product']}
         result.append({'type': 'function', 'function': {'name': wire,
             'description': 'FC aggregate evidence only: '+semantic,
             'parameters': {'type': 'object', 'properties': fields,
