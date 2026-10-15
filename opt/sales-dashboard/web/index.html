@@ -104,10 +104,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .g3{grid-template-columns:1.6fr 1fr}
 @media(max-width:1100px){.g2,.g3{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.05)}
-.card>h2{font-size:13px;font-weight:600;padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.card>h2{font-size:13px;font-weight:600;padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .card>h2::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--accent);flex:none}
 .card>h2 .sp{flex:1}
 .card>h2 small{font-weight:400;color:var(--tx3);font-size:11px}
+/* 表格自带筛选框（每张表独立生效，不联动其它表） */
+.tfilter{display:flex;align-items:center;gap:7px;margin-left:auto}
+.tfilter input{width:172px;height:28px;background:var(--card2);color:var(--tx);border:1px solid var(--line2);
+  border-radius:7px;padding:0 9px;font:inherit;font-size:11.5px}
+.tfilter input::placeholder{color:var(--tx3)}
+.tfilter input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,113,227,.14)}
+.tfilter.none input{border-color:#e7a9ae;background:#fdf3f4}
+.tfilter .cnt{font-size:11px;color:var(--tx3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .card .bd{padding:14px 16px}
 .card .bd.tight{padding:0}
 svg{display:block;width:100%;overflow:visible}
@@ -119,6 +127,9 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th{background:var(--card2);color:var(--tx2);font-weight:600;font-size:11px;position:sticky;top:0;cursor:pointer;user-select:none;z-index:2}
 th:hover{color:var(--tx)}
+/* 表头是 sticky 冻结的：滚动时补一层投影，让「已冻结」看得出来 */
+.scroll.scrolled th{box-shadow:0 6px 10px -8px rgba(16,24,40,.45)}
+.scroll.scrolled thead th:first-child{box-shadow:0 6px 10px -8px rgba(16,24,40,.45),inset 3px 0 0 var(--accent)}
 th.l,td.l{text-align:left}
 tbody tr:hover{background:#f5f5f7}
 tbody tr.clickable{cursor:pointer}
@@ -184,11 +195,13 @@ footer b{color:var(--tx2);font-weight:600}
 
   <div class="grid g2" style="margin-bottom:16px">
     <div class="card">
-      <h2><span id="ttlRank">推广人</span>成果排行 <small>利润率 = (Σ销售价 − Σ采购总价) ÷ Σ销售价，先汇总再相除</small></h2>
+      <h2><span id="ttlRank">推广人</span>成果排行 <small>利润率 = (Σ销售价 − Σ采购总价) ÷ Σ销售价，先汇总再相除</small>
+        <div class="tfilter" id="wfProm"><input type="text" id="tfProm" placeholder="筛选 UID / 归属方式 / 折扣码"><span class="cnt" id="tfPromCnt"></span></div></h2>
       <div class="bd tight"><div class="scroll" style="max-height:520px"><table id="tProm"><thead></thead><tbody></tbody></table></div></div>
     </div>
     <div class="card">
-      <h2>折扣码效果 <small>用码订单的让利与产出</small></h2>
+      <h2>折扣码效果 <small>用码订单的让利与产出</small>
+        <div class="tfilter" id="wfCode"><input type="text" id="tfCode" placeholder="筛选折扣码 / 归属账号"><span class="cnt" id="tfCodeCnt"></span></div></h2>
       <div class="bd tight"><div class="scroll" style="max-height:520px"><table id="tCode"><thead></thead><tbody></tbody></table></div></div>
     </div>
   </div>
@@ -199,7 +212,8 @@ footer b{color:var(--tx2);font-weight:600}
   </div>
 
   <div class="card">
-    <h2><span class="sp" id="odTitle">订单明细</span></h2>
+    <h2><span class="sp" id="odTitle">订单明细</span>
+      <div class="tfilter" id="wfOrder"><input type="text" id="tfOrder" placeholder="筛选 单号 / 推广人 / 折扣码 / 区服 / 状态"><span class="cnt" id="tfOrderCnt"></span></div></h2>
     <div class="toolbar">
       <span id="odInfo"></span><span class="sp"></span>
       <span>每页</span>
@@ -228,6 +242,8 @@ let RAW = null, FILTERED = [], sortProm = {k:'profit', a:false}, sortCode = {k:'
 let page = 1, drillProm = null, DIM = 'promoter';
 // 下拉多选组件的选择态（Set of key）
 let SEL = {prom:new Set(), code:new Set()};
+// 三张表各自的局部筛选词（互不影响，也不参与顶部筛选）
+let TF = {prom:'', code:'', order:''};
 let P_ITEMS = [], C_ITEMS = [], MS_PROM = null, MS_CODE = null;
 
 const $ = s => document.querySelector(s);
@@ -245,6 +261,15 @@ const srcSort = arr => [...arr].sort((p,q)=>{
   const i=SRC_ORDER.indexOf(p), j=SRC_ORDER.indexOf(q);
   return (i<0?99:i)-(j<0?99:j);
 });
+// 表格局部筛选：任意字段命中即算（空词 = 全部通过）
+const tfHit = (q, ...vals) => { const s=(q||'').trim().toLowerCase(); return !s || vals.join(' ').toLowerCase().includes(s); };
+const tfMark = (wrap, inp, n, total, unit) => {
+  const on=!!(inp.value||'').trim();
+  wrap.classList.toggle('none', on && n===0);
+  const c=wrap.querySelector('.cnt');
+  if(c) c.textContent = on? (n+' / '+total+' '+unit) : (total+' '+unit);
+};
+const debounce = (fn, ms=200) => { let t; return () => { clearTimeout(t); t=setTimeout(fn, ms); }; };
 const TODAY = new Date();
 
 function shift(n){const d=new Date(TODAY);d.setDate(d.getDate()-n+1);return d.toISOString().slice(0,10)}
@@ -557,7 +582,7 @@ function th(k,label,cls){return `<th class="${cls||''}" data-k="${k}">${label}${
 
 function renderPromTable(rows){
   const t=$('#tProm'), agg=aggBy(rows,'promoter');
-  let list=Object.values(agg).filter(a=>a.n>0);
+  const all=Object.values(agg).filter(a=>a.n>0);
   // 从当前筛选结果里归纳每个人的：归属方式标签 / 名下折扣码 / 归属后台账号
   const isOwner = DIM==='owner';
   const srcs={}, cds={}, adm={};
@@ -566,6 +591,10 @@ function renderPromTable(rows){
     else if(r.source){ (srcs[k]=srcs[k]||new Set()).add(r.source); }
     if(r.code){ (cds[k]=cds[k]||new Set()).add(r.code); }
     if(r.admin && !adm[k]) adm[k]=r.admin; });
+  // 本轮表格局部筛选（推广人 UID / 归属方式 / 名下折扣码 / 归属账号）
+  const list=all.filter(x=>tfHit(TF.prom, x.name, [...(srcs[x.key]||[])].join(' '),
+                                 [...(cds[x.key]||[])].join(' '), adm[x.key]||''));
+  tfMark($('#wfProm'), $('#tfProm'), list.length, all.length, '人');
   const k=sortProm.k, a=sortProm.a?1:-1;
   list.sort((x,y)=>{let p=x[k],q=y[k]; if(k==='name')return a*String(p).localeCompare(String(q),'zh'); return a*((p??-1e18)-(q??-1e18))});
   const tot={n:sum(rows,'sale_cny')?rows.length:0,sale:sum(rows,'sale_cny'),cost:sum(rows,'cost_cny'),usd:sum(rows,'amount_usd'),disc:sum(rows,'discount_usd')};
@@ -585,7 +614,7 @@ function renderPromTable(rows){
     <td>${fmtM(x.aov,2)}</td>
     <td><div class="bar"><i style="width:${Math.max(x.profit,0)/maxP*100}%"></i></div></td>
     <td>${x.refund?`<span class="neg">${x.refund}</span>`:'<span class="mut">0</span>'}</td></tr>`).join('')
-    || '<tr><td colspan="12" class="empty">无数据</td></tr>';
+    || `<tr><td colspan="12" class="empty">${TF.prom.trim()?'没有匹配项，换个词试试':'无数据'}</td></tr>`;
   t.querySelector('thead').onclick=e=>{const kk=e.target.dataset.k;if(!kk)return;
     if(sortProm.k===kk)sortProm.a=!sortProm.a; else {sortProm={k:kk,a:kk==='name'}; } renderPromTable(rows)};
   t.querySelectorAll('tbody tr.clickable').forEach((tr,i)=>tr.onclick=()=>{
@@ -609,8 +638,10 @@ function renderCodeTable(rows){
   });
   const cmap={}; RAW.codes.forEach(c=>cmap[c.code]=c);
   Object.values(m).forEach(x=>{const c=cmap[x.code]; if(c){x.admin=x.admin||c.admin||'';}});
+  const all=Object.values(m);
+  const list=all.filter(x=>tfHit(TF.code, x.code||'(未用码)', x.admin));
+  tfMark($('#wfCode'), $('#tfCode'), list.length, all.length, '个');
   const k=sortCode.k,a=sortCode.a?1:-1;
-  let list=Object.values(m);
   list.sort((x,y)=>{let p=x[k],q=y[k]; if(k==='code')return a*String(p).localeCompare(String(q)); return a*((p??-1e18)-(q??-1e18))});
   const noneIdx=list.findIndex(x=>x.code==='');
   if(noneIdx>=0){ const it=list.splice(noneIdx,1)[0]; list.push(it); }   // 「未用码」永远排最后
@@ -630,7 +661,7 @@ function renderCodeTable(rows){
     <td class="${(x.sale-x.cost)>=0?'pos':'neg'}">${fmtY(x.sale-x.cost,0)}</td>
     <td class="${mg>=0.25?'pos':mg>=0.1?'':'neg'}">${pc(mg)}</td>
     <td class="mut" style="font-size:11px">${x.first==='9999-99-99'?'—':x.first.slice(5)+' ~ '+(x.last||'').slice(5)}</td></tr>`}).join('')
-    || '<tr><td colspan="11" class="empty">无数据</td></tr>';
+    || `<tr><td colspan="11" class="empty">${TF.code.trim()?'没有匹配项，换个词试试':'无数据'}</td></tr>`;
   t.querySelector('thead').onclick=e=>{const kk=e.target.dataset.k;if(!kk)return;
     if(sortCode.k===kk)sortCode.a=!sortCode.a; else sortCode={k:kk,a:kk==='code'||kk==='admin'};
     renderCodeTable(rows)};
@@ -638,9 +669,11 @@ function renderCodeTable(rows){
 
 function renderOrders(rows){
   const k=sortOd.k,a=sortOd.a?1:-1;
-  const list=[...rows].sort((x,y)=>{let p=x[k],q=y[k];
+  const list=[...rows].filter(r=>tfHit(TF.order, r.order_no, dimName(r), r.code, r.area, r.status, r.product))
+    .sort((x,y)=>{let p=x[k],q=y[k];
     if(typeof p==='string'||typeof q==='string')return a*String(p??'').localeCompare(String(q??''));
     return a*((p??-1e18)-(q??-1e18))});
+  tfMark($('#wfOrder'), $('#tfOrder'), list.length, rows.length, '单');
   const sz=+$('#pgSize').value, pages=Math.max(1,Math.ceil(list.length/sz));
   if(page>pages)page=pages;
   const slice=list.slice((page-1)*sz,page*sz);
@@ -661,7 +694,7 @@ function renderOrders(rows){
     <td class="${r.profit_cny>=0?'pos':'neg'}">${r.sale_cny?fmtY(r.profit_cny,0):'—'}</td>
     <td class="${r.margin>=0.25?'pos':r.margin>=0.1?'':'neg'}">${pc(r.margin)}</td>
     <td class="l"><span class="pill" style="${r.refund?'color:#d70015;border-color:#f2b8bd;background:#fdeaea':''}">${esc(r.status)}</span></td></tr>`).join('')
-    || '<tr><td colspan="12" class="empty">无数据</td></tr>';
+    || `<tr><td colspan="12" class="empty">${TF.order.trim()?'没有匹配项，换个词试试':'无数据'}</td></tr>`;
   t.querySelector('thead').onclick=e=>{const kk=e.target.dataset.k;if(!kk)return;
     if(sortOd.k===kk)sortOd.a=!sortOd.a; else sortOd={k:kk,a:kk!=='paytime'&&kk!=='order_no'};
     renderOrders(rows)};
@@ -682,6 +715,14 @@ $('#fDim').onchange=()=>{
 $('#pgSize').onchange=()=>{page=1;renderOrders(FILTERED)};
 $('#pgPrev').onclick=()=>{page--;renderOrders(FILTERED)};
 $('#pgNext').onclick=()=>{page++;renderOrders(FILTERED)};
+
+// 三张表的局部筛选：只重绘自己这张表，不影响顶部筛选和其它表
+$('#tfProm').oninput=debounce(()=>{ TF.prom=$('#tfProm').value; renderPromTable(FILTERED); });
+$('#tfCode').oninput=debounce(()=>{ TF.code=$('#tfCode').value; renderCodeTable(FILTERED); });
+$('#tfOrder').oninput=debounce(()=>{ TF.order=$('#tfOrder').value; page=1; renderOrders(FILTERED); });
+// 表头是 sticky 冻结的：滚动时加投影，让"冻结"看得见
+document.querySelectorAll('.scroll').forEach(el=>
+  el.addEventListener('scroll',()=>el.classList.toggle('scrolled', el.scrollTop>2)));
 $('#qk').onclick=e=>{const d=e.target.dataset.d; if(d==null)return;
   [...$('#qk').children].forEach(x=>x.classList.remove('on')); e.target.classList.add('on');
   if(d==='0'){$('#d1').value=RAW.meta.date_range[0];$('#d2').value=RAW.meta.date_range[1]}
@@ -690,6 +731,7 @@ $('#qk').onclick=e=>{const d=e.target.dataset.d; if(d==null)return;
 $('#btnClear').onclick=()=>{drillProm=null;$('#fKw').value='';$('#fSt').value='valid';
   DIM='promoter'; $('#fDim').value='promoter';
   SEL={prom:new Set(), code:new Set()};
+  TF={prom:'',code:'',order:''}; ['#tfProm','#tfCode','#tfOrder'].forEach(s=>$(s).value='');
   [MS_PROM,MS_CODE].forEach(m=>{ if(m){ m.st.sel.clear(); m.st.open=false; } });
   document.querySelectorAll('.ms').forEach(el=>el.classList.remove('on'));
   $('#d1').value=RAW.meta.date_range[0];$('#d2').value=RAW.meta.date_range[1];
