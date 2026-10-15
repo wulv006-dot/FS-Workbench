@@ -507,6 +507,7 @@ class HermesService:
                        'report_mode':body['mode'],'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+FORMAT}
             if desktop_context:admission['prompt']+='\n以下为管理员在Hermes桌面确认的业务约定（保持与事实/数据来源区分）：\n'+desktop_context
             if management:admission['prompt']+='\n'+management['prompt']
+            admission['skill_question']=body['question']
             from background import task_context
             _,context_receipt=task_context(self.proxy.background,book.skills)
             admission.update(background=self.proxy.background,context_receipt=context_receipt)

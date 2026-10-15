@@ -22,3 +22,5 @@
 `node hermes_report_import_20261015/test_import_ui.cjs`
 
 沿原release_navigation发布锁、admission fence、provider锁、CAS、备份与回退；仅3个活动目标，新增1个模块。只需重启消费控制器的fs-business-range，其他业务和Hermes Desktop保持。私库候选及最终SHA另记交付说明；测试通过不等于已上线。
+
+本轮控制器以核实后的active-controller-v2基线重建，仅追加导入GET接线，保留最新并行经营管理的controller、worker及management_context更新；未重跑整套prepare.py。
