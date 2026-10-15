@@ -1,6 +1,6 @@
 # 经营管理台：参考布局重建与每日 Hermes 分析
 
-状态：经营管理台新入口已发布，15 项目月累计核心数据及当日 Hermes 建议已手动读回。首次自然夜间运行仍待观察。
+状态：经营管理台新入口已发布，15 项目月累计核心数据及当日 Hermes 建议已手动读回。首次自然夜间运行已完成并经浏览器读回，详见 NIGHTLY-CLOSEOUT.md 与 evidence/deployment-status.json。
 
 ## 范围
 
@@ -47,12 +47,13 @@
 
 离线测试覆盖来源/空值/等待补源、时区和跨月、证据绑定计算、建议到期、每日幂等、并发和夜间截止、发布 CAS/故障回滚。Node 覆盖数字展示、空值、业务日、原 demo 去除与浏览器脚本语法；共享导航覆盖新页面样式隔离及旧页面保持。
 
-手动验收：15/15 项目月累计核心数据，真实 high Hermes 分析、数值汇总核验、建议投影、原入口/筛选/指标切换/项目详情/沙盘平账与复位、浅深主题均已读回。Python 47 项管理台测试及 30 项共享 UI 测试通过。历史日图有缺日，未补零；月累计独立接口读取，不因缺日图而认定少算。模型计算工具此前有参数错误，已改为可纠正的结构化参数诊断；后续模型主动纠正调用尚未观察。自然夜间和午夜到期的真实运行未观察，代码测试不替代该证据。GitHub CI 单独确认。
+手动验收：15/15 项目月累计核心数据，真实 high Hermes 分析、数值汇总核验、建议投影、原入口/筛选/指标切换/项目详情/沙盘平账与复位、浅深主题均已读回。Python 48 项管理台测试及 30 项共享 UI 测试通过。历史日图有缺日，未补零；月累计独立接口读取，不因缺日图而认定少算。模型计算工具此前有参数错误；后续真实 high 回归已观察到证据绑定计算及学习资料应用。北京时间 2026-10-16 00:01 旧建议已实际隐藏；00:20 自然采集启动、00:30:25 facts_ready、00:39:27 新建议发布，15 项目核心汇总和六条建议经浏览器读回。此证据不代表所有因果判断与运营建议质量已全面验收。PR 185 进一步验证游戏详情默认折叠全局建议、手动展开/收起及刷新保持、返回总览仍展开。精确发布 head 的 GitHub CI 已通过。
 
 ## Repository policy
 Only implementation code, synthetic tests, deployment contracts and hashes are archived in Git. Runtime targets and business observations stay on the existing protected server. The static publisher reads a pinned existing same-server target file; no operational dataset is bundled.
 
 ## Final release
 Backend: management-v2-07ac5252c4a5, manifest 20ba9b97f40a782558119ac5ee647c89032354b806e7df98867221baa79db9f1.
-Static: workspace-native-20261006-66ec73f42a1d, manifest 66491dabfb06d2b7052c331f08b0aef97695ceaf0ed24742aa8ff90fb3b4ea2a.
+Static: workspace-native-20261006-5a791c9d741a, manifest 17072e73c06e0faf4d7856e48f864d9b69c62fae98f40fd4ec6993781bd377ea.
+Post-baseline backend patches: desktop-learning-8641c3d1a740 (business_context.py) and management-quality-5c36780053e1 (management_context.py). Concurrent controller version was preserved. Source selection is recorded in SOURCE-MAP.json; the optional backend metric-note experiment was not deployed.
 Completed immutable model output was re-projected after bounded format parsing repair, with original artifacts retained and separate backup/receipt. No model call or task replay was performed by this recovery. Desktop context and its service/profile were preserved.
