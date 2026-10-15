@@ -39,3 +39,11 @@ console.log('homepage shortcuts: order, destinations, repeated render, cleanup, 
 
 assert(src.includes('三组进度 · 健康度责任到人 · 目标沙盘与经营决策'));
 assert(src.includes('全球新游上线 · 版本赛季 · 开服节点一屏追踪'));
+
+const styledExpression=src.match(/const styledModule=([^;]+);/)[1];
+for(const pathname of ['/dashboard/management/','/dashboard/analytics/','/tools/fc27-gallery/','/tools/fc27-players/']){
+ assert.equal(vm.runInNewContext(styledExpression,{location:{pathname},document:{body:{hasAttribute:()=>false}}}),true);
+ assert.equal(vm.runInNewContext(styledExpression,{location:{pathname},document:{body:{hasAttribute:()=>true}}}),false);
+}
+assert.equal(vm.runInNewContext(styledExpression,{location:{pathname:'/d4/'},document:{body:{hasAttribute:()=>false}}}),false);
+console.log('management-specific palette isolation preserves existing module styling PASS');

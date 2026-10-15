@@ -1,0 +1,69 @@
+{
+  "observedAtUtc": "2026-10-15T15:18:50Z",
+  "homeCards": {
+    "deployed": true,
+    "exactCopyDomReadback": true,
+    "pullRequest": 174,
+    "mergedCommit": "7999a51a3d8124870b795b1ec0590b015d4002e7"
+  },
+  "managementPreview": {
+    "releaseId": "workspace-native-20261006-0736519733a2",
+    "manifestSha256": "3a0f014d5a0382b8ed2c40cb157e136eea74e12590c40b38c37e6d459645adbe",
+    "url": "https://47.85.224.112/dashboard/__preview/management-v2-20261015/index.html",
+    "status": "protected_preview_only",
+    "dataStatus": "15_of_15_month_core_available",
+    "productionEntryChanged": false
+  },
+  "managementBackend": {
+    "releaseId": "management-v2-07ac5252c4a5",
+    "manifestSha256": "20ba9b97f40a782558119ac5ee647c89032354b806e7df98867221baa79db9f1",
+    "status": "applied_and_manual_data_model_projection_read_back",
+    "backup": "/var/backups/fs-management-v2-backend/management-v2-07ac5252c4a5",
+    "controllerActiveReadback": true,
+    "hermesRuntimeActiveReadback": true,
+    "modelStartedByDeployment": false,
+    "previousAttempt": "provider lock busy; stopped before mutation and waited for existing task terminal"
+  },
+  "manualFactsAcceptance": {
+    "startedAtBjt": "2026-10-15T21:44:12+08:00",
+    "pid": 8954,
+    "status": "completed",
+    "modelCalled": false,
+    "finishedAtBjt": "2026-10-15T22:24:40+08:00",
+    "monthCoreAvailable": 15,
+    "projectCount": 15,
+    "dailyHistoryHasGaps": true
+  },
+  "nextScheduledFacts": "2026-10-16T00:20:00+08:00",
+  "nextNaturalNightObserved": false,
+  "managementFullAcceptance": "manual_delivery_passed_with_documented_data_gaps; natural_night_pending",
+  "manualHermesAcceptance": {
+    "status": "completed_with_limitations",
+    "reasoningEffort": "high",
+    "structuredActionCount": 6,
+    "numericRollupChecks": "passed",
+    "firstRun": "failed_before_model_due_to_skill_identity_mismatch_fixed",
+    "secondRun": "content_review_found_aggregate_error_replaced_by_frozen_Decimal_rollups",
+    "thirdRun": "completed; recovered malformed final prose envelope without another model call",
+    "originalArtifactsPreserved": true,
+    "desktopBusinessContextPreserved": true,
+    "calculatorModelCall": "HTTP400 observed; argument diagnostics improved, future model retry not yet observed",
+    "noExternalResearchForThisFrozenManagementTask": true
+  },
+  "managementProduction": {
+    "releaseId": "workspace-native-20261006-66ec73f42a1d",
+    "manifestSha256": "66491dabfb06d2b7052c331f08b0aef97695ceaf0ed24742aa8ff90fb3b4ea2a",
+    "url": "https://47.85.224.112/dashboard/management/",
+    "productionEntryChanged": true,
+    "browserReadback": {
+      "projectRows": 15,
+      "todayHermesAdvice": true,
+      "groupFilter": true,
+      "metricSwitch": true,
+      "detailPage": true,
+      "sandboxBalanceAndReset": true,
+      "themes": "light_and_dark_checked",
+      "expiry": "deterministic_tests_pass; natural_midnight_not_observed"
+    }
+  }
+}

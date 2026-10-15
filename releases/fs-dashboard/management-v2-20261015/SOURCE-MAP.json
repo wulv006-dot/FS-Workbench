@@ -1,0 +1,17 @@
+{
+  "referenceArchiveSha256": "3a0bec8c76203254161a7cb2fc0314e40cc0f515c29b5dc0e358360b096e318c",
+  "referenceRawActualsUsedInProduction": false,
+  "targetCanonicalSha256": "06d8fe8d66cc21be23159fc45cc4d51d5d03057a064cd00744cad24c1acd772d",
+  "backend": "release/management-v2-07ac5252c4a5/contract.json",
+  "preview": "release/static-workspace-native-20261006-0736519733a2/contract.json",
+  "productionEntryActivated": true,
+  "sharedNavigationSource": "source/shared/hubnav.js",
+  "sharedNavigationCanonical": "ui-system/adapters/hubnav.js",
+  "runtimeData": {
+    "includedInRepository": false,
+    "targetSource": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-2c68a8533c02/management/targets.json",
+    "sha256": "77b32a25489148646ca7e7c5a2e2e17428212dd821dbef8deb743182d65aa57e",
+    "policy": "Code/manifest hashes only; no operational dataset, real fact snapshot, report content, credentials or customer orders."
+  },
+  "production": "release/static-workspace-native-20261006-66ec73f42a1d/contract.json"
+}
