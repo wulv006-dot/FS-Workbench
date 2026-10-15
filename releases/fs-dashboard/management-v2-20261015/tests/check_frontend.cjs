@@ -19,3 +19,6 @@ console.log('management frontend: expiry, scope, nulls, rendering shells and no 
 })().catch(e=>{console.error(e);process.exitCode=1});
 
 assert(app.metricNote({month:{notes:{new:'Admin 主站'}}},'new').includes('原统计范围参考'));
+
+assert.equal(app.advicePanelTag('game'),'details');assert.equal(app.advicePanelTag('overview'),'section');assert.equal(app.advicePanelTag('sandbox'),'section');
+const panelSource=fs.readFileSync(path.join(__dirname,'../source/frontend/management-live.js'),'utf8');assert(!panelSource.includes('ai.open='));assert(panelSource.includes('aiBody.replaceChildren()'));console.log('detail advice: native disclosure defaults closed and survives body refresh PASS');
