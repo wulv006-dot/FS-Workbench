@@ -703,6 +703,8 @@ def restart_games(manifest):
 
 def restart_for(manifest,admission_fence=None):
  if manifest.get('scope')==HERMES_MARKET_SCOPE:
+  if admission_fence is None:raise ValueError('market release requires Hermes admission fence')
+  admission_fence.stop_then_unlock_database()
   restart_for(dict(manifest,scope=HERMES_WORKER_SCOPE),admission_fence)
   restart_for(dict(manifest,scope=DEEP_SCOPE))
   return
