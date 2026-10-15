@@ -15,7 +15,7 @@ sys.path.insert(0,str(SOURCE_ROOT))
 from boss_projection import project,order_series
 from boss_renderer import render,validate
 from report_delivery import deliver_output
-from report_semantics import index,structured
+from report_semantics import index,structured,declared_comparison
 from report_artifacts import save_boss,read_file,digest_bytes
 from skill_bundle import load_bundle
 
@@ -267,6 +267,83 @@ class ReportQuality(unittest.TestCase):
         self.assertEqual(self.content(result)['metrics'][0]['previous'],'未提供')
         d=self.envelope();d['comparison_period']={'start':'2026-10-06','end':'2026-10-05'}
         with self.assertRaisesRegex(ValueError,'comparison_period'):structured(d,self.ev)
+
+    def test_comparison_aliases_at_different_heading_levels(self):
+        f=json.loads((HERE/'inputs/cross-period-fixture.json').read_text(encoding='utf-8'))
+        for declaration in ['# 调查（环比 10-05 至 10-07）','## 对照窗口：2026-10-05～2026-10-07','对比期：2026-10-05—2026-10-07']:
+            result=dict(f['result'],raw_model_text=declaration)
+            c=project(result,f['evidence'],{},'f'*64)
+            self.assertEqual(c['metrics'][0]['previous'],'$93,139.27',declaration)
+
+    def test_ambiguous_or_incomplete_comparison_never_uses_default(self):
+        f=json.loads((HERE/'inputs/cross-period-fixture.json').read_text(encoding='utf-8'))
+        for declaration in ['# 对比10-05至10-07\n## 环比10-09至10-11','## 对照期：2026-10-05','## 对照窗口待定']:
+            c=project(dict(f['result'],raw_model_text=declaration),f['evidence'],{},'f'*64)
+            self.assertEqual(c['metrics'][0]['previous'],'未提供');self.assertEqual(c['charts'][5]['rows'],[])
+            self.assertIn('未擅自',c['report']['period']['comparison_basis'])
+
+    def test_structured_comparison_overrides_legacy_title(self):
+        d=dict(self.result,comparison_period={'start':'2026-09-21','end':'2026-09-27'},raw_model_text='# 环比09-28至10-04')
+        self.assertEqual(declared_comparison(d)[0],('2026-09-21','2026-09-27'))
+
+    def test_standalone_and_unnumbered_action_headings(self):
+        for raw in ['## R1 建议核查PS\n- 动作：核查最新事件\n- 负责人：履约运营',
+                    '## 建议与复查\n### PS履约核对\n- 动作：核对来源字段\n- 条件：只读来源可用',
+                    '## 建议：核查PS样本\n责任角色：履约运营']:
+            s=index({'raw_model_text':raw},self.ev);self.assertEqual(len(s['actions']),1,raw)
+            self.assertTrue(s['actions'][0]['source_section'])
+
+    def test_unnumbered_action_list_preserves_proposals_only(self):
+        raw='## 建议与复查\n- 核查支付失败样本\n- 销售下降属于观察事实\n- 验证商品规格与优惠\n'
+        actions=index({'raw_model_text':raw},self.ev)['actions']
+        self.assertEqual(len(actions),2);self.assertEqual(actions[0]['action'],'核查支付失败样本')
+
+    def test_descriptive_text_is_not_invented_as_action(self):
+        for raw in ['## 建议与复查\n当前销售下降，原因尚不明确。','## R1 现状\n订单下降，暂无行动。','## 数据概览\n动作：该字段未定义']:
+            self.assertEqual(index({'raw_model_text':raw},self.ev)['actions'],[])
+
+    def intel_envelope(self):
+        d=self.envelope();url='https://www.ea.com/games/ea-sports-fc/news/fixture';stamp='2026-10-15T04:00:00+00:00';ref='ev_'+'e'*24
+        ev=copy.deepcopy(self.ev);ev[ref]={'source':'explicit synthetic official-page read fixture','captured_at':stamp,'data':{'url':url,'published_at':'2026-10-15','event_at':'2026-10-07'}}
+        d['intel']=[{'title':'合成事件','url':url,'retrieved_at':stamp,'published_at':'2026-10-15','event_at':'2026-10-07','applies':'合成期内范围','fact':'来源所述事件','hypothesis':'机制待证','action':'先验证内部信号','source':'EA 合成夹具','evidence_ids':[ref]}]
+        return d,ev
+
+    def test_actual_bound_intel_survives_v2_projection(self):
+        d,ev=self.intel_envelope();delivered=deliver_output(json.dumps(d,ensure_ascii=False),SimpleNamespace(evidence=ev,capture_id=self.result['snapshot_id']))
+        c=self.content(dict(self.result,**delivered),ev);h=render(c,ev)
+        self.assertEqual(len(c['intel']),1);self.assertIn(d['intel'][0]['url'],h);self.assertNotIn('未开展',c['intel_note'])
+        self.assertNotIn('期后事件',c['intel'][0]['window'])
+
+    def test_intel_event_after_period_differs_from_late_publication(self):
+        d,ev=self.intel_envelope();r=d['intel'][0];r['event_at']='2026-10-16';ev[r['evidence_ids'][0]]['data']['event_at']=r['event_at']
+        c=self.content(dict(self.result,intel=d['intel']),ev)
+        self.assertIn('期后事件',c['intel'][0]['window'])
+
+    def test_unverified_or_unsafe_intel_is_visible_pending(self):
+        for change in ('unbound','unsafe'):
+            d,ev=self.intel_envelope();d['intel'][0]['url']='https://example.com/not-read' if change=='unbound' else 'javascript:alert(1)'
+            c=self.content(dict(self.result,intel=d['intel']),ev);h=render(c,ev)
+            self.assertEqual(c['intel'],[]);self.assertEqual(len(c['intel_pending']),1)
+            self.assertIn('来源所述事件',h);self.assertNotIn('href="javascript:',h)
+
+    def test_aov_correction_does_not_change_other_equal_percentages(self):
+        result=dict(self.result,report_format='structured_v2',summary='客单+7.94%、某渠道+7.94%、某渠道客单+7.94%',findings=[],actions=[])
+        summary=self.content(result)['executive']['summary']
+        self.assertEqual(summary,'客单+7.95%、某渠道+7.94%、某渠道客单+7.94%')
+
+    def test_full_real_probe_checks_rebound_items_limits_and_cost(self):
+        full=HERE/'model-probe'
+        if (full/'evidence.json').exists():
+            result=json.loads((full/'result.json').read_text(encoding='utf-8'));ev=json.loads((full/'evidence.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(ev),79)
+        else:
+            f=json.loads((HERE/'inputs/cross-period-fixture.json').read_text(encoding='utf-8'));result,ev=f['result'],f['evidence']
+        c=project(result,ev,{},'f'*64)
+        self.assertIn('433 单 → 2026-10-12 457 单',' '.join(c['corrections']))
+        self.assertNotIn('连续回落',c['reviewed_research_text']);self.assertIn('不足以排除多商品捆绑',c['reviewed_research_text'])
+        self.assertIn('0.5 人日',c['actions'][0]['cost'])
+        h=render(c,ev);self.assertIn('完整研究阅读校正版',h);self.assertIn('历史原文',h)
+        self.assertEqual(c['research_text'],result['raw_model_text'])
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

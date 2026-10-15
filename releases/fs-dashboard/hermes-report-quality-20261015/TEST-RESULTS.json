@@ -1,9 +1,9 @@
 {
-  "tests": 66,
+  "tests": 77,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
   "passed": true,
   "platform": "win32",
-  "scope": "32 report, 11 publisher boundary, 23 existing consumers; correction of exact source ownership boundary selector"
+  "scope": "43 report semantic/content boundary tests (complete 154/79 locally, reduced projection fixtures in CI), 11 publisher, 23 existing consumers"
 }

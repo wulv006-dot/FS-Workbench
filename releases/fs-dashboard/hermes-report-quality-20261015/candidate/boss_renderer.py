@@ -43,7 +43,7 @@ def validate(c,e):
     model=c.get('business_model',{})
     if model.get('fulfillment')!='order_driven' or model.get('holds_inventory') is not False or model.get('supplier_settlement')!='monthly':
         raise ValueError('FC business model must be order-driven, no held inventory, monthly supplier settlement')
-    narrative=json.dumps({k:v for k,v in c.items() if k not in ['provenance','corrections','research_text']},ensure_ascii=False)
+    narrative=json.dumps({k:v for k,v in c.items() if k not in ['provenance','corrections','research_text','reviewed_research_text']},ensure_ascii=False)
     if re.search('扩库存|囤货|备库存|补库存|库存/可售|库存日志',narrative):
         raise ValueError('Inventory advice does not match the established FC business model')
     r=c['report'];p=r['period'];a=date.fromisoformat(p['start']);b=date.fromisoformat(p['end'])
@@ -230,10 +230,12 @@ def render(c,e):
         try:
             from report_html import markdown
         except ImportError:
-            research='<pre>'+esc(c['research_text'])+'</pre>'
+            research='<pre>'+esc(c.get('reviewed_research_text',c['research_text']))+'</pre>'
         else:
-            research=markdown(c['research_text'],e)
-        body+='<details class="research-body"><summary>完整研究正文</summary>'+research+'</details>'
+            research=markdown(c.get('reviewed_research_text',c['research_text']),e)
+        body+='<details class="research-body"><summary>完整研究阅读校正版</summary>'+research+'</details>'
+        if c.get('reviewed_research_text')!=c['research_text']:
+            body+='<details class="research-body"><summary>历史原文（未改写；请先看勘误）</summary><pre>'+esc(c['research_text'])+'</pre></details>'
     body+=section('02','平台与品类结构','<div class="two equal">'+chart_figure(charts['platform'])+chart_figure(charts['category'])+'</div><div class="hypothesis">'+''.join(f'<div><h3>{esc(h["title"])}</h3><p>{esc(h["text"])}</p><span class="source">{refs(h["evidence_ids"])}</span></div>' for h in c['hypotheses'])+'</div>')
     pay=table(['支付通道','对照期USD','本期USD','净变化USD'],[[x['label'],number(x['previous']),number(x['current']),signed(x['delta'])] for x in c['payment']])
     pay+='<p class="sub">'+esc(c.get('payment_note','成功交易金额不是支付成功率；缺少尝试与失败分母时不能判断通道故障。'))+'</p><span class="source">'+esc(r['source_policy'])+'。'+refs(c.get('payment_evidence_ids',[]))+'</span>'
@@ -243,7 +245,9 @@ def render(c,e):
     if 'amount-band' in charts:body+=chart_figure(charts['amount-band'])
     intel=''
     for x in c['intel']:
-        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(x["published_at"] or "未标注")}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3>{esc(x["title"])}</h3><p><b>已核实：</b>{esc(x["fact"])}</p><p><b>需求假设：</b>{esc(x["hypothesis"])}</p><p><b>可落地动作：</b>{esc(x["action"])}</p><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])}</span></div></article>'
+        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(x["published_at"] or "未标注")}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3>{esc(x["title"])}</h3><p><b>来源所述（待业务复核）：</b>{esc(x["fact"])}</p><p><b>需求假设：</b>{esc(x["hypothesis"])}</p><p><b>可落地动作：</b>{esc(x["action"])}</p><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])} {refs(x.get("evidence_ids",[]))}</span></div></article>'
+    for x in c.get('intel_pending',[]):
+        intel+='<article class="note"><strong>'+esc(x['title'])+'</strong><p>'+esc(x['fact'])+'</p><p>'+esc(x['reason'])+'</p>'+refs(x['evidence_ids'])+'</article>'
     body+=section('05','游戏与市场情报',intel+'<div class="note">'+esc(c.get('intel_note','情报按原来源、事件日期和适用窗口使用；缺少历史市场或同规格竞品数据时，不推断价格趋势。'))+'</div>')
     actions='' if c['actions'] else '<p class="empty">未识别独立行动条目；请复核完整原文，不将索引缺口当作没有建议。</p>'
     for a in c['actions']:

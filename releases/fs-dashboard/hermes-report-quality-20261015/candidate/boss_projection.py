@@ -5,7 +5,7 @@ from decimal import Decimal
 import hashlib
 import json
 import re
-from report_semantics import index, review_action
+from report_semantics import index, review_action, declared_comparison, intelligence, resource_cost
 
 
 def number(value):
@@ -76,25 +76,8 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
 def project(result, evidence, metadata, research_sha):
     period = result['period'];start, end = period['start'], period['end']
     kind, old_start, old_end = periods(period);old_start, old_end = old_start.isoformat(), old_end.isoformat()
-    comparison_basis='日报/周报同星期、月报上月、其他调查前一个等长窗的默认规则'
-    explicit=result.get('comparison_period')
-    if explicit is None:
-        # A title can declare investigation intent; it is not evidence for a claim.
-        headings=re.findall(r'(?m)^#\s+(.+)$',result.get('research_text') or result.get('raw_model_text',''))
-        matches=re.findall(r'对比[^\n]{0,20}?(\d{4}-\d{2}-\d{2}|\d{2}-\d{2})\s*[～~—至]\s*(\d{4}-\d{2}-\d{2}|\d{2}-\d{2})','\n'.join(headings))
-        if len(matches)==1:
-            a,b=matches[0]
-            try:
-                year=int(start[:4]);a=date.fromisoformat(a if len(a)==10 else str(year)+'-'+a);b=date.fromisoformat(b if len(b)==10 else str(year)+'-'+b)
-                if b>=date.fromisoformat(start) and all(len(v)==5 for v in matches[0]):
-                    a=a.replace(year=year-1);b=b.replace(year=year-1)
-                explicit={'start':a.isoformat(),'end':b.isoformat()}
-            except ValueError:pass
-    if explicit is not None:
-        a,b=(date.fromisoformat(explicit[k]) for k in ('start','end'))
-        if b<a or b>=date.fromisoformat(start):raise ValueError('invalid_comparison_period')
-        old_start,old_end=a.isoformat(),b.isoformat()
-        comparison_basis='报告明确声明的对照区间；仅以同口径冻结证据绘图，声明本身不证明经营结论'
+    explicit,comparison_basis,comparison_ambiguous=declared_comparison(result)
+    if explicit:old_start,old_end=explicit
     anchor = result['snapshot_id']
     def eligible(row):
         data = row.get('data', {})
@@ -120,7 +103,7 @@ def project(result, evidence, metadata, research_sha):
             except (KeyError,ValueError,TypeError,ArithmeticError):continue
         if len({(v[1],v[2],v[3].get('captured_at')) for v in candidates}) != 1:return None
         return candidates[0]
-    current, previous = total(start,end), total(old_start,old_end)
+    current, previous = total(start,end), None if comparison_ambiguous else total(old_start,old_end)
     if current and previous and current[3].get('captured_at')!=previous[3].get('captured_at'):previous=None
     captured = current[3]['captured_at'] if current else '未取得完整同口径汇总'
     ids = [v[0] for v in (current,previous) if v]
@@ -203,6 +186,7 @@ def project(result, evidence, metadata, research_sha):
                        'period':start+' — '+end,'as_of':captured,'interpretation':'本次冻结证据未形成完整可比系列，保留缺口。','note':'缺失不补零；原始证据可在附录查看。',
                        'rows':[],'evidence_ids':[],'labels':[old_start+' — '+old_end,start+' — '+end]})
     charts[4].update(period_basis='current_snapshot',snapshot_at='未取得当前存量证据',period='当前存量，未取得快照',labels=[])
+    observations={};observation_conflict=False
     # Combine complete date queries; reconcile both windows to independent totals.
     if current and previous:
         days=lambda lo,hi:[(date.fromisoformat(lo)+timedelta(days=i)).isoformat() for i in range((date.fromisoformat(hi)-date.fromisoformat(lo)).days+1)]
@@ -217,6 +201,10 @@ def project(result, evidence, metadata, research_sha):
                 if len(incoming)!=len(data['groups']) or set(incoming)!=set(days(q['start'],q['end'])):continue
                 if any(facts(g)[0]<0 for g in incoming.values()):continue
                 if (sum((facts(g)[0] for g in incoming.values()),Decimal(0)),sum((facts(g)[1] for g in incoming.values()),Decimal(0)))!=facts(data['total']):continue
+                for day in incoming:
+                    if old_start<=day<=end:
+                        if day in observations and facts(observations[day])!=facts(incoming[day]):observation_conflict=True
+                        observations[day]=incoming[day]
                 for day in wanted&set(incoming):
                     if day in values and facts(values[day])!=facts(incoming[day]):conflict=True
                     values[day]=incoming[day]
@@ -263,14 +251,15 @@ def project(result, evidence, metadata, research_sha):
     gaps=list(result.get('limitations',[]))+['目标基准沿用DY原版，未与本报告精确期间及字段闭合前不计算达成。','Order参考利润不是主站结算利润；当前未结池不是报告期末历史存量。','原始研究判断由Hermes产生，本版仅从同批证据排版，尚需业务复核。']
     if not current:gaps.append('本次证据没有可核平的同快照、同区间、主站完整支付汇总，指标保持缺失。')
     if not previous:gaps.append('未取得同口径对照期汇总，未计算涨跌。')
+    if comparison_ambiguous:gaps.append(comparison_basis)
     semantic=index(result,evidence)
     corrections=['本版独立保存；原始研究、原始老板版及冻结证据保持原字节。','索引提取不代表业务验证，建议均待复核、未下发或执行。']
-    reference,reference_gap=order_series(evidence,anchor,old_start,old_end,start,end)
+    reference,reference_gap=(None,comparison_basis) if comparison_ambiguous else order_series(evidence,anchor,old_start,old_end,start,end)
     if reference:charts[5].update(reference,note='全站上游参考日率，非主站结算利润；不与 Admin 销售额相乘，不当作成本或整周利润率。')
     else:gaps.append(reference_gap)
     context=[]
     for dimension,label in [('country','地域覆盖行'),('device','设备结构')]:
-        a,b=covered(dimension,old_start,old_end),covered(dimension,start,end)
+        a,b=(None if comparison_ambiguous else covered(dimension,old_start,old_end)),covered(dimension,start,end)
         if not a or not b:
             context.append({'label':label,'text':'未取得同口径可比覆盖行；与客户身份/复购缺口分开。','evidence_ids':[]});continue
         labels=set(a[0])&set(b[0])
@@ -290,6 +279,15 @@ def project(result, evidence, metadata, research_sha):
                              evidence_ids=charts[0]['evidence_ids'],interpretation='按完整同星期日序列定位变化；工作日与周末差额闭合，变化位置不证明原因。')
             if current[1]<previous[1] and weekend<0 and weekday>0:
                 corrections.append('周末负差额占净下降 '+format(-weekend/(previous[1]-current[1])*100,'.2f')+'%，工作日抵消 '+format(weekday/(previous[1]-current[1])*100,'.2f')+'%；原文若写数值100%应以此校正。')
+    rebound=False
+    if observations and not observation_conflict and re.search('连续回落|持续走低|连续下降',raw):
+        ordered=sorted(observations);peak=max(ordered,key=lambda day:number(observations[day]['orders']))
+        after=[d for d in ordered if d>=peak]
+        rebounds=[(a,b) for a,b in zip(after,after[1:]) if (date.fromisoformat(b)-date.fromisoformat(a)).days==1 and number(observations[b]['orders'])>number(observations[a]['orders'])]
+        if rebounds:
+            rebound=True
+            corrections.append('逐日证据存在反弹：'+'；'.join(a+' '+str(observations[a]['orders'])+' 单 → '+b+' '+str(observations[b]['orders'])+' 单' for a,b in rebounds)+'；撤回逐日连续下降的表述，整体变化不能证明节奏或需求机制。')
+    if re.search('sale_total|捆绑|数量堆叠',raw):corrections.append('商品 sale_total 与 order_count 接近并不能证明件数或排除多件/捆绑；字段定义、订单行、SKU规格及数量/优惠未闭合，相关原因保持未证。')
     replacements=[]
     if current and previous and current[2] and previous[2]:
         before,after=previous[1]/previous[2],current[1]/current[2]
@@ -311,7 +309,19 @@ def project(result, evidence, metadata, research_sha):
     if '若为纯提价' in raw:corrections.append('周末客单增幅不能排除纯提价；同 SKU 数量、优惠与组合未控制，客单不是单位售价。')
     if re.search(r'不是.{0,4}提价|提价导致失单.{0,120}不成立',raw,re.S):corrections.append('总客单或订单方向不能排除局部提价、折扣、规格与组合变化；原文“不是/不成立”应降为未证实，也不能据此认定反向因果。')
     def reviewed_text(text):
-        for a,b in replacements:text=text.replace(a,b)
+        for a,b in replacements:
+            # Bind correction to an explicit global AOV label, never a bare
+            # percentage also used by another metric or a named subgroup.
+            pattern=r'(?<![\w])((?:主站|总体|整体)?(?:客单价|客单|单均价)\s*(?:增幅|环比|变化)?\s*[:：]?\s*)'+re.escape(a)
+            text=re.sub(pattern,lambda m:m[1]+b,text)
+        if rebound and re.search('峰值|见顶',text):
+            text='\n\n'.join(re.sub('连续回落|持续走低|连续下降','整体回落、期间有反弹',block) if re.search('峰值|见顶',block) else block for block in text.split('\n\n'))
+            text+='（走势描述不能证明节奏或需求机制，仍待验证。）'
+        if re.search('单件高价|数量堆叠|未观察到多商品捆绑',text):
+            text+='（商品字段定义及订单行数量未闭合，不能据此排除多件或捆绑。）'
+            text=text.replace('（件数与订单数接近 1:1）','（字段原值接近；单位与粒度待核）')
+            text=text.replace('主要来自**单件高价商品**而非数量堆叠','可见高价商品行，但尚不能确认订单内件数或排除数量/组合影响')
+            text=text.replace('未观察到多商品捆绑痕迹','已见样本不足以排除多商品捆绑').replace('可见的是"单商品"购买','只观察到商品分组行，订单内商品构成未验证')
         text=text.replace('量降价升','单量下降、客单上升').replace('量缩价平','单量减少、客单基本持平').replace('量崩、价平','单量下降、客单略升')
         text=re.sub(r'不是["“]?提价失单["”]?，也不是["“]?降价换量["”]?','提价失单、降价换量均未获证实，也不能排除局部价格、规格或组合影响',text)
         text=re.sub(r'PS\s*头部商品当周末仍有\s*[\d,]+\s*单','PS 头部商品仅有整周销量，不能据此排除周末供给限制',text)
@@ -321,9 +331,10 @@ def project(result, evidence, metadata, research_sha):
         item=review_action(original);corrections.extend(item['review_notes'])
         actions.append({'id':'action-'+str(i+1),'priority':'待复核建议','title':item.get('target','待明确对象'),'role':item.get('role','责任人待明确'),'when':item.get('review_at','复查时间待明确'),
                         'trigger':item.get('condition','触发条件待明确'),'steps':item.get('action','行动待明确'),'metric':item.get('success_check','验收指标待明确'),
-                        'cost':'资源投入待评估','risk':item.get('cost_risk','需复核数据和业务约束')+'；提取不代表通过业务验证。',
+                        'cost':resource_cost(item),'risk':item.get('cost_risk','需复核数据和业务约束')+'；提取不代表通过业务验证。',
                         'stop':item.get('stop_condition','未给出停止条件；执行前需补齐'),'source_section':item.get('source_section','结构化行动字段'),
                         'evidence_ids':[x for x in item.get('evidence_ids',[]) if x in evidence]})
+    intel,intel_pending,intel_note=intelligence(result,evidence)
     blob=json.dumps(evidence,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
     return {'schema_version':'1.0','business_model':{'fulfillment':'order_driven','holds_inventory':False,'supplier_settlement':'monthly'},
             'report':{'id':anchor+'-boss-semantic-v2-'+start+'-'+end,'title':title,'subtitle':'同一研究任务 · 冻结证据 · 阅读校正版 v2','kind':kind,'filename':'FC27_boss_reviewed_v2_'+start+'_'+end+'.html',
@@ -339,9 +350,9 @@ def project(result, evidence, metadata, research_sha):
             'metrics':metrics,'charts':charts,'payment':payment,'payment_evidence_ids':payment_ids,
             'hypotheses':[dict(row,text=reviewed_text(row['text'])) for row in semantic['hypotheses']],'context':context,
             'finance':{'title':'利润与目标保持范围一致','basis':'不把全站参考利润乘主站销售额当作已结算利润或目标实绩。','next':'先补同范围成本、利润定义和目标版本，再判断达成。'},
-            'intel':[],'intel_note':'官方游戏热点/事件情报未开展：本任务未有已注册网页检索/读取工具形成的官方来源证据；不复用样板热点，不等于没有事件。',
+            'intel':intel,'intel_pending':intel_pending,'intel_note':intel_note,
             'actions':actions,'timeline':[dict(row) for row in result.get('timeline',[]) if isinstance(row,dict) and all(isinstance(row.get(k),str) for k in ('date','text'))],
             'decisions':[dict(row,**{k:row.get(k) or '待补：'+k for k in ('topic','status','recommended','alternative','tradeoff')}) for row in result.get('decisions',[]) if isinstance(row,dict)],
             'gaps':gaps,'corrections':list(dict.fromkeys(corrections)),
-            'research_text':semantic['research_text'],'research_url':'https://47.85.224.112/dashboard/fs-home/brain/index.html#reports',
+            'research_text':semantic['research_text'],'reviewed_research_text':reviewed_text(semantic['research_text']),'research_url':'https://47.85.224.112/dashboard/fs-home/brain/index.html#reports',
             'provenance':{'evidence_count':len(evidence),'scope':'本任务冻结公开证据；原研究文件保持原字节','research_html_sha256':research_sha,'package_sha256':hashlib.sha256(blob).hexdigest()}}

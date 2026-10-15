@@ -50,10 +50,51 @@ def refs(text, evidence):
 
 
 def sections(text):
-    headings = list(re.finditer(r"(?m)^#{1,2}\s+(.+)$", text))
-    return [{"heading": m[1], "text": text[m.end():headings[i+1].start() if i+1 < len(headings) else len(text)].strip(),
-             "line": text.count("\n", 0, m.start())+1}
-            for i, m in enumerate(headings)]
+    headings=list(re.finditer(r'(?m)^(#{1,6})\s+(.+?)\s*#*$',text));parts=[];parents=[]
+    for i,m in enumerate(headings):
+        level=len(m[1])
+        while parents and parents[-1][0]>=level:parents.pop()
+        parts.append({'heading':m[2],'text':text[m.end():headings[i+1].start() if i+1<len(headings) else len(text)].strip(),
+                      'line':text.count('\n',0,m.start())+1,'level':level,'parents':[v[1] for v in parents]})
+        parents.append((level,m[2]))
+    return parts
+
+
+def declared_comparison(result):
+    """Read declared intent; ambiguous declarations must not select another window."""
+    from datetime import date
+    period=result['period'];start=date.fromisoformat(period['start'])
+    explicit=result.get('comparison_period')
+    if explicit is None and any(k in period for k in ('comparison_start','comparison_end')):
+        explicit={'start':period.get('comparison_start'),'end':period.get('comparison_end')}
+    if explicit is not None:
+        try:
+            a,b=(date.fromisoformat(explicit[k]) for k in ('start','end'))
+            if b<a or b>=start:raise ValueError('invalid_comparison_period')
+        except (KeyError,TypeError,ValueError):raise ValueError('invalid_comparison_period') from None
+        return (a.isoformat(),b.isoformat()),'结构化报告明确声明的对照区间',False
+    text=result.get('research_text') or result.get('raw_model_text','')
+    declarations=[];pairs=[];invalid=False
+    label=r'(?:对比|环比|对照)(?:期|窗(?:口)?)?'
+    token=r'(\d{4}-\d{2}-\d{2}|\d{2}-\d{2})'
+    for line in text.splitlines():
+        stripped=line.lstrip()
+        if not (stripped.startswith('#') or re.match(r'(?:\*\*)?'+label+r'\s*[:：]',stripped)):continue
+        for m in re.finditer(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,line):
+            declarations.append(m[0]);a,b=m[1],m[2]
+            try:
+                year=start.year
+                if len(a)==len(b)==5 and start.month<=2 and int(a[:2])>=11:year-=1
+                a=date.fromisoformat(a if len(a)==10 else str(year)+'-'+a)
+                b=date.fromisoformat(b if len(b)==10 else str(year)+'-'+b)
+                if b<a or b>=start:raise ValueError('invalid_comparison_period')
+                pairs.append((a.isoformat(),b.isoformat()))
+            except ValueError:invalid=True
+        if re.search(r'(?:对比|环比|对照)(?:期|窗(?:口)?|\s*[:：]|\s*(?:上周|前|待定|未知|\d))',stripped) and not re.search(label+r'[^\d\n]{0,24}?'+token+r'\s*(?:～|~|—|–|至|到)\s*'+token,line):invalid=True
+    unique=set(pairs)
+    if invalid or len(unique)>1:return None,'原文对照声明有歧义或日期不完整；未擅自使用默认窗口',True
+    if unique:return next(iter(unique)),'原文明确声明的对照区间；声明不是经营证据',False
+    return None,'日报/周报同星期、月报上月、其他调查前一个等长窗的默认规则',False
 
 
 def blocks(text):
@@ -73,49 +114,110 @@ def inline_field(text, name, default):
     return plain(match[1]) if match else default
 
 
+def intelligence(result,evidence):
+    """Keep actual source-backed intel; isolate unverified model assertions visibly."""
+    from datetime import date,datetime
+    from urllib.parse import urlsplit
+    def strings(value):
+        if isinstance(value,str):return {value}
+        if isinstance(value,dict):return set().union(*(strings(v) for v in value.values())) if value else set()
+        if isinstance(value,list):return set().union(*(strings(v) for v in value)) if value else set()
+        return set()
+    accepted=[];pending=[]
+    for row in result.get('intel',[]):
+        if not isinstance(row,dict):continue
+        ids=[i for i in row.get('evidence_ids',[]) if i in evidence]
+        facts=set().union(*(strings(evidence[i]) for i in ids)) if ids else set()
+        url=row.get('url','');stamp=row.get('retrieved_at','')
+        try:
+            parsed=urlsplit(url);at=datetime.fromisoformat(stamp.replace('Z','+00:00'))
+            times=[]
+            for value in facts:
+                if len(value)<=40 and re.match(r'^\d{4}-\d{2}-\d{2}T',value):
+                    try:times.append(datetime.fromisoformat(value.replace('Z','+00:00')))
+                    except ValueError:pass
+            if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or at.tzinfo is None or url not in facts or at not in times:raise ValueError('unbound_source_time')
+        except (ValueError,TypeError,AttributeError):
+            pending.append({'title':str(row.get('title','情报条目')),'fact':str(row.get('fact','')),'reason':'缺可核验来源/读取时间或未逐项绑定实际证据，待补','evidence_ids':ids});continue
+        item={k:str(row.get(k) or '待补') for k in ('title','fact','hypothesis','action','source','published_at','event_at','applies')}
+        item.update(url=url,retrieved_at=stamp,evidence_ids=ids,window='事件时间与适用性待复核')
+        # Publication time and event time have different meanings. Never date an
+        # event from a later retrospective publication.
+        event=row.get('event_at','')
+        if event and event in facts:
+            try:
+                day=date.fromisoformat(event[:10]);end=date.fromisoformat(result['period']['end'])
+                item['window']='期后事件：仅作未来观察' if day>end else '事件日期不晚于报告期末；适用性待复核'
+            except ValueError:pass
+        accepted.append(item)
+    if accepted:note='已有 '+str(len(accepted))+' 条来源和读取时间可追溯的情报；发布/事件时间分别使用，内容与经营机制仍待复核。'
+    else:note='本次未取得可核验的外部情报证据；未开展、工具失败或字段缺口以原研究记录为准，缺口不等于没有事件。'
+    if pending:note+=' 另有 '+str(len(pending))+' 条原报告情报待补证，保留如下，不能当作已核实事实。'
+    return accepted,pending,note
+
+
+def resource_cost(item):
+    if item.get('cost'):return item['cost']
+    match=re.search(r'(?:约\s*)?\d+(?:\.\d+)?(?:[~～–—-]\d+(?:\.\d+)?)?\s*人日',item.get('cost_risk',''))
+    return match[0] if match else '待补：原文未单列资源投入'
+
+
 def markdown_actions(parts, evidence):
-    actions = []
+    actions=[]
+    area=re.compile(r'建议|行动|Actions|Recommendations',re.I)
+    def proposed(value):
+        return bool(re.match(r'^(?:建议\s*[:：]?\s*)?(?:核查|核对|复核|验证|补充|读取|检查|抽查|跟踪|建立|记录|比对|确认|调查|收集|对.+进行)',plain(value)))
+    def emit(target,body,full,location,explicit=None):
+        action=explicit or field(body,['最小动作','动作','建议动作'],None)
+        if not action:return
+        target=re.sub(r'^[RA]\d+[\s｜|:：.]*','',plain(target)).strip('* ｜|:：')
+        target=re.sub(r'^[（(].*?[）)]\s*[｜|]?\s*','',target)
+        target=re.sub(r'^对象[:：]\s*','',target)
+        target=re.sub(r'[（(]角色\s*[:：].*?[）)]\s*$','',target).strip()
+        actions.append({'target':field(body,['对象'],target or '待补：对象'),'action':action,
+            'condition':field(body,['触发条件','触发','条件'],'待补：触发条件'),
+            'cost_risk':field(body,['成本/风险','投入/风险','风险','风险提示','投入'],'待补：成本/风险'),
+            'review_at':field(body,['复查时间','何时复查','复查'],'待补：复查日期'),
+            'success_check':field(body,['复查标准','成功标准','验收指标'],inline_field(body,'成功','待补：成功/失败标准')),
+            'stop_condition':field(body,['停止条件','停止'],inline_field(body,'停止','待补：停止条件')),
+            'role':field(body,['责任角色','负责人'],inline_field(full,'角色','待补：责任角色')),
+            'evidence_ids':refs(full,evidence),'source_section':location,'original_text':full.strip()})
     for part in parts:
-        title = plain(part["heading"])
-        if not re.search(r"建议|行动|Actions|Recommendations", title, re.I) or re.search(r"缺口|Gap", title, re.I):
-            continue
-        text = part["text"]
-        marks = list(re.finditer(r"(?m)^(?:#{2,4}\s*)?(?:\*\*)?([RA]\d+)(?=[（(｜|:： .])([^\n]*)", text))
-        for i, mark in enumerate(marks):
-            body = text[mark.end():marks[i+1].start() if i+1 < len(marks) else len(text)]
-            body = re.split(r"(?m)^\*\*R\d+[–—-]R?\d+", body)[0]
-            body = body.split("\n|", 1)[0]
-            target = plain(mark[2]).strip("* ｜|:：")
-            target = re.sub(r"^[（(].*?[）)]\s*[｜|]?\s*", "", target)
-            target = re.sub(r"^对象[:：]\s*", "", target)
-            target = re.sub(r'[（(]角色\s*[:：].*?[）)]\s*$','',target).strip()
-            full = mark[0]+body
-            actions.append({"target": target or mark[1], "action": field(body, ["最小动作", "动作", "建议动作"], plain(body)),
-                            "condition": field(body, ["触发条件", "触发", "条件"], "待补：触发条件"),
-                            "cost_risk": field(body, ["成本/风险", "风险", "风险提示", "投入"], "待补：成本/风险"),
-                            "review_at": field(body, ["复查时间", "何时复查", "复查"], "待补：复查日期"),
-                            "success_check": field(body, ["复查标准", "成功标准", "验收指标"], inline_field(body,'成功','待补：成功/失败标准')),
-                            "stop_condition": field(body, ["停止条件", "停止"], inline_field(body,'停止','待补：停止条件')),
-                            "role": field(body, ["责任角色", "负责人"], inline_field(full,'角色','待补：责任角色')),
-                            "evidence_ids": refs(full, evidence), "source_section": title+" / "+mark[1], "original_text": full.strip()})
-        headers = None
+        title=plain(part['heading']);context=' / '.join([*part.get('parents',[]),title]);text=part['text']
+        if not (area.search(context) or re.match(r'^[RA]\d+\b',title)) or re.search(r'缺口|Gap',title,re.I):continue
+        location=context+' / 行'+str(part['line'])
+        marks=list(re.finditer(r'(?m)^(?:\*\*)?([RA]\d+)(?=[（(｜|:： .])([^\n]*)',text))
+        for i,mark in enumerate(marks):
+            body=text[mark.end():marks[i+1].start() if i+1<len(marks) else len(text)]
+            body=re.split(r'(?m)^\*\*[RA]\d+[–—-][RA]?\d+',body)[0].split('\n|',1)[0]
+            emit(mark[2],body,mark[0]+body,location+' / '+mark[1],field(body,['最小动作','动作','建议动作'],plain(body) or None))
+        headers=None;table=False
         for line in text.splitlines():
-            if not line.strip().startswith("|"):
-                headers = None
-                continue
-            cells = [plain(x) for x in line.strip().strip("|").split("|")]
-            if all(re.fullmatch(r"[:\-\s]+", x or "-") for x in cells):
-                continue
-            if "对象" in cells and "动作" in cells:
-                headers = cells
-                continue
-            if not headers or len(cells) != len(headers):
-                continue
-            row = dict(zip(headers, cells))
-            actions.append({"target": row["对象"], "action": row["动作"], "condition": row.get("触发/复查", "原文未明确"),
-                            "cost_risk": row.get("风险提示", "原文未明确"), "review_at": "原文未明确复查日期",
-                            "success_check": row.get("触发/复查", "原文未明确"), "stop_condition": "原文未明确停止条件，执行前补齐",
-                            "role": "责任角色待确认", "evidence_ids": refs(line, evidence), "source_section": title+" / 表格", "original_text": line})
+            if not line.strip().startswith('|'):headers=None;continue
+            cells=[plain(x) for x in line.strip().strip('|').split('|')]
+            if all(re.fullmatch(r'[:\-\s]+',x or '-') for x in cells):continue
+            if '对象' in cells and '动作' in cells:headers=cells;continue
+            if not headers or len(cells)!=len(headers):continue
+            row=dict(zip(headers,cells));table=True
+            body='\n'.join(k+'：'+v for k,v in {'对象':row['对象'],'动作':row['动作'],
+                '条件':row.get('触发/复查','待补：触发条件'),'风险':row.get('风险提示','待补：成本/风险'),
+                '成功标准':row.get('触发/复查','待补：成功/失败标准')}.items())
+            emit(row['对象'],body,line,location+' / 表格')
+        if marks or table:continue
+        direct=field(text,['最小动作','动作','建议动作'],None)
+        if direct:emit(title,text,title+'\n'+text,location,direct);continue
+        heading=re.sub(r'^(?:[RA]\d+|\d+[.、])\s*','',title)
+        heading=re.sub(r'^(?:建议|行动)\s*[:：]\s*','',heading)
+        if proposed(heading):emit(title,text,title+'\n'+text,location,heading);continue
+        # Only imperative list items or paragraphs in an explicitly labelled
+        # action section are proposals. Descriptive observations stay narrative.
+        items=[m for m in re.finditer(r'(?m)^\s*(?:[-*]|\d+[.、])\s+([^\n]+)',text) if proposed(m[1])]
+        for i,m in enumerate(items):
+            body=text[m.end():items[i+1].start() if i+1<len(items) else len(text)]
+            emit(m[1],body,m[0]+body,location,plain(m[1]))
+        if not items:
+            for block in re.split(r'\n\s*\n',text):
+                if proposed(block):emit(title,block,block,location,plain(block))
     return actions
 
 
@@ -124,7 +226,7 @@ def index(result, evidence):
     parts = sections(text) if not text.lstrip().startswith(("{", "```json")) else []
     findings = []
     for part in parts:
-        if re.search(r"关键判断|核心结论|结论先行|主要发现|核心判断|执行摘要|Key findings|Executive summary", part["heading"], re.I):
+        if re.search(r"关键判断|核心结论|结论先行|主要发现|核心判断|执行摘要|Key findings|Executive summary", ' / '.join([*part.get('parents',[]),part['heading']]), re.I):
             findings += [{"statement": value, "claim_type": "unreviewed", "evidence_ids": refs(value, evidence), "source_section": part["heading"]}
                          for value in blocks(part["text"])]
     typed=[dict(row,evidence_ids=[x for x in row.get('evidence_ids',[]) if isinstance(x,str) and x in evidence]) for row in result.get('findings',[])
