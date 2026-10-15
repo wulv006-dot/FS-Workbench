@@ -116,6 +116,11 @@ class TemporaryProfitPolicy(unittest.TestCase):
         for text in ('14,448.12','14,709.61','非实际结算','26.31%','23.09%','order.p2pah.cn','渠道完整性未知'):
             self.assertIn(text,h)
 
+    def test_estimate_rows_do_not_replace_the_report_title_period(self):
+        h=render(self.content(),self.evidence)
+        import re
+        self.assertTrue(re.search(r'<title>(.*?)</title>',h)[1].endswith('2026-10-13—2026-10-14'))
+
     def test_native_record_selected_by_actual_system_not_primary_label(self):
         records=self.records();record=records.pop('primary');records['supplement']=record
         records['primary']={'system':'admin.p2pah.cn','status':'available','metrics':{'profitMarginPct':{'status':'available','unit':'percent','value':99}}}
