@@ -12,8 +12,8 @@ def module(name,path):
     return value
 
 renderer=module('review_compat_renderer',HERE/'source/report_html.py')
-for package in ('hermes_market_sources_20261015','hermes-market-sources-20261015'):
-    path=ROOT/package/'regression/report_html.py'
+for relative in ('hermes_market_sources_20261015/regression/report_html.py','hermes-fc-pilot-20261013/report_html.py'):
+    path=ROOT/relative
     if path.is_file():
         baseline=module('review_compat_baseline',path);break
 else:raise FileNotFoundError('market sources regression/report_html.py')
