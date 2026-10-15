@@ -73,8 +73,8 @@
       "candidate": "research/runtime/boss_renderer.py",
       "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
       "beforeSha256": "1a7943018ea84b0887ca62b38712ee41cfa6dc09be5cd698697e20817823ef15",
-      "sha256": "0619e4cc36c4a7347d039ba34cecb4fb80905c44fa7e50bdb8c8140d9c147394",
-      "bytes": 46497
+      "sha256": "882437d02436c461e66eefa28adfecaf73cd3145960504d18b4e8e917994ef21",
+      "bytes": 46516
     },
     {
       "source": "visual/report_semantics.py",
