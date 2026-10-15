@@ -1,0 +1,33 @@
+{
+  "_说明": "**示例文件**：复制为 config.json 后填入真实值。token = Discord Bot Token（本文件与版本库都不放真值）；guildId = MMOEXP Official Club 的服务器 ID；dryRun=true 只记录不处置，确认规则无误后再改 false 上线。",
+  "token": "PUT_YOUR_BOT_TOKEN_HERE",
+  "guildId": "000000000000000000",
+  "action": "ban",
+  "timeoutMinutes": 10080,
+  "_dryRun说明": "true = 只记录不处置。规则由老板确认后再改 false 上线。",
+  "dryRun": true,
+  "matchMode": "loose",
+  "brandPattern": "^(?:the)?(?:mm[o0]+)exp([a-z0-9]*)$",
+  "extraStartsWith": [],
+  "whitelistRoleIds": [
+    "000000000000000000",
+    "000000000000000000",
+    "000000000000000000",
+    "000000000000000000",
+    "000000000000000000",
+    "000000000000000000"
+  ],
+  "whitelistUserIds": [],
+  "logChannelId": "",
+  "alertOnWhitelistedHit": false,
+  "kickReason": "Impersonation of the Official MMOEXP Name",
+  "banReason": "Impersonation of the Official MMOEXP Name",
+  "_matchMode说明": "strict=品牌词后必须是空/纯数字/官方类后缀；loose=只要名字开头是品牌词就算（2026-10-14 按老板要求切换）。",
+  "brandTokenMatch": true,
+  "brandCore": "mmoexp",
+  "brandTokenFuzzy": 1,
+  "_brandTokenMatch说明": "★ 片段式匹配：名字里出现『独立的』品牌词片段即命中（品牌词不在开头也能抓），如 nick.mmoexp / service_mmoexp。只认被分隔符隔开的独立片段，粘连名（mmoexpert / mmoexpfan）不误伤。",
+  "_brandCore说明": "片段匹配时比对的品牌词本体。",
+  "_brandTokenFuzzy说明": "片段匹配的拼写容错：0=只认完全一致；1=允许少一个字母 / 换一个字母（如 service_mmoex 少个 p）；2=允许 2 个字符差异（不建议）。",
+  "_whitelistRoleIds说明": "免死身份组：Admin（管理）/ MMOEXP_Official_Player（官方客服）/ Bot · MEE6 · Query_Invite_Member · MMOEXP_BOT（机器人）。其余任何人，只要名字命中冒充规则，就按 action 处置。"
+}

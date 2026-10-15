@@ -1,0 +1,23 @@
+# MMOEXP GuardBot（Discord 防冒充守卫）—— 2026-10-15 纳入版本管理。
+# 原则：源码与规则口径入仓；**凭据、运行时状态、依赖目录一律不入仓**。
+
+# ===== 凭据：绝不入库 =====
+# config.json 含 Bot Token（线上权限 600），与仓库根 `**/config.json*` 同口径：
+# 只留服务器副本，入仓的是 config.example.json。
+config.json
+
+# whitelist.json 是控制台在运行时改写的免死名单（控制台改一次写一次），
+# 属**运行时状态**不是源码；且其内容可由 config.json 的 whitelistRoleIds
+# 兜底合并（index.js loadConfig 对缺文件有 try/catch，首次运行缺文件是正常路径）。
+# 入仓的是 whitelist.example.json。
+whitelist.json
+
+# ===== 依赖与运行产物 =====
+node_modules/
+npm-debug.log*
+
+# ===== 服务器排障用的手工备份与旧版快照 =====
+_bak_*
+*.bak
+*.bak.*
+*.bak-*
