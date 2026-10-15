@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import hashlib
 import importlib.util
 import unittest
+from unittest.mock import patch
 
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('market_publisher',HERE/'publisher/release_navigation.py')
@@ -47,6 +48,15 @@ class ReleaseTests(unittest.TestCase):
     def test_new_file_must_be_absent_and_source_pinned(self):
         m=deepcopy(self.manifest);next(r for r in m['files'] if r['candidate'] in publisher.HERMES_MARKET_NEW)['beforeSha256']='b'*64
         with self.assertRaises(ValueError):publisher.validate(m,self.stage)
+
+    def test_release_stops_old_admission_holder_before_new_processes(self):
+        events=[]
+        class Fence:
+            def stop_then_unlock_database(self):events.append('old_process_stopped_database_unlocked')
+        restart=publisher.restart_for
+        with patch.object(publisher,'restart_for',side_effect=lambda m,*a:events.append(m['scope'])):
+            restart(self.manifest,Fence())
+        self.assertEqual(events,['old_process_stopped_database_unlocked',publisher.HERMES_WORKER_SCOPE,publisher.DEEP_SCOPE])
         m=deepcopy(self.manifest);m.pop('sourceCommit')
         with self.assertRaises(ValueError):publisher.validate(m,self.stage)
 
