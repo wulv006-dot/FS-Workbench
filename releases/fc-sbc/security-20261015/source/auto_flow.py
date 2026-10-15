@@ -97,6 +97,12 @@ class AutoSettings:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(name, self.path)
+            if os.name == "posix":
+                directory = os.open(str(self.path.parent), os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
         finally:
             if os.path.exists(name):
                 os.unlink(name)

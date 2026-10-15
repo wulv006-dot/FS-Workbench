@@ -1722,6 +1722,12 @@ def _save_delist_receipts(receipts) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(name, DELIST_RECEIPTS)
+        if os.name == "posix":
+            directory = os.open(str(DELIST_RECEIPTS.parent), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
     finally:
         if os.path.exists(name):
             os.unlink(name)
