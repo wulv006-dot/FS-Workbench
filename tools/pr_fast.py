@@ -142,6 +142,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
+        raise RuntimeError('SBC security checks missing')
     if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
         raise AssertionError('report track release must run affected checks')
     if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
@@ -265,6 +267,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-sbc/security-20261015/"):
+            groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
             groups.add("fs-ui-system");continue
@@ -643,6 +647,8 @@ def main():
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation","test_intel_selection"])
             node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
+        elif group=="fc-sbc-security":
+            units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
         elif group=="hermes-report-tracks":
             units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
             node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
