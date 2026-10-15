@@ -5,11 +5,22 @@ from business_context import read_desktop_context
 import importlib.util
 import json
 import hashlib
+import ast
+import re
 from datetime import date, timedelta
 from types import SimpleNamespace
 
 
 class ContextTest(unittest.TestCase):
+    def test_actual_ssh_key_validator_accepts_compatible_formats(self):
+        tree = ast.parse((Path(__file__).parent / 'configure_access.py').read_text(encoding='utf-8'))
+        call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'fullmatch')
+        pattern = ast.literal_eval(call.args[0])
+        for key in ('ssh-rsa ' + 'A' * 560, 'ssh-ed25519 ' + 'A' * 68):
+            self.assertIsNotNone(re.fullmatch(pattern, key))
+        for key in ('unknown ' + 'A' * 68, 'ssh-rsa AAA\ninjected', 'ssh-rsa ' + 'A' * 1001):
+            self.assertIsNone(re.fullmatch(pattern, key))
+
     def test_freeze_update_missing_and_size(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--public-key', type=Path, required=True)
 args = parser.parse_args()
 public = args.public_key.read_text().strip()
-if not re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/=]{50,100}(?: [^\r\n]{0,100})?', public):
+if not re.fullmatch(r'(?:ssh-ed25519|ssh-rsa) [A-Za-z0-9+/=]{50,1000}(?: [^\r\n]{0,100})?', public):
     raise ValueError('expected_desktop_public_key')
 name = 'fs-hermes-desktop'
 try:

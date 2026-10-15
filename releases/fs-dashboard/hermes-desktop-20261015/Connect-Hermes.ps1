@@ -6,6 +6,7 @@ $token=Join-Path $access 'token'
 $known=Join-Path $workspace 'server_187/access/known_hosts'
 $desktop=Join-Path $env:LOCALAPPDATA 'hermes/hermes-agent/apps/desktop/release/win-unpacked/Hermes.exe'
 foreach($path in @($identity,$token,$known,$desktop)){if(-not(Test-Path -LiteralPath $path)){throw "Missing connection file: $path"}}
+if((Get-Service ssh-agent).Status -ne 'Running'){Start-Service ssh-agent}
 $port=19442
 $connection=Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
 if(-not $connection){
