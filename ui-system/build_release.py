@@ -1,9 +1,13 @@
 from pathlib import Path
 import json,re,hashlib,shutil,tarfile
-R=Path(__file__).resolve().parents[1];W=R.parent;U=R/'ui-system';OLD=R/'releases/fs-dashboard/menu-cache-20261015/native';D=R/'releases/fs-dashboard/ui-system-20261015';D.mkdir(parents=True,exist_ok=True)
+R=Path(__file__).resolve().parents[1];W=R.parent;U=R/'ui-system';OLD=R/'releases/fs-dashboard/menu-cache-20261015/native';D=None
 sha=lambda b:hashlib.sha256(b).hexdigest()
 import argparse
-parser=argparse.ArgumentParser();parser.add_argument('--release-id');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--release-id');parser.add_argument('--output',required=True,help='New empty staging directory, never a historical release directory');args=parser.parse_args()
+D=Path(args.output).resolve()
+if D.exists():raise SystemExit('Output already exists; historical releases are immutable')
+if D==R or R in D.parents:raise SystemExit('Build outside the repository; review before importing a new release')
+D.mkdir(parents=True)
 oldid='workspace-native-20261006-fd4cfd0a70aa';rid=args.release_id or 'workspace-native-20261006-'+sha(Path(__file__).read_bytes()+b''.join(p.read_bytes() for p in sorted(U.rglob('*')) if p.is_file() and '__pycache__' not in str(p)))[:12]
 assert re.fullmatch(r'workspace-native-20261006-[a-f0-9]{12}',rid)
 rooturl='/dashboard/workspace-assets/'+rid+'/';oldurl='/dashboard/workspace-assets/'+oldid+'/'
@@ -61,7 +65,7 @@ for row in old['immutableAssets']:
  if (OLD/row['candidate']).exists():m['unchangedRequired'].append({'path':row['target'],'sha256':row['sha256']})
 raw=(json.dumps(m,ensure_ascii=False,indent=2)+'\n').encode();(N/'release-contract.json').write_bytes(raw)
 ready={**m,'releaseReady':True};(N/'release-manifest.json').write_text(json.dumps(ready,ensure_ascii=False,indent=2)+'\n')
-s=(OLD/'release_workspace.py').read_text();s=re.sub(r'^NAMES = .*$', 'NAMES = '+repr(names),s,flags=re.M);s=re.sub(r"CONTRACT_SHA = '[a-f0-9]+'", "CONTRACT_SHA = '"+sha(raw)+"'",s);(N/'release_workspace.py').write_text(s)
+s=(OLD/'release_workspace.py').read_text();s=re.sub(r'^NAMES = .*$', 'NAMES = set('+repr(sorted(names))+')',s,flags=re.M);s=re.sub(r"CONTRACT_SHA = '[a-f0-9]+'", "CONTRACT_SHA = '"+sha(raw)+"'",s);(N/'release_workspace.py').write_text(s)
 shutil.copy2(U/'publishers/native_bridge.py',N/'release_navigation.py')
 # Separate, bounded shared-navigation release; no auth/worker/timer updates.
 S=D/'shared';(S/'candidate/ui').mkdir(parents=True,exist_ok=True)
@@ -75,5 +79,5 @@ scope='fs-ui-system-20261015'
 shutil.copy2(U/'publishers/shared_bridge.py',S/'release_navigation.py')
 m={'schemaVersion':1,'scope':scope,'releaseReady':True,'businessWrites':False,'timersChanged':False,'runtimeRequired':{},'files':[{'candidate':n,'target':t,'beforeSha256':baselines[t],'sha256':sha((S/'candidate'/n).read_bytes())} for n,t in targets.items()],'unchangedRequired':[{'path':'/var/www/dashboard/index.html','sha256':old['requiredBusinessLedger']['sha256']}]+[{'path':x['target'],'sha256':x['sha256']} for x in ready['immutableAssets'] if x['candidate'].startswith('assets/ui/')]}
 (S/'approved-manifest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
-(W/'release-info.json').write_text(json.dumps({'releaseId':rid,'nativeManifest':sha((N/'release-manifest.json').read_bytes()),'sharedManifest':sha((S/'approved-manifest.json').read_bytes()),'assets':len(names)},indent=2))
-print((W/'release-info.json').read_text())
+(D/'release-info.json').write_text(json.dumps({'releaseId':rid,'nativeManifest':sha((N/'release-manifest.json').read_bytes()),'sharedManifest':sha((S/'approved-manifest.json').read_bytes()),'assets':len(names)},indent=2))
+print((D/'release-info.json').read_text())
