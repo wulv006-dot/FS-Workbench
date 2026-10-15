@@ -1,0 +1,4 @@
+{
+  "admin": {"username": "后台账号", "password": "密码"},
+  "order": {"username": "订单后台账号", "password": "密码"}
+}
