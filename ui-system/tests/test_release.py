@@ -66,10 +66,10 @@ if __name__=='__main__':unittest.main()
 
 class FollowupReleaseContract(unittest.TestCase):
  def test_followup_manifests(self):
-  for name,count in [('navfix',1),('module-polish',5),('contrastfix',1),('legacy-isolation',1)]:
+  for name,count in [('navfix',1),('module-polish',5),('contrastfix',1),('legacy-isolation',1),('home-cards',1)]:
    p=D/name;m=json.loads((p/'approved-manifest.json').read_text());pub=mod('publisher_'+name.replace('-','_'),p/'release_navigation.py')
    self.assertEqual(len(pub.validate(m,p)),count)
    for row in m['files']:self.assertEqual(sha(p/'candidate'/row['candidate']),row['sha256'])
  def test_pricing_labels_and_final_source(self):
   s=(ROOT/'ui-system/adapters/hubnav.js').read_text();self.assertIn('.automation-grid>label',s)
-  self.assertEqual(s.replace('__FS_UI_ROOT__','/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/'),(D/'legacy-isolation/candidate/ui/hubnav.js').read_text())
+  self.assertEqual(s.replace('__FS_UI_ROOT__','/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/'),(D/'home-cards/candidate/ui/hubnav.js').read_text())

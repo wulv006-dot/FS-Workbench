@@ -53,6 +53,28 @@ addEventListener('storage',event=>{if(event.key===menuEpochSlot||event.key===nul
  async function probe(path){return menuAccess(path,'text/html',()=>probePath(path));}
  async function probePath(path){try{let r=await fetch(path,{method:'HEAD',credentials:'same-origin',cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(10000)});if([404,405,501].includes(r.status))r=await fetch(path,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(10000)});return r.status===200&&!r.redirected&&r.headers.get('content-type')?.includes('text/html');}catch{return false;}}
  function matches(path){const url=new URL(path,location.origin),current=new URL(location.href);if(url.searchParams.has('report_kind'))return current.pathname===url.pathname&&current.searchParams.get('report_kind')===url.searchParams.get('report_kind');return current.pathname===url.pathname||(url.pathname.endsWith('/')&&current.pathname.startsWith(url.pathname));}
+
+ // Homepage shortcut cards share the native card structure and existing permission probes.
+ let homeCardsObserver=null;
+ function clearHomeCards(){homeCardsObserver?.disconnect();homeCardsObserver=null;document.querySelectorAll('[data-fs-home-shortcut]').forEach(e=>e.remove());}
+ function mountHomeCards(user,tools){
+  clearHomeCards();
+  if(!['/dashboard/','/dashboard/fs-home/index.html'].includes(location.pathname))return;
+  const grid=document.getElementById('workspaces');if(!grid)return;
+  function place(){
+   if(stopped||currentUser?.name!==user.name)return;
+   let after=grid.querySelector('.workspace-card.arpg');if(!after)return;
+   for(const id of ['management','game-monitor']){
+    const tool=tools.find(t=>t.id===id);if(!tool?.available)continue;
+    let card=grid.querySelector('[data-fs-home-shortcut="'+id+'"]');
+    if(!card){card=element('article',null,'workspace-card '+id);card.dataset.fsHomeShortcut=id;const a=link('',tool.path,'workspace-main');
+     a.append(element('span',id==='management'?'◎':'◷','workspace-icon'),element('h3',id==='management'?'经营管理台':'游戏监控台'),element('p',id==='management'?'查看项目目标、完成进度与经营分析。':'查看游戏情报、活跃节点与更新倒计时。'),element('span','进入工作区 →','entry'));card.append(a);}
+    if(after.nextElementSibling!==card)after.after(card);after=card;
+   }
+  }
+  place();homeCardsObserver=new MutationObserver(place);homeCardsObserver.observe(grid,{childList:true});
+ }
+
  function render(user,tools){
   const homeLink=link('首页','/dashboard/','hn-home');if(['/dashboard/','/dashboard/fs-home/index.html'].includes(location.pathname))homeLink.setAttribute('aria-current','page');tree.replaceChildren(homeLink);
   for(const section of registry.sections.filter(s=>!['game-monitor','management'].includes(s.id))){
@@ -71,9 +93,9 @@ addEventListener('storage',event=>{if(event.key===menuEpochSlot||event.key===nul
   tree.append(account);
   const themeLabel=element('label','显示主题','hn-theme'),selector=element('select');selector.dataset.fsThemeControl='';selector.setAttribute('aria-label','全站显示主题');
   for(const [v,t] of [['light','浅色'],['dark','深色'],['system','跟随系统']]){const o=element('option',t);o.value=v;selector.append(o);}
-  let remembered='light';try{remembered=localStorage.getItem('fs-navigation-theme')||remembered;}catch{}selector.value=window.FSTheme?.get()||remembered;selector.onchange=()=>window.FSTheme?.set(selector.value);themeLabel.append(selector);tree.append(themeLabel);status.textContent='';
+  let remembered='light';try{remembered=localStorage.getItem('fs-navigation-theme')||remembered;}catch{}selector.value=window.FSTheme?.get()||remembered;selector.onchange=()=>window.FSTheme?.set(selector.value);themeLabel.append(selector);tree.append(themeLabel);status.textContent='';mountHomeCards(user,tools);
  }
- function denied(){clearMenuCache();currentUser=null;tree.replaceChildren(link('首页','/dashboard/'),link('重新登录','/__auth/login?next='+encodeURIComponent(location.pathname+location.search)));status.textContent='登录或访问范围未确认，业务入口已清除。';}
+ function denied(){clearHomeCards();clearMenuCache();currentUser=null;tree.replaceChildren(link('首页','/dashboard/'),link('重新登录','/__auth/login?next='+encodeURIComponent(location.pathname+location.search)));status.textContent='登录或访问范围未确认，业务入口已清除。';}
  async function load(){try{
   const user=await verify();if(!user.name||!user.groups.includes('dashboard'))throw Error('dashboard_not_permitted');
   const r=await fetch('/dashboard/fs-home/navigation.json',{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw Error('registry_unavailable');
@@ -85,6 +107,6 @@ addEventListener('storage',event=>{if(event.key===menuEpochSlot||event.key===nul
  status.textContent='正在确认导航访问范围…';await load();
  function watch(){return setInterval(async()=>{if(document.hidden||!currentUser)return;try{const user=await verify();if(user.name!==currentUser.name||user.role!==currentUser.role||JSON.stringify(user.groups)!==JSON.stringify(currentUser.groups)){denied();return;}currentUser=user;}catch{denied();}},60000);}
  let timer=watch();
- addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);});
+ addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);homeCardsObserver?.disconnect();});
  addEventListener('pageshow',e=>{if(e.persisted){stopped=false;clearInterval(timer);timer=watch();load();}});
 })();
