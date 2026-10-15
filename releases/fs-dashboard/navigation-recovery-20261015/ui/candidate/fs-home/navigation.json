@@ -18,7 +18,7 @@
     },
     {
       "id": "brain",
-      "title": "LV决策大脑",
+      "title": "Hermes智体",
       "icon": "◈",
       "intro": "Hermes 任务、报告、夜间计划与能力技能的统一控制中心。",
       "ids": [
@@ -284,7 +284,7 @@
     },
     {
       "id": "brain",
-      "label": "LV决策大脑",
+      "label": "Hermes智体",
       "short": "集中查看 Hermes 任务、报告、计划与能力",
       "icon": "◈",
       "path": "/dashboard/fs-home/brain/index.html",

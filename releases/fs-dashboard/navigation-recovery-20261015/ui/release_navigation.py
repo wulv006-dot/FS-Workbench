@@ -11,7 +11,7 @@ from pathlib import Path
 
 HASH=re.compile(r'^[a-f0-9]{64}$')
 RECOVERY_SCOPE='fs-navigation-recovery-20261015'
-RECOVERY_TARGETS={'fs-home/navigation.json': '/var/www/dashboard/fs-home/navigation.json', 'hubnav.js': '/var/www/hub/hubnav.js', 'modules/arpg/index.html': '/var/www/dashboard/modules/arpg/index.html', 'modules/bots/index.html': '/var/www/dashboard/modules/bots/index.html'}
+RECOVERY_TARGETS={'fs-home/navigation.json': '/var/www/dashboard/fs-home/navigation.json', 'hubnav.js': '/var/www/hub/hubnav.js', 'modules/arpg/index.html': '/var/www/dashboard/modules/arpg/index.html', 'modules/bots/index.html': '/var/www/dashboard/modules/bots/index.html', 'brain/index.html': '/var/www/dashboard/fs-home/brain/index.html'}
 REVISION_UI_SCOPE='fs-revision-ui-20261015'
 REVISION_UI_TARGETS={
  'revision/navigation.json':'/var/www/dashboard/fs-home/navigation.json',
