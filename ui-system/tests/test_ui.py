@@ -49,3 +49,9 @@ class UIContract(unittest.TestCase):
   s=(ROOT/'adapters/hubnav.css').read_text();self.assertIn('236px',s);self.assertIn('@media print',s)
   self.assertIn('minmax(0,1fr)',(ROOT/'modules/brain/brain.css').read_text())
 if __name__=='__main__':unittest.main()
+
+class LegacyIsolation(unittest.TestCase):
+ def test_unreviewed_modules_keep_original_content_palette(self):
+  s=(ROOT/'adapters/hubnav.js').read_text()
+  self.assertIn("styledModule?['fs-tokens.css','fs-ui.css','legacy.css','hubnav.css']:['fs-tokens.css','hubnav.css']",s)
+  self.assertIn("if(styledModule)document.body.classList.add('fs-ui-page')",s)
