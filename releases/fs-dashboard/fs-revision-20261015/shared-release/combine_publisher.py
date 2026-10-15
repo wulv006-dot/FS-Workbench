@@ -7,6 +7,7 @@ assert hashlib.sha256(source.read_bytes()).hexdigest()=='fe8f5fa6583991c2eca8a26
 base=source.read_text('utf-8');text=base
 constants="""REVISION_UI_SCOPE='fs-revision-ui-20261015'
 REVISION_UI_TARGETS={
+ 'revision/navigation.json':'/var/www/dashboard/fs-home/navigation.json',
  'revision/navigation.css':'/var/www/dashboard/fs-home/navigation.css',
  'revision/hubnav.css':'/var/www/dashboard/fs-home/hubnav.css',
  'revision/hubnav.js':'/var/www/hub/hubnav.js',
@@ -27,6 +28,8 @@ edits=[('RELATIVE={',constants+'RELATIVE={'),('def expected_files(manifest):','d
 for old,new in edits:
  assert text.count(old)==1,old
  text=text.replace(old,new)
+text=text.replace("'OnCalendar=*-*-* 06:30:00 Asia/Shanghai'", "'OnCalendar=*-*-* 06:30:00'")
+text=text.replace(" if manifest.get('scope')==HERMES_NIGHT_SCOPE:\n  if rooted(root,'/etc/localtime')", " if manifest.get('scope') in (HERMES_NIGHT_SCOPE,AI_REVISION_SCOPE):\n  if rooted(root,'/etc/localtime')")
 functions=lambda s:{n.name:ast.dump(n,include_attributes=False) for n in ast.parse(s).body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}
 a,b=functions(base),functions(text)
 assert {k for k in a if a[k]!=b[k]}=={'expected_files','target_for','validate','guards'}

@@ -12,6 +12,7 @@ from pathlib import Path
 HASH=re.compile(r'^[a-f0-9]{64}$')
 REVISION_UI_SCOPE='fs-revision-ui-20261015'
 REVISION_UI_TARGETS={
+ 'revision/navigation.json':'/var/www/dashboard/fs-home/navigation.json',
  'revision/navigation.css':'/var/www/dashboard/fs-home/navigation.css',
  'revision/hubnav.css':'/var/www/dashboard/fs-home/hubnav.css',
  'revision/hubnav.js':'/var/www/hub/hubnav.js',
@@ -253,7 +254,7 @@ def validate(manifest,stage):
   service=(stage/'candidate/revision-ai/units/fs-maintenance-cleanup.service').read_text()
   timer=(stage/'candidate/revision-ai/units/fs-maintenance-cleanup.timer').read_text()
   if [line for line in service.splitlines() if line.startswith('ExecStart=')]!=['ExecStart=/opt/python39/bin/python3 -B /opt/fs-exact-range-20261001/fs_cleanup.py --apply']:raise ValueError('exact deferred cleanup service required')
-  if not all(line in timer.splitlines() for line in ('OnCalendar=*-*-* 06:30:00 Asia/Shanghai','Persistent=false','Unit=fs-maintenance-cleanup.service')):raise ValueError('exact nonpersistent cleanup timer required')
+  if not all(line in timer.splitlines() for line in ('OnCalendar=*-*-* 06:30:00','Persistent=false','Unit=fs-maintenance-cleanup.service')):raise ValueError('exact nonpersistent cleanup timer required')
  if manifest.get('scope')==ACCOUNT_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('account release requires active auth service')
  if manifest.get('scope')==GREEN_FIX_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('review-fix requires active auth service without PID pinning')
  if manifest.get('scope')==PERMISSION_SCOPE and manifest.get('runtimeRequired',{}).get('auth-portal.service')!={'ActiveState':'active'}:raise ValueError('permission release requires active auth service')
@@ -383,7 +384,7 @@ def guards(manifest,root):
      if info.st_uid!=0 or info.st_gid!=0 or info.st_mode&0o022:raise ValueError('unsafe navigation ownership/mode')
     if item==root:break
  if manifest.get('scope')==AI_REVISION_SCOPE:revision_ai_quiescent(root)
- if manifest.get('scope')==HERMES_NIGHT_SCOPE:
+ if manifest.get('scope') in (HERMES_NIGHT_SCOPE,AI_REVISION_SCOPE):
   if rooted(root,'/etc/localtime').read_bytes()!=rooted(root,'/usr/share/zoneinfo/Asia/Shanghai').read_bytes():raise ValueError('server timezone must be Asia/Shanghai')
  if manifest.get('scope') in (HERMES_SECRET_SCOPE,HERMES_UPDATE_SCOPE,HERMES_DIRECT_SCOPE,HERMES_CAPACITY_SCOPE,HERMES_WIRE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_REPORT_SCOPE,HERMES_CONTINUE_SCOPE,HERMES_AUTO_SCOPE,HERMES_NIGHT_SCOPE,HERMES_CAPABILITY_SCOPE,AI_REVISION_SCOPE):hermes_quiescent(root)
  if manifest.get('scope') in (DAILY_SCOPE,ADVISOR_SCOPE,DEEP_SCOPE,HERMES_SCOPE,HERMES_SECRET_SCOPE,HERMES_UPDATE_SCOPE,HERMES_DIRECT_SCOPE,HERMES_CAPACITY_SCOPE,HERMES_WIRE_SCOPE,HERMES_WORKER_SCOPE,HERMES_HISTORY_SCOPE,HERMES_REPORT_SCOPE,HERMES_CONTINUE_SCOPE,HERMES_AUTO_SCOPE,HERMES_NIGHT_SCOPE,HERMES_CAPABILITY_SCOPE,AI_REVISION_SCOPE):

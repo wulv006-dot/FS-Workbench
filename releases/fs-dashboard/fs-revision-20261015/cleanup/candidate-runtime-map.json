@@ -12,7 +12,7 @@
       "candidate": "fs-maintenance-cleanup.timer",
       "target": "/etc/systemd/system/fs-maintenance-cleanup.timer",
       "beforeSha256": null,
-      "sha256": "93aef79009f2a97d9d8744202600eca6543e80ebdd98d86dc41f4ce0640977b5"
+      "sha256": "22f2e6e5a46116b27fe7bdbb2f1a0005488be508cc4edd84b79dd32330074a2b"
     },
     {
       "candidate": "fs_cleanup.py",
@@ -30,7 +30,7 @@
   "execution": {
     "scriptDefault": "dryrun",
     "serviceExecStart": "/opt/python39/bin/python3 -B /opt/fs-exact-range-20261001/fs_cleanup.py --apply",
-    "timerOnCalendar": "*-*-* 06:30:00 Asia/Shanghai",
+    "timerOnCalendar": "*-*-* 06:30:00",
     "persistent": false,
     "installStartsService": false,
     "installEnablesTimer": false,
@@ -43,6 +43,7 @@
       "References limited to the five configured roots and text formats",
       "Reference publication does not share the cache lock; concurrent new references remain a race",
       "Existing writer >8192 mtime eviction remains unchanged and lacks the cleanup semantic protections"
-    ]
+    ],
+    "requiredSystemTimezone": "Asia/Shanghai"
   }
 }

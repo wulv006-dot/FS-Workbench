@@ -6,50 +6,56 @@
     {
       "candidate": "revision/navigation.css",
       "target": "/var/www/dashboard/fs-home/navigation.css",
-      "beforeSha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "beforeSha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171",
       "sha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171"
     },
     {
       "candidate": "revision/hubnav.css",
       "target": "/var/www/dashboard/fs-home/hubnav.css",
-      "beforeSha256": "b13e91907335df88f401d598d165de4415c3342fd082326cc8e30f7c0e750da4",
+      "beforeSha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3",
       "sha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3"
     },
     {
       "candidate": "revision/modules/analytics/index.html",
       "target": "/var/www/dashboard/modules/analytics/index.html",
-      "beforeSha256": "57d8d8269993ca1e3df85b29d224559465848815123a54e6ba0b35684f4e7ba5",
+      "beforeSha256": "d2e00dd84759a662bbaf605f208ae7aa1f889fac5c3b0a686bffd4f571c4b1bc",
       "sha256": "d2e00dd84759a662bbaf605f208ae7aa1f889fac5c3b0a686bffd4f571c4b1bc"
     },
     {
       "candidate": "revision/modules/sports/index.html",
       "target": "/var/www/dashboard/modules/sports/index.html",
-      "beforeSha256": "589b92004d4892a6f1c4c0935c882ccff0bda5783342ae5b77f62b102d148a70",
+      "beforeSha256": "961038a6174a77b840160815c0e0ebd7e5d47965d5488c9f297ddaec789b91bf",
       "sha256": "961038a6174a77b840160815c0e0ebd7e5d47965d5488c9f297ddaec789b91bf"
     },
     {
       "candidate": "revision/hubnav.js",
       "target": "/var/www/hub/hubnav.js",
-      "beforeSha256": "8127d856ac5ce4d5c350d27c036466987781a3b324d47259cc1f3165144ba196",
+      "beforeSha256": "ca4dd6aaf9383bfeb32f73743e5e90d137b4b53a0994b54e9842e2b492b3eca4",
       "sha256": "ca4dd6aaf9383bfeb32f73743e5e90d137b4b53a0994b54e9842e2b492b3eca4"
     },
     {
       "candidate": "revision/brain/index.html",
       "target": "/var/www/dashboard/fs-home/brain/index.html",
-      "beforeSha256": null,
+      "beforeSha256": "d6b8f781792f46a8a55c0276c3e05871ac1dc9185d057790cde2d9704b894774",
       "sha256": "d6b8f781792f46a8a55c0276c3e05871ac1dc9185d057790cde2d9704b894774"
     },
     {
       "candidate": "revision/brain/brain.js",
       "target": "/var/www/dashboard/fs-home/brain/brain.js",
-      "beforeSha256": null,
-      "sha256": "be775156cf959080978267ca99db518531d48f53ed67cb929c45ceaed5c9773b"
+      "beforeSha256": "be775156cf959080978267ca99db518531d48f53ed67cb929c45ceaed5c9773b",
+      "sha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d"
     },
     {
       "candidate": "revision/brain/brain.css",
       "target": "/var/www/dashboard/fs-home/brain/brain.css",
-      "beforeSha256": null,
+      "beforeSha256": "1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b",
       "sha256": "1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b"
+    },
+    {
+      "candidate": "revision/navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json",
+      "beforeSha256": "b5a57f95a514513e69159a867e1feb22303537cf2f2fbf779fd3e8f29c3d1842",
+      "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
     }
   ],
   "unchangedRequired": [

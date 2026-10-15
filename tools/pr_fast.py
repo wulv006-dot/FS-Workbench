@@ -436,7 +436,7 @@ def main():
             units(release+"/ai",["test_retirement","test_official_workspace","test_boss_projection","test_boss_artifacts","test_business_context"])
             units(release+"/analytics",["test_fc_detail","test_fc_pool"])
             units(release+"/cleanup/tests",["test_cleanup","test_profit_queries"],root_owned=True)
-            units(release+"/shared-release",["test_ui_release","test_combined_publisher"],root_owned=True)
+            units(release+"/shared-release",["test_ui_release","test_combined_publisher","test_brain_contract"],root_owned=True)
             units(release+"/frontend-release",["test_native_release"],root_owned=True)
             for name in ("test_fc_lifecycle.cjs","test_management_existing.cjs","test_management_actuals.cjs","test_game_cards.cjs"):
                 node(release+"/analytics/"+name)
