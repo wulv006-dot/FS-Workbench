@@ -61,9 +61,6 @@
   "runtimeRequired": {
     "auth-portal.service": {
       "ActiveState": "active"
-    },
-    "mmoexp-taskboard.service": {
-      "ActiveState": "active"
     }
   },
   "unchangedRequired": [
