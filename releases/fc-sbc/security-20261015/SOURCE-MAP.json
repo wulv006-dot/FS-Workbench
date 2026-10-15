@@ -1,0 +1,23 @@
+{
+  "module": "fc27-sbc",
+  "owner": "吴律",
+  "status": "candidate",
+  "packagePath": "releases/fc-sbc/security-20261015",
+  "scope": "two active Python sources, SBC Nginx route, SBC service sandbox, one sports navigation entry",
+  "automaticRepriceEnabled": false,
+  "automaticDelistEnabled": false,
+  "unmodifiedDependencies": {
+    "/opt/fc27-sbc-tool/admin_client.py": "0b2d691dd72dca1eac158eb08acf46c1fb4fef3f49e8df68a2e83085e9d8f83c",
+    "/opt/fc27-sbc-tool/fetch_sbc.py": "314642bc01ee10b897b96c308c2391cbe338c123bc1930e6f709e1ba236b4056",
+    "/opt/fc27-sbc-tool/fetch_futgg.py": "049bdb2c083477dbe38b94d767dc935254b4e8b68797f52db557a037478cc46b",
+    "/opt/fc27-sbc-tool/workbook.py": "6ee67b94d318813dc71c0936b65774d9dd0faf9830e44437fbdb2f9001736917",
+    "/opt/fc27-sbc-tool/uploader.py": "4216a453f29f35479ad0422946c291cd1f9bb9379281d9da144b6d5dd23705d5",
+    "/opt/fc27-sbc-tool/pricing.py": "5846264c450e63d2af658a1a82ba03587eeb19cdef3928824771da51a93d017c",
+    "/opt/fc27-sbc-tool/repricer.py": "d227a7633838879019e013b82871973f5036f448229ca1105762f96162c0c915",
+    "/opt/fc27-sbc-tool/watermark.py": "5684cd42e33534635c3463c773211eb832fa3ef48d2c6622b4fead6d28a586bd",
+    "/opt/fc27-sbc-tool/iconfix.py": "d8da7a66c9b7391ff5092b7989c8cb28c6c81d338205655b2ffc7049fb417d70"
+  },
+  "localSource": "fc27_sbc_fix_20261015",
+  "runtimeDataIncluded": false,
+  "knownLimits": "offline fault branches do not perform real Admin price/listing/delisting writes"
+}
