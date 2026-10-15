@@ -1,0 +1,96 @@
+{
+  "scope": "hermes-fc-weekly-upgrade-20261015",
+  "base_commit": "22229d97b0dd11ecf9557ad0cad2bd62e7ef3940",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "data/research.py",
+      "candidate": "research/runtime/research.py",
+      "runtime": "/opt/fs-hermes-fc/research.py",
+      "beforeSha256": "29da998b1fd8962b454688593c7f20a8defd8689145bde5655da1f497a243a86",
+      "sha256": "55f7e8cc93dafa7603606ebe8f9ab3532d6cdedc73553e74f9fc90772e8332eb",
+      "bytes": 29628
+    },
+    {
+      "source": "data/fs_evidence.py",
+      "candidate": "research/runtime/fs_evidence.py",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "beforeSha256": "588607ddb73e0d6f8908c3fb0655ca2c7bc2ab37e21aeb523dc6b5cb402d7f04",
+      "sha256": "dd92314776bcb8eb44e09826ebe3b97c66e7e4833e43378d56ff091c39ed9b9d",
+      "bytes": 17031
+    },
+    {
+      "source": "data/marketing_snapshot.py",
+      "candidate": "research/runtime/marketing_snapshot.py",
+      "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
+      "beforeSha256": null,
+      "sha256": "4cd46eb02b8d9e33a20b28ed3b8db7fcbc48e833b0ceef7c837f96fc434f0a81",
+      "bytes": 11795
+    },
+    {
+      "source": "methods/source/skill_bundle.py",
+      "candidate": "research/runtime/skill_bundle.py",
+      "runtime": "/opt/fs-hermes-fc/skill_bundle.py",
+      "beforeSha256": "1c26da86e6599ee715dc1604560e98877adaf547a66ada547eeaa6835737d7e9",
+      "sha256": "c4dcb733f35a64faa78f03d5cc43ed40174851eb34c6d84785a10df3ee379913",
+      "bytes": 5993
+    },
+    {
+      "source": "methods/source/skills/manifest.json",
+      "candidate": "research/skills/manifest.json",
+      "runtime": "/opt/fs-hermes-fc/skills/manifest.json",
+      "beforeSha256": "191632175b072ccf6d0ae293d9374a7161b78e06c6a50cbcae340843cda4148b",
+      "sha256": "fea3ecc7db3ea9efb12751fdfd5f2fe4ff8bab47fa3b0e6a287c67f9843a0fd4",
+      "bytes": 8981
+    },
+    {
+      "source": "methods/source/skills/fs-fc-operations-analysis/SKILL.md",
+      "candidate": "research/skills/fs-fc-operations-analysis/SKILL.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "beforeSha256": "f9f9d7d45e5321d12fd8b854f8234050f419b211c034596fbbc5bac85429eaba",
+      "sha256": "0a2e10478450210745769be14e49f614ca516d7a08fd4bf55a0f2debe8faab15",
+      "bytes": 19007
+    },
+    {
+      "source": "methods/source/skills/fs-fc-operations-analysis/references/weekly-report.md",
+      "candidate": "research/skills/fs-fc-operations-analysis/references/weekly-report.md",
+      "runtime": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/weekly-report.md",
+      "beforeSha256": null,
+      "sha256": "461268e3a5a08b3c82cc733aab0e0493f7b8144f5b73f4ed29292320dd36f197",
+      "bytes": 13307
+    },
+    {
+      "source": "visual/boss_projection.py",
+      "candidate": "research/runtime/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "41ea6e5e0baf378196a32124cc4021da27b0e1dfd9ab1ff3d6cc3eae11756edf",
+      "sha256": "d95f26d7693c5218483c9b055e05cb86e7a8dffaf14c39100d9f87a4d10c5ce4",
+      "bytes": 37180
+    },
+    {
+      "source": "visual/boss_renderer.py",
+      "candidate": "research/runtime/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "1a7943018ea84b0887ca62b38712ee41cfa6dc09be5cd698697e20817823ef15",
+      "sha256": "0619e4cc36c4a7347d039ba34cecb4fb80905c44fa7e50bdb8c8140d9c147394",
+      "bytes": 46497
+    },
+    {
+      "source": "visual/report_semantics.py",
+      "candidate": "research/runtime/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "fbab32c109c5c1813cde93c67eee2f2367812e4e3d462fdd9ec7de82f7595162",
+      "sha256": "1ef9402c56b1e4353caf85dd28547ff8aa5d193cf4da5bf00e122ae98fe210b0",
+      "bytes": 26330
+    },
+    {
+      "source": "visual/report.template.html",
+      "candidate": "research/runtime/report.template.html",
+      "runtime": "/opt/fs-hermes-fc/report.template.html",
+      "beforeSha256": "c778595ce0ac965ea59529103cb6010b7b5e1c5b88488a1a68981ae656ac60f2",
+      "sha256": "1a576686e212372533c10ce05f208ee7ebf891ffc386d704492016fb11514922",
+      "bytes": 17732
+    }
+  ]
+}
