@@ -15,7 +15,7 @@
 
 ## 核验
 
-本地 65 项通过、无 skip：32 项真实冻结内容/边界，10 项发布边界，23 项既有交付/技能/研究消费者（包含当前 PR151 controller）。Linux CI 需由本 PR 的 pr-fast 运行回执确认，不能用 Windows 结果代替。
+本地 66 项通过、无 skip：32 项真实冻结内容/边界，11 项发布边界，23 项既有交付/技能/研究消费者（包含当前 PR151 controller）。Linux CI 需由本 PR 的 pr-fast 运行回执确认，不能用 Windows 结果代替。
 
 CI 输入为两份真实任务的缩减投影夹具，保留源 SHA，删除订单/日志样本与无关下钻。完整原对象与独立阅读版在本地 `docs/planning/hermes-report-quality-repair-20261015/`，详情见 `MODEL-QUALITY-RECEIPT.json`、`TEST-RESULTS.json` 与 `CANDIDATE-DIFF.json`。
 

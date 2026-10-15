@@ -43,6 +43,12 @@ class ReleaseQuality(unittest.TestCase):
             for name,target in targets.items():self.assertEqual(release.target_for(name),target)
         self.assertIn('HERMES_DESKTOP_SCOPE',(HERE/'publisher/release_navigation.py').read_text(encoding='utf-8'))
 
+    def test_source_boundary_checks_use_report_targets(self):
+        path=Mock();path.parents=[];path.exists.return_value=False
+        with patch.object(release,'hermes_quiescent'),patch.object(release,'no_target_link'),patch.object(release,'rooted',return_value=path) as rooted:
+            release.guards({'scope':release.HERMES_QUALITY_SCOPE,'unchangedRequired':[]},Path('/'))
+        self.assertEqual({call.args[1] for call in rooted.call_args_list},set(release.HERMES_QUALITY_TARGETS.values()))
+
     def test_valid_payload_and_existing_new_baselines(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);m=self.stage(root)
