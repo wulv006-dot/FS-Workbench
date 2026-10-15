@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes official full desktop management
+After=docker.service fs-hermes-fc.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker run --rm --name fs-hermes-desktop --network host --user 0:0 --env HOME=/profile --env HERMES_HOME=/profile --env PYTHONPATH=/opt/hermes --env PYTHONDONTWRITEBYTECODE=1 --env HERMES_YOLO_MODE=true --mount type=bind,source=/var/lib/fs-hermes-fc/profile,target=/profile --mount type=bind,source=/var/lib/fs-hermes-fc/fs,target=/fs --mount type=bind,source=/opt/fs-hermes-fc,target=/fs-source --mount type=bind,source=/opt/fs-hermes-desktop,target=/desktop,readonly sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544 /desktop/serve.py
+ExecStop=/usr/bin/docker stop --time 30 fs-hermes-desktop
+TimeoutStartSec=90
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
