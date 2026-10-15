@@ -18,6 +18,7 @@ from market_snapshot import MarketReader, PLATFORMS, SOURCES
 from research import ResearchBook, tool_schemas
 from fs_evidence import SourcePins
 from transport import Grants, Proxy, start_loopback
+import market_snapshot_client
 
 NOW = datetime(2026, 10, 15, 9, 10, tzinfo=timezone.utc)
 STAMP = '2026-10-15T09:09:00+00:00'
@@ -127,6 +128,11 @@ class MarketTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as e:call(token,args)
                 self.assertIn(e.exception.code,(400,403));e.exception.close()
         finally:server.shutdown();server.server_close();thread.join(timeout=3)
+
+    def test_desktop_credential_never_uses_environment_http_proxy(self):
+        with patch.dict(os.environ,{'http_proxy':'http://invalid.example:8080','https_proxy':'http://invalid.example:8080','no_proxy':''},clear=False):
+            opener=market_snapshot_client.build_opener(market_snapshot_client.NoRedirect,market_snapshot_client.ProxyHandler({}))
+            self.assertFalse(any(isinstance(h,market_snapshot_client.ProxyHandler) and h.proxies for h in opener.handlers))
 
 
 if __name__=='__main__':unittest.main()

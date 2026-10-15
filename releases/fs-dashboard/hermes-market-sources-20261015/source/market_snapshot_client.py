@@ -1,6 +1,6 @@
 """Native Desktop entry; the existing Desktop identity never enters the result."""
 from pathlib import Path
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 import json
 import re
 
@@ -16,7 +16,7 @@ def read():
         raise ValueError('desktop_identity_unavailable')
     request = Request('http://127.0.0.1:8940/fc/market-snapshot', json.dumps({'profile': 'FC27'}).encode(),
                       {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, method='POST')
-    with build_opener(NoRedirect).open(request, timeout=30) as response:
+    with build_opener(NoRedirect, ProxyHandler({})).open(request, timeout=30) as response:
         raw = response.read(1000001)
     if len(raw) > 1000000:
         raise ValueError('market_response_size')
