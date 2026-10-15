@@ -1,5 +1,5 @@
 {
-  "observedAtUtc": "2026-10-15T15:18:50Z",
+  "observedAtUtc": "2026-10-15T16:49:48Z",
   "homeCards": {
     "deployed": true,
     "exactCopyDomReadback": true,
@@ -7,12 +7,12 @@
     "mergedCommit": "7999a51a3d8124870b795b1ec0590b015d4002e7"
   },
   "managementPreview": {
-    "releaseId": "workspace-native-20261006-0736519733a2",
-    "manifestSha256": "3a0f014d5a0382b8ed2c40cb157e136eea74e12590c40b38c37e6d459645adbe",
+    "releaseId": "workspace-native-20261006-0f538d2931be",
+    "manifestSha256": "bb4d934ce0ed74a072a4cc952d9d3d28f1f1f55e1d7518b5ed4341529a66ebf0",
     "url": "https://47.85.224.112/dashboard/__preview/management-v2-20261015/index.html",
-    "status": "protected_preview_only",
+    "status": "same_release_as_production",
     "dataStatus": "15_of_15_month_core_available",
-    "productionEntryChanged": false
+    "productionEntryChanged": true
   },
   "managementBackend": {
     "releaseId": "management-v2-07ac5252c4a5",
@@ -34,9 +34,8 @@
     "projectCount": 15,
     "dailyHistoryHasGaps": true
   },
-  "nextScheduledFacts": "2026-10-16T00:20:00+08:00",
-  "nextNaturalNightObserved": false,
-  "managementFullAcceptance": "manual_delivery_passed_with_documented_data_gaps; natural_night_pending",
+  "nextNaturalNightObserved": true,
+  "managementFullAcceptance": "natural_data_model_publication_and_browser_readback_passed_with_documented_data_gaps; recommendations_require_business_review",
   "manualHermesAcceptance": {
     "status": "completed_with_limitations",
     "reasoningEffort": "high",
@@ -47,10 +46,24 @@
     "thirdRun": "completed; recovered malformed final prose envelope without another model call",
     "originalArtifactsPreserved": true,
     "desktopBusinessContextPreserved": true,
-    "calculatorModelCall": "HTTP400 observed; argument diagnostics improved, future model retry not yet observed",
+    "calculatorModelCall": "subsequent high regression verified bound calculator evidence",
     "noExternalResearchForThisFrozenManagementTask": true
   },
   "managementProduction": {
+    "releaseId": "workspace-native-20261006-0f538d2931be",
+    "manifestSha256": "bb4d934ce0ed74a072a4cc952d9d3d28f1f1f55e1d7518b5ed4341529a66ebf0",
+    "url": "https://47.85.224.112/dashboard/management/",
+    "backup": "/var/backups/fs-management-v2-static/workspace-native-20261006-0f538d2931be",
+    "browserReadback": {
+      "currentBusinessDate": "2026-10-16",
+      "factsThrough": "2026-10-15",
+      "coreProjects": 15,
+      "suggestedActions": 6,
+      "referenceScopeLabel": true
+    },
+    "expiry": "previous daily advice hidden at 2026-10-16T00:01+08:00; new advice expires 2026-10-17T00:00+08:00"
+  },
+  "previousManagementProduction": {
     "releaseId": "workspace-native-20261006-66ec73f42a1d",
     "manifestSha256": "66491dabfb06d2b7052c331f08b0aef97695ceaf0ed24742aa8ff90fb3b4ea2a",
     "url": "https://47.85.224.112/dashboard/management/",
@@ -65,5 +78,26 @@
       "themes": "light_and_dark_checked",
       "expiry": "deterministic_tests_pass; natural_midnight_not_observed"
     }
+  },
+  "naturalNight": {
+    "factsStartedAt": "2026-10-16T00:20:00.190844+08:00",
+    "factsFinishedAt": "2026-10-16T00:30:25.746383+08:00",
+    "factsStatus": "available",
+    "hermesState": "COMPLETED",
+    "analysisGeneratedAt": "2026-10-16T00:39:27.351103+08:00",
+    "validUntil": "2026-10-17T00:00:00+08:00"
+  },
+  "desktopLearning": {
+    "reviewedDocumentCount": 17,
+    "actualPromptVerified": true,
+    "highEffortRegressionAppliedMethods": true,
+    "arbitraryNewSkillsAutoDiscovered": false,
+    "desktopFilesUnchanged": true
+  },
+  "currentBackendPatches": {
+    "business_context": "desktop-learning-8641c3d1a740",
+    "management_context": "management-quality-5c36780053e1",
+    "controller": "peer version 144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3 preserved",
+    "metricNoteExperiment": "local_only_not_deployed"
   }
 }
