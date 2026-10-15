@@ -30,8 +30,16 @@ for old,new in edits:
  text=text.replace(old,new)
 text=text.replace("'OnCalendar=*-*-* 06:30:00 Asia/Shanghai'", "'OnCalendar=*-*-* 06:30:00'")
 text=text.replace(" if manifest.get('scope')==HERMES_NIGHT_SCOPE:\n  if rooted(root,'/etc/localtime')", " if manifest.get('scope') in (HERMES_NIGHT_SCOPE,AI_REVISION_SCOPE):\n  if rooted(root,'/etc/localtime')")
+old="  result=subprocess.run(['systemctl','show',unit,'--no-pager','-p','ActiveState','-p','UnitFileState','-p','LoadState','-p','MainPID'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)"
+new="  command=['systemctl','show',unit,'--no-pager','-p','ActiveState','-p','UnitFileState','-p','LoadState']\n  if unit.endswith('.service'):command+=['-p','MainPID']\n  result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)"
+assert text.count(old)==1
+text=text.replace(old,new)
+old="  allowed=props.get('ActiveState') in ('inactive','failed') if unit in AI_REVISION_BOSS_UNITS else props.get('ActiveState')=='inactive'"
+new="  if any(name not in props for name in ('ActiveState','UnitFileState','LoadState')) or props['LoadState'] not in ('loaded','not-found'):raise ValueError('unknown revision consumer state; defer update: '+unit)\n"+old
+assert text.count(old)==1
+text=text.replace(old,new)
 functions=lambda s:{n.name:ast.dump(n,include_attributes=False) for n in ast.parse(s).body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}
 a,b=functions(base),functions(text)
-assert {k for k in a if a[k]!=b[k]}=={'expected_files','target_for','validate','guards'}
+assert {k for k in a if a[k]!=b[k]}=={'expected_files','target_for','validate','guards','revision_units_inactive'}
 (HERE/'release_navigation.py').write_text(text,encoding='utf-8',newline='\n')
 print(hashlib.sha256((HERE/'release_navigation.py').read_bytes()).hexdigest())

@@ -1,6 +1,7 @@
 """Run account and AI boundary cases against the actual combined publisher."""
 import importlib.util
 from pathlib import Path
+import types
 import unittest
 from unittest.mock import patch
 HERE=Path(__file__).resolve().parent
@@ -57,4 +58,38 @@ class AIBoundary(ai.PublisherTests):
         row['sha256']=publisher.digest(self.timer)
         with self.assertRaisesRegex(ValueError,'exact nonpersistent cleanup timer'):
             publisher.validate(self.manifest,self.stage)
+
+    def test_systemd219_timer_never_requests_service_mainpid(self):
+        commands=[]
+        def show(command,**kwargs):
+            commands.append(command)
+            service=command[2].endswith('.service')
+            output='ActiveState=inactive\nUnitFileState=disabled\nLoadState=loaded\n'
+            if service:output+='MainPID=0\n'
+            return types.SimpleNamespace(returncode=1 if not service and 'MainPID' in command else 0,stdout=output,stderr='')
+        with patch.object(publisher.subprocess,'run',side_effect=show):
+            publisher.revision_units_inactive(publisher.AI_REVISION_BOSS_UNITS+publisher.AI_REVISION_CLEAN_UNITS)
+        for command in commands:
+            expected=['systemctl','show',command[2],'--no-pager','-p','ActiveState','-p','UnitFileState','-p','LoadState']
+            if command[2].endswith('.service'):expected+=['-p','MainPID']
+            self.assertEqual(command,expected)
+
+    def test_nonzero_loaded_or_unknown_missing_state_still_rejected(self):
+        complete='ActiveState=inactive\nUnitFileState=disabled\nLoadState=loaded\n'
+        cases=[(1,complete),(0,complete.replace('loaded','unknown'))]
+        cases += [(0,complete.replace(line+'\n','')) for line in complete.splitlines()]
+        for code,output in cases:
+            with self.subTest(code=code,output=output),patch.object(publisher.subprocess,'run',return_value=types.SimpleNamespace(returncode=code,stdout=output,stderr='')):
+                with self.assertRaises(ValueError):
+                    publisher.revision_units_inactive(('fs-maintenance-cleanup.timer',))
+        missing=types.SimpleNamespace(returncode=1,stdout='ActiveState=inactive\nUnitFileState=\nLoadState=not-found\n',stderr='')
+        with patch.object(publisher.subprocess,'run',return_value=missing):
+            publisher.revision_units_inactive(('fs-maintenance-cleanup.timer',))
+
+    def test_service_mainpid_must_be_explicit_zero(self):
+        common='ActiveState=inactive\nUnitFileState=static\nLoadState=loaded\n'
+        for pid in ('','MainPID=1\n','MainPID=unknown\n'):
+            with self.subTest(pid=pid),patch.object(publisher.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=common+pid,stderr='')):
+                with self.assertRaises(ValueError):
+                    publisher.revision_units_inactive(('fs-boss-management.service',))
 if __name__=='__main__':unittest.main()

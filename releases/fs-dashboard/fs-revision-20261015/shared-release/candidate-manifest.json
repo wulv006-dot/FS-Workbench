@@ -37,12 +37,12 @@
       "candidate": "revision/brain/index.html",
       "target": "/var/www/dashboard/fs-home/brain/index.html",
       "beforeSha256": "d6b8f781792f46a8a55c0276c3e05871ac1dc9185d057790cde2d9704b894774",
-      "sha256": "d6b8f781792f46a8a55c0276c3e05871ac1dc9185d057790cde2d9704b894774"
+      "sha256": "19fcbf48fcd409d43c0c4d83da81ffda3b7bbca0edda5f8fbab83585f9b6af28"
     },
     {
       "candidate": "revision/brain/brain.js",
       "target": "/var/www/dashboard/fs-home/brain/brain.js",
-      "beforeSha256": "be775156cf959080978267ca99db518531d48f53ed67cb929c45ceaed5c9773b",
+      "beforeSha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d",
       "sha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d"
     },
     {
@@ -54,7 +54,7 @@
     {
       "candidate": "revision/navigation.json",
       "target": "/var/www/dashboard/fs-home/navigation.json",
-      "beforeSha256": "b5a57f95a514513e69159a867e1feb22303537cf2f2fbf779fd3e8f29c3d1842",
+      "beforeSha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177",
       "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
     }
   ],

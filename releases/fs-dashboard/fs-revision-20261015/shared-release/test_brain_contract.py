@@ -16,6 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BrainContract(unittest.TestCase):
+    def test_brain_uses_same_live_sidebar_script_as_published_modules(self):
+        html=(ROOT/'brain/index.html').read_text('utf-8')
+        home=(ROOT/'frontend-release/stage/candidate/fs-home/navigation.js').read_text('utf-8')
+        route='/__hub/hubnav.js'
+        self.assertIn('src="'+route+'?',html)
+        self.assertIn(route,home)
+        self.assertNotIn('/dashboard/fs-home/hubnav.js',html)
+
     def test_browser_requests_reach_actual_hermes_handler(self):
         # Exercise the shipped JS functions/form handler; do not reimplement URLs.
         javascript = r"""
