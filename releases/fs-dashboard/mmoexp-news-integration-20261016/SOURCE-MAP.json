@@ -1,0 +1,40 @@
+{
+  "scope": "mmoexp-news-integration-20261016",
+  "sources": [
+    {
+      "source": "source/game_intelligence.py",
+      "runtime": "/opt/fs-boss-workspaces/backend/game_intelligence.py",
+      "before_sha256": "96a0719e371c2b2844fb47dcf238cbd51e4b6c13947142444d240a1b4a16937b",
+      "sha256": "992f2369b5fd0203102bf0d2631a174bdcf0cfe3f4e4eeb199ab5e6cd0219c05"
+    },
+    {
+      "source": "source/mmoexp_news.py",
+      "runtime": "/opt/fs-boss-workspaces/backend/mmoexp_news.py",
+      "before_sha256": null,
+      "sha256": "0450a4d07ca5298a45bb89a4d4548a2c2dc07d526246c55036de7055331046c6"
+    },
+    {
+      "source": "source/research.py",
+      "runtime": "/opt/fs-hermes-fc/research.py",
+      "before_sha256": "55f7e8cc93dafa7603606ebe8f9ab3532d6cdedc73553e74f9fc90772e8332eb",
+      "sha256": "f4eb6bbd80713f0dedab989171e9c01d7d16fdfc6c9f034dd975c40bdc1fb395"
+    },
+    {
+      "source": "source/fs_evidence.py",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "before_sha256": "dd92314776bcb8eb44e09826ebe3b97c66e7e4833e43378d56ff091c39ed9b9d",
+      "sha256": "1a84966ccd09d0869a8f6a56efbfcfcef5d0f2f5226ab4a6c34af6face374aac"
+    },
+    {
+      "source": "source/daily.js",
+      "runtime": "/dashboard/game-monitor/daily.js",
+      "before_sha256": null,
+      "sha256": "d49866bed15726fb1d58a10c66a6db5cef5dd59989f91352e770a43ead0227b8"
+    }
+  ],
+  "shared_snapshot": "/var/lib/fs-boss-workspaces/public/seo-news.json",
+  "official_separate": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "production_status": "candidate; see delivery for later execution"
+}
