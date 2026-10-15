@@ -641,6 +641,7 @@ def main():
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/methods",["test_weekly_bundle"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/visual",["test_visual"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation"])
         elif group=="hermes-report-tracks":
             units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
             node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
@@ -681,6 +682,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
