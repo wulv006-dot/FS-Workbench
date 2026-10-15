@@ -36,3 +36,6 @@ context.mountHomeCards({name:'operator'},tools.map(x=>({...x,available:false})))
 context.mountHomeCards({name:'another-user'},tools);assert.equal(grid.children.length,2);
 context.location.pathname='/dashboard/analytics/';context.mountHomeCards({name:'operator'},tools);assert.equal(grid.children.length,2);
 console.log('homepage shortcuts: order, destinations, repeated render, cleanup, denied, identity, non-home PASS');
+
+assert(src.includes('三组进度 · 健康度责任到人 · 目标沙盘与经营决策'));
+assert(src.includes('全球新游上线 · 版本赛季 · 开服节点一屏追踪'));

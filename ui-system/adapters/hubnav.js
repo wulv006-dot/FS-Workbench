@@ -68,7 +68,7 @@ addEventListener('storage',event=>{if(event.key===menuEpochSlot||event.key===nul
     const tool=tools.find(t=>t.id===id);if(!tool?.available)continue;
     let card=grid.querySelector('[data-fs-home-shortcut="'+id+'"]');
     if(!card){card=element('article',null,'workspace-card '+id);card.dataset.fsHomeShortcut=id;const a=link('',tool.path,'workspace-main');
-     a.append(element('span',id==='management'?'◎':'◷','workspace-icon'),element('h3',id==='management'?'经营管理台':'游戏监控台'),element('p',id==='management'?'查看项目目标、完成进度与经营分析。':'查看游戏情报、活跃节点与更新倒计时。'),element('span','进入工作区 →','entry'));card.append(a);}
+     a.append(element('span',id==='management'?'◎':'◷','workspace-icon'),element('h3',id==='management'?'经营管理台':'游戏监控台'),element('p',id==='management'?'三组进度 · 健康度责任到人 · 目标沙盘与经营决策':'全球新游上线 · 版本赛季 · 开服节点一屏追踪'),element('span','进入工作区 →','entry'));card.append(a);}
     if(after.nextElementSibling!==card)after.after(card);after=card;
    }
   }
