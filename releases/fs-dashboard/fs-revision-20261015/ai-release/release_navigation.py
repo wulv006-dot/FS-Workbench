@@ -360,8 +360,11 @@ def approved_daily_group(manifest,root,item,info):
 
 def revision_units_inactive(units):
  for unit in units:
-  result=subprocess.run(['systemctl','show',unit,'--no-pager','-p','ActiveState','-p','UnitFileState','-p','LoadState','-p','MainPID'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)
+  command=['systemctl','show',unit,'--no-pager','-p','ActiveState','-p','UnitFileState','-p','LoadState']
+  if unit.endswith('.service'):command+=['-p','MainPID']
+  result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)
   props=dict(line.split('=',1) for line in result.stdout.splitlines() if '=' in line)
+  if any(name not in props for name in ('ActiveState','UnitFileState','LoadState')) or props['LoadState'] not in ('loaded','not-found'):raise ValueError('unknown revision consumer state; defer update: '+unit)
   allowed=props.get('ActiveState') in ('inactive','failed') if unit in AI_REVISION_BOSS_UNITS else props.get('ActiveState')=='inactive'
   if not allowed or (unit.endswith('.service') and props.get('MainPID')!='0') or (unit in AI_REVISION_CLEAN_UNITS and props.get('UnitFileState') in ('enabled','enabled-runtime')) or (result.returncode and props.get('LoadState')!='not-found'):raise ValueError('active/enabled revision consumer; defer update: '+unit)
 
