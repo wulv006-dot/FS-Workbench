@@ -139,7 +139,7 @@ def article_introduction(document, result):
         headers=None
         for line in part['text'].splitlines():
             if line.strip().startswith('|'):
-                cells=[plain(c) for c in line.strip().strip('|').split('|')]
+                cells=[plain(c.replace(r'\|','|')) for c in re.split(r'(?<!\\)\|',line.strip().strip('|'))]
                 if all(re.fullmatch(r'[:\-\s]+',c or '-') for c in cells):continue
                 if any(c in ('事件','文章','文章标题','标题') for c in cells):headers=cells;continue
                 if not headers or len(cells)!=len(headers):continue

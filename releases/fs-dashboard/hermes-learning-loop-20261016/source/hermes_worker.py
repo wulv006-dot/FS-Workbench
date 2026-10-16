@@ -74,7 +74,7 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
         with build_opener(NoRedirect).open(request, timeout=30) as response:
             raw = response.read(MAX_PROVIDER_WIRE_BYTES+1)
     except HTTPError as error:
-        if name!='fc.calculate' or error.code!=400:raise
+        if name not in ('fc.calculate','mcp__fcro__fc_calculate') or error.code!=400:raise
         raw=error.read(MAX_PROVIDER_WIRE_BYTES+1)
         if len(raw)>MAX_PROVIDER_WIRE_BYTES:raise ValueError('tool_response_size')
         try:code=json.loads(raw).get('error')

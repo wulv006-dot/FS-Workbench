@@ -1,0 +1,97 @@
+{
+  "status": "passed",
+  "scope": "current daily learning adoption, requested presentation, major arithmetic and evidence/uncertainty boundaries; not blanket business approval",
+  "acceptedAt": "2026-10-16T04:28:51.667950+00:00",
+  "real_FS_default_UI_submission": true,
+  "model_output_unmodified": true,
+  "request": "3c69149fab2571557f58399784e21c47",
+  "task": "c1b96d42a95773fdaf1c26d55be0803b",
+  "run": "run_ec5dae60ec3d4e46ab0be6e1dbf6598f",
+  "wire": {
+    "characters": 275447,
+    "knowledge_present": true,
+    "knowledge_sha256": "8bdaa3b7269c22a58ea6c63e27c93bc8d46e91261591b377ca05eeed936068cc",
+    "knowledge_version": "learning-f3e2657c6a400d1b9b7dd37925a900919fdd5da58c83ee8df6b342d1829ff080",
+    "model": "deepseek-flash",
+    "provider_request_id": "536598e1-d369-4709-b5ca-e41690b5960b",
+    "request_sha256": "7b9c4b504eae84936cac33341cd70f64b01fde6513ef4b1326e3ea2379665f07",
+    "status": "provider_response_success",
+    "system_prompt_sha256": "1c73368039005e19f794c478e466c365dfe7d148d5a0b9db6810fb0da3f84487"
+  },
+  "proof": {
+    "contract": "fs-hermes-boss-artifact-v2",
+    "report_track": "operations",
+    "revision": "d1f0f303a2853a43",
+    "sources": {
+      "report_artifacts.py": "35b7b3086a04ae182adce19ef5a9cab92d7ca4dad9b86f55cf7a86e9b6b98865",
+      "boss_projection.py": "e54969e6d11eb89468171a04e6ebe642bc166496f4c652d52e0f59eb515297ed",
+      "boss_renderer.py": "d416c0a77bc178be3f4a32606df39da22788c868332fe289fcdeffcc0f330329",
+      "report_semantics.py": "0b21ac184a8a7a2e94ffe2528d70ef21336a277d9bd44ea320ed3b3a4b6f9bab",
+      "report_constraints.py": "a06674941808a4379427961d6508a8a4b288148088013237e67f9fdb56fcd81d",
+      "report.template.html": "1a576686e212372533c10ce05f208ee7ebf891ffc386d704492016fb11514922"
+    },
+    "task": "c1b96d42a95773fdaf1c26d55be0803b",
+    "status": "ready",
+    "html_file": "boss-semantic-v2-d1f0f303a2853a43.html",
+    "content_file": "boss-semantic-v2-d1f0f303a2853a43.content.json",
+    "receipt_file": "boss-semantic-v2-d1f0f303a2853a43-ready.json",
+    "html_sha256": "0d31b23d46446ad9324c322fc53b0a7eecba22f87fdf1d10564f52b21b824eb3",
+    "content_sha256": "7533915c300ac611a022d69208e7f39a66e89e4003f8b1c22db4dae2c7f2ab73",
+    "evidence_sha256": "10be274c57f3c689730f25282b0bcae4683ff39b144a4284ce8aadf8af4cc057",
+    "research_html_sha256": "c3c876e303501862f4dc0a280c49898cb4b4cc29ac6619b2b7c6d376fd160858",
+    "result_sha256": "bb0a50d2fa9ec42659ae146928d8f33d790b50360e04ff34b84b0de45b6c89af"
+  },
+  "original_hashes": {
+    "model.txt": "be809b39ff8eb111599ae326562615c1579440922ee572856e14dd3649ccc670",
+    "evidence.json": "10be274c57f3c689730f25282b0bcae4683ff39b144a4284ce8aadf8af4cc057",
+    "result.json": "bb0a50d2fa9ec42659ae146928d8f33d790b50360e04ff34b84b0de45b6c89af",
+    "report.html": "c3c876e303501862f4dc0a280c49898cb4b4cc29ac6619b2b7c6d376fd160858",
+    "metadata.json": "26f10ea9d4db34881e9a116db208eeef7d803a682f4a876d745b61370b8f3b36",
+    "ready.json": "30e29ab9da34e2e82f3621b6dd3dbd9308d4796e1fd96bf36f6b6d72d7d1b0d5"
+  },
+  "evidence_count": 50,
+  "model_usage": {
+    "calls": 11,
+    "cost_basis": "amount_unknown_no_cny_invoice_or_fx",
+    "estimated_microcny": null,
+    "invalid_response_calls": 0,
+    "reasoning_tokens": 40597,
+    "total_tokens": 1877627,
+    "unknown_calls": 0
+  },
+  "checks": {
+    "new_default_FS_UI_request_completed": true,
+    "actual_provider_knowledge_and_report_version_match": true,
+    "all_six_original_files_unchanged": true,
+    "six_independent_model_Chinese_introductions": true,
+    "five_model_authored_conclusions_after_data": true,
+    "research_default_closed_and_history_removed": true,
+    "payment_orders_and_amounts_reconcile": true,
+    "fourteen_real_days_and_primary_distinct": true,
+    "major_revenue_delta_and_rolling_mean_recomputed": true,
+    "native_profit_estimate_and_actual_cost_gap_consistent": true,
+    "mechanism_and_future_event_are_not_claimed_proven": true,
+    "source_identity_seven_and_protected_290_match": true,
+    "server_artifact_exact_bytes_delivered": true,
+    "bounded_evidence_checks_have_no_errors": true
+  },
+  "browser_download_button_clicked": true,
+  "browser_download_event_confirmed": false,
+  "delivered_via": "exact existing server artifact through project download and byte-identical local copy",
+  "screenshot_scope": "actual FS overview with completed count; full report pixel inspection unavailable",
+  "limitations": [
+    "weekly/monthly/pricing paid quality and next natural overnight not tested",
+    "reference estimate is not actual cost or settlement profit",
+    "minor display rounding and unverified operational hypotheses do not authorize execution",
+    "browser download event timed out; full HTML pixel inspection not completed"
+  ],
+  "runtimeSha256": {
+    "/opt/fs-hermes-fc/report_semantics.py": "0b21ac184a8a7a2e94ffe2528d70ef21336a277d9bd44ea320ed3b3a4b6f9bab",
+    "/opt/fs-hermes-fc/report_constraints.py": "a06674941808a4379427961d6508a8a4b288148088013237e67f9fdb56fcd81d",
+    "/opt/fs-hermes-fc/boss_projection.py": "e54969e6d11eb89468171a04e6ebe642bc166496f4c652d52e0f59eb515297ed",
+    "/opt/fs-hermes-fc/boss_renderer.py": "d416c0a77bc178be3f4a32606df39da22788c868332fe289fcdeffcc0f330329",
+    "/opt/fs-hermes-fc/hermes_worker.py": "7d14172a658770d8357eeeebaeb556ac7b63042054e7fd06075e62e4d7eb8795",
+    "/opt/fs-hermes-fc/controller.py": "60c5f9b66c30fc77eb49ec9d4b91c61f460ef2a74e0a25d7715dad6c7c0b7df1",
+    "/opt/fs-hermes-fc/learning-loop.md": "8f4cc46bd7f0a7fb1377c456aceb4e241fec8625fecd5029d3dcc0428f92937c"
+  }
+}

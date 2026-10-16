@@ -1,4 +1,4 @@
-import ast,copy,hashlib,json,sqlite3,sys,tempfile,types,unittest
+import ast,copy,hashlib,json,sqlite3,sys,tempfile,types,unittest,textwrap
 import io
 from urllib.error import HTTPError
 from urllib.request import Request
@@ -25,6 +25,10 @@ class WorkerCalculationErrors(unittest.TestCase):
   for code in ('evidence_path','calculation_operand_mismatch'):
    value=json.loads(self.function(self.failing(code=code))('fc.calculate',{}))
    self.assertEqual(value['code'],code);self.assertFalse(value['calculationPerformed']);self.assertNotIn('value',value);self.assertIn('/data/',value['help'])
+ def test_registered_calculation_wire_name_uses_validation_feedback(self):
+  value=json.loads(self.function(self.failing())('mcp__fcro__fc_calculate',{}))
+  self.assertEqual(value['code'],'evidence_path');self.assertFalse(value['calculationPerformed'])
+  with self.assertRaises(HTTPError):self.function(self.failing())('mcp__fcro__fc_query_business',{})
  def test_auth_other_tools_and_unknown_errors_still_raise(self):
   for name,status,code in [('fc.calculate',403,'forbidden'),('fc.query_business',400,'evidence_path'),('fc.calculate',400,'unknown_internal')]:
    with self.assertRaises(HTTPError):self.function(self.failing(status,code))(name,{})
@@ -81,6 +85,23 @@ class Learning(unittest.TestCase):
 
 
 class Comparisons(unittest.TestCase):
+ def test_actual_runs_input_receives_concrete_delivery_requirements(self):
+  from datetime import date,timedelta
+  s=(ROOT/'source/controller.py').read_text('utf8')
+  start=s.index("            admission={'session_id'")
+  stop=s.index('            from background import task_context',start)
+  ns={'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':'daily'},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':None,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+  exec(textwrap.dedent(s[start:stop]),ns)
+  request={'body':{'input':'original spec','session_id':'fixture'}};ns['request']=request;ns['digest']=lambda x:hashlib.sha256(json.dumps(x,sort_keys=True).encode()).hexdigest()
+  a=s.index("            request['body']['input']+=");b=s.index("            path=self.run_root/'admissions'",a)
+  exec(textwrap.dedent(s[a:b]),ns)
+  text=request['body']['input']
+  self.assertTrue(text.startswith('original spec'));self.assertIn('请以昨天为主对照',text)
+  self.assertIn('主对照：2026-10-25 至 2026-10-25',text)
+  self.assertIn('原问题明确覆盖默认窗时按原意',text)
+  for heading in ('销售与订单结论','平台与商品结论','客户、支付与未完成订单结论','利润与成本结论','游戏与市场情报结论'):self.assertIn('### '+heading,text)
+  self.assertIn('逐篇整理几条中文简介',text);self.assertNotIn('frozen memory',text)
+  self.assertEqual(request['payload_sha256'],ns['digest'](request['body']))
  def compare(self,text,**extra):return declared_comparison(dict(period={'start':'2026-10-15','end':'2026-10-15'},research_text=text,**extra))
  def test_primary_single_day_and_auxiliary(self):
   self.assertEqual(self.compare('对照：2026-10-14（前日，主对照）；同星期 2026-10-08')[0],('2026-10-14','2026-10-14'))

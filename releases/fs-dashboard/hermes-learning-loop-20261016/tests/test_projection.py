@@ -37,6 +37,11 @@ class ArticleIntroductions(unittest.TestCase):
   text='## 专题：游戏内容与版本节点\n| 发布日 | 事件 | 与业务的关系 |\n|---|---|---|\n| 10-13 | Launch Feedback Update | 确认匹配问题已在10-09修复，仍监控市场。 |'
   fact,_=article_introduction(self.document('EA SPORTS FC™ 27 | Launch Feedback Update','fallback'),{'research_text':text})
   self.assertIn('匹配问题',fact);self.assertNotIn('fallback',fact)
+ def test_markdown_escaped_title_pipe_does_not_split_article_cell(self):
+  text='## 游戏与市场情报\n| 文章标题 | 内容简介 |\n|---|---|\n| EA SPORTS FC 27 \\| Launch Feedback Update | 已修复冠军赛匹配问题，正在监控防守与菜单性能。 |\n| EA SPORTS FC 27 \\| Title Update v1.0.4 | 版本没有平衡调整，修复赛后错误与生涯签约异常。 |'
+  for title,expected in [('Launch Feedback Update','冠军赛匹配'),('Title Update v1.0.4','赛后错误')]:
+   fact,_=article_introduction(self.document('EA SPORTS FC™ 27 | '+title,'fallback'),{'research_text':text})
+   self.assertIn(expected,fact);self.assertNotIn('尚未生成',fact)
 
 class PartialProjection(unittest.TestCase):
  def test_single_day_reference_uses_validated_day_total_without_day_group(self):

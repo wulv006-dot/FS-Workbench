@@ -6,7 +6,7 @@
       "source": "source/report_semantics.py",
       "runtime": "/opt/fs-hermes-fc/report_semantics.py",
       "beforeSha256": "b0c438b385445cd8779299717f733c9d4c55971eb13a0eea8a948da2e620bfbd",
-      "sha256": "793c5f56f33a253eab1b07baea9866565a6a25d734a5fc29ef8c129d3e655e30"
+      "sha256": "0b21ac184a8a7a2e94ffe2528d70ef21336a277d9bd44ea320ed3b3a4b6f9bab"
     },
     {
       "source": "source/report_constraints.py",
@@ -30,22 +30,26 @@
       "source": "source/hermes_worker.py",
       "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
       "beforeSha256": "0ce5b0a51311e80e32ad632a9036eb4c0e9b438ee9c028fe494e8996be93e361",
-      "sha256": "f4b633bcafbb8375485f5a255a00f54057de9d5407f127e799beea0cf76df223"
+      "sha256": "7d14172a658770d8357eeeebaeb556ac7b63042054e7fd06075e62e4d7eb8795"
     },
     {
       "source": "source/controller.py",
       "runtime": "/opt/fs-hermes-fc/controller.py",
       "beforeSha256": "1e1a5574c436f1fe8e991abd482d8ac1367f530b1b0ed5d7fab8e69b88e64d5f",
-      "sha256": "34251f783a34bd1b67227dfd3c7a02475362bd1e49f43c15dbd41bb910fe9c15"
+      "sha256": "60c5f9b66c30fc77eb49ec9d4b91c61f460ef2a74e0a25d7715dad6c7c0b7df1"
     },
     {
       "source": "source/learning-loop.md",
       "runtime": "/opt/fs-hermes-fc/learning-loop.md",
       "beforeSha256": "c9be6d9fc9a757baa24f1269fb1f8bc9b71054c5ea7f93170b1075441731a1bc",
-      "sha256": "18585a51254891a28ea697570cab39d2c7a6377390b0b7b3b4e3905a9c66dd21"
+      "sha256": "8f4cc46bd7f0a7fb1377c456aceb4e241fec8625fecd5029d3dcc0428f92937c"
     }
   ],
   "businessWrites": false,
   "timersChanged": false,
-  "merge_after_actual_FS_acceptance": true
+  "merge_after_actual_FS_acceptance": true,
+  "actualAcceptance": "ACTUAL-FS-ACCEPTANCE.json",
+  "acceptedRuntimeOperation": "nav-20261016T041827Z",
+  "acceptedArtifactSha256": "4808bc68c57145f2081df50aa8a9a3a44b462691a3602d82a975d08287b1bf98",
+  "finalizationOrder": "online candidate actual FS acceptance, same final PR, final CI, merge"
 }
