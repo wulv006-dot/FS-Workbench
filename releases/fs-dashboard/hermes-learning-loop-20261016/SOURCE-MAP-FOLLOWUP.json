@@ -1,0 +1,26 @@
+{
+  "scope": "hermes-learning-render-20261016",
+  "base": "314a4c4853cbf3925e83ab2d61ace99daf3092a8",
+  "files": [
+    {
+      "source": "source/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "2eaf8067efc1eeb4fffe6de4377462d0a2aa82b67e77e33f9bfa26ffd2dd4032",
+      "sha256": "77270ab662f2109fab5c8fc737bd5d740909e09706e5df0992ab144f9b76aeac"
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "384d2a731fa07c813e146ae6d071740f2013591f8a05ebce98e1ef54ca3ae512",
+      "sha256": "0ffe57bcf639fc00472004f8c1d5ea769bacc11f3a4490842bd76eefd5593fee"
+    },
+    {
+      "source": "source/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "806a4accb1e2d82d2c4381a126d3df7b84ba54f130951830c424689491001ec7",
+      "sha256": "b0c438b385445cd8779299717f733c9d4c55971eb13a0eea8a948da2e620bfbd"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false
+}

@@ -355,7 +355,7 @@ def render(c,e):
     comparable=bool(p.get('comparison_start') and p.get('comparison_end'))
     if comparable:
         for chart in charts.values():
-            if chart.get('period_basis')!='current_snapshot':chart['labels']=[p['comparison_start']+' — '+p['comparison_end'],p['start']+' — '+p['end']]
+            if chart.get('period_basis') not in ('current_snapshot','observed_daily_series'):chart['labels']=[p['comparison_start']+' — '+p['comparison_end'],p['start']+' — '+p['end']]
     comparison=('对照 '+esc(p['comparison_start'])+' — '+esc(p['comparison_end'])) if comparable else '暂无可比数据'
     comparison_note=('按原报告明确对照日期比较：'+p['comparison_start']+' 至 '+p['comparison_end']) if comparable else '暂无可比数据'
     body=f'<header id="executive"><div class="mast"><div><div class="eyebrow">经营结果 · 关键变化 · 下一步</div><h1>{esc(r["title"])}</h1><p class="meta">经营参考 · 金额为 USD · 建议尚未执行</p></div><div class="issue"><strong>{esc(p["start"])} — {esc(p["end"])}</strong>{comparison}<br>北京时间</div></div>'
@@ -426,7 +426,7 @@ def render(c,e):
     for x in c['intel']:
         published=x['published_at'] or '未标注'
         if re.match(r'^\d{4}-\d{2}-\d{2}',published):published=published[:10]
-        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(published)}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{brief(x["title"])}</a></h3><p><b>来源内容：</b>{brief(x["fact"])}</p><p><b>可能影响（待验证）：</b>{brief(x["hypothesis"])}</p><p><b>建议行动：</b>{brief(x["action"])}</p><details><summary>查看情报来源</summary><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])} {refs(x.get("evidence_ids",[]))}</span><p>{esc(x["fact"])}</p><p>{esc(x["hypothesis"])}</p><p>{esc(x["action"])}</p></details></div></article>'
+        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(published)}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{brief(x["title"])}</a></h3><p><b>活动与情报简介：</b>{brief(x["fact"])}</p><small>{brief(x.get("introduction_basis",""))}</small><p><b>可能影响（待验证）：</b>{brief(x["hypothesis"])}</p><p><b>建议行动：</b>{brief(x["action"])}</p><details><summary>查看情报来源</summary><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])} {refs(x.get("evidence_ids",[]))}</span><p>{esc(x["fact"])}</p><p>{esc(x["hypothesis"])}</p><p>{esc(x["action"])}</p></details></div></article>'
     for x in c.get('intel_pending',[]):
         intel+='<article class="note"><strong>'+esc(x['title'])+'</strong><p>'+esc(x['fact'])+'</p><p>'+esc(x['reason'])+'</p>'+refs(x['evidence_ids'])+'</article>'
     body+=section('05','游戏与市场情报',intel+'<div class="note">'+esc(c.get('intel_note','情报按原来源、事件日期和适用窗口使用；缺少历史市场或同规格竞品数据时，不推断价格趋势。'))+'</div>',sid='intelligence')

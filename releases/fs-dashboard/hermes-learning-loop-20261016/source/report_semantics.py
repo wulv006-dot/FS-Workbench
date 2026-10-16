@@ -125,6 +125,37 @@ def inline_field(text, name, default):
     return plain(match[1]) if match else default
 
 
+def article_introduction(document, result):
+    """A shared evidence ID binds a bundle, never an individual article summary."""
+    title=plain(str(document.get('title',''))).replace('™','')
+    subject=re.split(r'\s+[|—-]\s+',title)[-1].strip()
+    version=re.search(r'\bv\d+(?:\.\d+)+',subject,re.I)
+    candidates=[]
+    for part in sections(result.get('research_text','')):
+        context=' / '.join([*part.get('parents',[]),part['heading']])
+        if not re.search('官方|新闻|内容|版本|情报',context) or re.search(r'建议|行动|复查|\b[RA]\d+\b',context):continue
+        for line in part['text'].splitlines():
+            if not re.match(r'^\s*[-*]\s+',line):continue
+            value=plain(re.sub(r'^\s*[-*]\s+','',line))
+            if re.search('最小动作|触发条件|复查时间|责任角色|投入/风险|停止条件|需求假设|建议',value):continue
+            # A version mentioned alongside another release cannot identify its contents.
+            if version:
+                versions=set(re.findall(r'\bv\d+(?:\.\d+)+',value,re.I))
+                matched=versions=={version[0]}
+            else:matched=bool(subject and subject.casefold() in value.replace('™','').casefold())
+            if matched and len(re.findall(r'[\u4e00-\u9fff]',value))>=8:candidates.append(value)
+    if len(candidates)==1:
+        value=re.sub(r'\s*\bev_[a-f0-9]{24}\b','',candidates[0])
+        return value[:420]+('…' if len(value)>420 else ''),'原报告逐篇简介；未作新增研究'
+    text=re.sub(r'\s+',' ',str(document.get('text',''))).strip()
+    header=re.search(r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b',text[:400])
+    if header:text=text[header.end():].strip()
+    sentences=re.split(r'(?<=[.!?。！？])\s+',text)
+    excerpt=' '.join(sentences[:2])[:420]
+    if len(excerpt)<len(' '.join(sentences[:2])):excerpt=excerpt.rsplit(' ',1)[0]+'…'
+    return excerpt,'官方原文简介；尚未整理逐篇中文摘要'
+
+
 def intelligence(result,evidence):
     """Keep actual source-backed intel; isolate unverified model assertions visibly."""
     from datetime import date,datetime
@@ -209,10 +240,8 @@ def intelligence(result,evidence):
             elif re.search(r'\bSBC\b|squad building|evolution|future stars|playstyle|ultimate team',topic,re.I):
                 relevance='活动资格与阵容内容可用于筛选 Coins / Items 的内容选题；活动对我方咨询、成交与客单的影响仍需验证。'
                 action='建议按官方资格核对现有商品，先准备内容草案并记录相关咨询、点击和成交；真实发布或投放由负责人确认。'
-            original_sections=[part for part in sections(result.get('research_text','')) if re.search('官方|新闻|内容|版本|情报',plain(part['heading'])) and re.search('[\u4e00-\u9fff]',part['text'])]
-            chinese='\n\n'.join(part['text'] for part in original_sections if eid in refs(part['text'],evidence))
-            if not chinese and len(original_sections)==1:chinese=original_sections[0]['text']
-            accepted.append(dict(title=title,fact=chinese or '已读取官方原文；尚未整理中文业务摘要。',source_preview=excerpt,hypothesis=relevance,action=action,
+            introduction,introduction_basis=article_introduction(document,result)
+            accepted.append(dict(title=title,fact=introduction,introduction_basis=introduction_basis,source_preview=excerpt,hypothesis=relevance,action=action,
                                  source='EA 官方 · 已读取正文',published_at=published,event_at='未单独核验，不以发布日期代替',
                                  applies='按官方正文范围；具体业务窗口待确认',url=url,retrieved_at=stamp,evidence_ids=[eid],window=window,
                                  extraction='官方工具正文摘录；业务联系为建议核对方向'))
