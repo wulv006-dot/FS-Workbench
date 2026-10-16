@@ -1,0 +1,9 @@
+{
+  "scope": "news-weekly-schedule-20261016",
+  "target": "/opt/fs-boss-workspaces/backend/mmoexp_news.py",
+  "before_sha256": "331eb022a1bff3f2913011072802ecdd6bd67cd92f1b886e1a57b288325e313a",
+  "sha256": "1fdad735712620759167591ff7bd3858fef7813eae549866b9c903515b2dc60a",
+  "schedule": "Saturday 00:05 Asia/Shanghai",
+  "trigger": "existing daily game-monitor timer; News weekday guard",
+  "new_timers": 0
+}
