@@ -282,7 +282,7 @@ def project(result, evidence, metadata, research_sha):
             if single:
                 charts[chart_index].update(kind='bars_compare',rows=[{'label':label,'previous':None,'current':str(facts(v)[0]),'previous_orders':None,'current_orders':int(facts(v)[1])} for label,v in sorted(single[0].items())],
                     evidence_ids=single[1],interpretation='本期完整结构；对照独立缺失，未补零。')
-        if not charts[0]['rows']:
+        if kind=='daily' or not charts[0]['rows']:
             known={};daily_ids=[];conflicts=set()
             for key,row in sorted(evidence.items()):
                 q=row.get('query',{});data=row.get('data',{})
@@ -299,9 +299,15 @@ def project(result, evidence, metadata, research_sha):
                     daily_ids.append(key)
                 except (KeyError,TypeError,ValueError,ArithmeticError):continue
             if known:
-                charts[0].update(rows=[{'label':day[5:],'current_date':day,'previous_date':None,'previous':None,'current':str(facts(v)[0]) if day not in conflicts else None,
-                    'current_orders':int(facts(v)[1]) if day not in conflicts else None,'previous_orders':None,'previous_aov':None,'current_aov':str(facts(v)[0]/facts(v)[1]) if facts(v)[1] and day not in conflicts else None} for day,v in sorted(known.items())],
-                    evidence_ids=daily_ids,interpretation='显示实际已取得的日序列；缺日和冲突不补零。')
+                first=min(known);last=max(known)
+                observed=sorted(set(known)-conflicts)
+                calendar=[(date.fromisoformat(first)+timedelta(days=i)).isoformat() for i in range((date.fromisoformat(last)-date.fromisoformat(first)).days+1)]
+                missing=sorted(set(calendar)-set(observed))
+                charts[0].update(rows=[{'label':day[5:],'current_date':day,'previous_date':None,'previous':None,'current':str(facts(known[day])[0]) if day in observed else None,
+                    'current_orders':int(facts(known[day])[1]) if day in observed else None,'previous_orders':None,'previous_aov':None,'current_aov':str(facts(known[day])[0]/facts(known[day])[1]) if day in observed and facts(known[day])[1] else None} for day in calendar],
+                    period=first+' — '+last,period_basis='observed_daily_series',labels=['未设置趋势对照系列',first+' — '+last],
+                    coverage={'observed_dates':observed,'missing_dates':missing,'conflict_dates':sorted(conflicts)},
+                    evidence_ids=daily_ids,interpretation='时间趋势独立于单日主对照；显示已核验的 '+str(len(observed))+' 日实际序列，缺日和冲突断开、不补零。')
     if not charts[5]['rows'] and kind=='daily' and all(estimates[k].get('status')=='estimated' and estimates[k].get('reference_margin_percent') is not None for k in ('current','previous')):
         charts[5].update(rows=[{'label':start[5:],'current_date':start,'previous_date':old_start,'current':estimates['current']['reference_margin_percent'],'previous':estimates['previous']['reference_margin_percent']}],
             evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+estimates['previous']['evidence_ids'])),scope='Order原生对应单日参考率；来源范围单列，非结算利润',interpretation='两日分别使用已验证的原生参考率；采集时间不同不伪装成数据缺失。')

@@ -18,6 +18,10 @@ class ExactRelease(unittest.TestCase):
              'runtimeRequired':{'fs-business-range.service':{'ActiveState':'active'},'fs-hermes-fc.service':{'ActiveState':'active'}},
              'imageId':'sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544'}
    pub.validate(manifest,stage)
+   render=copy.deepcopy(manifest);render['scope']=pub.LEARNING_RENDER_SCOPE
+   render['files']=[r for r in rows if r['candidate'] in pub.LEARNING_RENDER_TARGETS]
+   render['unchangedRequired'] += [{'path':r['target'],'sha256':'b'*64} for r in rows if r['candidate'] not in pub.LEARNING_RENDER_TARGETS]
+   pub.validate(render,stage)
    bad=copy.deepcopy(manifest);bad['files'][0]['target']='/opt/fc27-cloud/price_writer.py'
    with self.assertRaises(ValueError):pub.validate(bad,stage)
    bad=copy.deepcopy(manifest);bad['files'].pop()
