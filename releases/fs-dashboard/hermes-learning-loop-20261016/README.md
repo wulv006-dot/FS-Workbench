@@ -1,15 +1,19 @@
-# Hermes学习闭环修复
+# FS/Hermes真实日报交付修复
 
-负责人：吴律；施工：Codex。用户2026-10-16要求纠正规则自动发布、新FS任务采用并在报告留版本；以附件V2为施工依据，通用接线覆盖日报、周报、月报、经营目标分析和独立定价研究。
+Desktop保存的明确规则在新FS请求受理时发布不可变知识版本，复用判断包含版本身份；运行中与原request_id保持原版。该接线已由PR189接入，PR190保留早期阅读修正。本轮修复真实FS新生成暴露的交付问题。
 
-本目录source是依据当次活动源逐文件SHA建立的新维护源；旧归档、原生Desktop会话/记忆、原报告/证据和费用不改写。SOURCE-MAP.json给出精确基线及新载荷。原E仓库无Git写入。
+维护源为source/，当前精确七文件范围见SOURCE-MAP-ACCEPTANCE.json；原SOURCE-MAP.json（九文件）与SOURCE-MAP-FOLLOWUP.json（三文件）只对应历史阶段，不重发旧包。
 
-- controller在检查旧稿复用前发布内容寻址知识快照并持久绑定request，PREPARING也具备版本。相同request_id先返回旧记录，更新知识不重放。运行中任务读取原快照。
-- 已审核的专用业务profile MEMORY/USER与Desktop业务约定和文本方法显式进入任务系统提示。生产skip_memory=True只关闭共享home原生通道；显式业务加载必需、带来源和SHA。隔离False试验证明原生可读，但其共享home重载不能满足每任务冻结。
-- worker验证组装输入，原网关在实际主模型/摘要消息发送前再次验证完整冻结知识，响应后留provider回执。prepared、assembled、provider_response_success与负责人质量认可分开。
-- 单日主对照可解析，前日/同星期分列；当前图表可独立保留，参考率使用经原估算器验证的对应单日来源。中文原分析保留、正文默认展开，历史动作及全部复盘日期不因重开改写。
-- 日报读取范围补到14完整日，缺日仍如实标明。经营研究high，调查/定价max；工具、权限、业务参数、模型路线和调度保持。
+- 具体任务日期和交付要求进入实际Runs输入，完整冻结业务知识仍必须出现在真实system消息中；缺失拒绝。生产skip_memory=True仅隔离共享home原生通道，业务记忆并未跳过。
+- 六篇官方文章逐篇提取Hermes原文中文简介，支持Markdown转义竖线、标题及版本绑定，拒绝行动计划串文。
+- 完整研究默认折叠，移除历史原文显示；五个数据模块后各显示Hermes自己写的一句判断。
+- 支付保留订单数和金额；趋势显示实际14日。参考利润按对应原生率估算，单日可用已核平总量；主对照缺项可单列前日辅助，不补零、不倒推成本。
+- 计算器正式注册名及内部名称都能返回受控400参数错误的修正提示；鉴权、未知错误、参数/值/证据绑定保持。持久方法明确百分比分母、七日均值复算、原生率时点、事实与原因假说边界。
 
-直接检查：`python -X utf8 -m unittest discover -s hermes_learning_loop_20261016/tests`。runtime_check.py只在固定官方镜像、独立home、禁网络中运行，不调用模型。check_original.py使用本地受限原证据，可重跑转换，不自动发布或调用模型。
+先线上候选真实验收，再整理同一PR、最终CI与合并。真实验收详ACTUAL-FS-ACCEPTANCE.json：2026-10-16从wulv默认昨日日报入口、原问题/daily/reuse=true生成新任务c1b96d42a95773fdaf1c26d55be0803b；14项核对通过，原六文件未改写，50份证据，request COMPLETED/task SUCCEEDED。不是Codex手工补写报告。
 
-受控发布沿既有release_navigation.py，只增加本范围精确目标映射；锁、数据库admission fence、CAS、备份、在途任务与回退保留。不重复apply成功operation，不覆盖新会话数据库。生产和真实验收状态见docs/planning/hermes-learning-loop-20261016/。
+候选operation nav-20261016T041827Z，7目标及290保护SHA一致；发布时sourceCommit=null明确本地候选，最终入库须逐blob与已验运行文件对齐，不能倒改旧journal。锁/CAS/admission/备份/未知结果保护保留；原任务、费用、业务价格、权限与定时器不改。
+
+直接检查：python -X utf8 -m unittest discover -s releases/fs-dashboard/hermes-learning-loop-20261016/tests（44项）。正式最终CI结果由对应commit的pr-fast记录，不将本地检查当CI。
+
+限制：参考利润不是实际结算利润，成本缺失明示；业务原因和建议仍待负责人核验，未测得整体置信度。周/月/定价未另做付费质量验收、下一夜间自然周期未观察。FS下载按钮已点击但浏览器下载事件未确认，交付文件取自同一已生成服务器成品并逐字节核验；完整HTML像素验收未完成。截图为真实FS总览完成状态。成功apply及付费任务不可盲重放；回退只用原精确备份和当前CAS，不恢复旧数据库覆盖新会话。

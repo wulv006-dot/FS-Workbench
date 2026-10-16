@@ -85,7 +85,9 @@ def declared_comparison(result):
     pairs=[];primary=[];invalid=False
     token=r'(\d{4}-\d{2}-\d{2}|\d{2}-\d{2})'
     label=r'(?:主对照|主要对照|主比较|对比|环比|对照)(?:期|窗(?:口)?)?'
-    for line in text.splitlines():
+    preamble=text.split('\n## ',1)[0]
+    declarations=re.findall(r'(?:主对照|主要对照|主比较)(?:期|窗(?:口)?)?\s*(?:为|[:：])\s*[^。；;\n]+',plain(preamble))
+    for line in text.splitlines()+[d.replace('为','：',1) for d in declarations]:
         stripped=plain(line).lstrip('#-*+ ').strip()
         if not re.match(label+r'\s*[:：]',stripped):continue
         head=re.split(r'[；;]|(?:辅助|同星期|上周同日)(?:对照|比较)?',stripped,maxsplit=1)[0]
@@ -134,9 +136,21 @@ def article_introduction(document, result):
     for part in sections(result.get('research_text','')):
         context=' / '.join([*part.get('parents',[]),part['heading']])
         if not re.search('官方|新闻|内容|版本|情报',context) or re.search(r'建议|行动|复查|\b[RA]\d+\b',context):continue
+        headers=None
         for line in part['text'].splitlines():
-            if not re.match(r'^\s*[-*]\s+',line):continue
-            value=plain(re.sub(r'^\s*[-*]\s+','',line))
+            if line.strip().startswith('|'):
+                cells=[plain(c.replace(r'\|','|')) for c in re.split(r'(?<!\\)\|',line.strip().strip('|'))]
+                if all(re.fullmatch(r'[:\-\s]+',c or '-') for c in cells):continue
+                if any(c in ('事件','文章','文章标题','标题') for c in cells):headers=cells;continue
+                if not headers or len(cells)!=len(headers):continue
+                title_col=next(i for i,c in enumerate(headers) if c in ('事件','文章','文章标题','标题'))
+                intro_col=next((i for i,c in enumerate(headers) if c in ('内容简介','活动简介','情报简介','简介','内容要点','已核实内容')),None)
+                if ' / ' in cells[title_col]:continue
+                value=cells[title_col]+'：'+(cells[intro_col] if intro_col is not None else '；'.join(c for i,c in enumerate(cells) if i!=title_col))
+            else:
+                headers=None
+                if not re.match(r'^\s*[-*]\s+',line):continue
+                value=plain(re.sub(r'^\s*[-*]\s+','',line))
             if re.search('最小动作|触发条件|复查时间|责任角色|投入/风险|停止条件|需求假设|建议',value):continue
             # A version mentioned alongside another release cannot identify its contents.
             if version:
@@ -153,7 +167,7 @@ def article_introduction(document, result):
     sentences=re.split(r'(?<=[.!?。！？])\s+',text)
     excerpt=' '.join(sentences[:2])[:420]
     if len(excerpt)<len(' '.join(sentences[:2])):excerpt=excerpt.rsplit(' ',1)[0]+'…'
-    return excerpt,'官方原文简介；尚未整理逐篇中文摘要'
+    return '该篇中文内容简介尚未生成，请展开来源核对原文。','中文简介待补；不以英文或行动计划代替'
 
 
 def intelligence(result,evidence):
@@ -195,7 +209,11 @@ def intelligence(result,evidence):
         except (ValueError,TypeError,AttributeError):
             pending.append({'title':str(row.get('title','情报条目')),'fact':str(row.get('fact','')),'reason':'缺可核验来源/读取时间或未逐项绑定实际证据，待补','evidence_ids':ids});continue
         item={k:str(row.get(k) or '待补') for k in ('title','fact','hypothesis','action','source','published_at','event_at','applies')}
-        if document is not None:item['published_at']=str(document.get('published_at') or '未知（官方未提供）')
+        if document is not None:
+            item['published_at']=str(document.get('published_at') or '未知（官方未提供）')
+            if len(re.findall(r'[\u4e00-\u9fff]',item['fact']))<4 or re.search('最小动作|触发条件|复查时间|责任角色|停止条件',item['fact']):
+                item['fact'],item['introduction_basis']=article_introduction(document,result)
+            item['source_preview']=re.sub(r'\s+',' ',str(document.get('text','')))[:420]
         item.update(url=url,retrieved_at=stamp,evidence_ids=ids,window='事件时间与适用性待复核')
         # Publication time and event time have different meanings. Never date an
         # event from a later retrospective publication.

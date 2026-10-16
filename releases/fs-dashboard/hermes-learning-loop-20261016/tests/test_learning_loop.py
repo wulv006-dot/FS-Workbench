@@ -1,4 +1,7 @@
-import ast,copy,hashlib,json,sqlite3,sys,tempfile,types,unittest
+import ast,copy,hashlib,json,sqlite3,sys,tempfile,types,unittest,textwrap
+import io
+from urllib.error import HTTPError
+from urllib.request import Request
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -6,6 +9,35 @@ sys.path[:0]=[str(ROOT/'source'),str(ROOT/'baseline')]
 import business_context as bc
 from report_semantics import declared_comparison
 from boss_projection import action_schedule
+
+class WorkerCalculationErrors(unittest.TestCase):
+ def function(self,opener):
+  source=ast.parse((ROOT/'source/hermes_worker.py').read_text('utf8'))
+  function=next(n for n in source.body if isinstance(n,ast.FunctionDef) and n.name=='call_tool')
+  scope={'json':json,'HTTPError':HTTPError,'Request':Request,'build_opener':lambda *_:opener,'NoRedirect':object,
+         'admission':lambda _:dict(token='fixture'),'PROXY':'http://fixture','MAX_PROVIDER_WIRE_BYTES':1024}
+  exec(compile(ast.Module(body=[function],type_ignores=[]),'<worker-call-tool>','exec'),scope)
+  return scope['call_tool']
+ def failing(self,status=400,code='evidence_path',body=None):
+  def fail(*_,**__):raise HTTPError('http://fixture',status,'fixture',{},io.BytesIO(body if body is not None else json.dumps({'error':code}).encode()))
+  return types.SimpleNamespace(open=fail)
+ def test_calculation_validation_error_is_visible_not_a_result(self):
+  for code in ('evidence_path','calculation_operand_mismatch'):
+   value=json.loads(self.function(self.failing(code=code))('fc.calculate',{}))
+   self.assertEqual(value['code'],code);self.assertFalse(value['calculationPerformed']);self.assertNotIn('value',value);self.assertIn('/data/',value['help'])
+ def test_registered_calculation_wire_name_uses_validation_feedback(self):
+  value=json.loads(self.function(self.failing())('mcp__fcro__fc_calculate',{}))
+  self.assertEqual(value['code'],'evidence_path');self.assertFalse(value['calculationPerformed'])
+  with self.assertRaises(HTTPError):self.function(self.failing())('mcp__fcro__fc_query_business',{})
+ def test_auth_other_tools_and_unknown_errors_still_raise(self):
+  for name,status,code in [('fc.calculate',403,'forbidden'),('fc.query_business',400,'evidence_path'),('fc.calculate',400,'unknown_internal')]:
+   with self.assertRaises(HTTPError):self.function(self.failing(status,code))(name,{})
+ def test_error_body_is_bounded_and_not_echoed(self):
+  with self.assertRaisesRegex(ValueError,'tool_response_size'):self.function(self.failing(body=b'x'*1025))('fc.calculate',{})
+  with self.assertRaises(HTTPError):self.function(self.failing(body=b'<html>error</html>'))('fc.calculate',{})
+ def test_successful_response_is_unchanged(self):
+  opener=types.SimpleNamespace(open=lambda *_,**__:io.BytesIO(b'{"status":"available","value":"12.34"}'))
+  value=json.loads(self.function(opener)('fc.calculate',{}));self.assertEqual(value,{'status':'available','value':'12.34'})
 
 
 class Learning(unittest.TestCase):
@@ -53,10 +85,29 @@ class Learning(unittest.TestCase):
 
 
 class Comparisons(unittest.TestCase):
+ def test_actual_runs_input_receives_concrete_delivery_requirements(self):
+  from datetime import date,timedelta
+  s=(ROOT/'source/controller.py').read_text('utf8')
+  start=s.index("            admission={'session_id'")
+  stop=s.index('            from background import task_context',start)
+  ns={'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':'daily'},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':None,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+  exec(textwrap.dedent(s[start:stop]),ns)
+  request={'body':{'input':'original spec','session_id':'fixture'}};ns['request']=request;ns['digest']=lambda x:hashlib.sha256(json.dumps(x,sort_keys=True).encode()).hexdigest()
+  a=s.index("            request['body']['input']+=");b=s.index("            path=self.run_root/'admissions'",a)
+  exec(textwrap.dedent(s[a:b]),ns)
+  text=request['body']['input']
+  self.assertTrue(text.startswith('original spec'));self.assertIn('请以昨天为主对照',text)
+  self.assertIn('主对照：2026-10-25 至 2026-10-25',text)
+  self.assertIn('原问题明确覆盖默认窗时按原意',text)
+  for heading in ('销售与订单结论','平台与商品结论','客户、支付与未完成订单结论','利润与成本结论','游戏与市场情报结论'):self.assertIn('### '+heading,text)
+  self.assertIn('逐篇整理几条中文简介',text);self.assertNotIn('frozen memory',text)
+  self.assertEqual(request['payload_sha256'],ns['digest'](request['body']))
  def compare(self,text,**extra):return declared_comparison(dict(period={'start':'2026-10-15','end':'2026-10-15'},research_text=text,**extra))
  def test_primary_single_day_and_auxiliary(self):
   self.assertEqual(self.compare('对照：2026-10-14（前日，主对照）；同星期 2026-10-08')[0],('2026-10-14','2026-10-14'))
  def test_single_day(self):self.assertEqual(self.compare('对照期：10-08')[0],('2026-10-08','2026-10-08'))
+ def test_inline_primary_declaration_in_preamble(self):
+  self.assertEqual(self.compare('范围与口径：业务日10-15；主对照为2026-10-08 至 2026-10-08；前日辅助2026-10-14。\n## 关键判断\n主对照仅作举例：2026-10-01。')[0],('2026-10-08','2026-10-08'))
  def test_explicit_window_wins(self):self.assertEqual(self.compare('对照：待定',comparison_period={'start':'2026-10-08','end':'2026-10-08'})[0][0],'2026-10-08')
  def test_conflicting_windows_not_guessed(self):self.assertTrue(self.compare('对照：2026-10-08\n对照：2026-10-14')[2])
  def test_invalid_date_not_silently_defaulted(self):self.assertTrue(self.compare('对照：2026-10-99')[2])

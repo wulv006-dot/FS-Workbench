@@ -12,6 +12,7 @@ import re
 import signal
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError
 
 from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_WIRE_BYTES
 from runs_contract import WIRE_TOOLS, PIN
@@ -69,8 +70,19 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
     body = json.dumps({'name': name, 'arguments': args}).encode()
     request = Request(PROXY+'/fc/tools/call', body,
                       {'Authorization': 'Bearer '+item['token'], 'Content-Type': 'application/json'})
-    with build_opener(NoRedirect).open(request, timeout=30) as response:
-        raw = response.read(MAX_PROVIDER_WIRE_BYTES+1)
+    try:
+        with build_opener(NoRedirect).open(request, timeout=30) as response:
+            raw = response.read(MAX_PROVIDER_WIRE_BYTES+1)
+    except HTTPError as error:
+        if name not in ('fc.calculate','mcp__fcro__fc_calculate') or error.code!=400:raise
+        raw=error.read(MAX_PROVIDER_WIRE_BYTES+1)
+        if len(raw)>MAX_PROVIDER_WIRE_BYTES:raise ValueError('tool_response_size')
+        try:code=json.loads(raw).get('error')
+        except (ValueError,AttributeError):raise error
+        codes={'calculation_evidence','calculation_bindings','calculation_assumption','calculation_operand_mismatch','evidence_path','decimal_required','calculation_fields','calculation_operation'}
+        if code not in codes:raise error
+        return json.dumps({'status':'invalid_arguments','code':code,'calculationPerformed':False,
+            'help':'values 为无千分逗号的十进制字符串；每项都有 value_paths 和 assumptions。实际证据字段用 /data/... JSON pointer，assumptions 填空字符串；仅情景输入可用 null 路径并说明假设。路径从完整 ev 信封根开始，例如 /data/total/revenue_usd；具体字段须以这条证据实际结构为准，不反复猜路径。'},ensure_ascii=False)
     if len(raw) > MAX_PROVIDER_WIRE_BYTES:
         raise ValueError('tool_response_size')
     return json.dumps(json.loads(raw),ensure_ascii=False,separators=(',',':'),allow_nan=False)

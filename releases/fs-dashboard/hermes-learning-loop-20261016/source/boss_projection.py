@@ -265,6 +265,15 @@ def project(result, evidence, metadata, research_sha):
     if not previous:gaps.append('未取得同口径对照期汇总，未计算涨跌。')
     if comparison_ambiguous:gaps.append(comparison_basis)
     semantic=index(result,evidence)
+    section_titles={'销售与订单结论':'analysis','平台与商品结论':'products','客户、支付与未完成订单结论':'customers','利润与成本结论':'finance','游戏与市场情报结论':'intelligence'}
+    section_conclusions={}
+    for part in semantic['sections']:
+        title=part['heading'].strip(' *')
+        if title not in section_titles:continue
+        text=re.sub(r'\bev_[a-f0-9]{24}\b','',part['text']).strip().split('\n\n',1)[0]
+        text=re.sub(r'\*\*|__|`','',text)
+        if len(re.findall(r'[\u4e00-\u9fff]',text))>=8 and not text.startswith(('|','{','```')):
+            section_conclusions[section_titles[title]]=text[:260]+('…' if len(text)>260 else '')
     corrections=['本版独立保存；原始研究、原始老板版及冻结证据保持原字节。','索引提取不代表业务验证，建议均待复核、未下发或执行。']
     reference,reference_gap=(None,comparison_basis) if comparison_ambiguous else order_series(evidence,anchor,old_start,old_end,start,end)
     if reference:charts[5].update(reference,note='全站上游参考日率，非主站结算利润；可按用户临时口径乘对应日期主站金额估算，不当作采购成本或整周利润率。')
@@ -311,6 +320,29 @@ def project(result, evidence, metadata, research_sha):
     if not charts[5]['rows'] and kind=='daily' and all(estimates[k].get('status')=='estimated' and estimates[k].get('reference_margin_percent') is not None for k in ('current','previous')):
         charts[5].update(rows=[{'label':start[5:],'current_date':start,'previous_date':old_start,'current':estimates['current']['reference_margin_percent'],'previous':estimates['previous']['reference_margin_percent']}],
             evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+estimates['previous']['evidence_ids'])),scope='Order原生对应单日参考率；来源范围单列，非结算利润',interpretation='两日分别使用已验证的原生参考率；采集时间不同不伪装成数据缺失。')
+    payment_period={'start':old_start,'end':old_end,'basis':'主对照'}
+    if kind=='daily' and current and not comparison_ambiguous:
+        prior_day=(date.fromisoformat(start)-timedelta(days=1)).isoformat();prior_total=total(prior_day,prior_day)
+        if not charts[1]['rows'] and prior_total:
+            a,b=grouped('product',prior_day,prior_day,prior_total),grouped('product',start,end,current)
+            if a and b:
+                split=comparison_rows(a,b)
+                charts[1].update(rows=[{'label':'前日辅助','role':'total','value':str(prior_total[1])}]+[{'label':r['label'],'role':'delta','value':str(number(r['current'])-number(r['previous']))} for r in split]+[{'label':'本期','role':'total','value':str(current[1])}],
+                    labels=[prior_day+' 前日辅助',start],period_basis='previous_day_comparison',evidence_ids=list(dict.fromkeys(a[1]+b[1])),
+                    interpretation='主对照品类分组未齐，保留完整且核平的前日品类变化，未改变主指标对照。')
+        if not payment and prior_total:
+            a,b=grouped('payment',prior_day,prior_day,prior_total),grouped('payment',start,end,current)
+            if a and b:
+                payment=[dict(row,delta=str(number(row['current'])-number(row['previous']))) for row in comparison_rows(a,b)]
+                payment_ids=list(dict.fromkeys(a[1]+b[1]))
+                payment_period={'start':prior_day,'end':prior_day,'basis':'前日辅助；主对照支付分组未齐'}
+        if not charts[5]['rows'] and estimates['current'].get('status')=='estimated':
+            alternate=estimated_profit(evidence,anchor,prior_day,prior_day,prior_total,eligible)
+            if alternate.get('status')=='estimated' and all(x.get('reference_margin_percent') is not None for x in (estimates['current'],alternate)):
+                estimates['previous_day']=alternate
+                charts[5].update(rows=[{'label':start[5:],'current_date':start,'previous_date':prior_day,'current':estimates['current']['reference_margin_percent'],'previous':alternate['reference_margin_percent']}],
+                    labels=[prior_day+' 前日辅助',start],period_basis='previous_day_reference',evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+alternate['evidence_ids'])),
+                    scope='Order原生对应单日参考率；非结算利润',interpretation='主对照参考率缺失，单独展示已验证的前日比较；未改主对照日期。')
     comparisons=[]
     if kind=='daily':
         for role,offset in (('前日',1),('同星期',7)):
@@ -417,7 +449,7 @@ def project(result, evidence, metadata, research_sha):
                          'confidence_unknown':'局部缺口按影响注明；优先给主判断、下一步及反转条件，不要求所有细节核平。',
                          'now':[{'title':a['title'],'text':'建议：'+a['steps']} for a in actions[:3]],'decision':'按主要影响与证据强弱选择优先动作；新证据触及反转条件时调整方向，建议尚未执行。'},
             'key_findings':[dict(row,statement=reviewed_text(row['statement'])) for row in semantic['findings']],
-            'comparisons':comparisons,'metrics':metrics,'charts':charts,'payment':payment,'payment_evidence_ids':payment_ids,'marketing_context':marketing_context(evidence,period),
+            'section_conclusions':section_conclusions,'payment_period':payment_period,'comparisons':comparisons,'metrics':metrics,'charts':charts,'payment':payment,'payment_evidence_ids':payment_ids,'marketing_context':marketing_context(evidence,period),
             'marketing_previous':marketing_context(evidence,{'start':old_start,'end':old_end}),
             'hypotheses':[dict(row,text=reviewed_text(row['text'])) for row in semantic['hypotheses']],'context':context,
             'finance':{'title':'主站预估利润（临时参考口径）','estimates':estimates,
