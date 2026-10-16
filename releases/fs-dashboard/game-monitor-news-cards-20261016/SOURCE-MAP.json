@@ -1,0 +1,27 @@
+{
+  "scope": "game-monitor-news-cards-20261016",
+  "sources": [
+    {
+      "source": "source/mmoexp_news.py",
+      "sha256": "331eb022a1bff3f2913011072802ecdd6bd67cd92f1b886e1a57b288325e313a",
+      "runtime": "/opt/fs-boss-workspaces/backend/mmoexp_news.py"
+    },
+    {
+      "source": "source/game_intelligence.py",
+      "sha256": "640516a17640f127516322e5c86af37370531ff896d623255cd2b55e8808c836",
+      "runtime": "/opt/fs-boss-workspaces/backend/game_intelligence.py"
+    },
+    {
+      "source": "source/daily.js",
+      "sha256": "aeb4463af4ee5cba3bd904285a4ce4d47f2406bfb599a4c252e715f54cf9a2ca",
+      "runtime": "/dashboard/game-monitor/daily.js"
+    },
+    {
+      "source": "source/index.html",
+      "sha256": "fd1f93efa68e4598a1913d390efc540ceaab73f99e21b64975a38cebae8d9bd7",
+      "runtime": "/dashboard/game-monitor/index.html"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false
+}
