@@ -114,3 +114,53 @@ class PartialProjection(unittest.TestCase):
   self.assertEqual(r['research_text'],c['research_text'])
 
 if __name__=='__main__':unittest.main()
+
+
+class GlobalFieldAuthority(unittest.TestCase):
+ def estimate(self,records):
+  from decimal import Decimal
+  from report_constraints import estimated_profit
+  row={'analysis_anchor_id':'fixture','project':'FC27','timezone':'Asia/Shanghai',
+       'query':{'profile':'FC27','start':'2026-10-15','end':'2026-10-15'},
+       'data':{'status':'available','source_contract':'admin-main-order-labelled-supplement-v1','source_records':records}}
+  return estimated_profit({'ev_'+'f'*24:row},'fixture','2026-10-15','2026-10-15',
+       ('ev_'+'a'*24,Decimal(100),Decimal(2),PartialProjection().evidence()),lambda _:True)
+ def record(self,system,rate,stamp='2026-10-16T03:00:00Z'):
+  return {'system':system,'status':'available','stale':False,'currency':'USD',
+       'period':{'start':'2026-10-15 00:00','end':'2026-10-16 00:00'},'capturedAt':stamp,
+       'dimensions':{'channels':[{'name':'different-platform'}]},
+       'metrics':{'profitMarginPct':{'status':'available','unit':'percent','value':rate}}}
+ def test_admin_wins_even_when_order_is_newer(self):
+  r=self.estimate({'order':self.record('order.p2pah.cn',20),'admin':self.record('admin.p2pah.cn',30,'2026-10-16T02:00:00Z')})
+  self.assertEqual(r['amount_usd'],'30.00');self.assertEqual(r['sources'][0]['system'],'admin.p2pah.cn')
+ def test_missing_admin_uses_order_despite_platform_difference(self):
+  admin=self.record('admin.p2pah.cn',None);admin['metrics']['profitMarginPct']['status']='not_provided'
+  r=self.estimate({'admin':admin,'order':self.record('order.p2pah.cn',20)})
+  self.assertEqual(r['amount_usd'],'20.00');self.assertEqual(r['sources'][0]['system'],'order.p2pah.cn')
+ def test_latest_period_read_wins_old_cache(self):
+  r=self.estimate({'old':self.record('order.p2pah.cn',22.1,'2026-10-16T02:00:00Z'),'new':self.record('order.p2pah.cn',18.58)})
+  self.assertEqual(r['amount_usd'],'18.58');self.assertEqual(len(r['sources']),1)
+ def test_scope_metadata_alone_does_not_block(self):
+  a=self.record('order.p2pah.cn',20);b=copy.deepcopy(a);b['dimensions']['channels']=[{'name':'another-site'}]
+  self.assertEqual(self.estimate({'a':a,'b':b})['amount_usd'],'20.00')
+ def test_actual_same_time_value_conflict_is_not_fabricated(self):
+  self.assertEqual(self.estimate({'a':self.record('order.p2pah.cn',20),'b':self.record('order.p2pah.cn',30)})['status'],'missing')
+ def test_wrong_date_and_unit_are_still_rejected(self):
+  a=self.record('order.p2pah.cn',20);a['period']['start']='2026-10-14 00:00'
+  self.assertEqual(self.estimate({'a':a})['status'],'missing')
+  a=self.record('order.p2pah.cn',20);a['metrics']['profitMarginPct']['unit']='USD'
+  self.assertEqual(self.estimate({'a':a})['status'],'missing')
+
+ def test_daily_order_fallback_accepts_different_site_scope(self):
+  from decimal import Decimal
+  from report_constraints import estimated_profit
+  record={'date':'2026-10-15','status':'available','stale':False,'currency':'USD',
+   'source':'order.p2pah.cn','profileKey':'FC27','timezone':'Asia/Shanghai','marginUnit':'percent',
+   'period':{'start':'2026-10-15 00:00','end':'2026-10-16 00:00'},'scope':{'orderGameId':'1322','sites':'different-site','orderProductType':'coins','orderStatus':'paid'},
+   'profitMarginPct':20,'capturedAt':'2026-10-16T00:00:00Z'}
+  ev={'source':'Order参考利润/历史','analysis_anchor_id':'fixture','data':{'status':'available','reference_only':True,'missingDays':[],
+   'query':{'profile':'FC27','start':'2026-10-15','end':'2026-10-15'},'rows':[record]}}
+  def run():return estimated_profit({'ev_'+'f'*24:ev},'fixture','2026-10-15','2026-10-15',
+   ('ev_'+'a'*24,Decimal(100),Decimal(2),PartialProjection().evidence()),lambda _:True)
+  self.assertEqual(run()['amount_usd'],'20.00')
+  record['scope']['orderGameId']='another-game';self.assertEqual(run()['status'],'missing')
