@@ -22,6 +22,14 @@ class ExactRelease(unittest.TestCase):
    render['files']=[r for r in rows if r['candidate'] in pub.LEARNING_RENDER_TARGETS]
    render['unchangedRequired'] += [{'path':r['target'],'sha256':'b'*64} for r in rows if r['candidate'] not in pub.LEARNING_RENDER_TARGETS]
    pub.validate(render,stage)
+   acceptance=copy.deepcopy(manifest);acceptance['scope']=pub.LEARNING_ACCEPTANCE_SCOPE
+   acceptance['files']=[r for r in acceptance['files'] if r['candidate'] in pub.LEARNING_ACCEPTANCE_TARGETS]
+   extra='source/report_constraints.py';dest=stage/'candidate'/extra;shutil.copyfile(ROOT/extra,dest)
+   acceptance['files'].append(dict(candidate=extra,target=pub.LEARNING_ACCEPTANCE_TARGETS[extra],sha256=hashlib.sha256(dest.read_bytes()).hexdigest(),beforeSha256='a'*64))
+   acceptance['unchangedRequired']=[r for r in acceptance['unchangedRequired'] if r['path']!=pub.LEARNING_ACCEPTANCE_TARGETS[extra]]
+   for r in acceptance['files']:r['beforeSha256']='a'*64
+   acceptance['unchangedRequired'] += [{'path':r['target'],'sha256':'b'*64} for r in rows if r['candidate'] not in pub.LEARNING_ACCEPTANCE_TARGETS]
+   pub.validate(acceptance,stage)
    bad=copy.deepcopy(manifest);bad['files'][0]['target']='/opt/fc27-cloud/price_writer.py'
    with self.assertRaises(ValueError):pub.validate(bad,stage)
    bad=copy.deepcopy(manifest);bad['files'].pop()

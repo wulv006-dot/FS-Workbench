@@ -1,0 +1,51 @@
+{
+  "scope": "hermes-fs-acceptance-20261016",
+  "base": "feafa987b58a0b35b58298e1d54da39be59725b7",
+  "files": [
+    {
+      "source": "source/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "b0c438b385445cd8779299717f733c9d4c55971eb13a0eea8a948da2e620bfbd",
+      "sha256": "793c5f56f33a253eab1b07baea9866565a6a25d734a5fc29ef8c129d3e655e30"
+    },
+    {
+      "source": "source/report_constraints.py",
+      "runtime": "/opt/fs-hermes-fc/report_constraints.py",
+      "beforeSha256": "958279718b7f7c557b9e6babf641d011abd619a135fb74bfffca628f41766903",
+      "sha256": "36fe007e0576e9d491ce03d5f08d1ff239564a326b3fc78a5035ee736004c159"
+    },
+    {
+      "source": "source/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "77270ab662f2109fab5c8fc737bd5d740909e09706e5df0992ab144f9b76aeac",
+      "sha256": "e54969e6d11eb89468171a04e6ebe642bc166496f4c652d52e0f59eb515297ed"
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "0ffe57bcf639fc00472004f8c1d5ea769bacc11f3a4490842bd76eefd5593fee",
+      "sha256": "d416c0a77bc178be3f4a32606df39da22788c868332fe289fcdeffcc0f330329"
+    },
+    {
+      "source": "source/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "0ce5b0a51311e80e32ad632a9036eb4c0e9b438ee9c028fe494e8996be93e361",
+      "sha256": "f4b633bcafbb8375485f5a255a00f54057de9d5407f127e799beea0cf76df223"
+    },
+    {
+      "source": "source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "1e1a5574c436f1fe8e991abd482d8ac1367f530b1b0ed5d7fab8e69b88e64d5f",
+      "sha256": "34251f783a34bd1b67227dfd3c7a02475362bd1e49f43c15dbd41bb910fe9c15"
+    },
+    {
+      "source": "source/learning-loop.md",
+      "runtime": "/opt/fs-hermes-fc/learning-loop.md",
+      "beforeSha256": "c9be6d9fc9a757baa24f1269fb1f8bc9b71054c5ea7f93170b1075441731a1bc",
+      "sha256": "18585a51254891a28ea697570cab39d2c7a6377390b0b7b3b4e3905a9c66dd21"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "merge_after_actual_FS_acceptance": true
+}

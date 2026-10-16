@@ -293,7 +293,8 @@ def chart_figure(ch):
     else:heads=['分组','金额USD','类型'];rows=[[r['label'],number(r['value']),r['role']] for r in ch['rows']]
     out+='<details><summary>查看金额明细与数据说明</summary>'+table(heads,rows)+f'<p>{esc(ch["interpretation"])}</p><p class="sub">{esc(ch["note"])}</p><p class="source">范围：{esc(ch["scope"])} · 采集时间：{esc(ch["as_of"])}</p>'+refs(ch['evidence_ids'])+'</details></figure>'
     return out
-def section(no,title,body,sid='',aside=''):
+def section(no,title,body,sid='',aside='',conclusion=None):
+    if conclusion is not None:body+='<p class="note"><b>经营判断：</b>'+esc(conclusion)+'</p>'
     return f'<section class="section"'+(f' id="{sid}"' if sid else '')+f'><div class="section-head"><span class="section-no">{no}</span><h2>{esc(title)}</h2>'+ (f'<span class="aside">{esc(aside)}</span>' if aside else '')+'</div>'+body+'</section>'
 
 def marketing_valid(row):
@@ -355,7 +356,7 @@ def render(c,e):
     comparable=bool(p.get('comparison_start') and p.get('comparison_end'))
     if comparable:
         for chart in charts.values():
-            if chart.get('period_basis') not in ('current_snapshot','observed_daily_series'):chart['labels']=[p['comparison_start']+' — '+p['comparison_end'],p['start']+' — '+p['end']]
+            if chart.get('period_basis') not in ('current_snapshot','observed_daily_series','previous_day_reference','previous_day_comparison'):chart['labels']=[p['comparison_start']+' — '+p['comparison_end'],p['start']+' — '+p['end']]
     comparison=('对照 '+esc(p['comparison_start'])+' — '+esc(p['comparison_end'])) if comparable else '暂无可比数据'
     comparison_note=('按原报告明确对照日期比较：'+p['comparison_start']+' 至 '+p['comparison_end']) if comparable else '暂无可比数据'
     body=f'<header id="executive"><div class="mast"><div><div class="eyebrow">经营结果 · 关键变化 · 下一步</div><h1>{esc(r["title"])}</h1><p class="meta">经营参考 · 金额为 USD · 建议尚未执行</p></div><div class="issue"><strong>{esc(p["start"])} — {esc(p["end"])}</strong>{comparison}<br>北京时间</div></div>'
@@ -385,7 +386,7 @@ def render(c,e):
         for finding in c['key_findings']:
             body+='<p>'+esc(finding['statement'])+'</p><span class="source">'+esc(finding.get('source_section','结构化发现字段'))+' '+refs(finding.get('evidence_ids',[]))+'</span>'
         body+='</details></section>'
-    body+=section('01','销售与订单变化','<div class="two">'+chart_figure(charts['daily'])+chart_figure(charts['bridge'])+'</div>',sid='analysis',aside=comparison_note)
+    body+=section('01','销售与订单变化','<div class="two">'+chart_figure(charts['daily'])+chart_figure(charts['bridge'])+'</div>',sid='analysis',conclusion=c.get('section_conclusions',{}).get('analysis','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'),aside=comparison_note)
     if c.get('research_text'):
         try:
             from report_html import markdown
@@ -393,16 +394,15 @@ def render(c,e):
             research='<pre>'+esc(c.get('reviewed_research_text',c['research_text']))+'</pre>'
         else:
             research=markdown(c.get('reviewed_research_text',c['research_text']),e)
-        body+='<details open class="research-body"><summary>完整研究阅读校正版</summary>'+research+'</details>'
-        if c.get('reviewed_research_text',c['research_text'])!=c['research_text']:
-            body+='<details class="research-body"><summary>历史原文（未改写；请先看勘误）</summary><pre>'+esc(c['research_text'])+'</pre></details>'
-    body+=section('02','哪些平台和商品在变化','<div class="two equal">'+chart_figure(charts['platform'])+chart_figure(charts['category'])+'</div><details><summary>查看原因解释与待验证假设</summary><div class="hypothesis">'+''.join(f'<div><h3>{esc(h["title"])}</h3><p>{esc(h["text"])}</p><span class="source">{refs(h["evidence_ids"])}</span></div>' for h in c['hypotheses'])+'</div></details>',sid='products')
-    pay=table(['支付通道','对照期USD','本期USD','净变化USD'],[[x['label'],number(x['previous']),number(x['current']),signed(x['delta'])] for x in c['payment']])
+        body+='<details class="research-body"><summary>完整研究阅读校正版</summary>'+research+'</details>'
+    body+=section('02','哪些平台和商品在变化','<div class="two equal">'+chart_figure(charts['platform'])+chart_figure(charts['category'])+'</div><details><summary>查看原因解释与待验证假设</summary><div class="hypothesis">'+''.join(f'<div><h3>{esc(h["title"])}</h3><p>{esc(h["text"])}</p><span class="source">{refs(h["evidence_ids"])}</span></div>' for h in c['hypotheses'])+'</div></details>',sid='products',conclusion=c.get('section_conclusions',{}).get('products','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
+    pay_period=c.get('payment_period',{})
+    pay=('<h3>支付通道：'+esc(pay_period.get('basis','主对照'))+'</h3><p>'+esc(pay_period.get('start','')+' 至 '+pay_period.get('end',''))+' → '+esc(p['start']+' 至 '+p['end'])+'</p>'+table(['支付通道','对照订单','本期订单','对照金额 USD','本期金额 USD','净变化 USD'],[[x['label'],number(x.get('previous_orders'),0),number(x.get('current_orders'),0),number(x['previous']),number(x['current']),signed(x['delta'])] for x in c['payment']])) if c['payment'] else '<p class="missing">未取得同口径支付通道分组，订单与金额保持缺失，不补零。</p>'
     pay+='<details><summary>查看支付数据说明</summary><p>'+esc(c.get('payment_note','成功交易金额不是支付成功率；缺少尝试与失败分母时不能判断通道故障。'))+'</p><span class="source">'+esc(r['source_policy'])+'。'+refs(c.get('payment_evidence_ids',[]))+'</span></details>'
-    body+=section('03','客户、支付与未完成订单','<div class="two equal"><div>'+pay+'<details><summary>查看地区与设备变化</summary>'+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</details></div>'+chart_figure(charts['queue'])+'</div>'+marketing_section(c.get('marketing_context'),c.get('marketing_previous')),sid='customers')
+    body+=section('03','客户、支付与未完成订单','<div class="two equal"><div>'+pay+'<details><summary>查看地区与设备变化</summary>'+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</details></div>'+chart_figure(charts['queue'])+'</div>'+marketing_section(c.get('marketing_context'),c.get('marketing_previous')),sid='customers',conclusion=c.get('section_conclusions',{}).get('customers','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     for x in c['context'][3:]:body+='<div class="note"><strong>'+esc(x['label'])+'</strong><p>'+esc(x['text'])+'</p>'+refs(x.get('evidence_ids',[]))+'</div>'
-    estimate_html=''
-    for key,label in [('current','本期'),('previous','对照期')]:
+    estimate_html='<p>实际结算利润与财务成本：本次工具证据未提供，未用参考利润率倒推。</p>'
+    for key,label in [('current','本期'),('previous','主对照期'),('previous_day','前日辅助比较')]:
         item=c['finance'].get('estimates',{}).get(key)
         if not item:continue
         estimate_period=item['period'];estimate_html+='<h4>'+esc(label+' '+estimate_period['start']+' — '+estimate_period['end'])+'</h4>'
@@ -420,16 +420,16 @@ def render(c,e):
                 +'；区间 '+period['start']+' 至 '+period['end']+'（截止不含）'+'；参考率 '+source['reference_margin_percent']+'%'
                 +'；捕获 '+source['captured_at']+'；上游业务水位 '+str(source['source_data_as_of'] or 'UNKNOWN'))+'</p>'
         estimate_html+='</details>'
-    body+=section('04','利润与成本','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">预估利润（非实际结算）</h3><p style="font-size:13px;color:var(--muted)">按参考利润率估算，供经营判断。</p>'+estimate_html+'<details><summary>查看估算限制与成本说明</summary><p>'+esc(c['finance']['title'])+'。'+esc(c['finance']['basis'])+'</p><div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p>'+esc(c['finance']['next'])+'</p></details></div></div>',sid='finance')
+    body+=section('04','利润与成本','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">预估利润（非实际结算）</h3><p style="font-size:13px;color:var(--muted)">按参考利润率估算，供经营判断。</p>'+estimate_html+'<details><summary>查看估算限制与成本说明</summary><p>'+esc(c['finance']['title'])+'。'+esc(c['finance']['basis'])+'</p><div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p>'+esc(c['finance']['next'])+'</p></details></div></div>',sid='finance',conclusion=c.get('section_conclusions',{}).get('finance','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     if 'amount-band' in charts:body+=chart_figure(charts['amount-band'])
     intel=''
     for x in c['intel']:
         published=x['published_at'] or '未标注'
         if re.match(r'^\d{4}-\d{2}-\d{2}',published):published=published[:10]
-        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(published)}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{brief(x["title"])}</a></h3><p><b>活动与情报简介：</b>{brief(x["fact"])}</p><small>{brief(x.get("introduction_basis",""))}</small><p><b>可能影响（待验证）：</b>{brief(x["hypothesis"])}</p><p><b>建议行动：</b>{brief(x["action"])}</p><details><summary>查看情报来源</summary><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])} {refs(x.get("evidence_ids",[]))}</span><p>{esc(x["fact"])}</p><p>{esc(x["hypothesis"])}</p><p>{esc(x["action"])}</p></details></div></article>'
+        intel+=f'<article class="signal"><div class="when"><span class="tag'+(' amber' if '机会' in x['window'] or '期后' in x['window'] else '')+f'">{esc(x["window"])}</span><strong>发布：{esc(published)}</strong>事件：{esc(x["event_at"])}<br>适用：{esc(x["applies"])}</div><div><h3><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{brief(x["title"])}</a></h3><p><b>活动与情报简介：</b>{brief(x["fact"])}</p><p><b>可能影响（待验证）：</b>{brief(x["hypothesis"])}</p><p><b>建议行动：</b>{brief(x["action"])}</p><details><summary>查看情报来源</summary><span class="source"><a href="{safe_url(x["url"])}" target="_blank" rel="noopener noreferrer">{esc(x["source"])} · 查看来源</a> · 读取 {esc(x["retrieved_at"])} {refs(x.get("evidence_ids",[]))}</span><p>{esc(x.get("source_preview") or x["fact"])}</p><p>{esc(x["hypothesis"])}</p><p>{esc(x["action"])}</p></details></div></article>'
     for x in c.get('intel_pending',[]):
         intel+='<article class="note"><strong>'+esc(x['title'])+'</strong><p>'+esc(x['fact'])+'</p><p>'+esc(x['reason'])+'</p>'+refs(x['evidence_ids'])+'</article>'
-    body+=section('05','游戏与市场情报',intel+'<div class="note">'+esc(c.get('intel_note','情报按原来源、事件日期和适用窗口使用；缺少历史市场或同规格竞品数据时，不推断价格趋势。'))+'</div>',sid='intelligence')
+    body+=section('05','游戏与市场情报',intel+'<div class="note">'+esc(c.get('intel_note','情报按原来源、事件日期和适用窗口使用；缺少历史市场或同规格竞品数据时，不推断价格趋势。'))+'</div>',sid='intelligence',conclusion=c.get('section_conclusions',{}).get('intelligence','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     actions='' if c['actions'] else '<p class="empty">未识别独立行动条目；请复核完整原文，不将索引缺口当作没有建议。</p>'
     for a in c['actions']:
         actions+=f'<article class="action" id="{esc(a["id"])}"><span class="priority">{esc(a["priority"])}</span><div><h3>{brief(a["title"])}</h3><p>{brief(a["steps"])}</p><p><b>看什么：</b>{brief(a["metric"])}</p><details><summary>何时开始、风险与停止条件</summary><p><b>原建议：</b>{esc(a["steps"])}</p><p><b>原文首查：</b>{esc(a.get("source_first_check") or "未给出")}</p><p><b>原文复查：</b>{esc(a.get("source_review_at") or a["when"])}</p><p>{esc(a.get("schedule_note","排期为建议，待负责人确认"))}</p><p><b>触发：</b>{esc(a["trigger"])}</p><p><b>成本：</b>{esc(a["cost"])}</p><p><b>风险：</b>{esc(a["risk"])}</p><p><b>停止：</b>{esc(a["stop"])}</p><span class="source">{esc(a.get("source_section","原研究行动字段"))} · {refs(a["evidence_ids"]) or "原文未逐项绑定证据，待核对"}</span></details></div><div class="owner"><strong>{esc(a["role"])}</strong><span>拟议首查<br><b>{esc(a.get("first_check","待负责人确认"))}</b></span><span>拟议复盘<br><b>{esc(a.get("review_at","待负责人确认"))}</b></span></div></article>'

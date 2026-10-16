@@ -528,7 +528,7 @@ class HermesService:
                 task_windows={'report_period':body['end'],'primary_comparison':(d-timedelta(days=7)).isoformat(),
                               'previous_day':(d-timedelta(days=1)).isoformat(),'weekday_comparison':(d-timedelta(days=7)).isoformat(),
                               'trend_window_requested':{'start':(d-timedelta(days=13)).isoformat(),'end':body['end']}}
-                admission['prompt']+='\n日报规范窗口（请求窗口不等于证据已齐；原问题明确指定主对照时保留原意）：'+encoded(task_windows)+'\n前日与同星期分别分析；输出comparison_period的明确start/end，缺窗只影响该比较。'
+                admission['prompt']+='\n日报规范窗口（请求窗口不等于证据已齐；原问题明确指定主对照时保留原意）：'+encoded(task_windows)+'\n前日与同星期分别分析；Markdown开头必须单独一行写“主对照：YYYY-MM-DD 至 YYYY-MM-DD”，采用上述primary_comparison，原问题明确指定时才覆盖；辅助比较另行标注，不混作主窗。若结构化输出则用comparison_period的明确start/end。为主对照取得两期汇总与需要的完整分页分组；主窗参考率缺失仍保留有证据的前日单独利润比较。缺窗只影响该比较。'
             admission['frozen_skills']=book.skills
             admission['learning_receipt']={k:knowledge[k] for k in ('version','identity','files','memory_path','native_skip_reason')}
             admission['learning_text']=desktop_context
