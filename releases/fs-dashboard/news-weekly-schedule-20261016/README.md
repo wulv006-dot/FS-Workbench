@@ -1,5 +1,5 @@
-# News每周六凌晨一次
+# News与官方情报统一每周六凌晨
 
-用户2026-10-16明确要求News改为每周六凌晨一次。沿原每日00:05 Asia/Shanghai游戏情报任务，仅News的refresh在周六采集/翻译，其余6天只读共用快照、不联网、不调用模型、不改状态文件。官方游戏情报频率保持。新成功快照有效至下一周六07:00，保留真实采集日期和失败状态；既有快照不倒改。
+用户最新澄清：News和官方情报统一每周六凌晨一次。原game-monitor.timer由每日00:05改为Sat 00:05，服务器Asia/Shanghai不变，沿原任务统一执行官方采集/AI整理/News采集翻译，不新增timer，不主动补跑。其他经营任务不变。News保留周六保护，其余日期直接读共享快照；两个新成功快照有效至下周六07:00。既有快照、日期、费用不倒改；UI说明同步每周频率，300秒页面检查不变。
 
-维护源source/mmoexp_news.py，固定替换/opt/fs-boss-workspaces/backend/mmoexp_news.py；基线331eb022…。release_backend.py复用前轮publisher，仅收窄到1个已存在模块；无重启/新增timer/自动补跑。5项调度测试、18项沿原翻译回归通过，周六真实自然周期待观察；现有403风险仍保留。
+source/mmoexp_news.py、source/game_intelligence.py替换既有两个后端模块，daily.js沿139资产原publisher发布。release_backend.py复用前轮双模块publisher并固定当前基线；release_timer.py沿同一发布/当日锁备份CAS，重载systemd并只重启原timer，不启动采集service。7项调度/有效期检查、18项原翻译回归已通过，原15项发布器检查沿用当前候选复验；自然周期待观察，403风险保留。
