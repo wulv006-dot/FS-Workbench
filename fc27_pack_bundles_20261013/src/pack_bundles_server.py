@@ -47,6 +47,7 @@ MAX_BODY = 1024 * 1024
 HISTORY_CAP = 48
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 WRITE_LOCK = threading.Lock()
+DISCOVER_LOCK = threading.Lock()   # 自动发现：串行化（登录订单/商品后台有频控）
 
 DEFAULT_SETTINGS = {
     "interval_hours": 1,
@@ -738,8 +739,12 @@ def validate_settings(payload, base):
 
 
 def validate_bundles(payload):
-    if not isinstance(payload, list) or not payload:
+    if not isinstance(payload, list):
         raise ValueError("bundles_required")
+    # ★ 允许空列表（2026-10-16）：后台下架后用户可能逐个删完（或想清空重建），
+    #   空仓库是合法状态——refresh/compute_state 对 0 个包都已安全。
+    if not payload:
+        return []
     if len(payload) > 20:
         raise ValueError("too_many_bundles")
     seen = set()
@@ -757,6 +762,10 @@ def validate_bundles(payload):
         players = b.get("players")
         if not isinstance(players, list) or not players or len(players) > 50:
             raise ValueError("players_invalid:%s" % bid)
+        # ★ 下限 2 人（老大 2026-10-16 明确：捆绑包不要求 11 人，最低 2 人即可；
+        #   单人包无打包意义）。上限仍为 50（防御误填）。
+        if len(players) < 2:
+            raise ValueError("players_min2:%s" % bid)
         clean = []
         ids = set()
         for p in players:
@@ -939,14 +948,18 @@ def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
             side = computed.get(key)
             if not pid or not side:
                 continue
-            # ★ 完整性闸门（Codex #2）：该平台不是全员有价 ⇒ 拒绝写，
-            #   否则 11 人包可能按 10 人价被写进去（少收钱/价格失真）。
+            # ★ 完整性闸门（Codex #2）：配置里的球员**必须全部有价**才写，
+            #   否则会按缺价球员的总和写进去（价格偏低 = 少收钱）。
+            #   ⚠️ 这与人数多少无关（老大 2026-10-16：包支持 2 人起），
+            #      只管"填了 N 人，是不是 N 个人都算进去了"。
             if side.get("players_counted") != side.get("players_expected"):
+                lack = int(side.get("players_expected") or 0) - int(side.get("players_counted") or 0)
                 results.append({
                     "product_id": pid, "platform": plat, "bundle": b.get("id"),
                     "action": "skipped_incomplete", "dry_run": eff_dry,
-                    "detail": "%s/%s 名球员有价（缺价或未收录）" % (
-                        side.get("players_counted"), side.get("players_expected"))})
+                    "detail": "配置 %s 名球员，其中 %s 名无价（Futbin 未收录/暂无报价）"
+                              "→ 暂不写价：请删除无价行或等收录" % (
+                                  side.get("players_expected"), lack)})
                 continue
             unit = money2(Decimal(str(side["orig"])))
             try:
@@ -965,6 +978,64 @@ def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
              "results": results}
     store._append_write_log(entry)
     return entry
+
+
+def _norm_title(text) -> str:
+    """标题归一化：去空格/连字符/下划线 + 小写。
+
+    ⚠️ 后台产品标题与包标题写法常不一致（实测 ManCity11-PlayerBundle vs
+    Paris11-Player Bundle —— 一个无空格一个有），归一化后才能稳定匹配。
+    """
+    return re.sub(r"[\s\-_]+", "", str(text or "")).lower()
+
+
+def discover_products(store: "Store", *, title: str, bundle_id=None):
+    """按标题在 FC27-Packs（gid=1327/cid=10255/site_id=0）里自动发现产品绑定。
+
+    只读（GET /index），不写任何东西。返回：
+      matched: {ps/xbox/pc: product_id}  归一化精确匹配到的绑定
+      matched_title: 命中的后台标题
+      candidates: 该分类下全部标题（供人工选择）
+      unmatched: 未找到的平台
+    """
+    s = store.settings()
+    writer = AdminWriter(s.get("cred_path") or DEFAULT_SETTINGS["cred_path"])
+    api = writer._api()
+    rows = []
+    page = 1
+    while page <= 20:
+        env = api._json("GET", "/admin/goods.Goods/index", params={
+            "page": page, "limit": 200,
+            "search": [{"field": "gid", "operator": "=", "val": str(EXPECT_GID)},
+                       {"field": "cid", "operator": "=", "val": str(EXPECT_CID)},
+                       {"field": "site_id", "operator": "=", "val": "0"}],
+        })
+        data = env.get("data") or {}
+        page_rows = data.get("list") or []
+        rows.extend(page_rows)
+        total = int(data.get("total") or 0)
+        if len(rows) >= total or not page_rows:
+            break
+        page += 1
+    want = _norm_title(title)
+    titles = []
+    matched_title, matched = None, {}
+    for r in rows:
+        rt = str(r.get("title") or "")
+        if rt not in titles:
+            titles.append(rt)
+        if _norm_title(rt) != want:
+            continue
+        aid = int(r.get("aid") or 0)
+        plat = AID_PLATFORM.get(aid)
+        if plat and plat not in matched:
+            matched[plat] = int(r.get("id"))
+            matched_title = rt
+    return {"ok": True, "query": title, "matched": matched,
+            "matched_title": matched_title,
+            "unmatched": [p for p in ("ps", "xbox", "pc") if p not in matched],
+            "candidates": sorted(titles),
+            "scanned": len(rows)}
 
 
 # ---------- HTTP ----------
@@ -1040,8 +1111,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             if parts == ["api", "config"]:
-                rev = self.store.save_config(data)
-                self._json(200, {"ok": True, "revision": rev})
+                try:
+                    rev = self.store.save_config(data)
+                    self._json(200, {"ok": True, "revision": rev})
+                except ValueError as exc:
+                    # revision_conflict 用 409（语义化）；前端据此自动同步 revision
+                    if str(exc) == "revision_conflict":
+                        self._json(409, {"error": "revision_conflict"})
+                    else:
+                        self._json(400, {"error": str(exc)})
                 return
             if parts == ["api", "refresh"]:
                 if not self.store.refresh_lock.acquire(blocking=False):
@@ -1053,6 +1131,30 @@ class Handler(BaseHTTPRequestHandler):
                 finally:
                     self.store.refresh_lock.release()
                 self._json(202, {"ok": True, "status": "started"})
+                return
+            if parts == ["api", "discover-products"]:
+                # 自动发现产品绑定（只读；同步执行，首次登录 5~10s）
+                title = str(data.get("title") or "").strip()
+                bid = data.get("bundle_id")
+                if not title and bid:
+                    for b in (self.store.config.get("bundles") or []):
+                        if b.get("id") == bid:
+                            title = str(b.get("title") or "")
+                            break
+                if not title:
+                    self._json(400, {"error": "title_required"})
+                    return
+                try:
+                    DISCOVER_LOCK.acquire()
+                    try:
+                        result = discover_products(self.store, title=title,
+                                                   bundle_id=bid)
+                    finally:
+                        DISCOVER_LOCK.release()
+                    self._json(200, result)
+                except Exception as exc:
+                    self._json(502, {"error": "discover_failed",
+                                     "detail": repr(exc)[:200]})
                 return
             if parts == ["api", "write-prices"]:
                 # 手动写价（受 write_enabled / write_dry_run 闸门约束）
