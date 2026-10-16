@@ -272,6 +272,8 @@ def select(paths):
         suffix=Path(name).suffix
         if name.startswith("releases/fs-dashboard/management-quality-20261016/"):
             groups.add("management-quality");continue
+        if name.startswith("releases/fs-dashboard/hermes-learning-loop-20261016/"):
+            groups.add("hermes-learning-loop");continue
         if name.startswith("releases/fs-dashboard/desktop-learning-20261016/"):
             groups.add("desktop-learning");continue
         if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
@@ -682,6 +684,8 @@ def main():
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="management-quality":
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="hermes-learning-loop":
+            units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release"])
         elif group=="desktop-learning":
             units("releases/fs-dashboard/desktop-learning-20261016/tests",["test_learning","test_publish"])
         elif group=="fs-management-v2":
