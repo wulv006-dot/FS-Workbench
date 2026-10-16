@@ -322,6 +322,8 @@ def apply_constraints(content,evidence):
             'evidence_ids':[],'status':'not_evaluable'})
     content['reviewed_research_text']=reviewed_text(content['reviewed_research_text'],bounds,ledger,'research_text')
     content['executive']['summary']=reviewed_text(content['executive']['summary'],bounds,ledger,'summary')
+    for key,text in content.get('section_conclusions',{}).items():
+        content['section_conclusions'][key]=reviewed_text(text,bounds,ledger,'module/'+key)
     for i,row in enumerate(content['key_findings']):row['statement']=reviewed_text(row['statement'],bounds,ledger,'findings/'+str(i))
     for i,row in enumerate(content['hypotheses']):row['text']=reviewed_text(row['text'],bounds,ledger,'hypotheses/'+str(i))
     for i,action in enumerate(content['actions']):
