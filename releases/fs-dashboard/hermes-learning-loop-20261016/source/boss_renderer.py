@@ -401,7 +401,7 @@ def render(c,e):
     pay+='<details><summary>查看支付数据说明</summary><p>'+esc(c.get('payment_note','成功交易金额不是支付成功率；缺少尝试与失败分母时不能判断通道故障。'))+'</p><span class="source">'+esc(r['source_policy'])+'。'+refs(c.get('payment_evidence_ids',[]))+'</span></details>'
     body+=section('03','客户、支付与未完成订单','<div class="two equal"><div>'+pay+'<details><summary>查看地区与设备变化</summary>'+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</details></div>'+chart_figure(charts['queue'])+'</div>'+marketing_section(c.get('marketing_context'),c.get('marketing_previous')),sid='customers',conclusion=c.get('section_conclusions',{}).get('customers','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     for x in c['context'][3:]:body+='<div class="note"><strong>'+esc(x['label'])+'</strong><p>'+esc(x['text'])+'</p>'+refs(x.get('evidence_ids',[]))+'</div>'
-    estimate_html='<p>实际结算利润与财务成本：本次工具证据未提供，未用参考利润率倒推。</p>'
+    estimate_html=''
     for key,label in [('current','本期'),('previous','主对照期'),('previous_day','前日辅助比较')]:
         item=c['finance'].get('estimates',{}).get(key)
         if not item:continue
@@ -409,7 +409,7 @@ def render(c,e):
         if item['status']!='estimated':
             estimate_html+='<p class="missing">'+esc(item['reason'])+'</p>';continue
         rate=item.get('reference_margin_percent')
-        estimate_html+=table(['主站金额 USD','参考率','预估利润 USD（非实际结算）'],
+        estimate_html+=table(['主站金额 USD','参考率','参考利润 USD'],
                              [[number(item['main_revenue_usd']),number(rate)+'%' if rate is not None else '按同日率逐日计算',number(item['amount_usd'])]])
         estimate_html+='<details><summary>查看计算方法与来源</summary><p class="source">'+esc(item['formula'])+' '+refs(item['evidence_ids'])+'</p>'
         for source in item['sources']:
@@ -420,7 +420,7 @@ def render(c,e):
                 +'；区间 '+period['start']+' 至 '+period['end']+'（截止不含）'+'；参考率 '+source['reference_margin_percent']+'%'
                 +'；捕获 '+source['captured_at']+'；上游业务水位 '+str(source['source_data_as_of'] or 'UNKNOWN'))+'</p>'
         estimate_html+='</details>'
-    body+=section('04','利润与成本','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">预估利润（非实际结算）</h3><p style="font-size:13px;color:var(--muted)">按参考利润率估算，供经营判断。</p>'+estimate_html+'<details><summary>查看估算限制与成本说明</summary><p>'+esc(c['finance']['title'])+'。'+esc(c['finance']['basis'])+'</p><div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p>'+esc(c['finance']['next'])+'</p></details></div></div>',sid='finance',conclusion=c.get('section_conclusions',{}).get('finance','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
+    body+=section('04','利润与成本','<div class="two equal">'+chart_figure(charts['margin'])+'<div><h3 style="margin:0;font-size:17px">参考利润</h3><p style="font-size:13px;color:var(--muted)">按FS看板规则：销售额 × 对应参考利润率。Admin优先，Order补缺。</p>'+estimate_html+'<details><summary>查看数据来源与成本说明</summary><p>'+esc(c['finance']['title'])+'。'+esc(c['finance']['basis'])+'</p><div class="note">'+esc(c['context'][2]['text'] if len(c['context'])>2 else '未提供补充风险数据。')+'<span class="source">'+refs(c['context'][2]['evidence_ids'] if len(c['context'])>2 else [])+'</span></div><p>'+esc(c['finance']['next'])+'</p></details></div></div>',sid='finance',conclusion=c.get('section_conclusions',{}).get('finance','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     if 'amount-band' in charts:body+=chart_figure(charts['amount-band'])
     intel=''
     for x in c['intel']:

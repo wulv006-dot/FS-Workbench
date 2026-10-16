@@ -102,6 +102,17 @@ class Comparisons(unittest.TestCase):
   for heading in ('销售与订单结论','平台与商品结论','客户、支付与未完成订单结论','利润与成本结论','游戏与市场情报结论'):self.assertIn('### '+heading,text)
   self.assertIn('逐篇整理几条中文简介',text);self.assertNotIn('frozen memory',text)
   self.assertEqual(request['payload_sha256'],ns['digest'](request['body']))
+ def test_global_field_rule_reaches_every_actual_task_mode(self):
+  from datetime import date,timedelta
+  s=(ROOT/'source/controller.py').read_text('utf8')
+  start=s.index("            admission={'session_id'")
+  stop=s.index('            from background import task_context',start)
+  for mode,management in [('daily',None),('investigation',None),('pricing',None),('kpi',{'prompt':'management context'})]:
+   ns={'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':mode},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':management,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+   exec(textwrap.dedent(s[start:stop]),ns)
+   text=ns['admission']['prompt']
+   self.assertIn('全局数据规则',text);self.assertIn('不再提出先确认参考率是否可信',text)
+   self.assertIn('默认无视统计口径',text)
  def compare(self,text,**extra):return declared_comparison(dict(period={'start':'2026-10-15','end':'2026-10-15'},research_text=text,**extra))
  def test_primary_single_day_and_auxiliary(self):
   self.assertEqual(self.compare('对照：2026-10-14（前日，主对照）；同星期 2026-10-08')[0],('2026-10-14','2026-10-14'))

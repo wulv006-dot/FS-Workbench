@@ -92,21 +92,23 @@ def order_series(evidence, anchor, old_start, old_end, start, end):
             for value in rows:
                 if (value.get('status')!='available' or value.get('stale') is not False or value.get('profileKey')!='FC27' or
                         value.get('currency')!='USD' or value.get('timezone')!='Asia/Shanghai' or value.get('source')!='order.p2pah.cn' or value.get('marginUnit')!='percent' or
-                        value.get('scope')!={'orderGameId':'1322','orderProductType':'','orderStatus':'','sites':'all-websites'}):raise ValueError('reference_scope')
+                        value.get('scope',{}).get('orderGameId')!='1322'):raise ValueError('reference_scope')
                 margin=number(value['profitMarginPct']);stamp=datetime.fromisoformat(value['capturedAt'].replace('Z','+00:00'))
                 if stamp.tzinfo is None:raise ValueError('reference_time')
                 checked.append((value['date'],margin,stamp.isoformat()))
             for day,margin,stamp in checked:
                 if day not in wanted:continue
-                if day in values and values[day]!=(margin,stamp):return None,'完整成功参考结果冲突，须明确版本后再展示。'
+                if day in values:
+                    if stamp<values[day][1]:continue
+                    if stamp==values[day][1] and margin!=values[day][0]:return None,'同一来源同一时点原值冲突。'
                 values[day]=(margin,stamp)
             references.append(key);stamps.append(row['captured_at'])
         except (KeyError,TypeError,ValueError,ArithmeticError):continue
-    if set(values)!=wanted:return None,'未取得同范围完整双期 Order 日率；缺失不补零。'
+    if set(values)!=wanted:return None,'未取得对应日期完整双期 Order 日率；缺失不补零。'
     return {'rows':[{'label':b[5:],'previous_date':a,'current_date':b,'previous':str(values[a][0]),'current':str(values[b][0]),
                      'previous_captured_at':values[a][1],'current_captured_at':values[b][1]} for a,b in zip(old_days,new_days)],
-            'evidence_ids':references,'as_of':max(stamps),'scope':'Order FC27 / all-websites / USD / Asia/Shanghai；上游日率原值，公式未知',
-            'interpretation':'按声明的双期区间逐日配对展示参考日率；未据此认定同星期可比，日均不等于整段利润率。主站预估利润按临时公式另列，不作为实际结算或目标实绩。'},None
+            'evidence_ids':references,'as_of':max(stamps),'scope':'Order FC27 / USD / Asia/Shanghai；保留参考日率原值，平台范围差异按用户规则忽略',
+            'interpretation':'按声明的双期区间逐日配对展示参考日率；未据此认定同星期可比，日均不等于整段利润率。参考利润按FS看板公式另列，不作为实际结算或目标实绩。'},None
 
 
 def project(result, evidence, metadata, research_sha):
@@ -194,7 +196,7 @@ def project(result, evidence, metadata, research_sha):
              {'label':'目标达成','value':'待核对','previous':'须同周期、同范围目标','delta':'不以估算利润评目标','status':'missing','evidence_ids':[]}]
     charts=[]
     for key,title,chart_kind,unit in [('daily','每日销售与订单','line_compare','USD / 日'),('bridge','变化拆解','waterfall','USD'),('platform','平台变化','diverging','USD'),('category','品类变化','bars_compare','USD'),('queue','当前未结池','bars','单'),('margin','参考利润率','line_compare','%')]:
-        charts.append({'id':key,'title':title,'kind':chart_kind,'unit':unit,'scope':'Admin 主站支付明细' if key!='margin' else 'Order全站参考，不能评主站利润目标',
+        charts.append({'id':key,'title':title,'kind':chart_kind,'unit':unit,'scope':'Admin 主站支付明细' if key!='margin' else 'Admin优先，缺失则采用Order参考率',
                        'period':start+' — '+end,'as_of':captured,'interpretation':'本次冻结证据未形成完整可比系列，保留缺口。','note':'缺失不补零；原始证据可在附录查看。',
                        'rows':[],'evidence_ids':[],'labels':[old_start+' — '+old_end,start+' — '+end]})
     charts[4].update(period_basis='current_snapshot',snapshot_at='未取得当前存量证据',period='当前存量，未取得快照',labels=[])
@@ -276,11 +278,11 @@ def project(result, evidence, metadata, research_sha):
             section_conclusions[section_titles[title]]=text[:260]+('…' if len(text)>260 else '')
     corrections=['本版独立保存；原始研究、原始老板版及冻结证据保持原字节。','索引提取不代表业务验证，建议均待复核、未下发或执行。']
     reference,reference_gap=(None,comparison_basis) if comparison_ambiguous else order_series(evidence,anchor,old_start,old_end,start,end)
-    if reference:charts[5].update(reference,note='全站上游参考日率，非主站结算利润；可按用户临时口径乘对应日期主站金额估算，不当作采购成本或整周利润率。')
+    if reference:charts[5].update(reference,note='按用户确认的FS规则采用参考日率；参考利润按对应日期销售额计算，不平均日率。')
     else:gaps.append(reference_gap)
     estimates={'current':estimated_profit(evidence,anchor,start,end,current,eligible),
                'previous':estimated_profit(evidence,anchor,old_start,old_end,previous,eligible)}
-    corrections.append('2026-10-15临时利润口径优先：主站预估利润=主站订单金额×对应参考利润率÷100；允许Order参考范围与主站不同并披露。旧研究中禁止据参考率估算的限制不再适用；仍非实际结算、核实成本或目标实绩。')
+    corrections.append('2026-10-16全局规则：所有字段Admin优先、Order补缺，忽略统计口径及平台差异；参考利润=销售额×对应参考利润率÷100，保留真实来源与日期。')
     for item in estimates.values():
         if item['status']=='missing':gaps.append(item['period']['start']+' — '+item['period']['end']+'：'+item['reason'])
     # Each dimension can retain a verified current series without a comparison.
@@ -319,7 +321,7 @@ def project(result, evidence, metadata, research_sha):
                     evidence_ids=daily_ids,interpretation='时间趋势独立于单日主对照；显示已核验的 '+str(len(observed))+' 日实际序列，缺日和冲突断开、不补零。')
     if not charts[5]['rows'] and kind=='daily' and all(estimates[k].get('status')=='estimated' and estimates[k].get('reference_margin_percent') is not None for k in ('current','previous')):
         charts[5].update(rows=[{'label':start[5:],'current_date':start,'previous_date':old_start,'current':estimates['current']['reference_margin_percent'],'previous':estimates['previous']['reference_margin_percent']}],
-            evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+estimates['previous']['evidence_ids'])),scope='Order原生对应单日参考率；来源范围单列，非结算利润',interpretation='两日分别使用已验证的原生参考率；采集时间不同不伪装成数据缺失。')
+            evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+estimates['previous']['evidence_ids'])),scope='对应单日参考率：Admin优先、Order补缺；FS看板规则',interpretation='两日分别使用已验证的原生参考率；采集时间不同不伪装成数据缺失。')
     payment_period={'start':old_start,'end':old_end,'basis':'主对照'}
     if kind=='daily' and current and not comparison_ambiguous:
         prior_day=(date.fromisoformat(start)-timedelta(days=1)).isoformat();prior_total=total(prior_day,prior_day)
@@ -342,7 +344,7 @@ def project(result, evidence, metadata, research_sha):
                 estimates['previous_day']=alternate
                 charts[5].update(rows=[{'label':start[5:],'current_date':start,'previous_date':prior_day,'current':estimates['current']['reference_margin_percent'],'previous':alternate['reference_margin_percent']}],
                     labels=[prior_day+' 前日辅助',start],period_basis='previous_day_reference',evidence_ids=list(dict.fromkeys(estimates['current']['evidence_ids']+alternate['evidence_ids'])),
-                    scope='Order原生对应单日参考率；非结算利润',interpretation='主对照参考率缺失，单独展示已验证的前日比较；未改主对照日期。')
+                    scope='对应单日参考率：Admin优先、Order补缺；FS看板规则',interpretation='主对照参考率缺失，单独展示已验证的前日比较；未改主对照日期。')
     comparisons=[]
     if kind=='daily':
         for role,offset in (('前日',1),('同星期',7)):
@@ -362,7 +364,7 @@ def project(result, evidence, metadata, research_sha):
         text='；'.join(name+' $'+format(facts(a[0][name])[0],',.2f')+' → $'+format(facts(b[0][name])[0],',.2f') for name in selected)
         context.append({'label':label,'text':text+'。仅列已知两期行；有分页/Top 截断时不代表全体，不把未出现的组补零。客户身份与复购仍未验证。',
                         'evidence_ids':list(dict.fromkeys(a[1]+b[1]))})
-    context.append({'label':'履约与成本','text':'当前未结池为跨支付日存量，未提供同口径历史队列流入/退出；成本、利润定义未闭合，不能推算结算利润。','evidence_ids':queue[1] if queue else []})
+    context.append({'label':'履约与成本','text':'当前未结池为跨支付日存量，未提供同口径历史队列流入/退出；财务成本缺失单独说明，参考利润按FS看板规则正常展示。','evidence_ids':queue[1] if queue else []})
     context.extend(dict(row,label='研究补充（待复核）：'+row.get('label','背景')) for row in result.get('context',[]) if isinstance(row,dict) and isinstance(row.get('text'),str))
     daily=charts[0]['rows'];raw=semantic['research_text']
     if kind=='weekly' and len(daily)==7 and current and previous:
@@ -442,7 +444,7 @@ def project(result, evidence, metadata, research_sha):
                       'period':dict(period,comparison_start=old_start if previous else None,comparison_end=old_end if previous else None,comparison_basis=comparison_basis,timezone='Asia/Shanghai'),
                       'generated_at':generated_at,'business_data_captured_at':captured,'source_data_as_of':None,
                       'knowledge_version':(metadata.get('context_loading') or {}).get('learning',{}).get('version','历史任务未记录'),
-                      'snapshot_id':anchor,'source_policy':'Admin主站去重支付明细；Order补缺与全站参考分开；缺失不补零','status':'研究已成稿 · 供经营参考',
+                      'snapshot_id':anchor,'source_policy':'全部字段Admin优先、Order补缺；忽略平台与统计口径差异，保留来源和日期；真实缺失不补零','status':'研究已成稿 · 供经营参考',
                       'target_basis':metadata.get('target_basis') or 'DY原版目标；版本、周期、站点和指标含义闭合后才能计算达成'},
             'executive':{'headline':'；'.join(m['label']+' '+m['delta'] for m in metrics[:3]) if current and previous else '经营调查：先复核可比事实与缺口',
                          'summary':reviewed_text(semantic['summary']),'confidence_fact':'核心读数来自本任务证据；合理推断说明依据与把握程度。',
@@ -452,9 +454,9 @@ def project(result, evidence, metadata, research_sha):
             'section_conclusions':section_conclusions,'payment_period':payment_period,'comparisons':comparisons,'metrics':metrics,'charts':charts,'payment':payment,'payment_evidence_ids':payment_ids,'marketing_context':marketing_context(evidence,period),
             'marketing_previous':marketing_context(evidence,{'start':old_start,'end':old_end}),
             'hypotheses':[dict(row,text=reviewed_text(row['text'])) for row in semantic['hypotheses']],'context':context,
-            'finance':{'title':'主站预估利润（临时参考口径）','estimates':estimates,
-                       'basis':'按2026-10-15用户临时口径，主站预估利润=主站订单金额×对应参考利润率÷100。优先同区间原生参考率；缺区间率时逐日匹配金额和参考率求和，不平均日率。允许来源范围不同并列明，缺值不补零。',
-                       'next':'用于经营参考，非实际结算利润；不改变采购成本、结算账本或打款。取得准确利润渠道后按用户指令更新；目标须另核版本与口径。'},
+            'finance':{'title':'参考利润（FS看板规则）','estimates':estimates,
+                       'basis':'按2026-10-16全局规则：Admin优先，Admin缺失则采用Order，忽略平台及统计口径差异。参考利润=销售额×对应参考利润率÷100；该期采用最新有效原生率；无区间率时按日金额×日率求和，不平均日率。',
+                       'next':'用于经营参考，非实际结算利润；不改变采购成本、结算账本或打款。数据来源和版本随报告留存；实际结算与采购成本按各自真实字段列示。'},
             'intel':intel,'intel_pending':intel_pending,'intel_note':intel_note,
             'actions':actions,'proposed_timeline':[{'date':action['first_check'],'text':'拟议首查 · '+action['role']+' · '+action['title']} for action in actions[:4]]+
                                         [{'date':action['review_at'],'text':'拟议复盘 · '+action['role']+' · '+action['title']} for action in actions[:4]],

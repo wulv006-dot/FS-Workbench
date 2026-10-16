@@ -5,7 +5,7 @@ Original model text is never changed; warnings stay visible and hard assertions
 are withheld individually.
 """
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
@@ -96,14 +96,14 @@ def complete_projection(evidence,dimension,lo,hi,captured,eligible,expected=None
 
 
 def estimated_profit(evidence,anchor,lo,hi,main,eligible):
-    """User's temporary estimate; a period rate takes precedence over daily rates.
+    """Admin wins when present; Order supplies absent fields regardless of scope.
 
     Each period stands alone. Never average rates or borrow another date's rate.
     Source definitions stay immutable; this policy does not certify settlement.
     """
     out={'status':'missing','period':{'start':lo,'end':hi},'currency':'USD','amount_usd':None,
-         'method':None,'sources':[],'evidence_ids':[],'policy_effective':'2026-10-15T05:52:43Z',
-         'label':'主站预估利润（临时口径，非实际结算）'}
+         'method':None,'sources':[],'evidence_ids':[],'policy_effective':'2026-10-16',
+         'label':'参考利润（FS看板规则）'}
     def missing(reason):
         return dict(out,reason=reason)
     if not main:return missing('未取得该期完整主站金额，预估利润保持缺失。')
@@ -112,11 +112,11 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
     def stamp(value):
         parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
         if parsed.tzinfo is None or parsed.utcoffset() is None:raise ValueError('reference_timestamp')
-        return value
+        return parsed.astimezone(timezone.utc).isoformat()
     def bounds(a,b):
         return {'start':a+' 00:00','end':(date.fromisoformat(b)+timedelta(days=1)).isoformat()+' 00:00'}
     def source(key,record,scope):
-        return {'evidence_id':key,'system':'order.p2pah.cn','captured_at':stamp(record['capturedAt']),
+        return {'evidence_id':key,'system':record.get('system',record.get('source','order.p2pah.cn')),'captured_at':stamp(record['capturedAt']),
                 'source_data_as_of':record.get('sourceDataAsOf'),'period':record.get('period'),
                 'scope':scope,'currency':'USD','margin_unit':'percent'}
     rates=[]
@@ -130,7 +130,7 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
         if not isinstance(records,dict):continue
         for record in records.values():
             try:
-                if (record.get('system')!='order.p2pah.cn' or record.get('status')!='available'
+                if (record.get('system') not in ('admin.p2pah.cn','order.p2pah.cn') or record.get('status')!='available'
                         or record.get('stale') is not False or record.get('currency')!='USD'
                         or record.get('period')!=bounds(lo,hi)):continue
                 metric=record['metrics']['profitMarginPct']
@@ -138,13 +138,16 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
                 rate=numeric(metric['value'])
                 channels=record.get('dimensions',{}).get('channels')
                 names=[c['name'] for c in channels if isinstance(c,dict) and isinstance(c.get('name'),str)] if isinstance(channels,list) else []
-                scope={'query':q,'reported_channels':names,'scope_note':'Order原生查询范围；可见渠道不代表完整渠道清单，与Admin主站范围可能不同'}
+                scope={'query':q,'reported_channels':names,'scope_note':'保留原查询范围；按用户确认规则忽略平台及统计口径差异'}
                 detail=source(key,record,scope);detail['reference_margin_percent']=str(rate)
                 rates.append((rate,detail))
             except (KeyError,ValueError,TypeError,AttributeError,ArithmeticError):continue
     if rates:
-        signatures={json.dumps([str(rate),{k:v for k,v in detail.items() if k!='evidence_id'}],sort_keys=True) for rate,detail in rates}
-        if len(signatures)!=1:return missing('该期完整参考率或版本/范围冲突，未自动挑选；预估利润保持缺失。')
+        authority='admin.p2pah.cn' if any(d['system']=='admin.p2pah.cn' for _,d in rates) else 'order.p2pah.cn'
+        rates=[(r,d) for r,d in rates if d['system']==authority]
+        newest=max(d['captured_at'] for _,d in rates)
+        rates=[(r,d) for r,d in rates if d['captured_at']==newest]
+        if len({r for r,_ in rates})!=1:return missing('同一来源同一采集时点出现不同参考率，需核对原值。')
         rate=rates[0][0];amount=main[1]*rate/100
         return dict(out,status='estimated',amount_usd=str(amount.quantize(Decimal('.01'),rounding=ROUND_HALF_UP)),
                     amount_unrounded_usd=str(amount),main_revenue_usd=str(main[1]),reference_margin_percent=str(rate),
@@ -170,15 +173,18 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
                         or record.get('source')!='order.p2pah.cn' or record.get('profileKey')!='FC27'
                         or record.get('timezone')!='Asia/Shanghai' or record.get('marginUnit')!='percent'
                         or record.get('period')!=bounds(day,day)
-                        or record.get('scope')!={'orderGameId':'1322','orderProductType':'','orderStatus':'','sites':'all-websites'}):
+                        or record.get('scope',{}).get('orderGameId')!='1322'):
                     raise ValueError('daily_reference_contract')
                 rate=numeric(record['profitMarginPct']);detail=source(key,record,record['scope'])
                 detail['reference_margin_percent']=str(rate)
                 checked.append((day,rate,detail))
             for day,rate,detail in checked:
-                signature=(rate,json.dumps({k:v for k,v in detail.items() if k!='evidence_id'},sort_keys=True))
-                if day in values and values[day][2]!=signature:return missing('同日参考率或版本/范围冲突，预估利润保持缺失。')
-                values[day]=(rate,detail,signature)
+                if day in values:
+                    old_rate,old_detail=values[day]
+                    if detail['captured_at']<old_detail['captured_at']:continue
+                    if detail['captured_at']==old_detail['captured_at'] and old_rate!=rate:
+                        return missing('同一来源同一采集时点出现不同参考率，需核对原值。')
+                values[day]=(rate,detail)
             references.append(key)
         except (KeyError,ValueError,TypeError,AttributeError,ArithmeticError):continue
     if set(values)!=set(days):return missing('缺完整同日期参考率；不跨日期借用、不补零。')
@@ -190,7 +196,7 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
                 amount_unrounded_usd=str(amount),main_revenue_usd=str(main[1]),
                 method='sum_matching_daily_amount_times_reference_percent',formula='Σ（同日主站订单金额 × 同日参考利润率 ÷ 100）',
                 daily_terms=terms,reference_margin_percent=str(values[days[0]][0]) if len(days)==1 else None,sources=[values[day][1] for day in days],
-                evidence_ids=list(dict.fromkeys([main[0]]+daily[1]+references)))
+                evidence_ids=list(dict.fromkeys([main[0]]+daily[1]+[values[day][1]['evidence_id'] for day in days])))
 
 
 def native_envelope(text):
