@@ -1,0 +1,72 @@
+{
+  "scope": "fs-management-v2-backend",
+  "releaseId": "management-v2-74a2c7d67093",
+  "businessWrites": false,
+  "credentialsChanged": false,
+  "files": [
+    {
+      "candidate": "hermes_worker.py",
+      "target": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "86f49105088eb3dcd61584fa7d24d7bdcfa15b3d1d77c4cecefcdcb5ffee6627",
+      "sha256": "86f49105088eb3dcd61584fa7d24d7bdcfa15b3d1d77c4cecefcdcb5ffee6627"
+    },
+    {
+      "candidate": "controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "8e7bc3a70eae4ecead0b35e5094ae32cfcd72343257ba94f0375e5347300d969",
+      "sha256": "8e7bc3a70eae4ecead0b35e5094ae32cfcd72343257ba94f0375e5347300d969"
+    },
+    {
+      "candidate": "nightly.py",
+      "target": "/opt/fs-hermes-fc/nightly.py",
+      "beforeSha256": "5b6421f4fa18eb75b3d7b0ed8f6471374ae1386c172a1c10238ba2638afbbf76",
+      "sha256": "5b6421f4fa18eb75b3d7b0ed8f6471374ae1386c172a1c10238ba2638afbbf76"
+    },
+    {
+      "candidate": "management_context.py",
+      "target": "/opt/fs-hermes-fc/management_context.py",
+      "beforeSha256": "51b84667a548b738094d8da0a7a75397234ddd9525b109b1aa9533f09ec7cb68",
+      "sha256": "d2d467935d2da12ba3c8f4ff2722c009f8f33aa44fe24d4edacc55754afc13fa"
+    },
+    {
+      "candidate": "management_facts.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_facts.py",
+      "beforeSha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd",
+      "sha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd"
+    },
+    {
+      "candidate": "management_v2_runner.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_v2_runner.py",
+      "beforeSha256": "ff737793dca1dcf61c98c38ae10cf2fccdf890f96ce72359ac368f68a06785c5",
+      "sha256": "ff737793dca1dcf61c98c38ae10cf2fccdf890f96ce72359ac368f68a06785c5"
+    },
+    {
+      "candidate": "fs-boss-management.service",
+      "target": "/etc/systemd/system/fs-boss-management.service",
+      "beforeSha256": "972e22d043454b81540ddedd807e347851c80a2133fbcecd1740515cb947060e",
+      "sha256": "972e22d043454b81540ddedd807e347851c80a2133fbcecd1740515cb947060e"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-hermes-fc/research.py",
+      "sha256": "55f7e8cc93dafa7603606ebe8f9ab3532d6cdedc73553e74f9fc90772e8332eb"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/boss_daily.py",
+      "sha256": "9b102d43b11792e72e374af46819b2904b84b061a4da712ed4c44bc86048a8d1"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/nightly_http.py",
+      "sha256": "733a8c0e0bdc01fe73016ce55b80bc8c961985829eff2335edf84662f3d5ba54"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/source/management/targets.json",
+      "sha256": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+    },
+    {
+      "path": "/etc/systemd/system/fs-boss-management.timer",
+      "sha256": "acc10079b5c2915d2bcb3286310845adfae14d3e616c3bb171f7affd98a8353c"
+    }
+  ]
+}

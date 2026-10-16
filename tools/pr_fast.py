@@ -142,6 +142,12 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
+        raise RuntimeError('SBC security checks missing')
+    if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
+        raise AssertionError('report track release must run affected checks')
+    if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
+        raise RuntimeError('hermes_research_integration_mapping_missing')
     class Good(unittest.TestCase):
         def runTest(self):self.assertTrue(True)
     class Bad(unittest.TestCase):
@@ -261,7 +267,29 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-sbc/security-20261015/"):
+            groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/management-quality-20261016/"):
+            groups.add("management-quality");continue
+        if name.startswith("releases/fs-dashboard/hermes-learning-loop-20261016/"):
+            groups.add("hermes-learning-loop");continue
+        if name.startswith("releases/fs-dashboard/desktop-learning-20261016/"):
+            groups.add("desktop-learning");continue
+        if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
+            groups.add("fs-management-v2");continue
+        if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
+            groups.add("fs-ui-system");continue
+        if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
+            groups.add("hermes-weekly-upgrade");continue
+        if name.startswith("releases/fs-dashboard/mmoexp-news-integration-20261016/"):
+            groups.add("mmoexp-news");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-import-20261015/"):
+            groups.add("hermes-report-import");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
+            groups.add("hermes-report-tracks");continue
+        if name.startswith("releases/fs-dashboard/hermes-fs-research-integration-20261015/"):
+            groups.add("hermes-fs-research-integration");continue
         if name.startswith("releases/fs-dashboard/hermes-market-sources-20261015/"):
             groups.add("hermes-market-sources");continue
         if name.startswith("releases/fs-dashboard/hermes-report-filter-race-20261015/"):
@@ -624,6 +652,26 @@ def main():
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
             units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="hermes-weekly-upgrade":
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/data",["test_weekly_data"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/methods",["test_weekly_bundle"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/visual",["test_visual"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation","test_intel_selection"])
+            node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
+        elif group=="fc-sbc-security":
+            units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
+        elif group=="mmoexp-news":
+            units("releases/fs-dashboard/mmoexp-news-integration-20261016/tests",["test_mmoexp_news","test_research_news","test_release_news","test_nightly_news"])
+            node("releases/fs-dashboard/mmoexp-news-integration-20261016/tests/test_news_ui.cjs")
+        elif group=="hermes-report-import":
+            units("releases/fs-dashboard/hermes-report-import-20261015",["test_imported_reports","test_release"])
+            node("releases/fs-dashboard/hermes-report-import-20261015/test_import_ui.cjs")
+        elif group=="hermes-report-tracks":
+            units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
+            node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
+        elif group=="hermes-fs-research-integration":
+            units("releases/fs-dashboard/hermes-fs-research-integration-20261015/tests",["test_integration","test_official_intelligence","test_intel_binding","test_practical_review","test_executive_render","test_release"])
         elif group=="hermes-market-sources":
             units("releases/fs-dashboard/hermes-market-sources-20261015",["test_market","test_release_market","test_runtime_isolation"])
         elif group=="hermes-report-filter-race":
@@ -634,6 +682,22 @@ def main():
             units("releases/fs-dashboard/hermes-fs-config-isolation-20261015",["test_isolation"])
         elif group=="hermes-report-actions":
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
+        elif group=="management-quality":
+            units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="hermes-learning-loop":
+            units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release"])
+        elif group=="desktop-learning":
+            units("releases/fs-dashboard/desktop-learning-20261016/tests",["test_learning","test_publish"])
+        elif group=="fs-management-v2":
+            release="releases/fs-dashboard/management-v2-20261015"
+            units(release+"/tests",["test_management_facts","test_management_context","test_management_runner","test_static_publisher","test_backend_publisher","test_skill_identity"])
+            node(release+"/tests/check_frontend.cjs")
+            node(release+"/tests/check_syntax.cjs")
+        elif group=="fs-ui-system":
+            units("ui-system/tests",["test_ui","test_release"])
+            node("ui-system/tests/syntax.cjs")
+            node("ui-system/tests/theme.cjs")
+            node("ui-system/tests/navigation.cjs")
         elif group=="fs-menu-cache":
             release="releases/fs-dashboard/menu-cache-20261015"
             node(release+"/test_cache.cjs")
@@ -654,6 +718,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

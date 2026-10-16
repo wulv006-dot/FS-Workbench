@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync(__dirname+'/source/brain.js','utf8');
+const html=fs.readFileSync(__dirname+'/source/index.html','utf8');
+const kind=source.match(/  function kindOf\(item\) \{[^\n]+/)[0];
+const period=source.match(/  function periodKind\(start,end\) \{[^\n]+/)[0];
+const box={};vm.createContext(box);vm.runInContext(period+'\n'+kind,box);
+assert.equal(box.kindOf({body:{mode:'pricing',start:'2026-10-05',end:'2026-10-11',request_id:'brain_weekly_old'}}),'pricing');
+assert.equal(box.kindOf({body:{mode:'daily',question:'【竞品与定价研究】FC27',start:'2026-10-14',end:'2026-10-14'}}),'pricing');
+assert.equal(box.kindOf({body:{mode:'investigation',question:'分析经营与定价',start:'2026-10-08',end:'2026-10-14'}}),'investigation');
+assert.equal(box.kindOf({body:{mode:'daily',request_id:'night_daily_abc',start:'2026-10-14',end:'2026-10-14'}}),'daily');
+assert.equal(box.kindOf({body:{request_id:'brain_weekly_abc',start:'2026-10-05',end:'2026-10-11'}}),'weekly');
+assert(html.includes('data-prompt="pricing"')&&html.includes('value="pricing">竞品与定价研究'));
+assert(source.includes("$('mode').value=b.dataset.prompt==='pricing'?'pricing':'investigation'"));
+assert(source.includes("kindOf(job)==='pricing'?'打开竞品与定价报告':'打开汇报'"));
+assert(source.includes("parent.body.mode"));
+assert(source.includes("reportKind==='pricing'"));
+console.log('report tracks UI: 10 assertions passed; no network or model calls');

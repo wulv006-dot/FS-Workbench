@@ -1,0 +1,18 @@
+/* Read-only visual bridge. Never uses checked/disabled/hidden to invent business state. */
+:root{
+ --bg:var(--fs-bg);--surface:var(--fs-surface);--surface-2:var(--fs-surface-2);--card:var(--fs-surface);--card2:var(--fs-surface-2);
+ --ink:var(--fs-text);--tx:var(--fs-text);--text:var(--fs-text);--muted:var(--fs-muted);--faint:var(--fs-faint);--tx2:var(--fs-muted);--tx3:var(--fs-faint);
+ --line:var(--fs-line);--line2:var(--fs-line-soft);--border:var(--fs-line);--soft:var(--fs-brand-soft);--ac:var(--fs-brand);--accent:var(--fs-brand);
+ --teal:var(--fs-brand);--teal-d:var(--fs-brand-hover);--teal-l:var(--fs-brand-soft);--blue:var(--fs-info);--blue-l:var(--fs-info-soft);
+ --green:var(--fs-ok);--green-l:var(--fs-ok-soft);--red:var(--fs-danger);--red-l:var(--fs-danger-soft);--amber:var(--fs-warn);--amber-l:var(--fs-warn-soft);--shadow:var(--fs-shadow);
+}
+body.fs-ui-page{background:var(--fs-bg);color:var(--fs-text)}
+.fs-ui-page :where(main,.wrap,.container,.workspace-main,.shell){min-width:0;max-width:100%}
+.fs-ui-page :where(.muted,.subtitle,.sub-title,.note,.hint){color:var(--fs-muted)}
+.fs-ui-page :where(.table-wrap,.table-container,.table-scroll){max-width:100%;overflow:auto}
+.fs-ui-page :where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){background:var(--fs-surface);color:var(--fs-text);border-color:var(--fs-line)}
+.fs-ui-page :where(.card,.panel,.tool-card,.module-card){background:var(--fs-surface);border-color:var(--fs-line)}
+.fs-ui-page :where(th){background:var(--fs-surface-2);color:var(--fs-muted)}
+.fs-ui-page :where(td,th){border-color:var(--fs-line-soft)}
+.fs-ui-page :where(.wrap){padding-inline:28px}
+@media(max-width:1100px){.fs-ui-page :where(.wrap){padding-inline:18px}}
