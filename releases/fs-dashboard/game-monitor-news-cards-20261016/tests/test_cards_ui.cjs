@@ -127,6 +127,8 @@ test('CFB26 stays retired even if an old official snapshot mentions it; both gam
   assert.equal(Number(f.ids.radarCount.textContent),29);assert.equal(Number(f.ids['tn-全部'].textContent),29);
   assert.equal((f.ids.radarGrid.innerHTML.match(/class="radar-card /g)||[]).length,29);
   assert(!f.ids.radarGrid.innerHTML.includes('college-football-26'));
+  assert.equal(f.window.GAME_TIMELINE_DATA.games.length,29);
+  assert.equal(f.window.GAME_TIMELINE_DATA.games.some(g=>g.key==="college-football-26"),false);
   f.eval('DATA.pop();renderRadar();renderTierTabs()');
   assert.equal(Number(f.ids.radarCount.textContent),28);assert.equal(Number(f.ids['tn-全部'].textContent),28);
   f.ids.fsHistoryToggle.listeners.click();assert.equal(f.eval('DATA.length'),29);

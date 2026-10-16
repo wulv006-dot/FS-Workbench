@@ -4478,6 +4478,7 @@ window.GAME_GUIDE = {"aion2":{"clsDocs":[{"e":"🗡","cn":"刺客","en":"Assassi
 <script>
 "use strict";
 const DATA = ((window.GAME_TIMELINE_DATA && window.GAME_TIMELINE_DATA.games) ? window.GAME_TIMELINE_DATA.games : []).filter(g=>g.key!=="college-football-26");
+window.GAME_TIMELINE_DATA.games = DATA;
 const GROUP_META = {
   "球类":  {emoji:"⚽", color:"#34c759"},
   "RPG":   {emoji:"⚔️", color:"#af52de"},

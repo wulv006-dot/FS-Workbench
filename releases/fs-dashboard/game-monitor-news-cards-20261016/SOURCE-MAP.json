@@ -18,7 +18,7 @@
     },
     {
       "source": "source/index.html",
-      "sha256": "fd1f93efa68e4598a1913d390efc540ceaab73f99e21b64975a38cebae8d9bd7",
+      "sha256": "368a40026ca065f40a4133f9157f1d22d1d5325dd524d27de0fd13bce8c8d483",
       "runtime": "/dashboard/game-monitor/index.html"
     }
   ],
