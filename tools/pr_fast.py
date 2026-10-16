@@ -666,7 +666,8 @@ def main():
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
         elif group=="news-weekly-schedule":
-            units("releases/fs-dashboard/news-weekly-schedule-20261016/tests",["test_weekly"])
+            units("releases/fs-dashboard/news-weekly-schedule-20261016/tests",["test_weekly","test_release_backend"])
+            node("releases/fs-dashboard/news-weekly-schedule-20261016/tests/test_weekly_ui.cjs")
         elif group=="game-monitor-news-cards":
             units("releases/fs-dashboard/game-monitor-news-cards-20261016/tests",["test_news_translation","test_release_backend"])
             node("releases/fs-dashboard/game-monitor-news-cards-20261016/tests/test_cards_ui.cjs")

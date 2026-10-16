@@ -1,11 +1,13 @@
-"""Existing News backend file only; no restarts, task changes or collection."""
+"""Two existing backend files only; no restarts, task changes or collection."""
 import argparse, contextlib, hashlib, json, os, re, stat, subprocess, tempfile, types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SCOPE='news-weekly-schedule-20261016'
-TARGETS={'source/mmoexp_news.py':'/opt/fs-boss-workspaces/backend/mmoexp_news.py'}
+TARGETS={'source/mmoexp_news.py':'/opt/fs-boss-workspaces/backend/mmoexp_news.py',
+         'source/game_intelligence.py':'/opt/fs-boss-workspaces/backend/game_intelligence.py'}
 NEWS_BASELINE='331eb022a1bff3f2913011072802ecdd6bd67cd92f1b886e1a57b288325e313a'
+INTEL_BASELINE='640516a17640f127516322e5c86af37370531ff896d623255cd2b55e8808c836'
 BOSS='/opt/fs-boss-workspaces/backend/boss_daily.py'
 REQUIRED={BOSS,'/opt/fs-boss-workspaces/backend/workspace_official_model.py','/etc/systemd/system/fs-boss-game-monitor.service','/etc/systemd/system/fs-boss-game-monitor.timer'}
 BACKUPS='/var/backups/news-weekly-schedule-20261016'
@@ -49,10 +51,11 @@ def atomic(path,payload,mode=0o600):
 def validate(manifest):
     files=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
     if manifest.get('schemaVersion')!=1 or manifest.get('scope')!=SCOPE or manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:raise ValueError('exact readonly News scope required')
-    if len(files)!=1 or {r.get('candidate') for r in files}!=set(TARGETS):raise ValueError('exact one-file allowlist required')
+    if len(files)!=2 or {r.get('candidate') for r in files}!=set(TARGETS):raise ValueError('exact two-file allowlist required')
     for row in files:
         if row.get('target')!=TARGETS[row['candidate']] or not all(isinstance(row.get(k),str) and HASH.fullmatch(row[k]) for k in ('beforeSha256','sha256')):raise ValueError('existing target CAS required')
         if row['candidate']=='source/mmoexp_news.py' and row['beforeSha256']!=NEWS_BASELINE:raise ValueError('News baseline differs')
+        if row['candidate']=='source/game_intelligence.py' and row['beforeSha256']!=INTEL_BASELINE:raise ValueError('official intelligence baseline differs')
     paths=[r.get('path') for r in protected]
     if any(not isinstance(p,str) or not p.startswith('/') or '..' in p.split('/') or str(Path(p).as_posix())!=p for p in paths) or len(set(paths))!=len(paths) or not REQUIRED.issubset(paths) or set(paths)&set(TARGETS.values()):raise ValueError('protected path boundary differs')
     if any(not isinstance(r.get('sha256'),str) or not HASH.fullmatch(r['sha256']) for r in protected):raise ValueError('protected SHA required')
@@ -74,7 +77,7 @@ def inspect(manifest,stage,root=Path('/')):
         target=rooted(root,row['target']);source=stage/'candidate'/row['candidate']
         safe(target);safe(source)
         if digest(target)!=row['beforeSha256'] or digest(source)!=row['sha256']:raise ValueError('target/staged source CAS drift: '+row['candidate'])
-    return {'status':'checked','files':1,'mutations':False}
+    return {'status':'checked','files':2,'mutations':False}
 
 @contextlib.contextmanager
 def locks(manifest,root):
@@ -164,7 +167,7 @@ def apply(manifest,stage,approved_sha,raw,release_id,root=Path('/')):
                 journal.update(status='rollback-needs-reconciliation',rollbackError=str(rollback_error));save(backup,journal)
                 raise RuntimeError('release failed; preserve journal and reconcile exact targets') from rollback_error
             raise
-    return {'status':'applied','backup':str(backup),'files':1,'restarts':0,'timerActions':0}
+    return {'status':'applied','backup':str(backup),'files':2,'restarts':0,'timerActions':0}
 
 def rollback(backup,approved_sha,root=Path('/')):
     if backup.parent!=rooted(root,BACKUPS) or not re.fullmatch(r'news-cards-[0-9]{8}T[0-9]{6}Z',backup.name):raise ValueError('exact release backup required')
@@ -172,7 +175,7 @@ def rollback(backup,approved_sha,root=Path('/')):
     raw=(backup/'approved-manifest.json').read_bytes();journal=json.loads((backup/'journal.json').read_bytes())
     if hashlib.sha256(raw).hexdigest()!=approved_sha or journal['approvedManifestSha256']!=approved_sha or json.loads(raw)!=journal['manifest']:raise ValueError('approved backup manifest differs')
     files=validate(journal['manifest'])
-    if len(journal['files'])!=1 or {r['candidate'] for r in journal['files']}!=set(TARGETS) or any(any(row.get(k)!=value for k,value in next(r for r in files if r['candidate']==row['candidate']).items()) for row in journal['files']):raise ValueError('journal target scope differs')
+    if len(journal['files'])!=2 or {r['candidate'] for r in journal['files']}!=set(TARGETS) or any(any(row.get(k)!=value for k,value in next(r for r in files if r['candidate']==row['candidate']).items()) for row in journal['files']):raise ValueError('journal target scope differs')
     idle()
     with locks(journal['manifest'],root):restore(backup,journal,root)
     return {'status':journal['status'],'restarts':0,'timerActions':0}
