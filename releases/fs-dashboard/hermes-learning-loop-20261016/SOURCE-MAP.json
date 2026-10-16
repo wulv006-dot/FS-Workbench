@@ -1,0 +1,62 @@
+{
+  "scope": "hermes-learning-loop-20261016",
+  "adoption": "exact live baseline; new independent maintained source",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/business_context.py",
+      "runtime": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "8641c3d1a740cda0e4c379fb8988c4492fde56410bbb66bc56f457040c1229ac",
+      "sha256": "a7e7f756ac348519ce46fa2de10c1b1aedaecd63536aad339a4b0b8b04d9ccf5"
+    },
+    {
+      "source": "source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3",
+      "sha256": "1e1a5574c436f1fe8e991abd482d8ac1367f530b1b0ed5d7fab8e69b88e64d5f"
+    },
+    {
+      "source": "source/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "86f49105088eb3dcd61584fa7d24d7bdcfa15b3d1d77c4cecefcdcb5ffee6627",
+      "sha256": "0ce5b0a51311e80e32ad632a9036eb4c0e9b438ee9c028fe494e8996be93e361"
+    },
+    {
+      "source": "source/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "5e375e4f2fd66bdc42d9878067a1923e71ddfe456635e6ca0cc323bca493df2e",
+      "sha256": "806a4accb1e2d82d2c4381a126d3df7b84ba54f130951830c424689491001ec7"
+    },
+    {
+      "source": "source/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "d95f26d7693c5218483c9b055e05cb86e7a8dffaf14c39100d9f87a4d10c5ce4",
+      "sha256": "2eaf8067efc1eeb4fffe6de4377462d0a2aa82b67e77e33f9bfa26ffd2dd4032"
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "239926e1d84ba6caaf4ea48493bd85c50a44041ce4c07e6b7d161142a8cc35a7",
+      "sha256": "384d2a731fa07c813e146ae6d071740f2013591f8a05ebce98e1ef54ca3ae512"
+    },
+    {
+      "source": "source/fs_evidence.py",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "beforeSha256": "1a84966ccd09d0869a8f6a56efbfcfcef5d0f2f5226ab4a6c34af6face374aac",
+      "sha256": "2fb6d4427f713c49cc64dc3f4937e6f6ab1a1143fccc5ba5367e83747c2d7eac"
+    },
+    {
+      "source": "source/transport.py",
+      "runtime": "/opt/fs-hermes-fc/transport.py",
+      "beforeSha256": "6e6813b37e9d1cbdc244d217f0547cf3bfbdd9d50a95417fc7ffbe8376bd5d6d",
+      "sha256": "88d44114477b14b9da94aa954d5cdf75992576470d80ec957334935dd7539dfe"
+    },
+    {
+      "source": "source/learning-loop.md",
+      "runtime": "/opt/fs-hermes-fc/learning-loop.md",
+      "beforeSha256": null,
+      "sha256": "c9be6d9fc9a757baa24f1269fb1f8bc9b71054c5ea7f93170b1075441731a1bc"
+    }
+  ]
+}
