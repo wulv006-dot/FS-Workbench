@@ -51,6 +51,7 @@ from urllib.parse import urlparse, parse_qs
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+from static_path import safe_static_path
 import mlb_writeback as WB       # noqa: E402  自动上架桥（同目录本地模块）
 import mlb_coins_rate as CR      # noqa: E402  当期金币售价自动取价（同目录本地模块）
 
@@ -640,11 +641,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------------- 静态 ----------------
     def _static(self, rel):
-        fp = os.path.normpath(os.path.join(ARGS.root, rel))
-        if not fp.startswith(os.path.abspath(ARGS.root)):
-            return self._send(403, {"error": "forbidden"})
-        if not os.path.isfile(fp):
+        try:
+            fp = str(safe_static_path(ARGS.root, rel))
+        except FileNotFoundError:
             return self._send(404, {"error": "not found"})
+        except (ValueError, OSError):
+            return self._send(403, {"error": "forbidden"})
         ctype, _ = mimetypes.guess_type(fp)
         if fp.endswith(".js"):
             ctype = "application/javascript; charset=utf-8"
@@ -680,3 +682,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

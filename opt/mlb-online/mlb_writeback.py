@@ -67,6 +67,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 #: 生产写入必须带的口令（与直写脚本的闸门一致）
 DEFAULT_CONFIRM = "mlb26-players"
@@ -284,8 +285,11 @@ def _start_worker(*, tid, cards, wb, update, workdir, log, extra=None):
 def run_once(*, tid, cards, wb, workdir, log=print, extra=None):
     """同步跑一次上架。**永不抛异常** —— 一切失败都变成可入库的结果。"""
     os.makedirs(workdir, exist_ok=True)
-    result_path = os.path.join(workdir, "%s.result.json" % tid)
-    out_path = os.path.join(workdir, "%s.writeback.json" % tid)
+    # A fresh invocation never consumes a previous run's report. Preserve old
+    # files for reconciliation instead of deleting potentially useful evidence.
+    invocation = uuid.uuid4().hex
+    result_path = os.path.join(workdir, "%s.%s.result.json" % (tid, invocation))
+    out_path = os.path.join(workdir, "%s.%s.writeback.json" % (tid, invocation))
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump({"cards": cards or []}, f, ensure_ascii=False)
 
@@ -294,6 +298,7 @@ def run_once(*, tid, cards, wb, workdir, log=print, extra=None):
     out = {
         "dry_run": bool(wb.get("dry_run")),
         "started_at": started,
+        "invocation_id": invocation,
         "script": wb.get("script"),
         "archive_dir": wb.get("archive_dir") or None,
         "cards_in": len(cards or []),
@@ -327,11 +332,18 @@ def run_once(*, tid, cards, wb, workdir, log=print, extra=None):
         except Exception as e:                   # noqa: BLE001
             out["report_error"] = "%r" % e
 
-    summ = summarize(report)
+    summ = summarize(report if isinstance(report, list) and
+                     all(isinstance(r, dict) for r in report) else None)
     if timed_out:
         status = "timeout"
-    elif report is None:
+    elif rc is None:
         status = "failed"
+    elif rc != 0:
+        status = "needs_review"
+    elif not isinstance(report, list) or any(not isinstance(r, dict) for r in report):
+        status = "needs_review"
+    elif cards and not report:
+        status = "needs_review"
     else:
         status = summ["status"]
 
@@ -445,6 +457,20 @@ def approve(*, tid, names, config, update, read, workdir, by="", log=print):
             return {"status": "noop", "current": st, "reason": "待审清单为空，拒绝放行"}
 
         wb = cfg(config)
+        ok, why = gate({"write_back": True}, wb)
+        if not ok:
+            return {"status": "noop", "current": st, "reason": why}
+        # The reviewed mode is part of the approval, not a mutable default.
+        # Missing or malformed fields fail closed, including older snapshots.
+        if (type(snap.get("dry_run")) is not bool or
+                snap["dry_run"] != wb["dry_run"] or
+                snap.get("confirm") != wb["confirm"]):
+            return {"status": "noop", "current": st,
+                    "reason": "执行模式已变化，拒绝放行；请重新核对待审快照"}
+        digest = cards_sha(cards)
+        if snap.get("sha256") != digest or cur.get("sha256") != digest:
+            return {"status": "noop", "current": st,
+                    "reason": "待审快照校验不一致，拒绝放行"}
         approved_at = time.time()
         # ⚠️ `approved_cards` 是**计数**（前端在用它渲染「写 N / 待审 M 张」），
         #    所以另起一个 `approved_names` 存**名单**。
@@ -496,3 +522,4 @@ def cancel(*, tid, read, update, workdir, by="", log=print, reason=""):
         })
     log("[wb %s] ⛔ 人工取消上架（%s）" % (tid, by or "unknown"))
     return {"status": "cancelled"}
+

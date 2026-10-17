@@ -44,8 +44,8 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TOOL = HERE.parent
-SERVER_DIR = TOOL / "server"
+SERVER_DIR = HERE.parents[1]
+WEB_DIR = HERE.parents[3] / "var" / "www" / "mlb-online"
 PORT_A = int(os.environ.get("MLB_SMOKE_PORT_A", "18897"))
 PORT_B = int(os.environ.get("MLB_SMOKE_PORT_B", "18898"))
 
@@ -68,9 +68,9 @@ class Hub:
         self.web = tmp / ("web_%d" % port)
         (self.srv / "data").mkdir(parents=True)
         self.web.mkdir()
-        for f in ("mlb_server.py", "mlb_writeback.py", "mlb_coins_rate.py"):
+        for f in ("mlb_server.py", "mlb_writeback.py", "mlb_coins_rate.py", "static_path.py"):
             shutil.copyfile(SERVER_DIR / f, self.srv / f)
-        shutil.copyfile(TOOL / "web" / "index.html", self.web / "index.html")
+        shutil.copyfile(WEB_DIR / "index.html", self.web / "index.html")
 
         self.fake = tmp / "fake_write_cards.py"
         self.fake.write_text(FAKE_SCRIPT, encoding="utf-8")
@@ -159,7 +159,8 @@ class Hub:
         return wbv
 
     def out_file(self, tid):
-        return self.workdir / ("%s.writeback.json" % tid)
+        return next(self.workdir.glob("%s.*.writeback.json" % tid),
+                    self.workdir / ("%s.no-output.writeback.json" % tid))
 
     def pending_file(self, tid):
         return self.workdir / ("%s.pending.json" % tid)
@@ -344,7 +345,7 @@ def phase_a(tmp):
         check("result.write_back 存在", "write_back" in (t.get("result") or {}))
         check("write_back 三件套齐全",
               all(k in wbv for k in ("status", "counts", "report")))
-        idx = (TOOL / "web" / "index.html").read_text(encoding="utf-8")
+        idx = (WEB_DIR / "index.html").read_text(encoding="utf-8")
         for frag, label in (("awaiting_review", "状态词"), ("wbSelBox", "勾选框渲染"),
                             ("wbAck", "已核对复选框"), ("wbGo", "放行按钮"),
                             ("approveWriteback", "放行调用"),
@@ -410,3 +411,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
