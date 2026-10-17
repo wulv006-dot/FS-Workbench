@@ -48,13 +48,17 @@
   function originalDownload(content,filename,mime='text/html;charset=utf-8') {
     const url=URL.createObjectURL(new Blob([content],{type:mime}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
-  function isolatedViewer(content,identity) {
+  function isolatedViewer(content,identity,fullPage=false) {
     // Only this trusted shell executes in the opener's origin. Model HTML is data until assigned to opaque srcdoc.
     const payload=JSON.stringify({content,identity}).replaceAll('<','\\u003c').replaceAll('\u2028','\\u2028').replaceAll('\u2029','\\u2029');
-    return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; frame-src about: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; worker-src 'none'"><title>Hermes 原始HTML · 隔离阅读</title><style>:root{color-scheme:light dark}body{margin:0;font:14px system-ui;background:Canvas;color:CanvasText}header{padding:12px;overflow-wrap:anywhere}button{font:inherit;margin:4px;padding:8px}iframe{display:block;width:100%;height:calc(100dvh - 150px);border:0}small{display:block}@media print{header{display:none}iframe{height:100vh}}</style><header><strong>Hermes 原始HTML · 隔离阅读</strong><small id="identity"></small><small>原稿未重排。资源与API连接受CSP限制；沙箱不等于绝对离线。原稿可下载后离线使用。</small><button id="download">下载原始HTML</button></header><iframe title="模型原始HTML报告" sandbox="allow-scripts allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe><script>const payload=${payload};document.getElementById('identity').textContent=payload.identity;const frame=document.querySelector('iframe');frame.srcdoc=payload.content;document.getElementById('download').onclick=()=>{const url=URL.createObjectURL(new Blob([payload.content],{type:'text/html;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='hermes-original.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);};<\/script></html>`;
+    return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; frame-src about: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; worker-src 'none'"><title>Hermes 报告</title><style>:root{color-scheme:light dark}body{margin:0;font:14px system-ui;background:Canvas;color:CanvasText}header{padding:12px;overflow-wrap:anywhere}button{font:inherit;margin:4px;padding:8px}iframe{display:block;width:100%;height:calc(100dvh - 150px);border:0}small{display:block}${fullPage?'header{position:fixed;right:12px;bottom:12px;z-index:10;padding:0}header strong,header small{display:none}iframe{height:100dvh}':''}@media print{header{display:none}iframe{height:100vh}}</style><header><strong>Hermes 报告</strong><small id="identity"></small><small>原稿可下载后离线使用。</small><button id="download">下载原始HTML</button></header><iframe title="模型原始HTML报告" sandbox="allow-scripts allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe><script>const payload=${payload};document.getElementById('identity').textContent=payload.identity;const frame=document.querySelector('iframe');frame.srcdoc=payload.content;document.getElementById('download').onclick=()=>{const url=URL.createObjectURL(new Blob([payload.content],{type:'text/html;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='hermes-original.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);};<\/script></html>`;
   }
-  async function report(job, kind, download=false) {
+  function openReportPage(job) {
+    const a=document.createElement('a');a.href=location.pathname+'?report='+encodeURIComponent(job.id)+'&view=html';a.target='_blank';a.rel='noopener';document.body.append(a);a.click();a.remove();
+  }
+  async function report(job, kind, download=false,standalone=false) {
     const design=(kind==='boss'||kind==='html')&&htmlReport(job);
+    if(design&&!download&&!standalone){openReportPage(job);return;}
     const value=await request('?mode=hermes&id='+encodeURIComponent(job.id)+'&artifact='+(design?'raw':kind));
     let content=value.content;
     if(design){
@@ -63,20 +67,23 @@
       if(!/^[a-f0-9]{64}$/.test(expected||'')||actual!==expected)throw Error('原稿SHA校验未通过，未打开或下载。');
       if(download){originalDownload(content,'hermes-'+job.id+'-'+actual.slice(0,12)+'.html');return;}
       if(!/^\s*<!doctype html[\s>]/i.test(content)||!/<\/body\s*>\s*<\/html\s*>\s*$/i.test(content))throw Error('原稿未提供完整HTML文档，请下载原稿检查；未回退为旧模板。');
-      content=isolatedViewer(content,'任务 '+job.id+' · '+job.body.start+' — '+job.body.end+' · SHA256 '+actual+' · 教学版本 '+(result.html_design?.manifest_sha256||'未提供'));
+      content=isolatedViewer(content,'任务 '+job.id+' · '+job.body.start+' — '+job.body.end+' · SHA256 '+actual,true);
       const host=$('report-detail');host.querySelector('iframe[data-report-preview]')?.remove();
       const frame=document.createElement('iframe');frame.dataset.reportPreview=job.id;frame.title='完整交互报告';frame.referrerPolicy='no-referrer';
-      frame.style.cssText='display:block;width:100%;height:80vh;min-height:360px;border:1px solid var(--fs-line);border-radius:var(--fs-input-radius);background:var(--fs-surface)';
+      frame.style.cssText='position:fixed;inset:0;display:block;width:100vw;height:100dvh;border:0;background:var(--fs-surface)';
       frame.srcdoc=content;host.append(frame);frame.scrollIntoView({block:'start'});return;
     }
     const url=URL.createObjectURL(new Blob([content],{type:design?'text/html;charset=utf-8':value.mime}));const a=document.createElement('a');a.href=url;if(download)a.download=value.filename;else{a.target='_blank';a.rel='noopener';}document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  if(new URLSearchParams(location.search).get('view')==='html'){
+    document.title='Hermes 报告';const host=document.createElement('main');host.id='report-detail';document.body.replaceChildren(host);host.textContent='正在打开报告…';
+    const id=new URLSearchParams(location.search).get('report');
+    (async()=>{try{if(!/^[a-f0-9]{32}$/.test(id||''))throw Error('报告编号无效。');const job=await request('?mode=hermes&id='+id);if(job.state!=='COMPLETED'||!job.result?.html_design)throw Error('完整HTML报告尚未就绪。');await report(job,'boss',false,true);host.firstChild?.nodeType===3&&host.firstChild.remove();}catch(e){host.textContent='报告暂时无法打开：'+e.message;}})();return;
   }
   function detail(job) {
     const preserveActions=job.state==='COMPLETED'&&$('decision-list').dataset.report===job.id;
     if(job.id!==selected)return;
     if(completedResults.has(job.id))job={...job,result:{...job.result,...completedResults.get(job.id)}};
-    // Settled artifacts are immutable; polling must not reload an interactive preview.
-    if(job.state==='COMPLETED'&&$('report-detail').querySelector('iframe[data-report-preview]')?.dataset.reportPreview===job.id)return;
     if(!preserveActions){$('decision-list').replaceChildren();delete $('decision-list').dataset.report;
     node('p','当前记录尚未提供可展示的结构化行动清单。',$('decision-list'),'empty');}
     const host=$('report-detail');host.replaceChildren();node('div',(labels[job.state]||job.state)+' · '+job.owner,host,'eyebrow');

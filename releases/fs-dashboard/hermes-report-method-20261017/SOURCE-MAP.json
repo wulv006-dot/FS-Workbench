@@ -138,5 +138,24 @@
     "protected": 310,
     "tests": 11,
     "userAcceptance": "pending"
+  },
+  "standaloneReportPage": {
+    "release": "nav-20261017T154723Z",
+    "manifestSha256": "4875a1820be41046ab40a85d5fd93857979b30c61b88623c070d8686f071938e",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "ebe5767f0b3f853ec7002f31456d133b991aa78e2a2e56649812be4474657957",
+        "sha256": "677626925dc735cbaaea6307e128a7d2bed83a3d751b6a97a7d6d1bb41fd3242",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "previousInlinePreview": "superseded at user request",
+    "url": "brain/index.html?report=<request_id>&view=html",
+    "originalHtmlRewritten": false,
+    "frozenBrowserTests": "passed"
   }
 }
