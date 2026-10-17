@@ -83,11 +83,22 @@ def apply(manifest,backup,journal,root,atomic,journal_write,digest,no_target_lin
         if name in NAMES:expected['/usr/local/bin/'+name]=desired[SESSION_ROOT+'/'+name]
     journal.update(sessionImageBefore=BASE_IMAGE,sessionBuildTag=NEW_TAG,sessionBuildIntent=True);journal_write(backup,journal)
     try:
-        subprocess.run(['docker','build','--network','none','--pull=false','--build-arg','SESSION_BASE_IMAGE='+BASE_IMAGE,'-f',str(context/'Dockerfile.session'),'-t',NEW_TAG,str(context)],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=120)
+        subprocess.run(['docker','build','--network','none','--pull=false','--build-arg','SESSION_BASE_IMAGE='+BASE_IMAGE,'-f',str(context/'Dockerfile.session'),'-t',NEW_TAG,str(context)],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=120,env={**os.environ,'DOCKER_BUILDKIT':'0'})
         built=image_id(NEW_TAG)
         journal.update(sessionBuiltImage=built,sessionBuildOutcome='built_unverified');journal_write(backup,journal)
         raw=subprocess.check_output(['docker','run','--rm','--network','none','--entrypoint','sha256sum',NEW_TAG,*expected],text=True,timeout=45)
         if {line.split()[1]:line.split()[0] for line in raw.splitlines()}!=expected:raise ValueError('built_session_source_sha_mismatch')
+    except subprocess.CalledProcessError as error:
+        # Keep raw builder diagnostics private; the public error contains no output.
+        output=error.stdout or b'';stderr=error.stderr or b''
+        if isinstance(output,str):output=output.encode('utf-8',errors='replace')
+        if isinstance(stderr,str):stderr=stderr.encode('utf-8',errors='replace')
+        payload=b'stdout\n'+output+b'\nstderr\n'+stderr
+        diagnostic=backup/'session-build-failure.log'
+        atomic(diagnostic,payload,0o600)
+        journal.update(sessionBuildOutcome='FAILED',sessionBuildExitCode=error.returncode,sessionBuildDiagnostic=str(diagnostic),sessionBuildDiagnosticSha256=hashlib.sha256(payload).hexdigest())
+        journal_write(backup,journal)
+        raise ValueError('session_build_or_verify_failed_private_diagnostic_requires_reconcile') from None
     except subprocess.TimeoutExpired:
         journal['sessionBuildOutcome']='UNKNOWN';journal_write(backup,journal);raise ValueError('session_build_or_verify_unknown_requires_reconcile')
     # The old tag remains unchanged. The candidate unit switches to the new tag.

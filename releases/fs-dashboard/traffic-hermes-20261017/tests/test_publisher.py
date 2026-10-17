@@ -158,7 +158,20 @@ class PublisherTests(unittest.TestCase):
                 path=self.root/row['target'].lstrip('/');path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((self.stage/'candidate'/row['candidate']).read_bytes())
         with patch.object(leaf,'baseline'),patch.object(leaf,'archive_boundary'),patch.object(leaf.subprocess,'run',side_effect=subprocess.TimeoutExpired('docker build',120)) as run,patch.object(self.base,'directory_sync'):
             with self.assertRaisesRegex(ValueError,'unknown_requires_reconcile'):leaf.apply(self.manifest,backup,journal,self.root,self.base.atomic,lambda *a:None,self.base.digest,self.base.no_target_link)
-            self.assertEqual(journal['sessionBuildOutcome'],'UNKNOWN');self.assertTrue(journal['sessionBuildIntent']);self.assertEqual(run.call_args.kwargs['timeout'],120)
+            self.assertEqual(journal['sessionBuildOutcome'],'UNKNOWN');self.assertTrue(journal['sessionBuildIntent']);self.assertEqual(run.call_args.kwargs['timeout'],120);self.assertEqual(run.call_args.kwargs['env']['DOCKER_BUILDKIT'],'0')
+            with self.assertRaisesRegex(ValueError,'previous_intent'):leaf.apply(self.manifest,backup,journal,self.root,self.base.atomic,lambda *a:None,self.base.digest,self.base.no_target_link)
+            self.assertEqual(run.call_count,1)
+
+    def test_docker_failure_keeps_private_diagnostic_and_blocks_replay(self):
+        backup=self.folder/'failed-build';backup.mkdir();journal={}
+        for row in self.manifest['files']:
+            if row['candidate'].startswith('session/') and not row['candidate'].endswith('.service'):
+                path=self.root/row['target'].lstrip('/');path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((self.stage/'candidate'/row['candidate']).read_bytes())
+        failure=subprocess.CalledProcessError(1,['docker','build'],output=b'fixture stdout',stderr=b'fixture private stderr')
+        with patch.object(leaf,'baseline'),patch.object(leaf,'archive_boundary'),patch.object(leaf.subprocess,'run',side_effect=failure) as run,patch.object(self.base,'directory_sync'):
+            with self.assertRaisesRegex(ValueError,'failed_private_diagnostic'):leaf.apply(self.manifest,backup,journal,self.root,self.base.atomic,lambda *a:None,self.base.digest,self.base.no_target_link)
+            log=Path(journal['sessionBuildDiagnostic']);self.assertIn(b'fixture private stderr',log.read_bytes());self.assertEqual(sha(log.read_bytes()),journal['sessionBuildDiagnosticSha256']);self.assertEqual(journal['sessionBuildOutcome'],'FAILED');self.assertEqual(journal['sessionBuildExitCode'],1)
+            self.assertEqual(run.call_args.kwargs['env']['DOCKER_BUILDKIT'],'0');self.assertIn('SESSION_BASE_IMAGE='+leaf.BASE_IMAGE,run.call_args.args[0]);self.assertIn('--pull=false',run.call_args.args[0])
             with self.assertRaisesRegex(ValueError,'previous_intent'):leaf.apply(self.manifest,backup,journal,self.root,self.base.atomic,lambda *a:None,self.base.digest,self.base.no_target_link)
             self.assertEqual(run.call_count,1)
 
