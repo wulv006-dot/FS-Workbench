@@ -1,0 +1,125 @@
+{
+  "releaseReady": false,
+  "status": "local_candidate_not_deployed",
+  "runtimeTarget": "/opt/fs-hermes-fc/continuation.py",
+  "beforeSha256": "d453b3fbba1a49235f26ecfc7049395ff43c25113ec6cee86d5dfc99ecfabba0",
+  "candidate": "source/continuation.py",
+  "afterSha256": "267d59c9f8d0bb1f28fba79586574d4b83d5ff70684ea70fd8d6998e23ee0112",
+  "authority": "current ResearchBook.register exact source labels; unknown labels remain rejected",
+  "businessWrites": false,
+  "newCollection": false,
+  "frozenEvidenceChanges": false,
+  "learningTargets": [
+    {
+      "runtimeTarget": "/opt/fs-hermes-fc/learning-loop.md",
+      "candidate": "source/learning-loop.md",
+      "beforeSha256": "129834c41cec9807ff38c17890dde0094686ce42d3ddeb8a724dfc3cbe565169",
+      "afterSha256": "12226b9f6114b176d83407ec5f463ebe5bd9c7bd0a71628b21327619131f53c8",
+      "beforeBytes": 30770,
+      "appendOnly": true
+    },
+    {
+      "runtimeTarget": "/var/lib/fs-hermes-fc/profile/skills/ops-report-brief/ops-report-family/SKILL.md",
+      "candidate": "source/ops-report-family/SKILL.md",
+      "beforeSha256": "84843aa4e78d58602191bf9aed932a6d4a2935e7f09527fe3faaee1b1ef70698",
+      "afterSha256": "b53d98ad6c3db8aee6b4c657a4b60bc641040d8bf22487170a1c04235db3a0ac",
+      "beforeBytes": 12491,
+      "appendOnly": true
+    }
+  ],
+  "preservedKnowledgeFiles": [
+    {
+      "path": "desktop-business-context.md",
+      "sha256": "b4f623d30bb1ce8bb8abc997833a8a0288d47b8b06426d79501ab7c7df2db09a",
+      "bytes": 48142
+    },
+    {
+      "path": "profile/memories/MEMORY.md",
+      "sha256": "8d8d3e1a04fc2ccab829b8b60bcd84086af41327f0c7a9768f5202304e18de44",
+      "bytes": 4636
+    },
+    {
+      "path": "profile/memories/USER.md",
+      "sha256": "81e2305fbc03e3e2e5c7a85835ff667da8d070db43b5784f6f7a7f271a6b422e",
+      "bytes": 2760
+    },
+    {
+      "path": "skills/ops-report-brief/SKILL.md",
+      "sha256": "8a85a4222c8132c5ca91c1b9bfbe8ca9787d6b00a9f4bcfd4a474eae8af75c49",
+      "bytes": 14425
+    },
+    {
+      "path": "skills/ops-report-brief/references/closure-checks.md",
+      "sha256": "b501ffe8941d1feaa378935db187c18cfd2dbf2e8fe8ac9755af36738c29e630",
+      "bytes": 4158
+    },
+    {
+      "path": "skills/ops-report-brief/references/weekly-input-fields.md",
+      "sha256": "7ab4cdf2adc1a545df0ec1a9a5d5f0a120b4f45e64e5a884f5193c35b3b9f6c5",
+      "bytes": 3770
+    },
+    {
+      "path": "skills/ops-report-brief/ops-report-family/SKILL.md",
+      "sha256": "84843aa4e78d58602191bf9aed932a6d4a2935e7f09527fe3faaee1b1ef70698",
+      "bytes": 12491
+    },
+    {
+      "path": "skills/ops-report-brief/ops-report-family/references/report-input-fields.md",
+      "sha256": "f7737b4a4de6898c9e17b159abc8b8d7dc6562dab7bfb838fedd9cbb91779ee1",
+      "bytes": 2838
+    },
+    {
+      "path": "skills/ops-report-brief/ops-report-family/references/approved-daily-20261016.md",
+      "sha256": "c5a4e07af3dd042e0d24e4ee5ccabb7097994bf730a2c811eed5693d31f2ce2e",
+      "bytes": 8775
+    },
+    {
+      "path": "skills/ops-report-brief/ops-report-family/references/approved-weekly-20261005-11.md",
+      "sha256": "0fe482e58a1a4a5ceda57a8bde0000acc65dbe6ba7cc187543fe1d6c031b4a4e",
+      "bytes": 9940
+    },
+    {
+      "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+      "sha256": "cb7fff67d92bcfaad8d05f4974e33b298206b1113a0f09f919049e655ede1486",
+      "bytes": 10255
+    },
+    {
+      "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+      "sha256": "c72315301ede0a338a219f31f90f0f2653604a07bda91636585755736aa161ac",
+      "bytes": 2521
+    },
+    {
+      "path": "skills/reviewed-business-20261015/mmoexp-competitor-monitor/SKILL.md",
+      "sha256": "1b27c2fd4829cabcbd3e1209c13d2c7c11bfaf2aca848536cfd18dffc9bab469",
+      "bytes": 6370
+    },
+    {
+      "path": "skills/reviewed-business-20261015/mmoexp-competitor-monitor/references/source-coverage-audit.md",
+      "sha256": "6fbdde37956fd4eb33d970f9f2f88674ea6320331a388c5c06401358483ad581",
+      "bytes": 7715
+    },
+    {
+      "path": "skills/reviewed-business-20261015/mmoexp-competitor-monitor/references/market-snapshot-tool.md",
+      "sha256": "65838c9e93e7be89a5ae1f911bda1da9f8dcf2a95b5206aa1ee422044ea43c93",
+      "bytes": 1711
+    },
+    {
+      "path": "skills/reviewed-business-20261015/mmoexp-competitor-monitor/references/public-page-collection.md",
+      "sha256": "4851270b56b3fcd1400306112cce6928b364717ca988e6a6a7901cb873ed062f",
+      "bytes": 4305
+    },
+    {
+      "path": "skills/reviewed-business-20261015/fs-price-strategy/SKILL.md",
+      "sha256": "2b866668fcda774d530c96774073f094d988fe2f13d17b2275d227c81e5ba2da",
+      "bytes": 4658
+    },
+    {
+      "path": "runtime/learning-loop.md",
+      "sha256": "129834c41cec9807ff38c17890dde0094686ce42d3ddeb8a724dfc3cbe565169",
+      "bytes": 30770
+    }
+  ],
+  "knowledgeFileCount": 18,
+  "learningBaselineOperation": "nav-20261017T114617Z",
+  "learningVersion": "2026-10-17-migration-four-dates-addendum"
+}

@@ -1,0 +1,25 @@
+{
+  "status": "candidate_not_deployed",
+  "observed_at": "2026-10-17T12:11:51.652781+00:00",
+  "files": [
+    {
+      "source": "source/report_tracks.py",
+      "runtime": "/opt/fs-hermes-fc/report_tracks.py",
+      "before_sha256": "678ae8f527e0f230c5d3722dbe4b0eeaff2de8eda5a9c37c25798de1f81d88f2",
+      "candidate_sha256": "393bb07a91a2dbb5757ecc4aea009e4d439db6fabf94feae468aa91fd71090d3"
+    },
+    {
+      "source": "source/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "before_sha256": "087391644a92693e2b6a1ac14c9502d5df3d0c3f57965135daae32cebe82e8a1",
+      "candidate_sha256": "fc6318650aacbbf15d21e75d284d25cb6264b51f15a29ae965479246c92612ef"
+    },
+    {
+      "source": "source/brain.js",
+      "runtime": "/var/www/dashboard/fs-home/brain/brain.js",
+      "before_sha256": "071290bc0042686ac848202f54ae91c6c397ef0f1ac8d5ad5d59bdff5367a3a5",
+      "candidate_sha256": "ff10976d9ffd32f53324cd8d0d4238581df8cfa62ba7962aa0d6bc61c233d396"
+    }
+  ],
+  "production_writes": 0
+}

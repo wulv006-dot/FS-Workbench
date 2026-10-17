@@ -297,6 +297,10 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith(("releases/fs-dashboard/hermes-followup-evidence-20261017/","releases/fs-dashboard/hermes-report-kind-actions-20261017/")):
+            groups.add("hermes-report-compat");continue
+        if name.startswith("releases/fs-dashboard/traffic-content-details-20261017/"):
+            groups.add("traffic-content-details");continue
         if name.startswith("releases/fs-dashboard/hermes-report-theme-20261017/"):
             groups.add("hermes-report-theme");continue
         if name.startswith(("releases/fs-dashboard/traffic-hermes-20261017/","mmoexp_google_data/details/")) or name in ("mmoexp_google_data/dashboard_module/marketing-module.js","mmoexp_google_data/dashboard_module/build_module.py"):
@@ -776,6 +780,13 @@ def main():
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="management-quality":
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="hermes-report-compat":
+            units("releases/fs-dashboard/hermes-followup-evidence-20261017/tests",["test_continuation_sources","test_learning_append"])
+            units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
+            node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
+        elif group=="traffic-content-details":
+            units("releases/fs-dashboard/traffic-content-details-20261017/tests",["test_content_details"])
+            node("releases/fs-dashboard/traffic-content-details-20261017/tests/check_content.cjs")
         elif group=="hermes-report-theme":
             node("releases/fs-dashboard/hermes-report-theme-20261017/tests/theme-print.cjs")
         elif group=="traffic-hermes":

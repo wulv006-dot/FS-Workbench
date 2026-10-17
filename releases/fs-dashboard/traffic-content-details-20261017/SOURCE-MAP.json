@@ -1,0 +1,23 @@
+{
+  "status": "local_candidate_not_published",
+  "files": [
+    {
+      "source": "mmoexp_google_data/details/detail_model.py",
+      "runtime": "/opt/mmoexp-marketing/details/detail_model.py",
+      "beforeSha256": "b70662400ea7a298c55148d16771b53699977e076a543fbe6f4c29de05723dbd",
+      "sha256": "006342349ef7618d91d9c06a38b85a3467a4715bc897f494b547703b60b8bd83"
+    },
+    {
+      "source": "ui-system/modules/native/google.js",
+      "runtime": "next immutable UI google.js",
+      "beforeSha256": null,
+      "sha256": "2c66c95818935ac11690f01c006c5f67dec8dd326c40a17aed37f4a497672e12"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-content-details-20261017/source/range_api.py",
+      "runtime": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "beforeSha256": "407dd661d057f69a979a33541c25e8d4ee9c542afc5e5c3fc0a6a7402c6e35cd",
+      "sha256": "d99ac3cdacc6212a92f5d0899451cf7a4668af7e3d0a2674cff6c832c60b245a"
+    }
+  ]
+}
