@@ -176,7 +176,10 @@ class HermesService:
             result=json.loads(read_file(self.root,task['id'],'json')['content']);read_file(self.root,task['id'],'html')
             hashes=json.loads((path/'ready.json').read_text('utf-8'))
         else:
-            result=management_context.deliver(output,book) if management_facts else deliver_output(output,book,validator=validate_output)
+            if meta.get('html_design'):
+                result=dict(summary='完整交互HTML已生成，待用户验收。',research_text=output,findings=[],actions=[],reviews=[],limitations=['内容、排版和交互待用户验收。'])
+            else:
+                result=management_context.deliver(output,book) if management_facts else deliver_output(output,book,validator=validate_output)
             result.update(report_track=meta.get('report_track','operations'),snapshot_id=book.capture_id,reasoning_effort=effort,skills_version=meta['skills_version'],skill_sha256=meta['skill_sha256'],
                           model_usage=self.usage(task['id'],owner),run_id=task['run_id'],period={'start':body['start'],'end':body['end']})
             result['report_kind']=request_report_kind(body)
@@ -190,7 +193,7 @@ class HermesService:
             if management_facts:
                 result['management_context']=management_context.metadata(body)
                 result['management_context']['evidenceId']=next((k for k,v in book.evidence.items() if v.get('snapshot_id')==management_facts['snapshotId'] and v.get('project')=='ALL_MANAGEMENT_PROJECTS'),None)
-            html=management_context.render_html(result,management_facts) if management_facts else render_report(result,book.evidence,result['period'])
+            html=output if meta.get('html_design') else management_context.render_html(result,management_facts) if management_facts else render_report(result,book.evidence,result['period'])
             hashes=save_result(self.root,task['id'],result,html)
         receipt=dict(result);receipt.pop('raw_model_text',None);receipt.pop('raw_model_json',None)
         receipt['artifact']=dict(task=task['id'],raw_sha256=meta['raw_sha256'],**hashes)
@@ -369,6 +372,7 @@ class HermesService:
 
     def report_actions(self,job):
         from report_artifacts import save_boss,directory
+        if json.loads(read_file(self.root,job['task_id'],'json')['content']).get('html_design'):return []
         proof=save_boss(self.root,job['task_id'])
         path=directory(self.root,job['task_id'],create=False)/proof['content_file']
         if path.is_symlink():raise ValueError('action_source_linked')
@@ -588,6 +592,7 @@ class HermesService:
             if prepared:admission['prompt']+='\nFS已准备并注册的本期事实（无需重复取数，缺项再查）：\n'+encoded(prepared)
             admission['skill_question']=body['question']
             admission['prompt']+=data_request_context(body)
+            admission['prompt']+='\n实际生成时点：'+self.clock().isoformat()+'。行动期限按此时点安排为尚可完成的未来时间；未校准数值只作为建议观察线，不是已确认业务阈值。'
             admission['frozen_skills']=book.skills
             admission['learning_receipt']={k:knowledge[k] for k in ('version','identity','files','memory_path','native_skip_reason')}
             admission['learning_text']=desktop_context

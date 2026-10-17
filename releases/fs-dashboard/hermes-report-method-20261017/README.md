@@ -11,3 +11,5 @@
 验证：`python -m unittest discover -s releases/fs-dashboard/hermes-report-method-20261017/tests -v`；`node releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs`。浏览器实测加`--browser`（需Playwright）。沿用pr-fast现有工作流。
 
 发布继续复用既有锁、CAS、备份、durable journal和原服务重载。源码与私有包逐目标SHA见SOURCE-MAP，父commit只表示起点；本次候选实际字节绑定独立执行manifest。旧v2因换行差异在inspect阶段拒绝、未写活动代码；v3以Desktop实际字节发布。没有将Windows模拟、CI或部署当作用户验收。
+
+新HTML归档跟进已受控发布：直接保存原HTML与证据，跳过旧语义/固定版式转换；历史报告读取保持。新HTML的旧“研究详情/老板稿”API以纯文本源码返回，避免旧入口直接执行模型脚本；主阅读器仍使用原始SHA和opaque沙箱。行动清单不从HTML再推断，原稿中的建议由用户审阅。真实生成时点进入提示，防止行动期限落在过去。7项Python检查和薄阅读器检查通过，用户验收仍待。

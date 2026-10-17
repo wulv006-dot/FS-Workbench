@@ -51,5 +51,31 @@
   "timers_changed": false,
   "business_writes": false,
   "PR_merged": false,
-  "acceptance": "real FS daily and weekly required; user decides content/layout/interaction quality"
+  "acceptance": "real FS daily and weekly required; user decides content/layout/interaction quality",
+  "archiveOnlyFollowup": {
+    "release": "nav-20261017T150327Z",
+    "manifestSha256": "6ebe91ac13a72d7a8f569a2e46edeaaa7942fb65d391b69c1c205ca2a7ca7ac6",
+    "files": [
+      {
+        "candidate": "source/controller.py",
+        "target": "/opt/fs-hermes-fc/controller.py",
+        "beforeSha256": "64e89b254bfc0b556868b896bcfbc9b2fcff33dc4f6ad813124709fac94f24f8",
+        "sha256": "cfc5cb3ee003de0beb0ffa07d9e160caad8aeddd43b98ce7052069c53dab1c9c",
+        "mode": "0o644",
+        "owner": "0:0"
+      },
+      {
+        "candidate": "source/report_artifacts.py",
+        "target": "/opt/fs-hermes-fc/report_artifacts.py",
+        "beforeSha256": "c30f44ee10855975529ad5c1eb4ffe08e979ced25eeadb44ed31c371d6272d35",
+        "sha256": "88916e5009afd07abc5199816a5231590dabc15c607cf1b505d692f4c0b6bc33",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 309,
+    "legacyHtmlAnalysisAndLayoutBypassed": true,
+    "tests": 7,
+    "userAcceptance": "pending"
+  }
 }
