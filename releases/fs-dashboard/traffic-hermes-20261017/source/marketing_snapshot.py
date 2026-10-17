@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 from report_tracks import fc27_match_basis
+from traffic_contract import RULE_VERSION
 from urllib.parse import urlsplit
 
 PUBLISHED = Path('/var/www/mmoexp-marketing/current/data.json')
@@ -118,7 +119,8 @@ def source_medium_table(table):
 def campaigns(value):
     rows, rejected = [], 0
     all_rows=value.get('calculation_campaigns')
-    full=isinstance(all_rows,list) and value.get('campaign_calculation_complete') is True
+    campaign_state=source_status(value.get('campaign_status'))
+    full=isinstance(all_rows,list) and value.get('campaign_calculation_complete') is True and campaign_state['status']=='success' and not campaign_state['retained_previous']
     source_rows=all_rows if isinstance(all_rows,list) else value.get('campaigns') or []
     seen=set()
     for row in source_rows:
@@ -180,6 +182,7 @@ def projection(model, args, source_sha):
     if len(found) != 1:
         raise ValueError('marketing_duplicate_period')
     current = found[0]
+    base['source_rule_version']=current.get('rule_version')
     for source, (resource, tz) in SOURCE.items():
         value = current.get('sources', {}).get(source)
         if not isinstance(value, dict):
@@ -248,26 +251,34 @@ class MarketingReader:
 
     def __call__(self, args):
         checked_query(args)
+        previous=None
         try:
-            with PUBLISHED.open('rb') as stream:
-                raw = stream.read(LIMIT + 1)
-            if len(raw) > LIMIT:
-                raise ValueError('marketing_size')
-            model=json.loads(raw)
-            value=projection(model, args, sha256(raw).hexdigest())
-            if value.get('reason')!='exact_marketing_period_not_published' or (self.owner is None and self.exact_reader is None):
-                return value
-            exact=self.exact(args)
-            if exact.get('status') in ('pending','busy'):
-                return {'http_status':202,'status':exact['status'],'query':dict(args),'reason':'exact_marketing_period_preparing'}
-            period=exact.get('period')
-            if not isinstance(period,dict) or period.get('start')!=args['start'] or period.get('end')!=args['end']:
-                return value
-            model['details']={'schemaVersion':1,'isMock':False,'periods':[period]}
-            model['data_generated_at']=exact.get('generatedAt')
-            raw=json.dumps(exact,sort_keys=True,separators=(',',':')).encode()
-            result=projection(model,args,sha256(raw).hexdigest())
-            result['exact_range_status']=exact.get('status')
-            return result
-        except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            return {'http_status': 503, 'status': 'not_available', 'reason': 'published_marketing_unavailable'}
+            with PUBLISHED.open('rb') as stream:raw=stream.read(LIMIT+1)
+            if len(raw)>LIMIT:raise ValueError('marketing_size')
+            model=json.loads(raw);previous=projection(model,args,sha256(raw).hexdigest())
+        except (OSError,ValueError,KeyError,TypeError,AttributeError):pass
+        historical={k:previous.get(k) for k in ('source_snapshot_id','source_sha256','captured_at','source_rule_version','status','reason')} if previous else None
+        def fallback(reason):
+            if previous and previous.get('reason')!='exact_marketing_period_not_published':
+                previous.update(status='stale',retained_previous=True,source_selection={'selected':'published_history','reason':reason,'required_rule_version':RULE_VERSION})
+                for account in previous.get('ads_accounts',[]):
+                    account['campaigns']['calculation_complete']=False
+                    account['campaigns']['output_capped']=True
+                    account['ad_groups']['calculation_complete']=False
+                return previous
+            return {'http_status':503,'status':'not_available','reason':reason,'query':dict(args),'previous_published':historical}
+        if self.owner is None and self.exact_reader is None:return fallback('exact_reader_not_authorized')
+        try:exact=self.exact(args)
+        except (OSError,ValueError,KeyError,TypeError,AttributeError):return fallback('exact_marketing_unavailable')
+        if exact.get('status') in ('pending','busy'):
+            return {'http_status':202,'status':exact['status'],'query':dict(args),'reason':'exact_marketing_period_preparing','previous_published':historical}
+        period=exact.get('period')
+        if not isinstance(period,dict) or period.get('start')!=args['start'] or period.get('end')!=args['end']:return fallback('exact_marketing_period_mismatch')
+        if period.get('rule_version')!=RULE_VERSION:return fallback('exact_marketing_rule_mismatch')
+        if exact.get('status') not in ('available','partial','stale'):return fallback('exact_marketing_unavailable')
+        model={'schemaVersion':1,'isMock':False,'details':{'schemaVersion':1,'isMock':False,'periods':[period]},'data_generated_at':exact.get('generatedAt')}
+        raw=json.dumps(exact,sort_keys=True,separators=(',',':')).encode()
+        try:result=projection(model,args,sha256(raw).hexdigest())
+        except (ValueError,KeyError,TypeError,AttributeError):return fallback('exact_marketing_contract_invalid')
+        result.update(exact_range_status=exact.get('status'),source_selection={'selected':'current_rule_exact_range','required_rule_version':RULE_VERSION,'previous_published':historical})
+        return result

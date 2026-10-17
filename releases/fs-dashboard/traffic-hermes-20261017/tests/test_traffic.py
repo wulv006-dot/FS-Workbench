@@ -13,7 +13,7 @@ from urllib.error import HTTPError
 
 ROOT = Path(__file__).resolve().parents[4]
 SOURCE = Path(__file__).resolve().parents[1]/'source'
-sys.path[:0] = [str(SOURCE), str(ROOT/'mmoexp_google_data/details')]
+sys.path[:0] = [str(SOURCE), str(ROOT/'mmoexp_google_data/details'),str(ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013')]
 import traffic_contract as contract
 import collect_details as collector
 import detail_model as model
@@ -134,6 +134,88 @@ class DataConsumerTests(unittest.TestCase):
             self.assertEqual(reader(args)['status'],'pending')
             reader.exact_reader=lambda q:{'status':'busy'}
             self.assertEqual(reader(args)['status'],'busy')
+
+    def test_current_exact_rule_beats_same_date_legacy_published_and_keeps_history(self):
+        period,account=self.account();args={'profile':'FC27','start':period['start'],'end':period['end']}
+        old=copy.deepcopy(period);old['rule_version']='old-rule';old['adsAccounts'][0].pop('calculation_campaigns')
+        baseline={'schemaVersion':1,'isMock':False,'details':{'schemaVersion':1,'isMock':False,'periods':[old]}}
+        with tempfile.TemporaryDirectory() as folder,patch.object(marketing,'PUBLISHED',Path(folder)/'data.json'):
+            marketing.PUBLISHED.write_text(json.dumps(baseline));calls=[]
+            reader=marketing.MarketingReader(exact_reader=lambda q:(calls.append(q) or dict(status='available',period=period,generatedAt='2026-10-16T00:10:00Z')))
+            value=reader(args);self.assertEqual(calls,[args]);self.assertEqual(value['source_rule_version'],marketing.RULE_VERSION);self.assertTrue(value['ads_accounts'][0]['campaigns']['calculation_complete']);self.assertEqual(value['source_selection']['previous_published']['source_rule_version'],'old-rule')
+            reader.exact_reader=lambda q:{'status':'pending'};pending=reader(args);self.assertEqual(pending['http_status'],202);self.assertNotIn('ads_accounts',pending);self.assertIsNotNone(pending['previous_published'])
+            reader.exact_reader=lambda q:dict(status='available',period=dict(period,start='2026-10-14'))
+            stale=reader(args);self.assertEqual(stale['status'],'stale');self.assertTrue(stale['retained_previous']);self.assertFalse(stale['ads_accounts'][0]['campaigns']['calculation_complete'])
+            reader.exact_reader=lambda q:dict(status='available',period=dict(period,rule_version='old-rule'))
+            self.assertEqual(reader(args)['source_selection']['reason'],'exact_marketing_rule_mismatch')
+
+    def test_daily_supplement_patch_only_removes_old_week_override(self):
+        import hashlib
+        old=(ROOT/'releases/fs-dashboard/hermes-learning-loop-20261016/source/source_snapshots.py').read_bytes()
+        patch_source=(Path(__file__).resolve().parents[1]/'source'/'source_snapshots_daily_window.py').read_bytes()
+        self.assertEqual(hashlib.sha256(old).hexdigest(),'da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277')
+        begin=old.index(b'    if not weekly:',old.index(b'def prepare_supplements'))
+        finish=old.index(b"    plan += [('fc.query_marketing_snapshot'",begin)
+        expected=(old[:begin]+old[finish:]).replace(b"'preparation_status':'ready'",b"'authoritative_fact_table':result.get('authoritative_fact_table',[]),\n            'preparation_status':'ready'")
+        expected=expected.replace(b"'status','selected_totals','authoritative_fields'",b"'status','selected_totals','selected_derived','authoritative_fields'")
+        self.assertEqual(patch_source,expected)
+        namespace={};exec(compile(patch_source,'active-daily-window-patch','exec'),namespace)
+        calls=[]
+        class Book:
+            def research(self,name,args):
+                calls.append((name,args));return {'evidence_id':'fixture','data':{'status':'available'}}
+        namespace['prepare_supplements'](Book(),'2026-10-16','2026-10-16')
+        windows=[q for name,q in calls if name=='fc.query_marketing_snapshot']
+        self.assertEqual([(q['start'],q['end']) for q in windows],[('2026-10-16','2026-10-16'),('2026-10-09','2026-10-09')]);self.assertEqual(len(calls),6)
+        calls.clear();namespace['prepare_supplements'](Book(),'2026-10-05','2026-10-11',True)
+        self.assertEqual([(q['start'],q['end']) for name,q in calls if name=='fc.query_marketing_snapshot'],[('2026-10-05','2026-10-11'),('2026-09-28','2026-10-04')])
+
+    def test_model_marketing_projection_preserves_full_hash_paths_and_missing(self):
+        import research,threading,types
+        period,account=self.account(40);value=self.projected(period);value['fc27_by_name']=report_tracks.fc27_marketing_view(value)
+        value['fc27_by_name']['ads_accounts'][0]['metrics']['nativeCvr']=None
+        book=object.__new__(research.ResearchBook);book.capture_id='fixture';book.data={'as_of':'2026-10-16T00:00:00Z'};book._lock=threading.RLock();book.evidence={};book.trace=[];saved=[];book.persist=saved.append
+        result=book.register('fc.query_marketing_snapshot',{'profile':'FC27','start':period['start'],'end':period['end']},value)
+        frozen=book.evidence[result['evidence_id']];self.assertEqual(saved[0],frozen);self.assertEqual('ev_'+research.digest({k:v for k,v in frozen.items() if k!='evidence_id'})[:24],result['evidence_id'])
+        self.assertNotIn('ads_accounts',result['data']);self.assertIn('ads_accounts',frozen['data']);self.assertEqual(result['data']['sources'],frozen['data']['sources']);fc=result['data']['fc27_by_name']['ads_accounts'][0];self.assertEqual(fc['metrics']['cost'],'1');self.assertIsNone(fc['metrics']['nativeCvr'])
+        for key,path in fc['value_paths'].items():self.assertEqual(research.resolve(frozen,path),fc['metrics'][key])
+        self.assertEqual(len(fc['campaigns']['rows']),len(frozen['data']['fc27_by_name']['ads_accounts'][0]['campaigns']['rows']))
+        native={'evidence_id':'ev_fixture','query':{'profile':'FC27','start':'2026-10-15','end':'2026-10-15'},'data':{'source_records':{'old':{}},'authoritative_fields':{'orders':{'status':'available','value':0,'unit':'count','field_scope':'MMOEXP主站'}}}}
+        compact=research.model_evidence(native,'fc.query_native_statistics');self.assertEqual(compact['authoritative_fact_table'][0]['value'],0);self.assertNotIn('source_records',compact['data']);self.assertIn('source_records',native['data'])
+        query={'profile':'FC27','start':'2026-10-15','end':'2026-10-15'};book.target=query
+        fields={k:{'status':'available','value':v,'unit':'count' if k=='orders' else 'USD','system':'fixture','field_scope':'main'} for k,v in {'orders':2,'revenueUsd':10,'averageOrderUsd':99,'profitMarginPct':20}.items()}
+        book.native=lambda q:{'status':'available','authoritative_fields':fields}
+        with patch.dict(sys.modules,{'report_constraints':types.SimpleNamespace(native_customer_comparison=lambda *a:None)}):native_result=book.research('fc.query_native_statistics',query)
+        derived=native_result['data']['selected_derived'];self.assertEqual(derived['selectedAovUsd']['value'],'5');self.assertEqual(derived['referenceProfitUsd']['value'],'2')
+        table={r['metric']:r for r in native_result['authoritative_fact_table']};self.assertEqual(table['averageOrderUsd']['value'],99);self.assertEqual(table['selectedAovUsd']['value'],'5');self.assertEqual(table['profitMarginPct']['value'],20)
+        frozen=book.evidence[native_result['evidence_id']]
+        for item in native_result['authoritative_fact_table']:self.assertEqual(research.resolve(frozen,item['value_path']),item['value'])
+        fields['orders']['value']=0;fields['revenueUsd']['value']=0
+        with patch.dict(sys.modules,{'report_constraints':types.SimpleNamespace(native_customer_comparison=lambda *a:None)}):zero=book.research('fc.query_native_statistics',query)
+        self.assertIsNone(zero['data']['selected_derived']['selectedAovUsd']['value']);self.assertEqual(zero['data']['selected_derived']['referenceProfitUsd']['value'],'0')
+
+
+    def test_native_snapshot_key_includes_current_field_authority_and_keeps_old(self):
+        import ast,hashlib
+        tree=ast.parse((SOURCE/'fs_evidence.py').read_text('utf-8'));method=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='native_cache_query');scope={'NATIVE_CACHE_CONTRACT':'admin-first-main-website-zero-valid-20261017-v2'};exec(compile(ast.fix_missing_locations(ast.Module(body=[method],type_ignores=[])),'native-key','exec'),scope)
+        q={'profile':'FC27','start':'2026-10-16','end':'2026-10-16'};key=scope['native_cache_query'](q,{'enabled':True});old=dict(q,config={'enabled':True})
+        self.assertNotEqual(key,old);self.assertEqual(key['traffic_rule_version'],contract.RULE_VERSION);self.assertIn('zero-valid',key['field_authority_contract']);self.assertEqual(q['start'],'2026-10-16')
+        source={};exec(compile((SOURCE/'source_snapshots_daily_window.py').read_bytes(),'snapshot-store','exec'),source)
+        with tempfile.TemporaryDirectory() as folder:
+            store=source['SnapshotStore'](folder,clock=lambda:datetime(2026,10,17,tzinfo=timezone.utc))
+            oldvalue=store.get('native-statistics',old,lambda:{'status':'available','selected':436},lambda v:True)
+            before=set(Path(folder).iterdir());calls=[]
+            newvalue=store.get('native-statistics',key,lambda:(calls.append('fresh') or {'status':'available','selected':435}),lambda v:True)
+            self.assertEqual(calls,['fresh']);self.assertEqual(newvalue['selected'],435);self.assertTrue(before<=set(Path(folder).iterdir()))
+        method=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='authoritative_native_fields')
+        from decimal import Decimal,InvalidOperation
+        from datetime import date
+        ns={'date':date,'timedelta':timedelta,'Decimal':Decimal,'InvalidOperation':InvalidOperation};exec(compile(ast.fix_missing_locations(ast.Module(body=[method],type_ignores=[])),'native-fields','exec'),ns)
+        args={'profile':'FC27','start':'2026-10-16','end':'2026-10-16'}
+        raw={'system':'admin.p2pah.cn','status':'available','stale':False,'period':{'start':'2026-10-16 00:00','end':'2026-10-17 00:00'},'dimensions':{'channels':[{'code':'www.mmoexp.com','orders':0,'revenueUsd':0}]}}
+        fields=ns['authoritative_native_fields']({'supplement':raw},args)
+        self.assertEqual(fields['orders']['value'],0);self.assertEqual(fields['revenueUsd']['value'],0);self.assertIn('主站',fields['orders']['field_scope'])
+
 
     def test_v25_all_ads_queries_exclude_prohibited_native_roas(self):
         reader=collector.Reader();reader.metadata['1430398974']={'id':'1430398974'}

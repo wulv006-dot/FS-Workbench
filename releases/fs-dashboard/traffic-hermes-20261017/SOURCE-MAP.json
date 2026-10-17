@@ -67,7 +67,7 @@
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/marketing_snapshot.py",
-      "candidate_sha256": "cfeacb789135de9a3e0995198d81ce0c968a44e7bd9f956ed27ed8a06b21b7ef",
+      "candidate_sha256": "46cba455ddcd0a60e4f1b55b3d26453fa02986923528433617a26298d70bdcc6",
       "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
       "observed_before_sha256": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5",
       "existed": true,
@@ -85,7 +85,7 @@
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/research.py",
-      "candidate_sha256": "edc2a1fceb204cc936652525d5c9cae0ac01f4422ac58a534b2cd5fdb781be07",
+      "candidate_sha256": "d7e334a4e48bf6b5e6376940737dd20d75bfa296fe14f7bde798b44e36d7de4c",
       "runtime": "/opt/fs-hermes-fc/research.py",
       "observed_before_sha256": "c593578b997d8acf19ca36b3235be4d7ef9e7d189a3340f43e5e6c34e4b127b3",
       "existed": true,
@@ -94,7 +94,7 @@
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fs_evidence.py",
-      "candidate_sha256": "10ee83ab1b08b9b55cd17b4a59fb575802b4b7f66c26932239385b22d3c29ca6",
+      "candidate_sha256": "1e4b19b95dcb9f9d2a308fb614b88a9d4930316e7a8c5d80f62ea5ec7be6f065",
       "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
       "observed_before_sha256": "2a78db06f066801b6d4a0234e39ba39944bd921e0fb8e3ba6a930d65c52957e6",
       "existed": true,
@@ -214,6 +214,13 @@
       "existed": true,
       "phase": "session_build_source",
       "observed_at": "2026-10-17T10:06:17.880620+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/source_snapshots_daily_window.py",
+      "candidate_sha256": "2b05df6cce8dc0bff83cfaa1e3698bf916d2f694a7cecec19eeb1ac22130ef96",
+      "runtime": "/opt/fs-hermes-fc/source_snapshots.py",
+      "observed_before_sha256": "da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277",
+      "phase": "real_daily_weekly_input_fix_only; full_seven_period_candidate_remains_deferred"
     }
   ],
   "native_ui": {

@@ -13,6 +13,12 @@ from research import ResearchBook, label
 from skill_bundle import load_bundle
 
 
+NATIVE_CACHE_CONTRACT='admin-first-main-website-zero-valid-20261017-v2'
+
+def native_cache_query(args,config):
+    from traffic_contract import RULE_VERSION
+    return {**args,'config':config,'field_authority_contract':NATIVE_CACHE_CONTRACT,'traffic_rule_version':RULE_VERSION}
+
 def authoritative_native_fields(records,args,source_status=None):
     """Resolve field authority while preserving the original source records."""
     end=(date.fromisoformat(args['end'])+timedelta(days=1)).isoformat()+' 00:00'
@@ -258,7 +264,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
                 'rule':'authoritative_fields已逐字段执行Admin优先、Order补缺；所有同比/目标也采用该选择，0是有效值。source_records的primary/supplement只是旧容器名，不是优先级；原记录仅供追溯，不能另选Order同字段替代Admin。平台/范围差异不阻断。'}
     from source_snapshots import SnapshotStore,native_cacheable,official_snapshot,archived_publication
     def native(args):
-        return SnapshotStore().get('native-statistics',{**args,'config':detail.config},lambda:live_native(args),
+        return SnapshotStore().get('native-statistics',native_cache_query(args,detail.config),lambda:live_native(args),
             native_cacheable,
             enabled=detail.config.get('enabled') is True)
     from admin_order_capabilities_20261014.provider import CapabilityProvider

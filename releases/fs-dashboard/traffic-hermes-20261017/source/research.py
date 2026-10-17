@@ -149,6 +149,44 @@ def calculation(args):
     return {'inputs': args['values'], 'operation': op, 'result': result, 'unit': unit}
 
 
+def model_evidence(result,name):
+    """Return a smaller view; full immutable evidence and JSON pointers stay authoritative."""
+    if name not in ('fc.query_marketing_snapshot','fc.query_native_statistics'):return result
+    out=deepcopy(result);data=out['data']
+    out['model_projection']={'kind':'compact-v1','full_evidence_retained':True,'evidence_id':result['evidence_id'],'paths':'JSON pointers resolve against the full frozen evidence, not a separate snapshot'}
+    if name=='fc.query_native_statistics':
+        data.pop('source_records',None)
+        fields=data.get('authoritative_fields') or {};table=[]
+        for key in ('orders','revenueUsd','averageOrderUsd','averageCustomerUsd','profitMarginPct'):
+            if key not in fields:continue
+            field=fields[key]
+            table.append({'metric':key,'value':field.get('value'),'unit':field.get('unit'),'status':field.get('status'),'system':field.get('system'),'scope':field.get('field_scope'),'period':result['query'],'evidence_id':result['evidence_id'],'value_path':'/data/authoritative_fields/'+key+'/value'})
+        for key,field in (data.get('selected_derived') or {}).items():
+            table.append({**field,'metric':key,'period':result['query'],'evidence_id':result['evidence_id'],'value_path':'/data/selected_derived/'+key+'/value'})
+        out['authoritative_fact_table']=table
+        return out
+    data={k:v for k,v in data.items() if k not in ('ads_accounts','fc27_by_name')}
+    view=result['data'].get('fc27_by_name') or {};accounts=[]
+    metric_columns=('cost','clicks','impressions','conversions','conversionsValue','cpa','platformRoas','nativeCvr')
+    def rows(table,groups=False):
+        identity=('campaign_id','ad_group_id','ad_group_name') if groups else ('campaign_id','campaign_name')
+        return [[row.get(k) for k in identity]+[(row.get('metrics') or {}).get(k) for k in metric_columns] for row in table]
+    for index,account in enumerate(view.get('ads_accounts',[])):
+        item={k:account.get(k) for k in ('currency','timezone','metrics','selection_complete','selection_basis','fc_allocated_brand_cost','status','coverage')}
+        item['campaigns']={k:v for k,v in (account.get('campaigns') or {}).items() if k!='rows' and k!='rule'};item['campaigns']['rows']=rows((account.get('campaigns') or {}).get('rows',[]))
+        item['campaigns']['columns']=['campaign_id','campaign_name',*metric_columns]
+        item['global_brand_campaigns']={'columns':['campaign_id','campaign_name',*metric_columns],'rows':rows(account.get('global_brand_campaigns',[]))}
+        item['ad_groups']={k:v for k,v in (account.get('ad_groups') or {}).items() if k not in ('rows','contract')};item['ad_groups']['rows']=rows((account.get('ad_groups') or {}).get('rows',[]),True)
+        item['ad_groups']['columns']=['campaign_id','ad_group_id','ad_group_name',*metric_columns]
+        item['row_value_path_template']='/data/fc27_by_name/ads_accounts/'+str(index)+'/{campaigns|ad_groups}/rows/{zero_based_index}/metrics/{metric_column}'
+        item['value_paths']={key:'/data/fc27_by_name/ads_accounts/'+str(index)+'/metrics/'+key for key in ('cost','cpa','platformRoas','conversions','conversionsValue')}
+        item['metric_definition']='cost USD; cpa=cost/conversions; platformRoas=conversionsValue/cost; Ads attribution, not financial revenue. Adgroups never added to campaign totals.'
+        accounts.append(item)
+    data['fc27_by_name']={k:v for k,v in view.items() if k!='ads_accounts'};data['fc27_by_name']['ads_accounts']=accounts
+    out['data']=data
+    return out
+
+
 class ResearchBook:
     def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None,capability=None,market=None,official=None,marketing=None,news=None,es_structure=None):
         self.data, self.config, self.target = deepcopy(dataset), deepcopy(config), deepcopy(target)
@@ -177,7 +215,7 @@ class ResearchBook:
             self.evidence[result['evidence_id']] = deepcopy(result)
             self.trace.append({'tool':name, 'evidence_id':result['evidence_id'], 'query':deepcopy(args)})
             if self.persist: self.persist(deepcopy(result))
-        return result
+        return model_evidence(result,name)
 
     def call(self, name, args):
         if not isinstance(args, dict): raise ValueError('tool_arguments')
@@ -213,7 +251,7 @@ class ResearchBook:
                 'external_intelligence':{'tool':'fc.query_official_intelligence','status':'on_demand' if self.official else 'not_wired','scope':'EA official FC27 current news index and up to six article bodies; no arbitrary URLs','claim_policy':'Read the registered tool; distinguish publication, event and observed dates. Bounded/failed search does not establish no events.'},
                 'market_snapshot':{'tool':'fc.query_market_snapshot','status':'on_demand' if self.market else 'not_wired','scope':'current FC27 Coins PS/XBOX/PC 100K; four existing competitors, Order platform cost, MMOEXP public product, BOC CNY/USD','not_historical_order_cost':True,'complete_offer_conditions':False},
                 'es_order_structure':{'tool':'fc.query_es_order_structure','status':'on_demand' if self.es_structure else 'not_wired','scope':'Admin ES导出文件集合；仅FC 27游戏标签；原状态与USD订单金额结构，非Admin主盘；站点/分销/时区及上游完整性未核实','dimensions':['source_game','product','country','payment','new_customer','status']},
-                'marketing_snapshot':{'tool':'fc.query_marketing_snapshot','status':'on_demand' if self.marketing else 'not_wired','scope':'FC27/Coins names identify FC-project Ads and published search-term/page matches; preserve coverage. Unfiltered GA4/GSC data are whole-site background; no order join','ads_geography':'not_collected_by_existing_source','no_new_collection':True},
+                'marketing_snapshot':{'tool':'fc.query_marketing_snapshot','status':'on_demand' if self.marketing else 'not_wired','scope':'FC27/Coins names identify FC-project Ads and published search-term/page matches; preserve coverage. Unfiltered GA4/GSC data are whole-site background; no order join','ads_geography':'not_collected_by_existing_source','collection':'existing_exact_range_on_demand; may prepare missing periods'},
                 'game_news':{'tool':'fc.query_game_news','status':'shared_snapshot_readonly' if self.news else 'not_wired','scope':'MMOEXP News／主站SEO资讯（非游戏官方公告）','no_new_collection':True,'no_network':True,'claim_policy':'Use actual source URL and publication/event/collection times; missing or stale snapshots do not trigger collection. Publication time alone never establishes an event countdown.'},
                 'report_constraints':{'review_standard':'Useful direction first; roughly 90% verifiable coverage is a user quality target, not measured confidence. Minor gaps/rounding annotate rather than suppress the whole judgment. State confidence, next action and what would reverse it.','partitions':'Full group deltas and named residuals are strongest; partial reconciliation may support labelled directional hypotheses, not an audited complete bridge.','marginal_tables_are_not_order_joins':True,'quantity_discount_mechanism':'Requires verified order lines/definitions, not sale_total equals order_count','complete_multidimensional_groups':'May marginalize only after page/key/total/scope/time reconciliation','thresholds':'Existing approved policy or explicitly pending proposal; screening and suggested review dates are not execution authority'},
                 'problem_clues_available':self.clues is not None,'permission':'readonly','skills_version':self.skills['version'] if self.skills else None})
@@ -259,6 +297,13 @@ class ResearchBook:
             value=deepcopy(value)
             fields=value.get('authoritative_fields',{})
             value['selected_totals']=dict(args,**{k:fields.get(k,{}).get('value') if fields.get(k,{}).get('status')=='available' else None for k in ('orders','revenueUsd')})
+            revenue=value['selected_totals'].get('revenueUsd');orders=value['selected_totals'].get('orders')
+            margin=fields.get('profitMarginPct') or {};rate=margin.get('value') if margin.get('status')=='available' else None
+            value['selected_derived']={}
+            if revenue is not None and orders is not None:
+                value['selected_derived']['selectedAovUsd']={'value':str(Decimal(str(revenue))/Decimal(str(orders))) if Decimal(str(orders))>0 else None,'unit':'USD/order','definition':'selected Admin-first revenueUsd / selected orders; separate from source-native averageOrderUsd','operand_paths':['/data/authoritative_fields/revenueUsd/value','/data/authoritative_fields/orders/value'],'denominator':'selected orders'}
+            if revenue is not None and rate is not None:
+                value['selected_derived']['referenceProfitUsd']={'value':str(Decimal(str(revenue))*Decimal(str(rate))/100),'unit':'USD','definition':'selected Admin-first revenueUsd × selected profitMarginPct / 100; reference estimate, not financial settlement','operand_paths':['/data/authoritative_fields/revenueUsd/value','/data/authoritative_fields/profitMarginPct/value'],'denominator':'100 percent'}
             from report_constraints import native_customer_comparison
             pending={'analysis_anchor_id':self.capture_id,'captured_at':value.get('captured_at') or self.data['as_of'],'query':args,'data':value}
             comparison=native_customer_comparison({**self.evidence,'this_reply':pending},self.capture_id,self.target)
