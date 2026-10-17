@@ -1,0 +1,19 @@
+{
+  "scope": "github-backfill-only",
+  "serverChanged": false,
+  "evidence": "2026-10-17 independent read-only audit; no runtime data included",
+  "files": [
+    {
+      "source": "releases/fc-coins/result-read-20261016/source/fc27-quote-cloud.js",
+      "runtime": "/var/www/dashboard/fc27-quote-cloud.js",
+      "sha256": "aa51ac6432776da8a2409057a8faa3fa1da9914b994de9b20eb98ed10eaee2bb",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-coins/result-read-20261016/source/fc27-coins.html",
+      "runtime": "/var/www/dashboard/fc27-coins.html",
+      "sha256": "5601cbdff9fac6406f57c8e51ef16475656f6892e46442deb0c8e5bedb52aaef",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "scope": "github-backfill-only",
+  "version": "2026.10.08-cloud.10",
+  "serverChanged": false,
+  "files": [
+    {
+      "source": "fc27_players_cloud/player_web/existing_action_service.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/existing_action_service.py",
+      "sha256": "7fb9c393fcbba877de5ce86d832dd68af64a6c29828e77d3d5e452d3a478330b",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/main.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/main.py",
+      "sha256": "20ac9e6c56c190b0f294768c11f07508aa7709d66d512bfa4add618546ba9714",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/settings.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/settings.py",
+      "sha256": "1a89246fe4e2a1a7e27bff803a90cd76df08393cc78e2f5433026eb1f3beb8ea",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/static/app.js",
+      "runtime": "container:fc27-player-tool:/app/player_web/static/app.js",
+      "sha256": "e1afd2bcde343ad87f4629b23144075fe32487d5f1656fca3076add1c36b40b9",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    }
+  ],
+  "switches": "defaults remain off; do not copy runtime env or enable writes"
+}

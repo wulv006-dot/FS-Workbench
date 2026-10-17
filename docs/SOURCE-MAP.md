@@ -1,3 +1,7 @@
+# 2026-10-17 已上线修复回补入口
+
+当前局部映射见 [回补清单](collaboration/SERVER-GITHUB-BACKFILL-20261017.md) 与 [14条精确运行映射](../releases/fs-dashboard/deployed-source-backfill-20261017/SOURCE-MAP.json)。旧根镜像和release保留为历史，不反向整包部署；Hermes由原聊天处理。以下10/9及更早段落保留各自时点。
+
 # 最新映射入口（2026-10-09）
 
 FC最新非核心来源应急与固定自愈已按11个活动源码核对生产；本次精确回补见 [冻结增量](../releases/fc-coins/noncore-emergency-20261009/SOURCE-MAP.json) 与 [当前共享接口](../ops/hooks/SOURCE-MAP.json)。后者区分生产字节与仅Git修正：图库误阻断、RPG提前消警和独立运维入口参数修复本次未重新部署。其余FC仍未全面接管，旧release保持，不从main整包覆盖生产。下方10/8记录保留其原时点。

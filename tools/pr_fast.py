@@ -249,6 +249,8 @@ def selfcheck():
         raise RuntimeError("fs_admin_view_mapping_missing")
     if select(["releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"]) != ["fc-lootbar"]:
         raise RuntimeError("lootbar_mapping_missing")
+    for path,group in [("releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/lootbar_server_collector.py","fc-browser-readiness"),("releases/fc-coins/result-read-20261016/source/fc27-quote-cloud.js","fc-result-read"),("releases/fs-dashboard/business-refresh-20261016/source/live_summary.py","fs-business-refresh"),("fc27_players_cloud/player_web/main.py","fc-players-cloud10"),("releases/fs-dashboard/deployed-source-backfill-20261017/test_inventory.py","deployed-source-backfill")]:
+        if select([path]) != [group]:raise RuntimeError("deployed_source_mapping_missing:"+path)
     if select(["releases/fc-coins/prewrite-recovery-20261012/source/monitor/read_only_status.py"]) != ["fc-prewrite"]:
         raise RuntimeError("fc_prewrite_scope_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
@@ -318,6 +320,18 @@ def select(paths):
             groups.add("navigation-recovery");continue
         if name.startswith("releases/fs-dashboard/fs-revision-20261015/"):
             groups.add("fs-revision-20261015");continue
+        if name.startswith("releases/fs-dashboard/deployed-source-backfill-20261017/"):
+            groups.add("deployed-source-backfill");continue
+        if name.startswith("releases/fc-coins/browser-readiness-20261016/"):
+            groups.add("fc-browser-readiness");continue
+        if name.startswith("releases/fc-coins/result-read-20261016/"):
+            groups.add("fc-result-read");continue
+        if name.startswith("releases/fs-dashboard/business-refresh-20261016/"):
+            groups.add("fs-business-refresh");continue
+        if name.startswith("releases/fc-ops/active-frontend-20261017/"):
+            groups.add("deployed-source-backfill");continue
+        if name in ("fc27_players_cloud/player_web/existing_action_service.py","fc27_players_cloud/player_web/main.py","fc27_players_cloud/player_web/settings.py","fc27_players_cloud/player_web/static/app.js","fc27_players_cloud/VERSION","fc27_players_cloud/source_manifest.json") or name.startswith(("fc27_players_cloud/tests_cloud/","releases/fc-players/manual-recommend-cloud10-20261017/")):
+            groups.add("fc-players-cloud10");continue
         if name in ("releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/release_navigation.py","releases/fs-dashboard/hermes-fc-pilot-20261013/test_nightly_release.py"):
             groups.add("hermes-nightly-publisher");continue
         if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
@@ -490,6 +504,18 @@ def main():
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
+        elif group=="deployed-source-backfill":
+            units("releases/fs-dashboard/deployed-source-backfill-20261017",["test_inventory"])
+        elif group=="fc-browser-readiness":
+            units("releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector",["test_lootbar_server_collector"])
+        elif group=="fc-result-read":
+            node("releases/fc-coins/result-read-20261016/test_result_read.cjs")
+        elif group=="fs-business-refresh":
+            units("releases/fs-dashboard/business-refresh-20261016/tests",["test_refresh"])
+            node("releases/fs-dashboard/business-refresh-20261016/tests/test_refresh.cjs")
+        elif group=="fc-players-cloud10":
+            units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend"])
+            node("fc27_players_cloud/tests_cloud/check_manual_recommend_button.cjs")
         elif group=="fc-prewrite":
             release="releases/fc-coins/prewrite-recovery-20261012"
             for name in ("test_monitor","test_publishers"):

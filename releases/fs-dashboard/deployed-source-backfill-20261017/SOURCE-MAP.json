@@ -1,0 +1,91 @@
+{
+  "scope": "GitHub-only source backfill; no server operations; Hermes excluded",
+  "observedHost": "play187",
+  "observedUtc": "2026-10-17T03:10:11.511340Z",
+  "files": [
+    {
+      "source": "releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/lootbar_server_collector.py",
+      "runtime": "/opt/fc27-cloud-browser/collector/lootbar_server_collector.py",
+      "sha256": "3c53cdad71fa9c77c1dc58e0d136026c62cb4e8a7151f3ac7a72ca733cf8d5ac",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/background.js",
+      "runtime": "/opt/fc27-cloud-browser/collector/background.js",
+      "sha256": "4f36ad8a9723039912727f64bb6a3f20da0c657dc2a57105c4fb4d8faa6cf67b",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-coins/result-read-20261016/source/fc27-quote-cloud.js",
+      "runtime": "/var/www/dashboard/fc27-quote-cloud.js",
+      "sha256": "aa51ac6432776da8a2409057a8faa3fa1da9914b994de9b20eb98ed10eaee2bb",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-coins/result-read-20261016/source/fc27-coins.html",
+      "runtime": "/var/www/dashboard/fc27-coins.html",
+      "sha256": "5601cbdff9fac6406f57c8e51ef16475656f6892e46442deb0c8e5bedb52aaef",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/source/live_summary.py",
+      "runtime": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "e89497a18cfaaf4ca375524a7c294bedbe40983a56123886586b1ead58c90e3e",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/source/business.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/business.js",
+      "sha256": "ec074d393b3fb38446f2eca03bbc0f7ac81f7511fcb1c67db694a553842a4d66",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/shell.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/shell.js",
+      "sha256": "535a6817f2dc9dc41cbf30fe9b277c091934ab24f1d61649b2ba56b67d1f646e",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/index.html",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/index.html",
+      "sha256": "898404303af0614f0be818a119b1a9d663e11cbcb6e3da4246718193f90d9249",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/home.html",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/home.html",
+      "sha256": "ff05e65f207773a3e1fb4fb0cdc51ac526e3706d9397a22804b472e6fb9bd463",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/existing_action_service.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/existing_action_service.py",
+      "sha256": "7fb9c393fcbba877de5ce86d832dd68af64a6c29828e77d3d5e452d3a478330b",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/main.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/main.py",
+      "sha256": "20ac9e6c56c190b0f294768c11f07508aa7709d66d512bfa4add618546ba9714",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/settings.py",
+      "runtime": "container:fc27-player-tool:/app/player_web/settings.py",
+      "sha256": "1a89246fe4e2a1a7e27bff803a90cd76df08393cc78e2f5433026eb1f3beb8ea",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/static/app.js",
+      "runtime": "container:fc27-player-tool:/app/player_web/static/app.js",
+      "sha256": "e1afd2bcde343ad87f4629b23144075fe32487d5f1656fca3076add1c36b40b9",
+      "observedAt": "2026-10-17 11:04 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-ops/active-frontend-20261017/source/index.html",
+      "runtime": "/var/www/sites/wulv/fc27-ops/index.html",
+      "sha256": "68ea2731f91e714fc24e411dc11fde7507650d587477b3f326120ce0d5dee2b0",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    }
+  ]
+}

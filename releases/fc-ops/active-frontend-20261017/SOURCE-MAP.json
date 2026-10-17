@@ -1,0 +1,13 @@
+{
+  "scope": "github-backfill-only",
+  "serverChanged": false,
+  "evidence": "2026-10-17 independent read-only audit; no runtime data included",
+  "files": [
+    {
+      "source": "releases/fc-ops/active-frontend-20261017/source/index.html",
+      "runtime": "/var/www/sites/wulv/fc27-ops/index.html",
+      "sha256": "68ea2731f91e714fc24e411dc11fde7507650d587477b3f326120ce0d5dee2b0",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    }
+  ]
+}
