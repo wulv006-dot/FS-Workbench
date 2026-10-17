@@ -368,7 +368,7 @@ def render_aion2_markdown(cur_rows, prev_rows, round_no=0, total_rounds=4) -> st
     lines.append("- 利润率取自改价系统看板（售价 − DD373 成本）/ 售价，可为负")
     lines.append("- 数据源：G2G / ELD / IGGM 三源 + 我方前台价（mmoexp）")
     lines.append("- 每 15 分钟采集，每 %d 轮（约 1 小时）推送一次" % total_rounds)
-    lines.append("- 单源偏离同区中位价超3 倍会自动剔除并在消息顶部告警")
+    lines.append("- 竞品源低于同区中位价 1/3 会自动剔除、同一问题只告警一次；货源不足的区不判定")
     return "\n".join(lines)
 
 
