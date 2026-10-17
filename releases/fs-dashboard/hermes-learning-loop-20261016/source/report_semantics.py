@@ -116,7 +116,7 @@ def blocks(text):
 
 def field(text, names, default):
     for name in names:
-        match = re.search(r"(?m)^\s*[-*]?\s*(?:\*\*)?"+name+r"(?:\*\*)?\s*[:：]\s*(.+)", text)
+        match = re.search(r"(?m)^\s*[-*]?\s*(?:\*\*)?"+name+r"(?:\s*[（(](?:建议|拟议|待确认)[）)])?(?:\*\*)?\s*[:：]\s*(.+)", text)
         if match:
             return plain(re.split(r'[。；]\s*(?:成功|停止)\s*[=：:]',match[1],maxsplit=1)[0])
     return default
@@ -301,7 +301,7 @@ def markdown_actions(parts, evidence):
             'cost_risk':field(body,['成本/风险','投入/风险','风险','风险提示','投入'],'待补：成本/风险'),
             'review_at':field(body,['复查时间','何时复查','复查'],'待补：复查日期'),
             'first_check':field(body,['首查时间','首查','执行窗口'],''),'priority':field(body,['优先级'],''),
-            'success_check':field(body,['复查标准','成功标准','验收指标'],inline_field(body,'成功','待补：成功/失败标准')),
+            'success_check':field(body,['复查标准','成功标准','成功/失败标准','验收指标'],inline_field(body,'成功','待补：成功/失败标准')),
             'stop_condition':field(body,['停止条件','停止'],inline_field(body,'停止','待补：停止条件')),
             'role':field(body,['责任角色','负责人'],inline_field(full,'角色','待补：责任角色')),
             'evidence_ids':refs(full,evidence),'source_section':location,'original_text':full.strip()})
@@ -369,8 +369,9 @@ def index(result, evidence):
     if not summary:
         candidate = result.get("summary", "")
         summary = candidate if candidate and not candidate.lstrip().startswith("#") else "未识别独立结论；完整原文保留，请先复核正文。"
-    actions = [dict(row,**{key:row.get(key) or '待补：'+key for key in ACTION_FIELDS},source_section=row.get('source_section','/actions/'+str(i)))
-               for i,row in enumerate(result.get('actions',[])) if isinstance(row,dict) and (row.get('action') or row.get('target'))] or markdown_actions(parts, evidence)
+    typed_actions = [dict(row,**{key:row.get(key) or '待补：'+key for key in ACTION_FIELDS},source_section=row.get('source_section','/actions/'+str(i)))
+                     for i,row in enumerate(result.get('actions',[])) if isinstance(row,dict) and (row.get('action') or row.get('target'))]
+    actions = (typed_actions if result.get('report_format','').startswith('structured') else markdown_actions(parts,evidence)) or typed_actions
     hypotheses=[]
     for part in parts:
         if re.search(r'方法|Method',part['heading'],re.I):continue

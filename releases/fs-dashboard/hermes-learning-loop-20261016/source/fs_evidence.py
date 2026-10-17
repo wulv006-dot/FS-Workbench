@@ -6,16 +6,38 @@ import json
 import threading
 import secrets
 from copy import deepcopy
+from decimal import Decimal,InvalidOperation
 from pilot import digest
 
 from research import ResearchBook, label
 from skill_bundle import load_bundle
 
 
+def authoritative_native_fields(records,args,source_status=None):
+    """Resolve field authority while preserving the original source records."""
+    end=(date.fromisoformat(args['end'])+timedelta(days=1)).isoformat()+' 00:00'
+    period={'start':args['start']+' 00:00','end':end};selected={}
+    for system in ('order.p2pah.cn','admin.p2pah.cn'):
+        for role,row in records.items():
+            source=(source_status or {}).get('Admin' if system=='admin.p2pah.cn' else 'Order',{})
+            stale=row.get('stale') if isinstance(row.get('stale'),bool) else source.get('stale')
+            if row.get('system')!=system or row.get('status')!='available' or stale is not False or row.get('period')!=period:continue
+            fields=dict(row.get('metrics') or {})
+            for name,unit in (('orders','count'),('revenueUsd','USD')):
+                if name in row:fields.setdefault(name,{'status':'available','value':row[name],'unit':unit})
+            for name,metric in fields.items():
+                if not isinstance(metric,dict) or metric.get('status')!='available' or isinstance(metric.get('value'),bool):continue
+                try:
+                    if not Decimal(str(metric.get('value'))).is_finite():continue
+                except (InvalidOperation,ValueError,TypeError):continue
+                selected[name]={**metric,'system':system,'source_record':role,'period':period,'capturedAt':row.get('capturedAt')}
+    return selected
+
+
 class SourcePins:
     """Freeze the first usable reply per query, retaining its actual source times."""
     def __init__(self):self.values={};self.lock=threading.RLock()
-    def wrap(self,reader,family):
+    def wrap(self,reader,family,ready=None):
         def read(args):
             key=digest({'family':family,'query':args})
             with self.lock:
@@ -23,7 +45,7 @@ class SourcePins:
                 value=deepcopy(reader(args))
                 value['source_snapshot_id']='src_'+digest({'family':family,'query':args,'reply':value})[:24]
                 value['snapshot_policy']='first_usable_source_reply_per_query; source timestamps remain distinct from Admin capture'
-                if value.get('http_status')==200 and value.get('status') not in {None,'pending','reading','running','queued','failed','error','not_available','unavailable','not_sent'}:
+                if value.get('http_status')==200 and value.get('status') not in {None,'pending','reading','running','queued','failed','error','not_available','unavailable','not_sent'} and (ready is None or ready(value)):
                     self.values[key]=deepcopy(value)
                 return value
         return read
@@ -57,11 +79,21 @@ class AsyncRead:
 
 def source_capture(detail,start,end,deadline=None):
     from fc_deep_sources import EvidenceReader
-    if deadline is not None:
-        remaining=(deadline-datetime.now(timezone.utc)).total_seconds()
+    from source_snapshots import SnapshotStore
+    config=dict(detail.config)
+    def capture():
+        remaining=920 if deadline is None else (deadline-datetime.now(timezone.utc)).total_seconds()
         if remaining<=0:raise TimeoutError('nightly_deadline_exceeded')
-        return EvidenceReader(detail).capture({'read_start':start,'read_end':end},timeout=min(920,remaining))
-    return EvidenceReader(detail).capture({'read_start':start,'read_end':end})
+        raw,actual=EvidenceReader(detail).capture({'read_start':start,'read_end':end},timeout=min(920,remaining))
+        if actual!=config:raise ValueError('source_config_changed')
+        return raw
+    raw=SnapshotStore().get('paid-detail',{'start':start,'end':end,'config':config},capture,
+        lambda value:value.get('coverage',{}).get('paid_complete') is True and not value.get('coverage',{}).get('missing_days'),enabled=config.get('enabled') is True)
+    if detail.config!=config:raise ValueError('source_config_changed')
+    age=(datetime.now(timezone.utc)-datetime.fromisoformat(raw['as_of'])).total_seconds()
+    if not 0<=age<config['today_cache_seconds']:
+        raw['coverage']=dict(raw['coverage'],backlog_status='partial',backlog_reason='saved_current_pool_expired')
+    return raw,config
 
 
 def problem_projection(value, scope):
@@ -192,9 +224,9 @@ def attach_owner_history(book,tasks,owner):
     book.history_index=dict(book.history_index or {},hermes=owned.index)
 
 
-def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None,deadline=None):
+def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None,deadline=None,recent_days=14):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
-    read_start=(lo-timedelta(days=max(13,(hi-lo).days+1))).isoformat()
+    read_start=min(lo-timedelta(days=max(13,(hi-lo).days+1)),hi-timedelta(days=recent_days-1)).isoformat()
     dataset,config=source_capture(detail,read_start,end,deadline=deadline) if deadline is not None else source_capture(detail,read_start,end)
     skills=load_bundle(source_root)
     scope=secrets.token_hex(32)
@@ -207,16 +239,22 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
                 'reference_only':True,'not_verified_pricing_cost':True,'captured_at':datetime.now(timezone.utc).isoformat(),
                 'source_metadata':{k:raw[k] for k in ('snapshot_id','snapshotId','version','generatedAt','capturedAt','sourceDataAsOf','stale') if k in raw},
                 'missingDays':raw.get('missingDays'), 'rows':raw.get('history',{}).get('daily',[]),'error':raw.get('error') or raw.get('lastError')}
-    def native(args):
+    def live_native(args):
         params={k:[v] for k,v in dict(mode='summary',grain='day',**args).items()}
         status,raw=read_range(params)
         if raw.get('scopeContractId') not in (None,'admin-main-order-labelled-supplement-v1'):raise ValueError('native_source_contract')
         profile=raw.get('profile') or {}
+        records={k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)}
         return {'http_status':status,'status':raw.get('status'),'query':args,'source_contract':raw.get('scopeContractId'),
                 'captured_at':datetime.now(timezone.utc).isoformat(),'capture_time_basis':'supplement_retrieved_at; each sourceDataAsOf retained below',
-                'source_records':{k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)},
+                'source_records':records,'authoritative_fields':authoritative_native_fields(records,args,raw.get('sources')),
                 'source_status':raw.get('sources'),'consistentPeriod':raw.get('consistentPeriod'),
-                'rule':'须读取各记录system/source/scope；Admin权威主源，Order仅参考，不按primary字段名猜实际源'}
+                'rule':'authoritative_fields已逐字段执行Admin优先、Order补缺；所有同比/目标也采用该选择，0是有效值。source_records的primary/supplement只是旧容器名，不是优先级；原记录仅供追溯，不能另选Order同字段替代Admin。平台/范围差异不阻断。'}
+    from source_snapshots import SnapshotStore,native_cacheable,official_snapshot,archived_publication
+    def native(args):
+        return SnapshotStore().get('native-statistics',{**args,'config':detail.config},lambda:live_native(args),
+            native_cacheable,
+            enabled=detail.config.get('enabled') is True)
     from admin_order_capabilities_20261014.provider import CapabilityProvider
     from admin_order_capabilities_20261014.fs_reader import admin_read,order_read
     capability=CapabilityProvider(config,detail.pool,admin_read,lambda q:order_read(q,detail.config,'/var/www/dashboard/fs-home/transactions'))
@@ -225,21 +263,29 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     from marketing_snapshot import MarketingReader
     from official_intelligence import OfficialReader, checked_query as checked_official_query
     pinned_market=pins.wrap(MarketReader(),'FC27-existing-market')
-    pinned_marketing=pins.wrap(MarketingReader(),'MMOEXP-existing-marketing')
-    pinned_news=pins.wrap(shared_news,'MMOEXP-SEO-shared-news')
+    marketing_reader=MarketingReader()
+    pinned_marketing=pins.wrap(lambda q:archived_publication('marketing',q,marketing_reader(q)),'MMOEXP-existing-marketing')
+    pinned_news=pins.wrap(lambda q:archived_publication('news',q,shared_news(q)),'MMOEXP-SEO-shared-news')
     def news_read(args):
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         return pinned_news(args)
     def marketing_read(args):
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
-        return pinned_marketing(args)
+        from report_tracks import fc27_marketing_view
+        value=pinned_marketing(args)
+        value['fc27_by_name']=fc27_marketing_view(value)
+        value['scope']='FC27/Coins名称按用户规则归入FC项目；其余未筛选数据为MMOEXP全站背景，非订单级归因。'
+        value['rule']=value['fc27_by_name']['rule']+' 未筛选全站数据仍为背景；名称不证明国家定向或订单级因果。'
+        for account in value.get('ads_accounts',[]):
+            if isinstance(account.get('campaigns'),dict):account['campaigns']['rule']=value['rule']
+        return value
     official_jobs={};official_lock=threading.Lock();official_reader=OfficialReader()
     def read_official(args):
         checked_official_query(args)
         with official_lock:
             key=digest(args)
             if key not in official_jobs:
-                official_jobs[key]=AsyncRead(lambda:official_reader(args))
+                official_jobs[key]=AsyncRead(lambda:official_snapshot(official_reader,args,detail.config))
             job=official_jobs[key]
         return job.get()
     pinned_official=pins.wrap(read_official,'EA-FC27-official')
@@ -249,10 +295,19 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     def market_read(args):
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         return pinned_market(args)
-    pinned_capability=pins.wrap(capability.get,'Admin-Order-capability')
+    def durable_capability(args):
+        if args.get('kind')!='native_loss':return capability.get(args)
+        return SnapshotStore().get('native-loss',dict(args,config=detail.config),lambda:capability.get(args),
+            lambda v:v.get('http_status')==200 and v.get('status')=='available' and not v.get('stale'),
+            enabled=detail.config.get('enabled') is True)
+    pinned_capability=pins.wrap(durable_capability,'Admin-Order-capability')
+    pinned_native=pins.wrap(native,'Admin-native-labelled-Order',ready=native_cacheable)
+    def native_read(args):
+        if not detail.config.get('enabled'):raise PermissionError('source_disabled')
+        return pinned_native(args)
     def capability_read(args):
         # User OFF is a live barrier checked before any task snapshot/cache reply.
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         return pinned_capability(args)
     return ResearchBook(dataset,config,{'start':start,'end':end},history=pins.wrap(history.read,'FC-report-history'),history_index=history.index,reference=pins.wrap(reference,'Order-reference'),
-                        clues=clue_read.get,skills=skills,persist=persist,native=pins.wrap(native,'Admin-native-labelled-Order'),capability=capability_read,market=market_read,official=official_read,marketing=marketing_read,news=news_read)
+                        clues=clue_read.get,skills=skills,persist=persist,native=native_read,capability=capability_read,market=market_read,official=official_read,marketing=marketing_read,news=news_read)

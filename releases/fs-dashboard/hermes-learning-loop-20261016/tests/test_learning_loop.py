@@ -9,6 +9,16 @@ sys.path[:0]=[str(ROOT/'source'),str(ROOT/'baseline')]
 import business_context as bc
 from report_semantics import declared_comparison
 from boss_projection import action_schedule
+from report_tracks import request_report_kind
+
+def calculation_module():
+ from decimal import Decimal,ROUND_HALF_UP
+ import re
+ tree=ast.parse((ROOT/'source/research.py').read_text('utf8'))
+ nodes=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef)) and n.name in ('decimal','resolve','rounded','calculation','ResearchBook')]
+ scope=dict(Decimal=Decimal,ROUND_HALF_UP=ROUND_HALF_UP,re=re)
+ exec(compile(ast.Module(body=nodes,type_ignores=[]),'actual-research-calculation','exec'),scope)
+ return types.SimpleNamespace(**scope)
 
 class WorkerCalculationErrors(unittest.TestCase):
  def function(self,opener):
@@ -29,6 +39,31 @@ class WorkerCalculationErrors(unittest.TestCase):
   value=json.loads(self.function(self.failing())('mcp__fcro__fc_calculate',{}))
   self.assertEqual(value['code'],'evidence_path');self.assertFalse(value['calculationPerformed'])
   with self.assertRaises(HTTPError):self.function(self.failing())('mcp__fcro__fc_query_business',{})
+ def test_structured_calculation_error_is_handled_without_hiding_unknown_errors(self):
+  body=json.dumps({'error':{'code':'evidence_path','type':'invalid_request_error','message':'invalid calculation arguments'}}).encode()
+  value=json.loads(self.function(self.failing(body=body))('mcp__fcro__fc_calculate',{}))
+  self.assertEqual(value['code'],'evidence_path');self.assertFalse(value['calculationPerformed'])
+  for error in ({'message':'private unknown detail'},{'code':['evidence_path']},{'code':'unknown_internal'}):
+   with self.assertRaises(HTTPError):self.function(self.failing(body=json.dumps({'error':error}).encode()))('fc.calculate',{})
+ def test_real_loopback_bad_path_feedback_then_valid_bound_calculation(self):
+  import http.server,threading
+  from urllib.request import build_opener
+  research=calculation_module()
+  tree=ast.parse((ROOT/'source/transport.py').read_text('utf8'));fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='start_loopback')
+  ns=dict(BaseHTTPRequestHandler=http.server.BaseHTTPRequestHandler,ThreadingHTTPServer=http.server.ThreadingHTTPServer,threading=threading,json=json,encoded=json.dumps,MAX_PROVIDER_WIRE_BYTES=100000,SAFE_MODEL_ERRORS=frozenset())
+  for node in tree.body:
+   if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='SAFE_CALCULATION_ERRORS' for t in node.targets):exec(compile(ast.Module(body=[node],type_ignores=[]),'safe-calculation-codes','exec'),ns)
+  exec(compile(ast.Module(body=[fn],type_ignores=[]),'actual-loopback','exec'),ns)
+  book=research.ResearchBook.__new__(research.ResearchBook);book.evidence={'ev_fixture':{'data':{'before':'120','after':'100'}}};book.register=lambda name,args,value,source:value
+  def dispatch(method,path,token,body):return book.research('fc.calculate',body['arguments'])
+  server,thread=ns['start_loopback'](types.SimpleNamespace(dispatch=dispatch),port=0)
+  try:
+   call=self.function(build_opener());call.__globals__['PROXY']='http://127.0.0.1:'+str(server.server_port)
+   args={'operation':'difference','values':['120','100'],'evidence_ids':['ev_fixture'],'value_paths':[{'evidence_id':'ev_fixture','path':'data.before'},{'evidence_id':'ev_fixture','path':'data.after'}],'assumptions':['','']}
+   out=json.loads(call('mcp__fcro__fc_calculate',args));self.assertEqual(out['code'],'evidence_path');self.assertFalse(out['calculationPerformed'])
+   args['value_paths'][0]['path']='/data/before';args['value_paths'][1]['path']='/data/after'
+   out=json.loads(call('mcp__fcro__fc_calculate',args));self.assertEqual(out['result']['delta'],'-20.00');self.assertEqual(out['basis'],'evidence_bound_calculation')
+  finally:server.shutdown();server.server_close();thread.join(2)
  def test_auth_other_tools_and_unknown_errors_still_raise(self):
   for name,status,code in [('fc.calculate',403,'forbidden'),('fc.query_business',400,'evidence_path'),('fc.calculate',400,'unknown_internal')]:
    with self.assertRaises(HTTPError):self.function(self.failing(status,code))(name,{})
@@ -54,11 +89,23 @@ class Learning(unittest.TestCase):
   v=self.freeze()
   for needle in ['参考利润不是结算利润','先给判断','前日和同星期']:self.assertIn(needle,v['text'])
   self.assertEqual(bc.loaded_learning(self.fs,v['version']),v)
+ def test_current_corrections_follow_preserved_historical_methods(self):
+  p=self.skills/bc.FILES[0];p.parent.mkdir(parents=True);p.write_text('旧方法样例仍保留。',encoding='utf8')
+  before=p.read_bytes();value=self.freeze()
+  self.assertEqual(value['files'][-1]['path'],'runtime/learning-loop.md')
+  self.assertGreater(value['text'].rindex('<owner_learning_document path="runtime/learning-loop.md"'),value['text'].index('旧方法样例仍保留。'))
+  self.assertEqual(p.read_bytes(),before);self.assertIn('明确修订优先',value['text'])
  def test_update_auto_publishes_next_version_and_preserves_old(self):
   a=self.freeze();p=self.profile/'memories/MEMORY.md';p.write_text('修订规则：新闻使用中文经营摘要。',encoding='utf8');b=self.freeze()
   self.assertNotEqual(a['version'],b['version']);self.assertEqual(a,bc.loaded_learning(self.fs,a['version']))
   self.assertIn('中文经营摘要',bc.loaded_learning(self.fs,b['version'])['text'])
  def test_unchanged_inputs_reuse_version(self):self.assertEqual(self.freeze()['version'],self.freeze()['version'])
+ def test_html_reports_do_not_load_unrequested_document_generators_or_style_samples(self):
+  for name in ('ops-report-brief/templates/brief-skeleton.html','ops-report-brief/templates/brief-skeleton.css','reviewed-business-20261015/pptx-generator/SKILL.md','reviewed-business-20261015/minimax-xlsx/SKILL.md'):
+   p=self.skills/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('unrequested-format-fixture',encoding='utf8')
+  value=self.freeze();self.assertNotIn('unrequested-format-fixture',value['text'])
+  self.assertIn('ops-report-brief/SKILL.md',bc.FILES)
+  self.assertIn('ops-report-brief/ops-report-family/SKILL.md',bc.FILES)
  def test_method_and_effort_change_identity(self):
   a=self.freeze();self.skill['sha256']='b'*64;b=self.freeze();self.assertNotEqual(a['version'],b['version'])
   self.assertNotEqual(b['version'],self.freeze('pricing')['version'])
@@ -90,7 +137,8 @@ class Comparisons(unittest.TestCase):
   s=(ROOT/'source/controller.py').read_text('utf8')
   start=s.index("            admission={'session_id'")
   stop=s.index('            from background import task_context',start)
-  ns={'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':'daily'},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':None,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+  ns={'prepared':None,'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':'daily'},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':None,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+  ns['request_report_kind']=request_report_kind
   exec(textwrap.dedent(s[start:stop]),ns)
   request={'body':{'input':'original spec','session_id':'fixture'}};ns['request']=request;ns['digest']=lambda x:hashlib.sha256(json.dumps(x,sort_keys=True).encode()).hexdigest()
   a=s.index("            request['body']['input']+=");b=s.index("            path=self.run_root/'admissions'",a)
@@ -108,7 +156,8 @@ class Comparisons(unittest.TestCase):
   start=s.index("            admission={'session_id'")
   stop=s.index('            from background import task_context',start)
   for mode,management in [('daily',None),('investigation',None),('pricing',None),('kpi',{'prompt':'management context'})]:
-   ns={'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':mode},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':management,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+   ns={'prepared':None,'body':{'start':'2026-11-01','end':'2026-11-01','question':'请以昨天为主对照','mode':mode},'session_id':'fixture','token':'fixture','effort':'high','item_gateway':types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),'book':types.SimpleNamespace(capture_id='fixture',skills={}), 'knowledge':dict(version='v',identity={},files=[],memory_path='frozen',native_skip_reason='isolated'),'desktop_context':'frozen memory','management':management,'FORMAT':'existing format','date':date,'timedelta':timedelta,'encoded':lambda x:json.dumps(x,ensure_ascii=False)}
+   ns['request_report_kind']=request_report_kind
    exec(textwrap.dedent(s[start:stop]),ns)
    text=ns['admission']['prompt']
    self.assertIn('全局数据规则',text);self.assertIn('不再提出先确认参考率是否可信',text)

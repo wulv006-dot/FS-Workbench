@@ -1,0 +1,173 @@
+{
+  "status": "passed",
+  "scope": "technical_and_bounded_content_acceptance_daily_weekly",
+  "acceptedAt": "2026-10-17T04:07:33.779984+00:00",
+  "real_FS_default_UI_submissions": true,
+  "model_output_unmodified": true,
+  "accepted_requests": {
+    "daily": {
+      "request": "9384166a45f723583d75c6ec7cb6561e",
+      "task": "c04862a082c992b9d93890059e7fd149",
+      "run": "run_d48f0daf91824449881bae1e0654fe45",
+      "period": {
+        "end": "2026-10-16",
+        "start": "2026-10-16"
+      },
+      "reasoning_effort": "high",
+      "knowledge_version": "learning-0e2a96fc116518a415334d333de13de2d675b445f640aa0d18ecbc0cde3a054f",
+      "knowledge_sha256": "ed5cc8c55c8ca9b935080f37862b70059992d329b70a6bf51b6c33809d24aeb4",
+      "provider_status": "provider_response_success",
+      "provider_request_id": "9237f933-0701-4c72-a60b-1d9be04d3937",
+      "original_sha256": {
+        "model.txt": "fd83f2dec1327d6396b5ec065714da5cffcebe9bcec58235bc3b69cc7b65e93c",
+        "evidence.json": "724fa77d515a8536ddab3e038faa40bf4840a25fe345a99d144b91322c21ec7c",
+        "result.json": "02b49ecde4aa6f95042d9826b98e56b95fbf72d5b130c448e3f52d48f4554e12",
+        "report.html": "5454c2098b04072a06ebce3f9550fe7f3eb5b335bf5dcfff6df4a3a3dc13884d",
+        "metadata.json": "5f95fa1f30f4acf7bc4d485ad9a5bc457bdaf87c3cd27029da4695d4d02b210b",
+        "ready.json": "f29fb8dff505175746077616a6f19d244471905f76e8632ebe890cc6b6761059"
+      },
+      "reader_revision": "34619a195149d605",
+      "reader_html_sha256": "b7e6e27736bb60b8f368d858261efcda149d9e19b79bd148643d19feb4c0c344",
+      "model_usage": {
+        "calls": 8,
+        "cost_basis": "amount_unknown_no_cny_invoice_or_fx",
+        "estimated_microcny": null,
+        "invalid_response_calls": 0,
+        "reasoning_tokens": 34267,
+        "total_tokens": 1532806,
+        "unknown_calls": 0
+      },
+      "paid_snapshot": {
+        "max_age_seconds": 86400,
+        "policy": "source times unchanged; refresh at age limit or next Shanghai day; current published versions checked before reuse",
+        "reused": true,
+        "saved_at": "2026-10-17T03:06:21.122721+00:00",
+        "version": "7d71f779cd14ac353beb74953a6137cb35614c43705b089315f1456e4207db32"
+      },
+      "cached_query_count": 10,
+      "chart_rows": {
+        "daily": 14,
+        "bridge": 5,
+        "platform": 3,
+        "category": 3,
+        "queue": 0,
+        "margin": 1
+      },
+      "quality_review": {
+        "status": "warnings_visible",
+        "error_count": 0,
+        "warning_count": 3
+      },
+      "model_output_unmodified": true,
+      "content_acceptance": "useful_direction_with_local_caveats_not_exhaustive_fact_or_causal_certification"
+    },
+    "weekly": {
+      "request": "9a527621e3ec63ee8e9d1799966893f2",
+      "task": "d510ed12b018bba469cac3238c3ac3fc",
+      "run": "run_9d0a88093f184ddc9cd0d62360a79f7b",
+      "period": {
+        "end": "2026-10-11",
+        "start": "2026-10-05"
+      },
+      "reasoning_effort": "max",
+      "knowledge_version": "learning-ce5dce6474e368a78ab1a0432b0def85579d55e976d5f25141a8aeaa2b5f71cf",
+      "knowledge_sha256": "ed5cc8c55c8ca9b935080f37862b70059992d329b70a6bf51b6c33809d24aeb4",
+      "provider_status": "provider_response_success",
+      "provider_request_id": "62682f89-0fb4-4779-adc4-877bc8fe3fc8",
+      "original_sha256": {
+        "model.txt": "00f6099a5367bc31b84f59c8a915d103afadb3bb4d2da9f710ceec8bed1be4e6",
+        "evidence.json": "c2a528e0c37ed3bb8174821aaa630972bb566a9982855916726adf8f00ce25af",
+        "result.json": "443fd30466ff245b8016f4b81ac631b73a70a2047dfffa6b67d9cb1408040b3a",
+        "report.html": "9c653cff78e603b81fd80ed1df803f5bec096369fd804aaa8dfc0ceb8828ac37",
+        "metadata.json": "9c1778d5f86e96232928488e9c1f998c171a38cb532802c549a1046229a05548",
+        "ready.json": "6992e1998517a601fd836258aa4a19e56342b31574b400bc4a402658b251ce37"
+      },
+      "reader_revision": "4ad02d5377551bef",
+      "reader_html_sha256": "40487f9325cd4ad174c3314844e2eb8725e9f06b436164a86308207369dfcf3c",
+      "model_usage": {
+        "calls": 9,
+        "cost_basis": "amount_unknown_no_cny_invoice_or_fx",
+        "estimated_microcny": null,
+        "invalid_response_calls": 0,
+        "reasoning_tokens": 85341,
+        "total_tokens": 2112258,
+        "unknown_calls": 0
+      },
+      "paid_snapshot": {
+        "max_age_seconds": 86400,
+        "policy": "source times unchanged; refresh at age limit or next Shanghai day; current published versions checked before reuse",
+        "reused": true,
+        "saved_at": "2026-10-17T03:12:05.814622+00:00",
+        "version": "124bdd36cef7b6d9234cad165cde916c2f57cea5c5bd1b56312d8203dc409afe"
+      },
+      "cached_query_count": 11,
+      "chart_rows": {
+        "daily": 7,
+        "bridge": 4,
+        "platform": 3,
+        "category": 3,
+        "queue": 0,
+        "margin": 7
+      },
+      "quality_review": {
+        "status": "warnings_visible",
+        "error_count": 0,
+        "warning_count": 5
+      },
+      "model_output_unmodified": true,
+      "content_acceptance": "useful_direction_with_local_caveats_not_exhaustive_fact_or_causal_certification"
+    }
+  },
+  "checks": {
+    "daily_core_native_profit_targets_match": true,
+    "daily_learning_actually_in_provider_input": true,
+    "daily_five_conclusions_charts_chinese_intel_present": true,
+    "daily_saved_paid_data_reused": true,
+    "weekly_core_native_profit_targets_match": true,
+    "weekly_learning_actually_in_provider_input": true,
+    "weekly_five_conclusions_charts_chinese_intel_present": true,
+    "weekly_saved_paid_data_reused": true,
+    "runtime_matches_frozen_candidate_and_protected_files": true,
+    "bounded_content_review_recorded": true
+  },
+  "runtimeSha256": {
+    "/opt/fs-hermes-fc/boss_projection.py": "087391644a92693e2b6a1ac14c9502d5df3d0c3f57965135daae32cebe82e8a1",
+    "/opt/fs-hermes-fc/boss_renderer.py": "1ecd8c91a9306b3caf15656b5efdaea857d17951162bd511e2498a1ec8a209c4",
+    "/opt/fs-hermes-fc/report_tracks.py": "291de170e80fbf50f18becb499ad6e1e2b1ba73fdc6ec72d6f2cf1fb9b7a508c",
+    "/opt/fs-hermes-fc/pricing_report.py": "ef8d15e5fe3bb5b228402920b8273f22910520ccc481a192485c331a6102fa54",
+    "/opt/fs-hermes-fc/report_artifacts.py": "c30f44ee10855975529ad5c1eb4ffe08e979ced25eeadb44ed31c371d6272d35",
+    "/opt/fs-hermes-fc/report_html.py": "9fc8b2fe831900ff61b245feb537ae577d8709fa67f98a0ff556893889a68510",
+    "/opt/fs-hermes-fc/management_context.py": "ae7d25fc1357e73499a660985faf0b8fd45bb5ea5400af91ddfb0adfca7f9858",
+    "/opt/fs-hermes-fc/learning-loop.md": "3daa91c314dcc153c11231600f28b32b9ec5df0d59db87fd8d78da9c117f0252",
+    "/opt/fs-hermes-fc/controller.py": "521d3a479a735778831d48341f36aaee8f3a777d799834e4a356835fcc188b77",
+    "/opt/fs-hermes-fc/fs_evidence.py": "2a78db06f066801b6d4a0234e39ba39944bd921e0fb8e3ba6a930d65c52957e6",
+    "/opt/fs-hermes-fc/business_context.py": "3a3d35bfe970cbac0343e322ce75374374544e29b5056c775efde898c1446706",
+    "/opt/fs-hermes-fc/report_constraints.py": "6d7f3b34919d728b8e41b310cd622abc544536019971dc4d64b395cc3564b476",
+    "/opt/fs-hermes-fc/marketing_snapshot.py": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5",
+    "/opt/fs-hermes-fc/research.py": "c593578b997d8acf19ca36b3235be4d7ef9e7d189a3340f43e5e6c34e4b127b3",
+    "/opt/fs-hermes-fc/hermes_worker.py": "3bf192ef202d1da22e5902483a6ce022d799b2bb7a18cc102790f28e649dc8ac",
+    "/opt/fs-hermes-fc/transport.py": "1609bd2275d0add327c622f40b0d5ed663bdee77e48f6bf787d8d7e19207cc7c",
+    "/opt/fs-hermes-fc/report_semantics.py": "afc5c0499767c346aec33a568ba1008fbff0edb89d14d803828a7217700d7716",
+    "/opt/fs-hermes-fc/source_snapshots.py": "da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277",
+    "/opt/fs-hermes-fc/nightly.py": "dcd720bd2ab29dcacc60174e94675edb055c0c4f3e21e853a92d8539ab5320a6"
+  },
+  "runtimeOperation": "nav-20261017T035625Z",
+  "tests": {
+    "testsRun": 108,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "not_certified": [
+    "nightly_natural_cycle",
+    "full_pixel_visual_acceptance",
+    "all_business_claims_or_causality",
+    "user_business_signoff",
+    "measured_token_savings_percentage"
+  ],
+  "known_gaps": [
+    "current_pool_expired_partial",
+    "daily_marketing_period_not_published",
+    "shared_SEO_source_failed_old_snapshot_stale"
+  ]
+}

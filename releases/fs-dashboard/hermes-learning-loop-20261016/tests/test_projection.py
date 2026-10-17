@@ -44,6 +44,11 @@ class ArticleIntroductions(unittest.TestCase):
    self.assertIn(expected,fact);self.assertNotIn('尚未生成',fact)
 
 class PartialProjection(unittest.TestCase):
+ def native(self,day='2026-10-15',revenue='100',orders=2):
+  from datetime import date,timedelta
+  period={'start':day+' 00:00','end':(date.fromisoformat(day)+timedelta(days=1)).isoformat()+' 00:00'}
+  return {'analysis_anchor_id':'fixture','query':{'profile':'FC27','start':day,'end':day},'data':{'status':'available',
+   'authoritative_fields':{name:{'status':'available','value':value,'unit':unit,'system':'admin.p2pah.cn','period':period,'capturedAt':'2026-10-16T00:00:00Z'} for name,value,unit in [('revenueUsd',revenue,'USD'),('orders',orders,'count')]}}}
  def test_single_day_reference_uses_validated_day_total_without_day_group(self):
   from decimal import Decimal
   from report_constraints import estimated_profit
@@ -63,7 +68,7 @@ class PartialProjection(unittest.TestCase):
             'groups':[dict(fact,group={group:day if group=='day' else 'PS'})] if group else []}}
  def result(self):return {'period':{'start':'2026-10-15','end':'2026-10-15'},'snapshot_id':'fixture','summary':'本期有效，缺对照单独说明。','research_text':'## 关键判断\n本期有效。','limitations':[]}
  def test_current_survives_missing_comparison(self):
-  evidence={'ev_'+'a'*24:self.evidence(),'ev_'+'b'*24:self.evidence(group='platform'),'ev_'+'c'*24:self.evidence(group='day')}
+  evidence={'ev_'+'a'*24:self.evidence(),'ev_'+'b'*24:self.evidence(group='platform'),'ev_'+'c'*24:self.evidence(group='day'),'ev_native':self.native()}
   content=project(self.result(),evidence,{'artifact_written_at':'2026-10-16T00:01:00Z'},'a'*64)
   self.assertEqual(content['metrics'][0]['value'],'$100.00')
   charts={v['id']:v for v in content['charts']}
@@ -71,7 +76,7 @@ class PartialProjection(unittest.TestCase):
   self.assertIsNone(charts['platform']['rows'][0]['previous'])
  def test_comparison_conflict_does_not_erase_current(self):
   result=self.result();result['research_text']='对照：2026-10-08\n对照：2026-10-14\n## 关键判断\n本期有效。'
-  c=project(result,{'ev_'+'a'*24:self.evidence()},{'artifact_written_at':'2026-10-16T00:01:00Z'},'a'*64)
+  c=project(result,{'ev_'+'a'*24:self.evidence(),'ev_native':self.native()},{'artifact_written_at':'2026-10-16T00:01:00Z'},'a'*64)
   self.assertEqual(c['metrics'][0]['value'],'$100.00');self.assertEqual(c['metrics'][0]['previous'],'未提供')
  def test_daily_primary_point_does_not_hide_fourteen_day_trend(self):
   from datetime import date,timedelta
