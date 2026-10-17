@@ -34,4 +34,15 @@ class V3Preparation(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'current_runtime_drift'):ui.prepare(REPO,previous,receipt,formal,baseline,folder/'next')
    baseline['files'][0]['sha256']=json.loads((previous/'release-manifest.json').read_text(encoding='utf8'))['immutableAssets'][0]['sha256'];baseline['files'][-1]['sha256']='0'*64
    with self.assertRaisesRegex(ValueError,'current_runtime_drift'):ui.prepare(REPO,previous,receipt,formal,baseline,folder/'next')
+ def test_advance_six_asset_release_keeps_all_history_and_exact_current_alias(self):
+  with tempfile.TemporaryDirectory() as f:
+   folder=Path(f);previous,receipt,formal,baseline,blocks=self.fixture(folder);first=folder/'first';plan=ui.prepare(REPO,previous,receipt,formal,baseline,first);m=json.loads((first/'release-manifest.json').read_text(encoding='utf8'))
+   current={'files':[{'path':r['target'],'sha256':r['sha256'],'is_symlink':False} for r in m['immutableAssets']+m['targets']]+[{'path':r['path'],'sha256':r['sha256'],'is_symlink':False} for r in m['unchangedRequired']]}
+   proof={'releaseId':m['releaseId'],'status':'applied-awaiting-real-desktop-URL-QA','assets':6,'entry_targets':2};out=folder/'second';result=ui.prepare(REPO,first,proof,first/'candidate/formal.conf',current,out,expected_previous=m['releaseId']);self.assertEqual(result['previousReleaseId'],m['releaseId']);self.assertEqual(result['assets'],6)
+   old_blocks=re.findall(rb'location = [^\n]+\{.*?\n\}',(first/'candidate/formal.conf').read_bytes(),re.S);new=(out/'candidate/formal.conf').read_bytes()
+   self.assertEqual(new.count(b'location = '),len(old_blocks)+6)
+   for block in old_blocks:
+    if not block.startswith(b'location = /dashboard/analytics/index.html {'):self.assertIn(block,new)
+   self.assertEqual(new.count((ui.prior.URL+result['releaseId']+'/google.css {').encode()),1)
+   with self.assertRaisesRegex(ValueError,'exact_current_release_required'):ui.prepare(REPO,first,proof,first/'candidate/formal.conf',current,folder/'bad')
 if __name__=='__main__':unittest.main()

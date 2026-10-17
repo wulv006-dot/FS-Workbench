@@ -35,3 +35,18 @@ assert(!source.includes('function renderDecisions('));assert(source.includes('�
 const d4Rows=[...rows,{campaign_scope:'game_name_candidate',game_target:'D4',game_candidate:'D4',metrics:{cost:7}},{campaign_scope:'brand_scope_unverified',game_target:null,game_candidate:'D4',metrics:{cost:3}}];
 const d4Period={game_profiles:[{code:'D4',scope:'name_hint_only'}],adsAccounts:[{brand:'mmoexp',calculation_campaigns:d4Rows,campaign_count:4,campaign_calculation_complete:true,metrics:{cost:112}}]};
 const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metrics.cost,7);assert.equal(d4.unverified_brand.length,1);assert.equal(d4.unverified_brand[0].metrics.cost,3);assert.equal(context.probe.selectedAccounts(d4Period,'FC27')[0].metrics.cost,2);assert.equal(context.probe.selectedAccounts(d4Period,'AION2')[0].metrics.cost,null);assert.equal(d4Period.adsAccounts[0].metrics.cost,112);assert(source.includes('D4名称线索'));assert(source.includes('D4品牌归属待核广告组'));console.log('PASS D4 name hints exclude unverified brand and preserve native totals');
+
+// Exercise the actual default-period upgrade controller with DOM-free form events.
+(async()=>{
+ class Node{constructor(){this.listeners={};this.dataset={};}setAttribute(){}append(){}after(){}addEventListener(k,f){this.listeners[k]=f;}requestSubmit(){this.pending=this.listeners.submit({preventDefault(){}});}}
+ const old={id:'legacy_week',start:'2026-10-05',end:'2026-10-11'},model={details:{periods:[old]}},root={},container=new Node();container.dataset={period:old.id,brand:'mmoexp'};container.isConnected=true;container.getRootNode=()=>root;
+ const scope={root,model},scheduled=[],calls=[],rendered=[];
+ const ctx={scope,URLSearchParams,structuredClone,Set,Intl,Date,el:()=>new Node(),setTimeout:f=>scheduled.push(f),currentTrafficPeriod:p=>p?.rule_version==='traffic-multigame-name-hints-20261017-v3',fetch:async url=>{calls.push(url);return {status:200,ok:true,json:async()=>({status:'available',start:old.start,end:old.end,period:{...old,rule_version:'traffic-multigame-name-hints-20261017-v3'}})};},render:(c,m)=>{rendered.push(m);c.querySelector=()=>({});}};
+ vm.createContext(ctx);vm.runInContext(extract('rangeControls')+'\nthis.rangeControls=rangeControls',ctx);
+ const ensure=ctx.rangeControls(new Node(),container,model,[old],{value:old.id});ensure(old);assert.equal(calls.length,0);scheduled.shift()();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls.length,1);assert(calls[0].startsWith('/dashboard/marketing/range.json?'));assert.equal(new URL(calls[0],'https://fs.invalid').searchParams.get('start'),old.start);assert.equal(rendered[0].details.periods.length,1);assert.equal(scope.customRange.period.rule_version,'traffic-multigame-name-hints-20261017-v3');
+ ensure(old);assert.equal(scheduled.length,0);assert.equal(calls.length,1);
+ const n=scheduled.length;ensure({start:old.start,end:old.end,rule_version:'traffic-multigame-name-hints-20261017-v3'});assert.equal(scheduled.length,n);
+ assert(source.includes("section('全站背景 · 非游戏专属'"));assert(source.includes("renderGameAds(panel,p,scope.trafficProject);renderESStructure(panel,p)"));
+ console.log('PASS default legacy period upgrades via exact range once, current contract skips, ES remains separate, game details precede background');
+})().catch(error=>{console.error(error);process.exitCode=1;});

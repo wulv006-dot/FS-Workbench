@@ -1,6 +1,6 @@
 """Synthetic XLSX and actual read/controller boundaries; no business records in fixtures."""
 import ast
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from copy import deepcopy
 import io
 import json
@@ -410,5 +410,52 @@ class MultiGameTests(unittest.TestCase):
             es.server_bundle(dict(Q,profile='ALL',group_by='game'),Path(folder),Opener())
             es.server_bundle(dict(Q,profile='D4',group_by='country'),Path(folder),Opener())
             self.assertFalse(calls[0]['poll_only']);self.assertTrue(calls[1]['poll_only']);self.assertEqual(len(list(Path(folder).glob('*.attempt'))),1)
+
+class ExistingPeriodTests(unittest.TestCase):
+    def test_es_projection_does_not_queue_behind_blocked_paid_detail(self):
+        entered=threading.Event();release=threading.Event()
+        def paid_detail():entered.set();release.wait(5)
+        with ThreadPoolExecutor(max_workers=1) as detail_pool,ThreadPoolExecutor(max_workers=1) as es_pool:
+            detail_job=detail_pool.submit(paid_detail);self.assertTrue(entered.wait(1))
+            detail=SimpleNamespace(config={'enabled':True},pool=detail_pool)
+            def read(q):return {'status':'available','snapshots':[{'query':q,'value':{'status':'available','from':'existing_period'}}]}
+            try:
+                with patch.object(es,'ES_READ_POOL',es_pool),patch.object(es,'server_bundle',side_effect=read):
+                    reader=es.reader_for(detail);reader.get(Q)
+                    next(iter(reader.jobs.values())).result(timeout=1)
+                    self.assertEqual(reader.get(Q)['from'],'existing_period')
+                    self.assertFalse(detail_job.done());self.assertIs(reader.pool,es_pool)
+            finally:release.set()
+
+    def test_first_read_reuses_legacy_private_archive_without_export(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'private';es.archive_files([xlsx([row('fc'),row('d4',**{'游戏':'Diablo 4'})])],Q,root)
+            original=es.archived_dataset
+            with patch.object(es,'SESSION_JOBS',{}),patch.object(es,'SESSION_ACCESS',{}),patch.object(es,'SESSION_POOL') as pool,patch.object(es,'archive_files') as archive,patch.object(es,'archived_dataset',side_effect=lambda q:original(q,root)):
+                all_=es.session_bundle(None,dict(Q,profile='ALL',group_by='game'),{})
+                d4=es.session_bundle(None,dict(Q,profile='D4'),{})
+                pool.submit.assert_not_called();archive.assert_not_called()
+                value=all_['snapshots'][0]['value'];self.assertEqual(value['structure_totals']['orders'],2)
+                self.assertEqual(value['status'],'partial');self.assertIsNone(value['quality']['declared_files'])
+                self.assertEqual(d4['snapshots'][0]['value']['structure_totals']['orders'],1)
+                self.assertEqual(value['captured_at'],d4['snapshots'][0]['value']['captured_at'])
+
+    def test_corrupt_existing_archive_refuses_new_export(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'private';es.archive_files([xlsx([row()])],Q,root)
+            raw=next(root.glob('*.xlsx'));raw.write_bytes(b'corrupt preserved evidence')
+            original=es.archived_dataset
+            with patch.object(es,'SESSION_JOBS',{}),patch.object(es,'SESSION_POOL') as pool,patch.object(es,'archived_dataset',side_effect=lambda q:original(q,root)):
+                value=es.session_bundle(None,Q,{})
+                self.assertEqual(value['reason'],'es_archive_read_unknown_requires_reconcile')
+                self.assertFalse(value['retryable']);pool.submit.assert_not_called()
+                self.assertEqual(raw.read_bytes(),b'corrupt preserved evidence')
+
+    def test_unknown_source_future_is_not_replaced_by_archive_or_export(self):
+        future=Future();future.set_result({'status':'unavailable','reason':'original_export_unknown','retryable':False})
+        key=('ALL',Q['start'],Q['end'])
+        with patch.object(es,'SESSION_JOBS',{key:(future,es.time.monotonic())}),patch.object(es,'SESSION_ACCESS',{}),patch.object(es,'SESSION_POOL') as pool,patch.object(es,'archived_dataset') as archive:
+            value=es.session_bundle(None,Q,{})
+            self.assertEqual(value['reason'],'original_export_unknown');pool.submit.assert_not_called();archive.assert_not_called()
 
 if __name__=='__main__':unittest.main()

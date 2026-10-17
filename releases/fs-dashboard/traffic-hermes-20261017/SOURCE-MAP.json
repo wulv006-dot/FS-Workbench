@@ -1,5 +1,5 @@
 {
-  "status": "v3_candidate_not_deployed_prior_4b_verified",
+  "status": "v3_deployed_real_acceptance_iteration_in_progress",
   "observed_utc": "2026-10-17T08:24:18.258859+00:00",
   "rows": [
     {
@@ -340,5 +340,30 @@
     "private_examples_in_git": false,
     "estimated_bundle_bytes": 180240,
     "requires_actual_knowledge_and_model_receipts": true
+  },
+  "real_acceptance_iteration": {
+    "baseline_es_operation": "nav-20261017T113423Z",
+    "baseline_es_commit": "f3be55a375bc1ab2eac6ad82b66912e7fdee97bc",
+    "baseline_learning_operation": "nav-20261017T114617Z",
+    "baseline_learning_commit": "65896e16757d27a83bd94affdf9e15488306b9aa",
+    "baseline_ui_release": "workspace-native-20261006-b3d7dec21712",
+    "final_pr_merge": "pending_real_daily_weekly_acceptance",
+    "candidate_fixes": [
+      {
+        "path": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+        "sha256": "95e37110550012389488b4f639fe206391aaf8ec600b222a4611e6d1fdb6faac",
+        "status": "local_verified_not_deployed"
+      },
+      {
+        "path": "ui-system/modules/native/google.js",
+        "sha256": "f8757e34ed38a6844d8042d300a8cd13f961c88dc5fc381b16716235258d52b4",
+        "status": "local_verified_not_deployed"
+      },
+      {
+        "path": "releases/fs-dashboard/hermes-report-theme-20261017/source/report.template.html",
+        "sha256": "b777c6bccfd4f1986f9a05256145e86d913601ef383265f59b7eda089b1e9f13",
+        "status": "local_verified_not_deployed"
+      }
+    ]
   }
 }

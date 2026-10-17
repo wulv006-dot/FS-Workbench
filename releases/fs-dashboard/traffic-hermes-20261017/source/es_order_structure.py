@@ -370,10 +370,12 @@ def session_bundle(manager,args,headers,poll_only=False):
                     oldest=min(reusable,key=lambda k:SESSION_ACCESS.get(k,SESSION_JOBS[k][1]))
                     SESSION_JOBS.pop(oldest);SESSION_ACCESS.pop(oldest,None)
             if len(SESSION_JOBS)>=4:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_source_capacity','retryable':True,'stage':'not_generated'}
-            if poll_only:
-                try:previous=archived_dataset(args)
-                except (ValueError,OSError,KeyError,TypeError):previous=None
-                if previous is None:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
+            # Reuse a period's private file set before considering a new export.
+            try:previous=archived_dataset(args)
+            except (ValueError,OSError,KeyError,TypeError):
+                return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_archive_read_unknown_requires_reconcile','retryable':False}
+            if previous is None and poll_only:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
+            if previous is not None:
                 future=Future();future.set_result(previous);item=(future,time.monotonic());SESSION_JOBS[key]=item
             try:
                 if item is None:archive_files([],args)
@@ -480,9 +482,11 @@ def _server_bundle(args,root,opener):
 
 
 READER_LOCK=threading.RLock()
+ES_READ_POOL=ThreadPoolExecutor(max_workers=1,thread_name_prefix='fs-es-projection')
 
 def reader_for(detail):
     with READER_LOCK:
-        if not hasattr(detail,'es_structure_reader'):detail.es_structure_reader=ESReader(detail.config,detail.pool)
+        # FCDetails' single worker may spend 900s on paid-detail collection.
+        if not hasattr(detail,'es_structure_reader'):detail.es_structure_reader=ESReader(detail.config,ES_READ_POOL)
         detail.es_structure_reader.config=detail.config
         return detail.es_structure_reader

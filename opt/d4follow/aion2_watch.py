@@ -241,37 +241,155 @@ def collect(cfg, log=_log):
 
 
 # --------------------------------------------------------------------- 合理性校验
-def sanity_check(rows, warns):
-    """抓到的三源价是否离谱。返回 (过滤后rows, 新增告警)。
+# 2026-10-17 用户口径：「货源不足 → 价格按高的算」是**既定规则**（core_multi 的
+# 同大区均价 / 仅 IGGM 兜底），这类高价是预期结果，不该每轮都报警。
+#
+# 旧规则（2026-10-03 起，单源偏离同区中位价 3 倍即剔除+告警）实测有四个副作用，
+# round_0885 一轮就刷 18 条，其中绝大多数是噪音：
+#   ① 把**我方价**混进样本 —— 我方价是策略价（缺货时正是 12.99 / 19.9 占位），
+#      与竞品源不同质。South America 10 个区全因它把中位数钉在 12.99，
+#      真实 G2G（1.20~3.00）被整批判成「偏低异常」剔除 ⇒ 展示反而失真。
+#   ② 2 个源也判中位数 —— 两个值时中位数就是均值，判定等于瞎猜。
+#   ③ 「偏高」也报警 —— 基准取 min(G2G, ELD)，**偏高天然被忽略、无害**；
+#      真正会把基准拉低（进而把售价压到亏本）的只有偏低值。
+#   ④ 同一问题每 15 分钟报一次 —— 用户反馈「没必要一直都报警」。
+#
+# 新规则：
+#   1. 样本只取竞品三源（G2G / ELD / IGGM），**排除我方价**；
+#   2. 有效竞品源 < 3 个 → 不判定（货源不足，中位数无统计意义）；
+#   3. 命中「同大区均价 / 仅 IGGM」兜底 → 不判定（规则内按高价算）；
+#   4. 只剔除**偏低**（< 中位价 1/3）；偏高不动、不报警；
+#   5. 同一 (区, 源) 连续偏离只报**首次**，恢复后自动重置（state.sanity_seen）。
+COMPETITOR_SRC = ("G2G", "ELD", "IGGM")
+MIN_JUDGE_SRC = 3          # 少于 3 个竞品源不做中位数判定
 
-    实测踩到的问题（2026-10-03 14:06 起）：ELD 的 Latin America 大区
-    抓到 **58.88** 这种明显错误的价（真实约 3.9，差了 15 倍）——
-    ELD 页面的离群剔除把正常价全剔了、只留最离谱的那个。
-    当初没污染结果纯属侥幸：基准规则是 `min(G2G, ELD)`，异常值**偏高**所以被 min 忽略。
-    ⛔ 但若哪天某个源异常**偏低**（更危险的那种），min 会直接把它当基准用。
-    ⇒ 这里加一道独立校验：任何单源价格偏离「本大区其他源中位数」超过 3 倍就标记并剔除。
+
+def _placeholder_sources(rows):
+    """找出「整大区同值」的**缺货占位价**，返回 {(大区, 源): 值}。
+
+    货源不足时平台会挂一个统一的高价占位（实测 South America 的 IGGM 10 个区
+    全挂 12.99），这不是有效市场信号。按既定规则「货源不足就按高的算」，
+    它本来就不该被当成异常源去反判真实低价，也不该参与中位数。
+
+    判据（两条同时满足）：
+      ① 同一 (大区, 源) 里 ≥3 个区报**完全相同**的值，且占比 ≥60%；
+      ② 该值 ≥ 同大区**其他源**中位价的 2 倍。
     """
     import statistics
-    out = []
+    from collections import Counter, defaultdict
+
+    buckets = defaultdict(list)                 # (大区, 源) -> [值]
     for r in rows:
-        vals = [r.get("G2G"), r.get("ELD"), r.get("IGGM"), r.get("我方价")]
-        vals = [float(v) for v in vals if v not in (None, 0)]
-        if len(vals) >= 2:
-            med = statistics.median(vals)
-            if med > 0:
-                for src in ("G2G", "ELD", "IGGM", "我方价"):
-                    v = r.get(src)
-                    if v in (None, 0):
-                        continue
-                    if float(v) > med * 3 or float(v) < med / 3:
-                        warns.append(
-                            "⚠️ %s 的 %s=%.4f 偏离同区中位价 %.4f 超过 3 倍，已忽略该源"
-                            % (r.get("名称") or r["key"], src, float(v), med))
-                        r[src] = None
-        # 基准兜底：三源都被剔除时回落到我方价/中位，避免报告里出现空基准
+        reg = r.get("大区") or "-"
+        for s in COMPETITOR_SRC:
+            v = r.get(s)
+            if v in (None, 0):
+                continue
+            try:
+                buckets[(reg, s)].append(float(v))
+            except (TypeError, ValueError):
+                continue
+
+    out = {}
+    for (reg, s), vs in buckets.items():
+        if len(vs) < 3:
+            continue
+        val, cnt = Counter(vs).most_common(1)[0]
+        if cnt < len(vs) * 0.6:
+            continue
+        others = [x for (rg, ss), vv in buckets.items()
+                  if rg == reg and ss != s for x in vv]
+        if not others:
+            continue
+        med = statistics.median(others)
+        if med > 0 and val >= med * 2:
+            out[(reg, s)] = val
+    return out
+
+
+def sanity_check(rows, warns, state=None):
+    """抓到的竞品价是否离谱。返回 (过滤后rows, 新增告警)。
+
+    历史背景（2026-10-03 14:06）：ELD 的 Latin America 大区抓到 **58.88**
+    这种明显错误的价（真实约 3.9，差 15 倍）—— ELD 页面的离群剔除把正常价
+    全剔了、只留最离谱的那个。当初没污染结果纯属侥幸：基准是 `min(G2G, ELD)`，
+    异常值**偏高**所以被 min 忽略。⇒ 这里保留独立校验，但只针对**偏低**，
+    因为只有偏低会真的把基准拉低。
+
+    state：主流程的 state dict（本轮会被写入 `sanity_seen`），用于告警去重。
+    """
+    import statistics
+    st = state if state is not None else {}
+    seen = set(tuple(x) for x in (st.get("sanity_seen") or []))
+    ph = _placeholder_sources(rows)      # 缺货占位价：不参与判定（值照常展示）
+    cur = set()
+    out = []
+    muted = 0
+
+    for r in rows:
+        # ③ 兜底区 = 规则内按高价算，不做偏离判定
+        if r.get("兜底"):
+            out.append(r)
+            continue
+
+        reg = r.get("大区") or "-"
+        skip = {s for (rg, s) in ph if rg == reg}   # 本大区的缺货占位源
+        vals = []
+        for s in COMPETITOR_SRC:
+            if s in skip:
+                continue
+            v = r.get(s)
+            if v in (None, 0):
+                continue
+            try:
+                vals.append(float(v))
+            except (TypeError, ValueError):
+                continue
+
+        # ② 货源不足：竞品源不足 3 个，中位数没有统计意义
+        if len(vals) < MIN_JUDGE_SRC:
+            out.append(r)
+            continue
+        med = statistics.median(vals)
+        if med <= 0:
+            out.append(r)
+            continue
+
+        # ④ 只处理偏低；偏高交给 min(G2G, ELD) 自然忽略
+        removed = []
+        for s in COMPETITOR_SRC:
+            if s in skip:
+                continue
+            v = r.get(s)
+            if v in (None, 0):
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if fv < med / 3.0:
+                removed.append((s, fv))
+                r[s] = None
+
+        for s, fv in removed:
+            key = (r.get("key") or r.get("名称") or "?", s)
+            cur.add(key)
+            if key in seen:                  # ⑤ 已在报过 → 静默，不重复刷屏
+                muted += 1
+                continue
+            warns.append(
+                "⚠️ %s 的 %s=%.4f 低于同区中位价 %.4f 的 1/3，已忽略该源"
+                % (r.get("名称") or r["key"], s, fv, med))
+
+        # 基准兜底：三源都被剔除时回落到我方价，避免报告里出现空基准
         if r.get("基准") is None and r.get("我方价") is not None:
             r["基准"] = r["我方价"]
         out.append(r)
+
+    if muted:
+        warns.append("（另有 %d 条与上轮相同的偏低告警已静默）" % muted)
+    # 消失即移除 ⇒ 恢复正常后下次再犯会重新报一次
+    st["sanity_seen"] = sorted([list(x) for x in cur])
     return out, warns
 
 
@@ -316,7 +434,7 @@ def main():
     try:
         cfg = load_cfg()
         rows, warns = collect(cfg)
-        rows, warns = sanity_check(rows, warns)
+        rows, warns = sanity_check(rows, warns, st)
     except Exception as e:                       # noqa: BLE001
         _log("采集整体失败：%r" % e)
         _log(traceback.format_exc())
