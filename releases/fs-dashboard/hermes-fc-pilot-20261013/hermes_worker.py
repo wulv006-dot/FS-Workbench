@@ -13,7 +13,7 @@ import signal
 import time
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from proxy_gateway import schemas
+from proxy_gateway import schemas, MAX_PROVIDER_CONTEXT_TOKENS, MAX_HERMES_OUTPUT_TOKENS, MAX_PROVIDER_WIRE_BYTES
 from runs_contract import WIRE_TOOLS, PIN
 
 
@@ -30,15 +30,17 @@ def admission(session_id):
     if not isinstance(session_id, str) or not re.fullmatch(r'fc_[a-f0-9]{64}', session_id):
         raise PermissionError('session_not_admitted')
     path = ADMISSIONS/(session_id+'.json')
-    if path.is_symlink() or path.stat().st_size > 32000:
+    if path.is_symlink() or path.stat().st_size > MAX_PROVIDER_WIRE_BYTES:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
-    if set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
+    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
+    if ('background' in item)!=('context_receipt' in item) or any(not isinstance(item[n],dict) for n in ('background','context_receipt') if n in item):
+        raise PermissionError('admission_context_invalid')
     if 'ready' in item and type(item['ready']) is not bool:
         raise PermissionError('admission_invalid')
     if item.get('reasoning_effort','none') not in ('none','low','high','max'):raise PermissionError('admission_reasoning')
-    if item['model'] != 'deepseek-v4.1-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
+    if item['model'] != 'deepseek-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
         raise PermissionError('admission_invalid')
     if not isinstance(item['prompt'], str):
         raise PermissionError('admission_invalid')
@@ -52,10 +54,21 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
     request = Request(PROXY+'/fc/tools/call', body,
                       {'Authorization': 'Bearer '+item['token'], 'Content-Type': 'application/json'})
     with build_opener(NoRedirect).open(request, timeout=30) as response:
-        raw = response.read(128001)
-    if len(raw) > 128000:
+        raw = response.read(MAX_PROVIDER_WIRE_BYTES+1)
+    if len(raw) > MAX_PROVIDER_WIRE_BYTES:
         raise ValueError('tool_response_size')
-    return json.loads(raw)
+    return json.dumps(json.loads(raw),ensure_ascii=False,separators=(',',':'),allow_nan=False)
+
+
+def loaded_context_metadata(agent):
+    source=getattr(agent,'_hermes_api_runtime',{}) or {}
+    result={}
+    for key in ('fs_context_version','fs_context_sha256','fs_background_version','fs_background_sha256',
+                'fs_methods_sha256','fs_governance_sha256','fs_skill_version','fs_skill_sha256'):
+        value=source.get(key)
+        pattern=r'[a-f0-9]{64}' if key.endswith('sha256') else r'[A-Za-z0-9_.-]{1,80}'
+        if isinstance(value,str) and re.fullmatch(pattern,value):result[key]=value
+    return result
 
 
 def make_adapter(api_key):
@@ -96,6 +109,13 @@ def make_adapter(api_key):
 
     class ReadonlyAdapter(APIServerAdapter):
         _fs_handshake=True
+        def _set_run_status(self,run_id,status,**fields):
+            # Pinned official Runs emits only provider/model. Preserve the actual
+            # constructed agent's verified FS context receipt in its pollable record.
+            loaded=loaded_context_metadata(self._active_run_agents.get(run_id))
+            if loaded:fields['runtime']={**(fields.get('runtime') or {}),**loaded}
+            return super()._set_run_status(run_id,status,**fields)
+
         def _http_route_table(self):
             allowed = {('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
                        ('GET', '/v1/runs/{run_id}'), ('POST', '/v1/runs/{run_id}/stop')}
@@ -132,6 +152,12 @@ def make_adapter(api_key):
             from skill_bundle import load_bundle, prompt
             bundle=load_bundle(Path(__file__).parent)
             task_prompt=prompt(bundle,{'instruction':item['prompt']})
+            context_receipt=None
+            if item.get('background') is not None:
+                from background import task_context
+                context_text,context_receipt=task_context(item['background'],bundle)
+                if item.get('context_receipt')!=context_receipt:raise PermissionError('task_context_identity_changed')
+                task_prompt=context_text+'\n'+task_prompt
             callbacks = {k: kwargs[k] for k in ('stream_delta_callback', 'tool_progress_callback',
                          'tool_start_callback', 'tool_complete_callback', 'interim_assistant_callback',
                          'reasoning_callback', 'status_callback') if k in kwargs}
@@ -141,9 +167,20 @@ def make_adapter(api_key):
                             ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
-                            fallback_model=None, quiet_mode=True, max_tokens=16384 if item.get('reasoning_effort','none') in ('high','max') else 6000,
+                            fallback_model=None, quiet_mode=True, max_tokens=MAX_HERMES_OUTPUT_TOKENS,
                             reasoning_config={'enabled': False} if item.get('reasoning_effort','none')=='none' else {'enabled':True,'effort':item['reasoning_effort']},
                             session_db=self._ensure_session_db(), **callbacks)
+            from agent.context_compressor import ContextCompressor
+            compressor = agent.context_compressor
+            if getattr(compressor, '_config_context_length', None) != MAX_PROVIDER_CONTEXT_TOKENS:
+                agent.close()
+                raise PermissionError('context_window_configuration_mismatch')
+            if not isinstance(compressor,ContextCompressor) or not all(hasattr(compressor,k) for k in (
+                    'protect_first_n','protect_last_n','proactive_prune_tokens',
+                    'proactive_prune_min_result_chars','proactive_prune_min_reclaim_tokens')):
+                agent.close()
+                raise PermissionError('unexpected_context_compressor')
+            # Keep the pinned official compaction/pruning defaults.
             if set(agent.valid_tool_names) != set(WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()
@@ -151,10 +188,14 @@ def make_adapter(api_key):
             agent._hermes_api_runtime = {'provider': 'custom', 'model': item['model'], 'route_source': 'fs_task_admission',
                                         'fs_skill_version':bundle['version'],'fs_skill_sha256':bundle['sha256'],
                                         'fs_reasoning_effort':item.get('reasoning_effort','none')}
+            if context_receipt:
+                agent._hermes_api_runtime.update(fs_context_version=context_receipt['version'],fs_context_sha256=context_receipt['context_sha256'],
+                                                fs_background_version=context_receipt['background_version'],fs_background_sha256=context_receipt['background_sha256'],
+                                                fs_methods_sha256=context_receipt['methods_sha256'],fs_governance_sha256=context_receipt['governance_sha256'])
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={
-        'host': '127.0.0.1', 'port': 8941, 'key': api_key, 'model_name': 'deepseek-v4.1-flash'}))
+        'host': '127.0.0.1', 'port': 8941, 'key': api_key, 'model_name': 'deepseek-flash'}))
 
 
 async def main():

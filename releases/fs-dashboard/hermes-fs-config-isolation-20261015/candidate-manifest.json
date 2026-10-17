@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "scope": "hermes-fc-tool-result-update-20261014",
+  "releaseReady": false,
+  "imageId": "sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "candidate": "hermes/runtime/hermes_worker.py",
+      "target": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "0b77d245181f3ce7b71129557432aa18bad3bc800af92820a9317cffdfba2f05",
+      "sha256": "3b864e47a2c593085bb74b6f62dbed7875dcb93def3c35a8fc3378f1dbce143b"
+    }
+  ],
+  "runtimeRequired": {
+    "fs-business-range.service": {
+      "ActiveState": "active"
+    },
+    "fs-hermes-fc.service": {
+      "ActiveState": "active"
+    }
+  },
+  "unchangedRequired": [
+    {
+      "path": "/etc/systemd/system/fs-business-range.service.d/hermes.conf",
+      "sha256": "b86dbeb4776f03ce68f86a9baf9c40abec97e6db7382e0f4c9e6c1f45b053c0c"
+    },
+    {
+      "path": "/etc/systemd/system/fs-hermes-desktop.service",
+      "sha256": "dea9cbdd8aa15729b7b36ced474956b6505d84ec83b0a968252c6d1489f7f083"
+    },
+    {
+      "path": "/etc/systemd/system/fs-hermes-fc.service",
+      "sha256": "94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "a57a9b9962ff16d137357a69e3eafc01dd391cd1a115b37bfd6ac70b8bd1f9bc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "23bc38f4114991a4f3d38cb805b897d77b974b501293d04b9fce319e739f36dc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_model.py",
+      "sha256": "15965d1d331444635dd8ef677cacb2f05d2e21fa6c33ff6ae7bf53315b76b067"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_sources.py",
+      "sha256": "f83e7605f08d26052a743ea7ad5cce78c421d9439c67ce29f32415c0dce18c5a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "dcb3830a53f73b4732be198b2201fa48dab18aaa0928af6d759732a6fcc378e1"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_config.json",
+      "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "684f9ea5dd53d3c40f359e82c40c115136ffb44173181d939c71154b46184dda"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "02914f0d9dff42b04b34670e7f9b081e26ecd8ffdc5b67ac8e24d11ea54f33cd"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "66ff09deef5cd54f9e789bd875b76f26f7c811323645a93396db25d1699cc24c"
+    },
+    {
+      "path": "/opt/fs-hermes-desktop/serve.py",
+      "sha256": "8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.json",
+      "sha256": "f629d00fbbb8915e592053a5e62720c3f46b10e888122b0417a959d2bed82603"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.md",
+      "sha256": "58fe32f4bc893a19ae7789a24b8fcc523e9f11975f8d1d1fcc5e24f34c677547"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/background.py",
+      "sha256": "7155ed5490358ccc1d714f49810d8ef3130de736b1fbbae7e1f0783fd1acbbee"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "70ded65d38f8337d36b276eeec19d1cde9154b63f32b9fd9932e864c0608f9d1"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_evidence.py",
+      "sha256": "7ef2b1bc03557c515527c091ec3190434646ca9fe97436f82411a4adbb3feb37"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "sha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/network_guard.py",
+      "sha256": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/pilot.py",
+      "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_validation.py",
+      "sha256": "e0fab83d5f6b095d28ea31ca0928397ba23d7441ae88261c42ba3c2c597f6a9a"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/research.py",
+      "sha256": "8b4547160e779ab99fec3e33ae427f782fcbb7c532cb1065f9156a387a149098"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runs_contract.py",
+      "sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runtime-config.yaml",
+      "sha256": "f9d0872391ddb12c9b62dbd73ea3e50ddfe57fbfbf18ed253546d563c7af61cd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skill_bundle.py",
+      "sha256": "a623cae14cacbfd29c2467a5d9cfd97f0d880bfe3bd2c962e3b9d6ff9c5b7aa9"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "sha256": "950043c541f704d891de09c7015753f362684f1040af7aa0b6069b02ecaec90d"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/methods.md",
+      "sha256": "9d671d63d6c3e002f638a93d0c5a645fc00fd98aff2d8d6b07e2bbdf55d61cc9"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/manifest.json",
+      "sha256": "5d038934ac6f8e363492fc0a5a28ebc2bfd048a42d476dccbb416f8829438275"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/LICENSE",
+      "sha256": "a6946284993aeec75c7d75906064b66210c46051e562077efb30eb6dcfe72e26"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
+      "sha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/explore-data/SKILL.md",
+      "sha256": "af7590fa616360259da712b5ede5f79b817beb854c47a465f95774354988e8a2"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/statistical-analysis/SKILL.md",
+      "sha256": "91a15cfc144efffcd622b09827362a73993a3ff30e3a78114801832477c9f8a0"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/validate-data/SKILL.md",
+      "sha256": "1e424822043480375b80aef9416227b1c8083af749ca536568716265f79ca54b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/source_projection.py",
+      "sha256": "5dd7413441ef48b41db1978706be15e6064fbd8172a68835f67ae4fe01514f40"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/transport.py",
+      "sha256": "6cd2082d366139822a25cf702bdc3c18bd81a13a34407d220a82cf255c8d8744"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/hermes/index.html",
+      "sha256": "068fb92c8960d18276f22bf0ed61a32477cc7b7e0edc96c77c5a4a3827946a51"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "08c56193dc9c2b87a2a2a1b43099d3841b5d2ce160fc7da16053d3981cc721bb"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "ac400b30ff3d01879a49321b7f76994a93f6c140adb56ca21a300db9efb81c3b"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    }
+  ]
+}

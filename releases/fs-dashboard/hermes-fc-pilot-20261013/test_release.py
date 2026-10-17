@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -26,6 +27,95 @@ class ReleaseTests(unittest.TestCase):
             'unchangedRequired':[{'path':p,'sha256':'a'*64} for p in protected],'runtimeRequired':{'fs-business-range.service':{'ActiveState':'active'}},
             'imageId':'sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544','businessWrites':False,'timersChanged':False}
 
+    def wire_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_WIRE_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_WIRE_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_WIRE_TARGETS.values())]
+        known={r['path'] for r in value['unchangedRequired']}
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        value['unchangedRequired'] += [{'path':p,'sha256':'d'*64} for p in sorted(required-known)]
+        return value
+
+    def capacity_manifest(self):
+        value=self.wire_manifest();value['scope']=self.publisher.HERMES_CAPACITY_SCOPE
+        for rel,target in self.publisher.HERMES_CAPACITY_TARGETS.items():
+            if any(r['candidate']==rel for r in value['files']):continue
+            path=self.stage/'candidate'/rel;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'reviewed fixture')
+            value['files'].append({'candidate':rel,'target':target,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'beforeSha256':'b'*64})
+        value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_CAPACITY_TARGETS.values()]
+        return value
+
+    def test_capacity_scope_exact_eleven_protects_all_others_and_requires_baselines(self):
+        value=self.capacity_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),11)
+        self.assertEqual(len(value['unchangedRequired']),53)
+        for row in value['unchangedRequired']:
+            bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)
+            with self.subTest(target=row['path']):
+                with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+        for row in value['files']:
+            bad=json.loads(json.dumps(value));next(r for r in bad['files'] if r['candidate']==row['candidate'])['beforeSha256']=None
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_capacity_restart_uses_original_fence_and_keeps_admin(self):
+        events=[]
+        class Fence:
+            root=self.root
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"status":"ready","ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            with self.assertRaisesRegex(ValueError,'fence required'):self.publisher.restart_for(self.capacity_manifest())
+            self.publisher.restart_for(self.capacity_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
+    def test_wire_requires_every_active_capability_and_session_dependency(self):
+        value=self.wire_manifest()
+        self.assertEqual(len(value['unchangedRequired']),56)
+        required=(set(self.publisher.HERMES_CAPABILITY_TARGETS.values())|self.publisher.CAP_PROTECTED_SESSION)-set(self.publisher.HERMES_WIRE_TARGETS.values())
+        for target in sorted(required):
+            with self.subTest(target=target):
+                bad=json.loads(json.dumps(value))
+                bad['unchangedRequired']=[r for r in bad['unchangedRequired'] if r['path']!=target]
+                with self.assertRaisesRegex(ValueError,'protected consumer boundary'):
+                    self.publisher.validate(bad,self.stage)
+
+    def test_wire_scope_is_exact_eight_and_legacy_scopes_still_validate(self):
+        value=self.wire_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),8)
+        self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
+        self.assertEqual(len(self.publisher.validate(self.worker_manifest(),self.stage)),1)
+        for change in ('baseline','extra','protected','unit'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='protected':bad['unchangedRequired']=[r for r in bad['unchangedRequired'] if not r['path'].endswith('/range_api.py')]
+            if change=='unit':bad['runtimeRequired'].pop('fs-hermes-fc.service')
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_wire_restart_stops_old_fs_then_restarts_worker_and_fs_inside_fence(self):
+        events=[]
+        class Fence:
+            root=self.root
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"status":"ready","ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            self.publisher.restart_for(self.wire_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
     def test_exact_scope_keeps_other_publishers_unchanged(self):
         self.assertEqual(len(self.publisher.validate(self.manifest,self.stage)),34)
         self.assertEqual(self.publisher.expected_files({'scope':self.publisher.DEEP_SCOPE}),set(self.publisher.DEEP_TARGETS))
@@ -41,12 +131,198 @@ class ReleaseTests(unittest.TestCase):
             if change=='scope':value['files'].pop()
             with self.assertRaises(ValueError):self.publisher.validate(value,self.stage)
 
+    def secret_manifest(self):
+        value=self.wire_manifest();value['scope']=self.publisher.HERMES_SECRET_SCOPE
+        removed=[r for r in value['files'] if r['candidate'] not in self.publisher.HERMES_SECRET_TARGETS]
+        value['files']=[r for r in self.manifest['files'] if r['candidate'] in self.publisher.HERMES_SECRET_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        paths={r['path'] for r in value['unchangedRequired']}
+        value['unchangedRequired'] += [{'path':r['target'],'sha256':'c'*64} for r in removed if r['target'] not in paths]
+        value['unchangedRequired']=[r for r in value['unchangedRequired'] if r['path'] not in self.publisher.HERMES_SECRET_TARGETS.values()]
+        return value
+
+    def test_secret_scope_is_exact_six_and_each_shared_dependency_is_required(self):
+        value=self.secret_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),6)
+        self.assertEqual(len(self.publisher.validate(self.update_manifest(),self.stage)),5)
+        for row in value['unchangedRequired']:
+            bad=json.loads(json.dumps(value));bad['unchangedRequired'].remove(row)
+            with self.subTest(path=row['path']):
+                with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+        for change in ('baseline','extra','unit'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='unit':bad['runtimeRequired'].pop('fs-hermes-fc.service')
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_secret_restart_stops_original_fs_and_keeps_worker_and_session(self):
+        events=[]
+        class Fence:
+            def stop_then_unlock_database(self):events.append('old_fs_stopped')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_=-1):return b'{"ok":true}'
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            self.publisher.restart_for(self.secret_manifest(),Fence())
+        self.assertEqual(events[0],'old_fs_stopped')
+        self.assertIn(['systemctl','restart','fs-business-range.service'],events)
+        self.assertNotIn(['systemctl','restart','fs-hermes-fc.service'],events)
+        self.assertNotIn(['systemctl','restart','fc27-p2pah-session.service'],events)
+
+    def update_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_UPDATE_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_UPDATE_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_UPDATE_TARGETS.values())]
+        return value
+
+    def test_history_scope_exact_three_existing_sources_and_45_protected(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_HISTORY_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_HISTORY_TARGETS]
+        for row in value['files']:row['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_HISTORY_TARGETS.values())]
+        self.assertEqual(len(self.publisher.validate(value,self.stage)),3);self.assertEqual(len(value['unchangedRequired']),45)
+        for change in ('baseline','protected','extra'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='protected':bad['unchangedRequired'].pop()
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def worker_manifest(self):
+        value=json.loads(json.dumps(self.manifest));value['scope']=self.publisher.HERMES_WORKER_SCOPE
+        value['files']=[r for r in value['files'] if r['candidate'] in self.publisher.HERMES_WORKER_TARGETS]
+        value['files'][0]['beforeSha256']='b'*64
+        value['runtimeRequired']['fs-hermes-fc.service']={'ActiveState':'active'}
+        value['unchangedRequired'] += [{'path':p,'sha256':'c'*64} for p in set(self.publisher.HERMES_TARGETS.values())-set(self.publisher.HERMES_WORKER_TARGETS.values())]
+        return value
+
+    def test_worker_update_is_one_existing_target_and_all_47_other_files_protected(self):
+        value=self.worker_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),1)
+        self.assertEqual(len(value['unchangedRequired']),47)
+        for change in ('baseline','omission','extra'):
+            bad=json.loads(json.dumps(value))
+            if change=='baseline':bad['files'][0]['beforeSha256']=None
+            if change=='omission':bad['unchangedRequired'].pop()
+            if change=='extra':bad['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            with self.assertRaises(ValueError):self.publisher.validate(bad,self.stage)
+
+    def test_worker_restart_stays_inside_admission_fence_and_does_not_restart_range(self):
+        class Fence:root=self.root
+        key=self.root/'run/fs-hermes-fc/api-key';key.parent.mkdir(parents=True);key.write_text('synthetic-control-only')
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*unused):pass
+            def read(self,_):return b'{"status":"ready"}'
+        events=[]
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)),patch.object(self.publisher.urllib.request,'urlopen',return_value=Response()):
+            with self.assertRaisesRegex(ValueError,'fence required'):self.publisher.restart_for(self.worker_manifest())
+            self.publisher.restart_for(self.worker_manifest(),Fence())
+        self.assertEqual(events,[['systemctl','restart','fs-hermes-fc.service'],['systemctl','is-active','--quiet','fs-hermes-fc.service']])
+
+    def test_update_scope_is_exact_five_and_preserves_initial_gate(self):
+        value=self.update_manifest();self.assertEqual(len(self.publisher.validate(value,self.stage)),5)
+        self.assertEqual(len(self.publisher.validate(self.manifest,self.stage)),34)
+        attempted=json.loads(json.dumps(self.manifest))
+        for row in attempted['files']:row['beforeSha256']='b'*64
+        with self.assertRaisesRegex(ValueError,'initial target baselines'):self.publisher.validate(attempted,self.stage)
+        for change in ('baseline','omitted_target','extra_target','omitted_protected','unit','image','business_write'):
+            changed=json.loads(json.dumps(value))
+            if change=='baseline':changed['files'][0]['beforeSha256']=None
+            if change=='omitted_target':changed['files'].pop()
+            if change=='extra_target':changed['files'].append(next(r for r in self.manifest['files'] if r['candidate']=='hermes/shared/range_api.py'))
+            if change=='omitted_protected':changed['unchangedRequired']=[r for r in changed['unchangedRequired'] if not r['path'].endswith('/range_api.py')]
+            if change=='unit':del changed['runtimeRequired']['fs-hermes-fc.service']
+            if change=='image':changed['imageId']='unreviewed'
+            if change=='business_write':changed['businessWrites']=True
+            with self.assertRaises(ValueError):self.publisher.validate(changed,self.stage)
+
+    def test_update_waits_for_pending_running_and_unreconciled_hermes(self):
+        import sqlite3
+        from contextlib import closing
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        self.publisher.hermes_quiescent(self.root)
+        for state in ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE'):
+            with closing(sqlite3.connect(path)) as db,db:db.execute('DELETE FROM requests');db.execute('INSERT INTO requests VALUES(?)',(state,))
+            with self.assertRaisesRegex(ValueError,'defer update'):self.publisher.hermes_quiescent(self.root)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('DELETE FROM requests');db.execute("INSERT INTO requests VALUES('FAILED')")
+        self.publisher.hermes_quiescent(self.root)
+
     def test_uses_original_locks_and_active_report_guard(self):
         import inspect
         source=inspect.getsource(self.publisher.apply)
-        self.assertIn('with locks(root),live_lock(manifest,root),model_release_lock(manifest,root)',source)
+        self.assertIn('with locks(root),live_lock(manifest,root),hermes_admission_fence(manifest,root) as admission_fence,model_release_lock(manifest,root)',source)
         self.assertIn('target drift before replacement',source)
         self.assertIn('rollback_journal(backup,journal,root)',source)
+
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_legacy_sqlite_writer_is_blocked_by_bootstrap_fence(self):
+        from contextlib import closing
+        import sqlite3,threading
+        from controller import admission_guard
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        errors=[]
+        def old_writer():
+            try:
+                with closing(sqlite3.connect(path,timeout=0)) as db,db:db.execute("INSERT INTO requests VALUES('PREPARING')")
+            except sqlite3.OperationalError as error:errors.append(str(error))
+        with self.publisher.hermes_admission_fence(self.update_manifest(),self.root):
+            thread=threading.Thread(target=old_writer);thread.start();thread.join(timeout=5)
+            self.assertFalse(thread.is_alive());self.assertEqual(errors,['database is locked'])
+            with admission_guard(path.with_name('admission.lock')) as allowed:self.assertFalse(allowed)
+            with closing(sqlite3.connect(path)) as db:self.assertEqual(db.execute('SELECT count(*) FROM requests').fetchone()[0],0)
+        with closing(sqlite3.connect(path)) as db,db:db.execute("INSERT INTO requests VALUES('FAILED')")
+
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_uncertain_mutation_stops_old_process_before_releasing_sqlite_fence(self):
+        from contextlib import closing
+        import sqlite3
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        events=[]
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)):
+            with self.assertRaisesRegex(RuntimeError,'unconfirmed rollback'):
+                with self.publisher.hermes_admission_fence(self.update_manifest(),self.root) as fence:
+                    fence.modified=True;raise RuntimeError('unconfirmed rollback')
+        self.assertEqual(events,[['systemctl','stop','fs-business-range.service']])
+        with closing(sqlite3.connect(path)) as db,db:db.execute("INSERT INTO requests VALUES('FAILED')")
+
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_failed_rollback_after_startup_stops_new_process_before_reopening_admission(self):
+        from contextlib import closing
+        import sqlite3
+        from controller import admission_guard
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        events=[]
+        def control(args,**unused):
+            with admission_guard(path.with_name('admission.lock')) as allowed:self.assertFalse(allowed)
+            events.append(args)
+        with patch.object(self.publisher.subprocess,'run',side_effect=control):
+            with self.assertRaisesRegex(RuntimeError,'rollback CAS drift'):
+                with self.publisher.hermes_admission_fence(self.update_manifest(),self.root) as fence:
+                    fence.modified=True;fence.stop_then_unlock_database()
+                    self.assertIsNone(fence.db)
+                    raise RuntimeError('rollback CAS drift')
+        self.assertEqual(events,[['systemctl','stop','fs-business-range.service']]*2)
+        with admission_guard(path.with_name('admission.lock')) as allowed:self.assertTrue(allowed)
+
+    @unittest.skipUnless(os.name=='posix','actual publisher flock is a Linux deployment gate')
+    def test_confirmed_release_does_not_stop_service_on_fence_exit(self):
+        from contextlib import closing
+        import sqlite3
+        path=self.root/'var/lib/fs-hermes-fc/fs/tasks.sqlite3';path.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(path)) as db,db:db.execute('CREATE TABLE requests(state TEXT)')
+        events=[]
+        with patch.object(self.publisher.subprocess,'run',side_effect=lambda args,**unused:events.append(args)):
+            with self.publisher.hermes_admission_fence(self.update_manifest(),self.root) as fence:
+                fence.modified=True;fence.stop_then_unlock_database();fence.confirmed=True
+        self.assertEqual(events,[['systemctl','stop','fs-business-range.service']])
 
     def test_uid_firewall_policy_never_exposes_other_service_or_key(self):
         import network_guard

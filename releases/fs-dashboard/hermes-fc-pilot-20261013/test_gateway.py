@@ -2,13 +2,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 import tempfile
 import threading
 import unittest
-from proxy_gateway import ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES, MAX_PROVIDER_CONTEXT_TOKENS, conservative_input_bound, ModelGateway, ScopedTools, UnifiedBudget, schemas, request_body
 from pilot import TaskStore
 from runtime_contract import candidate, validate, clean_environment
 from runs_contract import WIRE_TOOLS
@@ -64,6 +65,66 @@ class GatewayTests(unittest.TestCase):
         args.update(overrides)
         return self.gateway.call(**args)
 
+    def test_large_hermes_context_and_many_rows_preserve_originals(self):
+        messages=[{'role':'user' if i%2==0 else 'assistant','content':'capacity '+str(i)+' '+'x'*2000} for i in range(80)]
+        result=request_body({'messages':messages,'max_tokens':50},self.policy['model'])
+        self.assertEqual(result['messages'],messages)
+        self.assertGreater(len(str(messages)),128000)
+        self.assertEqual(len(result['messages']),80)
+
+    def test_official_tool_task_marker_is_not_a_secret_prefix(self):
+        messages=[{'role':'user','content':'Check the readonly sample.'},
+                  {'role':'assistant','content':None,'tool_calls':[{'id':'fixture_call','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                  {'role':'tool','tool_call_id':'fixture_call','content':'Tool response: {"identity":"task-scoped HMAC pseudonyms for order/event/item IDs"}'}]
+        body={'messages':messages,'max_tokens':50}
+        self.assertEqual(request_body(body,self.policy['model'])['messages'],messages)
+        self.call(body=body)
+        self.assertEqual(self.calls,1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
+
+    def test_sk_text_is_allowed_in_user_tool_and_native_reasoning(self):
+        markers=('sk-SYNTHETIC','task-scoped','risk-based','Use "task-scoped." evidence.',
+                 r'{"identity":"task-scoped.AAAA"}')
+        for marker in markers:
+            for field in ('user','tool','reasoning'):
+                messages=[{'role':'user','content':marker if field=='user' else 'Check the readonly sample.'}]
+                if field=='tool':
+                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_sk','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                                     {'role':'tool','tool_call_id':'fixture_sk','content':json.dumps({'note':marker})}])
+                if field=='reasoning':messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
+                with self.subTest(marker=marker,field=field):
+                    self.assertEqual(request_body({'messages':messages,'max_tokens':50,'reasoning_effort':'max'},self.policy['model'])['messages'],messages)
+        self.call(body={'messages':messages,'max_tokens':50,'reasoning_effort':'max'})
+        self.assertEqual(self.calls,1)
+
+    def test_other_credential_markers_remain_blocked_before_spend(self):
+        for marker in ('Bearer fixture-only','Cookie: fixture-only','password=fixture-only',
+                       '\nBearer fixture-only','\tCookie: fixture-only','\rpassword=fixture-only',
+                       'Tool response: {"note":"password=fixture-only"}'):
+            for field in ('user','tool','reasoning'):
+                messages=[{'role':'user','content':marker if field=='user' else 'Check the readonly sample.'}]
+                if field=='tool':
+                    messages.extend([{'role':'assistant','content':None,'tool_calls':[{'id':'fixture_secret','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]},
+                                     {'role':'tool','tool_call_id':'fixture_secret','content':marker}])
+                if field=='reasoning':messages.append({'role':'assistant','content':'Safe public text.','reasoning_content':marker})
+                with self.subTest(marker=marker,field=field):
+                    with self.assertRaisesRegex(ValueError,'context_rejected'):
+                        self.call(body={'messages':messages,'max_tokens':50,'reasoning_effort':'max'})
+        self.assertEqual(self.calls,0)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],0)
+
+    def test_oversized_wire_rejected_before_any_reservation_or_provider(self):
+        body={'messages':[{'role':'user','content':'x'*MAX_PROVIDER_WIRE_BYTES}],'max_tokens':50}
+        with self.assertRaisesRegex(ValueError,'context_rejected'):
+            self.call(body=body)
+        self.assertEqual(self.calls,0)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],0)
+
     def test_same_ledger_reserve_before_provider_and_settle_actual_cost(self):
         result=self.call()
         self.assertEqual(result['cost_microcny'],140)
@@ -71,6 +132,28 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)
             self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'succeeded')
             self.assertEqual([x[1] for x in db.execute('PRAGMA table_info(model_calls)')],['fingerprint','day','state','content'])
+
+    def test_optional_costs_allow_new_task_but_not_replay_or_inflight(self):
+        self.call();self.budget.allow_unknown_costs=True
+        with self.db() as db:db.execute("UPDATE model_calls SET state='unknown',content=NULL")
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(turn=1)
+        other=self.tasks.create('owner',dict(spec(),template_version='different_task'))
+        self.tasks.reserve_dispatch(other['id'],'owner','different_lease');self.tasks.bind_run(other['id'],'owner','different_lease','run_different')
+        self.call(task_id=other['id'],lease='different_lease')
+        self.assertEqual(self.calls,2)
+        with self.db() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM model_calls WHERE state='unknown'").fetchone()[0],1)
+            db.execute("UPDATE model_calls SET state='started' WHERE state='unknown'")
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(task_id=other['id'],lease='different_lease',turn=1)
+        self.assertEqual(self.calls,2)
+
+    def test_transport_diagnostic_never_saves_private_error_text(self):
+        from proxy_gateway import safe_diagnostic
+        value={'transport_error_type':'TimeoutError','transport_reason_type':'private diagnostic','elapsed_seconds':120.1,'timeout_seconds':600,'message':'private error'}
+        result=safe_diagnostic(value,{'model':'fake'},'provider_unknown_transport')
+        self.assertEqual(result['transport_error_type'],'TimeoutError');self.assertEqual(result['timeout_seconds'],600)
+        self.assertNotIn('private',str(result))
 
     def test_replay_has_no_second_provider_call(self):
         result=self.call()
@@ -116,7 +199,9 @@ class GatewayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
         with self.db() as db:
             row=db.execute('SELECT state,content FROM model_calls').fetchone()
-            self.assertEqual(tuple(row),('unknown',None))
+            import json
+            self.assertEqual(row['state'],'unknown');self.assertEqual(json.loads(row['content'])['status'],'unknown')
+            self.assertNotIn('provider_usage',json.loads(row['content']))
         with self.assertRaisesRegex(ValueError,'pilot_usage_hold'): self.call(1)
 
     def test_provider_usage_extensions_and_empty_reasoning_are_supported(self):
@@ -133,9 +218,56 @@ class GatewayTests(unittest.TestCase):
 
     def test_excess_usage_holds(self):
         def over(req):
-            result=self.answer(req); result['usage']={'prompt_tokens':101,'completion_tokens':10,'total_tokens':111}; return result
+            result=self.answer(req); result['usage']={'prompt_tokens':1048577,'completion_tokens':10,'total_tokens':1048587}; return result
         self.provider=over
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
+
+    def test_invalid_response_retains_safe_usage_and_shape_without_private_content(self):
+        def malformed(req):
+            value=self.answer(req);value['model']=req['model']
+            value['choices'][0]['message']['private_field']='password=secret; sk-SECRET'
+            value['choices'][0]['message']['reasoning_content']='private reasoning must never reach diagnostics'
+            return value
+        self.provider=malformed
+        with self.assertRaisesRegex(ValueError,'unverified_provider_result'):self.call()
+        import json
+        with self.db() as db:receipt=json.loads(db.execute('SELECT content FROM model_calls').fetchone()[0])
+        self.assertEqual(receipt['reason'],'response_message_invalid')
+        self.assertEqual(receipt['provider_usage']['total_tokens'],60)
+        self.assertEqual(receipt['response_shape']['unknown_message_field_count'],1)
+        self.assertNotIn('private reasoning',json.dumps(receipt));self.assertNotIn('sk-SECRET',json.dumps(receipt))
+        self.assertEqual(receipt['status'],'invalid_response')
+        self.assertEqual(receipt['usage']['total_tokens'],60);self.assertEqual(receipt['cost_microcny'],140)
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'invalid_previous_result'):self.call(1)
+        self.provider=self.answer
+        newer=spec();newer['template_version']='after-invalid-response'
+        task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','newlease');self.tasks.bind_run(task['id'],'owner','newlease','run_after_invalid')
+        gateway=ModelGateway(ScopedTools(self.tasks,book(),lambda:self.now),self.budget,self.slot,self.answer,lambda _:100,lambda:0)
+        self.assertEqual(gateway.call('owner',task['id'],'newlease',0,{'messages':[{'role':'user','content':'new task'}],'max_tokens':50})['status'],'succeeded')
+
+    def test_explicit_unknown_acceptance_only_allows_new_task_same_owner_exact_bound(self):
+        def fail(req):raise TimeoutError('secret error body')
+        self.provider=fail
+        with self.assertRaisesRegex(ValueError,'provider_outcome_unknown'):self.call()
+        with self.db() as db:row=db.execute('SELECT fingerprint,microcny FROM hermes_reservations').fetchone()
+        newer=spec();newer['template_version']='new-approved-diagnostic'
+        task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','newlease');self.tasks.bind_run(task['id'],'owner','newlease','run_new')
+        scope=ScopedTools(self.tasks,book(),lambda:self.now)
+        budget=UnifiedBudget(self.db,self.policy,lambda:self.now,accepted_unknowns={row['fingerprint']:row['microcny']})
+        gateway=ModelGateway(scope,budget,self.slot,self.answer,lambda _:100,lambda:0)
+        result=gateway.call('owner',task['id'],'newlease',0,{'messages':[{'role':'user','content':'new task'}],'max_tokens':50})
+        self.assertEqual(result['status'],'succeeded')
+        self.gateway.budget=budget
+        with self.assertRaisesRegex(ValueError,'unknown_previous_attempt'):self.call()
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):self.call(1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT state FROM model_calls WHERE fingerprint=?',(row['fingerprint'],)).fetchone()[0],'unknown')
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):
+            budget.reserve('other','other_task',0,request_body({'messages':[{'role':'user','content':'new'}],'max_tokens':50},self.policy['model']),100)
+        wrong=UnifiedBudget(self.db,self.policy,lambda:self.now,accepted_unknowns={row['fingerprint']:row['microcny']+1})
+        with self.assertRaisesRegex(ValueError,'pilot_usage_hold'):
+            wrong.reserve('owner','third_task',0,request_body({'messages':[{'role':'user','content':'new'}],'max_tokens':50},self.policy['model']),100)
 
     def test_foreign_owner_cancel_and_deadline_refuse(self):
         with self.assertRaises(PermissionError): self.call(owner='other')
@@ -197,6 +329,85 @@ class GatewayTests(unittest.TestCase):
         self.provider=bad
         with self.assertRaisesRegex(ValueError,'unverified_provider_result'): self.call()
 
+    def test_documented_bailian_index_and_tool_roundtrip_preserved(self):
+        call={'id':'call_indexed','type':'function','index':0,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}
+        def indexed(req):
+            value=self.answer(req)
+            if self.calls==1:value['choices'][0]['message']={'role':'assistant','content':None,'tool_calls':[call],'refusal':None,'audio':None,'function_call':None}
+            else:
+                self.assertEqual(req['messages'][1]['tool_calls'][0]['index'],0)
+                value['choices'][0]['message']['tool_calls']=None
+            return value
+        self.provider=indexed
+        first=self.call();self.assertEqual(first['message']['tool_calls'][0]['index'],0);self.assertNotIn('refusal',first['message'])
+        replay=__import__('copy').deepcopy(first['message']);replay['tool_calls'][0].pop('index')
+        result=self.call(1,body={'messages':[{'role':'user','content':'query'},replay,{'role':'tool','tool_call_id':'call_indexed','content':'{}'}],'max_tokens':50})
+        self.assertNotIn('index',replay['tool_calls'][0])
+        self.assertEqual(result['status'],'succeeded');self.assertEqual(self.calls,2)
+        self.assertIn('index',call)  # Original provider object is never mutated.
+
+    def test_paid_index_cannot_be_attached_to_changed_tool_history_or_other_task(self):
+        def indexed(req):
+            value=self.answer(req);value['choices'][0]['message']['tool_calls']=[{'id':'call_bound','type':'function','index':2,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]
+            return value
+        self.provider=indexed;first=self.call()
+        import copy
+        for mutate in ('arguments','name','index'):
+            message=copy.deepcopy(first['message'])
+            if mutate=='arguments':message['tool_calls'][0]['function']['arguments']='{"changed":true}'
+            if mutate=='name':message['tool_calls'][0]['function']['name']=WIRE_TOOLS[1]
+            if mutate=='index':message['tool_calls'][0]['index']=1
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):
+                self.call(1,body={'messages':[{'role':'user','content':'query'},message,{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50})
+        request=request_body({'messages':[{'role':'user','content':'query'},first['message'],{'role':'tool','tool_call_id':'call_bound','content':'{}'}],'max_tokens':50},self.policy['model'])
+        request['messages'][1]['tool_calls'][0].pop('index')
+        self.budget.restore_tool_indexes('other','different',1,request)
+        self.assertNotIn('index',request['messages'][1]['tool_calls'][0]);self.assertEqual(self.calls,1)
+
+    def test_index_extension_never_accepts_unknown_fields_or_invalid_metadata(self):
+        for patch in ({'index':True},{'index':-1},{'index':'0'},{'extra':'private secret'}, {'index':0,'extra':'private secret'}):
+            def invalid(req,patch=patch):
+                value=self.answer(req);value['model']=req['model']
+                value['choices'][0]['message']['tool_calls']=[{'id':'invalid','type':'function','function':{'name':WIRE_TOOLS[0],'arguments':'{}'},**patch}]
+                return value
+            self.provider=invalid
+            newer=spec();newer['template_version']='invalid-index-'+str(len(patch))+str(patch.get('index'))+str('extra' in patch)
+            task=self.tasks.create('owner',newer);self.tasks.reserve_dispatch(task['id'],'owner','lease');self.tasks.bind_run(task['id'],'owner','lease','run_'+task['id'])
+            gateway=ModelGateway(ScopedTools(self.tasks,book(),lambda:self.now),self.budget,self.slot,invalid,lambda _:100,lambda:0)
+            with self.assertRaisesRegex(ValueError,'unverified_provider_result'):gateway.call('owner',task['id'],'lease',0,{'messages':[{'role':'user','content':'new'}],'max_tokens':50})
+        import json
+        with self.db() as db:receipts=[json.loads(r[0]) for r in db.execute('SELECT content FROM model_calls')]
+        self.assertTrue(all('private secret' not in json.dumps(r) for r in receipts))
+        self.assertTrue(any(r['response_shape']['tool_shapes'][0]['unknown_field_count']==1 for r in receipts))
+
+    def test_research_turn_supports_more_than_legacy_five_readonly_calls(self):
+        def parallel(req):
+            value=self.answer(req)
+            value['choices'][0]['finish_reason']='tool_calls'
+            value['choices'][0]['message']['tool_calls']=[{'id':'call_'+str(i),'type':'function',
+                'function':{'name':name,'arguments':'{}'}} for i,name in enumerate(WIRE_TOOLS[:6])]
+            return value
+        self.provider=parallel
+        self.assertEqual(len(self.call()['message']['tool_calls']),6)
+
+    def test_restored_index_bytes_rejected_before_slot_and_new_reservation(self):
+        import json
+        def indexed(req):
+            value=self.answer(req)
+            value['choices'][0]['message']={'role':'assistant','content':None,'tool_calls':[{'id':'call_size','type':'function','index':100000,'function':{'name':WIRE_TOOLS[0],'arguments':'{}'}}]}
+            return value
+        self.provider=indexed;first=self.call()
+        message=deepcopy(first['message']);message['tool_calls'][0].pop('index')
+        body={'messages':[{'role':'user','content':''},message,{'role':'tool','tool_call_id':'call_size','content':'{}'}],'max_tokens':50}
+        base=request_body(body,self.policy['model'])
+        body['messages'][0]['content']='x'*(MAX_PROVIDER_WIRE_BYTES-5-len(json.dumps(base,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()))
+        self.assertEqual(len(json.dumps(request_body(body,self.policy['model']),ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()),MAX_PROVIDER_WIRE_BYTES-5)
+        with self.assertRaisesRegex(ValueError,'provider_payload_too_large'):self.call(1,body=body)
+        self.assertEqual(self.calls,1)
+        with self.db() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM model_calls WHERE state='unknown'").fetchone()[0],0)
+
     def test_runtime_proposal_inert_and_environment_has_no_inherited_secrets(self):
         self.assertFalse(validate(candidate())['launch_allowed'])
         plan=candidate(); plan['network']['public_listeners']=['0.0.0.0:8080']
@@ -225,6 +436,85 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(evidence['data'][0]['revenue_usd'],'120.00')
         self.assertEqual(second['status'],'succeeded'); self.assertEqual(self.calls,2)
         with self.db() as db: self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],2)
+
+
+    def test_reasoning_output_over_old_ceiling_preserves_verified_usage(self):
+        from proxy_gateway import MAX_HERMES_OUTPUT_TOKENS
+        def large(req):
+            value=self.answer(req)
+            value['usage']={'prompt_tokens':50,'completion_tokens':20000,'total_tokens':20050,
+                            'completion_tokens_details':{'reasoning_tokens':17000}}
+            return value
+        self.provider=large
+        result=self.call(body={'messages':[{'role':'user','content':'synthetic only'}],
+                               'max_tokens':MAX_HERMES_OUTPUT_TOKENS,'reasoning_effort':'max'})
+        self.assertEqual(result['usage']['completion_tokens'],20000)
+        self.assertEqual(result['reasoning_tokens'],17000)
+        self.assertEqual(result['status'],'succeeded')
+        self.assertEqual(result['cost_microcny'],80100)
+
+    def test_truncated_tool_arguments_have_safe_diagnostic_and_no_success(self):
+        def truncated(req):
+            value=self.answer(req)
+            value['model']=req['model']
+            value['choices'][0]={'finish_reason':'length','message':{'role':'assistant','content':None,
+                'reasoning_content':'SYNTHETIC_PRIVATE_NOT_FOR_DIAGNOSTIC','tool_calls':[{'id':'cut','type':'function',
+                'function':{'name':WIRE_TOOLS[0],'arguments':'{"cut":'}}]}}
+            return value
+        self.provider=truncated
+        with self.assertRaisesRegex(ValueError,'unverified_provider_result'):self.call(body={
+            'messages':[{'role':'user','content':'synthetic only'}],'max_tokens':65536,'reasoning_effort':'max'})
+        with self.db() as db:
+            row=db.execute('SELECT state,content FROM model_calls').fetchone()
+        receipt=json.loads(row['content'])
+        self.assertEqual(row['state'],'invalid_response')
+        self.assertEqual(receipt['reason'],'tool_arguments_json_invalid')
+        self.assertEqual(receipt['response_shape']['finish_reason'],'length')
+        self.assertNotIn('SYNTHETIC_PRIVATE',row['content'])
+
+class ToolContractRegressionTests(unittest.TestCase):
+    def research_book(self):
+        from research import ResearchBook
+        from test_research import dataset
+        source = dataset()
+        source['orders'] = source['orders'][:1]
+        return ResearchBook(source, {}, {'start': '2026-10-05', 'end': '2026-10-11'})
+
+    def test_advertised_breakdowns_map_to_legal_research_groups(self):
+        from research import DIMENSIONS
+        declared = next(item['function']['parameters']['properties']['dimension']['enum']
+                        for item in schemas() if item['function']['name'].endswith('fc_get_breakdown'))
+        self.assertEqual(declared, ['platform', 'product'])
+        book = self.research_book()
+        for dimension in declared:
+            self.assertIn(dimension, DIMENSIONS)
+            for window in ('target', 'previous'):
+                result = book.call('fc.get_breakdown', {
+                    'snapshot_id': book.capture_id, 'window': window, 'dimension': dimension})
+                self.assertEqual(result['query']['group_by'], [dimension])
+        with self.assertRaisesRegex(ValueError, 'group_fields'):
+            book.call('fc.get_breakdown', {
+                'snapshot_id': book.capture_id, 'window': 'target', 'dimension': 'bucket'})
+
+    def test_calculator_equal_length_bindings_succeed_and_bad_bindings_fail(self):
+        book = self.research_book()
+        evidence = book.call('fc.query_business', {
+            'start': '2026-10-05', 'end': '2026-10-11', 'group_by': [], 'filters': {}, 'page': 1})
+        ref = evidence['evidence_id']
+        arguments = {
+            'operation': 'ratio', 'values': ['10.00', '1'], 'evidence_ids': [ref],
+            'value_paths': [{'evidence_id': ref, 'path': '/data/total/revenue_usd'},
+                            {'evidence_id': ref, 'path': '/data/total/orders'}],
+            'assumptions': ['', '']}
+        result = book.call('fc.calculate', arguments)
+        self.assertEqual(result['data']['result']['ratio'], '10.00')
+        self.assertEqual(result['data']['basis'], 'evidence_bound_calculation')
+        with self.assertRaisesRegex(ValueError, 'calculation_bindings'):
+            book.call('fc.calculate', {**arguments, 'assumptions': []})
+        with self.assertRaisesRegex(ValueError, 'calculation_operand_mismatch'):
+            book.call('fc.calculate', {**arguments, 'values': ['11.00', '1']})
+        with self.assertRaisesRegex(ValueError, 'calculation_assumption'):
+            book.call('fc.calculate', {**arguments, 'value_paths': [None, None]})
 
 
 if __name__=='__main__': unittest.main()

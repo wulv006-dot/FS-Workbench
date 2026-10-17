@@ -1,0 +1,139 @@
+{
+  "base": "2b75a99115785563fa22a7495f1d21ac4cab08e9",
+  "scope": "Independent report compatibility and quality repair; no navigation changes",
+  "files": [
+    {
+      "name": "boss_projection.py",
+      "path": "releases/fs-dashboard/fs-revision-20261015/ai/candidate/boss_projection.py",
+      "git_blob": "f0a6b1ee02b3e24f16e92e7c04381bbcabdbb829",
+      "bytes": 18305,
+      "sha256": "2992d9685c03234d3f0038e866d3b5ed52b66dbcd5a0ab8da02c3621ed6b4e1c"
+    },
+    {
+      "name": "boss_renderer.py",
+      "path": "releases/fs-dashboard/fs-revision-20261015/ai/candidate/boss_renderer.py",
+      "git_blob": "875df60ae641bf99d2418362df00d16188cfef17",
+      "bytes": 27149,
+      "sha256": "2ec9093406a7b852877dd24cc2047262480a5a974c0a87f1707573eeceb9a258"
+    },
+    {
+      "name": "report_artifacts.py",
+      "path": "releases/fs-dashboard/fs-revision-20261015/ai/candidate/report_artifacts.py",
+      "git_blob": "e4e5622fcda3c265e5185b8b7e306966a2967c1a",
+      "bytes": 5347,
+      "sha256": "00d6c992fc7fdac04df381c681d37ee198ccdf714aa3c2142a66be02e2694f2a"
+    },
+    {
+      "name": "report.template.html",
+      "path": "releases/fs-dashboard/fs-revision-20261015/ai/candidate/report.template.html",
+      "git_blob": "3fa3750740634065871d8068d3f551ae717ca7a6",
+      "bytes": 12577,
+      "sha256": "c778595ce0ac965ea59529103cb6010b7b5e1c5b88488a1a68981ae656ac60f2"
+    },
+    {
+      "name": "report_delivery.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/report_delivery.py",
+      "git_blob": "5a95737c258c026bb2f4eff22a9009ec56152f7f",
+      "bytes": 3488,
+      "sha256": "c428c16108d511d3f5d9d1e120aac839e3a51df3d3ce27572d0d1e759751167a"
+    },
+    {
+      "name": "report_validation.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/report_validation.py",
+      "git_blob": "ce24fa855fd8e88c80c22ba4a3190f2e20f6baa6",
+      "bytes": 10302,
+      "sha256": "e0fab83d5f6b095d28ea31ca0928397ba23d7441ae88261c42ba3c2c597f6a9a"
+    },
+    {
+      "name": "skill_bundle.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skill_bundle.py",
+      "git_blob": "96f773fd3645f0e8143600eacf531e4c49d906f7",
+      "bytes": 3980,
+      "sha256": "b28ec913ac8078a51d864f5fc7ff05f35deed67c7914b2ea4a28ff3e4e37de85"
+    },
+    {
+      "name": "research.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/research.py",
+      "git_blob": "73d2393e24546e4578a6355d2b33ff065c4e3997",
+      "bytes": 23823,
+      "sha256": "cefcbe77611282edb13cbf5624c414122f866b931352b796363ebf33a7c10ccb"
+    },
+    {
+      "name": "controller.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/controller.py",
+      "git_blob": "07a14c29a78be62abd90fdc2d37f739a51f3f52a",
+      "bytes": 33724,
+      "sha256": "f248be58416147ed42bbcd19bd1b58433d17a7e29024309a1ec6b260142721c6"
+    },
+    {
+      "name": "fs_inprocess.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/fs_inprocess.py",
+      "git_blob": "378cfcd542c93b296f3d78189b31293b019b828c",
+      "bytes": 5393,
+      "sha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd"
+    },
+    {
+      "name": "test_report_delivery.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/test_report_delivery.py",
+      "git_blob": "75ed73b61c6d69330035b98394033a6b55001739",
+      "bytes": 8071,
+      "sha256": "69bae585a3d48cf8ac2376d8991999d2ede228887258f706e3c7f5f3428c43a7"
+    },
+    {
+      "name": "test_skill_bundle.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/test_skill_bundle.py",
+      "git_blob": "c5a2a915763ecafe8257af53ad8247a90447fab7",
+      "bytes": 1412,
+      "sha256": "f60ac23669db49ad9248756c23510e828420af98efe375dd4dbdd2f2b66ac124"
+    },
+    {
+      "name": "runtime_contract.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/runtime_contract.py",
+      "git_blob": "2f0f6adf83840a1ffaa45cfbf239801d4b2c736b",
+      "bytes": 2189,
+      "sha256": "3c0871b56dd279dacc1506ac82d46f905004bdcf96ee90ea302d995fd3845386"
+    },
+    {
+      "name": "direct_provider.py",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/direct_provider.py",
+      "git_blob": "ea71f5732323afe0e95c453bb53b387c4e80dcc0",
+      "bytes": 15899,
+      "sha256": "9ac9e09238f0c934ca6977a3af02df58f3a9185d8f0b9668f56d0fd4c7a55fed"
+    },
+    {
+      "name": "skills/manifest.json",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skills/manifest.json",
+      "git_blob": "03346477de3a22d9845ef6eb4b215e2b846a96f4",
+      "bytes": 8376,
+      "sha256": "440f907e8d02a496fccd6e465f5e39ebb512894dc1a3eedced89f741501a73fb"
+    },
+    {
+      "name": "skills/fs-fc-operations-analysis/SKILL.md",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skills/fs-fc-operations-analysis/SKILL.md",
+      "git_blob": "cccd753faa60c5a6741ce908638b2026b5914b1c",
+      "bytes": 13442,
+      "sha256": "098f6e09b77f25bf0cb5d852500e602d682be5c8bae0cdb504d21058edfe428d"
+    },
+    {
+      "name": "skills/fs-fc-operations-analysis/references/methods.md",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skills/fs-fc-operations-analysis/references/methods.md",
+      "git_blob": "05eb8b391bbea520b69e40a1916a8b92b46a3f4a",
+      "bytes": 3211,
+      "sha256": "9d671d63d6c3e002f638a93d0c5a645fc00fd98aff2d8d6b07e2bbdf55d61cc9"
+    },
+    {
+      "name": "skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "git_blob": "9263c8768367bfe4f5c88f9f0aa0fdfa53af07db",
+      "bytes": 1848,
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574"
+    },
+    {
+      "name": "skills/fs-fc-operations-analysis/references/reviewed-adaptation.md",
+      "path": "releases/fs-dashboard/hermes-fc-pilot-20261013/skills/fs-fc-operations-analysis/references/reviewed-adaptation.md",
+      "git_blob": "118f3b4f94ad4dc16bf2ae3e2f876eb78cd3212c",
+      "bytes": 1610,
+      "sha256": "f7312e0d487dc0421b79ba2ce7e9bb5bc153202be750d2642daacbb541492c2b"
+    }
+  ]
+}

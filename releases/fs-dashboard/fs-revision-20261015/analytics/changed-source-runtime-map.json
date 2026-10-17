@@ -1,0 +1,62 @@
+{
+  "baseVersion": "workspace-native-20261006-5d085f7c1aac",
+  "releaseReady": false,
+  "productionWrites": 0,
+  "rows": [
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\fc_detail.py",
+      "runtime": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "beforeSha256": "0eb8e37cf6e483f2c14f2f241cbca12c18eb85d9fcaaa4e8bfc8963a6d9e5341",
+      "candidateSha256": "dcb3830a53f73b4732be198b2201fa48dab18aaa0928af6d759732a6fcc378e1",
+      "publishMode": "candidate-only"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\range_api.py",
+      "runtime": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "e4fbc9ff856e7f5007a6c7cf3c2ea04478c6cb983eddc4d355615cee7404a22f",
+      "candidateSha256": "02914f0d9dff42b04b34670e7f9b081e26ecd8ffdc5b67ac8e24d11ea54f33cd",
+      "publishMode": "shared-parent-integration"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\business.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/business.js",
+      "beforeSha256": "bceb71143c80054b6d130e5692d991343b2c61c574f50d0912d73095cfccf9f1",
+      "candidateSha256": "964f65a2e9d95e6e0d7dbc3b8ece8032d13a90af9fee0f4a277ae6e9f2b783f9",
+      "publishMode": "candidate-only"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\management.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/management.js",
+      "beforeSha256": "9e9733e776681c1627b9de945b8ba0847a99f61736a4f298d825aa87488fa37d",
+      "candidateSha256": "0a12e43d90e5ba751381f9bf393339b4260b249e4677fe0d011ee82be9947c4c",
+      "publishMode": "candidate-only"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\game-index.html",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/index.html",
+      "beforeSha256": "c103868e2b1b923ca1f2ba733b3126a7993746a71b69d03bb75316759ca79e80",
+      "candidateSha256": "5f8de7d978db05453cbff167992b0d0626f05a197205c26cfea263c62ddda033",
+      "publishMode": "candidate-only"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\game-daily.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/daily.js",
+      "beforeSha256": "6dbf1de01a2f85d4205f5e4a15d8db75d0ccbd06fe4aad305b36d954700c3d83",
+      "candidateSha256": "982206d2c6aea4744898e2b8b1445e68d35dae1352b88dc0d98f653850dad791",
+      "publishMode": "candidate-only"
+    },
+    {
+      "candidate": "docs\\planning\\fs-revision-20261015\\analytics\\candidate\\fc-detail.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/business.js",
+      "runtimeMode": "inlined segment; no standalone server fc-detail.js",
+      "runtimeFileBeforeSha256": "bceb71143c80054b6d130e5692d991343b2c61c574f50d0912d73095cfccf9f1",
+      "fragmentBeforeSha256": "49d13747b50656fba68f2e9dc7c22d982ee430fb094b4d90d790b35ab2651d0f",
+      "candidateFragmentSha256": "d7f5b372ff9ed7559e6bba5f3d3a6b097204e0b2f7c9c617733ea6afb1658642",
+      "changedWith": "business.js"
+    }
+  ],
+  "excludedCandidate": "management_daily.py; parent owns newer catalog retry",
+  "unchangedTarget": {
+    "targets.json": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+  }
+}

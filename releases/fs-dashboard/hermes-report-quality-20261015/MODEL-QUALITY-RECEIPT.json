@@ -1,0 +1,39 @@
+{
+  "task": "211a3054c3507a39f117441276f4d749",
+  "request_id": "6591e04d7fe5ba615bbbf72e38d62c79",
+  "run_id": "run_e1bf66f88305426aa8fe9cd405b165f7",
+  "task_state": "SUCCEEDED",
+  "request_state": "COMPLETED",
+  "observed_at": "2026-10-15T02:49:57.538079+00:00",
+  "model": "deepseek-flash",
+  "reasoning_effort": "max",
+  "skills_version": "0.6.0-reviewed-methods-context",
+  "usage": {
+    "calls": 14,
+    "cost_basis": "amount_unknown_no_cny_invoice_or_fx",
+    "estimated_microcny": null,
+    "invalid_response_calls": 0,
+    "reasoning_tokens": 62044,
+    "total_tokens": 2574128,
+    "unknown_calls": 0
+  },
+  "business_acceptance": "user_review_required",
+  "evidence_count": 79,
+  "no_model_replay": true,
+  "candidate_skill_validation": false,
+  "quality_findings": [
+    "Native raw Markdown ignored requested v2 envelope; converter now preserves its five actual judgments and six A-numbered actions.",
+    "Title explicitly chooses same weekdays, not previous contiguous window.",
+    "Report performed platform/product/country/SKU followups but omitted direct device followup.",
+    "No official webpage tool; official intelligence explicitly not conducted.",
+    "Aggregate AOV directions do not rule out local price causes; arbitrary recovery thresholds need calibration and cannot prove causality.",
+    "Current issue clues were collector_busy, no fabricated root cause."
+  ],
+  "source_sha256": {
+    "evidence.json": "bd485f482454b1067bf580c94ca113918bcd8b758f4f946da37d6e9471158bbe",
+    "metadata.json": "dd74d4a5fa578d0a44ca443fc5d3afa6fa20933a76047bb15294921e22679806",
+    "model.txt": "9f5246897ea39c45f0e0c1e0284c79acbfe4ee075c09d56ad8b7bdecef46dd3a",
+    "ready.json": "220675113d3466c26e8a4e03aa23d104d00d627800eae16a98f155ecae427cb2",
+    "result.json": "ebeefd1f95da249c02b3af63c3e0352c69cc9e686e0d812746ceae0776179135"
+  }
+}

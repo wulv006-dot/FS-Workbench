@@ -1,10 +1,5 @@
 {
-  "_recordScope": {
-    "policyPath": "docs/ops/HOTFIX.md",
-    "historicalReadinessAndApprovalAssertions": true,
-    "notGlobalAdmissionGate": true,
-    "preserveOwnerSourceAndEvidenceRows": true
-  },
+  "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "recordedAt": "2026-10-05T16:37:07.843320+00:00",
   "status": "historical first-source snapshot; latest docs/NBA increment is separately frozen",
   "projectRoot": "E:\\WorkBuddy\\大超服务器",
@@ -4822,64 +4817,56 @@
     "remoteBranchCreated": true
   },
   "fcPlayerPriceVerificationOff20261007": {
-    "moduleId": "fc-coins",
-    "businessOwner": "吴律",
-    "packagePath": "releases/fc-coins/player-price-verification-off-20261007",
-    "manifestPath": "releases/fc-coins/player-price-verification-off-20261007/SOURCE-MANIFEST.json",
-    "sourceBaseCommit": "364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8",
-    "sourceAdoptionScope": "six mapped files merged via PR30; remaining module legacy-unreconciled",
+  "moduleId": "fc-coins",
+  "businessOwner": "吴律",
+  "packagePath": "releases/fc-coins/player-price-verification-off-20261007",
+  "manifestPath": "releases/fc-coins/player-price-verification-off-20261007/SOURCE-MANIFEST.json",
+  "sourceBaseCommit": "364f7cc66ee07aa61f6e3a4a4cef0fe97923cda8",
+  "sourceAdoptionScope": "six mapped files merged via PR30; remaining module legacy-unreconciled",
     "mergedCommit": "56021e9d2b7c7214a1edca185d09d02182680c60",
-    "latestRecordedNaturalAcceptance": {
-      "capturedAtUtc": "2026-10-07T18:13:00Z",
-      "checksPassed": 11,
-      "coinsBackendPublic100KMatched": true,
-      "playerRequestAccepted": true,
-      "playerPriceEffectVerified": false,
-      "localEvidenceKey": "player-price-rule-natural-closure-20261008",
-      "liveReadThisTask": false
+    "latestRecordedNaturalAcceptance": {"capturedAtUtc":"2026-10-07T18:13:00Z","checksPassed":11,"coinsBackendPublic100KMatched":true,"playerRequestAccepted":true,"playerPriceEffectVerified":false,"localEvidenceKey":"player-price-rule-natural-closure-20261008","liveReadThisTask":false},
+  "deploymentActionThisPR": "none; readback matches prior authorized deployment",
+  "persistentStateBoundary": "config, policy, jobs, ledgers, queues, locks, receipts, credentials and database excluded",
+  "offlineTestEntry": "releases/fc-coins/player-price-verification-off-20261007/test_rule.py",
+  "files": [
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/automation_tick.py",
+      "runtime": "/opt/fc27-cloud-browser/automation_tick.py",
+      "sha256": "b250ae15baf77aa767251db8c75be21370e626e627d940fccc7365546ee551cc",
+      "bytes": 26721
     },
-    "deploymentActionThisPR": "none; readback matches prior authorized deployment",
-    "persistentStateBoundary": "config, policy, jobs, ledgers, queues, locks, receipts, credentials and database excluded",
-    "offlineTestEntry": "releases/fc-coins/player-price-verification-off-20261007/test_rule.py",
-    "files": [
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/automation_tick.py",
-        "runtime": "/opt/fc27-cloud-browser/automation_tick.py",
-        "sha256": "b250ae15baf77aa767251db8c75be21370e626e627d940fccc7365546ee551cc",
-        "bytes": 26721
-      },
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/player_sync_job.py",
-        "runtime": "/opt/fc27-cloud-browser/player_sync_job.py",
-        "sha256": "c5e08fa8bb53b3a49c56c313364e605b704c91ee4d2686492ec60e17ff65ca6a",
-        "bytes": 34655
-      },
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27_cloud_api.py",
-        "runtime": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
-        "sha256": "63797f1c50dfc3d157f63110b5dc9125ff8374a896cd6b1fde4d69b31c687451",
-        "bytes": 41782
-      },
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27_quote_cloud.js",
-        "runtime": "/var/www/dashboard/fc27-quote-cloud.js",
-        "sha256": "b96c9eb52f8869ba24e16ecd991854bb0cb91c8eb7e298eaf3e16cf955ab6ed9",
-        "bytes": 78832
-      },
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27-coins.html",
-        "runtime": "/var/www/dashboard/fc27-coins.html",
-        "sha256": "a93423caebaf5dc274735472550eff48f9eab56e05a1bdbf5dd215e0403979d7",
-        "bytes": 25447
-      },
-      {
-        "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27-coins-browser.html",
-        "runtime": "/var/www/dashboard/fc27-coins-browser.html",
-        "sha256": "d64e589455eff24c54bca98b47c312d1e038cd1b5bcbfbe8e611861250facc5d",
-        "bytes": 20460
-      }
-    ]
-  },
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/player_sync_job.py",
+      "runtime": "/opt/fc27-cloud-browser/player_sync_job.py",
+      "sha256": "c5e08fa8bb53b3a49c56c313364e605b704c91ee4d2686492ec60e17ff65ca6a",
+      "bytes": 34655
+    },
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27_cloud_api.py",
+      "runtime": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+      "sha256": "63797f1c50dfc3d157f63110b5dc9125ff8374a896cd6b1fde4d69b31c687451",
+      "bytes": 41782
+    },
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27_quote_cloud.js",
+      "runtime": "/var/www/dashboard/fc27-quote-cloud.js",
+      "sha256": "b96c9eb52f8869ba24e16ecd991854bb0cb91c8eb7e298eaf3e16cf955ab6ed9",
+      "bytes": 78832
+    },
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27-coins.html",
+      "runtime": "/var/www/dashboard/fc27-coins.html",
+      "sha256": "a93423caebaf5dc274735472550eff48f9eab56e05a1bdbf5dd215e0403979d7",
+      "bytes": 25447
+    },
+    {
+      "path": "releases/fc-coins/player-price-verification-off-20261007/source/fc27-coins-browser.html",
+      "runtime": "/var/www/dashboard/fc27-coins-browser.html",
+      "sha256": "d64e589455eff24c54bca98b47c312d1e038cd1b5bcbfbe8e611861250facc5d",
+      "bytes": 20460
+    }
+  ]
+},
   "registrationRuntimeV3Index": {
     "moduleId": "registration-runtime-v3",
     "indexPath": "docs/collaboration/REGISTRATION-INDEX.md",
@@ -4891,71 +4878,72 @@
     "scope": "registration index only; historical rows and owner contracts preserved"
   },
   "fcLockGateHardening20261013": {
-    "moduleId": "fc-coins",
-    "businessOwner": "吴律",
-    "scope": "two exact active source files only",
-    "canonicalLocalSource": "fc27_lock_gate_hardening_20261013/source",
-    "packagePath": "releases/fc-coins/lock-gate-hardening-20261013",
-    "files": [
-      {
-        "source": "source/coin_all_sync_job.py",
-        "runtime": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
-        "before": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
-        "sha256": "c0ca9ec45fc2b4e7be3337ae4ca50b6d5f4effab6a8eb7cb829718dabdc0b2ab",
-        "bytes": 22514
-      },
-      {
-        "source": "source/collect_competitor_browser.py",
-        "runtime": "/opt/fc27-cloud-browser/collector/collect_competitor_browser.py",
-        "before": "13691edfef8f739c33f37566a75cc6fd7ec8ef88b1ae5e7f334b5acd06383c8c",
-        "sha256": "790c5adc0abae4bb46c9975c60517e8457517af4700c6b21bd481d95027ebcc6",
-        "bytes": 11298
-      }
-    ],
-    "runtimeAccepted": "2026-10-13T11:51:31Z",
-    "linuxIsolatedTests": 34,
-    "linuxRequiredSkips": 0,
-    "productionFaultBranchesExercised": false,
-    "newNaturalCycleObserved": false,
-    "businessPolicyChanged": false,
-    "priceActionsDuringRelease": 0,
-    "remainingModuleAdoption": "legacy-unreconciled",
-    "runtimeDataIncluded": false
-  },
-  "fcOrderPublicAcceptance20261013": {
-    "module": "fc-coins",
-    "canonicalLocalSource": "fc27_order_public_acceptance_20261013/source",
-    "owner": "wulv",
-    "targets": {
-      "price_writer.py": {
-        "target": "/opt/fc27-cloud-browser/price_writer.py",
-        "before": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d",
-        "after": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d"
-      },
-      "report.py": {
-        "target": "/opt/fc-ops-readonly-monitor/report.py",
-        "before": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b",
-        "after": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b"
-      },
-      "probe_worker.py": {
-        "target": "/opt/fc-ops-readonly-monitor/probe_worker.py",
-        "before": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec",
-        "after": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec"
-      },
-      "hooks_notifier.py": {
-        "target": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
-        "before": "12bda6bc314662b7db2593b8ae1fac0f560082218c5504c4c087b1a23a0f7b0f",
-        "after": "37103b18ac4433c387d8e025b71b3384e85f7dea65ba3ac48af0b96afae013e2"
-      }
+  "moduleId": "fc-coins",
+  "businessOwner": "吴律",
+  "scope": "two exact active source files only",
+  "canonicalLocalSource": "fc27_lock_gate_hardening_20261013/source",
+  "packagePath": "releases/fc-coins/lock-gate-hardening-20261013",
+  "files": [
+    {
+      "source": "source/coin_all_sync_job.py",
+      "runtime": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+      "before": "ec8578622feb8cee176ce23c4a8603f7341b9cbd379207165c7cf6cea21ae0e2",
+      "sha256": "c0ca9ec45fc2b4e7be3337ae4ca50b6d5f4effab6a8eb7cb829718dabdc0b2ab",
+      "bytes": 22514
     },
-    "success_scope": "order_b2c_and_public_price",
-    "actual_all_unknown_gate_preserved": true,
-    "packagePath": "releases/fc-coins/order-public-acceptance-20261013",
-    "businessOwner": "吴律",
-    "sourceOnly": true,
-    "linuxTests": 22,
-    "linuxSkips": 0
+    {
+      "source": "source/collect_competitor_browser.py",
+      "runtime": "/opt/fc27-cloud-browser/collector/collect_competitor_browser.py",
+      "before": "13691edfef8f739c33f37566a75cc6fd7ec8ef88b1ae5e7f334b5acd06383c8c",
+      "sha256": "790c5adc0abae4bb46c9975c60517e8457517af4700c6b21bd481d95027ebcc6",
+      "bytes": 11298
+    }
+  ],
+  "runtimeAccepted": "2026-10-13T11:51:31Z",
+  "linuxIsolatedTests": 34,
+  "linuxRequiredSkips": 0,
+  "productionFaultBranchesExercised": false,
+  "newNaturalCycleObserved": false,
+  "businessPolicyChanged": false,
+  "priceActionsDuringRelease": 0,
+  "remainingModuleAdoption": "legacy-unreconciled",
+  "runtimeDataIncluded": false
+},
+  "fcOrderPublicAcceptance20261013": {
+  "module": "fc-coins",
+  "canonicalLocalSource": "fc27_order_public_acceptance_20261013/source",
+  "owner": "wulv",
+  "targets": {
+    "price_writer.py": {
+      "target": "/opt/fc27-cloud-browser/price_writer.py",
+      "before": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d",
+      "after": "509e6ea3d8f84bc65e7b19484abc880ac190e923dbb0d5dd23668b900b4cba4d"
+    },
+    "report.py": {
+      "target": "/opt/fc-ops-readonly-monitor/report.py",
+      "before": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b",
+      "after": "995c11e3519176838f3c9ccb53d5f83ea2001f5a1f955d6bd389edcb429dc65b"
+    },
+    "probe_worker.py": {
+      "target": "/opt/fc-ops-readonly-monitor/probe_worker.py",
+      "before": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec",
+      "after": "4a63d28db6ce03f93707bc5b0c987c9f23ee91576094b0c81b0f50189fcf0bec"
+    },
+    "hooks_notifier.py": {
+      "target": "/opt/fc-ops-readonly-monitor/hooks_notifier.py",
+      "before": "12bda6bc314662b7db2593b8ae1fac0f560082218c5504c4c087b1a23a0f7b0f",
+      "after": "37103b18ac4433c387d8e025b71b3384e85f7dea65ba3ac48af0b96afae013e2"
+    }
   },
+  "success_scope": "order_b2c_and_public_price",
+  "actual_all_unknown_gate_preserved": true,
+  "packagePath": "releases/fc-coins/order-public-acceptance-20261013",
+  "businessOwner": "吴律",
+  "sourceOnly": true,
+  "linuxTests": 22,
+  "linuxSkips": 0
+},
+
   "fcCurrentCycleGate20261014": {
     "module": "fc-coins",
     "owner": "wulv",
@@ -4990,5 +4978,18 @@
     "newNaturalCycleObserved": false,
     "runtimeDataIncluded": false,
     "automationPolicyOrigin": "Fresh active runtime 82514d34; original cost AST preserved; existing noncore/ops-hooks Git archives differ in reference-site cost validation and are not overwritten by this package."
+  },
+  "fcCurrentCycleGateReadback20261017": {
+    "scope": "GitHub-only backfill; 2026-10-17 11:10 frozen server read-only inventory",
+    "historicalPackage": "releases/fc-coins/gate-cycle-20261014",
+    "activeThreeFilesMatch": [
+      "automation_policy.py",
+      "price_writer.py",
+      "hooks.py"
+    ],
+    "coinAllSupersededBy": "releases/fc-coins/coin-all-readback-retry-20261014/source/coin_all_sync_job.py",
+    "originalGateSourceRetainedAsHistory": true,
+    "serverChanged": false
   }
+
 }

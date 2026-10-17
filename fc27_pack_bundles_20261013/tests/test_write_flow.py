@@ -23,6 +23,9 @@ RATES = {"PS": {"usd_per_k": "0.125700", "basis": "order_b2c"},
 def make_players():
     return {1: {"futbin_id": 1, "name": "P1", "rating": 90, "position": "ST",
                 "version": "", "ps_price": 100000, "pc_price": 80000,
+                "xbox_price": None, "image": ""},
+            2: {"futbin_id": 2, "name": "P2", "rating": 88, "position": "CB",
+                "version": "", "ps_price": 60000, "pc_price": 50000,
                 "xbox_price": None, "image": ""}}
 
 
@@ -84,7 +87,8 @@ class CodexReviewGuards(unittest.TestCase):
             rev = store.config["revision"]
             store.save_config({"expected_revision": rev, "bundles": [
                 {"id": "mancity11", "title": "ManCity11-PlayerBundle",
-                 "products": {}, "players": [{"futbin_id": 1, "position": "ST"}]}]})
+                 "products": {}, "players": [{"futbin_id": 1, "position": "ST"},
+                                       {"futbin_id": 2, "position": "CB"}]}]})
             store2 = mod.Store(Path(td))   # 模拟重启
             b = store2.config["bundles"][0]
             self.assertEqual(b.get("products"), {})
@@ -190,6 +194,74 @@ class CodexReviewGuards(unittest.TestCase):
             self.assertEqual(out, before)                 # 单价未被覆盖
             self.assertTrue(any("gid_mismatch" in e for e in summary["errors"]))
 
+    def test_discover_products_matches_by_normalized_title(self):
+        """自动发现：标题归一化匹配（空格/连字符差异不影响）+ aid 归位三平台"""
+        class FakeApi:
+            def _json(self, method, path, **kw):
+                return {"data": {"total": 4, "list": [
+                    {"id": 11, "title": "Paris11-Player Bundle", "aid": 21587},
+                    {"id": 22, "title": "Paris11-Player Bundle", "aid": 21585},
+                    {"id": 33, "title": "Paris11-Player Bundle", "aid": 21589},
+                    {"id": 44, "title": "Other Bundle", "aid": 21587},
+                ]}}
+
+        class FakeWriter:
+            def __init__(self, cred):
+                pass
+
+            def _api(self):
+                return FakeApi()
+
+        orig = mod.AdminWriter
+        self.addCleanup(lambda: setattr(mod, "AdminWriter", orig))
+        mod.AdminWriter = FakeWriter
+        with tempfile.TemporaryDirectory() as td:
+            store = mod.Store(Path(td))
+            r = mod.discover_products(store, title="Paris11-PlayerBundle")
+            self.assertEqual(r["matched"], {"ps": 11, "xbox": 22, "pc": 33})
+            self.assertEqual(r["unmatched"], [])
+            self.assertEqual(r["matched_title"], "Paris11-Player Bundle")
+            self.assertIn("Other Bundle", r["candidates"])
+            r2 = mod.discover_products(store, title="NoSuchBundle")
+            self.assertEqual(r2["matched"], {})
+            self.assertEqual(sorted(r2["unmatched"]), ["pc", "ps", "xbox"])
+
+    def test_norm_title_ignores_case_space_dash(self):
+        self.assertEqual(mod._norm_title("Paris11-Player Bundle"),
+                         mod._norm_title("Paris11-PlayerBundle"))
+        self.assertEqual(mod._norm_title(" A_B-c "), "abc")
+
+    def test_delete_all_bundles_allowed_and_conflict_raises(self):
+        """删包：允许删到 0 个（后台下架场景）；旧 revision 必须抛 conflict"""
+        with tempfile.TemporaryDirectory() as td:
+            store = mod.Store(Path(td))
+            rev = store.config["revision"]
+            rev2 = store.save_config({"expected_revision": rev, "bundles": []})
+            self.assertEqual(rev2, rev + 1)
+            self.assertEqual(store.config["bundles"], [])
+            self.assertEqual(store.compute_state()["bundles"], [])
+            with self.assertRaises(ValueError) as cm:
+                store.save_config({"expected_revision": rev, "bundles": []})
+            self.assertEqual(str(cm.exception), "revision_conflict")
+
+    def test_validate_bundles_rejects_non_list(self):
+        with self.assertRaises(ValueError):
+            mod.validate_bundles(None)
+        self.assertEqual(mod.validate_bundles([]), [])
+
+    def test_min_two_players_rule(self):
+        """老大 2026-10-16：包不要求 11 人，**最低 2 人**即可；1 人拒"""
+        two = [{"id": "b", "title": "B", "players": [
+            {"futbin_id": 1, "position": "ST"}, {"futbin_id": 2, "position": "CB"}]}]
+        self.assertEqual(len(mod.validate_bundles(two)[0]["players"]), 2)
+        one = [{"id": "b", "title": "B", "players": [{"futbin_id": 1, "position": "ST"}]}]
+        with self.assertRaises(ValueError) as cm:
+            mod.validate_bundles(one)
+        self.assertIn("players_min2", str(cm.exception))
+        seven = [{"id": "b", "title": "B", "players": [
+            {"futbin_id": i, "position": "ST"} for i in range(1, 8)]}]
+        self.assertEqual(len(mod.validate_bundles(seven)[0]["players"]), 7)
+
     def _store(self, **settings_over):
         td = tempfile.TemporaryDirectory()
         self.addCleanup(td.cleanup)
@@ -205,8 +277,8 @@ class CodexReviewGuards(unittest.TestCase):
                            "bundles": [{"id": "b1", "title": "B1",
                                         "products": {"ps": 111, "xbox": 222,
                                                      "pc": 333},
-                                        "players": [{"futbin_id": 1,
-                                                     "position": "ST"}]}]})
+                                        "players": [{"futbin_id": 1, "position": "ST"},
+                                                     {"futbin_id": 2, "position": "CB"}]}]})
         return store
 
 
@@ -233,8 +305,8 @@ class WriteFlowTests(unittest.TestCase):
                            "bundles": [{"id": "b1", "title": "B1",
                                         "products": {"ps": 111, "xbox": 222,
                                                      "pc": 333},
-                                        "players": [{"futbin_id": 1,
-                                                     "position": "ST"}]}]})
+                                        "players": [{"futbin_id": 1, "position": "ST"},
+                                                     {"futbin_id": 2, "position": "CB"}]}]})
         return store
 
     def test_dry_run_plans_without_writing(self):
@@ -247,13 +319,14 @@ class WriteFlowTests(unittest.TestCase):
         actions = {r["product_id"]: r["action"] for r in entry["results"]}
         self.assertEqual(actions[111], "planned")
         self.assertIn(111, [c[0] for c in fake.calls])
-        # 111（PS 槽位）目标 unit = 打包页面原价：
-        # 100K×0.1257×1.1=13.827（球员实际）→ ÷0.9=15.363（划线）→ ×0.8/0.7=17.56（包原价）
+        # 111（PS 槽位）目标 unit = 打包页面原价（两名球员合计）：
+        # P1 PS 100K×0.1257×1.1=13.827→划线15.363；P2 PS 60K×0.1257×1.1=8.296→划线9.218
+        # 合计划线 24.581 → ×0.8/0.7 = 28.09
         unit = Decimal(fake.calls[0][1])
-        self.assertEqual(unit, Decimal("17.56"))
-        # PC 槽位：80K×0.0994×1.1÷0.9×0.8÷0.7 = 11.11
+        self.assertEqual(unit, Decimal("28.09"))
+        # PC 槽位：P1 80K、P2 50K → (9.719+6.074)×0.8/0.7 = 18.05
         pc_unit = Decimal([c for c in fake.calls if c[0] == 333][0][1])
-        self.assertEqual(pc_unit, Decimal("11.11"))
+        self.assertEqual(pc_unit, Decimal("18.05"))
 
     def test_disabled_gate_blocks(self):
         store = self._store(write_enabled=False)
@@ -299,12 +372,12 @@ class WriteFlowTests(unittest.TestCase):
     def test_bundle_products_validation(self):
         out = mod.validate_bundles([{"id": "a", "title": "A",
                                      "products": {"ps": 1, "xbox": "", "pc": 3},
-                                     "players": [{"futbin_id": 5}]}])
+                                     "players": [{"futbin_id": 5}, {"futbin_id": 6}]}])
         self.assertEqual(out[0]["products"], {"ps": 1, "pc": 3})
         with self.assertRaises(ValueError):
             mod.validate_bundles([{"id": "a", "title": "A",
                                    "products": {"ps": -1},
-                                   "players": [{"futbin_id": 5}]}])
+                                   "players": [{"futbin_id": 5}, {"futbin_id": 6}]}])
 
 
 if __name__ == "__main__":

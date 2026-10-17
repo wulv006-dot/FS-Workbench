@@ -13,9 +13,13 @@ import secrets
 import threading
 import time
 
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
+SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded','provider_transport_recovery_exhausted',
+                              'provider_payload_too_large', 'context_rejected',
+                              'model_busy', 'provider_outcome_unknown', 'unverified_provider_result', 'stream_not_supported'})
 
 
 @dataclass(frozen=True)
@@ -117,11 +121,25 @@ class Proxy:
                                 expected_sha256=body['sha256'])
         if (method, path) != ('POST', '/v1/chat/completions'):
             raise PermissionError('route_denied')
-        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'reasoning_effort'}:
+        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}:
             raise ValueError('request_fields')
         # The FS-issued grant pins the business model mode. The client cannot
         # escalate, disable or silently downgrade it using a body parameter.
         effort=grant.reasoning_effort
+        auxiliary='tools' not in body and 'max_tokens' not in body
+        # Fixed native compression omits max_tokens/tools and probes streaming.
+        # Its pre-dispatch stream probe is rejected as HTTP400, so official
+        # auxiliary_client falls back once to a plain request without a charge.
+        if auxiliary:
+            if body.get('stream_options') not in (None,{'include_usage':True}):raise ValueError('stream_options')
+            if body.get('stream') is True:raise ValueError('stream_not_supported')
+            if body.get('reasoning_effort') not in (None,'none',effort):raise ValueError('reasoning_policy')
+            body=deepcopy(body)
+            body.pop('stream_options',None)
+            body['reasoning_effort']=effort
+            from proxy_gateway import MAX_HERMES_OUTPUT_TOKENS
+            body['max_tokens']=MAX_HERMES_OUTPUT_TOKENS
+        elif 'stream_options' in body:raise ValueError('stream_options')
         if (effort=='none' and body.get('reasoning_effort') not in (None,'none') or
                 effort!='none' and body.get('reasoning_effort')!=effort):
             raise ValueError('reasoning_policy')
@@ -154,9 +172,10 @@ class Proxy:
                         message.pop('reasoning_content')
                     elif pad is None:
                         message.pop('reasoning_content')
-                    elif len(pad.encode())>96000:
+                    elif len(pad.encode())>MAX_PROVIDER_WIRE_BYTES:
                         raise ValueError('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
+        if auxiliary:request['auxiliary']=True
         if effort!='none':request['reasoning_effort']=effort
         # Validate before recording request identity or changing any ledger table.
         from proxy_gateway import request_body
@@ -200,7 +219,8 @@ def start_loopback(proxy, port=8940):
                 if method == 'POST' and (len(sizes) != 1 or not sizes[0].isdigit()):
                     raise ValueError('content_length')
                 size = int(sizes[0]) if sizes else 0
-                if size > 128000 or (method == 'GET' and size):
+                limit = MAX_PROVIDER_WIRE_BYTES
+                if size > limit or (method == 'GET' and size):
                     raise ValueError('request_size')
                 raw = self.rfile.read(size)
                 if len(raw) != size:
@@ -210,8 +230,11 @@ def start_loopback(proxy, port=8940):
                 status = 200
             except PermissionError:
                 status, result = 403, {'error': {'message': 'request denied', 'type': 'permission_error'}}
-            except (ValueError, TypeError, KeyError):
-                status, result = 400, {'error': {'message': 'invalid or unreconciled request', 'type': 'invalid_request_error'}}
+            except (ValueError, TypeError, KeyError) as error:
+                code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
+                message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
+                status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
+                if code=='provider_transport_recovery_exhausted':status,result=503,{'error':{'message':'FC model connection recovery exhausted: provider_transport_recovery_exhausted','type':'upstream_transport_error'}}
             except Exception:
                 status, result = 503, {'error': {'message': 'request unavailable', 'type': 'server_error'}}
             data = encoded(result).encode('utf-8')

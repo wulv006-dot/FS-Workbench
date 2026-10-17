@@ -10,6 +10,28 @@ assert.equal(context.query({pool:'current'}).pool,'current');
 assert.equal(context.query().platform,'PC');
 console.log('FC query context: 5 assertions passed; consumption/report paid, fulfillment current, drill override retained.');
 
+// Render the actual overview helper, including mixed known/unknown source fields.
+const overview=source.slice(source.indexOf('function fcRiskOverview('),source.indexOf('\nconst fcTable='));
+const renderContext={esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fcMoney:v=>'$'+v.toFixed(2)};
+vm.createContext(renderContext);vm.runInContext(overview+'\nthis.render=fcRiskOverview;',renderContext);
+const metric={orders:2,known_orders:2,amount_usd:40,known_amount_usd:40,missing_amount_orders:0,unknown_selection_orders:0};
+const risk={status:'available',as_of:'2026-10-14T12:00:00+08:00',high_amount_usd:300,issues:metric,waiting24:metric,high_amount:metric,
+ aging:{under24:1,'24to72':2,at_least72:3,unknown_time:0,created_time_fallback:1}};
+const html=renderContext.render({current_risks:risk});
+assert(html.includes('当前问题单')&&html.includes('等待至少24小时')&&html.includes('高金额未结案'));
+assert(html.includes('2 单 · $40.00')&&html.includes('不是损失')&&html.includes('不受所选支付日期限制'));
+assert(html.includes('回退下单时间')&&html.includes('三组可重叠，不相加'));
+assert.equal(renderContext.render({current_risks:risk}),html,'same snapshot rendering is idempotent');
+const unknown={...risk,status:'partial',issues:{...metric,amount_usd:null,known_amount_usd:40,missing_amount_orders:1},
+ waiting24:{...metric,orders:null,known_orders:1},high_amount:{...metric,orders:null,known_orders:0,unknown_selection_orders:1},aging:{...risk.aging,unknown_time:2}};
+const partial=renderContext.render({current_risks:unknown});
+assert(partial.includes('已知 1 单')&&partial.includes('已知金额')&&partial.includes('缺金额 1 单')&&partial.includes('时间暂缺 2 单'));
+assert(partial.includes('未判定是否高金额'));
+for(const r of [undefined,{status:'not_available'}]){const text=renderContext.render({current_risks:r});assert(text.includes('合计暂缺'));assert(!text.includes('0 单'));}
+const unsafe=renderContext.render({current_risks:{...risk,issues:{...metric,amount_usd:'<img onerror=alert(1)>'}}});
+assert(!unsafe.includes('<img'));
+console.log('FC current-risk overview: scope, unknowns, incomplete/legacy data, escaping and idempotence passed.');
+
 // Exercise the actual reader: stale HTTP 200 must render before the refresh ends.
 const reader=source.slice(source.indexOf('async function fcRead('),source.indexOf('\nfunction fcDetailSync('));
 const valid={contractId:'fc27-detail-analytics-v1',query:{start:'2026-10-11',end:'2026-10-11'},snapshot_id:'fc-detail-test'};

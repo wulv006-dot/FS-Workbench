@@ -1,0 +1,19 @@
+# Discord 机器人控制台（/bots/ 页面）—— 2026-10-15 纳入版本管理。
+# 原则：后端与前端源码入仓；**运行时数据（含配置备份，里面有 Bot Token）一律不入仓**。
+
+# ===== 运行时数据：绝不入库 =====
+# data/ 下有 audit.log（操作审计）与 data/backups/guard-config-*.json
+# —— 后者的内容就是 guardbot 的 config.json 副本，**含 Bot Token 明文**。
+# 控制台本身会在 SFTP/host 时创建该目录，不需要入库。
+data/
+
+# ===== 虚拟环境与缓存 =====
+venv/
+__pycache__/
+*.pyc
+*.log
+
+# ===== 服务器排障用的手工备份 =====
+_bak_*
+*.bak
+*.bak.*

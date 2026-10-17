@@ -1,0 +1,11 @@
+# FS运行时与桌面配置冲突修复
+
+用户报告DY请求615e1f502773621730fecb69fff8d78d / task3adcbdd8da45aef6d3612280d548df00在业务取证前runtime_failed。日志已确认context_window_configuration_mismatch。只读检查确认FS进程读取的/profile/config.yaml包含桌面直连路由、streaming=true，缺少tool_search关闭和FS并发配置；/opt/pilot/runtime-config.yaml保留1048576/streaming=false/reasoning_echo=true/tool_search=false/max_concurrent_runs=0。
+
+修复范围：FS worker进程明确选择其自身受控runtime-config.yaml；继续共享原profile中的会话和记忆，保留窗口、压缩器与工具白名单断言。桌面配置与原失败请求不改。先隔离复现与官方构造检查，随后沿原worker publisher锁内CAS/备份/空闲重载；历史失败、UNKNOWN与费用证据保留，新任务单独验收。
+
+本文件仅任务索引，不单独代表已修复或上线。最终状态与证据见后续DELIVERY.md。
+
+当前候选只在make_adapter开始处增加官方config模块的进程内路径选择，固定读取与worker相邻的runtime-config.yaml，先于Runs/工具/agent导入；不改HERMES_HOME或会话库。没有调用set_config_context_length强制盖过断言，原窗口/压缩器/工具白名单检查原字节保留。三个离线单测通过；固定镜像内原代码复现context_window_configuration_mismatch，候选及桌面路由变化两场景均通过：1048576上下文、15工具精确白名单、tool_search关闭、streaming=false、reasoning_echo=true、max_concurrent_runs=0、技能0.7.0，0网络连接尝试/0模型调用。首次QA清理临时home时异步日志出现清理噪声，已在测试脚本中先排空logger后清理；构造结果不变。
+
+原worker publisher一文件模式复用，49个相关依赖保护；只有无进行中/未知请求时才允许重载FS worker。桌面服务、配置与会话保持。可重跑python test_isolation.py；run_qa.ps1在已核固定镜像中只构造，不执行模型或工具。发布apply同ID不可重放，未知结果先查原账本，回退保留数据库/报告/费用与历史失败。

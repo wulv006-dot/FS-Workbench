@@ -1,0 +1,1921 @@
+{
+  "contract": "hermes-07-sanitized-acceptance-case-v1",
+  "private_only": true,
+  "not_original_evidence": true,
+  "original_evidence_sha256": "1a55c0617ff946cce351a0f6ae617a69d72d426e4ec18eba13c05cb4b0f26e7c",
+  "original_model_sha256": "c53ebeeff53dcdc7dbcd96b6b905cf1e79c8dee570e32c31ea746fba463b37ba",
+  "request_id": "7311318b5b17d0b7c20c301cde1a2651",
+  "task_id": "73fa0fa6ef7f25669d2e45c28fe74b7c",
+  "run_id": "run_f2f1b20220ff4173a82aa654970b5be6",
+  "real_entry": "https://47.85.224.112/dashboard/fs-home/brain/index.html#ask",
+  "real_artifact": "https://47.85.224.112/dashboard/fs-home/advisor.json?mode=hermes&id=7311318b5b17d0b7c20c301cde1a2651&artifact=boss",
+  "result": {
+    "period": {
+      "end": "2026-10-14",
+      "start": "2026-10-13"
+    },
+    "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+    "context_loading": {
+      "background_sha256": "58fe32f4bc893a19ae7789a24b8fcc523e9f11975f8d1d1fcc5e24f34c677547",
+      "background_source": "Reviewed derived-1.1 plus user 2026-10-15 LV direction, DY 2026-10 targets SHA, green-plan PRD 2026-10-09; not runtime completion proof",
+      "background_version": "derived-1.2-20261015",
+      "context_sha256": "919483517791a5c2260d16a5121279041e64ee8154216c1b125019c53b8c20b9",
+      "coverage": [
+        "business_role_and_scope",
+        "Admin_main_Order_labelled_reference",
+        "verified_pricing_cost_boundary",
+        "date_refresh_and_evidence_scope",
+        "Chinese_outcomes_and_actions_first",
+        "autonomous_coordination_with_specific_intervention",
+        "skills_and_execution_capability_boundary"
+      ],
+      "external_skill_scripts_executed": false,
+      "governance_sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574",
+      "methods_sha256": "e7a118a1352fb3f2208df37ef116537a9912f74e8652d618f1613ce0737761df",
+      "permissions_added": [],
+      "reviewed_skills": [
+        {
+          "name": "humanizer-zh",
+          "scenario": "final_expression_preserve_facts_evidence_confidence",
+          "sha256": "95627fd4437d886f98032ccc62d79136e6310f1fc04e354bb86431795ff206df",
+          "source": "https://github.com/op7418/Humanizer-zh",
+          "source_commit": "unknown_local_audited_text",
+          "version": "2026-09-23"
+        },
+        {
+          "name": "attribution",
+          "scenario": "interpretation_and_competing_causes_no_tracking",
+          "sha256": "264e7241b6a8c2eb85da45fd8668a35966f1c764a6902c11fc6d373be43b65e7",
+          "source": "https://github.com/coreyhaines31/marketingskills",
+          "source_commit": "unknown_local_audited_text",
+          "version": "1.1.2"
+        },
+        {
+          "name": "customer-research",
+          "scenario": "existing_sanitized_feedback_only_when_available",
+          "sha256": "be259f00d92d590f4c9bc3e1e498222dc3df983e91e1923bf57cfdcd2d91c8c9",
+          "source": "https://github.com/coreyhaines31/marketingskills",
+          "source_commit": "unknown_local_audited_text",
+          "version": "2.0.4"
+        },
+        {
+          "name": "ab-testing",
+          "scenario": "recommend_experiment_design_no_execution",
+          "sha256": "ed96b5fe35cfed2b296c329679d80f05155cc38a141db43d7217056856aa93ff",
+          "source": "https://github.com/coreyhaines31/marketingskills",
+          "source_commit": "unknown_local_audited_text",
+          "version": "2.0.0"
+        },
+        {
+          "name": "marketing-psychology",
+          "scenario": "optional_hypotheses_never_causal_proof",
+          "sha256": "573bbe4f6e300e7fb75299e314f56e26382d284782caa2ae0e0f33eb2e646548",
+          "source": "https://github.com/coreyhaines31/marketingskills",
+          "source_commit": "unknown_local_audited_text",
+          "version": "2.0.0"
+        }
+      ],
+      "skill_sha256": "496354b74612b7ca142dc7c81024a4662bfd947e0c058599ef83a06154c0ac0a",
+      "skill_version": "0.7.0-report-semantic-quality",
+      "status": "runtime_confirmed",
+      "version": "fs-task-context-v1"
+    },
+    "skills_version": "0.7.0-report-semantic-quality",
+    "skill_sha256": "496354b74612b7ca142dc7c81024a4662bfd947e0c058599ef83a06154c0ac0a",
+    "reasoning_effort": "max",
+    "report_format": "raw_json",
+    "delivery_status": "raw_saved",
+    "business_acceptance": "user_review_required",
+    "model_usage": {
+      "calls": 16,
+      "cost_basis": "amount_unknown_no_cny_invoice_or_fx",
+      "estimated_microcny": null,
+      "invalid_response_calls": 0,
+      "reasoning_tokens": 69470,
+      "total_tokens": 2746597,
+      "unknown_calls": 0
+    },
+    "actions_executed": false,
+    "validation": "original_native_report_with_evidence_index_key_conclusions_need_review"
+  },
+  "mechanical_checks": {
+    "checks": {
+      "actual_skill_version": true,
+      "actual_skill_fingerprint": true,
+      "actual_max_reasoning": true,
+      "original_model_hash": true,
+      "original_evidence_hash": true,
+      "original_text_preserved": true,
+      "requested_period": true,
+      "declared_comparison": true,
+      "no_unknown_model_calls": true,
+      "no_actions_executed": true,
+      "current_sales_matches_evidence": true,
+      "previous_sales_matches_evidence": true,
+      "current_orders_matches_evidence": true,
+      "previous_orders_matches_evidence": true,
+      "daily_chart_sales_reconcile": true
+    },
+    "mechanical_passed": true,
+    "actual_evidence_count": 80,
+    "current": {
+      "sales": "54914.93",
+      "orders": 835,
+      "evidence_ids": [
+        "ev_053bace9d85d0ce81c4251bf",
+        "ev_0999e3b9105c64837ade0f22",
+        "ev_209044407fe5f91306271413",
+        "ev_26a970cba7661137bd4b2ef9",
+        "ev_42d0c87e6dfb3a393606fa51",
+        "ev_5fa2aa7205c4b21ef49cb33f",
+        "ev_682edac93580ec9957bb3a1c",
+        "ev_95b93a2375054b4c903f5e39",
+        "ev_9fe13911e2adc711205caff3",
+        "ev_b96ed9943d3d3083f81aec5e",
+        "ev_c975047fb746af398f973baf"
+      ]
+    },
+    "previous": {
+      "sales": "63705.55",
+      "orders": 937,
+      "evidence_ids": [
+        "ev_00447878c2effc9318f5b4e5",
+        "ev_56e70052f0a813cfc4900c70",
+        "ev_63dd0dac1b535f95bf99ecee",
+        "ev_6d86b7d07893ae713e446fd1",
+        "ev_79914f7c74c9b4a4a68e4336",
+        "ev_84a0ef35595a4c9c8a2f0d1e",
+        "ev_a0646f56a4e16bfcb6ff533e",
+        "ev_c6fed259fcee8fe75e05dd6b",
+        "ev_e4ed2d609bd7078726c61e2b",
+        "ev_ec8ba5dcb400b1954a74c693"
+      ]
+    },
+    "actions": 5,
+    "findings": 14,
+    "intel": 0,
+    "limitations": [
+      "These checks do not approve causal claims, action thresholds, actual method application, or external intelligence. Independent narrative and HTML review remain required."
+    ]
+  },
+  "source_evidence_count": 80,
+  "selected_evidence": {
+    "ev_682edac93580ec9957bb3a1c": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "58.04",
+            "current_completed": 305,
+            "current_funding": 0,
+            "current_issues": 34,
+            "current_unfinished": 46,
+            "group": {
+              "payment": "applepay"
+            },
+            "known_revenue_usd": "20371.75",
+            "orders": 351,
+            "revenue_usd": "20371.75",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "65.73",
+            "current_completed": 118,
+            "current_funding": 0,
+            "current_issues": 8,
+            "current_unfinished": 14,
+            "group": {
+              "payment": "cardpay"
+            },
+            "known_revenue_usd": "8676.86",
+            "orders": 132,
+            "revenue_usd": "8676.86",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "61.02",
+            "current_completed": 89,
+            "current_funding": 0,
+            "current_issues": 8,
+            "current_unfinished": 10,
+            "group": {
+              "payment": "airwallex"
+            },
+            "known_revenue_usd": "6041.14",
+            "orders": 99,
+            "revenue_usd": "6041.14",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "75.72",
+            "current_completed": 75,
+            "current_funding": 2,
+            "current_issues": 8,
+            "current_unfinished": 7,
+            "group": {
+              "payment": "paypal"
+            },
+            "known_revenue_usd": "6360.58",
+            "orders": 84,
+            "revenue_usd": "6360.58",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "116.78",
+            "current_completed": 64,
+            "current_funding": 0,
+            "current_issues": 6,
+            "current_unfinished": 7,
+            "group": {
+              "payment": "klarna"
+            },
+            "known_revenue_usd": "8291.69",
+            "orders": 71,
+            "revenue_usd": "8291.69",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "40.07",
+            "current_completed": 18,
+            "current_funding": 0,
+            "current_issues": 6,
+            "current_unfinished": 6,
+            "group": {
+              "payment": "googlepay"
+            },
+            "known_revenue_usd": "961.66",
+            "orders": 24,
+            "revenue_usd": "961.66",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "53.19",
+            "current_completed": 21,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 1,
+            "group": {
+              "payment": "awgooglepay"
+            },
+            "known_revenue_usd": "1170.28",
+            "orders": 22,
+            "revenue_usd": "1170.28",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "75.79",
+            "current_completed": 14,
+            "current_funding": 0,
+            "current_issues": 2,
+            "current_unfinished": 3,
+            "group": {
+              "payment": "ideal"
+            },
+            "known_revenue_usd": "1288.41",
+            "orders": 17,
+            "revenue_usd": "1288.41",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "42.90",
+            "current_completed": 12,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "bancontact"
+            },
+            "known_revenue_usd": "514.80",
+            "orders": 12,
+            "revenue_usd": "514.80",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "49.19",
+            "current_completed": 9,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 2,
+            "group": {
+              "payment": "pix"
+            },
+            "known_revenue_usd": "541.12",
+            "orders": 11,
+            "revenue_usd": "541.12",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "61.39",
+            "current_completed": 5,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 1,
+            "group": {
+              "payment": "blik"
+            },
+            "known_revenue_usd": "368.35",
+            "orders": 6,
+            "revenue_usd": "368.35",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "31.24",
+            "current_completed": 3,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "apix"
+            },
+            "known_revenue_usd": "93.72",
+            "orders": 3,
+            "revenue_usd": "93.72",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "101.80",
+            "current_completed": 2,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "infini"
+            },
+            "known_revenue_usd": "203.60",
+            "orders": 2,
+            "revenue_usd": "203.60",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "30.97",
+            "current_completed": 1,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "picpay"
+            },
+            "known_revenue_usd": "30.97",
+            "orders": 1,
+            "revenue_usd": "30.97",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 14
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "65.77",
+          "current_completed": 736,
+          "current_funding": 2,
+          "current_issues": 75,
+          "current_unfinished": 97,
+          "known_revenue_usd": "54914.93",
+          "orders": 835,
+          "revenue_usd": "54914.93",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_682edac93580ec9957bb3a1c",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-14",
+        "filters": {},
+        "group_by": [
+          "payment"
+        ],
+        "page": 1,
+        "start": "2026-10-13"
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "a487d8340d564dfd37e86af9974dbf0a80bbb825cb7b8ad2737d3df1ec76724d"
+    },
+    "ev_ec8ba5dcb400b1954a74c693": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "59.79",
+            "current_completed": 354,
+            "current_funding": 0,
+            "current_issues": 13,
+            "current_unfinished": 23,
+            "group": {
+              "payment": "applepay"
+            },
+            "known_revenue_usd": "22539.52",
+            "orders": 377,
+            "revenue_usd": "22539.52",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "69.28",
+            "current_completed": 196,
+            "current_funding": 2,
+            "current_issues": 9,
+            "current_unfinished": 14,
+            "group": {
+              "payment": "paypal"
+            },
+            "known_revenue_usd": "14686.60",
+            "orders": 212,
+            "revenue_usd": "14686.60",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "108.50",
+            "current_completed": 85,
+            "current_funding": 1,
+            "current_issues": 2,
+            "current_unfinished": 4,
+            "group": {
+              "payment": "klarna"
+            },
+            "known_revenue_usd": "9764.55",
+            "orders": 90,
+            "revenue_usd": "9764.55",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "71.16",
+            "current_completed": 82,
+            "current_funding": 0,
+            "current_issues": 4,
+            "current_unfinished": 7,
+            "group": {
+              "payment": "cardpay"
+            },
+            "known_revenue_usd": "6333.49",
+            "orders": 89,
+            "revenue_usd": "6333.49",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "69.48",
+            "current_completed": 59,
+            "current_funding": 0,
+            "current_issues": 2,
+            "current_unfinished": 3,
+            "group": {
+              "payment": "airwallex"
+            },
+            "known_revenue_usd": "4307.67",
+            "orders": 62,
+            "revenue_usd": "4307.67",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "52.31",
+            "current_completed": 33,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 2,
+            "group": {
+              "payment": "googlepay"
+            },
+            "known_revenue_usd": "1830.98",
+            "orders": 35,
+            "revenue_usd": "1830.98",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "76.47",
+            "current_completed": 24,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 2,
+            "group": {
+              "payment": "ideal"
+            },
+            "known_revenue_usd": "1988.33",
+            "orders": 26,
+            "revenue_usd": "1988.33",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "46.09",
+            "current_completed": 19,
+            "current_funding": 0,
+            "current_issues": 2,
+            "current_unfinished": 4,
+            "group": {
+              "payment": "awgooglepay"
+            },
+            "known_revenue_usd": "1060.12",
+            "orders": 23,
+            "revenue_usd": "1060.12",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "61.21",
+            "current_completed": 9,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "bancontact"
+            },
+            "known_revenue_usd": "550.91",
+            "orders": 9,
+            "revenue_usd": "550.91",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "52.45",
+            "current_completed": 4,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "mxcards"
+            },
+            "known_revenue_usd": "209.81",
+            "orders": 4,
+            "revenue_usd": "209.81",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "36.30",
+            "current_completed": 2,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "apix"
+            },
+            "known_revenue_usd": "72.59",
+            "orders": 2,
+            "revenue_usd": "72.59",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "88.61",
+            "current_completed": 2,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "infini"
+            },
+            "known_revenue_usd": "177.21",
+            "orders": 2,
+            "revenue_usd": "177.21",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "51.36",
+            "current_completed": 2,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "skrill"
+            },
+            "known_revenue_usd": "102.71",
+            "orders": 2,
+            "revenue_usd": "102.71",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "13.42",
+            "current_completed": 1,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "picpay"
+            },
+            "known_revenue_usd": "13.42",
+            "orders": 1,
+            "revenue_usd": "13.42",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "10.96",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 1,
+            "current_unfinished": 1,
+            "group": {
+              "payment": "pix"
+            },
+            "known_revenue_usd": "10.96",
+            "orders": 1,
+            "revenue_usd": "10.96",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "10.09",
+            "current_completed": 1,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "sepatransfer"
+            },
+            "known_revenue_usd": "10.09",
+            "orders": 1,
+            "revenue_usd": "10.09",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "46.59",
+            "current_completed": 1,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "payment": "spei"
+            },
+            "known_revenue_usd": "46.59",
+            "orders": 1,
+            "revenue_usd": "46.59",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 17
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "67.99",
+          "current_completed": 874,
+          "current_funding": 3,
+          "current_issues": 35,
+          "current_unfinished": 60,
+          "known_revenue_usd": "63705.55",
+          "orders": 937,
+          "revenue_usd": "63705.55",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_ec8ba5dcb400b1954a74c693",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-07",
+        "filters": {},
+        "group_by": [
+          "payment"
+        ],
+        "page": 1,
+        "start": "2026-10-06"
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "a2438a0ba83e47e27479008a7ae2be9468d971c122b854308604b33a54e6aa79"
+    },
+    "ev_80552fde601a2693e42aa184": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "28.93",
+            "current_completed": 0,
+            "current_funding": 27,
+            "current_issues": 302,
+            "current_unfinished": 360,
+            "group": {
+              "age_band": "over14d",
+              "platform": "PS"
+            },
+            "known_revenue_usd": "11194.00",
+            "orders": 387,
+            "revenue_usd": "11194.00",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "38.49",
+            "current_completed": 0,
+            "current_funding": 5,
+            "current_issues": 96,
+            "current_unfinished": 160,
+            "group": {
+              "age_band": "7to14d",
+              "platform": "PS"
+            },
+            "known_revenue_usd": "6350.62",
+            "orders": 165,
+            "revenue_usd": "6350.62",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "38.93",
+            "current_completed": 0,
+            "current_funding": 7,
+            "current_issues": 79,
+            "current_unfinished": 93,
+            "group": {
+              "age_band": "over14d",
+              "platform": "PC"
+            },
+            "known_revenue_usd": "3893.29",
+            "orders": 100,
+            "revenue_usd": "3893.29",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "20.49",
+            "current_completed": 0,
+            "current_funding": 7,
+            "current_issues": 79,
+            "current_unfinished": 93,
+            "group": {
+              "age_band": "over14d",
+              "platform": "XBOX"
+            },
+            "known_revenue_usd": "2049.09",
+            "orders": 100,
+            "revenue_usd": "2049.09",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "50.63",
+            "current_completed": 0,
+            "current_funding": 2,
+            "current_issues": 48,
+            "current_unfinished": 81,
+            "group": {
+              "age_band": "3to7d",
+              "platform": "PS"
+            },
+            "known_revenue_usd": "4202.01",
+            "orders": 83,
+            "revenue_usd": "4202.01",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "67.45",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 32,
+            "current_unfinished": 61,
+            "group": {
+              "age_band": "under1d",
+              "platform": "PS"
+            },
+            "known_revenue_usd": "4114.58",
+            "orders": 61,
+            "revenue_usd": "4114.58",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "51.42",
+            "current_completed": 0,
+            "current_funding": 6,
+            "current_issues": 25,
+            "current_unfinished": 42,
+            "group": {
+              "age_band": "7to14d",
+              "platform": "XBOX"
+            },
+            "known_revenue_usd": "2468.02",
+            "orders": 48,
+            "revenue_usd": "2468.02",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "54.41",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 34,
+            "current_unfinished": 47,
+            "group": {
+              "age_band": "1to3d",
+              "platform": "PS"
+            },
+            "known_revenue_usd": "2557.17",
+            "orders": 47,
+            "revenue_usd": "2557.17",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "50.09",
+            "current_completed": 0,
+            "current_funding": 2,
+            "current_issues": 34,
+            "current_unfinished": 40,
+            "group": {
+              "age_band": "7to14d",
+              "platform": "PC"
+            },
+            "known_revenue_usd": "2103.82",
+            "orders": 42,
+            "revenue_usd": "2103.82",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "30.65",
+            "current_completed": 0,
+            "current_funding": 3,
+            "current_issues": 21,
+            "current_unfinished": 25,
+            "group": {
+              "age_band": "3to7d",
+              "platform": "PC"
+            },
+            "known_revenue_usd": "858.10",
+            "orders": 28,
+            "revenue_usd": "858.10",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "66.00",
+            "current_completed": 0,
+            "current_funding": 1,
+            "current_issues": 17,
+            "current_unfinished": 25,
+            "group": {
+              "age_band": "3to7d",
+              "platform": "XBOX"
+            },
+            "known_revenue_usd": "1715.95",
+            "orders": 26,
+            "revenue_usd": "1715.95",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "37.20",
+            "current_completed": 0,
+            "current_funding": 1,
+            "current_issues": 21,
+            "current_unfinished": 23,
+            "group": {
+              "age_band": "1to3d",
+              "platform": "PC"
+            },
+            "known_revenue_usd": "892.74",
+            "orders": 24,
+            "revenue_usd": "892.74",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "59.59",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 14,
+            "current_unfinished": 19,
+            "group": {
+              "age_band": "under1d",
+              "platform": "PC"
+            },
+            "known_revenue_usd": "1132.28",
+            "orders": 19,
+            "revenue_usd": "1132.28",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "238.32",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 10,
+            "current_unfinished": 15,
+            "group": {
+              "age_band": "1to3d",
+              "platform": "XBOX"
+            },
+            "known_revenue_usd": "3574.74",
+            "orders": 15,
+            "revenue_usd": "3574.74",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "54.68",
+            "current_completed": 0,
+            "current_funding": 1,
+            "current_issues": 10,
+            "current_unfinished": 11,
+            "group": {
+              "age_band": "under1d",
+              "platform": "XBOX"
+            },
+            "known_revenue_usd": "656.11",
+            "orders": 12,
+            "revenue_usd": "656.11",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 15
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "41.28",
+          "current_completed": 0,
+          "current_funding": 62,
+          "current_issues": 822,
+          "current_unfinished": 1095,
+          "known_revenue_usd": "47762.52",
+          "orders": 1157,
+          "revenue_usd": "47762.52",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_80552fde601a2693e42aa184",
+      "project": "FC27",
+      "query": {
+        "filters": {},
+        "group_by": [
+          "platform",
+          "age_band"
+        ],
+        "page": 1
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "75cadfd84866b3148822cf8f4454cb72eb9929444f9ac595874aa7f340517904"
+    },
+    "ev_0999e3b9105c64837ade0f22": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "65.48",
+            "current_completed": 402,
+            "current_funding": 0,
+            "current_issues": 31,
+            "current_unfinished": 46,
+            "group": {
+              "platform": "PS",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "29334.20",
+            "orders": 448,
+            "revenue_usd": "29334.20",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "58.73",
+            "current_completed": 156,
+            "current_funding": 0,
+            "current_issues": 20,
+            "current_unfinished": 22,
+            "group": {
+              "platform": "PC",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "10453.50",
+            "orders": 178,
+            "revenue_usd": "10453.50",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "74.31",
+            "current_completed": 97,
+            "current_funding": 1,
+            "current_issues": 8,
+            "current_unfinished": 12,
+            "group": {
+              "platform": "XBOX",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "8173.93",
+            "orders": 110,
+            "revenue_usd": "8173.93",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "63.39",
+            "current_completed": 44,
+            "current_funding": 0,
+            "current_issues": 7,
+            "current_unfinished": 8,
+            "group": {
+              "platform": "PS",
+              "product": "Items"
+            },
+            "known_revenue_usd": "3296.40",
+            "orders": 52,
+            "revenue_usd": "3296.40",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "28.92",
+            "current_completed": 19,
+            "current_funding": 0,
+            "current_issues": 2,
+            "current_unfinished": 3,
+            "group": {
+              "platform": "PS",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "636.16",
+            "orders": 22,
+            "revenue_usd": "636.16",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "251.72",
+            "current_completed": 7,
+            "current_funding": 0,
+            "current_issues": 3,
+            "current_unfinished": 3,
+            "group": {
+              "platform": "XBOX",
+              "product": "Items"
+            },
+            "known_revenue_usd": "2517.18",
+            "orders": 10,
+            "revenue_usd": "2517.18",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "28.22",
+            "current_completed": 5,
+            "current_funding": 0,
+            "current_issues": 3,
+            "current_unfinished": 3,
+            "group": {
+              "platform": "PC",
+              "product": "Items"
+            },
+            "known_revenue_usd": "225.79",
+            "orders": 8,
+            "revenue_usd": "225.79",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "26.86",
+            "current_completed": 4,
+            "current_funding": 1,
+            "current_issues": 1,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "PC",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "134.32",
+            "orders": 5,
+            "revenue_usd": "134.32",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "71.73",
+            "current_completed": 2,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "XBOX",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "143.45",
+            "orders": 2,
+            "revenue_usd": "143.45",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 9
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "65.77",
+          "current_completed": 736,
+          "current_funding": 2,
+          "current_issues": 75,
+          "current_unfinished": 97,
+          "known_revenue_usd": "54914.93",
+          "orders": 835,
+          "revenue_usd": "54914.93",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_0999e3b9105c64837ade0f22",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-14",
+        "filters": {},
+        "group_by": [
+          "platform",
+          "product"
+        ],
+        "page": 1,
+        "start": "2026-10-13"
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "6baf09d962de73889fc052b6bb17cf8fd42c1f8a9b22f6737b366f3dbbe84a4b"
+    },
+    "ev_a0646f56a4e16bfcb6ff533e": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "74.63",
+            "current_completed": 468,
+            "current_funding": 1,
+            "current_issues": 13,
+            "current_unfinished": 27,
+            "group": {
+              "platform": "PS",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "37017.02",
+            "orders": 496,
+            "revenue_usd": "37017.02",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "60.43",
+            "current_completed": 210,
+            "current_funding": 0,
+            "current_issues": 9,
+            "current_unfinished": 12,
+            "group": {
+              "platform": "PC",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "13416.33",
+            "orders": 222,
+            "revenue_usd": "13416.33",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "60.48",
+            "current_completed": 125,
+            "current_funding": 1,
+            "current_issues": 6,
+            "current_unfinished": 9,
+            "group": {
+              "platform": "XBOX",
+              "product": "Coins"
+            },
+            "known_revenue_usd": "8164.88",
+            "orders": 135,
+            "revenue_usd": "8164.88",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "75.38",
+            "current_completed": 38,
+            "current_funding": 0,
+            "current_issues": 5,
+            "current_unfinished": 9,
+            "group": {
+              "platform": "PS",
+              "product": "Items"
+            },
+            "known_revenue_usd": "3542.90",
+            "orders": 47,
+            "revenue_usd": "3542.90",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "43.55",
+            "current_completed": 17,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 1,
+            "group": {
+              "platform": "PS",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "783.89",
+            "orders": 18,
+            "revenue_usd": "783.89",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "51.01",
+            "current_completed": 7,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "PC",
+              "product": "Items"
+            },
+            "known_revenue_usd": "357.10",
+            "orders": 7,
+            "revenue_usd": "357.10",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "40.18",
+            "current_completed": 6,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "XBOX",
+              "product": "Items"
+            },
+            "known_revenue_usd": "241.07",
+            "orders": 6,
+            "revenue_usd": "241.07",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "31.97",
+            "current_completed": 3,
+            "current_funding": 1,
+            "current_issues": 2,
+            "current_unfinished": 1,
+            "group": {
+              "platform": "PC",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "159.87",
+            "orders": 5,
+            "revenue_usd": "159.87",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "22.49",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 1,
+            "group": {
+              "platform": "XBOX",
+              "product": "待分类"
+            },
+            "known_revenue_usd": "22.49",
+            "orders": 1,
+            "revenue_usd": "22.49",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 9
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "67.99",
+          "current_completed": 874,
+          "current_funding": 3,
+          "current_issues": 35,
+          "current_unfinished": 60,
+          "known_revenue_usd": "63705.55",
+          "orders": 937,
+          "revenue_usd": "63705.55",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_a0646f56a4e16bfcb6ff533e",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-07",
+        "filters": {},
+        "group_by": [
+          "platform",
+          "product"
+        ],
+        "page": 1,
+        "start": "2026-10-06"
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "b4782cec4582d8e84ef469da09191191aaf0e9fb93c598646f56ca15507ddeb0"
+    },
+    "ev_9fe13911e2adc711205caff3": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:56:23.868561+00:00",
+      "data": {
+        "coverage": {
+          "backlog": "all_authorized_open_fc_orders_no_paid_date_filter",
+          "backlog_failed_groups": [],
+          "backlog_sort": "source_native_order_total_and_unique_verified",
+          "backlog_status": "available",
+          "deduplicated_paid_records": 1,
+          "distribution_shop_verification": "not_verified_no_shop_or_group_field",
+          "excluded_distribution_orders": 0,
+          "missing_days": [],
+          "missing_payment_time": 0,
+          "paid_complete": true,
+          "period": {
+            "end": "2026-10-15 00:00",
+            "start": "2026-10-06 00:00"
+          },
+          "site_count": 265,
+          "site_rule": "266 main; all other configured website ids satellite; explicit distribution ids excluded",
+          "stable_sort": "source_id_descending",
+          "unknown_scope_orders": 0
+        },
+        "filters_applied": {},
+        "groups": [
+          {
+            "average_order_usd": "64.98",
+            "current_completed": 465,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "PS",
+              "status": "已完成"
+            },
+            "known_revenue_usd": "30213.45",
+            "orders": 465,
+            "revenue_usd": "30213.45",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "58.26",
+            "current_completed": 165,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "PC",
+              "status": "已完成"
+            },
+            "known_revenue_usd": "9613.54",
+            "orders": 165,
+            "revenue_usd": "9613.54",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "66.79",
+            "current_completed": 106,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "XBOX",
+              "status": "已完成"
+            },
+            "known_revenue_usd": "7080.06",
+            "orders": 106,
+            "revenue_usd": "7080.06",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "68.06",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 40,
+            "current_unfinished": 40,
+            "group": {
+              "platform": "PS",
+              "status": "问题订单"
+            },
+            "known_revenue_usd": "2722.42",
+            "orders": 40,
+            "revenue_usd": "2722.42",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "49.32",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 23,
+            "current_unfinished": 23,
+            "group": {
+              "platform": "PC",
+              "status": "问题订单"
+            },
+            "known_revenue_usd": "1134.47",
+            "orders": 23,
+            "revenue_usd": "1134.47",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "19.78",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 16,
+            "group": {
+              "platform": "PS",
+              "status": "已支付"
+            },
+            "known_revenue_usd": "316.50",
+            "orders": 16,
+            "revenue_usd": "316.50",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "238.21",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 10,
+            "current_unfinished": 10,
+            "group": {
+              "platform": "XBOX",
+              "status": "问题订单"
+            },
+            "known_revenue_usd": "2382.08",
+            "orders": 10,
+            "revenue_usd": "2382.08",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "64.90",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 3,
+            "group": {
+              "platform": "XBOX",
+              "status": "已支付"
+            },
+            "known_revenue_usd": "194.69",
+            "orders": 3,
+            "revenue_usd": "194.69",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "4.60",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 2,
+            "group": {
+              "platform": "PC",
+              "status": "已支付"
+            },
+            "known_revenue_usd": "9.20",
+            "orders": 2,
+            "revenue_usd": "9.20",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "534.66",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 2,
+            "group": {
+              "platform": "XBOX",
+              "status": "验证·未通过"
+            },
+            "known_revenue_usd": "1069.32",
+            "orders": 2,
+            "revenue_usd": "1069.32",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "56.40",
+            "current_completed": 0,
+            "current_funding": 1,
+            "current_issues": 1,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "PC",
+              "status": "调查"
+            },
+            "known_revenue_usd": "56.40",
+            "orders": 1,
+            "revenue_usd": "56.40",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "14.39",
+            "current_completed": 0,
+            "current_funding": 0,
+            "current_issues": 0,
+            "current_unfinished": 1,
+            "group": {
+              "platform": "PS",
+              "status": "验证·未通过"
+            },
+            "known_revenue_usd": "14.39",
+            "orders": 1,
+            "revenue_usd": "14.39",
+            "unpriced_orders": 0
+          },
+          {
+            "average_order_usd": "108.41",
+            "current_completed": 0,
+            "current_funding": 1,
+            "current_issues": 1,
+            "current_unfinished": 0,
+            "group": {
+              "platform": "XBOX",
+              "status": "投诉"
+            },
+            "known_revenue_usd": "108.41",
+            "orders": 1,
+            "revenue_usd": "108.41",
+            "unpriced_orders": 0
+          }
+        ],
+        "pagination": {
+          "complete": true,
+          "page": 1,
+          "page_size": 50,
+          "total_groups": 13
+        },
+        "progress_field": "not_provided",
+        "source_grain": "deduplicated_paid_order",
+        "state_basis": "current_at_capture_not_historical_day_end",
+        "status": "available",
+        "total": {
+          "average_order_usd": "65.77",
+          "current_completed": 736,
+          "current_funding": 2,
+          "current_issues": 75,
+          "current_unfinished": 97,
+          "known_revenue_usd": "54914.93",
+          "orders": 835,
+          "revenue_usd": "54914.93",
+          "unpriced_orders": 0
+        }
+      },
+      "evidence_id": "ev_9fe13911e2adc711205caff3",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-14",
+        "filters": {},
+        "group_by": [
+          "status",
+          "platform"
+        ],
+        "page": 1,
+        "start": "2026-10-13"
+      },
+      "scope": "main",
+      "snapshot_id": "fc-detail-cfe49cef534d3650e33a",
+      "source": "Admin FC支付明细",
+      "timezone": "Asia/Shanghai",
+      "original_record_canonical_sha256": "ad25b388f787babdc15b7ab09d25635db42a45e6420fb10d30580bb4a7e44bbe"
+    },
+    "ev_a3847f1053809f7e38d67457": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:57:19.013092+00:00",
+      "data": {
+        "captured_at": "2026-10-15T04:57:19.013092+00:00",
+        "contract": "fc-capability-read-v1",
+        "coverage": {
+          "complete": false,
+          "distinct_projected_rows": 141,
+          "has_more": false,
+          "pages": [
+            {
+              "exact_duplicates": 0,
+              "page": 1,
+              "response_time": 1792040238,
+              "rows": 50,
+              "source_total": 141
+            },
+            {
+              "exact_duplicates": 0,
+              "page": 2,
+              "response_time": 1792040238,
+              "rows": 50,
+              "source_total": 141
+            },
+            {
+              "exact_duplicates": 0,
+              "page": 3,
+              "response_time": 1792040238,
+              "rows": 41,
+              "source_total": 141
+            }
+          ],
+          "received_rows": 141,
+          "source_total": 141,
+          "stable_group_key_verified": false,
+          "total_stable": true
+        },
+        "currency": "USD",
+        "endpoint": "/admin/stats.productSalesByEs/index",
+        "errors": [],
+        "http_status": 200,
+        "immutable_watermark": false,
+        "kind": "product_sales",
+        "method": "GET",
+        "period_basis": "paytime RANGE submitted; aggregation/time filtering semantics not independently closed",
+        "query": {
+          "end": "2026-10-14",
+          "kind": "product_sales",
+          "page": 1,
+          "page_size": 50,
+          "pages": 3,
+          "period": {
+            "end": "2026-10-14 23:59:59",
+            "start": "2026-10-13 00:00:00"
+          },
+          "profile": "FC27",
+          "sort": "order_count,descending",
+          "start": "2026-10-13"
+        },
+        "readonly": true,
+        "rule": "SKU order_count is not distinct orders across products; sale_total unit unknown; title cannot infer historical coin K. Partial results cannot establish full revenue contribution.",
+        "scope": {
+          "admin_game_id": 1327,
+          "admin_site_id": 266,
+          "project": "FC27",
+          "site": "www.mmoexp.com"
+        },
+        "snapshot_policy": "first_usable_source_reply_per_query; source timestamps remain distinct from Admin capture",
+        "source_data_as_of": null,
+        "source_snapshot_id": "src_1af687918d8de5d4153615e4",
+        "source_system": "Admin",
+        "status": "partial",
+        "timezone": "Asia/Shanghai"
+      },
+      "evidence_id": "ev_a3847f1053809f7e38d67457",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-14",
+        "kind": "product_sales",
+        "page": 1,
+        "page_size": 50,
+        "pages": 3,
+        "profile": "FC27",
+        "sort": "order_count,descending",
+        "start": "2026-10-13"
+      },
+      "scope": "main",
+      "snapshot_id": "src_1af687918d8de5d4153615e4",
+      "source": "Admin FC27主站原生统计/商品销量；完整性与定义限制随源保留",
+      "timezone": "Asia/Shanghai",
+      "fixture_redaction": "SKU rows omitted; source field definitions and original coverage retained. This copy is not the immutable original evidence.",
+      "original_record_canonical_sha256": "2ffcfacd0d75409bc9e7e5638e89f8e3ea88a59aae77eefac4ae55cd08637b66"
+    },
+    "ev_61369c0a3b7ac86b4402eceb": {
+      "analysis_anchor_id": "fc-detail-cfe49cef534d3650e33a",
+      "captured_at": "2026-10-15T04:57:19.488667+00:00",
+      "data": {
+        "captured_at": "2026-10-15T04:57:19.488667+00:00",
+        "contract": "fc-capability-read-v1",
+        "coverage": {
+          "complete": false,
+          "distinct_projected_rows": 115,
+          "has_more": false,
+          "pages": [
+            {
+              "exact_duplicates": 0,
+              "page": 1,
+              "response_time": 1792040239,
+              "rows": 50,
+              "source_total": 115
+            },
+            {
+              "exact_duplicates": 0,
+              "page": 2,
+              "response_time": 1792040239,
+              "rows": 50,
+              "source_total": 115
+            },
+            {
+              "exact_duplicates": 0,
+              "page": 3,
+              "response_time": 1792040239,
+              "rows": 15,
+              "source_total": 115
+            }
+          ],
+          "received_rows": 115,
+          "source_total": 115,
+          "stable_group_key_verified": false,
+          "total_stable": true
+        },
+        "currency": "USD",
+        "endpoint": "/admin/stats.productSalesByEs/index",
+        "errors": [],
+        "http_status": 200,
+        "immutable_watermark": false,
+        "kind": "product_sales",
+        "method": "GET",
+        "period_basis": "paytime RANGE submitted; aggregation/time filtering semantics not independently closed",
+        "query": {
+          "end": "2026-10-07",
+          "kind": "product_sales",
+          "page": 1,
+          "page_size": 50,
+          "pages": 3,
+          "period": {
+            "end": "2026-10-07 23:59:59",
+            "start": "2026-10-06 00:00:00"
+          },
+          "profile": "FC27",
+          "sort": "order_count,descending",
+          "start": "2026-10-06"
+        },
+        "readonly": true,
+        "rule": "SKU order_count is not distinct orders across products; sale_total unit unknown; title cannot infer historical coin K. Partial results cannot establish full revenue contribution.",
+        "scope": {
+          "admin_game_id": 1327,
+          "admin_site_id": 266,
+          "project": "FC27",
+          "site": "www.mmoexp.com"
+        },
+        "snapshot_policy": "first_usable_source_reply_per_query; source timestamps remain distinct from Admin capture",
+        "source_data_as_of": null,
+        "source_snapshot_id": "src_40a1e2e490a6dbcbcb162a80",
+        "source_system": "Admin",
+        "status": "partial",
+        "timezone": "Asia/Shanghai"
+      },
+      "evidence_id": "ev_61369c0a3b7ac86b4402eceb",
+      "project": "FC27",
+      "query": {
+        "end": "2026-10-07",
+        "kind": "product_sales",
+        "page": 1,
+        "page_size": 50,
+        "pages": 3,
+        "profile": "FC27",
+        "sort": "order_count,descending",
+        "start": "2026-10-06"
+      },
+      "scope": "main",
+      "snapshot_id": "src_40a1e2e490a6dbcbcb162a80",
+      "source": "Admin FC27主站原生统计/商品销量；完整性与定义限制随源保留",
+      "timezone": "Asia/Shanghai",
+      "fixture_redaction": "SKU rows omitted; source field definitions and original coverage retained. This copy is not the immutable original evidence.",
+      "original_record_canonical_sha256": "ae051868fb800dbeab8a0154ce5c94ca79e55f2746246b8d35b7f5a485afd93e"
+    }
+  },
+  "known_failures": [
+    {
+      "severity": "P1",
+      "case": "payment_residual",
+      "expected": "-4541.44 excluding paypal/cardpay/airwallex; -464.60 is all non-paypal net",
+      "evidence_ids": [
+        "ev_682edac93580ec9957bb3a1c",
+        "ev_ec8ba5dcb400b1954a74c693"
+      ]
+    },
+    {
+      "severity": "P1",
+      "case": "unsupported_order_intersection",
+      "evidence_ids": [
+        "ev_0999e3b9105c64837ade0f22",
+        "ev_9fe13911e2adc711205caff3"
+      ],
+      "expected": "intersection unknown; no shared key or joint product/status grouping"
+    },
+    {
+      "severity": "P1",
+      "case": "unit_quantity_mechanism",
+      "evidence_ids": [
+        "ev_a3847f1053809f7e38d67457",
+        "ev_61369c0a3b7ac86b4402eceb"
+      ],
+      "expected": "sale_total unit unknown, group key/time semantics unverified; no single-item or no-bundle claim"
+    },
+    {
+      "severity": "P2",
+      "case": "multi_dimension_pool_projection",
+      "evidence_ids": [
+        "ev_80552fde601a2693e42aa184"
+      ],
+      "expected": {
+        "orders": 1157,
+        "amount": "47762.52",
+        "age_orders": [
+          92,
+          86,
+          137,
+          255,
+          587
+        ]
+      }
+    }
+  ]
+}

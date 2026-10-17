@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 CONTRACT = 'fs-management-daily-v1'
 SUMMARY_CONTRACT = 'admin-main-order-labelled-supplement-v1'
 SHANGHAI = timezone(timedelta(hours=8), 'Asia/Shanghai')
-SCHEDULE = {'timezone': 'Asia/Shanghai', 'hour': 9, 'minute': 30, 'runs_per_day': 1}
+SCHEDULE = {'timezone': 'Asia/Shanghai', 'hour': 0, 'minute': 20, 'runs_per_day': 1}
 MAX_TOKENS = 5000
 COLLECTION_BUDGET_SECONDS = 420
 READER_TIMEOUT_SECONDS = 20
@@ -166,16 +166,18 @@ def _query(reader, key, period, *, budget=100, monotonic=time.monotonic, sleep=t
             delay = min(10, max(2, float(delay)))
         except (TypeError, ValueError):
             delay = 2
-        if monotonic() - started + delay >= budget:
+        if monotonic() - started + delay >= budget or monotonic()+delay>=deadline:
             break
         sleep(delay)
     return last or (dict.fromkeys(METRICS), {}, 'query_wait_timeout')
 
 
-def collect(at, *, reader, targets_path=None):
+def collect(at, *, reader, targets_path=None,deadline_at=None):
     """reader(path) returns {http_status, body, headers?}; reader must bound each HTTP call."""
     current, target = stamp(at), target_data(targets_path)
     deadline = time.monotonic() + COLLECTION_BUDGET_SECONDS
+    if deadline_at is not None:
+        deadline=min(deadline,time.monotonic()+max(0,(deadline_at-datetime.now(SHANGHAI)).total_seconds()))
     target_period = target['period']
     month_days = monthrange(int(target_period[:4]), int(target_period[5:]))[1]
     observed = current.day - 1 if current.strftime('%Y-%m') == target_period else 0

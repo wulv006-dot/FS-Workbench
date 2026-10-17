@@ -83,10 +83,123 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(self.service.get_job('other',job['id']),None)
             self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
 
+    def test_large_final_report_survives_validation_storage_and_readback(self):
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):
+                result=json.loads(payload['output']);result['summary']='Synthetic completed report. '*8000
+                payload['output']=encoded(result)
+            return code,payload
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote):
+            _,job=self.service.post(self.body,'owner',self.headers)
+            self.assertEqual(job['state'],'COMPLETED',job)
+            self.assertLess(len(encoded(job['result']).encode()),16000)
+            code,raw=self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'owner')
+            self.assertEqual(code,200);self.assertGreater(len(raw['content'].encode()),128000)
+            self.assertEqual(json.loads(raw['content'])['summary'],'Synthetic completed report. '*8000)
+            self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['html']},'owner')[0],200)
+            self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'other')[0],404)
+            self.assertEqual(self.service.get_job('owner',job['id'])['result'],job['result'])
+
+    def test_completed_native_run_with_invalid_json_saves_original_without_false_validation(self):
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):payload['output']='{"summary":"truncated"'
+            return code,payload
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote):
+            _,job=self.service.post(self.body,'owner',self.headers)
+        self.assertEqual(job['state'],'COMPLETED',job)
+        self.assertEqual(job['task_state'],'PARTIAL')
+        self.assertEqual(job['result']['delivery_status'],'raw_saved')
+        self.assertEqual(job['result']['business_acceptance'],'user_review_required')
+        self.assertNotEqual(job['result']['validation'],'verified')
+        self.assertEqual(self.service.get({'mode':['hermes'],'id':[job['id']],'artifact':['raw']},'owner')[1]['content'],'{"summary":"truncated"')
+        self.assertEqual(job['model_usage']['calls'],1)
+        self.assertEqual(list((self.run_root/'admissions').glob('*.json')),[])
+
+    def test_cancel_after_completed_run_before_validation_cannot_publish(self):
+        from report_validation import validate_output as real_validate
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
+        def validate(raw,book):
+            self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers)
+            return real_validate(raw,book)
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote),patch('controller.validate_output',side_effect=validate):
+            _,job=self.service.post(self.body,'owner',self.headers)
+        self.assertEqual(job['state'],'CANCELLED',job);self.assertIsNone(job['result'])
+
+    def test_cancel_competes_with_completed_parse_failure_finalization_without_orphan(self):
+        import threading
+        key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
+        ready=threading.Event();attempted=threading.Event();cancel_results=[];cancel_errors=[]
+        real_change=self.service.tasks.change
+        def change(task,state,**kwargs):
+            if state=='VALIDATING':
+                self.assertTrue(self.service.lock._is_owned())
+                ready.set();self.assertTrue(attempted.wait(1))
+            return real_change(task,state,**kwargs)
+        def cancel():
+            try:
+                self.assertTrue(ready.wait(1));attempted.set()
+                cancel_results.append(self.service.post({'kind':'hermes_cancel','id':key},'owner',self.headers))
+            except Exception as error:cancel_errors.append(error)
+        def remote(*args,**kwargs):
+            code,payload=self.remote(*args,**kwargs)
+            if payload.get('output'):payload['output']='{"summary":"truncated"'
+            return code,payload
+        thread=threading.Thread(target=cancel);thread.start()
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=remote),patch.object(self.service.tasks,'change',side_effect=change):
+            self.service.post(self.body,'owner',self.headers)
+        thread.join(2);self.assertFalse(thread.is_alive());self.assertEqual(cancel_errors,[])
+        job=self.service.get_job('owner',key)
+        self.assertIn(job['state'],{'COMPLETED','CANCELLED'});self.assertIn(job['task_state'],{'PARTIAL','CANCELLED'})
+        if job['state']=='COMPLETED':self.assertEqual(job['result']['delivery_status'],'raw_saved')
+        else:self.assertIsNone(job['result'])
+        self.assertEqual(job['model_usage']['calls'],1)
+        self.assertEqual(self.service.gateways,{})
+
+    def test_direct_provider_identity_never_aliases_same_input_old_bailian_failure(self):
+        self.assert_separate_failed_policy('existing-ledger-public-estimate')
+
+    def test_stream_transport_identity_never_aliases_nonstream_failed_task(self):
+        self.assert_separate_failed_policy('no-pilot-quotas-deepseek-direct-tokens-only-v1')
+
+    def assert_separate_failed_policy(self, old_policy):
+        from direct_provider import POLICY_ID
+        old_spec={'period':{'start':self.body['start'],'end_exclusive':'2026-10-12','timezone':'Asia/Shanghai'},
+                  'snapshot_id':self.book.capture_id,'template_version':'v3-1m-'+digest({k:v for k,v in self.body.items() if k!='request_id'})[:20],
+                  'knowledge_version':self.book.skills['version'],'budget_policy_id':old_policy}
+        old=self.service.tasks.create('owner',old_spec)
+        self.service.tasks.reserve_dispatch(old['id'],'owner','old_lease')
+        self.service.tasks.bind_run(old['id'],'owner','old_lease','run_'+'b'*32)
+        self.service.tasks.observe(old['id'],'owner','old_lease','failed',worker_stopped=True)
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote) as remote:
+            _,job=self.service.post(self.body,'owner',self.headers)
+        self.assertEqual(job['state'],'COMPLETED',job)
+        self.assertNotEqual(job['task_id'],old['id'])
+        self.assertEqual(self.service.tasks.get(old['id'],'owner')['state'],'FAILED')
+        self.assertEqual(self.service.tasks.get(job['task_id'],'owner')['spec']['budget_policy_id'],POLICY_ID)
+        self.assertEqual(self.service.gateways,{},'finished task token/provider state not leaked')
+        self.assertEqual(sum(args.args[0]=='POST' and args.args[1]=='/v1/runs' for args in remote.call_args_list),1)
+
     def test_anonymous_foreign_role_and_cross_origin_cannot_submit(self):
         self.assertEqual(self.service.post(self.body,None,self.headers)[0],401)
         self.assertEqual(self.service.post(self.body,'other',self.headers)[0],403)
         self.assertEqual(self.service.post(self.body,'owner',dict(self.headers,**{'Sec-Fetch-Site':'cross-site'}))[0],403)
+
+    def test_release_exclusive_lock_refuses_admission_without_creating_task(self):
+        import os
+        path=self.service.root/'admission.lock'
+        fd=os.open(str(path),os.O_RDWR|os.O_CREAT,0o600)
+        try:
+            if os.name=='posix':
+                import fcntl
+                fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            else:
+                import msvcrt
+                msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+            self.assertEqual(self.service.post(self.body,'owner',self.headers),(503,{'error':'release_in_progress'}))
+            with self.service.tasks.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM requests').fetchone()[0],0)
+        finally:os.close(fd)
 
     def test_cancel_while_sources_load_never_admits_runtime(self):
         key=digest({'owner':'owner','request_id':self.body['request_id']})[:32]
@@ -151,6 +264,28 @@ class ControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'scenario_presented_as_fact'):validate_output(encoded(value),self.book)
         finding.update(claim_type='hypothesis',alternative='只是情景输入，并非真实销售')
         self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
+
+    def test_hermes_question_sk_policy_is_independent_of_legacy_advisor(self):
+        from controller import clean_hermes_question
+        for value in ('Use task-scoped evidence.','Use risk-based review.','sk-SYNTHETIC'):
+            self.assertEqual(clean_hermes_question(value),value)
+        for value in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com','https://example.com','123456789012'):
+            with self.assertRaises(ValueError):clean_hermes_question(value)
+        body=dict(self.body,question='Use task-scoped evidence.')
+        with patch('controller.build_book',return_value=self.book),patch('controller.gateway',side_effect=self.build_gateway),patch.object(self.service,'remote',side_effect=self.remote):
+            code,job=self.service.post(body,'owner',self.headers)
+        self.assertEqual(code,202);self.assertEqual(job['state'],'COMPLETED',job)
+
+    def test_report_sk_text_allowed_and_other_private_markers_rejected(self):
+        ref=self.book.query({'start':'2026-10-05','end':'2026-10-11','group_by':[],'filters':{},'page':1})['evidence_id']
+        value={'summary':'Use "task-scoped" evidence.',
+               'findings':[{'statement':'A task-scoped sample is partial.','claim_type':'fact','evidence_ids':[ref],'alternative':'','missing':''}],
+               'actions':[],'reviews':[],'limitations':[],'number_claims':[]}
+        for marker in ('sk-SYNTHETIC','task-scoped','risk-based','Use "task-scoped." evidence.'):
+            value['summary']=marker;self.assertTrue(validate_output(encoded(value),self.book)['analysis_completed'])
+        for marker in ('Bearer fixture','Cookie: fixture','password=fixture','密码：fixture','user@example.com'):
+            value['summary']=marker
+            with self.assertRaisesRegex(ValueError,'sensitive_analysis'):validate_output(encoded(value),self.book)
 
 
 if __name__=='__main__':unittest.main()

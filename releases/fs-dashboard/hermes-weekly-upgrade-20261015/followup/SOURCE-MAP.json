@@ -1,0 +1,32 @@
+{
+  "scope": "hermes-fc-weekly-render-compat-20261015",
+  "base_commit": "0ecd5d2aaa140e3e00e2142a4f8a07efca5313c6",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/report_html.py",
+      "candidate": "research/runtime/report_html.py",
+      "runtime": "/opt/fs-hermes-fc/report_html.py",
+      "beforeSha256": "749ed5dbd0f9dd70428a8fbd6a2fc3d686ccb2ed61a200b330eeff4eb35238e5",
+      "sha256": "bf604a7eded0560375d9f6a9fe7a9abb23eecc4b8bcb2f294be7f1c0b2c03142",
+      "bytes": 22328
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "candidate": "research/runtime/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "882437d02436c461e66eefa28adfecaf73cd3145960504d18b4e8e917994ef21",
+      "sha256": "239926e1d84ba6caaf4ea48493bd85c50a44041ce4c07e6b7d161142a8cc35a7",
+      "bytes": 47336
+    },
+    {
+      "source": "source/report_semantics.py",
+      "candidate": "research/runtime/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "1ef9402c56b1e4353caf85dd28547ff8aa5d193cf4da5bf00e122ae98fe210b0",
+      "sha256": "5e375e4f2fd66bdc42d9878067a1923e71ddfe456635e6ca0cc323bca493df2e",
+      "bytes": 26367
+    }
+  ]
+}

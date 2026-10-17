@@ -1,0 +1,18 @@
+卡片总数        : 12 （期望 12）
+其中占位卡      : 0
+每区服卡片数    : {"PS":4,"XBOX":4,"PC":4}
+渲染顺序        :
+   [ 0]  PS/Lootbar 
+   [ 1]  PS/IGGM 
+   [ 2]  PS/U4GM 
+   [ 3]  PS/U7Buy   <- 行尾
+   [ 4]  XBOX/Lootbar 
+   [ 5]  XBOX/IGGM 
+   [ 6]  XBOX/U4GM 
+   [ 7]  XBOX/U7Buy   <- 行尾
+   [ 8]  PC/Lootbar 
+   [ 9]  PC/IGGM 
+   [10]  PC/U4GM 
+   [11]  PC/U7Buy   <- 行尾
+期望占位卡      : 0 （= 12 - 本轮到齐的竞品数）
+GRID_4x3_OK = true

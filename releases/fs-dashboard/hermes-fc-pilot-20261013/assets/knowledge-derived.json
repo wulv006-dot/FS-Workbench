@@ -1,38 +1,5 @@
 {
-  "kind": "stable_background_index",
-  "version": "derived-1.0-20261013",
-  "sha256": "6f9ab0875621bfaba814773f3bafae50387d51df7adf6ac8cc754e5cd6f7adb9",
-  "source_reference": "Library libfile_d2de6fdbc8d08191b3d0b91567c61ff9 v1.0; derived summary, not original",
-  "entry": "# Hermes FC 业务背景运行摘要（派生稿）\n\n这是依据已读取的《Hermes业务背景与协作指南.md》v1.0 编写的运行摘要，来源 Library `libfile_d2de6fdbc8d08191b3d0b91567c61ff9`，读取日期 2026-10-13。它不是 Library 原件或逐字节物化副本。原件 Windows 物化失败记录仍有效。用途仅为背景上下文，不授予权限，也不证明当前业务状态。\n\n吴律负责 MMOEXP 球类运营。Agent 的目标是减少重复劳动、解释经营变化并提出可验证的行动。ChatGPT／老D仍是主沟通入口；FS直接交任务给Hermes，无须经飞书。优先完成最近完整一周FC调查，并根据发现补查证据。\n\n",
-  "sections": [
-    {
-      "id": "intro",
-      "title": "Document introduction"
-    },
-    {
-      "id": "section_1",
-      "title": "经营口径"
-    },
-    {
-      "id": "section_2",
-      "title": "调查与行动"
-    },
-    {
-      "id": "section_3",
-      "title": "FS、Hermes 与权限"
-    },
-    {
-      "id": "section_4",
-      "title": "刷新与并行保护"
-    },
-    {
-      "id": "section_5",
-      "title": "业务范围与表达"
-    }
-  ],
-  "authority": "context_only",
-  "permissions": [],
-  "derived": true,
-  "original_materialization": "blocked-os.setxattr",
-  "read_date": "2026-10-13"
+  "version": "derived-1.1-20261014",
+  "sha256": "78070eceea4d240b3f16e1e11ebd237640e728a3d0b47c929a638d527ac3a1ae",
+  "source_reference": "Library libfile_d2de6fdbc8d08191b3d0b91567c61ff9 v1.0 full text read 243 lines; derived/current-user overlays, not original bytes"
 }

@@ -1,0 +1,37 @@
+# g2gfollow（G2G 金币改价系统 · AION2 Kinah）—— 2026-10-14 纳入版本管理时重写。
+# 原则：**源码与定价口径入仓；凭据、运行时数据、可再生缓存一律不入仓。**
+
+# ===== 认证与凭据：绝不入库 =====
+# var/ 下是 G2G 本店 accessToken（token.json）、浏览器 session cookie
+# （g2g_session.json）与告警标记，线上权限 0600，只存在于服务器。
+# ⚠ 2026-10-14 修正：旧规则只写了 var/token.json，**漏了 var/g2g_session.json**
+#   —— 那是店铺登录态 cookie，一旦入库等于泄露。改为整目录忽略。
+var/
+
+# 本店配置（店铺 / 费率 / 买满量 / 86 个服务区）在服务器上直接编辑后生效，
+# 与仓库根 .gitignore 的 `**/config.json*` 同口径：只留服务器副本，不入库。
+# 留痕方式：tools/snapshot_config.py 落 _bak_config_*.json 快照（_bak_* 已忽略）。
+config.json
+
+# ===== 运行时产物 =====
+data/*.db
+data/*.db-wal
+data/*.db-shm
+logs/*.log
+logs/*.stdout.log
+venv/
+__pycache__/
+*.pyc
+
+# ===== DD373 区服树：6 小时 TTL 的磁盘缓存，可再生 =====
+# vendor/core_dd373_cost.py 的 zone_tree(max_age=21600) 会自动重抓并落盘，
+# 属派生缓存 ⇒ 不入库。
+# ⚠ 2026-10-14 修正：旧规则写的 `vendor/dd373_zone_tree.json` 路径是错的，
+#   真实路径在 vendor/data/ 下，旧规则从未生效过。
+vendor/data/dd373_zone_tree.json
+
+# ===== 服务器排障用的手工备份与旧版快照 =====
+_bak_*
+*.bak
+*.bak.*
+*.bak-*

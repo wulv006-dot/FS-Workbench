@@ -1,0 +1,21 @@
+body:not([data-fs-session="ready"]) > :not(#fsSessionStatus){display:none!important}
+#fsSessionStatus{max-width:900px;margin:48px auto;padding:24px;background:#fff;border-radius:14px;line-height:1.8}
+body[data-fs-session="ready"] #fsSessionStatus{display:none}
+.fs-links{display:flex;gap:16px;font-size:13px;flex-wrap:wrap}
+.fs-links a{color:var(--ac);text-decoration:none}
+.fs-snapshot{padding:14px 18px;margin:0 0 18px;background:var(--amber-soft);color:#805000;border-radius:12px;line-height:1.7}
+.fs-insight{padding:20px;margin:20px 0;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.fs-insight h2{font-size:17px;margin-bottom:8px}
+.fs-insight p{color:var(--tx2);font-size:13px;line-height:1.7}
+.fs-insight-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:16px 0}
+.fs-insight-controls label{display:flex;flex-direction:column;gap:6px;flex:1;min-width:190px;font-size:12px}
+.fs-insight select{width:100%;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font:inherit;color:var(--tx)}
+#fsInsightButton{background:var(--ac);color:white;padding:11px 15px;border-radius:8px;font-weight:600}
+#fsInsightButton:disabled{opacity:.5;cursor:not-allowed}
+#fsInsightText{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.8;margin-top:12px}
+.fs-insight button:focus-visible,.fs-insight select:focus-visible,.fs-links a:focus-visible{outline:3px solid var(--ac-2);outline-offset:3px}
+.fs-snapshot p{margin:0 0 7px}.fs-snapshot button{padding:7px 12px;border:1px solid #c99a44;border-radius:7px;margin:6px 0}.fs-snapshot details{margin-top:8px}.fs-snapshot ul{padding-left:20px}
+.fs-daily-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+.fs-daily-item{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;line-height:1.7;overflow-wrap:anywhere}
+.fs-daily-item h3{font-size:16px;margin:6px 0}.fs-daily-item p{margin:7px 0;color:var(--tx2);font-size:12px}.fs-daily-label{font-size:11px;color:var(--ac)}.fs-daily-item blockquote{margin:10px 0;padding-left:12px;border-left:3px solid var(--line);font-size:12px}.fs-daily-item a{color:var(--ac)}
+@media(max-width:720px){.topbar-inner{flex-wrap:wrap;padding:12px 16px}.fs-links{order:3;width:100%}.wrap{padding:18px 16px 60px}.hero-notice{font-size:9px;max-width:90%;bottom:8px}.fs-insight-controls label{min-width:100%}#fsInsightButton{width:100%}}

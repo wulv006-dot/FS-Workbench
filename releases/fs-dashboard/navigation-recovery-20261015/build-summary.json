@@ -1,0 +1,16 @@
+{
+  "version": "workspace-native-20261006-ceb53e406309",
+  "nativeAssets": 139,
+  "nativeTargets": 4,
+  "uiTargets": 5,
+  "nativeContractSha256": "37a85bbb6fcd69f03d7c59a0d275709a4c26e98d935950d976c797e1b54d6630",
+  "sections": [
+    "数据分析",
+    "Hermes智体",
+    "球类工作区",
+    "RPG 游戏改价系统",
+    "机器人管理",
+    "协作工具"
+  ],
+  "businessWrites": false
+}
