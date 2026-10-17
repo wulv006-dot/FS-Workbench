@@ -142,6 +142,12 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
+        raise RuntimeError('SBC security checks missing')
+    if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
+        raise AssertionError('report track release must run affected checks')
+    if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
+        raise RuntimeError('hermes_research_integration_mapping_missing')
     class Good(unittest.TestCase):
         def runTest(self):self.assertTrue(True)
     class Bad(unittest.TestCase):
@@ -189,10 +195,52 @@ def selfcheck():
     require_changed_file("old-record.md",False)
     for name in ("fc27_ops_cloud/index.html","fc27_ops_cloud/data/fc-analytics.css"):
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
+    for path in ("source/game-monitor/index.html", "source/management/targets.json", "backend/boss_insights.py", "tests/management_polling.cjs"):
+        if select(["releases/fs-dashboard/boss-workspaces-20261013/"+path]) != ["fs-boss-workspaces"]:
+            raise RuntimeError("fs_boss_workspaces_scope_missing")
+    if select(["releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_deep_service.py"]) != ["fc-deep-advisor"]:
+        raise RuntimeError("fc_deep_advisor_scope_missing")
+    for path in ("controller.py","fs-hermes-fc.service","shared_candidate/range_api.py","skills/manifest.json"):
+        if select(["releases/fs-dashboard/hermes-fc-pilot-20261013/"+path]) != ["hermes-fc-pilot"]:
+            raise RuntimeError("hermes_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
         raise RuntimeError("admin_entry_scope_missing")
+    if select(["mlb_admin_import_20261012/src/mlb_write_cards.py"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_scope_missing")
+    if select(["mlb_admin_import_20261012/evidence/capture_20261012/entry.js"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_evidence_scope_missing")
+    if select(["mlb_admin_import_20261012/tests/test_admin_write_channel.py"]) != ["mlb-admin"]:
+        raise RuntimeError("mlb_admin_test_scope_missing")
+    if select(["fc27_pack_bundles_20261013/src/pack_bundles_server.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_scope_missing")
+    if select(["releases/fc-coins/lock-gate-hardening-20261013/source/coin_all_sync_job.py"]) != ["fc-lock-gate-hardening"]:
+        raise RuntimeError("fc_hardening_mapping_missing")
+    if select(["releases/fc-coins/order-public-acceptance-20261013/source/report.py"]) != ["fc-order-public"]:
+        raise RuntimeError("fc_order_public_mapping_missing")
+    if select(["releases/fc-coins/coin-all-readback-retry-20261014/source/coin_all_sync_job.py"]) != ["fc-coin-all-readback-retry"]:
+        raise RuntimeError("fc_coin_all_readback_retry_scope_missing")
+    if select(["releases/fc-coins/coin-all-readback-retry-20261014/test_readback_retry.py"]) != ["fc-coin-all-readback-retry"]:
+        raise RuntimeError("fc_coin_all_readback_retry_test_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/source/fc27-quote-cloud.js"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/tests/test_competitor_grid.cjs"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_test_scope_missing")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/source/fc27-coins.html"]) != ["frontend"]:
+        raise RuntimeError("fc_coin_competitor_grid_html_scope_changed")
+    if select(["releases/fc-coins/coin-competitor-grid-20261015/baseline/fc27-quote-cloud.js"]) != ["fc-coin-competitor-grid"]:
+        raise RuntimeError("fc_coin_competitor_grid_baseline_scope_missing")
+    if select(["fc27_pack_bundles_20261013/vendor/p2pah_price.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_vendor_scope_missing")
+    if select(["fc27_pack_bundles_20261013/tests/test_write_flow.py"]) != ["fc27-pack-bundles"]:
+        raise RuntimeError("fc27_pack_bundles_test_scope_missing")
+    if select(["共享资源/MLB新卡上架/server/mlb_server.py"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_scope_missing")
+    if select(["共享资源/MLB新卡上架/deploy/install_mlb.sh"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_sh_scope_missing")
+    if select(["共享资源/MLB新卡上架/client/启动执行器.bat"]) != ["mlb-shelf-tool"]:
+        raise RuntimeError("mlb_shelf_tool_bat_scope_missing")
     if select(["releases/registration/account-management-20261009/source/web/app.js"]) != ["registration-management"]:
         raise RuntimeError("registration_management_scope_missing")
     if select(["releases/fs-dashboard/admin-main-20261009/assets/shell.js"]) != ["fs-admin-view"]:
@@ -221,7 +269,103 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-sbc/security-20261015/"):
+            groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
+        if name.startswith("releases/fs-dashboard/management-quality-20261016/"):
+            groups.add("management-quality");continue
+        if name.startswith("releases/fs-dashboard/hermes-learning-loop-20261016/"):
+            groups.add("hermes-learning-loop");continue
+        if name.startswith("releases/fs-dashboard/desktop-learning-20261016/"):
+            groups.add("desktop-learning");continue
+        if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
+            groups.add("fs-management-v2");continue
+        if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
+            groups.add("fs-ui-system");continue
+        if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
+            groups.add("hermes-weekly-upgrade");continue
+        if name.startswith("releases/fs-dashboard/news-weekly-schedule-20261016/"):
+            groups.add("news-weekly-schedule");continue
+        if name.startswith("releases/fs-dashboard/game-monitor-news-cards-20261016/"):
+            groups.add("game-monitor-news-cards");continue
+        if name.startswith("releases/fs-dashboard/mmoexp-news-integration-20261016/"):
+            groups.add("mmoexp-news");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-import-20261015/"):
+            groups.add("hermes-report-import");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-tracks-20261015/"):
+            groups.add("hermes-report-tracks");continue
+        if name.startswith("releases/fs-dashboard/hermes-fs-research-integration-20261015/"):
+            groups.add("hermes-fs-research-integration");continue
+        if name.startswith("releases/fs-dashboard/hermes-market-sources-20261015/"):
+            groups.add("hermes-market-sources");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-filter-race-20261015/"):
+            groups.add("hermes-report-filter-race");continue
+        if name.startswith("releases/fs-dashboard/hermes-shared-reports-20261015/"):
+            groups.add("hermes-shared-reports");continue
+        if name.startswith("releases/fs-dashboard/hermes-fs-config-isolation-20261015/"):
+            groups.add("hermes-fs-config-isolation");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-actions-20261015/"):
+            groups.add("hermes-report-actions");continue
+        if name.startswith("releases/fs-dashboard/hermes-desktop-20261015/"):
+            groups.add("hermes-desktop");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-quality-20261015/"):
+            groups.add("hermes-report-quality");continue
+        if name.startswith("releases/fs-dashboard/menu-cache-20261015/"):
+            groups.add("fs-menu-cache");continue
+        if name.startswith("releases/fs-dashboard/navigation-recovery-20261015/"):
+            groups.add("navigation-recovery");continue
+        if name.startswith("releases/fs-dashboard/fs-revision-20261015/"):
+            groups.add("fs-revision-20261015");continue
+        if name in ("releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/release_navigation.py","releases/fs-dashboard/hermes-fc-pilot-20261013/test_nightly_release.py"):
+            groups.add("hermes-nightly-publisher");continue
+        if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
+            groups.add("hermes-fc-pilot");continue
+        if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
+            groups.add("hermes-fc-pilot");continue
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
+            groups.add("fc-deep-advisor");continue
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/homefix/"):
+            groups.add("ai-advisor-home");continue
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/routefix/"):
+            groups.add("ai-advisor-route");continue
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/activation/"):
+            groups.add("ai-advisor-live");continue
+        if name.startswith("releases/fs-dashboard/ai-advisor-20261013/"):
+            groups.add("ai-advisor");continue
+        if name.startswith("releases/fs-dashboard/boss-workspaces-20261013/"):
+            groups.add("fs-boss-workspaces");continue
+        if name.startswith("releases/fs-dashboard/fc-daily-20261013/"):
+            groups.add("fc-daily");continue
+        if name.startswith("releases/fs-dashboard/fc-detail-analytics-20261012/"):
+            groups.add("fc-detail-analytics");continue
+        if name.startswith("releases/fs-dashboard/on-demand-20261012/"):
+            groups.add("fs-on-demand");continue
+        if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
+            groups.add("fc-lock-gate-hardening");continue
+        if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
+            groups.add("fc-order-public");continue
+        # FC 金币 ALL 镜像写后回读（2026-10-14）：把单次回读换成有界只读重试。
+        if name.startswith("releases/fc-coins/coin-all-readback-retry-20261014/"):
+            groups.add("fc-coin-all-readback-retry");continue
+        # FC27 金币工作台竞品卡片栅格（2026-10-15）：列=竞品、行=区服，
+        # 缺来源必须补「暂未获取」占位卡（否则第 4 列被下一区服首卡顶掉）；
+        # 同批把成本口径说明段按 2026-09-26 原文补回页面。
+        # ⚠️ 只管 .js/.cjs：本包的 .html 与仓库既有约定一致，继续走 frontend 结构校验
+        #    （与 releases/fc-coins/player-price-verification-off-20261007 同口径）。
+        if suffix in (".js",".cjs") and name.startswith("releases/fc-coins/coin-competitor-grid-20261015/"):
+            groups.add("fc-coin-competitor-grid");continue
+        # FC27 捆绑包定价工具（2026-10-13 一+二期）：Futbin 金币价 × b2c 单价 → Packs 改价。
+        if name.startswith("fc27_pack_bundles_20261013/"):
+            groups.add("fc27-pack-bundles");continue
+        # MLB 后台直写链路（2026-10-12）：逆向证据 + 生产脚本 + 离线用例。
+        # evidence/ 是交付物的一部分（它证明逆向过程可复核），必须保留。
+        if name.startswith("mlb_admin_import_20261012/"):
+            groups.add("mlb-admin");continue
+        # MLB 新卡上架工作台（2026-10-05 故障修复归档）。
+        if name.startswith("共享资源/MLB新卡上架/"):
+            groups.add("mlb-shelf-tool");continue
+        if name.startswith("releases/fs-dashboard/game-boards-all-20261012/"):
+            groups.add("fs-game-boards-all");continue
         if name.startswith("releases/fs-dashboard/login-traffic-ui-20261011/"):
             groups.add("fs-login-traffic-ui");continue
         if name.startswith("releases/fs-dashboard/traffic-member-20261009/"):
@@ -265,6 +409,22 @@ def select(paths):
             ".github/workflows/registration-target39-manual-qa.yml",
         ):
             groups.add("registration-delta");continue
+        # g2gfollow（G2G 金币改价系统）2026-10-14 纳入版本管理。
+        # 它的 systemd unit 与 tools/*.sh 若不在此处置，会落进下面「无主 .service /
+        # 未映射」桶 ⇒ 一入仓就把 pr-fast 判红。整体归入 g2g 组，由
+        # pr_fast_tests.G2GModuleContracts 做离线契约检查（纯 AST/文本，不 exec、不联网）。
+        if name.startswith("opt/g2gfollow/") and suffix in (".py",".sh",".service"):
+            groups.add("g2g");continue
+        # Discord 机器人（2026-10-15 纳入版本管理）：MMOEXP GuardBot（防冒充守卫）
+        # + Shugo-bot（AION2 迎新）+ 管这两个机器人的控制台页面 /bots/。
+        # 与 g2g 同一个坑：它们的 systemd unit（.service）若不在此处置，会落进
+        # 下面「无主 .service」桶 ⇒ 一入仓就把 pr-fast 判红。整体归入 bots 组，
+        # 由 pr_fast_tests.BotModuleContracts 做离线契约检查（纯 AST / 文本，
+        # 不 exec、不联网）。.mjs 一并归组：它不在下面的按后缀分流表里，
+        # 不入组就只有 selfcheck 会跑，改了也没人看。
+        if name.startswith(("opt/mmoexp-guardbot/","opt/shugo-bot/","opt/bot-console/")) \
+                and suffix in (".py",".js",".cjs",".mjs",".service"):
+            groups.add("bots");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
@@ -321,6 +481,8 @@ def main():
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
+        elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
+        elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
@@ -335,6 +497,54 @@ def main():
                     "import sys,unittest;sys.path.insert(0,sys.argv[1]);import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[2],pattern=sys.argv[3]+'.py'));pr_fast.require_success(r)",
                     str(ROOT/"tools"),str(ROOT/release/"tests"),name],check=True,timeout=90,cwd=ROOT)
             node(release+"/tests/test_js.cjs")
+        elif group=="hermes-desktop":
+            units("releases/fs-dashboard/hermes-desktop-20261015",["test_context"])
+            subprocess.run(["pwsh","-NoLogo","-NoProfile","-File",str(ROOT/"releases/fs-dashboard/hermes-desktop-20261015/Test-Connect.ps1")],check=True,timeout=30,cwd=ROOT)
+        elif group=="hermes-report-quality":
+            units("releases/fs-dashboard/hermes-report-quality-20261015",["test_report_constraints","test_report_quality","test_release_quality","test_proof_release","test_report_delivery","test_skill_bundle","test_research"])
+            units("releases/fs-dashboard/hermes-shared-reports-20261015",["test_shared_reports"])
+        elif group=="navigation-recovery":
+            units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
+        elif group=="fs-revision-20261015":
+            release="releases/fs-dashboard/fs-revision-20261015"
+            units(release+"/reports/tests",["test_renderer"])
+            units(release+"/accounts/tests",["test_accounts","test_http","test_publisher"],root_owned=True)
+            units(release+"/accounts/integration",["test_ai_publisher"],root_owned=True)
+            units(release+"/ai",["test_retirement","test_official_workspace","test_boss_projection","test_boss_artifacts","test_business_context"])
+            units(release+"/analytics",["test_fc_detail","test_fc_pool"])
+            units(release+"/cleanup/tests",["test_cleanup","test_profit_queries"],root_owned=True)
+            units(release+"/shared-release",["test_ui_release","test_combined_publisher"],root_owned=True)
+            subprocess.run([sys.executable,"-B",str(ROOT/release/"shared-release/test_brain_contract.py")],check=True,timeout=30,cwd=ROOT)
+            units(release+"/frontend-release",["test_native_release"],root_owned=True)
+            for name in ("test_fc_lifecycle.cjs","test_management_existing.cjs","test_management_actuals.cjs","test_game_cards.cjs"):
+                node(release+"/analytics/"+name)
+            subprocess.run([sys.executable,"-B",str(ROOT/release/"ai/run_regression.py")],check=True,timeout=90,cwd=ROOT)
+        elif group=="fc-detail-analytics":
+            release="releases/fs-dashboard/fc-detail-analytics-20261012"
+            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_publisher"])
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_fc_query.cjs")
+        elif group=="fs-on-demand":
+            release="releases/fs-dashboard/on-demand-20261012"
+            units(release+"/tests",["test_catalog","test_range","test_profit_queries","test_query_api","test_grant_dy","test_weekly","test_release"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            entry=ROOT/release/"entry-profit-refresh/frontend"
+            if entry.exists():
+                units(release+"/entry-profit-refresh/frontend",["test_release_workspace"],root_owned=True)
+                subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets")))
+            else:node(release+"/tests/test_browser.cjs")
+            node(release+"/tests/test_legacy.cjs")
+        elif group=="fs-game-boards-all":
+            release="releases/fs-dashboard/game-boards-all-20261012"
+            units(release+"/tests",["test_games","test_release"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/tests/test_all_sites.cjs")
+            node(release+"/tests/test_browser.cjs")
+            entry=ROOT/release/"entry-cache/frontend"
+            if entry.exists():
+                units(release+"/entry-cache/frontend",["test_release_workspace"],root_owned=True)
+                subprocess.run(["node",str(ROOT/release/"tests/test_browser.cjs")],cwd=ROOT/release,check=True,timeout=30,
+                    env=dict(os.environ,FS_ASSET_PATH=str(entry/"assets"),FS_OLD_CATALOG="1"))
         elif group=="fs-login-traffic-ui":
             release="releases/fs-dashboard/login-traffic-ui-20261011"
             units(release,["test_login_release"],root_owned=True)
@@ -345,6 +555,40 @@ def main():
             units(release,["test_backend","test_publisher"])
             units(release+"/deploy/static",["test_release_workspace"],root_owned=True)
             node(release+"/test-glossary.cjs")
+        elif group=="hermes-nightly-publisher":
+            units("releases/fs-dashboard/hermes-fc-pilot-20261013",["test_nightly_release","test_release","test_autonomous_release","test_report_release","test_direct_release","test_continuation_release","test_capability_release"])
+        elif group=="hermes-fc-pilot":
+            release="releases/fs-dashboard/hermes-fc-pilot-20261013"
+            units(release,["test_pilot","test_runs_contract","test_gateway","test_background","test_transport","test_source_projection","test_skill_bundle","test_research","test_controller","test_report_output","test_report_release","test_continuation","test_continuation_release","test_call_recovery","test_report_delivery","test_markdown_report","test_autonomous_release","test_nightly","test_nightly_deadline","test_nightly_preparation","test_task_context","test_nightly_release","test_provider","test_release","test_fs_evidence","test_history","test_admission_hold","test_context_gate","test_direct_provider","test_direct_ledger","test_direct_release","test_capability_wiring","test_capability_release","admin_order_capabilities_20261014.test_capabilities","admin_order_capabilities_20261014.test_wiring"])
+            node(release+"/check_ui.cjs")
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"test_browser_ui.py")],check=True,timeout=30)
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"admission_smoke.py")],check=True,timeout=30)
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/release/"runtime_ci.py"),"--test"],check=True,timeout=420)
+        elif group=="fc-deep-advisor":
+            release="releases/fs-dashboard/ai-advisor-20261013/deep"
+            units(release+"/tests",["test_ci"],root_owned=True)
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/check_deep_ui.cjs")
+        elif group=="ai-advisor-home":
+            units("releases/fs-dashboard/ai-advisor-20261013/homefix/frontend",["test_release_workspace"],root_owned=True)
+        elif group=="ai-advisor-route":
+            units("releases/fs-dashboard/ai-advisor-20261013/routefix/frontend",["test_release_workspace"],root_owned=True)
+        elif group=="ai-advisor-live":
+            release="releases/fs-dashboard/ai-advisor-20261013/activation"
+            units(release+"/source",["test_ai_advisor","test_boss_insights","test_fc_daily","test_advisor_release"])
+            units(release+"/frontend",["test_release_workspace"],root_owned=True)
+            node(release+"/source/check_ui.cjs")
+        elif group=="ai-advisor":
+            units("releases/fs-dashboard/ai-advisor-20261013/source",["test_ai_advisor","test_boss_insights","test_fc_daily","test_advisor_release"])
+            node("releases/fs-dashboard/ai-advisor-20261013/source/check_ui.cjs")
+        elif group=="fs-boss-workspaces":
+            release="releases/fs-dashboard/boss-workspaces-20261013"
+            for name in ("game-monitor.cjs","game-daily.cjs","management_test.cjs","management_polling.cjs","management_sandbox.cjs"):
+                node(release+"/tests/"+name)
+            units(release+"/backend",["test_boss_insights"])
+            units(release+"/tests",["test_game_intelligence","management_daily_test","test_boss_daily","test_backend_release","test_insights_release"],root_owned=True)
+        elif group=="fc-daily":
+            units("releases/fs-dashboard/fc-daily-20261013/source",["test_fc_daily","test_fc_release"])
         elif group=="fs-business-period-cache":
             release="releases/fs-dashboard/business-period-cache-20261010"
             units(release+"/tests",["test_live_summary","test_latency","test_retention","test_backend_scope","test_period_cache"],root_owned=True)
@@ -410,8 +654,106 @@ def main():
         elif group=="green-plan":
             for name in ("candidate/backend/test_green_plan.py","check_release.py"):
                 subprocess.run([sys.executable,"-B",str(ROOT/"releases/green-plan/20261009"/name)],check=True,timeout=90,cwd=ROOT)
+        elif group=="mlb-admin":
+            # 离线用例：协议契约 / 幂等判定 / 凭据卫生 / 证据包结构。
+            # 不连网、不写后台、不需要凭据（CI 隔离环境下已验证 23 项全绿）。
+            units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
+        elif group=="fc-lock-gate-hardening":
+            units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-order-public":
+            units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
+        elif group=="fc-coin-all-readback-retry":
+            units("releases/fc-coins/coin-all-readback-retry-20261014",["test_readback_retry"])
+        elif group=="hermes-weekly-upgrade":
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/data",["test_weekly_data"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/methods",["test_weekly_bundle"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/visual",["test_visual"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
+            units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation","test_intel_selection"])
+            node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
+        elif group=="fc-sbc-security":
+            units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
+        elif group=="news-weekly-schedule":
+            units("releases/fs-dashboard/news-weekly-schedule-20261016/tests",["test_weekly","test_release_backend"])
+            node("releases/fs-dashboard/news-weekly-schedule-20261016/tests/test_weekly_ui.cjs")
+        elif group=="game-monitor-news-cards":
+            units("releases/fs-dashboard/game-monitor-news-cards-20261016/tests",["test_news_translation","test_release_backend"])
+            node("releases/fs-dashboard/game-monitor-news-cards-20261016/tests/test_cards_ui.cjs")
+        elif group=="mmoexp-news":
+            units("releases/fs-dashboard/mmoexp-news-integration-20261016/tests",["test_mmoexp_news","test_research_news","test_release_news","test_nightly_news"])
+            node("releases/fs-dashboard/mmoexp-news-integration-20261016/tests/test_news_ui.cjs")
+        elif group=="hermes-report-import":
+            units("releases/fs-dashboard/hermes-report-import-20261015",["test_imported_reports","test_release"])
+            node("releases/fs-dashboard/hermes-report-import-20261015/test_import_ui.cjs")
+        elif group=="hermes-report-tracks":
+            units("releases/fs-dashboard/hermes-report-tracks-20261015/tests",["test_report_tracks","test_pricing_report","test_artifact_tracks","test_release_tracks"])
+            node("releases/fs-dashboard/hermes-report-tracks-20261015/check_tracks.cjs")
+        elif group=="hermes-fs-research-integration":
+            units("releases/fs-dashboard/hermes-fs-research-integration-20261015/tests",["test_integration","test_official_intelligence","test_intel_binding","test_practical_review","test_executive_render","test_release"])
+        elif group=="hermes-market-sources":
+            units("releases/fs-dashboard/hermes-market-sources-20261015",["test_market","test_release_market","test_runtime_isolation"])
+        elif group=="hermes-report-filter-race":
+            node("releases/fs-dashboard/hermes-report-filter-race-20261015/check_refresh.cjs")
+        elif group=="hermes-shared-reports":
+            units("releases/fs-dashboard/hermes-shared-reports-20261015",["test_shared_reports","test_release"])
+        elif group=="hermes-fs-config-isolation":
+            units("releases/fs-dashboard/hermes-fs-config-isolation-20261015",["test_isolation"])
+        elif group=="hermes-report-actions":
+            node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
+        elif group=="management-quality":
+            units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="hermes-learning-loop":
+            units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release"])
+        elif group=="desktop-learning":
+            units("releases/fs-dashboard/desktop-learning-20261016/tests",["test_learning","test_publish"])
+        elif group=="fs-management-v2":
+            release="releases/fs-dashboard/management-v2-20261015"
+            units(release+"/tests",["test_management_facts","test_management_context","test_management_runner","test_static_publisher","test_backend_publisher","test_skill_identity"])
+            node(release+"/tests/check_frontend.cjs")
+            node(release+"/tests/check_syntax.cjs")
+        elif group=="fs-ui-system":
+            units("ui-system/tests",["test_ui","test_release"])
+            node("ui-system/tests/syntax.cjs")
+            node("ui-system/tests/theme.cjs")
+            node("ui-system/tests/navigation.cjs")
+        elif group=="fs-menu-cache":
+            release="releases/fs-dashboard/menu-cache-20261015"
+            node(release+"/test_cache.cjs")
+            units(release,["test_release"],root_owned=True)
+        elif group=="fc-coin-competitor-grid":
+            # Node 契约用例：把候选 JS 的渲染块原样抽出跑 5 场景 22 断言，
+            # 校验 3x4 槽位不变量（缺来源补占位、列序不位移）。零网络、零依赖。
+            node("releases/fc-coins/coin-competitor-grid-20261015/tests/test_competitor_grid.cjs")
+        elif group=="fc27-pack-bundles":
+            # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
+            # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
+            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
+        elif group=="mlb-shelf-tool":
+            # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
+            units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
         elif group=="builder":units("tools",["test_business_html_build"])
         elif group=="registration-delta":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

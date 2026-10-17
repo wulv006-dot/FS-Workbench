@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discord 机器人控制台</title>
+<style>
+:root{
+  --bg:#11111b; --bg2:#181825; --bg3:#1e1e2e; --line:#313244; --line2:#45475a;
+  --tx:#cdd6f4; --tx2:#a6adc8; --tx3:#7f849c;
+  --blue:#89b4fa; --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8;
+  --mauve:#cba6f7; --teal:#94e2d5; --peach:#fab387;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--tx);
+  font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  padding:0 0 60px;
+}
+a{color:var(--blue)}
+code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12.5px}
+
+/* ---------- 顶栏 ---------- */
+.top{
+  position:sticky;top:0;z-index:50;background:rgba(17,17,27,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.top h1{font-size:16px;font-weight:650;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+.dot-live{width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.top .spacer{flex:1}
+.who{font-size:12.5px;color:var(--tx2)}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;
+  font-weight:600;border:1px solid transparent}
+.badge.admin{background:rgba(166,227,161,.14);color:var(--green);border-color:rgba(166,227,161,.35)}
+.badge.ro{background:rgba(127,132,156,.16);color:var(--tx2);border-color:var(--line2)}
+.badge.st-run{background:rgba(166,227,161,.14);color:var(--green);border-color:rgba(166,227,161,.35)}
+.badge.st-stop{background:rgba(243,139,168,.14);color:var(--red);border-color:rgba(243,139,168,.35)}
+
+.wrap{max-width:1180px;margin:0 auto;padding:20px}
+
+/* ---------- 页签 ---------- */
+.tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.tab{
+  background:var(--bg2);border:1px solid var(--line);color:var(--tx2);
+  padding:9px 18px;border-radius:var(--r);cursor:pointer;font-size:13.5px;font-weight:600;
+  transition:.15s;display:flex;align-items:center;gap:8px;
+}
+.tab:hover{border-color:var(--line2);color:var(--tx)}
+.tab.on{background:var(--bg3);color:var(--tx);border-color:var(--blue);
+  box-shadow:0 0 0 1px rgba(137,180,250,.25),0 4px 14px -6px rgba(137,180,250,.5)}
+.tab .adot{width:7px;height:7px;border-radius:50%;background:var(--tx3)}
+.tab .adot.run{background:var(--green);box-shadow:0 0 6px var(--green)}
+.tab .adot.stop{background:var(--red)}
+.panel{display:none}
+.panel.on{display:block}
+
+/* ---------- 卡片 ---------- */
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;
+  padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:14.5px;font-weight:650;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card .hint{font-size:12.5px;color:var(--tx3);margin-bottom:14px;line-height:1.65}
+.card .hint.warn{color:var(--yellow)}
+
+/* ---------- 状态条 ---------- */
+.statusbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  background:var(--bg3);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:16px}
+.stat{display:flex;flex-direction:column;gap:1px;min-width:82px}
+.stat .k{font-size:10.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px}
+.stat .v{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.v.ok{color:var(--green)} .v.no{color:var(--red)} .v.warn{color:var(--yellow)}
+.statusbar .spacer{flex:1}
+
+/* ---------- 表单 ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+label{font-size:12.5px;font-weight:600;color:var(--tx2)}
+label .opt{font-weight:400;color:var(--tx3);font-size:11px}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--tx);
+  padding:8px 10px;font-size:13px;font-family:inherit;width:100%;transition:.15s;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(137,180,250,.13)}
+textarea{resize:vertical;min-height:74px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.55}
+.help{font-size:11.5px;color:var(--tx3);line-height:1.55}
+
+/* 开关 */
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.switch input{display:none}
+.track{width:44px;height:24px;border-radius:999px;background:var(--line2);
+  position:relative;transition:.18s;flex:0 0 auto}
+.track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:#fff;transition:.18s}
+.switch input:checked + .track{background:var(--green)}
+.switch input:checked + .track::after{transform:translateX(20px)}
+.switch.danger input:checked + .track{background:var(--red)}
+.switch-txt{font-size:13px;font-weight:600}
+.switch-txt small{display:block;font-weight:400;font-size:11.5px;color:var(--tx3)}
+
+/* 类目标签多选 */
+.chips{display:flex;flex-wrap:wrap;gap:7px;max-height:190px;overflow:auto;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+.chip{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line2);
+  border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;transition:.12s;white-space:nowrap}
+.chip:hover{border-color:var(--blue)}
+.chip input{display:none}
+.chip.on{background:rgba(137,180,250,.16);border-color:var(--blue);color:#dce8ff}
+.chip .pos{color:var(--tx3);font-size:10.5px}
+
+/* ---------- 按钮 ---------- */
+.btns{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+button{
+  background:var(--bg3);border:1px solid var(--line2);color:var(--tx);border-radius:8px;
+  padding:8px 15px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;
+  transition:.14s;display:inline-flex;align-items:center;gap:6px;
+}
+button:hover:not(:disabled){border-color:var(--blue);color:#fff}
+button:disabled{opacity:.42;cursor:not-allowed}
+button.primary{background:var(--blue);border-color:var(--blue);color:#11111b}
+button.primary:hover:not(:disabled){background:#a5c8ff;border-color:#a5c8ff;color:#11111b}
+button.go{background:rgba(166,227,161,.14);border-color:rgba(166,227,161,.4);color:var(--green)}
+button.go:hover:not(:disabled){background:rgba(166,227,161,.22);border-color:var(--green);color:var(--green)}
+button.stop{background:rgba(243,139,168,.13);border-color:rgba(243,139,168,.38);color:var(--red)}
+button.stop:hover:not(:disabled){background:rgba(243,139,168,.22);border-color:var(--red);color:var(--red)}
+
+/* ---------- 提示条 ---------- */
+.note{border-radius:9px;padding:11px 13px;font-size:12.5px;line-height:1.65;margin-bottom:14px;
+  border-left:3px solid;display:flex;gap:9px;align-items:flex-start}
+.note .ic{flex:0 0 auto;font-size:14px;line-height:1.4}
+.note.warn{background:rgba(249,226,175,.08);border-color:var(--yellow);color:#f6e5bd}
+.note.bad{background:rgba(243,139,168,.08);border-color:var(--red);color:#f9c9d6}
+.note.good{background:rgba(166,227,161,.08);border-color:var(--green);color:#d3f0cd}
+.note.info{background:rgba(137,180,250,.08);border-color:var(--blue);color:#cfdffb}
+.note code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px}
+
+/* ---------- Toast ---------- */
+#toast{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:9px}
+.tst{background:var(--bg3);border:1px solid var(--line2);border-left:3px solid var(--blue);
+  border-radius:9px;padding:11px 15px;font-size:13px;max-width:390px;
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.75);animation:slide .22s ease-out}
+.tst.ok{border-left-color:var(--green)} .tst.err{border-left-color:var(--red)}
+.tst .t{font-weight:700;margin-bottom:2px}
+.tst .d{color:var(--tx2);font-size:12.5px;white-space:pre-wrap;word-break:break-all;max-height:230px;overflow:auto}
+@keyframes slide{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+
+/* ---------- 测试器 ---------- */
+.tester-out{margin-top:12px;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--bg3);text-align:left;padding:8px 11px;font-size:11.5px;color:var(--tx3);
+  position:sticky;top:0;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+td{padding:7px 11px;border-top:1px solid var(--line);vertical-align:top}
+td.mono{font-family:ui-monospace,Consolas,monospace}
+tr.hit{background:rgba(243,139,168,.06)}
+tr.miss{background:rgba(166,227,161,.05)}
+.verdict{font-weight:700;font-size:12px}
+.verdict.h{color:var(--red)} .verdict.m{color:var(--green)} .verdict.e{color:var(--yellow)}
+
+/* ---------- 处置记录 ---------- */
+.bans-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bans-tools select,.bans-tools input[type=text]{width:auto;min-width:140px;max-width:230px}
+.bans-tools input[type=text]{min-width:230px}
+.bans-wrap{margin-top:12px;border:1px solid var(--line);border-radius:9px;
+  max-height:600px;overflow:auto}
+.bans-wrap table{min-width:900px}
+.bans-wrap::-webkit-scrollbar{width:9px;height:9px}
+.bans-wrap::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;
+  font-weight:600;border:1px solid transparent;white-space:nowrap}
+.pill.ban{background:rgba(243,139,168,.14);color:var(--red);border-color:rgba(243,139,168,.35)}
+.pill.kick{background:rgba(249,226,175,.14);color:var(--yellow);border-color:rgba(249,226,175,.35)}
+.pill.unban{background:rgba(166,227,161,.14);color:var(--green);border-color:rgba(166,227,161,.35)}
+.pill.bot{background:rgba(148,226,213,.14);color:var(--teal);border-color:rgba(148,226,213,.3)}
+.pill.human{background:rgba(127,132,156,.16);color:var(--tx2);border-color:var(--line2)}
+.pill.keep{background:rgba(243,139,168,.1);color:#f9c9d6;border-color:rgba(243,139,168,.28)}
+.pill.out{background:rgba(127,132,156,.14);color:var(--tx2);border-color:var(--line2)}
+.bans-id{color:var(--tx3);font-size:11px;font-family:ui-monospace,Consolas,monospace}
+tr.fresh{background:rgba(148,226,213,.06)}
+
+/* ---------- 日志 ---------- */
+pre.log{background:#0b0b12;border:1px solid var(--line);border-radius:9px;padding:13px;
+  font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;color:#c8d3ea;
+  max-height:430px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+pre.log::-webkit-scrollbar,.tester-out::-webkit-scrollbar,.chips::-webkit-scrollbar{width:9px;height:9px}
+pre.log::-webkit-scrollbar-thumb,.tester-out::-webkit-scrollbar-thumb,.chips::-webkit-scrollbar-thumb{
+  background:var(--line2);border-radius:9px}
+
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mt{margin-top:14px} .mb{margin-bottom:14px}
+.kv{font-size:12.5px;color:var(--tx2)}
+.kv b{color:var(--tx)}
+details{border:1px solid var(--line);border-radius:9px;padding:11px 14px;background:var(--bg3)}
+details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--tx2)}
+details[open] summary{margin-bottom:12px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.25);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.skeleton{color:var(--tx3);font-size:13px;padding:8px 0}
+@media(max-width:640px){
+  .wrap{padding:14px}.card{padding:15px}
+  .statusbar .stat{min-width:70px}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1><span class="dot-live"></span>Discord 机器人控制台</h1>
+  <span class="who" id="whoami"></span>
+  <span class="spacer"></span>
+  <span id="roleBadge"></span>
+  <button id="btnRefresh">刷新</button>
+</div>
+
+<div class="wrap">
+  <div class="tabs" id="tabs"></div>
+  <div id="panels"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   工具
+   ===================================================================== */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => (
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CK = 'botconsole:';
+
+function toast(title, detail, kind){
+  const el = document.createElement('div');
+  el.className = 'tst ' + (kind||'');
+  el.innerHTML = `<div class="t">${esc(title)}</div>` +
+    (detail ? `<div class="d">${esc(detail)}</div>` : '');
+  $('#toast').appendChild(el);
+  const ms = kind==='err' ? 9000 : 4200;
+  setTimeout(()=>{ el.style.transition='.3s'; el.style.opacity='0';
+    el.style.transform='translateX(26px)'; setTimeout(()=>el.remove(),300); }, ms);
+}
+
+function fmtDur(sec){
+  sec = Number(sec)||0;
+  if (sec<=0) return '—';
+  const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60);
+  if (d) return `${d}天${h}小时`;
+  if (h) return `${h}小时${m}分`;
+  return `${m}分钟`;
+}
+const fmtMem = kb => kb ? (kb/1024).toFixed(1)+' MB' : '—';
+
+/* 折叠视图：完整 config 走 sessionStorage，避免闭包丢失 */
+function storeCfg(key, cfg){ try{ sessionStorage.setItem(CK+key, JSON.stringify(cfg)); }catch(e){} }
+function loadCfg(key){ try{ const v=sessionStorage.getItem(CK+key); return v?JSON.parse(v):null; }catch(e){ return null; } }
+
+/* 应用根路径：页面可能挂在 /bots/ 这类子路径下（nginx 反代），
+   所有 fetch 都必须拼上这个前缀，否则会落到站点兜底服务上。 */
+const APP_BASE = (function(){
+  const p = location.pathname;
+  const dir = p.endsWith('/') ? p : p.replace(/[^/]*$/, '');
+  return (dir || '/').replace(/\/+$/, '');
+})();
+const apiUrl = p => APP_BASE + (p.startsWith('/') ? p : '/' + p);
+
+/* =====================================================================
+   API
+   ===================================================================== */
+let STATE = null;
+
+async function api(path, opts={}){
+  const init = { credentials:'same-origin', cache:'no-store', ...opts };
+  if (init.body && typeof init.body !== 'string'){
+    init.body = JSON.stringify(init.body);
+  }
+  if (init.method && init.method !== 'GET'){
+    init.headers = { 'Content-Type':'application/json', 'X-Requested-With':'XMLHttpRequest', ...(init.headers||{}) };
+  }
+  const r = await fetch(apiUrl(path), init);
+  const ct = r.headers.get('content-type')||'';
+  if (r.status === 401){ location.href = '/__auth/access/?next=' + encodeURIComponent(location.pathname); throw new Error('未登录'); }
+  if (!ct.includes('application/json')){
+    throw new Error('HTTP ' + r.status + ' 返回非 JSON：' + (await r.text()).slice(0,180));
+  }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+/* =====================================================================
+   渲染：页签 + 面板骨架
+   ===================================================================== */
+function renderTabs(){
+  const bots = Object.values(STATE.bots);
+  $('#tabs').innerHTML = bots.map((b,i)=>{
+    const cls = b.status.active ? 'run' : 'stop';
+    return `<div class="tab${i===0?' on':''}" data-bot="${b.key}">
+      <span class="adot ${cls}"></span>${esc(b.label)}</div>`;
+  }).join('')
+    + `<div class="tab${bots.length===0?' on':''}" data-bot="__test">名称测试器</div>`
+    + `<div class="tab" data-bot="__bans">处置记录</div>`;
+
+  $$('#tabs .tab').forEach(t => t.onclick = ()=>{
+    $$('#tabs .tab').forEach(x=>x.classList.toggle('on', x===t));
+    $$('.panel').forEach(p=>p.classList.toggle('on', p.dataset.bot===t.dataset.bot));
+    // 处置记录体量大（拉审计日志 + 全量封禁列表），点到才加载
+    if (t.dataset.bot === '__bans') loadBans(false);
+  });
+}
+
+function statusBarHTML(st, bot){
+  const b = STATE.bots[bot];
+  const runBadge = st.active
+    ? '<span class="badge st-run">运行中</span>'
+    : '<span class="badge st-stop">' + esc(st.sub||'已停止') + '</span>';
+  return `<div class="statusbar">
+    ${runBadge}
+    <div class="stat"><span class="k">开机自启</span>
+      <span class="v ${st.enabled?'ok':'warn'}">${st.enabled?'已启用':'未启用'}</span></div>
+    <div class="stat"><span class="k">运行时长</span><span class="v">${fmtDur(st.uptime_sec)}</span></div>
+    <div class="stat"><span class="k">内存</span><span class="v">${fmtMem(st.mem_kb)}</span></div>
+    <div class="stat"><span class="k">PID</span><span class="v">${st.pid||'—'}</span></div>
+    <div class="stat"><span class="k">服务单元</span><span class="v mono">${esc(st.service)}</span></div>
+    <span class="spacer"></span>
+    <div class="btns">
+      <button class="go" data-act="start" data-bot="${bot}" ${st.active?'disabled':''}>启动</button>
+      <button class="stop" data-act="stop" data-bot="${bot}" ${st.active?'':'disabled'}>停止</button>
+      <button class="primary" data-act="restart" data-bot="${bot}">重启</button>
+      <button data-act="logs" data-bot="${bot}">日志</button>
+    </div>
+  </div>`;
+}
+
+function alertHTML(bot, meta){
+  const b = STATE.bots[bot];
+  const rt = b.runtime_state || {};
+  const out = [];
+  if (!b.hasToken){
+    out.push(`<div class="note bad"><span class="ic">✕</span><div>
+      <b>未配置 Token</b> —— 该机器人无法登录，服务会反复重启失败。</div></div>`);
+  }
+  if (b.app && b.app.ok && b.app.bot_require_code_grant){
+    out.push(`<div class="note warn"><span class="ic">!</span><div>
+      <b>开发者后台「REQUIRES OAUTH2 CODE GRANT」开着</b> —— 普通邀请链接会被拒绝。
+      去 <a href="https://discord.com/developers/applications/${esc(b.app.id)}/bot" target="_blank" rel="noopener">Bot 设置页</a>关掉它。</div></div>`);
+  }
+  if (b.app && !b.app.ok && b.hasToken){
+    out.push(`<div class="note warn"><span class="ic">!</span><div>
+      读不到应用信息：<code>${esc((b.app||{}).error||'未知错误')}</code></div></div>`);
+  }
+
+  // 连接状态：以机器人自身的运行日志为准（flags 位的 LIMITED 语义容易搞反，不作判据）
+  if (b.status.active && rt.connected){
+    const since = rt.run_started_at ? `（本次运行自 ${esc(rt.run_started_at)} 起）` : '';
+    out.push(`<div class="note good"><span class="ic">●</span><div>
+      <b>已成功连接 Discord</b>${bot==='guard'&&!b.guildId?'':'，正在监听事件'}${since}。
+      ${rt.mode_line?`<br><span class="mono">${esc(rt.mode_line)}</span>`:''}</div></div>`);
+  } else if (!b.status.active && rt.disallowed_intents){
+    out.push(`<div class="note bad"><span class="ic">✕</span><div>
+      <b>启动失败：SERVER MEMBERS INTENT 未开启</b>（日志原文 <code>Used disallowed intents</code>）。
+      收不到「有人加入」事件，防冒充守卫无法工作。
+      去 <a href="https://discord.com/developers/applications/${esc((b.app||{}).id||'')}/bot" target="_blank" rel="noopener">Bot 设置页 → Privileged Gateway Intents</a> 打开 SERVER MEMBERS INTENT 并 Save，然后回来点「启动」。</div></div>`);
+  } else if (!b.status.active && rt.last_error){
+    out.push(`<div class="note bad"><span class="ic">✕</span><div>
+      <b>服务未运行</b>，最近一条错误：<br><code>${esc(rt.last_error)}</code></div></div>`);
+  } else if (b.status.active && !rt.connected){
+    out.push(`<div class="note warn"><span class="ic">!</span><div>
+      <b>服务在运行，但日志里还没看到成功登录记录</b> —— 可能是刚启动，或正卡在连接阶段。
+      点「日志」看最新输出。</div></div>`);
+  }
+
+  if (!b.guildId){
+    out.push(`<div class="note warn"><span class="ic">!</span><div>
+      <b>未填写服务器 ID</b> —— 填好并重启后，斜杠命令才会注册到该服务器。</div></div>`);
+  }
+
+  // 角色层级：决定机器人「能处置谁」
+  const bm = meta && meta.bot_member;
+  if (bm){
+    const above = bm.roles_above || [];
+    if (bm.top_position <= 1){
+      out.push(`<div class="note bad"><span class="ic">✕</span><div>
+        <b>机器人角色位置在最底层（位置 ${bm.top_position}）</b> —— Discord 只允许机器人处置
+        「最高角色低于它」的成员，现在它<b>只能处置完全没有角色的新成员</b>。
+        请在 Discord「服务器设置 → 角色」里把 <code>${esc(bm.top_role||'机器人角色')}</code> 拖到玩家角色之上。</div></div>`);
+    } else if (above.length){
+      out.push(`<div class="note info"><span class="ic">i</span><div>
+        <b>角色层级：机器人最高角色「${esc(bm.top_role||'—')}」位置 ${bm.top_position}</b>。
+        可处置最高角色低于它的成员（<b>包含所有刚加入、还没领取角色的新成员</b>）。
+        位置在它之上的角色无法处置：<code>${esc(above.join('、'))}</code>。
+        <br>如需覆盖这些角色，把 <code>${esc(bm.top_role||'机器人角色')}</code> 再往上拖。</div></div>`);
+    } else {
+      out.push(`<div class="note good"><span class="ic">●</span><div>
+        角色层级正常：机器人最高角色「${esc(bm.top_role||'—')}」位置 ${bm.top_position}，
+        服务器内没有高于它的普通角色，可处置任意成员。</div></div>`);
+    }
+  }
+
+  if (bot==='guard' && b.guard){
+    if (b.guard.dryRun === true){
+      out.push(`<div class="note info"><span class="ic">⏸</span><div>
+        <b>当前是演练模式（只记录不处置）</b> —— 命中只写日志，不会踢人。
+        规则定稿后再关闭此开关。</div></div>`);
+    } else if (b.guard.dryRun === false){
+      out.push(`<div class="note good"><span class="ic">●</span><div>
+        <b>已正式上线</b> —— 处置动作：<code>${esc(b.guard.action)}</code>。
+        前缀命中且不在白名单的成员会被立即处置。</div></div>`);
+    }
+  }
+  return out.join('');
+}
+
+/* 频道：只保留文字类（0 文字 / 5 公告 / 11 公告子 / 15 论坛） */
+const TEXT_TYPES = new Set([0,5,11,15]);
+function chanSelect(id, channels, val, ph){
+  const opts = ['<option value="">' + esc(ph||'（不设置）') + '</option>'];
+  const byParent = {};
+  channels.filter(c=>TEXT_TYPES.has(c.type)).forEach(c=>{
+    const k = c.parent_id || '__top';
+    (byParent[k] = byParent[k] || []).push(c);
+  });
+  Object.keys(byParent).forEach(k=>{
+    if (k !== '__top'){
+      const cat = channels.find(c=>c.id===k);
+      opts.push(`<optgroup label="${esc(cat?cat.name:'其他')}">`);
+    } else opts.push('<optgroup label="未分类">');
+    byParent[k].forEach(c=>{
+      opts.push(`<option value="${esc(c.id)}"${String(c.id)===String(val)?' selected':''}>#${esc(c.name)}</option>`);
+    });
+    opts.push('</optgroup>');
+  });
+  return `<select id="${id}">${opts.join('')}</select>`;
+}
+
+/* =====================================================================
+   守卫机器人面板
+   ===================================================================== */
+const ACTIONS = [
+  ['kick','踢出（对方可重新加入）'],
+  ['ban','封禁（防再入，对抗骗子推荐）'],
+  ['timeout','禁言（保留在服务器内）'],
+  ['none','只记录，不处置'],
+];
+const STYLES = [['primary','蓝'],['secondary','灰'],['success','绿'],['danger','红']];
+
+function panelGuard(bot, b, cfg, meta, wl){
+  const g = cfg || {};
+  const action = g.action || 'kick';
+  const wlRoles = new Set(((wl||{}).roleIds||[]).map(String));
+  const wlUsers = ((wl||{}).userIds||[]).join('\n');
+  const extra = ((g.extraStartsWith)||[]).join('\n');
+  const roles = (meta && meta.roles) || [];
+
+  const roleChips = roles.length ? roles.map(r=>`
+    <label class="chip${wlRoles.has(String(r.id))?' on':''}" data-role="${esc(r.id)}">
+      <input type="checkbox" value="${esc(r.id)}"${wlRoles.has(String(r.id))?' checked':''}>
+      ${esc(r.name)}<span class="pos">pos${r.position}</span></label>`).join('')
+    : `<div class="skeleton">${meta ? '读不到角色列表（检查 Token / 机器人是否在服内）' : '加载中…'}</div>`;
+
+  return `
+  ${statusBarHTML(b.status, bot)}
+  ${alertHTML(bot, meta)}
+
+  <div class="card">
+    <h2>基础信息</h2>
+    <div class="hint">机器人账号：<b>${esc((b.identity&&b.identity.username)||'—')}</b>
+      ${b.identity&&b.identity.id?`<code>${esc(b.identity.id)}</code>`:''} ·
+      所在服务器：<b>${esc((meta&&meta.guild&&meta.guild.name)||'—')}</b>
+      ${meta&&meta.guild&&meta.guild.member_count?`（${meta.guild.member_count.toLocaleString()} 名成员）`:''}</div>
+
+    <div class="grid">
+      <div class="field">
+        <label>服务器 ID <span class="opt">guildId</span></label>
+        <input type="text" id="g-guildId" value="${esc(g.guildId||'')}" placeholder="1041923524601851914">
+        <div class="help">填好后重启服务，斜杠命令会即时注册到该服务器。</div>
+      </div>
+      <div class="field">
+        <label>日志频道 <span class="opt">所有处置都会推到这里</span></label>
+        ${chanSelect('g-logChannelId', (meta&&meta.channels)||[], g.logChannelId, '（不推送，不推荐）')}
+        <div class="help">建议选一个只有管理员可见的频道，如 <code>#server-log</code>。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>处置规则</h2>
+    <div class="hint">控制「抓到冒充者之后做什么」。<b>关闭演练开关前，请先用测试器确认不会误伤真客服。</b></div>
+
+    <div class="grid">
+      <div class="field">
+        <label>处罚动作 <span class="opt">action</span></label>
+        <select id="g-action">
+          ${ACTIONS.map(([v,t])=>`<option value="${v}"${action===v?' selected':''}>${esc(t)}</option>`).join('')}
+        </select>
+        <div class="help">对抗专业骗子推荐 <b>ban</b>：kick 之后对方几秒就能改名再进来。</div>
+      </div>
+      <div class="field" id="g-timeout-wrap" style="display:${action==='timeout'?'flex':'none'}">
+        <label>禁言时长（分钟） <span class="opt">timeoutMinutes</span></label>
+        <input type="number" id="g-timeoutMinutes" value="${esc(g.timeoutMinutes||10080)}" min="1" max="40320">
+        <div class="help">默认 10080 = 7 天（Discord 上限）。</div>
+      </div>
+      <div class="field full">
+        <label>上线开关 <span class="opt">dryRun</span></label>
+        <label class="switch danger">
+          <input type="checkbox" id="g-dryRun"${g.dryRun?' checked':''}>
+          <span class="track"></span>
+          <span class="switch-txt" id="g-dryRun-txt"></span>
+        </label>
+        <div class="help">开着 = 只记录不处置（安全）。关掉后，命中的成员会被<b>真实处置</b>。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>识别规则</h2>
+    <div class="hint">判定作用在「去掉分隔符与非字母数字之后、全小写」的名字上。全角、西里尔同形字、零宽字符都会先被归一化。</div>
+
+    <div class="grid">
+      <div class="field">
+        <label>匹配模式 <span class="opt">matchMode</span></label>
+        <select id="g-matchMode">
+          <option value="strict"${(g.matchMode||'strict')==='strict'?' selected':''}>strict —— 严格（推荐）</option>
+          <option value="loose"${(g.matchMode)==='loose'?' selected':''}>loose —— 宽松（品牌词开头即命中）</option>
+        </select>
+        <div class="help">strict：品牌词后必须是空、纯数字或官方类后缀（support/official/bot…）。
+          loose：只要以品牌词开头就命中，<b>会误伤 mmoexpert 这类正常名字</b>。</div>
+      </div>
+      <div class="field">
+        <label>品牌词正则 <span class="opt">brandPattern</span></label>
+        <input type="text" id="g-brandPattern" class="mono" value="${esc(g.brandPattern||'^(?:the)?(?:mm[o0]+)exp([a-z0-9]*)$')}">
+        <div class="help">默认正则已能覆盖 <code>mmoexp / mm0exp / mmooexp / the-mmoexp</code>。</div>
+      </div>
+      <div class="field full">
+        <label>额外前缀字面量 <span class="opt">extraStartsWith · 每行一个</span></label>
+        <textarea id="g-extraStartsWith" placeholder="每行一个，留空即可&#10;例：mmoexp88">${esc(extra)}</textarea>
+        <div class="help">用于补充正则覆盖不到的自定义前缀，同样先做归一化再比较。</div>
+      </div>
+
+      <div class="field full">
+        <label>片段式匹配 <span class="opt">brandTokenMatch · 品牌词出现在名字任意位置</span></label>
+        <label class="switch">
+          <input type="checkbox" id="g-brandTokenMatch"${g.brandTokenMatch!==false?' checked':''}>
+          <span class="track"></span>
+          <span class="switch-txt">名字中出现<b>独立</b>品牌词片段即命中</span>
+        </label>
+        <div class="help">补掉「品牌词不在开头」的漏网，例如 <code>nick.mmoexp</code>、<code>service_mmoexp</code>、<code>david.mmoexp</code>。
+          只认<b>独立片段</b>（被分隔符隔开），所以 <code>mmoexpert</code> / <code>MMOEXPfan2026_play</code> 这类粘连名不会被误伤。</div>
+      </div>
+      <div class="field">
+        <label>品牌词核心 <span class="opt">brandCore</span></label>
+        <input type="text" id="g-brandCore" class="mono" value="${esc(g.brandCore||'mmoexp')}">
+        <div class="help">片段比对时使用的品牌词本体。</div>
+      </div>
+      <div class="field">
+        <label>拼写容错 <span class="opt">brandTokenFuzzy · 0~2</span></label>
+        <input type="number" id="g-brandTokenFuzzy" min="0" max="2" value="${esc(g.brandTokenFuzzy==null?1:g.brandTokenFuzzy)}">
+        <div class="help">1 = 允许「少一个字母 / 换一个字母」，如 <code>service_mmoex</code>（少个 p）也能抓。0 = 只认完全一致。</div>
+      </div>
+    </div>
+
+    <div class="row mt">
+      <button data-act="test-inline">用测试器验证当前规则</button>
+      <span class="kv" id="g-test-count"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>白名单</h2>
+    <div class="hint">白名单里的成员即使名字命中也不会被处置。建议<b>只加角色、不加个人</b>：以后招新客服直接发角色就行，不用改任何配置；客服离职收回角色，防护立刻恢复。</div>
+
+    <div class="field mb">
+      <label>白名单角色 <span class="opt">whitelistRoleIds · 点击选择</span></label>
+      <div class="chips" id="g-wlRoles">
+        ${roleChips}
+      </div>
+      <div class="help" id="g-wlRoleCount"></div>
+    </div>
+
+    <div class="field">
+      <label>白名单用户 ID <span class="opt">whitelistUserIds · 每行一个</span></label>
+      <textarea id="g-wlUsers" placeholder="每行一个用户 ID">${esc(wlUsers)}</textarea>
+      <div class="help">只在极个别情况下用（比如某位真客服没法挂角色）。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>处罚理由文案</h2>
+    <div class="hint">会显示在 Discord 的审计日志里，中英双语更利于对外说明。</div>
+    <div class="grid">
+      <div class="field">
+        <label>踢出理由 <span class="opt">kickReason</span></label>
+        <input type="text" id="g-kickReason" value="${esc(g.kickReason||'')}">
+      </div>
+      <div class="field">
+        <label>封禁理由 <span class="opt">banReason</span></label>
+        <input type="text" id="g-banReason" value="${esc(g.banReason||'')}">
+      </div>
+      <div class="field full">
+        <label>白名单成员改名时也提醒 <span class="opt">alertOnWhitelistedHit</span></label>
+        <label class="switch">
+          <input type="checkbox" id="g-alertOnWhitelistedHit"${g.alertOnWhitelistedHit?' checked':''}>
+          <span class="track"></span>
+          <span class="switch-txt"><small>一般不打扰，保持关闭即可。</small></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  ${saveCard(bot, '守卫机器人')}
+  ${credCard(bot, b)}
+  <div id="logs-${bot}"></div>`;
+}
+
+/* =====================================================================
+   迎新机器人面板
+   ===================================================================== */
+function panelShugo(bot, b, cfg, meta){
+  const c = cfg || {};
+  const L = c.layout || {};
+  const newsBoards = new Set(c.news_boards||[]);
+  const BOARDS = [['notice_en','公告 notice'],['update_en','补丁说明 update'],['movie_clip_en','官方影像 movie_clip']];
+  const FR = c.faction_roles||[], CR = c.class_roles||[];
+  const T = c.texts||{};
+
+  const roleOpts = (sel) => {
+    const rs = (meta&&meta.roles)||[];
+    if (!rs.length) return `<option value="${esc(sel||'')}">${esc(sel||'（先在上面填服务器ID）')}</option>`;
+    return ['<option value="">（未选择）</option>'].concat(
+      rs.map(r=>`<option value="${esc(r.id)}"${String(r.id)===String(sel)?' selected':''}>${esc(r.name)}</option>`)
+    ).join('');
+  };
+
+  const roleRow = (item, i, kind) => `
+    <tr data-kind="${kind}" data-i="${i}">
+      <td><input type="text" class="rr-label" value="${esc(item.label||'')}" placeholder="名称"></td>
+      <td><input type="text" class="rr-emoji" value="${esc(item.emoji||'')}" placeholder="🙂" style="width:64px;text-align:center"></td>
+      ${kind==='faction'?`<td><input type="text" class="rr-key" value="${esc(item.key||'')}" placeholder="elyos"></td>`:''}
+      <td><select class="rr-role">${roleOpts(item.role_id)}</select></td>
+      <td><button class="stop" data-act="rr-del" style="padding:5px 10px">删</button></td>
+    </tr>`;
+
+  return `
+  ${statusBarHTML(b.status, bot)}
+  ${alertHTML(bot, meta)}
+
+  <div class="card">
+    <h2>基础信息</h2>
+    <div class="hint">机器人账号：<b>${esc((b.identity&&b.identity.username)||'—')}</b> ·
+      所在服务器：<b>${esc((meta&&meta.guild&&meta.guild.name)||'—')}</b>
+      ${meta&&meta.guild&&meta.guild.member_count?`（${meta.guild.member_count.toLocaleString()} 名成员）`:''}</div>
+    <div class="grid">
+      <div class="field">
+        <label>服务器 ID <span class="opt">guild_id</span></label>
+        <input type="text" id="s-guild_id" value="${esc(c.guild_id||'')}">
+      </div>
+      <div class="field">
+        <label>迎新面板频道 <span class="opt">menu_channel_id</span></label>
+        ${chanSelect('s-menu_channel_id', (meta&&meta.channels)||[], c.menu_channel_id, '（不设置）')}
+        <div class="help">面板只允许机器人发言，建议放在只读频道。</div>
+      </div>
+      <div class="field">
+        <label>资讯推送频道 <span class="opt">news_channel_id</span></label>
+        ${chanSelect('s-news_channel_id', (meta&&meta.channels)||[], c.news_channel_id, '（空 = 不推送）')}
+        <div class="help">留空即关闭资讯推送。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>官方资讯推送</h2>
+    <div class="hint">从 AION2 官方英文站轮询公告并转发到 Discord。</div>
+    <div class="grid">
+      <div class="field full">
+        <label>抓取板块 <span class="opt">news_boards</span></label>
+        <div class="chips" id="s-boards">
+          ${BOARDS.map(([v,t])=>`<label class="chip${newsBoards.has(v)?' on':''}" data-board="${v}">
+            <input type="checkbox" value="${esc(v)}"${newsBoards.has(v)?' checked':''}>${esc(t)}</label>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>轮询间隔（分钟） <span class="opt">news_poll_minutes · 最小 5</span></label>
+        <input type="number" id="s-news_poll_minutes" value="${esc(c.news_poll_minutes||30)}" min="5" max="1440">
+      </div>
+      <div class="field">
+        <label>首次回溯条数 <span class="opt">news_backfill</span></label>
+        <input type="number" id="s-news_backfill" value="${esc(c.news_backfill||10)}" min="0" max="50">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>角色按钮</h2>
+    <div class="hint">玩家点按钮自动领取对应角色。改完保存并重启，面板会重新生成。</div>
+
+    <div class="field mb">
+      <label>阵营按钮 <span class="opt">faction_roles</span></label>
+      <table><thead><tr><th>名称</th><th>图标</th><th>key</th><th>对应角色</th><th></th></tr></thead>
+        <tbody id="s-faction-body">${FR.map((x,i)=>roleRow(x,i,'faction')).join('')}</tbody></table>
+      <div class="row mt"><button data-act="add-faction">+ 添加阵营</button></div>
+    </div>
+
+    <div class="field">
+      <label>职业按钮 <span class="opt">class_roles</span></label>
+      <div class="tester-out" style="max-height:330px">
+      <table><thead><tr><th>名称</th><th>图标</th><th>对应角色</th><th></th></tr></thead>
+        <tbody id="s-class-body">${CR.map((x,i)=>roleRow(x,i,'class')).join('')}</tbody></table>
+      </div>
+      <div class="row mt"><button data-act="add-class">+ 添加职业</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>面板排版</h2>
+    <div class="hint">Discord 按钮不支持自定义颜色与宽度，这里只能用平台允许的手段微调。</div>
+    <div class="grid">
+      <div class="field">
+        <label>每行职业按钮数 <span class="opt">class_per_row</span></label>
+        <input type="number" id="s-class_per_row" value="${esc(L.class_per_row||4)}" min="1" max="5">
+        <div class="help">Discord 每行最多 5 个按钮。</div>
+      </div>
+      <div class="field">
+        <label>目标行宽（像素） <span class="opt">row_px · 0 = 不补齐</span></label>
+        <input type="number" id="s-row_px" value="${esc(L.row_px||0)}" min="0" max="600">
+      </div>
+      <div class="field">
+        <label>阵营按钮颜色 <span class="opt">faction_style</span></label>
+        <select id="s-faction_style">${STYLES.map(([v,t])=>`<option value="${v}"${L.faction_style===v?' selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>职业按钮颜色 <span class="opt">class_style</span></label>
+        <select id="s-class_style">${STYLES.map(([v,t])=>`<option value="${v}"${L.class_style===v?' selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>分隔条颜色 <span class="opt">divider_style</span></label>
+        <select id="s-divider_style">${STYLES.map(([v,t])=>`<option value="${v}"${L.divider_style===v?' selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>按钮等宽 <span class="opt">equal_width</span></label>
+        <label class="switch">
+          <input type="checkbox" id="s-equal_width"${L.equal_width!==false?' checked':''}>
+          <span class="track"></span>
+          <span class="switch-txt"><small>用不可折叠空格把按钮撑到等宽。</small></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>文案</h2>
+    <div class="hint">支持 Discord Markdown。<code>{name}</code> 会替换成成员名，<code>{ordinal}</code> 是第几位加入。</div>
+    <div class="grid">
+      <div class="field"><label>卡片标题 <span class="opt">card_title</span></label>
+        <input type="text" id="s-card_title" value="${esc(T.card_title||'')}"></div>
+      <div class="field"><label>卡片页脚 <span class="opt">card_footer</span></label>
+        <input type="text" id="s-card_footer" value="${esc(T.card_footer||'')}"></div>
+      <div class="field full"><label>卡片正文 <span class="opt">card_body</span></label>
+        <textarea id="s-card_body" style="min-height:110px">${esc(T.card_body||'')}</textarea></div>
+      <div class="field"><label>私信标题 <span class="opt">dm_title</span></label>
+        <input type="text" id="s-dm_title" value="${esc(T.dm_title||'')}"></div>
+      <div class="field full"><label>私信正文 <span class="opt">dm_body</span></label>
+        <textarea id="s-dm_body" style="min-height:88px">${esc(T.dm_body||'')}</textarea></div>
+    </div>
+  </div>
+
+  ${saveCard(bot, '迎新机器人')}
+  ${credCard(bot, b)}
+  <div id="logs-${bot}"></div>`;
+}
+
+/* 凭据卡片 */
+function credCard(bot, b){
+  const admin = STATE.actions_allowed;
+  const ok = b.hasToken;
+  return `<div class="card">
+    <h2>凭据</h2>
+    <div class="hint">当前 Token：${ok
+      ? '<span class="badge st-run">已配置</span>'
+      : '<span class="badge st-stop">未配置</span>'}
+      —— 出于安全，页面<b>永远不会回显 Token 内容</b>，只能整体替换。</div>
+    <div class="grid">
+      <div class="field full">
+        <label>替换 Token <span class="opt">留空 = 保持现有 Token 不变</span></label>
+        <input type="password" id="${bot==='guard'?'g':'s'}-token" autocomplete="new-password"
+          placeholder="粘贴新的 Bot Token（MTU1…）" ${admin?'':'disabled'}>
+        <div class="help">位置：${bot==='guard'
+          ? '<code>/opt/mmoexp-guardbot/config.json</code> 的 <code>token</code> 字段'
+          : '<code>/opt/shugo-bot/token.txt</code>（权限 600）'}。
+          Token 只在服务器本地读写，不会出现在浏览器与日志里。</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* 保存区 */
+function saveCard(bot, label){
+  const admin = STATE.actions_allowed;
+  return `<div class="card">
+    <h2>保存</h2>
+    <div class="hint">${admin
+      ? '保存前会自动把原配置备份到服务器。保存后需要<b>重启服务</b>才会生效。'
+      : '你当前是只读权限，无法保存或重启。'}</div>
+    <div class="btns">
+      <button class="primary" data-act="save" data-bot="${bot}" ${admin?'':'disabled'}>保存配置</button>
+      <button class="go" data-act="save-restart" data-bot="${bot}" ${admin?'':'disabled'}>保存并重启</button>
+      <button data-act="reload" data-bot="${bot}">放弃改动</button>
+      <span class="kv" id="dirty-${bot}"></span>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   测试器面板
+   ===================================================================== */
+function panelTest(cfg){
+  const g = cfg || {};
+  return `
+  <div class="card">
+    <h2>名称测试器</h2>
+    <div class="hint">用<b>服务器上验证过的同一套判定逻辑</b>跑一遍，先看会不会误伤真客服，再决定上线。
+      粘贴一批名字（每行一个），或直接点下面的快速用例。</div>
+
+    <div class="grid">
+      <div class="field">
+        <label>匹配模式 <span class="opt">可临时覆盖</span></label>
+        <select id="t-matchMode">
+          <option value="strict"${(g.matchMode||'strict')==='strict'?' selected':''}>strict —— 严格（推荐）</option>
+          <option value="loose"${g.matchMode==='loose'?' selected':''}>loose —— 宽松</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>品牌词正则</label>
+        <input type="text" id="t-brandPattern" class="mono" value="${esc(g.brandPattern||'^(?:the)?(?:mm[o0]+)exp([a-z0-9]*)$')}">
+      </div>
+      <div class="field full">
+        <label>待测名字 <span class="opt">每行一个</span></label>
+        <textarea id="t-names" style="min-height:130px" placeholder="MMOEXP Support&#10;mmoexpert&#10;ＭＭＯＥＸＰ&#10;John"></textarea>
+      </div>
+    </div>
+
+    <div class="row mt mb">
+      <button class="primary" data-act="run-test">开始判定</button>
+      <button data-act="load-fake">载入骗子样例</button>
+      <button data-act="load-normal">载入正常样例</button>
+      <button data-act="clear-test">清空</button>
+      <span class="kv" id="t-summary"></span>
+    </div>
+
+    <div class="tester-out" id="t-out" style="display:none">
+      <table><thead><tr>
+        <th style="width:34%">原始名字</th><th style="width:22%">归一化结果</th>
+        <th style="width:14%">判定</th><th>依据</th>
+      </tr></thead><tbody id="t-body"></tbody></table>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   处置记录面板（封禁 / 踢出 / 解封）
+   ===================================================================== */
+let BANS = null, BANS_LOADING = false;
+const BANS_MAX_ROWS = 400;
+
+function panelBans(){
+  return `
+  <div class="card">
+    <h2>处置记录 <span class="kv" id="bans-sub"></span></h2>
+    <div class="hint">合并两个来源：<b>Discord 审计日志</b>（谁在什么时候处置了谁 —— Discord 只保留 45 天）
+      与 <b>当前封禁列表</b>（是否仍在黑名单里）。
+      切到这个页签会自动拉一次，也可以点「刷新」重取。</div>
+
+    <div id="bans-stat" class="statusbar">
+      <span class="kv"><span class="spin"></span> 点页签即加载…</span>
+    </div>
+
+    <div class="bans-tools">
+      <select id="bans-kind">
+        <option value="">全部动作</option>
+        <option value="ban">仅封禁</option>
+        <option value="kick">仅踢出</option>
+        <option value="unban">仅解封</option>
+      </select>
+      <select id="bans-by">
+        <option value="">全部来源</option>
+        <option value="guard">守卫机器人</option>
+        <option value="human">人工操作</option>
+      </select>
+      <select id="bans-state">
+        <option value="">全部状态</option>
+        <option value="kept">仍在封禁中</option>
+        <option value="out">已解封 / 仅踢出</option>
+      </select>
+      <input type="text" id="bans-q" placeholder="搜索用户名 / 显示名 / 用户 ID / 理由">
+      <button class="primary" data-act="bans-refresh">刷新</button>
+      <span class="kv" id="bans-count"></span>
+    </div>
+
+    <div class="bans-wrap" id="bans-wrap">
+      <div class="skeleton">尚未加载。</div>
+    </div>
+  </div>`;
+}
+
+async function loadBans(force){
+  if (BANS_LOADING) return;
+  if (BANS && !force){ renderBans(); return; }
+  BANS_LOADING = true;
+  const w = $('#bans-wrap');
+  if (w) w.innerHTML = '<div class="skeleton"><span class="spin"></span> 正在拉取审计日志与封禁列表…</div>';
+  try{
+    BANS = await api('/api/guard/bans');
+  }catch(e){
+    BANS = { ok:false, error:e.message, items:[], summary:{} };
+  }
+  BANS_LOADING = false;
+  renderBans();
+}
+
+function bansFiltered(){
+  const kind = ($('#bans-kind')||{}).value || '';
+  const by = ($('#bans-by')||{}).value || '';
+  const state = ($('#bans-state')||{}).value || '';
+  const q = (($('#bans-q')||{}).value || '').trim().toLowerCase();
+  return (BANS.items||[]).filter(x=>{
+    if (kind && x.kind !== kind) return false;
+    if (by === 'guard' && !x.by_guard) return false;
+    if (by === 'human' && x.by_guard) return false;
+    if (state === 'kept' && !x.still_banned) return false;
+    if (state === 'out' && x.still_banned) return false;
+    if (q){
+      const hay = [x.target_name, x.target_global, x.target_id, x.mod_name, x.reason]
+        .join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function renderBans(){
+  if (!BANS) return;
+  const s = BANS.summary || {};
+
+  const st = $('#bans-stat');
+  if (st){
+    if (BANS.ok){
+      const ts = (BANS.generated_at||'').replace('T',' ').slice(0,19);
+      st.innerHTML = `
+        <div class="stat"><span class="k">当前封禁总数</span><span class="v">${s.still_banned||0}</span></div>
+        <div class="stat"><span class="k">审计窗口内处置</span><span class="v">${s.events||0}</span></div>
+        <div class="stat"><span class="k">机器人处置</span><span class="v ok">${s.by_guard||0}</span></div>
+        <div class="stat"><span class="k">人工操作</span><span class="v">${s.by_human||0}</span></div>
+        <div class="stat"><span class="k">更早·无时间信息</span><span class="v">${s.outside_audit||0}</span></div>
+        <span class="spacer"></span>
+        <span class="kv">来源：${esc(s.audit_window||'—')} · 取数于 ${esc(ts)}</span>`;
+    } else {
+      st.innerHTML = `<span class="kv" style="color:var(--red)">读取失败：${esc(BANS.error||'未知错误')}</span>`;
+    }
+  }
+  if (!BANS.ok) return;
+
+  const rows = bansFiltered();
+  const c = $('#bans-count');
+  if (c){
+    const hidden = Math.max(0, (s.outside_audit||0) - (s.outside_shown||0));
+    c.textContent = `匹配 ${rows.length} 条` +
+      (rows.length > BANS_MAX_ROWS ? `，只显示前 ${BANS_MAX_ROWS}` : '') +
+      (hidden ? ` · 另有 ${hidden} 条更早记录未逐条列出` : '');
+  }
+
+  const w = $('#bans-wrap');
+  if (!w) return;
+  if (!rows.length){ w.innerHTML = '<div class="skeleton">没有匹配的记录。</div>'; return; }
+
+  const body = rows.slice(0, BANS_MAX_ROWS).map(x=>{
+    const when = x.at
+      ? esc(x.at.replace('T',' ').slice(0,19))
+      : '<span class="kv">超出审计窗口</span>';
+    const nm = esc(x.target_name || '（名字未知）') +
+      (x.target_global ? ` <span class="kv">／ ${esc(x.target_global)}</span>` : '');
+    const byPill = x.by_guard
+      ? '<span class="pill bot">守卫机器人</span>'
+      : (x.mod_name
+          ? `<span class="pill human">人工</span> <span class="kv">${esc(x.mod_name)}</span>`
+          : '<span class="pill human">人工 / 未知</span>');
+    const statePill = x.still_banned
+      ? '<span class="pill keep">仍在封禁</span>'
+      : (x.kind === 'unban'
+          ? '<span class="pill unban">已解封</span>'
+          : '<span class="pill out">已不在列表</span>');
+    return `<tr class="${x.by_guard?'fresh':''}">
+      <td class="mono" style="white-space:nowrap">${when}</td>
+      <td><span class="pill ${esc(x.kind)}">${esc(x.kind_cn||x.kind)}</span></td>
+      <td>${nm}<br><span class="bans-id">${esc(x.target_id)}</span></td>
+      <td>${byPill}</td>
+      <td>${statePill}</td>
+      <td>${esc(x.reason || '—')}</td>
+    </tr>`;
+  }).join('');
+
+  w.innerHTML = `<table><thead><tr>
+      <th style="width:152px">时间</th><th style="width:86px">动作</th>
+      <th style="width:250px">账号</th><th style="width:170px">操作者</th>
+      <th style="width:112px">状态</th><th>理由</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+const FAKE = ['MMOEXP','MMOEXP Support','MMOEXP_Official','MMOEXP01','MM0EXP','MMOOEXP',
+  'ＭＭＯＥＸＰ','ММОЕХР','MMO E X P','The MMOEXP','mmoexpbot','MMOEXP-gift',
+  'nick.mmoexp','service_mmoexp','david.mmoexp','service_mmoex','mmoexp.team','THE-MMOEXP'];
+const NORMAL = ['mmoexpert','mmoexpo','mmoex','moexp','John','Support','Mike','Nicholas',
+  'MMO Player','WoW Gold Seller','Cheap Diablo 4 Gold','MMOEXPfan2026_play',
+  'nickmoexp','ExpMo','mmo experience','MMO Expert']; 
+
+/* =====================================================================
+   收集表单 -> 提交
+   ===================================================================== */
+const val = id => { const e=$('#'+id); return e?e.value.trim():''; };
+const num = id => { const v=val(id); return v===''?null:Number(v); };
+const chk = id => { const e=$('#'+id); return e?e.checked:false; };
+const lines = id => val(id).split('\n').map(s=>s.trim()).filter(Boolean);
+const chipVals = sel => Array.from($$(sel)).map(i=>i.value);
+
+function collectGuard(){
+  const action = val('g-action');
+  const cfg = {
+    guildId: val('g-guildId'),
+    logChannelId: val('g-logChannelId'),
+    action: action,
+    dryRun: chk('g-dryRun'),
+    matchMode: val('g-matchMode'),
+    brandPattern: val('g-brandPattern'),
+    brandTokenMatch: chk('g-brandTokenMatch'),
+    brandCore: val('g-brandCore') || 'mmoexp',
+    extraStartsWith: lines('g-extraStartsWith'),
+    kickReason: val('g-kickReason'),
+    banReason: val('g-banReason'),
+    alertOnWhitelistedHit: chk('g-alertOnWhitelistedHit'),
+    whitelistRoleIds: chipVals('#g-wlRoles input:checked'),
+    whitelistUserIds: lines('g-wlUsers'),
+  };
+  if (action === 'timeout'){
+    const t = num('g-timeoutMinutes');
+    if (t) cfg.timeoutMinutes = t;
+  }
+  const bf = num('g-brandTokenFuzzy');
+  if (bf != null) cfg.brandTokenFuzzy = bf;
+  return { cfg, wl: { roleIds: cfg.whitelistRoleIds, userIds: cfg.whitelistUserIds },
+           token: val('g-token') };
+}
+
+function collectShugo(){
+  const rows = kind => $$('#s-'+kind+'-body tr').map(tr=>{
+    const o = { label: tr.querySelector('.rr-label').value.trim(),
+                emoji: tr.querySelector('.rr-emoji').value.trim(),
+                role_id: tr.querySelector('.rr-role').value.trim() };
+    const k = tr.querySelector('.rr-key');
+    if (k) o.key = k.value.trim();
+    return o;
+  }).filter(o=>o.label||o.role_id);
+
+  return { cfg: {
+    guild_id: val('s-guild_id'),
+    menu_channel_id: val('s-menu_channel_id'),
+    news_channel_id: val('s-news_channel_id'),
+    news_boards: chipVals('#s-boards input:checked'),
+    news_poll_minutes: num('s-news_poll_minutes'),
+    news_backfill: num('s-news_backfill'),
+    layout: {
+      class_per_row: num('s-class_per_row'),
+      row_px: num('s-row_px'),
+      faction_style: val('s-faction_style'),
+      class_style: val('s-class_style'),
+      divider_style: val('s-divider_style'),
+      equal_width: chk('s-equal_width'),
+    },
+    faction_roles: rows('faction'),
+    class_roles: rows('class'),
+    texts: {
+      card_title: val('s-card_title'),
+      card_body: val('s-card_body'),
+      card_footer: val('s-card_footer'),
+      dm_title: val('s-dm_title'),
+      dm_body: val('s-dm_body'),
+    },
+  }, wl: null, token: val('s-token') };
+}
+
+/* =====================================================================
+   日志抽屉
+   ===================================================================== */
+async function showLogs(bot){
+  const box = $('#logs-'+bot);
+  if (!box) return;
+  box.innerHTML = `<div class="card"><h2>运行日志</h2>
+    <div class="row mb"><button class="primary" data-act="logs-refresh" data-bot="${bot}">刷新</button>
+      <span class="kv"><span class="spin"></span> 读取中…</span></div>
+    <pre class="log">加载中…</pre></div>`;
+  try{
+    const d = await api(`/api/${bot}/logs?lines=300`);
+    if (d.ok){
+      box.innerHTML = `<div class="card"><h2>运行日志
+          <span class="kv" style="font-weight:400">${esc(d.source)}</span></h2>
+        <div class="row mb"><button class="primary" data-act="logs-refresh" data-bot="${bot}">刷新</button>
+          <button data-act="logs-close" data-bot="${bot}">收起</button></div>
+        <pre class="log">${esc(d.text||'（暂无日志）')}</pre></div>`;
+      const p = box.querySelector('pre'); if (p) p.scrollTop = p.scrollHeight;
+    } else {
+      box.innerHTML = `<div class="card"><h2>运行日志</h2>
+        <div class="note bad"><span class="ic">✕</span><div>${esc(d.error)}</div></div>
+        <div class="btns"><button data-act="logs-close" data-bot="${bot}">收起</button></div></div>`;
+    }
+  }catch(e){
+    box.innerHTML = `<div class="card"><h2>运行日志</h2>
+      <div class="note bad"><span class="ic">✕</span><div>${esc(e.message)}</div></div>
+      <div class="btns"><button data-act="logs-close" data-bot="${bot}">收起</button></div></div>`;
+  }
+}
+
+/* =====================================================================
+   主渲染
+   ===================================================================== */
+let META = {}, CFGS = {}, WL = {};
+
+async function loadMeta(bot){
+  try{ META[bot] = await api(`/api/${bot}/meta`); }
+  catch(e){ META[bot] = { ok:false, errors:[e.message], roles:[], channels:[] }; }
+}
+
+async function render(){
+  $('#whoami').textContent = '已登录：' + STATE.user;
+  $('#roleBadge').innerHTML = STATE.actions_allowed
+    ? '<span class="badge admin">管理员 · 可配置</span>'
+    : '<span class="badge ro">只读</span>';
+
+  const guardCfg = CFGS.guard || {};
+
+  // 先加载两个 bot 的 meta（并行）
+  await Promise.all(Object.keys(STATE.bots).map(loadMeta));
+
+  $('#panels').innerHTML =
+    Object.values(STATE.bots).map(b=>{
+      const cfg = CFGS[b.key] || {};
+      const inner = b.key === 'guard'
+        ? panelGuard(b.key, b, cfg, META[b.key], WL[b.key])
+        : panelShugo(b.key, b, cfg, META[b.key]);
+      return `<div class="panel${b.key===Object.keys(STATE.bots)[0]?' on':''}" data-bot="${b.key}">${inner}</div>`;
+    }).join('') +
+    `<div class="panel" data-bot="__test">${panelTest(guardCfg)}</div>` +
+    `<div class="panel" data-bot="__bans">${panelBans()}</div>`;
+
+  renderTabs();
+  wire();
+  syncDryRunText();
+  updateRoleCount();
+  refreshAllDirty();
+}
+
+function syncDryRunText(){
+  const el = $('#g-dryRun-txt'); const box = $('#g-dryRun');
+  if (!el || !box) return;
+  el.innerHTML = box.checked
+    ? '演练模式 · 只记录不处置'
+    : '<b style="color:var(--red)">正式上线 · 命中即处置</b>';
+}
+function updateRoleCount(){
+  const e = $('#g-wlRoleCount');
+  if (e) e.textContent = `已选 ${$$('#g-wlRoles input:checked').length} 个角色`;
+}
+function refreshAllDirty(){
+  Object.keys(STATE.bots).forEach(k=>{
+    const e = $('#dirty-'+k); if (e) e.textContent = '';
+  });
+}
+
+/* =====================================================================
+   事件绑定
+   ===================================================================== */
+function wire(){
+  // 折叠切换
+  $$('.chip').forEach(c=>{
+    c.addEventListener('click', ev=>{
+      ev.preventDefault();
+      const cb = c.querySelector('input');
+      cb.checked = !cb.checked;
+      c.classList.toggle('on', cb.checked);
+      if (c.closest('#g-wlRoles')) updateRoleCount();
+    });
+  });
+
+  const dr = $('#g-dryRun');
+  if (dr) dr.addEventListener('change', ()=>{ syncDryRunText(); guardDryRunConfirm(); });
+
+  const actSel = $('#g-action');
+  if (actSel) actSel.addEventListener('change', ()=>{
+    const w = $('#g-timeout-wrap');
+    if (w) w.style.display = actSel.value === 'timeout' ? 'flex' : 'none';
+  });
+
+  // 角色表格：删除 / 新增
+  $$('[data-act="rr-del"]').forEach(b=>{
+    b.onclick = ()=> b.closest('tr').remove();
+  });
+  $$('[data-act="add-faction"]').forEach(b=>{
+    b.onclick = ()=> addRoleRow('faction');
+  });
+  $$('[data-act="add-class"]').forEach(b=>{
+    b.onclick = ()=> addRoleRow('class');
+  });
+
+  // 处置记录：筛选 / 搜索
+  ['bans-kind','bans-by','bans-state'].forEach(id=>{
+    const el = $('#'+id);
+    if (el) el.onchange = ()=> renderBans();
+  });
+  const bq = $('#bans-q');
+  if (bq) bq.oninput = ()=> renderBans();
+
+  // 顶栏刷新
+  $('#btnRefresh').onclick = ()=> hardReload(true);
+}
+
+function addRoleRow(kind){
+  const tb = $('#s-'+kind+'-body');
+  if (!tb) return;
+  const rs = (META.shugo && META.shugo.roles) || [];
+  const opts = ['<option value="">（未选择）</option>'].concat(
+    rs.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`)).join('');
+  const tr = document.createElement('tr');
+  tr.dataset.kind = kind;
+  tr.innerHTML = `
+    <td><input type="text" class="rr-label" placeholder="名称"></td>
+    <td><input type="text" class="rr-emoji" placeholder="🙂" style="width:64px;text-align:center"></td>
+    ${kind==='faction'?'<td><input type="text" class="rr-key" placeholder="key"></td>':''}
+    <td><select class="rr-role">${opts}</select></td>
+    <td><button class="stop" style="padding:5px 10px">删</button></td>`;
+  tb.appendChild(tr);
+  tr.querySelector('button').onclick = ()=> tr.remove();
+}
+
+/* 关闭演练模式二次确认 */
+async function guardDryRunConfirm(){
+  const box = $('#g-dryRun');
+  if (!box || box.checked) return;
+  const ok = confirm(
+    '⚠️ 关闭演练模式 = 正式上线\n\n' +
+    '之后，名字命中冒充规则、且不在白名单里的成员，会被立即按当前处罚动作处置。\n\n' +
+    '建议先确认：\n' +
+    '1) 已用名称测试器验证过、确认不会误伤真客服\n' +
+    '2) 白名单角色已选好并挂到真客服头上\n' +
+    '3) 日志频道已配置\n\n' +
+    '确定要关闭演练模式吗？'
+  );
+  if (!ok){ box.checked = true; syncDryRunText(); }
+}
+
+/* =====================================================================
+   动作分发
+   ===================================================================== */
+document.addEventListener('click', async ev=>{
+  const t = ev.target.closest('[data-act]');
+  if (!t) return;
+  const act = t.dataset.act, bot = t.dataset.bot;
+  try{
+    if (act === 'start' || act === 'stop' || act === 'restart'){
+      const label = {start:'启动',stop:'停止',restart:'重启'}[act];
+      if (act !== 'start' && !confirm(`确定要${label} ${STATE.bots[bot].label} 吗？`)) return;
+      t.disabled = true;
+      const d = await api(`/api/${bot}/service`, { method:'POST', body:{ action:act } });
+      toast(`${label}成功`, d.status && d.status.active ? '服务已运行' : '服务已停止', 'ok');
+      await hardReload(false);
+      return;
+    }
+    if (act === 'bans-refresh'){ await loadBans(true); return; }
+    if (act === 'logs'){ await showLogs(bot); return; }
+    if (act === 'logs-refresh'){ await showLogs(bot); return; }
+    if (act === 'logs-close'){ const e=$('#logs-'+bot); if(e) e.innerHTML=''; return; }
+
+    if (act === 'save' || act === 'save-restart'){
+      const isGuard = bot === 'guard';
+      const payload = isGuard ? collectGuard() : collectShugo();
+      // 关掉演练时再确认一次
+      if (isGuard && payload.cfg.dryRun === false){
+        const b = STATE.bots.guard;
+        if (b.guard && b.guard.dryRun === true){
+          if (!confirm('即将保存「正式上线」（dryRun=false）配置。\n\n确认已用测试器验证过规则、白名单已配好？')) return;
+        }
+      }
+      t.disabled = true;
+      const body = { config: payload.cfg, restart: act === 'save-restart' };
+      if (payload.wl) body.whitelist = payload.wl;
+      if (payload.token) body.token = payload.token;
+      const d = await api(`/api/${bot}/config`, { method:'POST', body });
+      const detail = [
+        d.changed_fields && d.changed_fields.length ? '变更字段：' + d.changed_fields.join(', ') : '',
+        d.backup ? '原配置已备份为 ' + d.backup : '',
+        d.token_updated ? 'Token 已更新' : '',
+        d.restarted ? '服务已重启' : (act==='save-restart' ? '服务重启失败' : '需重启服务才生效'),
+      ].filter(Boolean).join('\n');
+      toast(d.restarted || act==='save' ? '配置已保存' : '已保存，但重启失败', detail, d.restarted===false && act==='save-restart' ? 'err':'ok');
+      await hardReload(false);
+      return;
+    }
+
+    if (act === 'reload'){ await hardReload(false); toast('已放弃改动', '重新从服务器载入配置'); return; }
+
+    if (act === 'test-inline'){
+      // 把当前表单里的规则带进测试器
+      const cfg = collectGuard().cfg;
+      CFGS.guard = Object.assign({}, CFGS.guard, cfg);
+      storeCfg('guard', CFGS.guard);
+      const tb = $('.tab[data-bot="__test"]'); if (tb) tb.click();
+      $('#t-matchMode').value = cfg.matchMode;
+      $('#t-brandPattern').value = cfg.brandPattern;
+      $('#t-names').value = FAKE.join('\n');
+      runTest();
+      return;
+    }
+
+    if (act === 'run-test'){ runTest(); return; }
+    if (act === 'load-fake'){ $('#t-names').value = FAKE.join('\n'); return; }
+    if (act === 'load-normal'){ $('#t-names').value = NORMAL.join('\n'); return; }
+    if (act === 'clear-test'){ $('#t-names').value=''; $('#t-out').style.display='none'; $('#t-summary').textContent=''; return; }
+  }catch(e){
+    toast('操作失败', e.message, 'err');
+    t.disabled = false;
+  }
+});
+
+async function runTest(){
+  const names = $('#t-names').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (!names.length){ toast('没有待测名字', '请先粘贴一些名字，或用快速用例按钮', 'err'); return; }
+  try{
+    const d = await api('/api/guard/test', { method:'POST', body:{
+      names,
+      overrides: { matchMode: val('t-matchMode'), brandPattern: val('t-brandPattern') },
+    }});
+    const rows = d.results.map(r=>{
+      const cls = r.hit ? 'hit' : 'miss';
+      const v = r.error ? `<span class="verdict e">正则错误</span>`
+        : r.hit ? `<span class="verdict h">命中</span>` : `<span class="verdict m">放行</span>`;
+      const why = r.error ? esc(r.error)
+        : r.hit ? `via=<b>${esc(r.via)}</b>${r.tail?` tail=<code>${esc(r.tail)}</code>`:''}`
+        : '视为正常名字';
+      return `<tr class="${cls}"><td class="mono">${esc(r.name)}</td>
+        <td class="mono">${esc(r.squashed)}</td><td>${v}</td><td>${why}</td></tr>`;
+    }).join('');
+    $('#t-body').innerHTML = rows;
+    $('#t-out').style.display = 'block';
+    const hit = d.results.filter(r=>r.hit).length;
+    $('#t-summary').innerHTML = `共 <b>${d.results.length}</b> 个 · 命中 <b style="color:var(--red)">${hit}</b> · 放行 <b style="color:var(--green)">${d.results.length-hit}</b>`;
+  }catch(e){ toast('判定失败', e.message, 'err'); }
+}
+
+/* =====================================================================
+   启动
+   ===================================================================== */
+async function hardReload(announce){
+  try{
+    STATE = await api('/api/overview');
+    const cfgJobs = Object.keys(STATE.bots).map(async k=>{
+      try{
+        const d = await api(`/api/${k}/config`);
+        CFGS[k] = d.config || {};
+        if (d.whitelist) WL[k] = d.whitelist;
+        storeCfg(k, CFGS[k]);
+      }catch(e){ CFGS[k] = {}; if (k==='guard') WL[k]={roleIds:[],userIds:[]}; }
+    });
+    await Promise.all(cfgJobs);
+    await render();
+    if (announce) toast('已刷新', '配置与状态均已重新载入', 'ok');
+  }catch(e){
+    document.body.insertAdjacentHTML('afterbegin',
+      `<div class="note bad" style="margin:16px"><span class="ic">✕</span><div>
+        加载失败：${esc(e.message)}</div></div>`);
+  }
+}
+
+hardReload(false);
+</script>
+</body>
+</html>

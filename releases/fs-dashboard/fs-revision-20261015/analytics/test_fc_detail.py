@@ -1,0 +1,110 @@
+import copy, importlib.util, json, sys, tempfile, unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / 'candidate'))
+from fc_detail_model import normalize, deduplicate, aggregate, amount_bucket
+from fc_detail import query, FCDetails
+CFG = json.loads((ROOT / 'candidate/fc_detail_config.json').read_text())
+CFG['trust_customer_flag']=True
+
+def raw(number, amount='20.00', **extra):
+    result=dict(id=number, order_no='TEST'+str(number), gid=1327, pay_status=1, site_id=266,
+                amount=amount, amount_usd_format='$ '+amount, uid=2, isNew=1,
+                content='<em>[PC Platform]</em>100 K coins', paytime='2026-10-11 12:00:00',
+                timestamp_format='2026-10-11 11:59:00', lasttime='2026-10-12 08:00:00',
+                status=31, status_format='发货·发货中', device=0, country_code='US', paytype_display='paypal')
+    result.update(extra);return result
+
+def row(number, amount='20.00', **changes):
+    value=raw(number, amount);value.update(changes);return normalize(value, CFG, {266,141,320,575})
+
+def data(rows, backlog=None):
+    return {'orders':rows,'backlog':backlog if backlog is not None else rows,'as_of':datetime.now(timezone.utc).isoformat(),
+            'snapshot_id':'fc-detail-test','coverage':{'period':{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'}},'data_status':'available'}
+
+Q={'start':'2026-10-11','end':'2026-10-11','pool':'paid','page':'1'}
+
+class FactsTest(unittest.TestCase):
+    def test_money_boundaries_and_missing(self):
+        r=aggregate(data([row(1,'19.99'),row(2,'20.00'),row(3,'40.00'),row(4,'500.00'),row(5,'')]),Q,CFG)
+        self.assertEqual([b['orders'] for b in r['buckets']], [1,1,1,0,0,0,0,0,0,1,1])
+        self.assertEqual(sum(b['orders'] for b in r['buckets']),r['totals']['orders'])
+        self.assertEqual(r['totals']['unpriced_orders'],1)
+    def test_main_satellite_and_no_referral_exclusion(self):
+        self.assertEqual(row(1,site_id=575,http_referer='ELD G2G')['site_group'],'satellite')
+        self.assertEqual(row(2,site_id=999)['site_group'],'unknown')
+        c=copy.deepcopy(CFG);c['distribution_site_ids']=[575]
+        self.assertEqual(normalize(raw(3,site_id=575),c,{575})['site_group'],'distribution_group')
+    def test_no_non_fc_or_unpaid(self):
+        self.assertIsNone(row(1,gid=1329));self.assertIsNone(row(2,pay_status=0))
+    def test_dedup_and_customer_arithmetic(self):
+        rows=deduplicate([row(1),row(1),row(2,isNew=0),row(3,isNew=None)])
+        r=aggregate(data(rows),Q,CFG)
+        self.assertEqual(r['totals']['orders'],3)
+        self.assertEqual(r['totals']['new']+r['totals']['returning']+r['totals']['unknown'],3)
+    def test_user_cumulative_and_site_identity(self):
+        r=aggregate(data([row(1,'15.00'),row(2,'35.00'),row(3,'15.00',site_id=141)]),Q,CFG)
+        self.assertEqual(r['user_buckets'][2]['users'],1);self.assertEqual(r['users_identified'],2)
+    def test_guest_does_not_become_user(self):
+        r=aggregate(data([row(1,uid=0),row(2,uid=0)]),Q,CFG)
+        self.assertEqual(r['users_identified'],0);self.assertEqual(r['orders_without_customer_id'],2)
+    def test_old_backlog_not_date_limited_or_terminal(self):
+        old=row(1,paytime='2026-08-01 12:00:00');done=row(2,status=101,status_format='已完成');refund=row(3,status=83,status_format='已退款·其他原因')
+        r=aggregate(data([old,done,refund],[old,done,refund]),{**Q,'pool':'current'},CFG)
+        self.assertEqual(r['backlog_summary']['orders'],1);self.assertEqual(r['orders'][0]['id'],'TEST1')
+        self.assertEqual(r['orders'][0]['age_basis'],'支付时间')
+    def test_drill_all_filters_and_pages(self):
+        rows=[row(n,customer_key='unused') for n in range(1,25)]
+        rows += [row(99,site_id=141),row(100,isNew=0),row(101,'40.00')]
+        r=aggregate(data(rows),{**Q,'site_group':'main','customer':'new','platform':'PC','bucket':'1','page':'2'},CFG)
+        self.assertEqual(r['list_total'],24);self.assertEqual(len(r['orders']),10)
+    def test_no_pii_in_normalized_record(self):
+        r=row(1,email='private@example.test',telephone='SECRET_PHONE',add_info='EA_PASSWORD',remark='BACKUP_CODE',note='DO_NOT_EXPORT')
+        text=json.dumps(r)
+        for value in ('private@example.test','SECRET_PHONE','EA_PASSWORD','BACKUP_CODE','DO_NOT_EXPORT'):self.assertNotIn(value,text)
+    def test_unverified_flag_is_unknown_not_returning(self):
+        c={**CFG,'trust_customer_flag':False}
+        self.assertEqual(normalize(raw(1,isNew=0),c,{266})['customer'],'unknown')
+        result=aggregate(data([row(1)]),Q,c)
+        self.assertEqual(result['totals']['unknown'],1);self.assertEqual(result['customer_status'],'not_verified')
+    def test_query_cannot_escape_fc_scope(self):
+        for changes in ({'profile':['D4']},{'site_id':['266']},{'page':['-1']},{'platform':['other']},{'sql':['x']}):
+            with self.assertRaises(ValueError):query({'mode':['fc-detail'],'profile':['FC27'],'start':['2026-10-11'],'end':['2026-10-11'],**changes})
+    def test_pagination_cash_format_and_failed_source_not_zero(self):
+        with tempfile.TemporaryDirectory() as temp,ThreadPoolExecutor(max_workers=1) as pool:
+            captured=data([row(1),row(2)])
+            c=FCDetails(pool,temp,lambda q,c:{**captured,'coverage':{'period':q['period']}},CFG)
+            params={'mode':['fc-detail'],'profile':['FC27'],'start':['2026-10-11'],'end':['2026-10-11']}
+            self.assertEqual(c.get(params)[0],202)
+            pool.submit(lambda:None).result()
+            status,result=c.get({**params,'format':['csv']})
+            self.assertEqual(status,200);self.assertIn('TEST1',result['csv']);self.assertEqual(result['totals']['orders'],2)
+            report=c.get({**params,'mode':['fc-report']})[1]['report']
+            self.assertTrue(report['report_id']);self.assertEqual(len(list((Path(temp)/'reports').glob('*.json'))),1)
+    def test_refresh_uses_same_cache_queue_and_csv_exports_all(self):
+        calls=[]
+        with tempfile.TemporaryDirectory() as temp,ThreadPoolExecutor(max_workers=1) as pool:
+            def read(q,c):
+                calls.append(q)
+                return {**data([row(n) for n in range(1,25)]),'coverage':{'period':q['period']}}
+            cache=FCDetails(pool,temp,read,CFG)
+            params={'mode':['fc-detail'],'profile':['FC27'],'start':['2026-10-11'],'end':['2026-10-11']}
+            self.assertEqual(cache.get(params)[0],202);pool.submit(lambda:None).result()
+            result=cache.get({**params,'format':['csv']})[1]
+            self.assertEqual(len(result['csv'].splitlines()),25);self.assertEqual(len(result['orders']),10)
+            self.assertEqual(cache.get({**params,'refresh':['true']})[0],202);pool.submit(lambda:None).result()
+            self.assertEqual(cache.get(params)[0],200);self.assertEqual(len(calls),2)
+            cache.config={**CFG,'trust_customer_flag':False}
+            with self.assertRaisesRegex(ValueError,'customer_not_verified'):cache.get({**params,'customer':['new']})
+
+    def test_failed_initial_source_is_unavailable_not_zero(self):
+        def failed(q,c):raise OSError('unavailable')
+        with tempfile.TemporaryDirectory() as temp,ThreadPoolExecutor(max_workers=1) as pool:
+            cache=FCDetails(pool,temp,failed,CFG)
+            params={'mode':['fc-detail'],'profile':['FC27'],'start':['2026-10-11'],'end':['2026-10-11']}
+            self.assertEqual(cache.get(params)[0],202);pool.submit(lambda:None).result()
+            status,result=cache.get(params);self.assertEqual(status,503);self.assertNotIn('totals',result)
+
+if __name__=='__main__':unittest.main()

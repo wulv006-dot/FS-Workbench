@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(__dirname+'/candidate/game-index.html','utf8');
+const live=JSON.parse(fs.readFileSync(__dirname+'/baseline/game-public.json','utf8'));
+const code=source.slice(source.indexOf('const fsGameSeed = DATA.map'),source.indexOf('\nrenderHero();',source.indexOf('window.fsApplyGameDaily')));
+const helpers=source.slice(source.indexOf('function dailyIntelPreview('),source.indexOf('function radarNodeLessCardHtml('));
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const seed=Array.from(new Set([...live.coverage.covered_games,...live.coverage.missing_games])).map(key=>({key,_id:key,events:[{_id:'original',_startUTC:new Date(0),_endUTC:new Date(0)}]}));
+const ctx={DATA:seed,window:{dispatchEvent(){}},Date,CustomEvent:class{},radarItems:[],esc,
+ evStatus:()=> 'upcoming',evTarget:e=>e._startUTC,renderHero(){},renderTierTabs(){},renderRadar(){},renderUrgent(){},renderFC(){},tickCd(){}};
+vm.createContext(ctx);vm.runInContext(code+'\n'+helpers+'\nthis.preview=dailyIntelPreview;this.detail=dailyIntelHtml;',ctx);
+ctx.window.fsApplyGameDaily(live);
+assert.equal(ctx.DATA.reduce((n,g)=>n+g.daily_events.length,0),live.events.length,'all verified events must reach game cards');
+const timed=live.events.filter(e=>e.event_date&&e.event_time&&e.timezone);
+assert.equal(ctx.DATA.reduce((n,g)=>n+g.events.length,0),timed.length,'only exact time/offset events create countdowns');
+const unknown=live.events.find(e=>!e.event_date||!e.event_time||!e.timezone),g=ctx.DATA.find(g=>g.key===unknown.game_key);
+assert(ctx.preview(g).includes(esc(unknown.summary)));
+assert(ctx.detail(g).includes(esc(unknown.title)));assert(ctx.detail(g).includes(esc(unknown.source_url)));
+assert(!ctx.detail(g).includes('data-cd='));
+const missing=ctx.DATA.find(g=>g.daily_coverage==='missing');assert(ctx.preview(missing).includes('来源覆盖暂缺'));
+ctx.window.fsApplyGameDaily({events:[],collected_at:null});assert(ctx.preview(ctx.DATA[0]).includes('尚无可用采集结果'));
+ctx.window.fsApplyGameDaily({...live,events:[]});assert(ctx.preview(ctx.DATA.find(g=>g.daily_coverage==='readable')).includes('本批没有通过校验的节点'));
+const malicious={...live.events[0],title:'<script>x</script>',summary:'<img onerror="x">'};
+ctx.window.fsApplyGameDaily({...live,events:[malicious]});assert(!ctx.detail(ctx.DATA.find(g=>g.key===malicious.game_key)).includes('<script>'));
+ctx.window.fsApplyGameDaily(null);assert.equal(ctx.window.FS_GAME_DAILY_MODE,'history');assert(ctx.DATA[0].events.some(e=>e._id==='original'));
+assert(source.includes('window.FS_GAME_DAILY_MODE==="history"&&g.phaseboard'),'old planning timeline must not override live events');
+console.log(`Game cards: actual ${live.events.length}-event payload consumed, untimed summaries/sources retained, countdown bound, missing/empty/no-event distinction and escaping passed`);

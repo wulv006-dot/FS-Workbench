@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "scope": "hermes-report-actions-20261015",
+  "releaseReady": false,
+  "files": [
+    {
+      "candidate": "brain.js",
+      "target": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "fab902c89c64ecf1e825c56cde5e8e293d8e7bada17e6bc6dc7f647723bfd251",
+      "sha256": "125f4d15488601faa3164f364ee8ceb145a5041e907a3e4d4a55d8b13b9e2cd6"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/brain/brain.css",
+      "sha256": "15ff7f0c59920a42e8ed7ed76d74e3e320c954846ba2c1aba4b34e70685c054b"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/brain/index.html",
+      "sha256": "33eb4f72191044782b0367fc24f641f7e48417c522a05182e7f782a510acf4d0"
+    },
+    {
+      "path": "/var/www/hub/hubnav.js",
+      "sha256": "7cb572d2d5f63f4095844a9baf561140cd83b891c4ebaef32aaed5c3c32c268d"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "ac400b30ff3d01879a49321b7f76994a93f6c140adb56ca21a300db9efb81c3b"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "02914f0d9dff42b04b34670e7f9b081e26ecd8ffdc5b67ac8e24d11ea54f33cd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "227f7e19642661adb5f9225e752330ca808414181b31aa03fb4e8e23a54c5043"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/continuation.py",
+      "sha256": "d453b3fbba1a49235f26ecfc7049395ff43c25113ec6cee86d5dfc99ecfabba0"
+    }
+  ]
+}

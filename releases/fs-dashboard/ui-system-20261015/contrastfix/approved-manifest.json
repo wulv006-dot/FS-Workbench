@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "scope": "fs-ui-contrastfix-20261015",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "runtimeRequired": {},
+  "files": [
+    {
+      "candidate": "ui/hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "beforeSha256": "9f9a2a328a44b9698bdbeb8283a304c947d37ee8543ef9bccc9c44cd75012a5d",
+      "sha256": "ae631f6dfe8e6c8401238879a50e279c0a0b7a8a126ee4117c380d38b85349d8"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js",
+      "sha256": "b9fa6f6a30fafab089db7a9b7d3f5190c08ca05b8232b57064cd5171cbe54910"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css",
+      "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css",
+      "sha256": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/hubnav.css",
+      "sha256": "af128b11edf03c6bc168d3a0f3b94f79e0e13be47ff6af7146b8b8607c270e9a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/legacy.css",
+      "sha256": "5431b4de33217810f7a9d50d5322abf13a4aaad0096d55be25214c0109085245"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/native-alias.css",
+      "sha256": "6765bc2397e7132647ff02c5df93cf986aaaf23ec2cb5db1cfb273e11b4157ff"
+    }
+  ]
+}

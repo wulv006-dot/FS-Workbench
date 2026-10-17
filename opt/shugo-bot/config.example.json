@@ -1,0 +1,93 @@
+{
+  "guild_id": "000000000000000000",
+  "menu_channel_id": "000000000000000000",
+  "_news_说明": "news_channel_id = 资讯频道 ID（空=不推送，由 09_news_setup.py 自动写入）。news_boards = 抓哪些官方板块：notice_en 公告 / update_en 补丁说明 / movie_clip_en 官方影像（EN 站暂无 event 板块）。news_poll_minutes = 轮询间隔（最小 5）。",
+  "news_channel_id": "000000000000000000",
+  "news_boards": [
+    "notice_en",
+    "update_en",
+    "movie_clip_en"
+  ],
+  "news_poll_minutes": 30,
+  "news_backfill": 10,
+  "_layout_说明": "style 只能填 primary(蓝)/secondary(灰)/success(绿)/danger(红) —— Discord 不支持自定义色值。class_per_row=每行职业按钮数。equal_width=true 时用不可折叠的 EN SPACE(U+2002) 把按钮撑到等宽（Discord 没有宽度参数）。row_px=目标行宽(像素)，所有行都会补到这个宽度；0=不补（保留原始的参差不齐）。若某行太宽被截断，把 row_px 调小（比如 440/400）。",
+  "layout": {
+    "class_per_row": 4,
+    "faction_style": "primary",
+    "class_style": "primary",
+    "divider_style": "secondary",
+    "equal_width": true,
+    "row_px": 480
+  },
+  "faction_roles": [
+    {
+      "key": "elyos",
+      "label": "Elyos",
+      "emoji": "🪽",
+      "role_id": "000000000000000000"
+    },
+    {
+      "key": "asmodian",
+      "label": "Asmodian",
+      "emoji": "😈",
+      "role_id": "000000000000000000"
+    }
+  ],
+  "class_roles": [
+    {
+      "label": "Gladiator",
+      "emoji": "⚔️",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Templar",
+      "emoji": "🛡️",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Assassin",
+      "emoji": "🗡️",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Ranger",
+      "emoji": "🏹",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Sorcerer",
+      "emoji": "📖",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Spiritmaster",
+      "emoji": "🪄",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Cleric",
+      "emoji": "✨",
+      "role_id": "000000000000000000"
+    },
+    {
+      "label": "Chanter",
+      "emoji": "🎵",
+      "role_id": "000000000000000000"
+    }
+  ],
+  "texts": {
+    "card_title": "Welcome to AION 2 Kinah",
+    "card_body": "**1️⃣  Pick your Faction**  —  tap a button below\n\n**2️⃣  Pick your Class**  —  same idea, all classes listed below\n\nYou can change your mind anytime, just tap another button.\n\n💰  [Cheap Kinah for Sale](https://www.aion2kinah.com/)",
+    "divider_faction": {
+      "emoji": "⚜️",
+      "name": "FACTION"
+    },
+    "divider_class": {
+      "emoji": "⚔️",
+      "name": "CLASS"
+    },
+    "card_footer": "🔒 This channel is read-only. Only Shugo-bot can post here.",
+    "dm_title": "Welcome to 🏰AION 2 Kinah! 🎉",
+    "dm_body": "Hey {name} — you made it in! You're our **#{ordinal}** member.\n\nTo unlock the server, pick your **Faction** & **Class** here:\n👉 {link}\n\nTakes ~10 seconds. See you in Aion! ⚔️"
+  }
+}

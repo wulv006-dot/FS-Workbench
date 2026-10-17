@@ -1,0 +1,1232 @@
+{
+  "schemaVersion": 1,
+  "scope": "fs-revision-ui-20261015",
+  "releaseReady": false,
+  "files": [
+    {
+      "candidate": "revision/navigation.css",
+      "target": "/var/www/dashboard/fs-home/navigation.css",
+      "beforeSha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171",
+      "sha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171"
+    },
+    {
+      "candidate": "revision/hubnav.css",
+      "target": "/var/www/dashboard/fs-home/hubnav.css",
+      "beforeSha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3",
+      "sha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3"
+    },
+    {
+      "candidate": "revision/modules/analytics/index.html",
+      "target": "/var/www/dashboard/modules/analytics/index.html",
+      "beforeSha256": "d2e00dd84759a662bbaf605f208ae7aa1f889fac5c3b0a686bffd4f571c4b1bc",
+      "sha256": "d2e00dd84759a662bbaf605f208ae7aa1f889fac5c3b0a686bffd4f571c4b1bc"
+    },
+    {
+      "candidate": "revision/modules/sports/index.html",
+      "target": "/var/www/dashboard/modules/sports/index.html",
+      "beforeSha256": "961038a6174a77b840160815c0e0ebd7e5d47965d5488c9f297ddaec789b91bf",
+      "sha256": "961038a6174a77b840160815c0e0ebd7e5d47965d5488c9f297ddaec789b91bf"
+    },
+    {
+      "candidate": "revision/hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "beforeSha256": "ca4dd6aaf9383bfeb32f73743e5e90d137b4b53a0994b54e9842e2b492b3eca4",
+      "sha256": "ca4dd6aaf9383bfeb32f73743e5e90d137b4b53a0994b54e9842e2b492b3eca4"
+    },
+    {
+      "candidate": "revision/brain/index.html",
+      "target": "/var/www/dashboard/fs-home/brain/index.html",
+      "beforeSha256": "d6b8f781792f46a8a55c0276c3e05871ac1dc9185d057790cde2d9704b894774",
+      "sha256": "19fcbf48fcd409d43c0c4d83da81ffda3b7bbca0edda5f8fbab83585f9b6af28"
+    },
+    {
+      "candidate": "revision/brain/brain.js",
+      "target": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d",
+      "sha256": "a751e85b9f3f103ffe5ac1b871ee4ce469dc5a9a037f61a310bcc39998e42f6d"
+    },
+    {
+      "candidate": "revision/brain/brain.css",
+      "target": "/var/www/dashboard/fs-home/brain/brain.css",
+      "beforeSha256": "1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b",
+      "sha256": "1b270cf58e3a467f5e45cb84292b141832c925842551409838df3998e9fd2a7b"
+    },
+    {
+      "candidate": "revision/navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json",
+      "beforeSha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177",
+      "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/etc/nginx/fs-business-range.locations.conf",
+      "sha256": "75c410fea586c47253a19a7a1918d4575f389786f6481c45ad4ce6867ccd3571"
+    },
+    {
+      "path": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "d9c6ce2d75d5220ff11f975a6248b4aa4f9fc264c70fa4e3f72edcc852224a41"
+    },
+    {
+      "path": "/etc/nginx/release-radar.locations.conf",
+      "sha256": "fd4f81135da9c5539bb12c6a5269bccf01bb758f606105337b139d143d6b1f4f"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor.py",
+      "sha256": "870316877bccb58164b17272aa1016519b99d7c8f98dea43e065496cefddd9b2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "4c0ab3fb6f7132a404dfd22f6570311d0243638aa462fdf2537eba782be0cf88"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/catalog.py",
+      "sha256": "8ad7720c7aee4fb2238651a4a652fbbd94072eba6e69ebb5ae7c382df74dc618"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "b6f1d4a92e6835aea84b40aaac953b42d0fef6272824b302a64227c17af796f7"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "e4fbc9ff856e7f5007a6c7cf3c2ea04478c6cb983eddc4d355615cee7404a22f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/advisor.html",
+      "sha256": "c40cf336467a7050e891e0db8fa88381501dd881e926148ec32c9087e5c34f2d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/business.css",
+      "sha256": "7c5c406d58632e16933a78e4eae420d92789c1b5aeb0f13d3e9d4a16130941e4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/business.html",
+      "sha256": "82ea9b8f540ff54d2ce90b6e37802df72d5a8e8f7b0f28f71bd666441db00537"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/business.js",
+      "sha256": "964f65a2e9d95e6e0d7dbc3b8ece8032d13a90af9fee0f4a277ae6e9f2b783f9"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/aion2/aion2_gamplay.jpg",
+      "sha256": "f84edb010d5716ffb2fac5d9beea01a265933151a4d98b65dbb3b47463cba9e0"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/aion2/aion2_key_art.jpg",
+      "sha256": "0fe27e092fd1528effa73cae0b2420ed8522a2087bbbb2e536b256d1320c3708"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/aion2/aion2_logo_art.jpg",
+      "sha256": "609d905d5ff3cc052fc7f2158937c2c9bba08ee0f752febe68b2ca48db47b670"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/aion2/aion2_scene_war.jpg",
+      "sha256": "f102b8fde70a51018eb595444c2a7ac22f1ec5014e499f7a1d977195954c7bbf"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/aion2.jpg",
+      "sha256": "1bdd04d023e22fb5af1811b81d4f17bbcbcffd095456a2c18295fe5fadcc6452"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/arc-raiders.jpg",
+      "sha256": "d923d6c78bf6be11d19c59c448d6a7e03faa903302e334487cdb6690820e137e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/arena-breakout-infinite.jpg",
+      "sha256": "bd9c3c4a51cf2dc6c3c6a52fad8d085fbfbd9276e9f6ca7c55e06dcf189545fa"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/black-ops-7.jpg",
+      "sha256": "d618fe2ed764dd9d105f0aec7173a5fe75e4107dc47bd3287c6020540b09d824"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/college-football-26.jpg",
+      "sha256": "b9145aa1bcbee57344933568cacb66d8d9d2a3d46db56cbede73335002a62aaa"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/college-football-27.jpg",
+      "sha256": "951c596bdd4cbcdaa1e2388383f71d007120549806d7103ccd1d410940ee28f1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/dark-and-darker.jpg",
+      "sha256": "020bc7d598b554489878e85912b855bd4cba96c7f4c5a7f96bb3b38b61198ef1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/diablo-2-resurrected.jpg",
+      "sha256": "9646259083c92f523cdf24f0675c80963f35f3a31ceac88fd52062cfdd2aefac"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/diablo4.jpg",
+      "sha256": "83a20d9a9ada33d05931e1a9ae261ccb02c2c4ef35bbccc6eb415b475413f9f1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/dreadmyst.jpg",
+      "sha256": "d69c62f10e3e49201aa433fe372a11d9d4567b555817c9ee5a090fad32b6377a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/dune-awakening.jpg",
+      "sha256": "81a12f8c6173f12f1415d322c0983c386c690e891667c663067659cfb90150a5"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/ea-sports-fc.jpg",
+      "sha256": "41e0f39586e467e4b0f8dca5f094b3d3545e6351357ec06bd2d2b2c54724fa34"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/elden-ring.jpg",
+      "sha256": "77b52d67b5b630854901b3fa7aa22a72c4933321bb01b2a3ebe1461f55a1f927"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/gta6.jpg",
+      "sha256": "3a8e21acc8389d8e0992350afe3ef0a013843755c88f7bd0e771d99325703126"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/helldivers-2.jpg",
+      "sha256": "d20367be3b137bac8844c50690b0df77d211fec87eb7d242239261937d84b2ea"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/legend-of-ymir.jpg",
+      "sha256": "e21814a558c465de3aac75a15ebc1fd3b53fbed2ec68491870e3c13b8ed5397f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/madden-nfl.jpg",
+      "sha256": "91c609d141a769437746443036683c00134f90184b68c26e15519ab1ae383fca"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/maplestory.jpg",
+      "sha256": "9517f3b4c7bfec6d19ad0c025be2c49c3749cf02e9dfca8c405f94a5d831c004"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/mistfall-hunter.jpg",
+      "sha256": "3ce8d2bca6092e609174ab12b945e273bdfdc2ac208d7ee52bd12691e31d33f2"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/mlb-the-show-26.jpg",
+      "sha256": "dfa5585920b5160468c6cba35a4070ce4e6000ade6fd001f941aa4aa6c8233e7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/nba-2k.jpg",
+      "sha256": "3e0595e0ef7e23d261f005c46e79c925587ebe8b1c7827a2a1c5d1eb811bcca5"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/odin-valhalla-rising.jpg",
+      "sha256": "d8577c1c9c8ee6f190e4d2aeec05a6d8125ad1d5aea344dc4b58513d68179d02"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/poe1.jpg",
+      "sha256": "81d1ce95b6328b33a3cbb308b49ea59cc28e384ef674cc0c3e6912f3c01f6c76"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/poe2.jpg",
+      "sha256": "b8ff695105e891e965dee92b0f89318532dc9bd013964a77005775e086f1fb0f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/raven-2.jpg",
+      "sha256": "29fada84e925609c8d8daf063211c8e6a52a576ba75944300325df5352497337"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/runescape.jpg",
+      "sha256": "3c7069c3db51e5182bd254fb40bc242796127878df0aea4b8f20b24a11a92ccd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/skull-and-bones.jpg",
+      "sha256": "86d61c1268600e65fbc87c9b43692215431b16693e2cd9735a7a0e5e149dcd88"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/wow-classic-20.jpg",
+      "sha256": "92334166e7322b78fe124294759d0920b7bf961a4814f896ba78f348bd900168"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/wow-forever.jpg",
+      "sha256": "a5f07f24058642aa445164c9c8b17102a7353cf0ce5fa2c761e135c5b765ab5e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/covers/wow-tbc-classic-anniversary.jpg",
+      "sha256": "cdfc7eabb43680775445775e8c0add80476ecd3684d044ad02e80d2e26fa4e3d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/diablo4/diablo4_scene_war.jpg",
+      "sha256": "fc5356a412676eb046b12d65b3fe17628f3a93a8eb450ba1c0c43a4643c39908"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/ea-sports-fc/fc27_banner_wide.jpg",
+      "sha256": "b199eb8a875fa1554d89077970506ad8f83af8fbc8adf0bd706c7baaadb9fea3"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/ea-sports-fc/fc27_hero_wide.jpg",
+      "sha256": "a874fa707afe9f4fdf563e6ba7cfc79fe878676bd284f6951abc69ea95cf4917"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/ea-sports-fc/fc27_scene_war.jpg",
+      "sha256": "b0c7f8f5d3d788a7fcfc55a9f3e540cadc67c76f3b21be03913ccac52fb0ace4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/d4-tool-builds.jpg",
+      "sha256": "e4e4b34bcc97068bfcd3380903377e856c7e7b9222e9abb617e6238ba4fd803d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/d4-tool-helltides.jpg",
+      "sha256": "703f65f0f3561d22d8316a079fa81e69c37dd0f69ce44cf645ea87b2bb4c4236"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/d4-tool-maxroll.jpg",
+      "sha256": "402848e28ac0202447c9e1c778197586fcb3299d9646511e7614a52e0e94b152"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/d4-tool-trade.jpg",
+      "sha256": "f681f0c4d471def237f2063888584fc88eac717dc053ff1be78f3d406f4f2b0c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/fc-official-ea.jpg",
+      "sha256": "a9c1052222aebd032d143be8869dd7353db25970faf869ca004cb2e5b0c6acbb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/fc-tool-futbin.jpg",
+      "sha256": "4c9f00e3c0fe677cee2026fdb978eeb4144585f2cfa26fcef7b8d051782b7e53"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/fc-tool-futgg.jpg",
+      "sha256": "1119fa4f287d5051ce03561ca5980d772b7d6600d7a75b569b61f318e47d4028"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/fc-tool-futwiz.jpg",
+      "sha256": "3e74d833908c524982769132679d5c56cc26f7abef2f8461d867e4f5fa099f71"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/poe-tool-db.jpg",
+      "sha256": "13b1544bcbcb33ed2783218fd47cfae0c3e62695bc15203372ecd01b877d56fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/poe-tool-ninja.jpg",
+      "sha256": "4af1386f65272011cf695db53932b4bd6a4614239a69ea5e4cefc6666604933a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/poe-tool-trade.jpg",
+      "sha256": "1f0652cd057bdcf4a0ae49f934f8e2959453c9f710c03841219cc02a97db185f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/poe-tool-wiki.jpg",
+      "sha256": "3bbc5085d10c6994854b6cd36d9329b4812bdfa9d034e039ecc28f68da275002"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-aion2app.jpg",
+      "sha256": "d252c49e1e1507b435f56ce75c8d624d8ef16234556503a80cb223fb702fe643"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-aion2nc.jpg",
+      "sha256": "b85ebce7eec6dc70a75c68a655f089ccbe9bdc2fc969051a95a67fce6b178b4a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-cffut.jpg",
+      "sha256": "66c4f17653cfb774cb0c412b08012bb613d30ef912852f967a14d258b5bff679"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-codtracker.jpg",
+      "sha256": "b3b21137c418ee0d383c545b4639407f69e534ab0e7f2faba71d21640c729720"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-craftofexile.jpg",
+      "sha256": "859e1bfa637f8a91de508339754c10dea25a4e6f2e96f1949c8a293696741dec"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-d4armory.jpg",
+      "sha256": "34b034caf53f908af4b095bdd5efba6f393b4c618062b6b27296fb2360ee66cd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-d4builds.jpg",
+      "sha256": "e4e4b34bcc97068bfcd3380903377e856c7e7b9222e9abb617e6238ba4fd803d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-daddy.jpg",
+      "sha256": "0ff747a842c0c79bb89d65cba12bcb030f00799bf085c836d32c7b68bfc0da0d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-diablofans.jpg",
+      "sha256": "c7e534868a317b8908a26e04d83df37265f79c9040c046c776c6e5df0487523d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-diablotrade.jpg",
+      "sha256": "f681f0c4d471def237f2063888584fc88eac717dc053ff1be78f3d406f4f2b0c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-dndmarket.jpg",
+      "sha256": "d4dd3d20d94c4db83a669e6202710b7d47eb7557859651a3b2d3e97591c5e954"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-ea.jpg",
+      "sha256": "a9c1052222aebd032d143be8869dd7353db25970faf869ca004cb2e5b0c6acbb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-embedded.jpg",
+      "sha256": "97eba94b2bd1b8156e0ea325d341f1f2283e5660f1efdad4871b3147950c182b"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-fandom.jpg",
+      "sha256": "a50fd585d2c570999d1b751413073efd41bfcedc63260f0e543fa48dc26b9867"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-feztra.jpg",
+      "sha256": "8e765d978706692f790e88985a9ffa289c00c8a66daedb01f216b32c69cfbdd8"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-fifaindex.jpg",
+      "sha256": "30e0b92db1235b17b1f3d4ef8b1e4ec3a59017bb5577c0cf28fcdf4e6a460870"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-filterblade.jpg",
+      "sha256": "efd9d5dc0a4b6b662f0a6aaff4c870a9edefc777bd2db28ccbb4d377ccf2b5b3"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-futbin.jpg",
+      "sha256": "4c9f00e3c0fe677cee2026fdb978eeb4144585f2cfa26fcef7b8d051782b7e53"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-futgg.jpg",
+      "sha256": "1119fa4f287d5051ce03561ca5980d772b7d6600d7a75b569b61f318e47d4028"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-futhead.jpg",
+      "sha256": "dcb2ff413e8ea94997a813ec3f2a2797704531ca84338a6d2d33c867c8a55426"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-futwiz.jpg",
+      "sha256": "3e74d833908c524982769132679d5c56cc26f7abef2f8461d867e4f5fa099f71"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-getracker.jpg",
+      "sha256": "794bf2ebfc0ce47174d800fcf283255f72529e37548c9953b70197ad413560d1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-helltides.jpg",
+      "sha256": "703f65f0f3561d22d8316a079fa81e69c37dd0f69ce44cf645ea87b2bb4c4236"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-madden.jpg",
+      "sha256": "14edd92c7d3059b66f58aa5e0b059b6383439b7a2ab46b1b38570c0859643200"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-madtools.jpg",
+      "sha256": "a2fb52534ddf9245ffa9c764874b9c43b2b8fa01c21257933278efcd1d594c24"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-mapgenie.jpg",
+      "sha256": "6cf137dd4e2315d4d496646d325af3c542fef52f028fabb743303743befb2353"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-maxroll.jpg",
+      "sha256": "402848e28ac0202447c9e1c778197586fcb3299d9646511e7614a52e0e94b152"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-mutgg.jpg",
+      "sha256": "4f606570eac937cb4bc351d46574f3a5b7e7b0ef7ed2cca882582f171b793a26"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-osrswiki.jpg",
+      "sha256": "41cc69f7b9605471f43c99de4ae97e6a0f518e4c763da6944f4398d86ff722a7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-pobb.jpg",
+      "sha256": "de04e6a86cbd902712920f79a9996fcbe858e71b651385c3c398ea0edc4096a1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poe2db.jpg",
+      "sha256": "deeefb1522a26bfea506f450776a2f9af4c04318f8a08154b7c4e581f61f24dd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poedb.jpg",
+      "sha256": "13b1544bcbcb33ed2783218fd47cfae0c3e62695bc15203372ecd01b877d56fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poeninja.jpg",
+      "sha256": "4af1386f65272011cf695db53932b4bd6a4614239a69ea5e4cefc6666604933a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poeplanner.jpg",
+      "sha256": "feca3dc0ed8049ca4f9a79a412023255fa674c4cd8e7c18f3d7429e4d7b9b0cf"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poeregex.jpg",
+      "sha256": "1f215a18ce76fec5f2f6952fe89793cc54935d8ffbf5139a5600a4e54169f940"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-poewiki.jpg",
+      "sha256": "3bbc5085d10c6994854b6cd36d9329b4812bdfa9d034e039ecc28f68da275002"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-purple.jpg",
+      "sha256": "9b22c88807458b4e25b62a2d63dd63c0424490e4f7f24874c10a36f4446f0842"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-rswiki.jpg",
+      "sha256": "b10c9396218c9afcda039917d9452abbeaaa66d302330e98610c8e7636d84955"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-runeapps.jpg",
+      "sha256": "7adbbbeacd69fc1b853c1ac5142640a6331629942068ac9360e86719bd40494d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-runelite.jpg",
+      "sha256": "e422ba0fd7a78e334c3ef6fb2964d4128e53a4e049fac9fa290b5ff339147553"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-showzone.jpg",
+      "sha256": "2e8e8083b5233a4d7677b0a0cedb6aa8d13af809824830ce912081b1ac8bcc44"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-snb.jpg",
+      "sha256": "0ce933394f82d8cebd3f38812af6b462925f3a8fc0ee99e1136105137cf45d1d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-steam.jpg",
+      "sha256": "ac566221154dbd704858df96f361f5d39eb861165cafb6a6b9b10169b9f4002a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-steamdb.jpg",
+      "sha256": "691792707aa4c024beecb2eee72f5ec6116ebcd10175d3fa408783bd3829d5ce"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-tgw.jpg",
+      "sha256": "929323df9397d1fac64b639b12e25678e31e207bb99d2938f82da06b915629fc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/game-tools/tool-tsn.jpg",
+      "sha256": "da4cd0a19293d01c98c998a1a586f202b6daab0de58d550f775d535909b0fb04"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/assets/poe2/poe2_scene_war.jpg",
+      "sha256": "45e589e08bb00d13fa574b6d2504a9d7347a1b7c320e420612d310533a881e94"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/daily.js",
+      "sha256": "982206d2c6aea4744898e2b8b1445e68d35dae1352b88dc0d98f653850dad791"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/fs-integration.css",
+      "sha256": "f6536f9341fd3659ced63db8a897b43c4341c9fc59da75556b96beccea9729a6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/fs-integration.js",
+      "sha256": "5551d1823a6f03fcd1fcc2f568d6a39480e3d35380743ddf0e2babd8cde871f7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/game-monitor/index.html",
+      "sha256": "5f8de7d978db05453cbff167992b0d0626f05a197205c26cfea263c62ddda033"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/google.css",
+      "sha256": "fdc30ac01f85e4bfb2fd3351ba066aac48e82f5d5dabd98f501c078a0dd05106"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/google.js",
+      "sha256": "29544ee5fc6a066e98404fae0b6655a2c66c200f7b0737a896d4b10d8fefd217"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/home.html",
+      "sha256": "a4b7556f55d385bd1b432748cbad03fe7f3dcf23f5b2c2844b831b75d9fce9fb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/index.html",
+      "sha256": "c29eae00f48b217f079693c4206900f47dc62ccfc9d599f7d512d1992f1a6280"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/legacy-business.js",
+      "sha256": "a22bd5c975306c4caaae968fe00657616baed95ab7601942541be538b6adbef1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/aion2.html",
+      "sha256": "7c65f8e4b521b119fab3adbd6417846483d8cca70ab2cbf61261830293c1e44c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/arc_raiders.html",
+      "sha256": "ee7738a160530f5bfaac56b321fe9971c7905a0d3d3309fe456edb502eded18a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/arena_breakout_infinite.html",
+      "sha256": "ef579ed9792763a452589f3c31e6731277dea3a26425f6ca741256ee4f028551"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/cfb27.html",
+      "sha256": "b81cef3379263fe55909c48637396eef148fbe15d267ee2e7b506fbb4a7ff166"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/cod_bo7.html",
+      "sha256": "cac856742c7c991690968f93f4aeeeed08a9c05fd04273ecca91d4bf50d6d652"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/d4.html",
+      "sha256": "789a234c8d0849fd13433c769a9d4a2572368b8436c3be3274b531a0964649cc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/dark_and_darker.html",
+      "sha256": "21c0f797dad68767276d0a149fff4b71dcc0e89540cb63e3dded3fc7168f42f6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/fc27.html",
+      "sha256": "6d0272cc6d159ad82b8ed74005daa8219c870418146570c23efff59439686120"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/index.html",
+      "sha256": "f3c379b0636e11e31213728e5e257a30b6703f01b93d1aa4abb9717e91b1144a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/management.css",
+      "sha256": "2b80c427dd916e88e6b03076ee39d818f26e8793ab19ffe1eda3fb93c90a9e94"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/management.js",
+      "sha256": "0a12e43d90e5ba751381f9bf393339b4260b249e4677fe0d011ee82be9947c4c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/maplestory_classic.html",
+      "sha256": "85196469b8662aa5ddd824d811879a9ccf4b487bff2d6ec969ef8ea6058fcec0"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/mlb26.html",
+      "sha256": "7463dd1c90c5b8f54be3a07e3abb97af3ba50e0506afcb428eee6d1c3eed93b8"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/nba2k27.html",
+      "sha256": "f1be9dbec2a7bed7a4503021830bf42919115266e52764e034888f4c863bffcc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/nfl27.html",
+      "sha256": "e114e8a202d552f1092f9770d0ca42abb8c4f1ef0583859ac9470186a175a058"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/poe2.html",
+      "sha256": "3183b1f48a9f8cf86895b7c33cef8cc71950059650c90173d8de87bcd8a48db9"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/rs.html",
+      "sha256": "d044d6505fa62c544a22b2530fca8c5771653fb261fd5a99e6a46880ac26c406"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/sandbox.html",
+      "sha256": "d5995e35e25e65797e688cd724407dbe72e212dfc3a83da45383e170613127bd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/sandbox.js",
+      "sha256": "b46989cf936801ff9b8866c20b0238973c049a1a4a04a881d8af5b4eda02060a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/targets.json",
+      "sha256": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/management/wow_forever.html",
+      "sha256": "b59d38a1f49aebb4fc632c2fed7d4585a32a0b26d394e715a0f96b1b39d5c653"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/navigation.json",
+      "sha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/shell.js",
+      "sha256": "999ea89f6c7d9f0efc892525224b815defb965b8bc35ced6821d19097c3454d0"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/snapshot-client.js",
+      "sha256": "557e92ce67c27c00290575e0dbf581b622c425c6e397e0753e73a16193390b73"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/weekly-legacy.html",
+      "sha256": "6bc0d92cda7031261bb76c059d2ee5be8df3fa85c554960381704f67109c409e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-261bedcc395a/workspace.css",
+      "sha256": "f7e29326bc3778077f1084cb7a78036e798cd517e713fd186f268a97b102c695"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/advisor.html",
+      "sha256": "c40cf336467a7050e891e0db8fa88381501dd881e926148ec32c9087e5c34f2d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/business.css",
+      "sha256": "7c5c406d58632e16933a78e4eae420d92789c1b5aeb0f13d3e9d4a16130941e4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/business.html",
+      "sha256": "82ea9b8f540ff54d2ce90b6e37802df72d5a8e8f7b0f28f71bd666441db00537"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/business.js",
+      "sha256": "bceb71143c80054b6d130e5692d991343b2c61c574f50d0912d73095cfccf9f1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/aion2/aion2_gamplay.jpg",
+      "sha256": "f84edb010d5716ffb2fac5d9beea01a265933151a4d98b65dbb3b47463cba9e0"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/aion2/aion2_key_art.jpg",
+      "sha256": "0fe27e092fd1528effa73cae0b2420ed8522a2087bbbb2e536b256d1320c3708"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/aion2/aion2_logo_art.jpg",
+      "sha256": "609d905d5ff3cc052fc7f2158937c2c9bba08ee0f752febe68b2ca48db47b670"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/aion2/aion2_scene_war.jpg",
+      "sha256": "f102b8fde70a51018eb595444c2a7ac22f1ec5014e499f7a1d977195954c7bbf"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/aion2.jpg",
+      "sha256": "1bdd04d023e22fb5af1811b81d4f17bbcbcffd095456a2c18295fe5fadcc6452"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/arc-raiders.jpg",
+      "sha256": "d923d6c78bf6be11d19c59c448d6a7e03faa903302e334487cdb6690820e137e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/arena-breakout-infinite.jpg",
+      "sha256": "bd9c3c4a51cf2dc6c3c6a52fad8d085fbfbd9276e9f6ca7c55e06dcf189545fa"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/black-ops-7.jpg",
+      "sha256": "d618fe2ed764dd9d105f0aec7173a5fe75e4107dc47bd3287c6020540b09d824"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/college-football-26.jpg",
+      "sha256": "b9145aa1bcbee57344933568cacb66d8d9d2a3d46db56cbede73335002a62aaa"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/college-football-27.jpg",
+      "sha256": "951c596bdd4cbcdaa1e2388383f71d007120549806d7103ccd1d410940ee28f1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/dark-and-darker.jpg",
+      "sha256": "020bc7d598b554489878e85912b855bd4cba96c7f4c5a7f96bb3b38b61198ef1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/diablo-2-resurrected.jpg",
+      "sha256": "9646259083c92f523cdf24f0675c80963f35f3a31ceac88fd52062cfdd2aefac"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/diablo4.jpg",
+      "sha256": "83a20d9a9ada33d05931e1a9ae261ccb02c2c4ef35bbccc6eb415b475413f9f1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/dreadmyst.jpg",
+      "sha256": "d69c62f10e3e49201aa433fe372a11d9d4567b555817c9ee5a090fad32b6377a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/dune-awakening.jpg",
+      "sha256": "81a12f8c6173f12f1415d322c0983c386c690e891667c663067659cfb90150a5"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/ea-sports-fc.jpg",
+      "sha256": "41e0f39586e467e4b0f8dca5f094b3d3545e6351357ec06bd2d2b2c54724fa34"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/elden-ring.jpg",
+      "sha256": "77b52d67b5b630854901b3fa7aa22a72c4933321bb01b2a3ebe1461f55a1f927"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/gta6.jpg",
+      "sha256": "3a8e21acc8389d8e0992350afe3ef0a013843755c88f7bd0e771d99325703126"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/helldivers-2.jpg",
+      "sha256": "d20367be3b137bac8844c50690b0df77d211fec87eb7d242239261937d84b2ea"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/legend-of-ymir.jpg",
+      "sha256": "e21814a558c465de3aac75a15ebc1fd3b53fbed2ec68491870e3c13b8ed5397f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/madden-nfl.jpg",
+      "sha256": "91c609d141a769437746443036683c00134f90184b68c26e15519ab1ae383fca"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/maplestory.jpg",
+      "sha256": "9517f3b4c7bfec6d19ad0c025be2c49c3749cf02e9dfca8c405f94a5d831c004"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/mistfall-hunter.jpg",
+      "sha256": "3ce8d2bca6092e609174ab12b945e273bdfdc2ac208d7ee52bd12691e31d33f2"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/mlb-the-show-26.jpg",
+      "sha256": "dfa5585920b5160468c6cba35a4070ce4e6000ade6fd001f941aa4aa6c8233e7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/nba-2k.jpg",
+      "sha256": "3e0595e0ef7e23d261f005c46e79c925587ebe8b1c7827a2a1c5d1eb811bcca5"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/odin-valhalla-rising.jpg",
+      "sha256": "d8577c1c9c8ee6f190e4d2aeec05a6d8125ad1d5aea344dc4b58513d68179d02"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/poe1.jpg",
+      "sha256": "81d1ce95b6328b33a3cbb308b49ea59cc28e384ef674cc0c3e6912f3c01f6c76"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/poe2.jpg",
+      "sha256": "b8ff695105e891e965dee92b0f89318532dc9bd013964a77005775e086f1fb0f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/raven-2.jpg",
+      "sha256": "29fada84e925609c8d8daf063211c8e6a52a576ba75944300325df5352497337"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/runescape.jpg",
+      "sha256": "3c7069c3db51e5182bd254fb40bc242796127878df0aea4b8f20b24a11a92ccd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/skull-and-bones.jpg",
+      "sha256": "86d61c1268600e65fbc87c9b43692215431b16693e2cd9735a7a0e5e149dcd88"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/wow-classic-20.jpg",
+      "sha256": "92334166e7322b78fe124294759d0920b7bf961a4814f896ba78f348bd900168"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/wow-forever.jpg",
+      "sha256": "a5f07f24058642aa445164c9c8b17102a7353cf0ce5fa2c761e135c5b765ab5e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/covers/wow-tbc-classic-anniversary.jpg",
+      "sha256": "cdfc7eabb43680775445775e8c0add80476ecd3684d044ad02e80d2e26fa4e3d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/diablo4/diablo4_scene_war.jpg",
+      "sha256": "fc5356a412676eb046b12d65b3fe17628f3a93a8eb450ba1c0c43a4643c39908"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/ea-sports-fc/fc27_banner_wide.jpg",
+      "sha256": "b199eb8a875fa1554d89077970506ad8f83af8fbc8adf0bd706c7baaadb9fea3"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/ea-sports-fc/fc27_hero_wide.jpg",
+      "sha256": "a874fa707afe9f4fdf563e6ba7cfc79fe878676bd284f6951abc69ea95cf4917"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/ea-sports-fc/fc27_scene_war.jpg",
+      "sha256": "b0c7f8f5d3d788a7fcfc55a9f3e540cadc67c76f3b21be03913ccac52fb0ace4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/d4-tool-builds.jpg",
+      "sha256": "e4e4b34bcc97068bfcd3380903377e856c7e7b9222e9abb617e6238ba4fd803d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/d4-tool-helltides.jpg",
+      "sha256": "703f65f0f3561d22d8316a079fa81e69c37dd0f69ce44cf645ea87b2bb4c4236"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/d4-tool-maxroll.jpg",
+      "sha256": "402848e28ac0202447c9e1c778197586fcb3299d9646511e7614a52e0e94b152"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/d4-tool-trade.jpg",
+      "sha256": "f681f0c4d471def237f2063888584fc88eac717dc053ff1be78f3d406f4f2b0c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/fc-official-ea.jpg",
+      "sha256": "a9c1052222aebd032d143be8869dd7353db25970faf869ca004cb2e5b0c6acbb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/fc-tool-futbin.jpg",
+      "sha256": "4c9f00e3c0fe677cee2026fdb978eeb4144585f2cfa26fcef7b8d051782b7e53"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/fc-tool-futgg.jpg",
+      "sha256": "1119fa4f287d5051ce03561ca5980d772b7d6600d7a75b569b61f318e47d4028"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/fc-tool-futwiz.jpg",
+      "sha256": "3e74d833908c524982769132679d5c56cc26f7abef2f8461d867e4f5fa099f71"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/poe-tool-db.jpg",
+      "sha256": "13b1544bcbcb33ed2783218fd47cfae0c3e62695bc15203372ecd01b877d56fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/poe-tool-ninja.jpg",
+      "sha256": "4af1386f65272011cf695db53932b4bd6a4614239a69ea5e4cefc6666604933a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/poe-tool-trade.jpg",
+      "sha256": "1f0652cd057bdcf4a0ae49f934f8e2959453c9f710c03841219cc02a97db185f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/poe-tool-wiki.jpg",
+      "sha256": "3bbc5085d10c6994854b6cd36d9329b4812bdfa9d034e039ecc28f68da275002"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-aion2app.jpg",
+      "sha256": "d252c49e1e1507b435f56ce75c8d624d8ef16234556503a80cb223fb702fe643"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-aion2nc.jpg",
+      "sha256": "b85ebce7eec6dc70a75c68a655f089ccbe9bdc2fc969051a95a67fce6b178b4a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-cffut.jpg",
+      "sha256": "66c4f17653cfb774cb0c412b08012bb613d30ef912852f967a14d258b5bff679"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-codtracker.jpg",
+      "sha256": "b3b21137c418ee0d383c545b4639407f69e534ab0e7f2faba71d21640c729720"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-craftofexile.jpg",
+      "sha256": "859e1bfa637f8a91de508339754c10dea25a4e6f2e96f1949c8a293696741dec"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-d4armory.jpg",
+      "sha256": "34b034caf53f908af4b095bdd5efba6f393b4c618062b6b27296fb2360ee66cd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-d4builds.jpg",
+      "sha256": "e4e4b34bcc97068bfcd3380903377e856c7e7b9222e9abb617e6238ba4fd803d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-daddy.jpg",
+      "sha256": "0ff747a842c0c79bb89d65cba12bcb030f00799bf085c836d32c7b68bfc0da0d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-diablofans.jpg",
+      "sha256": "c7e534868a317b8908a26e04d83df37265f79c9040c046c776c6e5df0487523d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-diablotrade.jpg",
+      "sha256": "f681f0c4d471def237f2063888584fc88eac717dc053ff1be78f3d406f4f2b0c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-dndmarket.jpg",
+      "sha256": "d4dd3d20d94c4db83a669e6202710b7d47eb7557859651a3b2d3e97591c5e954"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-ea.jpg",
+      "sha256": "a9c1052222aebd032d143be8869dd7353db25970faf869ca004cb2e5b0c6acbb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-embedded.jpg",
+      "sha256": "97eba94b2bd1b8156e0ea325d341f1f2283e5660f1efdad4871b3147950c182b"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-fandom.jpg",
+      "sha256": "a50fd585d2c570999d1b751413073efd41bfcedc63260f0e543fa48dc26b9867"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-feztra.jpg",
+      "sha256": "8e765d978706692f790e88985a9ffa289c00c8a66daedb01f216b32c69cfbdd8"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-fifaindex.jpg",
+      "sha256": "30e0b92db1235b17b1f3d4ef8b1e4ec3a59017bb5577c0cf28fcdf4e6a460870"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-filterblade.jpg",
+      "sha256": "efd9d5dc0a4b6b662f0a6aaff4c870a9edefc777bd2db28ccbb4d377ccf2b5b3"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-futbin.jpg",
+      "sha256": "4c9f00e3c0fe677cee2026fdb978eeb4144585f2cfa26fcef7b8d051782b7e53"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-futgg.jpg",
+      "sha256": "1119fa4f287d5051ce03561ca5980d772b7d6600d7a75b569b61f318e47d4028"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-futhead.jpg",
+      "sha256": "dcb2ff413e8ea94997a813ec3f2a2797704531ca84338a6d2d33c867c8a55426"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-futwiz.jpg",
+      "sha256": "3e74d833908c524982769132679d5c56cc26f7abef2f8461d867e4f5fa099f71"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-getracker.jpg",
+      "sha256": "794bf2ebfc0ce47174d800fcf283255f72529e37548c9953b70197ad413560d1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-helltides.jpg",
+      "sha256": "703f65f0f3561d22d8316a079fa81e69c37dd0f69ce44cf645ea87b2bb4c4236"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-madden.jpg",
+      "sha256": "14edd92c7d3059b66f58aa5e0b059b6383439b7a2ab46b1b38570c0859643200"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-madtools.jpg",
+      "sha256": "a2fb52534ddf9245ffa9c764874b9c43b2b8fa01c21257933278efcd1d594c24"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-mapgenie.jpg",
+      "sha256": "6cf137dd4e2315d4d496646d325af3c542fef52f028fabb743303743befb2353"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-maxroll.jpg",
+      "sha256": "402848e28ac0202447c9e1c778197586fcb3299d9646511e7614a52e0e94b152"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-mutgg.jpg",
+      "sha256": "4f606570eac937cb4bc351d46574f3a5b7e7b0ef7ed2cca882582f171b793a26"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-osrswiki.jpg",
+      "sha256": "41cc69f7b9605471f43c99de4ae97e6a0f518e4c763da6944f4398d86ff722a7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-pobb.jpg",
+      "sha256": "de04e6a86cbd902712920f79a9996fcbe858e71b651385c3c398ea0edc4096a1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poe2db.jpg",
+      "sha256": "deeefb1522a26bfea506f450776a2f9af4c04318f8a08154b7c4e581f61f24dd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poedb.jpg",
+      "sha256": "13b1544bcbcb33ed2783218fd47cfae0c3e62695bc15203372ecd01b877d56fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poeninja.jpg",
+      "sha256": "4af1386f65272011cf695db53932b4bd6a4614239a69ea5e4cefc6666604933a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poeplanner.jpg",
+      "sha256": "feca3dc0ed8049ca4f9a79a412023255fa674c4cd8e7c18f3d7429e4d7b9b0cf"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poeregex.jpg",
+      "sha256": "1f215a18ce76fec5f2f6952fe89793cc54935d8ffbf5139a5600a4e54169f940"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-poewiki.jpg",
+      "sha256": "3bbc5085d10c6994854b6cd36d9329b4812bdfa9d034e039ecc28f68da275002"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-purple.jpg",
+      "sha256": "9b22c88807458b4e25b62a2d63dd63c0424490e4f7f24874c10a36f4446f0842"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-rswiki.jpg",
+      "sha256": "b10c9396218c9afcda039917d9452abbeaaa66d302330e98610c8e7636d84955"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-runeapps.jpg",
+      "sha256": "7adbbbeacd69fc1b853c1ac5142640a6331629942068ac9360e86719bd40494d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-runelite.jpg",
+      "sha256": "e422ba0fd7a78e334c3ef6fb2964d4128e53a4e049fac9fa290b5ff339147553"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-showzone.jpg",
+      "sha256": "2e8e8083b5233a4d7677b0a0cedb6aa8d13af809824830ce912081b1ac8bcc44"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-snb.jpg",
+      "sha256": "0ce933394f82d8cebd3f38812af6b462925f3a8fc0ee99e1136105137cf45d1d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-steam.jpg",
+      "sha256": "ac566221154dbd704858df96f361f5d39eb861165cafb6a6b9b10169b9f4002a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-steamdb.jpg",
+      "sha256": "691792707aa4c024beecb2eee72f5ec6116ebcd10175d3fa408783bd3829d5ce"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-tgw.jpg",
+      "sha256": "929323df9397d1fac64b639b12e25678e31e207bb99d2938f82da06b915629fc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/game-tools/tool-tsn.jpg",
+      "sha256": "da4cd0a19293d01c98c998a1a586f202b6daab0de58d550f775d535909b0fb04"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/assets/poe2/poe2_scene_war.jpg",
+      "sha256": "45e589e08bb00d13fa574b6d2504a9d7347a1b7c320e420612d310533a881e94"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/daily.js",
+      "sha256": "6dbf1de01a2f85d4205f5e4a15d8db75d0ccbd06fe4aad305b36d954700c3d83"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/fs-integration.css",
+      "sha256": "f6536f9341fd3659ced63db8a897b43c4341c9fc59da75556b96beccea9729a6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/fs-integration.js",
+      "sha256": "5551d1823a6f03fcd1fcc2f568d6a39480e3d35380743ddf0e2babd8cde871f7"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/game-monitor/index.html",
+      "sha256": "c103868e2b1b923ca1f2ba733b3126a7993746a71b69d03bb75316759ca79e80"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/google.css",
+      "sha256": "fdc30ac01f85e4bfb2fd3351ba066aac48e82f5d5dabd98f501c078a0dd05106"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/google.js",
+      "sha256": "29544ee5fc6a066e98404fae0b6655a2c66c200f7b0737a896d4b10d8fefd217"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/home.html",
+      "sha256": "212c06fec2ff1d91fa8228021fe03a9765dcbb687b35092d9d648d32454cb4aa"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/index.html",
+      "sha256": "b5ecfbfc9f832009fa74ec8acc8a85ca7ac4dd9d84c1bb1d4bb7b7dccc0c482c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/legacy-business.js",
+      "sha256": "a22bd5c975306c4caaae968fe00657616baed95ab7601942541be538b6adbef1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/aion2.html",
+      "sha256": "7c65f8e4b521b119fab3adbd6417846483d8cca70ab2cbf61261830293c1e44c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/arc_raiders.html",
+      "sha256": "ee7738a160530f5bfaac56b321fe9971c7905a0d3d3309fe456edb502eded18a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/arena_breakout_infinite.html",
+      "sha256": "ef579ed9792763a452589f3c31e6731277dea3a26425f6ca741256ee4f028551"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/cfb27.html",
+      "sha256": "b81cef3379263fe55909c48637396eef148fbe15d267ee2e7b506fbb4a7ff166"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/cod_bo7.html",
+      "sha256": "cac856742c7c991690968f93f4aeeeed08a9c05fd04273ecca91d4bf50d6d652"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/d4.html",
+      "sha256": "789a234c8d0849fd13433c769a9d4a2572368b8436c3be3274b531a0964649cc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/dark_and_darker.html",
+      "sha256": "21c0f797dad68767276d0a149fff4b71dcc0e89540cb63e3dded3fc7168f42f6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/fc27.html",
+      "sha256": "6d0272cc6d159ad82b8ed74005daa8219c870418146570c23efff59439686120"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/index.html",
+      "sha256": "f3c379b0636e11e31213728e5e257a30b6703f01b93d1aa4abb9717e91b1144a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/management.css",
+      "sha256": "2b80c427dd916e88e6b03076ee39d818f26e8793ab19ffe1eda3fb93c90a9e94"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/management.js",
+      "sha256": "9e9733e776681c1627b9de945b8ba0847a99f61736a4f298d825aa87488fa37d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/maplestory_classic.html",
+      "sha256": "85196469b8662aa5ddd824d811879a9ccf4b487bff2d6ec969ef8ea6058fcec0"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/mlb26.html",
+      "sha256": "7463dd1c90c5b8f54be3a07e3abb97af3ba50e0506afcb428eee6d1c3eed93b8"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/nba2k27.html",
+      "sha256": "f1be9dbec2a7bed7a4503021830bf42919115266e52764e034888f4c863bffcc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/nfl27.html",
+      "sha256": "e114e8a202d552f1092f9770d0ca42abb8c4f1ef0583859ac9470186a175a058"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/poe2.html",
+      "sha256": "3183b1f48a9f8cf86895b7c33cef8cc71950059650c90173d8de87bcd8a48db9"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/rs.html",
+      "sha256": "d044d6505fa62c544a22b2530fca8c5771653fb261fd5a99e6a46880ac26c406"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/sandbox.html",
+      "sha256": "d5995e35e25e65797e688cd724407dbe72e212dfc3a83da45383e170613127bd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/sandbox.js",
+      "sha256": "b46989cf936801ff9b8866c20b0238973c049a1a4a04a881d8af5b4eda02060a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/targets.json",
+      "sha256": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/management/wow_forever.html",
+      "sha256": "b59d38a1f49aebb4fc632c2fed7d4585a32a0b26d394e715a0f96b1b39d5c653"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/metrics.js",
+      "sha256": "317e4fb7c6e7ee82a4b45246deb7db7ee193ce97d0b300f415078348464cc324"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/navigation.json",
+      "sha256": "a963227f2d8ac145241e7163984622c97f68fc28edc5006572753d936e407b0e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/runtime.js",
+      "sha256": "1385c49a432f0b956e1b847b45641e48bede789646cbf5b7fbbab8fce2beb973"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/shell.js",
+      "sha256": "2cf8a0d993e4a43a4169301d15d91593c086263e83582a9864a4c9d9f90d2ba2"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/snapshot-client.js",
+      "sha256": "557e92ce67c27c00290575e0dbf581b622c425c6e397e0753e73a16193390b73"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/weekly-legacy.html",
+      "sha256": "6bc0d92cda7031261bb76c059d2ee5be8df3fa85c554960381704f67109c409e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/workspace.css",
+      "sha256": "f7e29326bc3778077f1084cb7a78036e798cd517e713fd186f268a97b102c695"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "18fb60613c1bfb1947937ce55338dc575e4062633bc895e14e38610487a0f041"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "ce0fc0a453ecae955bb8e7e2ae9ff6619de81c09691822935e5b9a3edc2c2aa1"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    }
+  ],
+  "runtimeRequired": {}
+}

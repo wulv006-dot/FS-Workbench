@@ -1,0 +1,1 @@
+import{j as r,aL as t,aM as a}from"./index-6b2030fb.js";function s(o){return r({url:a+"getValueProp",method:"get",params:{prop_id:o}})}function u(o="",e={}){return r({url:t+o,method:"post",data:e})}export{s as g,u as p};

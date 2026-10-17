@@ -1,0 +1,68 @@
+[
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/research.py",
+    "name": "research.py",
+    "sha": "0083d65ba37d1213dc98b7c43e24cbf888dbba2f",
+    "sha256": "d1cdc3daa9aed4777c0a705bb5946936dd0d15628a662b823c5b63c96c1fe6e6"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/report_artifacts.py",
+    "name": "report_artifacts.py",
+    "sha": "56f9a34e3ffbb019ecbf9d745b01cf5982ff49cc",
+    "sha256": "769159b6d56b9abaf683e840cd8961b74b9b917dab843cea03e1bfa1f661d725"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/report_delivery.py",
+    "name": "report_delivery.py",
+    "sha": "82d5c13849f77751883c601affbb832880b6f7ba",
+    "sha256": "a16edb7b13fe383d9060d602d08baf3c53ea9036c546b1930ab953bc73a96ac1"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/report_constraints.py",
+    "name": "report_constraints.py",
+    "sha": "827bcbdcde63fbef715841fd7aff546230c6dae7",
+    "sha256": "ac6da42d5960045913ba0e1b59531eda56ea9ea6c6680986c9de4f80a6abddd8"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/report_semantics.py",
+    "name": "report_semantics.py",
+    "sha": "0a7fc0f8b1bb8ffb0eaec58ffd1aac3ab44dd127",
+    "sha256": "54e62df9c456710abe9a16208ba6ea8be2d57a2ab04a570ffbc2ca9111c829bd"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/boss_projection.py",
+    "name": "boss_projection.py",
+    "sha": "e18b042e070a0902253044bad55f7abb5659c072",
+    "sha256": "7e50c6bb193c4eef457f3506dbc26429fa9bd9322051b328a61340380b1d0f6a"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/boss_renderer.py",
+    "name": "boss_renderer.py",
+    "sha": "6b9099c42fa88b4b5f94a54a562da4f773804281",
+    "sha256": "de938828ec78c8185c7e1d6cf120e92de99f59143ef4b8d47bc0c81d1e3972ba"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/skill_bundle.py",
+    "name": "skill_bundle.py",
+    "sha": "fa50c73562555ed5d054bd2b65b61d2efd6de1f0",
+    "sha256": "a623cae14cacbfd29c2467a5d9cfd97f0d880bfe3bd2c962e3b9d6ff9c5b7aa9"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/skills/manifest.json",
+    "name": "skills/manifest.json",
+    "sha": "c7e82e77eef4127ff16b7cf351c4994cc358f6ef",
+    "sha256": "6912eafae0d308e6fcf0446c38f0cf43d27d00359af7a07859667e7ea5422872"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/skills/fs-fc-operations-analysis/SKILL.md",
+    "name": "skills/fs-fc-operations-analysis/SKILL.md",
+    "sha": "73712c9a5447aa0a0d4fd45e399d2e3c3e64debc",
+    "sha256": "cd43b4d89abc7c965ccbd0a9a707958ee2e155891ffff04c5a436bcc9308b1cc"
+  },
+  {
+    "path": "releases/fs-dashboard/hermes-report-quality-20261015/candidate/skills/fs-fc-operations-analysis/references/report-contract.md",
+    "name": "skills/fs-fc-operations-analysis/references/report-contract.md",
+    "sha": "10edc14a02f50721c359732bf7af1bfd6ade63a6",
+    "sha256": "7e32e0973076bc2c5bd0324d4ee842e8933db7a11db8f9a230d2bf029e154f58"
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "python": "3.9.18",
+  "https_handler_available": true,
+  "ssl_spec_available": true,
+  "modules": {
+    "fc_daily": {
+      "import": "ok",
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py"
+    },
+    "direct_provider": {
+      "import": "ok",
+      "path": "/opt/fs-hermes-fc/direct_provider.py"
+    },
+    "proxy_gateway": {
+      "import": "ok",
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py"
+    },
+    "nightly_http": {
+      "import": "ok",
+      "path": "/opt/fs-boss-workspaces/backend/nightly_http.py"
+    },
+    "game_intelligence": {
+      "import": "ok",
+      "path": "/opt/fs-boss-workspaces/backend/game_intelligence.py"
+    },
+    "management_daily": {
+      "import": "ok",
+      "path": "/opt/fs-boss-workspaces/backend/management_daily.py"
+    }
+  },
+  "approved_tool_count": 15,
+  "fs-boss-game-monitor.service": {
+    "pythonpath": [
+      "Environment=PYTHONPATH=/opt/fs-exact-range-20261001"
+    ],
+    "exec": [
+      "ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/boss_daily.py run --kind game-monitor --trigger scheduled"
+    ]
+  },
+  "fs-boss-management.service": {
+    "pythonpath": [
+      "Environment=PYTHONPATH=/opt/fs-exact-range-20261001"
+    ],
+    "exec": [
+      "ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/boss_daily.py run --kind management --trigger scheduled"
+    ]
+  },
+  "range_boss_import_lines": []
+}

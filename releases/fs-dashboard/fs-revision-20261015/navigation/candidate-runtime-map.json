@@ -1,0 +1,70 @@
+{
+  "baseVersion": "workspace-native-20261006-5d085f7c1aac",
+  "releaseReady": false,
+  "productionWrites": 0,
+  "rows": [
+    {
+      "candidate": "assets/navigation.json",
+      "baselineTarget": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/navigation.json",
+      "beforeSha256": "a963227f2d8ac145241e7163984622c97f68fc28edc5006572753d936e407b0e",
+      "candidateSha256": "a811d815c421388cf140d25b51513109a0afbb47edbc62090a668d71a4939177",
+      "publishMode": "immutable-new-version"
+    },
+    {
+      "candidate": "assets/shell.js",
+      "baselineTarget": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/shell.js",
+      "beforeSha256": "2cf8a0d993e4a43a4169301d15d91593c086263e83582a9864a4c9d9f90d2ba2",
+      "candidateSha256": "999ea89f6c7d9f0efc892525224b815defb965b8bc35ced6821d19097c3454d0",
+      "publishMode": "immutable-new-version"
+    },
+    {
+      "candidate": "assets/index.html",
+      "baselineTarget": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-5d085f7c1aac/index.html",
+      "beforeSha256": "b5ecfbfc9f832009fa74ec8acc8a85ca7ac4dd9d84c1bb1d4bb7b7dccc0c482c",
+      "candidateSha256": "e72cb6799ce7a01162b77495c78aa735226b19c6e6931595adae8530c875bf8c",
+      "publishMode": "immutable-new-version"
+    },
+    {
+      "candidate": "mutable/navigation.js",
+      "baselineTarget": "/var/www/dashboard/fs-home/navigation.js",
+      "beforeSha256": "b3af7ffe7097b069e8a500170d88214566706956d0e440ead420eeb0a157efa5",
+      "candidateSha256": "ce0fc0a453ecae955bb8e7e2ae9ff6619de81c09691822935e5b9a3edc2c2aa1",
+      "publishMode": "CAS-existing-publisher"
+    },
+    {
+      "candidate": "mutable/navigation.css",
+      "baselineTarget": "/var/www/dashboard/fs-home/navigation.css",
+      "beforeSha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "candidateSha256": "e44964e26d9c4dc06e247069582e7aaeb4e793f357862a36f3a1a3b839621171",
+      "publishMode": "CAS-existing-publisher"
+    },
+    {
+      "candidate": "mutable/hubnav.css",
+      "baselineTarget": "/var/www/dashboard/fs-home/hubnav.css",
+      "beforeSha256": "b13e91907335df88f401d598d165de4415c3342fd082326cc8e30f7c0e750da4",
+      "candidateSha256": "a4d91836a041bb2d60e344905162929cb7642c560a8f866603b81ff4efc5c9a3",
+      "publishMode": "CAS-existing-publisher"
+    },
+    {
+      "candidate": "mutable/modules/analytics/index.html",
+      "baselineTarget": "/var/www/dashboard/modules/analytics/index.html",
+      "beforeSha256": "57d8d8269993ca1e3df85b29d224559465848815123a54e6ba0b35684f4e7ba5",
+      "candidateSha256": "d2e00dd84759a662bbaf605f208ae7aa1f889fac5c3b0a686bffd4f571c4b1bc",
+      "publishMode": "CAS-existing-publisher"
+    },
+    {
+      "candidate": "mutable/modules/sports/index.html",
+      "baselineTarget": "/var/www/dashboard/modules/sports/index.html",
+      "beforeSha256": "589b92004d4892a6f1c4c0935c882ccff0bda5783342ae5b77f62b102d148a70",
+      "candidateSha256": "961038a6174a77b840160815c0e0ebd7e5d47965d5488c9f297ddaec789b91bf",
+      "publishMode": "CAS-existing-publisher"
+    },
+    {
+      "candidate": "mutable/hubnav.js",
+      "baselineTarget": "/var/www/hub/hubnav.js",
+      "beforeSha256": "8127d856ac5ce4d5c350d27c036466987781a3b324d47259cc1f3165144ba196",
+      "candidateSha256": "ca4dd6aaf9383bfeb32f73743e5e90d137b4b53a0994b54e9842e2b492b3eca4",
+      "publishMode": "CAS-existing-publisher"
+    }
+  ]
+}

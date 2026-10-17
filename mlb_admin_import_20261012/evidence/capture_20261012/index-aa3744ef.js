@@ -1,0 +1,1 @@
+import{j as e,D as r}from"./index-6b2030fb.js";function o(t={}){return e({url:r+"getHelpDoc",method:"get",params:t})}function n(t={}){return e({url:r+"getCotnent",method:"get",params:t})}function s(t={}){return e({url:r+"getByRef",method:"get",params:t})}function u(t={}){return e({url:r+"index",method:"get",params:t})}export{o as a,s as b,n as g,u as s};

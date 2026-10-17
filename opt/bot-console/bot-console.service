@@ -1,0 +1,36 @@
+[Unit]
+Description=Discord 机器人控制台（MMOEXP GuardBot + Shugo-bot 可视化配置）
+Documentation=file:/opt/bot-console/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/bot-console
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+Environment=BOTCONSOLE_BIND=127.0.0.1
+Environment=BOTCONSOLE_PORT=8936
+# ⚠️ 必须用这个自带 ssl 的解释器：/usr/bin/python3 的构建漏了 _ssl 模块，
+#    urllib 发不出 HTTPS，Discord 角色/频道查询会全部失败。
+#    venv 基座为 /opt/python39（完整构建）；代码里另有 curl 兜底，属第二道保险。
+ExecStart=/opt/bot-console/venv/bin/python -B /opt/bot-console/server.py
+
+Restart=always
+RestartSec=3
+
+# 只监听 127.0.0.1，公网必须经 nginx（auth_request）才可达
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bot-console
+
+# 收敛权限：需要调用 systemctl，故以 root 运行，但封掉其他一切可写路径
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/mmoexp-guardbot /opt/shugo-bot /opt/bot-console/data
+
+[Install]
+WantedBy=multi-user.target

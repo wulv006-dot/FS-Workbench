@@ -1,0 +1,12 @@
+{
+  "base": "../deploy/release_navigation.py",
+  "base_sha256": "19ce1c36b277e55bbd81ceb89e4187ed894c9dc5b42a65461370076d06aebee0",
+  "original_active_publisher_sha256": "e0c8db6ad0e4b732593f72494980e62f55adee88c8ae5c446a9f76c8c834dc95",
+  "candidate_sha256": "fe8f5fa6583991c2eca8a2611f95c809d7c45f7a3c487e05ea5bd424f7d5d03e",
+  "scope": "fs-revision-ai-20261015",
+  "targets": 20,
+  "new_targets": 7,
+  "cleanup_activation": "deferred; never enabled or started by publisher",
+  "worker_restart": false,
+  "status": "inert-candidate-needs-final-main-source-map-and-Linux-QA"
+}

@@ -1201,6 +1201,21 @@ async function followAll(on){
    都是「这个游戏怎么样」。现在指标下沉进游戏详情：点开哪张卡，就出那个游戏自己的指标。
    **指标项按该游戏真有的数据出** —— 没金币不出金币卡、无负毛利不出负毛利卡、
    没配采集周期不出周期卡 ⇒ 不同游戏的指标天然不一样，以后加指标只要往 cards 里 push。 */
+/* 2026-10-12（老板口径）：「前台展示利润按实际的来」——
+   金币行的利润率**一律按实际成本实算**：实际成本取 DD373 **实采均价** dd_ref_usd
+   （我自己抓的那条 = 买满目标量后的数量加权均价），利润 =（我方售价 − 实采成本）/ 我方售价。
+   不再用后台行里的 margin_rate —— 那只是**定价旋钮的存档值**，与真实利润差很多
+   （线上实测：MSCW 存档 30% 而实算 ≈ 50%；AION2 存档 20% 而实算 ≈ 30%）。
+   无 DD373 实采的行（ARC / ET / S15 等没有 DD373 成本源）才回退 margin_rate。
+   ⚠ 只用于「金币行」（带 dd_ref_usd / our_per_m 的行）；道具行的利润走 margin，不在此改。 */
+function goldRealMargin(x){
+  if(!x) return null;
+  const c = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+  const o = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+  if(c!=null && isFinite(c) && o && o>0) return (o-c)/o;
+  const m = (x.margin_rate!=null && x.margin_rate!=='') ? Number(x.margin_rate) : null;
+  return (m!=null && isFinite(m)) ? m : null;
+}
 function schedRec(name){
   const s=(STATE&&STATE.schedule)||{};
   return (s.列表||[]).find(r=>r.游戏===name)||null;
@@ -1217,12 +1232,12 @@ function renderGameKpis(){
   if(!g){ box.innerHTML=''; if(sum) sum.textContent=''; return; }
   const st=gStat(g), m=key2sec(), rows=(STATE&&STATE.rows)||[];
   const mine=r=>m.get(r.key)===g;
-  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 margin_rate（0~1）。
+  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 goldRealMargin()（按 DD373 实采成本实算）。
      口径不同但都是比例，同一个「平均毛利率」里合并没歧义 —— 只统计当前游戏的行。 */
   const propRows=rows.filter(r=>!isGoldKey(r.key) && mine(r));
   const  goldRows=rows.filter(r=>isGoldKey(r.key) && mine(r));
   const goldLive=((GOLD_DATA&&GOLD_DATA.items)||[]).filter(mine);
-  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(r=>r.margin_rate))
+  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(goldRealMargin))
     .filter(v=>typeof v==='number' && isFinite(v));
   const avg = mg.length? mg.reduce((a,b)=>a+b,0)/mg.length : null;
   const mn  = mg.length? Math.min.apply(null,mg) : null;
@@ -1238,7 +1253,13 @@ function renderGameKpis(){
   if(st.hasGold) cards.push(['金币', st.goldN||0, st.poeGold.length? 'Quick Gold 商品' : '服务区']);
   cards.push(['本轮待改', st.up+st.dn, (st.up+st.dn)? ('涨 '+st.up+' · 降 '+st.dn) : '全部持平']);
   cards.push(['已开跟价', st.onN+'/'+st.allN, st.allN? (Math.round(st.onN/st.allN*100)+'% 的商品在跟价') : '无商品']);
-  if(mg.length) cards.push(['平均毛利率', pct(avg), '最低 '+pct(mn)]);
+  /* 2026-10-12（老板口径）：金币行利润率已改为按 DD373 实采成本实算（见 goldRealMargin）。
+     只有**该游戏真有 DD373 实采成本**时才在副标标注口径 —— 避免别人误以为还是后台那个
+     不随价格变的存档利润率；没实采的游戏（ARC / D4 金币等）保持原样，不做不当表述
+     （它们的平均里还混着道具行 margin，笼统标「后台存档」反而更误导）。 */
+  const _mgReal = goldLive.some(r=>r.dd_ref_usd!=null && r.dd_ref_usd!=='');
+  if(mg.length) cards.push(['平均毛利率', pct(avg),
+    (_mgReal ? '金币按 DD373 实采成本实算 · ' : '') + '最低 '+pct(mn)]);
   cards.push(['负毛利商品', neg, neg? '⚠ 低于进货成本，需核对映射' : '正常']);
   if(noI)  cards.push(['IGGM 无对标', noI,  '⚠ 竞品可能已下架']);
   if(newS) cards.push(['IGGM 新增规格', newS, '先建基线，下一轮起跟价']);
@@ -1637,12 +1658,17 @@ async function renderGoldInner(pre){
   /* 本页一次只渲染当前游戏的金币段（myCost 已按当前游戏过滤），单位取该段第一行即可。 */
   const U_COST = goldUnitOf(myCost[0]);
   const _UL = goldUnitLabel(U_COST);
+  /* 2026-10-12（老板口径「避免单位标注产生偏差」）：整张金币表的单位标签改用**行上的
+     unitLabel**（app.py 按游戏下发的真实单位名），不再用 goldUnitLabel(倍率) 反推 ——
+     后者对「倍率=1 但单位其实是 K」的游戏（MSCW / ARC Raiders）一律返回 'M'，
+     把 $/K 标成 $/M，看起来就像「跟 DD373 页面对不上」。 */
+  const _ULX = (myCost[0]||{}).unitLabel || _UL;
   /* 2026-10-01：AION2 三源基准（G2G/ELD/IGGM）可见化。
      只有「多源基准启用」的游戏（AION2）才有 src_g2g/src_eld 数据；
      暗黑4 这些列为空 → 整列隐藏，表格与旧版逐字一致（不影响 D4）。 */
   const _hasMulti = myCost.some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null);
   const _MSH = _hasMulti
-    ? ('<th class="num">G2G $/'+_UL+'</th><th class="num">ELD $/'+_UL+'</th>') : '';
+    ? ('<th class="num">G2G $/'+_ULX+'</th><th class="num">ELD $/'+_ULX+'</th>') : '';
   /* ==================================================================
      2026-10-02 · 金币监控表头按老板口径重排（用户原话逐列对应）：
        服务区（保持不变）｜G2G价格（仅采集监控）｜ELD价格（同）｜IGGM价格（同）
@@ -1657,17 +1683,17 @@ async function renderGoldInner(pre){
   const f1pct = function(v){ if(v===null||v===undefined) return '--';
     const n=Number(v)*100; if(isNaN(n)) return '--';
     return (Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
-  const _TIERLBL = {1:'第1级·DD373推荐价+'+f1pct(_MS['加价比例']),
+  const _TIERLBL = {1:'第1级·DD373推荐价÷(1−'+f1pct(_MS['利润率'])+')',
                     2:'第2级·'+(_MS['次源']||'G2G')+'兜底',3:'第3级·默认售价'};
   const THEAD_COST='<tr><th>服务区</th>'
     +_MSH
-    +'<th class="num">IGGM $/'+_UL+'</th>'
-    +'<th class="num">我方当前售价 $/'+_UL+'</th>'
+    +'<th class="num">IGGM $/'+_ULX+'</th>'
+    +'<th class="num">我方当前售价 $/'+_ULX+'</th>'
     +'<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">'
       +'vs 竞品最低价</span></th>'
     +'<th class="num">利润率</th>'
-    +'<th class="num">目标采购成本 ￥/M</th><th class="num">最大档对照</th><th>动作</th>'
-    +'<th>改价操作</th></tr>';
+    +'<th class="num">采购成本 ￥/'+_ULX+'<br><span class="small" style="color:var(--sub);font-weight:400">写后台 vs DD373 实采</span></th><th class="num">最大档对照</th><th>动作</th>'
+    +'<th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
   const THEAD_ITEM='<tr><th>商品</th><th class="num">装量</th>'
     +'<th class="num">IGGM 上轮</th><th class="num">IGGM 现价</th><th class="num">变动</th>'
     +'<th class="num">我方现价</th><th class="num">目标价</th>'
@@ -1679,9 +1705,39 @@ async function renderGoldInner(pre){
       const rowsC = sortByConfig(myCost);
       const body = rowsC.map(function(x){
         const isOff = OFF.has(x.key);
-        const tgt = (x.cost_target===null||x.cost_target===undefined) ? '--'
-          : '<b class="mono">'+c6(x.cost_target)+'</b>'
-            + (x.cost_old!=null ? '<div class="small" style="color:var(--sub)">现 '+c6(x.cost_old)+'</div>' : '');
+        /* 2026-10-12（老板口径）：「你得在前端展示你真正抓取的平均成本」——
+           原来这一格只有「写后台采购成本」（= 目标售价 × 成本除数，是**控制前台价的
+           旋钮值**，不是实付成本），别人一看就跟 DD373 页面对不上、以为抓错了。
+           现在把 DD373 **实采均价**并排显示，且两边都折到 DD373 页面的原生口径
+           （元/万金）—— 同口径才能直接比，不再需要心算换算。 */
+        /* ⚠ 单位判定必须用行上的 unitLabel（MSCW='K'），不能用 U_COST ——
+           那个是**展示倍率**（MSCW=1 ⇒ goldUnitLabel 一律返回 'M'），
+           用它会把 MSCW 的 ￥/K 误标成 ￥/M、换算 ×10 也就丢了。 */
+        const _uK  = (String(x.unitLabel||'').toUpperCase()==='K');
+        const _wuN = _uK ? '万金' : '万基纳';        /* DD373 页面单位名 */
+        const _pw  = _uK ? 10 : 1;                   /* ￥/K → 元/万金 要 ×10（1 万金 = 10 K） */
+        const _ddc = (x.dd_ref_cny!=null && x.dd_ref_cny!=='') ? Number(x.dd_ref_cny) : null;
+        const tgt = (function(){
+          let h = '';
+          if(x.cost_target===null||x.cost_target===undefined){
+            h += '<span style="color:var(--sub)">--</span>';
+          }else{
+            h += '<b class="mono">'+c6(x.cost_target)+'</b>'
+               + '<span class="small" style="color:var(--sub)"> ￥/'+_ULX+'</span>'
+               + (x.cost_old!=null
+                  ? '<div class="small" style="color:var(--sub)">现 '+c6(x.cost_old)+'</div>' : '');
+            /* ⚠ 同口径对照只对**真采到 DD373 成本的游戏**（MSCW / AION2）显示。
+               其余金币行（ARC Raiders / 暗黑4）没有 dd_ref_cny，硬换算出的「元/万X」
+               没有意义、还会把不相干的单位名安上去 ⇒ 保持原样（只有写后台值）。 */
+            if(_ddc!=null){
+              h += '<div class="small" style="color:var(--sub)">写后台 ≈ '
+                 + (Number(x.cost_target)*_pw).toFixed(2)+' 元/'+_wuN+'</div>'
+                 + '<div class="small" style="color:var(--blue);font-weight:600">'
+                 + 'DD373 实采 '+_ddc.toFixed(2)+' 元/'+_wuN+'</div>';
+            }
+          }
+          return h;
+        })();
         const act = isOff ? '已停跟'
           : ({follow_up:'跟涨', follow_down:'跟降', hold:'已持平'}[x.action] || (x.action||'--'));
         const acol = isOff ? 'var(--sub)'
@@ -1708,7 +1764,11 @@ async function renderGoldInner(pre){
         const tierChip = (tier==null) ? ''
           : '<div class="small" style="color:'+tcol+';font-weight:600">'
             + (_TIERLBL[tier] || ('第'+tier+'级')) + '</div>';
-        return '<tr'+(isOff?' style="opacity:.55"':'')+'><td><b>'+esc(x.title||x.key)+'</b>'
+        return '<tr style="cursor:pointer'+(isOff?';opacity:.55':'')+'"'
+          + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.title||x.key||'')+'"'
+          + ' title="点击查看该服务区的调价历史"'
+          + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
+          + '<td><b>'+esc(x.title||x.key)+'</b>'
           + tierChip
           + '<div class="small" style="color:var(--sub)">后台行 '+esc(x.row_id||'--')
           + ' ｜ 前端 aid '+esc(x.aid||'--')
@@ -1718,23 +1778,40 @@ async function renderGoldInner(pre){
              表头 9 列而数据行 11 格，整行错位两列。 */
           + (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : '')
           + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
-          + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b></td>'
+          /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价，
+             别人就不容易误解、也能直观看到差异」——
+             把**我方前台价也折成人民币**，且折到与 DD373 采集**完全同口径**（元/万金），
+             与成本列里的「DD373 实采 X 元/万金」直接可比、不用心算。
+             汇率系数**直接从同行的 dd_ref_cny ÷ dd_ref_usd 反推**
+             （= 元/万X ÷ USD/单位），既不必另配汇率、也不用猜单位；
+             只有真采到 DD373 成本的行才出这一行。 */
+          + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b>'
+            + (function(){
+                const _du = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+                const _ou = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+                if(_ddc==null || !_du || !_ou) return '';
+                const _cn = _ou * (_ddc/_du);      /* 我方前台价 · 人民币（元/万金） */
+                return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+                     + _cn.toFixed(2) + '/' + _wuN + '</div>';
+            })()
+          + '</td>'
           + gapCell(x)
           + (function(){
               /* 2026-10-09 · MSCW(iggm_undercut) 专用展示（老板口径）：
                  ① 利润率列**按「当前跟价 vs 进货均价」实算**，不再显示写死的后台利润率
                     （原来那个 30% 是后台行 21754 的存档值，不随价格变 → 现在算出来的才是真利润）；
-                 ② 单元格补一行**估算进货均价**（DD373「买满 100 万金」订单簿加权均价 = dd_ref_usd），
-                    同时给 行内单位($/K) 与 $/M 两个口径，一眼知道大致的进货价。 */
-              const _cst = (x.price_mode==='iggm_undercut' && x.dd_ref_usd!=null) ? Number(x.dd_ref_usd) : null;
-              const _our = (x.our_per_m!=null && x.our_per_m!=='') ? Number(x.our_per_m) : null;
-              const _mg  = (_cst!=null && _our && _our>0) ? (_our-_cst)/_our : null;
+                 ② 单元格补一行**估算进货均价**（DD373「买满目标量」订单簿加权均价 = dd_ref_usd，
+                    2026-10-12 目标量已提到 800 万金），同时给 行内单位($/K) 与 $/M 两个口径。
+                 ③ 2026-10-12：判定放宽为「只要有 dd_ref_usd 就用实采成本」，并统一走
+                    goldRealMargin()，与「平均毛利率」指标卡**同口径**（老板：「利润按实际的来」）。 */
+              const _cst = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+              const _mg  = goldRealMargin(x);
               let _cell = '<td class="num">';
               if(_mg!=null){
                   const _col = (_mg<0) ? 'var(--red)' : 'var(--green)';
                   _cell += '<span style="color:'+_col+';font-weight:600">'+(_mg*100).toFixed(1)+'%</span>';
               }else{
-                  _cell += (x.margin_rate!=null ? (Number(x.margin_rate)*100).toFixed(0)+'%' : '--');
+                  _cell += '--';
               }
               if(_cst!=null){
                   const _perM = _cst * (String(x.unitLabel)==='K' ? 1000 : 1);
@@ -1800,7 +1877,7 @@ function gcsApply(){
     if(GCS_FILTER.region && String(x.大区中文||x.DD区||'') !== GCS_FILTER.region) return false;
     if(kw){
       const hay = ((x.服务器名||'')+' '+(x.DD游戏区||'')+' '+(x.种族||'')+' '
-                   +(x.key||'')+' '+(x.依据||'')).toLowerCase();
+                   +(x.区服备注||'')+' '+(x.key||'')+' '+(x.依据||'')).toLowerCase();
       if(hay.indexOf(kw) < 0) return false;
     }
     /* 只看亏损行：利润率 < 0（真实结论，不淡化） */
@@ -1855,6 +1932,16 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
   }
   const rows = allRows;
   box.style.display='';
+  /* ======================================================================
+     2026-10-12（老板口径 · **仅 AION2 生效**）—— 本段四件事：
+       ① 「写后台 ￥x/M ≈ $y/M」这种字段**去掉**（每行都有，纯噪音）；
+       ② 成本列的「0.173102 元/万基纳」**标蓝**；
+       ③ 售价列的「前台 ≈ ￥0.2164 元/万基纳」**标蓝**；
+       ④ 「ELD 最低 $/M 仅参考」列**移除**。
+     ⚠ 同一张汇总表 暗黑4 / POE2 / MSCW 也在用 —— 不 gate 就会改到别的游戏。
+       所以四处一律走 `_isAion2`，其它游戏展示**逐字不变**。
+     ====================================================================== */
+  const _isAion2 = (String((g||{}).name||'') === 'AION2');
   const S = d.汇总||{};
   /* 数字格式：售价 $/M、成本 $/M 都保留 4 位（够看清差异又不至于太长） */
   const f4 = function(v){ if(v===null||v===undefined||v==='') return '--';
@@ -1904,16 +1991,31 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
        进货价原列显示的是「元/万基纳」，与售价的 $/M 不是一个单位，没法直接比。
        现在主数字统一成 **$/M**（与售价同单位），原始 元/万基纳 降为小字留证；
        原来重复的「成本 $/M」列并入本列（12 列 → 11 列）。 */
+    /* 2026-10-12（老板口径）：「你得在前端展示你真正抓取的平均成本」——
+       本列主数字本来就是 DD373 **实采**（$/M + 元/万基纳），但「写后台的采购成本」
+       （= 目标售价 × 成本除数，**控制前台价的旋钮值**）一直没露面，看板上两边都看不到
+       同一行的对照。现在把写后台值并排补上（并折算成同单位 $/M），一眼可比。 */
+    const _P0 = x['定价'] || {};
+    const _ct0 = (_P0.cost_target!=null && _P0.cost_target!=='') ? Number(_P0.cost_target) : null;
+    const _dv0 = (_P0.divisor!=null && _P0.divisor!=='') ? Number(_P0.divisor) : null;
+    const _tgtUsd0 = (_ct0!=null && _dv0) ? (_ct0/_dv0) : null;
     const costCell = noCost
       ? '<td class="num" style="color:var(--sub)">无报价</td>'
       : '<td class="num mono"><b>$'+f4(x.成本_USD每M)+'/M</b>'
-        + '<div class="small" style="color:var(--sub)">'
-        + f6(x.成本_元每万基纳)+' 元/万基纳</div></td>';
+        + '<div class="small" style="color:'+(_isAion2?'var(--blue)':'var(--sub)')+'">'
+        + f6(x.成本_元每万基纳)+' 元/万基纳</div>'
+        /* 2026-10-12（老板口径 · AION2）：「写后台 ￥x/M ≈ $y/M」去掉，只留 DD373 实采。
+           原来两行并排（写后台旋钮值 + DD373 实采），老板要的是**真正抓到的成本**。 */
+        + ((_isAion2 || _ct0==null)
+           ? ''
+           : '<div class="small" style="color:var(--blue)">写后台 ￥'+_ct0.toFixed(4)+'/M'
+             + (_tgtUsd0!=null ? ' ≈ $'+_tgtUsd0.toFixed(4)+'/M' : '')+'</div>')
+        + '</td>';
     const stockTip = (x.库存? (' · 库存 '+esc(x.库存)) : '')
       + (x.挂单数? (' · '+x.挂单数+' 条挂单') : '');
     /* 2026-10-02：定价级别（第1/2/3 级）—— 这一列是本次改动的核心可见性 */
     const P = x['定价'] || {};
-    /* 2026-10-06：dd373_only 也有 1/2/3 级（1=DD373进货×(1+加价)，3=无货兜底），
+    /* 2026-10-06：dd373_only 也有 1/2/3 级（1=DD373进货÷(1−利润率)，3=无货兜底），
        原判断只认 dd373_markup ⇒ 新模式下整列误显示「旧口径」，这里一并认。 */
     const _pmode = P.mode || '';
     const tier = (_pmode==='dd373_markup' || _pmode==='dd373_only')
@@ -1924,32 +2026,38 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
       return (Math.round(Number(v)*1000)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
     const _isDDonly = (_pmode==='dd373_only');
     const _isG2GC   = (_pmode==='g2g_cheapold');
-    const _ddMkNum = Number(_pol['加价比例']);
+    const _ddMkNum = Number(_pol['利润率']);
     const _ddMk = isNaN(_ddMkNum) ? 0.07 : _ddMkNum;
     const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
     const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
     /* 2026-10-09（老板口径「该区无 cheapold 卖家，则保持30%的利润」）：
-       无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 × 系数** 定价。
-       系数走 config（金币.定价策略.无cheapold加价系数，默认 1.30）—— 看板文案跟着配置走，
-       日后改系数不会出现「看板还写着 1.30」的滞后。 */
-    const _ncNum = Number(_pol['无cheapold加价系数']);
-    const _nc = (isNaN(_ncNum) || _ncNum <= 1) ? 1.30 : _ncNum;
-    const _ncAdd = Math.round((_nc - 1) * 100);            // 30（成本加价 30%）
-    const _ncMg = Math.round((1 - 1 / _nc) * 1000) / 10;   // 23.1（平台口径利润率 (P−C)/P）
+       无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 ÷ (1−利润率)** 定价。
+       利润率走 config（金币.定价策略.无cheapold利润率，默认 0.30）—— 看板文案跟着配置走，
+       日后改利润率不会出现「看板还写着旧值」的滞后。 */
+    const _ncNum = Number(_pol['无cheapold利润率']);
+    const _nc = (isNaN(_ncNum) || _ncNum < 0) ? 0.30 : _ncNum;
+    const _ncAdd = Math.round(_nc * 100);                  // 30（利润率 30%）
+    const _ncMg = Math.round(_nc * 1000) / 10;             // 30（平台口径利润率 (P−C)/P）
     /* 2026-10-09（老板口径「如果跟了 cheapold，利润率低于 20%，则强制调价到 20%」）：
        跟价后利润率不足下限的区会被**强制抬价**，看板要能一眼看出是哪几行被抬过。 */
     const _limNum = Number(_pol['利润率下限']);
     const _limMg = isNaN(_limNum) ? 0.20 : _limNum;
     const _limAdd = Math.round(_limMg * 100);              // 20
+    /* 2026-10-12（老板口径「跟价后利润大于 30% 就强行压到 30% 利润左右」）：
+       跟价后**利润率**超过上限的行会被**强行压价**，看板要能一眼看出是哪几行被压过。
+       口径 = 利润率 (P−C)/P（config 金币.定价策略.利润率上限，默认 0.30）。 */
+    const _capNum = Number(_pol['利润率上限']);
+    const _capMg  = isNaN(_capNum) ? 0.30 : _capNum;
+    const _capAdd = Math.round(_capMg * 100);              // 30（利润率上限 30%）
     /* 旧「定价级别」单元格 —— 只在 dd373 两种模式下还有意义（D4 等游戏仍走这里，逐字不变）。 */
     const tierCell = (tier==null)
       ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
       : '<td class="num" style="color:'+tcol+';font-weight:600">第'+tier+'级'
         + '<div class="small" style="color:var(--sub);font-weight:400">'
         + (_isDDonly
-            ? (tier===1? ('DD373进货 ×'+(1+_ddMk).toFixed(2))
+            ? (tier===1? ('DD373进货 ÷'+(1-_ddMk).toFixed(2))
                        : ('无货兜底 $'+_ddPark.toFixed(2)))
-            : (tier===1? ('DD373+'+_pct(_pol['加价比例']))
+            : (tier===1? ('DD373÷(1−'+_pct(_pol['利润率'])+')')
               : (tier===2? ((_pol['次源']||'G2G')+'兜底')
                          : ('默认 $'+(Number(_pol['默认售价_USD每M'])||9.9).toFixed(2)))))
         + '</div></td>';
@@ -1961,31 +2069,36 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _bS0 = _bS.replace(/→成本价$/,'');   // 去掉成本兜底尾巴，剩下的才是取价来源
     const _cf  = (_bS.indexOf('成本价') >= 0); // 竞品低于我方 DD373 成本 ⇒ 不再跟降（按成本价）
     const _fl  = (_bS.indexOf('利润下限') >= 0);  // 2026-10-09：被 20% 利润闸强制抬过价
+    const _cp  = (_bS.indexOf('利润率上限') >= 0);  // 2026-10-12：被利润率上限闸强行压过价
     const _cfTip = '<div class="small" style="color:var(--sub);font-weight:400">'
                  + '竞品低于成本 → 不再跟降</div>';
     const _flTip = '<div class="small" style="color:var(--red);font-weight:600">'
                  + '⛔ 利润率低于 '+_limAdd+'% → 已强制抬价</div>';
+    const _cpTip = '<div class="small" style="color:var(--red);font-weight:600">'
+                 + '⛔ 利润率超 '+_capAdd+'% → 已强行压价</div>';
     const srcCell = !_isG2GC ? tierCell
       : (_bS0.indexOf('cheapold') >= 0
           ? '<td style="color:var(--green);font-weight:600">cheapold 卖家'
-            + (_fl ? _flTip
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
                    : (_cf ? _cfTip
                           : '<div class="small" style="color:var(--sub);font-weight:400">'
-                            + '永远优先 cheapold</div>')) + '</td>'
-        : (_bS0.indexOf('成本×') >= 0
+                            + '永远优先 cheapold</div>'))) + '</td>'
+        : (_bS0.indexOf('成本÷') >= 0
           /* 🆕 2026-10-09：该区无 cheapold 卖家 ⇒ 不再跟 G2G 推荐前二，
-             改按本区 DD373 成本 × 系数 定价（老板口径「保持 30% 的利润」）。 */
-          ? '<td style="color:var(--yellow);font-weight:600">成本加价 '+_ncAdd+'%'
+             改按本区 DD373 成本 ÷ (1−利润率) 定价（老板口径「保持 30% 的利润」）。 */
+          ? '<td style="color:var(--yellow);font-weight:600">利润率 '+_ncAdd+'%'
             + '<div class="small" style="color:var(--sub);font-weight:400">'
-            + '该区无 cheapold → 成本×'+_nc.toFixed(2)
+            + '该区无 cheapold → 成本÷'+(1-_nc).toFixed(2)
             + '（利润率 '+_ncMg.toFixed(1)+'%）</div></td>'
         : (_bS0.indexOf('推荐前二') >= 0
           /* ⚠ 2026-10-09 起本口径已废止，仅旧快照（新列落库前）还会出现。 */
           ? '<td style="color:var(--yellow);font-weight:600">推荐前二较低者'
-            + (_fl ? _flTip
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
                    : (_cf ? _cfTip
                           : '<div class="small" style="color:var(--sub);font-weight:400">'
-                            + '该区无 cheapold 卖家（旧口径）</div>')) + '</td>'
+                            + '该区无 cheapold 卖家（旧口径）</div>'))) + '</td>'
         : (_bS.indexOf('无货兜底') >= 0
           ? '<td style="color:var(--red);font-weight:600">货源闸'
             + '<div class="small" style="color:var(--sub);font-weight:400">DD373 无货 → $'
@@ -1994,7 +2107,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     /* ===== 2026-10-09（老板口径）· **跟价基准** 单元格 =====
        主数字 = 我方真正在跟的那个价：
          · 有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
-         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 × 系数（默认 1.30）**，
+         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 ÷ (1−利润率)（默认 0.30）**，
            不再跟 G2G 推荐前二（该口径已废止）。
        · 新列 g2g_base 落库后优先用；旧快照该列还是 NULL ⇒ 回落 src_base_v
          （两者等价；唯一差别是「成本兜底」那几行旧快照会短暂显示成本价，下一轮自动校正）。 */
@@ -2012,14 +2125,15 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
              : '')
           + '</td>';
       const _lab = (_tag.indexOf('cheapold')>=0) ? 'cheapold 价'
-                 : (_tag.indexOf('成本×')>=0) ? (_tag + '（不跟 G2G）')
+                 : (_tag.indexOf('成本÷')>=0) ? (_tag + '（不跟 G2G）')
                  : (_tag.indexOf('推荐前二')>=0) ? '推荐前二较低者（旧口径）' : '';
       return '<td class="num mono"><b>$'+_b.toFixed(2)+'/M</b>'
         + (_lab ? '<div class="small" style="color:var(--sub)">'+_lab+'</div>' : '')
         + '</td>';
     };
     /* 竞品参考价单元格（ELD / IGGM）—— 用户要求汇总区也能一眼看到。
-       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
+       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。
+       2026-10-12：ELD 这一列 AION2 移除（见下方行渲染），只剩 IGGM。 */
     const cCell = function(v){ return (v==null||v==='')
       ? '<td class="num" style="color:var(--sub)">—</td>'
       : '<td class="num mono">$'+Number(v).toFixed(2)+'/M</td>'; };
@@ -2046,12 +2160,35 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         })();
     /* 2026-10-06 展示名统一：优先用后端补的 服务器名/大区中文/种族（DD373 优先、
        config 兜底），避免新子服务器在 DD373 无挂单时掉成裸 key AION2_XXX_E。 */
-    return '<tr>'
+    return '<tr style="cursor:pointer"'
+      + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.服务器名||x.DD游戏区||x.key||'')+'"'
+      + ' title="点击查看该服务区的调价历史"'
+      + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
       + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
+        /* 2026-10-12（老板口径）：「把服务区增加备注，参考的天1 魔1 天2 天3 这种备注，
+           方便我们查看对照」—— 备注 = DD373 区名里的（天N）/（魔N）（实测 86/86 都有），
+           贴在各区名旁边，看板一眼就能跟 DD373 页面上的区名对上。取不到就不显示，不编数。 */
+        + (x.区服备注
+           ? '<span style="background:rgba(0,113,227,.10);color:var(--blue);'
+             + 'border:1px solid #bcd8f7;border-radius:3px;padding:0 4px;font-size:11px;'
+             + 'font-weight:600;margin-left:5px;white-space:nowrap">'+esc(x.区服备注)+'</span>'
+           : '')
         + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
         + (stockTip? esc(stockTip):'')+'</div></td>'
       + srcCell
       + '<td class="num mono">'+(x.售价_USD每M!=null?('$'+f4(x.售价_USD每M)+'/M') : '--')
+        /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价」——
+           把**我方前台价也折成人民币**（元/万基纳，与成本列同口径），不用心算汇率就能看差距。
+           系数 = 本行「成本_元每万基纳 ÷ 成本_USD每M」（= 元/万基纳 ÷ USD/M），
+           直接从**这一行的实采数据**反推，不依赖全局汇率配置。 */
+        + (function(){
+            const _cc = Number(x.成本_元每万基纳), _cu = Number(x.成本_USD每M), _su = Number(x.售价_USD每M);
+            if(!(_cc>0) || !(_cu>0) || !(_su>0)) return '';
+            /* 2026-10-12（老板口径 · AION2）：这一行**标蓝** —— 与成本列的「X 元/万基纳」
+               同色，两行就是一套「DD373 实采人民币成本 vs 我方前台人民币价」的对照。 */
+            return '<div class="small" style="color:'+(_isAion2?'var(--blue)':'var(--yellow)')+'">前台 ≈ ￥'
+                 + (_su*(_cc/_cu)).toFixed(4) + ' 元/万基纳</div>';
+        })()
         + (x.对照档位M? '<div class="small" style="color:var(--sub)">按 '+x.对照档位M+'M 档</div>':'')+'</td>'
       /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列 ——
          该列用成本除数换算，与 MMOEXP 前台口径重复且易误读，直接移除。
@@ -2060,7 +2197,9 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
          ⚠ 只在 g2g_cheapold 模式（或有新列 g2g_base）时才换；其它定价模式的每一行
            仍然走原来的 cCell(P.g2g) —— 保证 D4 / MSCW 那些行**逐字不变**。 */
       + ((_isG2GC || P.g2g_base!=null) ? g2gBaseCell() : cCell(P.g2g))
-      + cCell(P.eld) + cCell(P.iggm)
+      /* 2026-10-12（老板口径 · AION2）：「ELD 最低 $/M 仅参考」整列移除。
+         ⚠ 表头（thead 里的 ELD <th>）必须同步移除，否则整行错位一列。 */
+      + (_isAion2 ? '' : cCell(P.eld)) + cCell(P.iggm)
       + costCell
       + mCell(x.利润率)
       + gapCellSum(P)
@@ -2090,49 +2229,55 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
      dd373_only / dd373_markup。若表头写死「跟价来源 / G2G 跟价基准」而模式里每行渲染的
      还是「第N级 / 三源 G2G 最低」，就成了新的口径不一致。所以这里按模式分叉。 */
   const _isG2GC2 = _pol2['模式']==='g2g_cheapold';
-  /* 2026-10-09：无 cheapold 卖家的区改按「成本 × 系数」定价 ⇒ 表头副标与分布都要跟上，
-     系数从 config 读（金币.定价策略.无cheapold加价系数，默认 1.30）。 */
-  const _ncv2 = Number(_pol2['无cheapold加价系数']);
-  const _nc2 = (isNaN(_ncv2) || _ncv2 <= 1) ? 1.30 : _ncv2;
+  /* 2026-10-09：无 cheapold 卖家的区改按「成本 ÷ (1−利润率)」定价 ⇒ 表头副标与分布都要跟上，
+     利润率从 config 读（金币.定价策略.无cheapold利润率，默认 0.30）。 */
+  const _ncv2 = Number(_pol2['无cheapold利润率']);
+  const _nc2 = (isNaN(_ncv2) || _ncv2 < 0) ? 0.30 : _ncv2;
   /* 2026-10-09：20% 利润下限（config 金币.定价策略.利润率下限）—— 表头/汇总条跟着配置走。 */
   const _limv2 = Number(_pol2['利润率下限']);
   const _limLbl2 = Math.round((isNaN(_limv2) ? 0.20 : _limv2) * 100);
+  /* 2026-10-12：利润率上限（config 金币.定价策略.利润率上限，默认 0.30）—— 同上。 */
+  const _capv2 = Number(_pol2['利润率上限']);
+  const _capLbl2 = Math.round((isNaN(_capv2) ? 0.30 : _capv2) * 100);
   if(_pol2['模式']==='dd373_markup'){
     sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
   }
   if(_pol2['模式']==='dd373_only'){
-    /* 只跟 DD373：第1级 = 买满 1 亿按成本×加价；第3级 = 无货统一挂兜底价 */
-    sumBits.push('有货照成本加价 '+_dist[1]
+    /* 只跟 DD373：第1级 = 买满 1 亿按成本÷(1−利润率)；第3级 = 无货统一挂兜底价 */
+    sumBits.push('有货照成本÷(1−利润率) '+_dist[1]
       + ' ｜ <span style="color:var(--yellow)">无货兜底 $'
       + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_dist[3]+'</span>');
   }
   if(_pol2['模式']==='g2g_cheapold'){
     /* 2026-10-09（老板口径）：跟价来源分布 —— 取代旧「第N级」分布。
-       一眼看出这轮有几个区在跟 cheapold、几个区该区没 cheapold 改走了「成本×系数」、
+       一眼看出这轮有几个区在跟 cheapold、几个区该区没 cheapold 改走了「成本÷(1−利润率)」、
        几个区被 DD373 货源闸挂了 $19.9 保护价。（判据与「跟价来源」列完全同源。）
        ⚠「推荐前二」口径已于 2026-10-09 废止 —— 只有旧快照才会出现，有值才显示。 */
-    const _d2 = {cheapold:0, nc:0, rec:0, gate:0, floor:0, other:0};
+    const _d2 = {cheapold:0, nc:0, rec:0, gate:0, floor:0, cap:0, other:0};
     rows.forEach(function(x){
       const P3 = x['定价']||{};
       if(P3.mode!=='g2g_cheapold') return;
       const b = String(P3.base||'');
       if(b.indexOf('利润下限') >= 0) _d2.floor++;   // 2026-10-09：被 20% 利润闸抬过价（可与来源叠加）
+      if(b.indexOf('利润率上限') >= 0) _d2.cap++;     // 2026-10-12：被利润率上限闸压过价（可与来源叠加）
       if(b.indexOf('无货兜底')>=0) _d2.gate++;
       else if(b.indexOf('cheapold')>=0) _d2.cheapold++;
-      else if(b.indexOf('成本×')>=0) _d2.nc++;
+      else if(b.indexOf('成本÷')>=0) _d2.nc++;
       else if(b.indexOf('推荐前二')>=0) _d2.rec++;
       else _d2.other++;
     });
     const _bits2 = ['<span style="color:var(--green)">cheapold '+_d2.cheapold+'</span>'];
     if(_d2.nc)
-      _bits2.push('<span style="color:var(--yellow)">成本×'+_nc2.toFixed(2)+' '+_d2.nc+'</span>');
+      _bits2.push('<span style="color:var(--yellow)">成本÷'+(1-_nc2).toFixed(2)+' '+_d2.nc+'</span>');
     if(_d2.rec)
       _bits2.push('<span style="color:var(--yellow)">推荐前二 '+_d2.rec+'（旧口径）</span>');
     _bits2.push('<span style="color:var(--red)">货源闸 $'
       + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_d2.gate+'</span>');
     if(_d2.floor)
       _bits2.push('<span style="color:var(--red)">⛔ 利润下限抬价 '+_d2.floor+'</span>');
+    if(_d2.cap)
+      _bits2.push('<span style="color:var(--red)">⛔ 利润率上限压价 '+_d2.cap+'</span>');
     sumBits.push('跟价来源：'+_bits2.join(' ｜ '));
   }
   const thead = '<tr><th>服务区 / 货源</th>'
@@ -2145,20 +2290,21 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     /* 2026-10-09（老板口径）：「之前不是让你盯着 cheapold 的价格来改吗，那你得把
        G2G 最低这列数据换成这个 cheapold 的价格」——
        原列取 src_g2g = **三源·大区级** G2G 最低价，与真正在跟的价（**子服务器**
-       cheapold / 无 cheapold 时的成本×系数）不是一个口径（实测 ASIA_ARIEL_E
+       cheapold / 无 cheapold 时的成本÷(1−利润率)）不是一个口径（实测 ASIA_ARIEL_E
        列显 3.96 / 实际跟 1.89）。现改为 **跟价基准**：列出来的就是**我方在跟的那个价**。
        2026-10-09 二次定案后该列不再只装 G2G 价，故表头去掉「G2G」前缀。 */
     + (_isG2GC2
-        ? '<th class="num">跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先 · 无则成本×'+_nc2.toFixed(2)+'</span></th>'
+        ? '<th class="num">跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先 · 无则成本÷'+(1-_nc2).toFixed(2)+'</span></th>'
         : '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
-    + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    + (_isAion2 ? ''
+       : '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
     + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
     /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
     + '<th class="num">进货价 DD373<br><span class="small" style="color:var(--sub);font-weight:400">$/M（与售价同单位）</span></th>'
     + '<th class="num">利润率</th>'
     /* 2026-10-02 用户要求：金币监控主表已隐藏，把它的「差距对比」并到这里 */
     + '<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">vs 竞品最低价</span></th>'
-    + '<th>依据</th><th>改价操作</th></tr>';
+    + '<th>依据</th><th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
   const _isDD2 = _pol2['模式']==='dd373_markup';
   const _isOnly = _pol2['模式']==='dd373_only';
   /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
@@ -2177,7 +2323,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
         return '<option value="'+esc(rg)+'"'+_sel(rg)+'>'+esc(rg)+'</option>';}).join('')
     + '</select>'
     + '<input type="text" id="gcsKw" value="'+esc(GCS_FILTER.kw)
-    + '" placeholder="搜服务器名 / 种族（如 Siel / Elyos）" oninput="gcsApply()">'
+    + '" placeholder="搜服务器名 / 种族 / 备注（如 Siel / 天1）" oninput="gcsApply()">'
     + '<label><input type="checkbox" id="gcsLoss" onchange="gcsApply()"'
     + (GCS_FILTER.loss?' checked':'')+'>只看亏损行</label>'
     + '<label><input type="checkbox" id="gcsMove" onchange="gcsApply()"'
@@ -2190,24 +2336,27 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     + '<span class="sub" style="margin-left:auto">'+sumBits.join(' ｜ ')+'</span></h4>'
     + '<div class="small" style="color:var(--sub);margin:2px 0 6px">'
     + esc(d.口径||'')+' ｜ 快照 '+(d.ts||'--')
-    + (_isDD2 ? (' ｜ <b style="color:var(--yellow)">三级顺延定价：DD373推荐价+'
-                 + (Math.round(Number(_pol2['加价比例']||0)*1000)/10)+'% → 无报价则 '
+    + (_isDD2 ? (' ｜ <b style="color:var(--yellow)">三级顺延定价：DD373推荐价÷(1−'
+                 + (Math.round(Number(_pol2['利润率']||0)*1000)/10)+'%) → 无报价则 '
                  + (_pol2['次源']||'G2G')+'兜底 → 再无则默认 $'
                  + (Number(_pol2['默认售价_USD每M'])||9.9).toFixed(2)
                  + '/M</b>')
-              : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ×'
-                 + (Math.round(Number(_pol2['加价比例']||0)*1000)/10)+'%'
-                 + '；无报价或可买量 < 1 亿 ⇒ 统一挂 $'
+              : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ÷(1−'
+                 + (Math.round(Number(_pol2['利润率']||0)*1000)/10)+'%'
+                 + '；无报价或可买量 < '
+                 + (Number(_pol2['无货最小可买万基纳']||15000)/10000)+' 亿 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
               /* 2026-10-09 修：原来 g2g_cheapold 落到「成本不参与改价，仅监控参考」这一支
                  —— 那是旧 dd373 时代的说法，现行口径下成本**参与**（成本兜底 + 货源闸），
                  留着就是错误口径。补正确分支。 */
               : (_isG2GC2 ? (' ｜ <b style="color:var(--green)">跟 G2G 该子服务器 cheapold 价 −'
                  + (Math.round(Number(_pol2['下浮比例']||0)*1000)/10)+'%'
-                 + '；该区无 cheapold ⇒ <b style="color:var(--yellow)">按成本×'
-                 + _nc2.toFixed(2)+' 保 '+Math.round((_nc2-1)*100)+'% 利润（不跟推荐前二）</b>；'
+                 + '；该区无 cheapold ⇒ <b style="color:var(--yellow)">按成本÷'
+                 + _nc2.toFixed(2)+' 保 '+Math.round(_nc2*100)+'% 利润（不跟推荐前二）</b>；'
                  + '利润率低于 '+_limLbl2+'% ⇒ <b style="color:var(--red)">强制抬到 '
                  + _limLbl2+'% 利润</b>（含成本兜底那批）；'
+                 + '利润率超 '+_capLbl2+'% ⇒ <b style="color:var(--red)">强行压到 成本÷'
+                 + (1 - (isNaN(_capv2) ? 0.30 : _capv2)).toFixed(2)+'</b>（只对正常跟 cheapold 的行）；'
                  + '竞品低于我方成本 ⇒ 不再跟降（按成本价，随后一样受上述利润下限约束）；'
                  + 'DD373 无货 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M 保护</b>')
@@ -2260,6 +2409,57 @@ async function showHistory(key){
   }catch(e){ toast(e.message,'err'); }
 }
 function closeHist(){ $('#histModal').classList.remove('show'); }
+/* 金币货架 · 调价历史弹窗（2026-10-12 新增）
+   ------------------------------------------------------------------
+   为什么要它：物品行的「价格历史」读的是 decisions（跟价引擎**每轮**写一条），
+   而金币货架走的是另一条链路（gold_action 台账），过去那一列只显示「最近一次」，
+   点不开历史。后端 /api/gold_action?key= 早就存在，这次只把前端入口补上。
+
+   ⚠ 口径提醒（和上方「改价操作」列**不是**同一个来源，别对着看）
+     · 本弹窗     = gold_action 台账：采集时对比上一轮**我方前端实价**，
+                    **真的变了才记一行**；时间 = 采集观察到变化的时刻。
+     · 「改价操作」列 = gold_ticket_map：执行器回填的工单真值，
+                    时间 = 工单 finished_at。两者可能差几十分钟。 */
+async function showGoldHistory(key, title){
+  if(!key){ toast('这一行没有服务区标识，无法查历史','err'); return; }
+  try{
+    const r = await api('api/gold_action?key='+encodeURIComponent(key));
+    const items = r.items||[];
+    if(!items.length){ toast('该服务区还没有观察到调价（台账为空）'); return; }
+    const recent = items.slice(0, 12);
+    $('#histTitle').textContent = '调价历史 · ' + (title || key);
+    $('#histSub').textContent = '最近 '+recent.length+' 次（台账共 '+items.length+' 条）'
+      + ' ｜ 口径：我方前台每 M 价 USD ｜ 只记「我方前端价真的变了」的那些轮'
+      + '（工单没执行 / 前端未刷新都不算）';
+    let h='<table class="histtable"><thead><tr><th>时间</th><th>旧价</th><th>新价</th>'
+      + '<th>幅度</th><th>定价模式</th><th>依据</th></tr></thead><tbody>';
+    recent.forEach(function(p){
+      const f=function(v){
+        if(v==null||v==='') return '--';
+        const n=Number(v); if(!isFinite(n)) return '--';
+        const a=Math.abs(n);
+        return '$'+(a===0?'0':(a<0.01?n.toFixed(6):(a<1?n.toFixed(4):n.toFixed(2))));
+      };
+      const pct=p.delta_pct, up=(pct!=null && Number(pct)>0);
+      const col=(pct==null)?'var(--sub)':(up?'var(--red)':'var(--green)');
+      const t=String(p.ts||'').replace('T',' ').slice(0,16);
+      /* 早期台账的 mode/basis 可能为空 —— Python 的 None 会原样带出来（实测线上有
+         "基准 - $None"）。这里只做**展示层兜底**，不改任何数据。 */
+      const modeTxt=(p.mode==null||p.mode==='') ? '--' : String(p.mode);
+      const basisTxt=(String(p.basis==null?'':p.basis).replace(/\bNone\b/g,'--') || '--');
+      h+='<tr><td class="mono small">'+esc(t)+'</td>'
+        + '<td class="mono">'+f(p.old_usd_m)+'</td>'
+        + '<td class="mono">'+f(p.new_usd_m)+'</td>'
+        + '<td style="color:'+col+';font-weight:600">'
+        + (pct==null?'--':((pct>0?'\u25b2 +':'\u25bc ')+Number(pct).toFixed(2)+'%'))+'</td>'
+        + '<td class="small">'+esc(modeTxt)+'</td>'
+        + '<td class="small">'+esc(basisTxt)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $('#histBody').innerHTML=h;
+    $('#histModal').classList.add('show');
+  }catch(e){ toast(e.message,'err'); }
+}
 
 /* ---------- 悬浮目录（快速跳转各模块）---------- */
 /* ⚠ 判定带的坑：`scrollIntoView({block:'start'})` + `scroll-margin-top:76px` 并不总是把

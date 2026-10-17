@@ -1,5 +1,5 @@
 """Synthetic fast contracts against actual selected source. No production IO."""
-import ast, copy, importlib.util, json, sys, tempfile, unittest
+import ast, copy, importlib.util, json, re, sys, tempfile, unittest
 from pathlib import Path
 from decimal import Decimal
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,6 +130,255 @@ class RPGModuleContracts(unittest.TestCase):
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.split(".")[0])
         self.assertFalse(imported & {"requests", "paramiko", "yaml", "fabric"})
+
+class G2GModuleContracts(unittest.TestCase):
+    """g2gfollow（G2G 金币改价系统 · AION2 Kinah）2026-10-14 纳入版本管理的最小离线合同。
+
+    范围声明：只验证「Python 3.9 语法可解析 + 关键定价常量与签名存在 + systemd
+    unit 的单 worker 约束 + 凭据卫生」。**不 exec 这些模块** —— app.py 依赖 Flask，
+    CI 隔离环境不装第三方包，只做 AST / 文本级断言。
+    不替代集成验收，也不替代线上 UI / 写价验收。
+    """
+    UNIT = "opt/g2gfollow/"
+    MODULES = (
+        "app.py",
+        "core_self.py",
+        "pricing.py",
+        "store.py",
+        "tools/auto_cycle.py",
+        "tools/g2g_token_refresher.py",
+        "tools/recheck_writes.py",
+        "tools/selftest.py",
+        "tools/snapshot_config.py",
+        "vendor/__init__.py",
+        "vendor/core_dd373_cost.py",
+        "vendor/core_g2g.py",
+    )
+    TRACKED = MODULES + (
+        "README.md",
+        "requirements.txt",
+        "templates/index.html",
+        "systemd/g2gfollow.service",
+        "tools/sync_vendor.sh",
+        ".gitignore",
+    )
+    # 疑似凭据：私钥块 / 裸 Bearer token / JWT
+    CREDENTIAL = re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY|"
+        r"Bearer\s+[A-Za-z0-9\-_.]{20,}|"
+        r"\beyJ[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_]{8,}\.")
+
+    def _text(self, rel):
+        return (ROOT / self.UNIT / rel).read_text(encoding="utf-8-sig")
+
+    def _tree(self, rel):
+        return ast.parse(self._text(rel), filename=self.UNIT + rel,
+                         feature_version=(3, 9))
+
+    def _assign(self, rel, name):
+        """取模块级 `name = <字面量>` 的字面值；找不到返回 None。"""
+        for node in self._tree(rel).body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == name:
+                        return ast.literal_eval(node.value)
+        return None
+
+    def test_all_modules_parse_under_python39(self):
+        for rel in self.MODULES:
+            self._tree(rel)
+
+    def test_dd373_cost_keeps_pricing_baseline(self):
+        """成本口径三条不能丢 —— 都是线上定过案的业务口径。"""
+        rel = "vendor/core_dd373_cost.py"
+        # 跳过综合排序第一个挂售订单（2026-10-14 老板定案：低价挂单会拉低成本均价）
+        self.assertEqual(self._assign(rel, "SKIP_LOWEST_QUOTES"), 1)
+        # 买满量 5 亿基纳；不足买满量时按条数吃满 10 条（2026-10-12 老板定案）
+        self.assertEqual(self._assign(rel, "TARGET_WAN"), 50000.0)
+        self.assertEqual(self._assign(rel, "FALLBACK_ITEMS"), 10)
+
+    def test_orderbook_avg_exposes_skip_lowest(self):
+        rel = "vendor/core_dd373_cost.py"
+        args = None
+        for node in ast.walk(self._tree(rel)):
+            if isinstance(node, ast.FunctionDef) and node.name == "orderbook_avg":
+                args = [a.arg for a in node.args.args]
+        self.assertIsNotNone(args, "orderbook_avg 不见了")
+        self.assertIn("skip_lowest", args)
+
+    def test_systemd_unit_keeps_single_worker(self):
+        """采集进度 / 推荐单是进程内全局状态 ⇒ 必须 -w 1（改多 worker 会串状态）。"""
+        text = self._text("systemd/g2gfollow.service")
+        self.assertIn("-w 1", text)
+        self.assertIn("/opt/g2gfollow/venv/bin/gunicorn", text)
+        self.assertIn("app:app", text)
+
+    def test_gitignore_keeps_credentials_and_runtime_out(self):
+        """入仓最易犯的错：把 var/ 下的 token / session 或 config.json 提交进来。"""
+        rules = [line.strip() for line in self._text(".gitignore").splitlines()
+                 if line.strip() and not line.strip().startswith("#")]
+        self.assertIn("var/", rules)             # accessToken + session cookie
+        self.assertIn("config.json", rules)      # 与仓库根 **/config.json* 同口径
+        self.assertIn("venv/", rules)
+        self.assertIn("vendor/data/dd373_zone_tree.json", rules)   # 6h TTL 缓存
+        self.assertNotIn("vendor/dd373_zone_tree.json", rules)     # 旧错路径，不得回退
+
+    def test_no_hardcoded_credentials_in_tracked_files(self):
+        for rel in self.TRACKED:
+            self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
+                              "%s 里出现疑似凭据" % rel)
+
+class BotModuleContracts(unittest.TestCase):
+    """Discord 机器人三件套（2026-10-15 纳入版本管理）的最小离线合同。
+
+    范围 = MMOEXP GuardBot（防冒充守卫，Node）+ Shugo-bot（AION2 迎新，Python）
+    + 管这两个机器人的控制台页面 /bots/（Python 后端 + 单文件前端）。
+
+    只验证「Python 3.9 语法可解析 + 关键安全不变量还在 + systemd/nginx 接线没被
+    改成裸奔 + 凭据卫生」。**不 exec、不联网、不起服务** —— CI 隔离环境里没有
+    discord.js / discord.py，也不该为了跑一次检查去装。所以这不替代线上验收，
+    也不替代控制台在真实浏览器里的行为验收。
+    """
+    GUARD = "opt/mmoexp-guardbot/"
+    SHUGO = "opt/shugo-bot/"
+    CONSOLE = "opt/bot-console/"
+
+    PY_MODULES = (
+        SHUGO + "bot.py",
+        SHUGO + "news.py",
+        SHUGO + "setup.py",
+        SHUGO + "09_news_setup.py",
+        CONSOLE + "server.py",
+        CONSOLE + "_smoke_test.py",
+        CONSOLE + "_test_classify.py",
+        CONSOLE + "_e2e_browser.py",
+        CONSOLE + "_e2e_nav_control.py",
+        GUARD + "_ops_set_dryrun.py",
+        GUARD + "_ops_xcheck.py",
+    )
+
+    # 疑似凭据：私钥块 / 裸 Bearer token / JWT / Discord Bot Token。
+    # Discord 的三段式里，中段固定是 6 位 base64 时间戳、尾段 ≥27 位。
+    # index.js 测试里那个哨兵 `…….SENTINEL.DO_NOT_LEAK_ME` 中段 8 位、尾段 14 位，
+    # 两个条件都不满足 ⇒ 不误报（这是有意的：哨兵要能留在库里当反面样例）。
+    CREDENTIAL = re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY|"
+        r"Bearer\s+[A-Za-z0-9\-_.]{20,}|"
+        r"\beyJ[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_]{8,}\.|"
+        r"\b[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,110}\b")
+
+    def _text(self, rel):
+        return (ROOT / rel).read_text(encoding="utf-8-sig")
+
+    def _tree(self, rel):
+        return ast.parse(self._text(rel), filename=rel, feature_version=(3, 9))
+
+    def _assign(self, rel, name):
+        """取模块级 `name = <字面量>` 的字面值；找不到返回 None。"""
+        for node in self._tree(rel).body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == name:
+                        return ast.literal_eval(node.value)
+        return None
+
+    def _rules(self, rel):
+        return [line.strip() for line in self._text(rel).splitlines()
+                if line.strip() and not line.strip().startswith("#")]
+
+    def test_all_python_modules_parse_under_python39(self):
+        for rel in self.PY_MODULES:
+            self._tree(rel)
+
+    def test_guardbot_defaults_stay_fail_safe(self):
+        """DEFAULTS 必须保持「默认不处置 + 默认严格匹配」。
+
+        线上为了抓拼错前缀切到了 loose / ban，但**代码默认值**必须是保守的：
+        默认值一改，任何新部署（或 config.json 被清掉）都会变成上线即封号。
+        """
+        block = self._text(self.GUARD + "index.js").split("const DEFAULTS = {", 1)[1].split("\n};", 1)[0]
+        self.assertIn("dryRun: true", block)
+        self.assertIn("action: 'kick'", block)
+        self.assertIn("matchMode: 'strict'", block)
+
+    def test_guardbot_keeps_admin_hard_protection(self):
+        """第二道闸：带 Administrator 的官方管理组永不处理，与白名单无关。"""
+        text = self._text(self.GUARD + "index.js")
+        self.assertIn("function isProtectedAdmin", text)
+        self.assertIn("PermissionFlagsBits.Administrator", text)
+
+    def test_guardbot_paths_stay_relative_to_module_dir(self):
+        """config.json / whitelist.json 从模块目录取，不写死 /opt 绝对路径 ——
+        否则控制台注册表里的 dir 就骗人，也没法在别处复现。"""
+        text = self._text(self.GUARD + "index.js")
+        self.assertIn("const ROOT = __dirname;", text)
+        self.assertIn("path.join(ROOT, 'config.json')", text)
+        self.assertIn("path.join(ROOT, 'whitelist.json')", text)
+
+    def test_shugo_takes_token_from_env_before_file(self):
+        """令牌来源顺序：SHUGO_TOKEN 环境变量 > 同目录 token.txt。
+        这条同时守住「顺序」和「版本库里两个都不能有真值」。"""
+        text = self._text(self.SHUGO + "bot.py")
+        env = text.index('os.environ.get("SHUGO_TOKEN"')
+        self.assertLess(env, text.index('"token.txt"'))
+
+    def test_console_registry_covers_both_bots(self):
+        """控制台的机器人注册表就是 /bots/ 页面能管什么的事实源。"""
+        bots = self._assign(self.CONSOLE + "server.py", "BOTS")
+        self.assertEqual(sorted(bots), ["guard", "shugo"])
+        self.assertEqual(bots["guard"]["service"], "mmoexp-guardbot")
+        self.assertEqual(bots["guard"]["dir"], "/opt/mmoexp-guardbot")
+        self.assertEqual(bots["guard"]["runtime"], "node")
+        self.assertEqual(bots["shugo"]["service"], "shugo-bot")
+        self.assertEqual(bots["shugo"]["dir"], "/opt/shugo-bot")
+        self.assertEqual(bots["shugo"]["runtime"], "python")
+
+    def test_console_binds_loopback_only(self):
+        """控制台能启停服务、能换 Bot Token ⇒ 只能挂 127.0.0.1，公网必须经 nginx 门禁。"""
+        text = self._text(self.CONSOLE + "server.py")
+        self.assertIn('_env("BOTCONSOLE_BIND", "127.0.0.1")', text)
+        self.assertIn('_env("BOTCONSOLE_PORT", "8936")', text)
+
+    def test_console_service_scopes_write_paths(self):
+        text = self._text(self.CONSOLE + "bot-console.service")
+        self.assertIn("ExecStart=/opt/bot-console/venv/bin/python -B /opt/bot-console/server.py", text)
+        self.assertIn("Environment=BOTCONSOLE_BIND=127.0.0.1", text)
+        self.assertIn("ProtectSystem=full", text)
+        # 控制台要写这两个机器人的配置目录，其余路径保持只读
+        writable = text.split("ReadWritePaths=", 1)[1].split("\n", 1)[0]
+        for path in ("/opt/mmoexp-guardbot", "/opt/shugo-bot", "/opt/bot-console/data"):
+            self.assertIn(path, writable)
+
+    def test_bots_page_stays_behind_the_login_gate(self):
+        """/bots/ 是主导航里的入口，必须继承统一登录门禁：
+        auth_request 先行，且身份头由 nginx 覆盖写入（客户端自带的同名头无效）。"""
+        text = self._text(self.CONSOLE + "bot-console.locations.conf")
+        self.assertIn("location /bots/", text)
+        self.assertIn("auth_request /__auth_verify;", text)
+        self.assertIn("proxy_pass http://127.0.0.1:8936/;", text)
+        self.assertIn("proxy_set_header X-Auth-Role $bots_role;", text)
+
+    def test_gitignore_keeps_credentials_and_runtime_out(self):
+        """三个模块各自挡住最容易误提交的东西。"""
+        guard = self._rules(self.GUARD + ".gitignore")
+        self.assertIn("config.json", guard)        # 含 Bot Token
+        self.assertIn("whitelist.json", guard)     # 控制台运行时改写
+        self.assertIn("node_modules/", guard)
+
+        shugo = self._rules(self.SHUGO + ".gitignore")
+        self.assertIn("token.txt", shugo)          # 机器人令牌
+        self.assertIn("config.json", shugo)
+        self.assertIn("news_state.json", shugo)    # 去重表，每轮改写
+        self.assertIn(".venv/", shugo)
+
+        console = self._rules(self.CONSOLE + ".gitignore")
+        self.assertIn("data/", console)            # audit.log + 含 token 的配置备份
+        self.assertIn("venv/", console)
+
+    def test_no_hardcoded_credentials_in_tracked_files(self):
+        for rel in self.PY_MODULES + (self.GUARD + "index.js",):
+            self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
+                              "%s 里出现疑似凭据" % rel)
 
 class PlayersLock(unittest.TestCase):
     def test_missing_and_symlink_are_not_acquired(self):

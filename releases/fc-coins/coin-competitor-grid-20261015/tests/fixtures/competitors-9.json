@@ -1,0 +1,121 @@
+{
+ "competitors": [
+  {
+   "platform": "PS",
+   "source": "Lootbar",
+   "gross_usd": "12.18",
+   "purchase_k": "100",
+   "bonus_k": "5",
+   "effective_usd_per_k": "0.116",
+   "captured_at": "2026-10-14T16:21:36+00:00",
+   "comparable": null,
+   "conditional": null,
+   "url": "https://www.lootbar.com/game-coins/fc27",
+   "status": "valid"
+  },
+  {
+   "platform": "XBOX",
+   "source": "Lootbar",
+   "gross_usd": "12.18",
+   "purchase_k": "100",
+   "bonus_k": "5",
+   "effective_usd_per_k": "0.116",
+   "captured_at": "2026-10-14T16:21:36+00:00",
+   "comparable": null,
+   "conditional": null,
+   "url": "https://www.lootbar.com/game-coins/fc27",
+   "status": "valid"
+  },
+  {
+   "platform": "PC",
+   "source": "Lootbar",
+   "gross_usd": "9.92",
+   "purchase_k": "100",
+   "bonus_k": "5",
+   "effective_usd_per_k": "0.09447619047619047619047619048",
+   "captured_at": "2026-10-14T16:21:36+00:00",
+   "comparable": null,
+   "conditional": null,
+   "url": "https://www.lootbar.com/game-coins/fc27",
+   "status": "valid"
+  },
+  {
+   "platform": "PS",
+   "source": "U4GM",
+   "gross_usd": "12",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.12",
+   "captured_at": "2026-10-14T16:21:41.170422+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u4gm.com/fc-27/coins",
+   "status": "valid"
+  },
+  {
+   "platform": "XBOX",
+   "source": "U4GM",
+   "gross_usd": "12",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.12",
+   "captured_at": "2026-10-14T16:21:43.151280+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u4gm.com/fc-27/coins?server_code=xbox_one_series",
+   "status": "valid"
+  },
+  {
+   "platform": "PC",
+   "source": "U4GM",
+   "gross_usd": "11.8",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.118",
+   "captured_at": "2026-10-14T16:21:45.133661+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u4gm.com/fc-27/coins?server_code=pc",
+   "status": "valid"
+  },
+  {
+   "platform": "PS",
+   "source": "U7Buy",
+   "gross_usd": "14.50",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.145",
+   "captured_at": "2026-10-14T16:21:48.762884+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u7buy.com/fc27/coins",
+   "status": "valid"
+  },
+  {
+   "platform": "XBOX",
+   "source": "U7Buy",
+   "gross_usd": "14.50",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.145",
+   "captured_at": "2026-10-14T16:21:49.877574+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u7buy.com/fc27/coins",
+   "status": "valid"
+  },
+  {
+   "platform": "PC",
+   "source": "U7Buy",
+   "gross_usd": "10.52",
+   "purchase_k": "100",
+   "bonus_k": "0",
+   "effective_usd_per_k": "0.1052",
+   "captured_at": "2026-10-14T16:21:50.974997+00:00",
+   "comparable": true,
+   "conditional": false,
+   "url": "https://www.u7buy.com/fc27/coins",
+   "status": "valid"
+  }
+ ]
+}

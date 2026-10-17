@@ -1,0 +1,40 @@
+{
+  "code": 1,
+  "msg": "",
+  "time": 1791772070,
+  "data": {
+    "topCid": 0,
+    "row": {
+      "top_cid": 0,
+      "sid": 0,
+      "more": {
+        "extend": []
+      },
+      "_extend": {
+        "mid": 0,
+        "site_ids": [],
+        "aids": [],
+        "all_site_ids": [],
+        "all_aids": [],
+        "num": 1,
+        "min_qty": 1,
+        "total": 0,
+        "discount": 100,
+        "price": "",
+        "status": "0",
+        "is_rec": "0",
+        "duration": "0",
+        "open_watermark": "0"
+      }
+    },
+    "siteConfig": [],
+    "gameAreaConfig": [],
+    "shelveGoods": [],
+    "displayDuration": {
+      "0": 0,
+      "7": 7,
+      "14": 14,
+      "30": 30
+    }
+  }
+}

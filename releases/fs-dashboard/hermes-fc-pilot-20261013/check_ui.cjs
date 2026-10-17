@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const text=fs.readFileSync(__dirname+'/index.html','utf8');
+const code=text.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(code);
+assert(!code.includes('innerHTML'));
+assert(code.includes('model_generated===true'));
+assert(code.includes('分析未完成'));
+assert(code.includes("credentials:'same-origin'"));
+assert(code.includes('hermes_cancel'));
+assert(!code.includes('X-Auth-User'));
+console.log('Hermes UI syntax and direct security/status checks pass; actual browser acceptance still required');

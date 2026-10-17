@@ -1,0 +1,50 @@
+[
+  {
+    "file": "ai_advisor_model.py",
+    "sha256": "02d720bdfbc458ef2f94107bb139e077325f6e8d78fcc677718383d5f0e02a4e"
+  },
+  {
+    "file": "boss_insights.py",
+    "sha256": "1b8d4c94a8b1ed1524a900ccf30d13c83583da1c5936fde437ac78ca0bc959b1"
+  },
+  {
+    "file": "fc_daily_model.py",
+    "sha256": "37310fdab22eccebd1a695f27a90016e2fdf6cf8fd6b07c62835a2a0631fb5ec"
+  },
+  {
+    "file": "fc_detail.py",
+    "sha256": "0eb8e37cf6e483f2c14f2f241cbca12c18eb85d9fcaaa4e8bfc8963a6d9e5341"
+  },
+  {
+    "file": "fc_detail_config.json",
+    "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+  },
+  {
+    "file": "fc_detail_model.py",
+    "sha256": "98b6429ba6c84d3ebbf061b0299703b6d49dc753e7b5ac45c72061b544e568ce"
+  },
+  {
+    "file": "fc_detail_reader.py",
+    "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+  },
+  {
+    "file": "manifest.json",
+    "sha256": "aeb5a78b2713b53d053baecbc3a122374d105026ede6863d874bb49fc9d07f7a"
+  },
+  {
+    "file": "range_api.py",
+    "sha256": "d4a702c54319ba464271587822d6b5e0b5671bfb141af4dc4aefc34024f1a70a"
+  },
+  {
+    "file": "test_ai_advisor.py",
+    "sha256": "b31afcbc77a4ae634da59f2bd626ae05c18988e2f1457aa49b08be5b6621b87c"
+  },
+  {
+    "file": "test_boss_insights.py",
+    "sha256": "cf435d58f3eed19cc5b5b8895b6b1820f8092af4dfce79c8e21a55f3943a3d7f"
+  },
+  {
+    "file": "test_fc_daily.py",
+    "sha256": "17e86ac4d7c369227e0b6651981082e87509cb76dbaba8cc5f7af8c62afd31a7"
+  }
+]

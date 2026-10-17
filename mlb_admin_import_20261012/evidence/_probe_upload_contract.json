@@ -1,0 +1,22 @@
+{
+  "file": {
+    "status": 200,
+    "body": "{\"upload\":{\"picture\":{\"code\":200,\"msg\":\"File uploaded successfully\",\"file\":{\"suffix\":\"png\",\"full_url\":\"https:\\/\\/b2c-static.p2pah.cn\\/images\\/202610\\/691770cfc7e96c47f168cd92f99ffeb2c034ec40.png\",\"topic\":\"uploads\\/images\",\"name\":\"probe_test.png\",\"size\":4189,\"storage\":\"local\",\"sha1\":\"691770cfc7e96c47f168cd92f99ffeb2c034ec40\",\"path\":\"\\/images\\/202610\\/691770cfc7e96c47f168cd92f99ffeb2c034ec40.png\",\"title\":\"probe_test.png\",\"ext\":\"image\\/png\",\"token\":\"19797ddeaf2d8976e6a5df3e59983080\",\"isuse\":1,\"id\":16417925}}}}"
+  },
+  "image": {
+    "status": 200,
+    "body": "{\"upload\":{\"picture\":{\"code\":400,\"msg\":\"No files have been uploaded or the file size exceeds the upload limit of the server\",\"file\":[]}}}"
+  },
+  "img": {
+    "status": 200,
+    "body": "{\"upload\":{\"picture\":{\"code\":400,\"msg\":\"No files have been uploaded or the file size exceeds the upload limit of the server\",\"file\":[]}}}"
+  },
+  "picture": {
+    "status": 200,
+    "body": "{\"upload\":{\"picture\":{\"code\":400,\"msg\":\"No files have been uploaded or the file size exceeds the upload limit of the server\",\"file\":[]}}}"
+  },
+  "upload": {
+    "status": 200,
+    "body": "{\"upload\":{\"picture\":{\"code\":400,\"msg\":\"No files have been uploaded or the file size exceeds the upload limit of the server\",\"file\":[]}}}"
+  }
+}

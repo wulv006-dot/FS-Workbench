@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "status": "complete-isolated-candidate-not-deployed",
+  "private_package": "releases/registration/account-admin-20261015/",
+  "private_main_observed": "b14db6849bbf87967899af93f0785e923e12effa",
+  "live_observed_at_utc": "2026-10-14T17:45:30.427201+00:00",
+  "administrator_policy": "preserve exact current four administrators; no role grants",
+  "production_account_mutations": 0,
+  "schema_after_first_account_save": 5,
+  "files": [
+    {
+      "candidate": "candidate/runtime/runtime.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "before_sha256": "6b92b4c33d9fa1e4ac14514ea0291beb1aaf291495b8dec77db8507f24f62e12",
+      "after_sha256": "25d1920762524d679fda12002cc48318c372f872bb184e59fff8c34997c62cfb",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/route-contract.json",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/route-contract.json",
+      "before_sha256": "5e29010b520bf4ee6f6e04cbfff56d3430cf21300b040301ae6ea5316dde0539",
+      "after_sha256": "5e29010b520bf4ee6f6e04cbfff56d3430cf21300b040301ae6ea5316dde0539",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/module_permissions.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "before_sha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58",
+      "after_sha256": "783ccdc4387633036f592836aff0012f42f87b5fcee68f273d8525d01bbfc725",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/consumer_seams.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "before_sha256": "6b3facc24159c9eb4872b877ec5f6110e79788693889c1590b21000ace3ef4e1",
+      "after_sha256": "d82a0db5301888a073003d6904c3e4a0f779976a4c8a396e30628b75458b72d8",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/auth_candidate.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "before_sha256": "c94fa0714649168f86bb965c85aada8d48a5e2f0af6f35312ab7863c56d70f66",
+      "after_sha256": "31499048f9ca25d7f2d187ad2d97bf6b735a7e1ff5d69fc6f970a14e78bb55d7",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/portal_bridge.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/portal_bridge.py",
+      "before_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "after_sha256": "b056806326e1e7335a77b1c63a2d5a941ff18f0da32e839befc05b480b86d631",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/storage_checkpoint.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/storage_checkpoint.py",
+      "before_sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "after_sha256": "080fb7ef8a057286e47636342a38c528a1ff5135b8f098a42fc8eb052e8f1809",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/native_integration.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_integration.py",
+      "before_sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "after_sha256": "9295c2a69aa2aab75e5e3de81e800239a0eff04180fc8aceb278f7248ca8f09f",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/native_portal_functions.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_portal_functions.py",
+      "before_sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "after_sha256": "620f37e7296485fd40277c7e96e0cd90320f3f61814e726c56f5e65c4624a3be",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/schema_contract.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/schema_contract.py",
+      "before_sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "after_sha256": "0ed581ca09d910dff90b1f3ccb8d41e4a81270968ae95a1c1335f4c360fac101",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/native_taskboard_member.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_taskboard_member.py",
+      "before_sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "after_sha256": "e4aafd56d3bade9baa1333dd169c1dc3ccd9d76a239a4499caae744d4465e4c1",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/native_access_policy.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/native_access_policy.py",
+      "before_sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+      "after_sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/app.js",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "before_sha256": "f04f27c1e1be5e3bf39b17377b51c7afef115e884233dc6cd6be72140276da5e",
+      "after_sha256": "e43edc38ce5db5868f0a7b36c8b053afd7b953ef069cf532d360c57290a198ef",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/index.html",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "before_sha256": "50ac6b5573429d2c025115d18f25a64ce68c838860e5fe3e156bc401c1edf3af",
+      "after_sha256": "f4ba52c43e2217c1743644740b9b36db7e96b0c46fe3a8f2fa4e56d0797eed79",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/access.css",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "before_sha256": "1828250f95328d50b046b04fa71c2ad22fa53a39dbeb1ca9e77fbf15d62f6ea0",
+      "after_sha256": "757b1a4b696e4a47c48e031124065f7f00765d443c1f38b20f6e8b38f1dad346",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/base.css",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/base.css",
+      "before_sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "after_sha256": "c9c320dba0be29a3861e8a11be09255bbd58843d1d311b8b8cb0d2490ba8f040",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/account_management.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/account_management.py",
+      "before_sha256": null,
+      "after_sha256": "3e6f6983ec1089c905c8be22a636adc077f1aa5ec1aa0d3cc683ffa44bd0c1fd",
+      "live_verified": false
+    }
+  ],
+  "changed": [
+    {
+      "candidate": "candidate/runtime/runtime.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/runtime.py",
+      "before_sha256": "6b92b4c33d9fa1e4ac14514ea0291beb1aaf291495b8dec77db8507f24f62e12",
+      "after_sha256": "25d1920762524d679fda12002cc48318c372f872bb184e59fff8c34997c62cfb",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/module_permissions.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "before_sha256": "36cfd803e6db466fc642fc66be71a086d1eeb1a1a2a0967cda060cde69fcfe58",
+      "after_sha256": "783ccdc4387633036f592836aff0012f42f87b5fcee68f273d8525d01bbfc725",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/consumer_seams.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/consumer_seams.py",
+      "before_sha256": "6b3facc24159c9eb4872b877ec5f6110e79788693889c1590b21000ace3ef4e1",
+      "after_sha256": "d82a0db5301888a073003d6904c3e4a0f779976a4c8a396e30628b75458b72d8",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/vendor/auth_candidate.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/vendor/auth_candidate.py",
+      "before_sha256": "c94fa0714649168f86bb965c85aada8d48a5e2f0af6f35312ab7863c56d70f66",
+      "after_sha256": "31499048f9ca25d7f2d187ad2d97bf6b735a7e1ff5d69fc6f970a14e78bb55d7",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/portal_bridge.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/portal_bridge.py",
+      "before_sha256": "3b890b5edf873db7f5c73155cbf545d1d848f58d99b9a4f92a86a9eb61af38ed",
+      "after_sha256": "b056806326e1e7335a77b1c63a2d5a941ff18f0da32e839befc05b480b86d631",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/app.js",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/app.js",
+      "before_sha256": "f04f27c1e1be5e3bf39b17377b51c7afef115e884233dc6cd6be72140276da5e",
+      "after_sha256": "e43edc38ce5db5868f0a7b36c8b053afd7b953ef069cf532d360c57290a198ef",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/index.html",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/index.html",
+      "before_sha256": "50ac6b5573429d2c025115d18f25a64ce68c838860e5fe3e156bc401c1edf3af",
+      "after_sha256": "f4ba52c43e2217c1743644740b9b36db7e96b0c46fe3a8f2fa4e56d0797eed79",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/web/access.css",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/web/access.css",
+      "before_sha256": "1828250f95328d50b046b04fa71c2ad22fa53a39dbeb1ca9e77fbf15d62f6ea0",
+      "after_sha256": "757b1a4b696e4a47c48e031124065f7f00765d443c1f38b20f6e8b38f1dad346",
+      "live_verified": true
+    },
+    {
+      "candidate": "candidate/runtime/account_management.py",
+      "runtime": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/account_management.py",
+      "before_sha256": null,
+      "after_sha256": "3e6f6983ec1089c905c8be22a636adc077f1aa5ec1aa0d3cc683ffa44bd0c1fd",
+      "live_verified": false
+    }
+  ],
+  "publisher": {
+    "base_sha256": "e0c8db6ad0e4b732593f72494980e62f55adee88c8ae5c446a9f76c8c834dc95",
+    "patch": "deploy/publisher.patch",
+    "candidate": "deploy/release_navigation.py",
+    "sha256": "19ce1c36b277e55bbd81ceb89e4187ed894c9dc5b42a65461370076d06aebee0"
+  },
+  "verification": [
+    {
+      "suite": "test_accounts.py",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "environment": "Windows Python 3.14 isolated"
+    },
+    {
+      "suite": "test_http.py",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "environment": "Windows Python 3.14 isolated"
+    },
+    {
+      "suite": "test_publisher.py",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "environment": "Windows Python 3.14 isolated"
+    },
+    {
+      "suite": "test_ui.py",
+      "assertions": 26,
+      "failed": 0,
+      "environment": "Windows Chrome headless; all requests intercepted; synthetic accounts only"
+    }
+  ],
+  "linux_new_candidate_verified": false,
+  "production_ui_verified": false,
+  "releaseReady": false
+}

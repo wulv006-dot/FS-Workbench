@@ -1,0 +1,102 @@
+{
+  "observedAtUtc": "2026-10-15T17:55:30Z",
+  "homeCards": {
+    "deployed": true,
+    "exactCopyDomReadback": true,
+    "pullRequest": 174,
+    "mergedCommit": "7999a51a3d8124870b795b1ec0590b015d4002e7"
+  },
+  "managementPreview": {
+    "releaseId": "workspace-native-20261006-5a791c9d741a",
+    "manifestSha256": "17072e73c06e0faf4d7856e48f864d9b69c62fae98f40fd4ec6993781bd377ea",
+    "url": "https://47.85.224.112/dashboard/__preview/management-v2-20261015/index.html",
+    "status": "same_release_as_production",
+    "dataStatus": "15_of_15_month_core_available",
+    "productionEntryChanged": true
+  },
+  "managementBackend": {
+    "releaseId": "management-v2-07ac5252c4a5",
+    "manifestSha256": "20ba9b97f40a782558119ac5ee647c89032354b806e7df98867221baa79db9f1",
+    "status": "applied_and_manual_data_model_projection_read_back",
+    "backup": "/var/backups/fs-management-v2-backend/management-v2-07ac5252c4a5",
+    "controllerActiveReadback": true,
+    "hermesRuntimeActiveReadback": true,
+    "modelStartedByDeployment": false,
+    "previousAttempt": "provider lock busy; stopped before mutation and waited for existing task terminal"
+  },
+  "manualFactsAcceptance": {
+    "startedAtBjt": "2026-10-15T21:44:12+08:00",
+    "pid": 8954,
+    "status": "completed",
+    "modelCalled": false,
+    "finishedAtBjt": "2026-10-15T22:24:40+08:00",
+    "monthCoreAvailable": 15,
+    "projectCount": 15,
+    "dailyHistoryHasGaps": true
+  },
+  "nextNaturalNightObserved": true,
+  "managementFullAcceptance": "natural_data_model_publication_and_browser_readback_passed_with_documented_data_gaps; recommendations_require_business_review",
+  "manualHermesAcceptance": {
+    "status": "completed_with_limitations",
+    "reasoningEffort": "high",
+    "structuredActionCount": 6,
+    "numericRollupChecks": "passed",
+    "firstRun": "failed_before_model_due_to_skill_identity_mismatch_fixed",
+    "secondRun": "content_review_found_aggregate_error_replaced_by_frozen_Decimal_rollups",
+    "thirdRun": "completed; recovered malformed final prose envelope without another model call",
+    "originalArtifactsPreserved": true,
+    "desktopBusinessContextPreserved": true,
+    "calculatorModelCall": "subsequent high regression verified bound calculator evidence",
+    "noExternalResearchForThisFrozenManagementTask": true
+  },
+  "managementProduction": {
+    "releaseId": "workspace-native-20261006-5a791c9d741a",
+    "manifestSha256": "17072e73c06e0faf4d7856e48f864d9b69c62fae98f40fd4ec6993781bd377ea",
+    "url": "https://47.85.224.112/dashboard/management/",
+    "backup": "/var/backups/fs-management-v2-static/workspace-native-20261006-5a791c9d741a",
+    "browserReadback": {
+      "currentBusinessDate": "2026-10-16",
+      "factsThrough": "2026-10-15",
+      "coreProjects": 15,
+      "suggestedActions": 6,
+      "referenceScopeLabel": true
+    },
+    "expiry": "previous daily advice hidden at 2026-10-16T00:01+08:00; new advice expires 2026-10-17T00:00+08:00",
+    "detailGlobalAdviceDefault": "collapsed; manual open/close and refresh state verified; overview remains visible"
+  },
+  "previousManagementProduction": {
+    "releaseId": "workspace-native-20261006-0f538d2931be",
+    "manifestSha256": "bb4d934ce0ed74a072a4cc952d9d3d28f1f1f55e1d7518b5ed4341529a66ebf0",
+    "url": "https://47.85.224.112/dashboard/management/",
+    "backup": "/var/backups/fs-management-v2-static/workspace-native-20261006-0f538d2931be",
+    "browserReadback": {
+      "currentBusinessDate": "2026-10-16",
+      "factsThrough": "2026-10-15",
+      "coreProjects": 15,
+      "suggestedActions": 6,
+      "referenceScopeLabel": true
+    },
+    "expiry": "previous daily advice hidden at 2026-10-16T00:01+08:00; new advice expires 2026-10-17T00:00+08:00"
+  },
+  "naturalNight": {
+    "factsStartedAt": "2026-10-16T00:20:00.190844+08:00",
+    "factsFinishedAt": "2026-10-16T00:30:25.746383+08:00",
+    "factsStatus": "available",
+    "hermesState": "COMPLETED",
+    "analysisGeneratedAt": "2026-10-16T00:39:27.351103+08:00",
+    "validUntil": "2026-10-17T00:00:00+08:00"
+  },
+  "desktopLearning": {
+    "reviewedDocumentCount": 17,
+    "actualPromptVerified": true,
+    "highEffortRegressionAppliedMethods": true,
+    "arbitraryNewSkillsAutoDiscovered": false,
+    "desktopFilesUnchanged": true
+  },
+  "currentBackendPatches": {
+    "business_context": "desktop-learning-8641c3d1a740",
+    "management_context": "management-quality-5c36780053e1",
+    "controller": "peer version 144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3 preserved",
+    "metricNoteExperiment": "local_only_not_deployed"
+  }
+}

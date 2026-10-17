@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MLB 新卡上架工作台 · MMOEXP</title>
+<style>
+:root{
+  --bg:#f5f5f7; --card:#ffffff; --card2:#fafafa; --line:#e5e5ea; --line2:#d2d2d7;
+  --tx:#1d1d1f; --tx2:#6e6e73; --tx3:#a1a1a6;
+  --ac:#0071e3; --ac2:#7c3aed; --ok:#0a8f4d; --warn:#b25000; --bad:#d70015;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1000px 560px at 8% -12%, rgba(0,113,227,.07), transparent 60%),
+    radial-gradient(820px 480px at 96% -6%, rgba(124,58,237,.06), transparent 62%),
+    var(--bg);
+  color:var(--tx); min-height:100vh; padding:26px 22px 60px;
+  font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:23px;font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--ac);box-shadow:0 0 12px var(--ac)}
+.sub{margin-top:6px;font-size:12.5px;color:var(--tx2)}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;border:1px solid var(--line2);
+  color:var(--tx2);background:rgba(0,113,227,.08);margin-left:6px}
+
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.card{background:linear-gradient(170deg,var(--card),#fbfbfd);border:1px solid var(--line);
+  border-radius:14px;padding:17px 18px 16px;margin-bottom:14px}
+.card h2{font-size:13.5px;font-weight:700;letter-spacing:.3px;margin-bottom:13px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h2 .n{color:var(--tx3);font-weight:600;font-size:11.5px}
+
+label{display:block;font-size:12px;color:var(--tx2);margin:11px 0 5px}
+label:first-of-type{margin-top:0}
+input[type=text],input[type=number],input[type=password],input[type=file],select{
+  width:100%;background:#fafafa;border:1px solid var(--line2);color:var(--tx);
+  border-radius:9px;padding:9px 11px;font-size:13px;font-family:inherit;outline:none;transition:.15s}
+input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(0,113,227,.07)}
+input::placeholder{color:var(--tx3)}
+.hint{font-size:11.5px;color:var(--tx3);margin-top:5px;line-height:1.55}
+
+button{font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:10px 16px;
+  border-radius:9px;border:1px solid var(--line2);background:linear-gradient(180deg,#ffffff,#f0f0f3);
+  color:var(--tx);transition:.16s}
+button:hover:not(:disabled){border-color:#a8c7ec;transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:linear-gradient(180deg,#0071e3,#0060c7);border-color:#4a9eff;
+  box-shadow:0 6px 18px -8px rgba(0,113,227,.45)}
+button.primary:hover:not(:disabled){background:linear-gradient(180deg,#1a7fe8,#0060c7)}
+button.sm{padding:6px 11px;font-size:12px}
+button.danger{color:#d70015;border-color:#f0c2c4}
+.full{width:100%;margin-top:14px}
+
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+.rowline:last-child{border-bottom:0}
+.rowline .k{color:var(--tx2);font-size:12.5px}
+.rowline .v{font-weight:600;font-variant-numeric:tabular-nums}
+
+.pill{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--line2);color:var(--tx2);background:rgba(0,0,0,.025)}
+.pill.on{color:var(--ok);border-color:#a8e0c0;background:rgba(10,143,77,.10)}
+.pill.off{color:var(--tx3)}
+.pill.run{color:var(--ac);border-color:#a8cdf5;background:rgba(0,113,227,.10)}
+.pill.done{color:var(--ok);border-color:#a8e0c0;background:rgba(10,143,77,.10)}
+.pill.fail{color:var(--bad);border-color:#f0c2c4;background:rgba(215,0,21,.08)}
+.pill.pend{color:var(--warn);border-color:#e8cfa8;background:rgba(178,80,0,.09)}
+
+.prog{height:6px;border-radius:99px;background:#fafafa;overflow:hidden;margin-top:9px}
+.prog i{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .35s}
+.pgtxt{font-size:11.5px;color:var(--tx2);margin-top:6px;display:flex;justify-content:space-between;gap:8px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--tx3);font-weight:600;font-size:11.5px;padding:7px 9px;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 9px;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:rgba(0,113,227,.045)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty{padding:30px;text-align:center;color:var(--tx3);font-size:12.5px}
+.tblwrap{max-height:460px;overflow:auto;border-radius:10px}
+
+.log{background:#f7f7f9;border:1px solid var(--line);border-radius:10px;padding:12px 13px;
+  font:12px/1.72 Consolas,"Cascadia Mono",monospace;color:#4a4a4f;max-height:270px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all}
+.log .ok{color:var(--ok)} .log .bad{color:var(--bad)} .log .warn{color:var(--warn)}
+
+.dl{display:flex;align-items:center;gap:11px;background:rgba(10,143,77,.07);
+  border:1px solid #a8e0c0;border-radius:11px;padding:12px 14px;margin-top:12px}
+.dl a{color:var(--ok);font-weight:700;text-decoration:none;font-size:13.5px}
+.dl a:hover{text-decoration:underline}
+.dl .meta{color:var(--tx3);font-size:11.5px}
+
+.banner{border-radius:11px;padding:12px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.7}
+.banner.info{background:rgba(0,113,227,.08);border:1px solid #a8cdf5;color:#0a4f9c}
+.banner.warnb{background:rgba(178,80,0,.08);border:1px solid #e8cfa8;color:#8a4b00}
+.banner code{background:#f7f7f9;padding:1.5px 6px;border-radius:5px;color:#0a7a41;font-family:Consolas,monospace}
+details summary{cursor:pointer;color:var(--ac);font-size:12.5px;outline:none;margin-top:10px}
+details .in{margin-top:9px;font-size:12px;color:var(--tx2);line-height:1.75}
+details ol{padding-left:19px} details li{margin:4px 0}
+.steps{counter-reset:s}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat .b{background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+.stat .b .l{font-size:11.5px;color:var(--tx2);margin-bottom:6px}
+.stat .b .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+@media(max-width:900px){.stat{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== 2026-09-23 统一亮色主题（与 /dashboard/ 经营数据看板同一套令牌）===== */
+.card{box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -14px rgba(16,24,40,.14)}
+button:not(.primary):not(.danger){color:#1d1d1f}
+/* 主按钮是深蓝底，文字必须反白：原本取 var(--tx)，深色主题下恰好是浅色，
+   换亮色主题后 var(--tx) 被映射为深色，深蓝底 + 深字会不可读，这里显式纠正 */
+button.primary{color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1><span class="dot"></span>MLB 新卡上架工作台</h1>
+      <div class="sub">MLB The Show 26 · 自动采集新卡 → 三轮比价 → 生成商品导入表
+        <span class="tag" id="verTag">v1.0</span>
+      </div>
+    </div>
+    <div>
+      <button class="sm" onclick="refreshAll(true)">刷新</button>
+    </div>
+  </div>
+
+  <div class="banner info">
+    采集由<b>你自己的电脑</b>上的执行器完成（那台机器的网络能正常访问 showdd）。
+    这里只负责排队、看进度、下载结果。<br>
+    执行器没启动的话，任务会一直「排队中」——
+    按左侧「没装执行器？」的说明在本机跑一条命令即可。
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ 左栏 ============ -->
+    <div>
+      <div class="card">
+        <h2>新建采集任务 <span class="n">必填：金币售价</span></h2>
+
+        <label>当期金币售价（USD / 100K Stub）</label>
+        <input type="text" id="rate" placeholder="正在从后台取价…" autocomplete="off"
+               oninput="RATE_TOUCHED = true">
+        <div class="hint" id="rateHint">正在从订单后台（MLB The Show 26）读取当期售价…</div>
+
+        <label>更新批次（留空 = 自动取最新）</label>
+        <input type="text" id="batch" placeholder="例如 9-22-26" autocomplete="off">
+        <div class="hint">留空则自动从 showdd 更新列表识别最新有效批次。</div>
+
+        <label>采样间隔（秒，默认 120）</label>
+        <input type="number" id="interval" value="120" min="120" step="10">
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer">
+          <input type="checkbox" id="writeBack" checked
+                 style="width:auto;margin:0;flex:none">
+          <span>采集完成后<b>走上架流程</b>（写后台前需人工确认）</span>
+        </label>
+        <div class="hint" id="wbHint">
+          勾上后：采集 → 写 Excel → <b>停下来等你逐条核对卡片</b> →
+          你点「确认放行」才写入后台。<br>
+          写入范围 = <b>本次新采集到的球员卡</b>：<b>一张新卡 = 一个模型</b>
+          （模型下自动铺该卡的渠道产品）。同名卡已存在（图与 hash 都对得上）
+          <b>不会重复建</b>，只做补全。<br>
+          写入前会自动把受影响模型的原值存档，随时可回退。
+        </div>
+
+        <button class="primary full" id="btnNew" onclick="createTask()">提交采集任务</button>
+        <div class="hint" id="msgNew" style="margin-top:9px"></div>
+
+        <details>
+          <summary>没装执行器？点这里看怎么装</summary>
+          <div class="in">
+            <ol>
+              <li>下载 <a href="/mlb/files/agent.zip" style="color:var(--ac)">执行器压缩包</a>，解压到任意目录</li>
+              <li>装依赖（需要 Python 3.8+）：<br>
+                <code>pip install -r requirements.txt</code><br>
+                <code>python -m playwright install chromium</code></li>
+              <li>起一个常驻进程（Windows 也可直接双击 <code>启动执行器.bat</code>）：<br>
+                <code>python mlb_agent.py --server http://47.85.224.112 --user wulv --agent 我的电脑 --show</code>；启动时输入工作台密码。</li>
+              <li>首次遇到 Cloudflare 验证会出现浏览器窗口，手动点一下通过即可（之后会记住登录态）</li>
+              <li>把这个窗口挂着别关，回来刷本页就能看到任务被领走</li>
+            </ol>
+            <p style="margin-top:8px">换电脑只用把上面第 2~3 步再跑一遍，<code>--agent</code> 名换掉即可（可以多台一起挂）。<br>
+            压缩包内附 <code>README.md</code>，含完整参数说明与常见问题排查。</p>
+            <p style="margin-top:8px">⚠️ 价格口径：成本取 showdd 的 <code>Sell</code>（官方 Buy Now），<strong>不要用</strong> <code>Buy</code>（Sell Now）。</p>
+            <p style="margin-top:6px">第一次遇到网页验证拦住了，加 <code>--show</code> 手动点一次，
+              之后 profile 会记住。</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>执行器状态</h2>
+        <div id="agents"><div class="empty">加载中…</div></div>
+        <div class="hint" style="margin-top:10px">90 秒内有心跳算在线。掉线的执行器不接任务。</div>
+      </div>
+    </div>
+
+    <!-- ============ 右栏 ============ -->
+    <div>
+      <div class="stat">
+        <div class="b"><div class="l">累计完成任务</div><div class="v" id="sDone">0</div></div>
+        <div class="b"><div class="l">排队中</div><div class="v" id="sPend">0</div></div>
+        <div class="b"><div class="l">执行中</div><div class="v" id="sRun">0</div></div>
+        <div class="b"><div class="l">执行器在线</div><div class="v" id="sAgent">0</div></div>
+      </div>
+
+      <div class="card">
+        <h2>当前任务</h2>
+        <div id="current"><div class="empty">还没有任务。左边提交一个试试。</div></div>
+      </div>
+
+      <div class="card">
+        <h2>新卡清单 <span class="n" id="cardCount"></span></h2>
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th>球员</th><th class="num">OVR</th><th>位置</th><th>球队</th><th>系列</th>
+              <th class="num">三次采样 / 中位数</th><th class="num">售价</th><th>状态</th><th>上架</th>
+            </tr></thead>
+            <tbody id="cards"><tr><td colspan="9" class="empty">等待任务结果…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>运行日志</h2>
+        <div class="log" id="log">（执行器的输出会显示在这里）</div>
+      </div>
+
+      <div class="card">
+        <h2>历史任务</h2>
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th>时间</th><th>提交人</th><th>批次</th><th class="num">新增</th>
+              <th>状态</th><th>结果</th><th></th>
+            </tr></thead>
+            <tbody id="hist"><tr><td colspan="7" class="empty">暂无记录</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = './api';
+let CURRENT = null;
+let LAST_LOG_TASK = null;
+const CONFIG = {user: 'wulv', pass: 'wulv8627'};
+
+function auth(){ return 'Basic ' + btoa(CONFIG.user + ':' + CONFIG.pass); }
+async function api(path, opt){
+  const r = await fetch(API + path, Object.assign({
+    headers: {'Authorization': auth(), 'Content-Type': 'application/json'}
+  }, opt || {}));
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN = n => (n==null||n==='')?'-':Number(n).toLocaleString('en-US');
+const fmtTime = s => s || '-';
+
+const ST = {pending:['pend','排队中'], running:['run','执行中'],
+            done:['done','已完成'], failed:['fail','失败']};
+
+/* ---------------- 新建任务 ---------------- */
+async function createTask(){
+  const rate = document.getElementById('rate').value.trim();
+  const batch = document.getElementById('batch').value.trim();
+  const interval = parseInt(document.getElementById('interval').value || '120', 10);
+  const msg = document.getElementById('msgNew');
+  const btn = document.getElementById('btnNew');
+
+  if(!rate || isNaN(parseFloat(rate))){
+    msg.innerHTML = '<span style="color:var(--bad)">请先填当期金币售价（数字）</span>';
+    return;
+  }
+  if(interval < 120){
+    msg.innerHTML = '<span style="color:var(--warn)">采样间隔不能小于 120 秒（规则要求相邻两次至少隔 120 秒）</span>';
+    return;
+  }
+  btn.disabled = true;
+  msg.textContent = '提交中…';
+  try{
+    const r = await api('/tasks', {method:'POST', body: JSON.stringify({
+      kind:'collect', rate: rate, batch: batch, interval: interval,
+      write_back: document.getElementById('writeBack').checked
+    })});
+    msg.innerHTML = '<span style="color:var(--ok)">已排队：任务 ' + esc(r.id) + '</span>';
+    refreshAll();
+  }catch(e){
+    msg.innerHTML = '<span style="color:var(--bad)">提交失败：' + esc(e.message) + '</span>';
+  }finally{ btn.disabled = false; }
+}
+
+/* ---------------- 当期金币售价：自动取价 ---------------- */
+let RATE_AUTO = null;        // 最近一次取价结果
+let RATE_TOUCHED = false;    // 人工改过就不再覆盖（人工永远优先于自动）
+
+const rateLink = t => '<a href="#" onclick="refreshCoinsRate(true);return false" ' +
+  'style="color:var(--ac)">' + t + '</a>';
+
+async function refreshCoinsRate(force){
+  const hint = document.getElementById('rateHint');
+  const inp  = document.getElementById('rate');
+  if(!inp || !hint) return;
+  try{
+    const d = await api('/coins-rate' + (force ? '?force=1' : ''));
+    RATE_AUTO = d;
+    if(d.ok){
+      // 只在「人工还没动过」或「明确点了重新取价」时才写进输入框
+      if(!RATE_TOUCHED || force){
+        inp.value = d.rate_usd_per_100k;
+        if(force) RATE_TOUCHED = false;
+      }
+      hint.innerHTML =
+        '已从订单后台带出：' + esc(d.area) + ' b2c <code>' + esc(d.b2c) + '</code> ' +
+        esc(d.b2c_unit) + ' → <b>$' + esc(d.rate_usd_per_100k) + ' / 100K</b>' +
+        '（' + esc(d.formula) + '）· ' + esc(d.fetched_at) +
+        (d.cached ? ' · 缓存' : '') +
+        (RATE_TOUCHED && !force ? ' · <span style="color:var(--warn)">你手动改过，保留手填值</span>' : '') +
+        (d.areas_consistent === false
+          ? ' <span style="color:var(--warn)">⚠️ 各平台 b2c 不一致：' +
+            esc((d.areas || []).join(' / ')) + '，已取 ' + esc(d.area) + '</span>' : '') +
+        '<br>' + rateLink('重新取价') + ' · 也可直接手改上面的输入框（以你填的为准）';
+    }else{
+      hint.innerHTML = '<span style="color:var(--warn)">自动取价不可用（' +
+        esc(d.step || '') + '：' + esc(d.error || '未知原因') +
+        '）—— 请手工填写当期售价。</span> ' + rateLink('重试');
+    }
+  }catch(e){
+    RATE_AUTO = {ok: false, step: 'network', error: e.message};
+    hint.innerHTML = '<span style="color:var(--warn)">取不到当期售价（' +
+      esc(e.message) + '），请手工填写。</span> ' + rateLink('重试');
+  }
+}
+
+/* ---------------- 自动上架：服务端开关状态 ---------------- */
+async function refreshWritebackHint(){
+  const box = document.getElementById('wbHint');
+  try{
+    const h = await api('/health');
+    if(h.version) document.getElementById('verTag').textContent = 'v' + h.version;
+    const w = h.writeback || {};
+    if(!w.enabled){
+      box.innerHTML = '<span style="color:var(--warn)">服务端未开启上架流程' +
+        '（<code>writeback.enabled=false</code>），勾选也不会触发。</span>';
+      return;
+    }
+    if(!w.script_ok || !w.cred_ok){
+      box.innerHTML = '<span style="color:var(--bad)">服务端缺少' +
+        (!w.script_ok ? ' 写卡脚本' : '') + (!w.cred_ok ? ' 后台凭据' : '') +
+        '，勾选也不会触发。</span>';
+      return;
+    }
+    const steps = w.require_approval
+      ? '<b>停下来等你逐条核对卡片</b>，你点「确认放行」才会写入后台；' +
+        '<b>不点就永远不写</b>。'
+      : '<b>直接</b>写入后台（服务端关掉了人工确认）。';
+    // ⚠️ 这里**不要**写死任何「N 个产品」的数字：
+    //    写入量 = 本次**新增**的卡数（一张新卡 = 一个模型），每次都不一样；
+    //    同名卡已存在则跳过不重建。真正的数字在上架报告里按行给出。
+    box.innerHTML = (w.dry_run
+      ? '<span style="color:var(--warn)">⚠️ 服务端当前是<b>试运行</b>' +
+        '（<code>writeback.dry_run=true</code>）：全程跑一遍但<b>不写入</b>后台。</span><br>'
+      : '') + '勾上后：采集 → 写 Excel → ' + steps +
+      '<br>写入范围 = <b>本次新采集到的卡</b>：<b>一张新卡 = 一个模型</b>' +
+      '（模型下自动铺该卡的渠道产品）；同名卡已存在则<b>跳过不重建</b>。' +
+      '写入前会自动把受影响模型的原值存档，随时可回退。';
+  }catch(e){ /* 状态拿不到就不改提示 */ }
+}
+
+/* ---------------- 统计 ---------------- */
+async function refreshStats(){
+  try{
+    const s = await api('/stats');
+    document.getElementById('sDone').textContent = fmtN(s.done_total||0);
+    document.getElementById('sPend').textContent = fmtN((s.tasks||{}).pending||0);
+    document.getElementById('sRun').textContent  = fmtN((s.tasks||{}).running||0);
+  }catch(e){}
+}
+
+/* ---------------- 执行器 ---------------- */
+async function refreshAgents(){
+  const box = document.getElementById('agents');
+  try{
+    const rows = await api('/agents');
+    let online = 0;
+    if(!rows.length){
+      box.innerHTML = '<div class="empty" style="padding:18px">还没有执行器接入过</div>';
+    }else{
+      box.innerHTML = rows.map(a=>{
+        if(a.online) online++;
+        return '<div class="rowline"><div>' +
+          '<div style="font-weight:600">' + esc(a.name) + ' ' +
+          '<span class="pill ' + (a.online?'on':'off') + '">' + (a.online?'在线':'离线') + '</span></div>' +
+          '<div class="hint" style="margin-top:3px">' + esc(a.host||'-') + ' · ' +
+          esc(a.ip||'-') + '</div></div>' +
+          '<div class="num" style="font-size:11.5px;color:var(--tx3)">成功 ' +
+          fmtN(a.tasks_done) + '</div></div>';
+      }).join('');
+    }
+    document.getElementById('sAgent').textContent = online;
+  }catch(e){
+    box.innerHTML = '<div class="empty" style="padding:18px">读取失败</div>';
+  }
+}
+
+/* ---------------- 当前任务 ---------------- */
+function renderProgress(t){
+  const p = t.progress || {};
+  const pct = p.pct == null ? 0 : p.pct;
+  return '<div class="prog"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="pgtxt"><span>' + esc(p.text || '等待执行器领取…') + '</span>' +
+    '<span>' + pct + '%</span></div>';
+}
+
+const WBS = {
+  running:['run','上架中'], ok:['done','已上架'], dry_run:['pend','试运行'],
+  needs_review:['fail','需人工'], failed:['fail','上架失败'],
+  timeout:['fail','上架超时'], interrupted:['off','已中断'],
+  skipped:['off','未触发'],
+  awaiting_review:['pend','待人工确认'], cancelled:['off','已取消上架'],
+  review_lost:['fail','待审记录丢失']
+};
+const WB_HINT = {
+  needs_review:'有卡片结果未知或校验不符 —— <b>不要重跑</b>（重跑可能建出重复模型），' +
+               '先按 mid 去后台核对。',
+  timeout:'写卡进程超时被强制结束，<b>未自动重试</b>；请去后台核对后再决定。',
+  interrupted:'工作台重启时这次上架还没跑完，结论丢失，需人工核对后台。',
+  review_lost:'这次采集的<b>待审快照文件丢了</b>，已无法放行 —— 请重跑一次采集任务。',
+  cancelled:'已按人工决定取消，<b>没有写入后台</b>；采集出的商品导入表仍可照常下载。'
+};
+
+const wbBrief = wb => {
+  if(!wb || !wb.status) return '';
+  const st = WBS[wb.status] || ['off', wb.status];
+  return ' <span class="pill ' + st[0] + '">' + esc(st[1]) + '</span>';
+};
+
+/* ================= 人工确认闸门（客户端状态）=================
+   ⚠️ 勾选状态必须存在 DOM 之外：本页每 5 秒重绘一次「当前任务」，
+      存在 DOM 里的话人刚勾完就被重绘抹掉 —— 那这步"核对"就是假的。 */
+const WB_SEL = {};            // tid -> { product_name: 是否勾选 }
+const WB_ACK = {};            // tid -> 是否勾了「我已核对」
+const WB_CANCEL_ARM = {};     // tid -> 取消按钮是否已进入"待二次确认"
+let PIN = null;               // 固定查看某个任务（历史里点「待确认」跳过来）
+
+function wbSelBox(tid){ if(!WB_SEL[tid]) WB_SEL[tid] = {}; return WB_SEL[tid]; }
+function wbPending(wb){ return (wb && wb.pending) || []; }
+function wbSelected(tid, wb){
+  const sel = wbSelBox(tid);
+  return wbPending(wb).filter(r => sel[String(r.product_name || '')]);
+}
+function wbBtnState(tid){
+  const wb = ((CURRENT || {}).result || {}).write_back || {};
+  const n = wbSelected(tid, wb).length;
+  const cnt = document.getElementById('wbSelCount');
+  // ⚠️ 口径：一张卡 = 一个模型。「张」与「个模型」是同一个数，
+  //    写出来是为了不让人以为下面那列「渠道产品」也是本次写入量。
+  if(cnt) cnt.innerHTML = '本次将写入 <b>' + n + '</b> 张（= <b>' + n + '</b> 个模型）' +
+    (n === 0 ? ' —— <span style="color:var(--bad)">至少要选一张</span>' : '');
+  const ack = document.getElementById('wbAck');
+  const go  = document.getElementById('wbGo');
+  if(go) go.disabled = !(ack && ack.checked && n > 0);
+}
+function wbToggle(el){
+  wbSelBox(el.dataset.wb)[el.dataset.name] = el.checked;
+  wbBtnState(el.dataset.wb);
+}
+function wbToggleAll(el){
+  const tid = el.dataset.wb;
+  document.querySelectorAll('input[data-wb="' + tid + '"][data-name]').forEach(c => {
+    c.checked = el.checked; wbSelBox(tid)[c.dataset.name] = el.checked;
+  });
+  wbBtnState(tid);
+}
+function wbAck(el){
+  WB_ACK[el.dataset.wb] = el.checked;
+  wbBtnState(el.dataset.wb);
+}
+function wbMsg(txt, cls){
+  const m = document.getElementById('wbMsg');
+  if(m) m.innerHTML = txt
+    ? '<span style="color:var(--' + (cls || 'warn') + ')">' + txt + '</span>' : '';
+}
+
+/* 「确认放行」—— 整条链路里**唯一**会真的写后台的按钮。 */
+async function approveWriteback(){
+  const t = CURRENT;
+  if(!t) return;
+  const tid = t.id;
+  const wb = (t.result || {}).write_back || {};
+  const names = wbSelected(tid, wb).map(r => String(r.product_name || ''));
+  const go = document.getElementById('wbGo');
+  if(!names.length){ wbMsg('至少要勾选一张卡片', 'bad'); return; }
+  if(go){ go.disabled = true; go.textContent = '正在写入，请稍候…'; }
+  wbMsg('已放行，正在后台建模型 + 传主图 + 建产品，请勿关闭本页。');
+  try{
+    const r = await api('/tasks/' + tid + '/writeback/approve',
+                        {method:'POST', body: JSON.stringify({names: names})});
+    if(r.status === 'running'){
+      wbMsg('已放行 ' + (r.approved_cards || names.length) + ' 张，写入中…', 'ok');
+    }else{
+      wbMsg('未放行：' + esc(r.reason || r.status || '状态不允许'), 'bad');
+    }
+  }catch(e){
+    wbMsg('放行请求失败：' + esc(e.message), 'bad');
+  }
+  refreshAll(true);
+}
+
+/* 取消走「同一块面板内两次点击」确认，不用弹窗（避免挡住页面中央）。 */
+async function cancelWriteback(){
+  const t = CURRENT;
+  if(!t) return;
+  const tid = t.id;
+  if(!WB_CANCEL_ARM[tid]){
+    WB_CANCEL_ARM[tid] = true;
+    const b = document.getElementById('wbCancel');
+    if(b){ b.textContent = '⚠️ 再点一次 = 确认取消'; b.classList.add('danger'); }
+    wbMsg('已进入待确认：<b>再点一次</b>才会取消本次上架（取消不会写入后台）。');
+    return;
+  }
+  wbMsg('正在取消…');
+  try{
+    const r = await api('/tasks/' + tid + '/writeback/cancel',
+                        {method:'POST', body: JSON.stringify({reason:''})});
+    const done = r.status === 'cancelled';
+    wbMsg(done ? '已取消本次上架，未写入后台。'
+               : '未取消：' + esc(r.reason || r.status || '状态不允许'),
+          done ? 'ok' : 'bad');
+    WB_CANCEL_ARM[tid] = false;
+  }catch(e){
+    wbMsg('取消请求失败：' + esc(e.message), 'bad');
+  }
+  refreshAll(true);
+}
+
+function pinTask(id){
+  PIN = id;
+  refreshCurrent();
+}
+
+/* 人工确认面板：采集已完成、但**一个字节都还没写**。返回 '' 表示当前不是待审态。 */
+function renderReview(tid, wb){
+  if(!wb || wb.status !== 'awaiting_review') return '';
+  const rows = wbPending(wb);
+  const sel = wbSelBox(tid);
+  let trs = '';
+  rows.forEach((r, i) => {
+    const nm = String(r.product_name || '');
+    if(!(nm in sel)) sel[nm] = !!r.include;         // 首绘按采集侧的 include 预置
+    const iss = r.issues || [];
+    trs += '<tr>' +
+      '<td><input type="checkbox" data-wb="' + esc(tid) + '" data-name="' + esc(nm) + '"' +
+        (sel[nm] ? ' checked' : '') + ' onchange="wbToggle(this)"></td>' +
+      '<td><b>' + esc(r.name || nm.split('/')[0] || '-') + '</b></td>' +
+      '<td class="num">' + esc(r.ovr == null ? '-' : r.ovr) + '</td>' +
+      '<td>' + esc(r.position || '-') + '</td>' +
+      '<td>' + esc(r.team || '-') + '</td>' +
+      '<td>' + esc(r.series || '-') + '</td>' +
+      '<td class="num">' + (r.sale_price ? '$' + esc(r.sale_price) : '-') + '</td>' +
+      '<td><span class="pill ' + (r.include ? 'done' : 'off') + '">' +
+        (r.include ? '计入' : '已过滤') + '</span></td>' +
+      '<td>' + (iss.length
+        ? '<span class="pill fail">' + esc(iss.join('；')) + '</span>'
+        : '<span class="pill off">-</span>') + '</td>' +
+    '</tr>';
+  });
+  const n = wbSelected(tid, wb).length;
+  const ack = !!WB_ACK[tid];
+
+  let h = '<div class="banner warnb" style="margin-top:13px">' +
+    '<b>⏸ 已停下等你确认 —— 这些卡片还没有写入后台。</b><br>' +
+    '请逐条核对下表；核对无误后勾选下面的确认框，再点「确认放行」，才会真正开始建模型。' +
+    '<b>不点就永远不写</b>：关页面、超时、重启都不会自动放行。' +
+    '</div>';
+
+  h += '<div class="hint" style="margin-top:9px">待写 <b>' + fmtN(rows.length) + '</b> 张' +
+    '（一张卡 = 一个模型，共 <b>' + fmtN(rows.length) + '</b> 个）' +
+    ' · 采集侧计入 ' + fmtN(wb.default_selected) + ' 张' +
+    (wb.issues_total ? ' · <span style="color:var(--warn)">静态提示 ' +
+      fmtN(wb.issues_total) + ' 条</span>' : '') +
+    (wb.sha256 ? ' · 快照 <code>' + esc(String(wb.sha256).slice(0, 12)) + '</code>' : '') +
+    '</div>';
+
+  h += '<div class="tblwrap" style="margin-top:9px;max-height:300px"><table><thead><tr>' +
+    '<th style="width:34px"><input type="checkbox" data-wb="' + esc(tid) + '" ' +
+      (n ? 'checked' : '') + ' onchange="wbToggleAll(this)" title="全选/全不选"></th>' +
+    '<th>球员</th><th class="num">OVR</th><th>位置</th><th>球队</th><th>系列</th>' +
+    '<th class="num">售价</th><th>采集侧</th><th>静态提示</th>' +
+    '</tr></thead><tbody>' + trs + '</tbody></table></div>';
+
+  h += '<label style="display:flex;align-items:center;gap:8px;margin-top:13px;cursor:pointer">' +
+    '<input type="checkbox" id="wbAck" data-wb="' + esc(tid) + '"' + (ack ? ' checked' : '') +
+    ' style="width:auto;margin:0;flex:none" onchange="wbAck(this)">' +
+    '<span>我已逐条核对以上卡片，<b>确认无误</b>，同意写入后台</span></label>';
+
+  h += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">' +
+    '<button class="primary sm" id="wbGo"' + ((ack && n > 0) ? '' : ' disabled') +
+    ' onclick="approveWriteback()">确认放行，写入后台</button>' +
+    '<button class="sm" id="wbCancel" onclick="cancelWriteback()">取消本次上架</button>' +
+    '<span class="hint" id="wbSelCount">本次将写入 <b>' + n + '</b> 张（= <b>' + n + '</b> 个模型）' +
+    (n === 0 ? ' —— <span style="color:var(--bad)">至少要选一张</span>' : '') + '</span>' +
+    '</div>';
+  h += '<div class="hint" id="wbMsg" style="margin-top:8px"></div>';
+  h += '<div class="hint" style="margin-top:6px">没勾的卡<b>本次不写</b>，可以之后单独处理。' +
+    '放行后写卡是子进程，中途不会自动重试任何一步。</div>';
+  return h;
+}
+
+/* 后台上架状态。返回 '' 表示这次任务没有触发上架。 */
+function renderWriteback(wb, tid){
+  if(!wb || !wb.status) return '';
+  const st = WBS[wb.status] || ['off', wb.status];
+  let h = renderReview(tid, wb);
+  h += '<div class="rowline"><span class="k">后台上架</span><span>' +
+    '<span class="pill ' + st[0] + '">' + esc(st[1]) + '</span>' +
+    (wb.status !== 'skipped' && wb.dry_run
+      ? ' <span class="pill pend">试运行·未写入</span>' : '') +
+    '</span></div>';
+
+  // 待审态的说明已经在上面那个警示条里了，不再重复一遍 reason
+  if(wb.reason && wb.status !== 'awaiting_review')
+    h += '<div class="hint" style="margin-top:8px">' + esc(wb.reason) + '</div>';
+
+  const rep = wb.report || [];
+  if(rep.length){
+    const c = wb.counts || {};
+    // ⚠️ 这里的口径必须写清楚，别再让人误读：
+    //    本次**写入量 = 模型数**（一张新卡 = 一个模型，同名卡已存在会跳过）；
+    //    「渠道产品」是**单个模型**下自动铺的站点×账号产品数（≥48 判为齐全），
+    //    跟本批卡片数量不是一个量级的东西，不能相加也不能当总数看。
+    h += '<div class="hint" style="margin-top:8px">' +
+      '模型（一张卡 = 一个）：达标 <b>' + fmtN(c.ok) + '</b> · 试运行 ' +
+      fmtN(c.dry) + ' · 同名已存在跳过 <b>' + fmtN(c.skipped) + '</b> 张 · 需人工 ' +
+      fmtN(c.review) + '</div>' +
+      // 人工核对后剩余结论也要能追溯：谁在什么时候放行的
+      (wb.approved_by ? '<div class="hint" style="margin-top:5px">人工放行：<b>' +
+        esc(wb.approved_by) + '</b>' +
+        (wb.approved_cards != null && wb.reviewed_cards != null
+          ? ' · 写 ' + fmtN(wb.approved_cards) + ' / 待审 ' + fmtN(wb.reviewed_cards) + ' 张'
+          : '') + '</div>' +
+        // 名单：事后对账要能看出「到底放行了哪几张」，只有计数不够
+        ((wb.approved_names || []).length
+          ? '<div class="hint" style="margin-top:3px">放行卡片：' +
+            (wb.approved_names || []).map(n => esc(String(n).split('/')[0])).join('、') +
+            '</div>'
+          : '') : '') +
+      '<div class="tblwrap" style="margin-top:9px;max-height:220px"><table><thead><tr>' +
+      '<th>卡</th><th class="num">mid</th><th class="num">主图</th>' +
+      '<th class="num">渠道产品</th><th>结论</th></tr></thead><tbody>' +
+      rep.map(x=>{
+        const v = String(x.verdict || '');
+        const cls = v === 'ok' ? 'done' : (v === 'skipped' ? 'off' : 'fail');
+        const nm = String(x.title || '').split('/')[0];
+        return '<tr><td>' + esc(nm) + '</td>' +
+          '<td class="num">' + esc(x.mid == null ? '-' : x.mid) + '</td>' +
+          '<td class="num">' + esc(x.icon_readback || x.icon || '-') + '</td>' +
+          '<td class="num">' + fmtN(x.products) + '</td>' +
+          '<td><span class="pill ' + cls + '">' + esc(v || '-') + '</span></td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="hint" style="margin-top:5px">' +
+      '「渠道产品」= <b>该模型</b>自动铺到各站点×账号的产品数（≥48 判为齐全），' +
+      '<b>不是本批总数</b>；本次写入的模型数 = 上表达标行数（= 新增卡数）。' +
+      '「已存在」行是后台早就有这张同名卡，只补缺口、不重建。</div>';
+  }
+  if(WB_HINT[wb.status])
+    h += '<div class="banner warnb" style="margin-top:11px">' + WB_HINT[wb.status] + '</div>';
+  if(wb.error)
+    h += '<div class="banner warnb" style="margin-top:11px">' + esc(wb.error) + '</div>';
+  if(wb.archive_dir && rep.length)
+    h += '<div class="hint" style="margin-top:8px">写入前基线存档：<code>' +
+      esc(wb.archive_dir) + '</code>（写错时可用 <code>--restore</code> 原值回退）</div>';
+  return h;
+}
+
+function wbCell(rec){
+  if(!rec) return '<span class="pill off">-</span>';
+  const v = String(rec.verdict || '');
+  const cls = v === 'ok' ? 'done'
+            : v === 'skipped' ? 'off'
+            : v === 'dry-run' ? 'pend' : 'fail';
+  const txt = v === 'ok' ? ('mid ' + rec.mid)
+            : v === 'skipped' ? '已存在'
+            : v === 'dry-run' ? '试运行' : (v || '-');
+  return '<span class="pill ' + cls + '">' + esc(txt) + '</span>';
+}
+
+function renderResult(t){
+  const r = t.result || {};
+  const c = r.cards || [];
+  const wbRep = (r.write_back || {}).report || [];
+  const wbMap = {};
+  wbRep.forEach(x => { wbMap[String(x.title || '')] = x; });
+  if(c.length){
+    document.getElementById('cardCount').textContent =
+      c.length + ' 张 · 可上架 ' + (r.eligible||0);
+    document.getElementById('cards').innerHTML = c.map(x=>{
+      const sp = (x.samples||[]).join(' / ');
+      const cls = x.include ? 'done' : 'off';
+      return '<tr>' +
+        '<td><b>' + esc(x.name) + '</b></td>' +
+        '<td class="num">' + esc(x.ovr) + '</td>' +
+        '<td>' + esc(x.position) + '</td>' +
+        '<td>' + esc(x.team) + '</td>' +
+        '<td>' + esc(x.series) + '</td>' +
+        '<td class="num">' + (sp ? esc(sp) + ' → <b>' + fmtN(x.median) + '</b>' : '-') + '</td>' +
+        '<td class="num">' + (x.sale_price ? '$' + esc(x.sale_price) : '-') + '</td>' +
+        '<td><span class="pill ' + cls + '">' + esc(x.status) + '</span></td>' +
+        '<td>' + wbCell(wbMap[String(x.product_name||'')]) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  let html = '';
+  if(t.status === 'running') html += '<div class="rowline"><span class="k">状态</span>' +
+    '<span class="pill run">执行中</span></div>' + renderProgress(t);
+  if(t.status === 'done'){
+    html = '<div class="rowline"><span class="k">完成时间</span><span class="v">' +
+      fmtTime(t.finished_at_str) + '</span></div>' +
+      '<div class="rowline"><span class="k">批次</span><span class="v">' +
+      esc((r.batch||'').split('/').pop()||'-') + '</span></div>' +
+      '<div class="rowline"><span class="k">页面解析 / 可上架</span><span class="v">' +
+      fmtN(r.parsed) + ' / ' + fmtN(r.eligible) + '</span></div>' +
+      '<div class="rowline"><span class="k">新增 / 重复跳过</span><span class="v">' +
+      fmtN(r.added) + ' / ' + fmtN(r.duplicates) + '</span></div>' +
+      '<div class="rowline"><span class="k">过滤</span><span class="v" style="font-weight:400;font-size:12px;color:var(--tx2)">' +
+      'Live ' + fmtN(r.filtered_live) + ' · 低价 ' + fmtN(r.filtered_low_price) +
+      ' · 采样不足 ' + fmtN(r.filtered_not_tradable) + '</span></div>';
+    if(r.file_url){
+      html += '<div class="dl"><div style="flex:1">' +
+        '<a href="' + esc(r.file_url) + '" download>下载商品导入表</a>' +
+        '<div class="meta">' + esc(r.file_name) + ' · ' +
+        (r.file_size ? (r.file_size/1024).toFixed(0) + ' KB' : '') + '</div></div></div>';
+    }
+    if(r.file_error) html += '<div class="banner warnb" style="margin-top:12px">' +
+      esc(r.file_error) + '</div>';
+    // 后台上架是采集完成后另起线程跑的，所以状态在 done 之后还会变；
+    // 待人工确认时这里会渲染出核对面板（需要 tid 才能把勾选状态存对位置）
+    html += renderWriteback(r.write_back, t.id);
+  }
+  if(t.status === 'failed'){
+    html = '<div class="rowline"><span class="k">状态</span><span class="pill fail">失败</span></div>' +
+      '<div class="log" style="max-height:200px;margin-top:10px">' + esc(t.error||'无错误信息') + '</div>';
+  }
+  if(t.status === 'pending'){
+    html = '<div class="rowline"><span class="k">状态</span><span class="pill pend">排队中</span></div>' +
+      '<div class="hint" style="margin-top:10px">等执行器来领。如果一直不动，' +
+      '检查左边「执行器状态」是不是没人在线。</div>';
+  }
+  // 待人工确认的任务可能已经不在最新一条 —— 钉住查看时要明说，别让人以为看的是最新
+  if(PIN){
+    html = '<div class="hint" style="margin-bottom:10px">正在查看任务 <code>' + esc(PIN) +
+      '</code>（<b>不是最新一条</b>）· <a href="#" onclick="pinTask(null);return false" ' +
+      'style="color:var(--ac)">返回最新任务</a></div>' + html;
+  }
+  return html;
+}
+
+async function refreshCurrent(){
+  try{
+    let tid = PIN;
+    if(!tid){
+      const list = await api('/tasks?limit=1');
+      if(!list.length){
+        CURRENT = null;
+        return;
+      }
+      tid = list[0].id;
+    }
+    const full = await api('/tasks/' + tid);
+    CURRENT = full;
+    document.getElementById('current').innerHTML = renderResult(full);
+
+    // 日志只在任务切换或进度变化时重绘，避免滚动位置乱跳
+    const key = full.id + '|' + full.status + '|' +
+                JSON.stringify(full.progress||{});
+    if(key !== LAST_LOG_TASK){
+      LAST_LOG_TASK = key;
+      const p = full.progress || {};
+      const lines = [];
+      lines.push('任务 ' + full.id + ' · ' + (ST[full.status]||['',''])[1]);
+      if(p.text) lines.push('  ' + p.text);
+      if(full.agent) lines.push('  执行器：' + full.agent);
+      if(full.error) lines.push('  错误：' + full.error);
+      document.getElementById('log').textContent = lines.join('\n');
+    }
+  }catch(e){
+    // 钉住的任务被删了 → 自动退回最新，别一直卡在 404
+    if(PIN){ PIN = null; await refreshCurrent(); }
+  }
+}
+
+/* ---------------- 历史 ---------------- */
+async function refreshHistory(){
+  const box = document.getElementById('hist');
+  try{
+    const list = await api('/tasks?limit=40');
+    if(!list.length){
+      box.innerHTML = '<tr><td colspan="7" class="empty">暂无记录</td></tr>';
+      return;
+    }
+    box.innerHTML = list.map(t=>{
+      const r = t.result || {};
+      const st = ST[t.status] || ['','' + t.status];
+      const batch = (r.batch||'').split('/').pop() || '-';
+      let act = '';
+      if(t.status==='done' && r.file_url)
+        act = '<a href="' + esc(r.file_url) + '" download style="color:var(--ok)">下载</a>';
+      else if(t.status==='failed' || t.status==='pending')
+        act = '<a href="#" onclick="requeue(\'' + t.id + '\');return false" ' +
+              'style="color:var(--ac)">重跑</a>';
+      // 待人工确认的任务可能已被后来的任务挤下去 —— 必须能从这里跳回去放行
+      const wbst = (r.write_back || {}).status;
+      if(wbst === 'awaiting_review')
+        act = '<a href="#" onclick="pinTask(\'' + t.id + '\');return false" ' +
+              'style="color:var(--warn);font-weight:700">去确认上架</a>' +
+              (act ? ' · ' + act : '');
+      return '<tr>' +
+        '<td>' + esc(t.created_at_str) + '</td>' +
+        '<td>' + esc(t.submitter) + '</td>' +
+        '<td>' + esc(batch) + '</td>' +
+        '<td class="num">' + (t.status==='done' ? fmtN(r.added) : '-') + '</td>' +
+        '<td><span class="pill ' + st[0] + '">' + esc(st[1]) + '</span></td>' +
+        '<td style="color:var(--tx2)">' +
+          (t.status==='done' ? esc(r.eligible) + ' 张可上架' + wbBrief(r.write_back) :
+           t.status==='failed' ? '<span style="color:var(--bad)">出错</span>' : '-') + '</td>' +
+        '<td>' + act + '</td>' +
+      '</tr>';
+    }).join('');
+  }catch(e){
+    box.innerHTML = '<tr><td colspan="7" class="empty">读取失败</td></tr>';
+  }
+}
+
+async function requeue(id){
+  try{
+    await api('/tasks/requeue', {method:'POST', body: JSON.stringify({id: id})});
+    refreshAll(true);
+  }catch(e){ alert('重跑失败：' + e.message); }
+}
+
+/* ---------------- 总刷新 ---------------- */
+async function refreshAll(manual){
+  const jobs = [refreshStats(), refreshAgents(), refreshCurrent(),
+                refreshHistory(), refreshWritebackHint()];
+  // 取价只做一次 + 手动重取。
+  // ⚠️ 挂了**不**每 5 秒重试：取价要登录订单后台，反复失败可能把账号试锁。
+  //    服务端另有 60 秒负缓存兜底。
+  if(!RATE_AUTO || manual) jobs.push(refreshCoinsRate());
+  await Promise.all(jobs);
+}
+
+refreshAll(true);
+setInterval(refreshAll, 5000);
+</script>
+</body>
+</html>

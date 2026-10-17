@@ -1,0 +1,31 @@
+{
+  "markup": "1.1",
+  "floor": "0.50",
+  "interval": 120,
+  "updates_url": "https://www.showdd.io/26/updates",
+  "note": "本服务【不】访问 showdd.io。服务器出口 IP（47.253.252.55）会被 Cloudflare 判定为机房来源并返回 chl_page 挑战；本机住宅 IP 可直连。故采集由本机执行器 mlb_agent.py 完成，这里只排队与托管结果。",
+  "writeback": {
+    "_note": "采集完成后直写 p2pah 后台。四道闸门：任务勾选 write_back + 此处 enabled + 脚本/凭据文件存在 + 人工放行(require_approval)。dry_run=true 时全程只读、不产生任何写入；要真正上架必须显式改为 false（仓库里保持 true 作为安全默认，服务器上部署时改为 false）。",
+    "enabled": true,
+    "dry_run": true,
+    "require_approval": true,
+    "python": "/opt/python39/bin/python3",
+    "script": "/opt/mlb-admin-write/src/mlb_write_cards.py",
+    "cred": "/opt/mlb-admin-write/_cred.json",
+    "archive_dir": "/opt/mlb-admin-write/evidence/_archive",
+    "confirm": "mlb26-players",
+    "timeout": 900
+  },
+  "coins_rate": {
+    "_note": "当期金币售价自动取价：订单后台 order.p2pah.cn → 游戏&产品 → 金币价格管理 → 所属游戏 922(MLB The Show 26) 的 b2c 字段。b2c 口径是 USD/1K，工作台 rate 口径是 USD/100K，故 ×multiplier(100)。只做页面预填，人工仍可覆盖；取不到就退回人工填写，绝不影响建任务/采集/上架。",
+    "enabled": true,
+    "python": "/opt/python39/bin/python3",
+    "script": "/opt/mlb-admin-write/src/p2pah_price.py",
+    "cred": "/opt/mlb-admin-write/_cred_order.json",
+    "gid": 922,
+    "area": "PS 5",
+    "multiplier": 100,
+    "timeout": 90,
+    "cache_sec": 600
+  }
+}

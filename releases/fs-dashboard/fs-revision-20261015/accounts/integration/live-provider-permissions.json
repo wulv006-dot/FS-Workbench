@@ -1,0 +1,118 @@
+{
+  "observed_at_utc": "2026-10-14T18:24:07.254007+00:00",
+  "credential_contents_read": false,
+  "provider_called": false,
+  "key_file_metadata": [
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/secrets/deepseek.key",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o600",
+      "symlink": false,
+      "regular": true,
+      "bytes": 36
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/secrets",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc",
+      "uid": 0,
+      "gid": 9876,
+      "mode": "0o750",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    },
+    {
+      "path": "/var/lib",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    },
+    {
+      "path": "/var",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o755",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    },
+    {
+      "path": "/",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o555",
+      "symlink": false,
+      "regular": false,
+      "bytes": null
+    }
+  ],
+  "units": {
+    "fs-boss-game-monitor.service": {
+      "MainPID": "0",
+      "RootDirectory": "",
+      "User": "root",
+      "Group": "root",
+      "SupplementaryGroups": "",
+      "ProtectHome": "no",
+      "ProtectSystem": "no",
+      "NoNewPrivileges": "yes",
+      "FragmentPath": "/etc/systemd/system/fs-boss-game-monitor.service",
+      "DropInPaths": "",
+      "resolved_uid": 0,
+      "selected_key_file_directives": []
+    },
+    "fs-boss-management.service": {
+      "MainPID": "0",
+      "RootDirectory": "",
+      "User": "root",
+      "Group": "root",
+      "SupplementaryGroups": "",
+      "ProtectHome": "no",
+      "ProtectSystem": "no",
+      "NoNewPrivileges": "yes",
+      "FragmentPath": "/etc/systemd/system/fs-boss-management.service",
+      "DropInPaths": "",
+      "resolved_uid": 0,
+      "selected_key_file_directives": []
+    },
+    "fs-business-range.service": {
+      "MainPID": "32743",
+      "RootDirectory": "",
+      "User": "root",
+      "Group": "",
+      "SupplementaryGroups": "",
+      "ProtectHome": "no",
+      "ProtectSystem": "no",
+      "NoNewPrivileges": "yes",
+      "FragmentPath": "/etc/systemd/system/fs-business-range.service",
+      "DropInPaths": "/etc/systemd/system/fs-business-range.service.d/50-fc-daily-model.conf /etc/systemd/system/fs-business-range.service.d/hermes.conf",
+      "resolved_uid": 0,
+      "selected_key_file_directives": [],
+      "running_process_identity": [
+        "Uid:\t0\t0\t0\t0",
+        "Gid:\t0\t0\t0\t0"
+      ]
+    }
+  }
+}

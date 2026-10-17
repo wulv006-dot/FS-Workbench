@@ -1,0 +1,9 @@
+{
+  "base_path": "releases/fs-dashboard/hermes-desktop-20261015/release/release_navigation.py",
+  "base_git_blob": "02a99a002a9b2584020a69748ffa1d7d9a99422c",
+  "base_sha256": "6539254bdd80d08a9bc3acd6c7a99a84fa3ee8d2f19efdeb3a703b98ef27a07a",
+  "candidate_sha256": "7cb7573e79b119bc09096835f1ffb8cab1313b68977200b7bfd6b57c048814c8",
+  "change": "Extend existing publisher with exact ten report/skill files and two new-file baselines; reuse existing locks, admission/provider fences, CAS, backups, worker+range restart and rollback. No frontend/nav/account target.",
+  "base_commit": "eb8239be8956698475c5cd0580ab6367b1e6afda",
+  "integration": "Retain all PR148 recovery and PR151 Desktop scopes; add report scope to existing fences. Twelve additive conflicts resolved without removing either scope."
+}

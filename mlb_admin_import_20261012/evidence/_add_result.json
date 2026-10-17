@@ -1,0 +1,40 @@
+[
+  {
+    "step": "before",
+    "total": 270,
+    "found": false
+  },
+  {
+    "step": "add",
+    "result": {
+      "code": 1,
+      "msg": "保存成功",
+      "time": 1791772284,
+      "data": {
+        "gid": 927,
+        "aid": 0,
+        "cid": 8233,
+        "tid": "0"
+      }
+    }
+  },
+  {
+    "step": "after",
+    "total": 271,
+    "found": true,
+    "row": {
+      "id": 44638327,
+      "title": "Dennis Eckersley/99/CP/Athletics/Awards",
+      "gid": 927,
+      "cid": 8233,
+      "price": 1.49,
+      "is_put": 0,
+      "status": 1
+    }
+  },
+  {
+    "step": "products",
+    "count": 0,
+    "rows": []
+  }
+]

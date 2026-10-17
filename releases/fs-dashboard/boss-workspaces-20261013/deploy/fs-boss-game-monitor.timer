@@ -1,0 +1,10 @@
+[Unit]
+Description=FS game monitor daily at 00:05 Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:05:00
+Persistent=false
+Unit=fs-boss-game-monitor.service
+
+[Install]
+WantedBy=timers.target

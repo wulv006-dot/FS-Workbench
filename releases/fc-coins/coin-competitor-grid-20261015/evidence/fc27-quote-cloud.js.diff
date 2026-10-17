@@ -1,0 +1,25 @@
+--- baseline/fc27-quote-cloud.js
++++ source/fc27-quote-cloud.js
+@@ -546,9 +546,19 @@
+       '尚无可用竞品采集记录。';
+     const offers=collection?.competitors||[];
+     const sites=['Lootbar','IGGM','U4GM','U7Buy'];
+-    const displayOffers=offers.slice().sort((a,b)=>
+-      PLATFORMS.indexOf(a.platform)-PLATFORMS.indexOf(b.platform)||sites.indexOf(a.source)-sites.indexOf(b.source));
+-    $('monitor-competitors').innerHTML=displayOffers.length?displayOffers.map(row=>
++    // 每个区服固定四家来源（列＝竞品，行＝PS/XBOX/PC）。哪家本轮没采到，就补一张
++    // 「暂未获取」占位卡 —— 缺项不再被后面的卡片顶上来，栅格不会错位。
++    const gridSites=sites.concat(offers.map(row=>row.source).filter((source,index,list)=>
++      sites.indexOf(source)<0&&list.indexOf(source)===index));
++    const offerOf=(platform,source)=>offers.find(row=>row.platform===platform&&row.source===source);
++    const slots=[];
++    PLATFORMS.forEach(platform=>gridSites.forEach(source=>slots.push({platform,source,row:offerOf(platform,source)})));
++    $('monitor-competitors').innerHTML=offers.length?slots.map(({platform,source,row})=>!row?
++      `<article class="monitor-competitor-card missing"><div class="monitor-card-head"><strong>${esc(source)}</strong><span class="tag">${esc(platform)}</span></div>`+
++      `<div class="monitor-card-value">暂未获取</div>`+
++      `<p class="monitor-card-detail">本轮未采集到该来源</p>`+
++      `<p class="monitor-card-detail">未纳入本轮比价</p>`+
++      `<div class="monitor-card-time">采集：—</div></article>`:
+       `<article class="monitor-competitor-card"><div class="monitor-card-head"><strong>${esc(row.source)}</strong><span class="tag">${esc(row.platform)}</span></div>`+
+       `<div class="monitor-card-value">${row.gross_usd==null?'—':`$${decimal4(row.gross_usd,2)} <small>页面总价</small>`}</div>`+
+       `<p class="monitor-card-detail">实际单价：<b>${row.effective_usd_per_k==null?'—':`$${decimal4(row.effective_usd_per_k)} / K`}</b></p>`+

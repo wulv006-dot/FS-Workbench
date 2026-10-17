@@ -1,0 +1,22 @@
+[
+  {
+    "m": "POST",
+    "u": "https://admin.p2pah.cn/cdn-cgi/rum?",
+    "post": "{\"startTime\":1791771858943,\"pageloadId\":\"06c61029-19cb-419b-a5a8-e7f49b1af317\",\"eventType\":1,\"nt\":\"navigate\",\"location\":\"https://admin.p2pah.cn/\",\"versions\":{\"fl\":\"2024.11.0\",\"js\":\"2026.10.0\",\"timings\":2},\"bi\":{\"be\":\"Blink\",\"bev\":\"154\",\"bv\":\"154\",\"ov\":\"10\"},\"memory\":{\"totalJSHeapSize\":16412885,\"usedJSHeapSize\":13092069,\"jsHeapSizeLimit\":4395630592},\"firstPaint\":1852,\"firstContentfulPaint\":0,\"timin"
+  },
+  {
+    "m": "GET",
+    "u": "https://admin-api.p2pah.cn/admin/index/login",
+    "post": ""
+  },
+  {
+    "m": "GET",
+    "u": "https://admin-api.p2pah.cn/admin/index/login",
+    "post": ""
+  },
+  {
+    "m": "POST",
+    "u": "https://admin.p2pah.cn/cdn-cgi/rum?",
+    "post": "{\"startTime\":1791771871982,\"pageloadId\":\"320d67a5-31d7-4076-8417-986d8d1cb2ae\",\"n\":2,\"eventType\":1,\"nt\":\"soft-navigation\",\"location\":\"https://admin.p2pah.cn/\",\"referrer\":\"https://admin.p2pah.cn/\",\"versions\":{\"fl\":\"2024.11.0\",\"js\":\"2026.10.0\",\"timings\":1},\"bi\":{\"be\":\"Blink\",\"bev\":\"154\",\"bv\":\"154\",\"ov\":\"10\"},\"siteToken\":\"edbb7a2398af4db1a41cbdd6bcfdc187\",\"st\":2}"
+  }
+]

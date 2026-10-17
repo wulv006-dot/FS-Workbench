@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "ai_enabled": false,
+  "trust_customer_flag": false,
+  "game_id": 1327,
+  "main_site_id": 266,
+  "distribution_site_ids": [],
+  "distribution_identification": "not_verified_no_shop_or_group_field",
+  "amount_edges_usd": [0, 20, 40, 60, 80, 100, 150, 200, 300, 500],
+  "attention_hours": 24,
+  "attention_amount_usd": 300,
+  "max_pages": 300,
+  "page_size": 100,
+  "today_cache_seconds": 900,
+  "history_cache_seconds": 7200
+}

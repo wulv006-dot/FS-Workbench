@@ -1,0 +1,20 @@
+{
+  "scope": "fs-management-quality-v1",
+  "releaseId": "management-quality-5c36780053e1",
+  "businessWrites": false,
+  "credentialsChanged": false,
+  "files": [
+    {
+      "candidate": "management_context.py",
+      "target": "/opt/fs-hermes-fc/management_context.py",
+      "beforeSha256": "723d33d2535229c71eadd9c7a48b22896fead9c15b4818355d79f6a1c06b8640",
+      "sha256": "5c36780053e1d85b7496e785ebfc4690736e687d5ae4e321f4ee8f9924c84572"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "144536dc13942709eb332a9400379176e939ba47184ca25b1e7b21b49ae641f3"
+    }
+  ]
+}

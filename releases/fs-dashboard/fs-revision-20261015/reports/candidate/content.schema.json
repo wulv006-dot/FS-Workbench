@@ -1,0 +1,593 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mmoexp:hermes:boss-report:1.0",
+  "title": "Hermes boss report content v1.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report",
+    "executive",
+    "metrics",
+    "charts",
+    "payment",
+    "hypotheses",
+    "context",
+    "intel",
+    "actions",
+    "decisions",
+    "timeline",
+    "gaps",
+    "corrections",
+    "research_url",
+    "provenance",
+    "business_model"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "subtitle",
+        "kind",
+        "period",
+        "generated_at",
+        "business_data_captured_at",
+        "source_data_as_of",
+        "snapshot_id",
+        "source_policy",
+        "status",
+        "filename"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "daily",
+            "weekly",
+            "monthly",
+            "investigation"
+          ]
+        },
+        "period": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "comparison_start",
+            "comparison_end",
+            "timezone"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            },
+            "comparison_start": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "comparison_end": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "timezone": {
+              "const": "Asia/Shanghai"
+            }
+          }
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "business_data_captured_at": {
+          "type": "string"
+        },
+        "source_data_as_of": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "snapshot_id": {
+          "type": "string"
+        },
+        "source_policy": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string",
+          "pattern": "^[^/\\\\]+\\.html$"
+        },
+        "target_basis": {
+          "type": "string"
+        },
+        "metric_basis": {
+          "type": "string"
+        },
+        "method_note": {
+          "type": "string"
+        },
+        "project_label": {
+          "type": "string"
+        }
+      }
+    },
+    "executive": {
+      "type": "object",
+      "required": [
+        "headline",
+        "summary",
+        "confidence_fact",
+        "confidence_unknown",
+        "now",
+        "decision"
+      ],
+      "properties": {
+        "headline": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "confidence_fact": {
+          "type": "string"
+        },
+        "confidence_unknown": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "now": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "title",
+              "text"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "value",
+          "previous",
+          "delta",
+          "status",
+          "evidence_ids"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "previous": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "fact",
+              "derived",
+              "reference",
+              "missing"
+            ]
+          },
+          "evidence_ids": {
+            "$ref": "#/$defs/ids"
+          }
+        }
+      }
+    },
+    "charts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "unit",
+          "period",
+          "scope",
+          "as_of",
+          "rows",
+          "evidence_ids",
+          "interpretation",
+          "note",
+          "labels"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "kind": {
+            "enum": [
+              "line_compare",
+              "waterfall",
+              "diverging",
+              "bars_compare",
+              "bars"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "as_of": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "previous": {
+                  "$ref": "#/$defs/numeric"
+                },
+                "current": {
+                  "$ref": "#/$defs/numeric"
+                },
+                "value": {
+                  "$ref": "#/$defs/numeric"
+                },
+                "amount": {
+                  "$ref": "#/$defs/numeric"
+                },
+                "role": {
+                  "enum": [
+                    "total",
+                    "delta"
+                  ]
+                }
+              }
+            }
+          },
+          "evidence_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "interpretation": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "period_basis": {
+            "enum": [
+              "closed_period",
+              "current_snapshot"
+            ]
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "period_basis": {
+                  "const": "current_snapshot"
+                }
+              },
+              "required": [
+                "period_basis"
+              ]
+            },
+            "then": {
+              "required": [
+                "snapshot_at"
+              ],
+              "properties": {
+                "labels": {
+                  "maxItems": 0
+                },
+                "period": {
+                  "not": {
+                    "pattern": " vs "
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "payment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "previous",
+          "current",
+          "delta"
+        ]
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "text",
+          "evidence_ids"
+        ]
+      }
+    },
+    "context": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "text",
+          "evidence_ids"
+        ]
+      }
+    },
+    "intel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "window",
+          "published_at",
+          "event_at",
+          "applies",
+          "title",
+          "fact",
+          "hypothesis",
+          "action",
+          "url",
+          "source",
+          "retrieved_at",
+          "verified"
+        ],
+        "properties": {
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "priority",
+          "title",
+          "role",
+          "when",
+          "trigger",
+          "steps",
+          "metric",
+          "cost",
+          "risk",
+          "stop",
+          "evidence_ids"
+        ],
+        "properties": {
+          "priority": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "建议"
+            ]
+          },
+          "evidence_ids": {
+            "$ref": "#/$defs/ids"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "topic",
+          "recommended",
+          "alternative",
+          "tradeoff",
+          "status"
+        ]
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "date",
+          "text"
+        ]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "corrections": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "finance": {
+      "type": "object",
+      "required": [
+        "title",
+        "basis",
+        "next"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "next": {
+          "type": "string"
+        }
+      }
+    },
+    "research_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "package_sha256",
+        "research_html_sha256",
+        "evidence_file",
+        "evidence_count",
+        "scope"
+      ],
+      "properties": {
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "business_model": {
+      "type": "object",
+      "required": [
+        "fulfillment",
+        "holds_inventory",
+        "supplier_settlement"
+      ],
+      "properties": {
+        "fulfillment": {
+          "const": "order_driven"
+        },
+        "holds_inventory": {
+          "const": false
+        },
+        "supplier_settlement": {
+          "const": "monthly"
+        }
+      }
+    },
+    "research_text": {
+      "type": "string"
+    },
+    "payment_evidence_ids": {
+      "$ref": "#/$defs/ids"
+    }
+  },
+  "$defs": {
+    "ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ev_[a-f0-9]+$"
+      }
+    },
+    "numeric": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

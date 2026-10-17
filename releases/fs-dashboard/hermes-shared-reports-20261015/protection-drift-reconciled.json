@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/opt/fs-hermes-fc/research.py",
+    "beforeSha256": "8b4547160e779ab99fec3e33ae427f782fcbb7c532cb1065f9156a387a149098",
+    "sha256": "d1cdc3daa9aed4777c0a705bb5946936dd0d15628a662b823c5b63c96c1fe6e6",
+    "sourceCommit": "526124a4712db58c1f57166a71087e1d7aa97f38"
+  },
+  {
+    "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+    "beforeSha256": "950043c541f704d891de09c7015753f362684f1040af7aa0b6069b02ecaec90d",
+    "sha256": "cd43b4d89abc7c965ccbd0a9a707958ee2e155891ffff04c5a436bcc9308b1cc",
+    "sourceCommit": "526124a4712db58c1f57166a71087e1d7aa97f38"
+  },
+  {
+    "path": "/opt/fs-hermes-fc/skills/manifest.json",
+    "beforeSha256": "5d038934ac6f8e363492fc0a5a28ebc2bfd048a42d476dccbb416f8829438275",
+    "sha256": "6912eafae0d308e6fcf0446c38f0cf43d27d00359af7a07859667e7ea5422872",
+    "sourceCommit": "526124a4712db58c1f57166a71087e1d7aa97f38"
+  },
+  {
+    "path": "/opt/fs-hermes-fc/report_artifacts.py",
+    "beforeSha256": "63a12771312fde75ad1cb2a2405e394ba3e30f74b82fdab1d2b0a253df2e5511",
+    "sha256": "769159b6d56b9abaf683e840cd8961b74b9b917dab843cea03e1bfa1f661d725",
+    "sourceCommit": "526124a4712db58c1f57166a71087e1d7aa97f38"
+  },
+  {
+    "path": "/opt/fs-hermes-fc/report_delivery.py",
+    "beforeSha256": "dabbbcb973ecfa13c86c2e60c6436dcd2116822bd1cdab38c1debc746f1157a7",
+    "sha256": "a16edb7b13fe383d9060d602d08baf3c53ea9036c546b1930ab953bc73a96ac1",
+    "sourceCommit": "526124a4712db58c1f57166a71087e1d7aa97f38"
+  }
+]

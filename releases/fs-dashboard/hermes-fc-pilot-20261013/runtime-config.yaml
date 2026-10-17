@@ -1,0 +1,18 @@
+model:
+  streaming: false
+  context_length: 1048576
+  reasoning_echo: true
+tools:
+  tool_search:
+    enabled: off
+gateway:
+  api_server:
+    max_concurrent_runs: 0
+providers:
+  custom:
+    request_timeout_seconds: 1860
+    stale_timeout_seconds: 1860
+auxiliary:
+  compression:
+    timeout: 1860
+    no_progress_timeout: 1860

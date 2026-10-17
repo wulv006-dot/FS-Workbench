@@ -1,0 +1,25 @@
+{
+  "library_file_id": "libfile_d2de6fdbc8d08191b3d0b91567c61ff9",
+  "file_id": "file_00000000af8081f68671242ec5839b02",
+  "file_name": "Hermes业务背景与协作指南.md",
+  "library_version": 0,
+  "document_version": "1.0",
+  "document_date": "2026-10-13",
+  "size_bytes": 18904,
+  "library_read": {
+    "lines": 243,
+    "complete": true,
+    "chapters": 11
+  },
+  "intended_local_path": "E:\\WorkBuddy\\大超服务器\\docs\\planning\\hermes-fc-pilot-20261013\\source\\Hermes业务背景与协作指南.md",
+  "local_exists": false,
+  "original_archived": false,
+  "imported_into_hermes": false,
+  "attempts": [
+    "sandbox download failed",
+    "official helper with approved network access: AttributeError os.setxattr unavailable"
+  ],
+  "content_sha256": null,
+  "reason_sha_missing": "No successfully materialized original bytes with Library identity; do not claim original verification from read text.",
+  "next": "Use supported Library environment/helper correction; preserve same identity. Explicit context/index/section code is ready; no raw URL or metadata bypass."
+}

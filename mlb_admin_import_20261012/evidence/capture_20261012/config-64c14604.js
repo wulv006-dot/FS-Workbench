@@ -1,0 +1,1 @@
+import{j as s,v as a}from"./index-6b2030fb.js";const o=new Map([["send",a+"send"],["gettpl",a+"getMailTpl"]]);function n(t,e){return s({url:t,method:"get",data:e})}function l(t,e){return s({url:o.get(t),method:"post",data:e},{showSuccessMessage:!0})}function p(t){return s({url:o.get("gettpl"),method:"get",params:t})}export{n as g,l as p,p as t};

@@ -1,0 +1,7 @@
+{
+  "note": "**示例文件**：白名单只认身份组。roleIds = 免死 Discord 角色ID；userIds 留空即可。免死身份组：Admin（管理）/ MMOEXP_Official_Player（官方客服）/ Bot · MEE6 · Query_Invite_Member · MMOEXP_BOT（机器人）。其余任何人，只要名字命中冒充规则，就按 action 处置。",
+  "roleIds": [
+    "000000000000000000"
+  ],
+  "userIds": []
+}
