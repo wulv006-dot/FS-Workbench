@@ -27,7 +27,7 @@ def safe_timestamp(value):
 def build_view_model(snapshot,collection=None):
     if snapshot.get('schemaVersion')!=1 or snapshot.get('isMock') is not False:raise ValueError('REAL_VERIFIED_SNAPSHOT_REQUIRED')
     if len(snapshot.get('rows',[]))>10000:raise ValueError('SNAPSHOT_TOO_LARGE')
-    view={'schemaVersion':1,'isMock':False,'title':'营销数据','financialSource':'existing_transaction_dashboard','crossSourceFinancialRatios':None,'adsStatus':'已验证两个指定账号，只读、分品牌统计','sources':[],'adsAccounts':[],'data_generated_at':dt.datetime.now(dt.timezone.utc).isoformat(),'collection_schedule':{'timezone':'Asia/Shanghai','daily_time':'09:00'},'ui_refresh_seconds':300}
+    view={'schemaVersion':1,'isMock':False,'title':'营销数据','financialSource':'existing_transaction_dashboard','crossSourceFinancialRatios':None,'adsStatus':'已验证两个指定账号，只读、分品牌统计','sources':[],'adsAccounts':[],'data_generated_at':dt.datetime.now(dt.timezone.utc).isoformat(),'collection_schedule':{'timezone':'Asia/Shanghai','daily_time':'00:10'},'ui_refresh_seconds':300}
     for source,settings in SOURCES.items():
         days={};revenues={}
         for row in snapshot.get('rows',[]):

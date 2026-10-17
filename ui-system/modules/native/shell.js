@@ -47,7 +47,7 @@ class LiveSummary {
  stop(){this.running=false;clearTimeout(this.timer);this.timer=null;this.epoch++;this.controller?.abort();this.current=null;this.pending=null;}
 }
 
-import {lifecycle,protectedRead,sessionIdentity,moduleAvailable} from './runtime.js';
+import {lifecycle,protectedRead,sessionIdentity,moduleAvailable} from '/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/runtime.js';
 // User-approved 2026-10-09: Admin main-site values; labelled Order supplements and estimated profit.
 function fsMainSite(profile,all=false){
  const numeric=v=>typeof v==='number'&&Number.isFinite(v);
@@ -94,7 +94,7 @@ function fsMetricText(item,format){
 }
 
 
-const $=id=>document.getElementById(id),home=document.body.dataset.page==='home',base=new URL('./',import.meta.url);
+const $=id=>document.getElementById(id),home=document.body.dataset.page==='home',base=new URL('./',import.meta.url),logicBase=new URL('/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/',location.origin);
 const homeURL=document.body.dataset.workspaceHome||new URL('home.html',base).href,analyticsURL=document.body.dataset.workspaceAnalytics||new URL('index.html',base).href;
 const allowed=['fc_tab','b_group','b_profile','b_grain','b_align','b_range','b_start','b_end','b_section','b_metrics','g_brand','g_period','g_source','g_business_profile'];
 let state={},active=null,epoch=0,identity=null,verified=[],theme='light',restored=false,last={},checkedAt={},watcher=null,homeController=null,dialogTrigger=null;
@@ -122,7 +122,7 @@ async function nativeLoad(retried=false){
  const host=document.createElement('div');host.className='native-content';host.dataset.theme=document.documentElement.dataset.theme;$('content-panel').append(host);
  const scope=lifecycle(host,capture,halt);scope.seed={...state};active={host,scope,api:null};$('status').textContent='正在读取'+(state.mode==='business'?'经营分析':'Google 运营')+'…';
  try{
-  const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',base),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',base),'text/css','GET',scopeSignal()),import(new URL(state.mode+'.js'+(retried?'?retry=1':''),base).href)]);
+  const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',base),'text/css','GET',scopeSignal()),import(new URL(state.mode+'.js'+(retried?'?retry=1':''),state.mode==='google'?base:logicBase).href)]);
   if(id!==epoch)return;for(const name of ['fs-ui.css','native-alias.css']){const shared=document.createElement('link');shared.rel='stylesheet';shared.href=new URL('ui/'+name,base);scope.root.append(shared);}const style=document.createElement('style');style.textContent=await stylesheet.text();scope.root.append(style);const template=document.createElement('template');template.innerHTML=await markup.text();scope.root.append(template.content);
   if(id!==epoch)return;active.api=module.mount(scope);scope.root.addEventListener('click',()=>queueMicrotask(()=>{if(id===epoch&&active?.api)capture(active.api.state());}));
  }catch(e){if(id!==epoch)return;if(e.status){halt(e.status);return;}active?.scope.destroy();active=null;

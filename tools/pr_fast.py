@@ -295,6 +295,9 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith(("releases/fs-dashboard/traffic-hermes-20261017/","mmoexp_google_data/details/")) or name in ("mmoexp_google_data/dashboard_module/marketing-module.js","mmoexp_google_data/dashboard_module/build_module.py"):
+            groups.add("traffic-hermes");continue
+        if name=="ui-system/modules/native/google.js":groups.add("traffic-hermes")
         if name.startswith("releases/fc-sbc/security-20261015/"):
             groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
@@ -769,6 +772,10 @@ def main():
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="management-quality":
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="traffic-hermes":
+            units("mmoexp_google_data/details",["test_details"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements"])
+            node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
         elif group=="hermes-learning-loop":
             units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])
         elif group=="desktop-learning":

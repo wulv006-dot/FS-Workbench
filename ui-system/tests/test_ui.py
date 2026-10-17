@@ -3,11 +3,16 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OLD=ROOT.parent/'releases/fs-dashboard/menu-cache-20261015/native/assets'
 class UIContract(unittest.TestCase):
- def test_no_business_logic_changed(self):
-  forbidden=['business.js','google.js','runtime.js','metrics.js','snapshot-client.js','management/management.js','management/targets.json','game-monitor/daily.js']
+ def test_business_scripts_remain_frozen_except_reviewed_traffic(self):
+  forbidden=['business.js','runtime.js','metrics.js','snapshot-client.js','management/management.js','management/targets.json','game-monitor/daily.js']
   for name in forbidden:self.assertFalse((ROOT/'modules/native'/name).exists(),name)
+  traffic=(ROOT/'modules/native/google.js').read_text(encoding='utf8')
+  self.assertIn('calculation_campaigns',traffic)
+  self.assertIn('generation!==scope.rangeGeneration',traffic)
+  self.assertNotIn("method:'POST'",traffic)
+  self.assertNotIn('Order主源',traffic)
  def test_shell_data_functions_preserved(self):
-  old=(OLD/'shell.js').read_text();new=(ROOT/'modules/native/shell.js').read_text()
+  old=(ROOT.parent/'releases/fs-dashboard/business-refresh-20261016/assets/shell.js').read_text(encoding='utf8');new=(ROOT/'modules/native/shell.js').read_text(encoding='utf8')
   self.assertEqual(old[:old.index('const $=')],new[:new.index('const $=')])
  def test_no_unknown_price_rules(self):
   for p in (ROOT/'adapters').glob('*.js'):

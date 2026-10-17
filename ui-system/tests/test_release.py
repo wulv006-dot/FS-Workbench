@@ -1,4 +1,4 @@
-import unittest,sys,json,hashlib,importlib.util,re,tempfile
+import unittest,sys,json,hashlib,importlib.util,re,tempfile,runpy,contextlib,io
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[2];D=ROOT/'releases/fs-dashboard/ui-system-20261015';OLD=ROOT/'releases/fs-dashboard/menu-cache-20261015/native'
@@ -8,6 +8,25 @@ sys.path.insert(0,str(D/'native'));import release_workspace as native
 shared=mod('shared_ui_publisher',D/'shared/release_navigation.py')
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 class ReleaseContract(unittest.TestCase):
+ def test_current_build_entry_reaches_traffic_module(self):
+  with tempfile.TemporaryDirectory() as folder:
+   output=Path(folder)/'candidate';rid='workspace-native-20261006-0123456789ab'
+   with patch.object(sys,'argv',['build_release.py','--output',str(output),'--release-id',rid]),contextlib.redirect_stdout(io.StringIO()):
+    runpy.run_path(str(ROOT/'ui-system/build_release.py'),run_name='__main__')
+   rooturl='/dashboard/workspace-assets/'+rid+'/'
+   for name in ['native/assets/home.html','native/assets/index.html','native/candidate/fs-home/index.html']:
+    html=(output/name).read_text(encoding='utf8')
+    self.assertIn('src="'+rooturl+'shell.js"',html)
+    self.assertNotIn('ba0a83afd594/shell.js',html)
+   shell=(output/'native/assets/shell.js').read_text(encoding='utf8')
+   self.assertIn("state.mode==='google'?base:logicBase",shell)
+   self.assertIn('calculation_campaigns',(output/'native/assets/google.js').read_text(encoding='utf8'))
+   manifest=json.loads((output/'native/release-manifest.json').read_text(encoding='utf8'))
+   routes=(output/'native/candidate/formal.conf').read_text(encoding='utf8')
+   for name in ['shell.js','google.js','google.css']:
+    row=next(r for r in manifest['immutableAssets'] if r['url']==rooturl+name)
+    self.assertEqual(sha(output/'native'/row['candidate']),row['sha256'])
+    self.assertIn('location = '+rooturl+name+' {',routes)
  def test_payload_hashes(self):
   p=D/'native';m=json.loads((p/'release-manifest.json').read_text());rows=native.validate(m,None)
   self.assertEqual(len(rows),17)
