@@ -1,0 +1,5 @@
+ARG SESSION_BASE_IMAGE
+FROM ${SESSION_BASE_IMAGE}
+ARG SESSION_BASE_IMAGE
+COPY p2pah_session_service.py es_order_structure.py admin_discount_analysis.py admin_product_orders.py /usr/local/bin/
+RUN python3 -c 'import os,py_compile; assert os.environ["SESSION_BASE_IMAGE"] == "sha256:7823c8932943aa8966e12735ad4bf1425dbbfe70334772e997b727d7ee4d9c67"; [py_compile.compile("/usr/local/bin/"+p,doraise=True) for p in ["p2pah_session_service.py", "es_order_structure.py", "admin_discount_analysis.py", "admin_product_orders.py"]]'

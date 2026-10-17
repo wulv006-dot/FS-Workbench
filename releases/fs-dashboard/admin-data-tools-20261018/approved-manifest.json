@@ -1,0 +1,555 @@
+{
+  "schemaVersion": 1,
+  "imageId": "sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544",
+  "runtimeRequired": {
+    "fs-business-range.service": {
+      "ActiveState": "active"
+    },
+    "fs-hermes-fc.service": {
+      "ActiveState": "active"
+    },
+    "fc27-p2pah-session.service": {
+      "ActiveState": "active"
+    },
+    "fs-marketing-range.service": {
+      "ActiveState": "active"
+    },
+    "mmoexp-marketing-daily.service": {
+      "ActiveState": "inactive"
+    },
+    "mmoexp-marketing-daily.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    },
+    "fs-boss-game-monitor.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    },
+    "fs-boss-management.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    }
+  },
+  "absenceRequired": [
+    "/var/lib/fs-hermes-fc/fs/nightly-schedule.maintenance-paused-20261016.json"
+  ],
+  "scope": "admin-analysis-20261018-v1",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "nightlyChanges": false,
+  "sourceCommit": "792071b0dc06602f1d1b59aea414d9090db3b7ca",
+  "baselineSourceCommit": "e9479733ee9d055b97fc46e6cdc820f72a57c8c8",
+  "baselineObservedAt": "2026-10-17T16:32:37.895247+00:00",
+  "basePublisherSha256": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
+  "publisherBridgeSha256": "075e9dca54c81f2682c4f2a23bbf784cde54527548d9137b3bc38f5ec53b31cf",
+  "imageLifecycleSha256": "0dc6b0c5f22034b9acd7f2932b1df99a1d5e01b6913c985fd3a7a00bdd68ebbf",
+  "sessionBaseImage": "sha256:7823c8932943aa8966e12735ad4bf1425dbbfe70334772e997b727d7ee4d9c67",
+  "sessionCurrentImage": "sha256:7823c8932943aa8966e12735ad4bf1425dbbfe70334772e997b727d7ee4d9c67",
+  "sessionNewTag": "fc27-cloud-session:admin-analysis-20261018-v1",
+  "businessStopContract": {
+    "properties": {
+      "MainPID": "26038",
+      "ControlGroup": "/system.slice/fs-business-range.service",
+      "KillMode": "control-group",
+      "Id": "fs-business-range.service",
+      "ActiveState": "active",
+      "SubState": "running",
+      "FragmentPath": "/etc/systemd/system/fs-business-range.service",
+      "DropInPaths": "/etc/systemd/system/fs-business-range.service.d/50-fc-daily-model.conf /etc/systemd/system/fs-business-range.service.d/hermes.conf",
+      "UnitFileState": "enabled"
+    },
+    "cgroupPath": "/sys/fs/cgroup/systemd/system.slice/fs-business-range.service/cgroup.procs"
+  },
+  "files": [
+    {
+      "candidate": "hermes/es_order_structure.py",
+      "target": "/opt/fs-hermes-fc/es_order_structure.py",
+      "sha256": "b8679f8931f7b39020319ddccfe7d1ae1e40262b116fc4f024c37e228968cec1",
+      "beforeSha256": "95e37110550012389488b4f639fe206391aaf8ec600b222a4611e6d1fdb6faac"
+    },
+    {
+      "candidate": "hermes/research.py",
+      "target": "/opt/fs-hermes-fc/research.py",
+      "sha256": "d1edc7629a8d54553fcd6523b476e07710ceae706d31ca272b3dcfe155b8705e",
+      "beforeSha256": "936558519d764f96705ac9d1ab40b1912bb3ab531b721b576cbaf239bb8d169b"
+    },
+    {
+      "candidate": "hermes/fs_evidence.py",
+      "target": "/opt/fs-hermes-fc/fs_evidence.py",
+      "sha256": "2e2f86c1fb2c44072f947074266b13d3de30efeca907b779d153850d6e653e54",
+      "beforeSha256": "1e4b19b95dcb9f9d2a308fb614b88a9d4930316e7a8c5d80f62ea5ec7be6f065"
+    },
+    {
+      "candidate": "hermes/admin_discount_analysis.py",
+      "target": "/opt/fs-hermes-fc/admin_discount_analysis.py",
+      "sha256": "e43d689746e83ea474432a5aa1f6acf66cb8732172035b86e6f4e7df12d9ad98",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "hermes/admin_product_orders.py",
+      "target": "/opt/fs-hermes-fc/admin_product_orders.py",
+      "sha256": "cc9d8afb240a63a98c417e129d5720fcb15e41c43546c0dc6cbf2a379950550d",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/es_order_structure.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/es_order_structure.py",
+      "sha256": "b8679f8931f7b39020319ddccfe7d1ae1e40262b116fc4f024c37e228968cec1",
+      "beforeSha256": "95e37110550012389488b4f639fe206391aaf8ec600b222a4611e6d1fdb6faac"
+    },
+    {
+      "candidate": "session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "7c1482d630d814f2fa3a0de30579b19aebf35abaaa187cf0d08d3ab3051ee0ab",
+      "beforeSha256": "07434039c0cf079590b047ebebb28ceb4cfb2720a18a267e684f6152db286792"
+    },
+    {
+      "candidate": "session/admin_discount_analysis.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_discount_analysis.py",
+      "sha256": "e43d689746e83ea474432a5aa1f6acf66cb8732172035b86e6f4e7df12d9ad98",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/admin_product_orders.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/admin_product_orders.py",
+      "sha256": "cc9d8afb240a63a98c417e129d5720fcb15e41c43546c0dc6cbf2a379950550d",
+      "beforeSha256": null
+    },
+    {
+      "candidate": "session/fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "240cafc7b4b9a3e8b625099a495c9df95698e56b58abfaf93e9a82c0af81dd6a",
+      "beforeSha256": "f56b096e42b128ec828a7e2e8f8c6ef0814be6bf1c222972b0de2175036fedef"
+    },
+    {
+      "candidate": "session/Dockerfile.session",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "sha256": "09e725135cd34240dbecec42ef226eed7b38a1d727b0fba1a096c4720ac006b0",
+      "beforeSha256": "dde0909b1a70e0455dcc1205ac3b0651be9c2cb55d1e2fe183e7a7b794caa9c1"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "80bc26452be485ec1ba50998f0a6c7459911d6e643dbd2c42fd9ec9ec52d1241"
+    },
+    {
+      "path": "/etc/systemd/system/fs-boss-game-monitor.timer",
+      "sha256": "949fe556be9560779f2831a4cdc1304f1007cfb70710980fea956de085168b71"
+    },
+    {
+      "path": "/etc/systemd/system/fs-boss-management.timer",
+      "sha256": "acc10079b5c2915d2bcb3286310845adfae14d3e616c3bb171f7affd98a8353c"
+    },
+    {
+      "path": "/etc/systemd/system/fs-business-range.service",
+      "sha256": "87b1eafebc1a01179bb50f77e05b04364c3cb3cc784e706b9dcc0f1f87497439"
+    },
+    {
+      "path": "/etc/systemd/system/fs-business-range.service.d/50-fc-daily-model.conf",
+      "sha256": "de2a76dc184a9ea06ca24d7920ef808a005f611639e4dd5491f125448817e96c"
+    },
+    {
+      "path": "/etc/systemd/system/fs-business-range.service.d/hermes.conf",
+      "sha256": "b86dbeb4776f03ce68f86a9baf9c40abec97e6db7382e0f4c9e6c1f45b053c0c"
+    },
+    {
+      "path": "/etc/systemd/system/fs-hermes-fc.service",
+      "sha256": "94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011"
+    },
+    {
+      "path": "/etc/systemd/system/fs-marketing-range.service",
+      "sha256": "1add2694d89e56c42b52dc13d162b190788cc3c365ddff7f6efcc129ad97ea21"
+    },
+    {
+      "path": "/etc/systemd/system/mmoexp-marketing-daily.timer",
+      "sha256": "4c33049ad25063f3d6354b0e4a462a10a3cfb658012fd0768b6736e527db582f"
+    },
+    {
+      "path": "/opt/fc27-cloud/marketing-session-20261009/traffic_contract.py",
+      "sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "d076ddb81752f2d915c6eaf340a4ce6f42d62ac7c7d240b16e7dfbfcb3796ea2"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "a57a9b9962ff16d137357a69e3eafc01dd391cd1a115b37bfd6ac70b8bd1f9bc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "23bc38f4114991a4f3d38cb805b897d77b974b501293d04b9fce319e739f36dc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_model.py",
+      "sha256": "15965d1d331444635dd8ef677cacb2f05d2e21fa6c33ff6ae7bf53315b76b067"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_sources.py",
+      "sha256": "f83e7605f08d26052a743ea7ad5cce78c421d9439c67ce29f32415c0dce18c5a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "dcb3830a53f73b4732be198b2201fa48dab18aaa0928af6d759732a6fcc378e1"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_config.json",
+      "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "684f9ea5dd53d3c40f359e82c40c115136ffb44173181d939c71154b46184dda"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "833944f08aa2a9495cf8e0abfbf404ac2366d0eaaf42ee159f3e55ff646609c8"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "66ff09deef5cd54f9e789bd875b76f26f7c811323645a93396db25d1699cc24c"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/action_ledger.py",
+      "sha256": "ef730355a5c81beb67a553caf424528784d60c877bebd3677d70c6f4692431fa"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.json",
+      "sha256": "f629d00fbbb8915e592053a5e62720c3f46b10e888122b0417a959d2bed82603"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.md",
+      "sha256": "58fe32f4bc893a19ae7789a24b8fcc523e9f11975f8d1d1fcc5e24f34c677547"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/background.py",
+      "sha256": "7155ed5490358ccc1d714f49810d8ef3130de736b1fbbae7e1f0783fd1acbbee"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/boss_projection.py",
+      "sha256": "fc6318650aacbbf15d21e75d284d25cb6264b51f15a29ae965479246c92612ef"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/boss_renderer.py",
+      "sha256": "1ecd8c91a9306b3caf15656b5efdaea857d17951162bd511e2498a1ec8a209c4"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "cfc5cb3ee003de0beb0ffa07d9e160caad8aeddd43b98ce7052069c53dab1c9c"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "sha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/hermes_worker.py",
+      "sha256": "3bf192ef202d1da22e5902483a6ce022d799b2bb7a18cc102790f28e649dc8ac"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/learning-loop.md",
+      "sha256": "99b1691b13ac617cc67731eb070c421bf22a376f83827d9c687a2beb4b100b9b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/marketing_snapshot.py",
+      "sha256": "42b72688dc2e264d9817a420c0516c110e500d29cbe9b835cd9dee96da22b03e"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/network_guard.py",
+      "sha256": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/nightly.py",
+      "sha256": "dcd720bd2ab29dcacc60174e94675edb055c0c4f3e21e853a92d8539ab5320a6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/pilot.py",
+      "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report.template.html",
+      "sha256": "b777c6bccfd4f1986f9a05256145e86d913601ef383265f59b7eda089b1e9f13"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_artifacts.py",
+      "sha256": "5518eb29453d45f28bedaed6ee9097c29b34804180f69daf196953a0f8fd55eb"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_tracks.py",
+      "sha256": "393bb07a91a2dbb5757ecc4aea009e4d439db6fabf94feae468aa91fd71090d3"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_validation.py",
+      "sha256": "e0fab83d5f6b095d28ea31ca0928397ba23d7441ae88261c42ba3c2c597f6a9a"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runs_contract.py",
+      "sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runtime-config.yaml",
+      "sha256": "f9d0872391ddb12c9b62dbd73ea3e50ddfe57fbfbf18ed253546d563c7af61cd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skill_bundle.py",
+      "sha256": "b60018ce6d94d28e3f6b709aded61846f72e04acd2eccbf1f9c0c76476610834"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "sha256": "0a2e10478450210745769be14e49f614ca516d7a08fd4bf55a0f2debe8faab15"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/methods.md",
+      "sha256": "164483fb23c0f13dbf2ca27081d3033de99a1bf0f4aec3805df8d472ad64ef41"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/manifest.json",
+      "sha256": "fea3ecc7db3ea9efb12751fdfd5f2fe4ff8bab47fa3b0e6a287c67f9843a0fd4"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/LICENSE",
+      "sha256": "a6946284993aeec75c7d75906064b66210c46051e562077efb30eb6dcfe72e26"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
+      "sha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/explore-data/SKILL.md",
+      "sha256": "af7590fa616360259da712b5ede5f79b817beb854c47a465f95774354988e8a2"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/statistical-analysis/SKILL.md",
+      "sha256": "91a15cfc144efffcd622b09827362a73993a3ff30e3a78114801832477c9f8a0"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/validate-data/SKILL.md",
+      "sha256": "1e424822043480375b80aef9416227b1c8083af749ca536568716265f79ca54b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/source_projection.py",
+      "sha256": "5dd7413441ef48b41db1978706be15e6064fbd8172a68835f67ae4fe01514f40"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/source_snapshots.py",
+      "sha256": "2b05df6cce8dc0bff83cfaa1e3698bf916d2f694a7cecec19eeb1ac22130ef96"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/traffic_contract.py",
+      "sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/transport.py",
+      "sha256": "1609bd2275d0add327c622f40b0d5ed663bdee77e48f6bf787d8d7e19207cc7c"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/custom-range/custom_range.py",
+      "sha256": "75752cca128c541c60cb09c8be48866446df3cc1b08c48437bf842921883c5dc"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "sha256": "d99ac3cdacc6212a92f5d0899451cf7a4668af7e3d0a2674cff6c832c60b245a"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/collect_details.py",
+      "sha256": "a180a6567ea8beb954ea5a1d85812103f0bf2361346fbbcf4cea3774c2a00598"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/detail_model.py",
+      "sha256": "006342349ef7618d91d9c06a38b85a3467a4715bc897f494b547703b60b8bd83"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/traffic_contract.py",
+      "sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62"
+    },
+    {
+      "path": "/var/lib/fs-dashboard-release/current.json",
+      "sha256": "d6e3a948d9553ebb1a443ca4cad9f7e417c289b670d2c02c9e6a739f1c7255f5"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/desktop-business-context.md",
+      "sha256": "e6a7581fbe80ac9f5ac02df151638e466ce3cf0be3e0836fd5a8ec30fb3b29df"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/maintenance-resume-20261017.json",
+      "sha256": "d44dd8ee66822fd6f3d927deedff6d47aef70c13611ab0aea47466281e9a9320"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/fs/nightly-schedule.json",
+      "sha256": "505170993c2c147645a4c3f5966317ef0ce712e5ff4cfc2a8d69cc50999936d6"
+    },
+    {
+      "path": "/var/lib/fs-hermes-fc/profile/memories/MEMORY.md",
+      "sha256": "80be337367458d4366820bb9fff008354dc018e3696c45650e6a5f77fc252df1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/business.css",
+      "sha256": "e04751bafbfe3ae3ff706ee55c313d4578337f5fd02cc8d1556c9b489d6b90bd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/google.css",
+      "sha256": "7e14ca26d04d4e9b3552c3bd796f614fd8de427fa7e1e9fae018750db1dfbc24"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js",
+      "sha256": "b9fa6f6a30fafab089db7a9b7d3f5190c08ca05b8232b57064cd5171cbe54910"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css",
+      "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css",
+      "sha256": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui/native-alias.css",
+      "sha256": "6765bc2397e7132647ff02c5df93cf986aaaf23ec2cb5db1cfb273e11b4157ff"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/workspace.css",
+      "sha256": "c08de4e8db104444446cba0012c857a744e0807fb06abea733049d7534c3f239"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/business.js",
+      "sha256": "e95548755887f5cb029cb35cb4d23cdeffab9601fe4476d3d50cfc0968207af2"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/google.css",
+      "sha256": "0742c8bfd65d39686b524db6c3a497bf4085aceec13bc8bf7502143b41bb1f65"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/google.js",
+      "sha256": "6f7d95bd6d5da68203412115f9557ec88363509aedae520efba4733508f3393d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/home.html",
+      "sha256": "060206efddb59d3b1167162304f96fa4661d3a962f14972d6d91630496312d7b"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/index.html",
+      "sha256": "b7e0c7373723d9df86c3a84ba9101cc9d84ad99eee5808377faa63967d525880"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-b3d7dec21712/shell.js",
+      "sha256": "f200ceda30454a08c8f4d1e78eaee3f7aebf931ea8b3bdbe0f1bc94702ddd636"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/business.html",
+      "sha256": "82ea9b8f540ff54d2ce90b6e37802df72d5a8e8f7b0f28f71bd666441db00537"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/google.html",
+      "sha256": "df2bb278dd979cf995d1f6d5e7322cb81a667a772c8754091b88541fb46fd493"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/home.html",
+      "sha256": "ff05e65f207773a3e1fb4fb0cdc51ac526e3706d9397a22804b472e6fb9bd463"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/index.html",
+      "sha256": "898404303af0614f0be818a119b1a9d663e11cbcb6e3da4246718193f90d9249"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/navigation.json",
+      "sha256": "496fe59571e43c1afeb584caafee6cdcd86f8e09bcc70477e7ca7e0f695db5fd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/runtime.js",
+      "sha256": "7d021464703e02dbd879fa1c4eede18f948416e15998b9531bab8d2e4607c41c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/shell.js",
+      "sha256": "535a6817f2dc9dc41cbf30fe9b277c091934ab24f1d61649b2ba56b67d1f646e"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/workspace.css",
+      "sha256": "c08de4e8db104444446cba0012c857a744e0807fb06abea733049d7534c3f239"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-e0654eaced60/business.js",
+      "sha256": "32ee2e8f4dc95446a5c32e5d8a3dd167da83c3d6ac0c391abf1a198c520436dc"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-e0654eaced60/google.js",
+      "sha256": "c7aa916bfb10dd015c7968b588168b9dbe4e6de720210ca8ded22227cf0bee50"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-e0654eaced60/home.html",
+      "sha256": "535eb3f7736b60ecdbd229e45f140468737df6aa3d005c8fa5400015358d40fe"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-e0654eaced60/index.html",
+      "sha256": "67c5e38dca275625527a42742af1a1a116289a12b9ca91840b34b66e34171431"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-e0654eaced60/shell.js",
+      "sha256": "fb27ea42dbfb86183d84dd1e35131a1397aecaeb9826fcecce07b395f7cec5be"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/brain/brain.js",
+      "sha256": "677626925dc735cbaaea6307e128a7d2bed83a3d751b6a97a7d6d1bb41fd3242"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/hermes/index.html",
+      "sha256": "068fb92c8960d18276f22bf0ed61a32477cc7b7e0edc96c77c5a4a3827946a51"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "730668ca6afdc238a66d3ab2156f694fdc94a1001e309740824ccbb4948104b2"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "2cdf5b550ddee42709967f5defad1e8c0efc7c480b91588939536cbf1a20e95a"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba"
+    }
+  ],
+  "baselinePending": [],
+  "archivePolicy": {
+    "path": "/var/lib/fc27-es-exports",
+    "delete_existing": false,
+    "max_bytes": 536870912,
+    "max_files": 512
+  },
+  "esAttemptPolicy": "existing attempts require read-only reconciliation before session restart",
+  "sourceVersionKind": "base-plus-reviewed-patch",
+  "patchSourceSha256": "95e37110550012389488b4f639fe206391aaf8ec600b222a4611e6d1fdb6faac"
+}

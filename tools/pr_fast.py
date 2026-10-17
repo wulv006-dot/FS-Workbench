@@ -299,6 +299,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
+            groups.add("admin-data-tools");continue
         if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
             groups.add("hermes-report-method");continue
         if name.startswith("releases/fs-dashboard/hermes-full-html-task-20261017/"):
@@ -800,6 +802,8 @@ def main():
             node("releases/fs-dashboard/traffic-content-details-20261017/tests/check_content.cjs")
         elif group=="hermes-report-theme":
             node("releases/fs-dashboard/hermes-report-theme-20261017/tests/theme-print.cjs")
+        elif group=="admin-data-tools":
+            units("releases/fs-dashboard/admin-data-tools-20261018",["test_admin_data_tools","test_publisher_boundary"])
         elif group=="traffic-hermes":
             units("mmoexp_google_data/details",["test_details"])
             units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
