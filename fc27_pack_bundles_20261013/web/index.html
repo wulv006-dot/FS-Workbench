@@ -44,6 +44,8 @@ table.pl tr.warn-row td{color:var(--muted)}
 /* ── 主操作按钮：与 FC 改价台同款蓝渐变实心 ── */
 .button.primary{background:linear-gradient(180deg,#0a80f0,#0071e3);border-color:#0071e3;color:#fff;font-weight:600;box-shadow:0 2px 8px -4px rgba(0,113,227,.7)}
 .button.primary:hover{background:linear-gradient(180deg,#1a8bf5,#0a77e6);border-color:#0a77e6}
+.button.danger{background:var(--panel);border-color:#f0b4bd;color:#d70015}
+.button.danger:hover{background:#fff5f7;border-color:#d70015}
 .badge.st-skip{background:var(--soft);color:var(--muted)}
 .badge.st-written{background:#e6f6ec;color:#1e8e4e}
 .badge.st-planned{background:#fff6e0;color:#b07d1a}
@@ -155,7 +157,7 @@ function bundleCard(b){
     return '<tr'+(p.status==="no_price"?' class="warn-row"':'')+'><td class="l">'+esc(p.position||"—")+'</td><td class="l">'+esc(p.name)+(p.rating?' <span class="num-k">'+p.rating+"</span>":"")+'</td><td>'+esc(p.futbin_id)+'</td><td class="num-k">'+coinsK(p.ps_coins)+'</td><td class="num-k">'+coinsK(p.pc_coins)+'</td><td>'+money(p.ps_strike)+' <span class="num-k">/ '+money(p.ps_actual)+"</span></td><td>"+money(p.pc_strike)+' <span class="num-k">/ '+money(p.pc_actual)+"</span></td></tr>"}).join("");
   function sumBlk(tag,d){if(!d)return '<div class="blk"><small>'+tag+'</small><b>—</b></div>';
     return '<div class="blk"><small>'+tag+' · 页面原价</small><b><span class="price-orig">'+money(d.orig)+'</span></b><br><small>页面售价 <span class="price-main">'+money(d.sale)+'</span> · 对比实际让利 '+d.discount_vs_actual_pct+"%</small></div>"}
-  el.innerHTML='<div class="bundle-head"><h2>'+esc(b.title)+'</h2>'+warn+'<span class="meta">'+b.players_count+" 名球员 · 有效 "+b.players_ok+'</span><span class="actions"><button class="button" data-act="edit">编辑</button></span></div>'+
+  el.innerHTML='<div class="bundle-head"><h2>'+esc(b.title)+'</h2>'+warn+'<span class="meta">'+b.players_count+" 名球员 · 有效 "+b.players_ok+'</span><span class="actions"><button class="button" data-act="edit">编辑</button><button class="button danger" data-act="del">删除</button></span></div>'+
    '<table class="pl"><thead><tr><th class="l">位置</th><th class="l">球员</th><th>Futbin ID</th><th>PS/Xbox 金币</th><th>PC 金币</th><th>PS 划线/实际</th><th>PC 划线/实际</th></tr></thead><tbody>'+rows+"</tbody></table>"+
    '<div class="sum-row">'+sumBlk("PS/Xbox",b.ps)+sumBlk("PC",b.pc)+"</div>";
   var prods=b.products||{};
@@ -164,9 +166,89 @@ function bundleCard(b){
     var tgtTxt=tgt?("→ 原价 "+money(tgt.orig)+" / 售价 "+money(tgt.sale)):"";
     return '<span class="badge" style="background:var(--bg)">'+p.toUpperCase()+' <input type="text" class="prod-id" data-plat="'+p+'" value="'+(pid||"")+'" style="width:110px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--bg);color:var(--ink)"></span> '+tgtTxt}
   ).join("");
-  el.innerHTML+='<div class="prod-line"><b style="font-size:12px">Admin 产品（站点-ALL）：</b>'+pline+'</div>';
+  // 写价就绪状态（与人数无关：只看"配置的球员是否都有价"）
+  var ready=[],blocked=[],unbound=[];
+  ["ps","xbox","pc"].forEach(function(p){
+    if(!prods[p]){unbound.push(p.toUpperCase());return}
+    var d=(p==="pc")?b.pc:b.ps;
+    if(d&&d.players_counted===d.players_expected)ready.push(p.toUpperCase());
+    else if(d)blocked.push(p.toUpperCase()+"("+(d.players_expected-d.players_counted)+"人无价)");
+  });
+  var statTxt='',statColor="var(--muted)";
+  if(!Object.keys(prods).length){statTxt="未绑定产品：点「自动发现」按标题自动匹配";statColor="#b25000"}
+  else if(blocked.length){statTxt="⚠️ "+blocked.join(" ")+" → 暂不写价（删掉无价球员行即可恢复；人数不限，2 人起即可成包）";statColor="#b25000"}
+  else{statTxt="✅ 写价就绪："+ready.join("/")+"（自动采集后会更新这几项）";statColor="#0a8f4d"}
+  el.innerHTML+='<div class="prod-line"><b style="font-size:12px">Admin 产品（站点-ALL）：</b>'+pline+
+    '<button class="button" data-act="discover" style="padding:3px 10px;font-size:12px">自动发现</button>'+
+    '<button class="button primary" data-act="saveprod" style="padding:3px 10px;font-size:12px">保存绑定</button>'+
+    '<span class="prod-state meta" style="font-size:11.5px;color:var(--muted);flex-basis:100%"></span>'+
+    '<span style="font-size:11.5px;color:'+statColor+';flex-basis:100%">'+esc(statTxt)+"</span></div>";
   el.querySelector('[data-act=edit]').onclick=function(){openEditor(b)};
+  el.querySelector('[data-act=del]').onclick=function(){deleteBundle(b)};
+  el.querySelector('[data-act=discover]').onclick=function(){discoverBindings(b.id)};
+  el.querySelector('[data-act=saveprod]').onclick=function(){saveBindings(b.id)};
   return el;
+}
+function configPayload(bundles){
+  return {expected_revision:STATE.revision,settings:STATE.settings,
+          bundles:bundles.map(function(x){return {id:x.id,title:x.title,
+            players:(x.players||[]).map(function(p){return {futbin_id:p.futbin_id,position:p.position}}),
+            products:x.products||{}}})};
+}
+async function saveConfig(bundles,okMsg){
+  try{
+    await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(configPayload(bundles))});
+    return {ok:true};
+  }catch(e){
+    if(e.status===409||e.message==="revision_conflict"){
+      await load();   // 配置已被其它操作更新 → 自动同步最新 revision
+      return {ok:false,conflict:true,msg:"配置刚被其它操作更新（可能你另开了页面或点了别的保存），已自动同步——请再点一次保存"};
+    }
+    return {ok:false,msg:e.message};
+  }
+}
+async function deleteBundle(b){
+  if(!confirm("确认从工具中删除「"+b.title+"」？\n\n· 仅从本工具移除：不再采集该包、不再自动改价\n· 不删除后台产品，后台的过期/下架操作请照旧进行\n· 如需恢复，重新新建并「自动发现」即可"))return;
+  var left=(STATE.bundles||[]).filter(function(x){return x.id!==b.id});
+  var r=await saveConfig(left);
+  if(r.ok){toast("已删除「"+b.title+"」");load()}
+  else{toast(r.msg)}
+}
+async function discoverBindings(bid){
+  var card=document.querySelector(".bundle-card[data-bid='"+bid+"']");if(!card)return;
+  var b=(STATE.bundles||[]).filter(function(x){return x.id===bid})[0];if(!b)return;
+  var st=card.querySelector(".prod-state");
+  st.style.color="";st.textContent="正在匹配后台产品（首次需登录，约 5~10 秒）…";
+  try{
+    var r=await api("/api/discover-products",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({bundle_id:bid,title:b.title})});
+    ["ps","xbox","pc"].forEach(function(p){
+      var inp=card.querySelector(".prod-id[data-plat='"+p+"']");
+      if(inp&&r.matched[p])inp.value=r.matched[p];
+    });
+    if(r.matched_title){
+      st.style.color="#0a8f4d";
+      st.textContent="已匹配后台产品「"+r.matched_title+"」"+(r.unmatched.length?("（缺 "+r.unmatched.join("/").toUpperCase()+"，请核对）"):"")+" → 点「保存绑定」生效";
+    }else{
+      st.style.color="#b25000";
+      st.textContent="未找到同名产品（已扫 "+r.scanned+" 条）。后台现有："+(r.candidates||[]).slice(0,6).join(" / ")+(r.candidates.length>6?" …":"");
+    }
+  }catch(e){st.style.color="#c0392b";st.textContent="自动发现失败："+apiErrMsg(e)}
+}
+async function saveBindings(bid){
+  var card=document.querySelector(".bundle-card[data-bid='"+bid+"']");if(!card)return;
+  var prods={};
+  Array.prototype.forEach.call(card.querySelectorAll(".prod-id"),function(inp){
+    var v=parseInt(inp.value,10);if(v>0)prods[inp.getAttribute("data-plat")]=v;
+  });
+  var bundles=(STATE.bundles||[]).map(function(x){
+    return {id:x.id,title:x.title,players:x.players,
+            products:x.id===bid?prods:(x.products||{})};
+  });
+  var res=await saveConfig(bundles);
+  if(res.ok){toast("绑定已保存：PS "+(prods.ps||"—")+" / Xbox "+(prods.xbox||"—")+" / PC "+(prods.pc||"—"));load()}
+  else{toast(res.msg)}
 }
 /* ---------- 编辑器 ---------- */
 function openEditor(b){
@@ -215,13 +297,29 @@ $("#dlg-close").onclick=$("#dlg-cancel").onclick=function(){$("#editor").close()
 $("#add-row").onclick=function(){addRow("","")};
 $("#dlg-save").onclick=async function(){
   var title=$("#f-title").value.trim();
-  var rows=Array.prototype.map.call(document.querySelectorAll("#p-rows .p-row"),function(w){
-    return {futbin_id:parseInt(w.querySelector(".fid").value,10),position:w.querySelector(".pos").value.trim()}});
   var err=$("#dlg-err");
   if(!title){err.textContent="标题不能为空";return}
-  if(rows.some(function(r){return !r.futbin_id||r.futbin_id<=0})){err.textContent="有行的 Futbin ID 无效";return}
+  // ★ 逐行读取：**完全空白**的行自动忽略（加了行没填不该卡住保存）；
+  //   半填（填了位置却没填 ID）→ 报出**第几行**，而不是笼统"有行的 ID 无效"。
+  var raw=Array.prototype.map.call(document.querySelectorAll("#p-rows .p-row"),function(w,i){
+    var idTxt=w.querySelector(".fid").value.trim();
+    return {idx:i+1,idTxt:idTxt,position:w.querySelector(".pos").value.trim(),
+            futbin_id:parseInt(idTxt,10)};
+  });
+  var rows=[],bad=null;
+  raw.forEach(function(r){
+    if(!r.idTxt&&!r.position)return;              // 全空 → 忽略
+    if(!(r.futbin_id>0)){if(!bad)bad=r;return}
+    rows.push({futbin_id:r.futbin_id,position:r.position});
+  });
+  if(bad){err.textContent="第 "+bad.idx+" 行的 Futbin ID 无效（只有位置没填 ID，或不是数字）";return}
+  if(rows.length<2){err.textContent="至少需要 2 名球员（最少 2 人成包；人数不限上限）";return}
+  var seen={};
+  for(var i=0;i<rows.length;i++){
+    if(seen[rows[i].futbin_id]){err.textContent="第 "+(i+1)+" 行的 Futbin ID "+rows[i].futbin_id+" 与前面重复，请去重";return}
+    seen[rows[i].futbin_id]=1;
+  }
   var bundles=JSON.parse(JSON.stringify(STATE.bundles||[]));
-  var payload={expected_revision:STATE.revision,bundles:bundles,settings:STATE.settings};
   function readProds(scope){
     var out={};
     Array.prototype.forEach.call(document.querySelectorAll(scope+" .prod-id"),function(inp){
@@ -229,6 +327,7 @@ $("#dlg-save").onclick=async function(){
     });
     return out;
   }
+  var newId=null;
   if(EDITING){
     var found=bundles.filter(function(x){return x.id===EDITING.id})[0];
     if(!found){err.textContent="原捆绑包不存在（已被删除？）";return}
@@ -239,12 +338,14 @@ $("#dlg-save").onclick=async function(){
     var base=(title.replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-+|-+$/g,"").toLowerCase()||"bundle").slice(0,40);
     var id=base,n=1;while(bundles.some(function(x){return x.id===id})){id=base+"-"+(++n)}
     bundles.push({id:id,title:title,players:rows,products:{}});
+    newId=id;
   }
-  payload.bundles=bundles.map(function(x){return {id:x.id,title:x.title,players:x.players,products:x.products||{}}});
-  try{
-    await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    $("#editor").close();toast("已保存");load();
-  }catch(e){err.textContent="保存失败："+e.message}
+  var res=await saveConfig(bundles);
+  if(!res.ok){err.textContent="保存失败："+res.msg;return}
+  $("#editor").close();
+  if(newId){toast("已保存，正在自动匹配后台产品…");setTimeout(function(){discoverBindings(newId)},600)}
+  else{toast("已保存")}
+  load();
 };
 $("#save-interval").onclick=async function(){
   var v=parseFloat($("#interval").value);
