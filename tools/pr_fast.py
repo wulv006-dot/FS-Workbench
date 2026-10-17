@@ -247,6 +247,8 @@ def selfcheck():
         raise RuntimeError("fs_admin_view_mapping_missing")
     if select(["releases/fc-coins/lootbar-spec-repair-20261009/fc27_chrome_collector/lootbar_server_collector.py"]) != ["fc-lootbar"]:
         raise RuntimeError("lootbar_mapping_missing")
+    if select(["releases/fc-coins/prewrite-recovery-20261012/source/monitor/read_only_status.py"]) != ["fc-prewrite"]:
+        raise RuntimeError("fc_prewrite_scope_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
         raise RuntimeError("fc_noncore_scope_missing")
     if select(["releases/fc-coins/public-readback-retry-20261009/fc27_cloud_browser/fc27_cloud_worker.py"]) != ["fc-public-readback"]:
@@ -386,6 +388,8 @@ def select(paths):
             groups.add("fs-order-latency");continue
         if name.startswith("releases/fs-dashboard/business-live-20261010/"):
             groups.add("fs-business-live");continue
+        if name.startswith("releases/fc-coins/prewrite-recovery-20261012/"):
+            groups.add("fc-prewrite");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
         if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
@@ -482,6 +486,10 @@ def main():
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
+        elif group=="fc-prewrite":
+            release="releases/fc-coins/prewrite-recovery-20261012"
+            for name in ("test_monitor","test_publishers"):
+                units(release+"/tests",[name])
         elif group=="fc-noncore":
             release="releases/fc-coins/noncore-emergency-20261009"
             for name in ("test_pipeline","test_selfheal","test_monitor","test_publishers"):
