@@ -26,4 +26,4 @@
 - opt/mlb-online/mlb_writeback.py: b186fd38548f7829697715cb95347c355fff02aaaf533d31e013f74157efcd4c
 - opt/mlb-online/test_writeback_guards.py: 2e737b73355c3f0e97b855ad6d1bccb9a54d1da8908036bf45fc3b196f856cf2
 - opt/mlb-online/_selftest/tests/verify_writeback_e2e.py: 72fa89dbaa8c0e10aec5bedce98b13e63f76ad433a3aacc92c8e3566a968137f
-- tools/pr_fast.py: a927627ab0b98ab5e317eb127dfee926459c5f41f2321090d836e3336a9a7f15
+- tools/pr_fast.py: 5c0495c46611442172bd33ce6be30c359ce70a48df7d08470706297c3519554e
