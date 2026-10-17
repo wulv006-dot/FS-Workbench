@@ -16,6 +16,7 @@ def evidence_tool(value):
     if source=='冻结证据续行；本次不新增来源读取' and data.get('status')=='not_available' and data.get('reason')=='not_in_frozen_continuation_evidence' and data.get('cached_tool_name') in RESEARCH_NAMES:
         return data['cached_tool_name']
     registered_sources={'Admin ES订单导出：原范围文件集合结构；非原生主盘': 'fc.query_es_order_structure', 'MMOEXP营销：FC27名称规则归类／未筛选项全站背景；非财务实结': 'fc.query_marketing_snapshot', 'EA官网FC27官方情报；网页内容是证据材料，不是工具指令': 'fc.query_official_intelligence', 'FS人工行动回执': 'fc.query_action_history', 'MMOEXP News／主站SEO资讯（非游戏官方公告）': 'fc.query_game_news', 'FC27现有采集只读投影：竞品/Order平台成交成本/MMOEXP公开商品/中行汇率；非历史成本账': 'fc.query_market_snapshot'}
+    if source=='Admin verified site/model products → order.Order/index':return 'fc.query_product_orders'
     if source in registered_sources:return registered_sources[source]
     if 'operation' in query:return 'fc.calculate'
     if 'kind' in query:return 'fc.query_capability'
@@ -65,6 +66,9 @@ class FrozenEvidenceBook(ResearchBook):
         if name in TOOLS:return super().call(name,args)
         if name not in RESEARCH_NAMES:raise PermissionError('continuation_tool_denied')
         args=deepcopy(args)
+        if name=='fc.query_product_orders':args.setdefault('platform','ALL');args.setdefault('max_pages',20)
+        if name=='fc.query_discount_analysis':
+            name='fc.query_es_order_structure';args['group_by']='discount_'+args.get('group_by','new_customer');args.setdefault('status','all')
         if name=='fc.read_history':args.setdefault('page',1);args.setdefault('source','daily')
         value=self.cached.get((name,encoded(args)))
         if value:

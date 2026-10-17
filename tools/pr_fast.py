@@ -793,7 +793,7 @@ def main():
             units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
             node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
         elif group=="hermes-report-method":
-            units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input"])
+            units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
             node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")
         elif group=="hermes-full-html":
             units("releases/fs-dashboard/hermes-full-html-task-20261017/tests",["test_html_design"])
