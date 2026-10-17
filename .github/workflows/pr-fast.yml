@@ -25,6 +25,16 @@ jobs:
           python-version: '3.9.18'
           architecture: x64
           check-latest: false
+      - name: Prepare existing Players image dependency
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^fc27_players_cloud/(player_web/|tests_cloud/)'; then
+            python -m pip install --disable-pip-version-check --no-deps Pillow==9.0.1
+          fi
       - name: Prepare affected browser check
         shell: bash
         env:

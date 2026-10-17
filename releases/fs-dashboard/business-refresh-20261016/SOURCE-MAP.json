@@ -1,0 +1,37 @@
+{
+  "scope": "github-backfill-only",
+  "serverChanged": false,
+  "evidence": "2026-10-17 independent read-only audit; no runtime data included",
+  "files": [
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/source/live_summary.py",
+      "runtime": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "e89497a18cfaaf4ca375524a7c294bedbe40983a56123886586b1ead58c90e3e",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/source/business.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/business.js",
+      "sha256": "ec074d393b3fb38446f2eca03bbc0f7ac81f7511fcb1c67db694a553842a4d66",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/shell.js",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/shell.js",
+      "sha256": "535a6817f2dc9dc41cbf30fe9b277c091934ab24f1d61649b2ba56b67d1f646e",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/index.html",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/index.html",
+      "sha256": "898404303af0614f0be818a119b1a9d663e11cbcb6e3da4246718193f90d9249",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fs-dashboard/business-refresh-20261016/assets/home.html",
+      "runtime": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-ba0a83afd594/home.html",
+      "sha256": "ff05e65f207773a3e1fb4fb0cdc51ac526e3706d9397a22804b472e6fb9bd463",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    }
+  ]
+}

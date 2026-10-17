@@ -1,0 +1,19 @@
+{
+  "scope": "github-backfill-only",
+  "serverChanged": false,
+  "evidence": "2026-10-17 independent read-only audit; no runtime data included",
+  "files": [
+    {
+      "source": "releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/lootbar_server_collector.py",
+      "runtime": "/opt/fc27-cloud-browser/collector/lootbar_server_collector.py",
+      "sha256": "3c53cdad71fa9c77c1dc58e0d136026c62cb4e8a7151f3ac7a72ca733cf8d5ac",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    },
+    {
+      "source": "releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/background.js",
+      "runtime": "/opt/fc27-cloud-browser/collector/background.js",
+      "sha256": "4f36ad8a9723039912727f64bb6a3f20da0c657dc2a57105c4fb4d8faa6cf67b",
+      "observedAt": "2026-10-17 11:10 Asia/Shanghai"
+    }
+  ]
+}

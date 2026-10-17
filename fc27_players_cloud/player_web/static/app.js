@@ -21,12 +21,13 @@
     return raw ? response : response.json();
   }
   async function status() {
-    const data=await api("/api/status"); state.write=page==="new"?!!data.new_card_write_enabled:!!data.write_enabled;
+    const data=await api("/api/status"); state.write=page==="new"?!!data.new_card_write_enabled:!!data.write_enabled; state.recommendWrite=!!data.existing_recommend_write_enabled;
     const latest=data.last_successful_collection;
     const sourceLabel=data.source_transport==="http_explicitly_approved"?"现有数据库（已批准只读使用）":data.source_transport==="http_unverified"?"来源未批准，上新被阻断":"HTTPS 数据库";
-    msg("status","采集 "+(data.collector_enabled?"已启用":"关闭")+" · "+(page==="new"?"手动上新 ":"模型维护写入 ")+(state.write?"已开放":"关闭")+(page==="models"&&data.model_image_write_enabled?" · 图片绑定已开放":"")+" · "+sourceLabel+" · 后台 "+(data.backend_authenticated?"已登录":"未登录")+" · 最新候选 "+(latest?.total??"—")+" 条");
+    msg("status","采集 "+(data.collector_enabled?"已启用":"关闭")+" · "+(page==="new"?"手动上新 ":"模型维护写入 ")+(state.write?"已开放":"关闭")+(page==="models"&&state.recommendWrite?" · 手动开启推荐已开放":"")+(page==="models"&&data.model_image_write_enabled?" · 图片绑定已开放":"")+" · "+sourceLabel+" · 后台 "+(data.backend_authenticated?"已登录":"未登录")+" · 最新候选 "+(latest?.total??"—")+" 条");
     const wasAuthenticated=state.auth;
     state.auth=!!data.backend_authenticated;
+    updateConfirm();
     renderAuth();
     document.dispatchEvent(new CustomEvent("fc27players:context",{detail:{csrf:state.csrf,role:state.role,auth:state.auth,snapshot:data.latest_model_snapshot?.snapshot_id||"",imageWrite:!!data.model_image_write_enabled}}));
     if(wasAuthenticated&&!state.auth)msg("authMessage","后台会话已结束，请重新登录。","warn");
@@ -53,7 +54,12 @@
   async function challenge() { try {const data=await api("/api/auth/challenge","POST",{});state.challenge=data.challenge_id;$("captchaImage").src=prefix+data.image_url;$("captchaImage").hidden=false;msg("authMessage","请填写后台账号、密码和验证码。");}catch(e){msg("authMessage",e.message,"error");} }
   async function login() { try {const data=await api("/api/auth/login","POST",{challenge_id:state.challenge,username:$("username").value,password:$("password").value,captcha:$("captcha").value});$("password").value="";$("captcha").value="";$("captchaImage").hidden=true;state.challenge="";state.csrf=data.csrf;msg("authMessage","后台登录成功。","ok");await status();if(page==="new")await loadCandidates();else await loadModels();}catch(e){$("password").value="";msg("authMessage",e.message,"error");} }
   async function logout() { try {await api("/api/auth/logout","POST",{});state.auth=false;$("password").value="";$("captcha").value="";$("captchaImage").hidden=true;state.challenge="";clearPlan("后台已退出；计划需重新生成。");await status();msg("authMessage","已退出后台。","ok");}catch(e){msg("authMessage",e.message,"error");} }
-  function updateConfirm() {$("confirm").disabled=!(state.write&&state.plan&&!state.plan.blockers?.length&&$("scopeChecked").checked);}
+  function updateConfirm() {
+    const plan=state.plan,canWrite=state.write||(page==="models"&&plan?.kind==="existing_action"&&plan.action==="recommend_enable"&&state.recommendWrite);
+    const reason=!plan?"请先生成完整计划。":state.role!=="admin"?"当前身份只读。":!state.auth?"请先登录 P2PAH 后台。":!canWrite?"当前动作尚未开放写入。":plan.blockers?.length?"计划有阻断项；不能确认。":Date.parse(plan.expires_at)<=Date.now()?"计划已过期，请重新预览生成。":!$("scopeChecked").checked?"请勾选已核对完整范围和动作。":"";
+    $("confirm").disabled=!!reason; $("confirm").title=reason;
+    if(plan&&$("scopeChecked").checked&&reason)msg("planMessage",reason,"warn");
+  }
   async function confirmPlan() {
     if(!state.plan||!$("scopeChecked").checked)return;
     try {const data=await api("/api/plans/"+state.plan.plan_id+"/confirm","POST",{confirmed:true,plan_digest:state.plan.plan_digest});msg("planMessage","已创建持久任务 "+data.execution_id+"；请核对逐模型回读。","ok");$("confirm").disabled=true;await loadJobs();await showJob(data.execution_id);}catch(e){msg("planMessage",e.message,"error");}

@@ -1,5 +1,8 @@
 # 仓库与模块状态快照
 
+2026-10-17局部更新：已上线修复回补及剩余清单见 [SERVER-GITHUB-BACKFILL](SERVER-GITHUB-BACKFILL-20261017.md)。PR #193/#64/#110已按最新组合CI合并；当前FC浏览器、结果页、今日经营刷新、Players cloud10与FC运营前端在本次独立回补中归档。Hermes交原聊天，不在此页宣称其最终验收；下方10/8为历史快照。
+
+
 更新：2026-10-08 01:13:40 UTC；本轮Git观察基线 `7154ba13288accff164b717f1f3ad86a4e25ad31`。GitHub refs/PR本次直接读取；生产结果引用下述既有验收，不是本轮重新连服务器。执行规则只见 [HOTFIX](../ops/HOTFIX.md)，状态不是授权。
 
 ## GitHub与候选清理

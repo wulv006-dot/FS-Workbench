@@ -169,6 +169,7 @@ class App:
                     "write_enabled": self.settings.write_enabled,
                     "new_card_write_enabled": self.settings.new_card_write_enabled,
                     "model_image_write_enabled": self.settings.model_image_write_enabled,
+                    "existing_recommend_write_enabled": self.settings.existing_action_write_enabled("recommend_enable"),
                 }, cookie_headers)
             if method == "GET" and path == "/api/status":
                 return self._json(start, "200 OK", {
@@ -180,6 +181,7 @@ class App:
                     "write_enabled": self.settings.write_enabled,
                     "new_card_write_enabled": self.settings.new_card_write_enabled,
                     "model_image_write_enabled": self.settings.model_image_write_enabled,
+                    "existing_recommend_write_enabled": self.settings.existing_action_write_enabled("recommend_enable"),
                     "source_transport": self.settings.source_transport,
                     "source_freshness": "unknown",
                     "backend_authenticated": self._session(session_key) is not None,
@@ -403,7 +405,9 @@ class App:
                 plan_id = path.split("/")[3]
                 plan = self.repository.get_plan(plan_id, owner)
                 can_write = self.settings.write_enabled
-                if plan.get("kind") == "new_cards":
+                if plan.get("kind") == "existing_action":
+                    can_write = self.settings.existing_action_write_enabled(plan.get("action"))
+                elif plan.get("kind") == "new_cards":
                     can_write = self.settings.new_card_write_enabled
                     if can_write:
                         verify_source_policy(self.settings, plan)

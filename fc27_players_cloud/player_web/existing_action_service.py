@@ -118,7 +118,7 @@ def _verify_model(client: Any, item: Mapping[str, Any]) -> ExistingModelRow:
 
 def execute_existing_action(settings: Settings, repository: Repository, client: Any,
                             execution_id: str, plan: Mapping[str, Any], stop_event: Any = None) -> None:
-    if not settings.write_enabled or (settings.data_root / "STOP_WRITES").exists():
+    if not settings.existing_action_write_enabled(plan.get("action")) or (settings.data_root / "STOP_WRITES").exists():
         raise StateError("WRITE_DISABLED")
     if plan.get("kind") != "existing_action" or plan.get("action") not in ACTIONS or plan.get("blockers"):
         raise StateError("PLAN_BLOCKED")
