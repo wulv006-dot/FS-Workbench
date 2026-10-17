@@ -297,4 +297,27 @@ class ExportTests(unittest.TestCase):
         code,value=service.get(params,'viewer');self.assertEqual(code,200);self.assertEqual(value['status'],'unavailable')
         self.assertEqual(service.get(dict(params,sql=['bad']),'viewer')[0],422)
 
+    def test_live_six_field_handler_routes_default_profile_and_rejects_bad_profile(self):
+        from urllib.parse import urlsplit,parse_qs,urlencode
+        tree=ast.parse((SOURCE/'controller.py').read_text('utf-8'));cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='HermesService');method=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='get')
+        ns={};exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(name='Service',bases=[],keywords=[],body=[method],decorator_list=[])],type_ignores=[])),'actual-controller','exec'),ns)
+        service=ns['Service']();service.detail=SimpleNamespace(config={'enabled':False},pool=None)
+        handler_ns={'urlsplit':urlsplit,'parse_qs':parse_qs,'HERMES':service}
+        # AST-extracted actual shared-range-live Handler.do_GET; no runtime data.
+        fixture="class Handler:\n\n    def do_GET(self):\n        uri = urlsplit(self.path)\n        if uri.path == '/health':\n            self.reply(200, {'ok': True, 'service': 'fs-business-range', 'readonly': True})\n            return\n        if not self.headers.get('X-Auth-User'):\n            self.reply(401, {'error': 'login_required'})\n            return\n        if uri.path == '/advisor' and parse_qs(uri.query).get('mode') == ['hermes']:\n            if HERMES is None:\n                self.reply(503, {'error': 'hermes_not_enabled'})\n                return\n            try:\n                status, data = HERMES.get(parse_qs(uri.query, keep_blank_values=True, max_num_fields=6), self.headers.get('X-Auth-User'))\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'hermes_unavailable'})\n            return\n        if uri.path == '/advisor':\n            try:\n                status, data = ADVISOR.get(parse_qs(uri.query, keep_blank_values=True, max_num_fields=8), self.headers.get('X-Auth-User'))\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'advisor_unavailable'})\n            return\n        if uri.path != '/range':\n            self.reply(404, {'error': 'not_found'})\n            return\n        params = parse_qs(uri.query, keep_blank_values=True)\n        if params.get('mode') == ['fc-daily']:\n            try:\n                status, data = FC_DAILY.get(params, self.headers.get('X-Auth-User'), self.headers)\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'daily_report_unavailable'})\n            return\n        try:\n            status, data = get_range(parse_qs(uri.query, keep_blank_values=True))\n            self.reply(status, data)\n        except LookupError:\n            self.reply(409, {'error': 'catalog_changed'})\n        except (ValueError, KeyError, AssertionError):\n            self.reply(422, {'error': 'invalid_or_uncovered_range'})\n        except Exception:\n            self.reply(503, {'error': 'query_unavailable'})"
+        self.assertIn('max_num_fields=6',fixture)
+        exec(compile(fixture,'live-handler-ast','exec'),handler_ns);handler=handler_ns['Handler']();replies=[];handler.reply=lambda *args:replies.append(args)
+        query={'mode':'hermes','structure':'es','start':'2026-10-15','end':'2026-10-15','group_by':'source_game','status':'all'}
+        handler.path='/advisor?'+urlencode(query);handler.headers={};handler.do_GET();self.assertEqual(replies[-1][0],401)
+        handler.headers={'X-Auth-User':'viewer'};handler.do_GET();self.assertEqual(replies[-1][0],200);self.assertEqual(replies[-1][1]['status'],'unavailable')
+        for profile in ('FC26',''):
+            bad={k:v for k,v in query.items() if k!='status'};bad['profile']=profile
+            handler.path='/advisor?'+urlencode(bad);handler.do_GET();self.assertEqual(replies[-1][0],422)
+        unknown={k:v for k,v in query.items() if k not in ('status','group_by')};unknown['unknown']='fixture'
+        handler.path='/advisor?'+urlencode(unknown);handler.do_GET();self.assertEqual(replies[-1][0],422)
+        duplicate=[(k,v) for k,v in query.items() if k not in ('status','group_by')]+[('start','2026-10-15')]
+        self.assertLessEqual(len(duplicate),6)
+        handler.path='/advisor?'+urlencode(duplicate);handler.do_GET();self.assertEqual(replies[-1][0],422)
+        handler.path='/advisor?'+urlencode(dict(query,profile='FC27'));handler.do_GET();self.assertEqual(replies[-1][0],503)
+
 if __name__=='__main__':unittest.main()

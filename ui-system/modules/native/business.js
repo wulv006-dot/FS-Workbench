@@ -2252,10 +2252,10 @@ function esStructureSync(force=false,poll=false){
  for(const [label,items,value,change]of [['结构维度',[['source_game','来源 × 游戏'],['product','产品类型'],['country','国家代码'],['payment','支付方式'],['new_customer','新客户标志订单'],['status','订单原状态']],esGroup,v=>{esGroup=v;esStructureSync();}],['包含状态',[['all','全部原状态'],...esStatuses.map(v=>[v,v])],esStatus,v=>{esStatus=v;esStructureSync();}]]){const wrap=esNode('label',label+' ','scope-select'),select=esNode('select');select.setAttribute('aria-label',label);for(const [v,title]of items){const o=esNode('option',title);o.value=v;select.append(o);}select.value=value;select.onchange=()=>change(select.value);wrap.append(select);controls.append(wrap);}
  const body=esNode('div');body.setAttribute('aria-live','polite');body.setAttribute('aria-busy','true');body.append(esNode('p','正在读取所选期间的导出结构…'));esHost.replaceChildren(heading,note,controls,body);
  if(q.grain!=='day'){body.setAttribute('aria-busy','false');body.replaceChildren(esNode('p','ES结构仅支持自然日窗口；主盘原粒度保持。'));return;}
- const query={mode:'hermes',structure:'es',profile:'FC27',start:q.start,end:q.end,group_by:esGroup,status:esStatus};
+ const query={mode:'hermes',structure:'es',start:q.start,end:q.end,group_by:esGroup,status:esStatus};
  const retry=()=>{const b=esNode('button','重试结构读取','ghostbtn');b.type='button';b.onclick=()=>esStructureSync(true);body.append(b);};
  (async()=>{try{
-  const response=await fetch('/dashboard/fs-home/range.json?'+new URLSearchParams(query),{credentials:'same-origin',cache:'no-store',signal:AbortSignal.any([controller.signal,scope.signal,AbortSignal.timeout(30000)])});
+  const response=await fetch('/dashboard/fs-home/advisor.json?'+new URLSearchParams(query),{credentials:'same-origin',cache:'no-store',signal:AbortSignal.any([controller.signal,scope.signal,AbortSignal.timeout(30000)])});
   if(controller!==esAbort||controller.signal.aborted||scope.signal.aborted)return;
   if(response.status===401||response.status===403){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:response.status}}));throw Error('当前账号无权读取结构');}
   if(!response.ok)throw Error('ES结构读取失败');const d=await response.json();

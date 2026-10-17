@@ -261,6 +261,43 @@ class PublisherTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'existing interrupted recovery reached'):self.base.rollback(backup,'a'*64,self.root)
         credentials.assert_called_once()
 
+    def test_controller_collector_patch_four_files_two_deltas_no_session_restart(self):
+        import prepare_controller_patch,controller_patch
+        previous=deepcopy(self.manifest)
+        row=next(r for r in previous['files'] if r['target']==controller_patch.CONTROLLER)
+        (self.stage/'candidate'/row['candidate']).write_bytes(b'previous controller');row['sha256']=sha(b'previous controller')
+        collector=next(r for r in previous['files'] if r['target']==controller_patch.COLLECTOR)
+        (self.stage/'candidate'/collector['candidate']).write_bytes(b'previous collector');collector['sha256']=sha(b'previous collector')
+        (self.stage/'approved-manifest.json').write_text(json.dumps(previous),encoding='utf-8')
+        output=self.folder/'controller-only';manifest=prepare_controller_patch.prepare(ROOT,self.stage,output,'b'*40);base=controller_patch.load_base()
+        self.assertFalse(manifest['releaseReady']);self.assertEqual(len(base.validate(manifest,output)),4)
+        self.assertEqual({r['target'] for r in manifest['files'] if r['sha256']!=r['beforeSha256']},{controller_patch.CONTROLLER,controller_patch.COLLECTOR})
+        self.assertEqual(len(manifest['unchangedRequired']),len(previous['unchangedRequired'])+16)
+        bad=deepcopy(manifest);next(r for r in bad['files'] if r['target'] not in (controller_patch.CONTROLLER,controller_patch.COLLECTOR))['beforeSha256']='f'*64
+        with self.assertRaisesRegex(ValueError,'controller_only_delta'):base.validate(bad,output)
+        bad=deepcopy(manifest);bad['unchangedRequired'].pop()
+        with self.assertRaises(ValueError):base.validate(bad,output)
+        original=base.restart_for;calls=[]
+        with patch.object(base,'restart_for',side_effect=lambda m,*a:calls.append(m['scope'])),patch.object(base.subprocess,'run') as run:
+            original(manifest,types.SimpleNamespace(stop_then_unlock_database=lambda:None))
+        self.assertEqual(calls,[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE]);run.assert_not_called()
+
+    def test_controller_patch_holds_collector_lock_and_busy_rejects(self):
+        import controller_patch
+        with patch.object(contextlib,'nullcontext',wraps=contextlib.nullcontext):
+            base=controller_patch.load_base()
+        # The wrapped original release locks remain outside collector acquisition.
+        lock=self.root/controller_patch.MARKETING_LOCK.lstrip('/');lock.parent.mkdir(parents=True,exist_ok=True);lock.write_bytes(b'')
+        lock.chmod(0o600);events=[]
+        fake=types.SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=lambda *a:events.append('collector-held'))
+        with patch.dict(sys.modules,{'fcntl':fake}),patch.object(base,'no_target_link'),patch.object(base.os,'getuid',return_value=0,create=True),patch.object(base.os,'geteuid',return_value=0,create=True),patch.object(base.os,'fstat',return_value=types.SimpleNamespace(st_mode=0o100600,st_uid=0,st_gid=0,st_nlink=1)):
+            with base.locks(self.root):events.append('inside')
+        self.assertEqual(events[-2:],['collector-held','inside'])
+        fake.flock=lambda *a:(_ for _ in ()).throw(BlockingIOError('busy'))
+        with patch.dict(sys.modules,{'fcntl':fake}),patch.object(base,'no_target_link'),patch.object(base.os,'geteuid',return_value=0,create=True),patch.object(base.os,'fstat',return_value=types.SimpleNamespace(st_mode=0o100600,st_uid=0,st_gid=0,st_nlink=1)):
+            with self.assertRaises(BlockingIOError):
+                with base.locks(self.root):self.fail('busy collector admitted')
+
     def test_release_ready_false_prevents_mutation(self):
         raw=json.dumps(self.manifest).encode()
         with patch.object(self.base,'locks') as locks:

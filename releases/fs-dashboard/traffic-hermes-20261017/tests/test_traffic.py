@@ -135,6 +135,17 @@ class DataConsumerTests(unittest.TestCase):
             reader.exact_reader=lambda q:{'status':'busy'}
             self.assertEqual(reader(args)['status'],'busy')
 
+    def test_v25_all_ads_queries_exclude_prohibited_native_roas(self):
+        reader=collector.Reader();reader.metadata['1430398974']={'id':'1430398974'}
+        for name in ('total','daily','campaign','campaign_total','ad_group_total'):
+            calls=[]
+            def request(source,url,body):
+                calls.append(body['query'])
+                return {'results':[{'segments':{'date':'2026-10-15'},'campaign':{'id':'1','name':'FC27'},'adGroup':{'id':'1','name':'fixture'},'metrics':{'costMicros':'2000000','conversionsValue':'6','conversionsFromInteractionsRate':'.25'}}]}
+            reader.request=request;result=reader.ads('1430398974',name,'2026-10-15','2026-10-15')
+            self.assertNotIn('metrics.conversions_value_per_cost',calls[0]);self.assertIn('metrics.conversions_from_interactions_rate',calls[0])
+            self.assertIsNone(result['rows'][0]['metrics']['conversionsValuePerCost']);self.assertEqual(result['rows'][0]['metrics']['conversionsFromInteractionsRate'],'0.25');self.assertIn('derived',result['quality']['platform_roas_basis'])
+
     def test_ad_group_query_pages_and_deduplicates_by_group(self):
         reader=collector.Reader();reader.metadata['1430398974']={'id':'1430398974'};calls=[]
         def request(source,url,body):
@@ -290,3 +301,4 @@ class ActionTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+

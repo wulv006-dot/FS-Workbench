@@ -4,12 +4,12 @@
   "rows": [
     {
       "source": "mmoexp_google_data/details/collect_details.py",
-      "candidate_sha256": "56d234b8a27d7c7d2c65b9051d664ce77aa596c03b41ada4201ab2930eb59179",
+      "candidate_sha256": "a180a6567ea8beb954ea5a1d85812103f0bf2361346fbbcf4cea3774c2a00598",
       "runtime": "/opt/mmoexp-marketing/details/collect_details.py",
       "observed_before_sha256": "6e9a5d1f4c6a27640a06cec60b5a847558cd7dcf21c6083826495379ca785c1c",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "mmoexp_google_data/details/detail_model.py",
@@ -18,7 +18,7 @@
       "observed_before_sha256": "9c9592549fa2162adda7ea8cb590ce2bf4bf95a7b8ce7ccb28ecdfc4e8326dc2",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -27,7 +27,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -36,7 +36,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/custom_range.py",
@@ -45,7 +45,7 @@
       "observed_before_sha256": "33b63a04321dab4143f64b17ede3debc3d04c22c68da9cefc530d94f8758110d",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/range_api.py",
@@ -54,7 +54,7 @@
       "observed_before_sha256": "cf6959fc5e5d720258e7e1b35b9845352c6d0f55d99297593e2c3dae610953d8",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/report_tracks.py",
@@ -63,7 +63,7 @@
       "observed_before_sha256": "291de170e80fbf50f18becb499ad6e1e2b1ba73fdc6ec72d6f2cf1fb9b7a508c",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/marketing_snapshot.py",
@@ -72,16 +72,16 @@
       "observed_before_sha256": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/controller.py",
-      "candidate_sha256": "fe28832c553d490da0321e916fb7b8662a3653165948823b326ce69928365dc5",
+      "candidate_sha256": "7adfc4bea88e78599766021b79a7c139b3c2bb6725ec9a8892ee0e15990f7f81",
       "runtime": "/opt/fs-hermes-fc/controller.py",
       "observed_before_sha256": "521d3a479a735778831d48341f36aaee8f3a777d799834e4a356835fcc188b77",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/research.py",
@@ -90,7 +90,7 @@
       "observed_before_sha256": "c593578b997d8acf19ca36b3235be4d7ef9e7d189a3340f43e5e6c34e4b127b3",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fs_evidence.py",
@@ -99,7 +99,7 @@
       "observed_before_sha256": "2a78db06f066801b6d4a0234e39ba39944bd921e0fb8e3ba6a930d65c52957e6",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/learning-loop.md",
@@ -108,7 +108,7 @@
       "observed_before_sha256": "3daa91c314dcc153c11231600f28b32b9ec5df0d59db87fd8d78da9c117f0252",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/source_snapshots.py",
@@ -117,7 +117,7 @@
       "observed_before_sha256": "da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277",
       "existed": true,
       "phase": "after_real_daily_weekly_acceptance",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/action_ledger.py",
@@ -126,7 +126,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/brain.js",
@@ -135,7 +135,7 @@
       "observed_before_sha256": "9e7ffb5d52ce3fabe6d2ed6f34d7473b090ea6df657cfcea370ceebe9b2f0e3e",
       "existed": true,
       "phase": "contract_or_consumer_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
@@ -144,7 +144,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "es_structure_technical_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
@@ -169,7 +169,7 @@
       "observed_before_sha256": "ac783f78773b57d63884fd1643d8079e9ac1aa35e069b87bd4684c9346899e73",
       "existed": true,
       "phase": "es_structure_technical_candidate",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -186,7 +186,7 @@
       "observed_before_sha256": "0d4a18d5001d0fb346c5402792dd43145c58b2f80392f7da6782f4f4f481e9aa",
       "existed": true,
       "phase": "session_build_source",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
@@ -195,7 +195,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "session_build_source",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -204,7 +204,7 @@
       "observed_before_sha256": null,
       "existed": false,
       "phase": "session_build_source",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/Dockerfile.session",
@@ -213,7 +213,7 @@
       "observed_before_sha256": "9df2f8b927ab6aee28351dc539811a357edcdb97637551050777842569f6401d",
       "existed": true,
       "phase": "session_build_source",
-      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+      "observed_at": "2026-10-17T10:06:17.880620+00:00"
     }
   ],
   "native_ui": {
@@ -238,5 +238,5 @@
     "identity": "existing_running_manager; no new login in ES query",
     "model_and_timer_changes": false
   },
-  "latest_runtime_observation": "2026-10-17T09:33:54.682096+00:00"
+  "latest_runtime_observation": "2026-10-17T10:06:17.880620+00:00"
 }

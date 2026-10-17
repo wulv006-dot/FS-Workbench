@@ -147,9 +147,9 @@ class Reader:
         self.metadata[customer]={n:meta.get(n) for n in ['id','descriptiveName','status','currencyCode','timeZone']}
     def ads(self,customer,name,start,end):
         if self.metadata.get(customer,{}).get('id')!=customer: raise ValueError('ADS_METADATA_REQUIRED')
-        fields='segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.interactions, metrics.conversions_from_interactions_rate, metrics.conversions_value_per_cost'
+        fields='segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.interactions, metrics.conversions_from_interactions_rate'
         if name in ('campaign','campaign_total','ad_group_total'): fields='campaign.id, campaign.name, campaign.advertising_channel_type, '+fields
-        if name == 'ad_group_total': fields='ad_group.id, ad_group.name, ad_group.status, '+fields.replace(', metrics.conversions_value_per_cost','')
+        if name == 'ad_group_total': fields='ad_group.id, ad_group.name, ad_group.status, '+fields.replace('','')
         if name in ('total','campaign_total','ad_group_total'): fields=fields.replace('segments.date, ', '')
         table='ad_group' if name == 'ad_group_total' else 'campaign' if name in ('campaign','campaign_total') else 'customer'
         body={'query':"SELECT "+fields+" FROM "+table+" WHERE segments.date BETWEEN '"+start+"' AND '"+end+"' "+(" ORDER BY segments.date" if name not in ('total','campaign_total','ad_group_total') else "")}; rows=[]; seen=set(); complete=False
