@@ -983,9 +983,44 @@ class Task(object):
         #    不再依赖本机（老板关电脑也不影响自动改价）。
         #    本机那套（dd373_local_collect.py）**保留为兜底**：
         #    只有「服务器上一轮撞了风控」**且**「本机在兜底窗口内推过」时，才沿用本机数据。
-        #    ⚠ 判定顺序很关键：服务器正常 ⇒ 永远走自抓，本机推没推过都不看。
+        #    ⚠ 判定顺序（2026-10-13 更新）：**优先本机推送** ＞ 风控冷却兜底 ＞ 服务器自抓。
+        #    2026-10-13 老板定案：服务器出口 IP 撞 DD373 风控后长期不恢复（本机 IP 正常）
+        #    ⇒ 把「本机代抓 + 推送到 /api/dd373_cost」升为**主通道**：只要兜底窗口内有
+        #    新鲜推送，本轮**整轮跳过服务器自抓**（一个 DD373 请求都不发）。开关见
+        #    金币.进货成本.优先本机推送 / 仅本机推送。推来的成本已由 /api/dd373_cost
+        #    落到 gold_cost 表，金币定价照常读它。无新鲜推送时才退回老逻辑：
+        #    风控冷却中 → 等；冷却已过 → 服务器自抓。
         if not force:
             try:
+                _fb = float(cc.get("兜底窗口分钟") or 45)
+                _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
+                _page = None
+                _saved = _okrows = 0
+                try:
+                    if os.path.exists(_lp):
+                        with open(_lp, encoding="utf-8") as _f:
+                            _j = json.load(_f)
+                        _pt = dt.datetime.fromisoformat(
+                            str(_j.get("pushed_at") or _j.get("ts") or ""))
+                        _page = (dt.datetime.now() - _pt).total_seconds() / 60.0
+                        _saved = int(_j.get("saved") or 0)
+                        _okrows = int(_j.get("ok_rows") or 0)
+                except Exception:
+                    _page = None
+                _fresh = (_page is not None and _page < _fb)
+                # ① 优先本机推送：窗口内有新鲜推送 ⇒ 整轮跳过自抓（不碰 DD373）
+                if bool(cc.get("优先本机推送")) and _fresh:
+                    log("  [成本] ★ 优先本机推送：%.1f 分钟前本机推来 %d 条（有效 %d，"
+                        "窗口 %.0f 分钟）⇒ 本轮服务器不自抓 DD373（成本已入库）"
+                        % (_page, _saved, _okrows, _fb))
+                    return 0
+                # ② 仅本机推送：没有新鲜推送也**不**自抓，直接跳过（沿用上一轮快照）
+                if (bool(cc.get("优先本机推送")) and bool(cc.get("仅本机推送"))
+                        and not _fresh):
+                    log("  [成本] ⚠ 仅本机推送：兜底窗口内无新鲜本机推送 ⇒ 本轮跳过采集"
+                        "（服务器不自抓 DD373，沿用上一轮快照）")
+                    return 0
+                # ③ 老逻辑：风控冷却中 → 用本机兜底或本轮不抓；冷却已过 → 服务器自抓
                 _g = _cost_gate_state()
                 if _g.get("blocked_at"):
                     _cd = _cost_gate_cooldown_min(cfg)
@@ -993,22 +1028,11 @@ class Task(object):
                     _cd_age = (dt.datetime.now() - _bt).total_seconds() / 60.0
                     if _cd_age < _cd:
                         # 还在风控冷却里：能读本机兜底就读，读不到就本轮不抓（等下轮）
-                        _fb = float(cc.get("兜底窗口分钟") or 45)
-                        _lp = os.path.join(ROOT, "data", "dd373_local_push.json")
-                        _used = False
-                        if os.path.exists(_lp):
-                            with open(_lp, encoding="utf-8") as _f:
-                                _j = json.load(_f)
-                            _pt = dt.datetime.fromisoformat(
-                                str(_j.get("pushed_at") or ""))
-                            _page = (dt.datetime.now() - _pt).total_seconds() / 60.0
-                            if _page < _fb:
-                                log("  [成本] ⚠ 服务器处于风控冷却（%.1f/%.0f 分钟），"
-                                    "改用本机 %.1f 分钟前推送的 %d 条（有效 %d）"
-                                    % (_cd_age, _cd, _page, _j.get("saved") or 0,
-                                       _j.get("ok_rows") or 0))
-                                _used = True
-                        if not _used:
+                        if _fresh:
+                            log("  [成本] ⚠ 服务器处于风控冷却（%.1f/%.0f 分钟），"
+                                "改用本机 %.1f 分钟前推送的 %d 条（有效 %d）"
+                                % (_cd_age, _cd, _page, _saved, _okrows))
+                        else:
                             log("  [成本] ⚠ 服务器处于风控冷却（%.1f/%.0f 分钟）且"
                                 "本机无新鲜兜底 —— 本轮跳过采集（沿用上一轮快照）"
                                 % (_cd_age, _cd))
@@ -2072,7 +2096,7 @@ def task_collect(t, opts):
                     if it.get("利润率上限触发"):
                         # 2026-10-12：跟价后利润率超上限 ⇒ 被强行压价
                         _tflag += " ⛔利润率上限(压到成本÷%.2f)" % (
-                            1.0 - float(it.get("利润率上限") or 0.30))
+                            1.0 - float(it.get("利润率上限") or 0.45))
                     if it.get("基准来源") == "无货兜底":
                         # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
                         #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
@@ -2969,17 +2993,17 @@ def api_gold():
                      (_pol_a.get("无cheapold利润率") or 0.30),
                      (_pol_a.get("无cheapold利润率") or 0.30) * 100,
                      (_pol_a.get("利润率下限")
-                      if _pol_a.get("利润率下限") is not None else 0.20) * 100,
+                      if _pol_a.get("利润率下限") is not None else 0.30) * 100,
                      (_pol_a.get("利润率下限")
-                      if _pol_a.get("利润率下限") is not None else 0.20) * 100,
+                      if _pol_a.get("利润率下限") is not None else 0.30) * 100,
                      1.0 - (_pol_a.get("利润率下限")
-                            if _pol_a.get("利润率下限") is not None else 0.20),
+                            if _pol_a.get("利润率下限") is not None else 0.30),
                      (_pol_a.get("利润率上限")
-                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
+                      if _pol_a.get("利润率上限") is not None else 0.45) * 100,
                      (_pol_a.get("利润率上限")
-                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
+                      if _pol_a.get("利润率上限") is not None else 0.45) * 100,
                      1.0 - (_pol_a.get("利润率上限")
-                            if _pol_a.get("利润率上限") is not None else 0.30))
+                            if _pol_a.get("利润率上限") is not None else 0.45))
                   if _pol_a.get("模式") == "g2g_cheapold" else
                   ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
@@ -3204,13 +3228,13 @@ def api_gold_cost():
              % ((_pol.get("下浮比例") or 0.03) * 100,
                 (_pol.get("无cheapold利润率") or 0.30),
                 (_pol.get("无cheapold利润率") or 0.30) * 100,
-                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
-                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20) * 100,
-                1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.20),
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30) * 100,
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30) * 100,
+                1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30),
                 (_pol.get("无货兜底售价_USD每M") or 19.9),
-                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
-                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
-                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30))
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45) * 100,
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45) * 100,
+                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45))
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M ÷ (1−%.1f%%)；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"

@@ -78,6 +78,7 @@ def _audit_pack_conflicts(cfg):
 import time
 import urllib.parse
 import urllib.request
+import net_util  # 2026-10-16 统一出网：收干净连接 + 唯一出口开关
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
@@ -149,7 +150,7 @@ def _get(url, timeout=45, retry=3):
         try:
             req = urllib.request.Request(url, headers={
                 "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with net_util.urlopen(req, timeout=timeout) as r:
                 return r.read().decode("utf-8", "replace")
         except Exception as e:
             last = e
@@ -169,7 +170,7 @@ def post_form(url, body, referer=None, timeout=60, retry=4):
     for i in range(retry):
         try:
             req = urllib.request.Request(url, data=data, headers=headers)
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with net_util.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8", "replace"))
         except Exception as e:
             last = e

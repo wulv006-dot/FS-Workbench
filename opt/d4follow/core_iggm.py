@@ -54,6 +54,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import net_util  # 2026-10-16 统一出网：收干净连接 + 唯一出口开关
 
 BASE = "https://www.iggm.com"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -220,6 +221,7 @@ def _get(url, referer=None, timeout=30, retry=3):
             _backoff(blocked=False)         # ⭐ 成功即把连续失败归零
             return body
         except urllib.error.HTTPError as e:
+            net_util.drain_close(e)   # 2026-10-16 修 socket 泄漏：403 响应体不读就抛会把连接卡在 Recv-Q
             if e.code in (403, 429, 503):
                 _reset_session()            # ⭐ 拦截态 → 会话已被污染，重建
                 last, cf_fail = IGGMBlocked("HTTP %d（CF 拦截）" % e.code), cf_fail + 1
