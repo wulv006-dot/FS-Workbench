@@ -255,6 +255,8 @@ def init_db(verbose: bool = True) -> dict:
                     info["created_tasks"] += 1
                 conn.commit()
             conn.commit()
+            import green_plan
+            green_plan.init(conn)
             return info
         finally:
             conn.close()
@@ -676,9 +678,12 @@ def op_submit(ctx: Ctx, task_id: int) -> dict:
 def op_upsert_member(ctx: Ctx, payload: dict) -> dict:
     require_admin(ctx)
     username = v_text(payload.get("username"), "账号", 40)
-    if not USERNAME_RE.match(username):
+    registered = bool(re.fullmatch(r'reg:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', username))
+    if not registered and not USERNAME_RE.match(username):
         raise ApiError(400, "账号只能包含字母、数字、下划线、点或连字符，长度 2-40")
     role = v_enum(payload.get("role") or "viewer", "角色", ROLES)
+    if registered and role != 'viewer':
+        raise ApiError(400, '注册账号的编辑权限须在账号与权限管理中按模块设置')
     if username in GUARD_ADMINS:
         raise ApiError(409, "守护管理员账号不允许在任务台内修改")
     with WRITE_LOCK:
@@ -717,6 +722,36 @@ def op_upsert_member(ctx: Ctx, payload: dict) -> dict:
 
 # --------------------------------------------------------------------------- HTTP
 
+def _registration_verified_identity(handler):
+    """Verify independently so direct clients cannot create identity with headers."""
+    import http.client
+    connection = http.client.HTTPConnection('127.0.0.1', 8895, timeout=3)
+    # Derive public URI from actual backend path; never trust client originals.
+    public = '/dashboard/tasks' + handler.path
+    try:
+        connection.request('GET', '/verify', headers={
+            'Cookie': handler.headers.get('Cookie', ''),
+            'X-Original-Method': handler.command,
+            'X-Original-URI': public})
+        response = connection.getresponse()
+        subject = response.getheader('X-Auth-User')
+        verified_role = response.getheader('X-Auth-Role')
+        response.read()
+        if response.status != 200:
+            raise ApiError(503 if response.status >= 500 else response.status,
+                           'global verification unavailable' if response.status >= 500 else 'access denied')
+        if not subject or verified_role not in ('admin', 'readonly', 'editor') or verified_role == 'editor' and not subject.startswith('reg:'):
+            raise ApiError(503, 'invalid verification response')
+        if any(handler.headers.get(name) not in (None, value) for name, value in
+               (('X-Auth-User', subject), ('X-Auth-Role', verified_role))):
+            raise ApiError(403, 'identity header conflict')
+        return subject, verified_role
+    except (OSError, http.client.HTTPException):
+        raise ApiError(503, 'global verification unavailable') from None
+    finally:
+        connection.close()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "MMOEXPTaskboard/" + VERSION
     protocol_version = "HTTP/1.1"
@@ -748,12 +783,12 @@ class Handler(BaseHTTPRequestHandler):
         self._json(code, {"error": message, "detail": detail})
 
     def _ctx(self) -> Ctx:
-        user = (self.headers.get("X-Auth-User") or "").strip()
+        user, verified_role = _registration_verified_identity(self)
         ip = (self.headers.get("X-Real-IP") or self.client_address[0] or "")
         ua = self.headers.get("User-Agent") or ""
         conn = db_connect()
         try:
-            role, registered = member_state(conn, user)
+            role, registered = _registration_member(conn, user, verified_role)
             return Ctx(user, role, ip, ua, registered)
         finally:
             conn.close()
@@ -816,6 +851,10 @@ class Handler(BaseHTTPRequestHandler):
                 # config.env 的 TASKBOARD_UNREGISTERED 改为 readonly。
                 log("拦截未登记账号：%s（来源 %s）" % (ctx.user, ctx.ip), "warn")
                 return self._error(403, "该账号尚未在任务台登记，请联系管理员开通后再访问")
+
+            import green_plan
+            if green_plan.route(self, sys.modules[__name__], ctx, method, path):
+                return
 
             if path == "/api/session" and method in ("GET", "HEAD"):
                 conn = db_connect()
@@ -916,6 +955,10 @@ def main(argv=None) -> int:
     if "--selftest" in argv:
         return selftest()
 
+    sys.path.insert(0, '/opt/auth-portal/registration-runtime/20261007-ca6258ad')
+    from consumer_seams import install_taskboard as _registration_install_taskboard
+    import native_access_policy as _registration_policy
+    _registration_install_taskboard(sys.modules[__name__], _registration_policy)
     info = init_db()
     log("任务台服务启动 version=%s db=%s" % (VERSION, CFG["db"]))
     log("初始化：%s" % json.dumps(info, ensure_ascii=False))

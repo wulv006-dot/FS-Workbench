@@ -1,7 +1,7 @@
 """Central policy for existing authenticated business routes, without credentials."""
 import re
 from urllib.parse import unquote, urlsplit, parse_qs
-ADMINS = frozenset(('wulv', 'chenchao', 'DY'))
+ADMINS = frozenset(('wulv', 'chenchao', 'DY', 'fstech'))
 CONTROL = frozenset(('apply','execute','run','start','stop','pause','resume','reset','delete','save','update','set','clear','unlock','clear-lock','clear_lock','reset-lock','reset_lock','ban','unban','deploy','publish','restart','backfill','collect','refresh-now','refresh_now'))
 
 def authorize(user, method, uri, group=''):
@@ -19,6 +19,10 @@ def authorize(user, method, uri, group=''):
     segments = set(filter(None, re.split(r'[/\\]+', path.lower())))
     if group == 'deploy' or 'admin' in segments or 'deploy' in segments:
         return 403
+    # The taskboard still enforces active membership, assignee and field rights.
+    # Only its exact native-editor PATCH route delegates beyond this gateway.
+    if (method or 'GET').upper() == 'PATCH' and not user.startswith('reg:') and re.fullmatch(r'/dashboard/tasks/api/green-plan/tasks/G[0-9]+', uri or ''):
+        return 200
     if (method or 'GET').upper() not in ('GET', 'HEAD'):
         return 403
     if segments & CONTROL:

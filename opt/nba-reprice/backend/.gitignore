@@ -1,0 +1,28 @@
+# NBA 2K27 改价后端 —— 2026-10-17 纳入 pr-fast 闸门时补上。
+# 原则：源码与写卡契约入仓；**凭据、登录态、运行产物一律不入仓。**
+
+# ===== 凭据：绝不入库 =====
+# .env 由 nba-reprice.service 的 EnvironmentFile 读取（P2PAH 账号密码、访问令牌、
+# BIND_HOST），线上权限 600。根 .gitignore 里的 `*.env` **匹配不到**就叫 .env 的
+# 这个文件，所以必须在本目录显式挡住。
+.env
+
+# p2pah_api.py 的登录态：batoken + cookie jar，落在 DATA_DIR（线上 0700，
+# 默认 ~/.local/state/fs-nba-reprice）。老版本曾写在模块目录，两条路都挡。
+_token.txt
+_ck.txt
+_api_body.tmp
+.cookies*
+.iggm.cookies*
+
+# ===== 运行时产物 =====
+logs/
+data/
+venv/
+__pycache__/
+*.pyc
+
+# ===== 服务器上的手工备份 =====
+_bak_*
+*.bak
+*.bak.*

@@ -1,0 +1,15 @@
+# 统一登录门禁 / 白名单告警 —— 2026-10-17 纳入 pr-fast 闸门时补上。
+# 原则：门禁逻辑与告警脚本入仓；**观察报告与告警状态是运行时产物，不入仓**。
+
+# data/ 下是 fs_ip_observe_report.py 生成的观察报告、fs_ip_alert.py 的告警
+# 去重状态（含来源 IP 清单）。这些都能从 nginx 日志重新算出来。
+data/
+
+venv/
+__pycache__/
+*.pyc
+*.log
+
+_bak_*
+*.bak
+*.bak.*

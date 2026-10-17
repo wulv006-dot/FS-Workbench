@@ -1,0 +1,16 @@
+# IGGM / AOEAH / U4GM 抓取站（Web 版）—— 2026-10-17 纳入 pr-fast 闸门时补上。
+# 原则：抓取器、SSRF 守卫、前端入仓；**运行数据库与导出件不入仓**。
+
+# db.py 里 DATA_DIR 默认就是模块目录下的 data/（可用 IGGM_DATA 覆盖）：
+#   iggm.db      全局任务队列
+#   exports/     抓取结果 CSV 导出（runner.py 是唯一导出入口）
+data/
+
+venv/
+__pycache__/
+*.pyc
+*.log
+
+_bak_*
+*.bak
+*.bak.*

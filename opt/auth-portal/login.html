@@ -7,29 +7,49 @@
 <meta name="robots" content="noindex,nofollow">
 <title>登录 · MMOEXP 运营管理中心</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230071e3'/%3E%3Crect x='7' y='8.4' width='18' height='4.3' rx='2.15' fill='%23fff' fill-opacity='.48'/%3E%3Crect x='7' y='14.6' width='18' height='4.3' rx='2.15' fill='%23fff' fill-opacity='.76'/%3E%3Crect x='7' y='20.8' width='11.4' height='4.3' rx='2.15' fill='%23fff'/%3E%3C/svg%3E">
-<style>
+<style>/* FS UI 1.0 — single semantic token source; explicit theme resolved by fs-theme.js. */
+:root,[data-fs-theme="light"]{
+ color-scheme:light;--fs-bg:#e9edf2;--fs-surface:#ffffff;--fs-surface-2:#f7f9fb;--fs-surface-3:#eef2f6;
+ --fs-text:#1b2632;--fs-muted:#596980;--fs-faint:#596980;--fs-line:#dce3eb;--fs-line-soft:#e8edf3;
+ --fs-brand:#1f6f73;--fs-brand-hover:#16575b;--fs-brand-soft:#e3f0ef;--fs-brand-on:#ffffff;
+ --fs-ok:#1f7d61;--fs-ok-soft:#e2f3ec;--fs-ok-on:#ffffff;--fs-danger:#a8412c;--fs-danger-soft:#fbeae5;--fs-danger-on:#ffffff;
+ --fs-warn:#825a13;--fs-warn-soft:#faf0dd;--fs-warn-on:#ffffff;--fs-info:#2f5a86;--fs-info-soft:#e7eef7;--fs-info-on:#ffffff;
+ --fs-up:#b42f24;--fs-down:#177647;--fs-violet:#65509b;--fs-shadow:0 1px 3px #14283c08,0 14px 34px -25px #14283c55;
+ --fs-radius:16px;--fs-input-radius:9px;--fs-modal-radius:18px;--fs-nav-width:236px;--fs-focus:#147a80;
+ --fs-font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+:root[data-theme="dark"],:root[data-fs-theme="dark"],[data-fs-theme="dark"]{
+ color-scheme:dark;--fs-bg:#0a1424;--fs-surface:#121d31;--fs-surface-2:#182641;--fs-surface-3:#22314c;
+ --fs-text:#e8eef6;--fs-muted:#b6c4d7;--fs-faint:#b6c4d7;--fs-line:#35465f;--fs-line-soft:#293a51;
+ --fs-brand:#4db8b0;--fs-brand-hover:#7fd0c9;--fs-brand-soft:#183a40;--fs-brand-on:#07191d;
+ --fs-ok:#70cfa7;--fs-ok-soft:#17392e;--fs-ok-on:#08251b;--fs-danger:#ffad99;--fs-danger-soft:#402b2c;--fs-danger-on:#35120c;
+ --fs-warn:#f0c478;--fs-warn-soft:#3b3020;--fs-warn-on:#302006;--fs-info:#9bc5f3;--fs-info-soft:#22344e;--fs-info-on:#10233d;
+ --fs-up:#ffad99;--fs-down:#70cfa7;--fs-violet:#c5b4f3;--fs-shadow:0 12px 28px -24px #000b;--fs-focus:#7fd0c9;
+}
+
+
 /* ============ 设计令牌（与全站亮色主题同源：bg #f5f5f7 / ac #0071e3） ============ */
 :root{
-  --bg:#f5f5f7;
-  --bg2:#eceef3;
-  --surface:rgba(255,255,255,.72);
-  --surface-solid:#ffffff;
-  --surface-sunken:#f7f8fa;
-  --line:rgba(0,0,0,.07);
-  --line-strong:rgba(0,0,0,.13);
-  --tx:#1d1d1f;
-  --tx2:#6e6e73;
-  --tx3:#a1a1a6;
-  --ac:#0071e3;
-  --ac2:#0a84ff;
-  --ac-ink:#ffffff;
+  --bg:var(--fs-bg);
+  --bg2:var(--fs-surface-2);
+  --surface:var(--fs-surface);
+  --surface-solid:var(--fs-surface);
+  --surface-sunken:var(--fs-surface-2);
+  --line:var(--fs-line);
+  --line-strong:var(--fs-line);
+  --tx:var(--fs-text);
+  --tx2:var(--fs-muted);
+  --tx3:var(--fs-faint);
+  --ac:var(--fs-brand);
+  --ac2:var(--fs-brand-hover);
+  --ac-ink:var(--fs-brand-on);
   --violet:#5e5ce6;
-  --teal:#0aa2a2;
-  --red:#d93025;
-  --red-soft:#fdecea;
+  --teal:var(--fs-brand);
+  --red:var(--fs-danger);
+  --red-soft:var(--fs-danger-soft);
   --red-line:rgba(217,48,37,.22);
-  --amber:#c77700;
-  --ok:#1a8f4c;
+  --amber:var(--fs-warn);
+  --ok:var(--fs-ok);
   --ring:rgba(0,113,227,.16);
   --shadow-card:
      0 1px 1px rgba(16,24,40,.04),
@@ -40,22 +60,22 @@
   --radius:22px;
 }
 html[data-theme="dark"]{
-  --bg:#0a0c11;
-  --bg2:#05070b;
-  --surface:rgba(26,29,36,.68);
-  --surface-solid:#1a1d24;
-  --surface-sunken:#14171d;
-  --line:rgba(255,255,255,.09);
-  --line-strong:rgba(255,255,255,.16);
-  --tx:#f5f6f8;
-  --tx2:#a8adba;
-  --tx3:#6d7280;
-  --ac:#0a84ff;
-  --ac2:#3f9dff;
-  --red:#ff6b60;
-  --red-soft:rgba(255,107,96,.10);
+  --bg:var(--fs-bg);
+  --bg2:var(--fs-surface-2);
+  --surface:var(--fs-surface);
+  --surface-solid:var(--fs-surface);
+  --surface-sunken:var(--fs-surface-2);
+  --line:var(--fs-line);
+  --line-strong:var(--fs-line);
+  --tx:var(--fs-text);
+  --tx2:var(--fs-muted);
+  --tx3:var(--fs-faint);
+  --ac:var(--fs-brand);
+  --ac2:var(--fs-brand-hover);
+  --red:var(--fs-danger);
+  --red-soft:var(--fs-danger-soft);
   --red-line:rgba(255,107,96,.26);
-  --ok:#32d074;
+  --ok:var(--fs-ok);
   --ring:rgba(10,132,255,.22);
   --shadow-card:
      0 1px 1px rgba(0,0,0,.30),

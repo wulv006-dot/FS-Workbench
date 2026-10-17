@@ -16,18 +16,25 @@ mlb_server.py —— MLB 新卡上架「在线工作台」服务端
                                                       |
                                                       +--> showdd.io（本机 IP 过关）
 
-本服务只做四件事：
+本服务只做六件事：
   1. 托管前端页面
   2. 存任务队列（SQLite）
   3. 给执行器发任务 / 收结果（含三次采样的中间进度）
   4. 存生成好的 Excel，供下载
+  5. **采集完成后把卡片冻结下来，等人放行**（`/writeback/approve`），
+     放行后起写卡子进程直写 p2pah 后台（`mlb_writeback.py`）
+  6. **从订单后台带出当期金币售价**（`/api/coins-rate` → `mlb_coins_rate.py`）
+
+⚠️ 5 和 6 是「做别的事」的旁路，共享同一条铁律：
+   **任何旁路失败都不许影响主链路**（建任务 / 领任务 / 回传）。
+   5 失败 → 任务照旧 done，只少一个上架状态；6 失败 → 输入框退回人工填写。
 
 零第三方依赖（标准库 http.server + sqlite3）。
+  需要第三方库的两件事（写卡、取价）一律走**子进程**，见那两个模块的说明。
 
 启动：
     python3 mlb_server.py --port 8897 --root /var/www/mlb-online
 """
-from static_path import safe_static_path
 import os
 import sys
 import io
@@ -42,10 +49,23 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import mlb_writeback as WB       # noqa: E402  自动上架桥（同目录本地模块）
+import mlb_coins_rate as CR      # noqa: E402  当期金币售价自动取价（同目录本地模块）
+
 DB_LOCK = threading.Lock()
 ARGS = None
 CFG = {}
-SERVER_VERSION = "1.0"
+SERVER_VERSION = "1.2"
+
+#: 自动上架的中间产物落点（交给直写脚本的结果 JSON / 它回吐的逐卡报告）。
+#: 刻意**不**放 files/ —— 那里是「给人下载的交付物」，混在一起会让
+#: 下载列表里冒出一堆内部文件。
+WB_WORKDIR = os.path.join(HERE, "data", "writeback")
+
+#: 取价的缓存与中间产物（同样不放 files/）。
+RATE_DIR = os.path.join(HERE, "data", "pricing")
 
 # 执行器 30 秒一次心跳；120 秒内没动静就算掉线（采样一轮要等 120 秒，留足余量）
 AGENT_ONLINE_SEC = 150
@@ -111,8 +131,95 @@ def db():
 def init_db():
     os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
     os.makedirs(os.path.join(HERE, "files"), exist_ok=True)
+    os.makedirs(WB_WORKDIR, exist_ok=True)
+    os.makedirs(RATE_DIR, exist_ok=True)
     with db() as c:
         c.executescript(SCHEMA)
+
+
+def writeback_read(tid):
+    """读 `tasks.result.write_back`（上架状态的**权威来源**）。
+
+    ★ 放行判断只能基于这里的服务端状态，绝不能信前端传参 ——
+      否则"点了没点"就变成一个可以伪造的开关。
+    """
+    with db() as c:
+        r = c.execute("SELECT result FROM tasks WHERE id=?", (tid,)).fetchone()
+    if not r or not r["result"]:
+        return {}
+    try:
+        cur = json.loads(r["result"])
+    except Exception:
+        return {}
+    if not isinstance(cur, dict):
+        return {}
+    wb = cur.get("write_back")
+    return wb if isinstance(wb, dict) else {}
+
+
+def writeback_update(tid, patch):
+    """把自动上架的结果合并进 `tasks.result.write_back`。
+
+    刻意**不加新列**：线上 SQLite 是 3.7.17，`ALTER TABLE ADD COLUMN` 虽支持，
+    但一旦要回滚就得再删列（3.35+ 才有 DROP COLUMN），迁移风险不值得。
+    `result` 本来就是 JSON 文本，塞一个子键是最省事、可回退的做法。
+    """
+    with db() as c:
+        r = c.execute("SELECT result FROM tasks WHERE id=?", (tid,)).fetchone()
+        cur = {}
+        if r and r["result"]:
+            try:
+                cur = json.loads(r["result"])
+            except Exception:
+                cur = {}
+        if not isinstance(cur, dict):
+            cur = {}
+        cur["write_back"] = patch
+        c.execute("UPDATE tasks SET result=? WHERE id=?",
+                  (json.dumps(cur, ensure_ascii=False), tid))
+
+
+def mark_interrupted_writebacks():
+    """启动时清扫两类"看起来还在动、其实已经停了"的状态。
+
+    1. `running`：线程随进程没了，但库里还写着"上架中" —— 典型的静默假象。
+    2. `awaiting_review`：**待审是持久态，重启后必须保留**（人还没点）。
+       但如果那份待审快照文件没了，就永远放行不了 —— 标成 `review_lost`
+       明说，别让人一直等一个永远不会来的按钮。
+    """
+    n = 0
+    with db() as c:
+        rows = c.execute("SELECT id, result FROM tasks WHERE result LIKE '%\"write_back\"%'"
+                         ).fetchall()
+        for r in rows:
+            try:
+                cur = json.loads(r["result"])
+            except Exception:
+                continue
+            wb = cur.get("write_back") or {}
+            st = wb.get("status")
+
+            if st == "running":
+                wb["status"] = "interrupted"
+                wb["error"] = (wb.get("error") or "") + \
+                    "（hub 重启：上架线程已随进程结束，未留下最终结论）"
+            elif st == WB.AWAITING:
+                if not os.path.isfile(WB.pending_path(WB_WORKDIR, r["id"])):
+                    wb["status"] = "review_lost"
+                    wb["error"] = ("待审快照文件缺失，无法放行 —— "
+                                   "请重跑一次采集任务再核对")
+                else:
+                    continue          # 待审态原样保留，不动
+            else:
+                continue
+
+            cur["write_back"] = wb
+            c.execute("UPDATE tasks SET result=? WHERE id=?",
+                      (json.dumps(cur, ensure_ascii=False), r["id"]))
+            n += 1
+    if n:
+        print("[!] 有 %d 条上架记录状态已失效（running/review_lost），已标注" % n)
+    return n
 
 
 def task_brief(r, full=False):
@@ -214,8 +321,31 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(204, b"")
 
         if path == "/api/health":
-            return self._send(200, {"ok": True, "t": time.strftime("%Y-%m-%d %H:%M:%S"),
-                                    "version": SERVER_VERSION})
+            wb = WB.cfg(CFG)
+            return self._send(200, {
+                "ok": True, "t": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "version": SERVER_VERSION,
+                # 只回布尔量，不回路径 —— 页面不需要知道服务器上凭据放在哪
+                "writeback": {
+                    "enabled": wb["enabled"],
+                    "dry_run": wb["dry_run"],
+                    # 有这道闸门时，采集跑完会**停下来等人放行**
+                    "require_approval": wb["require_approval"],
+                    "script_ok": bool(wb["script"] and os.path.isfile(wb["script"])),
+                    "cred_ok": bool(wb["cred"] and os.path.isfile(wb["cred"])),
+                },
+                "coins_rate": CR.status(CR.cfg(CFG)),
+            })
+
+        # 当期金币售价：从订单后台自动带出（只读，失败则页面退回人工填写）
+        if path == "/api/coins-rate":
+            c = CR.cfg(CFG)
+            c["cache_dir"] = c.get("cache_dir") or RATE_DIR
+            force = (q.get("force") or ["0"])[0] not in ("0", "", "false", "no")
+            data = CR.get(c, force=force,
+                          out_dir=RATE_DIR,
+                          log=lambda m: sys.stderr.write("%s\n" % m))
+            return self._send(200, data)
 
         if path == "/api/tasks":
             limit = min(int((q.get("limit") or ["60"])[0]), 300)
@@ -324,6 +454,8 @@ class Handler(BaseHTTPRequestHandler):
                 "show_browser": bool(body.get("show_browser")),
                 "interval": int(body.get("interval") or CFG.get("interval", 120)),
                 "template": body.get("template") or "",
+                # 采集跑完是否自动写 p2pah 后台（第三道闸门在服务配置里）
+                "write_back": bool(body.get("write_back")),
             }
             # 模板随任务下发：网页上传的 Excel 以 base64 带给执行器，
             # 否则执行器只能靠本地 --template / 工作目录里找。
@@ -434,7 +566,59 @@ class Handler(BaseHTTPRequestHandler):
                     col = "tasks_done" if st == "done" else "tasks_fail"
                     c.execute("UPDATE agents SET %s=%s+1, last_seen=? WHERE name=?"
                               % (col, col), (time.time(), agent))
-            return self._send(200, {"ok": True, "file": file_name})
+
+            # ---- 采集完成后自动上架（Fire & Forget，不拖住执行器的回传）----
+            wb_state = None
+            if st == "done":
+                with db() as c:
+                    r = c.execute("SELECT payload FROM tasks WHERE id=?", (tid,)).fetchone()
+                try:
+                    tpayload = json.loads(r["payload"]) if r and r["payload"] else {}
+                except Exception:
+                    tpayload = {}
+                try:
+                    wb_state = WB.start(
+                        tid=tid, payload=tpayload,
+                        cards=result.get("cards") or [],
+                        config=CFG, update=writeback_update,
+                        read=writeback_read,
+                        workdir=WB_WORKDIR,
+                        log=lambda m: sys.stderr.write("%s\n" % m))
+                except Exception as e:       # noqa: BLE001 —— 上架起不来也不能影响回传
+                    print("[!] 自动上架启动失败：%r" % e)
+                    wb_state = {"status": "failed", "reason": "%r" % e}
+
+            return self._send(200, {"ok": True, "file": file_name,
+                                    "writeback": wb_state})
+
+        # ---- 人工放行：**只有这一步之后才会真的写后台** ----
+        if path.startswith("/api/tasks/") and path.endswith("/writeback/approve"):
+            tid = path.split("/")[3]
+            names = body.get("names")
+            if names is not None and not isinstance(names, list):
+                return self._send(400, {"error": "names 必须是数组（product_name 列表）"})
+            try:
+                out = WB.approve(tid=tid, names=names, config=CFG,
+                                 update=writeback_update, read=writeback_read,
+                                 workdir=WB_WORKDIR, by=self._user(),
+                                 log=lambda m: sys.stderr.write("%s\n" % m))
+            except Exception as e:           # noqa: BLE001
+                print("[!] 放行失败：%r" % e)
+                return self._send(500, {"error": "%r" % e})
+            return self._send(200, out)
+
+        # ---- 人工取消本次上架 ----
+        if path.startswith("/api/tasks/") and path.endswith("/writeback/cancel"):
+            tid = path.split("/")[3]
+            try:
+                out = WB.cancel(tid=tid, read=writeback_read,
+                                update=writeback_update, workdir=WB_WORKDIR,
+                                by=self._user(), reason=str(body.get("reason") or ""),
+                                log=lambda m: sys.stderr.write("%s\n" % m))
+            except Exception as e:           # noqa: BLE001
+                print("[!] 取消失败：%r" % e)
+                return self._send(500, {"error": "%r" % e})
+            return self._send(200, out)
 
         if path == "/api/tasks/requeue":
             tid = body.get("id")
@@ -456,11 +640,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------------- 静态 ----------------
     def _static(self, rel):
-        try:
-            fp = str(safe_static_path(ARGS.root, rel))
-        except ValueError:
+        fp = os.path.normpath(os.path.join(ARGS.root, rel))
+        if not fp.startswith(os.path.abspath(ARGS.root)):
             return self._send(403, {"error": "forbidden"})
-        except OSError:
+        if not os.path.isfile(fp):
             return self._send(404, {"error": "not found"})
         ctype, _ = mimetypes.guess_type(fp)
         if fp.endswith(".js"):
@@ -486,6 +669,7 @@ def main():
     ARGS = ap.parse_args()
     load_cfg(ARGS.config)
     init_db()
+    mark_interrupted_writebacks()
     srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
     print("[+] MLB 在线工作台 已启动：http://%s:%d/  root=%s" % (ARGS.host, ARGS.port, ARGS.root))
     try:

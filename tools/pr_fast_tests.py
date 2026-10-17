@@ -380,6 +380,136 @@ class BotModuleContracts(unittest.TestCase):
             self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
                               "%s 里出现疑似凭据" % rel)
 
+class OpsModuleContracts(unittest.TestCase):
+    """6 个 /opt 运营模块（2026-10-17 补登记进闸门）的最小离线合同。
+
+    范围 = 统一登录门禁 auth-portal + 全站写权限 fs-access-policy + 抓取站
+    iggm-web + MLB 上架工作台 mlb-online + NBA 改价后端 nba-reprice + 任务台
+    mmoexp-taskboard。
+
+    只验证「Python 3.9 语法可解析 + 关键安全不变量还在 + 凭据卫生」。
+    **不 exec（access_policy 除外，它只依赖标准库）、不联网、不起服务** ——
+    CI 隔离环境里没有 flask / ddddocr / node 依赖，也不该为了跑一次检查去装。
+    所以这不替代线上验收，也不替代真实浏览器里的行为验收。
+    """
+    AUTH = "opt/auth-portal/"
+    POLICY = "opt/fs-access-policy/"
+    IGGM = "opt/iggm-web/"
+    MLB = "opt/mlb-online/"
+    NBA = "opt/nba-reprice/"
+    TASK = "opt/mmoexp-taskboard/"
+
+    PY_MODULES = (
+        AUTH + "auth_portal.py",
+        AUTH + "fs_ip_alert.py",
+        AUTH + "fs_ip_observe_report.py",
+        POLICY + "access_policy.py",
+        IGGM + "app.py",
+        IGGM + "core.py",
+        IGGM + "core_aoeah.py",
+        IGGM + "core_u4gm.py",
+        IGGM + "sites.py",
+        IGGM + "url_guard.py",
+        MLB + "mlb_server.py",
+        MLB + "mlb_writeback.py",
+        MLB + "mlb_coins_rate.py",
+        MLB + "_selftest/tests/verify_writeback_e2e.py",
+        NBA + "backend/p2pah_api.py",
+        NBA + "backend/write_contract.py",
+        NBA + "backend/ocr_captcha.py",
+        TASK + "taskboard_server.py",
+        TASK + "green_plan.py",
+    )
+
+    CREDENTIAL = re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY|"
+        r"Bearer\s+[A-Za-z0-9\-_.]{20,}|"
+        r"\beyJ[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_]{8,}\."
+        r"|\b[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,110}\b")
+
+    def _text(self, rel):
+        return (ROOT / rel).read_text(encoding="utf-8-sig")
+
+    def _tree(self, rel):
+        return ast.parse(self._text(rel), filename=rel, feature_version=(3, 9))
+
+    def test_all_python_modules_parse_under_python39(self):
+        present = [rel for rel in self.PY_MODULES if (ROOT / rel).exists()]
+        # 少一个文件不该静默跳过：登记表里写了就必须在库里。
+        self.assertEqual(present, list(self.PY_MODULES))
+        for rel in self.PY_MODULES:
+            self._tree(rel)
+
+    def test_access_policy_admins_stay_the_declared_four(self):
+        """ADMINS 决定全站写权限。名单一改就等于改了「谁能改线上」，
+        必须是显式改这个文件、而不是被某次回滚悄悄改掉。"""
+        policy = module("fast_access_policy", self.POLICY + "access_policy.py")
+        self.assertEqual(policy.ADMINS, frozenset(("wulv", "chenchao", "DY", "fstech")))
+
+    def test_access_policy_denies_write_for_non_admin(self):
+        """非管理员：写方法一律 403，控制类动词（含 query 里的 action=）也 403。"""
+        policy = module("fast_access_policy2", self.POLICY + "access_policy.py")
+        self.assertEqual(policy.authorize("reg:abc", "POST", "/dashboard/tasks"), 403)
+        self.assertEqual(policy.authorize("someone", "GET", "/dashboard/tasks?action=deploy"), 403)
+        self.assertEqual(policy.authorize("someone", "GET", "/dashboard/admin/panel"), 403)
+        self.assertEqual(policy.authorize("", "GET", "/dashboard/tasks"), 401)
+        self.assertEqual(policy.authorize("chenchao", "POST", "/dashboard/tasks"), 200)
+        # 唯一被放行的写路径：任务台原生编辑器的那条 PATCH（且只给非 reg: 身份，
+        # reg: 注册账号的模块权限由任务台自己按模块判，网关不替它开口子）。
+        self.assertEqual(policy.authorize("someone", "PATCH", "/dashboard/tasks/api/green-plan/tasks/G1"), 200)
+        self.assertEqual(policy.authorize("reg:x", "PATCH", "/dashboard/tasks/api/green-plan/tasks/G1"), 403)
+        self.assertEqual(policy.authorize("someone", "PATCH", "/dashboard/tasks/api/other/G1"), 403)
+
+    def test_auth_portal_binds_loopback_and_no_longer_bridges_fc_cookies(self):
+        """登录门禁只挂 127.0.0.1；且外部 FC 会话不能再被提升为 dashboard 身份
+        （`_verify_fc_read` / fc_read_scope 是已删除的旧桥，回归即等于权限串门）。"""
+        text = self._text(self.AUTH + "auth_portal.py")
+        self.assertIn('"bind":       _env("AUTH_BIND") or "127.0.0.1"', text)
+        self.assertIn('_env_int("AUTH_PORT", 8895)', text)
+        self.assertNotIn("_verify_fc_read", text)
+        self.assertNotIn("from fc_read_scope import", text)
+
+    def test_iggm_crawlers_keep_the_ssrf_guard(self):
+        """三个抓取器都必须走 url_guard 的安全 opener —— 否则「抓个价格」就成了
+        任意地址请求代理（内网 169.254 / 127.0.0.1 / file:// 全通）。"""
+        for rel in (self.IGGM + "core.py", self.IGGM + "core_aoeah.py", self.IGGM + "core_u4gm.py"):
+            text = self._text(rel)
+            self.assertIn("from url_guard import safe_opener, parsed_destination", text)
+            self.assertNotIn("urllib.request.build_opener(", text)
+        self.assertIn("parsed_destination(", self._text(self.IGGM + "sites.py"))
+
+    def test_mlb_side_lanes_run_as_child_processes(self):
+        """写卡（要 ddddocr）与取价都在子进程里跑，主服务保持零第三方依赖；
+        中间产物落在 data/ 下，不许污染 files/ 下载目录。"""
+        server = self._text(self.MLB + "mlb_server.py")
+        self.assertIn("import mlb_writeback as WB", server)
+        self.assertIn("import mlb_coins_rate as CR", server)
+        self.assertIn('WB_WORKDIR = os.path.join(HERE, "data", "writeback")', server)
+        self.assertIn('RATE_DIR = os.path.join(HERE, "data", "pricing")', server)
+        self.assertIn("subprocess.run(", self._text(self.MLB + "mlb_writeback.py"))
+
+    def test_nba_backend_keeps_token_auth_and_loopback_default(self):
+        """改价后端能直写商品价格 ⇒ 必须默认只听回环 + 令牌鉴权 + 状态目录不在源码树。"""
+        server = self._text(self.NBA + "backend/server.js")
+        self.assertIn("const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';", server)
+        self.assertIn("server.listen(PORT, BIND_HOST", server)
+        self.assertIn("x-access-token", server)
+        self.assertIn("NBA_DATA_DIR_MUST_BE_OUTSIDE_SOURCE",
+                      self._text(self.NBA + "backend/p2pah_api.py"))
+
+    def test_taskboard_wires_green_plan_and_verifies_identity_by_itself(self):
+        """任务台必须自己回查门禁（不信任客户端头），并初始化 green-plan 表。"""
+        text = self._text(self.TASK + "taskboard_server.py")
+        self.assertIn("green_plan.init(conn)", text)
+        self.assertIn("def _registration_verified_identity(handler):", text)
+        self.assertIn("identity header conflict", text)
+        self.assertIn('X-Auth-User', text)
+
+    def test_no_hardcoded_credentials_in_tracked_files(self):
+        for rel in self.PY_MODULES:
+            self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
+                              "%s 里出现疑似凭据" % rel)
+
 class PlayersLock(unittest.TestCase):
     def test_missing_and_symlink_are_not_acquired(self):
         lock=module("fast_players_lock","fc27_players_cloud/player_web/price_lock.py")
