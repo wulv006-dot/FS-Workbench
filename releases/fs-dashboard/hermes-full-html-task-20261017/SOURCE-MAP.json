@@ -1,0 +1,36 @@
+{
+  "status": "candidate_reviewed_teaching_v2_local_tests_not_deployed",
+  "sourceCommitBase": "2d097c5ccc371c227474a40fe40f5b5c0729a080",
+  "files": [
+    {
+      "source": "source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "139249d204508bf224bcba15b6844fff9f0a46ae03716bb81c0a39a5fdb7c27d",
+      "afterSha256": "40e9e8a7548cbf47a8db6c21010bb02968c0ca64d77ca55a6093e1d31d86272e"
+    }
+  ],
+  "baselineReadbackChain": [
+    "es-v3-release-verification-nav-20261017T113423Z.json",
+    "es-queue-release-verification-nav-20261017T121325Z.json",
+    "report-compat-2d097c5ccc37-verify-receipt.json",
+    "traffic-content-2d097c5ccc37-verify-receipt.json",
+    "memory-cleanup-2d097c5ccc37-verify-receipt.json"
+  ],
+  "teachingContext": {
+    "root": "/var/lib/fs-hermes-fc/fs/html-design-context",
+    "manifestSha256": "77dd9d9a66d972ec38e1270906e2b6adf79b3dc0ecdead5a74880b668fd1d61d",
+    "notInGit": true,
+    "stableMemoryInputsChanged": false,
+    "contract": "hermes-full-html-design-v1"
+  },
+  "permissionsChanged": false,
+  "timersChanged": false,
+  "newQueryMode": false,
+  "modelCalls": 0,
+  "productionWrites": 0,
+  "tests": {
+    "entry": "python -m unittest discover -s releases/fs-dashboard/hermes-full-html-task-20261017/tests -p test_html_design.py",
+    "local_passed": 8,
+    "model_calls": 0
+  }
+}

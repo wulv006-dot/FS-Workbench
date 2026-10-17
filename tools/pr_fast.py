@@ -289,6 +289,8 @@ def selfcheck():
         raise RuntimeError("fs_period_ui_mapping_missing")
     if select(["releases/fs-dashboard/hermes-report-theme-20261017/source/report.template.html"]) != ["hermes-report-theme"]:
         raise RuntimeError("hermes_report_theme_mapping_missing")
+    if select(["releases/fs-dashboard/hermes-full-html-task-20261017/source/controller.py"]) != ["hermes-full-html"]:
+        raise RuntimeError("hermes_full_html_mapping_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -297,6 +299,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/hermes-full-html-task-20261017/"):
+            groups.add("hermes-full-html");continue
         if name.startswith(("releases/fs-dashboard/hermes-followup-evidence-20261017/","releases/fs-dashboard/hermes-report-kind-actions-20261017/")):
             groups.add("hermes-report-compat");continue
         if name.startswith("releases/fs-dashboard/traffic-content-details-20261017/"):
@@ -784,6 +788,8 @@ def main():
             units("releases/fs-dashboard/hermes-followup-evidence-20261017/tests",["test_continuation_sources","test_learning_append"])
             units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
             node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
+        elif group=="hermes-full-html":
+            units("releases/fs-dashboard/hermes-full-html-task-20261017/tests",["test_html_design"])
         elif group=="traffic-content-details":
             units("releases/fs-dashboard/traffic-content-details-20261017/tests",["test_content_details"])
             node("releases/fs-dashboard/traffic-content-details-20261017/tests/check_content.cjs")
