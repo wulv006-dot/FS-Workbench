@@ -1,0 +1,55 @@
+{
+  "status": "controlled_premerge_release_deployed_user_quality_review_pending",
+  "parent_commit": "c4b02502cb1aa767283a67ca71184e6eedc3e407",
+  "release": "nav-20261017T145243Z",
+  "execution_manifest_sha256": "543d9d6eddb5397c38ed435db11ad4ff1fa9c679da2db09f28fae70b9037efaa",
+  "teaching_manifest_sha256": "f0777b2ca8eeb4b10cbb2ee33982defd629b1a895cf4d981c691416d8dcf28f2",
+  "files": [
+    {
+      "candidate": "source/controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "bdc1876b6e89dd021649c3c2a504c1dedbbbf0ec66977e821f77c8210ef1f502",
+      "sha256": "64e89b254bfc0b556868b896bcfbc9b2fcff33dc4f6ad813124709fac94f24f8",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "327f8f278078d6f48235cacb25848743e16f35c11629232784f076f0d042f190",
+      "sha256": "48ba3a9fd49fc95b7ca59aa3cc838f4bbbfaa1542b03bdce4d76759474c916b3",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/skill_bundle.py",
+      "target": "/opt/fs-hermes-fc/skill_bundle.py",
+      "beforeSha256": "c4dcb733f35a64faa78f03d5cc43ed40174851eb34c6d84785a10df3ee379913",
+      "sha256": "b60018ce6d94d28e3f6b709aded61846f72e04acd2eccbf1f9c0c76476610834",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/report_method.py",
+      "target": "/opt/fs-hermes-fc/report_method.py",
+      "beforeSha256": null,
+      "sha256": "3eaef6a35010b64a45745ed60f8ad873f581a358bb5b5ddbfee9ca25f3a4e3d4",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/brain.js",
+      "target": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "ff10976d9ffd32f53324cd8d0d4238581df8cfa62ba7962aa0d6bc61c233d396",
+      "sha256": "9915a2216a83359bcd30e443fb85c8d8b5d4439325adbf8069aa82b885212f8e",
+      "mode": "0o644",
+      "owner": "0:0"
+    }
+  ],
+  "private_teaching_files": 13,
+  "private_examples_not_in_git": true,
+  "timers_changed": false,
+  "business_writes": false,
+  "PR_merged": false,
+  "acceptance": "real FS daily and weekly required; user decides content/layout/interaction quality"
+}

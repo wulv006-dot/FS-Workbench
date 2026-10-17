@@ -299,6 +299,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
+            groups.add("hermes-report-method");continue
         if name.startswith("releases/fs-dashboard/hermes-full-html-task-20261017/"):
             groups.add("hermes-full-html");continue
         if name.startswith(("releases/fs-dashboard/hermes-followup-evidence-20261017/","releases/fs-dashboard/hermes-report-kind-actions-20261017/")):
@@ -788,6 +790,9 @@ def main():
             units("releases/fs-dashboard/hermes-followup-evidence-20261017/tests",["test_continuation_sources","test_learning_append"])
             units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
             node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
+        elif group=="hermes-report-method":
+            units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method"])
+            node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")
         elif group=="hermes-full-html":
             units("releases/fs-dashboard/hermes-full-html-task-20261017/tests",["test_html_design"])
         elif group=="traffic-content-details":
