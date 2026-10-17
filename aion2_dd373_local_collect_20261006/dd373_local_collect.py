@@ -234,7 +234,7 @@ def main():
     ap.add_argument("--push", action="store_true",
                     help="采集完把结果推给服务器 /api/dd373_cost")
     ap.add_argument("--ssh-key", default=os.environ.get("DD373_SSH_KEY")
-                    or r"D:\共享资源\服务器\No1.pem")
+                    or r"D:\workbuddy文件目录\服务器\fs_admin_20261016_ed25519")
     ap.add_argument("--ssh-host", default=os.environ.get("DD373_SSH_HOST")
                     or "root@47.85.224.112")
     a = ap.parse_args()

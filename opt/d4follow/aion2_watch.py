@@ -31,6 +31,7 @@ import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import net_util  # 2026-10-16 统一出网：收干净连接 + 唯一出口开关
 
 STATE_FILE = os.path.join(HERE, "logs", "aion2_watch_state.json")
 CFG_FILE = os.path.join(HERE, "config.json")
@@ -100,7 +101,7 @@ def fetch_board_cost(url=BOARD_URL, timeout=30, log=_log):
     warns = []
     out = {}
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with net_util.urlopen(url, timeout=timeout) as resp:
             d = json.loads(resp.read().decode("utf-8", "replace"))
     except Exception as e:                # noqa: BLE001
         # ⚠ 看板不可用时**只报缺失、不编数**：利润率列显示「—」，绝不用别处顶替

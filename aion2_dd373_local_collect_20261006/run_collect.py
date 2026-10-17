@@ -33,7 +33,7 @@ print("\n===== %s 本轮开始 =====" % datetime.datetime.now().isoformat(timesp
 
 # 每轮先从服务器同步最新解析代码 + 服务区配置（保证口径与线上一致）；
 # 失败就用本目录已有副本，绝不因为同步失败而不采集。
-_KEY = r"D:\共享资源\服务器\No1.pem"
+_KEY = r"D:\workbuddy文件目录\服务器\fs_admin_20261016_ed25519"
 _HOST = "root@47.85.224.112"
 # ⚠ 2026-10-07：本脚本由计划任务用 pythonw.exe 启动（无控制台），
 #   此时 spawn 控制台程序 ssh.exe 若不指定 CREATE_NO_WINDOW，

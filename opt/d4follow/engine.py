@@ -1096,7 +1096,22 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
         #   限定成「只有我方比目标**贵**才纠偏」后：
         #     · 09-27 要修的「折扣写错 ⇒ 我方偏贵 11.1%」照旧被拉低 ✔
         #     · 我方自主卖便宜 ⇒ 系统**永不**在 IGGM 未动时上调 ✘（误判消除）
-        _dev_skip_low = bool(DEV_DOWN_ONLY and _dev_raw and _dev is not None and _dev <= 0)
+        # ★ 游戏级放行（2026-10-13，用户要求 ARC Raiders 可向上对齐到 IGGM）：
+        #   `跟价.触发.偏差纠偏允许上调的游戏` 里列出的游戏，偏差纠偏**双向**生效
+        #   （我方低于目标时也上调到目标）；其余游戏保持 DEV_DOWN_ONLY 的「只降不升」。
+        #   注意：只解除「只降不升」这一条；「人工调价保护」（条件B）对任何游戏都仍然生效。
+        _dev_up_raw = trig.get("偏差纠偏允许上调的游戏") or []
+        if isinstance(_dev_up_raw, str):
+            _parts = (_dev_up_raw.replace("，", ",").replace("；", ",")
+                      .replace("、", ",").replace(";", ",").split(","))
+            _dev_up_games = [_p.strip() for _p in _parts if _p.strip()]
+        elif isinstance(_dev_up_raw, (list, tuple, set)):
+            _dev_up_games = [str(_x).strip() for _x in _dev_up_raw if str(_x).strip()]
+        else:
+            _dev_up_games = []
+        _allow_dev_up = str(it.get("游戏") or default_game(cfg)) in _dev_up_games
+        _dev_skip_low = bool(DEV_DOWN_ONLY and not _allow_dev_up
+                             and _dev_raw and _dev is not None and _dev <= 0)
         # ★ 条件B（2026-09-29）：人工调价保护 —— 我方现价是人工改的、且 IGGM 真价自
         #   那次改动以来没变 ⇒ 按「IGGM 改了我们再改」不跟，不出目标价。
         #   保护**只在偏差纠偏通道生效**：IGGM 真变价（moved）与折扣变更（_dch）照常走，
@@ -1150,6 +1165,9 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
         else:
             d["trigger"] = "偏差纠偏"
             d["_dev_pct"] = round(_dev or 0.0, 3)
+            if _allow_dev_up and (_dev or 0.0) < 0:
+                # 游戏级放行：这是我方**低于**目标时被主动上调（IGGM 本轮没变价）
+                d["_偏差纠偏上调"] = True
 
         # ── 异常闸·同族倒挂检查 ────────────────────────────────────
         # IGGM 自家「×10」与「×100」两个规格的报价互相矛盾时（例：Superior Lair Key

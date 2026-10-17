@@ -257,9 +257,54 @@ class ShugoBot(discord.Client):
 
     async def setup_hook(self):
         self.add_view(Panel())          # 让重启后的老按钮继续可用
+        # AION 2 Kinah 价格看板：把「大区下拉」注册为持久化 View。
+        # custom_id 固定为 kinah:region，所以机器人重启后，看板消息上那个下拉依然能用。
+        # 这里用函数内 import，是为了让本功能对 bot.py 的改动只落一处（价格看板是可选模块）。
+        import kinah                     # noqa: E402  同目录 kinah.py
+        self.add_view(kinah.RegionView())
         self.news_state = news.State(HERE / "news_state.json")
         if not self.news_loop.is_running():
             self.news_loop.start()
+
+    # ---- AION 2 Kinah 价格看板：兜底接住「面板 View 已失效」的交互 ----
+    async def on_interaction(self, itx: discord.Interaction):
+        """兜底处理没有被任何存活 View 接住的 kinah 组件交互。
+
+        discord.py 对「custom_id 匹配不到 View」的组件交互是**静默丢弃**：
+        不记日志、不应答（discord/state.py: `if item is None: return`），用户在客户端
+        看到的就是 "Shugo-bot 未能及时响应"。价格面板的 View 只有 10 分钟寿命，机器人
+        重启也会让它失效 —— 这些点击全都会掉进这个洞。因为每个面板 custom_id 都自带
+        状态，kinah.revive() 能把同一条面板原样重建出来，所以这里接住并正常应答。
+        """
+        try:
+            d = itx.data or {}
+            cid = d.get("custom_id") or ""
+            if itx.type is not discord.InteractionType.component or not cid.startswith("kinah:"):
+                return
+            # 复刻 ViewStore 的匹配逻辑（discord/ui/view.py: dispatch_view），判断这次
+            # 交互是否已被某个存活 View 接住；接住了就不要重复应答。
+            handled = False
+            try:
+                store = self._connection._view_store
+                key = (d.get("component_type"), cid)
+                mid = itx.message.id if itx.message else None
+                handled = ((mid is not None and key in store._views.get(mid, {}))
+                           or key in store._views.get(None, {}))
+            except Exception:                 # 库内部结构变了就退化成「未接住」
+                handled = False
+            log.info("kinah interaction custom_id=%s user=%s view_matched=%s",
+                     cid, itx.user, handled)
+            if handled or itx.response.is_done():
+                return
+            import kinah                      # noqa: E402  同目录 kinah.py
+            what = await kinah.revive(itx)
+            log.info("kinah revive -> %s", what or "unknown custom_id")
+            if not what and not itx.response.is_done():
+                await itx.response.send_message(
+                    "This menu is out of date — please pick a region again on the price board.",
+                    ephemeral=True)
+        except Exception:
+            log.exception("kinah interaction fallback failed")
 
     # ---- 官方资讯轮询（config.json -> news_poll_minutes，默认 30 分钟）----
     @tasks.loop(minutes=max(5, int(CFG.get("news_poll_minutes", 30) or 30)))
