@@ -31,9 +31,11 @@
   "productionWrites": 0,
   "tests": {
     "entry": "python -m unittest discover -s releases/fs-dashboard/hermes-full-html-task-20261017/tests -p test_html_design.py",
-    "local_passed": 10,
+    "local_passed": 9,
     "model_calls": 0,
-    "private_actual_package": "original 77dd manifest and all nine complete materials read; original bytes unchanged; Linux owner/mode controlled simulation"
+    "private_actual_package": "original 77dd manifest and all nine complete materials read; original bytes unchanged; Linux owner/mode controlled simulation",
+    "private_actual_package_entry": "python .agent_runtime/traffic-hermes-20261017/test_actual_html_teaching.py",
+    "private_actual_package_passed": 1
   },
   "initialSourceBeforeSha256": "139249d204508bf224bcba15b6844fff9f0a46ae03716bb81c0a39a5fdb7c27d",
   "schemaCompatibilityFix": {

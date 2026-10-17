@@ -8,10 +8,10 @@
 
 model.txt仍由原save_raw保存完整输出，不改HTML不删JS，不增加任意路径写入。旧研究页仍转义；新创作结果显式raw_html_saved_not_design_accepted，必须下载raw进入隔离离线QA，不能送入现FS同源Blob或把旧semantic状态当设计验收。
 
-当前本地10测试：
+公共测试9项，无skip；另有1项私密本地验收：
 
 `python -m unittest discover -s releases/fs-dashboard/hermes-full-html-task-20261017/tests -p test_html_design.py`
 
 测试执行实际候选helper、真实execute方法（仅外部服务fake，捕获实际POST body及payload SHA、原HTML+JS/save_raw metadata/context receipt）及真实任务fingerprint/FORMAT表达式；无模型/远端写。Windows的Linux owner/mode值受控模拟，非生产权限验收。实际教学加载、真实模型finish_reason及完整文档/脚本/按钮/浅暗窄屏仍待受控发布后的本次真实日周任务验收。活动输出上限已只读核393216 tokens和10MB，未调整；length/content_filter也可成为provider终态，完成不代表未截断。
 
-真实v2私密原件测试只映射文件读取位置与模拟Linux权限，未改manifest root/bytes或重新pin；9份材料全文均实际进入context，原件SHA保持。Git/独立CI没有私密教学包时，仅此实际原件测试skip，synthetic有字段/无字段/非法字段合同测试仍运行。
+真实v2私密原件测试只映射文件读取位置与模拟Linux权限，未改manifest root/bytes或重新pin；9份材料全文均实际进入context，原件SHA保持。实际原件测试独立保存在本机 `.agent_runtime/traffic-hermes-20261017/test_actual_html_teaching.py`，通过 `python .agent_runtime/traffic-hermes-20261017/test_actual_html_teaching.py` 运行，不进入公共suite或Git；缺私密包则明确失败，不使用skip。公共9项synthetic及实际execute接线测试不依赖私密资料，包含有字段/无字段/非法字段合同。

@@ -61,28 +61,6 @@ class HTMLDesign(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'manifest_history'):self.context()
   del self.m['previousManifestSha256'];self.m['unknownField']='not allowed';self.save()
   with self.assertRaisesRegex(ValueError,'manifest_contract'):self.context()
- def test_real_private_v2_manifest_and_all_nine_full_materials_when_available(self):
-  actual=ROOT.parent/'html-authoring-teaching-v2/context';manifest=actual/'manifest.json'
-  if not manifest.exists():self.skipTest('Private teaching bytes are intentionally outside Git; use local actual-package QA')
-  pinned='77dd9d9a66d972ec38e1270906e2b6adf79b3dc0ecdead5a74880b668fd1d61d';before=manifest.read_bytes();self.assertEqual(hashlib.sha256(before).hexdigest(),pinned)
-  files=json.loads(before)['files'];hashes={r['path']:hashlib.sha256((actual/r['path']).read_bytes()).hexdigest() for r in files}
-  class RuntimeRoot:
-   def __str__(self):return '/var/lib/fs-hermes-fc/fs/html-design-context'
-   def __truediv__(self,name):return actual/name
-   def __eq__(self,other):return actual==other
-   def is_symlink(self):return actual.is_symlink()
-   def stat(self):return types.SimpleNamespace(st_mode=stat.S_IFDIR|0o700,st_uid=0,st_gid=0)
-  self.ns['HTML_DESIGN_ROOT']=RuntimeRoot();self.ns['HTML_DESIGN_MANIFEST_SHA256']=pinned
-  previous_stat=Path.stat
-  def linux_metadata(path,*a,**kw):
-   value=previous_stat(path,*a,**kw)
-   if path==actual or actual in path.parents:
-    if stat.S_ISDIR(value.st_mode):return types.SimpleNamespace(st_mode=stat.S_IFDIR|0o700,st_uid=0,st_gid=0)
-   return value
-  with patch.object(Path,'stat',linux_metadata):text,receipt=self.context()
-  self.assertEqual(len(receipt['files']),9);self.assertEqual(receipt['manifest_sha256'],pinned);self.assertEqual(sum(r['bytes'] for r in receipt['files']),125491)
-  for row in files:self.assertIn((actual/row['path']).read_bytes().decode('utf-8'),text)
-  self.assertEqual(manifest.read_bytes(),before);self.assertEqual({r['path']:hashlib.sha256((actual/r['path']).read_bytes()).hexdigest() for r in files},hashes)
  def test_prompt_does_not_keep_superseded_display_instructions(self):
   policy=''.join(n.value for n in ast.walk(TREE) if isinstance(n,ast.Constant) and isinstance(n.value,str) and any(x in n.value for x in ('Markdown开头','五个独立标题','四块齐全','五段结论','五结论')))
   text=self.ns['html_design_presentation_policy'](policy)
