@@ -29,7 +29,18 @@ import os
 import time
 
 API_MARK = "currency-spu-price-list"
-BOOK_MARK = "spu-list-v2"
+BOOK_MARK = "spu-list-v2"          # 旧订单簿接口（2026-10 之前）
+BOOK_MARK_ALT = "match-offers"     # 新订单簿接口（2026-10-17 实测：页面已全量切走，
+                                   # 老接口不再被调用 → route 永不触发 → 订单簿恒空）
+# 新接口与老接口的差异（2026-10-17 实测 @ qd-render）：
+#   请求：{"spuId","direction":"SELL","limit":100,"includeSelf":true,
+#          "regionServerSpecIds":["278382"]}   ← 区服走 regionServerSpecIds 数组
+#   响应：data.sellItems（老接口是 data.items / data.total / data.more）
+#   分页：**不支持**。limit 上限 100（>100 直接 400），但服务端固定只回 **20 条**
+#         最优报价；offset / pageNum / cursor / query 参数全部无效（带 query 还会
+#         破坏签名 → 405）。20 档足够做 DWC：实测「精良巢穴钥匙」20 档合计库存
+#         2104，远超批量档 Q=1000；深度不足时 book_price 会自动退回单件档。
+
 
 # ============================================================ 远端渲染后端
 # 生产机是 CentOS 7.9（glibc 2.17），Playwright 的 Node driver 与 Chromium 要求
@@ -136,6 +147,41 @@ JS_OPEN_SPU = """(n) => {
   el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
   return 1;
 }"""
+
+JS_HAS_SPU = """(n) => {
+  const all = [...document.querySelectorAll('div,span,a,li,p')];
+  return all.some(e => (e.textContent || '').trim() === n);
+}"""
+
+
+def _ready_wait(page, bk, names):
+    """等左侧商品列表真的渲染出来，而不是死等固定毫秒。
+
+    ── 2026-10-17 实测（新接口 match-offers 上线后暴露）──
+    goto 之后固定等 12s（config「打开等待毫秒」）时，页面有时只有骨架：
+    JS_OPEN_SPU 找不到任何商品名 → 返回 0 → 原代码静默 continue →
+    页面永远不发 match-offers → 订单簿恒 0 条、成本全线回退聚合价。
+    同一台机器改成等 22s 就能稳定出数（10/10）。说明是「等得不够」不是「抓不到」。
+
+    现在改为轮询前几个目标商品名，谁先出现就立刻往下走（正常 8~15s 出结果），
+    只有真的超时才放弃。轮询比死等更快也更有说服力。
+    """
+    budget = max(1.0, _f(bk.get("打开等待毫秒"), 30000) / 1000.0)
+    probe = [n for n in (names or [])[:6] if n]
+    if not probe:
+        page.wait_for_timeout(int(budget * 1000))
+        return False
+    t0 = time.time()
+    while time.time() - t0 < budget:
+        try:
+            for n in probe:
+                if page.evaluate(JS_HAS_SPU, n):
+                    return True
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+    return False
+
 
 THROTTLE_MARK = "手速太快"
 
@@ -558,7 +604,17 @@ def fetch(cfg, log=print, force=False, max_age_hours=None):
 
 # ============================================================ 订单簿抓取
 def _force_spec(body, sid, label, attr_id=""):
-    """把请求体里的区服筛选项改成目标区服；改不到就自己塞一个。"""
+    """把请求体里的区服筛选项改成目标区服；改不到就自己塞一个。
+
+    ── 2026-10-17 新接口 match-offers ──
+    区服不再是 filters 里的 candidateValues，而是顶层 `regionServerSpecIds`
+    （字符串数组）。实测：传两个 spec 返回 0 条（必须单元素且与 spuId 配套），
+    所以这里只替换成 `[sid]`。limit 超过 100 服务端直接 400，钳到 100。
+    """
+    if "regionServerSpecIds" in body:
+        body["regionServerSpecIds"] = [str(sid)]
+        body["limit"] = min(max(1, _int(body.get("limit"), 100)), 100)
+        return body
     hit = False
     for f in (body.get("filters") or []):
         sv = f.get("selectedQueryValue") or {}
@@ -719,8 +775,13 @@ def scrape_books(cfg, targets, log=print, specs=None):
                 r.dispose()                               # 非 first 立即释放
             except Exception:
                 pass
-        got = d.get("items") or []
-        return got, d.get("total"), bool(d.get("more")) and bool(got), None
+        got = d.get("items") or d.get("sellItems") or []
+        # 新接口（match-offers）没有 total / more：一次固定 20 条最优报价，
+        # sellItems 为空即该区服无在售。more 恒 False → 翻页循环自然只发一次。
+        tot = d.get("total")
+        if tot is None:
+            tot = len(got)
+        return got, tot, bool(d.get("more")) and bool(got), None
 
     # ── 2026-10-08 单轮总预算（与宿主「分块」配合的第二道保险）──
     # 万一某批里请求集体变慢，也不允许把这一发 handler 拖到容器 900s 硬杀：
@@ -746,7 +807,8 @@ def scrape_books(cfg, targets, log=print, specs=None):
                         break
                     body = json.loads(json.dumps(tmpl))
                     body["spuId"] = spu
-                    body["offset"] = 0
+                    if "regionServerSpecIds" not in body:   # 老接口才认 offset
+                        body["offset"] = 0
                     _force_spec(body, sid, spec_labels.get(sid, sid), attr_id)
                     items, total, more, off, pages = [], None, True, 0, 0
                     why = None
@@ -819,18 +881,24 @@ def scrape_books(cfg, targets, log=print, specs=None):
         page = ctx.new_page()
         page.route("**/%s*" % API_MARK, route_price)
         page.route("**/%s*" % BOOK_MARK, route_book)
+        page.route("**/%s*" % BOOK_MARK_ALT, route_book)   # 新接口（2026-10-17 起）
         try:
             page.goto(qd["url"], wait_until="commit", timeout=120000)
-            page.wait_for_timeout(int(bk.get("打开等待毫秒", 12000)))
+            names = [n for _, n in targets]
+            # 等商品列表出现（不是死等固定毫秒）——见 _ready_wait 注释
+            if not _ready_wait(page, bk, names):
+                log("  [千岛·订单簿] ⚠ 等待 %.0fs 后商品列表仍未渲染（页面骨架）"
+                    % (_f(bk.get("打开等待毫秒"), 30000) / 1000.0))
             if _throttled(page):
                 state["blocked"] = True
                 log("  [千岛·订单簿] ⚠ 被限流（405 手速太快），本轮放弃")
             else:
-                names = [n for _, n in targets]
+                notfound = []
                 for nm in names:
                     try:
                         if not page.evaluate(JS_OPEN_SPU, nm):
-                            continue
+                            notfound.append(nm)      # 原来这里静默 continue，
+                            continue                 # 页面没点击就永远不会发订单簿请求
                     except Exception as e:
                         log("  [千岛·订单簿] 点击 %s 异常 %r" % (nm, e))
                         continue
@@ -851,6 +919,9 @@ def scrape_books(cfg, targets, log=print, specs=None):
                                 break
                     except Exception:
                         pass
+                if notfound:
+                    log("  [千岛·订单簿] ⚠ %d/%d 个商品名在页面上找不到：%s"
+                        % (len(notfound), len(names), "、".join(notfound[:8])))
         finally:
             try:                                       # 2026-10-08：页面半死时
                 ctx.close()                            # close() 会抛 TargetClosed
