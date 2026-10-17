@@ -54,7 +54,7 @@
     return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; frame-src about: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; worker-src 'none'"><title>Hermes 原始HTML · 隔离阅读</title><style>:root{color-scheme:light dark}body{margin:0;font:14px system-ui;background:Canvas;color:CanvasText}header{padding:12px;overflow-wrap:anywhere}button{font:inherit;margin:4px;padding:8px}iframe{display:block;width:100%;height:calc(100dvh - 150px);border:0}small{display:block}@media print{header{display:none}iframe{height:100vh}}</style><header><strong>Hermes 原始HTML · 隔离阅读</strong><small id="identity"></small><small>原稿未重排。资源与API连接受CSP限制；沙箱不等于绝对离线。原稿可下载后离线使用。</small><button id="download">下载原始HTML</button></header><iframe title="模型原始HTML报告" sandbox="allow-scripts allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe><script>const payload=${payload};document.getElementById('identity').textContent=payload.identity;const frame=document.querySelector('iframe');frame.srcdoc=payload.content;document.getElementById('download').onclick=()=>{const url=URL.createObjectURL(new Blob([payload.content],{type:'text/html;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='hermes-original.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);};<\/script></html>`;
   }
   async function report(job, kind, download=false) {
-    const design=kind==='boss'&&htmlReport(job);
+    const design=(kind==='boss'||kind==='html')&&htmlReport(job);
     const value=await request('?mode=hermes&id='+encodeURIComponent(job.id)+'&artifact='+(design?'raw':kind));
     let content=value.content;
     if(design){
@@ -64,13 +64,19 @@
       if(download){originalDownload(content,'hermes-'+job.id+'-'+actual.slice(0,12)+'.html');return;}
       if(!/^\s*<!doctype html[\s>]/i.test(content)||!/<\/body\s*>\s*<\/html\s*>\s*$/i.test(content))throw Error('原稿未提供完整HTML文档，请下载原稿检查；未回退为旧模板。');
       content=isolatedViewer(content,'任务 '+job.id+' · '+job.body.start+' — '+job.body.end+' · SHA256 '+actual+' · 教学版本 '+(result.html_design?.manifest_sha256||'未提供'));
+      const host=$('report-detail');host.querySelector('iframe[data-report-preview]')?.remove();
+      const frame=document.createElement('iframe');frame.dataset.reportPreview=job.id;frame.title='完整交互报告';frame.referrerPolicy='no-referrer';
+      frame.style.cssText='display:block;width:100%;height:80vh;min-height:360px;border:1px solid var(--fs-line);border-radius:var(--fs-input-radius);background:var(--fs-surface)';
+      frame.srcdoc=content;host.append(frame);frame.scrollIntoView({block:'start'});return;
     }
     const url=URL.createObjectURL(new Blob([content],{type:design?'text/html;charset=utf-8':value.mime}));const a=document.createElement('a');a.href=url;if(download)a.download=value.filename;else{a.target='_blank';a.rel='noopener';}document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
   function detail(job) {
     const preserveActions=job.state==='COMPLETED'&&$('decision-list').dataset.report===job.id;
     if(job.id!==selected)return;
-    if(completedResults.has(job.id))job={...job,result:completedResults.get(job.id)};
+    if(completedResults.has(job.id))job={...job,result:{...job.result,...completedResults.get(job.id)}};
+    // Settled artifacts are immutable; polling must not reload an interactive preview.
+    if(job.state==='COMPLETED'&&$('report-detail').querySelector('iframe[data-report-preview]')?.dataset.reportPreview===job.id)return;
     if(!preserveActions){$('decision-list').replaceChildren();delete $('decision-list').dataset.report;
     node('p','当前记录尚未提供可展示的结构化行动清单。',$('decision-list'),'empty');}
     const host=$('report-detail');host.replaceChildren();node('div',(labels[job.state]||job.state)+' · '+job.owner,host,'eyebrow');
@@ -82,7 +88,7 @@
     if(job.evidence_count!==undefined)node('p','已保存 '+job.evidence_count+' 份证据',host,'muted');
     if(job.model_usage?.calls!==null&&job.model_usage?.calls!==undefined)node('p','模型调用 '+job.model_usage.calls+' 次 · 已知用量 '+job.model_usage.total_tokens+' tokens'+(job.model_usage.unknown_calls?' · 部分用量未确认':''),host,'muted');
     $('context-receipt').textContent=job.context_loading?JSON.stringify(job.context_loading,null,2):'该任务尚无背景与技能加载回执。';
-    if(job.state!=='COMPLETED'||job.result?.model_generated!==true)return;
+    if(job.state!=='COMPLETED'||(job.result?.model_generated!==true&&!job.result?.html_design))return;
     const result=job.result;node('p',result.summary||'报告已保存，请打开完整正文。',host);
     for(const [label,download] of [['打开汇报',false],['下载汇报',true]]){const b=node('button',label,host,'primary');b.onclick=()=>report(job,'boss',download).catch(e=>message('汇报暂未就绪：'+e.message+' 可先查看研究详情。',true));}
     for(const [label,download] of [['打开研究详情',false],['下载研究详情',true]]){const b=node('button',label,host,'quiet');b.onclick=()=>report(job,'html',download).catch(e=>message(e.message,true));}

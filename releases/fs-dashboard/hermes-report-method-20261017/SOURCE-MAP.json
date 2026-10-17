@@ -96,5 +96,47 @@
     "newSourceReads": false,
     "tests": 9,
     "userAcceptance": "pending"
+  },
+  "inlinePreviewAndArchive": {
+    "release": "nav-20261017T153353Z",
+    "manifestSha256": "6b535adf7d658c5c8c342e1eb443a9cfc567b8171bd3689935a693a1ffb7ec94",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "9915a2216a83359bcd30e443fb85c8d8b5d4439325adbf8069aa82b885212f8e",
+        "sha256": "685d9d6c6e136d2dfe5addc4b66ab5d8752f409189f476d8e93e3081b4ea0663",
+        "mode": "0o644",
+        "owner": "0:0"
+      },
+      {
+        "candidate": "source/report_artifacts.py",
+        "target": "/opt/fs-hermes-fc/report_artifacts.py",
+        "beforeSha256": "88916e5009afd07abc5199816a5231590dabc15c607cf1b505d692f4c0b6bc33",
+        "sha256": "5518eb29453d45f28bedaed6ee9097c29b34804180f69daf196953a0f8fd55eb",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 309,
+    "tests": 11,
+    "userAcceptance": "pending"
+  },
+  "htmlArchiveButtonCompatibility": {
+    "release": "nav-20261017T153637Z",
+    "manifestSha256": "0c93d825fed0933dbe61510799c59eb77815b0afbaa0a0f5ad4a5e5f1bd352ef",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "685d9d6c6e136d2dfe5addc4b66ab5d8752f409189f476d8e93e3081b4ea0663",
+        "sha256": "ebe5767f0b3f853ec7002f31456d133b991aa78e2a2e56649812be4474657957",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "tests": 11,
+    "userAcceptance": "pending"
   }
 }

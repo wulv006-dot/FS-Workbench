@@ -43,11 +43,12 @@ def save_result(root,task,result,html):
     path=directory(root,task);raw=json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
     hashes={'html_sha256':write_file(path/'report.html',html.encode('utf-8')),'result_sha256':write_file(path/'result.json',raw)}
     write_file(path/'ready.json',json.dumps(hashes,sort_keys=True).encode())
-    try:save_boss(root,task)
-    except Exception:
-        # A layout failure must not replay paid research or invalidate its immutable files.
-        import logging
-        logging.getLogger(__name__).warning('boss_report_render_failed; original research remains available')
+    if not result.get('html_design'):
+        try:save_boss(root,task)
+        except Exception:
+            # A layout failure must not replay paid research or invalidate its immutable files.
+            import logging
+            logging.getLogger(__name__).warning('boss_report_render_failed; original research remains available')
     return hashes
 
 

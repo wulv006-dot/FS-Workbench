@@ -5,6 +5,19 @@ SOURCE=Path(__file__).resolve().parents[1]/'source'
 spec=importlib.util.spec_from_file_location('html_archive_candidate',SOURCE/'report_artifacts.py');artifacts=importlib.util.module_from_spec(spec);spec.loader.exec_module(artifacts)
 
 class HTMLArchive(unittest.TestCase):
+ def test_new_html_archive_never_creates_legacy_derivatives_and_keeps_exact_bytes(self):
+  with tempfile.TemporaryDirectory() as d:
+   task='c'*32;raw='<!doctype html><html><body>原稿</body></html>'
+   artifacts.save_raw(d,task,raw,{},dict(html_design={'contract':'new'}))
+   with patch.object(artifacts,'save_boss',side_effect=AssertionError('legacy derivative')):
+    artifacts.save_result(d,task,{'html_design':{'contract':'new'}},raw)
+   folder=Path(d)/'reports'/task
+   self.assertEqual((folder/'model.txt').read_bytes(),(folder/'report.html').read_bytes())
+   self.assertFalse(list(folder.glob('boss-*')))
+ def test_old_archive_still_builds_legacy_report(self):
+  with tempfile.TemporaryDirectory() as d:
+   with patch.object(artifacts,'save_boss') as old:
+    artifacts.save_result(d,'d'*32,{},'<html>old</html>');old.assert_called_once()
  def test_html_and_boss_routes_preserve_bytes_without_old_renderer(self):
   with tempfile.TemporaryDirectory() as d:
    task='a'*32;raw='<!doctype html><html><body>原稿<script>window.ready=true</script></body></html>'
