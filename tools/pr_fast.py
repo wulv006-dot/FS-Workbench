@@ -3,6 +3,17 @@ import ast, io, json, os, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
+#: 已在版本库里的 6 个 /opt 运营模块。它们不走 releases/ 的按批次分组，
+#: 统一归 ops-modules（见 select 与 pr_fast_tests.OpsModuleContracts）。
+OPS_MODULE_PATHS = (
+    "opt/auth-portal/",          # 统一登录门禁 / 白名单告警
+    "opt/fs-access-policy/",     # 全站写权限名单
+    "opt/iggm-web/",             # IGGM/AOEAH/U4GM 抓取 Web 版
+    "opt/mlb-online/",           # MLB 上架工作台（含写卡桥 + 取价）
+    "opt/nba-reprice/",          # NBA 2K27 改价后端
+    "opt/mmoexp-taskboard/",     # 任务台（含 green_plan）
+)
+
 def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
         raise RuntimeError("required_tests_failed_or_empty_or_skipped")
@@ -263,6 +274,17 @@ def selfcheck():
         raise RuntimeError("fc_coupon_parity_doc_scope_missing")
     if select(["releases/fs-dashboard/metrics-fix-20261009/assets/runtime.js"]) != ["fs-metrics-fix"]:
         raise RuntimeError("fs_metrics_fix_mapping_missing")
+    # ops-modules 覆盖 6 个 /opt 模块；漏一条就等于放一条改动能不跑测试地进主干。
+    for path in ("opt/auth-portal/auth_portal.py","opt/auth-portal/fs_ip_alert.py",
+                 "opt/fs-access-policy/access_policy.py","opt/iggm-web/core.py",
+                 "opt/mlb-online/mlb_writeback.py","opt/mmoexp-taskboard/green_plan.py",
+                 "opt/nba-reprice/backend/server.js","opt/iggm-web/deploy/setup.sh"):
+        if select([path]) != ["ops-modules"]:
+            raise RuntimeError("ops_module_mapping_missing:"+path)
+    if select(["opt/nba-reprice/backend/api_security.js"]) != ["nba","ops-modules"]:
+        raise RuntimeError("nba_guard_mapping_regressed")
+    if select(["opt/auth-portal/login.html"]) != ["frontend"]:
+        raise RuntimeError("ops_module_html_must_stay_in_frontend")
     if select(["releases/fs-dashboard/traffic-yesterday-20261009/assets/business.js"]) != ["fs-period-ui"]:
         raise RuntimeError("fs_period_ui_mapping_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
@@ -443,6 +465,16 @@ def select(paths):
         if name.startswith(("opt/mmoexp-guardbot/","opt/shugo-bot/","opt/bot-console/")) \
                 and suffix in (".py",".js",".cjs",".mjs",".service"):
             groups.add("bots");continue
+        # 运营模块（2026-10-17 补登记）：/opt 下这 6 个模块早就在仓里，但映射表
+        # 里没有它们的路径 ⇒ 任何改动都被判 UNMAPPED 全红，久而久之只能「绕过闸门改」。
+        # 现按后缀统归 ops-modules，由 pr_fast_tests.OpsModuleContracts 做离线契约
+        # 检查（纯 AST / 文本，不 exec、不联网）。.html/.css 不在此处拦，继续走
+        # frontend 结构校验；.md/.bat/.json 按原有约定忽略。
+        if name.startswith(OPS_MODULE_PATHS) and suffix in (".py",".js",".cjs",".sh",".service",".timer"):
+            # nba 的纯守卫用例是独立资产，不能被新组顶掉（select 按集合返回，可并存）。
+            if name.startswith("opt/nba-reprice/backend/api_security"):
+                groups.add("nba")
+            groups.add("ops-modules");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
@@ -501,6 +533,7 @@ def main():
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
+        elif group=="ops-modules":units("tools",["pr_fast_tests.OpsModuleContracts"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
