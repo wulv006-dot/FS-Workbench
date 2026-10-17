@@ -735,7 +735,7 @@ def main():
         elif group=="management-quality":
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
         elif group=="hermes-learning-loop":
-            units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release"])
+            units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])
         elif group=="desktop-learning":
             units("releases/fs-dashboard/desktop-learning-20261016/tests",["test_learning","test_publish"])
         elif group=="fs-management-v2":

@@ -1,0 +1,123 @@
+{
+  "scope": "hermes-report-finish-20261016",
+  "base": "b70564fa3ea3c39a22402e4f6451bbf8144d9ea0",
+  "files": [
+    {
+      "source": "source/boss_projection.py",
+      "runtime": "/opt/fs-hermes-fc/boss_projection.py",
+      "beforeSha256": "ba824cd7c473af75b033ccae10edbceb2637a6944112c6653015ec192daaf499",
+      "sha256": "087391644a92693e2b6a1ac14c9502d5df3d0c3f57965135daae32cebe82e8a1"
+    },
+    {
+      "source": "source/boss_renderer.py",
+      "runtime": "/opt/fs-hermes-fc/boss_renderer.py",
+      "beforeSha256": "67ed120274b2d1c0a9764aea0f0f74cdfc1bfecbd40f6fbc70749ea6a3067fb1",
+      "sha256": "1ecd8c91a9306b3caf15656b5efdaea857d17951162bd511e2498a1ec8a209c4"
+    },
+    {
+      "source": "source/report_tracks.py",
+      "runtime": "/opt/fs-hermes-fc/report_tracks.py",
+      "beforeSha256": "1d9f29f9a18934b5a908f9477b5557c73c0e01484093356c9d4ec435f869066a",
+      "sha256": "291de170e80fbf50f18becb499ad6e1e2b1ba73fdc6ec72d6f2cf1fb9b7a508c"
+    },
+    {
+      "source": "source/pricing_report.py",
+      "runtime": "/opt/fs-hermes-fc/pricing_report.py",
+      "beforeSha256": "1522530972f3715f92411174c2a0a6bc3d2a210264ad9cbd51d797ffcfd8aac7",
+      "sha256": "ef8d15e5fe3bb5b228402920b8273f22910520ccc481a192485c331a6102fa54"
+    },
+    {
+      "source": "source/report_artifacts.py",
+      "runtime": "/opt/fs-hermes-fc/report_artifacts.py",
+      "beforeSha256": "35b7b3086a04ae182adce19ef5a9cab92d7ca4dad9b86f55cf7a86e9b6b98865",
+      "sha256": "c30f44ee10855975529ad5c1eb4ffe08e979ced25eeadb44ed31c371d6272d35"
+    },
+    {
+      "source": "source/report_html.py",
+      "runtime": "/opt/fs-hermes-fc/report_html.py",
+      "beforeSha256": "bf604a7eded0560375d9f6a9fe7a9abb23eecc4b8bcb2f294be7f1c0b2c03142",
+      "sha256": "9fc8b2fe831900ff61b245feb537ae577d8709fa67f98a0ff556893889a68510"
+    },
+    {
+      "source": "source/management_context.py",
+      "runtime": "/opt/fs-hermes-fc/management_context.py",
+      "beforeSha256": "5c36780053e1d85b7496e785ebfc4690736e687d5ae4e321f4ee8f9924c84572",
+      "sha256": "ae7d25fc1357e73499a660985faf0b8fd45bb5ea5400af91ddfb0adfca7f9858"
+    },
+    {
+      "source": "source/learning-loop.md",
+      "runtime": "/opt/fs-hermes-fc/learning-loop.md",
+      "beforeSha256": "cf8f5bd2f37deacfe45966749af1b18fea83e21bc54dbe65c3228037d83cc598",
+      "sha256": "3daa91c314dcc153c11231600f28b32b9ec5df0d59db87fd8d78da9c117f0252"
+    },
+    {
+      "source": "source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "d9229b28c1151c1850bdc8f078f5b49f4505343d48c0d749d09e5492499ece73",
+      "sha256": "521d3a479a735778831d48341f36aaee8f3a777d799834e4a356835fcc188b77"
+    },
+    {
+      "source": "source/fs_evidence.py",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "beforeSha256": "2fb6d4427f713c49cc64dc3f4937e6f6ab1a1143fccc5ba5367e83747c2d7eac",
+      "sha256": "2a78db06f066801b6d4a0234e39ba39944bd921e0fb8e3ba6a930d65c52957e6"
+    },
+    {
+      "source": "source/business_context.py",
+      "runtime": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "a7e7f756ac348519ce46fa2de10c1b1aedaecd63536aad339a4b0b8b04d9ccf5",
+      "sha256": "3a3d35bfe970cbac0343e322ce75374374544e29b5056c775efde898c1446706"
+    },
+    {
+      "source": "source/report_constraints.py",
+      "runtime": "/opt/fs-hermes-fc/report_constraints.py",
+      "beforeSha256": "afde41e4a63ef7a865167b3d44dd1cc98f644b289ab98621919702057020e5b7",
+      "sha256": "6d7f3b34919d728b8e41b310cd622abc544536019971dc4d64b395cc3564b476"
+    },
+    {
+      "source": "source/marketing_snapshot.py",
+      "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
+      "beforeSha256": "4cd46eb02b8d9e33a20b28ed3b8db7fcbc48e833b0ceef7c837f96fc434f0a81",
+      "sha256": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5"
+    },
+    {
+      "source": "source/research.py",
+      "runtime": "/opt/fs-hermes-fc/research.py",
+      "beforeSha256": "f4eb6bbd80713f0dedab989171e9c01d7d16fdfc6c9f034dd975c40bdc1fb395",
+      "sha256": "c593578b997d8acf19ca36b3235be4d7ef9e7d189a3340f43e5e6c34e4b127b3"
+    },
+    {
+      "source": "source/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "7d14172a658770d8357eeeebaeb556ac7b63042054e7fd06075e62e4d7eb8795",
+      "sha256": "3bf192ef202d1da22e5902483a6ce022d799b2bb7a18cc102790f28e649dc8ac"
+    },
+    {
+      "source": "source/transport.py",
+      "runtime": "/opt/fs-hermes-fc/transport.py",
+      "beforeSha256": "88d44114477b14b9da94aa954d5cdf75992576470d80ec957334935dd7539dfe",
+      "sha256": "1609bd2275d0add327c622f40b0d5ed663bdee77e48f6bf787d8d7e19207cc7c"
+    },
+    {
+      "source": "source/report_semantics.py",
+      "runtime": "/opt/fs-hermes-fc/report_semantics.py",
+      "beforeSha256": "0b21ac184a8a7a2e94ffe2528d70ef21336a277d9bd44ea320ed3b3a4b6f9bab",
+      "sha256": "afc5c0499767c346aec33a568ba1008fbff0edb89d14d803828a7217700d7716"
+    },
+    {
+      "source": "source/source_snapshots.py",
+      "runtime": "/opt/fs-hermes-fc/source_snapshots.py",
+      "beforeSha256": null,
+      "sha256": "da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277"
+    },
+    {
+      "source": "source/nightly.py",
+      "runtime": "/opt/fs-hermes-fc/nightly.py",
+      "beforeSha256": "5b6421f4fa18eb75b3d7b0ed8f6471374ae1386c172a1c10238ba2638afbbf76",
+      "sha256": "dcd720bd2ab29dcacc60174e94675edb055c0c4f3e21e853a92d8539ab5320a6"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "stage": "final-candidate-before-real-acceptance"
+}

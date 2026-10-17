@@ -62,7 +62,7 @@ def inventory_advice(narrative):
     boundary=r'[。；;，,！!？?\n"{}\[\]]'
     for match in re.finditer(r'扩库存|囤货|备库存|补库存|库存/可售|库存日志',narrative):
         prefix=re.split(boundary,narrative[:match.start()])[-1]
-        negative=re.search(r'(?:不建议|不预付|不应|不得|不要|无需|禁止|严禁|避免|不)\s*$',prefix)
+        negative=re.search(r'(?:不建议|不预付|不应|不得|不要|无需|禁止|严禁|避免|不|无)\s*$',prefix)
         if not negative:return True
         # A negation before the direct prohibition may reverse its meaning.
         if re.search(r'不|没|无|非|未|否定|取消',prefix[:negative.start()]):return True
@@ -83,7 +83,7 @@ def validate(c,e):
     k=r['kind']
     if k=='daily' and a!=b:raise ValueError('Daily requires one complete natural day')
     if k=='weekly' and (a.weekday()!=0 or b.weekday()!=6 or (b-a).days!=6):raise ValueError('Weekly requires complete Monday–Sunday')
-    if k=='monthly' and (a.day!=1 or b.day!=calendar.monthrange(b.year,b.month)[1] or a.month!=b.month or a.year!=b.year):raise ValueError('Monthly requires a complete calendar month')
+    if k=='monthly' and (a.day!=1 or a.month!=b.month or a.year!=b.year):raise ValueError('Monthly requires one calendar month starting on day one')
     if k not in ['daily','weekly','monthly','investigation']:raise ValueError('Unknown report kind')
     generated=datetime.fromisoformat(r['generated_at'].replace('Z','+00:00'))
     if generated.tzinfo is None or b>=generated.astimezone(timezone(timedelta(hours=8))).date():raise ValueError('Report requires closed business dates')
@@ -305,6 +305,25 @@ def marketing_section(context,previous=None):
     if not context:return '<div class="note">本报告未读取同区间营销背景；地区与营销渠道不推造，支付通道见上表。</div>'
     out='<div class="marketing-context"><h3>全站流量与地区背景</h3><p>MMOEXP 全站数据；不能直接归因于 FC27 订单或客户变化。</p>'
     if context['status']=='not_available':return out+'<p class="empty">准确区间营销数据未取得。</p></div>'
+    fc=context.get('fc27_by_name') or {};fc_rows=[]
+    old_fc={a.get('customer_id'):a for a in (previous or {}).get('fc27_by_name',{}).get('ads_accounts',[])}
+    for account in fc.get('ads_accounts',[]):
+        if not marketing_valid(account):continue
+        metrics=account.get('metrics') or {};old=old_fc.get(account.get('customer_id'),{})
+        before=(old.get('metrics') or {}).get('cost') if marketing_valid(old) and old.get('currency')==account.get('currency') else None
+        fc_rows.append([account.get('customer_id','未知'),account.get('currency','未知'),number(before),number(metrics.get('cost')),change(before,metrics.get('cost')),
+                        number(metrics.get('impressions'),0),number(metrics.get('clicks'),0),number(metrics.get('conversions')),number(metrics.get('cpa')),number(metrics.get('platformRoas')),account.get('selection_basis','已返回项小计')])
+    if fc_rows:
+        out+='<h4>FC27项目广告投入（按名称归类）</h4>'+table(['账号','币种','对照花费','本期花费','变化','展示','点击','平台转化','CPA','平台ROAS','覆盖'],fc_rows)
+        out+='<p class="source">'+esc(fc.get('rule',''))+' CPA和ROAS由匹配系列总量计算，不平均各系列比率；平台转化保留平台归因口径。</p>'
+        for account in fc.get('ads_accounts',[]):
+            if marketing_valid(account):out+='<details><summary>FC匹配广告系列及归类依据 · '+esc(account.get('currency','未知'))+'</summary>'+table(['系列名称','命中依据','花费','点击','平台转化'],[[r.get('campaign_name','未知'),r.get('match_basis','名称规则'),number((r.get('metrics') or {}).get('cost')),number((r.get('metrics') or {}).get('clicks'),0),number((r.get('metrics') or {}).get('conversions'))] for r in account.get('campaigns',{}).get('rows',[])])+'</details>'
+    if fc:out+='<p class="source">'+esc(fc.get('search_terms_status',''))+'</p>'
+    for dimension,label in (('query','FC27搜索词'),('page','FC27搜索落地页')):
+        selected=fc.get('search',{}).get(dimension) or {}
+        if selected.get('rows'):
+            out+='<details><summary>'+label+'（已发布Top表筛选）</summary>'+table(['名称','命中依据','点击','展示','CTR','平均排名'],[[r['label'],r.get('match_basis','名称规则'),number(r['metrics'].get('clicks'),0),number(r['metrics'].get('impressions'),0),number(Decimal(str(r['metrics']['ctr']))*100)+'%' if r['metrics'].get('ctr') is not None else '缺失',number(r['metrics'].get('position'))] for r in selected['rows']])+'<p class="source">'+esc(selected.get('scope',''))+'</p></details>'
+        elif selected:out+='<p class="source">'+label+'：已发布Top表未匹配到名称，不代表FC自然搜索为零。</p>'
     if previous:
         compared=[];highlights=[]
         for source,key,label in [('ga4','sessions','访问次数'),('ga4','activeUsers','活跃用户'),('gsc','clicks','自然搜索点击'),('gsc','impressions','自然搜索展示')]:
@@ -363,6 +382,9 @@ def render(c,e):
     body+=f'<div class="headline"><div><h2>{brief(ex["headline"])}</h2><p>{brief(executive_brief(ex["summary"]))}</p></div><aside class="confidence"><details><summary>判断依据与限制</summary><p>{esc(ex["confidence_fact"])}</p><p>{esc(ex["confidence_unknown"])}</p><p>摘要原文：{esc(ex["summary"])}</p></details></aside></div>'
     body+='<div class="metrics">'
     for m in c['metrics']:
+        if 'target_usd' in m:
+            body+='<div class="metric"><span class="label">'+esc(m['label'])+'</span><span class="value">'+esc(m['value'])+'</span><span class="delta '+delta_class(m['delta'])+'">'+esc(m['delta'])+'</span><small>参考利润 $'+number(m['actual_usd'])+' · '+esc(m['previous'])+' · '+esc(m['basis'])+'</small></div>'
+            continue
         body+=f'<div class="metric"><span class="label">{esc(m["label"])}</span><span class="value'+(' missing' if m['status']=='missing' else '')+f'">{esc(m["value"])}</span><span class="delta '+(delta_class(m['delta']) if comparable else '')+f'">{esc(m["delta"] if comparable else "不可比")}'+(' · 较'+period_name if m['status']!='missing' and comparable else '')+f'</span><small>{period_name+" " if m["status"]!="missing" and comparable else ""}{esc(m["previous"] if comparable else "未获取同口径对照")}</small></div>'
     body+=f'</div><details class="targets"><summary>查看统计说明与来源</summary><p>{esc(r["subtitle"])}。{esc(r["source_policy"])}；{esc(r.get("metric_basis","客单价=销售额÷订单"))}。数据捕获 {esc(r["business_data_captured_at"])}；上游业务水位{esc(r.get("source_data_as_of") or "UNKNOWN")}。{esc(r.get("target_basis") or "目标口径未提供。")}{refs(c["metrics"][0]["evidence_ids"] if c["metrics"] else [])}</p></details>'
     if c.get('comparisons'):
@@ -399,7 +421,9 @@ def render(c,e):
     pay_period=c.get('payment_period',{})
     pay=('<h3>支付通道：'+esc(pay_period.get('basis','主对照'))+'</h3><p>'+esc(pay_period.get('start','')+' 至 '+pay_period.get('end',''))+' → '+esc(p['start']+' 至 '+p['end'])+'</p>'+table(['支付通道','对照订单','本期订单','对照金额 USD','本期金额 USD','净变化 USD'],[[x['label'],number(x.get('previous_orders'),0),number(x.get('current_orders'),0),number(x['previous']),number(x['current']),signed(x['delta'])] for x in c['payment']])) if c['payment'] else '<p class="missing">未取得同口径支付通道分组，订单与金额保持缺失，不补零。</p>'
     pay+='<details><summary>查看支付数据说明</summary><p>'+esc(c.get('payment_note','成功交易金额不是支付成功率；缺少尝试与失败分母时不能判断通道故障。'))+'</p><span class="source">'+esc(r['source_policy'])+'。'+refs(c.get('payment_evidence_ids',[]))+'</span></details>'
-    body+=section('03','客户、支付与未完成订单','<div class="two equal"><div>'+pay+'<details><summary>查看地区与设备变化</summary>'+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</details></div>'+chart_figure(charts['queue'])+'</div>'+marketing_section(c.get('marketing_context'),c.get('marketing_previous')),sid='customers',conclusion=c.get('section_conclusions',{}).get('customers','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
+    countries=c.get('country_sales',{})
+    geography=('<details><summary>国家销售 TOP10＋其他</summary><p>'+esc(countries['basis'])+'</p>'+table(['国家','本期 USD','对照 USD','订单','客单 USD','收入占比','收入变化'],[[r['country'],number(r['revenue_usd']),number(r['previous_revenue_usd']),number(r['orders'],0),number(r['aov_usd']),number(r['share_percent'],1)+'%' if r['share_percent'] is not None else '缺失',signed(r['change_percent'],1)+'%' if r['change_percent'] is not None else '无可比基准'] for r in countries['rows']])+refs(countries['evidence_ids'])+'</details>') if countries.get('rows') else ''
+    body+=section('03','客户、支付与未完成订单','<div class="two equal"><div>'+pay+geography+'<details><summary>查看地区与设备变化</summary>'+''.join(f'<div class="compact"><h3 style="font-size:14px;margin:0 0 5px">{esc(x["label"])}</h3><p style="font-size:12px;margin:0;color:var(--muted)">{esc(x["text"])}</p><span class="source">{refs(x["evidence_ids"])}</span></div>' for x in c['context'][:2])+'</details></div>'+chart_figure(charts['queue'])+'</div>'+marketing_section(c.get('marketing_context'),c.get('marketing_previous')),sid='customers',conclusion=c.get('section_conclusions',{}).get('customers','本模块的独立经营判断尚未生成，不能仅凭图表认定原因。'))
     for x in c['context'][3:]:body+='<div class="note"><strong>'+esc(x['label'])+'</strong><p>'+esc(x['text'])+'</p>'+refs(x.get('evidence_ids',[]))+'</div>'
     estimate_html=''
     for key,label in [('current','本期'),('previous','主对照期'),('previous_day','前日辅助比较')]:
@@ -439,13 +463,27 @@ def render(c,e):
     for x in c['decisions']:decisions+=f'<tr><td>{esc(x["topic"])}<br><small>{esc(x["status"])}</small></td><td><strong>{esc(x["recommended"])}</strong></td><td>{esc(x["alternative"])}</td><td>{esc(x["tradeoff"])}</td></tr>'
     decisions+='</tbody></table></div>'
     if c['decisions']:body+=section('07','需决策事项',decisions,sid='decisions')
+    if r['kind'] in ('weekly','monthly'):
+        from report_semantics import sections
+        from report_html import markdown
+        parts=sections(c.get('reviewed_research_text',c.get('research_text','')));supplement=''
+        for label in ('广告投放与SEO','目标完成与下期目标'):
+            for i,part in enumerate(parts):
+                if label not in re.sub(r'\s+','',part['heading']):continue
+                texts=[part['text']]
+                for child in parts[i+1:]:
+                    if child['level']<=part['level']:break
+                    texts.append('### '+child['heading']+'\n'+child['text'])
+                supplement+='<details><summary>'+esc(label)+'</summary>'+markdown('\n\n'.join(texts),e)+'</details>'
+                break
+        if supplement:body+=section('08','会议补充汇报',supplement,sid='meeting')
     body+='<section class="appendix"><details id="appendix-root"><summary>口径、缺口与'+str(len(e))+'份原始证据（折叠附录）</summary><h3 style="font-size:15px">数据来自哪里，哪些判断还不能下</h3><p class="meta">'+esc(r['source_policy'])+'；快照 '+esc(r['snapshot_id'])+'。'+esc(c['provenance']['scope'])+'</p><ul class="gaps">'+''.join('<li>'+esc(g)+'</li>' for g in c['gaps'])+'</ul><h3 style="font-size:14px">已应用的阅读校正</h3><ul style="font-size:12px;color:var(--muted)">'+''.join('<li>'+esc(g)+'</li>' for g in c['corrections'])+'</ul><details><summary>原研究排期（未经执行）</summary>'+table(['日期','建议'],[[t['date'],t['text']] for t in c.get('timeline',[])])+'</details><p class="meta">完整研究版：<a href="'+(safe_url(c['research_url']) if c.get('research_url') else '#analysis')+'">持久阅读页与原报告</a>。研究HTML SHA256：'+esc(c['provenance']['research_html_sha256'])+'<br>公开证据包 SHA256：'+esc(c['provenance']['package_sha256'])+'</p><h3 style="font-size:14px">原始'+str(len(e))+'份公开证据 / 保持原值</h3><div class="evidence">'
     for i,v in sorted(e.items()):
         body+=f'<details id="{esc(i)}"><summary>[{REF_NUMBER.get()[i]}] {esc(i)} · {esc(v.get("source",""))}</summary><p>范围：{esc(v.get("scope","未标注"))}；捕获：{esc(v.get("captured_at","未标注"))}。原始证据保留于任务，本报告仅附引用索引。</p></details>'
     body+='</div><p class="meta">'+esc(r.get('method_note','同批证据渲染；行动建议未执行。'))+'</p></details></section>'
     body+='<footer class="foot"><span>MMOEXP / '+esc(r.get('project_label','FC27'))+' · '+esc(r['status'])+'<br>研究供参考，建议尚未执行。</span><span>生成：'+esc(r['generated_at'])+'<br>知识版本：'+esc(r.get('knowledge_version','历史任务未记录'))+'</span></footer>'
     template=(HERE/'report.template.html').read_text(encoding='utf-8')
-    return template.replace('@@TITLE@@',esc(r['title']+' | '+p['start']+'—'+p['end'])).replace('@@BODY@@',body).replace('@@FILENAME_JSON@@',json.dumps(r['filename'],ensure_ascii=False).replace('<','\\u003c'))
+    return template.replace('@@TITLE@@',esc(r['title'])).replace('@@BODY@@',body).replace('@@FILENAME_JSON@@',json.dumps(r['filename'],ensure_ascii=False).replace('<','\\u003c'))
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--content',type=Path,default=HERE/'sample.content.json');ap.add_argument('--evidence',type=Path,default=HERE/'evidence-public.json');ap.add_argument('--output',type=Path);args=ap.parse_args()
     c=json.loads(args.content.read_text(encoding='utf-8'));e=json.loads(args.evidence.read_text(encoding='utf-8'));result=validate(c,e)

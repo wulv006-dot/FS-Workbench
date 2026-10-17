@@ -9,8 +9,6 @@ FILES=(
  'ops-report-brief/SKILL.md',
  'ops-report-brief/references/closure-checks.md',
  'ops-report-brief/references/weekly-input-fields.md',
- 'ops-report-brief/templates/brief-skeleton.html',
- 'ops-report-brief/templates/brief-skeleton.css',
  'ops-report-brief/ops-report-family/SKILL.md',
  'ops-report-brief/ops-report-family/references/report-input-fields.md',
  'fs-operations/fs-task-verification/SKILL.md',
@@ -20,8 +18,6 @@ FILES=(
  'reviewed-business-20261015/mmoexp-competitor-monitor/references/market-snapshot-tool.md',
  'reviewed-business-20261015/mmoexp-competitor-monitor/references/public-page-collection.md',
  'reviewed-business-20261015/fs-price-strategy/SKILL.md',
- 'reviewed-business-20261015/pptx-generator/SKILL.md',
- 'reviewed-business-20261015/minimax-xlsx/SKILL.md',
 )
 MAX_FILE=131072
 MAX_TOTAL=262144
@@ -54,13 +50,14 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None):
  base=read_regular(root/'desktop-business-context.md',root,optional=True)
  candidates=[('desktop-business-context.md',base)]
  source=Path(__file__).resolve().parent
- candidates.append(('runtime/learning-loop.md',read_regular(source/'learning-loop.md',source,expected_owner=Path(__file__).stat().st_uid)))
  # This dedicated profile contains reviewed business memory, not Desktop chat history.
  profile_root=Path(profile_root) if profile_root is not None else skill_root.parent
  for name in ('memories/MEMORY.md','memories/USER.md'):
   candidates.append(('profile/'+name,read_regular(profile_root/name,profile_root,optional=True)))
  for name in FILES:
   candidates.append(('skills/'+name,read_regular(skill_root/name,skill_root,optional=True)))
+ # Keep current confirmed corrections after historical memory and method examples.
+ candidates.append(('runtime/learning-loop.md',read_regular(source/'learning-loop.md',source,expected_owner=Path(__file__).stat().st_uid)))
  for name,raw in candidates:
   if raw is None:continue
   total+=len(raw)
@@ -77,6 +74,7 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None):
  '样例日期、金额、人物和路径不得当作当前事实。以当前任务冻结的真实证据和授权为准。'
  '机器传输封装不属于用户报告，用户交付物应为可阅读的经营分析，不能直接展示 JSON 或验收清单。'
  '如同一约定被用户明确修订，以带日期的最新确认规则为准；旧故障与未接通状态仅是当时快照。'
+ '末尾runtime/learning-loop.md汇总当前已确认修订；冲突时其明确修订优先于前面的历史记忆与技能。不要将历史相反建议带回本次结论。'
  '\n本次已冻结学习资料清单：'+manifest+'\n')
  text=header+''.join(parts)
  return text,hashlib.sha256(text.encode()).hexdigest(),rows

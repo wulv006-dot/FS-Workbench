@@ -95,6 +95,33 @@ def complete_projection(evidence,dimension,lo,hi,captured,eligible,expected=None
             list(dict.fromkeys(key for _,ids in candidates for key in ids)))
 
 
+def native_total(evidence,anchor,lo,hi):
+    """Select each native total by authority and source time, never from payment rows."""
+    selected={}
+    period={'start':lo+' 00:00','end':(date.fromisoformat(hi)+timedelta(days=1)).isoformat()+' 00:00'}
+    for key,row in evidence.items():
+        data=row.get('data',{});q=row.get('query',{})
+        if (row.get('analysis_anchor_id')!=anchor or q!={'profile':'FC27','start':lo,'end':hi}
+                or data.get('status')!='available'):continue
+        for name,unit in (('revenueUsd','USD'),('orders','count')):
+            field=data.get('authoritative_fields',{}).get(name,{})
+            if (field.get('status')!='available' or field.get('unit') not in (('count','orders') if name=='orders' else (unit,)) or field.get('period')!=period
+                    or field.get('system') not in ('admin.p2pah.cn','order.p2pah.cn')):continue
+            try:
+                value=numeric(field['value']);at=datetime.fromisoformat(field['capturedAt'].replace('Z','+00:00'))
+                if at.tzinfo is None or value<0 or (name=='orders' and value!=value.to_integral_value()):continue
+            except (KeyError,ValueError,TypeError,ArithmeticError):continue
+            rank=(field['system']=='admin.p2pah.cn',at.timestamp())
+            if name not in selected or rank>selected[name][0]:selected[name]=(rank,value,key,field)
+            elif rank==selected[name][0] and value!=selected[name][1]:selected[name]=(rank,None,key,field)
+    revenue=selected.get('revenueUsd');orders=selected.get('orders')
+    if not revenue or revenue[1] is None:return None
+    ids=list(dict.fromkeys(v[2] for v in selected.values()))
+    return (revenue[2],revenue[1],orders[1] if orders else None,
+            {'captured_at':revenue[3]['capturedAt'],'query':{'start':lo,'end':hi},
+             'native_fields':{k:v[3] for k,v in selected.items()},'native_evidence_ids':ids})
+
+
 def estimated_profit(evidence,anchor,lo,hi,main,eligible):
     """Admin wins when present; Order supplies absent fields regardless of scope.
 
@@ -154,7 +181,11 @@ def estimated_profit(evidence,anchor,lo,hi,main,eligible):
                     method='period_amount_times_period_reference_percent',
                     formula='主站订单金额 × 对应该期参考利润率 ÷ 100',sources=[detail for _,detail in rates],
                     evidence_ids=list(dict.fromkeys([main[0]]+[d['evidence_id'] for _,d in rates])))
-    daily=({lo:{'revenue_usd':str(main[1]),'orders':str(main[2])}},[main[0]]) if len(days)==1 and eligible(main[3]) and main[3].get('query',{}).get('start')==lo and main[3].get('query',{}).get('end')==hi else complete_projection(evidence,'day',lo,hi,main[3]['captured_at'],eligible,(main[1],main[2]))
+    daily=({lo:{'revenue_usd':str(main[1]),'orders':str(main[2])}},[main[0]]) if len(days)==1 and (eligible(main[3]) or main[3].get('native_fields')) and main[3].get('query',{}).get('start')==lo and main[3].get('query',{}).get('end')==hi else complete_projection(evidence,'day',lo,hi,main[3]['captured_at'],eligible,(main[1],main[2]))
+    if main[3].get('native_fields') and len(days)>1:
+        native_days={day:native_total(evidence,anchor,day,day) for day in days}
+        daily=({day:{'revenue_usd':str(v[1]),'orders':str(v[2])} for day,v in native_days.items()},
+               [v[0] for v in native_days.values()]) if all(native_days.values()) else None
     if not daily or set(daily[0])!=set(days):return missing('缺该期有效参考率，且无完整同日期主站金额可逐日估算；缺失不补零。')
     values={};references=[]
     for key,row in sorted(evidence.items()):
@@ -223,6 +254,44 @@ def narrative(text):
     return text
 
 
+def native_customer_comparison(evidence,anchor,period):
+    """Compare selected native fields; direction is arithmetic, not an improvement verdict."""
+    lo,hi=date.fromisoformat(period['start']),date.fromisoformat(period['end']);days=(hi-lo).days+1
+    # shortcut: daily and weekly only; extend with phase-two period rules.
+    if days not in (1,7):return {}
+    shift=timedelta(days=7 if days==1 else days)
+    windows={'current':(lo.isoformat(),hi.isoformat()),'previous':(period.get('comparison_start') or (lo-shift).isoformat(),period.get('comparison_end') or (hi-shift).isoformat())}
+    selected={'current':{},'previous':{}}
+    names=('newCustomers','repeatRatePct','fulfillmentRatePct','refundAmountUsd','refundOrders','payingCustomers','paymentSuccessRatePct')
+    for key,row in evidence.items():
+        q=row.get('query',{});data=row.get('data',{})
+        if row.get('analysis_anchor_id')!=anchor or q.get('profile')!='FC27' or data.get('status')!='available':continue
+        for label,window in windows.items():
+            if (q.get('start'),q.get('end'))!=window:continue
+            for name in names:
+                field=data.get('authoritative_fields',{}).get(name,{})
+                if field.get('status')!='available' or not field.get('unit'):continue
+                stamp=field.get('capturedAt') or row.get('captured_at')
+                if not isinstance(stamp,str):continue
+                try:
+                    value=numeric(field['value']);at=datetime.fromisoformat(stamp.replace('Z','+00:00'))
+                    if at.tzinfo is None:continue
+                except (KeyError,ValueError,TypeError,ArithmeticError):continue
+                candidate=(at.timestamp(),value,field['unit'],key)
+                if name not in selected[label] or candidate[0]>selected[label][name][0]:selected[label][name]=candidate
+    fields={};ids=set()
+    for name in names:
+        a,b=selected['current'].get(name),selected['previous'].get(name)
+        if not a or not b or a[2]!=b[2]:continue
+        delta=a[1]-b[1];ids.update((a[3],b[3]))
+        fields[name]={'current':str(a[1]),'previous':str(b[1]),'delta':str(delta),'unit':a[2],
+                      'relative_change_pct':str((delta*100/b[1]).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)) if b[1] else None,
+                      'direction':'上升' if delta>0 else '下降' if delta<0 else '持平'}
+    return {'contract':'fc-native-customer-comparison-v1','windows':windows,'fields':fields,
+            'evidence_ids':sorted(i for i in ids if i!='this_reply'),'includes_this_reply':'this_reply' in ids,
+            'scope':'同期间原生统计字段对照，不替代主站去重支付明细；上升不等于改善，不能把不同方向写成均优于对照。'} if fields else {}
+
+
 def constraints(content,evidence):
     period=content['report']['period'];anchor=content['report']['snapshot_id'];captured=content['report']['business_data_captured_at']
     def eligible(row):
@@ -243,7 +312,19 @@ def constraints(content,evidence):
                 and data.get('definitions',{}).get('discount_and_specification_verified') is True):unit_ids.append(key)
     # No registered current adapter supplies stable, verified cohort-key joins.
     # A marginal or unbound joint grouping must not certify individual identity.
+    native=[]
+    try:
+        previous_year={k:date.fromisoformat(period[k]).replace(year=date.fromisoformat(period[k]).year-1).isoformat() for k in ('start','end')}
+    except ValueError:previous_year={}
+    for key,row in evidence.items():
+        q=row.get('query',{});data=row.get('data',{});fields=data.get('authoritative_fields',{})
+        if (row.get('analysis_anchor_id')!=anchor or q.get('profile')!='FC26' or not previous_year
+                or any(q.get(k)!=v for k,v in previous_year.items()) or data.get('status')!='available'):continue
+        values={k:fields[k]['value'] for k in ('revenueUsd','orders') if fields.get(k,{}).get('status')=='available'}
+        if values:native.append(dict(profile='FC26',values=values,evidence_id=key))
     return {'contract':'fc-report-evidence-constraints-v1','joint_product_status':bool(joint_ids),'joint_evidence_ids':joint_ids,
+            'native_comparisons':native,
+            'native_customer_comparison':native_customer_comparison(evidence,anchor,period),
             'stable_order_intersection_verified':False,
             'verified_quantity_price_discount':bool(unit_ids),'unit_evidence_ids':unit_ids,
             'payment_delta':{r['label']:r['delta'] for r in content['payment']},'payment_evidence_ids':content['payment_evidence_ids'],
@@ -253,19 +334,37 @@ def constraints(content,evidence):
 
 def review_paragraph(text,bounds,payment_context=''):
     reasons=[];ids=[]
+    customers=bounds.get('native_customer_comparison',{})
+    if customers.get('fields',{}).get('newCustomers',{}).get('direction')=='下降':
+        for match in re.finditer(r'新客\s*[\d,]+(?:\s*人)?[^。；\n]{0,100}?均(?:略)?(?:好于|优于)(?:主)?对照',text):
+            if re.search(r'下降|减少|回落|低于|不及|但|而',match[0].split('均')[0]):continue
+            reasons.append(('native_customer_direction_conflict','同区间原生新客人数低于对照，不能随其他指标一并写成均优于对照。'))
+            ids+=customers.get('evidence_ids',[])
+    for native in bounds.get('native_comparisons',[]):
+        for clause in re.split(r'[。；\n]',text):
+            reference=re.search(r'FC26.{0,25}(?:同比|同期|同日期)|(?:同比|同期).{0,15}FC26',clause)
+            if not reference:continue
+            quotation=clause[reference.start():]
+            for field,pattern in (('revenueUsd',r'(?:营收|销售额)\s*(?:为|：|:|=)?\s*\$\s*([\d,]+(?:\.\d+)?)(?![\d,.A-Za-z])'),('orders',r'(?:订单|单量)(?:数|量|总量)?\s*(?:为|：|:|=)?\s*([\d,]+)(?![\d,.]|\s*%)')):
+                match=re.search(pattern,quotation)
+                if match and field in native['values'] and numeric(match[1].replace(',',''))!=numeric(native['values'][field]):
+                    reasons.append(('native_statistic_value_conflict','FC26同期'+('营收' if field=='revenueUsd' else '订单')+'与本任务同区间Admin优先字段不一致；原句不作事实，须回查所列证据。'))
+                    ids.append(native['evidence_id'])
     # shortcut: wording checks cover named Chinese claim patterns, not arbitrary source or causal verification.
     cautious=re.compile(r'不能|无法|不足以|尚未|未证|待证|未知|未验证|未闭合|未核实|不证明|不等于|不推断|不采用|不应|交集未知|撤回|不做关联|不用.{0,60}(?:推断|断言|证明)|不以.{0,60}(?:推断|断言|证明)')
     proposed=re.compile(r'^\s*(?:[-*>#\d.、 ]|\*\*)*(?:建议|假说|假设|需(?:要)?(?:核|补|查|验证))|(?:核实|核对|核清|确认|补齐|补证|检查|验证).{0,35}(?:数量|单位|单件|多件|规格|优惠|订单行|交集|关联)')
+    # Hypotheses stay readable; this exemption does not bypass numeric/source conflicts above.
+    tentative=re.compile(r'可能|或许|推测|假说|假设|待验证')
     for sentence in re.split(r'[。；\n]|[，,](?!\d{3}(?:\D|$))',text):
         proposal=proposed.search(sentence);claim=re.search(r'Items|商品|品类|单件|多件|数量|同\s*SKU',sentence,re.I)
-        if cautious.search(sentence) or (proposal and (not claim or proposal.start()<=claim.start())):continue
+        if cautious.search(sentence) or tentative.search(sentence) or re.search(r'是否(?:为|存在)',sentence) or (proposal and (not claim or proposal.start()<=claim.start())):continue
         if not bounds['verified_quantity_price_discount'] and re.search(r'单件|多件\s*(?:Items|商品|道具)|件数叠加|数量(?:叠加|堆叠)|(?:无|非|不是|排除).{0,10}(?:多件|捆绑)|同\s*SKU.{0,12}(?:涨价|提价|单价)',sentence,re.I):
             reasons.append(('quantity_mechanism_unbound','数量、规格与优惠缺少已验证订单行定义；不能证明单件或排除多件/捆绑。'))
     # Coreference ("those Items ..., they are all ...") crosses commas but
     # does not cross independent paragraphs. Keep its sentence scope intact.
     for sentence in re.split(r'[。；\n]',text):
         proposal=proposed.search(sentence);claim=re.search(r'Items|商品|品类',sentence,re.I)
-        if cautious.search(sentence) or (proposal and (not claim or proposal.start()<=claim.start())):continue
+        if cautious.search(sentence) or tentative.search(sentence) or (proposal and (not claim or proposal.start()<=claim.start())):continue
         if (not bounds.get('stable_order_intersection_verified',False) and re.search(r'Items|商品|品类',sentence,re.I)
                 and re.search(r'问题状态|问题订单|未交付|未完成|挂在',sentence)
                 and re.search(r'它们|那.{0,18}(?:笔|单)|这.{0,18}(?:笔|单)|均|全部|都',sentence)):
@@ -276,10 +375,20 @@ def review_paragraph(text,bounds,payment_context=''):
     for match in re.finditer(r'(?:其余|其他)[^。\n；]{0,35}?([−–－+＋-]?)\s*\$\s*([\d,]+(?:\.\d+)?)',text):
         clause=re.split(r'[。；\n]',text[:match.start()])[-1]
         if re.search(r'撤回|不采用|不写',clause):continue
-        before=payment_context+text[:match.start()];selected={name for name in payments if re.search(r'(?<![A-Za-z])'+re.escape(name)+r'(?![A-Za-z])',before,re.I)}
+        sign=-1 if match[1] in ('−','–','－','-') else 1;observed=numeric(match[2].replace(',',''))*sign
+        line=text[:match.start()].split('\n')[-1]+text[match.start():].split('\n')[0]
+        if line.lstrip().startswith('|'):
+            headers=[[c.strip() for c in h.strip().strip('|').split('|')] for h in text.splitlines() if h.lstrip().startswith('|') and re.search(r'通道|支付方式',h)]
+            columns=[c.strip() for c in line.strip().strip('|').split('|')]
+            indices=[i for h in headers for i,c in enumerate(h) if c in ('金额变化','金额差额','变化额')]
+            if len(indices)!=1 or indices[0]>=len(columns):continue
+            delta=re.fullmatch(r'([−–－+＋-]?)\s*\$\s*([\d,]+(?:\.\d+)?)',columns[indices[0]])
+            if not delta:continue
+            observed=numeric(delta[2].replace(',',''))*(-1 if delta[1] in ('−','–','－','-') else 1)
+        before=payment_context+text[:match.start()]
+        selected={name for name in payments if any(ch.isalnum() for ch in name) and re.search(r'(?<![A-Za-z])'+r'[\s_-]*'.join(re.escape(ch) for ch in name if ch.isalnum())+r'(?![A-Za-z])',before,re.I)}
         if not selected:continue
         expected=sum((numeric(delta) for name,delta in payments.items() if name not in selected),Decimal(0))
-        sign=-1 if match[1] in ('−','–','－','-') else 1;observed=numeric(match[2].replace(',',''))*sign
         if observed!=expected:
             code='payment_residual_direction_conflict' if observed*expected<0 else 'payment_residual_mismatch'
             reasons.append((code,'排除 '+', '.join(sorted(selected))+' 后的支付差额余数应为 $'+format(expected,',.2f')+'；原句'+('方向相反，不能作为事实。' if code.endswith('direction_conflict') else '余数未核平，仅供参考，金额影响待核。')))
@@ -293,7 +402,7 @@ def reviewed_text(text,bounds,ledger,location):
         original_lines=block.count('\n')+2
         reasons,ids=review_paragraph(block,bounds)
         if reasons:
-            hard_codes={'quantity_mechanism_unbound','cohort_intersection_unbound','payment_residual_direction_conflict'}
+            hard_codes={'quantity_mechanism_unbound','cohort_intersection_unbound','payment_residual_direction_conflict','native_statistic_value_conflict','native_customer_direction_conflict'}
             hard=[r for r in reasons if r[0] in hard_codes]
             soft=[r for r in reasons if r[0] not in hard_codes]
             entry={'location':location,'line':line,'original_sha256':hashlib.sha256(block.encode()).hexdigest(),
@@ -355,7 +464,7 @@ def apply_constraints(content,evidence):
         content['corrections']+=list(dict.fromkeys(reason for row in ledger for reason in row['reasons']))
         content['report']['status']='已成稿 · 供经营参考，局部待核'
         content['executive']['confidence_unknown']='局部未核平与研究建议已标记，不代表主判断自动失效；硬冲突仅拦相关断言。未测得整体覆盖率或90%置信度，完整原文保留。'
-    content['executive']['now']=[{'title':a['title'],'text':'待确认：'+a['steps']} for a in content['actions'][:3]]
+    content['executive']['now']=[{'title':a['title'],'text':'建议：'+a['steps']} for a in content['actions'][:3]]
     content['evidence_constraints']=bounds
     content['quality_review']={'contract':'fc-report-review-v1','status':'not_evaluable' if any(i['status']=='not_evaluable' for i in ledger) else 'issues_withheld' if any(i.get('severity')=='error' for i in ledger) else 'warnings_visible' if ledger else 'bounded_checks_passed_not_business_approval',
         'error_count':sum(i.get('severity')=='error' for i in ledger),

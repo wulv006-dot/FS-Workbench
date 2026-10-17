@@ -21,6 +21,7 @@ from report_validation import FORMAT, validate_output, decode_output
 from report_delivery import FORMAT,deliver_output,private_report
 from report_artifacts import save_raw,save_result,read_file,directory
 from report_html import render_report
+from report_tracks import request_report_kind
 from runs_contract import submission,validate_admission,run_path
 from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
 from direct_provider import POLICY_ID
@@ -117,6 +118,8 @@ class HermesService:
             db.execute("UPDATE requests SET state='NEEDS_RECONCILE',error='fs_process_restarted' WHERE state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED')")
         from nightly import NightlyScheduler
         self.nightly = NightlyScheduler(self)
+        from source_snapshots import Preparation
+        self.source_preparation = Preparation(self)
 
     def lookup(self,grant):
         with self.lock:
@@ -134,7 +137,9 @@ class HermesService:
         while not self.recovery_stop.wait(5):
             try:self.recover_reports()
             except Exception:pass
-            try:self.nightly.tick()
+            try:
+                self.source_preparation.tick(self.clock())
+                self.nightly.tick()
             except Exception as error:
                 atomic(self.root/'nightly-status.json', {'error': 'nightly_'+type(error).__name__, 'at': self.clock().isoformat()}, mode=0o600)
 
@@ -170,6 +175,7 @@ class HermesService:
             result=management_context.deliver(output,book) if management_facts else deliver_output(output,book,validator=validate_output)
             result.update(report_track=meta.get('report_track','operations'),snapshot_id=book.capture_id,reasoning_effort=effort,skills_version=meta['skills_version'],skill_sha256=meta['skill_sha256'],
                           model_usage=self.usage(task['id'],owner),run_id=task['run_id'],period={'start':body['start'],'end':body['end']})
+            result['report_kind']=request_report_kind(body)
             if meta.get('context_loading'):result['context_loading']=meta['context_loading']
             try:result['raw_model_json']=encoded(decode_output(output))
             except (ValueError,TypeError):pass
@@ -483,8 +489,8 @@ class HermesService:
             if management_context.request_snapshot(body):book=management_context.build_book(body)
             elif body.get('parent_report'):book=load_report_followup(self.tasks,body['parent_report'],body['start'],body['end'],self.source_root,self.root)
             elif continuation:book=load_continuation(self.tasks,continuation,owner,body['start'],body['end'],self.source_root)
-            elif deadline is not None:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner,deadline=deadline)
-            else:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner)
+            elif deadline is not None:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner,deadline=deadline,recent_days=30 if request_report_kind(body) in ('weekly','monthly') else 14)
+            else:book=build_book(self.detail,self.daily,self.read_range,self.diagnostics,body['start'],body['end'],self.source_root,owner,recent_days=30 if request_report_kind(body) in ('weekly','monthly') else 14)
             with self.tasks.db() as db:
                 frozen=db.execute('SELECT version FROM request_knowledge WHERE id=?',(key,)).fetchone()
             if frozen is None:raise ValueError('knowledge_snapshot_missing')
@@ -510,6 +516,10 @@ class HermesService:
                 with self.tasks.db() as db:db.execute('INSERT OR IGNORE INTO evidence VALUES(?,?,?)',(task['id'],value['evidence_id'],encoded(value)))
                 self.mark_progress(task['id'],'investigating',tool=value.get('source','readonly_tool'))
             book.persist=save_evidence
+            prepared=None
+            if not continuation and not management and body['mode'] in ('daily','investigation'):
+                from source_snapshots import prepared_brief
+                prepared=prepared_brief(book,body['start'],body['end'],request_report_kind(body)=='weekly')
             if management:save_evidence(management['evidence'])
             if continuation:
                 for value in book.evidence.values():save_evidence(value)
@@ -520,6 +530,10 @@ class HermesService:
             request=submission(self.tasks.get(task['id'],owner));session_id=request['body']['session_id']
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
                        'report_mode':body['mode'],'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+FORMAT}
+            report_kind=request_report_kind(body)
+            if prepared:admission['prompt']+='\nFS已准备并注册的本期事实（无需重复取数，缺项再查）：\n'+encoded(prepared)
+            admission['prompt']+='\n总盘统一规则（2026-10-17续做）：摘要、销售额/订单/客单卡、核心环比、预估利润、目标一律用FS原生订单统计selected_totals/authoritative_fields，Admin优先，Admin缺字段由Order补。支付明细只能用于结构、趋势拆解，逐图标注明细范围和自身分母；不得拿支付明细总额冒充总盘或计算利润目标。总盘缺失则保留缺失，不用明细替代。'
+            admission['prompt']+='\n用户2026-10-16确认的FC营销归类：ADS名称含FC27、FC 27（忽略大小写，兼容FC-27/FC_27）或独立Coins词条默认属于FC项目，其花费/展示/点击/平台转化/转化价值可作FC项目投入分析；同样筛选搜索词/关键词等实际文本字段，FC26/FC270不纳入。fc.query_marketing_snapshot的fc27_by_name已逐账号筛选并汇总；保留币种、来源、覆盖，CPA和平台ROAS用匹配总量相除，不平均比率。不能再以名称不足以证明FC归因为由拒用已确认归属。只返回部分明细则标小计；搜索词明细未投影就说明具体缺项，不用全站搜索总量冒充FC结果。未筛选的全站数据仍为背景，名称不证明国家定向或订单级因果。'
             # The worker appends frozen business memory once, outside the JSON task envelope.
             if management:admission['prompt']+='\n'+management['prompt']
             admission['skill_question']=body['question']
@@ -531,11 +545,29 @@ class HermesService:
                 admission['prompt']+='\n日报规范窗口（请求窗口不等于证据已齐；原问题明确指定主对照时保留原意）：'+encoded(task_windows)+'\n前日与同星期分别分析；Markdown开头必须单独一行写“主对照：YYYY-MM-DD 至 YYYY-MM-DD”，采用上述primary_comparison，原问题明确指定时才覆盖；辅助比较另行标注，不混作主窗。若结构化输出则用comparison_period的明确start/end。为主对照取得两期汇总与需要的完整分页分组；主窗参考率缺失仍保留有证据的前日单独利润比较。缺窗只影响该比较。'
                 primary=task_windows['primary_comparison']
                 admission['prompt']+='\n默认主对照行的实际写法：主对照：'+primary+' 至 '+primary+'。这两个日期均为对照期，不要写成本期到对照期。原问题明确覆盖默认窗时按原意。'
+            if not management and report_kind in ('daily','weekly'):
+                admission['prompt']+='\n客户比较先取齐本期与主对照原生统计，使用native_customer_comparison逐项核对新客、复购率、发货率等的本期/对照/差额/方向；这是FS按Admin优先字段算好的事实表，上升不自动等于改善。新客下降时不能与上升的复购/发货写成均好于对照；先说明每项的方向，再解释经营含义。累计和目标折算的中间运算用multiply.product_unrounded及ratio.ratio_unrounded，最后才显示两位金额；不能先加每日已舍入展示额。目标折算用绑定计算器核验。'
+            if not management and report_kind in ('weekly','monthly'):
+                from calendar import monthrange
+                lo,hi=date.fromisoformat(body['start']),date.fromisoformat(body['end'])
+                if report_kind=='monthly':
+                    last=lo.replace(day=1)-timedelta(days=1)
+                    before_end=last
+                    before_start=last.replace(day=1) if hi.day==monthrange(hi.year,hi.month)[1] else lo-timedelta(days=(hi-lo).days+1)
+                else:before_start,before_end=lo-timedelta(days=7),hi-timedelta(days=7)
+                yoy=[d.replace(year=d.year-1,day=min(d.day,monthrange(d.year-1,d.month)[1])).isoformat() for d in (lo,hi)]
+                admission['prompt']+='\n规范周期：'+encoded({'report_period':{'start':lo.isoformat(),'end':hi.isoformat()},'primary_comparison':{'start':before_start.isoformat(),'end':before_end.isoformat()},'recent30':{'start':(hi-timedelta(days=29)).isoformat(),'end':hi.isoformat()},'FC26_year_ago':{'start':yoy[0],'end':yoy[1]}})+'\n正文单独写“主对照：'+before_start.isoformat()+' 至 '+before_end.isoformat()+'”。FC26同比为辅助，最近30天为背景，分别标明，不用背景窗口代替本期；月度累计明确不是完整月。原问题若明确指定别的主对照则按原意。'
             if not management and body['mode']!='pricing':
                 admission['prompt']+='\n本次用户已确认的交付要求（出稿前逐项复核）：每个数据模块后各有一句经营判断，使用五个独立标题：### 销售与订单结论；### 平台与商品结论；### 客户、支付与未完成订单结论；### 利润与成本结论；### 游戏与市场情报结论。每个标题下一段仅一句，具体说明变化及含义，不能只展示数据。官方工具实际返回几篇正文，就逐篇整理几条中文简介，窗口外背景也要写该篇内容；表格列用“文章标题 | 内容简介”，一篇一行，不合并版本，不用行动计划替代。完整研究默认折叠，不展示历史原文。支付同时保留订单量与金额；利润区分对应参考率估算和实际成本缺口，不倒推成本。请自主完成取证和分析，不照抄历史报告。'
                 admission['prompt']+='\n数值和措辞终检：增长/下降百分比=(本期-对照)/对照×100，必须用对照作分母，不能除本期；用fc.calculate绑定两期实际证据核对，摘要与五段结论都用同一结果。参考利润率遵循Admin优先、Order补缺；优先本次同区间最新有效原生取数；历史参考缓存与新原生同主体同期间值不同，注明各自捕获时间、展示最新原生率并用其重算，不能用旧率金额充当本次利润。若有无法归并的同级来源冲突，明确缺失，不自选。客单价不是商品单位售价，总量与客单变化不能证明需求原因或排除价格、折扣、组合与局部故障，只给待核假说。取证时点按实际UTC转上海时间，勿把UTC数值直接称北京时间。'
                 admission['prompt']+='\n因果与派生数复核：某支付渠道减少、其他渠道增加，只能称支付结构变化；没有用户迁移/漏斗证据，不能认定通道替代、排除需求下降。高对照基数不能证明剔除后经营未恶化，大额单真实也仍是高基数；无同SKU/订单行控制就写待核。两周趋势不能证明正常波动、规律或周末流量根因；全文、摘要、五段结论的因果都用“可能/假说/待验证”并列替代解释。近七日均值必须将报告日向前含首尾七个实际日金额用fc.calculate求和再除7，缺日不补；没有完成复算就不写均值/排名，不凭直觉。'
             admission['prompt']+='\n全局数据规则（2026-10-16用户明确确认，优先于历史相反规则）：所有字段两边都有可用数据就用Admin的数据和口径；Admin缺失而Order有就采用Order，默认无视统计口径、网站范围、平台差异，不因这些差异拒用、判为不可靠或待裁定。用户已人工验证误差很小。参考利润率及参考利润有明确来源必须展示，沿用FS看板：参考利润=Admin销售额×对应Order利润率÷100（Admin缺利润率时）。该期最新原生率优先于旧缓存，不把新旧采集时间造成差异当未决冲突。日期、游戏、单位和实际缺失仍核实，来源如实留存，参考利润不冒充财务实结。利润结论直接判断参考利润变化及业务含义。用户已经确认来源可信且人工验证误差小，采用规则已经定版，不再提出先确认参考率是否可信、先统一口径、重新裁定平台范围的任务，也不原样继承历史报告中这些已被本规则撤销的建议。其他日期缺参考率仅限制那些日期及长期趋势，不影响已有对应日期参考率的采用和利润比较。可以研究利润下降的业务原因，不把已确认数据的可信性重复交回用户。'
+            admission['prompt']+='\n出稿终检：目标达成率用程序将参考利润除以本期折算目标再乘100，按四舍五入保留一位小数，不截断或心算，正文/表/五结论与卡片一致。最高最低或排名须核实际全序列后程序计算，否则不写排名；对照高基数不能证明本期正常。退款笔数0与金额非零不自动矛盾，保留两个原值、来源与定义限制，不擅自删0或判字段错误。不同支付日队列的同龄T+N必须分别有各自支付日+N历史快照；同一未来日期重查两批不叫同龄，缺历史快照就明确无法验证。联读流量时分清Admin已付订单、GA4会话、GSC点击、Ads平台小数转化，订单/会话只叫参考比，同名unknown桶不自动关联、不以超过100%的参考比排名最佳市场；已付减已交付的差额未拆退款/争议等状态前不全称积压。沿当前知识中的联读方法给具体变化、解释、对象与复查，不把同事历史数据当本期事实。'
+            if not management and report_kind in ('weekly','monthly'):
+                admission['prompt']+='\nCB取证不能遗漏：已注册fc.query_capability支持kind=native_loss、profile=FC27及start/end，本期和主对照分别调用。CB在返回的loss_groups.cb.count与amount_usd，不在query_native_statistics的metrics里；未查该能力不能写工具无CB字段。null如实缺失，0是有效值；CB参考率可用同接口source_orders为分母，标公式与原接口期间（事件/订单归属未细分），不把此差异当拒用理由。逐单原因未投影时与CB总量分开说明，不一并省略。'
+                admission['prompt']+='\n同比引用强制终检：query_native_statistics返回selected_totals包含profile/start/end/orders/revenueUsd；FC26段的营收与订单必须逐字核对同一FC26证据的selected_totals，并通过fc.calculate对这两个字段分别各做单输入sum确认；美元与订单数不得放在同一次sum，不能在报告展示跨单位相加的校验和，不能取FC27、最近30天、月累计或记忆里的旧数字。最终附录列出该FC26证据ID及原始两个字段值。平台表金额逐格核对平台分组原值；若抄录与交叉表不符，先回看证据修正抄录，不得把未查原因归为舍入差。2026-10-17是周六，行动日期不臆造星期。'
+                admission['prompt']+='\n国家收入TOP10按本期收入降序，不能按变动额排序。fc.query_business用country分组分别查询本期和主对照，读齐全部分页后汇总其他，核对收入和订单总量；不能只取首屏就称国家数据缺失，未齐分页不能编造其他。'
+                admission['prompt']+='\n周报/月报按用户最新确认覆盖会议Word的四块，并各有独立标题：经营数据；广告投放与SEO；目标完成与下期目标；行动计划。FC只需最近30天背景，统计窗口截至报告期末；允许FC26上年同日期区间同比，用fc.query_native_statistics分别读取profile=FC27及FC26，标清年份、游戏与来源，不混入FC27实绩。不要求FC补三个月；原周/月报告周期独立比较。当前付费明细快照不覆盖时先查已注册原生统计，不冒称后台无数据。经营列收入/订单/新老客/AOV/用户去重复购/CB拒付争议/问题分类/退款/国家TOP10+其他/流量转化；广告列系列花费/展示/点击/CTR/订单/CPA/收入/ROAS/环比/好差项/下期预算；SEO列已做动作、关键词与落地页排名及自然流量成交/机会计划。缺项逐一解释来源与原因，尤其逐单CB问题分类、素材、关键词、下期预算和已执行日志。用户最新确认：当前没有网页点击工具，不要求模拟网站体验，取消网站体验必填块及六环节待验证清单；已有客诉/报错/漏斗证据仍可在相关经营问题中分析，标实际来源，不冒充亲自体验。目标含实际、预估、完成率、卡点及下期目标依据/假设/风险/主管支持；参考利润直接对已配置预估利润目标核对，日报周报按月目标日均折算并标明。行动聚焦1至2个环节，写指标、动作、建议负责人及协作角色、完成日、量化预期及下次例会验收数据；未经校准阈值只作建议。金额USD、百分比一位小数；超过10%变动须讲变化位置及原因假说。匹配FC27名称的字段按用户规则归入FC项目，其余全站营销保留背景；不编造后台未取得的数据或已执行动作。出稿逐项复核四块齐全。'
             admission['frozen_skills']=book.skills
             admission['learning_receipt']={k:knowledge[k] for k in ('version','identity','files','memory_path','native_skip_reason')}
             admission['learning_text']=desktop_context
@@ -609,6 +641,7 @@ class HermesService:
             context_loading=dict(context_receipt,effective_input=runtime.get('fs_effective_input'),status='runtime_confirmed' if runtime.get('fs_context_sha256')==context_receipt['context_sha256'] else 'runtime_confirmation_missing')
             if input_path.exists():context_loading['wire_input']=json.loads(input_path.read_text('utf-8'))
             save_raw(self.root,task['id'],output,book.evidence,{'owner':owner,'request_id':key,'run_id':run_id,'native_completed':True,
+                     'data_versions':{'paid_detail':book.data.get('source_cache'),'native':list({r['data']['source_cache']['version'] for r in book.evidence.values() if isinstance(r.get('data'),dict) and r['data'].get('source_cache')})},
                      'skills_version':book.skills['version'],'skill_sha256':book.skills['sha256'],'reasoning_effort':effort,'context_loading':context_loading,'report_track':'management' if management else book.skills.get('report_track','operations')})
             self.publish_report(key,owner,body,task,book,output,effort)
         except Exception as error:
