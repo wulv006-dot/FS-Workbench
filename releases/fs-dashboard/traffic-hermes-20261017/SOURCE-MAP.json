@@ -60,7 +60,7 @@
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/marketing_snapshot.py",
-      "candidate_sha256": "eefe95e6224e0632d896cd76ddca26663d19730c7d9cc62c2eaeac0c016a20d6",
+      "candidate_sha256": "27825c9d1948c77e29ab035a8603691f3372d9796eb5262a899600e08418278e",
       "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
       "observed_before_sha256": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5",
       "existed": true,

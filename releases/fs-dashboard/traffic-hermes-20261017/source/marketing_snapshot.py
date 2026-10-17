@@ -222,9 +222,9 @@ class MarketingReader:
                 raw=response.read(LIMIT+1)
         except HTTPError as error:
             if error.code==429:
-                error.close()
+                if error.fp is not None:error.close()
                 return {'status':'busy'}
-            error.close()
+            if error.fp is not None:error.close()
             raise
         if len(raw)>LIMIT:raise ValueError('marketing_size')
         return json.loads(raw)
