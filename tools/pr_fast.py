@@ -217,6 +217,8 @@ def selfcheck():
         raise RuntimeError("fc27_pack_bundles_scope_missing")
     if select(["releases/fc-coins/lock-gate-hardening-20261013/source/coin_all_sync_job.py"]) != ["fc-lock-gate-hardening"]:
         raise RuntimeError("fc_hardening_mapping_missing")
+    if select(["releases/fc-coins/gate-cycle-20261014/source/automation_policy.py"]) != ["fc-cycle-gate"]:
+        raise RuntimeError("fc_cycle_gate_mapping_missing")
     if select(["releases/fc-coins/order-public-acceptance-20261013/source/report.py"]) != ["fc-order-public"]:
         raise RuntimeError("fc_order_public_mapping_missing")
     if select(["releases/fc-coins/coin-all-readback-retry-20261014/source/coin_all_sync_job.py"]) != ["fc-coin-all-readback-retry"]:
@@ -342,6 +344,8 @@ def select(paths):
             groups.add("fs-on-demand");continue
         if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
             groups.add("fc-lock-gate-hardening");continue
+        if name.startswith("releases/fc-coins/gate-cycle-20261014/"):
+            groups.add("fc-cycle-gate");continue
         if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
             groups.add("fc-order-public");continue
         # FC 金币 ALL 镜像写后回读（2026-10-14）：把单次回读换成有界只读重试。
@@ -660,6 +664,8 @@ def main():
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
         elif group=="fc-lock-gate-hardening":
             units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-cycle-gate":
+            units("releases/fc-coins/gate-cycle-20261014",["test_cycle_gate","test_publisher"])
         elif group=="fc-order-public":
             units("releases/fc-coins/order-public-acceptance-20261013",["test_acceptance"])
         elif group=="fc-coin-all-readback-retry":
