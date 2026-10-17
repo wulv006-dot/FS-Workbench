@@ -14,7 +14,7 @@ from pilot import digest, encoded, SHANGHAI
 
 RESEARCH_NAMES = ('fc.get_data_catalog', 'fc.query_business', 'fc.query_queue',
                   'fc.read_history', 'fc.query_reference', 'fc.get_problem_clues',
-                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics','fc.query_capability','fc.query_market_snapshot','fc.query_official_intelligence','fc.query_marketing_snapshot','fc.query_game_news','fc.query_action_history')
+                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics','fc.query_capability','fc.query_market_snapshot','fc.query_official_intelligence','fc.query_marketing_snapshot','fc.query_game_news','fc.query_action_history','fc.query_es_order_structure')
 DIMENSIONS = ('platform', 'product', 'country', 'device', 'payment', 'site_group', 'status', 'day', 'hour')
 QUEUE_DIMENSIONS = DIMENSIONS + ('age_band', 'progress')
 
@@ -44,7 +44,8 @@ def tool_schemas():
                   'Read reviewed FC analysis methods, with version/hash; no authority is added.',
                   'Read Admin native statistics aggregates plus labelled Order reference through the existing date-refresh service. Check actual system/scope, never infer from primary field names.')
     action_schema={'type':'function','function':{'name':'mcp__fcro__fc_query_action_history','description':'Read frozen visible human-confirmed action events. Suggestions are not execution. Retain actor, receipt, baseline, review window and confounders; cannot update actions or execute business changes.','parameters':{'type':'object','properties':{'page':{'type':'integer','minimum':1}},'additionalProperties':False}}}
-    return [action_schema]+[{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
+    es_schema={'type':'function','function':{'name':'mcp__fcro__fc_query_es_order_structure','description':'Read frozen Admin ES export file-set structure for exact inclusive FC27 days (game label FC 27). All original statuses by default. Separate USD order amount from original paid currencies; not Admin native totals or financial net revenue. Source/site/distribution/timezone completeness remains explicit. No PII, URLs, order identities or writes. Pending: poll same query.','parameters':{'type':'object','properties':{'profile':{'type':'string','enum':['FC27']},'start':string,'end':string,'group_by':{'type':'string','enum':['source_game','product','country','payment','new_customer','status']},'status':string},'required':['profile','start','end'],'additionalProperties':False}}}
+    return [action_schema,es_schema]+[{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
                 'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk','section','item'))],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES[:9],properties,descriptions)]+[tool_schema(), {
                 'type':'function','function':{'name':'mcp__fcro__fc_query_market_snapshot',
@@ -149,7 +150,7 @@ def calculation(args):
 
 
 class ResearchBook:
-    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None,capability=None,market=None,official=None,marketing=None,news=None):
+    def __init__(self, dataset, config, target, *, history=None, reference=None, clues=None, skills=None, persist=None,native=None,history_index=None,capability=None,market=None,official=None,marketing=None,news=None,es_structure=None):
         self.data, self.config, self.target = deepcopy(dataset), deepcopy(config), deepcopy(target)
         self.capture_id = dataset['snapshot_id']
         if not re.fullmatch(r'fc-detail-[A-Za-z0-9_.-]+', self.capture_id): raise ValueError('capture_identity')
@@ -158,7 +159,7 @@ class ResearchBook:
         self.history, self.reference, self.clues = history, reference, clues
         self.history_index=deepcopy(history_index)
         self.skills, self.persist = skills, persist
-        self.native=native;self.capability=capability;self.market=market;self.official=official;self.marketing=marketing;self.news=news
+        self.native=native;self.capability=capability;self.market=market;self.official=official;self.marketing=marketing;self.news=news;self.es_structure=es_structure
         self.background=None
         self.evidence, self.trace, self._lock = {}, [], threading.RLock()
         self.history_output_bytes=0
@@ -170,6 +171,7 @@ class ResearchBook:
                   'timezone':'Asia/Shanghai', 'query':deepcopy(args), 'data':deepcopy(data)}
         if source=='Admin FC支付明细' and self.data.get('source_cache'):
             result['source_cache']=deepcopy(self.data['source_cache'])
+        if name=='fc.query_es_order_structure':result.update(scope='Admin ES导出原范围',timezone='unverified')
         result['evidence_id'] = 'ev_'+digest(result)[:24]
         with self._lock:
             self.evidence[result['evidence_id']] = deepcopy(result)
@@ -210,6 +212,7 @@ class ResearchBook:
                 'capabilities':{'tool':'fc.query_capability','kinds':['native_loss','product_sales','fulfillment_samples'],'status':'on_demand' if self.capability else 'not_wired','native_and_product_scope':'FC27/main/Admin game1327/site266; inclusive dates up to31days','fulfillment_scope':'current main Order problem-pool samples; quantity/events do not establish full history or verified cost','product_completeness':'partial paging; duplicate/changed total/unknown units explicit','unprojected_is_not_backend_missing':True},
                 'external_intelligence':{'tool':'fc.query_official_intelligence','status':'on_demand' if self.official else 'not_wired','scope':'EA official FC27 current news index and up to six article bodies; no arbitrary URLs','claim_policy':'Read the registered tool; distinguish publication, event and observed dates. Bounded/failed search does not establish no events.'},
                 'market_snapshot':{'tool':'fc.query_market_snapshot','status':'on_demand' if self.market else 'not_wired','scope':'current FC27 Coins PS/XBOX/PC 100K; four existing competitors, Order platform cost, MMOEXP public product, BOC CNY/USD','not_historical_order_cost':True,'complete_offer_conditions':False},
+                'es_order_structure':{'tool':'fc.query_es_order_structure','status':'on_demand' if self.es_structure else 'not_wired','scope':'Admin ES导出文件集合；仅FC 27游戏标签；原状态与USD订单金额结构，非Admin主盘；站点/分销/时区及上游完整性未核实','dimensions':['source_game','product','country','payment','new_customer','status']},
                 'marketing_snapshot':{'tool':'fc.query_marketing_snapshot','status':'on_demand' if self.marketing else 'not_wired','scope':'FC27/Coins names identify FC-project Ads and published search-term/page matches; preserve coverage. Unfiltered GA4/GSC data are whole-site background; no order join','ads_geography':'not_collected_by_existing_source','no_new_collection':True},
                 'game_news':{'tool':'fc.query_game_news','status':'shared_snapshot_readonly' if self.news else 'not_wired','scope':'MMOEXP News／主站SEO资讯（非游戏官方公告）','no_new_collection':True,'no_network':True,'claim_policy':'Use actual source URL and publication/event/collection times; missing or stale snapshots do not trigger collection. Publication time alone never establishes an event countdown.'},
                 'report_constraints':{'review_standard':'Useful direction first; roughly 90% verifiable coverage is a user quality target, not measured confidence. Minor gaps/rounding annotate rather than suppress the whole judgment. State confidence, next action and what would reverse it.','partitions':'Full group deltas and named residuals are strongest; partial reconciliation may support labelled directional hypotheses, not an audited complete bridge.','marginal_tables_are_not_order_joins':True,'quantity_discount_mechanism':'Requires verified order lines/definitions, not sale_total equals order_count','complete_multidimensional_groups':'May marginalize only after page/key/total/scope/time reconciliation','thresholds':'Existing approved policy or explicitly pending proposal; screening and suggested review dates are not execution authority'},
@@ -223,6 +226,12 @@ class ResearchBook:
             checked_query(args)
             value=self.news(args) if self.news else {'status':'not_available','reason':'game_news_adapter_missing'}
             return self.register(name,args,value,'MMOEXP News／主站SEO资讯（非游戏官方公告）',value.get('captured_at'))
+        if name=='fc.query_es_order_structure':
+            from es_order_structure import checked_query,unavailable
+            query=checked_query(args)
+            value=self.es_structure(query) if self.es_structure else unavailable(query,'es_adapter_missing')
+            result=self.register(name,query,value,'Admin ES订单导出：原范围文件集合结构；非原生主盘',value.get('captured_at'))
+            return result
         if name=='fc.query_marketing_snapshot':
             from marketing_snapshot import checked_query
             checked_query(args)

@@ -37,7 +37,10 @@ def fc27_marketing_view(data):
         if complete and not selected:metrics={key:'0' if key in ('cost','impressions','clicks','conversions','conversionsValue','interactions') else None for key in metrics}
         global_rows=[r for r in rows if campaign_scope(r.get('campaign_name'))['campaign_scope']=='global_brand']
         metrics['nativeCvr']=selected[0]['metrics'].get('nativeCvr') if len(selected)==1 else None
-        accounts.append({'global_brand_campaigns':global_rows,'fc_allocated_brand_cost':None,**account,'metrics':metrics,'campaigns':{**campaigns,'rows':selected},'selection_complete':complete,
+        group_table=account.get('ad_groups') or {}
+        selected_ids={r['campaign_id'] for r in selected};global_ids={r['campaign_id'] for r in global_rows}
+        group_rows=group_table.get('rows') or []
+        accounts.append({'global_brand_campaigns':global_rows,'fc_allocated_brand_cost':None,**account,'ad_groups':{**group_table,'rows':[r for r in group_rows if r.get('campaign_id') in selected_ids],'calculation_complete':group_table.get('calculation_complete') is True and complete},'global_brand_ad_groups':[r for r in group_rows if r.get('campaign_id') in global_ids],'metrics':metrics,'campaigns':{**campaigns,'rows':selected},'selection_complete':complete,
                          'selection_basis':'本来源完整系列汇总' if complete else '仅已返回系列小计，不能称FC项目全量'})
     search=(data.get('sources',{}).get('gsc') or {}).get('fc27_name_rows') or {}
     return {'rule':'2026-10-17修订：google-FC27-PMAX-Coins-US为主站全局品牌，优先排除FC专属费用与转化价值；不生成FC分摊ROAS。其余FC27、FC 27、FC-27、FC_27及独立Coins词条归入FC项目；投放分类与搜索词/页面内容匹配分开；保留原名和命中依据。明确其他游戏名称（如Madden、NBA2K、MLB等）的Coins系列排除；普通Coins仍归FC。明确其他FC年份不因Coins混入FC27，FC270不纳入。',

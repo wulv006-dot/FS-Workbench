@@ -19,11 +19,11 @@ class ReleaseContract(unittest.TestCase):
     self.assertIn('src="'+rooturl+'shell.js"',html)
     self.assertNotIn('ba0a83afd594/shell.js',html)
    shell=(output/'native/assets/shell.js').read_text(encoding='utf8')
-   self.assertIn("state.mode==='google'?base:logicBase",shell)
+   self.assertIn("new URL(state.mode+'.js'+(retried?'?retry=1':''),base)",shell)
    self.assertIn('calculation_campaigns',(output/'native/assets/google.js').read_text(encoding='utf8'))
    manifest=json.loads((output/'native/release-manifest.json').read_text(encoding='utf8'))
    routes=(output/'native/candidate/formal.conf').read_text(encoding='utf8')
-   for name in ['shell.js','google.js','google.css']:
+   for name in ['shell.js','google.js','google.css','business.js']:
     row=next(r for r in manifest['immutableAssets'] if r['url']==rooturl+name)
     self.assertEqual(sha(output/'native'/row['candidate']),row['sha256'])
     self.assertIn('location = '+rooturl+name+' {',routes)

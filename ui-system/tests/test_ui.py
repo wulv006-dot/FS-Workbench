@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 OLD=ROOT.parent/'releases/fs-dashboard/menu-cache-20261015/native/assets'
 class UIContract(unittest.TestCase):
  def test_business_scripts_remain_frozen_except_reviewed_traffic(self):
-  forbidden=['business.js','runtime.js','metrics.js','snapshot-client.js','management/management.js','management/targets.json','game-monitor/daily.js']
+  forbidden=['runtime.js','metrics.js','snapshot-client.js','management/management.js','management/targets.json','game-monitor/daily.js']
   for name in forbidden:self.assertFalse((ROOT/'modules/native'/name).exists(),name)
   traffic=(ROOT/'modules/native/google.js').read_text(encoding='utf8')
   self.assertIn('calculation_campaigns',traffic)

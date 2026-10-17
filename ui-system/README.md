@@ -5,7 +5,7 @@
 - `tokens/`：浅色/暗色的统一语义变量。
 - `components/`：低特异度组件样式。
 - `adapters/`：现有 DOM、Shadow DOM、全站导航与主题的兼容桥。
-- `modules/native/`：首页、分析壳及样式。业务渲染 JS、实时接口和日期规则继续使用经核实的旧不可变版本，不能擅自换掉。
+- `modules/native/`：首页、分析壳及样式。本次获明确授权的流量 `google.js` 与营收 `business.js` 为可编辑业务源；其他业务渲染 JS、实时接口和日期规则继续使用经核实的活动版本。
 - `modules/brain/brain.css`：Hermes 报告阅读界面样式；不覆盖最新 HTML、业务脚本和后端。
 - `publishers/`：只做 UI 范围的薄封装，按 SHA256 引用仓库已有冻结发布器。
 - `tests/`：UI/发布合同、依赖闭包、主题和导航回归。
@@ -41,4 +41,8 @@ MLB 的旧固定凭据和日更任务的旧失败属于独立问题，UI 发布�
 
 ## 2026-10-17 流量与决策增量
 
-本次用户明确授权流量口径、接口、界面及报告改造，`modules/native/google.js`成为流量业务可编辑源；它复用现有只读接口与统一组件，原不可变业务资产保留历史。经营等其他业务JS仍固定到已核验版本。shell/index/home基于活动ba0a版本接入本次新流量模块，不能从10月15日旧壳回退。新数据合同和共享规则须先发布，再切新前端；验收与精确来源见`releases/fs-dashboard/traffic-hermes-20261017/README.md`，候选不等于已发布。仅流量入口发布，不运行全站UI构建结果覆盖其他模块。
+本次用户明确授权流量口径、接口、界面及报告改造，`modules/native/google.js`成为流量业务可编辑源；它复用现有只读接口与统一组件，原不可变业务资产保留历史。本次同时授权 `modules/native/business.js` 接入独立ES结构并修复主盘字段级Admin优先、Order补缺（含有效0）；其他业务JS仍固定到已核验版本。shell/index/home基于活动ba0a版本接入本次新流量模块，不能从10月15日旧壳回退。新数据合同和共享规则须先发布，再切新前端；验收与精确来源见`releases/fs-dashboard/traffic-hermes-20261017/README.md`，候选不等于已发布。本批仅准备流量与营收所需的5个不可变资产（business.js、google.js、shell.js、index.html、home.html）及2个可变目标（活动formal.conf、fs-home/index.html）；保留旧URL与现有共享CSS，不运行全站UI构建结果覆盖其他模块。
+
+## 2026-10-17 ES订单结构增量
+
+`modules/native/business.js`基于业务刷新活动维护源（SHA256 ec074d393b3fb38446f2eca03bbc0f7ac81f7511fcb1c67db694a553842a4d66）转接为本任务可编辑源；独立FC27 ES结构不覆盖Admin主卡，也不改变现有明细筛选。Google广告组仅作展开细分，不叠加系列/账号总额。其他业务依赖仍固定原活动资产。新前端需在结构路由和广告组合同就绪后发布，历史release不改。最小发布准备入口为 `releases/fs-dashboard/traffic-hermes-20261017/prepare_ui.py`；复用既有受限发布器及锁、CAS、备份、账本与回退，不以完整UI构建输出替代本批5资产/2目标。

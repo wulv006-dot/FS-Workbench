@@ -142,6 +142,23 @@ def campaigns(value):
             'rule': 'Full calculation campaigns when available; legacy Top rows are incomplete. Global brand FC27-PMAX-Coins-US costs stay global. User-confirmed FC27/Coins name rules classify FC-project spending; labels do not prove geographic targeting or order-level causality. Preserve missing campaign status and partial rows.'}
 
 
+def ad_groups(value):
+    table=value.get('ad_groups') or {};rows=[];seen=set();rejected=0
+    for row in table.get('rows',[]):
+        campaign_id=str(row.get('campaignId',''));ident=str(row.get('adGroupId',''));key=(campaign_id,ident)
+        if (row.get('customerId')!='1430398974' or row.get('currency')!='USD' or row.get('timezone')!='Asia/Hong_Kong'
+            or not re.fullmatch(r'\d{1,20}',campaign_id) or not re.fullmatch(r'\d{1,20}',ident) or key in seen
+            or row.get('channelType')=='PERFORMANCE_MAX' or public_label(row.get('adGroupName')) is None or public_label(row.get('campaignName')) is None):
+            rejected+=1;continue
+        seen.add(key)
+        rows.append({'campaign_id':campaign_id,'campaign_name':public_label(row['campaignName']),'ad_group_id':ident,
+                     'ad_group_name':public_label(row['adGroupName']),'status':row.get('adGroupStatus') if row.get('adGroupStatus') in ('ENABLED','PAUSED','REMOVED','UNKNOWN','UNSPECIFIED') else None,
+                     'metrics':metrics(row.get('metrics'),'ads')})
+    return {'rows':rows,'status':source_status(table.get('status')),'contract':table.get('contract'),'rejected_rows':rejected,
+            'calculation_complete':table.get('calculation_complete') is True and rejected==0,
+            'scope':'ad_group only; PMax not applicable; asset_group not collected; diagnostic breakdown, never add to campaign/account totals'}
+
+
 def projection(model, args, source_sha):
     checked_query(args)
     if model.get('schemaVersion') != 1 or model.get('isMock') is not False:
@@ -199,7 +216,7 @@ def projection(model, args, source_sha):
             raise ValueError('marketing_ads_scope')
         base['ads_accounts'].append({'customer_id': '1430398974', 'brand': 'mmoexp', 'currency': 'USD', 'timezone': 'Asia/Hong_Kong',
                                      'contract':value.get('contract'),'conversion_definition':value.get('conversion_definition'),'status': source_status(value.get('status')), 'metrics': metrics(value.get('metrics'), 'ads'),
-                                     'coverage': coverage(value.get('coverage')), 'campaigns': campaigns(value)})
+                                     'coverage': coverage(value.get('coverage')), 'campaigns': campaigns(value), 'ad_groups':ad_groups(value)})
     base['reason'] = 'source_coverage_and_country_top_rows_require_review; ads_geography_unavailable'
     return base
 

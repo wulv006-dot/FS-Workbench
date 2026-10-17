@@ -270,6 +270,11 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     from official_intelligence import OfficialReader, checked_query as checked_official_query
     pinned_market=pins.wrap(MarketReader(),'FC27-existing-market')
     marketing_reader=MarketingReader(owner=owner)
+    from es_order_structure import reader_for
+    pinned_es=pins.wrap(lambda q:reader_for(detail).get(q),'Admin-ES-file-set')
+    def es_read(args):
+        if not detail.config.get('enabled'):return {'status':'unavailable','reason':'fc_detail_disabled'}
+        return pinned_es(args)
     pinned_marketing=pins.wrap(lambda q:archived_publication('marketing',q,marketing_reader(q)),'MMOEXP-existing-marketing')
     pinned_news=pins.wrap(lambda q:archived_publication('news',q,shared_news(q)),'MMOEXP-SEO-shared-news')
     def news_read(args):
@@ -316,4 +321,4 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         return pinned_capability(args)
     return ResearchBook(dataset,config,{'start':start,'end':end},history=pins.wrap(history.read,'FC-report-history'),history_index=history.index,reference=pins.wrap(reference,'Order-reference'),
-                        clues=clue_read.get,skills=skills,persist=persist,native=native_read,capability=capability_read,market=market_read,official=official_read,marketing=marketing_read,news=news_read)
+                        clues=clue_read.get,skills=skills,persist=persist,native=native_read,capability=capability_read,market=market_read,official=official_read,marketing=marketing_read,news=news_read,es_structure=es_read)

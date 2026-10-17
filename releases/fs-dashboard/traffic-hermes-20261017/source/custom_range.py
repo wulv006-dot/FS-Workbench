@@ -18,7 +18,7 @@ def collect(start,end,reader,make_period,ga_reports,gsc_reports,customers):
  for customer in customers:
   try:reader.ads_metadata(customer)
   except Exception:failures.append({'source':'ads','resource':customer,'report':'metadata','status':'unavailable'})
- for source,resource,names in [('ga4','541418940',ga_reports),('gsc','sc-domain:mmoexp.com',gsc_reports)]+[('ads',customer,['total','daily','campaign','campaign_total']) for customer in customers]:
+ for source,resource,names in [('ga4','541418940',ga_reports),('gsc','sc-domain:mmoexp.com',gsc_reports)]+[('ads',customer,['total','daily','campaign','campaign_total','ad_group_total']) for customer in customers]:
   for name in names:
    try:
     value=reader.ga(name,start,end) if source=='ga4' else reader.gsc(name,start,end) if source=='gsc' else reader.ads(resource,name,start,end)

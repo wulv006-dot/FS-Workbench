@@ -121,6 +121,7 @@ class HermesService:
         from source_snapshots import Preparation
         self.source_preparation = Preparation(self)
 
+
     def lookup(self,grant):
         with self.lock:
             item=self.gateways.get(grant.task_id)
@@ -458,6 +459,11 @@ class HermesService:
 
     def get(self,params,user):
         if not user:return 401,{'error':'login_required'}
+        if 'structure' in params:
+            if (set(params)-{'mode','structure','profile','start','end','group_by','status'} or params.get('mode')!=['hermes'] or params.get('structure')!=['es'] or any(len(v)!=1 for v in params.values())):return 422,{'error':'invalid_parameters'}
+            from es_order_structure import reader_for
+            try:return 200,reader_for(self.detail).get({k:v[0] for k,v in params.items() if k not in ('mode','structure')})
+            except (ValueError,TypeError,KeyError):return 422,{'error':'invalid_es_query'}
         allowed={'mode','id','evidence','artifact','thread','scope','before','q','start','end','actions'}
         if set(params)-allowed or params.get('mode')!=['hermes'] or any(len(v)!=1 for v in params.values()):return 422,{'error':'invalid_parameters'}
         if 'id' in params:
@@ -607,6 +613,7 @@ class HermesService:
                 admission['prompt']+='\n同比引用强制终检：query_native_statistics返回selected_totals包含profile/start/end/orders/revenueUsd；FC26段的营收与订单必须逐字核对同一FC26证据的selected_totals，并通过fc.calculate对这两个字段分别各做单输入sum确认；美元与订单数不得放在同一次sum，不能在报告展示跨单位相加的校验和，不能取FC27、最近30天、月累计或记忆里的旧数字。最终附录列出该FC26证据ID及原始两个字段值。平台表金额逐格核对平台分组原值；若抄录与交叉表不符，先回看证据修正抄录，不得把未查原因归为舍入差。2026-10-17是周六，行动日期不臆造星期。'
                 admission['prompt']+='\n国家收入TOP10按本期收入降序，不能按变动额排序。fc.query_business用country分组分别查询本期和主对照，读齐全部分页后汇总其他，核对收入和订单总量；不能只取首屏就称国家数据缺失，未齐分页不能编造其他。'
                 admission['prompt']+='\n周报/月报按用户最新确认覆盖会议Word的四块，并各有独立标题：经营数据；广告投放与SEO；目标完成与下期目标；行动计划。FC只需最近30天背景，统计窗口截至报告期末；允许FC26上年同日期区间同比，用fc.query_native_statistics分别读取profile=FC27及FC26，标清年份、游戏与来源，不混入FC27实绩。不要求FC补三个月；原周/月报告周期独立比较。当前付费明细快照不覆盖时先查已注册原生统计，不冒称后台无数据。经营列收入/订单/新老客/AOV/用户去重复购/CB拒付争议/问题分类/退款/国家TOP10+其他/流量转化；广告列系列花费/展示/点击/CTR/订单/CPA/收入/ROAS/环比/好差项/下期预算；SEO列已做动作、关键词与落地页排名及自然流量成交/机会计划。缺项逐一解释来源与原因，尤其逐单CB问题分类、素材、关键词、下期预算和已执行日志。用户最新确认：当前没有网页点击工具，不要求模拟网站体验，取消网站体验必填块及六环节待验证清单；已有客诉/报错/漏斗证据仍可在相关经营问题中分析，标实际来源，不冒充亲自体验。目标含实际、预估、完成率、卡点及下期目标依据/假设/风险/主管支持；参考利润直接对已配置预估利润目标核对，日报周报按月目标日均折算并标明。行动聚焦1至2个环节，写指标、动作、建议负责人及协作角色、完成日、量化预期及下次例会验收数据；未经校准阈值只作建议。金额USD、百分比一位小数；超过10%变动须讲变化位置及原因假说。按已确认例外优先的投放规则归属FC专属系列；全局品牌留全局，搜索词/页面另按内容匹配，其余全站营销保留背景；不编造后台未取得的数据或已执行动作。出稿逐项复核四块齐全。'
+            admission['prompt']+='\n可用fc.query_es_order_structure按报告同期间读取Admin ES导出文件集合结构，分source_game/product/country/payment/new_customer/status；默认all原状态，可精确原状态筛选。先确认pending/partial、覆盖、source_version及付款时间时区未核实；订单金额USD与原币实付分开。FC仅凭游戏列FC 27，不凭广告名推game；全局品牌单列。ES结构不替换Admin原生营收/订单/参考利润，不称主站全量、财务实收、SEO成交或渠道成交率，新客户标志订单不是人数/复购。缺项如实列出，不能把未投影说成后台没有。'
             admission['prompt']+='\n先调用fc.query_action_history读取可信执行/复查记录。未执行建议不判无效；执行与效果必须有回执，当前报告只提出建议。'
             admission['prompt']+='\n本次流量口径按2026-10-17 V2：收入与订单优先Admin唯一www.mmoexp.com主站渠道汇总，和后台原总盘分开；主站网站行本身不证明G2G/ELD分销组已过滤，须以实际源过滤证据为准；authoritative_fields逐字段带field_scope/website_basis。无主站渠道时原统计范围可参考但不得称已排除G2G/ELD，明确缺口；Order只补缺且不因范围差异拒用。支付明细只拆结构，不覆盖主盘。'
             admission['frozen_skills']=book.skills

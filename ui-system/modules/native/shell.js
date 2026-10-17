@@ -122,7 +122,7 @@ async function nativeLoad(retried=false){
  const host=document.createElement('div');host.className='native-content';host.dataset.theme=document.documentElement.dataset.theme;$('content-panel').append(host);
  const scope=lifecycle(host,capture,halt);scope.seed={...state};active={host,scope,api:null};$('status').textContent='正在读取'+(state.mode==='business'?'经营分析':'Google 运营')+'…';
  try{
-  const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',base),'text/css','GET',scopeSignal()),import(new URL(state.mode+'.js'+(retried?'?retry=1':''),state.mode==='google'?base:logicBase).href)]);
+  const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',base),'text/css','GET',scopeSignal()),import(new URL(state.mode+'.js'+(retried?'?retry=1':''),base).href)]);
   if(id!==epoch)return;for(const name of ['fs-ui.css','native-alias.css']){const shared=document.createElement('link');shared.rel='stylesheet';shared.href=new URL('ui/'+name,base);scope.root.append(shared);}const style=document.createElement('style');style.textContent=await stylesheet.text();scope.root.append(style);const template=document.createElement('template');template.innerHTML=await markup.text();scope.root.append(template.content);
   if(id!==epoch)return;active.api=module.mount(scope);scope.root.addEventListener('click',()=>queueMicrotask(()=>{if(id===epoch&&active?.api)capture(active.api.state());}));
  }catch(e){if(id!==epoch)return;if(e.status){halt(e.status);return;}active?.scope.destroy();active=null;

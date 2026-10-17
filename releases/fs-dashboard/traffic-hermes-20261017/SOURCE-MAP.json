@@ -4,19 +4,21 @@
   "rows": [
     {
       "source": "mmoexp_google_data/details/collect_details.py",
-      "candidate_sha256": "edc10364bbdd6abadcdcc59a4fa933ec6e478752102069e162ecddf173037bcb",
+      "candidate_sha256": "56d234b8a27d7c7d2c65b9051d664ce77aa596c03b41ada4201ab2930eb59179",
       "runtime": "/opt/mmoexp-marketing/details/collect_details.py",
       "observed_before_sha256": "6e9a5d1f4c6a27640a06cec60b5a847558cd7dcf21c6083826495379ca785c1c",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "mmoexp_google_data/details/detail_model.py",
-      "candidate_sha256": "d4e1d96c6f7df46dfaabf3b1f93bdc4e265206c4bc5d4e70c4fca791a67e525d",
+      "candidate_sha256": "d674bf66b8a93560efeab7ae1b84e6cb8096e61e0799036d55777e79ddf2ef10",
       "runtime": "/opt/mmoexp-marketing/details/detail_model.py",
       "observed_before_sha256": "9c9592549fa2162adda7ea8cb590ce2bf4bf95a7b8ce7ccb28ecdfc4e8326dc2",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -24,7 +26,8 @@
       "runtime": "/opt/mmoexp-marketing/details/traffic_contract.py",
       "observed_before_sha256": null,
       "existed": false,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "mmoexp_google_data/details/traffic_contract.py",
@@ -32,15 +35,17 @@
       "runtime": "/opt/fs-hermes-fc/traffic_contract.py",
       "observed_before_sha256": null,
       "existed": false,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/custom_range.py",
-      "candidate_sha256": "12dcf74f9971a4f5076a09f04eb29bba6e0bb2b4237b638d5b807265ab7b96bb",
+      "candidate_sha256": "75752cca128c541c60cb09c8be48866446df3cc1b08c48437bf842921883c5dc",
       "runtime": "/opt/mmoexp-marketing/custom-range/custom_range.py",
       "observed_before_sha256": "33b63a04321dab4143f64b17ede3debc3d04c22c68da9cefc530d94f8758110d",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/range_api.py",
@@ -48,55 +53,62 @@
       "runtime": "/opt/mmoexp-marketing/custom-range/range_api.py",
       "observed_before_sha256": "cf6959fc5e5d720258e7e1b35b9845352c6d0f55d99297593e2c3dae610953d8",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/report_tracks.py",
-      "candidate_sha256": "75c6fa629919737669bb40cae544821407d1bf4d931492a848e6fbe817a642c9",
+      "candidate_sha256": "678ae8f527e0f230c5d3722dbe4b0eeaff2de8eda5a9c37c25798de1f81d88f2",
       "runtime": "/opt/fs-hermes-fc/report_tracks.py",
       "observed_before_sha256": "291de170e80fbf50f18becb499ad6e1e2b1ba73fdc6ec72d6f2cf1fb9b7a508c",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/marketing_snapshot.py",
-      "candidate_sha256": "27825c9d1948c77e29ab035a8603691f3372d9796eb5262a899600e08418278e",
+      "candidate_sha256": "cfeacb789135de9a3e0995198d81ce0c968a44e7bd9f956ed27ed8a06b21b7ef",
       "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
       "observed_before_sha256": "4c7b907606b14bce2d48ad84e82cfcacb2bd905f10501198db450d76d167d1a5",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/controller.py",
-      "candidate_sha256": "13dc0684e9c703031e4003e9091c30272b383c1ffe3db42288f148fae46b7d1a",
+      "candidate_sha256": "fe28832c553d490da0321e916fb7b8662a3653165948823b326ce69928365dc5",
       "runtime": "/opt/fs-hermes-fc/controller.py",
       "observed_before_sha256": "521d3a479a735778831d48341f36aaee8f3a777d799834e4a356835fcc188b77",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/research.py",
-      "candidate_sha256": "c62ccd303bb7569d33380d76da8196a46b2f3e08712ecc55faada2d349573085",
+      "candidate_sha256": "edc2a1fceb204cc936652525d5c9cae0ac01f4422ac58a534b2cd5fdb781be07",
       "runtime": "/opt/fs-hermes-fc/research.py",
       "observed_before_sha256": "c593578b997d8acf19ca36b3235be4d7ef9e7d189a3340f43e5e6c34e4b127b3",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fs_evidence.py",
-      "candidate_sha256": "ea23f3ec984761a7fa7eaf8e1bbae284e1ee7bcb26604259042c70e74a159b91",
+      "candidate_sha256": "10ee83ab1b08b9b55cd17b4a59fb575802b4b7f66c26932239385b22d3c29ca6",
       "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
       "observed_before_sha256": "2a78db06f066801b6d4a0234e39ba39944bd921e0fb8e3ba6a930d65c52957e6",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/learning-loop.md",
-      "candidate_sha256": "85bbe951031ae4a9a9066d23ea68f7c726ade7b8b3a5f1a52b9649874930cf93",
+      "candidate_sha256": "2c5e2787bba292a27fd1b924f2c159c33a39e50e9f303b49abcceeae51426fbd",
       "runtime": "/opt/fs-hermes-fc/learning-loop.md",
       "observed_before_sha256": "3daa91c314dcc153c11231600f28b32b9ec5df0d59db87fd8d78da9c117f0252",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/source_snapshots.py",
@@ -104,7 +116,8 @@
       "runtime": "/opt/fs-hermes-fc/source_snapshots.py",
       "observed_before_sha256": "da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277",
       "existed": true,
-      "phase": "after_real_daily_weekly_acceptance"
+      "phase": "after_real_daily_weekly_acceptance",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/action_ledger.py",
@@ -112,7 +125,8 @@
       "runtime": "/opt/fs-hermes-fc/action_ledger.py",
       "observed_before_sha256": null,
       "existed": false,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     },
     {
       "source": "releases/fs-dashboard/traffic-hermes-20261017/source/brain.js",
@@ -120,16 +134,109 @@
       "runtime": "/var/www/dashboard/fs-home/brain/brain.js",
       "observed_before_sha256": "9e7ffb5d52ce3fabe6d2ed6f34d7473b090ea6df657cfcea370ceebe9b2f0e3e",
       "existed": true,
-      "phase": "contract_or_consumer_candidate"
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "runtime": "/opt/fs-hermes-fc/es_order_structure.py",
+      "observed_before_sha256": null,
+      "existed": false,
+      "phase": "es_structure_technical_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/es_order_structure.py",
+      "observed_before_sha256": null,
+      "existed": "must_verify_absent_at_release",
+      "phase": "es_structure_technical_candidate"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/p2pah_session_service.py",
+      "candidate_sha256": "4c167620c95966c84b5d11eb11478e2fd5c359d2668432a50c25f6b06e0010f4",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/p2pah_session_service.py",
+      "observed_before_sha256": "0d4a18d5001d0fb346c5402792dd43145c58b2f80392f7da6782f4f4f481e9aa",
+      "existed": true,
+      "phase": "es_structure_technical_candidate"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fc27-p2pah-session.service",
+      "candidate_sha256": "9a6c56c53842597d019158805c261a045734539a54ed8af97a838c5472c34125",
+      "runtime": "/etc/systemd/system/fc27-p2pah-session.service",
+      "observed_before_sha256": "ac783f78773b57d63884fd1643d8079e9ac1aa35e069b87bd4684c9346899e73",
+      "existed": true,
+      "phase": "es_structure_technical_candidate",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/traffic_contract.py",
+      "existed": "must_verify_absent_at_release",
+      "observed_before_sha256": null,
+      "phase": "es_structure_technical_candidate"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/p2pah_session_service.py",
+      "candidate_sha256": "4c167620c95966c84b5d11eb11478e2fd5c359d2668432a50c25f6b06e0010f4",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "observed_before_sha256": "0d4a18d5001d0fb346c5402792dd43145c58b2f80392f7da6782f4f4f481e9aa",
+      "existed": true,
+      "phase": "session_build_source",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/es_order_structure.py",
+      "observed_before_sha256": null,
+      "existed": false,
+      "phase": "session_build_source",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/traffic_contract.py",
+      "observed_before_sha256": null,
+      "existed": false,
+      "phase": "session_build_source",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/Dockerfile.session",
+      "candidate_sha256": "0c1a53ffa1256f1e4eb1bf21e831a7f34417e6e2e29764f4bad695e9d47860f4",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "observed_before_sha256": "9df2f8b927ab6aee28351dc539811a357edcdb97637551050777842569f6401d",
+      "existed": true,
+      "phase": "session_build_source",
+      "observed_at": "2026-10-17T09:33:54.682096+00:00"
     }
   ],
   "native_ui": {
-    "editable": "ui-system/modules/native/google.js",
+    "editable": [
+      "ui-system/modules/native/google.js",
+      "ui-system/modules/native/business.js"
+    ],
     "shell_source": "ui-system/modules/native/shell.js",
     "before_shell_sha256": "535a6817f2dc9dc41cbf30fe9b277c091934ab24f1d61649b2ba56b67d1f646e",
     "before_google_sha256": "29544ee5fc6a066e98404fae0b6655a2c66c200f7b0737a896d4b10d8fefd217",
-    "deployment": "new_immutable_asset_version_only_after_refreshing_current_routes_CAS",
+    "before_business_sha256": "ec074d393b3fb38446f2eca03bbc0f7ac81f7511fcb1c67db694a553842a4d66",
+    "deployment": "five_new_immutable_assets_and_two_current_entry_targets; refresh_current_routes_CAS",
     "shared_styles": "reuse_current_activity_tokens_components_theme; no_shared_UI_release"
   },
-  "baseline_not_a_deploy_manifest": true
+  "baseline_not_a_deploy_manifest": true,
+  "es_session": {
+    "base_image_id": "sha256:88963f9429c84615a7ba24623cf0f54a7d4c313644c64092098e0adb52e835d8",
+    "dockerfile": "releases/fs-dashboard/traffic-hermes-20261017/source/Dockerfile.session",
+    "dockerfile_sha256": "0c1a53ffa1256f1e4eb1bf21e831a7f34417e6e2e29764f4bad695e9d47860f4",
+    "private_archive": "/var/lib/fc27-es-exports",
+    "archive_mode": "0700 root; files 0600; retain on rollback",
+    "identity": "existing_running_manager; no new login in ES query",
+    "model_and_timer_changes": false
+  },
+  "latest_runtime_observation": "2026-10-17T09:33:54.682096+00:00"
 }

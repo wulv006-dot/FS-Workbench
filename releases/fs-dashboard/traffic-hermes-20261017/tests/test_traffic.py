@@ -135,6 +135,50 @@ class DataConsumerTests(unittest.TestCase):
             reader.exact_reader=lambda q:{'status':'busy'}
             self.assertEqual(reader(args)['status'],'busy')
 
+    def test_ad_group_query_pages_and_deduplicates_by_group(self):
+        reader=collector.Reader();reader.metadata['1430398974']={'id':'1430398974'};calls=[]
+        def request(source,url,body):
+            calls.append(dict(body));n=len(calls)
+            row={'campaign':{'id':'1','name':'FC27 Search','advertisingChannelType':'SEARCH'},'adGroup':{'id':str(n),'name':'Group '+str(n),'status':'ENABLED'},'metrics':{'costMicros':'1000000'}}
+            return {'results':[row],**({'nextPageToken':'next'} if n==1 else {})}
+        reader.request=request
+        value=reader.ads('1430398974','ad_group_total','2026-10-01','2026-10-15')
+        self.assertEqual(len(value['rows']),2);self.assertEqual(calls[1]['pageToken'],'next')
+        self.assertIn('FROM ad_group',calls[0]['query']);self.assertNotIn('SELECT segments.date',calls[0]['query'])
+        self.assertNotIn('metrics.conversions_value_per_cost',calls[0]['query'])
+        self.assertIn('derived',value['quality']['platform_roas_basis'])
+        self.assertNotIn('date',value['rows'][0]['dimensions'])
+        self.assertIsNone(value['rows'][0]['metrics']['conversionsFromInteractionsRate'])
+        reader.request=lambda *args: {'results':[{'campaign':{'id':'1','name':'FC27','advertisingChannelType':'SEARCH'},'adGroup':{'id':'1','name':'a'}}]*2}
+        with self.assertRaisesRegex(ValueError,'DUPLICATE_ADS_DATE_ID'):reader.ads('1430398974','ad_group_total','2026-10-01','2026-10-15')
+        reader.request=lambda *args: {'results':[{'campaign':{'id':'1','advertisingChannelType':'PERFORMANCE_MAX'},'adGroup':{'id':'1'}}]}
+        with self.assertRaisesRegex(ValueError,'PMAX_AD_GROUP_UNEXPECTED'):reader.ads('1430398974','ad_group_total','2026-10-01','2026-10-15')
+
+    def test_ad_groups_reach_hermes_without_double_counting_or_brand_leak(self):
+        period,account=self.account();lo,hi=period['start'],period['end']
+        campaigns=account['calculation_campaigns'];fc=next(r for r in campaigns if contract.campaign_scope(r['campaignName'])['game_target']=='FC27');brand=next(r for r in campaigns if contract.campaign_scope(r['campaignName'])['campaign_scope']=='global_brand')
+        groups=[]
+        for row in (fc,brand):
+            for n in range(15):
+                groups.append({'dimensions':{'customerId':'1430398974','campaignId':row['campaignId'],'campaignName':row['campaignName'],'channelType':'SEARCH','adGroupId':str(n+1),'adGroupName':'Group '+str(n),'adGroupStatus':'ENABLED'},'metrics':{'costMicros':'1000000','impressions':'10','clicks':'2','conversions':'1','conversionsValue':'3','interactions':'2','conversionsFromInteractionsRate':'.5'}})
+        report={'rows':groups,'quality':{'pagination_complete':True},'start_date':lo,'end_date':hi}
+        extra=model.make_period(lo,hi,{('ads','1430398974','ad_group_total'):report})['adsAccounts'][0]
+        account['ad_groups']=extra['ad_groups']
+        before=copy.deepcopy(account['metrics'])
+        view=report_tracks.fc27_marketing_view(self.projected(period))['ads_accounts'][0]
+        self.assertEqual(len(view['ad_groups']['rows']),15);self.assertEqual(len(view['global_brand_ad_groups']),15)
+        self.assertTrue(view['ad_groups']['calculation_complete']);self.assertEqual(account['metrics'],before)
+        self.assertEqual(view['ad_groups']['rows'][0]['metrics']['nativeCvr'],'0.5')
+        account['campaign_calculation_complete']=False
+        self.assertFalse(report_tracks.fc27_marketing_view(self.projected(period))['ads_accounts'][0]['ad_groups']['calculation_complete'])
+        account['campaign_calculation_complete']=True
+        account['ad_groups']['status']={'status':'failed','retained_previous':True}
+        account['ad_groups']['calculation_complete']=False
+        stale=report_tracks.fc27_marketing_view(self.projected(period))['ads_accounts'][0]['ad_groups']
+        self.assertFalse(stale['calculation_complete']);self.assertTrue(stale['status']['retained_previous']);self.assertEqual(len(stale['rows']),15)
+        account.pop('ad_groups');missing=report_tracks.fc27_marketing_view(self.projected(period))['ads_accounts'][0]['ad_groups']
+        self.assertFalse(missing['calculation_complete']);self.assertEqual(missing['status']['status'],'unknown')
+
     def test_total_ads_report_uses_native_unsegmented_query(self):
         reader=collector.Reader();reader.metadata['1430398974']={'id':'1430398974'};calls=[]
         def request(*args):
