@@ -4,6 +4,11 @@ from pathlib import Path
 HERE=Path(__file__).resolve().parent
 BASE_SHA='1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
 CONTRACT_SHA='PREPARE_REPLACES_THIS'
+PROFILE_BOUNDARIES={
+    '/var/lib/fs-hermes-fc':(0,9876,0o750),
+    '/var/lib/fs-hermes-fc/profile':(9876,9876,0o700),
+    '/var/lib/fs-hermes-fc/profile/skills':(9876,9876,0o755),
+}
 
 def load_base():
     raw=(HERE/'release_navigation_base.py').read_bytes()
@@ -19,9 +24,19 @@ def load_base():
     old="else 0o600 if row['candidate']=='hermes/nightly/nightly-schedule.json' else 0o644"
     if source.count(old)!=1:raise ValueError('base_mode_anchor_changed')
     source=source.replace(old,"else 0o600 if row['target'] in LEARNING_NEW or row['candidate']=='hermes/nightly/nightly-schedule.json' else 0o644")
+    boundary="if s.st_uid!=0 or not approved_daily_group(manifest,root,item,s) or s.st_mode&0o022:"
+    if source.count(boundary)!=1:raise ValueError('base_boundary_anchor_changed')
+    source=source.replace(boundary,"if not learning_boundary_approved(manifest,root,item,s):")
     base=types.ModuleType('learning_frozen_base');base.__file__=str(HERE/'release_navigation_base.py')
     base.LEARNING_NEW={r['target'] for r in approved['files'] if r['beforeSha256'] is None}
     exec(compile(source,base.__file__,'exec'),base.__dict__)
+    def learning_boundary_approved(manifest,root,item,info):
+        if info.st_mode&0o022:return False
+        if info.st_uid==0 and base.approved_daily_group(manifest,root,item,info):return True
+        if manifest.get('scope')!=base.HERMES_HISTORY_SCOPE:return False
+        expected=next((v for p,v in PROFILE_BOUNDARIES.items() if item==base.rooted(root,p)),None)
+        return expected is not None and (info.st_uid,info.st_gid,info.st_mode&0o777)==expected
+    base.learning_boundary_approved=learning_boundary_approved
     base.HERMES_HISTORY_TARGETS=mapping
     original_target=base.target_for
     base.target_for=lambda rel:mapping[rel] if rel in mapping else original_target(rel)

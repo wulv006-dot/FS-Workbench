@@ -311,6 +311,32 @@
         "mode": "0o600"
       }
     ],
+    "source_files": [
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/business_context.py",
+        "candidate_sha256": "327f8f278078d6f48235cacb25848743e16f35c11629232784f076f0d042f190"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/learning_bridge.py",
+        "candidate_sha256": "32ca6a65101bf164441ad6eb952cf31a91a27ebefd01f307e5a4afc2acb77411"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/prepare_learning.py",
+        "candidate_sha256": "8e1c73b44a0c420339553038586e337bc644562b635047d508c069017165cf54"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/prepare_learning_bridge.py",
+        "candidate_sha256": "782d3725d832d44e3a5076b2bb6c62d712f23edbf070812af6ad60d85b07e52f"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/test_learning.py",
+        "candidate_sha256": "fe1a9354856bc3c1966a4985c35fb17f20f6d7fb050b077e7594611d0f27a912"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/test_learning_bridge.py",
+        "candidate_sha256": "a55b188b84f48def46ba196590c5ea488d97adc6b7d3feaeac48c9866efa538b"
+      }
+    ],
     "private_examples_in_git": false,
     "estimated_bundle_bytes": 180240,
     "requires_actual_knowledge_and_model_receipts": true

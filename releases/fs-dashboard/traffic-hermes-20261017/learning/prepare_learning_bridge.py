@@ -5,7 +5,7 @@ from prepare_learning import check,TARGETS
 from learning_bridge import BASE_SHA
 
 def verify_receipt(es,raw,receipt,commit,operation):
-    if es.get('releaseReady') is not True or receipt.get('sourceCommit')!=es.get('sourceCommit') or es.get('sourceCommit')!=commit:raise ValueError('es_receipt_commit_mismatch')
+    if es.get('releaseReady') is not True or receipt.get('sourceCommit')!=es.get('sourceCommit') or not re.fullmatch('[a-f0-9]{40}',es.get('sourceCommit','')) or not re.fullmatch('[a-f0-9]{40}',commit):raise ValueError('es_receipt_commit_mismatch')
     if not re.fullmatch(r'nav-\d{8}T\d{6}Z',operation or '') or any(receipt.get(k)!=operation for k in ('operation','releaseID','releaseId')) or receipt.get('backup')!='/var/backups/fs-navigation-20261006/'+operation:raise ValueError('es_receipt_operation_mismatch')
     if receipt.get('executionManifestSha256')!=hashlib.sha256(raw).hexdigest() or receipt.get('session_ready') is not True or receipt.get('protected_verified') is not True or receipt.get('business_health') is not True:raise ValueError('es_success_evidence_required')
     for key,expected in [('readback',{r['target']:r['sha256'] for r in es['files']}),('protected_readback',{r['path']:r['sha256'] for r in es['unchangedRequired']})]:
@@ -31,7 +31,7 @@ def prepare(private,es_manifest,base_path,out,commit,receipt=None,operation=None
     for r in m['files']:
         rel='learning/'+Path(r['candidate']).name;p=out/'candidate'/rel;p.parent.mkdir(exist_ok=True);shutil.copyfile(private/r['candidate'],p)
         files.append(dict(r,candidate=rel))
-    approved=dict(imageId=es['imageId'],schemaVersion=1,scope='hermes-private-learning-20261017-v1',releaseReady=receipt is not None,sourceCommit=commit,files=files,unchangedRequired=[dict(path=p,sha256=s) for p,s in sorted(known.items()) if p not in TARGETS],runtimeRequired=es['runtimeRequired'],businessWrites=False,timersChanged=False,modelChanged=False,budgetChanged=False,baselinePending=receipt is None)
+    approved=dict(imageId=es['imageId'],schemaVersion=1,scope='hermes-private-learning-20261017-v1',releaseReady=receipt is not None,sourceCommit=commit,dependencyESSourceCommit=es.get('sourceCommit'),dependencyESOperation=operation,dependencyESExecutionManifestSha256=hashlib.sha256(es_raw).hexdigest(),files=files,unchangedRequired=[dict(path=p,sha256=s) for p,s in sorted(known.items()) if p not in TARGETS],runtimeRequired=es['runtimeRequired'],businessWrites=False,timersChanged=False,modelChanged=False,budgetChanged=False,baselinePending=receipt is None)
     data=(json.dumps(approved,ensure_ascii=False,indent=2)+'\n').encode();(out/'approved-manifest.json').write_bytes(data)
     (out/'release_navigation_base.py').write_bytes(raw)
     bridge=Path(__file__).with_name('learning_bridge.py').read_text(encoding='utf8').replace('PREPARE_REPLACES_THIS',hashlib.sha256(data).hexdigest())

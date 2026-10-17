@@ -5,10 +5,24 @@ import learning_bridge
 from prepare_learning_bridge import verify_receipt
 
 class BridgeTests(unittest.TestCase):
+    def test_existing_private_profile_boundary_exact_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);b,_=self.load(root);m={'scope':b.HERMES_HISTORY_SCOPE}
+            for path,(uid,gid,mode) in learning_bridge.PROFILE_BOUNDARIES.items():
+                info=types.SimpleNamespace(st_uid=uid,st_gid=gid,st_mode=mode)
+                self.assertTrue(b.learning_boundary_approved(m,root,b.rooted(root,path),info))
+                for key,value in [('st_uid',42),('st_gid',42),('st_mode',mode|0o020),('st_mode',mode^0o010)]:
+                    bad=types.SimpleNamespace(**vars(info));setattr(bad,key,value)
+                    self.assertFalse(b.learning_boundary_approved(m,root,b.rooted(root,path),bad))
+                self.assertFalse(b.learning_boundary_approved(m,root,b.rooted(root,path+'/other'),info))
+                self.assertFalse(b.learning_boundary_approved({'scope':'other'},root,b.rooted(root,path),info))
+
     def test_success_receipt_identity_and_complete_readback(self):
         commit='a'*40;operation='nav-20261017T120000Z';es=dict(releaseReady=True,sourceCommit=commit,files=[dict(target='/target',sha256='b'*64)],unchangedRequired=[dict(path='/protected',sha256='c'*64)])
         raw=json.dumps(es).encode();r=dict(sourceCommit=commit,operation=operation,releaseID=operation,releaseId=operation,backup='/var/backups/fs-navigation-20261006/'+operation,executionManifestSha256=hashlib.sha256(raw).hexdigest(),session_ready=True,protected_verified=True,business_health=True,readback=[dict(target='/target',sha256='b'*64)],protected_readback=[dict(target='/protected',sha256='c'*64)],targets=1,protected=1)
         verify_receipt(es,raw,r,commit,operation)
+        # Learning may have a new source head while consuming the exact prior ES deployment.
+        verify_receipt(es,raw,r,'e'*40,operation)
         for key,value in [('sourceCommit','d'*40),('operation','nav-20261017T120001Z'),('executionManifestSha256','0'*64),('session_ready',False),('protected_readback',[]),('readback',[]),('protected',0)]:
             bad=dict(r);bad[key]=value
             with self.subTest(key=key),self.assertRaises(ValueError):verify_receipt(es,raw,bad,commit,operation)
@@ -18,7 +32,8 @@ class BridgeTests(unittest.TestCase):
             root=Path(d);stage=root/'stage';stage.mkdir();here=Path(__file__).parent
             shutil.copyfile(here.parent/'publisher/release_navigation_base.py',stage/'release_navigation_base.py')
             # Synthetic fixture models root-owned targets; real ownership guards run unchanged.
-            targets=['/opt/fs-hermes-fc/business_context.py','/opt/fs-hermes-fc/learning-loop.md','/private/family.md','/private/ref1.md','/private/ref2.md']
+            family='/var/lib/fs-hermes-fc/profile/skills/ops-report-brief/ops-report-family/'
+            targets=['/opt/fs-hermes-fc/business_context.py','/opt/fs-hermes-fc/learning-loop.md',family+'SKILL.md',family+'references/ref1.md',family+'references/ref2.md']
             sha=lambda b:hashlib.sha256(b).hexdigest();files=[]
             for i,t in enumerate(targets):
                 rel='learning/'+str(i)+'.md';p=stage/'candidate'/rel;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'new'+str(i).encode())
@@ -42,13 +57,15 @@ class BridgeTests(unittest.TestCase):
             original=Path.stat
             def root_owner(path,*a,**k):
                 st=original(path,*a,**k);v=list(st);v[4]=v[5]=0
+                for boundary,(uid,gid,mode) in learning_bridge.PROFILE_BOUNDARIES.items():
+                    if path==root/boundary.lstrip('/'):v[4]=uid;v[5]=gid;v[0]=(v[0]&~0o777)|mode
                 if os.name=='nt':
                     v[0]&=~0o022
                     for row in files:
                         if path==root/row['target'].lstrip('/'):v[0]=(v[0]&~0o777)|int(row['mode'],8)
                 return os.stat_result(v)
             with patch.object(Path,'stat',root_owner):
-                external=root/targets[3].lstrip('/');external.write_bytes(b'new3');external.chmod(0o600)
+                external=root/targets[3].lstrip('/');external.parent.mkdir(parents=True,exist_ok=True);external.write_bytes(b'new3');external.chmod(0o600)
                 with self.assertRaisesRegex(ValueError,'new_learning_reference_conflict'):b.inspect(m,stage,root)
                 external.unlink()
                 result=b.apply(m,stage,sha(raw),raw,'nav-20261017T120000Z',root)
