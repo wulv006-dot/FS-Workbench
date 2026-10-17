@@ -1,0 +1,7 @@
+# Build with --pull=false --network=none and the required exact local image ID.
+# Stage traffic_contract.py from this candidate's mmoexp_google_data/details/.
+ARG SESSION_BASE_IMAGE
+FROM ${SESSION_BASE_IMAGE}
+ARG SESSION_BASE_IMAGE
+COPY p2pah_session_service.py es_order_structure.py traffic_contract.py /usr/local/bin/
+RUN python3 -c 'import os,py_compile; assert os.environ["SESSION_BASE_IMAGE"] == "sha256:b0235b2e5fd21d079dcd6c39c1eb5a7083e86f2748c0c030f2ce320468f6178f", "session_base_image_mismatch"; [py_compile.compile("/usr/local/bin/"+p,doraise=True) for p in ("p2pah_session_service.py","es_order_structure.py","traffic_contract.py")]'

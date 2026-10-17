@@ -16,13 +16,14 @@ if A.exists():shutil.rmtree(A)
 A.mkdir(parents=True,exist_ok=True)
 for p in (U/'modules/native').rglob('*'):
  if not p.is_file():continue
- if p.relative_to(U/'modules/native').as_posix() not in {'home.html','index.html','shell.js','workspace.css','business.css','google.css','navigation.json'}:continue
+ if p.relative_to(U/'modules/native').as_posix() not in {'home.html','index.html','shell.js','workspace.css','business.css','google.css','google.js','business.js','navigation.json'}:continue
  name=p.relative_to(U/'modules/native').as_posix();data=p.read_bytes()
  if p.suffix in ['.html','.js','.css']:
   s=data.decode('utf-8')
-  for resource in ['home.html','index.html','shell.js','workspace.css','business.css','google.css','navigation.json']:s=s.replace(oldurl+resource,rooturl+resource)
+  for sourceurl in [oldurl,'/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/']:
+   for resource in ['home.html','index.html','shell.js','workspace.css','business.css','google.css','google.js','business.js','navigation.json']:s=s.replace(sourceurl+resource,rooturl+resource)
   if name=='shell.js':
-   s=s.replace("from './runtime.js'","from '"+oldurl+"runtime.js'").replace("base=new URL('./',import.meta.url);","base=new URL('./',import.meta.url),logicBase=new URL('"+oldurl+"',location.origin);").replace("new URL(state.mode+'.html',base)","new URL(state.mode+'.html',logicBase)").replace("new URL(state.mode+'.js'+(retried?'?retry=1':''),base)","new URL(state.mode+'.js'+(retried?'?retry=1':''),logicBase)")
+   s=s.replace("from './runtime.js'","from '"+oldurl+"runtime.js'").replace("base=new URL('./',import.meta.url);","base=new URL('./',import.meta.url),logicBase=new URL('"+oldurl+"',location.origin);").replace("new URL(state.mode+'.html',base)","new URL(state.mode+'.html',logicBase)")
   if name=='game-monitor/index.html':s=s.replace('"assets/','"'+oldurl+'game-monitor/assets/').replace("'assets/","'"+oldurl+'game-monitor/assets/')
   if p.suffix=='.html':
    tags='<link rel="stylesheet" href="'+rooturl+'ui/fs-tokens.css"><link rel="stylesheet" href="'+rooturl+'ui/fs-ui.css"><script src="'+rooturl+'ui/fs-theme.js"></script>'

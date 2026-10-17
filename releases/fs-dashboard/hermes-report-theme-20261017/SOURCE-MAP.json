@@ -1,0 +1,28 @@
+{
+  "releaseReady": false,
+  "status": "local_candidate_not_deployed",
+  "runtimeTarget": "/opt/fs-hermes-fc/report.template.html",
+  "beforeSha256": "1a576686e212372533c10ce05f208ee7ebf891ffc386d704492016fb11514922",
+  "candidate": "source/report.template.html",
+  "afterSha256": "b777c6bccfd4f1986f9a05256145e86d913601ef383265f59b7eda089b1e9f13",
+  "canonicalTokens": {
+    "path": "ui-system/tokens/fs-tokens.css",
+    "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+  },
+  "canonicalThemeResolver": {
+    "path": "ui-system/adapters/fs-theme.js",
+    "sha256": "b9fa6f6a30fafab089db7a9b7d3f5190c08ca05b8232b57064cd5171cbe54910"
+  },
+  "unchanged": [
+    "boss_renderer.py",
+    "boss_projection.py",
+    "report_artifacts.py",
+    "research.py",
+    "controller.py",
+    "brain.js"
+  ],
+  "notes": [
+    "Standalone HTML embeds exact shared token/resolver snapshots for offline use; no new palette source.",
+    "No chart/content/evidence/model/schedule changes."
+  ]
+}

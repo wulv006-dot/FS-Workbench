@@ -1,0 +1,369 @@
+{
+  "status": "v3_deployed_real_acceptance_iteration_in_progress",
+  "observed_utc": "2026-10-17T08:24:18.258859+00:00",
+  "rows": [
+    {
+      "source": "mmoexp_google_data/details/collect_details.py",
+      "candidate_sha256": "a180a6567ea8beb954ea5a1d85812103f0bf2361346fbbcf4cea3774c2a00598",
+      "runtime": "/opt/mmoexp-marketing/details/collect_details.py",
+      "observed_before_sha256": "a180a6567ea8beb954ea5a1d85812103f0bf2361346fbbcf4cea3774c2a00598",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/custom_range.py",
+      "candidate_sha256": "75752cca128c541c60cb09c8be48866446df3cc1b08c48437bf842921883c5dc",
+      "runtime": "/opt/mmoexp-marketing/custom-range/custom_range.py",
+      "observed_before_sha256": "75752cca128c541c60cb09c8be48866446df3cc1b08c48437bf842921883c5dc",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/range_api.py",
+      "candidate_sha256": "407dd661d057f69a979a33541c25e8d4ee9c542afc5e5c3fc0a6a7402c6e35cd",
+      "runtime": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "observed_before_sha256": "407dd661d057f69a979a33541c25e8d4ee9c542afc5e5c3fc0a6a7402c6e35cd",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/report_tracks.py",
+      "candidate_sha256": "678ae8f527e0f230c5d3722dbe4b0eeaff2de8eda5a9c37c25798de1f81d88f2",
+      "runtime": "/opt/fs-hermes-fc/report_tracks.py",
+      "observed_before_sha256": "678ae8f527e0f230c5d3722dbe4b0eeaff2de8eda5a9c37c25798de1f81d88f2",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fs_evidence.py",
+      "candidate_sha256": "1e4b19b95dcb9f9d2a308fb614b88a9d4930316e7a8c5d80f62ea5ec7be6f065",
+      "runtime": "/opt/fs-hermes-fc/fs_evidence.py",
+      "observed_before_sha256": "1e4b19b95dcb9f9d2a308fb614b88a9d4930316e7a8c5d80f62ea5ec7be6f065",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/learning-loop.md",
+      "candidate_sha256": "2c5e2787bba292a27fd1b924f2c159c33a39e50e9f303b49abcceeae51426fbd",
+      "runtime": "/opt/fs-hermes-fc/learning-loop.md",
+      "observed_before_sha256": "2c5e2787bba292a27fd1b924f2c159c33a39e50e9f303b49abcceeae51426fbd",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/source_snapshots.py",
+      "candidate_sha256": "5734f59fea3715c99ce81e4ff988e5c54df0d126ed17e18fdecee1ebaa0107c9",
+      "runtime": "/opt/fs-hermes-fc/source_snapshots.py",
+      "observed_before_sha256": "2b05df6cce8dc0bff83cfaa1e3698bf916d2f694a7cecec19eeb1ac22130ef96",
+      "existed": true,
+      "phase": "after_real_daily_weekly_acceptance",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/action_ledger.py",
+      "candidate_sha256": "ef730355a5c81beb67a553caf424528784d60c877bebd3677d70c6f4692431fa",
+      "runtime": "/opt/fs-hermes-fc/action_ledger.py",
+      "observed_before_sha256": "ef730355a5c81beb67a553caf424528784d60c877bebd3677d70c6f4692431fa",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/brain.js",
+      "candidate_sha256": "071290bc0042686ac848202f54ae91c6c397ef0f1ac8d5ad5d59bdff5367a3a5",
+      "runtime": "/var/www/dashboard/fs-home/brain/brain.js",
+      "observed_before_sha256": "071290bc0042686ac848202f54ae91c6c397ef0f1ac8d5ad5d59bdff5367a3a5",
+      "existed": true,
+      "phase": "contract_or_consumer_candidate",
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/source_snapshots_daily_window.py",
+      "candidate_sha256": "2b05df6cce8dc0bff83cfaa1e3698bf916d2f694a7cecec19eeb1ac22130ef96",
+      "runtime": "/opt/fs-hermes-fc/source_snapshots.py",
+      "observed_before_sha256": "2b05df6cce8dc0bff83cfaa1e3698bf916d2f694a7cecec19eeb1ac22130ef96",
+      "phase": "real_daily_weekly_input_fix_only; full_seven_period_candidate_remains_deferred",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00"
+    },
+    {
+      "source": "mmoexp_google_data/details/detail_model.py",
+      "candidate_sha256": "b70662400ea7a298c55148d16771b53699977e076a543fbe6f4c29de05723dbd",
+      "runtime": "/opt/mmoexp-marketing/details/detail_model.py",
+      "observed_before_sha256": "d674bf66b8a93560efeab7ae1b84e6cb8096e61e0799036d55777e79ddf2ef10",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62",
+      "runtime": "/opt/mmoexp-marketing/details/traffic_contract.py",
+      "observed_before_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62",
+      "runtime": "/opt/fs-hermes-fc/traffic_contract.py",
+      "observed_before_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/traffic_contract.py",
+      "observed_before_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/controller.py",
+      "candidate_sha256": "139249d204508bf224bcba15b6844fff9f0a46ae03716bb81c0a39a5fdb7c27d",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "observed_before_sha256": "7adfc4bea88e78599766021b79a7c139b3c2bb6725ec9a8892ee0e15990f7f81",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/research.py",
+      "candidate_sha256": "936558519d764f96705ac9d1ab40b1912bb3ab531b721b576cbaf239bb8d169b",
+      "runtime": "/opt/fs-hermes-fc/research.py",
+      "observed_before_sha256": "d7e334a4e48bf6b5e6376940737dd20d75bfa296fe14f7bde798b44e36d7de4c",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/marketing_snapshot.py",
+      "candidate_sha256": "42b72688dc2e264d9817a420c0516c110e500d29cbe9b835cd9dee96da22b03e",
+      "runtime": "/opt/fs-hermes-fc/marketing_snapshot.py",
+      "observed_before_sha256": "46cba455ddcd0a60e4f1b55b3d26453fa02986923528433617a26298d70bdcc6",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "dfc4521102b2ee14e8778d346f4abf1a092bde52a83d8809c667796627b064d4",
+      "runtime": "/opt/fs-hermes-fc/es_order_structure.py",
+      "observed_before_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "dfc4521102b2ee14e8778d346f4abf1a092bde52a83d8809c667796627b064d4",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/es_order_structure.py",
+      "observed_before_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/shared_range_es_v3.py",
+      "candidate_sha256": "833944f08aa2a9495cf8e0abfbf404ac2366d0eaaf42ee159f3e55ff646609c8",
+      "runtime": "/opt/fs-exact-range-20261001/range_api.py",
+      "observed_before_sha256": "02914f0d9dff42b04b34670e7f9b081e26ecd8ffdc5b67ac8e24d11ea54f33cd",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/p2pah_session_service.py",
+      "candidate_sha256": "07434039c0cf079590b047ebebb28ceb4cfb2720a18a267e684f6152db286792",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "observed_before_sha256": "4c167620c95966c84b5d11eb11478e2fd5c359d2668432a50c25f6b06e0010f4",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/Dockerfile.session.es-v3",
+      "candidate_sha256": "7cb9d0456760a04b7ebf9abb78a7d921411dbf36d25e65180aaab0d7ddaf9859",
+      "runtime": "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",
+      "observed_before_sha256": "0c1a53ffa1256f1e4eb1bf21e831a7f34417e6e2e29764f4bad695e9d47860f4",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/fc27-p2pah-session-es-v3.service",
+      "candidate_sha256": "e1236636fe38aa79506b6ec9dbef389f8778721f9f99ed2b755bac5a4c8e325a",
+      "runtime": "/etc/systemd/system/fc27-p2pah-session.service",
+      "observed_before_sha256": "9a6c56c53842597d019158805c261a045734539a54ed8af97a838c5472c34125",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_multigame_candidate_not_deployed"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/p2pah_session_service.py",
+      "candidate_sha256": "07434039c0cf079590b047ebebb28ceb4cfb2720a18a267e684f6152db286792",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/p2pah_session_service.py",
+      "observed_before_sha256": "4c167620c95966c84b5d11eb11478e2fd5c359d2668432a50c25f6b06e0010f4",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_image_candidate_not_deployed",
+      "before_evidence": "4b successful three-source image verification plus unchanged b023 image ID"
+    },
+    {
+      "source": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+      "candidate_sha256": "dfc4521102b2ee14e8778d346f4abf1a092bde52a83d8809c667796627b064d4",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/es_order_structure.py",
+      "observed_before_sha256": "af859b16f25e92d6a4c3e8a2113fd0de0926ce7bb5cb79fa3e8a5b7e66abacb6",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_image_candidate_not_deployed",
+      "before_evidence": "4b successful three-source image verification plus unchanged b023 image ID"
+    },
+    {
+      "source": "mmoexp_google_data/details/traffic_contract.py",
+      "candidate_sha256": "8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62",
+      "runtime": "container:fc27-p2pah-session:/usr/local/bin/traffic_contract.py",
+      "observed_before_sha256": "2c53716393fc1503030c245084e548683fe9f3357b483a3e897c3307d9c2fe64",
+      "existed": true,
+      "observed_at": "2026-10-17T11:10:43.529238+00:00",
+      "phase": "v3_image_candidate_not_deployed",
+      "before_evidence": "4b successful three-source image verification plus unchanged b023 image ID"
+    }
+  ],
+  "native_ui": {
+    "editable": [
+      "ui-system/modules/native/google.js",
+      "ui-system/modules/native/business.js"
+    ],
+    "shell_source": "ui-system/modules/native/shell.js",
+    "before_shell_sha256": "fb27ea42dbfb86183d84dd1e35131a1397aecaeb9826fcecce07b395f7cec5be",
+    "before_google_sha256": "c7aa916bfb10dd015c7968b588168b9dbe4e6de720210ca8ded22227cf0bee50",
+    "before_business_sha256": "32ee2e8f4dc95446a5c32e5d8a3dd167da83c3d6ac0c391abf1a198c520436dc",
+    "deployment": "V3_UI_separate_exact_package; current_entry_CAS; no legacy full-page overwrite",
+    "shared_styles": "reuse_current_activity_tokens_components_theme; no_shared_UI_release"
+  },
+  "baseline_not_a_deploy_manifest": true,
+  "es_session": {
+    "base_image_id": "sha256:b0235b2e5fd21d079dcd6c39c1eb5a7083e86f2748c0c030f2ce320468f6178f",
+    "dockerfile": "releases/fs-dashboard/traffic-hermes-20261017/source/Dockerfile.session.es-v3",
+    "dockerfile_sha256": "7cb9d0456760a04b7ebf9abb78a7d921411dbf36d25e65180aaab0d7ddaf9859",
+    "private_archive": "/var/lib/fc27-es-exports",
+    "archive_mode": "0700 root; files 0600; retain on rollback",
+    "identity": "existing_running_manager; no new login in ES query",
+    "model_and_timer_changes": false,
+    "base_tag": "fc27-cloud-session:traffic-hermes-20261017-es",
+    "new_tag": "fc27-cloud-session:es-multigame-20261017-v3",
+    "publisher": "releases/fs-dashboard/traffic-hermes-20261017/publisher/es_v3_patch.py",
+    "source_task_scope": "period_shared; exact_game_label_projections; no blind export replay"
+  },
+  "latest_runtime_observation": "2026-10-17T11:10:43.529238+00:00",
+  "baseline_source_commit": "4b790805e5b0903f2c10c9343b580a1832b8a3fb",
+  "v3_contract": {
+    "es_default": "profile=ALL; group_by=game",
+    "es_game_mapping": "es-exact-labels-20261017-v1",
+    "ads_rule": "traffic-multigame-name-hints-20261017-v3",
+    "D4_basis": "campaign_name_prefix; Brand-Global unverified and excluded from ordinary name subtotal",
+    "AION2_ads": "unmatched is not zero",
+    "source_snapshots_full_candidate": "deferred; current minimal daily-window source remains unchanged"
+  },
+  "reviewed_learning_candidate": {
+    "status": "private_payload_prepared_not_deployed",
+    "loader_source": "releases/fs-dashboard/traffic-hermes-20261017/learning/business_context.py",
+    "targets": [
+      {
+        "runtime": "/opt/fs-hermes-fc/business_context.py",
+        "before_sha256": "3a3d35bfe970cbac0343e322ce75374374544e29b5056c775efde898c1446706",
+        "after_sha256": "327f8f278078d6f48235cacb25848743e16f35c11629232784f076f0d042f190",
+        "mode": "0o644"
+      },
+      {
+        "runtime": "/opt/fs-hermes-fc/learning-loop.md",
+        "before_sha256": "2c5e2787bba292a27fd1b924f2c159c33a39e50e9f303b49abcceeae51426fbd",
+        "after_sha256": "129834c41cec9807ff38c17890dde0094686ce42d3ddeb8a724dfc3cbe565169",
+        "mode": "0o644"
+      },
+      {
+        "runtime": "/var/lib/fs-hermes-fc/profile/skills/ops-report-brief/ops-report-family/SKILL.md",
+        "before_sha256": "50ca9420279e5541872e7049a423fc4f9b85609f3b8790da99c2e6772d278a18",
+        "after_sha256": "84843aa4e78d58602191bf9aed932a6d4a2935e7f09527fe3faaee1b1ef70698",
+        "mode": "0o644"
+      },
+      {
+        "runtime": "/var/lib/fs-hermes-fc/profile/skills/ops-report-brief/ops-report-family/references/approved-daily-20261016.md",
+        "before_sha256": null,
+        "after_sha256": "c5a4e07af3dd042e0d24e4ee5ccabb7097994bf730a2c811eed5693d31f2ce2e",
+        "mode": "0o600"
+      },
+      {
+        "runtime": "/var/lib/fs-hermes-fc/profile/skills/ops-report-brief/ops-report-family/references/approved-weekly-20261005-11.md",
+        "before_sha256": null,
+        "after_sha256": "0fe482e58a1a4a5ceda57a8bde0000acc65dbe6ba7cc187543fe1d6c031b4a4e",
+        "mode": "0o600"
+      }
+    ],
+    "source_files": [
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/business_context.py",
+        "candidate_sha256": "327f8f278078d6f48235cacb25848743e16f35c11629232784f076f0d042f190"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/learning_bridge.py",
+        "candidate_sha256": "32ca6a65101bf164441ad6eb952cf31a91a27ebefd01f307e5a4afc2acb77411"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/prepare_learning.py",
+        "candidate_sha256": "8e1c73b44a0c420339553038586e337bc644562b635047d508c069017165cf54"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/prepare_learning_bridge.py",
+        "candidate_sha256": "782d3725d832d44e3a5076b2bb6c62d712f23edbf070812af6ad60d85b07e52f"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/test_learning.py",
+        "candidate_sha256": "fe1a9354856bc3c1966a4985c35fb17f20f6d7fb050b077e7594611d0f27a912"
+      },
+      {
+        "source": "releases/fs-dashboard/traffic-hermes-20261017/learning/test_learning_bridge.py",
+        "candidate_sha256": "a55b188b84f48def46ba196590c5ea488d97adc6b7d3feaeac48c9866efa538b"
+      }
+    ],
+    "private_examples_in_git": false,
+    "estimated_bundle_bytes": 180240,
+    "requires_actual_knowledge_and_model_receipts": true
+  },
+  "real_acceptance_iteration": {
+    "baseline_es_operation": "nav-20261017T113423Z",
+    "baseline_es_commit": "f3be55a375bc1ab2eac6ad82b66912e7fdee97bc",
+    "baseline_learning_operation": "nav-20261017T114617Z",
+    "baseline_learning_commit": "65896e16757d27a83bd94affdf9e15488306b9aa",
+    "baseline_ui_release": "workspace-native-20261006-b3d7dec21712",
+    "final_pr_merge": "pending_real_daily_weekly_acceptance",
+    "candidate_fixes": [
+      {
+        "path": "releases/fs-dashboard/traffic-hermes-20261017/source/es_order_structure.py",
+        "sha256": "95e37110550012389488b4f639fe206391aaf8ec600b222a4611e6d1fdb6faac",
+        "status": "local_verified_not_deployed"
+      },
+      {
+        "path": "ui-system/modules/native/google.js",
+        "sha256": "f8757e34ed38a6844d8042d300a8cd13f961c88dc5fc381b16716235258d52b4",
+        "status": "local_verified_not_deployed"
+      },
+      {
+        "path": "releases/fs-dashboard/hermes-report-theme-20261017/source/report.template.html",
+        "sha256": "b777c6bccfd4f1986f9a05256145e86d913601ef383265f59b7eda089b1e9f13",
+        "status": "local_verified_not_deployed"
+      }
+    ]
+  }
+}

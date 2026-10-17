@@ -1,0 +1,161 @@
+{
+  "status": "controlled_premerge_release_deployed_user_quality_review_pending",
+  "parent_commit": "c4b02502cb1aa767283a67ca71184e6eedc3e407",
+  "release": "nav-20261017T145243Z",
+  "execution_manifest_sha256": "543d9d6eddb5397c38ed435db11ad4ff1fa9c679da2db09f28fae70b9037efaa",
+  "teaching_manifest_sha256": "f0777b2ca8eeb4b10cbb2ee33982defd629b1a895cf4d981c691416d8dcf28f2",
+  "files": [
+    {
+      "candidate": "source/controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "bdc1876b6e89dd021649c3c2a504c1dedbbbf0ec66977e821f77c8210ef1f502",
+      "sha256": "64e89b254bfc0b556868b896bcfbc9b2fcff33dc4f6ad813124709fac94f24f8",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "327f8f278078d6f48235cacb25848743e16f35c11629232784f076f0d042f190",
+      "sha256": "48ba3a9fd49fc95b7ca59aa3cc838f4bbbfaa1542b03bdce4d76759474c916b3",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/skill_bundle.py",
+      "target": "/opt/fs-hermes-fc/skill_bundle.py",
+      "beforeSha256": "c4dcb733f35a64faa78f03d5cc43ed40174851eb34c6d84785a10df3ee379913",
+      "sha256": "b60018ce6d94d28e3f6b709aded61846f72e04acd2eccbf1f9c0c76476610834",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/report_method.py",
+      "target": "/opt/fs-hermes-fc/report_method.py",
+      "beforeSha256": null,
+      "sha256": "3eaef6a35010b64a45745ed60f8ad873f581a358bb5b5ddbfee9ca25f3a4e3d4",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/brain.js",
+      "target": "/var/www/dashboard/fs-home/brain/brain.js",
+      "beforeSha256": "ff10976d9ffd32f53324cd8d0d4238581df8cfa62ba7962aa0d6bc61c233d396",
+      "sha256": "9915a2216a83359bcd30e443fb85c8d8b5d4439325adbf8069aa82b885212f8e",
+      "mode": "0o644",
+      "owner": "0:0"
+    }
+  ],
+  "private_teaching_files": 13,
+  "private_examples_not_in_git": true,
+  "timers_changed": false,
+  "business_writes": false,
+  "PR_merged": false,
+  "acceptance": "real FS daily and weekly required; user decides content/layout/interaction quality",
+  "archiveOnlyFollowup": {
+    "release": "nav-20261017T150327Z",
+    "manifestSha256": "6ebe91ac13a72d7a8f569a2e46edeaaa7942fb65d391b69c1c205ca2a7ca7ac6",
+    "files": [
+      {
+        "candidate": "source/controller.py",
+        "target": "/opt/fs-hermes-fc/controller.py",
+        "beforeSha256": "64e89b254bfc0b556868b896bcfbc9b2fcff33dc4f6ad813124709fac94f24f8",
+        "sha256": "cfc5cb3ee003de0beb0ffa07d9e160caad8aeddd43b98ce7052069c53dab1c9c",
+        "mode": "0o644",
+        "owner": "0:0"
+      },
+      {
+        "candidate": "source/report_artifacts.py",
+        "target": "/opt/fs-hermes-fc/report_artifacts.py",
+        "beforeSha256": "c30f44ee10855975529ad5c1eb4ffe08e979ced25eeadb44ed31c371d6272d35",
+        "sha256": "88916e5009afd07abc5199816a5231590dabc15c607cf1b505d692f4c0b6bc33",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 309,
+    "legacyHtmlAnalysisAndLayoutBypassed": true,
+    "tests": 7,
+    "userAcceptance": "pending"
+  },
+  "frozenFollowupInput": {
+    "release": "nav-20261017T151420Z",
+    "manifestSha256": "c35f7ebbbcce1084ddaec0178b6aed8db25ae4199df4383d69e1fd724fde3117",
+    "files": [
+      {
+        "candidate": "source/continuation.py",
+        "target": "/opt/fs-hermes-fc/continuation.py",
+        "beforeSha256": "267d59c9f8d0bb1f28fba79586574d4b83d5ff70684ea70fd8d6998e23ee0112",
+        "sha256": "9ceb5fe5139dc6e93bf23a7cf33e13c169ca5385ea017cd06322e3b6cb6ab0a3",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "completeEvidenceRemainsInRegisteredCachedTools": true,
+    "newSourceReads": false,
+    "tests": 9,
+    "userAcceptance": "pending"
+  },
+  "inlinePreviewAndArchive": {
+    "release": "nav-20261017T153353Z",
+    "manifestSha256": "6b535adf7d658c5c8c342e1eb443a9cfc567b8171bd3689935a693a1ffb7ec94",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "9915a2216a83359bcd30e443fb85c8d8b5d4439325adbf8069aa82b885212f8e",
+        "sha256": "685d9d6c6e136d2dfe5addc4b66ab5d8752f409189f476d8e93e3081b4ea0663",
+        "mode": "0o644",
+        "owner": "0:0"
+      },
+      {
+        "candidate": "source/report_artifacts.py",
+        "target": "/opt/fs-hermes-fc/report_artifacts.py",
+        "beforeSha256": "88916e5009afd07abc5199816a5231590dabc15c607cf1b505d692f4c0b6bc33",
+        "sha256": "5518eb29453d45f28bedaed6ee9097c29b34804180f69daf196953a0f8fd55eb",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 309,
+    "tests": 11,
+    "userAcceptance": "pending"
+  },
+  "htmlArchiveButtonCompatibility": {
+    "release": "nav-20261017T153637Z",
+    "manifestSha256": "0c93d825fed0933dbe61510799c59eb77815b0afbaa0a0f5ad4a5e5f1bd352ef",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "685d9d6c6e136d2dfe5addc4b66ab5d8752f409189f476d8e93e3081b4ea0663",
+        "sha256": "ebe5767f0b3f853ec7002f31456d133b991aa78e2a2e56649812be4474657957",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "tests": 11,
+    "userAcceptance": "pending"
+  },
+  "standaloneReportPage": {
+    "release": "nav-20261017T154723Z",
+    "manifestSha256": "4875a1820be41046ab40a85d5fd93857979b30c61b88623c070d8686f071938e",
+    "files": [
+      {
+        "candidate": "source/brain.js",
+        "target": "/var/www/dashboard/fs-home/brain/brain.js",
+        "beforeSha256": "ebe5767f0b3f853ec7002f31456d133b991aa78e2a2e56649812be4474657957",
+        "sha256": "677626925dc735cbaaea6307e128a7d2bed83a3d751b6a97a7d6d1bb41fd3242",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "previousInlinePreview": "superseded at user request",
+    "url": "brain/index.html?report=<request_id>&view=html",
+    "originalHtmlRewritten": false,
+    "frozenBrowserTests": "passed"
+  }
+}

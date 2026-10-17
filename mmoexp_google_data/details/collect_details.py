@@ -28,6 +28,17 @@ def periods(end=None):
     end = dt.date.fromisoformat(end) if end else today-dt.timedelta(days=today.weekday()+1)
     if end >= today or (today-end).days > 90: raise ValueError('BOUNDED_PAST_PERIOD_REQUIRED')
     return [period(end.isoformat()),period((end-dt.timedelta(days=7)).isoformat())]
+
+def report_periods(end=None):
+    """Explicit rollout switch; the existing nightly caller keeps its old ranges."""
+    ranges=periods(end)
+    today=dt.datetime.now(ZoneInfo('Asia/Shanghai')).date();yesterday=today-dt.timedelta(days=1)
+    ranges.extend([(yesterday.isoformat(),yesterday.isoformat()),((yesterday-dt.timedelta(days=1)).isoformat(),(yesterday-dt.timedelta(days=1)).isoformat()),((yesterday-dt.timedelta(days=7)).isoformat(),(yesterday-dt.timedelta(days=7)).isoformat())])
+    if today.day==1:
+        month_end=today-dt.timedelta(days=1);month_start=month_end.replace(day=1);previous_end=month_start-dt.timedelta(days=1)
+        ranges.extend([(month_start.isoformat(),month_end.isoformat()),(previous_end.replace(day=1).isoformat(),previous_end.isoformat())])
+    return list(dict.fromkeys(tuple(r) for r in ranges))
+
 def credential(kind):
     from google.auth.transport.requests import AuthorizedSession
     path = Path('/etc/mmoexp-marketing/'+('oauth-adc.json' if kind=='ads' else 'service-account.json'))
@@ -136,25 +147,34 @@ class Reader:
         self.metadata[customer]={n:meta.get(n) for n in ['id','descriptiveName','status','currencyCode','timeZone']}
     def ads(self,customer,name,start,end):
         if self.metadata.get(customer,{}).get('id')!=customer: raise ValueError('ADS_METADATA_REQUIRED')
-        fields='segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value'
-        if name=='campaign': fields='campaign.id, campaign.name, campaign.advertising_channel_type, '+fields
-        table='campaign' if name=='campaign' else 'customer'
-        body={'query':"SELECT "+fields+" FROM "+table+" WHERE segments.date BETWEEN '"+start+"' AND '"+end+"' ORDER BY segments.date"}; rows=[]; seen=set(); complete=False
+        fields='segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.interactions, metrics.conversions_from_interactions_rate'
+        if name in ('campaign','campaign_total','ad_group_total'): fields='campaign.id, campaign.name, campaign.advertising_channel_type, '+fields
+        if name == 'ad_group_total': fields='ad_group.id, ad_group.name, ad_group.status, '+fields.replace('','')
+        if name in ('total','campaign_total','ad_group_total'): fields=fields.replace('segments.date, ', '')
+        table='ad_group' if name == 'ad_group_total' else 'campaign' if name in ('campaign','campaign_total') else 'customer'
+        body={'query':"SELECT "+fields+" FROM "+table+" WHERE segments.date BETWEEN '"+start+"' AND '"+end+"' "+(" ORDER BY segments.date" if name not in ('total','campaign_total','ad_group_total') else "")}; rows=[]; seen=set(); complete=False
         for page in range(10):
             data=self.request('ads','https://googleads.googleapis.com/v25/customers/'+customer+'/googleAds:search',body)
             for row in data.get('results',[]):
-                date=row['segments']['date']
+                date=row['segments']['date'] if name not in ('total','campaign_total','ad_group_total') else start
                 if not start<=date<=end: raise ValueError('REPORT_DATE_MISMATCH')
-                dims={'date':date,'customerId':customer}
-                if name=='campaign': dims.update(campaignId=str(row['campaign']['id']),campaignName=row['campaign'].get('name',''),channelType=row['campaign'].get('advertisingChannelType',''))
-                key=(date,dims.get('campaignId'))
+                dims={'customerId':customer}
+                if name not in ('total','campaign_total','ad_group_total'):dims['date']=date
+                if name in ('campaign','campaign_total','ad_group_total'): dims.update(campaignId=str(row['campaign']['id']),campaignName=row['campaign'].get('name',''),channelType=row['campaign'].get('advertisingChannelType',''))
+                if name == 'ad_group_total':
+                    if dims.get('channelType') == 'PERFORMANCE_MAX': raise ValueError('PMAX_AD_GROUP_UNEXPECTED')
+                    dims.update(adGroupId=str(row['adGroup']['id']),adGroupName=row['adGroup'].get('name',''),adGroupStatus=row['adGroup'].get('status'))
+                key=(date,dims.get('campaignId'),dims.get('adGroupId'))
                 if key in seen: raise ValueError('DUPLICATE_ADS_DATE_ID')
                 seen.add(key)
-                rows.append({'dimensions':dims,'metrics':{n:number(row.get('metrics',{}).get(n,0)) for n in ['impressions','clicks','costMicros','conversions','conversionsValue']}})
+                metrics={n:number(row.get('metrics',{}).get(n,0)) for n in ['impressions','clicks','costMicros','conversions','conversionsValue']}
+                for n in ('interactions','conversionsFromInteractionsRate','conversionsValuePerCost'):
+                    metrics[n]=number(row['metrics'][n]) if n in row.get('metrics',{}) else None
+                rows.append({'dimensions':dims,'metrics':metrics})
             if not data.get('nextPageToken'): complete=True; break
             body['pageToken']=data['nextPageToken']
         if not complete: raise ValueError('ADS_PAGINATION_BUDGET_EXCEEDED')
-        return {'rows':rows,'quality':{'pagination_complete':True,'returned_rows':len(rows),'data_state':'provisional_ads_attribution'},'timezone':'Asia/Hong_Kong','currency':'USD','account':self.metadata[customer]}
+        return {'rows':rows,'quality':{'pagination_complete':True,'returned_rows':len(rows),'data_state':'provisional_ads_attribution','conversion_scope':'primary_conversions','attribution_time_basis':'interaction_date','conversion_goals_status':'not_collected','platform_roas_basis':'sum_conversionsValue / (sum_costMicros / 1000000); derived, not native ratio'},'timezone':'Asia/Hong_Kong','currency':'USD','account':self.metadata[customer]}
 
 def save(db,source,resource,name,start,end,value=None,error=None):
     timestamp=now(); status='failed' if error else 'success' if value and value['rows'] else 'empty'
@@ -166,7 +186,7 @@ def save(db,source,resource,name,start,end,value=None,error=None):
     return {'source':source,'resource':resource,'report':name,'start':start,'end':end,'status':status,'rows':len(value['rows']) if value else None,'error_code':error}
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--week-end'); parser.add_argument('--parent-lock-held',action='store_true'); parser.add_argument('--retry-failed-only',action='store_true'); args=parser.parse_args()
+    parser=argparse.ArgumentParser(); parser.add_argument('--week-end'); parser.add_argument('--parent-lock-held',action='store_true'); parser.add_argument('--retry-failed-only',action='store_true'); parser.add_argument('--report-periods',action='store_true'); args=parser.parse_args()
     os.umask(0o077)
     if os.getenv('MMOEXP_MARKETING_LIVE')!='approved': raise SystemExit('LIVE_DISABLED')
     lock=None
@@ -175,7 +195,7 @@ def main():
         lock=(ROOT/'data/verified-readonly/collector.lock').open('a')
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError: print('{"status":"skipped_existing_collection"}');return
-    ranges=periods(args.week_end); db=sqlite3.connect(ROOT/'data/verified-readonly/marketing.db'); db.executescript(SCHEMA)
+    ranges=report_periods(args.week_end) if args.report_periods else periods(args.week_end); db=sqlite3.connect(ROOT/'data/verified-readonly/marketing.db'); db.executescript(SCHEMA)
     reader=Reader(); results=[]; started=now()
     try:
         try: reader.ga_fields()
@@ -184,7 +204,7 @@ def main():
             try: reader.ads_metadata(customer)
             except Exception as exc: reader.metadata[customer]={'status':'metadata_failed','exception_class':type(exc).__name__}
         for start,end in ranges:
-            specs=[('ga4','541418940',n) for n in GA_REPORTS]+[('gsc','sc-domain:mmoexp.com',n) for n in GSC_REPORTS]+[('ads',c,n) for c in CUSTOMERS for n in ['daily','campaign']]
+            specs=[('ga4','541418940',n) for n in GA_REPORTS]+[('gsc','sc-domain:mmoexp.com',n) for n in GSC_REPORTS]+[('ads',c,n) for c in CUSTOMERS for n in ['total','daily','campaign','campaign_total','ad_group_total']]
             for source,resource,name in specs:
                 try:
                     old=db.execute('SELECT collected_at FROM detail_reports WHERE source=? AND resource=? AND report=? AND start_date=? AND end_date=?',(source,resource,name,start,end)).fetchone()

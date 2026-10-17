@@ -287,6 +287,10 @@ def selfcheck():
         raise RuntimeError("ops_module_html_must_stay_in_frontend")
     if select(["releases/fs-dashboard/traffic-yesterday-20261009/assets/business.js"]) != ["fs-period-ui"]:
         raise RuntimeError("fs_period_ui_mapping_missing")
+    if select(["releases/fs-dashboard/hermes-report-theme-20261017/source/report.template.html"]) != ["hermes-report-theme"]:
+        raise RuntimeError("hermes_report_theme_mapping_missing")
+    if select(["releases/fs-dashboard/hermes-full-html-task-20261017/source/controller.py"]) != ["hermes-full-html"]:
+        raise RuntimeError("hermes_full_html_mapping_missing")
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -295,6 +299,21 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
+            groups.add("admin-data-tools");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
+            groups.add("hermes-report-method");continue
+        if name.startswith("releases/fs-dashboard/hermes-full-html-task-20261017/"):
+            groups.add("hermes-full-html");continue
+        if name.startswith(("releases/fs-dashboard/hermes-followup-evidence-20261017/","releases/fs-dashboard/hermes-report-kind-actions-20261017/")):
+            groups.add("hermes-report-compat");continue
+        if name.startswith("releases/fs-dashboard/traffic-content-details-20261017/"):
+            groups.add("traffic-content-details");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-theme-20261017/"):
+            groups.add("hermes-report-theme");continue
+        if name.startswith(("releases/fs-dashboard/traffic-hermes-20261017/","mmoexp_google_data/details/")) or name in ("mmoexp_google_data/dashboard_module/marketing-module.js","mmoexp_google_data/dashboard_module/build_module.py"):
+            groups.add("traffic-hermes");continue
+        if name=="ui-system/modules/native/google.js":groups.add("traffic-hermes")
         if name.startswith("releases/fc-sbc/security-20261015/"):
             groups.add("fc-sbc-security");continue
         suffix=Path(name).suffix
@@ -769,6 +788,27 @@ def main():
             node("releases/fs-dashboard/hermes-report-actions-20261015/check.cjs")
         elif group=="management-quality":
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
+        elif group=="hermes-report-compat":
+            units("releases/fs-dashboard/hermes-followup-evidence-20261017/tests",["test_continuation_sources","test_learning_append"])
+            units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
+            node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
+        elif group=="hermes-report-method":
+            units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
+            node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")
+        elif group=="hermes-full-html":
+            units("releases/fs-dashboard/hermes-full-html-task-20261017/tests",["test_html_design"])
+        elif group=="traffic-content-details":
+            units("releases/fs-dashboard/traffic-content-details-20261017/tests",["test_content_details"])
+            node("releases/fs-dashboard/traffic-content-details-20261017/tests/check_content.cjs")
+        elif group=="hermes-report-theme":
+            node("releases/fs-dashboard/hermes-report-theme-20261017/tests/theme-print.cjs")
+        elif group=="admin-data-tools":
+            units("releases/fs-dashboard/admin-data-tools-20261018",["test_admin_data_tools","test_publisher_boundary"])
+        elif group=="traffic-hermes":
+            units("mmoexp_google_data/details",["test_details"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
+            node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
         elif group=="hermes-learning-loop":
             units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])
         elif group=="desktop-learning":
