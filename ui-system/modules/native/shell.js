@@ -96,7 +96,7 @@ function fsMetricText(item,format){
 
 const $=id=>document.getElementById(id),home=document.body.dataset.page==='home',base=new URL('./',import.meta.url),logicBase=new URL('/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/',location.origin);
 const homeURL=document.body.dataset.workspaceHome||new URL('home.html',base).href,analyticsURL=document.body.dataset.workspaceAnalytics||new URL('index.html',base).href;
-const allowed=['fc_tab','b_group','b_profile','b_grain','b_align','b_range','b_start','b_end','b_section','b_metrics','g_brand','g_period','g_source','g_business_profile'];
+const allowed=['fc_tab','b_group','b_profile','b_grain','b_align','b_range','b_start','b_end','b_section','b_metrics','g_brand','g_period','g_source','g_project','g_business_profile'];
 let state={},active=null,epoch=0,identity=null,verified=[],theme='light',restored=false,last={},checkedAt={},watcher=null,homeController=null,dialogTrigger=null;
 const media=matchMedia('(prefers-color-scheme: dark)');
 function node(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}

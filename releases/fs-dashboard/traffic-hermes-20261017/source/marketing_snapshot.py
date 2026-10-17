@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import re
 from report_tracks import fc27_match_basis
-from traffic_contract import RULE_VERSION
+from traffic_contract import RULE_VERSION, campaign_scope
 from urllib.parse import urlsplit
 
 PUBLISHED = Path('/var/www/mmoexp-marketing/current/data.json')
@@ -132,7 +132,7 @@ def campaigns(value):
             rejected+=1
             continue
         seen.add(ident)
-        rows.append({'campaign_id': ident, 'campaign_name': public_label(row.get('campaignName')),
+        rows.append({**campaign_scope(row.get('campaignName')),'campaign_id': ident, 'campaign_name': public_label(row.get('campaignName')),
                      'channel_type': row.get('channelType') if row.get('channelType') in ('SEARCH', 'DISPLAY', 'SHOPPING', 'VIDEO', 'MULTI_CHANNEL', 'LOCAL', 'SMART', 'PERFORMANCE_MAX', 'DISCOVERY', 'TRAVEL', 'DEMAND_GEN', 'UNKNOWN', 'UNSPECIFIED') else None,
                      'status': row.get('status') if row.get('status') in ('ENABLED', 'PAUSED', 'REMOVED', 'UNKNOWN', 'UNSPECIFIED') else None,
                      'metrics': metrics(row.get('metrics'), 'ads'),
@@ -153,7 +153,7 @@ def ad_groups(value):
             or row.get('channelType')=='PERFORMANCE_MAX' or public_label(row.get('adGroupName')) is None or public_label(row.get('campaignName')) is None):
             rejected+=1;continue
         seen.add(key)
-        rows.append({'campaign_id':campaign_id,'campaign_name':public_label(row['campaignName']),'ad_group_id':ident,
+        rows.append({**campaign_scope(row['campaignName']),'campaign_id':campaign_id,'campaign_name':public_label(row['campaignName']),'ad_group_id':ident,
                      'ad_group_name':public_label(row['adGroupName']),'status':row.get('adGroupStatus') if row.get('adGroupStatus') in ('ENABLED','PAUSED','REMOVED','UNKNOWN','UNSPECIFIED') else None,
                      'metrics':metrics(row.get('metrics'),'ads')})
     return {'rows':rows,'status':source_status(table.get('status')),'contract':table.get('contract'),'rejected_rows':rejected,
@@ -183,6 +183,7 @@ def projection(model, args, source_sha):
         raise ValueError('marketing_duplicate_period')
     current = found[0]
     base['source_rule_version']=current.get('rule_version')
+    base['game_profiles']=current.get('game_profiles') or []
     for source, (resource, tz) in SOURCE.items():
         value = current.get('sources', {}).get(source)
         if not isinstance(value, dict):

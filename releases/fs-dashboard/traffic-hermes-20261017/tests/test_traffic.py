@@ -195,6 +195,15 @@ class DataConsumerTests(unittest.TestCase):
         self.assertIsNone(zero['data']['selected_derived']['selectedAovUsd']['value']);self.assertEqual(zero['data']['selected_derived']['referenceProfitUsd']['value'],'0')
 
 
+    def test_d4_campaign_name_hint_and_unverified_brand_never_change_fc_or_totals(self):
+        named=contract.campaign_scope('D4-SN-Items-EN-Buy');self.assertEqual(named['game_target'],'D4');self.assertEqual(named['game_match_basis'],'campaign_name_prefix');self.assertEqual(named['campaign_scope'],'game_name_candidate')
+        brand=contract.campaign_scope('D4-SN-Brand-Global');self.assertIsNone(brand['game_target']);self.assertEqual(brand['game_candidate'],'D4');self.assertEqual(brand['campaign_scope'],'brand_scope_unverified')
+        self.assertEqual(contract.campaign_scope('FC27-PMAX-Coins-US')['campaign_scope'],'global_brand');self.assertEqual(contract.campaign_scope('FC27 Exclusive')['game_target'],'FC27');self.assertIsNone(contract.campaign_scope('Aion2 possible')['game_target'])
+        period,account=self.account();self.assertEqual([r['code'] for r in period['game_profiles']],['ALL','FC27','D4'])
+        old=copy.deepcopy(account['metrics']);account['calculation_campaigns'][-1]['campaignName']='D4-SN-Items-EN-Buy'
+        projection=self.projected(period);self.assertEqual(projection['ads_accounts'][0]['metrics'],old);self.assertEqual(projection['ads_accounts'][0]['campaigns']['rows'][-1]['game_target'],'D4')
+        self.assertTrue(all(r['code']!='AION2' for r in projection['game_profiles']))
+
     def test_native_snapshot_key_includes_current_field_authority_and_keeps_old(self):
         import ast,hashlib
         tree=ast.parse((SOURCE/'fs_evidence.py').read_text('utf-8'));method=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='native_cache_query');scope={'NATIVE_CACHE_CONTRACT':'admin-first-main-website-zero-valid-20261017-v2'};exec(compile(ast.fix_missing_locations(ast.Module(body=[method],type_ignores=[])),'native-key','exec'),scope)

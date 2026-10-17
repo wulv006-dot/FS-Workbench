@@ -3,7 +3,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 import hashlib
 import io
 import json
@@ -14,8 +14,10 @@ import time
 import zipfile
 from xml.etree import ElementTree as ET
 
-RULE_VERSION='admin-es-structure-v1'
-GROUPS=('source_game','product','country','payment','new_customer','status')
+RULE_VERSION='admin-es-structure-v3-multigame'
+GAME_LABELS={'FC27':'FC 27','D4':'Diablo 4','AION2':'Aion 2','POE2':'POE2','NBA2K27':'NBA 2K27','NFL27':'Madden NFL 27','MLB26':'MLB 26','CFB27':'College Football 27','RS':'RS','ARC_RAIDERS':'ARC Raiders','MAPLESTORY_CLASSIC':'MapleStory Classic World','DARK_AND_DARKER':'Dark and Darker','WOW_FOREVER':'WoW Forever','ARENA_BREAKOUT_INFINITE':'Arena Breakout: Infinite','COD_BO7':'CoD: Black Ops 7'}
+GAME_MAPPING_VERSION='es-exact-labels-20261017-v1'
+GROUPS=('game','source_game','product','country','payment','new_customer','status')
 COLUMNS={'product':'产品类型','game':'游戏','order':'订单号','usd':'订单金额（美元）','paid':'实付金额','currency':'实付币种','status':'订单状态','payment_type':'支付大类','payment':'支付方式','time':'付款时间','new_customer':'是否新客户','source':'订单来源','country':'国家代码'}
 NS={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 MAX_FILE=32*1024*1024
@@ -25,14 +27,15 @@ MAX_ARCHIVE_BYTES=512*1024*1024
 MAX_ARCHIVE_FILES=512
 ARCHIVE_RESERVE_BYTES=64*1024*1024
 ARCHIVE_LOCK=threading.RLock()
+SERVER_LOCK=threading.RLock()
 
 
 def checked_query(args):
     if set(args)-{'profile','start','end','group_by','status'} or not {'profile','start','end'}<=set(args):raise ValueError('es_query_fields')
-    if args['profile']!='FC27':raise ValueError('es_profile')
+    if args['profile'] not in ('ALL',*GAME_LABELS):raise ValueError('es_profile')
     a,b=(date.fromisoformat(args[k]) for k in ('start','end'))
     if a.isoformat()!=args['start'] or b.isoformat()!=args['end'] or not 0<=(b-a).days<=30 or b>datetime.now(SHANGHAI).date():raise ValueError('es_period')
-    group=args.get('group_by','source_game');status=args.get('status','all')
+    group=args.get('group_by','game' if args['profile']=='ALL' else 'source_game');status=args.get('status','all')
     if group not in GROUPS or not isinstance(status,str) or not status or len(status)>80 or re.search(r'[@<>\r\n]|https?://',status):raise ValueError('es_dimension')
     return dict(args,group_by=group,status=status)
 
@@ -87,7 +90,7 @@ def amount(value):
 
 
 def unavailable(args,reason='es_source_unavailable'):
-    return {'schemaVersion':1,'kind':'es_order_structure','http_status':200,'status':'unavailable','period':{'start':args['start'],'end':args['end'],'timezone':'unverified'},'captured_at':None,'source_version':None,'scope':{'label':'Admin ES导出原范围','site_verified':False,'distribution_exclusion_verified':False},'structure_totals':None,'groups':[],'quality':{'reason':reason,'upstream_completeness':'unknown'},'missing_dimensions':['site','distribution_group','platform','cost','profit','customer_identity']}
+    return {'schemaVersion':1,'kind':'es_order_structure','http_status':200,'status':'unavailable','period':{'start':args['start'],'end':args['end'],'timezone':'unverified'},'captured_at':None,'source_version':None,'scope':{'label':'Admin ES导出原范围','site_verified':False,'distribution_exclusion_verified':False},'structure_totals':None,'groups':[],'quality':{'reason':reason,'upstream_completeness':'unknown'},'profile':args['profile'],'available_profiles':[{'code':'ALL','label':'全局'}]+[{'code':k,'label':v} for k,v in GAME_LABELS.items()],'game_mapping_version':GAME_MAPPING_VERSION,'missing_dimensions':['site','distribution_group','platform','cost','profit','customer_identity']}
 
 
 def parse_files(files):
@@ -111,14 +114,14 @@ def aggregate_rows(allrows,hashes,parse_failures,args,declared_files=None,failed
     for row in allrows:
         ident=row.get(COLUMNS['order'],'').strip()
         if not ident:unkeyed+=1;continue
-        signature=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        signature=row.get('_signature') or hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         entry=by_order[ident].setdefault(signature,{'row':row,'records':0});entry['records']+=1
     ambiguous=sum(len(variants)>1 for variants in by_order.values());duplicates=sum(item['records']-1 for variants in by_order.values() for item in variants.values())
     selected=[];outside=0;unknown_time=0
     for variants in by_order.values():
         if len(variants)!=1:continue
         row=next(iter(variants.values()))['row']
-        if row[COLUMNS['game']].strip()!='FC 27':continue
+        if args['profile']!='ALL' and row[COLUMNS['game']].strip()!=GAME_LABELS[args['profile']]:continue
         if args['status']!='all' and row[COLUMNS['status']]!=args['status']:continue
         try:when=datetime.strptime(row[COLUMNS['time']],'%Y/%m/%d %H:%M:%S')
         except ValueError:unknown_time+=1;continue
@@ -129,7 +132,7 @@ def aggregate_rows(allrows,hashes,parse_failures,args,declared_files=None,failed
     for row in selected:
         source=row[COLUMNS['source']].strip();game=safe_label(row[COLUMNS['game']]);kind='natural' if not source else campaign_scope(source)['campaign_scope']
         group=args['group_by']
-        parts=([kind,safe_label(source) if source else '业务自然',game] if group=='source_game' else [safe_label(row[COLUMNS['payment_type']]),safe_label(row[COLUMNS['payment']])] if group=='payment' else [safe_label(row[COLUMNS[group]])])
+        parts=([game] if group=='game' else [kind,safe_label(source) if source else '业务自然',game] if group=='source_game' else [safe_label(row[COLUMNS['payment_type']]),safe_label(row[COLUMNS['payment']])] if group=='payment' else [safe_label(row[COLUMNS[group]])])
         key=json.dumps(parts,ensure_ascii=False,separators=(',',':'));bucket=grouped.setdefault(key,{'key':key,'label':' / '.join(parts),'records':0,'orders':0,'order_amount_usd':Decimal(0),'priced_orders':0})
         bucket['records']+=1;bucket['orders']+=1;statuses[safe_label(row[COLUMNS['status']])]+=1
         value=amount(row[COLUMNS['usd']])
@@ -138,31 +141,38 @@ def aggregate_rows(allrows,hashes,parse_failures,args,declared_files=None,failed
         if re.fullmatch('[A-Z]{3}',currency) and paid is not None:original_paid[currency]=original_paid.get(currency,Decimal(0))+paid
     groups=sorted(grouped.values(),key=lambda row:row['order_amount_usd'],reverse=True)
     for row in groups:row['order_amount_usd']=str(row['order_amount_usd']) if row['priced_orders'] else None
-    if len(groups)>20:
-        rest=groups[20:];groups=groups[:20]+[{'key':'__other__','label':'其他（全部已读集合残差）','records':sum(r['records'] for r in rest),'orders':sum(r['orders'] for r in rest),'priced_orders':sum(r['priced_orders'] for r in rest),'order_amount_usd':str(sum((Decimal(r['order_amount_usd'] or '0') for r in rest),Decimal(0))) if any(r['priced_orders'] for r in rest) else None}]
+    top_limit=500 if args['group_by']=='game' else 20
+    if len(groups)>top_limit:
+        rest=groups[top_limit:];groups=groups[:top_limit]+[{'key':'__other__','label':'其他（全部已读集合残差）','records':sum(r['records'] for r in rest),'orders':sum(r['orders'] for r in rest),'priced_orders':sum(r['priced_orders'] for r in rest),'order_amount_usd':str(sum((Decimal(r['order_amount_usd'] or '0') for r in rest),Decimal(0))) if any(r['priced_orders'] for r in rest) else None}]
+    known_zero=not selected and not (failed_files or parse_failures or ambiguous or unkeyed or outside or unknown_time) and declared_files is not None and declared_files==len(hashes)
     partial=bool(failed_files or parse_failures or ambiguous or unkeyed or outside or unknown_time or priced<len(selected) or declared_files is None or declared_files!=len(hashes))
-    result.update(status='partial' if partial else 'available',captured_at=datetime.now(timezone.utc).isoformat(),source_version=hashlib.sha256(json.dumps({'files':hashes,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest(),structure_totals={'records':len(selected),'orders':len(selected),'order_amount_usd':str(usd) if priced else None,'priced_orders':priced},groups=groups,
-        quality={'declared_files':declared_files,'read_files':len(hashes),'parse_failures':parse_failures,'failed_files':failed_files,'parsed_records':len(allrows),'duplicate_records':duplicates,'ambiguous_orders':ambiguous,'missing_order_keys':unkeyed,'outside_period_records':outside,'unknown_payment_time_records':unknown_time,'unknown_amount_orders':len(selected)-priced,'upstream_completeness':'unknown','file_set_complete':not failed_files and not parse_failures and declared_files==len(hashes),'order_identity':'deduplicated_within_this_file_set; global_uniqueness_unverified','time_boundary':'local payment-time strings filtered to requested inclusive days; source timezone and export bounds unverified','status_composition':dict(statuses),'original_paid_by_currency':{k:str(v) for k,v in original_paid.items()},'financial_definition':'订单金额（美元）结构金额；不是Admin原生总盘、财务实收或净额','profile_basis':'exact export game label FC 27','rule_version':RULE_VERSION,'top_limit':20,'total_group_count':len(grouped)})
+    result.update(status='partial' if partial else 'available',captured_at=datetime.now(timezone.utc).isoformat(),source_version=hashlib.sha256(json.dumps({'files':hashes,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest(),structure_totals={'records':len(selected),'orders':len(selected),'order_amount_usd':str(usd) if priced or known_zero else None,'priced_orders':priced},groups=groups,
+        quality={'declared_files':declared_files,'read_files':len(hashes),'parse_failures':parse_failures,'failed_files':failed_files,'parsed_records':len(allrows),'duplicate_records':duplicates,'ambiguous_orders':ambiguous,'missing_order_keys':unkeyed,'outside_period_records':outside,'unknown_payment_time_records':unknown_time,'unknown_amount_orders':len(selected)-priced,'upstream_completeness':'unknown','file_set_complete':not failed_files and not parse_failures and declared_files==len(hashes),'order_identity':'deduplicated_within_this_file_set; global_uniqueness_unverified','time_boundary':'local payment-time strings filtered to requested inclusive days; source timezone and export bounds unverified','status_composition':dict(statuses),'original_paid_by_currency':{k:str(v) for k,v in original_paid.items()},'financial_definition':'订单金额（美元）结构金额；不是Admin原生总盘、财务实收或净额','profile_basis':'all original export game labels; unmapped retained' if args['profile']=='ALL' else 'exact export game label '+GAME_LABELS[args['profile']],'unmapped_game_records':sum(r[COLUMNS['game']].strip() not in GAME_LABELS.values() for r in selected),'rule_version':RULE_VERSION,'top_limit':top_limit,'total_group_count':len(grouped)})
     return result
 
 class ESReader:
     """One bounded export per period; grouping never launches a second export."""
     def __init__(self,config,pool,reader=None):
-        self.config=config;self.pool=pool;self.reader=reader or server_bundle;self.jobs={};self.created={};self.lock=threading.RLock()
+        self.config=config;self.pool=pool;self.reader=reader or server_bundle;self.jobs={};self.created={};self.accessed={};self.lock=threading.RLock()
 
     def get(self,args):
         q=checked_query(args)
         if self.config.get('enabled') is not True:return unavailable(q,'fc_detail_disabled')
-        key=(q['profile'],q['start'],q['end'])
+        key=(q['profile'],q['start'],q['end'],q['group_by'],q['status'],RULE_VERSION)
         with self.lock:
             now=time.monotonic()
             for old in list(self.jobs):
                 if self.jobs[old].done() and now-self.created[old]>=cache_seconds(old[2]):
-                    self.jobs.pop(old);self.created.pop(old)
+                    self.jobs.pop(old);self.created.pop(old);self.accessed.pop(old,None)
             if key not in self.jobs:
-                if len(self.jobs)>=16:return unavailable(q,'es_cache_capacity')
+                if len(self.jobs)>=16:
+                    finished=[k for k,f in self.jobs.items() if f.done()]
+                    if not finished:return unavailable(q,'es_cache_capacity')
+                    oldest=min(finished,key=lambda k:self.accessed.get(k,self.created[k]))
+                    self.jobs.pop(oldest);self.created.pop(oldest);self.accessed.pop(oldest,None)
                 self.created[key]=now
-                self.jobs[key]=self.pool.submit(self.reader,{k:q[k] for k in ('profile','start','end')})
+                self.jobs[key]=self.pool.submit(self.reader,dict(q))
+            self.accessed[key]=now
             future=self.jobs[key];started=self.created[key]
         if not future.done():return dict(unavailable(q),status='pending',retryAfter=3)
         if self.config.get('enabled') is not True:return unavailable(q,'fc_detail_disabled')
@@ -171,12 +181,12 @@ class ESReader:
             if bundle.get('status')=='pending' or bundle.get('refresh_pending'):
                 if time.monotonic()-started>=bundle.get('retryAfter',3):
                     with self.lock:
-                        if self.jobs.get(key) is future:self.jobs.pop(key);self.created.pop(key)
+                        if self.jobs.get(key) is future:self.jobs.pop(key);self.created.pop(key);self.accessed.pop(key,None)
                 if bundle.get('status')=='pending':return dict(unavailable(q,bundle.get('reason','es_source_running')),status='pending',retryAfter=3)
             if bundle.get('status')!='available':
                 if bundle.get('retryable') is True and time.monotonic()-started>=30:
                     with self.lock:
-                        if self.jobs.get(key) is future:self.jobs.pop(key);self.created.pop(key)
+                        if self.jobs.get(key) is future:self.jobs.pop(key);self.created.pop(key);self.accessed.pop(key,None)
                 return unavailable(q,bundle.get('reason','es_source_unavailable'))
             found=[r for r in bundle['snapshots'] if r['query']==q]
             if len(found)==1:return deepcopy(found[0]['value'])
@@ -184,7 +194,7 @@ class ESReader:
         except Exception:return unavailable(q,'es_source_unavailable')
 
 
-def export_bundle(manager,args,headers,download,archive=None,deadline=None):
+def export_bundle(manager,args,headers,download,archive=None,deadline=None,private_dataset=False):
     """Use an injected existing identity. Export generation is never retried here."""
     from urllib.parse import urlencode,urlsplit
     query=checked_query(args)
@@ -214,9 +224,10 @@ def export_bundle(manager,args,headers,download,archive=None,deadline=None):
             files.append(raw)
         except Exception:failed+=1
     if archive:
-        try:archive(files,args)
+        try:archive(files,dict(args,_file_set={'declared_files':len(urls),'failed_files':failed}))
         except (ValueError,OSError):return {'status':'unavailable','reason':'es_archive_not_saved_capacity_or_io','retryable':False,'stage':'export_sent'}
     parsed,hashes,parse_failures=parse_files(files)
+    if private_dataset:return make_dataset(parsed,hashes,parse_failures,len(urls),failed)
     statuses={'all'}|{row.get(COLUMNS['status'],'') for row in parsed}
     statuses={s for s in statuses if isinstance(s,str) and s and len(s)<=80 and not re.search(r'[@<>\r\n]|https?://',s)}
     if len(statuses)>50:return {'status':'unavailable','reason':'es_status_limit'}
@@ -249,8 +260,9 @@ def archive_files(files,args,root=Path('/var/lib/fc27-es-exports')):
                 if existing[name]>MAX_FILE or (root/name).read_bytes()!=raw:raise ValueError('es_archive_integrity')
             else:additions[name]=raw
         version=hashlib.sha256(json.dumps({'files':hashes,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest()
-        if files and version+'.json' not in existing:
-            additions[version+'.json']=json.dumps({'source_version':version,'file_sha256':hashes,'query':args,'captured_at':datetime.now(timezone.utc).isoformat(),'rule_version':RULE_VERSION},ensure_ascii=False).encode()
+        manifest_name=hashlib.sha256(json.dumps({'source_version':version,'start':args['start'],'end':args['end']},sort_keys=True).encode()).hexdigest()+'.json'
+        if files and manifest_name not in existing:
+            additions[manifest_name]=json.dumps({'source_version':version,'file_sha256':hashes,'query':{k:args[k] for k in ('profile','start','end')},'file_set':args.get('_file_set'),'captured_at':datetime.now(timezone.utc).isoformat(),'rule_version':RULE_VERSION},ensure_ascii=False).encode()
         extra=sum(map(len,additions.values()));used=sum(existing.values())
         if used+extra>MAX_ARCHIVE_BYTES or len(existing)+len(additions)>MAX_ARCHIVE_FILES or not files and (used>=MAX_ARCHIVE_BYTES or len(existing)>=MAX_ARCHIVE_FILES):raise ValueError('es_archive_capacity')
         if shutil.disk_usage(root).free<extra+ARCHIVE_RESERVE_BYTES:raise ValueError('es_archive_disk_reserve')
@@ -280,12 +292,59 @@ def trusted_download(url,headers,deadline=None):
 
 SESSION_LOCK=threading.RLock()
 SESSION_JOBS={}
+SESSION_ACCESS={}
 SESSION_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix='admin-es-export')
+
+
+def make_dataset(rows,hashes,parse_failures,declared_files,failed_files):
+    safe=[]
+    for row in rows:
+        signature=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        item={column:row.get(column,'') for column in COLUMNS.values()}
+        item[COLUMNS['order']]=hashlib.sha256(item[COLUMNS['order']].encode()).hexdigest() if item[COLUMNS['order']] else ''
+        item['_signature']=signature;safe.append(item)
+    return {'status':'available','_private_dataset':True,'rows':safe,'hashes':hashes,'parse_failures':parse_failures,'declared_files':declared_files,'failed_files':failed_files,'captured_at':datetime.now(timezone.utc).isoformat(),'origin':'existing_export'}
+
+
+def archived_dataset(args,root=Path('/var/lib/fc27-es-exports')):
+    """Reuse an existing private set; older manifests keep unknown completeness."""
+    if not root.exists():return None
+    import os,stat
+    if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_archive_symlink')
+    if os.name=='posix' and (root.stat().st_uid!=os.geteuid() or root.stat().st_mode&0o077):raise ValueError('es_archive_permissions')
+    matches=[]
+    for path in root.glob('*.json'):
+        info=path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>1024*1024 or os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077):raise ValueError('es_archive_manifest')
+        value=json.loads(path.read_text('utf-8'));q=value.get('query') or {}
+        if (q.get('start'),q.get('end'))==(args['start'],args['end']):matches.append(value)
+    if not matches:return None
+    value=max(matches,key=lambda v:v.get('captured_at',''));files=[]
+    for digest in value.get('file_sha256',[]):
+        if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('es_archive_integrity')
+        path=root/(digest+'.xlsx')
+        info=path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>MAX_FILE or os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077):raise ValueError('es_archive_integrity')
+        raw=path.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('es_archive_integrity')
+        files.append(raw)
+        if len(files)>20 or sum(len(f) for f in files)>128*1024*1024:raise ValueError('es_archive_limit')
+    if not files:raise ValueError('es_archive_empty')
+    integrity=value.get('file_set') or {}
+    dataset=make_dataset(*parse_files(files),integrity.get('declared_files'),integrity.get('failed_files'))
+    dataset.update(captured_at=value.get('captured_at'),origin='private_archive_reuse')
+    return dataset
+
+
+def export_dataset(manager,args,headers,deadline):
+    previous=archived_dataset(args)
+    if previous is not None:return previous
+    return export_bundle(manager,args,headers,lambda u,h:trusted_download(u,h,deadline),archive_files,deadline,True)
 
 
 def session_bundle(manager,args,headers,poll_only=False):
     """Only this source process owns export futures. Poll never recreates a lost job."""
-    q=checked_query(args);args={k:q[k] for k in ('profile','start','end')};key=(args['profile'],args['start'],args['end'])
+    q=checked_query(args);args=dict(q);key=('ALL',args['start'],args['end'])
     with SESSION_LOCK:
         for old,(job,started) in list(SESSION_JOBS.items()):
             if old==key or not job.done():continue
@@ -300,16 +359,42 @@ def session_bundle(manager,args,headers,poll_only=False):
             ttl=30 if previous.get('retryable') else cache_seconds(args['end']) if previous.get('status')=='available' else None
             if ttl is not None and time.monotonic()-item[1]>=ttl:SESSION_JOBS.pop(key);item=None
         if item is None:
-            if poll_only:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
-            if len(SESSION_JOBS)>=16:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_source_capacity','retryable':True,'stage':'not_generated'}
-            try:archive_files([],args)
+            if len(SESSION_JOBS)>=4:
+                reusable=[]
+                for old,(job,_) in SESSION_JOBS.items():
+                    if not job.done():continue
+                    try:cached=job.result()
+                    except Exception:continue
+                    if cached.get('_private_dataset'):reusable.append(old)
+                if reusable:
+                    oldest=min(reusable,key=lambda k:SESSION_ACCESS.get(k,SESSION_JOBS[k][1]))
+                    SESSION_JOBS.pop(oldest);SESSION_ACCESS.pop(oldest,None)
+            if len(SESSION_JOBS)>=4:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_source_capacity','retryable':True,'stage':'not_generated'}
+            if poll_only:
+                try:previous=archived_dataset(args)
+                except (ValueError,OSError,KeyError,TypeError):previous=None
+                if previous is None:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
+                future=Future();future.set_result(previous);item=(future,time.monotonic());SESSION_JOBS[key]=item
+            try:
+                if item is None:archive_files([],args)
             except (ValueError,OSError):return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_archive_capacity_or_mount_unavailable','retryable':True,'stage':'not_generated'}
-            deadline=time.monotonic()+150
-            future=SESSION_POOL.submit(export_bundle,manager,args,headers,lambda u,h:trusted_download(u,h,deadline),archive_files,deadline)
-            item=(future,time.monotonic());SESSION_JOBS[key]=item
+            if item is None:
+                deadline=time.monotonic()+150
+                future=SESSION_POOL.submit(export_dataset,manager,args,headers,deadline)
+                item=(future,time.monotonic());SESSION_JOBS[key]=item
+        SESSION_ACCESS[key]=time.monotonic()
+        for old in list(SESSION_ACCESS):
+            if old not in SESSION_JOBS:SESSION_ACCESS.pop(old)
         future=item[0]
     if not future.done():return {'kind':'es_order_structure_bundle','status':'pending','reason':'es_source_running','retryAfter':3}
-    try:return dict(future.result(),kind='es_order_structure_bundle')
+    try:
+        value=future.result()
+        if value.get('_private_dataset'):
+            projection=aggregate_rows(value['rows'],value['hashes'],value['parse_failures'],q,value['declared_files'],value['failed_files'])
+            projection['captured_at']=value.get('captured_at')
+            projection['quality'].update(source_origin=value.get('origin'),archived_capture_time=value.get('captured_at'))
+            return {'kind':'es_order_structure_bundle','status':'available','snapshots':[{'query':q,'value':projection}]}
+        return dict(value,kind='es_order_structure_bundle')
     except Exception:return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_result_unknown_requires_reconcile','retryable':False}
 
 
@@ -325,14 +410,17 @@ def retained_bundle(previous,reason,pending=False):
 
 
 def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opener=None):
+    with SERVER_LOCK:return _server_bundle(args,root,opener)
+
+def _server_bundle(args,root,opener):
     """Existing session endpoint; persistent attempt switches all later reads to poll-only."""
     import os,stat,tempfile
     from urllib.request import Request,build_opener,HTTPRedirectHandler
-    checked_query(args);root=Path(root)
+    args=checked_query(args);root=Path(root)
     if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_cache_symlink')
     root.mkdir(mode=0o700,parents=True,exist_ok=True)
     if os.name=='posix' and (root.stat().st_uid!=os.geteuid() or root.stat().st_mode&0o077):raise ValueError('es_cache_permissions')
-    key=hashlib.sha256(json.dumps(args,sort_keys=True).encode()).hexdigest();index=root/(key+'.json');attempt=root/(key+'.attempt')
+    key=hashlib.sha256(json.dumps({'query':args,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest();index=root/(key+'.json');period_key=hashlib.sha256(json.dumps({'start':args['start'],'end':args['end']},sort_keys=True).encode()).hexdigest();attempt=root/(period_key+'.attempt')
     def read(path):
         info=path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>8*1024*1024:raise ValueError('es_cache_file')
@@ -354,8 +442,10 @@ def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opene
             return out
         if previous and previous.get('status')=='available' and 0<=now-saved['saved_at']<cache_seconds(args['end']) and not saved.get('last_attempt'):return previous
         if previous and previous.get('status')!='available' and not saved.get('retryable'):return previous
-    poll_only=attempt.exists() or attempt.is_symlink()
-    if poll_only:read(attempt)
+    legacy_key=hashlib.sha256(json.dumps({k:args[k] if k!='profile' else 'FC27' for k in ('profile','start','end')},sort_keys=True).encode()).hexdigest()
+    legacy_attempt=root/(legacy_key+'.attempt')
+    poll_only=attempt.exists() or attempt.is_symlink() or legacy_attempt.exists()
+    if poll_only:read(attempt if attempt.exists() else legacy_attempt)
     else:
         if not index.exists() and len(list(root.glob('*.json')))+len(list(root.glob('*.attempt')))>=128:return {'status':'unavailable','reason':'es_durable_cache_capacity_requires_review'}
         try:fd=os.open(str(attempt),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
@@ -372,15 +462,17 @@ def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opene
         if not isinstance(value,dict) or value.get('kind')!='es_order_structure_bundle' or value.get('status') not in ('available','pending','unavailable'):raise ValueError('es_response_contract')
         if value['status']=='pending':return retained_bundle(previous,value.get('reason','es_source_running'),True)
         if value['status']=='available':
-            if not isinstance(value.get('snapshots'),list) or len(value['snapshots'])>300:raise ValueError('es_response_contract')
+            if not isinstance(value.get('snapshots'),list) or len(value['snapshots'])!=1:raise ValueError('es_response_contract')
             for item in value['snapshots']:
                 q=checked_query(item['query']);projection=item['value']
-                if any(q[k]!=args[k] for k in ('profile','start','end')) or projection.get('kind')!='es_order_structure' or projection.get('source_version') is not None and not re.fullmatch('[a-f0-9]{64}',projection['source_version']):raise ValueError('es_response_contract')
-            save({'saved_at':now,'value':value});attempt.unlink();return value
+                if q!=args or projection.get('kind')!='es_order_structure' or projection.get('source_version') is not None and not re.fullmatch('[a-f0-9]{64}',projection['source_version']):raise ValueError('es_response_contract')
+            save({'saved_at':now,'value':value});
+            if attempt.exists():attempt.unlink()
+            return value
         retry=value.get('retryable') is True and value.get('stage')=='not_generated'
         reason=value.get('reason','es_source_unavailable')
         save({'saved_at':saved['saved_at'] if saved and previous and previous.get('status')=='available' else now,'value':previous if previous and previous.get('status')=='available' else value,'last_attempt':reason,'next_retry_at':now+(30 if retry else 21600),'retryable':retry})
-        if retry:attempt.unlink()
+        if retry and attempt.exists():attempt.unlink()
         out=retained_bundle(previous,reason)
         if retry:out.update(retryable=True,refresh_pending=True,retryAfter=30)
         return out

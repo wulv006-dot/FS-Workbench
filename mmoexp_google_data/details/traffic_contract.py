@@ -3,7 +3,8 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 import re
 
-RULE_VERSION = 'traffic-admin-first-20261017-v2'
+RULE_VERSION = 'traffic-multigame-name-hints-20261017-v3'
+GAME_PROFILES = ({'code':'ALL','label':'全局','basis':'native_account_totals'}, {'code':'FC27','label':'FC27','basis':'user_confirmed_name_rules'}, {'code':'D4','label':'D4','basis':'campaign_name_prefix','scope':'name_hint_only'})
 GLOBAL_BRAND = 'fc27-pmax-coins-us'
 
 
@@ -13,6 +14,9 @@ def campaign_scope(name):
     if normalized == GLOBAL_BRAND:
         return {'campaign_scope': 'global_brand', 'game_target': None,
                 'basis': '用户2026-10-17明确确认：主站全局品牌投放', 'rule_version': RULE_VERSION}
+    if normalized.startswith('d4-sn-'):
+        brand=normalized=='d4-sn-brand-global'
+        return {'campaign_scope':'brand_scope_unverified' if brand else 'game_name_candidate','game_target':None if brand else 'D4','game_candidate':'D4','game_match_basis':'campaign_name_prefix','brand_scope':'unverified' if brand else 'not_claimed','basis':'用户2026-10-17允许D4-SN-*名称线索；不是已确认项目总额或订单归因','rule_version':RULE_VERSION}
     match = content_match_basis(raw)
     return {'campaign_scope': 'project' if match else 'unmatched',
             'game_target': 'FC27' if match else None, 'basis': match, 'rule_version': RULE_VERSION}

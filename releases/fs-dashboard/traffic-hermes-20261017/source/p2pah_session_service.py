@@ -222,7 +222,7 @@ class SessionManager:
     def fc_capability(self, query):
         if isinstance(query,dict) and query.get('kind')=='es_structure':
             from es_order_structure import checked_query,session_bundle
-            if set(query)-{'kind','profile','start','end','poll_only'} or not isinstance(query.get('poll_only',False),bool):raise ValueError('es_query_fields')
+            if set(query)-{'kind','profile','start','end','group_by','status','poll_only'} or not isinstance(query.get('poll_only',False),bool):raise ValueError('es_query_fields')
             args={k:v for k,v in query.items() if k not in ('kind','poll_only')}
             checked_query(args)
             return session_bundle(self,args,HEADERS,poll_only=query.get('poll_only',False))

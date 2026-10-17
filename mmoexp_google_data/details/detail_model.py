@@ -2,7 +2,7 @@
 import argparse, datetime as dt, json, re, sqlite3, hashlib
 from decimal import Decimal
 from pathlib import Path
-from traffic_contract import RULE_VERSION, campaign_scope, content_match_basis
+from traffic_contract import RULE_VERSION, GAME_PROFILES, campaign_scope, content_match_basis
 
 CUSTOMERS={'1430398974':{'brand':'mmoexp','label':'MMOEXP-1'},'8154986819':{'brand':'rsorder','label':'RSOrder-1'},'3552474396':{'brand':'rsorder','label':'rsgoldfast.com · RSOrder业务'}}
 QUERY_RULES={'version':'mmoexp-query-v1','precedence':['brand','transaction','content','other'],'brand':r'\bmmo\s*exp\b|mmoexp','transaction':r'\b(buy|buying|sale|cheap|price|gold|coins?|currency|gil|gp|accounts?|boost|boosting)\b','content':r'\b(how|guide|guides|best|build|builds|quest|quests|news|wiki|tips|tutorial|leveling)\b','unmatched':'other','anonymous_or_unreturned_queries':'not_inferred'}
@@ -84,7 +84,7 @@ def top_table(report,metric,limit,total):
 
 def make_period(start,end,reports):
     def get(source,resource,name):return reports.get((source,resource,name))
-    period={'id':start+'_'+end,'start':start,'end':end,'sources':{},'adsAccounts':[],'query_rules':QUERY_RULES,'rule_version':RULE_VERSION,'period_start':start,'period_end_exclusive':(dt.date.fromisoformat(end)+dt.timedelta(days=1)).isoformat()}
+    period={'id':start+'_'+end,'start':start,'end':end,'sources':{},'adsAccounts':[],'game_profiles':[dict(p) for p in GAME_PROFILES],'query_rules':QUERY_RULES,'rule_version':RULE_VERSION,'period_start':start,'period_end_exclusive':(dt.date.fromisoformat(end)+dt.timedelta(days=1)).isoformat()}
     ga_total=get('ga4','541418940','total'); ga_daily=get('ga4','541418940','daily')
     ga_values=ga_total['rows'][0]['metrics'] if ga_total and len(ga_total['rows'])==1 else None
     ga={'resource':'541418940','brand':'mmoexp','timezone':'Asia/Shanghai','currency':'USD','metrics':ga_values,'daily':(ga_daily or {}).get('rows',[]),'coverage':date_coverage(ga_daily,start,end),'status':report_status(ga_total),'breakdowns':{},'revenue_financial_source':False,'new_users_definition':'首次触发first_visit/first_open的用户；不代表后台首购客户'}

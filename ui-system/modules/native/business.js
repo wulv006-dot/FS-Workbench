@@ -2234,57 +2234,11 @@ function requestDailyProfit(){
  }catch(e){if(state!==dailyQuery||state.abort.signal.aborted||scope.signal.aborted)return;state.pending=false;state.error=e.message;renderProfit();}})();
 }
 
-// ES export structure is independent of Admin headline metrics and FC detail filters.
-let esHost=null,esKey='',esAbort=null,esGroup='source_game',esStatus='all',esTimer=null,esStatuses=[],esPeriod='',esWaitUntil=0;
-function esNode(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=String(text);if(cls)n.className=cls;return n;}
-function esNumber(v,money=false){return (typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isFinite(Number(v))?new Intl.NumberFormat('en-US',{maximumFractionDigits:money?2:0,minimumFractionDigits:money?2:0}).format(v):'—';}
-function esStructureSync(force=false,poll=false){
- if(scope.signal.aborted)return;
- if(!esHost){esHost=esNode('section',null,'card');esHost.id='es-order-structure';(scope.root.getElementById('secOverview')||scope.root).append(esHost);}
- esHost.hidden=KEY!=='FC27';
- if(KEY!=='FC27'){esAbort?.abort();clearTimeout(esTimer);esKey='';return;}
- const q=currentSelection(),period=JSON.stringify([q.start,q.end,q.grain]);if(period!==esPeriod){esPeriod=period;esStatuses=[];esStatus='all';}
- const key=JSON.stringify([q.start,q.end,q.grain,esGroup,esStatus]);if(key===esKey&&!force)return;
- if(poll&&key===esKey&&Date.now()>=esWaitUntil){esHost.querySelector('[aria-live]')?.append(esNode('p','已等待2分钟，自动检查已暂停；可主动重试结构读取。','fsi-note'));return;}
- if(key!==esKey||force&&!poll)esWaitUntil=Date.now()+120000;
- esKey=key;esAbort?.abort();clearTimeout(esTimer);esAbort=new AbortController();const controller=esAbort;
- const heading=esNode('h2','ES订单结构'),note=esNode('p','导出记录结构 · 订单金额 USD · 原范围未核站点/分销；独立于 Admin 主卡。付款时间时区未核实。','fsi-note'),controls=esNode('div',null,'ctrl');
- for(const [label,items,value,change]of [['结构维度',[['source_game','来源 × 游戏'],['product','产品类型'],['country','国家代码'],['payment','支付方式'],['new_customer','新客户标志订单'],['status','订单原状态']],esGroup,v=>{esGroup=v;esStructureSync();}],['包含状态',[['all','全部原状态'],...esStatuses.map(v=>[v,v])],esStatus,v=>{esStatus=v;esStructureSync();}]]){const wrap=esNode('label',label+' ','scope-select'),select=esNode('select');select.setAttribute('aria-label',label);for(const [v,title]of items){const o=esNode('option',title);o.value=v;select.append(o);}select.value=value;select.onchange=()=>change(select.value);wrap.append(select);controls.append(wrap);}
- const body=esNode('div');body.setAttribute('aria-live','polite');body.setAttribute('aria-busy','true');body.append(esNode('p','正在读取所选期间的导出结构…'));esHost.replaceChildren(heading,note,controls,body);
- if(q.grain!=='day'){body.setAttribute('aria-busy','false');body.replaceChildren(esNode('p','ES结构仅支持自然日窗口；主盘原粒度保持。'));return;}
- const query={mode:'hermes',structure:'es',start:q.start,end:q.end,group_by:esGroup,status:esStatus};
- const retry=()=>{const b=esNode('button','重试结构读取','ghostbtn');b.type='button';b.onclick=()=>esStructureSync(true);body.append(b);};
- (async()=>{try{
-  const response=await fetch('/dashboard/fs-home/advisor.json?'+new URLSearchParams(query),{credentials:'same-origin',cache:'no-store',signal:AbortSignal.any([controller.signal,scope.signal,AbortSignal.timeout(30000)])});
-  if(controller!==esAbort||controller.signal.aborted||scope.signal.aborted)return;
-  if(response.status===401||response.status===403){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:response.status}}));throw Error('当前账号无权读取结构');}
-  if(!response.ok)throw Error('ES结构读取失败');const d=await response.json();
-  if(controller!==esAbort||controller.signal.aborted||scope.signal.aborted)return;
-  if(d.schemaVersion!==1||d.kind!=='es_order_structure'||d.period?.start!==q.start||d.period?.end!==q.end)throw Error('ES结构返回区间或版本不一致');
-  body.replaceChildren();body.append(esNode('p',q.start+' — '+q.end+' · '+({pending:'读取中',available:'导出结构可用',partial:'部分可用，缺失不补零',unavailable:'暂不可用'}[d.status]||'状态未识别'),'fsi-note'));
-  const quality=d.quality||{};
-  const pollSameQuery=()=>{const remaining=esWaitUntil-Date.now();if(remaining<=0){body.append(esNode('p','已等待2分钟，自动检查已暂停；可主动重试结构读取。','fsi-note'));return;}esTimer=setTimeout(()=>esStructureSync(true,true),Math.min(5000,remaining));};
-  if(d.status==='pending'){pollSameQuery();retry();return;}
-  if(quality.retained_previous)body.append(esNode('p',quality.refresh_pending?'上次成功快照，刷新中；读取时间与版本仍属于上次成功结果。':'上次成功快照，刷新失败；保留原读取时间与版本，可重试。','fsi-note'));
-  if(quality.refresh_pending){pollSameQuery();retry();}else if(quality.retained_previous||quality.last_attempt_reason)retry();
-  if(!['available','partial'].includes(d.status)){body.append(esNode('p','该窗口未取得可用导出结构；未填零。'));retry();return;}
-  const t=d.structure_totals||{};body.append(esNode('p','导出记录 '+esNumber(t.records)+' · 本文件集合去重订单 '+esNumber(t.orders)+' · 订单金额 USD '+esNumber(t.order_amount_usd,true)+' · 有价订单 '+esNumber(t.priced_orders)+'。不是财务实收或 Admin 全盘占比。'));
-  if(esStatus==='all'){esStatuses=[...new Set(Object.keys(d.quality?.status_composition||{}))].filter(v=>v!=='all');const select=controls.querySelectorAll('select')[1];select.replaceChildren();for(const [value,label]of [['all','全部原状态'],...esStatuses.map(v=>[v,v])]){const o=esNode('option',label);o.value=value;select.append(o);}select.value=esStatus;}
-  const audit=esNode('details',null,'fsi-note source-details');audit.append(esNode('summary','来源、版本与质量'));const version=esNode('p','读取 '+(d.captured_at||'未提供')+' · 版本 ');for(const chunk of String(d.source_version||'未提供').match(/.{1,16}/g)||[]){version.append(document.createTextNode(chunk),esNode('wbr'));}audit.append(version);body.append(audit);
-  audit.append(esNode('p','声明文件 '+esNumber(quality.declared_files)+' · 读取文件 '+esNumber(quality.read_files)+' · 解析失败 '+esNumber(quality.parse_failures)+' · 冲突订单 '+esNumber(quality.ambiguous_orders)+' · 未知金额 '+esNumber(quality.unknown_amount_orders)+'。上游全量完整率未核实，不显示全盘百分比。','fsi-note'));
-  if(esGroup==='new_customer')body.append(esNode('p','新客户标志按订单展示，不是去重人数或复购率。','fsi-note'));
-  if((d.missing_dimensions||[]).length)audit.append(esNode('p','缺失维度：'+[...new Set(d.missing_dimensions.map(key=>({site:'站点',distribution_group:'分销组',platform:'平台',cost:'成本',profit:'利润',customer_identity:'客户身份',source:'获客来源',source_game:'来源与游戏',game:'游戏',product:'产品类型',country:'国家',payment:'支付方式',new_customer:'新客户标志',status:'订单状态',time:'付款时间'}[key]||'未提供维度')))].join('、'),'fsi-note'));
-  const wrap=esNode('div',null,'fc-table-wrap'),table=esNode('table'),head=esNode('thead'),tr=esNode('tr');for(const title of ['分组','记录','去重订单','订单金额 USD']){const th=esNode('th',title);th.scope='col';tr.append(th);}head.append(tr);table.append(head);const rows=esNode('tbody');
-  for(const g of d.groups||[]){const row=esNode('tr');for(const value of [g.label||g.key||'未知',esNumber(g.records),esNumber(g.orders),esNumber(g.order_amount_usd,true)])row.append(esNode('td',value));rows.append(row);}table.append(rows);wrap.append(table);body.append(wrap);if(!(d.groups||[]).length)body.append(esNode('p','该范围没有可展示结构记录；有效0与缺失值分别保留。'));
-  const link=esNode('a','查看同期间 Hermes 调查（不自动生成）','fs-btn');link.href='/dashboard/fs-home/brain/index.html?report_kind=investigation&start='+encodeURIComponent(q.start)+'&end='+encodeURIComponent(q.end)+'&profile=FC27';body.append(link);
- }catch(e){if(controller!==esAbort||controller.signal.aborted||scope.signal.aborted)return;body.replaceChildren(esNode('p',e.name==='TimeoutError'?'结构读取超时，可重试。':e.message));retry();}finally{if(controller===esAbort)body.setAttribute('aria-busy','false');}})();
-}
-scope.signal.addEventListener('abort',()=>{esAbort?.abort();clearTimeout(esTimer);},{once:true});
 
 function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{
  workspaceQueued=false;if(workspaceRestoring)return;
  const root=scope.root,grid=root.querySelector('.fsi-metrics');
- requestDailyProfit();workspaceFCTypes();fcDetailSync();esStructureSync();
+ requestDailyProfit();workspaceFCTypes();fcDetailSync();
  const insights=root.getElementById('supplement-insights');
  if(insights&&grid&&!insights.querySelector('.metric-audit')){const audit=document.createElement('details');audit.className='source-details metric-audit';audit.append(document.createElement('summary'));audit.firstChild.textContent='所选区间、指标来源与口径';
   for(const note of insights.querySelectorAll(':scope > p.fsi-note,:scope > [data-exact-range-status="available"]'))audit.append(note);insights.append(audit);

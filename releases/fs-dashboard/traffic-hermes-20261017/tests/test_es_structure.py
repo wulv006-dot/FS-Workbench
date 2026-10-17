@@ -74,7 +74,7 @@ class ParseTests(unittest.TestCase):
     def test_empty_file_missing_column_and_empty_valid_sheet(self):
         self.assertEqual(es.aggregate([],Q,0)['status'],'unavailable')
         self.assertEqual(es.aggregate([xlsx([row()],missing='订单来源')],Q,1)['status'],'unavailable')
-        empty=self.value([]);self.assertEqual(empty['structure_totals']['orders'],0);self.assertIsNone(empty['structure_totals']['order_amount_usd'])
+        empty=self.value([]);self.assertEqual(empty['structure_totals']['orders'],0);self.assertEqual(empty['structure_totals']['order_amount_usd'],'0')
 
     def test_game_and_brand_independent_natural_source(self):
         value=self.value([row(),row('2',**{'订单来源':'google-FC27-PMAX-Coins-US'}),row('3',**{'游戏':'Diablo 4','订单来源':'google-FC27-PMAX-Coins-US'})])
@@ -125,7 +125,7 @@ class ExportTests(unittest.TestCase):
         pool=SimpleNamespace(submit=lambda *args:submits.append(args) or future)
         config={'enabled':True};reader=es.ESReader(config,pool)
         self.assertEqual(reader.get(Q)['status'],'pending');reader.get(dict(Q,group_by='country'))
-        self.assertEqual(len(submits),1)
+        self.assertEqual(len(submits),2)
         config['enabled']=False;self.assertEqual(reader.get(Q)['quality']['reason'],'fc_detail_disabled')
         future.set_result({'status':'available','snapshots':[{'query':Q,'value':es.aggregate([xlsx([row()])],Q,1)}]})
         self.assertEqual(reader.get(Q)['status'],'unavailable')
@@ -152,7 +152,7 @@ class ExportTests(unittest.TestCase):
         raw=xlsx([row(),row('2',**{'订单状态':'验证·未通过'})])
         with patch.object(es,'xlsx_rows',wraps=es.xlsx_rows) as parser:
             bundle=es.export_bundle(manager,{k:Q[k] for k in ('profile','start','end')},{},lambda *a:raw)
-        self.assertEqual(parser.call_count,1);self.assertEqual(len(bundle['snapshots']),18)
+        self.assertEqual(parser.call_count,1);self.assertEqual(len(bundle['snapshots']),21)
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)/'archive';es.archive_files([raw],Q,root);es.archive_files([raw],Q,root)
             self.assertEqual(len(list(root.glob('*.xlsx'))),1)
@@ -304,8 +304,9 @@ class ExportTests(unittest.TestCase):
         service=ns['Service']();service.detail=SimpleNamespace(config={'enabled':False},pool=None)
         handler_ns={'urlsplit':urlsplit,'parse_qs':parse_qs,'HERMES':service}
         # AST-extracted actual shared-range-live Handler.do_GET; no runtime data.
-        fixture="class Handler:\n\n    def do_GET(self):\n        uri = urlsplit(self.path)\n        if uri.path == '/health':\n            self.reply(200, {'ok': True, 'service': 'fs-business-range', 'readonly': True})\n            return\n        if not self.headers.get('X-Auth-User'):\n            self.reply(401, {'error': 'login_required'})\n            return\n        if uri.path == '/advisor' and parse_qs(uri.query).get('mode') == ['hermes']:\n            if HERMES is None:\n                self.reply(503, {'error': 'hermes_not_enabled'})\n                return\n            try:\n                status, data = HERMES.get(parse_qs(uri.query, keep_blank_values=True, max_num_fields=6), self.headers.get('X-Auth-User'))\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'hermes_unavailable'})\n            return\n        if uri.path == '/advisor':\n            try:\n                status, data = ADVISOR.get(parse_qs(uri.query, keep_blank_values=True, max_num_fields=8), self.headers.get('X-Auth-User'))\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'advisor_unavailable'})\n            return\n        if uri.path != '/range':\n            self.reply(404, {'error': 'not_found'})\n            return\n        params = parse_qs(uri.query, keep_blank_values=True)\n        if params.get('mode') == ['fc-daily']:\n            try:\n                status, data = FC_DAILY.get(params, self.headers.get('X-Auth-User'), self.headers)\n                self.reply(status, data)\n            except Exception:\n                self.reply(503, {'error': 'daily_report_unavailable'})\n            return\n        try:\n            status, data = get_range(parse_qs(uri.query, keep_blank_values=True))\n            self.reply(status, data)\n        except LookupError:\n            self.reply(409, {'error': 'catalog_changed'})\n        except (ValueError, KeyError, AssertionError):\n            self.reply(422, {'error': 'invalid_or_uncovered_range'})\n        except Exception:\n            self.reply(503, {'error': 'query_unavailable'})"
-        self.assertIn('max_num_fields=6',fixture)
+        shared=ast.parse((SOURCE/'shared_range_es_v3.py').read_text('utf-8'));handler_class=next(n for n in shared.body if isinstance(n,ast.ClassDef) and n.name=='Handler');handler_get=next(n for n in handler_class.body if isinstance(n,ast.FunctionDef) and n.name=='do_GET')
+        fixture=ast.unparse(ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(name='Handler',bases=[],keywords=[],body=[handler_get],decorator_list=[])],type_ignores=[])))
+        self.assertIn('max_num_fields=7',fixture)
         exec(compile(fixture,'live-handler-ast','exec'),handler_ns);handler=handler_ns['Handler']();replies=[];handler.reply=lambda *args:replies.append(args)
         query={'mode':'hermes','structure':'es','start':'2026-10-15','end':'2026-10-15','group_by':'source_game','status':'all'}
         handler.path='/advisor?'+urlencode(query);handler.headers={};handler.do_GET();self.assertEqual(replies[-1][0],401)
@@ -318,6 +319,96 @@ class ExportTests(unittest.TestCase):
         duplicate=[(k,v) for k,v in query.items() if k not in ('status','group_by')]+[('start','2026-10-15')]
         self.assertLessEqual(len(duplicate),6)
         handler.path='/advisor?'+urlencode(duplicate);handler.do_GET();self.assertEqual(replies[-1][0],422)
-        handler.path='/advisor?'+urlencode(dict(query,profile='FC27'));handler.do_GET();self.assertEqual(replies[-1][0],503)
+        handler.path='/advisor?'+urlencode(dict(query,profile='FC27'));handler.do_GET();self.assertEqual(replies[-1][0],200)
+        handler.path='/advisor?'+urlencode(dict(query,profile='D4'));handler.do_GET();self.assertEqual(replies[-1][0],200)
+        handler.path='/advisor?'+urlencode(dict(query,profile='D4',unknown='no'));handler.do_GET();self.assertEqual(replies[-1][0],503)
+
+class MultiGameTests(unittest.TestCase):
+    def test_global_game_exact_profiles_unmapped_and_brand_are_independent(self):
+        records=[row('fc',**{'游戏':'FC 27'}),row('d4',**{'游戏':'Diablo 4','订单来源':'google-FC27-PMAX-Coins-US'}),row('aion',**{'游戏':'Aion 2'}),row('other',**{'游戏':'Unmapped Game'})]
+        args=dict(Q,profile='ALL',group_by='game');raw=xlsx(records);result=es.aggregate([raw],args,1)
+        self.assertEqual(result['structure_totals']['orders'],4);self.assertEqual(len(result['groups']),4);self.assertEqual(result['quality']['unmapped_game_records'],1)
+        self.assertIn('Unmapped Game',[r['label'] for r in result['groups']]);self.assertIn({'code':'D4','label':'Diablo 4'},result['available_profiles'])
+        d4=es.aggregate([raw],dict(Q,profile='D4'),1);self.assertEqual(d4['structure_totals']['orders'],1);self.assertIn('global_brand',d4['groups'][0]['key'])
+        self.assertEqual(es.aggregate([raw],dict(Q,profile='AION2'),1)['structure_totals']['orders'],1)
+        conflict=es.aggregate([xlsx([row('same'),row('same',**{'游戏':'Diablo 4'})])],args,1)
+        self.assertEqual(conflict['quality']['ambiguous_orders'],1);self.assertEqual(conflict['structure_totals']['orders'],0)
+        with self.assertRaises(ValueError):es.checked_query(dict(args,profile='diablo-ish'))
+
+    def test_one_period_source_future_for_all_profiles_and_no_private_rows_return(self):
+        future=Future();submits=[];pool=SimpleNamespace(submit=lambda *a:submits.append(a) or future)
+        base=dict(Q,profile='ALL',group_by='game')
+        with patch.object(es,'SESSION_JOBS',{}),patch.object(es,'SESSION_POOL',pool),patch.object(es,'archive_files'),patch.object(es,'archived_dataset',return_value=None):
+            self.assertEqual(es.session_bundle(None,base,{})['status'],'pending')
+            self.assertEqual(es.session_bundle(None,dict(Q,profile='D4'),{})['status'],'pending');self.assertEqual(len(submits),1)
+            dataset=es.make_dataset([row('private-order',**{'游戏':'Diablo 4','支付账号':'private-account'})],['f'*64],0,1,0);future.set_result(dataset)
+            d4=es.session_bundle(None,dict(Q,profile='D4'),{},True);global_=es.session_bundle(None,base,{},True)
+            self.assertEqual(len(submits),1);self.assertEqual(len(d4['snapshots']),1);self.assertEqual(d4['snapshots'][0]['value']['structure_totals']['orders'],1)
+            self.assertEqual(global_['snapshots'][0]['query']['profile'],'ALL');self.assertNotIn('private-order',json.dumps(d4));self.assertNotIn('private-account',json.dumps(dataset));self.assertNotIn('_private_dataset',json.dumps(d4))
+
+    def test_legacy_archive_reuse_is_partial_without_fabricating_manifest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'private';raw=xlsx([row('d4',**{'游戏':'Diablo 4'})]);es.archive_files([raw],Q,root)
+            dataset=es.archived_dataset(dict(Q,profile='ALL'),root)
+            value=es.aggregate_rows(dataset['rows'],dataset['hashes'],dataset['parse_failures'],dict(Q,profile='ALL',group_by='game'),dataset['declared_files'],dataset['failed_files'])
+            self.assertEqual(value['status'],'partial');self.assertFalse(value['quality']['file_set_complete']);self.assertIsNone(value['quality']['declared_files']);self.assertIsNone(value['quality']['failed_files'])
+            with patch.object(es,'SESSION_JOBS',{}),patch.object(es,'archived_dataset',return_value=dataset),patch.object(es,'SESSION_POOL') as pool:
+                reply=es.session_bundle(None,dict(Q,profile='D4'),{},True)
+                self.assertEqual(reply['status'],'available');pool.submit.assert_not_called()
+            manifest=next(root.glob('*.json'));data=json.loads(manifest.read_text());data['file_set']={'declared_files':1,'failed_files':0};manifest.write_text(json.dumps(data));manifest.chmod(0o600)
+            dataset=es.archived_dataset(Q,root);self.assertEqual(dataset['declared_files'],1)
+
+    def test_same_bytes_different_period_archive_manifests_do_not_collide(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'private';raw=xlsx([row()]);es.archive_files([raw],Q,root)
+            different=dict(Q,start='2026-10-14',end='2026-10-14');es.archive_files([raw],different,root)
+            self.assertEqual(len(list(root.glob('*.xlsx'))),1);self.assertEqual(len(list(root.glob('*.json'))),2)
+            self.assertIsNotNone(es.archived_dataset(different,root))
+        empty=es.aggregate([xlsx([row()])],dict(Q,profile='D4'),1)
+        self.assertEqual(empty['structure_totals']['orders'],0);self.assertEqual(empty['structure_totals']['order_amount_usd'],'0')
+        unknown=es.aggregate([xlsx([row()])],dict(Q,profile='D4'))
+        self.assertIsNone(unknown['structure_totals']['order_amount_usd'])
+
+    def test_source_completed_archive_datasets_can_evict_but_unknown_never_does(self):
+        dataset=es.make_dataset([row()],['f'*64],0,None,None)
+        jobs={}
+        with patch.object(es,'SESSION_JOBS',jobs),patch.object(es,'SESSION_ACCESS',{}),patch.object(es,'archived_dataset',return_value=dataset),patch.object(es,'SESSION_POOL') as pool:
+            for day in range(1,7):
+                query=dict(Q,start='2026-10-%02d'%day,end='2026-10-%02d'%day)
+                self.assertEqual(es.session_bundle(None,query,{},True)['status'],'available')
+            self.assertEqual(len(jobs),4);pool.submit.assert_not_called()
+        jobs={}
+        for day in range(1,5):
+            future=Future();future.set_result({'status':'unavailable','retryable':False});jobs[('ALL','2026-10-%02d'%day,'2026-10-%02d'%day)]=(future,es.time.monotonic())
+        with patch.object(es,'SESSION_JOBS',jobs),patch.object(es,'archived_dataset') as archived:
+            reply=es.session_bundle(None,dict(Q,start='2026-10-08',end='2026-10-08'),{},True)
+            self.assertEqual(reply['reason'],'es_source_capacity');archived.assert_not_called()
+
+    def test_completed_projection_lru_survives_more_than_sixteen_queries(self):
+        calls=[]
+        class Pool:
+            def submit(self,reader,args):
+                calls.append(args);future=Future();future.set_result({'status':'available','snapshots':[{'query':args,'value':es.aggregate([xlsx([row()])],args,1)}]});return future
+        reader=es.ESReader({'enabled':True},Pool())
+        for profile in ('FC27','D4','AION2'):
+            for group in es.GROUPS:
+                value=reader.get(dict(Q,profile=profile,group_by=group));self.assertNotEqual(value['quality'].get('reason'),'es_cache_capacity')
+        self.assertEqual(len(calls),21);self.assertEqual(len(reader.jobs),16)
+        running=es.ESReader({'enabled':True},SimpleNamespace(submit=lambda *a:Future()))
+        for n in range(16):running.get(dict(Q,status='fixture'+str(n)))
+        self.assertEqual(running.get(dict(Q,status='seventeenth'))['quality']['reason'],'es_cache_capacity');self.assertEqual(len(running.jobs),16)
+
+    def test_durable_attempt_is_shared_across_profile_and_dimension(self):
+        calls=[]
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*a):pass
+            def read(self,*a):return json.dumps({'kind':'es_order_structure_bundle','status':'pending','reason':'es_source_running'}).encode()
+        class Opener:
+            def open(self,request,**kwargs):calls.append(json.loads(request.data));return Response()
+        with tempfile.TemporaryDirectory() as folder:
+            es.server_bundle(dict(Q,profile='ALL',group_by='game'),Path(folder),Opener())
+            es.server_bundle(dict(Q,profile='D4',group_by='country'),Path(folder),Opener())
+            self.assertFalse(calls[0]['poll_only']);self.assertTrue(calls[1]['poll_only']);self.assertEqual(len(list(Path(folder).glob('*.attempt'))),1)
 
 if __name__=='__main__':unittest.main()

@@ -774,7 +774,8 @@ def main():
             units("releases/fs-dashboard/management-quality-20261016/tests",["test_quality","test_publish"])
         elif group=="traffic-hermes":
             units("mmoexp_google_data/details",["test_details"])
-            units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
             node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
         elif group=="hermes-learning-loop":
             units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])

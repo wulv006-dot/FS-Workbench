@@ -463,7 +463,7 @@ class HermesService:
             if (set(params)-{'mode','structure','profile','start','end','group_by','status'} or params.get('mode')!=['hermes'] or params.get('structure')!=['es'] or any(len(v)!=1 for v in params.values())):return 422,{'error':'invalid_parameters'}
             from es_order_structure import reader_for
             query={k:v[0] for k,v in params.items() if k not in ('mode','structure')}
-            query.setdefault('profile','FC27')
+            query.setdefault('profile','ALL')
             try:return 200,reader_for(self.detail).get(query)
             except (ValueError,TypeError,KeyError):return 422,{'error':'invalid_es_query'}
         allowed={'mode','id','evidence','artifact','thread','scope','before','q','start','end','actions'}

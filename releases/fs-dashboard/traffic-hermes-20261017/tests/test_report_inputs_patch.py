@@ -1,5 +1,5 @@
 from copy import deepcopy
-import contextlib,hashlib,json,sys,types,unittest
+import contextlib,hashlib,json,sys,types,unittest,shutil
 from pathlib import Path
 from unittest.mock import patch
 import test_publisher as fixtures
@@ -10,19 +10,26 @@ import prepare_controller_patch,controller_patch,prepare_report_inputs_patch as 
 class ReportInputsPatch(unittest.TestCase):
  def setUp(self):
   h=fixtures.PublisherTests();h.setUp();self.addCleanup(h.doCleanups);self.h=h
+  self.repo=h.folder/'historical-repo';source=self.repo/'releases/fs-dashboard/traffic-hermes-20261017/source';source.mkdir(parents=True)
+  for item in (RELEASE/'source').iterdir():
+   if item.is_file():shutil.copyfile(item,source/item.name)
+  for item in (RELEASE/'tests/fixtures/report_inputs_4b').iterdir():shutil.copyfile(item,source/item.name)
+  shutil.copytree(RELEASE/'publisher',self.repo/'releases/fs-dashboard/traffic-hermes-20261017/publisher')
+  details=self.repo/'mmoexp_google_data/details';details.mkdir(parents=True)
+  shutil.copyfile(ROOT/'mmoexp_google_data/details/collect_details.py',details/'collect_details.py')
   previous=deepcopy(h.manifest)
   for row in previous['files']:
    if row['target'] in (controller_patch.CONTROLLER,controller_patch.COLLECTOR,bridge.MARKETING,'/opt/fs-hermes-fc/research.py','/opt/fs-hermes-fc/fs_evidence.py'):
     raw=('old '+row['target']).encode();(h.stage/'candidate'/row['candidate']).write_bytes(raw);row['sha256']=sha(raw)
   previous['unchangedRequired'].append({'path':bridge.SNAPSHOTS,'sha256':'da8ca17d739bbc2a95bf6a21510eefda06b2e2f44eabab33c26278886634a277'})
-  (h.stage/'approved-manifest.json').write_text(json.dumps(previous),encoding='utf8');self.follow=h.folder/'follow';last=prepare_controller_patch.prepare(ROOT,h.stage,self.follow,'b'*40)
+  (h.stage/'approved-manifest.json').write_text(json.dumps(previous),encoding='utf8');self.follow=h.folder/'follow';last=prepare_controller_patch.prepare(self.repo,h.stage,self.follow,'b'*40)
   self.ui=h.folder/'ui';self.ui.mkdir();assets=[]
   for name in ('business.js','google.js','shell.js','index.html','home.html'):
    dest=self.ui/'assets'/name;dest.parent.mkdir(exist_ok=True);dest.write_bytes(b'current ui');assets.append({'candidate':'assets/'+name,'target':'/var/lib/current-e065/'+name,'sha256':sha(b'current ui')})
   targets=[]
   for name,target in [('formal.conf','/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'),('home.html','/var/www/dashboard/fs-home/index.html')]:
    dest=self.ui/'candidate'/name;dest.parent.mkdir(exist_ok=True);dest.write_bytes(b'final e065');targets.append({'candidate':'candidate/'+name,'target':target,'sha256':sha(b'final e065')})
-  (self.ui/'release-manifest.json').write_text(json.dumps({'releaseId':'workspace-native-20261006-e0654eaced60','immutableAssets':assets,'targets':targets,'unchangedRequired':[]}),encoding='utf8');self.receipt={'sourceCommit':'b'*40,'ui_backup':'/backup/workspace-native-20261006-e0654eaced60','nginx':'passed','session_ready':True};self.out=h.folder/'report';self.manifest=prepare.prepare(ROOT,h.stage,self.follow,self.ui,self.receipt,self.out,'c'*40);self.base=bridge.load_base()
+  (self.ui/'release-manifest.json').write_text(json.dumps({'releaseId':'workspace-native-20261006-e0654eaced60','immutableAssets':assets,'targets':targets,'unchangedRequired':[]}),encoding='utf8');self.receipt={'sourceCommit':'b'*40,'ui_backup':'/backup/workspace-native-20261006-e0654eaced60','nginx':'passed','session_ready':True};self.out=h.folder/'report';self.manifest=prepare.prepare(self.repo,h.stage,self.follow,self.ui,self.receipt,self.out,'c'*40);self.base=bridge.load_base()
  def test_exact_four_deltas_latest_controller_and_home(self):
   m=self.manifest;self.assertEqual(len(self.base.validate(m,self.out)),5);self.assertEqual({r['target'] for r in m['files'] if r['sha256']!=r['beforeSha256']},bridge.DELTAS);self.assertEqual(m['reportProtectedBaseline']['/var/www/dashboard/fs-home/index.html'],sha(b'final e065'))
   last=json.loads((self.follow/'approved-manifest.json').read_text());current={r['target']:r['sha256'] for r in last['files']};controller=next(r for r in m['files'] if r['target']==controller_patch.CONTROLLER);self.assertEqual(controller['sha256'],current[controller_patch.CONTROLLER]);self.assertEqual(m['reportProtectedBaseline'][controller_patch.COLLECTOR],current[controller_patch.COLLECTOR]);self.assertFalse(m['releaseReady'])
@@ -54,7 +61,7 @@ class ReportInputsPatch(unittest.TestCase):
     with self.base.locks(self.h.root):self.fail('busy admitted')
  def test_wrong_latest_receipt_or_history_source_drift_rejected(self):
   bad=dict(self.receipt,sourceCommit='d'*40)
-  with self.assertRaisesRegex(ValueError,'latest_receipt_required'):prepare.prepare(ROOT,self.h.stage,self.follow,self.ui,bad,self.h.folder/'other','c'*40)
+  with self.assertRaisesRegex(ValueError,'latest_receipt_required'):prepare.prepare(self.repo,self.h.stage,self.follow,self.ui,bad,self.h.folder/'other','c'*40)
   previous=json.loads((self.follow/'approved-manifest.json').read_text());r=previous['files'][0];(self.follow/'candidate'/r['candidate']).write_bytes(b'drift')
-  with self.assertRaisesRegex(ValueError,'successful_stage_source_drift'):prepare.prepare(ROOT,self.h.stage,self.follow,self.ui,self.receipt,self.h.folder/'other','c'*40)
+  with self.assertRaisesRegex(ValueError,'successful_stage_source_drift'):prepare.prepare(self.repo,self.h.stage,self.follow,self.ui,self.receipt,self.h.folder/'other','c'*40)
 if __name__=='__main__':unittest.main()
