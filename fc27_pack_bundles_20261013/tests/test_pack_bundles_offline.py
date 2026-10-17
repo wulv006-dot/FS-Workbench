@@ -74,7 +74,8 @@ class FormulaTests(unittest.TestCase):
         del players[21975]
         bundle = {"id": "x", "title": "X", "players": [
             {"futbin_id": 21975, "position": "CM"},
-            {"futbin_id": 1, "position": "ST"}]}
+            {"futbin_id": 1, "position": "ST"},
+                                        {"futbin_id": 2, "position": "CB"}]}
         out = mod.compute_bundle(bundle, players, RATES, MARKUPS)
         self.assertEqual(out["players"][0]["status"], "not_found")
         self.assertTrue(any("未收录" in w for w in out["warnings"]))
@@ -85,7 +86,8 @@ class FormulaTests(unittest.TestCase):
         players[1]["ps_price"] = None
         players[1]["xbox_price"] = None
         bundle = {"id": "x", "title": "X",
-                  "players": [{"futbin_id": 1, "position": "ST"}]}
+                  "players": [{"futbin_id": 1, "position": "ST"},
+                                        {"futbin_id": 2, "position": "CB"}]}
         out = mod.compute_bundle(bundle, players, RATES, MARKUPS)
         # PS 缺价只影响 PS 汇总；PC 仍在 → 行状态 ok，PS 汇总为 None
         self.assertIsNone(out["ps"])
@@ -98,7 +100,8 @@ class FormulaTests(unittest.TestCase):
         players[1]["ps_price"] = None
         players[1]["xbox_price"] = 12345
         bundle = {"id": "x", "title": "X",
-                  "players": [{"futbin_id": 1, "position": "ST"}]}
+                  "players": [{"futbin_id": 1, "position": "ST"},
+                                        {"futbin_id": 2, "position": "CB"}]}
         out = mod.compute_bundle(bundle, players, RATES, MARKUPS)
         self.assertEqual(out["players"][0]["ps_coins"], 12345)
 
@@ -184,7 +187,8 @@ class StoreTests(unittest.TestCase):
                 "expected_revision": rev0,
                 "settings": {"interval_hours": 2},
                 "bundles": [{"id": "t1", "title": "T1",
-                             "players": [{"futbin_id": 1, "position": "ST"}]}]})
+                             "players": [{"futbin_id": 1, "position": "ST"},
+                                        {"futbin_id": 2, "position": "CB"}]}]})
             self.assertEqual(rev1, rev0 + 1)
             self.assertEqual(store.settings()["interval_hours"], 2.0)
             # 重开一个实例验证落盘
