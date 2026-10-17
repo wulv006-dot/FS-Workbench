@@ -70,7 +70,8 @@ def html_design_context(question):
         raw=read('manifest.json')
         if sha256(raw).hexdigest()!=HTML_DESIGN_MANIFEST_SHA256:raise ValueError('html_design_manifest_drift')
         manifest=json.loads(raw.decode('utf-8'))
-        if set(manifest)!={'contract','version','status','root','files','total_bytes','profile_skill','context_policy','permissions'} or manifest['contract']!='hermes-full-html-design-v1' or manifest['root']!=str(HTML_DESIGN_ROOT):raise ValueError('html_design_manifest_contract')
+        if set(manifest)-{'previousManifestSha256'}!={'contract','version','status','root','files','total_bytes','profile_skill','context_policy','permissions'} or manifest['contract']!='hermes-full-html-design-v1' or manifest['root']!=str(HTML_DESIGN_ROOT):raise ValueError('html_design_manifest_contract')
+        if 'previousManifestSha256' in manifest and (not isinstance(manifest['previousManifestSha256'],str) or not re.fullmatch('[a-f0-9]{64}',manifest['previousManifestSha256'])):raise ValueError('html_design_manifest_history')
         rows=manifest['files']
         if not isinstance(rows,list) or len(rows)!=len(HTML_DESIGN_FILES) or not all(isinstance(r,dict) for r in rows) or {r.get('path'):r.get('role') for r in rows}!=HTML_DESIGN_FILES:raise ValueError('html_design_fixed_files_required')
         if manifest['permissions']!={'directory':'0700','file':'0600','owner':'0:0'}:raise ValueError('html_design_permissions_contract')

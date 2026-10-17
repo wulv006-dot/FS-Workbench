@@ -1,12 +1,12 @@
 {
-  "status": "candidate_reviewed_teaching_v2_local_tests_not_deployed",
-  "sourceCommitBase": "2d097c5ccc371c227474a40fe40f5b5c0729a080",
+  "status": "schema_compatibility_fix_candidate_local_tests_not_deployed",
+  "sourceCommitBase": "8f41561b55f60bfe3fb68bb8a71c74e25bf19e8a",
   "files": [
     {
       "source": "source/controller.py",
       "runtime": "/opt/fs-hermes-fc/controller.py",
-      "beforeSha256": "139249d204508bf224bcba15b6844fff9f0a46ae03716bb81c0a39a5fdb7c27d",
-      "afterSha256": "40e9e8a7548cbf47a8db6c21010bb02968c0ca64d77ca55a6093e1d31d86272e"
+      "beforeSha256": "40e9e8a7548cbf47a8db6c21010bb02968c0ca64d77ca55a6093e1d31d86272e",
+      "afterSha256": "bdc1876b6e89dd021649c3c2a504c1dedbbbf0ec66977e821f77c8210ef1f502"
     }
   ],
   "baselineReadbackChain": [
@@ -14,7 +14,8 @@
     "es-queue-release-verification-nav-20261017T121325Z.json",
     "report-compat-2d097c5ccc37-verify-receipt.json",
     "traffic-content-2d097c5ccc37-verify-receipt.json",
-    "memory-cleanup-2d097c5ccc37-verify-receipt.json"
+    "memory-cleanup-2d097c5ccc37-verify-receipt.json",
+    "html-authoring-8f41561b55f6-verify-receipt.json"
   ],
   "teachingContext": {
     "root": "/var/lib/fs-hermes-fc/fs/html-design-context",
@@ -30,7 +31,16 @@
   "productionWrites": 0,
   "tests": {
     "entry": "python -m unittest discover -s releases/fs-dashboard/hermes-full-html-task-20261017/tests -p test_html_design.py",
-    "local_passed": 8,
-    "model_calls": 0
+    "local_passed": 10,
+    "model_calls": 0,
+    "private_actual_package": "original 77dd manifest and all nine complete materials read; original bytes unchanged; Linux owner/mode controlled simulation"
+  },
+  "initialSourceBeforeSha256": "139249d204508bf224bcba15b6844fff9f0a46ae03716bb81c0a39a5fdb7c27d",
+  "schemaCompatibilityFix": {
+    "optionalField": "previousManifestSha256",
+    "format": "lowercase 64 hex when present",
+    "unknownFields": "rejected",
+    "teachingManifestPinUnchanged": true,
+    "failedRequestPreserved": "3bb6cf4999fc70e67b21b225fde455ef"
   }
 }
