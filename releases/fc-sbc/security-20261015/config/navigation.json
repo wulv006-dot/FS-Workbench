@@ -49,10 +49,11 @@
       "id": "arpg",
       "title": "RPG 工作区",
       "icon": "♜",
-      "intro": "D4、PoE2、Aion2 改价与 G2G 自动改价。",
+      "intro": "D4、PoE2、Aion2 改价、G2G 自动改价与销售数据看板。",
       "ids": [
         "d4",
-        "g2g"
+        "g2g",
+        "sales"
       ],
       "path": "/dashboard/modules/arpg/"
     },
@@ -326,6 +327,17 @@
       "section": "arpg",
       "scope": "global-portal",
       "requiredGroup": "dashboard"
+    },
+    {
+      "id": "sales",
+      "label": "销售部系统",
+      "path": "/sales/",
+      "icon": "▥",
+      "short": "Aion2 销售数据看板 · 渠道、销量与趋势",
+      "section": "arpg",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "serverGuard": "/__auth_verify"
     },
     {
       "id": "bot-console",
