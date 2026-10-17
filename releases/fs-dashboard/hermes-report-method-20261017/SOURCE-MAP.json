@@ -77,5 +77,24 @@
     "legacyHtmlAnalysisAndLayoutBypassed": true,
     "tests": 7,
     "userAcceptance": "pending"
+  },
+  "frozenFollowupInput": {
+    "release": "nav-20261017T151420Z",
+    "manifestSha256": "c35f7ebbbcce1084ddaec0178b6aed8db25ae4199df4383d69e1fd724fde3117",
+    "files": [
+      {
+        "candidate": "source/continuation.py",
+        "target": "/opt/fs-hermes-fc/continuation.py",
+        "beforeSha256": "267d59c9f8d0bb1f28fba79586574d4b83d5ff70684ea70fd8d6998e23ee0112",
+        "sha256": "9ceb5fe5139dc6e93bf23a7cf33e13c169ca5385ea017cd06322e3b6cb6ab0a3",
+        "mode": "0o644",
+        "owner": "0:0"
+      }
+    ],
+    "protected": 310,
+    "completeEvidenceRemainsInRegisteredCachedTools": true,
+    "newSourceReads": false,
+    "tests": 9,
+    "userAcceptance": "pending"
   }
 }
