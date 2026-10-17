@@ -1,0 +1,33 @@
+旧清单：总 14350 行 ｜ D4 436 行 ｜ 非D4 13914 行
+新清单：总 14350 行 ｜ D4 436 行（替换）｜ 非D4 13914 行（保留）
+D4 新行按类目：[('8821', 247), ('3845', 45), ('8799', 39), ('1591', 35), ('3955', 23), ('8793', 18), ('2371', 17), ('10215', 11), ('442', 1)]
+已写 /tmp/_recheck.json（3993.9 KB）
+商品ID映射 1042 个键：命中 1039 ｜ 未命中 3
+   · DND_593271302                            id=169833423
+   · DND_680067629                            id=169666447
+   · DND_393899242                            id=169918351
+  🛑 绑定漂移 9 处（这些档位本轮**停手改价**，请确认后再处理）：
+     · [CORRUPTED_ROOTS] ID 170037763 数量被改：配置 100 装 → 后台现在是 10 装（(10) Corrupted Roots （腐化根藤））
+     · [DND_901273310] ID 169661435 改名：配置「-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY」→ 后台「-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-GOLDEN GJERMUNDBU #43027291」
+     · [DND_593271302] 后台已找不到 ID 169833423（可能被你删了），本档位停手
+     · [DND_680067629] 后台已找不到 ID 169666447（可能被你删了），本档位停手
+     · [DND_393899242] 后台已找不到 ID 169918351（可能被你删了），本档位停手
+     · [CORRUPTED_ROOTS_X10] ID 169686655 数量被改：配置 10 装 → 后台现在是 100 装（(100) Corrupted Roots （腐化根藤））
+     · [ADEPTS_PRISM_X100] ID 169753051 改名：配置「Adept」→ 后台「Adept's Tuning Prism (DLC Required)*100 （娴熟调谐棱柱）」
+     · [PROTECTORS_PRISM_X100] ID 169753371 改名：配置「Protector」→ 后台「Protector's Tuning Prism (DLC Required)*100 （保护调谐棱柱）」
+     · [JUDICATORS_MASK] ID 169752811 改名：配置「Judicator」→ 后台「Judicator's Mask (DLC Required) （裁判官的面具）」
+
+🔒 闸一预演：核对 1042 档，漂移 9 处
+     title_changed  4
+     id_gone        3
+     qty_changed    2
+     其中 D4 登记键相关漂移：9 处
+        · [CORRUPTED_ROOTS] ID 170037763 数量被改：配置 100 装 → 后台现在是 10 装（(10) Corrupted Roots （腐化根藤））
+        · [DND_901273310] ID 169661435 改名：配置「-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY」→ 后台「-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-LEGENDARY-GOLDEN GJERMUNDBU #43027291」
+        · [DND_593271302] 后台已找不到 ID 169833423（可能被你删了），本档位停手
+        · [DND_680067629] 后台已找不到 ID 169666447（可能被你删了），本档位停手
+        · [DND_393899242] 后台已找不到 ID 169918351（可能被你删了），本档位停手
+        · [CORRUPTED_ROOTS_X10] ID 169686655 数量被改：配置 10 装 → 后台现在是 100 装（(100) Corrupted Roots （腐化根藤））
+        · [ADEPTS_PRISM_X100] ID 169753051 改名：配置「Adept」→ 后台「Adept's Tuning Prism (DLC Required)*100 （娴熟调谐棱柱）」
+        · [PROTECTORS_PRISM_X100] ID 169753371 改名：配置「Protector」→ 后台「Protector's Tuning Prism (DLC Required)*100 （保护调谐棱柱）」
+        · [JUDICATORS_MASK] ID 169752811 改名：配置「Judicator」→ 后台「Judicator's Mask (DLC Required) （裁判官的面具）」

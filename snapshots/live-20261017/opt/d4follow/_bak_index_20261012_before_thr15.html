@@ -1,0 +1,2751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPG 游戏改价系统</title>
+<style>
+:root{
+  --base:#f5f5f7; --mantle:#ffffff; --crust:#ffffff;
+  --s0:#f2f2f5; --s1:#e5e5ea; --s2:#d1d1d6;
+  --text:#1d1d1f; --sub:#6e6e73; --ov0:#8e8e93;
+  --blue:#0071e3; --green:#0a8f4d; --red:#d70015; --yellow:#b25000;
+  --teal:#0a7f8f; --peach:#c2410c; --mauve:#7d3cce; --sky:#0a6ea8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--base);color:var(--text);
+  font:14px/1.55 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+a{color:var(--blue)}
+.mono{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#ffffff,rgba(255,255,255,.86));
+  border-bottom:1px solid var(--s0);padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+h1{margin:0;font-size:17px;letter-spacing:.3px;font-weight:600}
+h1 span{color:var(--blue)}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--s0);border-radius:20px;
+  padding:3px 11px;font-size:12px;color:var(--sub);white-space:nowrap}
+.badge b{color:var(--text);font-weight:600}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:var(--ov0)}
+.badge.on .dot{background:var(--green);box-shadow:0 0 7px var(--green)}
+.badge.off .dot{background:var(--ov0)}
+.badge.warn{background:#fff4e5;color:var(--peach)}
+.badge.err{background:#fdeaea;color:var(--red)}
+.badge.err .dot{background:var(--red);box-shadow:0 0 7px var(--red)}
+main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
+.panel{background:var(--mantle);border:1px solid var(--s0);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.panel>h2{margin:0;padding:11px 16px;font-size:14px;font-weight:600;background:rgba(0,0,0,.025);
+  border-bottom:1px solid var(--s0);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.panel>h2 .hint{font-weight:400;font-size:12px;color:var(--ov0);margin-left:auto}
+/* ② 跟价范围的顶部下拉菜单需要溢出面板显示（.panel 默认 overflow:hidden 会裁掉它） */
+.panel.ov{overflow:visible}
+.panel.ov>h2{border-radius:11px 11px 0 0}
+.pad{padding:14px 16px}
+/* 2026-09-24 第十五轮：取消「左主区 + 右侧日志栏」两列布局，改为单列
+   （日志区单独成行、放在跟价主表下方，见 #sec-log）。 */
+@media(max-width:1180px){.logbox{height:300px !important}}
+
+/* 开关：2026-09-23 第七轮。原来是一排两个按钮「跟价开关 OFF / AUTO 自动跟价」，
+   语义混淆（OFF 关的是什么？AUTO 是"自动"还是"总开关"？），现在拆成语义独立的两张开关卡：
+     左「系统总开关」= 能不能改价；右「自动跟价」= 要不要自动改。开关本体是滑块，
+   开=绿、关=灰，右侧再补一个「开启 / 关闭」文字，不用盯着颜色猜。 */
+.switchbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.master{display:flex;gap:10px;flex-wrap:wrap}
+.swcell{display:flex;align-items:center;gap:11px;border:1px solid var(--s1);border-radius:11px;
+  padding:7px 13px 7px 11px;background:var(--crust);cursor:pointer;user-select:none;
+  transition:.16s;width:312px;box-sizing:border-box}
+.swcell:hover{border-color:var(--s2);box-shadow:0 2px 10px -5px rgba(16,24,40,.35)}
+.swcell .swpill{position:relative;width:46px;height:24px;border-radius:13px;background:var(--s2);
+  flex:none;transition:.2s}
+.swcell .swpill::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s}
+.swcell .swtxt{display:flex;flex-direction:column;line-height:1.35;flex:1 1 auto;min-width:0}
+.swcell .swtxt b{font-size:13px}
+.swcell .swtxt span{font-size:10.5px;color:var(--ov0);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.swcell .swst{font-size:11.5px;font-weight:700;color:var(--ov0);flex:none}
+.swcell.on{border-color:var(--green);background:#f1fbf5}
+.swcell.on .swpill{background:var(--green)}
+.swcell.on .swpill::after{transform:translateX(22px)}
+.swcell.on .swst{color:var(--green)}
+.swcell.dis{opacity:.55}
+.swcell.dis .swpill{background:var(--s2)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(10,143,77,.3)}50%{box-shadow:0 0 0 7px rgba(10,143,77,0)}}
+#swAuto.on{animation:pulse 2.4s infinite}
+.toggles{display:flex;flex-wrap:wrap;gap:9px}
+/* 控制台分块：给「跟价开关」「运行参数」各加一个小标题，与下面的动作按钮分组呼应，
+   整段读起来是「总开关 → 开关/参数 → 动作」三块，不再是散落一地的小控件。 */
+.ctl>.ctlrow{flex:1 1 100%}
+.ctlrow{display:flex;align-items:flex-start;gap:10px;margin-top:10px}
+.ctlrow-n{flex:none;font-size:10.5px;letter-spacing:.6px;font-weight:700;color:var(--ov0);
+  padding-top:7px;white-space:nowrap;min-width:62px}
+.ctlrow>*:not(.ctlrow-n){flex:1 1 auto;min-width:0}
+@media(max-width:640px){.ctlrow-n{display:none}}
+.tg{display:flex;align-items:center;gap:8px;background:var(--s0);border:1px solid transparent;
+  border-radius:8px;padding:5px 11px;cursor:pointer;font-size:12.5px;user-select:none;transition:.15s}
+.tg:hover{border-color:var(--s1)}
+.tg input{appearance:none;width:34px;height:19px;background:var(--s2);border-radius:11px;
+  position:relative;cursor:pointer;transition:.18s;flex:none;margin:0}
+.tg input:checked{background:var(--blue)}
+.tg input::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;transition:.18s}
+.tg input:checked::after{transform:translateX(15px)}
+.tg span{color:var(--sub)}
+.tg input:checked~span{color:var(--text)}
+
+/* 参数表单：2026-09-23 由「2 行卡片 + 每格说明文字」改为一行横排。
+   说明文字下沉成 title 提示，格子变成「标签 + 输入框」的窄条，整块高度约降 60%。
+   2026-09-24 第十轮：控制台再下线三个开关，留档见 config.json 的 _已移除的参数。
+   2026-09-24 第十五轮：「偏离纠正阈值 (%)」下线（页面参数 + 引擎触发一并移除）。 */
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.prow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1 1 auto}
+.fld{display:flex;align-items:center;gap:7px;background:var(--s0);border-radius:8px;
+  padding:4px 10px;min-width:0}
+.fld label{font-size:11.5px;color:var(--ov0);white-space:nowrap;flex:none}
+.fld input,.fld select{background:var(--crust);border:1px solid var(--s1);color:var(--text);
+  border-radius:6px;padding:4px 7px;font-size:12.5px;font-family:inherit;outline:none;width:96px}
+.fld.wide input{width:158px}
+/* ---- 采集周期（2026-10-09）：从「① 控制台」下沉到各游戏卡片内 —— 省掉控制台一整个区块，
+   而且「这个游戏的周期」就在这个游戏的卡上，不用上下对照。改完点监控台右上「保存周期」。 ---- */
+.gt-sched{display:flex;align-items:center;gap:6px;margin-top:2px;padding-top:7px;
+  border-top:1px dashed var(--s1);font-size:11px;color:var(--ov0);min-width:0}
+.gt-sched .gs-k{font-size:10.5px;color:var(--ov0);white-space:nowrap;flex:none}
+.gt-sched select{background:var(--s0);border:1px solid var(--s1);color:var(--text);
+  border-radius:6px;padding:2px 5px;font-size:11.5px;font-family:inherit;cursor:pointer;max-width:88px}
+.gt-sched select:hover{border-color:var(--s2)}
+.gt-sched select:focus{border-color:var(--blue);outline:none}
+.gt-sched select.dirty{border-color:var(--yellow);background:#fff8e6}
+.gt-sched .gs-next{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gt-sched.due .gs-k{color:var(--yellow);font-weight:600}
+/* 有未保存的周期改动时，监控台右上「保存周期」按钮闪一下，避免改完忘了点 */
+@keyframes schedPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,113,227,.5)}50%{box-shadow:0 0 0 5px rgba(0,113,227,0)}}
+#btnSched.dirty{animation:schedPulse 1.5s infinite}
+.fld input:focus,.fld select:focus{border-color:var(--blue)}
+.fld input.dirty,.fld select.dirty{border-color:var(--yellow);background:#fff8e6}
+
+/* 按钮 */
+.acts{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+button.btn{background:var(--crust);color:var(--text);border:1px solid var(--s1);border-radius:9px;
+  padding:8px 14px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:transform .13s ease,box-shadow .13s ease,background .13s ease,border-color .13s ease;
+  box-shadow:0 1px 2px rgba(16,24,40,.04)}
+button.btn svg{flex:none;opacity:.85}
+button.btn:hover{background:#fff;border-color:var(--s2);transform:translateY(-1px);
+  box-shadow:0 5px 14px -7px rgba(16,24,40,.4)}
+button.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+button.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+button.btn.primary{background:linear-gradient(180deg,#0a80f0,#0071e3);border-color:#0071e3;
+  color:#fff;font-weight:600;box-shadow:0 2px 8px -4px rgba(0,113,227,.7)}
+button.btn.primary:hover{background:linear-gradient(180deg,#1a8bf5,#0a77e6);border-color:#0a77e6}
+button.btn.primary svg{opacity:.95}
+button.btn.danger{background:#fff;border-color:#f0b4bd;color:var(--red)}
+button.btn.danger:hover{background:#fff5f7;border-color:var(--red)}
+button.btn.ghost{background:transparent;box-shadow:none}
+button.btn.ghost:hover{background:var(--s0);box-shadow:none}
+button.btn.ok{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+
+/* KPI（2026-10-09：全局「关键指标」面板下线，指标下沉进各游戏详情 ⇒ 这里就是详情内的样式，不留外框内边距） */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:9px;padding:0}
+.kpi{background:var(--s0);border-radius:10px;padding:9px 11px;min-width:0}
+.kpi .k{font-size:11px;color:var(--ov0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v{font-size:18px;font-weight:700;margin-top:2px;letter-spacing:-.3px}
+.kpi .s{font-size:10.5px;color:var(--ov0);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 表 */
+.scroll{overflow:auto;max-height:640px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--s0);white-space:nowrap}
+th{background:var(--crust);position:sticky;top:0;z-index:2;font-weight:600;color:var(--sub);font-size:11.5px}
+tbody tr:hover{background:rgba(0,0,0,.03)}
+td.num,th.num{text-align:right}
+.small{font-size:11px;color:var(--ov0)}
+.wrap{white-space:normal;max-width:390px}
+.tag{display:inline-block;padding:1.5px 9px;border-radius:11px;font-size:11px;font-weight:600}
+.t-follow_up{background:#fdeef1;color:var(--red)}
+.t-follow_down{background:#e8f6ee;color:var(--green)}
+.t-hold{background:var(--s0);color:var(--ov0)}
+.t-blocked{background:#fff6e5;color:var(--yellow)}
+.t-sug-up{background:#fff1e8;color:var(--peach)}
+.t-sug-down{background:#e9f2f9;color:var(--sky)}
+.up{color:var(--red)} .dn{color:var(--green)}
+
+/* ===== 2026-10-06 · AION2 金币汇总表易用化 =====
+   需求（用户原话）：「看板看起来太费劲了，给表头冻结一下，最好按区搞点筛选」。
+   实现：① 表格放进 72vh 的滚动容器 ⇒ 原有的 th{position:sticky} 才真正生效
+        （原来容器写的是 max-height:none，sticky 表头等于没开）；
+        ② 第一列（服务区）也横向冻结，横滚时不丢「这是哪台服务器」；
+        ③ 顶部一排筛选：大区下拉 / 服务器搜索 / 只看亏损 / 只看有变动。
+   ⚠ 筛选控件**必须放在表格容器之外**（#gcsTable 每次重绘换 innerHTML），
+     否则在搜索框里输一个字就会失焦。 */
+.gcs-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.gcs-bar select,.gcs-bar input[type=text]{background:var(--mantle);border:1px solid var(--s2);
+  color:var(--text);border-radius:7px;padding:5px 9px;font-size:12.5px;font-family:inherit}
+.gcs-bar input[type=text]{min-width:200px}
+.gcs-bar label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--sub);
+  background:var(--s0);border-radius:7px;padding:5px 9px;cursor:pointer;user-select:none}
+.gcs-bar label input{margin:0}
+.gcs-bar .gcs-cnt{font-size:12px;color:var(--ov0);margin-left:auto;white-space:nowrap}
+.gcs-bar .gcs-btn{background:var(--mantle);border:1px solid var(--s2);color:var(--sub);
+  border-radius:7px;padding:5px 10px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.gcs-wrap{overflow:auto;max-height:72vh;border:1px solid var(--s1);border-radius:9px}
+.gcs-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.gcs-wrap th,.gcs-wrap td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--s0);
+  white-space:nowrap}
+.gcs-wrap thead th{position:sticky;top:0;z-index:3;background:var(--crust);color:var(--sub);
+  font-size:11.5px;font-weight:600;box-shadow:inset 0 -1px 0 var(--s1)}
+.gcs-wrap thead th:first-child{left:0;z-index:4}
+.gcs-wrap th:first-child,.gcs-wrap td:first-child{position:sticky;left:0;background:var(--base);
+  box-shadow:1px 0 0 var(--s1)}
+.gcs-wrap tbody tr:hover td{background:#f0f0f3}
+.gcs-wrap tbody tr:hover td:first-child{background:#f0f0f3}
+.gcs-empty{padding:22px;text-align:center;color:var(--ov0);font-size:13px}
+
+/* 日志（2026-09-24 第十五轮：从右侧边栏改为整宽独立一行，高度相应收窄） */
+.logbox{height:420px;overflow:auto;background:var(--crust);padding:11px 13px;font-size:12px;
+  line-height:1.65;font-family:"Cascadia Mono",Consolas,monospace;border-radius:0 0 11px 11px}
+.logbox .ln{white-space:pre-wrap;word-break:break-all;color:var(--sub)}
+.logbox .ln.hi{color:var(--text)}
+.logbox .ln.err{color:var(--red)}
+.logbox .ln.ok{color:var(--green)}
+.logbox .ln.warn{color:var(--yellow)}
+.logbox .ln.dim{color:var(--ov0)}
+.loghead{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--s0);font-size:12px;flex-wrap:wrap}
+/* ⚠ .st 只放「空的状态圆点」（见 #logSt），给它的 width 是 8px ——
+   千万别往里面写文字，会一个字一行竖起来（2026-09-25 修 #localSt 踩过）。
+   带文字的状态请用上面的 .badge（.badge.on / .badge.err）。 */
+.st{width:8px;height:8px;border-radius:50%;background:var(--ov0);flex:none;display:inline-block}
+.st.run{background:var(--yellow);animation:pulse 1.5s infinite}
+.st.done{background:var(--green)}
+.st.error{background:var(--red)}
+
+.modal{position:fixed;inset:0;background:rgba(255,255,255,.72);display:none;align-items:center;
+  justify-content:center;z-index:200;padding:20px}
+.modal.show{display:flex}
+.modal .box{background:var(--mantle);border:1px solid var(--s1);border-radius:13px;padding:22px;
+  max-width:470px;width:100%}
+.modal h3{margin:0 0 10px;font-size:16px}
+.modal input{width:100%;background:var(--crust);border:1px solid var(--s1);color:var(--text);
+  border-radius:7px;padding:9px;font-size:14px;margin-top:6px;font-family:inherit}
+.note{background:rgba(0,113,227,.07);border-left:3px solid var(--blue);padding:9px 13px;
+  border-radius:0 7px 7px 0;font-size:12.5px;color:var(--sub);margin:0 0 13px}
+.warnbox{background:rgba(178,80,0,.07);border-left:3px solid var(--yellow);padding:9px 13px;
+  border-radius:0 7px 7px 0;font-size:12.5px;color:var(--sub);margin:0 0 13px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--s1);
+  color:var(--text);padding:10px 20px;border-radius:9px;font-size:13px;z-index:300;
+  opacity:0;transition:.25s;pointer-events:none;box-shadow:0 6px 22px rgba(16,24,40,.18)}
+.toast.show{opacity:1;bottom:32px}
+.toast.err{background:#fdeef1;color:var(--red)}
+.toast.ok{background:#e8f6ee;color:var(--green)}
+
+/* ===== 2026-09-23 统一亮色主题（与 /dashboard/ 经营数据看板同一套令牌）===== */
+header{-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.panel,section.panel{box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -14px rgba(16,24,40,.12)}
+/* --crust 原为最深面板底，为让「强调色底上的反白文字」成立已映射为 #fff，
+   下面几处「深色块」用途需单独给浅灰，避免整块变纯白没层次 */
+th{background:#fafafa}
+.logbox{background:#fafafa;border:1px solid #f2f2f5;border-top:0}
+.modal .box{box-shadow:0 30px 80px -30px rgba(16,24,40,.35),0 2px 8px rgba(16,24,40,.08)}
+.modal .box.wide{max-width:780px}
+
+/* ===== 2026-09-24 第十五轮：悬浮目录（快速跳转各模块）===== */
+.toc{position:fixed;right:13px;top:50%;transform:translateY(-50%);z-index:80;
+  display:flex;flex-direction:column;gap:1px;padding:7px 6px;
+  background:rgba(255,255,255,.82);border:1px solid var(--s1);border-radius:13px;
+  -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+  box-shadow:0 12px 34px -14px rgba(16,24,40,.3)}
+.toc .toc-t{font-size:10px;color:var(--ov0);letter-spacing:1.4px;padding:1px 8px 5px;
+  border-bottom:1px solid var(--s0);margin-bottom:4px}
+.toc a{display:flex;align-items:center;gap:7px;text-decoration:none;color:var(--sub);
+  font-size:12px;padding:5px 8px;border-radius:8px;white-space:nowrap;transition:.15s;line-height:1.2}
+.toc a .i{width:14px;text-align:center;font-size:10.5px;color:var(--ov0);flex:none;transition:.15s}
+.toc a .t{max-width:0;overflow:hidden;transition:max-width .22s ease,opacity .22s ease;opacity:0;display:inline-block}
+.toc:hover a .t{max-width:120px;opacity:1}
+.toc a:hover{background:var(--s0);color:var(--text)}
+.toc a.on{background:rgba(0,113,227,.1);color:var(--blue);font-weight:600}
+.toc a.on .i{color:var(--blue)}
+#sec-ctl,#sec-follow,#sec-log,#sec-local{scroll-margin-top:76px}
+/* 给右侧悬浮目录留一条「走廊」，否则目录会压住主表最后一列（原因 / 依据）。
+   只在目录可见的宽度区间生效（≤1120px 时目录隐藏，不留空白）。 */
+@media(min-width:1121px){main{padding-right:68px}}
+@media(max-width:1120px){.toc{display:none}}
+
+/* ===== 跟价范围 v3（2026-09-24 第十轮）=====
+   ① 所有游戏卡**宽度固定**（不再随内容伸缩）；② 组内物品**单列竖排**；
+   ③ 顶部改成「游戏筛选」**下拉**（勾选需要展示的游戏）；④ 勾选状态与跟价开关一并存服务器。
+   2026-09-24 第十五轮：卡片固定 330×500，卡内超出走纵向滚动条；
+   卡片总宽超出浏览器宽度时，游戏区整体走横向滚动条。 */
+.fbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:11px 16px 0}
+.fdd{position:relative;display:inline-block}
+.fddbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--s1);background:var(--crust);
+  border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
+  color:var(--text);transition:.15s}
+.fddbtn:hover{border-color:var(--s2)}
+.fddbtn .n{font-size:11px;color:var(--ov0)}
+.fddbtn .car{font-size:10px;color:var(--ov0)}
+.fddmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:252px;display:none;
+  background:var(--crust);border:1px solid var(--s1);border-radius:10px;padding:6px;
+  box-shadow:0 18px 44px -18px rgba(16,24,40,.35),0 2px 8px rgba(16,24,40,.08)}
+.fddmenu.show{display:block}
+.pkitem{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;
+  cursor:pointer;font-size:12.5px;user-select:none;transition:.13s}
+.pkitem:hover{background:var(--s0)}
+.pkitem input{appearance:none;width:16px;height:16px;border:1.5px solid var(--s2);border-radius:5px;
+  position:relative;cursor:pointer;flex:none;margin:0;background:var(--crust);transition:.15s}
+.pkitem:hover input{border-color:var(--ov0)}
+.pkitem input:checked{background:var(--blue);border-color:var(--blue)}
+.pkitem input:checked::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8.5px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pkitem span{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pkitem i{font-style:normal;font-size:10.5px;color:var(--ov0);flex:none}
+/* 底部「全选 / 全不选」两个按钮（2026-09-24 第十五轮重做：带图标、分色、有按压反馈） */
+.pkacts{display:flex;gap:7px;border-top:1px solid var(--s0);margin-top:7px;padding:8px 5px 2px}
+.pkbtn{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  border:1px solid var(--s1);background:var(--crust);color:var(--sub);border-radius:8px;
+  padding:6px 0;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;
+  letter-spacing:.2px;transition:.15s}
+.pkbtn svg{flex:none;display:block}
+.pkbtn:hover{box-shadow:0 2px 9px -5px rgba(16,24,40,.45)}
+.pkbtn:active{transform:translateY(1px);box-shadow:none}
+.pkbtn.all{color:var(--blue);border-color:#bcd8f7;background:#f2f8ff}
+.pkbtn.all:hover{background:#e6f2ff;border-color:var(--blue)}
+.pkbtn.none{color:var(--sub);border-color:var(--s1);background:#fbfbfd}
+.pkbtn.none:hover{background:var(--s0);border-color:var(--s2);color:var(--text)}
+
+/* 游戏卡片：固定 330 × 500，卡内纵向滚动 */
+.gwrap{display:flex;flex-wrap:nowrap;gap:11px;align-items:flex-start;
+  overflow-x:auto;overflow-y:hidden;padding:0 2px 11px;
+  scrollbar-width:thin;scrollbar-color:var(--s2) var(--s0)}
+.gwrap::-webkit-scrollbar{height:11px}
+.gwrap::-webkit-scrollbar-track{background:var(--s0);border-radius:6px}
+.gwrap::-webkit-scrollbar-thumb{background:var(--s2);border-radius:6px;border:2px solid var(--s0)}
+.gwrap::-webkit-scrollbar-thumb:hover{background:var(--ov0)}
+.gcol{flex:0 0 330px;width:330px;height:500px;display:flex;flex-direction:column;
+  border:1px solid var(--s0);border-radius:11px;overflow:hidden;background:var(--crust)}
+.gc-h{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(0,0,0,.025);flex:none}
+.gc-h .gi{font-size:15px;line-height:1;flex:none}
+.gc-h .gt{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+.gc-h .gt b{font-size:12.5px;white-space:nowrap}
+.gc-h .gt i{font-style:normal;font-size:10.5px;color:var(--ov0);letter-spacing:.2px;white-space:nowrap}
+.gc-h .gm{margin-left:auto;font-size:10.5px;color:var(--ov0);flex:none}
+.gc-h .gb{display:flex;gap:5px;flex:none}
+.gc-h .gb button{padding:1px 7px;font-size:10.5px;border-radius:6px}
+.gbody{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
+  overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--s2) transparent}
+.gbody::-webkit-scrollbar{width:9px}
+.gbody::-webkit-scrollbar-track{background:transparent}
+.gbody::-webkit-scrollbar-thumb{background:var(--s2);border-radius:5px;border:2px solid var(--crust)}
+.gbody::-webkit-scrollbar-thumb:hover{background:var(--ov0)}
+.gitem{display:flex;align-items:flex-start;gap:9px;padding:7px 11px;cursor:pointer;
+  border-top:1px solid var(--s0);transition:.13s;flex:none}
+.gbody>.gitem:first-child{border-top:0}
+.gitem:hover{background:rgba(0,0,0,.022)}
+.gitxt{display:flex;flex-direction:column;min-width:0;line-height:1.4}
+.gitxt b{font-size:12.5px;font-weight:500;white-space:normal;word-break:break-word}
+.gitxt b .pk{color:var(--ov0);font-weight:400;font-size:11px}
+.gitxt i{font-style:normal;font-size:10.5px;color:var(--ov0);
+  white-space:normal;word-break:break-word}
+.gitem.off .gitxt b{color:var(--ov0);font-weight:400}
+.gitem .gsm{position:relative;flex:none;width:34px;height:19px;border-radius:11px;background:var(--s2);
+  transition:.18s;margin-top:2px}
+.gitem .gsm::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.24);transition:.18s}
+.gitem.on .gsm{background:var(--blue)}
+.gitem.on .gsm::after{transform:translateX(15px)}
+/* 金币服务区的格子：左侧金色内阴影，和物品一眼区分（内阴影不改尺寸，不会顶掉布局） */
+.gitem.gold{box-shadow:inset 2px 0 0 var(--yellow)}
+.gempty{padding:10px 11px;font-size:11.5px;color:var(--ov0);line-height:1.5}
+.gcol.res .gc-h{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f4f4f6 6px,#f4f4f6 12px)}
+.histtable{width:100%;border-collapse:collapse;font-size:12px}
+.histtable th,.histtable td{padding:6px 9px;border-bottom:1px solid var(--s1);
+  text-align:left;white-space:nowrap}
+.histtable th{background:#fafafa;font-weight:600;position:sticky;top:0}
+.note,.warnbox{border-radius:0 7px 7px 0}
+/* ===== 2026-09-25：金币明细 / 跟价主表「按游戏分区」=====
+   一个游戏一段：段标题（图标+游戏名+机制+条数）+ 一段自己的表。
+   以后新增游戏只要在 config 的 商品映射.游戏字典 登记一条、给商品打上「游戏」
+   标签，这里会自动多一段，不用改前端。 */
+.gsec{display:flex;align-items:center;gap:8px;margin:15px 0 7px;padding-left:9px;
+  border-left:3px solid var(--blue);font-size:13px;font-weight:600}
+.gsec.first{margin-top:3px}
+.gsec .gi{display:inline-flex;align-items:center;justify-content:center;
+  min-width:19px;height:19px;border-radius:6px;font-size:12px;background:var(--s0)}
+.gsec .mech{font-weight:400;font-size:11px;color:var(--ov0);background:var(--s0);
+  border-radius:9px;padding:1.5px 8px;white-space:nowrap}
+.gsec .hint{margin-left:auto;font-weight:400;font-size:11.5px;color:var(--ov0)}
+.gbox{border:1px solid var(--s0);border-radius:9px;overflow:auto;background:var(--mantle)}
+.gbox table{width:100%;border-collapse:collapse;font-size:12.5px}
+.gempty{padding:14px 16px;color:var(--ov0);font-size:12px}
+/* ===== 2026-09-25 第十八轮：游戏入口卡片（一个游戏一个大入口）=====
+   痛点：游戏一多，「跟价范围 + 道具监控 + 金币监控」全平铺，上下翻半天也找不到。
+   做法：② 面板改成「游戏监控台」——顶层只放**游戏入口卡**（卡上带摘要：道具条数 /
+   待改数 / 开关进度），点哪张卡才展开哪张卡的内容，一次只看一个游戏。
+   以后新增游戏 = 自动多一张卡，页面长度不变（卡片是网格，会自动换行）。 */
+/* 2026-10-09：一排放 4 张卡（原来按 258px 自适应，宽屏只排 4~5 张且卡高不齐）。
+   固定 4 列 + 窄屏降级 ⇒ 每张卡宽度稳定、留得出位置放「采集周期 / 上次采集 / 待改」等信息。 */
+.gates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;padding:12px 16px 2px}
+@media(max-width:1240px){.gates{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:940px){.gates{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.gates{grid-template-columns:1fr}}
+.gtile{position:relative;display:flex;flex-direction:column;gap:7px;width:100%;min-width:0;
+  border:1px solid var(--s1);border-radius:12px;background:var(--crust);
+  padding:11px 13px 10px 15px;cursor:pointer;font-family:inherit;font-size:13px;
+  text-align:left;color:var(--text);transition:.16s;overflow:hidden;appearance:none}
+.gtile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gc,var(--blue))}
+.gtile:hover{border-color:var(--s2);box-shadow:0 12px 26px -16px rgba(16,24,40,.45)}
+.gtile.on{border-color:var(--gc,var(--blue));background:#fbfcff;
+  box-shadow:0 0 0 2px var(--gca,rgba(0,113,227,.18)),0 10px 24px -16px rgba(16,24,40,.4)}
+.gtile.res{opacity:.74}
+.gtile.res::before{background:var(--s2)}
+.gt-row{display:flex;align-items:center;gap:9px;min-width:0}
+.gt-i{width:27px;height:27px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;line-height:1;flex:none;background:var(--s0)}
+.gt-n{display:flex;flex-direction:column;line-height:1.3;min-width:0;flex:1 1 auto}
+.gt-n b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-n i{font-style:normal;font-size:10.5px;color:var(--ov0);letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-bdg{flex:none;font-size:11px;font-weight:700;border-radius:7px;padding:2px 7px;
+  background:var(--s0);color:var(--ov0);white-space:nowrap}
+.gt-bdg.up{background:#fdeef1;color:var(--red)}
+.gt-bdg.dn{background:#eaf7f0;color:var(--green)}
+.gt-bdg.mix{background:#fff4e5;color:var(--peach)}
+.gt-meta{display:flex;gap:11px;font-size:11.5px;color:var(--sub);white-space:nowrap}
+.gt-meta b{color:var(--text);font-weight:600}
+.gt-ft{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--ov0);white-space:nowrap}
+.gt-pb{flex:1 1 auto;height:4px;border-radius:3px;background:var(--s1);overflow:hidden;min-width:26px}
+.gt-pb i{display:block;height:100%;background:var(--gc,var(--blue));border-radius:3px;transition:width .3s}
+.gt-go{flex:none;font-weight:600;color:var(--blue)}
+.gtile.on .gt-go{color:var(--ov0)}
+#gateTip{padding:10px 16px 15px}
+
+/* 展开的详情区（一次只有一个游戏） */
+.gdetail{margin:12px 16px 16px;border:1px solid var(--s1);border-radius:12px;
+  overflow:hidden;background:var(--crust)}
+.gdetail.hide{display:none}
+.gdetail:not(.hide){animation:gdIn .22s ease}
+@keyframes gdIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.gd-h{display:flex;align-items:center;gap:10px;padding:9px 14px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.012));
+  border-bottom:1px solid var(--s0);border-left:3px solid var(--gc,var(--blue))}
+.gd-h .gd-i{width:27px;height:27px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:14px;line-height:1;flex:none;background:var(--s0)}
+.gd-h .gd-n{font-size:13.5px;font-weight:600;line-height:1.25}
+.gd-h .gd-n i{font-style:normal;font-size:10.5px;color:var(--ov0);font-weight:400;margin-left:6px;letter-spacing:.3px}
+.gd-h .gd-meta{font-size:11.5px;color:var(--sub)}
+.gd-h .gd-x{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.gd-h .gd-x button.btn{padding:4px 11px;font-size:11.5px}
+.gd-b{padding:3px 14px 13px}
+.gd-sec{padding-top:13px}
+.gd-sec+.gd-sec{border-top:1px dashed var(--s1)}
+.gd-t{margin:0 0 8px;font-size:12.5px;font-weight:600;display:flex;align-items:center;
+  gap:8px;flex-wrap:wrap}
+.gd-t .mech{font-weight:400;font-size:11px;color:var(--ov0);background:var(--s0);
+  border-radius:9px;padding:1.5px 8px}
+.gd-t .num{font-weight:400;font-size:11.5px;color:var(--ov0)}
+.gd-t .sub{font-weight:400;font-size:11.5px;color:var(--ov0)}
+.gd-t button.gd-mini{padding:2px 9px;font-size:11px;border-radius:7px;margin-left:6px}
+/* 详情里的跟价开关：不再是 330×500 的固定卡，铺满整行、卡内走多列网格 */
+.gdetail .gwrap{flex-wrap:wrap;overflow:visible;padding:0}
+.gdetail .gcol{flex:1 1 100%;width:auto;height:auto}
+.gdetail .gbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:7px;padding:3px;max-height:392px;overflow-y:auto;overflow-x:hidden;align-content:start}
+.gdetail .gitem{border:1px solid var(--s0);border-radius:9px;padding:7px 10px}
+.gdetail .gbody>.gitem:first-child{border-top:1px solid var(--s0)}
+.gdetail .gitem:hover{border-color:var(--s2);background:#fbfbfd}
+
+/* 货架自检告警条（2026-10-01） */
+#shelfBar:empty{display:none}
+#shelfBar{margin:0 0 14px}
+#shelfBar .sb{background:#fff8f0;border:1px solid #f0c9a0;border-left:4px solid var(--peach);
+  border-radius:10px;padding:11px 14px;margin-bottom:10px}
+#shelfBar .sb.err{background:#fdeaea;border-color:#f0b4b4;border-left-color:var(--red)}
+#shelfBar .sb h4{margin:0 0 7px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+#shelfBar .sb ul{margin:0;padding-left:18px;font-size:13px;color:var(--sub);line-height:1.7}
+#shelfBar .sb li b{color:var(--text)}
+#shelfBar .sb .hint{margin-top:8px;font-size:12px;color:var(--ov0)}
+/* ===== 2026-10-08 · 面板折叠（④ 改动记录：默认收起，用时再展开）=====
+   原先 .logbox 固定 420px 高，即使一行日志都没有也占着半屏（用户反馈「留空很大」）。
+   现在整段默认 collapsed：只留标题行（带行数计数），点标题展开 / 收起；
+   任务一启动（subscribe）自动展开 —— 「用的时候出来，不用的时候叠起来」。 */
+.panel.collapsed>.logbox{display:none}
+/* 展开但还没日志时不要留一个 420px 的大空盒子 */
+.logbox:empty{height:104px;display:flex;align-items:center}
+.logbox:empty::before{content:"暂无日志 —— 点上方「立即采集 / 重算看板」等按钮，运行过程会实时输出到这里。";
+  color:var(--ov0);font-size:12px;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+.panel>h2.h2click{cursor:pointer;user-select:none}
+.panel>h2.h2click:hover{background:rgba(0,0,0,.045)}
+.caret{display:inline-block;transition:transform .18s ease;color:var(--ov0);font-size:11px}
+.panel.collapsed>.h2click .caret{transform:rotate(-90deg)}
+/* 详情区里「不属于当前游戏」的区块直接不占位（每个游戏一个独立看板） */
+.gd-sec.hide{display:none}
+
+/* ===== 2026-10-08 · 控制台动作按钮分组（按钮多但要有层次才好看）=====
+   8 个按钮按用途分到 4 组：参数 / 数据 / 演练 / 工单，每组一个竖标签 + 细虚线分隔。
+   工单组用暖色边框区分（这是唯一会真正写入后台的一组，视觉上要「重」一点）。 */
+.ctlgroups{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.actgrp{display:flex;align-items:center;gap:9px;border:1px solid var(--s1);border-radius:12px;
+  background:linear-gradient(180deg,#fcfcfe,#f6f6f9);padding:7px 10px 7px 12px}
+.actgrp>label{font-size:10.5px;letter-spacing:.6px;font-weight:700;color:var(--ov0);
+  padding-right:10px;border-right:1px dashed var(--s2);white-space:nowrap;flex:none}
+.actgrp .btns{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.actgrp.ticket{border-color:#f2ccd4;background:linear-gradient(180deg,#fffafa,#fdf0f3)}
+.actgrp.ticket>label{color:var(--red)}
+@media(max-width:640px){.actgrp>label{border-right:0;padding-right:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>RPG 游戏改价系统</h1>
+  <div class="badges" id="badges"></div>
+</header>
+
+<nav class="toc" id="toc" aria-label="模块目录">
+  <div class="toc-t">目录</div>
+  <a href="#sec-ctl"    data-to="sec-ctl"><span class="i">①</span><span class="t">控制台</span></a>
+  <a href="#sec-follow" data-to="sec-follow"><span class="i">②</span><span class="t">游戏监控台</span></a>
+  <a href="#sec-log"    data-to="sec-log"><span class="i">③</span><span class="t">改动记录</span></a>
+  <a href="#sec-local"  data-to="sec-local"><span class="i">④</span><span class="t">执行器</span></a>
+</nav>
+
+<div id="shelfBar"></div>
+<main>
+  <section class="panel" id="sec-ctl">
+    <h2>① 控制台</h2>
+    <div class="pad">
+      <div class="ctl">
+        <div class="master" id="masterBar">
+          <div class="swcell" id="swMaster" onclick="setSwitch('master')"
+               title="系统总开关：关闭 = 拦截一切改价（手动放行、自动跟价都改不了）；开启 = 允许改价">
+            <span class="swpill"></span>
+            <span class="swtxt"><b>系统总开关</b><span id="swMasterSub">…</span></span>
+            <span class="swst" id="swMasterSt">关闭</span>
+          </div>
+          <div class="swcell" id="swAuto" onclick="setSwitch('auto')"
+               title="自动跟价：开启 = 采集后自动算并出工单；关闭 = 只出计划，人工点「生成改价工单」">
+            <span class="swpill"></span>
+            <span class="swtxt"><b>自动跟价</b><span id="swAutoSub">…</span></span>
+            <span class="swst" id="swAutoSt">关闭</span>
+          </div>
+        </div>
+        <div class="ctlrow">
+          <span class="ctlrow-n">跟价开关</span>
+          <div class="toggles" id="toggles"></div>
+        </div>
+        <div class="ctlrow">
+          <span class="ctlrow-n">运行参数</span>
+          <div class="prow" id="params"></div>
+        </div>
+        <div class="ctlgroups" id="ctlBar">
+          <div class="actgrp">
+            <label>参数</label>
+            <div class="btns">
+              <button class="btn primary" id="btnSave" onclick="saveParams()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2h8l2 2v10H3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 2v3.5h5V2M5.5 14v-4h5v4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>保存参数</button>
+            </div>
+          </div>
+          <div class="actgrp">
+            <label>数据</label>
+            <div class="btns">
+              <button class="btn ghost" onclick="loadState()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13.3 2.2v3.2H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>刷新数据</button>
+              <button class="btn" onclick="runTask('collect',{force:true})" title="立即采集：忽略各游戏的采集周期，全部游戏马上全量跑一遍（只是查价，真偏离才会改价）"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.6 1.5 3.3 9h3.6l-.5 5.5L12.7 7H9.1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>立即采集</button>
+              <button class="btn" onclick="runTask('rebuild')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 13.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="2.4" height="4" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="7" y="5" width="2.4" height="7" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="10.5" y="9.5" width="2.4" height="2.5" rx=".6" stroke="currentColor" stroke-width="1.3"/></svg>重算看板</button>
+            </div>
+          </div>
+          <div class="actgrp">
+            <label>演练</label>
+            <div class="btns">
+              <button class="btn" onclick="simulate()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.3 2h3.4M7 2v4.2L4.1 11.6A1.6 1.6 0 0 0 5.5 14h5a1.6 1.6 0 0 0 1.4-2.4L9 6.2V2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.2 10.4h5.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>模拟跟价</button>
+              <button class="btn" onclick="runTask('plan')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.2" y="2.8" width="9.6" height="11" rx="1.6" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7h4.8M5.6 9.6h3.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>改价计划 DRY-RUN</button>
+            </div>
+          </div>
+          <div class="actgrp ticket">
+            <label>工单</label>
+            <div class="btns">
+              <button class="btn danger" id="btnApply" onclick="openApply()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 4.5h11v2.2a1.3 1.3 0 0 0 0 2.6v2.2h-11v-2.2a1.3 1.3 0 0 0 0-2.6z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="M9.6 4.5v7" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.8 1.6"/></svg>生成改价工单</button>
+              <button class="btn danger" id="btnGoldApply" onclick="openGoldApply()"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.4" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.2v5.6M6.4 6.6h2.6a1.1 1.1 0 0 1 0 2.2H6.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>生成金币工单</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel ov" id="sec-follow">
+    <h2>② 游戏监控台
+      <span class="hint" style="margin-left:auto;display:flex;gap:7px;align-items:center">
+        <span id="followSum"></span>
+        <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="followAll(true)">全部跟价</button>
+        <button class="btn ghost" style="padding:3px 10px;font-size:11.5px" onclick="followAll(false)">全部停跟</button>
+        <button class="btn primary" id="btnSched" onclick="saveSchedule()" disabled
+                style="padding:3px 11px;font-size:11.5px"
+                title="改完卡片里的「采集周期」后点这里保存到服务器（有未保存改动时会闪）">保存周期</button>
+      </span>
+    </h2>
+    <div class="fbar" id="followBar"></div>
+
+    <!-- 顶层只放「游戏入口卡」：卡上带摘要（道具条数 / 待改数 / 开关进度），
+         不点进去也能一眼看全局。点哪张卡才展开哪张卡的内容。
+         加游戏 = 自动多一张卡（网格自动换行），页面长度不跟着涨。 -->
+    <div class="gates" id="gameGates"></div>
+    <div class="gempty" id="gateTip">点一张游戏卡进入 —— 里面是这个游戏的<b>关键指标</b>、<b>道具监控</b>与<b>金币监控</b>；卡片右下角可直接改该游戏的<b>采集周期</b>。</div>
+
+    <div class="gdetail hide" id="gameDetail">
+      <div class="gd-h" id="gdHead"></div>
+      <div class="gd-b">
+        <!-- 2026-10-09：原全局「关键指标」面板下线，指标下沉到这里 —— 点开哪个游戏看哪个游戏的指标。
+             指标项按该游戏**实际有的数据**动态出（没金币就不出金币卡、没负毛利就不出负毛利卡、
+             没配采集周期就不出周期卡），所以不同游戏的指标是可以不一样的。 -->
+        <div class="gd-sec" id="secKpiWrap">
+          <h4 class="gd-t">关键指标 <span class="num" id="kpiGameSum" style="margin-left:auto"></span></h4>
+          <div class="kpis" id="gameKpis"></div>
+        </div>
+        <div class="gd-sec">
+          <h4 class="gd-t" id="followHead">跟价范围
+            <span class="sub" id="followHint" style="margin-left:auto">点一下格子 = 开 / 关这个商品的跟价</span>
+            <button class="btn ghost gd-mini" id="followToggle" onclick="toggleFollowBox()">收起</button></h4>
+          <div id="follow"></div>
+        </div>
+        <div class="gd-sec" id="secPropWrap">
+          <h4 class="gd-t" id="mainHead">道具监控 <span class="num" id="mainSum" style="margin-left:auto"></span></h4>
+          <div id="mainBlocks"></div>
+        </div>
+        <div class="gd-sec" id="secGoldWrap">
+          <h4 class="gd-t" id="goldHead">金币监控
+            <span class="mech" id="goldMech"></span>
+            <span class="num" id="goldSum"></span>
+            <span class="sub" id="goldTs" style="margin-left:auto"></span></h4>
+          <div id="goldBlocks"></div>
+          <!-- 2026-10-02 新增：售价 / 进货成本 / 利润率 汇总区（只读监控） -->
+          <div id="goldCostSum"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel collapsed" id="sec-log">
+    <h2 class="h2click" onclick="toggleLog()"
+        title="改动记录默认收起；点这里展开 / 收起（任务运行时自动展开）">③ 改动记录
+      <span style="display:flex;gap:8px;align-items:center">
+        <span class="st" id="logSt"></span>
+        <span class="small" id="logTitle"></span>
+        <span class="small" id="logMeta"></span>
+      </span>
+      <span class="hint" style="display:flex;gap:9px;align-items:center">
+        <span class="small" id="logCount"></span>
+        <button class="btn ghost" style="padding:3px 10px;font-size:11.5px"
+                onclick="event.stopPropagation();clearLog()">清空</button>
+        <span class="caret" id="logCaret">▾</span>
+      </span>
+    </h2>
+    <div class="logbox" id="log"></div>
+  </section>
+
+  <section class="panel" id="sec-local">
+    <h2>④ 执行器（服务器 / 本机）
+      <span class="badge off" id="localBadge"><span class="dot"></span><span id="localSt">读取中…</span></span>
+      <span class="hint" id="localTs"></span>
+    </h2>
+    <div class="pad">
+      <div id="execMode"></div>
+      <div class="warnbox" id="localHint" style="margin-top:8px">正在读取执行器状态…</div>
+      <div id="localJobs" style="margin-top:10px"></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="histModal">
+  <div class="box wide">
+    <h3 id="histTitle">价格历史</h3>
+    <div class="small" style="margin-bottom:10px" id="histSub"></div>
+    <div id="histBody" style="max-height:56vh;overflow:auto"></div>
+    <div class="acts" style="justify-content:flex-end">
+      <button class="btn ghost" onclick="closeHist()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3 id="modalTitle">生成改价工单（服务器算 · 服务器执行）</h3>
+    <div class="warnbox">这里只负责<b>算准该改什么并生成工单</b>，真正的写请求由执行方发。默认执行方是<b>服务器自己</b>（新机 IP 已在 order.p2pah.cn 白名单内；看板「④ 执行器」段可切换成「本机执行」）。请确认已看过「改价计划 DRY-RUN」的输出。</div>
+    <div class="warnbox" style="background:#eaf4ff;border-color:#b9dcff"><b>工单生成后自动派给执行方</b>（执行器在跑就自动执行：写价 → 复核 → 清缓存）。<br>执行器不在线也没关系，工单会<b>排队等待，不会丢单</b>；也可在看板把单改成另一种执行方式，或手工跑：<br><code>python p2pah_local.py write --plan "&lt;工单文件&gt;" --confirm</code></div>
+    <div id="applyInfo" class="small" style="margin-bottom:9px"></div>
+    <label class="small">请输入确认短语：<b>确认改价</b></label>
+    <input id="confirmInput" placeholder="确认改价" autocomplete="off">
+    <div class="acts" style="justify-content:flex-end">
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn danger" onclick="doApply()">生成工单</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const RATE_DEFAULT = 6.65;
+let STATE = null, CUR_TASK = null, ES = null;
+const D = {};   // 未保存的改动
+/* ---------- 字段定义 ---------- */
+const TOGGLES = [
+  {p:'跟价.方向.对方涨价',          t:'自动跟涨',    d:'竞品涨价，我方同向跟涨'},
+  {p:'跟价.方向.对方降价',          t:'自动跟跌',    d:'竞品降价，我方同向跟跌'},
+  {p:'跟价.缓存刷新.自动刷新',       t:'自动缓存',    d:'改价后自动清缓存，前端立即生效'},
+  {p:'前端.服务器直连',             t:'服务器直连抓我方价', d:'开：服务器每次采集自己抓我方价'},
+  {p:'千岛.服务器抓取',             t:'服务器直连抓千岛',   d:'开：成本快照过期时服务器自己抓'}
+];
+const PARAMS = [
+  {p:'跟价.跟随策略.让价百分比', t:'让价 (%)', type:'num', step:1,
+   d:'我方前端价（客户实付）= IGGM 当前价 ×(1−该%)。5 = 始终比竞品低 5%'},
+  {p:'金币.让价百分比', t:'金币让价 (%)', type:'num', step:1,
+   d:'金币同理：我方前端每M价 = IGGM 每M价 ×(1−该%)'},
+  {p:'跟价.跟随策略.最低毛利率', t:'成本地板 · 最低毛利 (%)', type:'num', step:1, scale:100, d:'跌破就拦下，不许亏本跟'},
+  {p:'跟价.跟随策略.价格小数位', t:'价格小数位', type:'num', step:1, d:'前端显示精度'},
+  {p:'跟价.跟随策略.取整到', t:'取整到', type:'num', step:0.0001, d:'如 0.0001'},
+  {p:'汇率.USDCNY', t:'汇率 CNY/USD', type:'num', step:0.01, d:'你指定固定 6.65'},
+  {p:'前端.后台折扣', t:'后台折扣 (%)', type:'num', step:1,
+   d:'前端价 = 标价 × 该折扣，与 order 后台商品列表的「折扣」列保持一致'},
+  {p:'千岛.对标区服', t:'千岛对标区服', type:'text', wide:true, d:'进货成本取这个服的最低价'},
+  {p:'运行.采集间隔分钟', t:'采集间隔（分钟）', type:'num', step:5, d:'定时任务参考值'}
+];
+/* 2026-09-24 第十五轮：原「偏离纠正阈值 (%)」输入框已移除
+   —— 参数与引擎的「偏离纠正」触发一并下线，只在 IGGM 真变价时才评估。 */
+
+/* ---------- 工具 ---------- */
+const $ = s => document.querySelector(s);
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function usd(v){return v==null?'--':'$'+Number(v).toFixed(4);}
+function cny(v){return v==null?'--':'¥'+Number(v).toFixed(4);}
+function pct(v){return v==null?'--':(v*100).toFixed(1)+'%';}
+function actLabel(a){return {follow_up:'跟涨',follow_down:'跟降',hold:'仅观察',blocked:'已拦截'}[a]||a;}
+/* OFF 模式下引擎把动作降级成 hold（不动手），但 suggest 记着「该不该跟」，
+   单独标出来，否则看板上分不清「建议跟涨」和「真的不用动」。 */
+function actCell(r){
+  const a=r.action;
+  const sug = r.suggest==='follow_up'?'跟涨':(r.suggest==='follow_down'?'跟降':'');
+  if(a==='blocked'){
+    return '<span class="tag t-blocked" title="'+(sug?('本应'+sug+'，被安全闸拦下'):'被安全闸拦下')+'">已拦截</span>';
+  }
+  if(a==='hold' && sug){
+    return '<span class="tag t-sug-'+(r.suggest==='follow_up'?'up':'down')+'" title="开关=OFF，只给建议不执行">建议'+sug+'</span>';
+  }
+  return '<span class="tag t-'+a+'">'+actLabel(a)+'</span>';
+}
+
+/* ---------- 按游戏分区（2026-09-25）---------------------------------------
+   金币明细与跟价主表都按游戏切段，不再 D4 与 POE2 混在一张表里。
+   分组依据 = STATE.follow.games（服务器按 对照项.游戏 分好、且带 游戏顺序），
+   由 key 反查所属游戏 —— 所以以后加游戏前端不用改。 */
+function gameSecs(){ return ((STATE&&STATE.follow&&STATE.follow.games)||[]).filter(g=>g.show!==false); }
+/* key → 所在游戏段（含金币服务区：它们挂在「挂载游戏」那一段的 items 里） */
+function key2sec(){
+  const m=new Map();
+  gameSecs().forEach(g=>(g.items||[]).forEach(it=>{ if(!m.has(it.key)) m.set(it.key,g); }));
+  return m;
+}
+/* 金币行判定：① 挂载游戏的金币服务区（GOLD_S15_SC …，带 gold:true）；
+   ② POE2 那种走「产品价格管理 Quick Gold」的普通商品（key 后缀 _GOLD）。
+   —— 两类都不是物品跟价那套「标价」机制（D4 改采购成本、POE2 改标价）。 */
+function isGoldKey(k){
+  return /_GOLD$/.test(String(k||''));
+}
+/* 把 rows 按游戏分组：返回 [{g, rows}]，顺序 = 跟价范围里的游戏顺序 */
+function groupByGame(rows){
+  const m=key2sec(), out=[], idx=new Map();
+  (rows||[]).forEach(r=>{
+    const g=m.get(r.key) || {name:'未分组',icon:'🎮',color:''};
+    const n=g.name||'未分组';
+    if(!idx.has(n)){ idx.set(n, out.length); out.push({g:g, rows:[]}); }
+    out[idx.get(n)].rows.push(r);
+  });
+  return out;
+}
+/* 段标题：图标 + 游戏名 + 机制标签 + 右侧统计。
+   2026-09-25 第十八轮改成「游戏入口卡」后，详情区一次只显示一个游戏、游戏名已在
+   详情头里，所以渲染时不再调用它（改用 .gd-t 小节标题）；函数与 .gsec 样式留档，
+   方便以后要做「全部游戏对照」视图时直接用。groupByGame() 同理。 */
+function secHead(g, mech, right, first){
+  const gd = (STATE&&STATE.follow&&STATE.follow.games||[]).find(x=>x.name===g.name) || g;
+  return '<div class="gsec'+(first?' first':'')+'" style="border-left-color:'
+    + (g.color||'var(--blue)')+'">'
+    + '<span class="gi" style="background:'+(g.color?g.color+'22':'var(--s0)')+'">'
+    + esc(g.icon||'🎮')+'</span>'+esc(g.name||'未分组')
+    + (mech?'<span class="mech">'+esc(mech)+'</span>':'')
+    + (right?'<span class="hint">'+right+'</span>':'')
+    + '</div>';
+}
+function secBody(thead, tbody, minH){
+  return '<div class="gbox" style="max-height:'+(minH||620)+'px"><table><thead>'+thead
+    +'</thead><tbody>'+tbody+'</tbody></table></div>';
+}
+/* 表行数少就整段铺开（按行数算 max-height 会把最后一行切一半） */
+function secH(n){ return n<=12 ? 640 : Math.min(680, 130+n*40); }
+/* 段内顺序统一用 **config 里的编排顺序**（=「跟价范围」里格子的顺序，用户能自己排）。
+   不能用库里的顺序：/api/gold 下发的是倒序、decisions 是按 key 的字母序
+   （POE2 会把 HC 夹在 FR 与 RoA 之间）。 */
+function keyRank(){
+  const m=new Map();
+  ((STATE&&STATE.follow&&STATE.follow.games)||[]).forEach(g=>(g.items||[]).forEach(it=>{
+    if(!m.has(it.key)) m.set(it.key, m.size);
+  }));
+  return m;
+}
+function sortByConfig(rows){
+  const R=keyRank();
+  return (rows||[]).slice().sort(function(a,c){
+    const x=R.has(a.key)?R.get(a.key):9e9, y=R.has(c.key)?R.get(c.key):9e9;
+    return x-y; });
+}
+
+/* ---------- 游戏入口 / 详情（2026-09-25 第十八轮）---------------------------
+   一个游戏一个大入口：顶层只渲染游戏卡（.gtile），点开才渲染该游戏的
+   「跟价范围 + 道具监控 + 金币监控」。目的：游戏加到七八个时，页面长度不跟着涨。
+   CUR_GAME = 当前展开的游戏名；null = 全部折叠（默认，只看入口）。 */
+let CUR_GAME = null;
+/* 2026-10-09：采集周期下沉到游戏卡后，未保存的改动先放这里（游戏名 → 小时）。
+   60s 自动刷新会重绘卡片，若不留这个"草稿"，用户正在选的值会被刷回服务器旧值。 */
+let SCHED_DIRTY = {};
+let GOLD_DATA = null;   // /api/gold 最近一次快照（入口卡上的金币待改数要用它）
+let GOLD_COST_DATA = null;  // /api/gold_cost 快照（售价/成本/利润率汇总区；renderGold 里清空）
+/* 2026-10-02：key → 最近一次真实调价（{时间,旧价,新价,幅度,依据}）。
+   renderGold 每轮从 /api/gold 的 items[].上次改价 建索引，供「售价·进货成本·利润率」
+   汇总区那张表复用（两张表同源，别再发一次请求）。 */
+let GOLD_ACTION_MAP = {};
+function actSplit(rows){
+  let u=0,d=0;
+  (rows||[]).forEach(r=>{ if(r.action==='follow_up')u++; else if(r.action==='follow_down')d++; });
+  return [u,d];
+}
+function actN(rows){ const s=actSplit(rows); return s[0]+s[1]; }
+function curGameObj(){
+  if(CUR_GAME==null) return null;
+  return gameSecs().find(g=>g.name===CUR_GAME) || null;
+}
+/* 一个游戏的各项计数 —— 入口卡摘要和详情头共用同一套口径，不会两边对不上 */
+function gStat(g){
+  const items=(g&&g.items)||[], rows=(STATE&&STATE.rows)||[], m=key2sec();
+  const mine=k=>m.get(k)===g;
+  const propItems  = items.filter(x=>!x.gold && !isGoldKey(x.key));
+  const goldTiles  = items.filter(x=>x.gold);                  // D4 型：金币服务区格子
+  const poeGold    = items.filter(x=>isGoldKey(x.key));        // POE2 型：Quick Gold 商品
+  const propRows   = rows.filter(r=>!isGoldKey(r.key) && mine(r.key));
+  /* 金币待改 = D4 的 /api/gold 行 + POE2 的 *_GOLD 决策行（两类来源不同，合起来算） */
+  const goldRows   = rows.filter(r=>isGoldKey(r.key) && mine(r.key))
+                     .concat(((GOLD_DATA&&GOLD_DATA.items)||[]).filter(r=>mine(r.key)));
+  const pu=actSplit(propRows), gu=actSplit(goldRows);
+  return {
+    propItems:propItems, goldTiles:goldTiles, poeGold:poeGold,
+    propN: propRows.length || propItems.length,
+    goldN: goldTiles.length + poeGold.length,
+    hasGold: (goldTiles.length + poeGold.length) > 0,
+    propUp:pu[0], propDn:pu[1], goldUp:gu[0], goldDn:gu[1],
+    up:pu[0]+gu[0], dn:pu[1]+gu[1],
+    onN: items.filter(x=>x.on).length, allN: items.length
+  };
+}
+function bdgHTML(s){
+  const u=s.up, d=s.dn;
+  if(!u && !d) return '<span class="gt-bdg">持平</span>';
+  const cls = (u&&d) ? 'mix' : (u?'up':'dn');
+  const txt = (u&&d) ? ('涨'+u+' 降'+d) : (u?('该涨 '+u):('该降 '+d));
+  return '<span class="gt-bdg '+cls+'">'+txt+'</span>';
+}
+/* 卡片底部的「采集周期」一行：把原来①控制台那一整块搬进每张卡（2026-10-09）。
+   ⚠ 卡片已从 <button> 改成 <div role="button"> —— <select> 不能嵌在 button 里
+     （HTML 不允许交互元素嵌套，点击还会误触发"进入游戏"）；
+     所以给这一行单独加 stopPropagation，点下拉不会把卡片展开/收起。 */
+function schedBoxHTML(g){
+  const sch=schedRec(g.name);
+  const dirty=(g.name in SCHED_DIRTY);
+  if(!sch && !dirty) return '';
+  const cur = dirty ? SCHED_DIRTY[g.name] : sch.周期小时;
+  const opts=(STATE&&STATE.schedule&&STATE.schedule.选项)||[1,3,6,12,24];
+  return '<span class="gt-sched'+(sch&&sch.到期?' due':'')+'"'
+    +' onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">'
+    +'<span class="gs-k">采集周期</span>'
+    +'<select class="schedsel'+(dirty?' dirty':'')+'" data-g="'+esc(g.name)+'"'
+      +' title="这个游戏「查价 + 改价」的间隔；改完点监控台右上「保存周期」存到服务器"'
+      +' onchange="markSched(this)">'
+      + opts.map(h=>'<option value="'+h+'"'+(Number(h)===Number(cur)?' selected':'')+'>'
+        +hourLabel(h)+'</option>').join('')
+    +'</select>'
+    +'<span class="gs-next" title="上次跑完：'+esc(fmtClock(sch&&sch.上次))
+      +'&#10;下次预计：'+esc(fmtClock(sch&&sch.下次))+'">'
+      +(sch&&sch.上次? ('上次 '+esc(fmtClock(sch.上次))) : '还没跑过')
+    +'</span></span>';
+}
+function gtileHTML(g){
+  const s=gStat(g), on=(g.name===CUR_GAME), c=g.color||'#0071e3';
+  const pc = s.allN ? Math.round(s.onN/s.allN*100) : 0;
+  const act = (s.up||s.dn)
+    ? '<span>待改 <b class="'+(s.up&&s.dn?'':(s.up?'up':'dn'))+'">'+(s.up+s.dn)+'</b></span>' : '';
+  return '<div class="gtile'+(on?' on':'')+(s.allN?'':' res')+'"'
+    +' data-g="'+esc(g.name)+'" role="button" tabindex="0"'
+    +' onclick="pickGameFrom(this)"'
+    +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pickGameFrom(this);}"'
+    +' style="--gc:'+c+';--gca:'+c+'2e"'
+    +' title="'+esc(g.name)+'：'+(s.allN?('监控 '+s.allN+' 项，已开 '+s.onN+' 项'):'暂未配置商品')+'">'
+    +'<span class="gt-row">'
+      +'<span class="gt-i">'+esc(g.icon||'🎮')+'</span>'
+      +'<span class="gt-n"><b>'+esc(g.name)+'</b><i>'+esc(g.en||'')+'</i></span>'
+      +bdgHTML(s)
+    +'</span>'
+    +'<span class="gt-meta"><span>道具 <b>'+s.propN+'</b></span>'
+      +(s.hasGold?('<span>金币 <b>'+s.goldN+'</b> 区</span>'):'')
+      +act
+    +'</span>'
+    +'<span class="gt-ft">'
+      +'<span class="gt-pb"><i style="width:'+pc+'%"></i></span>'
+      +'<span>已开 '+s.onN+'/'+s.allN+'</span>'
+      +'<span class="gt-go">'+(on?'收起 ▴':'进入 ▸')+'</span>'
+    +'</span>'
+    +schedBoxHTML(g)
+    +'</div>';
+}
+function renderGates(){
+  const box=$('#gameGates'); if(!box) return;
+  box.innerHTML = gameSecs().map(gtileHTML).join('');
+}
+function renderGdHead(){
+  const det=$('#gameDetail'), head=$('#gdHead');
+  if(!det) return;
+  const g=curGameObj();
+  det.classList.toggle('hide', !g);
+  const tip=$('#gateTip'); if(tip) tip.style.display = g ? 'none' : '';
+  if(!g){ if(head) head.innerHTML=''; renderGameKpis(); return; }
+  const s=gStat(g), idx=FGAMES.indexOf(g);
+  /* 每个游戏一个独立看板：当前游戏没有金币 ⇒ 整个「金币监控」区块不占位；
+     没有道具 ⇒ 「道具监控」不占位。切到哪个游戏就只看到哪个游戏的东西。 */
+  const wProp=$('#secPropWrap'), wGold=$('#secGoldWrap');
+  if(wProp) wProp.classList.toggle('hide', !s.propN);
+  if(wGold) wGold.classList.toggle('hide', !s.hasGold);
+  det.style.setProperty('--gc', g.color||'#0071e3');
+  const act = (s.up||s.dn)
+    ? (' ｜ <b style="color:'+(s.up&&s.dn?'var(--peach)':(s.up?'var(--red)':'var(--green)'))+'">待改 '
+       +(s.up&&s.dn?('涨'+s.up+' / 降'+s.dn):(s.up?('涨 '+s.up):('降 '+s.dn)))+'</b>')
+    : ' ｜ <span style="color:var(--green)">全部持平</span>';
+  head.innerHTML='<span class="gd-i">'+esc(g.icon||'🎮')+'</span>'
+    +'<span class="gd-n">'+esc(g.name)+(g.en?'<i>'+esc(g.en)+'</i>':'')+'</span>'
+    +'<span class="gd-meta">道具 '+s.propN+' 条'
+      +(s.hasGold?(' ｜ 金币 '+s.goldN+' 区'):'')
+      +' ｜ 已开 '+s.onN+'/'+s.allN+act+'</span>'
+    +'<span class="gd-x">'
+      +'<button class="btn ghost" onclick="followGame('+idx+',true)">该游戏全开</button>'
+      +'<button class="btn ghost" onclick="followGame('+idx+',false)">该游戏全关</button>'
+      +'<button class="btn" onclick="pickGame(null)">收起</button>'
+    +'</span>';
+  renderGameKpis();   // 指标跟着当前游戏走（renderGold 拿到金币快照后还会再调一次）
+}
+/* 打开 / 收起一个游戏（再点同一张卡 = 收起）。传 null = 全部收起。 */
+function pickGame(name){
+  const n = (name==null) ? null : String(name);
+  CUR_GAME = (CUR_GAME!=null && CUR_GAME===n) ? null : n;
+  renderGates(); renderGdHead();
+  renderFollow((STATE&&STATE.follow)||null);
+  renderTable((STATE&&STATE.rows)||[]);
+  renderGold();
+  if(CUR_GAME){
+    const el=$('#gameDetail');
+    if(el) setTimeout(()=>{ try{ el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },40);
+  }
+}
+function pickGameFrom(el){ pickGame(el.getAttribute('data-g')); }
+/* 「跟价范围」开关区可收起：配置完就不必天天看着它，道具/金币监控才是天天看的 */
+let FOLLOW_BOX_OPEN = true;
+function toggleFollowBox(){
+  FOLLOW_BOX_OPEN = !FOLLOW_BOX_OPEN;
+  const box=$('#follow'), btn=$('#followToggle');
+  if(box) box.style.display = FOLLOW_BOX_OPEN ? '' : 'none';
+  if(btn) btn.textContent = FOLLOW_BOX_OPEN ? '收起' : '展开';
+}
+
+function toast(msg,cls){const t=$('#toast');t.textContent=msg;t.className='toast show '+(cls||'');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.className='toast '+(cls||''),2600);}
+
+async function api(url,opt){
+  const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}},opt||{}));
+  let j=null; try{j=await r.json()}catch(e){}
+  if(!r.ok||!j||j.ok===false) throw new Error((j&&j.error)||('HTTP '+r.status));
+  return j;
+}
+
+/* ---------- 渲染 ---------- */
+function renderBadges(d){
+  const s=d.switches||{}, b=[];
+  b.push('<span class="badge '+(s.master?'on':'off')+'"><span class="dot"></span>系统总开关：<b>'
+    +(s.master?'开启':'关闭')+'</b></span>');
+  b.push('<span class="badge '+(s.auto?'on':'off')+'"><span class="dot"></span>自动跟价：<b>'
+    +(s.auto?'开启':'关闭')+'</b></span>');
+  b.push('<span class="badge">快照 <b>'+esc(d.ts||'—')+'</b></span>');
+  b.push('<span class="badge">汇率固定 <b>'+d.rate+'</b></span>');
+  const qh=d.health&&d.health.qdStaleHours;
+  b.push('<span class="badge '+(qh>24?'warn':'')+'">千岛成本 <b>'+(qh==null?'无':qh+'h前')+'</b></span>');
+  if(!s.master) b.push('<span class="badge warn">系统总开关关闭：改价一律拦截</span>');
+  else if(!s.auto) b.push('<span class="badge warn">自动跟价关闭：只出计划，需人工放行</span>');
+  $('#badges').innerHTML=b.join('');
+}
+/* ---------- 两个大开关 ---------- */
+function renderSwitches(d){
+  const s=(d&&d.switches)||{};
+  const m=$('#swMaster'), a=$('#swAuto');
+  if(!m||!a) return;
+  m.className='swcell '+(s.master?'on':'off');
+  a.className='swcell '+(s.auto?'on':'off')+(s.master?'':' dis');
+  $('#swMasterSt').textContent=s.master?'开启':'关闭';
+  $('#swMasterSub').textContent=s.master
+    ?'允许改价：手动 / 自动都可以':'拦截一切改价，系统只看不改';
+  $('#swAutoSt').textContent=s.auto?'开启':'关闭';
+  $('#swAutoSub').textContent = s.auto
+    ? (s.master?'采集后自动算并下发':'⚠ 需先打开系统总开关')
+    : '只出计划，人工放行';
+  const ab=$('#btnApply');
+  if(ab){ ab.disabled=!s.master; ab.title=s.master?'':'系统总开关关闭 —— 改价已被拦截'; }
+}
+async function setSwitch(name){
+  const s=(STATE&&STATE.switches)||{};
+  // 总开关关着的时候「自动跟价」是灰的：点它要给明确答复，别静默存一个不生效的值
+  if(name==='auto' && !s.master){ toast('请先打开「系统总开关」——自动跟价要先允许改价才有意义','err'); return; }
+  const cur = (name==='master') ? !!s.master : !!s.auto;
+  const label = (name==='master') ? '系统总开关' : '自动跟价';
+  try{
+    await api('api/switch',{method:'POST',body:JSON.stringify({name:name,on:!cur})});
+    toast(label+(cur?'已关闭':'已开启'), (!cur)?'ok':'');
+    await loadState();
+  }catch(e){ toast(e.message,'err'); }
+}
+function renderToggles(cfg){
+  $('#toggles').innerHTML = TOGGLES.map(g=>{
+    const v = cfg[g.p];
+    return '<label class="tg" title="'+esc(g.d)+'"><input type="checkbox" data-p="'+g.p+'" '
+      +(v?'checked':'')+' onchange="mark(this)"><span>'+esc(g.t)+'</span></label>';
+  }).join('');
+}
+function renderParams(cfg){
+  $('#params').innerHTML = PARAMS.map(f=>{
+    const raw = cfg[f.p];
+    let v = raw;
+    if(f.scale) v = raw==null?'':(Number(raw)*f.scale);
+    let inner;
+    if(f.type==='select'){
+      inner='<select data-p="'+f.p+'" onchange="markInput(this)">'+f.opts.map(o=>
+        '<option value="'+o[0]+'"'+(o[0]===raw?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select>';
+    }else{
+      inner='<input type="'+(f.type==='num'?'number':'text')+'" data-p="'+f.p+'"'
+        +(f.scale?' data-scale="'+f.scale+'"':'')
+        +(f.step!=null?' step="'+f.step+'"':'')
+        +' value="'+esc(v==null?'':v)+'" oninput="markInput(this)">';
+    }
+    // 说明文字不再占一行（页面要矮），下沉成 title 悬浮提示
+    return '<div class="fld'+(f.wide?' wide':'')+'" title="'+esc(f.d||f.t)+'">'
+      +'<label>'+esc(f.t)+'</label>'+inner+'</div>';
+  }).join('');
+}
+/* 无对标 / 新增规格这两类行以前只显示「无报价」，看不出是竞品下架了还是我方没上架；
+   给一个显式标记，避免它们被当成「正常不动」。 */
+function flagCell(r){
+  let h='';
+  if(r.follow===false) h+='<span class="tag t-hold" title="未勾选跟价：只展示价格与毛利，'
+    +'不出目标价、不参与同族联动">未跟价</span> ';
+  if(r.iggmMissing) h+='<span class="tag t-blocked" title="IGGM 本轮抓取里没有这个规格，'
+    +'多半是竞品已下架；映射需要更新">⚠ 无对标</span> ';
+  if(r.iggmNewSpec) h+='<span class="tag t-sug-up" title="IGGM 本轮新增该规格，'
+    +'先建立基线，下一轮起才跟价">新增</span> ';
+  return h;
+}
+/* ---------- 跟价范围 v3（2026-09-24 第十轮）----------
+   ① 每个游戏一张**固定宽度**的竖排卡片；② 组内物品单列竖排（中英文两行）；
+   ③ 顶部「游戏筛选」下拉：勾选需要展示的游戏；
+   ④ 展示筛选存服务器 config.json 商品映射.隐藏游戏；跟价开关存 对照项[].跟价。
+      页面不再借用浏览器本地存储 —— 换电脑 / 重启服务都继承。 */
+let FGAMES=[];
+/* 「全选 / 全不选」按钮图标：内联 SVG，零外部请求（办公网封 CDN） */
+const ICO_ALL='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+  +'<rect x="1.6" y="1.6" width="12.8" height="12.8" rx="3.6" fill="currentColor" opacity=".16"/>'
+  +'<path d="M4.4 8.3 6.9 10.8 11.7 5.3" stroke="currentColor" stroke-width="1.9"'
+  +' stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICO_NONE='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+  +'<rect x="1.6" y="1.6" width="12.8" height="12.8" rx="3.6" stroke="currentColor"'
+  +' stroke-width="1.5" opacity=".5"/>'
+  +'<path d="M5.6 5.6 10.4 10.4M10.4 5.6 5.6 10.4" stroke="currentColor" stroke-width="1.6"'
+  +' stroke-linecap="round"/></svg>';
+function fItemHTML(it){
+  // 中文名里常常已经带了「×10」，别再加一遍变成「巢穴钥匙 ×10 ×10」
+  const extra = (it.pack>1 && String(it.name).indexOf('×'+it.pack)<0)
+    ? ' <span class="pk">×'+it.pack+'</span>' : '';
+  return '<div class="gitem '+(it.on?'on':'off')+(it.gold?' gold':'')+'" onclick="toggleFollow(\''+it.key+'\')">'
+    +'<span class="gsm"></span><span class="gitxt">'
+    +'<b>'+(it.icon?esc(it.icon)+' ':'')+esc(it.name)+extra+'</b>'
+    +'<i>'+(it.en?esc(it.en):'— 无竞品对标')+'</i></span></div>';
+}
+function renderFollow(f){
+  const box=$('#follow'), bar=$('#followBar');
+  if(!box) return;
+  if(!f||!f.games){
+    box.innerHTML='<div class="small" style="padding:12px 16px">暂无分组数据'
+      +'（服务器未下发 / 还没配置对照项）</div>';
+    if(bar) bar.innerHTML='';
+    const s0=$('#followSum'); if(s0) s0.textContent='';
+    return;
+  }
+  FGAMES=f.games||[];
+  let onN=0, ttN=0;
+  FGAMES.forEach(g=>(g.items||[]).forEach(it=>{ ttN++; if(it.on) onN++; }));
+  const s=$('#followSum');
+  if(s) s.textContent='已开启 '+onN+' / '+ttN+' 件';
+  const shown=FGAMES.filter(g=>g.show!==false);
+  if(bar){
+    bar.innerHTML='<span class="fdd"><button class="fddbtn" onclick="togglePick(event)">游戏筛选'
+      +'<span class="n">'+shown.length+'/'+FGAMES.length+'</span><span class="car">▾</span></button>'
+      +'<div class="fddmenu">'+FGAMES.map((g,i)=>{
+        const n=(g.items||[]).length;
+        return '<label class="pkitem"><input type="checkbox" '+(g.show!==false?'checked':'')
+          +' onchange="setShow('+i+',this.checked)"><span>'+esc(g.icon||'🎮')+' '+esc(g.name)
+          +'</span><i>'+(n?n+' 件':'预留')+'</i></label>';
+      }).join('')
+      +'<div class="pkacts">'
+      +'<button class="pkbtn all" onclick="setShowAll(true)">'+ICO_ALL+'全选</button>'
+      +'<button class="pkbtn none" onclick="setShowAll(false)">'+ICO_NONE+'全不选</button>'
+      +'</div></div></span>';
+  }
+  /* 详情区只渲染**当前展开的那个游戏**，不再把所有游戏的格子平铺出来 */
+  const g=curGameObj();
+  if(!g){ box.innerHTML=''; return; }
+  const items=g.items||[], gon=items.filter(x=>x.on).length, gi=FGAMES.indexOf(g);
+  let h='<div class="gwrap">';
+  h+='<div class="gcol'+(g.reserved?' res':'')+'">'
+    +'<div class="gc-h" style="border-top:3px solid '+(g.color||'var(--s2)')+'">'
+    +'<span class="gi">'+esc(g.icon||'🎮')+'</span>'
+    +'<span class="gt"><b>'+esc(g.name)+'</b>'+(g.en?'<i>'+esc(g.en)+'</i>':'')+'</span>'
+    +(items.length
+      ? '<span class="gm">'+gon+'/'+items.length+'</span><span class="gb">'
+        +'<button class="btn ghost" onclick="event.stopPropagation();followGame('+gi+',true)">全开</button>'
+        +'<button class="btn ghost" onclick="event.stopPropagation();followGame('+gi+',false)">全关</button></span>'
+      : '<span class="gm">'+esc(g.note||'暂无商品')+'</span>')
+    +'</div><div class="gbody">';
+  if(!items.length){
+    h+='<div class="gempty">'+(g.reserved
+      ? '已预留：在配置里登记这个游戏的商品并打上「游戏」标签，这里会自动出现开关列表。'
+      : '该游戏还没有对照项')+'</div>';
+  }else{
+    h+=items.map(fItemHTML).join('');
+  }
+  h+='</div></div>';
+  h+='</div>';
+  box.innerHTML=h;
+}
+function togglePick(ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const m=document.querySelector('.fddmenu'); if(m) m.classList.toggle('show');
+}
+/* 展示筛选：一点即存服务器（config.json 商品映射.隐藏游戏），刷新 / 换电脑都继承 */
+async function setShow(i,on){
+  const g=FGAMES[i]; if(!g) return;
+  const m0=document.querySelector('.fddmenu');
+  const open=!!(m0&&m0.classList.contains('show'));
+  g.show=!!on;
+  renderFollow((STATE&&STATE.follow)||null);
+  renderGates(); renderGdHead();
+  const m=document.querySelector('.fddmenu');
+  if(m&&open) m.classList.add('show');
+  try{ await api('api/follow',{method:'POST',body:JSON.stringify({display:g.name,show:!!on})}); }
+  catch(e){ g.show=!on; renderFollow((STATE&&STATE.follow)||null); toast('保存失败：'+e.message,'err'); }
+}
+async function setShowAll(on){
+  try{
+    await api('api/follow',{method:'POST',body:JSON.stringify({display_all:!!on})});
+    FGAMES.forEach(g=>{ g.show=!!on; });
+    renderFollow((STATE&&STATE.follow)||null);
+    renderGates(); renderGdHead();
+    const m=document.querySelector('.fddmenu'); if(m) m.classList.add('show');
+  }catch(e){ toast(e.message,'err'); }
+}
+document.addEventListener('click',e=>{
+  const w=document.querySelector('.fdd');
+  if(w&&!w.contains(e.target)){ const m=document.querySelector('.fddmenu'); if(m) m.classList.remove('show'); }
+});
+/* 单件开关：先改本地样式（手感即时），再 POST 写服务器；失败就回滚。
+   服务器落的是「对照项.跟价」，所以刷新 / 重启 / 换机器打开状态都继承。 */
+async function toggleFollow(key){
+  const it=(FGAMES||[]).reduce((a,g)=>a||(g.items||[]).find(x=>x.key===key),null);
+  if(!it) return;
+  const on=!it.on;
+  it.on=on; renderFollow((STATE&&STATE.follow)||null);
+  try{
+    await api('api/follow',{method:'POST',body:JSON.stringify({key:key,on:on})});
+    toast((on?'已开启跟价：':'已关闭跟价：')+it.name, on?'ok':'');
+    renderGates(); renderGdHead();     // 入口卡进度条 / 详情头统计跟着变
+    if(it.gold) renderGold();          // 金币开关联动金币监控表
+  }catch(e){
+    it.on=!on; renderFollow((STATE&&STATE.follow)||null);
+    toast('保存失败：'+e.message,'err');
+  }
+}
+async function followGame(i,on){
+  const g=FGAMES[i]; if(!g) return;
+  try{
+    const r=await api('api/follow',{method:'POST',body:JSON.stringify({game:g.name,on:!!on})});
+    (g.items||[]).forEach(it=>{ it.on=!!on; });
+    renderFollow((STATE&&STATE.follow)||null);
+    renderGates(); renderGdHead();
+    toast((on?'已开启跟价 · ':'已关闭跟价 · ')+g.name
+      +(r.count==null?'':'（'+r.count+' 件）'), on?'ok':'');
+  }catch(e){ toast(e.message,'err'); }
+}
+async function followAll(on){
+  try{
+    const r=await api('api/follow',{method:'POST',body:JSON.stringify({all:!!on})});
+    await loadState();
+    toast((on?'已全部开启跟价 ':'已全部关闭跟价 ')
+      +(r.count==null?'':r.count+' 件'), on?'ok':'');
+  }catch(e){ toast(e.message,'err'); }
+}
+/* ---------- 关键指标（2026-10-09：由「全站一块」改为「每游戏各一块」）-----------------
+   原「② 关键指标」面板是全站口径（kpi 只统计主表那批商品），但对老板来说有用的判断
+   都是「这个游戏怎么样」。现在指标下沉进游戏详情：点开哪张卡，就出那个游戏自己的指标。
+   **指标项按该游戏真有的数据出** —— 没金币不出金币卡、无负毛利不出负毛利卡、
+   没配采集周期不出周期卡 ⇒ 不同游戏的指标天然不一样，以后加指标只要往 cards 里 push。 */
+/* 2026-10-12（老板口径）：「前台展示利润按实际的来」——
+   金币行的利润率**一律按实际成本实算**：实际成本取 DD373 **实采均价** dd_ref_usd
+   （我自己抓的那条 = 买满目标量后的数量加权均价），利润 =（我方售价 − 实采成本）/ 我方售价。
+   不再用后台行里的 margin_rate —— 那只是**定价旋钮的存档值**，与真实利润差很多
+   （线上实测：MSCW 存档 30% 而实算 ≈ 50%；AION2 存档 20% 而实算 ≈ 30%）。
+   无 DD373 实采的行（ARC / ET / S15 等没有 DD373 成本源）才回退 margin_rate。
+   ⚠ 只用于「金币行」（带 dd_ref_usd / our_per_m 的行）；道具行的利润走 margin，不在此改。 */
+function goldRealMargin(x){
+  if(!x) return null;
+  const c = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+  const o = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+  if(c!=null && isFinite(c) && o && o>0) return (o-c)/o;
+  const m = (x.margin_rate!=null && x.margin_rate!=='') ? Number(x.margin_rate) : null;
+  return (m!=null && isFinite(m)) ? m : null;
+}
+function schedRec(name){
+  const s=(STATE&&STATE.schedule)||{};
+  return (s.列表||[]).find(r=>r.游戏===name)||null;
+}
+function hourLabel(h){
+  const n=Number(h), m=n*60;
+  if(m<60) return m+' 分钟';
+  return (n%1===0? n : m)+(n%1===0?' 小时':' 分钟');
+}
+function renderGameKpis(){
+  const box=$('#gameKpis'), sum=$('#kpiGameSum');
+  if(!box) return;
+  const g=curGameObj();
+  if(!g){ box.innerHTML=''; if(sum) sum.textContent=''; return; }
+  const st=gStat(g), m=key2sec(), rows=(STATE&&STATE.rows)||[];
+  const mine=r=>m.get(r.key)===g;
+  /* 利润率有两个来源：道具行是 margin（0~1），金币行是 goldRealMargin()（按 DD373 实采成本实算）。
+     口径不同但都是比例，同一个「平均毛利率」里合并没歧义 —— 只统计当前游戏的行。 */
+  const propRows=rows.filter(r=>!isGoldKey(r.key) && mine(r));
+  const  goldRows=rows.filter(r=>isGoldKey(r.key) && mine(r));
+  const goldLive=((GOLD_DATA&&GOLD_DATA.items)||[]).filter(mine);
+  const mg=propRows.map(r=>r.margin).concat(goldRows.map(r=>r.margin), goldLive.map(goldRealMargin))
+    .filter(v=>typeof v==='number' && isFinite(v));
+  const avg = mg.length? mg.reduce((a,b)=>a+b,0)/mg.length : null;
+  const mn  = mg.length? Math.min.apply(null,mg) : null;
+  const neg = mg.filter(v=>v<0).length;
+  const noI = propRows.filter(r=>r.iggmMissing).length;
+  const newS= propRows.filter(r=>r.iggmNewSpec).length;
+  /* 金币行最近一次真实改价（金币那套写在「上次改价」里） */
+  const lastAct=goldLive.map(r=>r.上次改价).filter(x=>x&&x.时间)
+    .sort((a,b)=>String(b.时间).localeCompare(String(a.时间)))[0]||null;
+  const sch=schedRec(g.name);
+  const cards=[];
+  cards.push(['道具规格', st.propN||0, st.propN? '在监控的规格数' : '暂未配置商品']);
+  if(st.hasGold) cards.push(['金币', st.goldN||0, st.poeGold.length? 'Quick Gold 商品' : '服务区']);
+  cards.push(['本轮待改', st.up+st.dn, (st.up+st.dn)? ('涨 '+st.up+' · 降 '+st.dn) : '全部持平']);
+  cards.push(['已开跟价', st.onN+'/'+st.allN, st.allN? (Math.round(st.onN/st.allN*100)+'% 的商品在跟价') : '无商品']);
+  /* 2026-10-12（老板口径）：金币行利润率已改为按 DD373 实采成本实算（见 goldRealMargin）。
+     只有**该游戏真有 DD373 实采成本**时才在副标标注口径 —— 避免别人误以为还是后台那个
+     不随价格变的存档利润率；没实采的游戏（ARC / D4 金币等）保持原样，不做不当表述
+     （它们的平均里还混着道具行 margin，笼统标「后台存档」反而更误导）。 */
+  const _mgReal = goldLive.some(r=>r.dd_ref_usd!=null && r.dd_ref_usd!=='');
+  if(mg.length) cards.push(['平均毛利率', pct(avg),
+    (_mgReal ? '金币按 DD373 实采成本实算 · ' : '') + '最低 '+pct(mn)]);
+  cards.push(['负毛利商品', neg, neg? '⚠ 低于进货成本，需核对映射' : '正常']);
+  if(noI)  cards.push(['IGGM 无对标', noI,  '⚠ 竞品可能已下架']);
+  if(newS) cards.push(['IGGM 新增规格', newS, '先建基线，下一轮起跟价']);
+  if(lastAct) cards.push(['最近改价', fmtClock(lastAct.时间), '单号 '+String(lastAct.单号||'—')]);
+  if(sch) cards.push(['采集周期', hourLabel(sch.周期小时),
+    sch.上次? ('上次跑完 '+fmtClock(sch.上次)) : '还没跑过']);
+  box.innerHTML=cards.map(c=>{
+    const red = (String(c[0]).indexOf('负毛利')===0 && c[1]);
+    return '<div class="kpi"><div class="k">'+esc(c[0])+'</div>'
+      +'<div class="v"'+(red?' style="color:var(--red)"':'')+'>'+esc(c[1])+'</div>'
+      +'<div class="s">'+esc(c[2])+'</div></div>';
+  }).join('');
+  if(sum) sum.textContent = (STATE&&STATE.ts)? ('决策快照 '+STATE.ts) : '';
+}
+/* 跟价主表的一行（12 列；showHistory 的点击行为原样保留） */
+function mainRow(r){
+    let chg='<span class="small">--</span>';
+    if(r.iggmOld&&r.iggmNew){
+      const dv=r.iggmNew-r.iggmOld, p=dv/r.iggmOld*100;
+      if(Math.abs(dv)>1e-12)
+        chg='<span class="'+(dv>0?'up':'dn')+'">'+(dv>0?'▲':'▼')+' '+p.toFixed(2)+'%</span>';
+      else chg='<span class="small">持平</span>';
+    }
+    const tgt = r.target!=null? '<b class="mono">'+usd(r.target)+'</b>':'<span class="small">--</span>';
+    const mgn = r.margin!=null? '<span class="'+(r.margin<0.05?'dn':(r.margin>0.6?'up':''))+'">'+pct(r.margin)+'</span>':'--';
+    return '<tr style="cursor:pointer" onclick="showHistory(\''+r.key+'\')">'
+      +'<td>'+flagCell(r)+'<b>'+esc(r.title)+'</b>'
+      +(r.pack>1?' <span class="small">×'+r.pack+'</span>':'')
+      +'<div class="small">'+esc(r.iggmTitle||'')+'</div></td>'
+      +'<td class="num small">'+(r.pack||1)+'</td>'
+      +'<td class="num mono small">'+usd(r.iggmOld)+'</td>'
+      +'<td class="num mono">'+(r.iggmNew==null?'<span class="small">无报价</span>':usd(r.iggmNew))+'</td>'
+      +'<td class="num">'+chg+'</td>'
+      +'<td class="num mono" style="color:var(--peach)">'+usd(r.oursOld)
+      +(r.oursBid!=null?'<div class="small">标价 '+usd(r.oursBid)+'</div>':'')+'</td>'
+      +'<td class="num">'+tgt
+      +(r.target!=null&&r.targetFront!=null?'<div class="small">前端 '+usd(r.targetFront)+'</div>':'')+'</td>'
+      +'<td class="num mono" style="color:var(--teal)">'+cny(r.costCny)+'</td>'
+      +'<td class="num mono">'+usd(r.costUsd)+'</td>'
+      +'<td class="num">'+mgn+'</td>'
+      +'<td>'+actCell(r)+'</td>'
+      +'<td class="small wrap">'+esc(r.reason||'')+'</td></tr>';
+}
+function renderTable(rows){
+  const box=$('#mainBlocks');
+  if(!box) return;
+  const sum=$('#mainSum');
+  /* 主表只渲染「当前展开的那个游戏」——游戏名已在上面的详情头里，不再重复分段标题。
+     金币行（D4 服务区 GOLD_*、POE2 的 *_GOLD）统一归到下面的「金币监控」，主表不重复展示
+     —— 一行两处、两种口径对着看最容易看错。 */
+  const g=curGameObj();
+  if(!g){ box.innerHTML=''; if(sum) sum.textContent=''; return; }
+  const m=key2sec();
+  const list=(rows||[]).filter(r=>!isGoldKey(r.key) && m.get(r.key)===g);
+  if(sum) sum.textContent = list.length ? (list.length+' 条 ｜ 该跟 '+actN(list)+' 条') : '';
+  if(!list.length){
+    box.innerHTML='<div class="gempty">这个游戏还没有道具数据 —— 点「立即采集」或「重算看板」。</div>';
+    return;
+  }
+  const THEAD='<tr><th>商品</th><th>装量</th>'
+    +'<th class="num">IGGM 上轮</th><th class="num">IGGM 现价<br><span class="small">客户实付折后价</span></th><th class="num">变动</th>'
+    +'<th class="num">我方现价</th><th class="num">目标价</th>'
+    +'<th class="num">千岛成本</th><th class="num">成本($)</th><th class="num">毛利率</th>'
+    +'<th>动作</th><th>原因 / 依据</th></tr>';
+  const rs=sortByConfig(list);                 // 顺序 = config 编排顺序
+  box.innerHTML = secBody(THEAD, rs.map(mainRow).join(''), secH(rs.length));
+}
+/* ---------- 参数编辑 ---------- */
+function mark(el){ el.closest('.tg').style.borderColor='var(--yellow)'; D[el.dataset.p]=el.checked; }
+function markInput(el){
+  el.classList.add('dirty');
+  const f=PARAMS.find(x=>x.p===el.dataset.p);
+  let v=el.value;
+  if(f.type==='num'){ v = v===''?'':Number(v); if(f.scale) v = v/ f.scale; }
+  D[el.dataset.p]=v;
+}
+async function saveParams(){
+  const patch={};
+  for(const k in D){
+    if(D[k]===''||D[k]==null){toast('「'+k+'」不能为空','err');return;}
+    patch[k]=D[k];
+  }
+  if(!Object.keys(patch).length){toast('没有改动');return;}
+  try{
+    await api('api/config',{method:'POST',body:JSON.stringify({patch})});
+    for(const k in D) delete D[k];
+    toast('已保存 '+Object.keys(patch).length+' 项','ok');
+    await loadState();
+  }catch(e){ toast('保存失败：'+e.message,'err'); }
+}
+
+/* ---------- 采集周期（每游戏，2026-09-28；2026-10-09 下沉进游戏卡）----------
+   定时器每小时醒一次，只有到期的游戏才真跑「抓价 → 算价 → 改价」。
+   周期存服务器 config.json（运行.采集周期小时），换电脑/重启都不丢。
+   渲染已并入 gtileHTML 的 schedBoxHTML()（周期就在这个游戏的卡上）；
+   这里只留：时间格式化、改动标记（草稿）、保存。 */
+function fmtClock(s){
+  if(!s) return '—';
+  const d=new Date(s); if(isNaN(d.getTime())) return String(s).slice(5,16).replace('T',' ');
+  const p=n=>('0'+n).slice(-2);
+  return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+/* 改了下拉 = 先记草稿（不立刻写服务器），并把「保存周期」按钮点亮 —— 
+   周期管的是「什么时候真去改价」，误改代价大，保持"改完手动保存"的老规矩。 */
+function markSched(el){
+  SCHED_DIRTY[el.dataset.g]=Number(el.value);
+  el.classList.add('dirty');
+  const b=$('#btnSched'); if(b){ b.disabled=false; b.classList.add('dirty'); }
+}
+async function saveSchedule(){
+  const patch={};
+  document.querySelectorAll('#gameGates select.schedsel').forEach(el=>{ patch[el.dataset.g]=Number(el.value); });
+  if(!Object.keys(patch).length){ toast('没有可保存的周期'); return; }
+  try{
+    const r=await api('api/schedule',{method:'POST',body:JSON.stringify({周期:patch})});
+    SCHED_DIRTY={};
+    const b=$('#btnSched'); if(b){ b.disabled=true; b.classList.remove('dirty'); }
+    toast('已保存 '+Object.keys(r.applied||patch).length+' 个游戏的采集周期','ok');
+    await loadState();
+  }catch(e){ toast('保存失败：'+e.message,'err'); }
+}
+
+/* ---------- 任务 + 实时日志 ---------- */
+/* ④ 改动记录：默认收起（空着也不占屏），任务一跑自动展开；点标题可手动切换。 */
+let LOG_OPEN = false;
+function logNLines(){ const b=$('#log'); return b ? b.childNodes.length : 0; }
+function paintLogCount(){
+  const c=$('#logCount'); if(!c) return;
+  const n=logNLines();
+  c.textContent = n ? (n+' 行') : '暂无记录';
+}
+function setLogOpen(v){
+  LOG_OPEN = !!v;
+  const s=$('#sec-log'); if(s) s.classList.toggle('collapsed', !LOG_OPEN);
+  const car=$('#logCaret'); if(car) car.textContent = LOG_OPEN ? '▴' : '▾';
+  if(LOG_OPEN){ const box=$('#log'); if(box) box.scrollTop=box.scrollHeight; }
+}
+function toggleLog(){ setLogOpen(!LOG_OPEN); }
+function logLine(txt,cls){
+  const box=$('#log');
+  const d=document.createElement('div');
+  d.className='ln '+(cls||'');
+  d.textContent=txt;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+  while(box.childNodes.length>1200) box.removeChild(box.firstChild);
+  paintLogCount();
+}
+function clearLog(){ $('#log').innerHTML=''; paintLogCount(); }
+function classify(s){
+  if(/✘|失败|错误|拒绝|异常/.test(s)) return 'err';
+  if(/✔|完成/.test(s)) return 'ok';
+  if(/⚠|警告|注意/.test(s)) return 'warn';
+  if(/══|──/.test(s)) return 'hi';
+  return '';
+}
+async function runTask(kind,opts){
+  if(ES){ try{ES.close()}catch(e){} ES=null; }
+  let r;
+  try{ r=await api('api/task',{method:'POST',body:JSON.stringify({kind,opts:opts||{}})}); }
+  catch(e){ toast(e.message,'err'); logLine('✘ '+e.message,'err'); return; }
+  subscribe(r.taskId, r.title);
+}
+function subscribe(tid,title){
+  CUR_TASK={id:tid,title:title};
+  $('#logTitle').textContent='· '+(title||'');
+  $('#logMeta').textContent=tid;
+  $('#logSt').className='st run';
+  setLogOpen(true);                              // 任务一跑就把「改动记录」展开
+  logLine('──── 任务启动：'+title+' ('+tid+') ────','hi');
+  setBusy(true);
+  ES=new EventSource('api/logs/'+tid);
+  ES.onmessage=ev=>{
+    let o; try{o=JSON.parse(ev.data)}catch(e){return}
+    if(o.line!==undefined) logLine(o.line, classify(o.line));
+    if(o.done){
+      $('#logSt').className='st '+o.status;
+      logLine(o.ok?('──── 任务结束：成功 ────'):('──── 任务结束：失败 '+(o.err||'')+' ────'), o.ok?'ok':'err');
+      ES.close(); ES=null; setBusy(false);
+      setTimeout(loadState,600);
+    }
+  };
+  ES.onerror=()=>{ if(ES){ES.close();ES=null;} $('#logSt').className='st error';
+    logLine('（日志连接中断，任务可能仍在跑，点「刷新数据」确认）','warn'); setBusy(false); };
+}
+function setBusy(b){
+  document.querySelectorAll('main button.btn').forEach(x=>{ if(x.id!=='btnSave') x.disabled=b; });
+  // 任务结束后别把「执行改价」顺手解锁 —— 系统总开关关着就必须一直是禁的
+  if(!b && $('#btnApply')) $('#btnApply').disabled=!((STATE&&STATE.switches)||{}).master;
+}
+function simulate(){
+  const p=prompt('模拟 IGGM 价格整体变化百分比（正数=涨价，负数=降价）\n例如 10 表示 IGGM 全部涨 10%','10');
+  if(p===null) return;
+  const v=parseFloat(p); if(isNaN(v)){toast('要填数字','err');return;}
+  runTask('simulate',{pct:v});
+}
+
+/* ---------- 改价 ---------- */
+function openApply(){
+  const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
+  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
+  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b> ｜ 自动跟价：<b>'
+    +((s.auto)?'开启':'关闭（本次为人工放行）')+'</b> ｜ '
+    +'后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
+    +' ｜ 写接口：'+(p.写接口已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
+    +'<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在「④ 执行器」段切换成「本机执行」）</span>';
+  $('#confirmInput').value='';
+  $('#modal').classList.add('show');
+  setTimeout(()=>$('#confirmInput').focus(),80);
+}
+function closeModal(){ $('#modal').classList.remove('show'); }
+function doApply(){
+  const v=$('#confirmInput').value.trim();
+  const kind=APPLY_KIND;
+  closeModal();
+  runTask(kind,{confirm:v});
+}
+/* ---------- 金币（Gold）---------- */
+let APPLY_KIND = 'apply';
+/* 「跟价范围」里那 4 个金币格子（顺序 = config.金币.服务区 的顺序）。 */
+function goldTiles(){
+  return ((STATE&&STATE.follow&&STATE.follow.games)||[])
+    .reduce((a,g)=>a.concat((g.items||[]).filter(x=>x.gold)),[]);
+}
+/* 停跟（跟价开关关掉）的服务区：core_gold 会跳过它，所以新一轮 /api/gold 里就没有它。
+   这里按格子状态补一行灰行 —— 否则关掉之后整行凭空消失，看着像数据丢了。
+   状态来源 = STATE.follow（同一套 key）。 */
+function goldOffRows(rows){
+  const have=new Set((rows||[]).map(x=>x.key));
+  /* ⚠ 列数必须与 THEAD_COST 对齐（2026-10-02 重排后共 11 列，
+     其中 G2G/ELD 两列按 _MSH 可能不渲染 —— 这时用 10 个占位 td）。
+     列序：服务区｜G2G｜ELD｜IGGM｜我方当前售价｜差距对比｜利润率｜目标采购成本｜最大档对照｜动作｜改价操作 */
+  const nSrc = (GOLD_DATA && (GOLD_DATA.items||[]).some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null)) ? 2 : 0;
+  const td = '<td class="mono">--</td>';
+  const blank = '<td style="color:var(--sub)">--</td>';
+  return goldTiles().filter(t=>!t.on&&!have.has(t.key)).map(t=>
+    '<tr style="opacity:.55"><td><b>'+esc(t.name)+'</b>'
+    +'<div class="small" style="color:var(--sub)">已停跟 ｜ 不参与跟价计算</div></td>'
+    + (nSrc? td+td : '')          /* G2G / ELD */
+    + td+td+td+td+td+td+td         /* IGGM / 我方 / 差距 / 利润率 / 目标成本 / 最大档 / 动作 */
+    + blank                        /* 改价操作 */
+    + '</tr>').join('');
+}
+/* pre：调用方可选传入一个「已经在飞」的 api('api/gold') promise（首屏并行用）。
+   不传时行为与原来完全一致：自己发请求。 */
+/* 2026-10-09：外面套一层 —— 金币快照到手后必须重算「关键指标」（平均毛利率里含金币行的
+   margin_rate、最近改价也来自金币行）。原函数里有多处 return，逐个补调用容易漏，
+   统一在 finally 里补一次，保证任何分支退出后指标都是最新的。 */
+async function renderGold(pre){
+  try{ await renderGoldInner(pre); } finally { renderGameKpis(); }
+}
+async function renderGoldInner(pre){
+  const box=$('#goldBlocks');
+  if(!box) return;
+  /* ⚠ 取数与索引必须**在任何隐藏判定之前**做完 ——
+     renderGoldCostSum() 的「改价操作」列要读 GOLD_ACTION_MAP（由下面这段建），
+     早 return 会让汇总区那一列变空。 */
+  let r={};
+  try{ r = pre ? await pre : await api('api/gold'); }catch(e){ r={}; }
+  GOLD_DATA = r;                                 // 入口卡上的「金币待改」要用这份快照
+  /* 2026-10-02：建「key → 上次改价」索引，汇总区那张表要用（同一份数据，不重复请求） */
+  GOLD_ACTION_MAP = {};
+  (r.items||[]).forEach(function(x){
+    if(x && x.key && x['上次改价']) GOLD_ACTION_MAP[x.key] = x['上次改价'];
+  });
+  /* ==================================================================
+     2026-10-02 用户要求：AION2 页面**隐藏「金币监控」明细展示区**。
+       原因：该表 11 列与下方「售价·进货成本·利润率」汇总区大量重复，
+             34 行两组数据并排看很累赘。
+       ⚠ **只隐藏、不删除代码** —— 暗黑4 / 流放之路2 等游戏仍要展示这张表，
+          走的是同一段渲染逻辑。这里按游戏名单跳过渲染。
+     ================================================================== */
+  const _HIDE_GOLD_BOX = ['AION2'];
+  const _curName0 = (curGameObj()||{}).name || '';
+  if(_HIDE_GOLD_BOX.indexOf(_curName0) >= 0){
+    box.innerHTML = '';                          /* 主表清空 */
+    GOLD_COST_DATA = null;                       /* 别复用上一个游戏的缓存（防串数据） */
+    const _mt = document.querySelector('#goldHead .mech');
+    if(_mt) _mt.textContent = '明细表已折叠（数据并入下方汇总区）';
+    renderGoldCostSum();                         /* 汇总区照常，且已能拿到改价台账 */
+    return;
+  }
+  /* 成本汇总区跟着这轮快照一起重取（切游戏 / 采集完成都会走到这里）——
+     缓存在 renderGoldCostSum 里，不跨游戏复用，避免串数据。 */
+  GOLD_COST_DATA = null;
+  const items=r.items||[];                       // 暗黑4型：金币价格管理（改采购成本 ￥/M）
+  const poe2=((STATE&&STATE.rows)||[]).filter(x=>isGoldKey(x.key));  // POE2型：Quick Gold 商品（改标价 $）
+  const tsEl=$('#goldTs'), mechEl=$('#goldMech'), sumEl=$('#goldSum');
+  if(tsEl) tsEl.textContent = r.ts
+    ? ('快照 '+r.ts+' ｜ 对标 '+(r.tier||10000)+' M ｜ 汇率 '+(r.rate||RATE_DEFAULT))
+    : ((items.length||poe2.length) ? '' : '（还没有金币数据 —— 点「立即采集」抓一轮）');
+  /* 只渲染当前展开的那个游戏；两种口径的列不一样，用小节标题的「机制」标签说清 */
+  const g=curGameObj();
+  if(!g){ box.innerHTML=''; if(mechEl) mechEl.textContent='';
+          if(sumEl) sumEl.textContent=''; renderGates(); return; }
+  const m=key2sec();
+  const myCost=items.filter(x=>m.get(x.key)===g);   // 该游戏 · 改采购成本(￥/M)
+  const myItem=poe2.filter(x=>m.get(x.key)===g);    // 该游戏 · 改标价($)
+  const mechs=[];
+  if(myCost.length) mechs.push('金币价格管理 · 改采购成本(￥/M)');
+  if(myItem.length) mechs.push('产品价格管理 Quick Gold · 改标价($)');
+  if(mechEl) mechEl.textContent = mechs.join(' ＋ ');
+  if(sumEl) sumEl.textContent = (myCost.length||myItem.length)
+    ? ((myCost.length+myItem.length)+' 个服务区 ｜ 该跟 '+(actN(myCost)+actN(myItem))+' 条') : '';
+  renderGates();                                    // 入口卡的金币统计跟着刷
+  if(!myCost.length && !myItem.length){
+    box.innerHTML='<div class="gempty">这个游戏没有启用的金币服务区'
+      + ((items.length||poe2.length) ? '（或它的跟价开关已关掉）。' : '。') + '</div>';
+    return;
+  }
+
+  /* 金币单价的展示倍率 —— **按游戏取**（2026-10-01 多游戏）：
+     暗黑4 单价 5e-4 量级 → ×100000 显示成「每 10 万 M」（2026-09-27 用户口径：
+     「4.5364e-4 这种科学计数法看不明白，改成以 100000M 为单位」）；
+     AION2 单价本身就是 $/M（5.99 / 10.99）→ ×1 显示成「每 M」。
+     倍率由 /api/gold 每条行的 unit 给出（见 app.py api_gold），这里只做兜底。
+     任何地方都不再出现 toExponential。 */
+  const GOLD_UNIT = 100000;                        // 兜底：接口没给 unit 时用
+  const goldUnitOf = function(r){ const u=(r&&r.unit!=null)?Number(r.unit):GOLD_UNIT;
+    return (isFinite(u)&&u>0) ? u : GOLD_UNIT; };
+  const goldUnitLabel = function(u){ u=Number(u)||GOLD_UNIT;
+    if(Math.abs(u-100000)<1) return '10万M';
+    if(Math.abs(u-1)<1e-9) return 'M';
+    return u+'M'; };
+  const pm = function(v, u){ if(v===null||v===undefined||v==='') return '--';
+    const n=Number(v); if(isNaN(n)) return '--';
+    const x = n*(Number(u)||GOLD_UNIT);
+    return '$'+((Math.abs(x)>=1000) ? x.toFixed(0) : x.toFixed(2)); };
+  const c6 = function(v){ if(v===null||v===undefined) return '--';
+    const n=Number(v); return isNaN(n)?'--':n.toFixed(6); };
+  /* 2026-10-01：三源单元格。
+     显示 $/M 价；若该行基准取自本列，加粗 + 绿点标记「← 基准」。
+     无数据 → 灰色「—」（用户口径：其他平台没价就先空着，不编数）。 */
+  const msCell = function(x, field){
+    const v = x[field];
+    if(v===null||v===undefined||v==='') 
+      return '<td class="num" style="color:var(--sub)">—</td>';
+    const n=Number(v);
+    if(isNaN(n)) return '<td class="num" style="color:var(--sub)">—</td>';
+    const srcName = ({src_g2g:'G2G', src_eld:'ELD', src_igmm:'IGGM'})[field] || '';
+    const pick = (x.src_base||'');
+    /* 2026-10-02：只有旧 multisrc 模式才标「← 基准」；dd373_markup 下
+       G2G/ELD/IGGM **不参与定价**，标基准会误导（只有第2级的 G2G 才是真依据）。 */
+    let isPick = pick.indexOf(srcName)===0;
+    if(_isDD) isPick = (Number(x.price_tier)===2 && srcName===_MS['次源']);
+    const val = pm(n, U_COST);
+    return '<td class="num mono">'
+      + (isPick ? '<b style="color:var(--green)">'+val+'</b>'
+                  +'<div class="small" style="color:var(--green)">'
+                  +(_isDD?'← 定价依据':'← 基准')+'</div>'
+                : val)
+      + '</td>';
+  };
+  /* ---- 2026-10-02 新增 · 差距对比：我方价 vs **当前竞品最低价** -------------
+     口径（用户原话）：「差距对比（为我方价格与当前竞品最低价 价格差距对比）」。
+     竞品最低 = G2G / ELD / IGGM 三源里最低的那个（core_gold 已算好 comp_min*）。
+     正数 = 我方比竞品贵（红），负数 = 我方更便宜（绿）。 */
+  const gapCell = function(x){
+    const cm = x.comp_min, pct = x.gap_comp_pct;
+    if(cm===null||cm===undefined||cm==='')
+      return '<td class="num" style="color:var(--sub)">--</td>';
+    const p = (pct===null||pct===undefined) ? null : Number(pct);
+    const col = (p===null) ? 'var(--sub)' : (p>0.05?'var(--red)':(p<-0.05?'var(--green)':'var(--sub)'));
+    return '<td class="num mono">'
+      + '<span style="color:'+col+';font-weight:600">'
+      + (p===null?'--':((p>0?'+':'')+p.toFixed(2)+'%'))+'</span>'
+      + '<div class="small" style="color:var(--sub)">最低 $'+Number(cm).toFixed(2)
+      + '（'+(x.comp_min_src||'?')+'）</div>'
+      + (x.gap_comp!=null ? '<div class="small" style="color:var(--sub)">差 $'
+          +Number(x.gap_comp).toFixed(2)+'</div>' : '')
+      + '</td>';
+  };
+  /* ---- 2026-10-02 新增 · 改价操作列 ----------------------------------------
+     数据源 = gold_action 台账（采集时对比上一轮**我方前端实价**记的，
+     见 store.gold_action_detect 注释：工单没执行 / 前端没刷新都不算改价）。
+     显示：180$ ➡️ 130$ ｜ 时间 ｜ 幅度，并标出这次改价是**哪一级定价**做的。 */
+  const actCell = function(x){
+    const a = x['上次改价'];
+    if(!a || a['新价']==null)
+      return '<td style="color:var(--sub);font-size:12px">--'
+        + '<div class="small">未观察到价格变化</div></td>';
+    const pct = a['幅度'];
+    const up = (pct!=null && Number(pct)>0);
+    const col = (pct==null) ? 'var(--sub)' : (up?'var(--red)':'var(--green)');
+    const f = function(v){ return (v==null||v==='') ? '--' : ('$'+Number(v).toFixed(2)); };
+    const t = String(a['时间']||'').replace('T',' ').slice(0,16);
+    return '<td style="font-size:12px">'
+      + '<span class="mono" style="font-weight:600">'+f(a['旧价'])+' ➡️ '+f(a['新价'])+'</span>'
+      + '<div class="small" style="color:'+col+';font-weight:600">'
+      + (pct==null?'':(up?'▲ +':'▼ ')+Number(pct).toFixed(2)+'%')+'</div>'
+      + '<div class="small" style="color:var(--sub)">'+esc(t)+'</div>'
+      + (a['依据']? '<div class="small" style="color:var(--sub)">'+esc(a['依据'])+'</div>':'')
+      + '</td>';
+  };
+  /* 段内顺序 = config 编排顺序，见 sortByConfig()。谁涨谁降看「动作」列，不靠排序表达。 */
+  const OFF = new Set(goldTiles().filter(t=>!t.on).map(t=>t.key));
+  /* 本页一次只渲染当前游戏的金币段（myCost 已按当前游戏过滤），单位取该段第一行即可。 */
+  const U_COST = goldUnitOf(myCost[0]);
+  const _UL = goldUnitLabel(U_COST);
+  /* 2026-10-12（老板口径「避免单位标注产生偏差」）：整张金币表的单位标签改用**行上的
+     unitLabel**（app.py 按游戏下发的真实单位名），不再用 goldUnitLabel(倍率) 反推 ——
+     后者对「倍率=1 但单位其实是 K」的游戏（MSCW / ARC Raiders）一律返回 'M'，
+     把 $/K 标成 $/M，看起来就像「跟 DD373 页面对不上」。 */
+  const _ULX = (myCost[0]||{}).unitLabel || _UL;
+  /* 2026-10-01：AION2 三源基准（G2G/ELD/IGGM）可见化。
+     只有「多源基准启用」的游戏（AION2）才有 src_g2g/src_eld 数据；
+     暗黑4 这些列为空 → 整列隐藏，表格与旧版逐字一致（不影响 D4）。 */
+  const _hasMulti = myCost.some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null);
+  const _MSH = _hasMulti
+    ? ('<th class="num">G2G $/'+_ULX+'</th><th class="num">ELD $/'+_ULX+'</th>') : '';
+  /* ==================================================================
+     2026-10-02 · 金币监控表头按老板口径重排（用户原话逐列对应）：
+       服务区（保持不变）｜G2G价格（仅采集监控）｜ELD价格（同）｜IGGM价格（同）
+       ｜我方当前售价｜差距对比（我方 vs **当前竞品最低价**）｜售价·进货成本·利润率
+       ｜改价操作（新列：180$➡️130$ / 时间 / 幅度）
+     ⚠ 竞品三源现在**只采集展示、不参与定价**，「← 基准」标记只在旧
+       multisrc 模式下才有意义；dd373_markup 模式下不再标基准。
+     ================================================================== */
+  const _MS = (GOLD_DATA && GOLD_DATA['定价策略'] && GOLD_DATA['定价策略']['AION2']) || {};
+  const _isDD = _MS['模式'] === 'dd373_markup';
+  /* 百分比格式化（0.05 → "5%"，保留一位小数用于 2% 这类小值） */
+  const f1pct = function(v){ if(v===null||v===undefined) return '--';
+    const n=Number(v)*100; if(isNaN(n)) return '--';
+    return (Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
+  const _TIERLBL = {1:'第1级·DD373推荐价÷(1−'+f1pct(_MS['利润率'])+')',
+                    2:'第2级·'+(_MS['次源']||'G2G')+'兜底',3:'第3级·默认售价'};
+  const THEAD_COST='<tr><th>服务区</th>'
+    +_MSH
+    +'<th class="num">IGGM $/'+_ULX+'</th>'
+    +'<th class="num">我方当前售价 $/'+_ULX+'</th>'
+    +'<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">'
+      +'vs 竞品最低价</span></th>'
+    +'<th class="num">利润率</th>'
+    +'<th class="num">采购成本 ￥/'+_ULX+'<br><span class="small" style="color:var(--sub);font-weight:400">写后台 vs DD373 实采</span></th><th class="num">最大档对照</th><th>动作</th>'
+    +'<th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
+  const THEAD_ITEM='<tr><th>商品</th><th class="num">装量</th>'
+    +'<th class="num">IGGM 上轮</th><th class="num">IGGM 现价</th><th class="num">变动</th>'
+    +'<th class="num">我方现价</th><th class="num">目标价</th>'
+    +'<th class="num">千岛成本</th><th class="num">成本($)</th><th class="num">毛利率</th>'
+    +'<th>动作</th><th>原因 / 依据</th></tr>';
+
+  const html=[];
+  if(myCost.length){
+      const rowsC = sortByConfig(myCost);
+      const body = rowsC.map(function(x){
+        const isOff = OFF.has(x.key);
+        /* 2026-10-12（老板口径）：「你得在前端展示你真正抓取的平均成本」——
+           原来这一格只有「写后台采购成本」（= 目标售价 × 成本除数，是**控制前台价的
+           旋钮值**，不是实付成本），别人一看就跟 DD373 页面对不上、以为抓错了。
+           现在把 DD373 **实采均价**并排显示，且两边都折到 DD373 页面的原生口径
+           （元/万金）—— 同口径才能直接比，不再需要心算换算。 */
+        /* ⚠ 单位判定必须用行上的 unitLabel（MSCW='K'），不能用 U_COST ——
+           那个是**展示倍率**（MSCW=1 ⇒ goldUnitLabel 一律返回 'M'），
+           用它会把 MSCW 的 ￥/K 误标成 ￥/M、换算 ×10 也就丢了。 */
+        const _uK  = (String(x.unitLabel||'').toUpperCase()==='K');
+        const _wuN = _uK ? '万金' : '万基纳';        /* DD373 页面单位名 */
+        const _pw  = _uK ? 10 : 1;                   /* ￥/K → 元/万金 要 ×10（1 万金 = 10 K） */
+        const _ddc = (x.dd_ref_cny!=null && x.dd_ref_cny!=='') ? Number(x.dd_ref_cny) : null;
+        const tgt = (function(){
+          let h = '';
+          if(x.cost_target===null||x.cost_target===undefined){
+            h += '<span style="color:var(--sub)">--</span>';
+          }else{
+            h += '<b class="mono">'+c6(x.cost_target)+'</b>'
+               + '<span class="small" style="color:var(--sub)"> ￥/'+_ULX+'</span>'
+               + (x.cost_old!=null
+                  ? '<div class="small" style="color:var(--sub)">现 '+c6(x.cost_old)+'</div>' : '');
+            /* ⚠ 同口径对照只对**真采到 DD373 成本的游戏**（MSCW / AION2）显示。
+               其余金币行（ARC Raiders / 暗黑4）没有 dd_ref_cny，硬换算出的「元/万X」
+               没有意义、还会把不相干的单位名安上去 ⇒ 保持原样（只有写后台值）。 */
+            if(_ddc!=null){
+              h += '<div class="small" style="color:var(--sub)">写后台 ≈ '
+                 + (Number(x.cost_target)*_pw).toFixed(2)+' 元/'+_wuN+'</div>'
+                 + '<div class="small" style="color:var(--blue);font-weight:600">'
+                 + 'DD373 实采 '+_ddc.toFixed(2)+' 元/'+_wuN+'</div>';
+            }
+          }
+          return h;
+        })();
+        const act = isOff ? '已停跟'
+          : ({follow_up:'跟涨', follow_down:'跟降', hold:'已持平'}[x.action] || (x.action||'--'));
+        const acol = isOff ? 'var(--sub)'
+          : (x.action==='follow_up' ? 'var(--red)' : (x.action==='follow_down' ? 'var(--green)' : 'var(--sub)'));
+        /* 最大档对照（用户口径：拿最大的那个金币选项直接看价格变化）：
+           该档 IGGM 真价 / 我方现价 → 改后价，并标「改后低了几个点」。 */
+        let big = '--';
+        if(x.big_tier!=null && x.iggm_big!=null){
+          const okc = (x.ok===1||x.ok===true) ? 'var(--green)'
+            : ((x.ok===0||x.ok===false) ? 'var(--red)' : 'var(--sub)');
+          big = '<span class="mono">'+Number(x.big_tier).toLocaleString()+' M</span>'
+            + '<div class="small" style="color:var(--sub)">IGGM $'+Number(x.iggm_big).toFixed(2)
+            + ' ｜ 我方 $'+(x.our_big!=null?Number(x.our_big).toFixed(2):'--')
+            + ' → <b>$'+(x.tgt_big!=null?Number(x.tgt_big).toFixed(2):'--')+'</b></div>'
+            + (x.below_pct!=null
+               ? '<div class="small" style="color:'+okc+';font-weight:600">'
+                 + ((x.ok===1||x.ok===true)?'\u2714':'\u2718')+' 改后低 '
+                 + Number(x.below_pct).toFixed(2)+'%</div>' : '');
+        }
+        /* 2026-10-02 · 定价级别标签（第1级 DD373+5% / 第2级 G2G兜底 / 第3级 9.9兜底）。
+           让「这行为什么是这个价」一眼可见，不用翻日志。 */
+        const tier = x.price_tier!=null ? Number(x.price_tier) : null;
+        const tcol = {1:'var(--green)',2:'var(--yellow)',3:'var(--red)'}[tier] || 'var(--sub)';
+        const tierChip = (tier==null) ? ''
+          : '<div class="small" style="color:'+tcol+';font-weight:600">'
+            + (_TIERLBL[tier] || ('第'+tier+'级')) + '</div>';
+        return '<tr style="cursor:pointer'+(isOff?';opacity:.55':'')+'"'
+          + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.title||x.key||'')+'"'
+          + ' title="点击查看该服务区的调价历史"'
+          + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
+          + '<td><b>'+esc(x.title||x.key)+'</b>'
+          + tierChip
+          + '<div class="small" style="color:var(--sub)">后台行 '+esc(x.row_id||'--')
+          + ' ｜ 前端 aid '+esc(x.aid||'--')
+          + (isOff?' ｜ 已停跟（数据为上一轮快照）':'')+'</div></td>'
+          /* ⚠ G2G/ELD 两格必须与表头 _MSH 同步：有源才出格。
+             原来这里无条件输出、表头却是条件注入 → 暗黑4（无三源）
+             表头 9 列而数据行 11 格，整行错位两列。 */
+          + (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : '')
+          + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
+          /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价，
+             别人就不容易误解、也能直观看到差异」——
+             把**我方前台价也折成人民币**，且折到与 DD373 采集**完全同口径**（元/万金），
+             与成本列里的「DD373 实采 X 元/万金」直接可比、不用心算。
+             汇率系数**直接从同行的 dd_ref_cny ÷ dd_ref_usd 反推**
+             （= 元/万X ÷ USD/单位），既不必另配汇率、也不用猜单位；
+             只有真采到 DD373 成本的行才出这一行。 */
+          + '<td class="num mono"><b>'+pm(x.our_per_m, U_COST)+'</b>'
+            + (function(){
+                const _du = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+                const _ou = (x.our_per_m !=null && x.our_per_m !=='') ? Number(x.our_per_m ) : null;
+                if(_ddc==null || !_du || !_ou) return '';
+                const _cn = _ou * (_ddc/_du);      /* 我方前台价 · 人民币（元/万金） */
+                return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+                     + _cn.toFixed(2) + '/' + _wuN + '</div>';
+            })()
+          + '</td>'
+          + gapCell(x)
+          + (function(){
+              /* 2026-10-09 · MSCW(iggm_undercut) 专用展示（老板口径）：
+                 ① 利润率列**按「当前跟价 vs 进货均价」实算**，不再显示写死的后台利润率
+                    （原来那个 30% 是后台行 21754 的存档值，不随价格变 → 现在算出来的才是真利润）；
+                 ② 单元格补一行**估算进货均价**（DD373「买满目标量」订单簿加权均价 = dd_ref_usd，
+                    2026-10-12 目标量已提到 800 万金），同时给 行内单位($/K) 与 $/M 两个口径。
+                 ③ 2026-10-12：判定放宽为「只要有 dd_ref_usd 就用实采成本」，并统一走
+                    goldRealMargin()，与「平均毛利率」指标卡**同口径**（老板：「利润按实际的来」）。 */
+              const _cst = (x.dd_ref_usd!=null && x.dd_ref_usd!=='') ? Number(x.dd_ref_usd) : null;
+              const _mg  = goldRealMargin(x);
+              let _cell = '<td class="num">';
+              if(_mg!=null){
+                  const _col = (_mg<0) ? 'var(--red)' : 'var(--green)';
+                  _cell += '<span style="color:'+_col+';font-weight:600">'+(_mg*100).toFixed(1)+'%</span>';
+              }else{
+                  _cell += '--';
+              }
+              if(_cst!=null){
+                  const _perM = _cst * (String(x.unitLabel)==='K' ? 1000 : 1);
+                  const _fl = (function(){
+                      try{
+                          const p=(GOLD_DATA&&GOLD_DATA['定价策略']&&GOLD_DATA['定价策略']['按游戏'])||{};
+                          const v=(p[x['游戏']]||{})['利润率下限'];
+                          return (v==null) ? null : Number(v);
+                      }catch(e){ return null; }
+                  })();
+                  _cell += '<div class="small" style="color:var(--sub)">进货 ≈ $'+_cst.toFixed(4)+'/'+_UL
+                         + '（$'+_perM.toFixed(2)+'/M）'
+                         + (_fl!=null ? ' ｜ 兜底 '+(_fl*100).toFixed(0)+'%' : '') + '</div>';
+              }
+              return _cell + '</td>';
+          })()
+          + '<td class="num">'+tgt+'</td>'
+          + '<td class="num">'+big+'</td>'
+          + '<td style="color:'+acol+';font-weight:600">'+act+'</td>'
+          + actCell(x) + '</tr>';
+      }).join('') + goldOffRows(rowsC);
+      html.push(secBody(THEAD_COST, body, secH(rowsC.length)));
+  }
+  if(myItem.length){
+      const rowsI = sortByConfig(myItem);
+      html.push(secBody(THEAD_ITEM, rowsI.map(mainRow).join(''), secH(rowsI.length)));
+  }
+  box.innerHTML = html.join('');
+  renderGoldCostSum();
+}
+
+/* ======================================================================
+   2026-10-02 · 金币「售价 / 进货成本 / 利润率」汇总区（只读监控）
+   ----------------------------------------------------------------------
+   用户口径：成本价（DD373 综合排序第 1 条）**仅作为监控及参考价值，
+   不干预任何比价及改价写入** —— 所以这里是**纯展示**，
+   没有任何「按成本改价」的按钮，也不回写。
+
+   利润率 = (售价 − 成本) / 售价，**可以为负**（负数 = 亏，如实显示，不截断）。
+   成本与售价统一折成 $/M 再比（成本原始口径 元/万基纳 同时给出）。
+   ====================================================================== */
+/* ===== 2026-10-06 · AION2 金币汇总表的「筛选 + 局部重绘」 =====
+   数据（GCS_ROWS）、行渲染函数（GCS_ROW）、表头（GCS_THEAD）由 renderGoldCostSum
+   每轮刷新到这里；筛选只在已加载的这一批数据上过滤，**不重新请求接口**（快照本就是一整批）。
+   筛选条件存 GCS_FILTER，切换游戏 / 新一轮采集后重建控件时按它回填，不丢用户的筛选。 */
+let GCS_ROWS = null, GCS_ROW = null, GCS_THEAD = '';
+let GCS_FILTER = {kw: '', region: '', loss: false, move: false};
+function gcsApply(){
+  const host = document.getElementById('gcsTable');
+  if(!host || !GCS_ROW) return;
+  const kwEl = document.getElementById('gcsKw');
+  const rgEl = document.getElementById('gcsRegion');
+  const lossEl = document.getElementById('gcsLoss');
+  const moveEl = document.getElementById('gcsMove');
+  GCS_FILTER = {
+    kw: (kwEl ? String(kwEl.value || '').trim() : ''),
+    region: (rgEl ? String(rgEl.value || '') : ''),
+    loss: !!(lossEl && lossEl.checked),
+    move: !!(moveEl && moveEl.checked)
+  };
+  const kw = GCS_FILTER.kw.toLowerCase();
+  const hit = (GCS_ROWS || []).filter(function(x){
+    if(GCS_FILTER.region && String(x.大区中文||x.DD区||'') !== GCS_FILTER.region) return false;
+    if(kw){
+      const hay = ((x.服务器名||'')+' '+(x.DD游戏区||'')+' '+(x.种族||'')+' '
+                   +(x.key||'')+' '+(x.依据||'')).toLowerCase();
+      if(hay.indexOf(kw) < 0) return false;
+    }
+    /* 只看亏损行：利润率 < 0（真实结论，不淡化） */
+    if(GCS_FILTER.loss && !(x.利润率 != null && Number(x.利润率) < 0)) return false;
+    /* 只看有变动：动作是 跟涨 / 跟降（持平行 = 不需要动手） */
+    if(GCS_FILTER.move){
+      const a = ((x.定价||{}).action) || '';
+      if(a !== 'follow_up' && a !== 'follow_down') return false;
+    }
+    return true;
+  });
+  host.innerHTML = '<div class="gcs-wrap"><table class="tbl">'
+    + '<thead>'+GCS_THEAD+'</thead><tbody>'+hit.map(GCS_ROW).join('')+'</tbody></table>'
+    + (hit.length ? '' : '<div class="gcs-empty">没有符合当前筛选条件的服务区</div>')
+    + '</div>';
+  const cnt = document.getElementById('gcsCnt');
+  if(cnt) cnt.textContent = '显示 '+hit.length+' / '+(GCS_ROWS||[]).length+' 个服务区';
+}
+function gcsReset(){
+  ['gcsKw','gcsRegion'].forEach(function(id){
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  ['gcsLoss','gcsMove'].forEach(function(id){
+    const el = document.getElementById(id); if(el) el.checked = false;
+  });
+  gcsApply();
+}
+async function renderGoldCostSum(){  const box = $('#goldCostSum');
+  if(!box) return;
+  const g = curGameObj();
+  if(!g){ box.innerHTML=''; return; }
+  let r = GOLD_COST_DATA;
+  if(!r){
+    try{ r = await api('api/gold_cost'); }catch(e){ r = null; }
+    GOLD_COST_DATA = r || {items:[], 汇总:null, 口径:''};
+  }
+  const d = GOLD_COST_DATA;
+  /* ⛔ 2026-10-08 修「AION2 金币面板串到所有游戏」：
+     /api/gold_cost 后端按 config「金币.进货成本.游戏」**固定返回 AION2 的一整批区**
+     （见 app.py api_gold_cost：game = cc.get("游戏") or "AION2"），不区分前端选的是哪个游戏。
+     原来这里 rows = d.items 全量渲染 ⇒ 打开暗黑4 / POE2 / 别的游戏也会看到 AION2 的 86 行。
+     归属判定：**这批成本数据属于当前游戏 ⇔ 至少有一条 key 登记在本游戏下**。
+       · 线上实测（2026-10-08）：AION2 86/86 全部登记、其余 8 个游戏交集恒为 0；
+       · 命中就**整批展示**、不做逐行过滤 —— 将来某区没登记进跟价清单也不会被静默吞行；
+       · 不命中 ⇒ 整块不显示（不是显示「暂无」，别留半块空面板）。
+     ⚠ 局限：若日后后端把多个游戏的成本并进同一批返回，需改为后端按 ?game= 过滤。 */
+  const mCost = key2sec();
+  const allRows = (d.items||[]);
+  if(!allRows.some(x=>mCost.get(x.key)===g)){
+    box.style.display='none'; box.innerHTML='';
+    return;
+  }
+  const rows = allRows;
+  box.style.display='';
+  const S = d.汇总||{};
+  /* 数字格式：售价 $/M、成本 $/M 都保留 4 位（够看清差异又不至于太长） */
+  const f4 = function(v){ if(v===null||v===undefined||v==='') return '--';
+    const n=Number(v); return isNaN(n)?'--':n.toFixed(4); };
+  const f6 = function(v){ if(v===null||v===undefined||v==='') return '--';
+    const n=Number(v); return isNaN(n)?'--':n.toFixed(6); };
+  /* 利润率：≥0 绿（赚）、<0 红（亏）。这是**真实盈亏**，不要淡化。 */
+  const mCell = function(m){
+    if(m===null||m===undefined) return '<td class="num" style="color:var(--sub)">--</td>';
+    const n=Number(m)*100;
+    const col = n<0 ? 'var(--red)' : 'var(--green)';
+    return '<td class="num mono" style="color:'+col+';font-weight:600">'
+      + (n>0?'+':'')+n.toFixed(2)+'%</td>';
+  };
+  const chip = function(txt,color){
+    return '<span class="label-bg" style="background:'+(color||'transparent')
+      + ';color:var(--sub);border:1px solid var(--line);border-radius:3px;'
+      + 'padding:0 4px;font-size:11px;margin-left:4px">'+txt+'</span>';
+  };
+  /* ---- 2026-10-02 新增 · 差距对比（并入汇总区）------------------------
+     金币监控主表按用户要求隐藏了，但它这一列信息不该丢 —— 挪到这里。
+     口径与主表 gapCell() **完全一致**（同一个 comp_min / gap_comp_pct），
+     正数 = 我方比竞品贵（红），负数 = 我方更便宜（绿）。
+     数据在 x['定价'] 里（api/gold_cost 的 定价 段），不在顶层。 */
+  const gapCellSum = function(P){
+    const cm = P && P.comp_min, pct = P && P.gap_comp_pct;
+    if(cm===null||cm===undefined||cm==='')
+      return '<td class="num" style="color:var(--sub)">--</td>';
+    const p = (pct===null||pct===undefined) ? null : Number(pct);
+    const col = (p===null) ? 'var(--sub)' : (p>0.05?'var(--red)':(p<-0.05?'var(--green)':'var(--sub)'));
+    return '<td class="num mono">'
+      + '<span style="color:'+col+';font-weight:600">'
+      + (p===null?'--':((p>0?'+':'')+p.toFixed(2)+'%'))+'</span>'
+      + '<div class="small" style="color:var(--sub)">最低 $'+Number(cm).toFixed(2)
+      + '（'+((P&&P.comp_min_src)||'?')+'）</div>'
+      + ((P&&P.gap_comp!=null) ? '<div class="small" style="color:var(--sub)">差 $'
+          +Number(P.gap_comp).toFixed(2)+'</div>' : '')
+      + '</td>';
+  };
+  /* 行渲染函数（供筛选后重绘复用）：吃一条 api/gold_cost 的 item，吐一个 <tr>。 */
+  const rowHTML = function(x){
+    const noCost = !x.ok;
+    /* 无报价 / 被风控：不编数，直接留空 + 说明原因（用户口径 2026-10-02）。
+       ⚠ 注意：dd373_markup 下「无 DD373 报价」≠「不定价」——
+         第2级会用 G2G、第3级用默认售价 9.9 顶上，售价列照样有数。 */
+    /* 2026-10-06 用户口径：「咱们的进货价和标价都用同一种单位来显示，方便我看」——
+       进货价原列显示的是「元/万基纳」，与售价的 $/M 不是一个单位，没法直接比。
+       现在主数字统一成 **$/M**（与售价同单位），原始 元/万基纳 降为小字留证；
+       原来重复的「成本 $/M」列并入本列（12 列 → 11 列）。 */
+    /* 2026-10-12（老板口径）：「你得在前端展示你真正抓取的平均成本」——
+       本列主数字本来就是 DD373 **实采**（$/M + 元/万基纳），但「写后台的采购成本」
+       （= 目标售价 × 成本除数，**控制前台价的旋钮值**）一直没露面，看板上两边都看不到
+       同一行的对照。现在把写后台值并排补上（并折算成同单位 $/M），一眼可比。 */
+    const _P0 = x['定价'] || {};
+    const _ct0 = (_P0.cost_target!=null && _P0.cost_target!=='') ? Number(_P0.cost_target) : null;
+    const _dv0 = (_P0.divisor!=null && _P0.divisor!=='') ? Number(_P0.divisor) : null;
+    const _tgtUsd0 = (_ct0!=null && _dv0) ? (_ct0/_dv0) : null;
+    const costCell = noCost
+      ? '<td class="num" style="color:var(--sub)">无报价</td>'
+      : '<td class="num mono"><b>$'+f4(x.成本_USD每M)+'/M</b>'
+        + '<div class="small" style="color:var(--sub)">'
+        + f6(x.成本_元每万基纳)+' 元/万基纳</div>'
+        + (_ct0!=null
+           ? '<div class="small" style="color:var(--blue)">写后台 ￥'+_ct0.toFixed(4)+'/M'
+             + (_tgtUsd0!=null ? ' ≈ $'+_tgtUsd0.toFixed(4)+'/M' : '')+'</div>'
+           : '')
+        + '</td>';
+    const stockTip = (x.库存? (' · 库存 '+esc(x.库存)) : '')
+      + (x.挂单数? (' · '+x.挂单数+' 条挂单') : '');
+    /* 2026-10-02：定价级别（第1/2/3 级）—— 这一列是本次改动的核心可见性 */
+    const P = x['定价'] || {};
+    /* 2026-10-06：dd373_only 也有 1/2/3 级（1=DD373进货÷(1−利润率)，3=无货兜底），
+       原判断只认 dd373_markup ⇒ 新模式下整列误显示「旧口径」，这里一并认。 */
+    const _pmode = P.mode || '';
+    const tier = (_pmode==='dd373_markup' || _pmode==='dd373_only')
+      ? (P.tier!=null?Number(P.tier):null) : null;
+    const tcol = {1:'var(--green)',2:'var(--yellow)',3:'var(--red)'}[tier] || 'var(--sub)';
+    const _pol = d['定价策略'] || {};
+    const _pct = function(v){ if(v==null) return '--';
+      return (Math.round(Number(v)*1000)/10).toFixed(1).replace(/\.0$/,'')+'%'; };
+    const _isDDonly = (_pmode==='dd373_only');
+    const _isG2GC   = (_pmode==='g2g_cheapold');
+    const _ddMkNum = Number(_pol['利润率']);
+    const _ddMk = isNaN(_ddMkNum) ? 0.07 : _ddMkNum;
+    const _ddParkNum = Number(_pol['无货兜底售价_USD每M']);
+    const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
+    /* 2026-10-09（老板口径「该区无 cheapold 卖家，则保持30%的利润」）：
+       无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 ÷ (1−利润率)** 定价。
+       利润率走 config（金币.定价策略.无cheapold利润率，默认 0.30）—— 看板文案跟着配置走，
+       日后改利润率不会出现「看板还写着旧值」的滞后。 */
+    const _ncNum = Number(_pol['无cheapold利润率']);
+    const _nc = (isNaN(_ncNum) || _ncNum < 0) ? 0.30 : _ncNum;
+    const _ncAdd = Math.round(_nc * 100);                  // 30（利润率 30%）
+    const _ncMg = Math.round(_nc * 1000) / 10;             // 30（平台口径利润率 (P−C)/P）
+    /* 2026-10-09（老板口径「如果跟了 cheapold，利润率低于 20%，则强制调价到 20%」）：
+       跟价后利润率不足下限的区会被**强制抬价**，看板要能一眼看出是哪几行被抬过。 */
+    const _limNum = Number(_pol['利润率下限']);
+    const _limMg = isNaN(_limNum) ? 0.20 : _limNum;
+    const _limAdd = Math.round(_limMg * 100);              // 20
+    /* 2026-10-12（老板口径「跟价后利润大于 30% 就强行压到 30% 利润左右」）：
+       跟价后**利润率**超过上限的行会被**强行压价**，看板要能一眼看出是哪几行被压过。
+       口径 = 利润率 (P−C)/P（config 金币.定价策略.利润率上限，默认 0.30）。 */
+    const _capNum = Number(_pol['利润率上限']);
+    const _capMg  = isNaN(_capNum) ? 0.30 : _capNum;
+    const _capAdd = Math.round(_capMg * 100);              // 30（利润率上限 30%）
+    /* 旧「定价级别」单元格 —— 只在 dd373 两种模式下还有意义（D4 等游戏仍走这里，逐字不变）。 */
+    const tierCell = (tier==null)
+      ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
+      : '<td class="num" style="color:'+tcol+';font-weight:600">第'+tier+'级'
+        + '<div class="small" style="color:var(--sub);font-weight:400">'
+        + (_isDDonly
+            ? (tier===1? ('DD373进货 ÷'+(1-_ddMk).toFixed(2))
+                       : ('无货兜底 $'+_ddPark.toFixed(2)))
+            : (tier===1? ('DD373÷(1−'+_pct(_pol['利润率'])+')')
+              : (tier===2? ((_pol['次源']||'G2G')+'兜底')
+                         : ('默认 $'+(Number(_pol['默认售价_USD每M'])||9.9).toFixed(2)))))
+        + '</div></td>';
+    /* ===== 2026-10-09（老板口径）· **跟价来源** 单元格 =====
+       取代 g2g_cheapold 模式下的旧「定价级别」列（那列在该模式下 86 行全渲染成
+       字面文本「旧口径」，纯噪音）。这里直接回答「这一行的价跟的是谁」：
+         cheapold 卖家 / 推荐前二较低者 / 货源闸保护价，命中成本兜底再单独标一句。 */
+    const _bS  = String(P.base || '');        // src_base："G2G·cheapold" / "G2G·推荐前二" / "无货兜底" …
+    const _bS0 = _bS.replace(/→成本价$/,'');   // 去掉成本兜底尾巴，剩下的才是取价来源
+    const _cf  = (_bS.indexOf('成本价') >= 0); // 竞品低于我方 DD373 成本 ⇒ 不再跟降（按成本价）
+    const _fl  = (_bS.indexOf('利润下限') >= 0);  // 2026-10-09：被 20% 利润闸强制抬过价
+    const _cp  = (_bS.indexOf('利润率上限') >= 0);  // 2026-10-12：被利润率上限闸强行压过价
+    const _cfTip = '<div class="small" style="color:var(--sub);font-weight:400">'
+                 + '竞品低于成本 → 不再跟降</div>';
+    const _flTip = '<div class="small" style="color:var(--red);font-weight:600">'
+                 + '⛔ 利润率低于 '+_limAdd+'% → 已强制抬价</div>';
+    const _cpTip = '<div class="small" style="color:var(--red);font-weight:600">'
+                 + '⛔ 利润率超 '+_capAdd+'% → 已强行压价</div>';
+    const srcCell = !_isG2GC ? tierCell
+      : (_bS0.indexOf('cheapold') >= 0
+          ? '<td style="color:var(--green);font-weight:600">cheapold 卖家'
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
+                   : (_cf ? _cfTip
+                          : '<div class="small" style="color:var(--sub);font-weight:400">'
+                            + '永远优先 cheapold</div>'))) + '</td>'
+        : (_bS0.indexOf('成本÷') >= 0
+          /* 🆕 2026-10-09：该区无 cheapold 卖家 ⇒ 不再跟 G2G 推荐前二，
+             改按本区 DD373 成本 ÷ (1−利润率) 定价（老板口径「保持 30% 的利润」）。 */
+          ? '<td style="color:var(--yellow);font-weight:600">利润率 '+_ncAdd+'%'
+            + '<div class="small" style="color:var(--sub);font-weight:400">'
+            + '该区无 cheapold → 成本÷'+(1-_nc).toFixed(2)
+            + '（利润率 '+_ncMg.toFixed(1)+'%）</div></td>'
+        : (_bS0.indexOf('推荐前二') >= 0
+          /* ⚠ 2026-10-09 起本口径已废止，仅旧快照（新列落库前）还会出现。 */
+          ? '<td style="color:var(--yellow);font-weight:600">推荐前二较低者'
+            + (_cp ? _cpTip
+                   : (_fl ? _flTip
+                   : (_cf ? _cfTip
+                          : '<div class="small" style="color:var(--sub);font-weight:400">'
+                            + '该区无 cheapold 卖家（旧口径）</div>'))) + '</td>'
+        : (_bS.indexOf('无货兜底') >= 0
+          ? '<td style="color:var(--red);font-weight:600">货源闸'
+            + '<div class="small" style="color:var(--sub);font-weight:400">DD373 无货 → $'
+            + _ddPark.toFixed(2)+'/M 保护</div></td>'
+          : '<td style="color:var(--sub)">—</td>'))));
+    /* ===== 2026-10-09（老板口径）· **跟价基准** 单元格 =====
+       主数字 = 我方真正在跟的那个价：
+         · 有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
+         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 ÷ (1−利润率)（默认 0.30）**，
+           不再跟 G2G 推荐前二（该口径已废止）。
+       · 新列 g2g_base 落库后优先用；旧快照该列还是 NULL ⇒ 回落 src_base_v
+         （两者等价；唯一差别是「成本兜底」那几行旧快照会短暂显示成本价，下一轮自动校正）。 */
+    const g2gBaseCell = function(){
+      let _b = (P.g2g_base!=null && P.g2g_base!=='') ? Number(P.g2g_base) : null;
+      let _tag = String(P.g2g_base_src || '');
+      if(_b==null && _isG2GC && _bS0.indexOf('G2G')>=0
+         && P.base_v!=null && P.base_v!==''){ _b = Number(P.base_v); _tag = _bS0; }
+      if(_b==null || isNaN(_b))
+        return '<td class="num" style="color:var(--sub)">—'
+          + (_isG2GC
+             ? '<div class="small" style="color:var(--sub);font-weight:400">'
+               + (_bS.indexOf('无货兜底')>=0 ? '货源闸：本轮未抓 G2G' : '本轮无 G2G 报价')
+               + '</div>'
+             : '')
+          + '</td>';
+      const _lab = (_tag.indexOf('cheapold')>=0) ? 'cheapold 价'
+                 : (_tag.indexOf('成本÷')>=0) ? (_tag + '（不跟 G2G）')
+                 : (_tag.indexOf('推荐前二')>=0) ? '推荐前二较低者（旧口径）' : '';
+      return '<td class="num mono"><b>$'+_b.toFixed(2)+'/M</b>'
+        + (_lab ? '<div class="small" style="color:var(--sub)">'+_lab+'</div>' : '')
+        + '</td>';
+    };
+    /* 竞品参考价单元格（ELD / IGGM）—— 用户要求汇总区也能一眼看到。
+       2026-10-09：G2G 已改用 g2gBaseCell（跟价基准 = cheapold 优先），这里只剩 ELD / IGGM。 */
+    const cCell = function(v){ return (v==null||v==='')
+      ? '<td class="num" style="color:var(--sub)">—</td>'
+      : '<td class="num mono">$'+Number(v).toFixed(2)+'/M</td>'; };
+    /* 改价操作：来自 /api/gold 的 gold_ticket_map（**执行器回填的工单真值**）
+       2026-10-02 用户要求：时间必须是该区最近一次真实改价（工单 finished_at），
+       不是采集对比时间（旧 gold_action 慢一轮，前台还有 5~15 分钟推送延迟）。 */
+    const _ga = GOLD_ACTION_MAP || {};
+    const ga = _ga[x.key];
+    const gaCell = (!ga || ga['新价']==null)
+      ? '<td style="color:var(--sub);font-size:12px">--</td>'
+      : (function(){
+          const p2 = ga['幅度'], up = (p2!=null && Number(p2)>0);
+          const cc = (p2==null)?'var(--sub)':(up?'var(--red)':'var(--green)');
+          const ff = function(v){ return (v==null||v==='')?'--':('$'+Number(v).toFixed(2)); };
+          return '<td style="font-size:12px">'
+            + '<span class="mono" style="font-weight:600">'+ff(ga['旧价'])+' ➡️ '+ff(ga['新价'])+'</span>'
+            + '<div class="small" style="color:'+cc+';font-weight:600">'
+            + (p2==null?'':(up?'▲ +':'▼ ')+Number(p2).toFixed(2)+'%')+'</div>'
+            + '<div class="small" style="color:var(--sub)">'
+            + esc(String(ga['时间']||'').replace('T',' ').slice(0,16))+'</div>'
+            + (ga['单号']?'<div class="small" style="color:var(--sub);opacity:.75">'
+               + esc(String(ga['单号']))+'</div>':'')
+            + '</td>';
+        })();
+    /* 2026-10-06 展示名统一：优先用后端补的 服务器名/大区中文/种族（DD373 优先、
+       config 兜底），避免新子服务器在 DD373 无挂单时掉成裸 key AION2_XXX_E。 */
+    return '<tr style="cursor:pointer"'
+      + ' data-k="'+esc(x.key||'')+'" data-t="'+esc(x.服务器名||x.DD游戏区||x.key||'')+'"'
+      + ' title="点击查看该服务区的调价历史"'
+      + ' onclick="showGoldHistory(this.dataset.k,this.dataset.t)">'
+      + '<td><b>'+esc(x.服务器名||x.DD游戏区||x.key)+'</b>'
+        + '<div class="small" style="color:var(--sub)">'+esc(x.大区中文||x.DD区||'')+' / '+esc(x.种族||x.DD种族||'')
+        + (stockTip? esc(stockTip):'')+'</div></td>'
+      + srcCell
+      + '<td class="num mono">'+(x.售价_USD每M!=null?('$'+f4(x.售价_USD每M)+'/M') : '--')
+        /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价」——
+           把**我方前台价也折成人民币**（元/万基纳，与成本列同口径），不用心算汇率就能看差距。
+           系数 = 本行「成本_元每万基纳 ÷ 成本_USD每M」（= 元/万基纳 ÷ USD/M），
+           直接从**这一行的实采数据**反推，不依赖全局汇率配置。 */
+        + (function(){
+            const _cc = Number(x.成本_元每万基纳), _cu = Number(x.成本_USD每M), _su = Number(x.售价_USD每M);
+            if(!(_cc>0) || !(_cu>0) || !(_su>0)) return '';
+            return '<div class="small" style="color:var(--yellow)">前台 ≈ ￥'
+                 + (_su*(_cc/_cu)).toFixed(4) + ' 元/万基纳</div>';
+        })()
+        + (x.对照档位M? '<div class="small" style="color:var(--sub)">按 '+x.对照档位M+'M 档</div>':'')+'</td>'
+      /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列 ——
+         该列用成本除数换算，与 MMOEXP 前台口径重复且易误读，直接移除。
+         「改价操作」列里的新价已改用真实除数（5.32），与前台一致。 */
+      /* 2026-10-09：G2G 列换成 g2gBaseCell（跟价基准 = cheapold 优先），不再是三源 G2G 最低价。
+         ⚠ 只在 g2g_cheapold 模式（或有新列 g2g_base）时才换；其它定价模式的每一行
+           仍然走原来的 cCell(P.g2g) —— 保证 D4 / MSCW 那些行**逐字不变**。 */
+      + ((_isG2GC || P.g2g_base!=null) ? g2gBaseCell() : cCell(P.g2g))
+      + cCell(P.eld) + cCell(P.iggm)
+      + costCell
+      + mCell(x.利润率)
+      + gapCellSum(P)
+      + '<td style="color:var(--sub);font-size:12px">'
+        + (noCost ? esc(x.依据||'DD373 无报价')+(x.备注?('<div class="small">'+esc(x.备注)+'</div>'):'')
+                   : esc(x.依据||''))
+        + '</td>'
+      + gaCell + '</tr>';
+  };
+  const sumBits = [];
+  if(S.服务区数!=null) sumBits.push('服务区 '+S.服务区数);
+  if(S.有成本!=null)    sumBits.push('有成本 '+S.有成本);
+  if(S.无报价)          sumBits.push('无报价 '+S.无报价);
+  if(S.亏损区数)        sumBits.push('<b style="color:var(--red)">亏损 '+S.亏损区数+' 个</b>');
+  if(S.平均利润率!=null) sumBits.push('平均利润率 '+(Number(S.平均利润率)*100).toFixed(2)+'%');
+  /* 定价级别分布：一眼看出这轮有几个区在用兜底 */
+  const _dist = {1:0, 2:0, 3:0};
+  rows.forEach(function(x){
+    const P2 = x['定价']||{};
+    if((P2.mode==='dd373_markup' || P2.mode==='dd373_only' || P2.mode==='g2g_cheapold')
+       && P2.tier!=null){
+      const tt = Number(P2.tier); if(_dist[tt]!=null) _dist[tt]++;
+    }
+  });
+  const _pol2 = d['定价策略']||{};
+  /* 2026-10-09：表头文案要跟着**当前模式**走 —— 模式可用 switch_pricing_mode.py 一键切回
+     dd373_only / dd373_markup。若表头写死「跟价来源 / G2G 跟价基准」而模式里每行渲染的
+     还是「第N级 / 三源 G2G 最低」，就成了新的口径不一致。所以这里按模式分叉。 */
+  const _isG2GC2 = _pol2['模式']==='g2g_cheapold';
+  /* 2026-10-09：无 cheapold 卖家的区改按「成本 ÷ (1−利润率)」定价 ⇒ 表头副标与分布都要跟上，
+     利润率从 config 读（金币.定价策略.无cheapold利润率，默认 0.30）。 */
+  const _ncv2 = Number(_pol2['无cheapold利润率']);
+  const _nc2 = (isNaN(_ncv2) || _ncv2 < 0) ? 0.30 : _ncv2;
+  /* 2026-10-09：20% 利润下限（config 金币.定价策略.利润率下限）—— 表头/汇总条跟着配置走。 */
+  const _limv2 = Number(_pol2['利润率下限']);
+  const _limLbl2 = Math.round((isNaN(_limv2) ? 0.20 : _limv2) * 100);
+  /* 2026-10-12：利润率上限（config 金币.定价策略.利润率上限，默认 0.30）—— 同上。 */
+  const _capv2 = Number(_pol2['利润率上限']);
+  const _capLbl2 = Math.round((isNaN(_capv2) ? 0.30 : _capv2) * 100);
+  if(_pol2['模式']==='dd373_markup'){
+    sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
+      + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
+  }
+  if(_pol2['模式']==='dd373_only'){
+    /* 只跟 DD373：第1级 = 买满 1 亿按成本÷(1−利润率)；第3级 = 无货统一挂兜底价 */
+    sumBits.push('有货照成本÷(1−利润率) '+_dist[1]
+      + ' ｜ <span style="color:var(--yellow)">无货兜底 $'
+      + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_dist[3]+'</span>');
+  }
+  if(_pol2['模式']==='g2g_cheapold'){
+    /* 2026-10-09（老板口径）：跟价来源分布 —— 取代旧「第N级」分布。
+       一眼看出这轮有几个区在跟 cheapold、几个区该区没 cheapold 改走了「成本÷(1−利润率)」、
+       几个区被 DD373 货源闸挂了 $19.9 保护价。（判据与「跟价来源」列完全同源。）
+       ⚠「推荐前二」口径已于 2026-10-09 废止 —— 只有旧快照才会出现，有值才显示。 */
+    const _d2 = {cheapold:0, nc:0, rec:0, gate:0, floor:0, cap:0, other:0};
+    rows.forEach(function(x){
+      const P3 = x['定价']||{};
+      if(P3.mode!=='g2g_cheapold') return;
+      const b = String(P3.base||'');
+      if(b.indexOf('利润下限') >= 0) _d2.floor++;   // 2026-10-09：被 20% 利润闸抬过价（可与来源叠加）
+      if(b.indexOf('利润率上限') >= 0) _d2.cap++;     // 2026-10-12：被利润率上限闸压过价（可与来源叠加）
+      if(b.indexOf('无货兜底')>=0) _d2.gate++;
+      else if(b.indexOf('cheapold')>=0) _d2.cheapold++;
+      else if(b.indexOf('成本÷')>=0) _d2.nc++;
+      else if(b.indexOf('推荐前二')>=0) _d2.rec++;
+      else _d2.other++;
+    });
+    const _bits2 = ['<span style="color:var(--green)">cheapold '+_d2.cheapold+'</span>'];
+    if(_d2.nc)
+      _bits2.push('<span style="color:var(--yellow)">成本÷'+(1-_nc2).toFixed(2)+' '+_d2.nc+'</span>');
+    if(_d2.rec)
+      _bits2.push('<span style="color:var(--yellow)">推荐前二 '+_d2.rec+'（旧口径）</span>');
+    _bits2.push('<span style="color:var(--red)">货源闸 $'
+      + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+' '+_d2.gate+'</span>');
+    if(_d2.floor)
+      _bits2.push('<span style="color:var(--red)">⛔ 利润下限抬价 '+_d2.floor+'</span>');
+    if(_d2.cap)
+      _bits2.push('<span style="color:var(--red)">⛔ 利润率上限压价 '+_d2.cap+'</span>');
+    sumBits.push('跟价来源：'+_bits2.join(' ｜ '));
+  }
+  const thead = '<tr><th>服务区 / 货源</th>'
+    /* 2026-10-09（老板口径）：「这个定价级别是什么旧口径，这种数据没啥意义，修改掉」——
+       旧列只在 dd373 两种模式下才算级别，现行 g2g_cheapold 模式下 86 行全渲染成
+       字面文本「旧口径」= 纯噪音。改成 **跟价来源**：直接回答「这一行的价跟的是谁」。 */
+    + (_isG2GC2 ? '<th>跟价来源</th>' : '<th class="num">定价级别</th>')
+    + '<th class="num">售价 $/M<br><span class="small" style="color:var(--sub);font-weight:400">改价后最终</span></th>'
+    /* 2026-10-02 23:47 用户要求撤掉「前台已生效」列，与「售价」列口径重复。 */
+    /* 2026-10-09（老板口径）：「之前不是让你盯着 cheapold 的价格来改吗，那你得把
+       G2G 最低这列数据换成这个 cheapold 的价格」——
+       原列取 src_g2g = **三源·大区级** G2G 最低价，与真正在跟的价（**子服务器**
+       cheapold / 无 cheapold 时的成本÷(1−利润率)）不是一个口径（实测 ASIA_ARIEL_E
+       列显 3.96 / 实际跟 1.89）。现改为 **跟价基准**：列出来的就是**我方在跟的那个价**。
+       2026-10-09 二次定案后该列不再只装 G2G 价，故表头去掉「G2G」前缀。 */
+    + (_isG2GC2
+        ? '<th class="num">跟价基准 $/M<br><span class="small" style="color:var(--sub);font-weight:400">cheapold 优先 · 无则成本÷'+(1-_nc2).toFixed(2)+'</span></th>'
+        : '<th class="num">G2G 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>')
+    + '<th class="num">ELD 最低 $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    + '<th class="num">IGGM $/M<br><span class="small" style="color:var(--sub);font-weight:400">仅参考</span></th>'
+    /* 2026-10-06：进货价与售价统一 $/M；原来的「成本 $/M」列已并入本列（12→11 列）。 */
+    + '<th class="num">进货价 DD373<br><span class="small" style="color:var(--sub);font-weight:400">$/M（与售价同单位）</span></th>'
+    + '<th class="num">利润率</th>'
+    /* 2026-10-02 用户要求：金币监控主表已隐藏，把它的「差距对比」并到这里 */
+    + '<th class="num">差距对比<br><span class="small" style="color:var(--sub);font-weight:400">vs 竞品最低价</span></th>'
+    + '<th>依据</th><th title="点任意一行可查看该服务区的完整调价历史">改价操作</th></tr>';
+  const _isDD2 = _pol2['模式']==='dd373_markup';
+  const _isOnly = _pol2['模式']==='dd373_only';
+  /* ---- 2026-10-06 筛选栏（大区 / 搜索 / 只看亏损 / 只看有变动）----
+     ⚠ 必须放在 #gcsTable **之外**：表格每次重绘都换 innerHTML，控件在里面会失焦。
+     控件的初值从 GCS_FILTER 回填（新一轮采集重建后不丢用户已选的筛选）。 */
+  const _regions = [];
+  rows.forEach(function(x){
+    const rg = x.大区中文 || x.DD区 || '';
+    if(rg && _regions.indexOf(rg) < 0) _regions.push(rg);
+  });
+  const _sel = function(v){ return String(v)===GCS_FILTER.region ? ' selected' : ''; };
+  const bar = '<div class="gcs-bar">'
+    + '<select id="gcsRegion" onchange="gcsApply()">'
+    + '<option value="">全部大区</option>'
+    + _regions.map(function(rg){
+        return '<option value="'+esc(rg)+'"'+_sel(rg)+'>'+esc(rg)+'</option>';}).join('')
+    + '</select>'
+    + '<input type="text" id="gcsKw" value="'+esc(GCS_FILTER.kw)
+    + '" placeholder="搜服务器名 / 种族（如 Siel / Elyos）" oninput="gcsApply()">'
+    + '<label><input type="checkbox" id="gcsLoss" onchange="gcsApply()"'
+    + (GCS_FILTER.loss?' checked':'')+'>只看亏损行</label>'
+    + '<label><input type="checkbox" id="gcsMove" onchange="gcsApply()"'
+    + (GCS_FILTER.move?' checked':'')+'>只看有变动</label>'
+    + '<button class="gcs-btn" onclick="gcsReset()">重置</button>'
+    + '<span class="gcs-cnt" id="gcsCnt"></span>'
+    + '</div>';
+  box.innerHTML =
+      '<h4 class="gd-t" style="margin-top:14px">售价 · 进货成本 · 利润率'
+    + '<span class="sub" style="margin-left:auto">'+sumBits.join(' ｜ ')+'</span></h4>'
+    + '<div class="small" style="color:var(--sub);margin:2px 0 6px">'
+    + esc(d.口径||'')+' ｜ 快照 '+(d.ts||'--')
+    + (_isDD2 ? (' ｜ <b style="color:var(--yellow)">三级顺延定价：DD373推荐价÷(1−'
+                 + (Math.round(Number(_pol2['利润率']||0)*1000)/10)+'%) → 无报价则 '
+                 + (_pol2['次源']||'G2G')+'兜底 → 再无则默认 $'
+                 + (Number(_pol2['默认售价_USD每M'])||9.9).toFixed(2)
+                 + '/M</b>')
+              : (_isOnly ? (' ｜ <b style="color:var(--yellow)">只跟 DD373 进货价 ÷(1−'
+                 + (Math.round(Number(_pol2['利润率']||0)*1000)/10)+'%'
+                 + '；无报价或可买量 < 1 亿 ⇒ 统一挂 $'
+                 + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M</b>')
+              /* 2026-10-09 修：原来 g2g_cheapold 落到「成本不参与改价，仅监控参考」这一支
+                 —— 那是旧 dd373 时代的说法，现行口径下成本**参与**（成本兜底 + 货源闸），
+                 留着就是错误口径。补正确分支。 */
+              : (_isG2GC2 ? (' ｜ <b style="color:var(--green)">跟 G2G 该子服务器 cheapold 价 −'
+                 + (Math.round(Number(_pol2['下浮比例']||0)*1000)/10)+'%'
+                 + '；该区无 cheapold ⇒ <b style="color:var(--yellow)">按成本÷'
+                 + _nc2.toFixed(2)+' 保 '+Math.round(_nc2*100)+'% 利润（不跟推荐前二）</b>；'
+                 + '利润率低于 '+_limLbl2+'% ⇒ <b style="color:var(--red)">强制抬到 '
+                 + _limLbl2+'% 利润</b>（含成本兜底那批）；'
+                 + '利润率超 '+_capLbl2+'% ⇒ <b style="color:var(--red)">强行压到 成本÷'
+                 + (1 - (isNaN(_capv2) ? 0.30 : _capv2)).toFixed(2)+'</b>（只对正常跟 cheapold 的行）；'
+                 + '竞品低于我方成本 ⇒ 不再跟降（按成本价，随后一样受上述利润下限约束）；'
+                 + 'DD373 无货 ⇒ 统一挂 $'
+                 + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M 保护</b>')
+              : ' ｜ <b>成本不参与改价</b>，仅监控参考。')))
+    + '</div>'
+    + bar
+    + '<div id="gcsTable"></div>';
+  /* 把这一轮的数据与行渲染函数交给筛选器，然后首绘 */
+  GCS_ROWS = rows; GCS_ROW = rowHTML; GCS_THEAD = thead;
+  gcsApply();
+}
+function openGoldApply(){
+  const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
+  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
+  APPLY_KIND='gold_apply';
+  $('#modalTitle').textContent='生成金币改价工单（服务器算 · 服务器执行）';
+  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b>'
+    + ' ｜ 后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
+    + '<br>金币改的是<b>采购成本</b>（￥/M），工单在执行时会自动：'
+    + '① 写采购成本 → ② 点「更新b2c网站」(getweb=1) <b>不勾「所有区」</b> → ③ 清缓存。'
+    + '<br>前端约 <b>5~15 分钟</b>后生效（实测 13 分钟），别马上抓一次没变就下结论。'
+    + '<br><span style="color:var(--yellow)">工单将由<b>执行方自动执行</b>（默认服务器自己执行；可在「④ 执行器」段切换成「本机执行」）</span>';
+  $('#confirmInput').value='';
+  $('#modal').classList.add('show');
+  setTimeout(function(){ $('#confirmInput').focus(); },80);
+}
+/* 点主表某行 → 弹窗看历史（以前是把 12 行历史灌进日志区，把改动记录冲没了） */
+async function showHistory(key){
+  try{
+    const r=await api('api/history/'+encodeURIComponent(key));
+    const pts=r.points||[];
+    if(!pts.length){toast('该商品还没有历史点');return;}
+    const recent=pts.slice(-12);
+    $('#histTitle').textContent='价格历史 · '+key;
+    $('#histSub').textContent='最近 '+recent.length+' 轮（共 '+pts.length+' 个历史点）｜ 价格口径：后台标价「$每个价格」';
+    let h='<table class="histtable"><thead><tr><th>时段</th><th>IGGM</th><th>我方</th>'
+      +'<th>目标</th><th>毛利</th><th>动作</th></tr></thead><tbody>';
+    recent.forEach(p=>{
+      const f=v=>v==null?'--':'$'+v;
+      h+='<tr><td class="mono small">'+esc(p.ts)+'</td>'
+        +'<td class="mono">'+f(p.iggm_new)+'</td>'
+        +'<td class="mono">'+f(p.ours_old)+'</td>'
+        +'<td class="mono">'+f(p.target_usd)+'</td>'
+        +'<td>'+(p.margin_old==null?'--':pct(p.margin_old))+'</td>'
+        +'<td>'+esc(actLabel(p.action))+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $('#histBody').innerHTML=h;
+    $('#histModal').classList.add('show');
+  }catch(e){ toast(e.message,'err'); }
+}
+function closeHist(){ $('#histModal').classList.remove('show'); }
+/* 金币货架 · 调价历史弹窗（2026-10-12 新增）
+   ------------------------------------------------------------------
+   为什么要它：物品行的「价格历史」读的是 decisions（跟价引擎**每轮**写一条），
+   而金币货架走的是另一条链路（gold_action 台账），过去那一列只显示「最近一次」，
+   点不开历史。后端 /api/gold_action?key= 早就存在，这次只把前端入口补上。
+
+   ⚠ 口径提醒（和上方「改价操作」列**不是**同一个来源，别对着看）
+     · 本弹窗     = gold_action 台账：采集时对比上一轮**我方前端实价**，
+                    **真的变了才记一行**；时间 = 采集观察到变化的时刻。
+     · 「改价操作」列 = gold_ticket_map：执行器回填的工单真值，
+                    时间 = 工单 finished_at。两者可能差几十分钟。 */
+async function showGoldHistory(key, title){
+  if(!key){ toast('这一行没有服务区标识，无法查历史','err'); return; }
+  try{
+    const r = await api('api/gold_action?key='+encodeURIComponent(key));
+    const items = r.items||[];
+    if(!items.length){ toast('该服务区还没有观察到调价（台账为空）'); return; }
+    const recent = items.slice(0, 12);
+    $('#histTitle').textContent = '调价历史 · ' + (title || key);
+    $('#histSub').textContent = '最近 '+recent.length+' 次（台账共 '+items.length+' 条）'
+      + ' ｜ 口径：我方前台每 M 价 USD ｜ 只记「我方前端价真的变了」的那些轮'
+      + '（工单没执行 / 前端未刷新都不算）';
+    let h='<table class="histtable"><thead><tr><th>时间</th><th>旧价</th><th>新价</th>'
+      + '<th>幅度</th><th>定价模式</th><th>依据</th></tr></thead><tbody>';
+    recent.forEach(function(p){
+      const f=function(v){
+        if(v==null||v==='') return '--';
+        const n=Number(v); if(!isFinite(n)) return '--';
+        const a=Math.abs(n);
+        return '$'+(a===0?'0':(a<0.01?n.toFixed(6):(a<1?n.toFixed(4):n.toFixed(2))));
+      };
+      const pct=p.delta_pct, up=(pct!=null && Number(pct)>0);
+      const col=(pct==null)?'var(--sub)':(up?'var(--red)':'var(--green)');
+      const t=String(p.ts||'').replace('T',' ').slice(0,16);
+      /* 早期台账的 mode/basis 可能为空 —— Python 的 None 会原样带出来（实测线上有
+         "基准 - $None"）。这里只做**展示层兜底**，不改任何数据。 */
+      const modeTxt=(p.mode==null||p.mode==='') ? '--' : String(p.mode);
+      const basisTxt=(String(p.basis==null?'':p.basis).replace(/\bNone\b/g,'--') || '--');
+      h+='<tr><td class="mono small">'+esc(t)+'</td>'
+        + '<td class="mono">'+f(p.old_usd_m)+'</td>'
+        + '<td class="mono">'+f(p.new_usd_m)+'</td>'
+        + '<td style="color:'+col+';font-weight:600">'
+        + (pct==null?'--':((pct>0?'\u25b2 +':'\u25bc ')+Number(pct).toFixed(2)+'%'))+'</td>'
+        + '<td class="small">'+esc(modeTxt)+'</td>'
+        + '<td class="small">'+esc(basisTxt)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $('#histBody').innerHTML=h;
+    $('#histModal').classList.add('show');
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ---------- 悬浮目录（快速跳转各模块）---------- */
+/* ⚠ 判定带的坑：`scrollIntoView({block:'start'})` + `scroll-margin-top:76px` 并不总是把
+   目标停在 76px——实测 Chromium 停在离顶 144px。所以判定带取 180px 而不是 110px，
+   否则「刚点完的模块」会因为停在 144px 而被判成上一个模块，高亮落到别人身上。 */
+/* ---------- ⑦ 执行器（服务器执行 / 本机执行）----------
+   2026-09-27：默认改成**服务器自己**执行（容器 p2pah-srv:1 —— 新机 IP 已进
+   order.p2pah.cn 白名单）。本机执行器保留为应急通道，可一键切换 / 逐单改派。
+   2026-09-29：本机执行器改为**按需启动**、不再常驻（开机自启已移除、每小时自愈已停）。
+   点「改为本机执行」或「启动本机执行器」时，浏览器经自定义协议 p2pah:// 调起本机面板。 */
+const LJ_ST = {pending:['排队中','var(--yellow)'], dispatched:['执行中','var(--blue)'],
+               done:['成功','var(--green)'], failed:['失败','var(--red)'],
+               canceled:['已取消','var(--ov0)']};
+const SRV_ST = {running:'执行中', idle:'空闲待命', standby:'待命（已切本机执行）',
+                off:'急停', error:'异常', stopped:'已停止', starting:'启动中',
+                missing:'未运行'};
+let LJ_ROWS = [], LJ_MODE = 'server', LJ_SRV = {};
+
+/* pre：同上，首屏并行时传入已发起的 api('api/local/jobs?limit=10') promise。 */
+async function renderLocal(pre){
+  try{
+    const r = pre ? await pre : await api('api/local/jobs?limit=10');
+    const w = r.worker||null, js = r.jobs||[], srv = r.srvExec||{}, mode = r.mode||'server';
+    LJ_ROWS = js; LJ_MODE = mode; LJ_SRV = srv;
+    const on = !!(w && w.last_seen && (Date.now()-new Date(w.last_seen).getTime() < 90000));
+    const srvOn = !!srv.alive;
+    const isSrv = (mode==='server');
+
+    /* ① 执行方式切换条 */
+    const pendSrv = js.filter(j=>j.status==='pending'&&j.exec_mode==='server').length;
+    const pendLoc = js.filter(j=>j.status==='pending'&&j.exec_mode==='local').length;
+    $('#execMode').innerHTML =
+      '<div class="warnbox" style="background:'+(isSrv?'#eef8f0':'#fff8e6')
+        +';border-color:'+(isSrv?'#bfe3cb':'#f0d79a')+'">'
+      + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+      +   '<b>执行方式</b>'
+      +   '<span class="badge '+(isSrv?'on':'off')+'"><span class="dot"></span>'
+      +     (isSrv?'服务器执行（默认）':'本机执行')+'</span>'
+      +   '<button class="btn'+(isSrv?' ghost':'')+'" onclick="setExecMode(\'server\')">改为服务器执行</button>'
+      +   '<button class="btn'+(!isSrv?' ghost':'')+'" onclick="setExecMode(\'local\')">改为本机执行</button>'
+      + '</div>'
+      + '<div class="small" style="margin-top:6px">'
+      +   (isSrv
+           ? '新单交给<b>服务器自己</b>执行（登录改价后台 → 改价 → 复核 → 推送 → 清缓存），<b>不需要本机开机</b>。'
+           : '新单派给<b>本机执行器</b>（本机 SSH 接单执行），需要本机开机。')
+      +   '切换只影响<b>之后派出的新单</b>；队列里现有 '+pendSrv+' 张服务器单、'+pendLoc
+      +   ' 张本机单，可在下表逐单改派。'
+      + '</div></div>';
+
+    /* ② 服务器执行器状态 */
+    let h = '<div class="warnbox" style="background:'+(srvOn?'#eef8f0':'#fff8e6')
+          +';border-color:'+(srvOn?'#bfe3cb':'#f0d79a')+'">'
+      + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+      +   '<b>服务器执行器</b>'
+      +   '<span class="badge '+(srvOn?'on':'err')+'"><span class="dot"></span>'
+      +     (srvOn?'在线':'离线')+'</span>'
+      +   '<span class="small">'+(SRV_ST[srv.state]||srv.state||'未知')+'</span>'
+      +   (srv.ts?'<span class="small" style="color:var(--ov0)">心跳 '+esc(String(srv.ts).replace('T',' '))+'</span>':'')
+      + '</div>';
+    if(srvOn){
+      h += '<div class="small" style="margin-top:6px">容器 <code>p2pah-srv:1</code>'
+         + ' ｜ 累计成功 <b>'+(srv.done||0)+'</b> 单 / 失败 <b>'+(srv.failed||0)+'</b> 单</div>';
+      const lr = srv.last_result;
+      if(lr){
+        h += '<div class="small" style="margin-top:4px">最近一单：'
+           + '<b style="color:'+(lr.ok?'var(--green)':'var(--red)')+'">'+(lr.ok?'成功':'失败')+'</b>'
+           + ' ｜ '+esc(lr.job||'')+'（'+(lr.kind==='writegold'?'金币':'物品')+'）'
+           + (lr.sec!=null?(' ｜ 耗时 '+lr.sec+'s'):'')
+           + (lr.clearcache_ok!=null?(' ｜ 清缓存 '+(lr.clearcache_ok?'成功':'未成功')):'')
+           + (lr.why?(' ｜ '+esc(String(lr.why).slice(0,120))):'')
+           + ' <button class="btn ghost" onclick="showSrvLog()">看日志</button></div>';
+      }
+      if(srv.note) h += '<div class="small" style="margin-top:4px;color:var(--ov0)">'+esc(srv.note)+'</div>';
+    }else{
+      h += '<div class="small" style="margin-top:6px">'+esc(srv.why||'服务器执行器没有在跑。')
+         + ' 排障：<code>systemctl status p2pah-srv-exec</code> ／ 日志 <code>/opt/d4follow/logs/srv_exec.log</code></div>';
+    }
+    h += '</div>';
+
+    /* ③ 本机执行器状态（2026-09-29：改为按需启动，不再常驻） */
+    h += '<div class="warnbox" style="margin-top:8px;background:'+(on?'#eef8f0':'#fff8e6')
+       +';border-color:'+(on?'#bfe3cb':'#f0d79a')+'">'
+      + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+      +   '<b>本机执行器</b>'
+      +   '<span class="badge '+(on?'on':'err')+'"><span class="dot"></span>'+(on?'在线':'离线')+'</span>'
+      +   '<span class="small">'+(w&&w.last_seen?('最近上报 '+esc(String(w.last_seen).replace('T',' '))+' ｜ '+esc(w.agent)):'从未连过')+'</span>'
+      +   '<button class="btn'+(on?' ghost':'')+'" style="margin-left:auto" onclick="launchLocal()">启动本机执行器</button>'
+      + '</div>'
+      + '<div class="small" style="margin-top:6px">'
+      +   '本机执行器<b>不常驻</b>（开机自启已关掉、每小时自愈已停用）：只有你在本页点'
+      +   '<b>「改为本机执行」</b>或右边的<b>「启动本机执行器」</b>，浏览器才会去调起本机面板'
+      +   '（会弹一次「打开 P2PAH 本机执行器？」确认）。'
+      + '</div>'
+      + '<div class="small" style="margin-top:4px">'
+      +   (isSrv
+           ? '当前执行方式=服务器，本机执行器<b>不会</b>领到新单，只用来看门 + 应急改派。'
+           : '当前执行方式=本机，新单会派给本机执行器；本机没上线时工单排队等它，不会丢单。')
+      + '</div></div>';
+
+    $('#localHint').innerHTML = h;
+
+    const st = $('#localSt'), bd = $('#localBadge');
+    // ⚠ 别再写 st.style.float='right' —— h2 是 flex 容器，flex item 上的 float 无效，
+    //   右对齐由 .panel>h2 .hint 的 margin-left:auto 负责。
+    st.textContent = isSrv ? ('服务器执行 · '+(srvOn?'在线':'离线'))
+                           : ('本机执行 · '+(on?'在线':'离线'));
+    bd.className = 'badge ' + ((isSrv?srvOn:on) ? 'on' : 'err');
+    $('#localTs').textContent = isSrv
+      ? ('服务器执行器 '+(srvOn?'在线':'离线'))
+      : ('本机执行器 '+(on?'在线':'离线'));
+    $('#localTs').title = '执行方式存在 config「跟价.执行方式」，用上面的按钮切换。'
+      + '服务器执行器 = 常驻服务 p2pah-srv-exec（认领工单 → 容器里改价 → 回写结果）；'
+      + '本机执行器 = 主力电脑上的 p2pah_local_worker.py（每 8 秒 SSH 接单）'
+      + '——2026-09-29 起**按需启动**：点「改为本机执行」/「启动本机执行器」才会起来，平时不常驻。';
+
+    /* ④ 工单表 */
+    if(!js.length){ $('#localJobs').innerHTML='<div class="small">还没有派过单。</div>'; return; }
+    let t='<div class="scroll"><table class="histtable"><thead><tr>'
+      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>状态</th><th>标题</th><th>耗时</th><th>结果</th><th></th>'
+      + '</tr></thead><tbody>';
+    for(const j of js){
+      const s = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+      const rowSrv = (j.exec_mode==='server');
+      let res='';
+      try{ const q=JSON.parse(j.result_json||'null');
+           if(q) res=(q.ok?'成功 '+q.ok:'')+((q.fail)?(' / 失败 '+q.fail):'')
+                      +((q.mismatch&&q.mismatch.length)?(' / 复核不符 '+q.mismatch.length):'');
+      }catch(e){}
+      const t0=new Date(j.started_at||j.claimed_at||j.created_at||0).getTime();
+      const t1=j.finished_at?new Date(j.finished_at).getTime():null;
+      const dur=(t1&&t0)?(((t1-t0)/1000).toFixed(0)+'s'):(j.status==='dispatched'?'进行中':'--');
+      let act='<button class="btn ghost" onclick="showJobLog(\''+esc(j.id)+'\')">日志</button>';
+      if(j.status==='pending'){
+        act += rowSrv
+          ? '<button class="btn ghost" style="margin-left:4px" onclick="reassign(\''+esc(j.id)+'\',\'local\')">改用本机</button>'
+          : '<button class="btn ghost" style="margin-left:4px" onclick="reassign(\''+esc(j.id)+'\',\'server\')">改用服务器</button>';
+      }
+      t += '<tr>'
+        + '<td class="small">'+esc(String(j.created_at||'').slice(5,16).replace('T',' '))+'</td>'
+        + '<td>'+(j.kind==='writegold'?'金币':'物品')+'</td>'
+        + '<td class="small">'+(rowSrv?'服务器':'本机')
+        +   (j.agent?'<br><span style="color:var(--ov0)">'+esc(j.agent)+'</span>':'')+'</td>'
+        + '<td style="color:'+s[1]+'"><b>'+s[0]+'</b></td>'
+        + '<td class="small">'+esc(j.title||'')
+        +   '<div style="color:var(--ov0);font-family:ui-monospace,Consolas,monospace">'
+        +     esc(j.id||'')+'</div></td>'
+        + '<td class="small">'+dur+'</td>'
+        + '<td class="small">'+esc(res)+'</td>'
+        + '<td style="white-space:nowrap">'+act+'</td>'
+        + '</tr>';
+    }
+    $('#localJobs').innerHTML = t+'</tbody></table></div>';
+  }catch(e){
+    $('#localSt').textContent='读取失败'; $('#localBadge').className='badge err';
+    $('#localTs').textContent = e.message;
+  }
+}
+
+async function setExecMode(mode){
+  const label = (mode==='server') ? '服务器执行' : '本机执行';
+  try{
+    const r = await api('api/exec/mode', {method:'POST', body:JSON.stringify({mode:mode})});
+    toast('执行方式已改为「'+label+'」','');
+    renderLocal();
+    /* 2026-09-29：本机执行器不再常驻 —— 选「本机执行」时顺手把它调起来。 */
+    if(mode==='local') launchLocal();
+  }catch(e){ toast('切换失败：'+e.message,'err'); }
+}
+
+/* 用自定义 URL 协议 p2pah:// 调起本机执行器面板（面板会自己把 worker 拉上线）。
+   本机注册表 HKCU\Software\Classes\p2pah 已把该协议指向
+   D:\PlayRent\服务器\自动改价系统_测试_20260923\脚本\p2pah_protocol_start.py
+   浏览器会弹一次「要打开 P2PAH 本机执行器 吗？」→ 点「打开」。
+   必须在用户点击的事件里调用（否则浏览器可能拦）。 */
+function launchLocal(){
+  try{
+    const a = document.createElement('a');
+    a.href = 'p2pah://start';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ a.remove(); }, 2000);
+    toast('已请求启动本机执行器 —— 浏览器弹窗时点「打开」，几秒后这里会变成「在线」','');
+  }catch(e){ toast('调起本机执行器失败：'+e.message,'err'); }
+}
+
+async function reassign(id, mode){
+  const label = (mode==='local') ? '本机执行' : '服务器执行';
+  try{
+    await api('api/local/reassign', {method:'POST', body:JSON.stringify({id:id, mode:mode})});
+    toast('工单 '+id+' 已改为「'+label+'」','');
+    renderLocal();
+  }catch(e){ toast('改派失败：'+e.message,'err'); }
+}
+
+function showSrvLog(){
+  const j = LJ_ROWS.find(x=>x.agent==='srv-exec');
+  if(j) return showJobLog(j.id);
+  toast('还没有服务器执行过的工单','err');
+}
+function showJobLog(id){
+  const j = LJ_ROWS.find(x=>x.id===id); if(!j) return;
+  const who = (j.agent==='srv-exec') ? '服务器执行器' : (j.agent||'--');
+  $('#histTitle').textContent = '执行日志 · '+id;
+  $('#histSub').textContent = (j.kind==='writegold'?'金币改价':'物品改价')+' ｜ '+j.status
+    + ' ｜ 执行方 '+((j.exec_mode==='server')?'服务器':'本机')
+    + ' ｜ 执行器 '+who+' ｜ 尝试 '+j.attempts+' 次';
+  $('#histBody').innerHTML = '<pre class="small" style="white-space:pre-wrap;margin:0">'
+    + esc(j.log||'(无日志)') + '</pre>';
+  $('#histModal').classList.add('show');
+}
+
+function tocInit(){
+  const links=Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  if(!links.length) return;
+  const secs=links.map(a=>document.getElementById(a.getAttribute('data-to'))).filter(Boolean);
+  if(!secs.length) return;
+  let lockUntil=0;                       // 点击后的短暂锁：避免动画中途被 sync 抢改
+  function paint(cur){
+    links.forEach(a=>a.classList.toggle('on', a.getAttribute('data-to')===cur.id));
+  }
+  function sync(){
+    if(Date.now()<lockUntil) return;
+    const line=window.scrollY+180;
+    let cur=secs[0];
+    secs.forEach(s=>{ if(s.offsetTop<=line) cur=s; });
+    // 滚到底部时，最后一个模块无论多矮都点亮（否则尾部矮模块永远点不亮）
+    if(window.innerHeight+window.scrollY >= document.body.scrollHeight-4) cur=secs[secs.length-1];
+    paint(cur);
+  }
+  links.forEach(a=>a.addEventListener('click',ev=>{
+    ev.preventDefault();
+    const el=document.getElementById(a.getAttribute('data-to'));
+    if(!el) return;
+    links.forEach(x=>x.classList.toggle('on', x===a));   // 点了就立刻高亮，不等动画
+    lockUntil=Date.now()+1300;
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    setTimeout(()=>{ lockUntil=0; sync(); },1340);      // 动画结束再对齐一次
+  }));
+  window.addEventListener('scroll',sync,{passive:true});
+  window.addEventListener('resize',sync,{passive:true});
+  sync();
+}
+
+/* ---------- 加载 ---------- */
+async function loadState(){
+  /* 2026-09-29 性能优化：三个接口并行发起。
+     原流程是 /api/state 拿回并全部渲染完后，才发出 /api/gold 与 /api/local/jobs，
+     在跨境链路上白白多串一个来回（实测多等约 0.4~1.9s）。
+     这里先把这两个请求发出去占住链路，渲染依旧放在原来的位置，
+     DOM 结果与交互行为完全不变。 */
+  const pGold  = api('api/gold');
+  const pLocal = api('api/local/jobs?limit=10');
+  pGold.catch(()=>{}); pLocal.catch(()=>{});   // 防 state 失败时这两个 promise 无人接产生的未处理拒绝
+  try{
+    const r=await api('api/state'); STATE=r.data;
+    renderBadges(STATE); renderSwitches(STATE);
+    renderToggles(STATE.config); renderParams(STATE.config);
+    renderFollow(STATE.follow);
+    renderGates(); renderGdHead();   // 采集周期已并入游戏卡，renderGates 一并重绘
+    renderTable(STATE.rows);
+    renderGold(pGold); renderLocal(pLocal); renderShelfBar();
+    for(const k in D) delete D[k];
+  }catch(e){ toast('加载失败：'+e.message,'err'); }
+}
+$('#confirmInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doApply(); });
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+$('#histModal').addEventListener('click',e=>{ if(e.target.id==='histModal') closeHist(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHist(); });
+tocInit();
+setLogOpen(false); paintLogCount();
+loadState();
+setInterval(()=>{ if(!ES) loadState(); }, 60000);
+setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
+
+/* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。
+   2026-10-08：按老板要求下线「核对货架一致性（生成纳管补丁草稿 · 只生成不落盘）」按钮 ——
+   该动作日常不用，整块去掉（后端 /api/shelf_patch 保留未删，日后要恢复只加回前端即可）。
+   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。 */
+async function renderShelfBar(){
+  const box=$('#shelfBar'); if(!box) return;
+  let d;
+  try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
+  const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
+  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
+     日常绝大多数时候都是那条 ⇒ 白占一行，老板要求去掉）。
+     现在只有真出问题时才出现，一致时静默；#shelfBar:empty{display:none} 连外边距都不占。 */
+  if(!un.length && !mm.length && !orp.length){ box.innerHTML=''; return; }
+  /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
+     同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
+     抛 "Cannot access 'esc' before initialization"，**整个 renderShelfBar 崩掉**。
+     删掉局部声明，统一用全局 esc（就是 P1 时代埋的坑，P2 只改了 `.data` 没发现）。
+     另：不再重复声明 esc，下面所有 esc(...) 都走全局。 */
+  let h='';
+  if(mm.length){
+    h+='<div class="sb err"><h4>🔴 映射错位（'+mm.length+'）—— 这些行会被写错价格，请尽快处理</h4><ul>'
+      + mm.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
+      + '</ul></div>';
+  }
+  if(un.length){
+    h+='<div class="sb"><h4>🟠 未纳管档位（'+un.length+'）—— 前台有货架档位，但系统配置里没有</h4><ul>'
+      + un.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
+      + '</ul></div>';
+  }
+  if(orp.length){
+    h+='<div class="sb err"><h4>⚠️ 人工价暴露（'+orp.length+'）—— 你手工定的价可能每轮被覆盖</h4><ul>'
+      + orp.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
+      + '</ul></div>';
+  }
+  h+='<div class="sb" style="background:transparent;border:none;border-left:none;padding:2px 0">'
+    +'<div class="hint">系统不会自动改配置；如需处理请联系技术支持。检查时间：'+esc(d.ts||'—')+'</div></div>';
+  box.innerHTML=h;
+}
+</script>
+</body>
+</html>

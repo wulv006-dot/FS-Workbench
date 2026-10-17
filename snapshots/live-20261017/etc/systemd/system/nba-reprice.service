@@ -1,0 +1,21 @@
+[Unit]
+Description=NBA 2K27 自动改价控制台后端（server.js · 127.0.0.1:8765）
+# 2026-09-30 由 DY 的部署包改为 FS 平台线上版：
+#   - 只监听 127.0.0.1（BIND_HOST），对外统一走 nginx /nba2k27/
+#   - Python 指向本服务独立 venv（含 ddddocr），不污染共享解释器
+#   - 日志落 /opt/nba-reprice/logs/（CentOS 7 systemd 219 不支持 append:<file>）
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nba-reprice/backend
+EnvironmentFile=/opt/nba-reprice/backend/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+ExecStart=/bin/sh -c 'exec /usr/local/node/bin/node /opt/nba-reprice/backend/server.js >> /opt/nba-reprice/logs/service.log 2>> /opt/nba-reprice/logs/service.err.log'
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

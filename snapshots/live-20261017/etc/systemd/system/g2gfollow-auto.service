@@ -1,0 +1,21 @@
+[Unit]
+Description=G2G 金币货架 · 15 分钟自动轮（采集 → 自动放行 → 真实写入）
+Documentation=file:/opt/g2gfollow/README.md
+After=network-online.target g2gfollow.service
+Wants=network-online.target
+# 本机（CentOS 7 · systemd 219）。依赖 app 服务在跑；它没起来就白跑一轮。
+Requires=g2gfollow.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/g2gfollow
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+# 脚本自己写 logs/auto_cycle.log（自带 2MB 轮转），stdout 另存一份便于排障。
+ExecStart=/bin/sh -c 'exec /opt/g2gfollow/venv/bin/python /opt/g2gfollow/tools/auto_cycle.py >> /opt/g2gfollow/logs/auto_cycle.stdout.log 2>&1'
+# 采集 1~3 分钟 + 写入最多 ~3 分钟；留足余量，超时即放弃本轮。
+TimeoutStartSec=1200
+
+[Install]
+WantedBy=multi-user.target

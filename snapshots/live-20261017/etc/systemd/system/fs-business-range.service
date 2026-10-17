@@ -1,0 +1,16 @@
+[Unit]
+Description=FS authenticated exact business range reader
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-exact-range-20261001/range_api.py
+Restart=on-failure
+RestartSec=5
+User=root
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

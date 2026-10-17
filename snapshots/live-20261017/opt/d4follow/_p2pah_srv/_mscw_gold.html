@@ -1,0 +1,1453 @@
+<!DOCTYPE html><html class=" js no-mobile desktop no-ie chrome chrome129 game-section admin_game_price-section w-1400 gt-240 gt-320 gt-480 gt-640 gt-768 gt-800 gt-1024 gt-1280 lt-1440 lt-1680 lt-1920 no-portrait landscape gradient rgba opacity textshadow multiplebgs boxshadow borderimage borderradius cssreflections csstransforms csstransitions no-touch no-retina fontface" id="index-page"><head>
+    <meta charset="utf-8">
+    <!-- Set render engine for 360 browser -->
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- 
+        解决ie9以下浏览器对html5新增标签的不识别，并导致CSS不起作用的问题。
+        HTML5 shim for IE8 support of HTML5 elements
+        https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js 
+    -->
+    <!--[if lt IE 9]>
+        <script src="/static/js/html5shiv.js"></script>
+    <![endif]-->
+
+    <!-- 指定地址栏图标。 favicon.ico文件应置于根目录下，多数浏览器将自动检测并使用它。 https://www.cnblogs.com/lijIT/p/8980348.html -->
+    <link rel="icon" href="/themes/admin_simpleboot3/public/assets/images/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/themes/admin_simpleboot3/public/assets/images/favicon.png" type="image/png">
+
+    <!-- Bootstrap CSS -->
+    <link href="/themes/admin_simpleboot3/public/assets/themes/adminlte/bootstrap.min.css" rel="stylesheet">
+    <link href="/themes/admin_simpleboot3/public/assets/simpleboot3/css/simplebootadmin.css" rel="stylesheet">
+    <!-- Awesome fonts ico-->
+    <link href="/static/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <!-- 让不支持css3 Media Query的浏览器包括IE6-IE8等其他浏览器支持查询
+    https://cdn.bootcss.com/respond.js/1.4.2/respond.min.js -->
+    <!--[if lt IE 9]>
+        <script src="/static/js/respond.min.js"></script>
+    <![endif]-->
+
+    <style type="text/css">
+        /*重写：*/
+        form .input-order{margin-bottom:0px;padding:0 2px;width:42px;font-size:12px}
+        form .input-order:focus{outline:none}
+        .form-required{color:red;margin-right:1px}
+        .table-actions{margin-top:5px;margin-bottom:5px;padding:0px}
+        .table-list{margin-bottom:0px}
+        .mt-10{margin-bottom:10px}
+        .help-block{margin-top:3px;margin-bottom:3px;font-size:12px}
+        .tooltip {max-width: 205px;}
+        .tooltip-inner {
+            white-space: normal; /* 允许内容换行 */
+            word-wrap: break-word; /* 自动换行 */
+        }
+
+        /*自定义：*/
+        /*vertical-align:middle;margin-bottom:0;*/
+        .txt-vertical{ width:100%; resize:vertical; }
+        .edit-icon {color: #3498DB; font-size: xx-small;}
+        /*锁定编辑*/
+        .custom_key_toggle {margin-left: 10px; line-height: 24px;}
+        /*选中项*/
+        .btn.btn-alt-hover {
+            background: linear-gradient(#003366, #225588 85%, #1f5a80);
+            border: 1px solid #003f3a;
+        }
+        /*单项操作*/
+        .toggle-input input, .toggle-input textarea, .toggle-input select, .toggle-input select option{display:none;}
+        .input-text{border:1px solid;border-color:#666 #ccc #ccc #666;text-shadow:none;color:#333;box-shadow:none;font-family:open-sans-regular;-webkit-appearance:none;border-radius:1px;font-size:12px;line-height:1.3;padding:3px 3px;transition:border-color 0.15s ease-in-out 0s,box-shadow 0.15s ease-in-out 0s;width:100%;}
+        .input-text:focus{background:#f5f9fd; border-color:#0099CC;}
+        .input-fw-0{width:45px; padding:3px 3px !important; text-align:center}
+        .input-fw-1{width:73px}
+        .input-fw-2{width:92px}
+        .input-fw-3{width:115px}
+        .input-fw-4{width:145px}
+        .input-fw-5{width:153px}
+        .input-fw-6{width:173px}
+        .input-fw-7{width:220px}
+        .input-fw-8{width:400px}
+        .input-fw-9{width:520px}
+    </style>
+    <script type="text/javascript">
+        //全局变量
+        var GV = {
+            URL: '/game/admin_game_price/',
+            ROOT: "/",
+            WEB_ROOT: "/",
+            JS_ROOT: "static/js/",
+            APP: 'game' //当前应用名
+        };
+        // console.log(GV)
+
+        // select2 下拉插件通配
+        var s2json = {
+            language: 'zh-CN' //调用语言包
+            ,placeholder: ' --请选择--' //占位提示符
+            ,allowClear: true //是否允许清空
+            ,minimumResultsForSearch: 10 //至少N个结果的时候显示搜索
+            // ,minimumResultsForSearch: Infinity // 永久隐藏搜索框  
+            // ,minimumInputLength: 1 //最少输入多少个字符后开始查询
+            // ,maximumInputLength: 20 //允许搜索长度  
+            // ,multiple: true //是否多选
+            // ,tags: true //根据搜索框创建新option，默认false
+            // ,maximumSelectionLength: 6 //最多能够选择的个数
+            // ,data: initdata //下拉框绑定的数据
+            // ,selectOnClose: true //结果显示高亮
+            // ,closeOnSelect: false //select选中关闭下拉框，配合 multiple
+            // ,separator: "," // 分隔符
+        };
+
+        // fSelect 下拉插件通配
+        var fsjson = {
+            placeholder: '请选择',
+            numDisplayed: 10,
+            overflowText: '{n} 个已选中',
+            searchText: '搜索',
+            showSearch: true
+        };
+        // xm-select 下拉插件配置
+        // var xmJson = {};
+    </script>
+    <script src="/themes/admin_simpleboot3/public/assets/js/jquery-1.10.2.min.js"></script>
+    <script src="/static/js/wind.js"></script>
+    <script src="/themes/admin_simpleboot3/public/assets/js/bootstrap.min.js"></script>
+    <script src="/static/js/js.extend.js"></script>
+    <script type="text/javascript">
+        Wind.css('artDialog');
+        Wind.css('layer');
+
+        // 设置工具提示
+        function setTooltip() {
+            $('[data-toggle="tooltip"]').tooltip({
+                container:"body",
+                html:true,
+            });
+        }
+
+        //全局通知
+        function globalNotify(){
+            $.get('/admin/index/notify.html', {}, function(back) {
+                $("body").append(back);
+            });
+        }
+
+        // $(document).ready(function() {
+        //     // <a href="#" title="Header" data-toggle="popover" data-trigger="hover" data-content="Some content">Hover over me</a>
+        //     $('[data-toggle="popover"]').popover();
+        // });
+        $(function () {
+            globalNotify();
+
+            setTimeout(function() {
+                setTooltip();
+            });
+
+            $("li.dropdown").hover(function () {
+                $(this).addClass("open");
+            }, function () {
+                $(this).removeClass("open");
+            });
+
+            // Tab 切换补充功能
+            $('.list-group-item').click(function() {
+                var pnt = $(this).closest('.list-group');
+                pnt.find('.list-group-item').removeClass('active');
+                $(this).addClass('active');
+            });
+
+            // 关键字段值锁，防止误操作
+            if ($('.custom_key_toggle').length) {
+                $('.custom_key_toggle').click(function() {
+                    var pnt = $(this).closest('.jq-key-box');
+                    var subKey = pnt.find('input');
+                    // console.log(subKey.attr('disabled')); //disabled|undefined
+                    // pnt.find('*').toggle();
+
+                    // if (subKey.is(':visible')) {
+                    if(subKey.is(':hidden')) {
+                        // subKey.removeAttr('disabled');
+                        // subKey.attr('disabled', false); //prop()
+                        subKey.show();
+                        pnt.find('span').hide();
+                        $(this).text('取消');
+                    } else {
+                        var txt = pnt.find('span').text();
+                        // subKey.attr('disabled', true);
+                        subKey.val(txt).hide(); //
+                        pnt.find('span').show();
+                        $(this).text('编辑');
+                    }
+                });
+            }
+            
+        });
+    </script><link rel="stylesheet" href="/static/js/artDialog/skins/default.css?v="><link rel="stylesheet" href="/static/js/layer/skin/default/layer.css?v=">
+    <style type="text/css">
+    /*重写fSelect样式*/
+    .form-inline .links {float:left; margin-right:15px; margin-bottom:15px;}
+    .form-inline .fs-wrap{min-width:200px; max-width:280px;  vertical-align:middle; width:initial;}
+    .fs-label-wrap .fs-label{cursor: pointer;}
+    .fs-label-wrap .fs-label{padding: 7px 22px 8px 8px !important;}
+</style>
+
+<script type="text/javascript" src="/static/js/ajaxForm.js?v="></script><script type="text/javascript" src="/static/js/artDialog/artDialog.js?v="></script><script type="text/javascript" src="/static/js/noty/noty-2.4.1.js?v="></script><script type="text/javascript" src="/static/js/jquery.validate/jquery.validate.js?v="></script><link rel="stylesheet" href="/static/js/artDialog/skins/default.css?v="><link rel="stylesheet" href="/static/js/animate/animate.css?v="></head>
+
+<body style=""><div class=" aui_state_focus" style="position: absolute; left: -9999em; top: 320px; display: block; width: auto; z-index: 1987;"><div class="aui_outer"><table class="aui_border"><tbody><tr><td class="aui_nw"></td><td class="aui_n"></td><td class="aui_ne"></td></tr><tr><td class="aui_w"></td><td class="aui_c"><div class="aui_inner"><table class="aui_dialog"><tbody><tr><td colspan="2" class="aui_header"><div class="aui_titleBar"><div class="aui_title" style="cursor: move; display: block;">消息</div><a class="aui_close" href="javascript:/*artDialog*/;" style="display: block;">×</a></div></td></tr><tr><td class="aui_icon" style="display: none;"><div class="aui_iconBg" style="background: none;"></div></td><td class="aui_main" style="width: auto; height: auto;"><div class="aui_content" style="padding: 20px 25px;"><div class="aui_loading"><span>loading..</span></div></div></td></tr><tr><td colspan="2" class="aui_footer"><div class="aui_buttons" style="display: none;"></div></td></tr></tbody></table></div></td><td class="aui_e"></td></tr><tr><td class="aui_sw"></td><td class="aui_s"></td><td class="aui_se" style="cursor: se-resize;"></td></tr></tbody></table></div></div>
+<div class="wrap js-check-wrap">
+    <ul class="nav nav-tabs">
+        <li class="active"><a href="javascript:void(0);">金币修改价格 - <strong style="color: red;">单价页</strong></a></li>
+        <!-- <li><a href="javascript:openIframeLayer('/game/admin_game_price/loglist/open/iframe/type/gold.html','添加金币修改价格',{area:['1100px','800px']});">金币修改价格日志</a></li> -->
+        <li><a href="javascript:parent.openapp('/game/admin_game_price/loglist/layer_open/iframe.html','340game','修改价格日志',1);">修改价格日志</a></li>
+    </ul>
+
+    <div class="well-sm form-inline margin-top-0">
+        <form action="/game/admin_game_price/index.html" method="get" style="float:left;margin-bottom:5px;margin-right:30px;">
+            所属游戏:
+            <select id="lot-game" class="form-control jq-s2-act-select select2-hidden-accessible" style="width:240px" name="gid" data-select2-id="lot-game" tabindex="-1" aria-hidden="true">
+                <option value="0">--请选择--</option>
+                                    <option value="1322">1322 FC 27</option>
+                                    <option value="1306">1306 NBA 2K27</option>
+                                    <option value="506">506 RS</option>
+                                    <option value="456">456 Diablo 4</option>
+                                    <option value="922">922 MLB The Show 26</option>
+                                    <option value="1258">1258 Madden NFL 27</option>
+                                    <option value="552">552 Path Of Exile 2</option>
+                                    <option value="157">157 Path Of Exile</option>
+                                    <option value="1256">1256 College Football 27</option>
+                                    <option value="524">524 New World</option>
+                                    <option value="588">588 Dark And Darker</option>
+                                    <option value="622">622 Skull and Bones</option>
+                                    <option value="794">794 BitCraft Online</option>
+                                    <option value="384">384 WoW Classic 20周年纪念版</option>
+                                    <option value="426">426 World of Warcraft (WoW Midnight)</option>
+                                    <option value="604">604 WoW Classic Hardcore</option>
+                                    <option value="614">614 WoW Classic SoD</option>
+                                    <option value="804">804 WoW MoP Classic</option>
+                                    <option value="132">132 Neverwinter Xbox</option>
+                                    <option value="133">133 Blade and Soul</option>
+                                    <option value="134">134 Dofus</option>
+                                    <option value="135">135 Cabal 2</option>
+                                    <option value="136">136 Final Fantasy XIV</option>
+                                    <option value="137">137 Guild Wars 2</option>
+                                    <option value="140">140 Runescape</option>
+                                    <option value="141">141 Dragomon Hunter</option>
+                                    <option value="143">143 ELOA</option>
+                                    <option value="144">144 Albion Online</option>
+                                    <option value="146">146 Devilian</option>
+                                    <option value="149">149 Black Desert</option>
+                                    <option value="153">153 Overwatch</option>
+                                    <option value="154">154 MapleStory 2</option>
+                                    <option value="156">156 Tree Of Savior</option>
+                                    <option value="159">159 Neverwinter PC</option>
+                                    <option value="162">162 MU ORIGIN</option>
+                                    <option value="164">164 The Elder Scrolls Online</option>
+                                    <option value="165">165 SWTOR</option>
+                                    <option value="167">167 Aion</option>
+                                    <option value="168">168 ArcheAge</option>
+                                    <option value="169">169 Maplestory</option>
+                                    <option value="177">177 DOFUS-TOUCH</option>
+                                    <option value="178">178 Neverwinter PS4</option>
+                                    <option value="179">179 Pokemon Go</option>
+                                    <option value="180">180 Star Trek Online PS4</option>
+                                    <option value="181">181 Star Trek Online XBOX</option>
+                                    <option value="183">183 Star Trek Online PC</option>
+                                    <option value="189">189 Twin Saga</option>
+                                    <option value="193">193 Revelation Online</option>
+                                    <option value="195">195 Camelot Unchained</option>
+                                    <option value="197">197 Civilization Online</option>
+                                    <option value="199">199 Crowfall</option>
+                                    <option value="201">201 Star Citizen</option>
+                                    <option value="203">203 MU Legend</option>
+                                    <option value="205">205 Lineage Eternal</option>
+                                    <option value="213">213 CSGO Skins</option>
+                                    <option value="215">215 Adventure Quest 3D</option>
+                                    <option value="219">219 Bless Online</option>
+                                    <option value="227">227 Nostalrius/Elysium</option>
+                                    <option value="231">231 NBA Live Mobile</option>
+                                    <option value="235">235 Champions Online</option>
+                                    <option value="243">243 Trove</option>
+                                    <option value="249">249 Tera</option>
+                                    <option value="251">251 Record of Lodoss War Online</option>
+                                    <option value="253">253 ASTA Online</option>
+                                    <option value="255">255 Darkfall: Rise of Agon</option>
+                                    <option value="259">259 Sword of Shadows</option>
+                                    <option value="263">263 Kritika Online</option>
+                                    <option value="265">265 Warframe</option>
+                                    <option value="267">267 Rocket League</option>
+                                    <option value="269">269 FIFA Mobile</option>
+                                    <option value="271">271 Madden NFL Mobile</option>
+                                    <option value="273">273 Animal Crossing: New Horizons</option>
+                                    <option value="275">275 War Robots</option>
+                                    <option value="276">276 Lineage 2:Revolution</option>
+                                    <option value="280">280 Clash Royale</option>
+                                    <option value="282">282 8 Ball Pool</option>
+                                    <option value="284">284 Soul Worker</option>
+                                    <option value="290">290 Fortinte</option>
+                                    <option value="292">292 Sea of Thieves</option>
+                                    <option value="296">296 PUBG Skins</option>
+                                    <option value="298">298 Dota 2</option>
+                                    <option value="300">300 Toram Online</option>
+                                    <option value="302">302 PokeMMO</option>
+                                    <option value="314">314 Diablo 2</option>
+                                    <option value="318">318 AirMech Strike</option>
+                                    <option value="320">320 Hay Day</option>
+                                    <option value="322">322 DC Universe Online</option>
+                                    <option value="324">324 PSN</option>
+                                    <option value="326">326 Xbox Live</option>
+                                    <option value="328">328 Lineage M</option>
+                                    <option value="332">332 Digimon Masters Online</option>
+                                    <option value="336">336 R6</option>
+                                    <option value="338">338 For Honor</option>
+                                    <option value="342">342 Maplestory M</option>
+                                    <option value="344">344 Ghost Recon: Wildlands</option>
+                                    <option value="346">346 Assassin's Creed: Origins</option>
+                                    <option value="348">348 Black Desert Mobile</option>
+                                    <option value="350">350 Dead Frontier 2</option>
+                                    <option value="354">354 The Crew 2</option>
+                                    <option value="356">356 Assassin's Creed Odyssey</option>
+                                    <option value="358">358 Call of Duty: Black Ops 4</option>
+                                    <option value="360">360 Red Dead Online</option>
+                                    <option value="362">362 Lineage 2</option>
+                                    <option value="364">364 Blade &amp; Soul: Revolution</option>
+                                    <option value="366">366 Lost Ark</option>
+                                    <option value="368">368 Diablo Immortal</option>
+                                    <option value="370">370 Fallout 76</option>
+                                    <option value="372">372 Dungeon Defenders II</option>
+                                    <option value="374">374 Pokemon: Let's Go</option>
+                                    <option value="376">376 Ashes of Creation</option>
+                                    <option value="378">378 Elsword</option>
+                                    <option value="380">380 Brawl Stars</option>
+                                    <option value="382">382 Moonlight Blade-天涯明月刀</option>
+                                    <option value="388">388 The Division 2</option>
+                                    <option value="392">392 EVE Online</option>
+                                    <option value="394">394 Escape From Tarkov</option>
+                                    <option value="396">396 Apex Legends</option>
+                                    <option value="398">398 AxE: Alliance vs Empire</option>
+                                    <option value="400">400 Trials Rising</option>
+                                    <option value="402">402 Far Cry New Dawn</option>
+                                    <option value="404">404 CABAL:Return of Action</option>
+                                    <option value="406">406 DK Online</option>
+                                    <option value="408">408 NBA 2K20</option>
+                                    <option value="412">412 Torchlight III</option>
+                                    <option value="414">414 Onigiri</option>
+                                    <option value="416">416 MT4</option>
+                                    <option value="418">418 Madden NFL 20</option>
+                                    <option value="422">422 Secret World Legends</option>
+                                    <option value="424">424 Ascent: Infinite Realm</option>
+                                    <option value="434">434 NHL 20</option>
+                                    <option value="436">436 Clash of Empire</option>
+                                    <option value="438">438 Phantasy Star Online 2</option>
+                                    <option value="442">442 ArcheAge Unchained</option>
+                                    <option value="444">444 EVE: Echoes</option>
+                                    <option value="446">446 Borderlands 3</option>
+                                    <option value="448">448 Perfect World Mobile</option>
+                                    <option value="450">450 Growtopia</option>
+                                    <option value="452">452 Astellia Online</option>
+                                    <option value="454">454 Lineage 2M</option>
+                                    <option value="458">458 Pokémon Sword &amp; Pokémon Shield</option>
+                                    <option value="460">460 Temtem</option>
+                                    <option value="462">462 World Of Dragon Nest</option>
+                                    <option value="464">464 Madden NFL 21</option>
+                                    <option value="466">466 NBA 2K21</option>
+                                    <option value="468">468 League of Legends</option>
+                                    <option value="470">470 LOL: Wild Rift</option>
+                                    <option value="472">472 Twelve Sky M</option>
+                                    <option value="474">474 Valorant</option>
+                                    <option value="476">476 NHL 21</option>
+                                    <option value="480">480 V4</option>
+                                    <option value="482">482 Rebirth online</option>
+                                    <option value="484">484 Genshin Impact</option>
+                                    <option value="486">486 FIFA 21</option>
+                                    <option value="488">488 Cyberpunk 2077</option>
+                                    <option value="490">490 Assassin's Creed Valhalla</option>
+                                    <option value="492">492 Roblox</option>
+                                    <option value="494">494 Magic: Legends</option>
+                                    <option value="496">496 MLB THE SHOW 21</option>
+                                    <option value="498">498 Madden NFL 22</option>
+                                    <option value="500">500 NBA 2K22</option>
+                                    <option value="502">502 Blade &amp; Soul 2</option>
+                                    <option value="504">504 Astellia Royal</option>
+                                    <option value="508">508 PSO2:NGS</option>
+                                    <option value="510">510 WoW TBC Classic</option>
+                                    <option value="512">512 Aion Classic</option>
+                                    <option value="518">518 Forza Horizon 5</option>
+                                    <option value="520">520 FIFA 22</option>
+                                    <option value="522">522 Swords of Legends Online</option>
+                                    <option value="526">526 Bless Unleashed</option>
+                                    <option value="528">528 NHL 22</option>
+                                    <option value="530">530 Diablo II: Resurrected</option>
+                                    <option value="532">532 Elden Ring</option>
+                                    <option value="534">534 Mad World: Age of Darkness</option>
+                                    <option value="536">536 Madden NFL 23</option>
+                                    <option value="538">538 NBA 2K23</option>
+                                    <option value="540">540 FIFA 23</option>
+                                    <option value="542">542 NHL 23</option>
+                                    <option value="544">544 SUN Classic</option>
+                                    <option value="546">546 Tiny Tina's Wonderlands</option>
+                                    <option value="548">548 Odin: Valhalla Rising</option>
+                                    <option value="550">550 GTA 6</option>
+                                    <option value="554">554 Path Of Exile Mobile</option>
+                                    <option value="556">556 Torchlight: Infinite</option>
+                                    <option value="558">558 Flyff Universe</option>
+                                    <option value="560">560 Fractured Online</option>
+                                    <option value="562">562 Throne and Liberty</option>
+                                    <option value="564">564 WoW WoTLK Classic</option>
+                                    <option value="566">566 College Football 25</option>
+                                    <option value="568">568 Elyon</option>
+                                    <option value="570">570 Chimeraland</option>
+                                    <option value="571">571 all</option>
+                                    <option value="572">572 Epic Seven</option>
+                                    <option value="573">573 GTA 5 Online</option>
+                                    <option value="574">574 Dinkum</option>
+                                    <option value="575">575 Iruna Online</option>
+                                    <option value="576">576 Apex Legends Mobile</option>
+                                    <option value="577">577 Myth Of Empires</option>
+                                    <option value="578">578 Warmane</option>
+                                    <option value="580">580 Undecember</option>
+                                    <option value="581">581 Final Fantasy XI</option>
+                                    <option value="582">582 Pokémon Scarlet and Violet</option>
+                                    <option value="583">583 NBA 2K24</option>
+                                    <option value="584">584 Madden NFL 24</option>
+                                    <option value="585">585 FC 24</option>
+                                    <option value="586">586 Mir M</option>
+                                    <option value="587">587 Wo Long: Fallen Dynasty</option>
+                                    <option value="589">589 Wayfinder</option>
+                                    <option value="590">590 Summoners War: Chronicles</option>
+                                    <option value="591">591 MLB The Show 23</option>
+                                    <option value="592">592 Uncharted Waters Origin</option>
+                                    <option value="593">593 Ravendawn</option>
+                                    <option value="594">594 Honkai Star Rail</option>
+                                    <option value="595">595 Eden Eternal</option>
+                                    <option value="596">596 Undawn</option>
+                                    <option value="597">597 Dragon Nest 2: Evolution</option>
+                                    <option value="598">598 Another Dungeon</option>
+                                    <option value="600">600 Mir 4</option>
+                                    <option value="606">606 NHL 24</option>
+                                    <option value="608">608 Lords of the Fallen</option>
+                                    <option value="610">610 Greed is Good</option>
+                                    <option value="612">612 Mortal online 2</option>
+                                    <option value="616">616 Avatar: Frontiers of Pandora</option>
+                                    <option value="618">618 Astral Tale</option>
+                                    <option value="620">620 Palworld</option>
+                                    <option value="624">624 Last Epoch</option>
+                                    <option value="626">626 ROM：黄金时代</option>
+                                    <option value="628">628 Enshrouded</option>
+                                    <option value="630">630 FC Mobile</option>
+                                    <option value="632">632 Night Crows</option>
+                                    <option value="634">634 MLB The Show 24</option>
+                                    <option value="636">636 Stardew Valley</option>
+                                    <option value="644">644 WoW Cataclysm Classic</option>
+                                    <option value="646">646 STEAM</option>
+                                    <option value="648">648 Xbox</option>
+                                    <option value="650">650 Apple</option>
+                                    <option value="652">652 Razer</option>
+                                    <option value="654">654 LUNIA Z: Revival</option>
+                                    <option value="656">656 Genesis Crystals</option>
+                                    <option value="658">658 Dark And Darker Mobile</option>
+                                    <option value="660">660 Honor of Kings</option>
+                                    <option value="662">662 The First Descendant</option>
+                                    <option value="664">664 Once Human</option>
+                                    <option value="666">666 Dungeonborne</option>
+                                    <option value="668">668 Madden NFL 25</option>
+                                    <option value="670">670 NBA 2K25</option>
+                                    <option value="672">672 Blade Ball</option>
+                                    <option value="674">674 FC 25</option>
+                                    <option value="676">676 Governor of Poker 3</option>
+                                    <option value="678">678 Artale</option>
+                                    <option value="682">682 MapleStory Worlds</option>
+                                    <option value="684">684 Lord Of The Rings Online</option>
+                                    <option value="686">686 King of Avalon</option>
+                                    <option value="688">688 Monopoly Go</option>
+                                    <option value="690">690 CoD: Black Ops 6</option>
+                                    <option value="692">692 Brighter Shores</option>
+                                    <option value="694">694 Rust</option>
+                                    <option value="698">698 Rise Online</option>
+                                    <option value="700">700 Delta Force</option>
+                                    <option value="702">702 AFK Journey</option>
+                                    <option value="704">704 Bigo Live</option>
+                                    <option value="706">706 Call of Duty Mobile</option>
+                                    <option value="708">708 Candy Crush Saga</option>
+                                    <option value="710">710 Carnival Tycoon</option>
+                                    <option value="712">712 Clash of Clans</option>
+                                    <option value="714">714 Dice Dreams</option>
+                                    <option value="716">716 Free Fire</option>
+                                    <option value="718">718 Gardenscapes</option>
+                                    <option value="720">720 Goddess of Victory: Nikke</option>
+                                    <option value="722">722 Identity V</option>
+                                    <option value="724">724 Knives Out</option>
+                                    <option value="726">726 Last War Survival</option>
+                                    <option value="728">728 Legend of Mushroom</option>
+                                    <option value="730">730 Mobile Legends Bang Bang</option>
+                                    <option value="732">732 NEW STATE Mobile</option>
+                                    <option value="734">734 PUBG Mobile</option>
+                                    <option value="736">736 Ragnarok M Eternal Love</option>
+                                    <option value="738">738 Ragnarok Origin Global</option>
+                                    <option value="740">740 Rise of Kingdoms</option>
+                                    <option value="742">742 Royal Match</option>
+                                    <option value="744">744 Squad Busters</option>
+                                    <option value="746">746 State of Survival</option>
+                                    <option value="748">748 Tarisland</option>
+                                    <option value="750">750 Tower of Fantasy</option>
+                                    <option value="752">752 Township</option>
+                                    <option value="754">754 Wuthering Waves</option>
+                                    <option value="756">756 Zenless Zone Zero</option>
+                                    <option value="758">758 RAVEN 2</option>
+                                    <option value="760">760 The Quinfall</option>
+                                    <option value="762">762 Helldivers 2</option>
+                                    <option value="764">764 BNS NEO怀旧服</option>
+                                    <option value="766">766 MLB The Show 25</option>
+                                    <option value="768">768 Monster Hunter Wilds</option>
+                                    <option value="770">770 RavenQuest</option>
+                                    <option value="772">772 Team Fortress 2</option>
+                                    <option value="774">774 Schedule I</option>
+                                    <option value="776">776 Dragon Nest Classic SEA</option>
+                                    <option value="778">778 Marvel Rivals</option>
+                                    <option value="780">780 Warborne Above Ashes</option>
+                                    <option value="782">782 Mistfall Hunter</option>
+                                    <option value="784">784 Dune: Awakening</option>
+                                    <option value="786">786 College Football 26</option>
+                                    <option value="788">788 MapleStory N</option>
+                                    <option value="790">790 Elden Ring Nightreign</option>
+                                    <option value="792">792 Dungeon Fighter Online</option>
+                                    <option value="796">796 FANTASY LIFE i</option>
+                                    <option value="798">798 Mecha BREAK</option>
+                                    <option value="800">800 Grow a Garden</option>
+                                    <option value="802">802 NBA 2K26</option>
+                                    <option value="806">806 Off The Grid</option>
+                                    <option value="808">808 Dragon Nest</option>
+                                    <option value="810">810 LORDNINE : Infinite Class</option>
+                                    <option value="812">812 Destiny 2</option>
+                                    <option value="814">814 Madden NFL 26</option>
+                                    <option value="816">816 Corepunk</option>
+                                    <option value="818">818 Dungeon Stalkers</option>
+                                    <option value="820">820 NHL 26</option>
+                                    <option value="822">822 GodsArena Online</option>
+                                    <option value="824">824 FC 26</option>
+                                    <option value="826">826 Aion 2</option>
+                                    <option value="828">828 Borderlands 4</option>
+                                    <option value="830">830 Destiny: Rising</option>
+                                    <option value="832">832 Brook Haven</option>
+                                    <option value="834">834 Ragnarok V: Returns</option>
+                                    <option value="836">836 Arena Breakout: Infinite</option>
+                                    <option value="838">838 CoD: Black Ops 7</option>
+                                    <option value="842">842 Etheria: Restart</option>
+                                    <option value="844">844 MARVEL Mystic Mayhem</option>
+                                    <option value="846">846 RF Online Next</option>
+                                    <option value="848">848 Battlefield 6</option>
+                                    <option value="850">850 Pokémon Legends: Z-A</option>
+                                    <option value="852">852 Fellowship</option>
+                                    <option value="854">854 Plants vs Brainrots</option>
+                                    <option value="856">856 DonutSMP</option>
+                                    <option value="858">858 Legend of YMIR</option>
+                                    <option value="860">860 Fish It</option>
+                                    <option value="862">862 Cabal Online (EU)</option>
+                                    <option value="864">864 Arc Raiders</option>
+                                    <option value="866">866 Pokemon TCG Pocket</option>
+                                    <option value="868">868 WOW Mists of Pandaria Classic</option>
+                                    <option value="870">870 Where Winds Meet</option>
+                                    <option value="872">872 Pax Dei</option>
+                                    <option value="874">874 Dreadmyst</option>
+                                    <option value="876">876 WoW TBC Classic Anniversary</option>
+                                    <option value="878">878 Dark December</option>
+                                    <option value="880">880 Arknights: Endfield</option>
+                                    <option value="882">882 No Rest for the Wicked</option>
+                                    <option value="884">884 The Midnight Walkers</option>
+                                    <option value="886">886 Apogea</option>
+                                    <option value="888">888 2XKO</option>
+                                    <option value="890">890 燕云十六声</option>
+                                    <option value="892">892 Lineage Classic</option>
+                                    <option value="894">894 Raid: Shadow Legends</option>
+                                    <option value="896">896 Counter Strike 2</option>
+                                    <option value="900">900 Discord</option>
+                                    <option value="902">902 Forza Horizon 6</option>
+                                    <option value="904">904 Resident Evil Requiem</option>
+                                    <option value="906">906 Reanimal</option>
+                                    <option value="908">908 Dead by Daylight</option>
+                                    <option value="910">910 Marathon</option>
+                                    <option value="912">912 Tencent Game</option>
+                                    <option value="914">914 Crimson Desert</option>
+                                    <option value="916">916 Lucky Defense</option>
+                                    <option value="920">920 VAMPIR</option>
+                                    <option value="924">924 Nakwon: Last Paradise</option>
+                                    <option value="926">926 Monsters &amp; Memories</option>
+                                    <option value="928">928 Chaos Zero Nightmare</option>
+                                    <option value="930">930 Summoners War</option>
+                                    <option value="932">932 Watcher of Realms</option>
+                                    <option value="934">934 Uma Musume Pretty Derby</option>
+                                    <option value="936">936 Seven Knights</option>
+                                    <option value="938">938 Hearthstone</option>
+                                    <option value="940">940 One Piece Bounty Rush</option>
+                                    <option value="942">942 SD Gundam G Generation Eternal</option>
+                                    <option value="944">944 The Seven Deadly Sins: Origin</option>
+                                    <option value="946">946 THE CUBE, SAVE US</option>
+                                    <option value="948">948 The Seven Deadly Sins: Grand Cross</option>
+                                    <option value="950">950 Minecraft</option>
+                                    <option value="952">952 Dragon Ball Legends</option>
+                                    <option value="954">954 Morimens</option>
+                                    <option value="956">956 Solo Leveling: Arise</option>
+                                    <option value="958">958 Heroes of the storm</option>
+                                    <option value="960">960 HAIKYU FLY HIGH</option>
+                                    <option value="962">962 Legends of Runeterra</option>
+                                    <option value="964">964 Battlefield</option>
+                                    <option value="966">966 Captain Tsubasa: Dream Team</option>
+                                    <option value="968">968 Girls' Frontline 2: Exilium</option>
+                                    <option value="970">970 HATSUNE MIKU: COLORFUL STAGE!</option>
+                                    <option value="972">972 Pokemon Masters EX</option>
+                                    <option value="974">974 Arknights</option>
+                                    <option value="976">976 King Arthur: Legends Rise</option>
+                                    <option value="978">978 Hytale</option>
+                                    <option value="980">980 Star Savior</option>
+                                    <option value="982">982 Shadowverse: Worlds Beyond</option>
+                                    <option value="984">984 Blue Archive</option>
+                                    <option value="986">986 Octopath Traveler: Champions of the Continent</option>
+                                    <option value="988">988 Yu-Gi-Oh Master Duel</option>
+                                    <option value="990">990 BrownDust 2</option>
+                                    <option value="992">992 Heaven Burns Red</option>
+                                    <option value="994">994 War of the Visions: Final Fantasy Brave Exvius</option>
+                                    <option value="996">996 Fire Emblem Heroes</option>
+                                    <option value="998">998 Punishing: Gray Raven</option>
+                                    <option value="1000">1000 One Punchman: World</option>
+                                    <option value="1002">1002 SLIME ISEKAI Memories</option>
+                                    <option value="1004">1004 Cookie Run: Kingdom</option>
+                                    <option value="1006">1006 Gray Zone Warfare</option>
+                                    <option value="1008">1008 Seal M</option>
+                                    <option value="1010">1010 Crystalfall</option>
+                                    <option value="1012">1012 Soulmask</option>
+                                    <option value="1014">1014 Star Dive</option>
+                                    <option value="1016">1016 MONGIL: STAR DIVE</option>
+                                    <option value="1018">1018 Poppo Live</option>
+                                    <option value="1020">1020 Age of Empires Mobile</option>
+                                    <option value="1022">1022 Mango Live</option>
+                                    <option value="1024">1024 Likee</option>
+                                    <option value="1026">1026 Mico</option>
+                                    <option value="1028">1028 Migo Live</option>
+                                    <option value="1030">1030 Chamet</option>
+                                    <option value="1032">1032 Imo</option>
+                                    <option value="1034">1034 Sugo</option>
+                                    <option value="1036">1036 Superlive</option>
+                                    <option value="1038">1038 StarMaker</option>
+                                    <option value="1040">1040 Yalla Live</option>
+                                    <option value="1042">1042 Lita</option>
+                                    <option value="1044">1044 Love And Deepspace</option>
+                                    <option value="1046">1046 Eggy Party</option>
+                                    <option value="1048">1048 Blood Strike</option>
+                                    <option value="1050">1050 SuperSus</option>
+                                    <option value="1052">1052 Spark Live</option>
+                                    <option value="1054">1054 Dazz Live</option>
+                                    <option value="1056">1056 LifeAfter</option>
+                                    <option value="1058">1058 Farlight 84</option>
+                                    <option value="1060">1060 Jawaker</option>
+                                    <option value="1062">1062 Whiteout Survival</option>
+                                    <option value="1064">1064 Honkai Impact 3</option>
+                                    <option value="1066">1066 Dragonheir:Silent Gods</option>
+                                    <option value="1068">1068 Ludo Club</option>
+                                    <option value="1070">1070 Bleach: Soul Resonance</option>
+                                    <option value="1072">1072 Soul Chill Crestal</option>
+                                    <option value="1074">1074 YoHo</option>
+                                    <option value="1076">1076 Xena Live</option>
+                                    <option value="1078">1078 Yaahlan</option>
+                                    <option value="1080">1080 Ahlan</option>
+                                    <option value="1082">1082 Saada</option>
+                                    <option value="1084">1084 Jaco</option>
+                                    <option value="1086">1086 Magic Chess: Go Go</option>
+                                    <option value="1088">1088 YoYo</option>
+                                    <option value="1090">1090 Hiya</option>
+                                    <option value="1092">1092 HiParty</option>
+                                    <option value="1094">1094 Party Star</option>
+                                    <option value="1096">1096 LivU</option>
+                                    <option value="1098">1098 4Fun</option>
+                                    <option value="1100">1100 Duet Night Abyss</option>
+                                    <option value="1102">1102 Weplay</option>
+                                    <option value="1104">1104 Silver and Blood</option>
+                                    <option value="1106">1106 Sword of Justice</option>
+                                    <option value="1108">1108 Hawa</option>
+                                    <option value="1110">1110 Heartopia</option>
+                                    <option value="1112">1112 Habi</option>
+                                    <option value="1114">1114 TAKA Live</option>
+                                    <option value="1116">1116 PRAGMATA</option>
+                                    <option value="1118">1118 Yalla Ludo</option>
+                                    <option value="1120">1120 Windrose</option>
+                                    <option value="1122">1122 Marvel Future Fight</option>
+                                    <option value="1124">1124 WoW Classic ERA</option>
+                                    <option value="1126">1126 Neverness to Everness</option>
+                                    <option value="1128">1128 MapleStory Worlds: 楓星</option>
+                                    <option value="1130">1130 Racing Master</option>
+                                    <option value="1132">1132 Subnautica 2</option>
+                                    <option value="1134">1134 Gothic 1 Remake</option>
+                                    <option value="1136">1136 007 First Light</option>
+                                    <option value="1138">1138 7 Days to Die</option>
+                                    <option value="1140">1140 Action Taimanin</option>
+                                    <option value="1142">1142 ARK: Survival Ascended</option>
+                                    <option value="1144">1144 ARK: Survival Evolved</option>
+                                    <option value="1146">1146 ARMA 3</option>
+                                    <option value="1148">1148 Arma Reforger</option>
+                                    <option value="1150">1150 Baldur`s Gate 3</option>
+                                    <option value="1152">1152 Instagram</option>
+                                    <option value="1154">1154 BeamNG.drive</option>
+                                    <option value="1156">1156 Bellwright</option>
+                                    <option value="1158">1158 ChatGPT</option>
+                                    <option value="1160">1160 CyberGhost VPN</option>
+                                    <option value="1162">1162 DayZ</option>
+                                    <option value="1164">1164 DeadLock</option>
+                                    <option value="1166">1166 E Mail</option>
+                                    <option value="1168">1168 eFootball</option>
+                                    <option value="1170">1170 Escape the Backrooms</option>
+                                    <option value="1172">1172 Euro Truck Simulator 2</option>
+                                    <option value="1174">1174 Fate/Grand Order</option>
+                                    <option value="1176">1176 FN</option>
+                                    <option value="1178">1178 Gamble With Your Friends</option>
+                                    <option value="1180">1180 Garry`s Mod</option>
+                                    <option value="1182">1182 Grounded 2</option>
+                                    <option value="1184">1184 IPVanish VPN</option>
+                                    <option value="1186">1186 NFLX</option>
+                                    <option value="1188">1188 One Piece Treasure Cruise</option>
+                                    <option value="1190">1190 OPERATOR</option>
+                                    <option value="1192">1192 Phasmophobia</option>
+                                    <option value="1194">1194 Planet Coaster 2</option>
+                                    <option value="1196">1196 Project Zomboid</option>
+                                    <option value="1198">1198 Raft</option>
+                                    <option value="1200">1200 Rainbow Six Siege X</option>
+                                    <option value="1202">1202 Ready Or Not</option>
+                                    <option value="1204">1204 Sons of the Forest</option>
+                                    <option value="1206">1206 Soul Knight</option>
+                                    <option value="1208">1208 Split Fiction</option>
+                                    <option value="1210">1210 Standoff 2</option>
+                                    <option value="1212">1212 Star Wars Battlefront II</option>
+                                    <option value="1214">1214 TCG Card Shop Simulator</option>
+                                    <option value="1216">1216 Terraria</option>
+                                    <option value="1218">1218 The Elder Scroll Online (Global)</option>
+                                    <option value="1220">1220 The Forest</option>
+                                    <option value="1222">1222 The Isle</option>
+                                    <option value="1224">1224 The Outlast Trials</option>
+                                    <option value="1226">1226 TikTok</option>
+                                    <option value="1228">1228 Tom Clancys Rainbow Six Siege</option>
+                                    <option value="1230">1230 Twitch</option>
+                                    <option value="1232">1232 Jujutsu Kaisen Phantom Parade</option>
+                                    <option value="1234">1234 Bizarre Lineage</option>
+                                    <option value="1236">1236 Bubble Gum Simulator Infinity</option>
+                                    <option value="1238">1238 The Strongest Battlegrounds</option>
+                                    <option value="1240">1240 Creatures of Sonaria</option>
+                                    <option value="1242">1242 ドットアビス Dot Abyss</option>
+                                    <option value="1244">1244 Soulframe</option>
+                                    <option value="1246">1246 Romestead</option>
+                                    <option value="1248">1248 Pokémon Champions</option>
+                                    <option value="1250">1250 Grow a Garden 2</option>
+                                    <option value="1252">1252 +1 Speed Keyboard Escape</option>
+                                    <option value="1254">1254 MECCHA CHAMELEON</option>
+                                    <option value="1260">1260 Ragnarok Online 3</option>
+                                    <option value="1262">1262 Adopt Me</option>
+                                    <option value="1264">1264 Pet Simulator 99</option>
+                                    <option value="1266">1266 Gloria Victis</option>
+                                    <option value="1268">1268 Sol Enchant</option>
+                                    <option value="1270">1270 Brookhaven RP</option>
+                                    <option value="1272">1272 Main Server</option>
+                                    <option value="1274">1274 SAND: Raiders of Sophie</option>
+                                    <option value="1276">1276 FIFA Heroes: Football Action</option>
+                                    <option value="1278">1278 Umamusume: Pretty Derby</option>
+                                    <option value="1280">1280 SpiritVale</option>
+                                    <option value="1282">1282 Titanfall 2</option>
+                                    <option value="1284">1284 RIVALS</option>
+                                    <option value="1286">1286 BloxStrike</option>
+                                    <option value="1288">1288 Anime Expeditions</option>
+                                    <option value="1290">1290 Dying Light 2</option>
+                                    <option value="1292">1292 Hunt: Showdown 1896</option>
+                                    <option value="1294">1294 Left 4 Dead 2</option>
+                                    <option value="1296">1296 CoD: Black Ops 2</option>
+                                    <option value="1298">1298 Murder Mystery 2</option>
+                                    <option value="1300" selected="" data-select2-id="2">1300 MapleStory Classic World</option>
+                                    <option value="1302">1302 CoD Modern Warfare 4</option>
+                                    <option value="1304">1304 Ragnarok: The New World</option>
+                                    <option value="1308">1308 Metin2</option>
+                                    <option value="1310">1310 Nintendo</option>
+                                    <option value="1312">1312 Google Play</option>
+                                    <option value="1314">1314 Don't Starve Together</option>
+                                    <option value="1316">1316 Soul's Remnant</option>
+                                    <option value="1318">1318 Tomb Busters</option>
+                                    <option value="1320">1320 Ragnarok Zero: Global</option>
+                                    <option value="1324">1324 How to Fish</option>
+                                    <option value="1326">1326 Bloons TD 6</option>
+                                    <option value="1328">1328 Bodycam</option>
+                                    <option value="1330">1330 Ragnarok Online</option>
+                                    <option value="1332">1332 Diablo 2: Resurrected</option>
+                                    <option value="1334">1334 The Blood of Dawnwalker</option>
+                                    <option value="1336">1336 WARDOGS</option>
+                                    <option value="1338">1338 The Crew Motorfest</option>
+                                    <option value="1340">1340 Call of Duty</option>
+                                    <option value="1342">1342 Assetto Corsa</option>
+                                    <option value="1344">1344 EA Sports FC</option>
+                                    <option value="1346">1346 Hololive Dreams</option>
+                                    <option value="1348">1348 Steal a Brainrot</option>
+                                    <option value="1350">1350 Blox Fruits</option>
+                                    <option value="1352">1352 Anime Defenders</option>
+                                    <option value="1354">1354 Ink Game</option>
+                                    <option value="1356">1356 My Restaurant</option>
+                                    <option value="1358">1358 Basketball Legends</option>
+                                    <option value="1360">1360 Bayside High School</option>
+                                    <option value="1362">1362 Bedwars</option>
+                                    <option value="1364">1364 World of Warcraft: Forever</option>
+                                    <option value="1366">1366 Driving Empire</option>
+                                    <option value="1368">1368 King Legacy</option>
+                                    <option value="1370">1370 Muscle Legends</option>
+                                    <option value="1372">1372 Ninja Legends</option>
+                                    <option value="1374">1374 Pet Simulator X</option>
+                                    <option value="1376">1376 The Strongest Batterground</option>
+                                    <option value="1378">1378 Ultimate Football</option>
+                                    <option value="1380">1380 War Tycoon</option>
+                                    <option value="1382">1382 Toilet Tower Defence</option>
+                                    <option value="1384">1384 Survive The Killer</option>
+                                    <option value="1386">1386 Architect: Land of Exiles</option>
+                                    <option value="1388">1388 Aniimo</option>
+                                    <option value="1390">1390 Need for Speed: Heat</option>
+                                    <option value="1392">1392 Architect: Land of Exile</option>
+                                    <option value="1394">1394 Wardog</option>
+                                    <option value="1396">1396 Control Resonant</option>
+                                    <option value="1398">1398 Payday 3</option>
+                                    <option value="1400">1400 World Of Warcraft</option>
+                                    <option value="1402">1402 OSRS</option>
+                                    <option value="1404">1404 The Witcher 3: Wild Hunt</option>
+                            </select><span class="select2 select2-container select2-container--default" dir="ltr" data-select2-id="1" style="width: 240px;"><span class="selection"><span class="select2-selection select2-selection--single" role="combobox" aria-haspopup="true" aria-expanded="false" tabindex="0" aria-labelledby="select2-lot-game-container"><span class="select2-selection__rendered" id="select2-lot-game-container" role="textbox" aria-readonly="true" title="1300 MapleStory Classic World">1300 MapleStory Classic World</span><span class="select2-selection__arrow" role="presentation"><b role="presentation"></b></span></span></span><span class="dropdown-wrapper" aria-hidden="true"></span></span>
+             关键词:
+            <input id="lot-kd" class="form-control" name="keyword" placeholder="游戏区名称" type="text" value="" style="width:230px;"> 
+            <input class="btn btn-primary btn-search" type="submit" value="搜索">
+            <a class="btn btn-danger" href="/game/admin_game_price/index.html">清空</a>
+
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="show_profit" value="0">
+            <!-- <input class="btn btn-primary jq-saveprice" type="button" value="同步价格"/> -->
+        </form>
+
+        <form class="js-ajax-form " action="/game/admin_game_price/saveprice.html" method="get" style="margin-bottom:5px;" novalidate="novalidate">
+            <!-- <input style="float:left;" class="btn btn-sm btn-primary jq-show_profit" type="button" value="显示利润"/> -->
+
+            <input type="hidden" name="getweb" value="0">
+            <a style="float:left;margin-left:5px;" class="btn btn-sm btn-primary jq-getweb" title="" data-toggle="tooltip" data-original-title="更新b2c网站"><i class="fa fa-refresh"></i></a>
+            <div style="float:left;margin-left:5px;">
+                b2c网站:<div class="fs-wrap multiple"><div class="fs-label-wrap"><div class="fs-label">请选择</div><span class="fs-arrow"></span></div><div class="fs-dropdown hidden"><div class="fs-search"><input type="search" placeholder="搜索"></div><div class="fs-options"><div class="fs-option" data-value="mmotank.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmotank.com</div></div><div class="fs-option" data-value="mmoak.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoak.com</div></div><div class="fs-option" data-value="4bnsgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4bnsgold.com</div></div><div class="fs-option" data-value="4bdgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4bdgold.com</div></div><div class="fs-option" data-value="4rser.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4rser.com</div></div><div class="fs-option" data-value="rsfast.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsfast.com</div></div><div class="fs-option" data-value="cheapdofus.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapdofus.com</div></div><div class="fs-option" data-value="buybns.ru"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buybns.ru</div></div><div class="fs-option" data-value="okrsgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">okrsgold.com</div></div><div class="fs-option" data-value="overwatchmall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">overwatchmall.com</div></div><div class="fs-option" data-value="4ms2.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4ms2.com</div></div><div class="fs-option" data-value="ms2mall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ms2mall.com</div></div><div class="fs-option" data-value="rsgpclub.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgpclub.com</div></div><div class="fs-option" data-value="salerunescape.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">salerunescape.com</div></div><div class="fs-option" data-value="goldrunescape.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">goldrunescape.com</div></div><div class="fs-option" data-value="runescapesell.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">runescapesell.com</div></div><div class="fs-option" data-value="rsgp2u.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgp2u.com</div></div><div class="fs-option" data-value="rsgoldnow.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgoldnow.com</div></div><div class="fs-option" data-value="rsgold24h.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgold24h.com</div></div><div class="fs-option" data-value="rsnxt.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsnxt.com</div></div><div class="fs-option" data-value="cheapnw.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapnw.com</div></div><div class="fs-option" data-value="sellrsgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">sellrsgold.com</div></div><div class="fs-option" data-value="rsgoldbuyer.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgoldbuyer.com</div></div><div class="fs-option" data-value="rsmoons.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsmoons.com</div></div><div class="fs-option" data-value="fifa17mall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa17mall.com</div></div><div class="fs-option" data-value="runescapegoldgp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">runescapegoldgp.com</div></div><div class="fs-option" data-value="4rsgolds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4rsgolds.com</div></div><div class="fs-option" data-value="rs2you.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rs2you.com</div></div><div class="fs-option" data-value="stoclub.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">stoclub.com</div></div><div class="fs-option" data-value="stoitems.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">stoitems.com</div></div><div class="fs-option" data-value="ms2club.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ms2club.com</div></div><div class="fs-option" data-value="ms2fan.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ms2fan.com</div></div><div class="fs-option" data-value="mmogo.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmogo.com</div></div><div class="fs-option" data-value="msitems.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">msitems.com</div></div><div class="fs-option" data-value="buymuzen.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buymuzen.com</div></div><div class="fs-option" data-value="ms2shop.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ms2shop.com</div></div><div class="fs-option" data-value="rsgole.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsgole.com</div></div><div class="fs-option" data-value="u2fifa.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">u2fifa.com</div></div><div class="fs-option" data-value="nba18mt.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba18mt.com</div></div><div class="fs-option" data-value="maddenvip.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">maddenvip.com</div></div><div class="fs-option" data-value="ea4coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ea4coins.com</div></div><div class="fs-option" data-value="nba2king.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba2king.com</div></div><div class="fs-option" data-value="utnfl.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">utnfl.com</div></div><div class="fs-option" data-value="mtnba2k.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mtnba2k.com</div></div><div class="fs-option" data-value="utnflcoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">utnflcoins.com</div></div><div class="fs-option" data-value="fifa18vip.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa18vip.com</div></div><div class="fs-option" data-value="fifa18mall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa18mall.com</div></div><div class="fs-option" data-value="buynba2k.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynba2k.com</div></div><div class="fs-option" data-value="mynba2k18.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mynba2k18.com</div></div><div class="fs-option" data-value="4futcoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4futcoins.com</div></div><div class="fs-option" data-value="mmonfl.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmonfl.com</div></div><div class="fs-option" data-value="nba18shop.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba18shop.com</div></div><div class="fs-option" data-value="fut19coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fut19coins.com</div></div><div class="fs-option" data-value="nfl19coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nfl19coins.com</div></div><div class="fs-option" data-value="mynba2k18rp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mynba2k18rp.com</div></div><div class="fs-option" data-value="nba2k18vc.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba2k18vc.com</div></div><div class="fs-option" data-value="fifa18club.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa18club.com</div></div><div class="fs-option" data-value="nfl18coin.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nfl18coin.com</div></div><div class="fs-option" data-value="nba2krp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba2krp.com</div></div><div class="fs-option" data-value="fifacoin.co"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifacoin.co</div></div><div class="fs-option" data-value="madden-sale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">madden-sale.com</div></div><div class="fs-option" data-value="fifaah.co"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifaah.co</div></div><div class="fs-option" data-value="nba18vc.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nba18vc.com</div></div><div class="fs-option" data-value="mut19coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mut19coins.com</div></div><div class="fs-option" data-value="mynba2k19rp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mynba2k19rp.com</div></div><div class="fs-option" data-value="buyfifa18.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyfifa18.com</div></div><div class="fs-option" data-value="u2nhl.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">u2nhl.com</div></div><div class="fs-option" data-value="nhl18coin.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nhl18coin.com</div></div><div class="fs-option" data-value="utcoin.co"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">utcoin.co</div></div><div class="fs-option" data-value="eanbalive.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">eanbalive.com</div></div><div class="fs-option" data-value="hut18coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">hut18coins.com</div></div><div class="fs-option" data-value="buynhl18coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynhl18coins.com</div></div><div class="fs-option" data-value="utcoinsbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">utcoinsbuy.com</div></div><div class="fs-option" data-value="buyfifa18.co.uk"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyfifa18.co.uk</div></div><div class="fs-option" data-value="fut18coins.co.uk"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fut18coins.co.uk</div></div><div class="fs-option" data-value="buynfl18coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynfl18coins.com</div></div><div class="fs-option" data-value="buynfl18.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynfl18.com</div></div><div class="fs-option" data-value="ballscoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ballscoins.com</div></div><div class="fs-option" data-value="teramalls.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">teramalls.com</div></div><div class="fs-option" data-value="teragoldfast.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">teragoldfast.com</div></div><div class="fs-option" data-value="imvumall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">imvumall.com</div></div><div class="fs-option" data-value="buymt18.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buymt18.com</div></div><div class="fs-option" data-value="cheap2k18mt.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheap2k18mt.com</div></div><div class="fs-option" data-value="nbalive18coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nbalive18coins.com</div></div><div class="fs-option" data-value="mnfl18coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mnfl18coins.com</div></div><div class="fs-option" data-value="fifa18mobilecoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa18mobilecoins.com</div></div><div class="fs-option" data-value="fifa18mobile.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fifa18mobile.com</div></div><div class="fs-option" data-value="mobilecoinsfifa.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mobilecoinsfifa.com</div></div><div class="fs-option" data-value="2kmtcoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">2kmtcoins.com</div></div><div class="fs-option" data-value="mnbalivecoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mnbalivecoins.com</div></div><div class="fs-option" data-value="buynbamobilecoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynbamobilecoins.com</div></div><div class="fs-option" data-value="nbalivecoinsus.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nbalivecoinsus.com</div></div><div class="fs-option" data-value="nflcoinsmobile.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nflcoinsmobile.com</div></div><div class="fs-option" data-value="acbells.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">acbells.com</div></div><div class="fs-option" data-value="dearcoins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">dearcoins.com</div></div><div class="fs-option" data-value="maddencoin.net"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">maddencoin.net</div></div><div class="fs-option" data-value="nhl19coins.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nhl19coins.com</div></div><div class="fs-option" data-value="poe-currency.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poe-currency.com</div></div><div class="fs-option" data-value="rsfast.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsfast.com</div></div><div class="fs-option" data-value="buylineagem.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buylineagem.com</div></div><div class="fs-option" data-value="buyosrs.gold"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyosrs.gold</div></div><div class="fs-option" data-value="buyrunescape.gold"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyrunescape.gold</div></div><div class="fs-option" data-value="fortniteitem.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fortniteitem.com</div></div><div class="fs-option" data-value="mmogdp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmogdp.com</div></div><div class="fs-option" data-value="mmoexp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoexp.com</div></div><div class="fs-option" data-value="winrsgold-back.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">winrsgold-back.com</div></div><div class="fs-option" data-value="mywowgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mywowgold.com</div></div><div class="fs-option" data-value="ezmsm.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezmsm.com</div></div><div class="fs-option" data-value="iwowgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">iwowgold.com</div></div><div class="fs-option" data-value="ezdofus.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezdofus.com</div></div><div class="fs-option" data-value="pve88.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">pve88.com</div></div><div class="fs-option" data-value="fr.ezdofus.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fr.ezdofus.com</div></div><div class="fs-option" data-value="de.ezdofus.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">de.ezdofus.com</div></div><div class="fs-option" data-value="voidk.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">voidk.com</div></div><div class="fs-option" data-value="igmah.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">igmah.com</div></div><div class="fs-option" data-value="okbuff.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">okbuff.com</div></div><div class="fs-option" data-value="mmoxr.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoxr.com</div></div><div class="fs-option" data-value="ez2kmt.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ez2kmt.com</div></div><div class="fs-option" data-value="mmoxs.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoxs.com</div></div><div class="fs-option" data-value="4poe.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4poe.com</div></div><div class="fs-option" data-value="safemut.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">safemut.com</div></div><div class="fs-option" data-value="pso2ah.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">pso2ah.com</div></div><div class="fs-option" data-value="winrsgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">winrsgold.com</div></div><div class="fs-option" data-value="ezgpx.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezgpx.com</div></div><div class="fs-option" data-value="4acnh.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4acnh.com</div></div><div class="fs-option" data-value="fastisk.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fastisk.com</div></div><div class="fs-option" data-value="valorantah.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">valorantah.com</div></div><div class="fs-option" data-value="ezdiablo.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezdiablo.com</div></div><div class="fs-option" data-value="hutmore.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">hutmore.com</div></div><div class="fs-option" data-value="igcoupon.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">igcoupon.com</div></div><div class="fs-option" data-value="buyl2m.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyl2m.com</div></div><div class="fs-option" data-value="rsorders.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsorders.com</div></div><div class="fs-option" data-value="rsdear.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsdear.com</div></div><div class="fs-option" data-value="4nwcoin.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">4nwcoin.com</div></div><div class="fs-option" data-value="ludaza.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ludaza.com</div></div><div class="fs-option" data-value="plusmack.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">plusmack.com</div></div><div class="fs-option" data-value="forpoe.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">forpoe.com</div></div><div class="fs-option" data-value="mmoep.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoep.com</div></div><div class="fs-option" data-value="rsmalls.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">rsmalls.com</div></div><div class="fs-option" data-value="roggg.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">roggg.com</div></div><div class="fs-option" data-value="img.mmoexp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">img.mmoexp.com</div></div><div class="fs-option" data-value="ezg2g.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezg2g.com</div></div><div class="fs-option" data-value="ezigv.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ezigv.com</div></div><div class="fs-option" data-value="igokay.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">igokay.com</div></div><div class="fs-option" data-value="b2c-api.p2pah.cn"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">b2c-api.p2pah.cn</div></div><div class="fs-option" data-value="buythroneandlibertylucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buythroneandlibertylucent.com</div></div><div class="fs-option" data-value="lucentthroneandliberty.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">lucentthroneandliberty.com</div></div><div class="fs-option" data-value="buylucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buylucent.com</div></div><div class="fs-option" data-value="buytllucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buytllucent.com</div></div><div class="fs-option" data-value="tllucentmall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucentmall.com</div></div><div class="fs-option" data-value="throneandlibertylucent.net"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">throneandlibertylucent.net</div></div><div class="fs-option" data-value="throneandlibertylucentbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">throneandlibertylucentbuy.com</div></div><div class="fs-option" data-value="tllucent.net"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucent.net</div></div><div class="fs-option" data-value="tllucentbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucentbuy.com</div></div><div class="fs-option" data-value="tllucentstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucentstock.com</div></div><div class="fs-option" data-value="lucentbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">lucentbuy.com</div></div><div class="fs-option" data-value="lucentstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">lucentstock.com</div></div><div class="fs-option" data-value="throneandlibertylucentcheap.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">throneandlibertylucentcheap.com</div></div><div class="fs-option" data-value="tllucentsafe.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucentsafe.com</div></div><div class="fs-option" data-value="cheaptllucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheaptllucent.com</div></div><div class="fs-option" data-value="lucentmall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">lucentmall.com</div></div><div class="fs-option" data-value="cheapthroneandlibertylucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapthroneandlibertylucent.com</div></div><div class="fs-option" data-value="throneandlibertycheaplucent.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">throneandlibertycheaplucent.com</div></div><div class="fs-option" data-value="tllucentcheap.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucentcheap.com</div></div><div class="fs-option" data-value="tllucents.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">tllucents.com</div></div><div class="fs-option" data-value="goldd4.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">goldd4.com</div></div><div class="fs-option" data-value="diablo4goldsale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">diablo4goldsale.com</div></div><div class="fs-option" data-value="d4goldtrader.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldtrader.com</div></div><div class="fs-option" data-value="d4goldfast.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldfast.com</div></div><div class="fs-option" data-value="d4itemsstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4itemsstock.com</div></div><div class="fs-option" data-value="buydiablo4gold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buydiablo4gold.com</div></div><div class="fs-option" data-value="diablo4u.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">diablo4u.com</div></div><div class="fs-option" data-value="d4goldstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldstock.com</div></div><div class="fs-option" data-value="d4itemssale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4itemssale.com</div></div><div class="fs-option" data-value="buyitemsd4.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyitemsd4.com</div></div><div class="fs-option" data-value="itemsd4.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">itemsd4.com</div></div><div class="fs-option" data-value="d4goldmalls.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldmalls.com</div></div><div class="fs-option" data-value="goldd4buy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">goldd4buy.com</div></div><div class="fs-option" data-value="diablo-gold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">diablo-gold.com</div></div><div class="fs-option" data-value="d4goldstore.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldstore.com</div></div><div class="fs-option" data-value="buydiablogold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buydiablogold.com</div></div><div class="fs-option" data-value="itemsd4buy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">itemsd4buy.com</div></div><div class="fs-option" data-value="d4goldbuyer.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4goldbuyer.com</div></div><div class="fs-option" data-value="d4itemstrader.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4itemstrader.com</div></div><div class="fs-option" data-value="diablo4goldstore.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">diablo4goldstore.com</div></div><div class="fs-option" data-value="nightcrowsdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nightcrowsdiamonds.com</div></div><div class="fs-option" data-value="buyncdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyncdiamonds.com</div></div><div class="fs-option" data-value="nightcrowsbuydiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nightcrowsbuydiamonds.com</div></div><div class="fs-option" data-value="ncbuydiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ncbuydiamonds.com</div></div><div class="fs-option" data-value="nightcrowsdiamondscheap.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nightcrowsdiamondscheap.com</div></div><div class="fs-option" data-value="nightcrowsdiamondsforsale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nightcrowsdiamondsforsale.com</div></div><div class="fs-option" data-value="cheapncdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapncdiamonds.com</div></div><div class="fs-option" data-value="buynightcrowsdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buynightcrowsdiamonds.com</div></div><div class="fs-option" data-value="diamondsnc.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">diamondsnc.com</div></div><div class="fs-option" data-value="nightcrowsdiamondsbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">nightcrowsdiamondsbuy.com</div></div><div class="fs-option" data-value="ncdiamondsbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ncdiamondsbuy.com</div></div><div class="fs-option" data-value="cheapnightcrowsdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapnightcrowsdiamonds.com</div></div><div class="fs-option" data-value="ncdiamondscheap.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ncdiamondscheap.com</div></div><div class="fs-option" data-value="ncdiamondsforsale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">ncdiamondsforsale.com</div></div><div class="fs-option" data-value="storewowgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">storewowgold.com</div></div><div class="fs-option" data-value="wowclassic.gold"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowclassic.gold</div></div><div class="fs-option" data-value="wowgoldclassic.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowgoldclassic.com</div></div><div class="fs-option" data-value="cheapsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapsodgold.com</div></div><div class="fs-option" data-value="wowclassicsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowclassicsodgold.com</div></div><div class="fs-option" data-value="wowclassicsale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowclassicsale.com</div></div><div class="fs-option" data-value="goldwowclassic.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">goldwowclassic.com</div></div><div class="fs-option" data-value="buysodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buysodgold.com</div></div><div class="fs-option" data-value="sodgoldforsale.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">sodgoldforsale.com</div></div><div class="fs-option" data-value="buywowclassicsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buywowclassicsodgold.com</div></div><div class="fs-option" data-value="wowclassicgoldstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowclassicgoldstock.com</div></div><div class="fs-option" data-value="buywowsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buywowsodgold.com</div></div><div class="fs-option" data-value="wowsodgoldbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowsodgoldbuy.com</div></div><div class="fs-option" data-value="wowgoldservice.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowgoldservice.com</div></div><div class="fs-option" data-value="wowgoldsales.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowgoldsales.com</div></div><div class="fs-option" data-value="wowsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowsodgold.com</div></div><div class="fs-option" data-value="cheapwowsodgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapwowsodgold.com</div></div><div class="fs-option" data-value="cheapwowclassicgold.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheapwowclassicgold.com</div></div><div class="fs-option" data-value="wowgoldseller.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowgoldseller.com</div></div><div class="fs-option" data-value="wowsodgoldstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">wowsodgoldstock.com</div></div><div class="fs-option" data-value="buycurrencypoe.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buycurrencypoe.com</div></div><div class="fs-option" data-value="poecurrencymall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencymall.com</div></div><div class="fs-option" data-value="poe2currencymall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poe2currencymall.com</div></div><div class="fs-option" data-value="safepoecurrency.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">safepoecurrency.com</div></div><div class="fs-option" data-value="cheappoeorbs.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheappoeorbs.com</div></div><div class="fs-option" data-value="currencypoebuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">currencypoebuy.com</div></div><div class="fs-option" data-value="poecurrencystock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencystock.com</div></div><div class="fs-option" data-value="poe2currencystock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poe2currencystock.com</div></div><div class="fs-option" data-value="poeorbsbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poeorbsbuy.com</div></div><div class="fs-option" data-value="poe2store.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poe2store.com</div></div><div class="fs-option" data-value="poe2golds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poe2golds.com</div></div><div class="fs-option" data-value="buycurrencypoe2.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buycurrencypoe2.com</div></div><div class="fs-option" data-value="poecurrencysafe.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencysafe.com</div></div><div class="fs-option" data-value="poecurrencyseller.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencyseller.com</div></div><div class="fs-option" data-value="poecheapcurrency.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecheapcurrency.com</div></div><div class="fs-option" data-value="cheappoe2currency.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">cheappoe2currency.com</div></div><div class="fs-option" data-value="currencypoe2buy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">currencypoe2buy.com</div></div><div class="fs-option" data-value="poecurrencycheap.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencycheap.com</div></div><div class="fs-option" data-value="poecurrencysupplier.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrencysupplier.com</div></div><div class="fs-option" data-value="pathofexileorbs.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">pathofexileorbs.com</div></div><div class="fs-option" data-value="fc27coin.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">fc27coin.com</div></div><div class="fs-option" data-value="odindiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindiamonds.com</div></div><div class="fs-option" data-value="odindiamondsbuy.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindiamondsbuy.com</div></div><div class="fs-option" data-value="odindiamondsstock.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindiamondsstock.com</div></div><div class="fs-option" data-value="buyodinvalhallarisingdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyodinvalhallarisingdiamonds.com</div></div><div class="fs-option" data-value="valhallarisingdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">valhallarisingdiamonds.com</div></div><div class="fs-option" data-value="buyodindiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">buyodindiamonds.com</div></div><div class="fs-option" data-value="odindiamondsmall.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindiamondsmall.com</div></div><div class="fs-option" data-value="odinvalhallarisingdiamonds.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odinvalhallarisingdiamonds.com</div></div><div class="fs-option" data-value="odindiamondstrader.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindiamondstrader.com</div></div><div class="fs-option" data-value="odindims.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">odindims.com</div></div><div class="fs-option" data-value="gamespricecp.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gamespricecp.com</div></div><div class="fs-option" data-value="allgamingfree.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">allgamingfree.com</div></div><div class="fs-option" data-value="gameslegit.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gameslegit.com</div></div><div class="fs-option" data-value="gamescouponzone.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gamescouponzone.com</div></div><div class="fs-option" data-value="gameonlinereview.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gameonlinereview.com</div></div><div class="fs-option" data-value="gamesbuilds.org"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gamesbuilds.org</div></div><div class="fs-option" data-value="gvgok.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">gvgok.com</div></div><div class="fs-option" data-value="mmoxyz.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoxyz.com</div></div><div class="fs-option" data-value="igwah.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">igwah.com</div></div><div class="fs-option" data-value="eld.gg"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">eld.gg</div></div><div class="fs-option" data-value="mmoply.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">mmoply.com</div></div><div class="fs-option" data-value="test.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">test.com</div></div><div class="fs-option" data-value="aion2kinah.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">aion2kinah.com</div></div><div class="fs-option" data-value="d4items.com"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">d4items.com</div></div><div class="fs-option" data-value="poecurrency.gg"><span class="fs-checkbox"><i></i></span><div class="fs-option-label">poecurrency.gg</div></div></div></div><select class="form-control jq-s2-act hidden" id="b2c-website" name="website[]" multiple="">
+                                            <option value="mmotank.com">mmotank.com</option>
+                                            <option value="mmoak.com">mmoak.com</option>
+                                            <option value="4bnsgold.com">4bnsgold.com</option>
+                                            <option value="4bdgold.com">4bdgold.com</option>
+                                            <option value="4rser.com">4rser.com</option>
+                                            <option value="rsfast.com">rsfast.com</option>
+                                            <option value="cheapdofus.com">cheapdofus.com</option>
+                                            <option value="buybns.ru">buybns.ru</option>
+                                            <option value="okrsgold.com">okrsgold.com</option>
+                                            <option value="overwatchmall.com">overwatchmall.com</option>
+                                            <option value="4ms2.com">4ms2.com</option>
+                                            <option value="ms2mall.com">ms2mall.com</option>
+                                            <option value="rsgpclub.com">rsgpclub.com</option>
+                                            <option value="salerunescape.com">salerunescape.com</option>
+                                            <option value="goldrunescape.com">goldrunescape.com</option>
+                                            <option value="runescapesell.com">runescapesell.com</option>
+                                            <option value="rsgp2u.com">rsgp2u.com</option>
+                                            <option value="rsgoldnow.com">rsgoldnow.com</option>
+                                            <option value="rsgold24h.com">rsgold24h.com</option>
+                                            <option value="rsnxt.com">rsnxt.com</option>
+                                            <option value="cheapnw.com">cheapnw.com</option>
+                                            <option value="sellrsgold.com">sellrsgold.com</option>
+                                            <option value="rsgoldbuyer.com">rsgoldbuyer.com</option>
+                                            <option value="rsmoons.com">rsmoons.com</option>
+                                            <option value="fifa17mall.com">fifa17mall.com</option>
+                                            <option value="runescapegoldgp.com">runescapegoldgp.com</option>
+                                            <option value="4rsgolds.com">4rsgolds.com</option>
+                                            <option value="rs2you.com">rs2you.com</option>
+                                            <option value="stoclub.com">stoclub.com</option>
+                                            <option value="stoitems.com">stoitems.com</option>
+                                            <option value="ms2club.com">ms2club.com</option>
+                                            <option value="ms2fan.com">ms2fan.com</option>
+                                            <option value="mmogo.com">mmogo.com</option>
+                                            <option value="msitems.com">msitems.com</option>
+                                            <option value="buymuzen.com">buymuzen.com</option>
+                                            <option value="ms2shop.com">ms2shop.com</option>
+                                            <option value="rsgole.com">rsgole.com</option>
+                                            <option value="u2fifa.com">u2fifa.com</option>
+                                            <option value="nba18mt.com">nba18mt.com</option>
+                                            <option value="maddenvip.com">maddenvip.com</option>
+                                            <option value="ea4coins.com">ea4coins.com</option>
+                                            <option value="nba2king.com">nba2king.com</option>
+                                            <option value="utnfl.com">utnfl.com</option>
+                                            <option value="mtnba2k.com">mtnba2k.com</option>
+                                            <option value="utnflcoins.com">utnflcoins.com</option>
+                                            <option value="fifa18vip.com">fifa18vip.com</option>
+                                            <option value="fifa18mall.com">fifa18mall.com</option>
+                                            <option value="buynba2k.com">buynba2k.com</option>
+                                            <option value="mynba2k18.com">mynba2k18.com</option>
+                                            <option value="4futcoins.com">4futcoins.com</option>
+                                            <option value="mmonfl.com">mmonfl.com</option>
+                                            <option value="nba18shop.com">nba18shop.com</option>
+                                            <option value="fut19coins.com">fut19coins.com</option>
+                                            <option value="nfl19coins.com">nfl19coins.com</option>
+                                            <option value="mynba2k18rp.com">mynba2k18rp.com</option>
+                                            <option value="nba2k18vc.com">nba2k18vc.com</option>
+                                            <option value="fifa18club.com">fifa18club.com</option>
+                                            <option value="nfl18coin.com">nfl18coin.com</option>
+                                            <option value="nba2krp.com">nba2krp.com</option>
+                                            <option value="fifacoin.co">fifacoin.co</option>
+                                            <option value="madden-sale.com">madden-sale.com</option>
+                                            <option value="fifaah.co">fifaah.co</option>
+                                            <option value="nba18vc.com">nba18vc.com</option>
+                                            <option value="mut19coins.com">mut19coins.com</option>
+                                            <option value="mynba2k19rp.com">mynba2k19rp.com</option>
+                                            <option value="buyfifa18.com">buyfifa18.com</option>
+                                            <option value="u2nhl.com">u2nhl.com</option>
+                                            <option value="nhl18coin.com">nhl18coin.com</option>
+                                            <option value="utcoin.co">utcoin.co</option>
+                                            <option value="eanbalive.com">eanbalive.com</option>
+                                            <option value="hut18coins.com">hut18coins.com</option>
+                                            <option value="buynhl18coins.com">buynhl18coins.com</option>
+                                            <option value="utcoinsbuy.com">utcoinsbuy.com</option>
+                                            <option value="buyfifa18.co.uk">buyfifa18.co.uk</option>
+                                            <option value="fut18coins.co.uk">fut18coins.co.uk</option>
+                                            <option value="buynfl18coins.com">buynfl18coins.com</option>
+                                            <option value="buynfl18.com">buynfl18.com</option>
+                                            <option value="ballscoins.com">ballscoins.com</option>
+                                            <option value="teramalls.com">teramalls.com</option>
+                                            <option value="teragoldfast.com">teragoldfast.com</option>
+                                            <option value="imvumall.com">imvumall.com</option>
+                                            <option value="buymt18.com">buymt18.com</option>
+                                            <option value="cheap2k18mt.com">cheap2k18mt.com</option>
+                                            <option value="nbalive18coins.com">nbalive18coins.com</option>
+                                            <option value="mnfl18coins.com">mnfl18coins.com</option>
+                                            <option value="fifa18mobilecoins.com">fifa18mobilecoins.com</option>
+                                            <option value="fifa18mobile.com">fifa18mobile.com</option>
+                                            <option value="mobilecoinsfifa.com">mobilecoinsfifa.com</option>
+                                            <option value="2kmtcoins.com">2kmtcoins.com</option>
+                                            <option value="mnbalivecoins.com">mnbalivecoins.com</option>
+                                            <option value="buynbamobilecoins.com">buynbamobilecoins.com</option>
+                                            <option value="nbalivecoinsus.com">nbalivecoinsus.com</option>
+                                            <option value="nflcoinsmobile.com">nflcoinsmobile.com</option>
+                                            <option value="acbells.com">acbells.com</option>
+                                            <option value="dearcoins.com">dearcoins.com</option>
+                                            <option value="maddencoin.net">maddencoin.net</option>
+                                            <option value="nhl19coins.com">nhl19coins.com</option>
+                                            <option value="poe-currency.com">poe-currency.com</option>
+                                            <option value="rsfast.com">rsfast.com</option>
+                                            <option value="buylineagem.com">buylineagem.com</option>
+                                            <option value="buyosrs.gold">buyosrs.gold</option>
+                                            <option value="buyrunescape.gold">buyrunescape.gold</option>
+                                            <option value="fortniteitem.com">fortniteitem.com</option>
+                                            <option value="mmogdp.com">mmogdp.com</option>
+                                            <option value="mmoexp.com">mmoexp.com</option>
+                                            <option value="winrsgold-back.com">winrsgold-back.com</option>
+                                            <option value="mywowgold.com">mywowgold.com</option>
+                                            <option value="ezmsm.com">ezmsm.com</option>
+                                            <option value="iwowgold.com">iwowgold.com</option>
+                                            <option value="ezdofus.com">ezdofus.com</option>
+                                            <option value="pve88.com">pve88.com</option>
+                                            <option value="fr.ezdofus.com">fr.ezdofus.com</option>
+                                            <option value="de.ezdofus.com">de.ezdofus.com</option>
+                                            <option value="voidk.com">voidk.com</option>
+                                            <option value="igmah.com">igmah.com</option>
+                                            <option value="okbuff.com">okbuff.com</option>
+                                            <option value="mmoxr.com">mmoxr.com</option>
+                                            <option value="ez2kmt.com">ez2kmt.com</option>
+                                            <option value="mmoxs.com">mmoxs.com</option>
+                                            <option value="4poe.com">4poe.com</option>
+                                            <option value="safemut.com">safemut.com</option>
+                                            <option value="pso2ah.com">pso2ah.com</option>
+                                            <option value="winrsgold.com">winrsgold.com</option>
+                                            <option value="ezgpx.com">ezgpx.com</option>
+                                            <option value="4acnh.com">4acnh.com</option>
+                                            <option value="fastisk.com">fastisk.com</option>
+                                            <option value="valorantah.com">valorantah.com</option>
+                                            <option value="ezdiablo.com">ezdiablo.com</option>
+                                            <option value="hutmore.com">hutmore.com</option>
+                                            <option value="igcoupon.com">igcoupon.com</option>
+                                            <option value="buyl2m.com">buyl2m.com</option>
+                                            <option value="rsorders.com">rsorders.com</option>
+                                            <option value="rsdear.com">rsdear.com</option>
+                                            <option value="4nwcoin.com">4nwcoin.com</option>
+                                            <option value="ludaza.com">ludaza.com</option>
+                                            <option value="plusmack.com">plusmack.com</option>
+                                            <option value="forpoe.com">forpoe.com</option>
+                                            <option value="mmoep.com">mmoep.com</option>
+                                            <option value="rsmalls.com">rsmalls.com</option>
+                                            <option value="roggg.com">roggg.com</option>
+                                            <option value="img.mmoexp.com">img.mmoexp.com</option>
+                                            <option value="ezg2g.com">ezg2g.com</option>
+                                            <option value="ezigv.com">ezigv.com</option>
+                                            <option value="igokay.com">igokay.com</option>
+                                            <option value="b2c-api.p2pah.cn">b2c-api.p2pah.cn</option>
+                                            <option value="buythroneandlibertylucent.com">buythroneandlibertylucent.com</option>
+                                            <option value="lucentthroneandliberty.com">lucentthroneandliberty.com</option>
+                                            <option value="buylucent.com">buylucent.com</option>
+                                            <option value="buytllucent.com">buytllucent.com</option>
+                                            <option value="tllucentmall.com">tllucentmall.com</option>
+                                            <option value="throneandlibertylucent.net">throneandlibertylucent.net</option>
+                                            <option value="throneandlibertylucentbuy.com">throneandlibertylucentbuy.com</option>
+                                            <option value="tllucent.net">tllucent.net</option>
+                                            <option value="tllucentbuy.com">tllucentbuy.com</option>
+                                            <option value="tllucentstock.com">tllucentstock.com</option>
+                                            <option value="lucentbuy.com">lucentbuy.com</option>
+                                            <option value="lucentstock.com">lucentstock.com</option>
+                                            <option value="throneandlibertylucentcheap.com">throneandlibertylucentcheap.com</option>
+                                            <option value="tllucentsafe.com">tllucentsafe.com</option>
+                                            <option value="cheaptllucent.com">cheaptllucent.com</option>
+                                            <option value="lucentmall.com">lucentmall.com</option>
+                                            <option value="cheapthroneandlibertylucent.com">cheapthroneandlibertylucent.com</option>
+                                            <option value="throneandlibertycheaplucent.com">throneandlibertycheaplucent.com</option>
+                                            <option value="tllucentcheap.com">tllucentcheap.com</option>
+                                            <option value="tllucents.com">tllucents.com</option>
+                                            <option value="goldd4.com">goldd4.com</option>
+                                            <option value="diablo4goldsale.com">diablo4goldsale.com</option>
+                                            <option value="d4goldtrader.com">d4goldtrader.com</option>
+                                            <option value="d4goldfast.com">d4goldfast.com</option>
+                                            <option value="d4itemsstock.com">d4itemsstock.com</option>
+                                            <option value="buydiablo4gold.com">buydiablo4gold.com</option>
+                                            <option value="diablo4u.com">diablo4u.com</option>
+                                            <option value="d4goldstock.com">d4goldstock.com</option>
+                                            <option value="d4itemssale.com">d4itemssale.com</option>
+                                            <option value="buyitemsd4.com">buyitemsd4.com</option>
+                                            <option value="itemsd4.com">itemsd4.com</option>
+                                            <option value="d4goldmalls.com">d4goldmalls.com</option>
+                                            <option value="goldd4buy.com">goldd4buy.com</option>
+                                            <option value="diablo-gold.com">diablo-gold.com</option>
+                                            <option value="d4goldstore.com">d4goldstore.com</option>
+                                            <option value="buydiablogold.com">buydiablogold.com</option>
+                                            <option value="itemsd4buy.com">itemsd4buy.com</option>
+                                            <option value="d4goldbuyer.com">d4goldbuyer.com</option>
+                                            <option value="d4itemstrader.com">d4itemstrader.com</option>
+                                            <option value="diablo4goldstore.com">diablo4goldstore.com</option>
+                                            <option value="nightcrowsdiamonds.com">nightcrowsdiamonds.com</option>
+                                            <option value="buyncdiamonds.com">buyncdiamonds.com</option>
+                                            <option value="nightcrowsbuydiamonds.com">nightcrowsbuydiamonds.com</option>
+                                            <option value="ncbuydiamonds.com">ncbuydiamonds.com</option>
+                                            <option value="nightcrowsdiamondscheap.com">nightcrowsdiamondscheap.com</option>
+                                            <option value="nightcrowsdiamondsforsale.com">nightcrowsdiamondsforsale.com</option>
+                                            <option value="cheapncdiamonds.com">cheapncdiamonds.com</option>
+                                            <option value="buynightcrowsdiamonds.com">buynightcrowsdiamonds.com</option>
+                                            <option value="diamondsnc.com">diamondsnc.com</option>
+                                            <option value="nightcrowsdiamondsbuy.com">nightcrowsdiamondsbuy.com</option>
+                                            <option value="ncdiamondsbuy.com">ncdiamondsbuy.com</option>
+                                            <option value="cheapnightcrowsdiamonds.com">cheapnightcrowsdiamonds.com</option>
+                                            <option value="ncdiamondscheap.com">ncdiamondscheap.com</option>
+                                            <option value="ncdiamondsforsale.com">ncdiamondsforsale.com</option>
+                                            <option value="storewowgold.com">storewowgold.com</option>
+                                            <option value="wowclassic.gold">wowclassic.gold</option>
+                                            <option value="wowgoldclassic.com">wowgoldclassic.com</option>
+                                            <option value="cheapsodgold.com">cheapsodgold.com</option>
+                                            <option value="wowclassicsodgold.com">wowclassicsodgold.com</option>
+                                            <option value="wowclassicsale.com">wowclassicsale.com</option>
+                                            <option value="goldwowclassic.com">goldwowclassic.com</option>
+                                            <option value="buysodgold.com">buysodgold.com</option>
+                                            <option value="sodgoldforsale.com">sodgoldforsale.com</option>
+                                            <option value="buywowclassicsodgold.com">buywowclassicsodgold.com</option>
+                                            <option value="wowclassicgoldstock.com">wowclassicgoldstock.com</option>
+                                            <option value="buywowsodgold.com">buywowsodgold.com</option>
+                                            <option value="wowsodgoldbuy.com">wowsodgoldbuy.com</option>
+                                            <option value="wowgoldservice.com">wowgoldservice.com</option>
+                                            <option value="wowgoldsales.com">wowgoldsales.com</option>
+                                            <option value="wowsodgold.com">wowsodgold.com</option>
+                                            <option value="cheapwowsodgold.com">cheapwowsodgold.com</option>
+                                            <option value="cheapwowclassicgold.com">cheapwowclassicgold.com</option>
+                                            <option value="wowgoldseller.com">wowgoldseller.com</option>
+                                            <option value="wowsodgoldstock.com">wowsodgoldstock.com</option>
+                                            <option value="buycurrencypoe.com">buycurrencypoe.com</option>
+                                            <option value="poecurrencymall.com">poecurrencymall.com</option>
+                                            <option value="poe2currencymall.com">poe2currencymall.com</option>
+                                            <option value="safepoecurrency.com">safepoecurrency.com</option>
+                                            <option value="cheappoeorbs.com">cheappoeorbs.com</option>
+                                            <option value="currencypoebuy.com">currencypoebuy.com</option>
+                                            <option value="poecurrencystock.com">poecurrencystock.com</option>
+                                            <option value="poe2currencystock.com">poe2currencystock.com</option>
+                                            <option value="poeorbsbuy.com">poeorbsbuy.com</option>
+                                            <option value="poe2store.com">poe2store.com</option>
+                                            <option value="poe2golds.com">poe2golds.com</option>
+                                            <option value="buycurrencypoe2.com">buycurrencypoe2.com</option>
+                                            <option value="poecurrencysafe.com">poecurrencysafe.com</option>
+                                            <option value="poecurrencyseller.com">poecurrencyseller.com</option>
+                                            <option value="poecheapcurrency.com">poecheapcurrency.com</option>
+                                            <option value="cheappoe2currency.com">cheappoe2currency.com</option>
+                                            <option value="currencypoe2buy.com">currencypoe2buy.com</option>
+                                            <option value="poecurrencycheap.com">poecurrencycheap.com</option>
+                                            <option value="poecurrencysupplier.com">poecurrencysupplier.com</option>
+                                            <option value="pathofexileorbs.com">pathofexileorbs.com</option>
+                                            <option value="fc27coin.com">fc27coin.com</option>
+                                            <option value="odindiamonds.com">odindiamonds.com</option>
+                                            <option value="odindiamondsbuy.com">odindiamondsbuy.com</option>
+                                            <option value="odindiamondsstock.com">odindiamondsstock.com</option>
+                                            <option value="buyodinvalhallarisingdiamonds.com">buyodinvalhallarisingdiamonds.com</option>
+                                            <option value="valhallarisingdiamonds.com">valhallarisingdiamonds.com</option>
+                                            <option value="buyodindiamonds.com">buyodindiamonds.com</option>
+                                            <option value="odindiamondsmall.com">odindiamondsmall.com</option>
+                                            <option value="odinvalhallarisingdiamonds.com">odinvalhallarisingdiamonds.com</option>
+                                            <option value="odindiamondstrader.com">odindiamondstrader.com</option>
+                                            <option value="odindims.com">odindims.com</option>
+                                            <option value="gamespricecp.com">gamespricecp.com</option>
+                                            <option value="allgamingfree.com">allgamingfree.com</option>
+                                            <option value="gameslegit.com">gameslegit.com</option>
+                                            <option value="gamescouponzone.com">gamescouponzone.com</option>
+                                            <option value="gameonlinereview.com">gameonlinereview.com</option>
+                                            <option value="gamesbuilds.org">gamesbuilds.org</option>
+                                            <option value="gvgok.com">gvgok.com</option>
+                                            <option value="mmoxyz.com">mmoxyz.com</option>
+                                            <option value="igwah.com">igwah.com</option>
+                                            <option value="eld.gg">eld.gg</option>
+                                            <option value="mmoply.com">mmoply.com</option>
+                                            <option value="test.com">test.com</option>
+                                            <option value="aion2kinah.com">aion2kinah.com</option>
+                                            <option value="d4items.com">d4items.com</option>
+                                            <option value="poecurrency.gg">poecurrency.gg</option>
+                                    </select></div>
+            </div>
+
+            <div class="toggle-input" style="float:left;margin: 5px 15px 0px 5px;" data-refresh="0" data-type="exchange_rate" send-url="/game/admin_game_price/change_rate" title="" data-toggle="tooltip" data-original-title="B2C货币汇率（手动写死，不会动态改变）">
+                <div><i class="fa fa-edit text-info"></i> <span>6.65</span></div>
+                <input style="width:50px" class="input-text input-fw-7 jq-banEnter" type="text" name="exchange_rate[rmb]" value="6.65">
+            </div>
+
+            <input type="hidden" name="selected_web" value="b2c">
+            <input type="hidden" name="server_id" value="1300">
+            <button class="btn btn-sm btn-primary js-ajax-submit jq-update-button" type="submit" title="" data-toggle="tooltip" data-original-title="列表选中的网站">同步价格</button>
+            <label><input type="checkbox" name="allserver" value="1"> 所有区</label>
+
+        </form>
+    </div>
+
+    <p class="help-block">b2c,c2c,g2g.com,eldorado.gg 默认展示售价，双击编辑利润率。 <big class="text-warning">换算关系： 价格（$） = 采购成本（￥） / (1-利润率) / 货币汇率 。</big><!--  &emsp; <big class="text-info">g2g.com,eldorado.gg 有多个采集账户时将一同更新</big>。 --></p>
+
+    <form action="" class="js-ajax-form" method="post" novalidate="novalidate">
+        <table class="table table-hover table-bordered table-list">
+            <thead>
+            <tr>
+                <th width="50">ID</th>
+                <th>所属游戏</th>
+                <th>游戏区名称</th>
+                <th>采购成本</th>
+                <th>最新采购价</th>
+                <th>利润率</th>
+                <th><label>b2c <input type="checkbox" class="jq_web" checked="" value="b2c" name="web[]"></label> </th>
+                <!-- <th><label>c2c <input type="checkbox" class="jq_web" value="c2c" name="web[]"></label></th>
+                <th><label>g2g.com <input type="checkbox" class="jq_web" value="g2g" name="web[]"></label></th>
+                <th><label>eldorado.gg <input type="checkbox" class="jq_web" value="eldorado" name="web[]"></label></th> -->
+            </tr>
+            </thead>
+            <tbody>
+                            <tr data-id="22600" data-url="/game/admin_game_price/itemEdit">
+                    <td>22600</td>
+                    <td title="1300">MapleStory Classic World</td>
+                    <td class="toggle-input" data-refresh="1" data-type="title" send-url="/game/admin_game_price/itemEdit?ids=22600">
+                        <span><i class="fa fa-edit text-info"></i> Main Server [US]</span>
+                        <input class="input-text input-fw-7 jq-banEnter" type="text" value="Main Server [US]">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="costprice" data-callback="showprice">
+                        <span class="jq_showprice_costprice_22600"><i class="fa fa-edit text-info"></i> 0.000000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.000000">
+                    </td>
+                    <td></td>
+
+                    <td class="toggle-input" data-refresh="0" data-type="lirunlv" data-callback="showprice">
+                        <span class="jq_showprice_lirunlv_22600"><i class="fa fa-edit text-info"></i> 0.200000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.200000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_22600"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="">
+                    </td>
+
+                    
+                    <!-- <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_22600"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.200000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="c2c" data-callback="showprice">
+                        <span class="jq_showprice_c2c_22600"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="g2g" data-callback="showprice">
+                        <span class="jq_showprice_g2g_22600"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="eldorado" data-callback="showprice">
+                        <span class="jq_showprice_eldorado_22600"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.150000">
+                    </td> -->
+                </tr>
+                            <tr data-id="22434" data-url="/game/admin_game_price/itemEdit">
+                    <td>22434</td>
+                    <td title="1300">MapleStory Classic World</td>
+                    <td class="toggle-input" data-refresh="1" data-type="title" send-url="/game/admin_game_price/itemEdit?ids=22434">
+                        <span><i class="fa fa-edit text-info"></i> US</span>
+                        <input class="input-text input-fw-7 jq-banEnter" type="text" value="US">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="costprice" data-callback="showprice">
+                        <span class="jq_showprice_costprice_22434"><i class="fa fa-edit text-info"></i> 0.000000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.000000">
+                    </td>
+                    <td>3.500000</td>
+
+                    <td class="toggle-input" data-refresh="0" data-type="lirunlv" data-callback="showprice">
+                        <span class="jq_showprice_lirunlv_22434"><i class="fa fa-edit text-info"></i> 0.200000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.200000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_22434"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="">
+                    </td>
+
+                    
+                    <!-- <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_22434"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.200000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="c2c" data-callback="showprice">
+                        <span class="jq_showprice_c2c_22434"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="g2g" data-callback="showprice">
+                        <span class="jq_showprice_g2g_22434"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="eldorado" data-callback="showprice">
+                        <span class="jq_showprice_eldorado_22434"><i class="fa fa-edit text-info"></i> </span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.150000">
+                    </td> -->
+                </tr>
+                            <tr data-id="21746" data-url="/game/admin_game_price/itemEdit">
+                    <td>21746</td>
+                    <td title="1300">MapleStory Classic World</td>
+                    <td class="toggle-input" data-refresh="1" data-type="title" send-url="/game/admin_game_price/itemEdit?ids=21746">
+                        <span><i class="fa fa-edit text-info"></i> 雪吉拉</span>
+                        <input class="input-text input-fw-7 jq-banEnter" type="text" value="雪吉拉">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="costprice" data-callback="showprice">
+                        <span class="jq_showprice_costprice_21746"><i class="fa fa-edit text-info"></i> 6.000000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="6.000000">
+                    </td>
+                    <td></td>
+
+                    <td class="toggle-input" data-refresh="0" data-type="lirunlv" data-callback="showprice">
+                        <span class="jq_showprice_lirunlv_21746"><i class="fa fa-edit text-info"></i> 0.300000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21746"><i class="fa fa-edit text-info"></i> 1.288937</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="1.288937">
+                    </td>
+
+                    
+                    <!-- <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21746"><i class="fa fa-edit text-info"></i> 1.288937</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="c2c" data-callback="showprice">
+                        <span class="jq_showprice_c2c_21746"><i class="fa fa-edit text-info"></i> 0.993483</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="g2g" data-callback="showprice">
+                        <span class="jq_showprice_g2g_21746"><i class="fa fa-edit text-info"></i> 0.993483</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="eldorado" data-callback="showprice">
+                        <span class="jq_showprice_eldorado_21746"><i class="fa fa-edit text-info"></i> 1.051923</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.150000">
+                    </td> -->
+                </tr>
+                            <tr data-id="21748" data-url="/game/admin_game_price/itemEdit">
+                    <td>21748</td>
+                    <td title="1300">MapleStory Classic World</td>
+                    <td class="toggle-input" data-refresh="1" data-type="title" send-url="/game/admin_game_price/itemEdit?ids=21748">
+                        <span><i class="fa fa-edit text-info"></i> 菇菇寶貝</span>
+                        <input class="input-text input-fw-7 jq-banEnter" type="text" value="菇菇寶貝">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="costprice" data-callback="showprice">
+                        <span class="jq_showprice_costprice_21748"><i class="fa fa-edit text-info"></i> 0.330000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.330000">
+                    </td>
+                    <td></td>
+
+                    <td class="toggle-input" data-refresh="0" data-type="lirunlv" data-callback="showprice">
+                        <span class="jq_showprice_lirunlv_21748"><i class="fa fa-edit text-info"></i> 0.300000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21748"><i class="fa fa-edit text-info"></i> 0.070892</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.070892">
+                    </td>
+
+                    
+                    <!-- <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21748"><i class="fa fa-edit text-info"></i> 0.070892</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="c2c" data-callback="showprice">
+                        <span class="jq_showprice_c2c_21748"><i class="fa fa-edit text-info"></i> 0.054193</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="g2g" data-callback="showprice">
+                        <span class="jq_showprice_g2g_21748"><i class="fa fa-edit text-info"></i> 0.054193</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="eldorado" data-callback="showprice">
+                        <span class="jq_showprice_eldorado_21748"><i class="fa fa-edit text-info"></i> 0.057381</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.150000">
+                    </td> -->
+                </tr>
+                            <tr data-id="21754" data-url="/game/admin_game_price/itemEdit">
+                    <td>21754</td>
+                    <td title="1300">MapleStory Classic World</td>
+                    <td class="toggle-input" data-refresh="1" data-type="title" send-url="/game/admin_game_price/itemEdit?ids=21754">
+                        <span><i class="fa fa-edit text-info"></i> Global World</span>
+                        <input class="input-text input-fw-7 jq-banEnter" type="text" value="Global World">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="costprice" data-callback="showprice">
+                        <span class="jq_showprice_costprice_21754"><i class="fa fa-edit text-info"></i> 40.000000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="40.000000">
+                    </td>
+                    <td>3.000000</td>
+
+                    <td class="toggle-input" data-refresh="0" data-type="lirunlv" data-callback="showprice">
+                        <span class="jq_showprice_lirunlv_21754"><i class="fa fa-edit text-info"></i> 0.300000</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21754"><i class="fa fa-edit text-info"></i> 8.592911</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="8.592911">
+                    </td>
+
+                    
+                    <!-- <td class="toggle-input" data-refresh="0" data-type="b2c" data-callback="showprice">
+                        <span class="jq_showprice_b2c_21754"><i class="fa fa-edit text-info"></i> 8.592911</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.300000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="c2c" data-callback="showprice">
+                        <span class="jq_showprice_c2c_21754"><i class="fa fa-edit text-info"></i> 6.621738</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="g2g" data-callback="showprice">
+                        <span class="jq_showprice_g2g_21754"><i class="fa fa-edit text-info"></i> 6.621738</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.100000">
+                    </td>
+                    <td class="toggle-input" data-refresh="0" data-type="eldorado" data-callback="showprice">
+                        <span class="jq_showprice_eldorado_21754"><i class="fa fa-edit text-info"></i> 7.011252</span>
+                        <input class="input-text input-fw-2 jq-banEnter" type="text" value="0.150000">
+                    </td> -->
+                </tr>
+                        </tbody>
+        </table>
+        <ul class="pagination"></ul>
+    </form>
+</div>
+
+<script src="/static/js/admin.js"></script>
+
+<link href="/static/js/fselect/fSelect.css" rel="stylesheet" type="text/css">
+<script src="/static/js/fselect/fSelect.js"></script>
+
+<!-- select2 下拉筛选插件 -->
+<link href="/static/js/select2/select2.min.css" rel="stylesheet">
+<script src="/static/js/select2/select2.min.js"></script>
+
+<script type="text/javascript">
+    /**
+     * 修改价格回调函数
+     * @param back
+     */
+    function showprice(back){
+        var saveprice_arr = eval(["b2c","c2c","g2g","eldorado"]);
+        var html_i = '<i class="fa fa-edit text-info"></i> ';
+        var show_profit = $('[name="show_profit"]').val();
+
+        for (var i = 0; i < saveprice_arr.length; i++) {
+            var isval_bool = false;
+            //查询这个价格是否存在
+            for (var key in back.data.history_price) {
+                if(saveprice_arr[i] == key) isval_bool = true;
+            }
+            var field = $('.jq_showprice_'+saveprice_arr[i]+'_'+back.data.id);
+            if(isval_bool == false){
+                field.html(html_i + (show_profit==1?'0.000000':''));
+            }else{
+                if(show_profit == 1){
+                    var price = back.data[saveprice_arr[i]] > 0 ? back.data[saveprice_arr[i]] : 0.000000;
+                }else{
+                    var price = back.data.history_price[saveprice_arr[i]] > 0 ? back.data.history_price[saveprice_arr[i]] : 0.000000;
+                }
+                if(price>0){
+                    field.html(html_i+price);
+                }else{
+                    field.html(html_i+'0.000000');
+                }
+
+            }
+        }
+        var costprice = $('.jq_showprice_costprice_'+back.data.id);
+        var cp = back.data.costprice, cn = parseFloat(cp);
+        if (cp != null && String(cp).trim() !== '' && !isNaN(cn) && cn > 0) {
+            costprice.html(html_i + back.data.costprice);
+        } else {
+            costprice.html(html_i);
+        }
+    }
+
+    // 选择网站
+    function set_select_web() {
+        var chk_value = [];
+        $('input[name="web[]"]:checked').each(function(){
+            chk_value.push($(this).val());
+        });
+        var checkval = chk_value.join(',');
+        $('[name="selected_web"]').val(checkval);
+    }
+
+    $(function () {
+
+        // 更新b2c网站
+        $('.jq-getweb').click(function(){
+            $('[name="getweb"]').val(1);
+            $('.jq-update-button').trigger("click");
+        });
+
+        $('.jq_web').click(function(){
+            set_select_web();
+        });
+
+        // 下拉筛选
+        $('.jq-s2-act').fSelect(fsjson).change(function(){
+            // const curName = $(this).attr('name'); //当前的 keyword,aid
+            // console.log(curName);
+            // fs_jump_page(curName, '');
+        });
+
+        //下拉筛选2
+        $('.jq-s2-act-select').select2({
+            language:'zh-CN',
+            placeholder:'从库中筛选',
+            // allowClear:true,
+            minimumResultsForSearch:9
+        }).change(function(){
+            var gid = $('#lot-game').val(),
+                kd = $('#lot-kd').val();
+            var url = "/game/admin_game_price/index.html";
+            url = buildUrl(url, {gid:gid,keyword:kd});
+            redirect(url);
+        });
+
+        // 同步价格
+        $('.jq-saveprice').click(function () {
+            var url = "/game/admin_game_price/saveprice.html";
+            var website = $('#b2c-website').val()
+            url = buildUrl(url, {"website":website});
+            redirect(url);
+        });
+
+        // 搜索
+        $('.btn-search').click(function(){
+            $('[name=page]').val(1);
+        });
+
+        // 切换显示利润/价格
+        $('.jq-show_profit').click(function(){
+            var show_profitval = 0;
+            $('[name="show_profit"]').val(+(!show_profitval));
+            $('.btn-search').trigger("click");
+        });
+
+    });
+</script>
+
+
+</body></html>

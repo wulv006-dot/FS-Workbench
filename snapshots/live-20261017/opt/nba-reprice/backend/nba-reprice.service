@@ -1,0 +1,16 @@
+[Unit]
+Description=NBA 2K27 reprice backend (server.js)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nba-reprice/backend
+ExecStart=/usr/bin/node /opt/nba-reprice/backend/server.js
+EnvironmentFile=/opt/nba-reprice/backend/.env
+Restart=always
+RestartSec=3
+User=nba-reprice
+Group=nba-reprice
+
+[Install]
+WantedBy=multi-user.target

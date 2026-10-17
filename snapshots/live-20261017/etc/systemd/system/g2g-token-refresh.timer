@@ -1,0 +1,11 @@
+[Unit]
+Description=G2G accessToken 续签定时器（每 3 分钟检查一次，剩余够就跳过）
+
+[Timer]
+OnCalendar=*:0/3
+AccuracySec=20s
+Persistent=false
+Unit=g2g-token-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=FS platform IP-allowlist denied-access alert (every 2 min)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=fs-ip-alert.service
+
+[Install]
+WantedBy=timers.target

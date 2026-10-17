@@ -1,0 +1,22 @@
+[Unit]
+Description=Run D4 auto collect every 15 min (heartbeat)
+
+[Timer]
+# 心跳 15 分钟：它只是「最快能多快」的粒度，真正跑不跑由各游戏自己的周期决定
+#   （app.interval_of；AION2 现为 0.5h = 30 分钟，能被 15 分钟整除、不会漏跑）。
+# ⭐ 2026-10-13：由 `OnBootSec=5min` + `OnUnitActiveSec=15min` + `Persistent=true`
+#   改成**单调时钟目标**（OnActiveSec / OnUnitInactiveSec）——
+#   原因：本机是 CentOS 7 · systemd 219。机器已开机很久时 OnBootSec 会被算成一个
+#   **过去**的时间点；02:03 实测：重新 enable 后 `systemctl list-timers` 显示 NEXT=n/a、
+#   timer 停在 `active (elapsed)`，服务**再也不会被拉起** ⇒ 采集周期实际是「恢复失败」的。
+#   这与 g2gfollow-auto.timer 当初踩的是同一个坑（它的注释里有同样记录）。
+#   OnUnitInactiveSec 天然做到「一轮没跑完不会叠下一轮」。
+#   代价：失去 Persistent 的「关机期间错过的执行、开机补跑一次」—— 改用 OnActiveSec=1min
+#   保证开机后 1 分钟必跑一轮，实际效果等价。
+OnActiveSec=1min
+OnUnitInactiveSec=15min
+AccuracySec=1s
+Unit=d4follow-collect.service
+
+[Install]
+WantedBy=timers.target

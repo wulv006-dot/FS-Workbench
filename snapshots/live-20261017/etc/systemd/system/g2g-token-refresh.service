@@ -1,0 +1,15 @@
+[Unit]
+Description=G2G accessToken 续签（服务器自持 · 纯 HTTP，无浏览器/无本机依赖）
+Documentation=file:/opt/g2gfollow/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/g2gfollow
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+# CentOS 7 的 systemd 219 不支持 StandardOutput=append:<file>，沿用 shell 重定向。
+# 脚本自身写 logs/token_refresh.log（带 1MB 轮转）；这里只兜住未被捕获的 traceback。
+ExecStart=/bin/sh -c 'exec /opt/g2gfollow/venv/bin/python3 /opt/g2gfollow/tools/g2g_token_refresher.py >> /opt/g2gfollow/logs/token_refresh.stdout.log 2>&1'

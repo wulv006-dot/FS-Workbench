@@ -1,0 +1,13 @@
+[Unit]
+Description=D4 auto collect (IGGM + our front price + QD snapshot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/d4follow
+# 与页面上手动点「采集一轮」完全同一条代码路径（POST /api/task {kind:collect}）。
+# spawn() 自带并发锁：若已有任务在跑，接口返回 409，本轮自动跳过，不会叠跑。
+# 注：本机 systemd 219 不支持 StandardOutput=append:，改为 sh -c 重定向（等价）。
+ExecStart=/bin/sh -c '/opt/d4follow/_collect/run_collect.sh >> /opt/d4follow/logs/auto_collect.log 2>&1'

@@ -1,0 +1,28 @@
+[Unit]
+Description=MMOEXP 站内项目工作任务台（项目×部门×任务矩阵 / 自检闸门 / 三层权限）
+Documentation=file:///opt/mmoexp-taskboard/README.md
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mmoexp-taskboard
+EnvironmentFile=-/opt/mmoexp-taskboard/config.env
+ExecStart=/usr/bin/python3 -B /opt/mmoexp-taskboard/taskboard_server.py
+Restart=on-failure
+RestartSec=3
+
+# 只监听 127.0.0.1，公网必须经 nginx（auth_request）才可达
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mmoexp-taskboard
+
+# 收敛权限：服务只读系统目录，仅数据目录可写
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/mmoexp-taskboard/data
+
+[Install]
+WantedBy=multi-user.target

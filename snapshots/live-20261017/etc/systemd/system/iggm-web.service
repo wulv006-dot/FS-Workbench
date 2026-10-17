@@ -1,0 +1,17 @@
+[Unit]
+Description=MMOEXP Game Price Scraper Web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/iggm-web
+EnvironmentFile=/opt/iggm-web/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/iggm-web/venv/bin/gunicorn -w 1 -k gthread --threads 8 --timeout 600 --graceful-timeout 30 --bind 127.0.0.1:8787 app:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

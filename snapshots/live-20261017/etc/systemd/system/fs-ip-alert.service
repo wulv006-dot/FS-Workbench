@@ -1,0 +1,10 @@
+[Unit]
+Description=FS platform IP-allowlist denied-access alert
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# 必须用带 SSL 的解释器：/usr/bin/python3 缺 _ssl，发 HTTPS 钉钉会失败
+ExecStart=/opt/python39/bin/python3 /opt/auth-portal/fs_ip_alert.py
+WorkingDirectory=/opt/auth-portal

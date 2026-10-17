@@ -1,0 +1,22 @@
+[Unit]
+Description=Run G2G 30-min auto cycle (collect + auto change price)
+
+[Timer]
+# 2026-10-12 老板要求：G2G 货架「15 分钟一次」。
+# ⭐ 2026-10-13 老板回调：「恢复到之前的改价周期，应该是 30 分钟一次」⇒ 15 → 30 分钟。
+#   启用后 2 分钟先跑一轮；此后每「上一轮跑完 + 30 分钟」再跑。
+#   OnUnitInactiveSec 天然做到「一轮没跑完不会叠下一轮」。
+#
+# ⚠ 为什么不用 `OnBootSec=6min` + `Persistent=true`（照抄 d4follow-collect.timer 的写法）：
+#   本机是 CentOS 7 · systemd 219。当机器已经开机很久时，OnBootSec 会被算成一个
+#   **过去**的时间点 ⇒ `systemctl list-timers` 里 NEXT 显示为两周前，定时器持续
+#   「到期」，实测一 enable 就多触发了一轮、并且会一直空转重触发。
+#   只用单调时钟目标（OnActiveSec / OnUnitInactiveSec）就没有这个问题。
+#   Persistent= 对没有 OnCalendar 的定时器本来就无意义（systemd 会警告），故也不再设。
+OnActiveSec=2min
+OnUnitInactiveSec=30min
+AccuracySec=1s
+Unit=g2gfollow-auto.service
+
+[Install]
+WantedBy=timers.target

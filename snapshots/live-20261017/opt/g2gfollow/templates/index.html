@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G2G 金币改价 · Loot_Supply</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1f2430; --ink2:#5b636f;
+    --ink3:#98a1ad; --brand:#2f6fed; --brand2:#eaf1ff;
+    --up:#e8590c; --upbg:#fff3ea; --dn:#0f9d58; --dnbg:#e9f8f1;
+    --hold:#7c4dff; --holdbg:#f2edff; --noco:#b7791f; --nocobg:#fff8e6;
+    --keep:#8a919d; --keepbg:#f1f3f6;
+    /* 2026-10-12 新增：人民币换算副行 + 盈利三色（绿=赚 / 橙=薄 / 红=亏） */
+    --cny:#b7791f; --good:#0f9d58; --thin:#c98a00; --loss:#d6453d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{max-width:1480px;margin:0 auto;padding:20px 22px 60px}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:var(--ink2);font-size:12.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin-top:14px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;
+    border:1px solid var(--line);background:#fafbfc;color:var(--ink2)}
+  .tag.ok{background:var(--dnbg);border-color:#bfe6d4;color:#0b7a45}
+  .tag.bad{background:#fdecea;border-color:#f5c2bd;color:#b3261e}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;
+    color:var(--ink);padding:8px 14px;border-radius:9px}
+  button:hover{border-color:#c8cfd8;background:#fbfcfd}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.primary:hover{background:#2660d8}
+  button.danger{background:#fff;border-color:#f0b3ad;color:#c0362c}
+  button.danger:hover{background:#fdecea}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px}
+  .stat{background:#fbfcfd;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat b{display:block;font-size:21px;line-height:1.2}
+  .stat span{font-size:12px;color:var(--ink2)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left;white-space:nowrap}
+  th{background:#fafbfc;color:var(--ink2);font-weight:600;position:sticky;top:0;z-index:2}
+  tbody tr:hover{background:#fcfdff}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.note{white-space:normal;max-width:360px;color:var(--ink2);font-size:12px}
+  .pill{padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid transparent}
+  .a-上调{background:var(--upbg);color:var(--up);border-color:#f7d3b8}
+  .a-下调{background:var(--dnbg);color:var(--dn);border-color:#bfe6d4}
+  .a-不动{background:var(--keepbg);color:var(--keep);border-color:var(--line)}
+  .a-占位保护·不动{background:var(--holdbg);color:var(--hold);border-color:#dcd0ff}
+  .a-无成本数据{background:var(--nocobg);color:var(--noco);border-color:#f2e0b0}
+  .scroll{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+  pre{background:#0f1420;color:#cfe3ff;border-radius:10px;padding:12px;font-size:12px;
+    max-height:240px;overflow:auto;margin:10px 0 0;white-space:pre-wrap}
+  .muted{color:var(--ink3)}
+  label.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand)}
+  .flex1{flex:1}
+  .sep{height:1px;background:var(--line);margin:14px 0}
+  .toast{position:fixed;right:20px;bottom:20px;background:#1f2430;color:#fff;
+    padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;
+    max-width:520px;white-space:pre-wrap;z-index:99}
+  .toast.show{opacity:1}
+  /* 2026-10-12 新增：DD373 区服备注（天N/魔N）+ 大区筛选分类 */
+  .znote{display:inline-block;margin-left:5px;padding:0 6px;border-radius:6px;
+    font-size:11px;font-weight:700;line-height:16px;background:var(--brand2);
+    color:var(--brand);border:1px solid #cfe0ff;vertical-align:1px;white-space:nowrap}
+  .filterbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px;
+    padding:8px 11px;background:#fbfcfd;border:1px solid var(--line);border-radius:10px}
+  .filterbar .flabel{color:var(--ink2);font-size:12.5px;font-weight:600;
+    margin-right:1px}
+  .fchips{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .fchip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+    border-radius:999px;font-size:12.5px;line-height:18px;border:1px solid var(--line);
+    background:#fff;color:var(--ink2);cursor:pointer;user-select:none;transition:.15s}
+  .fchip:hover{border-color:#c8cfd8;background:#fff}
+  .fchip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .fchip .c{opacity:.65;font-size:11.5px;font-variant-numeric:tabular-nums}
+  .fchip.on .c{opacity:.9}
+  .fsep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  #fKey{font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--line);
+    border-radius:8px;width:210px;background:#fff;color:var(--ink)}
+  #fKey:focus{outline:none;border-color:var(--brand)}
+  tr.grp td{background:#f2f6fd;color:var(--ink2);font-weight:700;font-size:12px;
+    padding:6px 9px;border-bottom:1px solid #dbe5f6}
+  tr.grp:first-child td{border-top:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <h1>G2G 金币改价系统 · AION2 Kinah</h1>
+      <div class="sub">
+        店铺 <b id="shop">—</b> · seller_id <b id="sid">—</b> ·
+        闸门价 <b id="gate">—</b> · 保护占位 <b id="keep">—</b>
+      </div>
+      <div class="sub" style="margin-top:3px">
+        跟价口径：<b id="mark">—</b>
+        <span class="muted">← 跟 cheapold，再用利润率地板 / 天花板夹一次（毛利率 = (售价−成本)÷售价）</span>
+      </div>
+      <div class="sub" style="margin-top:3px">
+        成本口径：DD373 <b id="buy">—</b> 订单簿加权均价（够量闸门 <b id="gatewan">—</b>）
+        · 汇率 <b id="fx">—</b> · G2G 综合费率 <b id="fee">—</b>
+        <span class="muted">← 佣金 + 提现 + 换汇，只用于「净利率」估算</span>
+      </div>
+    </div>
+    <div class="row">
+      <span class="tag" id="tokTag">token —</span>
+      <span class="tag" id="costTag">成本 —</span>
+      <span class="tag" id="cbTag">竞品 —</span>
+      <span class="tag" id="planTag">建议单 —</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button class="primary" id="btnCollect">① 采集并生成建议单</button>
+      <button id="btnPreview">② 预览工单（dry-run）</button>
+      <button id="btnReleaseAll">批量放行「需变价」</button>
+      <button id="btnReleaseNone">全部取消放行</button>
+      <button class="danger" id="btnWrite">③ 执行真实写入</button>
+      <span class="flex1"></span>
+      <button id="btnExport">导出 CSV</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="muted" id="jobLine">就绪。</span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <pre id="logs" hidden></pre>
+  </div>
+
+  <div class="card" style="padding-bottom:8px">
+    <div class="row">
+      <b>改价建议单</b>
+      <span class="muted" id="planMeta"></span>
+      <span class="flex1"></span>
+      <span class="muted">勾选＝放行（只有放行的行才会被③写入）</span>
+    </div>
+    <!-- 2026-10-12 新增：大区筛选分类（只看某大区/阵营；筛选只影响显示与放行范围） -->
+    <div class="filterbar" id="filterbar">
+      <span class="flabel">大区</span><span class="fchips" id="fArea"></span>
+      <span class="fsep"></span>
+      <span class="flabel">阵营</span><span class="fchips" id="fSide"></span>
+      <span class="fsep"></span>
+      <input id="fKey" placeholder="搜 服务区 / 天1 / offer_id" oninput="onKeyFilter()">
+      <span class="flex1"></span>
+      <button id="btnRelFiltered"
+        title="只把「当前筛选」里动作=上调/下调的行放行（不动其它大区的放行状态）">放行本筛选需变价行</button>
+      <span class="muted" id="fCount"></span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>放行</th><th>区服组</th><th>服务区</th><th>阵营</th>
+          <th class="num" title="G2G 挂牌价（客户真看到的价）。上行 = 美元/百万基纳（$/M）；下行 = 折人民币 元/万基纳，与 DD373 同口径">当前G2G价<br><span class="muted">$/M ｜ ￥/万</span></th>
+          <th class="num" title="G2G 本区竞品卖家 cheapold 的挂牌价（$/M）。这就是本轮要跟的基准价；该区没有 cheapold 时留空，改按「成本÷(1−无cheapold利润率)」定价">竞品cheapold<br><span class="muted">$/M</span></th>
+          <th class="num" title="DD373「买满 N 亿基纳」的订单簿加权进货均价">DD373成本<br><span class="muted">$/M ｜ ￥/万</span></th>
+          <th class="num">可买量(万)</th><th title="可买量 ≥ 够量闸门 → Y">够量</th>
+          <th class="num" title="改后要挂的前端价：跟 cheapold × (1−下浮)，再按利润率地板 30% / 天花板 45% 夹一次">目标价<br><span class="muted">$/M ｜ ￥/万</span></th>
+          <th class="num">差额</th>
+          <th class="num" title="按**当前G2G价**实算：(当前G2G价 − 成本) ÷ 当前G2G价。老板口径「看板利润率一定是当前真实前台价格和成本估算对比」">毛利率<br><span class="muted">按当前价</span></th>
+          <th class="num" title="按**当前G2G价**实算、再扣 G2G 平台综合费率：(当前价×(1−费率) − 成本) ÷ 当前价">净利率<br><span class="muted">按当前价</span></th>
+          <th>动作</th><th>定价方式</th><th>offer_id</th><th>说明</th>
+        </tr></thead>
+        <tbody id="tb"><tr><td colspan="17" class="muted">尚未生成建议单，先点「① 采集并生成建议单」。</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>写入流水（最近 30 条）</b>
+    <div class="scroll" style="max-height:36vh">
+      <table>
+        <thead><tr><th>时间</th><th>区服组</th><th>服务区</th><th>阵营</th>
+          <th class="num">旧价</th><th class="num">新价</th><th class="num">读回</th>
+          <th>接口</th><th>校验</th><th>操作人</th><th>detail</th></tr></thead>
+        <tbody id="wtb"><tr><td colspan="11" class="muted">暂无写入记录。</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let LAST_ROWS = [];
+let BUSY = false;
+/* 2026-10-12：人民币换算 —— 与 d4follow 看板同口径
+   元/万基纳 = $/M × 汇率 ÷ 100（例：$1.80/M × 6.65 ÷ 100 = ￥0.1197/万基纳）。
+   DD373 站点与 d4follow 成本列都以「元/万基纳」为主显，故这里也用同一个单位，
+   目标价那一行的 ￥ 与成本那一行的 ￥ 直接相减就是每万基纳的毛利。 */
+let RATE = 6.65;      /* 汇率 USD→CNY，refresh() 里从 /api/state 覆盖 */
+let FEE  = 0.15;      /* G2G 综合费率（佣金+提现+换汇），同上 */
+
+function cny(usdPerM){
+  if(usdPerM===null||usdPerM===undefined||usdPerM==='') return '—';
+  const n = Number(usdPerM); if(isNaN(n)) return '—';
+  return '￥' + (n * RATE / 100).toFixed(4) + '/万';
+}
+function _num(v){ return (v===null||v===undefined||v==='') ? null : (isNaN(Number(v))?null:Number(v)); }
+/* 2026-10-13（老板口径）：「看板上展示的利润率**一定是当前真实前台价格和成本估算对比**
+   算出来的」⇒ 毛利率/净利率一律按 **当前G2G价（客户真看到的价）** 与 DD373 成本实算，
+   不再按「目标价」（那是改完之后的价，不是现在真实在卖的价）。 */
+function grossMargin(r){                       /* 平台口径毛利率（按当前G2G价） */
+  const c=_num(r.成本), t=_num(r.当前价);
+  if(c===null||t===null||t<=0) return null;
+  return (t-c)/t;
+}
+function netMargin(r){                         /* 扣掉 G2G 综合费率后的净利率（按当前G2G价） */
+  const c=_num(r.成本), t=_num(r.当前价);
+  if(c===null||t===null||t<=0) return null;
+  return 1 - c/(t*(1-FEE));
+}
+/* 目标价的毛利率／净利率（只作参考列，不叫「利润率」，避免和「当前真实」混） */
+function _mgColor(v){
+  if(v===null) return 'inherit';
+  return v < 0 ? 'var(--loss)' : (v < 0.15 ? 'var(--thin)' : 'var(--good)');
+}
+function mgCell(v){
+  if(v===null) return '<td class="num muted">—</td>';
+  return '<td class="num" style="color:'+_mgColor(v)+';font-weight:600">'
+       + (v*100).toFixed(1) + '%</td>';
+}
+
+function toast(msg, ms){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), ms||3200);
+}
+function fmt(v, nd){
+  if(v===null||v===undefined||v==='') return '—';
+  const n = Number(v); if(isNaN(n)) return String(v);
+  return nd===0 ? String(Math.round(n)) : n.toFixed(nd===undefined?2:nd);
+}
+function esc(s){ return String(s===null||s===undefined?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ts(t){ return t ? new Date(t*1000).toLocaleTimeString('zh-CN',{hour12:false}) : '—'; }
+
+async function api(path, method, body){
+  const r = await fetch(path, {
+    method: method||'GET',
+    headers: body?{'Content-Type':'application/json'}:{},
+    body: body?JSON.stringify(body):undefined
+  });
+  const ct = r.headers.get('content-type')||'';
+  const d = ct.includes('json') ? await r.json() : {ok:r.ok, text:await r.text()};
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+
+function renderStats(s, rows){
+  if(!s){ $('#stats').innerHTML=''; return; }
+  const items = [
+    ['总数', s.总数, ''], ['上调', s.上调, 'up'], ['下调', s.下调, 'dn'],
+    ['闸门价区', s.闸门价区数, ''], ['占位保护', s.占位保护, ''], ['无成本数据', s.无成本数据, '']
+  ];
+  /* 2026-10-12 新增 / 2026-10-13 改口径：平均毛利率 / 平均净利率
+     —— 一律按「**当前G2G价** vs DD373 成本」实算（老板口径「展示的利润率一定是
+     当前真实前台价格和成本估算对比算出来的」），与表格两列逐行同口径。 */
+  const gm=[], nm=[];
+  (rows||[]).forEach(r=>{
+    const g=grossMargin(r), n=netMargin(r);
+    if(g!==null) gm.push(g);
+    if(n!==null) nm.push(n);
+  });
+  const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+  const gmAvg = avg(gm), nmAvg = avg(nm);
+  $('#stats').innerHTML = items.map(([k,v])=>{
+    const color = v>0 && k==='上调' ? 'var(--up)' : v>0 && k==='下调' ? 'var(--dn)' : 'inherit';
+    return `<div class="stat"><b style="color:${color}">${fmt(v,0)}</b><span>${k}</span></div>`;
+  }).join('') + (gmAvg===null ? '' :
+      `<div class="stat"><b style="color:${_mgColor(gmAvg)}">${(gmAvg*100).toFixed(1)}%</b>`
+    + `<span>平均毛利率（${gm.length} 区 · 按当前价）</span></div>`)
+    + (nmAvg===null ? '' :
+      `<div class="stat"><b style="color:${_mgColor(nmAvg)}">${(nmAvg*100).toFixed(1)}%</b>`
+    + `<span>平均净利率（扣 ${(FEE*100).toFixed(1)}% 平台费 · 按当前价）</span></div>`);
+}
+
+/* ───────── 2026-10-12：大区筛选分类 ─────────
+   F_AREA = '' 表示「全部」。筛选只影响**显示**与「放行本筛选」按钮的范围，
+   不改变任何已放行状态；③ 真实写入是按库里 released 全量走的（不受筛选影响）。 */
+let F_AREA = '';
+let F_SIDE = '';
+let F_KEY  = '';
+/* 大区显示顺序：按老板习惯把北美放前面，没列到的排最后（按字母）。 */
+const AREA_ORDER = ['NA West','NA East','EU','Asia','South America'];
+
+function _hay(r){
+  return ((r.服务区||'')+' '+(r.区服组||'')+' '+(r.阵营||'')+' '+(r.区服备注||'')
+        + ' '+(r.offer_id||'')+' '+(r.动作||'')+' '+(r.定价方式||'')
+        + ' '+(r.说明||'')).toLowerCase();
+}
+function _pass(r){
+  if(F_AREA && (r.区服组||'') !== F_AREA) return false;
+  if(F_SIDE && (r.阵营||'') !== F_SIDE) return false;
+  if(F_KEY && _hay(r).indexOf(F_KEY) < 0) return false;
+  return true;
+}
+
+function buildFilterBar(){
+  const ca = {}, cs = {}, areas = [], sides = [];
+  LAST_ROWS.forEach(r=>{
+    const a = r.区服组 || '(未分类)';
+    if(ca[a] === undefined){ ca[a] = 0; areas.push(a); }
+    ca[a]++;
+    const s = r.阵营 || '—';
+    if(cs[s] === undefined){ cs[s] = 0; sides.push(s); }
+    cs[s]++;
+  });
+  areas.sort((x,y)=>{
+    const ix = AREA_ORDER.indexOf(x), iy = AREA_ORDER.indexOf(y);
+    return (ix<0?99:ix) - (iy<0?99:iy) || x.localeCompare(y);
+  });
+  const chip = (kind,val,txt,cnt,on) =>
+    `<span class="fchip${on?' on':''}" data-kind="${kind}" data-val="${esc(val)}">`
+    + esc(txt) + (cnt === null ? '' : `<span class="c">${cnt}</span>`) + '</span>';
+  $('#fArea').innerHTML = chip('area','','全部',null,F_AREA==='')
+    + areas.map(a=>chip('area',a,a,ca[a],F_AREA===a)).join('');
+  $('#fSide').innerHTML = chip('side','','全部',null,F_SIDE==='')
+    + sides.map(s=>chip('side',s,s,cs[s],F_SIDE===s)).join('');
+}
+
+function onKeyFilter(){
+  F_KEY = ($('#fKey').value||'').trim().toLowerCase();
+  renderRows();
+}
+
+function _rowHTML(r){
+  const diffCls = r.差额===null ? '' : (r.差额>0.004?'up':(r.差额<-0.004?'dn':''));
+  const diffCol = diffCls==='up'?'var(--up)':diffCls==='dn'?'var(--dn)':'var(--ink2)';
+  const releasable = (r.动作==='上调'||r.动作==='下调');
+  const sub = 'font-size:11.5px;line-height:1.35;';
+  const note = r.区服备注 ? ` <span class="znote">${esc(r.区服备注)}</span>` : '';
+  return `<tr>
+    <td><input type="checkbox" data-oid="${esc(r.offer_id)}"
+         ${r.放行?'checked':''} ${releasable?'':'disabled'}></td>
+    <td>${esc(r.区服组)}</td><td>${esc(r.服务区)}${note}</td><td>${esc(r.阵营)}</td>
+    <td class="num">${fmt(r.当前价)}<div style="${sub}color:var(--cny)">${cny(r.当前价)}</div></td>
+    <td class="num">${fmt(r['cheapold价'])}</td>
+    <td class="num">${fmt(r.成本,4)}<div style="${sub}color:var(--cny)">${cny(r.成本)}</div></td>
+    <td class="num">${fmt(r.可买量万,0)}</td>
+    <td>${esc(r.够量)}</td>
+    <td class="num"><b>${fmt(r.目标价)}</b><div style="${sub}color:var(--cny)"><b>${cny(r.目标价)}</b></div></td>
+    <td class="num" style="color:${diffCol}">${r.差额===null?'—':(r.差额>0?'+':'')+fmt(r.差额)}</td>
+    ${mgCell(grossMargin(r))}
+    ${mgCell(netMargin(r))}
+    <td><span class="pill a-${esc(r.动作)}">${esc(r.动作)}</span></td>
+    <td>${esc(r.定价方式)}</td>
+    <td class="muted">${esc(r.offer_id)}</td>
+    <td class="note">${esc(r.说明)}</td>
+  </tr>`;
+}
+
+function renderRows(){
+  const all = LAST_ROWS;
+  const rows = all.filter(_pass);
+  $('#fCount').textContent = (rows.length === all.length)
+      ? ('共 ' + all.length + ' 行')
+      : ('筛选 ' + rows.length + ' / ' + all.length + ' 行');
+  if(!all.length){
+    $('#tb').innerHTML = '<tr><td colspan="17" class="muted">建议单为空。</td></tr>'; return;
+  }
+  if(!rows.length){
+    $('#tb').innerHTML = '<tr><td colspan="17" class="muted">没有符合当前筛选的行。</td></tr>'; return;
+  }
+  /* 按大区分组渲染（区服组 = 这个系统的「大区」），一眼看出一类多少区、多少要变价。 */
+  const order = [], groups = {};
+  rows.forEach(r=>{
+    const g = r.区服组 || '(未分类)';
+    if(!groups[g]){ groups[g] = []; order.push(g); }
+    groups[g].push(r);
+  });
+  /* 分组顺序与上面的筛选芯片保持一致（后端是按字母排的，这里按 AREA_ORDER 重排）。 */
+  order.sort((x,y)=>{
+    const ix = AREA_ORDER.indexOf(x), iy = AREA_ORDER.indexOf(y);
+    return (ix<0?99:ix) - (iy<0?99:iy) || x.localeCompare(y);
+  });
+  $('#tb').innerHTML = order.map(g=>{
+    const list = groups[g];
+    const up = list.filter(r=>r.动作==='上调').length;
+    const dn = list.filter(r=>r.动作==='下调').length;
+    return `<tr class="grp"><td colspan="17">${esc(g)} · ${list.length} 区`
+         + `　上调 ${up} · 下调 ${dn} · 不动 ${list.length-up-dn}</td></tr>`
+         + list.map(_rowHTML).join('');
+  }).join('');
+  $('#tb').querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', async ()=>{
+      try{
+        await api('api/release','POST',{offer_id:cb.dataset.oid, on:cb.checked});
+        toast((cb.checked?'已放行 ':'已取消放行 ')+cb.dataset.oid, 1600);
+      }catch(e){ toast('操作失败：'+e.message); cb.checked=!cb.checked; }
+    });
+  });
+}
+
+function setRows(rows){
+  LAST_ROWS = rows || [];
+  buildFilterBar();
+  renderRows();
+}
+
+/* 筛选栏：点 chip 切大区 / 阵营（事件委托，避免名字里带空格时拼 onclick 出错）。 */
+$('#filterbar').addEventListener('click', e=>{
+  const el = e.target.closest ? e.target.closest('.fchip') : null;
+  if(!el) return;
+  const val = el.dataset.val || '';
+  if(el.dataset.kind === 'area') F_AREA = val; else F_SIDE = val;
+  buildFilterBar();
+  renderRows();
+});
+
+function renderWrites(ws){
+  if(!ws||!ws.length){ $('#wtb').innerHTML='<tr><td colspan="11" class="muted">暂无写入记录。</td></tr>'; return; }
+  $('#wtb').innerHTML = ws.map(w=>{
+    const vd = w.verified===1?'<span class="tag ok">通过</span>'
+             : w.verified===0?'<span class="tag bad">未通过</span>':'<span class="tag">—</span>';
+    const wnote = w.区服备注 ? ` <span class="znote">${esc(w.区服备注)}</span>` : '';
+    return `<tr>
+      <td>${ts(w.ts)}</td><td>${esc(w.zone_group)}</td><td>${esc(w.server)}${wnote}</td>
+      <td>${esc(w.side)}</td>
+      <td class="num">${fmt(w.old_price)}</td>
+      <td class="num">${fmt(w.new_price)}</td>
+      <td class="num">${fmt(w.readback)}</td>
+      <td>${w.api_ok?'<span class="tag ok">OK</span>':'<span class="tag bad">失败</span>'}</td>
+      <td>${vd}</td><td>${esc(w.operator)}</td>
+      <td class="note">${esc(w.detail)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function refresh(){
+  try{
+    const d = await api('api/state');
+    const c = d.config;
+    $('#shop').textContent = c.shop; $('#sid').textContent = c.seller_id;
+    /* 2026-10-13：顶栏口径随 config 走 —— 跟 cheapold（默认）还是回滚到「成本÷(1−利润率)」。 */
+    if(c.跟cheapold === false){
+      $('#mark').textContent = '旧口径 成本 ÷ '+(1-c.利润率).toFixed(2)
+        +'（利润率 '+(c.利润率*100).toFixed(0)+'%）';
+    }else{
+      const _d=Number(c.下浮比例), _lo=Number(c.利润率下限), _hi=Number(c.利润率上限);
+      const _cn=c.cheapold卖家||'cheapold';
+      $('#mark').textContent = _cn+' × (1−'+(isNaN(_d)?1:_d*100).toFixed(1)+'%)'
+        +' · 利润率带 '+(isNaN(_lo)?30:_lo*100).toFixed(0)+'%~'+(isNaN(_hi)?45:_hi*100).toFixed(0)+'%'
+        +' · 无'+_cn+' → 成本÷'+(1-Number(c.无cheapold利润率)).toFixed(2);
+    }
+    $('#gate').textContent = '$'+c.闸门价+'/M';
+    $('#keep').textContent = (c.保护占位价&&c.保护占位价.length)?('$'+c.保护占位价.join(', $')):'关闭';
+    /* 2026-10-12：人民币换算所需的两个参数 */
+    if(c.汇率USDCNY!=null) RATE = Number(c.汇率USDCNY);
+    if(c.综合费率!=null)   FEE  = Number(c.综合费率);
+    $('#buy').textContent = (c.买满量万!=null) ? ((c.买满量万/10000)+' 亿基纳') : '—';
+    $('#gatewan').textContent = (c.够量闸门万!=null) ? ((c.够量闸门万/10000)+' 亿') : '—';
+    $('#fx').textContent = 'USD/CNY '+RATE.toFixed(2);
+    $('#fee').textContent = (FEE*100).toFixed(1)+'%';
+
+    const tk = d.token;
+    $('#tokTag').className = 'tag '+(tk.ok?'ok':'bad');
+    $('#tokTag').textContent = tk.ok ? ('token OK · 剩余 '+tk.remaining+'s') : ('token 不可用');
+    $('#costTag').textContent = '成本 '+ts(d.cost_at)+' · '+d.cost_zones+' 区';
+    if($('#cbTag')) $('#cbTag').textContent = '竞品 '+ts(d.cheapold_at)+' · '+(d.cheapold_zones||0)+' 区';
+    $('#planTag').textContent = '建议单 '+ts(d.plan_at);
+
+    $('#planMeta').textContent = d.plan_at? ('生成于 '+ts(d.plan_at)+' · 共 '+d.rows.length+' 行') : '';
+    setRows(d.rows);
+    renderStats(d.summary, d.rows);
+    renderWrites(d.writes);
+
+    if(d.job && d.job.running){
+      $('#jobLine').textContent = '采集中：'+(d.job.phase||'')+' …';
+    }else if(d.job && d.job.ok===false){
+      $('#jobLine').textContent = '上次采集失败：'+(d.job.phase||'');
+    }else if(d.job && d.job.phase){
+      $('#jobLine').textContent = '上次采集：'+d.job.phase;
+    }
+    const lg = $('#logs');
+    if(d.logs && d.logs.length){ lg.hidden=false; lg.textContent = d.logs.join('\n');
+      lg.scrollTop = lg.scrollHeight; }
+  }catch(e){ /* 静默重试 */ }
+}
+
+async function act(btn, fn){
+  if(BUSY) return;
+  BUSY = true; btn.disabled = true;
+  try{ await fn(); }catch(e){ toast('失败：'+e.message, 6000); }
+  finally{ BUSY = false; btn.disabled = false; refresh(); }
+}
+
+$('#btnCollect').addEventListener('click', ()=>act($('#btnCollect'), async ()=>{
+  const r = await api('api/collect','POST',{});
+  toast('采集已启动（DD373 成本 + G2G 竞品价，约 2~4 分钟），下面看日志。', 5000);
+}));
+
+$('#btnPreview').addEventListener('click', ()=>act($('#btnPreview'), async ()=>{
+  const r = await api('api/execute','POST',{dry:true});
+  if(!r.total){ toast('没有已放行且需变价的行。先批量放行或逐行勾选。'); return; }
+  const lines = r.plan.slice(0,200).map(p=>
+    `${p.区服组} ${p.服务区} ${p.阵营}  $${fmt(p.旧价)} → $${fmt(p.新价)}`);
+  $('#logs').hidden=false;
+  $('#logs').textContent = '== dry-run 工单预览（'+r.total+' 行，不写任何价）==\n'+lines.join('\n');
+  toast('已生成 dry-run 预览 '+r.total+' 行（见下方日志框）。', 5000);
+}));
+
+$('#btnReleaseAll').addEventListener('click', ()=>act($('#btnReleaseAll'), async ()=>{
+  const r = await api('api/release_all','POST',{on:true});
+  toast('已放行 '+r.changed+' 行需变价的区。');
+}));
+
+$('#btnReleaseNone').addEventListener('click', ()=>act($('#btnReleaseNone'), async ()=>{
+  const r = await api('api/release_all','POST',{on:false, actions:['上调','下调','不动','占位保护·不动','无成本数据']});
+  toast('已取消 '+r.changed+' 行放行。');
+}));
+
+/* 2026-10-12：只放行「当前筛选」里需要变价的行（大区/阵营筛选才真正有用武之地）。 */
+$('#btnRelFiltered').addEventListener('click', ()=>act($('#btnRelFiltered'), async ()=>{
+  const body = {on:true, actions:['上调','下调']};
+  if(F_AREA) body.areas = [F_AREA];
+  if(F_SIDE) body.sides = [F_SIDE];
+  const r = await api('api/release_all','POST', body);
+  const scope = [F_AREA||'', F_SIDE||''].filter(Boolean).join(' · ') || '全部';
+  toast('已放行【'+scope+'】'+r.changed+' 行需变价的区。');
+}));
+
+$('#btnWrite').addEventListener('click', ()=>{
+  const rel = LAST_ROWS.filter(r=>r.放行 && (r.动作==='上调'||r.动作==='下调'));
+  const n = rel.length;
+  if(!n){ toast('没有已放行且需变价的行，先放行。'); return; }
+  /* 写入是「库里所有已放行行」全量执行，与当前筛选无关 —— 把大区分布列出来，
+     免得在大区筛选下误以为只写当前大区。 */
+  const byArea = {};
+  rel.forEach(r=>{ const a=r.区服组||'—'; byArea[a]=(byArea[a]||0)+1; });
+  const areaStr = Object.keys(byArea).map(a=>a+' '+byArea[a]).join(' · ');
+  const msg = '将向 G2G 真实写入 '+n+' 个区的挂牌价。\n'
+    + '大区分布：'+areaStr+'\n\n'
+    + (F_AREA||F_SIDE ? '⚠ 当前有筛选，但写入是全部已放行行（不受筛选限制）。\n\n' : '')
+    + '这是真实改价（会立刻影响前台售价与订单）。\n确定继续？';
+  if(!confirm(msg)) return;
+  act($('#btnWrite'), async ()=>{
+    $('#jobLine').textContent = '正在写入 '+n+' 条 …';
+    const r = await api('api/execute','POST',{dry:false, confirm:true});
+    toast('写入完成：'+r.total+' 条，回读校验通过 '+r.verified+' 条。', 6000);
+  });
+});
+
+$('#btnExport').addEventListener('click', ()=>{ location.href = 'api/export.csv'; });
+
+refresh();
+setInterval(()=>{ if(!BUSY) refresh(); }, 3000);
+</script>
+</body>
+</html>

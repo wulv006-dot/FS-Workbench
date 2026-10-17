@@ -1,0 +1,10 @@
+[Unit]
+Description=FS management daily at 00:20 Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:20:00
+Persistent=false
+Unit=fs-boss-management.service
+
+[Install]
+WantedBy=timers.target

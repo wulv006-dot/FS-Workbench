@@ -1,0 +1,18 @@
+[Unit]
+Description=FS game monitor daily intelligence refresh
+After=network-online.target fs-business-range.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/fs-boss-workspaces
+Environment=PYTHONPATH=/opt/fs-exact-range-20261001
+Environment=FS_DAILY_MODEL_KEY_FILE=/etc/fs-daily/deepseek.key
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/boss_daily.py run --kind game-monitor --trigger scheduled
+TimeoutStartSec=600
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true

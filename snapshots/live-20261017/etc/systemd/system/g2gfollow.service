@@ -1,0 +1,20 @@
+[Unit]
+Description=G2G 金币改价系统（AION2 Kinah · 独立于 d4follow）
+Documentation=file:/opt/g2gfollow/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/g2gfollow
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+# CentOS 7 的 systemd 219 不支持 StandardOutput=append:<file>，沿用 shell 重定向。
+# -w 1 单 worker + gthread 多线程：采集进度/推荐单是进程内全局状态，必须单 worker。
+ExecStart=/bin/sh -c 'exec /opt/g2gfollow/venv/bin/gunicorn -w 1 -k gthread --threads 8 --timeout 900 --graceful-timeout 30 --bind 127.0.0.1:8903 app:app >> /opt/g2gfollow/logs/service.log 2>> /opt/g2gfollow/logs/service.err.log'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

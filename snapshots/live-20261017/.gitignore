@@ -1,0 +1,15 @@
+# 快照采集守卫（2026-10-17）
+# 首次采集时误入过 3 个凭据文件（shugo-bot/token.txt、nba-reprice 的 .cookies.txt / .iggm.cookies.txt），
+# 已在推送后立即从提交中剔除并重建分支。以下模式禁止再进入本目录。
+token.txt
+*token*.txt
+*.cookies
+.cookies*
+*secret*
+*credential*
+*.pem
+*.key
+*.env
+config.env
+.htpasswd*
+*session*

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run FS off-list source observation report hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

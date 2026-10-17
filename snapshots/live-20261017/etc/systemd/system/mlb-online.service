@@ -1,0 +1,18 @@
+[Unit]
+Description=MLB 新卡上架在线工作台（网页 + 任务队列）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mlb-online
+ExecStart=/opt/python39/bin/python3 /opt/mlb-online/mlb_server.py --port 8897 --root /var/www/mlb-online
+Restart=always
+RestartSec=3
+# 只监听回环，外网一律走 nginx
+Environment=PYTHONUNBUFFERED=1
+# CentOS 7 systemd 219：MemoryMax= 需 226+，cgroup v1 下改用 MemoryLimit=
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target

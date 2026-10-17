@@ -1,0 +1,19 @@
+[Unit]
+Description=FS homepage read-only aggregate adapter
+After=docker.service network.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fs-home-readonly
+ExecStart=/opt/python39/bin/python3 /opt/fs-home-readonly/today_api.py
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=FS management daily facts for Hermes analysis
+After=network-online.target fs-business-range.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/fs-boss-workspaces
+Environment=PYTHONPATH=/opt/fs-exact-range-20261001
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/python39/bin/python3 /opt/fs-boss-workspaces/backend/management_v2_runner.py
+TimeoutStartSec=15000
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true

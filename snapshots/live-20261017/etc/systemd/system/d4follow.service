@@ -1,0 +1,19 @@
+[Unit]
+Description=RPG 游戏改价系统 RPG Repricing（全游戏 · 在线看板 + 跟价引擎 + 服务器执行器）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/d4follow
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+# CentOS 7 的 systemd 219 不支持 StandardOutput=append:<file>（需 systemd 240+），
+# 改用 shell 重定向，日志落点与旧机完全一致（同样追加写）。
+ExecStart=/bin/sh -c 'exec /opt/d4follow/venv/bin/gunicorn -w 1 -k gthread --threads 16 --timeout 600 --graceful-timeout 30 --bind 127.0.0.1:8900 app:app >> /opt/d4follow/logs/service.log 2>> /opt/d4follow/logs/service.err.log'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

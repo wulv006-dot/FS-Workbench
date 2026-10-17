@@ -1,0 +1,15 @@
+[Unit]
+Description=Unified read-only order-primary business snapshot
+After=docker.service network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fs-transaction-snapshot
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-transaction-snapshot/collector.py
+TimeoutStartSec=1800
+UMask=0022
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/dashboard/fs-home/transactions

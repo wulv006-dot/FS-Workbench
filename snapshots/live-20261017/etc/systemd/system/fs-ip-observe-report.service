@@ -1,0 +1,7 @@
+[Unit]
+Description=FS platform - off-list source observation report (observe-only mode)
+Documentation=file:/opt/auth-portal/fs_ip_observe_report.py
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/auth-portal/fs_ip_observe_report.py
