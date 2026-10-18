@@ -79,4 +79,8 @@ def join_paid(rows,es,query):
             identities[ident]=row.get('customer_key')
         if not row.get('customer_key'):excluded+=1;continue
         selected.append(row)
-    return selected,{'link_complete':es.get('status')=='available' and not (missing or unknown or conflicts or day_mismatches),'acquisition_paid_orders':acquisition,'matched_es_orders':matched,'unmatched_es_orders':missing,'unknown_es_flags':unknown,'payment_day_mismatches':day_mismatches,'conflicting_order_identities':conflicts,'es_new_marked_paid_orders':marked_new,'stable_es_new_marked_paid_orders':stable_new,'excluded_identity_orders':excluded,'excluded_es_new_identity_orders':excluded_new,'es_source_version':es.get('source_version'),'es_file_coverage':es.get('coverage')}
+    return selected,{'link_complete':es.get('status')=='available' and not (missing or unknown or conflicts or day_mismatches),'acquisition_paid_orders':acquisition,'matched_es_orders':matched,'unmatched_es_orders':missing,'unknown_es_flags':unknown,'payment_day_mismatches':day_mismatches,'conflicting_order_identities':conflicts,'es_new_marked_paid_orders':marked_new,'stable_es_new_marked_paid_orders':stable_new,'excluded_identity_orders':excluded,'excluded_es_new_identity_orders':excluded_new,'es_source_version':es.get('source_version'),'es_file_coverage':es.get('coverage'),
+        'excluded_identity_orders_scope':'分母范围：所选站点/平台从获取窗起日至complete_through的全部已付订单，含新/非新及后续付款；不是ES新客标记订单子集，不以es_new_marked_paid_orders为分母。',
+        'excluded_identity_orders_unit':'订单，非去重客户人数',
+        'excluded_es_new_identity_orders_scope':'分母：es_new_marked_paid_orders，即所选站点/平台获取窗内ES新客标记已付订单；不含获取窗外后续付款。',
+        'excluded_es_new_identity_orders_unit':'订单，非去重客户人数'}

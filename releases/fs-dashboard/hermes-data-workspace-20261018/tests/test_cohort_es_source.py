@@ -50,6 +50,25 @@ class ESJoinTests(unittest.TestCase):
         data=self.dataset();data['declared_files']=2
         self.assertEqual(project_dataset(data,self.q)['status'],'partial')
 
+    def test_exclusion_scope_distinguishes_all_paid_from_es_new_orders(self):
+        data=self.dataset()
+        data['rows'].append({'订单号':digest('old-no-uid'),'游戏':'FC 27','付款时间':'2026/10/01 14:00:00','是否新客户':'否'})
+        rows=self.rows()+[
+            {'id':'old-no-uid','customer_key':None,'paid_at':'2026-10-01T14:00:00+08:00'},
+            {'id':'later-no-uid','customer_key':None,'paid_at':'2026-10-03T14:00:00+08:00'}]
+        _,quality=join_paid(rows,project_dataset(data,self.q),self.q)
+        self.assertTrue(quality['link_complete'])
+        self.assertEqual(quality['acquisition_paid_orders'],4)
+        self.assertEqual(quality['es_new_marked_paid_orders'],2)
+        self.assertEqual(quality['excluded_identity_orders'],3)
+        self.assertEqual(quality['excluded_es_new_identity_orders'],1)
+        self.assertIn('全部已付订单',quality['excluded_identity_orders_scope'])
+        self.assertIn('complete_through',quality['excluded_identity_orders_scope'])
+        self.assertTrue(quality['excluded_es_new_identity_orders_scope'].startswith('分母：es_new_marked_paid_orders'))
+        self.assertIn('获取窗内',quality['excluded_es_new_identity_orders_scope'])
+        for key in ('excluded_identity_orders_unit','excluded_es_new_identity_orders_unit'):
+            self.assertEqual(quality[key],'订单，非去重客户人数')
+
     def test_payment_day_mismatch_blocks_link(self):
         es=project_dataset(self.dataset(),self.q)
         es['rows'][0]['payment_day']='2026-09-30'
