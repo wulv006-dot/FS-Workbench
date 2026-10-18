@@ -2,7 +2,7 @@
   "schema": 1,
   "as_of": "2026-10-19",
   "scope": "customer-tracking canonical overrides after the immutable first-release SOURCE-MAP.json",
-  "status": "two_diagnostics_live_scope_fix_local_candidate",
+  "status": "live_readback_historical_filtering_verified",
   "original_snapshot": "SOURCE-MAP.json",
   "overrides": [
     {
@@ -10,23 +10,51 @@
       "canonical_local_source": "fs_customer_tracking_history_fix_20261019/source/tracking_controller.py",
       "sha256": "602f34f28f17dc7c047e9afd4d2788114d527895763e734fc419560f09243f5f",
       "runtime_target": "/opt/fs-hermes-fc/tracking_controller.py",
-      "deployment": {"state": "live_readback", "release_id": "nav-20261018T163330Z", "utc": "2026-10-18T16:33:30Z", "readback_sha256": "602f34f28f17dc7c047e9afd4d2788114d527895763e734fc419560f09243f5f"}
+      "deployment": {
+        "state": "live_readback",
+        "release_id": "nav-20261018T163330Z",
+        "utc": "2026-10-18T16:33:30Z",
+        "readback_sha256": "602f34f28f17dc7c047e9afd4d2788114d527895763e734fc419560f09243f5f"
+      }
     },
     {
       "repo_path": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_private_session.py",
       "canonical_local_source": "fs_customer_tracking_history_fix_20261019/source/tracking_private_session.py",
       "sha256": "fd5506e21a0123dca634c7aeac5fc8f93b73528c3f42f122c2839e5e18aebba1",
-      "runtime_targets": ["/opt/fc27-cloud/marketing-session-20261009/tracking_private_session.py", "/usr/local/bin/tracking_private_session.py"],
-      "deployment": {"state": "live_readback", "release_id": "nav-20261018T163330Z", "utc": "2026-10-18T16:33:30Z", "readback_sha256": "fd5506e21a0123dca634c7aeac5fc8f93b73528c3f42f122c2839e5e18aebba1"}
+      "runtime_targets": [
+        "/opt/fc27-cloud/marketing-session-20261009/tracking_private_session.py",
+        "/usr/local/bin/tracking_private_session.py"
+      ],
+      "deployment": {
+        "state": "live_readback",
+        "release_id": "nav-20261018T163330Z",
+        "utc": "2026-10-18T16:33:30Z",
+        "readback_sha256": "fd5506e21a0123dca634c7aeac5fc8f93b73528c3f42f122c2839e5e18aebba1"
+      }
     },
     {
       "repo_path": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_source.py",
       "canonical_local_source": "fs_customer_tracking_scope_fix_20261019/source/tracking_source.py",
       "sha256": "c75b68ef4c1666699d22bad3175c21d47b734473ce22fac2fb920b9552d9757a",
       "runtime_target": "/opt/fc27-cloud/marketing-session-20261009/tracking_source.py",
-      "deployment": {"state": "local_candidate_pending_controlled_release"}
+      "deployment": {
+        "state": "live_readback",
+        "release_id": "nav-20261018T164155Z",
+        "utc": "2026-10-18T16:41:55Z",
+        "readback_sha256": "c75b68ef4c1666699d22bad3175c21d47b734473ce22fac2fb920b9552d9757a"
+      }
     }
   ],
-  "evidence": {"history_diagnostic_ready_sha256": "e0be4b0573171adbfc792cc5b968d05c6e017819f0977edea8c3f6d5a839599e", "history_diagnostic_scope_readback": "368 paths, zero drift"},
-  "limits": "Scope-fix local tests and PR CI do not establish production or next natural-cycle acceptance. No original customer data, private key, report artifact or runtime database is included."
+  "evidence": {
+    "history_diagnostic_ready_sha256": "e0be4b0573171adbfc792cc5b968d05c6e017819f0977edea8c3f6d5a839599e",
+    "history_diagnostic_scope_readback": "368 paths, zero drift",
+    "history_repair_ready_sha256": "0c760f6f04111269f067e8619d9d3e3a16eaec2b4327160bcedad07b1cc0c21d",
+    "history_repair_scope_readback": "368 paths, zero drift",
+    "historical_filtering_days": [
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-17"
+    ]
+  },
+  "limits": "Historical daily filtering, initial report, and standalone HTML opening verified. Future 7/14/30-day natural nodes remain pending. No customer identifiers, private key, report artifact or runtime database is included."
 }
