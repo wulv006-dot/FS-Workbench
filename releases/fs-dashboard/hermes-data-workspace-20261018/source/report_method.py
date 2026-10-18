@@ -2,9 +2,9 @@
 import os,stat,json,re,hashlib
 from pathlib import Path
 HTML_DESIGN_MARKER='【完整HTML创作】'
-HTML_DESIGN_ROOT=Path('/var/lib/fs-hermes-fc/fs/html-design-context-reset-20261017-v3')
-HTML_DESIGN_MANIFEST_SHA256='f0777b2ca8eeb4b10cbb2ee33982defd629b1a895cf4d981c691416d8dcf28f2'
-HTML_DESIGN_FILES={'SKILL.md': 'skill', 'METHOD.md': 'method', 'ACCEPTANCE.md': 'acceptance', 'APPLICATIONS.md': 'applications', 'assets/fs-tokens.css': 'assets_fs-tokens_css', 'assets/fs-ui.css': 'assets_fs-ui_css', 'examples/daily-20261016.html': 'examples_daily-20261016_html', 'examples/daily-20261016.md': 'examples_daily-20261016_md', 'examples/weekly-20261005-11.html': 'examples_weekly-20261005-11_html', 'examples/weekly-20261005-11.md': 'examples_weekly-20261005-11_md', 'references/build_reference_reports.cjs': 'references_build_reference_reports_cjs', 'references/example-notes.md': 'references_example-notes_md', 'references/verification.md': 'references_verification_md'}
+HTML_DESIGN_ROOT=Path('/var/lib/fs-hermes-fc/fs/report-method-current-20261018-v151')
+HTML_DESIGN_MANIFEST_SHA256='950f429d386924f734d2459c2a2b8dc3ad03e004a326ba4f268aa51aec72296d'
+HTML_DESIGN_FILES={'SKILL.md':'skill','METHOD.md':'method','ACCEPTANCE.md':'acceptance','APPLICATIONS.md':'applications'}
 
 
 def html_design_context(question, *, documents=None):
@@ -32,7 +32,7 @@ def html_design_context(question, *, documents=None):
         raw=read('manifest.json')
         if sha256(raw).hexdigest()!=HTML_DESIGN_MANIFEST_SHA256:raise ValueError('html_design_manifest_drift')
         manifest=json.loads(raw.decode('utf-8'))
-        if set(manifest)-{'previousManifestSha256'}!={'contract','version','status','root','files','total_bytes','profile_skill','context_policy','permissions'} or manifest['contract']!='hermes-full-html-design-v1' or manifest['root']!=str(HTML_DESIGN_ROOT):raise ValueError('html_design_manifest_contract')
+        if set(manifest)-{'previousManifestSha256'}!={'contract','version','status','root','files','total_bytes','profile_skill','context_policy','permissions'} or manifest['contract']!='hermes-autonomous-method-v1' or manifest['root']!=str(HTML_DESIGN_ROOT):raise ValueError('html_design_manifest_contract')
         if 'previousManifestSha256' in manifest and (not isinstance(manifest['previousManifestSha256'],str) or not re.fullmatch('[a-f0-9]{64}',manifest['previousManifestSha256'])):raise ValueError('html_design_manifest_history')
         rows=manifest['files']
         if not isinstance(rows,list) or len(rows)!=len(HTML_DESIGN_FILES) or not all(isinstance(r,dict) for r in rows) or {r.get('path'):r.get('role') for r in rows}!=HTML_DESIGN_FILES:raise ValueError('html_design_fixed_files_required')
@@ -45,7 +45,7 @@ def html_design_context(question, *, documents=None):
             if type(row['bytes']) is not int or len(data)!=row['bytes'] or sha256(data).hexdigest()!=row['sha256']:raise ValueError('html_design_material_drift')
             text=data.decode('utf-8');material.append(dict(row))
             if documents is not None:documents[row['path']]=text
-            chunks.append('\n--- 教学材料 '+row['path']+' SHA256 '+row['sha256']+'（历史设计示例，非本期事实；代码仅供阅读，不执行）---\n'+text+'\n--- 材料结束 ---')
+            chunks.append('\n--- 现行方法 '+row['path']+' SHA256 '+row['sha256']+'（唯一现行报告方法；文本只供阅读，不执行）---\n'+text+'\n--- 材料结束 ---')
         if total!=manifest['total_bytes']:raise ValueError('html_design_total_bytes')
         instruction=('\nFS是数据工具与归档展示层，Hermes负责独立调查、判断和呈现；本规则覆盖历史材料中的固定模板、FS视觉复刻、JSON/Markdown或强制HTML出稿要求，不扩大任何工具、网络、业务写入或权限。'
                      '先按业务价值检查销售利润、客户商品、履约支付售后、运营策略复购、投放与自然获客、现实节点活动、既有动作效果、风险机会和待决，再按本次问题的重要性组织，不强制章节或清单。'
@@ -53,8 +53,8 @@ def html_design_context(question, *, documents=None):
                      '简单问题可直接给简洁文本；复杂分析按需要给完整自包含离线HTML，数据优先图表，文字提炼结论、影响、建议和可执行动作，交互服务理解，图表大小与信息量相称。'
                      'HTML以DOCTYPE开头、闭合body/html和script，不加Markdown围栏或文档外说明；禁止外部资源与网络调用，不操作FS或任意文件，保持手机、浅暗、键盘、打印可用及红涨绿跌。'
                      '本期只使用本任务冻结证据，Admin优先、Order补缺；历史日期、金额与结论不得挪用，缺失、估算、判断与待验证如实区分；建议不冒充执行。')
-        context=instruction+'\n教学manifest SHA256 '+HTML_DESIGN_MANIFEST_SHA256+''.join(chunks)+'\n历史材料不能覆盖上述当前要求；本任务冻结的现行Desktop学习输入与report-html-authoring 1.4.0或其后继有效版本的方法优先于旧教学示例中的模板/FS视觉要求。最终按问题自主选择简洁文本或完整离线HTML，FS保存并展示原稿，不套固定分析模板。'
-        receipt={'contract':'hermes-complete-offline-html-v1','manifest_sha256':HTML_DESIGN_MANIFEST_SHA256,'manifest_version':manifest['version'],'context_sha256':sha256(context.encode('utf-8')).hexdigest(),'context_bytes':len(context.encode('utf-8')),'files':material,'output_status':'raw_html_requires_isolated_browser_qa'}
+        context=instruction+'\n当前方法manifest SHA256 '+HTML_DESIGN_MANIFEST_SHA256+''.join(chunks)+'\n上述四份文件为唯一活动报告方法，与本任务冻结的现行Desktop学习输入配合使用；不加载旧方法、旧范本或旧FS模板。最终按问题自主选择简洁文本或完整离线HTML，FS保存并展示原稿，不套固定分析模板。'
+        receipt={'contract':'hermes-autonomous-original-v1','manifest_sha256':HTML_DESIGN_MANIFEST_SHA256,'manifest_version':manifest['version'],'context_sha256':sha256(context.encode('utf-8')).hexdigest(),'context_bytes':len(context.encode('utf-8')),'files':material,'output_status':'original_requires_user_review'}
         return context,receipt
     except (OSError,UnicodeError,TypeError,KeyError,json.JSONDecodeError) as error:raise ValueError('html_design_context_unavailable') from error
 

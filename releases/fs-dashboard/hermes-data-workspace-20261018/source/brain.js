@@ -145,6 +145,7 @@
     const host=$('report-detail');host.replaceChildren();node('h3',item.body.start+' — '+item.body.end,host);node('p',item.body.question,host);node('p','作者：'+item.owner+' · 删除人：'+item.deleted_by,host,'muted');
     const restore=node('button','恢复报告',host,'primary');restore.onclick=async()=>{restore.disabled=true;try{await request('',{kind:'hermes_restore',id:item.id});poolScope='shared';$('pool-scope').value=poolScope;pageBefore=null;selected=null;await refresh();await select(item.id);}catch(e){message(e.message,true);restore.disabled=false;}};
   }
+  function conversationReply(reply) {return /^\s*(?:<!doctype html[\s>]|<html[\s>])/i.test(reply)?'完整HTML已归档，打开汇报查看。':reply;}
   async function conversation(job) {
     $('chat-send').disabled=!canGenerate||chatBusy||chatUncertain||!job.can_followup;
     const signature=job.id+':'+job.state;if(signature===chatSignature)return;
@@ -152,8 +153,8 @@
     chatSignature=signature;const host=$('chat-messages');host.replaceChildren();
     for(const turn of data.items||[]){
       const q=node('article',null,host,'chat-message user');node('b',turn.owner+' · 提问',q);node('p',turn.question,q);
-      const a=node('article',null,host,'chat-message assistant');node('b','Hermes · '+(labels[turn.state]||turn.state),a);node('p',turn.reply||turn.error||'任务正在处理，回答将在这里显示。',a);
-      if(turn.reply_excerpt)node('p','长回复仅展示前段，选择此版本后可打开完整汇报或研究详情。',a,'muted');
+      const a=node('article',null,host,'chat-message assistant');node('b','Hermes · '+(labels[turn.state]||turn.state),a);const reply=conversationReply(turn.reply||turn.error||'任务正在处理，回答将在这里显示。');node('p',reply,a);
+      if(turn.reply_excerpt&&reply===turn.reply)node('p','长回复仅展示前段，选择此版本后可打开完整汇报或研究详情。',a,'muted');
       const open=node('button',turn.id===selected?'当前版本':'查看此版本',a,'quiet');open.disabled=turn.id===selected;open.onclick=()=>select(turn.id);
     }
     if(!job.can_followup)$('chat-status').textContent='请选中已完成版本进行追问；进行中或失败任务不会自动重试。';

@@ -1,5 +1,6 @@
 import ast
 import json
+import io
 from pathlib import Path
 import re
 import sys
@@ -7,6 +8,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from urllib.parse import urlsplit
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 sys.path.insert(0,str(SOURCE))
 sys.path.append(str(SOURCE.parents[1]/'admin-data-tools-20261018'/'candidate'/'hermes'))
@@ -19,6 +21,24 @@ def atomic(path,data):
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_outer_http_dispatch_reaches_cohort_controller(self):
+        route_tree=ast.parse((Path(__file__).parent/'fixtures/advisor_dispatch.py').read_text('utf-8'))
+        outer=next(n for n in route_tree.body if isinstance(n,ast.FunctionDef) and n.name=='do_POST')
+        controller=ast.parse((SOURCE/'controller.py').read_text('utf-8'))
+        service_class=next(n for n in controller.body if isinstance(n,ast.ClassDef) and n.name=='HermesService')
+        inner=next(n for n in service_class.body if isinstance(n,ast.FunctionDef) and n.name=='_post')
+        inner_ns={};exec(compile(ast.Module(body=[inner],type_ignores=[]),'<controller post>','exec'),inner_ns)
+        service=SimpleNamespace(authorizer=lambda user:True,detail=object())
+        reader=SimpleNamespace(get=lambda args,**kwargs:{'status':'available','monitor':{'state':'active'}})
+        ns={'json':json,'re':re,'urlsplit':urlsplit,'HERMES':SimpleNamespace(post=lambda body,user,headers:inner_ns['_post'](service,body,user,headers)),'ADVISOR':SimpleNamespace(post=lambda *args:(410,{'error':'legacy_analysis_retired'}))}
+        exec(compile(ast.Module(body=[outer],type_ignores=[]),'<existing outer handler>','exec'),ns)
+        headers={'X-Auth-User':'wulv','Content-Type':'application/json','X-FS-Advisor-Action':'submit','Sec-Fetch-Site':'same-origin'}
+        for kind,expected in (('hermes_cohort_observation',200),('cohort_observation',410)):
+            raw=json.dumps({'kind':kind,'profile':'FC27','start':'2026-10-17','end':'2026-10-17','action':'create'}).encode();responses=[]
+            request=SimpleNamespace(path='/advisor',headers=dict(headers,**{'Content-Length':str(len(raw))}),connection=SimpleNamespace(settimeout=lambda seconds:None),rfile=io.BytesIO(raw),reply=lambda code,data:responses.append((code,data)))
+            with patch.dict(sys.modules,{'cohort_reader':SimpleNamespace(reader_for=lambda detail:reader)}):ns['do_POST'](request)
+            self.assertEqual(responses[0][0],expected)
+
     def test_archive_scope_and_no_second_read(self):
         with tempfile.TemporaryDirectory() as tmp,patch.dict(sys.modules,{'fc_detail':SimpleNamespace(atomic=atomic)}):
             detail=SimpleNamespace(cache=tmp)

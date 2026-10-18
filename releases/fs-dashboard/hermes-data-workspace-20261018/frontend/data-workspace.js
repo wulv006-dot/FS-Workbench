@@ -142,7 +142,7 @@ export function mountDataWorkspace(root, options = {}) {
           if (uncertain || writing || !form.reportValidity()) return;
           if (start.value > end.value) {status.textContent='开始日期不能晚于结束日期';return;}
           invalidate(); const token=epoch; writing=true; for (const input of form.elements) input.disabled=true; for(const b of actions)b.disabled=true;
-          const payload={kind:'cohort_observation',action,profile:profile.value,start:start.value,end:end.value,platform:form.elements.platform.value,site_group:form.elements.site_group.value,window_days:Number(form.elements.window_days.value)};
+          const payload={kind:'hermes_cohort_observation',action,profile:profile.value,start:start.value,end:end.value,platform:form.elements.platform.value,site_group:form.elements.site_group.value,window_days:Number(form.elements.window_days.value)};
           selection={...payload}; status.textContent='正在更新观察任务…'; article.setAttribute('aria-busy','true');
           try {
             const response=await (options.writeFetch || request)(endpoint,{method:'POST',credentials:'same-origin',redirect:'error',signal:win.AbortSignal.timeout(20000),headers:{'Content-Type':'application/json','X-FS-Advisor-Action':'submit'},body:JSON.stringify(payload)});
@@ -171,7 +171,9 @@ export function mountBusinessDataWorkspace(scope, state, navigate, denied) {
   const doc = scope.root.ownerDocument;
   const target = doc.createElement('section'); scope.root.append(target);
   const button = doc.createElement('button'); button.type = 'button'; button.className = 'ghostbtn'; button.textContent = '查询工具 · 数据专区';
-  (scope.root.querySelector('#sideNav') || scope.root).append(button);
+  // Business renderNav replaces sideNav and FC view hides it; keep the entry outside that owned subtree.
+  const toolbar=doc.createElement('nav');toolbar.className='fc-actions';toolbar.setAttribute('aria-label','数据专区查询工具');toolbar.append(button);
+  (scope.root.querySelector('.native-body') || scope.root).prepend(toolbar);
   button.addEventListener('click',()=>{const heading=target.querySelector('h2');heading?.scrollIntoView({block:'center'});heading?.focus({preventScroll:true});});
   const yesterday = new Date(Date.now()+8*3600000-86400000).toISOString().slice(0,10);
   // Scope fetch remains read-only; only this fixed authorized observation endpoint accepts POST.
@@ -183,6 +185,6 @@ export function mountBusinessDataWorkspace(scope, state, navigate, denied) {
   };
   const widget = mountDataWorkspace(target,{fetch:scope.fetch,writeFetch,start:state.b_start||yesterday,end:state.b_end||yesterday,onHermes:payload=>navigate(hermesHandoffURL(payload))});
   target.querySelector('h2').tabIndex = -1;
-  scope.signal.addEventListener('abort',()=>{widget.dispose();button.remove();target.remove();},{once:true});
+  scope.signal.addEventListener('abort',()=>{widget.dispose();toolbar.remove();target.remove();},{once:true});
   return widget;
 }

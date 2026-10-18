@@ -355,7 +355,7 @@ class HermesService:
             if set(body)!={'kind','id'}:return 422,{'error':'report_action_fields'}
             return self.trash_report(user,body['id'],body['kind']=='hermes_restore')
         if not self.authorizer(user):return 403,{'error':'admin_required'}
-        if body.get('kind')=='cohort_observation':
+        if body.get('kind')=='hermes_cohort_observation':
             from cohort_reader import reader_for
             if set(body)-{'kind','profile','start','end','platform','site_group','window_days','action'}:return 422,{'error':'cohort_fields'}
             try:
