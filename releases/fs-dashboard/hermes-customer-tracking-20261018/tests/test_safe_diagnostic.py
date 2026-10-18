@@ -1,5 +1,6 @@
 from concurrent.futures import Future
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -52,7 +53,7 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_client_errors_are_fixed_labels_and_persist_without_private_text(self):
         error=HTTPError('http://127.0.0.1/private?email=secret@example.invalid',403,
-                        'secret order',{},None)
+                        'secret order',{},io.BytesIO(b''))
         self.assertEqual(safe_client_failure(error),'private_client_http_403')
         self.assertEqual(safe_client_failure(TimeoutError('secret@example.invalid')),
                          'private_client_timeout')
