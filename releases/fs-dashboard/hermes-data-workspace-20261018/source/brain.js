@@ -196,6 +196,7 @@
     dataRequest={kind:({product_orders:'product_orders',discount:'discount_analysis',cohort:'cohort_observation'})[dataKind],query};
     $('mode').value='investigation';
     $('question').value='先用对应只读工具按归档ID核对真实证据与筛选条件，再只返回一句不超过100字的经营结论或建议；不要另列依据、明细或操作教程，不生成HTML。把会改变判断的关键缺口融入这句话，例如观察窗尚未成熟就给出适当复查建议，不当作复购为零。查询参数只是待核对条件；归档不可读或范围不符时直接说明，不得把URL内容当事实。';
+    if(dataKind==='cohort')$('question').value+='本次只回答该归档cohort的范围、成熟状态与下一步观察，忽略不相关的收入、利润等背景；若提样本须保留其实际子群范围，不泛称全部新客。观察窗未成熟时只能给待观察或复查建议，不能据此决定优惠、预算等策略。若给复查日期，须按证据中的实际观察窗和完整闭日规则计算（先用工具明确的成熟时点；按自然日定义时，以获客日结束后完整观察天数闭合为准），不得沿用旧回复日期；证据不足就不写具体日期。';
     message('已填入数据查询条件；核对日期和问题后提交给 Hermes，尚未发起调查。');
   }
   refresh().then(()=>{const id=initial.get('report');if(/^[a-f0-9]{32}$/.test(id||''))select(id);});
