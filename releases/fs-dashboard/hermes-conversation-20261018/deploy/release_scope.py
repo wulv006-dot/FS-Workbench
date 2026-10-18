@@ -13,6 +13,7 @@ TARGETS = {
     "frontend/conversation.css": "/var/www/dashboard/fs-home/hermes/conversation/conversation.css",
     "frontend/conversation.js": "/var/www/dashboard/fs-home/hermes/conversation/conversation.js",
     "frontend/entry/brain.js": "/var/www/dashboard/fs-home/brain/brain.js",
+    "source/worker-install-state-isolation.conf": "/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf",
 }
 NEW_ALLOWED = {
     "/opt/fs-hermes-fc/conversation_store.py",

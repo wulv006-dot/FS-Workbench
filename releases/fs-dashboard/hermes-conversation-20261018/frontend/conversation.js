@@ -67,6 +67,9 @@
     if (progress.type?.startsWith('tool.')) return (progress.tool || '数据工具') + ' · ' + (progress.type === 'tool.started' ? '正在查询' : progress.type === 'tool.failed' ? '查询失败' : '已完成');
     return progress.status || '正在处理';
   }
+  function terminalMessage(state) {
+    return {completed: 'Hermes 已完成。', cancelled: '任务已停止。', interrupted: '任务已中断。', failed: '任务失败。'}[state] || '';
+  }
   function scrollIfAtBottom(render) {
     const box = $('messages');
     const follows = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
@@ -126,10 +129,11 @@
             if (details.open && !details.querySelector('pre')) el('pre', turn.reply, details, 'raw-reply');
           };
         }
-      } else el('p', turn.reply || (activeStates.has(turn.state) ? '正在处理…' : ''), answer);
+      } else el('p', turn.reply || (activeStates.has(turn.state) ? '正在处理…' : turn.state === 'cancelled' ? '已停止；本轮未产生回复。' : turn.state === 'interrupted' ? '已中断；本轮未产生回复。' : ''), answer);
+      if (turn.state === 'cancelled' && turn.reply) el('p', '已停止；上方保留停止前的回复。', answer, 'progress');
       if (turn.progress && activeStates.has(turn.state)) el('p', progressText(turn.progress), answer, 'progress');
       if (turn.state === 'failed' || turn.state === 'interrupted' || turn.state === 'dispatch_unknown') {
-        el('p', turn.state === 'dispatch_unknown' ? '提交状态待核对，请勿重复发起新任务。' : '任务未完成：' + (turn.error || '可在此会话继续说明需求。'), answer, 'error');
+        el('p', turn.state === 'dispatch_unknown' ? '提交状态待核对，请勿重复发起新任务。' : turn.state === 'interrupted' ? '任务已中断：' + (turn.error || '可在此会话继续说明需求。') : '任务未完成：' + (turn.error || '可在此会话继续说明需求。'), answer, 'error');
       }
       if (turn.artifacts?.length) {
         const files = el('div', undefined, answer, 'artifact-list');
@@ -175,7 +179,7 @@
         if (['run.completed', 'run.failed', 'run.cancelled', 'run.interrupted'].includes(update.type)) refreshCurrent(generation);
       }
       scrollIfAtBottom(renderMessages);
-      if (update.type !== 'message.delta') announce(progressText(turn.progress) || (turn.state === 'completed' ? 'Hermes 已完成。' : '任务状态已更新。'));
+      if (update.type !== 'message.delta') announce(terminalMessage(turn.state) || progressText(turn.progress) || '任务状态已更新。');
     };
     stream.onerror = () => {
       if (generation !== epoch) return;
@@ -188,6 +192,7 @@
     try {
       const detail = await request('/' + encodeURIComponent(current));
       if (generation !== epoch) return;
+      if (snapshot && (detail.last_seq || 0) < (snapshot.last_seq || 0)) return;
       snapshot = detail;
       ready = true;
       scrollIfAtBottom(renderMessages);
@@ -250,7 +255,7 @@
       else if (!rejected) $('message-input').readOnly = true;
       await refreshCurrent();
       loadList().catch(() => {});
-      if (accepted) announce(wasSteer ? '补充已送达当前任务。' : '消息已送达 Hermes。');
+      if (accepted) announce(wasSteer ? '补充请求已接受；是否被模型处理请以回复为准。' : '消息已送达 Hermes。');
       else if (rejected) announce('本次提交未被接受，内容已保留，可调整后重新发送。');
       else announce('提交状态待核对，请勿换请求编号或重复发起新任务。');
     } catch (error) {
@@ -271,7 +276,7 @@
       const result = await request('/' + encodeURIComponent(current) + '/runs/' + encodeURIComponent(run.run_id) + '/stop', {client_request_id: requestId}, 'POST');
       if (result.state === 'accepted' || ['completed', 'failed', 'cancelled', 'interrupted'].includes(result.state)) {
         sessionStorage.removeItem(key);
-        announce(result.state === 'accepted' ? '停止请求已接受，正在等待服务确认。' : '任务已结束，无需停止。');
+        if (result.state !== 'accepted') announce(terminalMessage(result.state) || '任务已结束，无需停止。');
       } else if (result.state === 'rejected') {
         sessionStorage.removeItem(key);
         announce('停止请求未被接受，请核对任务状态后重试。');
@@ -279,6 +284,9 @@
         announce('停止状态待核对；重试会使用原请求编号。');
       }
       await refreshCurrent();
+      const latest = snapshot?.turns.find(turn => turn.run_id === run.run_id);
+      if (latest && terminalMessage(latest.state)) announce(terminalMessage(latest.state));
+      else if (result.state === 'accepted') announce('停止请求已接受，正在等待服务确认。');
     } catch (error) {
       if (error.status === 403) { denyAccess(); return; }
       announce('停止结果需核对：' + errorMessage(error));

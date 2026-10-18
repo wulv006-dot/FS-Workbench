@@ -171,7 +171,9 @@ class ServiceTests(unittest.TestCase):
     def test_current_method_and_reviewed_owner_learning_are_on_demand(self):
         calls = []
         context = types.ModuleType("business_context")
-        context.learning_bundle = lambda root: (calls.append("owner") or "已审业务记忆", "a" * 64,
+        owner = ('已审索引\n<owner_learning_document path="profile/memories/MEMORY.md" sha256="' + "b" * 64 +
+                 '">\n已审业务记忆\n</owner_learning_document>')
+        context.learning_bundle = lambda root: (calls.append("owner") or owner, "a" * 64,
                                                 [{"path": "profile/memories/MEMORY.md", "sha256": "b" * 64}])
         method = types.ModuleType("report_method")
         method.method_bundle = lambda track: (calls.append("method") or {"version": "report-html-1.5.1",
@@ -183,11 +185,14 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(calls, [])
             self.assertEqual(book.call("fc.get_data_catalog", {})["old"], "fc.get_data_catalog")
             self.assertEqual(calls, [])
-            result = book.call("fc.read_skill", {"topic": "methods"})
-            self.assertEqual(result["version"], "report-html-1.5.1")
-            self.assertIn("现行方法", result["text"])
-            self.assertIn("已审业务记忆", result["text"])
-            self.assertEqual(result["owner_learning_sha256"], "a" * 64)
+            index = book.call("fc.read_skill", {"topic": "methods"})
+            self.assertEqual(index["version"], "report-html-1.5.1")
+            self.assertNotIn("text", index)
+            method_id = next(row["section_id"] for row in index["sections"] if row["path"].startswith("current/"))
+            memory_id = next(row["section_id"] for row in index["sections"] if row["path"] == "profile/memories/MEMORY.md")
+            self.assertIn("现行方法", book.call("fc.read_skill", {"topic": "methods", "section_id": method_id})["text"])
+            self.assertIn("已审业务记忆", book.call("fc.read_skill", {"topic": "methods", "section_id": memory_id})["text"])
+            self.assertEqual(index["owner_learning_sha256"], "a" * 64)
             book.call("fc.read_skill", {"topic": "methods"})
             self.assertEqual(calls, ["method", "owner"])
             self.assertEqual(book.call("fc.read_skill", {"topic": "background"})["old"], "fc.read_skill")
@@ -210,25 +215,49 @@ class ServiceTests(unittest.TestCase):
         skill = (skills / "data-storytelling/SKILL.md").read_bytes()
         self.assertEqual(hashlib.sha256(skill.replace(b"\r\n", b"\n")).hexdigest(),
                          "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd")
-        spec = importlib.util.spec_from_file_location("active_business_context_candidate", source)
-        active = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(active)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "desktop-business-context.md").write_text("已确认业务规则", encoding="utf-8")
+            root.chmod(0o700)
+            runtime = root / "runtime-src"
+            runtime.mkdir(mode=0o700)
+            checked_source = runtime / "business_context.py"
+            checked_source.write_bytes(source.read_bytes())
+            checked_source.chmod(0o600)
+            original_loop = (source.parent / "learning-loop.md").read_bytes()
+            self.assertEqual(hashlib.sha256(original_loop).hexdigest(),
+                             "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46")
+            loop = runtime / "learning-loop.md"
+            loop.write_bytes(original_loop)
+            loop.chmod(0o600)
+            copied_skills = root / "profile" / "skills" / "data-storytelling"
+            copied_skills.mkdir(parents=True, mode=0o700)
+            copied_skills.parent.chmod(0o700)
+            copied_skills.parent.parent.chmod(0o700)
+            copied_skills.chmod(0o700)
+            copied_skill = copied_skills / "SKILL.md"
+            copied_skill.write_bytes(skill)
+            copied_skill.chmod(0o600)
+            business = root / "desktop-business-context.md"
+            business.write_text("已确认业务规则", encoding="utf-8")
+            business.chmod(0o600)
+            spec = importlib.util.spec_from_file_location("active_business_context_candidate", checked_source)
+            active = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(active)
             context = types.ModuleType("business_context")
             context.learning_bundle = lambda _: active.learning_bundle(
-                root, skill_root=skills, profile_root=root)
+                root, skill_root=copied_skills.parent, profile_root=root / "profile")
             method = types.ModuleType("report_method")
             method.method_bundle = lambda track: {"version": "report-html-1.5.1", "sha256": "c" * 64,
                                                   "methods_text": "现行方法", "governance_text": "现行验收"}
             book = types.SimpleNamespace(call=lambda name, args: {"old": name})
             with patch.dict(sys.modules, {"business_context": context, "report_method": method}):
                 self.module.attach_current_learning(book, root)
-                policy = book.call("fc.read_skill", {"topic": "governance"})
+                index = book.call("fc.read_skill", {"topic": "governance"})
+                row = next(row for row in index["sections"] if row["path"] == "skills/data-storytelling/SKILL.md")
+                policy = book.call("fc.read_skill", {"topic": "governance", "section_id": row["section_id"]})
             self.assertIn("新客首单30%", policy["text"])
-            self.assertTrue(any(row["path"] == "skills/data-storytelling/SKILL.md"
-                                for row in policy["owner_learning_files"]))
+            self.assertLess(len(json.dumps(index, ensure_ascii=False).encode("utf-8")), 8000)
+            self.assertLess(len(json.dumps(policy, ensure_ascii=False).encode("utf-8")), 8000)
 
 
 if __name__ == "__main__":

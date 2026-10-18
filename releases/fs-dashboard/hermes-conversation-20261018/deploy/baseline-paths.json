@@ -8,6 +8,7 @@
     "/etc/systemd/system/fs-business-range.service.d/50-fc-daily-model.conf",
     "/etc/systemd/system/fs-business-range.service.d/hermes.conf",
     "/etc/systemd/system/fs-hermes-fc.service",
+    "/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf",
     "/etc/systemd/system/fs-marketing-range.service",
     "/etc/systemd/system/mmoexp-marketing-daily.timer",
     "/opt/fc27-cloud/marketing-session-20261009/Dockerfile.session",

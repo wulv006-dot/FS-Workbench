@@ -76,7 +76,7 @@ location = /dashboard/fs-home/hermes/conversation/ {
     if ($request_method !~ ^(GET|HEAD)$) { return 405; }
     auth_request /__auth_verify;
     error_page 401 = @auth_login;
-    alias /var/www/dashboard/fs-home/hermes/conversation/index.html;
+    alias /var/www/dashboard/fs-home/hermes/conversation/;
     disable_symlinks on;
     add_header Cache-Control "no-store" always;
 }

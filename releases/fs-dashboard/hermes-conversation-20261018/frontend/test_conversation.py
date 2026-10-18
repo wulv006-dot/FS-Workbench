@@ -16,7 +16,7 @@ RUN = "run_" + "c" * 32
 
 def check():
     state = {"turn": None, "calls": [], "steers": [], "stops": [], "reject_once": True, "stop_reject_once": True,
-             "denied": False, "seq": 0, "emit": False, "items_empty": False, "created": False}
+             "denied": False, "seq": 0, "emit": False, "cancel_event": False, "items_empty": False, "created": False}
 
     def route(request):
         path = urlparse(request.request.url).path
@@ -46,6 +46,12 @@ def check():
             turns = [] if state["turn"] is None else [state["turn"]]
             return request.fulfill(body=json.dumps({"conversation_id": CONVERSATION, "title": "测试会话", "turns": turns, "last_seq": state["seq"]}), content_type="application/json")
         if path == f"/api/hermes/conversations/{CONVERSATION}/events":
+            if state["cancel_event"]:
+                state["cancel_event"] = False
+                state["turn"]["state"] = "cancelled"
+                state["seq"] += 1
+                event = {"seq": state["seq"], "type": "run.cancelled", "turn_id": TURN, "run_id": RUN, "payload": {}}
+                return request.fulfill(body="data: " + json.dumps(event) + "\n\n", content_type="text/event-stream")
             if state["emit"]:
                 state["emit"] = False
                 state["turn"]["reply"] = "最终原文"
@@ -75,7 +81,7 @@ def check():
                 return request.fulfill(status=503, body='{"error":"temporary"}', content_type="application/json")
             if len(state["stops"]) == 2:
                 return request.fulfill(status=202, body='{"state":"unknown"}', content_type="application/json")
-            state["turn"]["state"] = "stopping"
+            state["turn"]["state"] = "cancelled"
             return request.fulfill(status=202, body='{"state":"accepted"}', content_type="application/json")
         if path == f"/api/hermes/conversations/{CONVERSATION}/runs/{RUN}/steer":
             assert request.request.headers.get("x-fs-advisor-action") == "submit"
@@ -137,11 +143,12 @@ def check():
         page.get_by_role("button", name="核对上次发送").wait_for()
         first_unknown_id = state["steers"][1]["client_request_id"]
         page.get_by_role("button", name="核对上次发送").click()
-        page.get_by_text("补充已送达当前任务。").wait_for()
+        page.get_by_text("补充请求已接受；是否被模型处理请以回复为准。").wait_for()
         assert state["steers"][2]["client_request_id"] == first_unknown_id
         assert state["steers"][0]["client_request_id"] != first_unknown_id
         assert page.get_by_label("给 Hermes 发消息").input_value() == ""
         state["turn"]["state"] = "running"
+        state["turn"]["reply"] = ""
         page.reload()
         page.get_by_role("button", name="停止当前任务").click()
         page.get_by_role("button", name="停止当前任务").click()
@@ -149,6 +156,20 @@ def check():
         page.get_by_role("button", name="停止当前任务").click()
         assert state["stops"][0]["client_request_id"] == state["stops"][1]["client_request_id"]
         assert state["stops"][1]["client_request_id"] == state["stops"][2]["client_request_id"]
+        page.get_by_text("已停止；本轮未产生回复。", exact=True).wait_for()
+        page.get_by_text("任务已停止。", exact=True).wait_for()
+        assert page.get_by_role("button", name="发送", exact=True).is_enabled()
+        state["turn"]["state"] = "running"
+        state["turn"]["reply"] = "停止前已有的片段"
+        state["cancel_event"] = True
+        page.reload()
+        page.get_by_text("停止前已有的片段", exact=True).wait_for()
+        page.get_by_text("已停止；上方保留停止前的回复。", exact=True).wait_for()
+        page.get_by_text("任务已停止。", exact=True).wait_for()
+        state["turn"].update(state="interrupted", reply="中断前片段", error="连接中断")
+        page.reload()
+        page.get_by_text("中断前片段", exact=True).wait_for()
+        page.get_by_text("任务已中断：连接中断", exact=True).wait_for()
         state["denied"] = True
         page.get_by_role("button", name="新对话").click()
         page.get_by_text("当前账号没有持续对话权限。", exact=True).wait_for()

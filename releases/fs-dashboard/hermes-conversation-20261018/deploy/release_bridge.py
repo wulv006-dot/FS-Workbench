@@ -15,6 +15,11 @@ from release_scope import NEW_ALLOWED, SCOPE, TARGETS
 
 HERE = Path(__file__).resolve().parent
 BASE_SHA = "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de"
+UNIT_TARGET = "/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf"
+UNIT_BEFORE_SHA = "bf6d707e668bd58e103f892f6f03b9d2025194419e7c52121e2489b5a971a603"
+UNIT_SOURCE_NOTE = b"# Based on live install-state-isolation.conf SHA256 " + UNIT_BEFORE_SHA.encode() + b".\n"
+UNIT_RO_MOUNTS = (b" --mount type=bind,source=/var/lib/fs-hermes-fc/profile/memories,target=/profile/memories,readonly",
+                  b" --mount type=bind,source=/var/lib/fs-hermes-fc/profile/skills,target=/profile/skills,readonly")
 
 
 def load_base():
@@ -52,7 +57,17 @@ def load_base():
     original_validate = base.validate
     def validate(manifest, stage):
         if manifest != approved: raise ValueError("exact_frozen_manifest_required")
-        return original_validate(manifest, stage)
+        result = original_validate(manifest, stage)
+        unit_row = next(r for r in manifest["files"] if r["target"] == UNIT_TARGET)
+        if unit_row["beforeSha256"] is None: raise ValueError("existing_worker_unit_required")
+        unit = (stage / "candidate/source/worker-install-state-isolation.conf").read_bytes()
+        if unit.count(UNIT_SOURCE_NOTE) != 1 or any(unit.count(mount) != 1 for mount in UNIT_RO_MOUNTS):
+            raise ValueError("nested_readonly_mounts_required")
+        old_unit = unit.replace(UNIT_SOURCE_NOTE, b"")
+        for mount in UNIT_RO_MOUNTS: old_unit = old_unit.replace(mount, b"")
+        if hashlib.sha256(old_unit).hexdigest() != UNIT_BEFORE_SHA:
+            raise ValueError("worker_unit_unrelated_change")
+        return result
     base.validate = validate
     original_inspect = base.inspect
 
@@ -128,8 +143,25 @@ def load_base():
     base.apply = apply
     original_restart = base.restart_for
     def restart(manifest, admission_fence=None):
+        if manifest.get("scope") == SCOPE:
+            subprocess.run(["systemctl", "daemon-reload"], check=True)
         result = original_restart(manifest, admission_fence)
         if manifest.get("scope") == SCOPE:
+            unit = Path(UNIT_TARGET).read_bytes()
+            if all(mount in unit for mount in UNIT_RO_MOUNTS):
+                inspected = subprocess.run(["docker", "inspect", "fs-hermes-fc"], check=True,
+                                           capture_output=True, timeout=10)
+                container = json.loads(inspected.stdout)[0]
+                mounts = {row["Destination"]: row["RW"] for row in container["Mounts"]}
+                tmpfs = container["HostConfig"].get("Tmpfs") or {}
+                if not (mounts.get("/profile") is True and mounts.get("/profile/memories") is False and
+                        mounts.get("/profile/skills") is False and "/profile/installs" in tmpfs):
+                    raise ValueError("worker_profile_mount_readback_failed")
+                writable = subprocess.run(["docker", "exec", "fs-hermes-fc", "sh", "-c",
+                    "test -w /profile && test -w /profile/installs && "
+                    "test ! -w /profile/memories && test ! -w /profile/skills"],
+                    capture_output=True, timeout=10, check=False)
+                if writable.returncode: raise ValueError("worker_profile_access_readback_failed")
             subprocess.run(["nginx", "-t"], check=True)
             subprocess.run(["systemctl", "reload", "nginx.service"], check=True)
         return result

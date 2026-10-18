@@ -11,6 +11,8 @@ import hashlib
 from pathlib import Path
 
 from preflight import HERE, prepare
+from build_http import build as build_http
+from release_bridge import UNIT_BEFORE_SHA, UNIT_RO_MOUNTS, UNIT_SOURCE_NOTE
 from release_scope import NEW_ALLOWED, TARGETS
 
 
@@ -51,6 +53,37 @@ class ReleaseContract(unittest.TestCase):
             base.validate(dict(manifest, businessWrites=True), stage)
         with self.assertRaisesRegex(ValueError, "new_stage_required"):
             prepare(self.baseline, "a" * 40, stage)
+
+    def test_slash_location_maps_directory_before_index_lookup(self):
+        live = HERE.parent.parent / ".agent_runtime/hermes-conversation-20261018/live"
+        # A single-file alias here made Nginx append "index.html" twice at /conversation/.
+        committed = (HERE.parent / "source/http/formal.conf").read_text("utf-8")
+        slash = committed.split("location = /dashboard/fs-home/hermes/conversation/ {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("alias /var/www/dashboard/fs-home/hermes/conversation/;", slash)
+        self.assertNotIn("alias /var/www/dashboard/fs-home/hermes/conversation/index.html;", slash)
+        direct = committed.split("location = /dashboard/fs-home/hermes/conversation/index.html {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("alias /var/www/dashboard/fs-home/hermes/conversation/index.html;", direct)
+        generator = (HERE / "build_http.py").read_text("utf-8")
+        self.assertIn("alias /var/www/dashboard/fs-home/hermes/conversation/;", generator)
+        if (live / "range_api.py").is_file() and (live / "formal.conf").is_file():
+            stage = self.root / "generated-http"
+            build_http(live, stage)
+            self.assertEqual((stage / "formal.conf").read_text("utf-8"), committed)
+
+    def test_worker_profile_knowledge_isolated_without_hiding_session_state(self):
+        unit = (HERE.parent / "source/worker-install-state-isolation.conf").read_bytes()
+        self.assertEqual(unit.count(UNIT_SOURCE_NOTE), 1)
+        self.assertEqual(unit.count(b"--mount type=bind,source=/var/lib/fs-hermes-fc/profile,target=/profile "), 1)
+        self.assertIn(b"--tmpfs /profile/installs:rw", unit)
+        parent = unit.index(b"source=/var/lib/fs-hermes-fc/profile,target=/profile ")
+        for nested in UNIT_RO_MOUNTS:
+            self.assertEqual(unit.count(nested), 1)
+            self.assertLess(parent, unit.index(nested))
+            unit = unit.replace(nested, b"")
+        self.assertEqual(hashlib.sha256(unit.replace(UNIT_SOURCE_NOTE, b"")).hexdigest(), UNIT_BEFORE_SHA)
+        baseline = json.loads((HERE / "baseline-paths.json").read_text("utf-8"))
+        self.assertEqual(len(baseline["paths"]), 328)
+        self.assertIn("/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf", baseline["paths"])
 
     def test_preflight_rejects_existing_target_drift(self):
         next(row for row in self.rows if row["path"] == "/opt/fs-exact-range-20261001/range_api.py")["sha256"] = "not-a-sha"
