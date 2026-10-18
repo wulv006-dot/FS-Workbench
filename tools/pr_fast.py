@@ -48,6 +48,9 @@ sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
 def node(path):
     subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=30)
 
+def browser_python(path):
+    subprocess.run([sys.executable,"-I","-B",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=45)
+
 def css_structure(text):
     # Structural sanity only, not CSS standards validation or visual acceptance.
     stack=[];quote=None;comment=False;escape=False;i=0
@@ -298,6 +301,9 @@ def selfcheck():
     for area in ("source/controller.py","tests/test_workspace_evidence.py","frontend/data-workspace.js","skills/METHOD.md"):
         if select(["releases/fs-dashboard/hermes-data-workspace-20261018/"+area]) != ["hermes-data-workspace"]:
             raise RuntimeError("hermes_data_workspace_mapping_missing:"+area)
+    for area in ("source/controller.py","tests/test_http_queries.py","deploy/prepare_release.py"):
+        if select(["releases/fs-dashboard/hermes-generic-data-20261018/"+area]) != ["hermes-generic-data"]:
+            raise RuntimeError("hermes_generic_data_mapping_missing:"+area)
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -312,6 +318,8 @@ def select(paths):
             groups.add("hermes-data-workspace");continue
         if name.startswith("releases/fs-dashboard/hermes-conversation-20261018/"):
             groups.add("hermes-conversation");continue
+        if name.startswith("releases/fs-dashboard/hermes-generic-data-20261018/"):
+            groups.add("hermes-generic-data");continue
         if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
             groups.add("admin-data-tools");continue
         if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
@@ -818,6 +826,17 @@ def main():
             release="releases/fs-dashboard/hermes-conversation-20261018"
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
             units(release+"/deploy",["test_http","test_release"])
+        elif group=="hermes-generic-data":
+            generic="releases/fs-dashboard/hermes-generic-data-20261018"
+            workspace="releases/fs-dashboard/hermes-data-workspace-20261018"
+            admin="releases/fs-dashboard/admin-data-tools-20261018"
+            units(generic+"/tests",["test_http_queries","test_cohort_paid_source","test_admin_product_orders"])
+            units(generic+"/deploy",["test_session_image_lifecycle"])
+            units(admin,["test_admin_data_tools","test_publisher_boundary"])
+            units(workspace+"/tests",["test_tool_chain","test_cohort_reader","test_cohort_observation","test_cohort_es_source"])
+            node(workspace+"/frontend/test-workspace.cjs")
+            browser_python(workspace+"/frontend/tools-page/test_page.py")
+            node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-report-method":
             units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
             node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")

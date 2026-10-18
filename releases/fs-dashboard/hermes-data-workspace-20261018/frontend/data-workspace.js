@@ -1,4 +1,8 @@
 /* Candidate only. Host supplies the existing FS styles, authorized endpoint and Hermes handoff. */
+// Keep this option set aligned with admin_data_tools_20261018/source/es_order_structure.py GAME_LABELS.
+export const GAME_PROFILES = [['FC27','FC 27'],['D4','Diablo 4'],['AION2','Aion 2'],['POE2','POE2'],['NBA2K27','NBA 2K27'],['NFL27','Madden NFL 27'],['MLB26','MLB 26'],['CFB27','College Football 27'],['RS','RS'],['ARC_RAIDERS','ARC Raiders'],['MAPLESTORY_CLASSIC','MapleStory Classic World'],['DARK_AND_DARKER','Dark and Darker'],['WOW_FOREVER','WoW Forever'],['ARENA_BREAKOUT_INFINITE','Arena Breakout: Infinite'],['COD_BO7','CoD: Black Ops 7']];
+// These games are the intersection of ES GAME_LABELS and the two generic Admin GAME_IDS contracts.
+const QUERY_PROFILES = GAME_PROFILES.map(([code]) => code);
 export function mountDataWorkspace(root, options = {}) {
   const doc = root.ownerDocument;
   const win = doc.defaultView;
@@ -14,7 +18,7 @@ export function mountDataWorkspace(root, options = {}) {
     const input = el(choices ? 'select' : 'input', null, choices ? 'hsel' : 'dinput');
     input.name = name;
     if (choices) for (const [value, text] of choices) { const option = el('option', text); option.value = value; input.append(option); }
-    else { input.type = name === 'model_id' ? 'number' : 'date'; input.required = true; if (name === 'model_id') { input.min = '1'; input.max = '999999999'; input.step = '1'; } }
+    else { input.type = name === 'product_id' ? 'text' : 'date'; input.required = true; if (name === 'product_id') { input.inputMode = 'numeric'; input.pattern = '[1-9][0-9]{0,8}'; input.maxLength = 9; input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('autocapitalize','off'); } }
     input.value = initial || (choices ? choices[0][0] : '');
     label.append(input); form.append(label);
     return input;
@@ -82,21 +86,28 @@ export function mountDataWorkspace(root, options = {}) {
   for (const [kind, title, render] of [['product_orders', '单品跟踪', renderProduct], ['discount', '优惠摘要', renderDiscount], ['cohort', '新客复购追踪', renderCohort]]) {
     const article = el('article', null, 'fc-card'); article.append(el('h3', title)); section.append(article);
     const form = el('form', null, 'fc-actions'); article.append(form);
-    const profile = field(form, '游戏', 'profile', kind !== 'discount' ? [['FC27', 'FC27']] : [['ALL', '全局'], ['FC27', 'FC27'],['D4','Diablo IV'],['AION2','Aion2']], 'FC27');
+    const profile = field(form, '游戏', 'profile', kind === 'discount' ? [['ALL','全局'],...GAME_PROFILES] : GAME_PROFILES, 'FC27');
+    if (kind !== 'discount') for (const option of profile.options) option.disabled = !((options.supportedProfiles?.[kind] || QUERY_PROFILES).includes(option.value));
     const start = field(form, '开始日期', 'start', null, options.start || '');
     const end = field(form, '结束日期', 'end', null, options.end || '');
     if (kind === 'product_orders') {
-      field(form, '模型 ID', 'model_id', null);
-      field(form, '平台', 'platform', [['ALL','全部平台'],['PS','PlayStation'],['XBOX','Xbox'],['PC','PC']]);
-      article.append(el('p', '固定 MMOEXP 主站 site266，最长 31 个日历日；不会根据模型 ID 推算商品 ID。', 'hint'));
+      field(form, '商品 ID（Admin PID）', 'product_id', null);
+      article.append(el('p', '按所选游戏和 Admin 商品 ID 查询；商品 ID 唯一定位商品，无需选平台。最长 31 个日历日。D4/Aion2 纳入本次真实验收；其他游戏按通用接口查询，服务端逐次核验游戏与商品 ID 归属。', 'hint'));
     }
     if (kind === 'discount') field(form, '细分', 'group_by', [['discount_new_customer','新老客'],['discount_type','优惠类型'],['discount_day','日期']]);
     if (kind === 'cohort') {
-      field(form, '平台', 'platform', [['all','全部平台'],['PS','PlayStation'],['XBOX','Xbox'],['PC','PC']]);
-      field(form, '站点组', 'site_group', [['main','MMOEXP 主站'],['satellite','卫星站'],['all','全部已授权站点']]);
+      const cohortPlatform = field(form, '平台', 'platform', [['all','全部平台'],['PS','PlayStation'],['XBOX','Xbox'],['PC','PC']]);
+      const siteGroup = field(form, '站点组', 'site_group', [['main','MMOEXP 主站'],['satellite','卫星站'],['all','全部已授权站点']]);
+      const syncScope = () => {
+        const fc = profile.value === 'FC27';
+        if (!fc) { cohortPlatform.value = 'all'; siteGroup.value = 'main'; }
+        for (const option of cohortPlatform.options) option.disabled = !fc && option.value !== 'all';
+        for (const option of siteGroup.options) option.disabled = !fc && option.value !== 'main';
+      };
+      profile.addEventListener('change', syncScope); syncScope();
       field(form, '持续观察', 'window_days', [['30','30 日'],['14','14 日'],['7','7 日']]);
       const yesterday=new Date(Date.now()+8*3600000-86400000).toISOString().slice(0,10);start.max=yesterday;end.max=yesterday;
-      article.append(el('p','日期用于固定可稳定关联客户的 ES 新客标记付费组，不代表所有新客。缺身份订单排除并显示覆盖；创建后持续观察 7/14/30 日窗口，成熟进度以真实覆盖为准。仅 FC27 已接入，其他游戏尚不可用。','hint'));
+      article.append(el('p','日期用于按游戏固定 ES Excel 新客标记付费组；缺稳定客户身份者排除并显示覆盖，不代表所有新客。创建后持续观察 7/14/30 日窗口。D4/Aion2 纳入本次真实验收；其余游戏结果须逐次核对覆盖和状态。','hint'));
     }
     const submit = el('button', '查询', 'applybtn'); submit.type = 'submit'; form.append(submit);
     const status = el('p', '尚未查询', 'hint'); status.setAttribute('role','status'); status.setAttribute('aria-live','polite'); article.append(status);
@@ -117,12 +128,11 @@ export function mountDataWorkspace(root, options = {}) {
       if (kind === 'product_orders' && (Date.parse(end.value) - Date.parse(start.value)) / 86400000 > 30) { status.textContent = '单品区间最多 31 个日历日'; return; }
       invalidate(); const token = epoch; abort = new win.AbortController();
       const params = new URLSearchParams({mode:'hermes',structure:kind === 'discount' ? 'es' : kind,profile:profile.value,start:start.value,end:end.value});
-      for (const input of form.elements) if (['model_id','platform','group_by','site_group','window_days'].includes(input.name)) params.set(input.name,input.value);
+      for (const input of form.elements) if (['product_id','platform','group_by','site_group','window_days'].includes(input.name)) params.set(input.name,input.value);
       selection = Object.fromEntries(params); submit.disabled = true; article.setAttribute('aria-busy','true'); status.textContent = '读取中…';
       if(kind==='cohort'){
         const archived=archives.get(groupKey(selection));
         if(archived){for(const key of [...params.keys()])params.delete(key);params.set('mode','hermes');params.set('structure','cohort');params.set('id',archived);}
-        else params.delete('profile');
       }
       try {
         const response = await request(endpoint + '?' + params, {signal:abort.signal,credentials:'same-origin',headers:{Accept:'application/json'}});
@@ -169,7 +179,7 @@ export function mountDataWorkspace(root, options = {}) {
 export function hermesHandoffURL({kind,selection,data}) {
   if (!['product_orders','discount','cohort'].includes(kind) || !/^[A-Za-z0-9_-]{1,128}$/.test(data?.evidence_id || '')) throw Error('query_evidence_required');
   const params = new URLSearchParams({report_kind:'investigation',data_kind:kind,data_evidence:data.evidence_id});
-  for (const key of ['start','end','profile','model_id','platform','group_by','site_group','window_days']) if (selection[key]) params.set(key,selection[key]);
+  for (const key of ['start','end','profile','product_id','model_id','platform','group_by','site_group','window_days']) if (selection[key]) params.set(key,selection[key]);
   return '/dashboard/fs-home/brain/index.html?' + params;
 }
 

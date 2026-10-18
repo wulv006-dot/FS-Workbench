@@ -27,7 +27,7 @@ def check_shell():
 
 
 def check_page(role):
-    state = {"reads": 0, "denied": False}
+    state = {"reads": 0, "denied": False, "urls": []}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 390, "height": 844})
@@ -62,6 +62,7 @@ def check_page(role):
                 return request.fulfill(body="", content_type="text/css")
             if path == "/dashboard/fs-home/advisor.json":
                 state["reads"] += 1
+                state["urls"].append(request.request.url)
                 if state["denied"]:
                     return request.fulfill(status=403, body='{"error":"forbidden"}', content_type="application/json")
                 return request.fulfill(body=json.dumps({"status": "available", "evidence_id": "query_test_123",
@@ -77,10 +78,13 @@ def check_page(role):
         assert page.get_by_role("heading", name="优惠摘要").is_visible()
         assert page.get_by_role("heading", name="新客复购追踪").is_visible()
         product = page.locator("article").first
-        product.locator("[name=model_id]").fill("123")
+        assert product.locator("[name=profile] option").evaluate_all("options => options.length === 15 && options.every(option => !option.disabled)")
+        product.locator("[name=product_id]").fill("123")
         product.get_by_role("button", name="查询", exact=True).click()
         product.get_by_text("去重关联订单 0 单", exact=False).wait_for()
         assert state["reads"] == 1
+        assert "product_id=123" in state["urls"][0]
+        assert "model_id=" not in state["urls"][0] and "platform=" not in state["urls"][0]
         assert product.get_by_role("button", name="交给 Hermes 提炼一句结论").is_enabled() == (role == "admin")
         page.locator("#theme").select_option("dark")
         assert page.evaluate("document.documentElement.dataset.fsTheme") == "dark"
