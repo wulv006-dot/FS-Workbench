@@ -27,7 +27,7 @@ def check_shell():
 
 
 def check_page(role):
-    state = {"reads": 0, "denied": False, "urls": []}
+    state = {"reads": 0, "denied": False, "urls": [], "creates": 0, "turns": 0, "turn_text": "", "headers": {}, "fail_turn_once": False}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 390, "height": 844})
@@ -65,9 +65,24 @@ def check_page(role):
                 state["urls"].append(request.request.url)
                 if state["denied"]:
                     return request.fulfill(status=403, body='{"error":"forbidden"}', content_type="application/json")
-                return request.fulfill(body=json.dumps({"status": "available", "evidence_id": "query_test_123",
+                direct = "product_id=" in request.request.url
+                return request.fulfill(body=json.dumps({"status": "available", "evidence_id": "ws_" + ("c" if direct else "a") * 24,
+                                                       "query": {"profile": "FC27", "product_id" if direct else "model_id": 123, "start": "2026-10-17", "end": "2026-10-17"},
                                                        "totals": {"distinct_orders": 0, "order_amount_usd": "0"}, "products": []}),
                                        content_type="application/json")
+            if path == "/api/hermes/conversations" and request.request.method == "POST":
+                state["creates"] += 1
+                state["headers"] = request.request.headers
+                return request.fulfill(status=201, body='{"conversation_id":"conv_test_123"}', content_type="application/json")
+            if path == "/api/hermes/conversations/conv_test_123/turns" and request.request.method == "POST":
+                state["turns"] += 1
+                state["turn_text"] = request.request.post_data_json["text"]
+                if state["fail_turn_once"]:
+                    state["fail_turn_once"] = False
+                    return request.fulfill(status=503, body='{"error":"unknown"}', content_type="application/json")
+                return request.fulfill(status=202, body='{"turn_id":"turn_test_123","state":"preparing"}', content_type="application/json")
+            if path == "/api/hermes/conversations/conv_test_123" and request.request.method == "GET":
+                return request.fulfill(body=json.dumps({"turns": [{"turn_id": "turn_test_123", "text": state["turn_text"], "state": "completed", "reply": "关联订单为零，先核商品和日期范围；不据此判断需求为零。"}]}), content_type="application/json")
             return request.fulfill(status=404, body="missing")
 
         page.route("http://localhost/**", route)
@@ -79,13 +94,34 @@ def check_page(role):
         assert page.get_by_role("heading", name="新客复购追踪").is_visible()
         product = page.locator("article").first
         assert product.locator("[name=profile] option").evaluate_all("options => options.length === 15 && options.every(option => !option.disabled)")
-        product.locator("[name=product_id]").fill("123")
+        product.locator("[name=model_id]").fill("123")
         product.get_by_role("button", name="查询", exact=True).click()
         product.get_by_text("去重关联订单 0 单", exact=False).wait_for()
         assert state["reads"] == 1
-        assert "product_id=123" in state["urls"][0]
-        assert "model_id=" not in state["urls"][0] and "platform=" not in state["urls"][0]
-        assert product.get_by_role("button", name="交给 Hermes 提炼一句结论").is_enabled() == (role == "admin")
+        assert "model_id=123" in state["urls"][0]
+        assert "product_id=" not in state["urls"][0] and "platform=" not in state["urls"][0]
+        insight = product.locator("button.ghostbtn").first
+        assert insight.is_enabled() == (role == "admin")
+        if role == "admin":
+            insight.click()
+            product.get_by_text("关联订单为零，先核商品和日期范围；不据此判断需求为零。", exact=True).wait_for()
+            assert state["creates"] == state["turns"] == 1
+            assert state["headers"]["x-fs-advisor-action"] == "submit"
+            assert "fc.query_product_orders" in state["turn_text"] and "ws_" + "a" * 24 in state["turn_text"]
+            assert "1–2 句、约 80–120 汉字" in state["turn_text"] and "不要逐项复述字段" in state["turn_text"]
+            insight.click()
+            assert state["creates"] == state["turns"] == 1, "same evidence reuses the completed turn"
+            product.locator("[name=product_mode]").select_option("product_id")
+            product.locator("[name=product_id]").fill("123")
+            product.get_by_role("button", name="查询", exact=True).click()
+            product.get_by_text("去重关联订单 0 单", exact=False).wait_for()
+            state["fail_turn_once"] = True
+            insight.click()
+            product.get_by_text("关联订单为零，先核商品和日期范围；不据此判断需求为零。", exact=True).wait_for()
+            assert state["creates"] == state["turns"] == 2, "ambiguous 503 reconciles by the exact turn text without repost"
+            assert "fc.query_product_orders" in state["turn_text"] and "ws_" + "c" * 24 in state["turn_text"]
+        else:
+            assert insight.is_hidden()
         page.locator("#theme").select_option("dark")
         assert page.evaluate("document.documentElement.dataset.fsTheme") == "dark"
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

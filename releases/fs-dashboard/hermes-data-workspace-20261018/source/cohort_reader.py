@@ -32,10 +32,10 @@ def checked_query(args):
 
 
 def tool_schema():
-    result={'type':'function','function':{'name':'mcp__fcro__fc_query_cohort_observation','description':'Read ES-new-flagged paid customer groups by selected exact game, linked to Admin orders by order hash and private site-local UID. Generic games currently main site only, platform all; FC27 retains existing filters. No-uid orders excluded with coverage. Not verified historical first purchases, causal or net settled retention. Default read never starts monitoring; aggregate only.',
+    result={'type':'function','function':{'name':'mcp__fcro__fc_query_cohort_observation','description':'Read ES-new-flagged paid customer groups by selected exact game, linked to Admin orders by order hash and private site-local UID. Generic games currently main site only, platform all; FC27 retains existing filters. No-uid orders excluded with coverage. Not verified historical first purchases, causal or net settled retention. Default read may start one bounded read on a cache miss but never starts ongoing monitoring; aggregate only.',
         'parameters':{'type':'object','properties':{'profile':{'type':'string','enum':list(GAME_IDS)},'start':{'type':'string'},'end':{'type':'string'},'platform':{'type':'string','enum':['all','PS','PC','XBOX']},'site_group':{'type':'string','enum':['main','satellite','all']},'evidence_id':{'type':'string','description':'Optional exact immutable aggregate returned by FS workspace; reuse that archive instead of a new capture'},'action':{'type':'string','enum':['read','create','refresh','pause','resume','cancel'],'description':'Default read never starts monitoring. Only explicit user requested create starts daily monitoring; refresh reads once; pause/cancel stop next automatic reads.'}},'required':['profile','start','end'],'additionalProperties':False}}}
     result['function']['parameters']['properties']['window_days']={'type':'integer','enum':[7,14,30],'description':'Requested maximum observation days; default 30; monitor stops at this mature cutoff'}
-    result['function']['parameters']['properties']['action']={'type':'string','enum':['read'],'description':'Model tools are read-only. Create/refresh/pause/resume/cancel are explicit authenticated workspace admin actions.'}
+    result['function']['parameters']['properties']['action']={'type':'string','enum':['read'],'description':'Model tools are read-only. A cache miss may start one aggregate read, never a daily monitor. Create/refresh/pause/resume/cancel are explicit authenticated workspace admin actions.'}
     return result
 
 
@@ -43,7 +43,7 @@ class CohortReader:
     def __init__(self,detail):
         self.detail=detail
         self.root=Path(detail.cache)/'cohort-observations'
-        self.lock=threading.RLock();self.jobs={}
+        self.lock=threading.RLock();self.jobs={};self.finished={}
 
     def monitor(self,key):
         path=self.root/(key+'.monitor.json')
@@ -85,20 +85,29 @@ class CohortReader:
             raise ValueError('cohort_paid_source_incomplete')
         rows=[r for r in data['orders'] if r['site_group'] in ('main','satellite') and (q['site_group']=='all' or r['site_group']==q['site_group']) and (q['platform']=='all' or r['platform']==q['platform'])]
         rows,linked=join_paid(rows,es,q)
-        if not linked['link_complete'] or linked['es_new_marked_paid_orders'] and not linked['stable_es_new_marked_paid_orders']:
+        # Incomplete ES files or contradictory identities/timestamps cannot
+        # establish anchors. Isolated unmatched orders and missing customer
+        # keys instead narrow the observed subset and must stay visible.
+        if (es.get('status')!='available' or linked['conflicting_order_identities'] or
+            linked['payment_day_mismatches'] or linked['es_new_marked_paid_orders'] and
+            not linked['stable_es_new_marked_paid_orders']):
             return {'kind':'cohort_observation','contract':CONTRACT,'status':'partial','reason':'es_paid_link_incomplete_not_frozen','members':None,'windows':[],'coverage':linked,'persisted':False}
         result=update(self.root/'observations.db',key,q['start'],q['end'],rows,complete_through=cutoff.isoformat(),source_complete=True,source_version=data['snapshot_id'])
         result['coverage'].update(linked)
-        result['definition']='可稳定关联客户的ES新客标记付费观察组；非全站新客cohort或已验证首购'
-        result['coverage'].update(source_paid_complete=True,source_status=data.get('data_status'),unknown_scope_orders=coverage.get('unknown_scope_orders',0),excluded_distribution_orders=coverage.get('excluded_distribution_orders',0),current_backlog_status=coverage.get('backlog_status','unknown'))
-        if coverage.get('unknown_scope_orders'):result['status']='partial'
+        result['definition']='ES新客标记付费订单中可稳定关联客户的观察子群；非全部新客、全站新客cohort或已验证首购'
+        result['coverage']['member_basis']='获取窗内ES新客标记与Admin付费订单成功匹配，且有稳定站点内客户键；未匹配订单和缺身份订单不作为未复购计入'
+        result['coverage'].update(source_paid_complete=True,
+            source_complete_basis='Admin付费订单获取窗至完整日的读取覆盖；不表示全部订单匹配ES或具有稳定客户身份',
+            source_status=data.get('data_status'),unknown_scope_orders=coverage.get('unknown_scope_orders',0),excluded_distribution_orders=coverage.get('excluded_distribution_orders',0),current_backlog_status=coverage.get('backlog_status','unknown'))
+        if not linked['link_complete'] or linked['excluded_identity_orders'] or coverage.get('unknown_scope_orders'):
+            result['status']='partial'
         result.update(query=q,scope={'profile':q['profile'],'site_group':q['site_group'],'platform':q['platform'],'customer_identity':'site-local; never merged across sites'},captured_at=data['as_of'])
         result['windows']=[w for w in result['windows'] if w['days']<=q['window_days']]
         result['evidence_id']='cohort_'+hashlib.sha256(json.dumps(result,sort_keys=True).encode()).hexdigest()[:24]
         result['archive_id']=key
         evidence=self.root/'evidence'/(result['evidence_id']+'.json')
         if not evidence.exists():atomic(evidence,result)
-        # Publish only complete aggregate metadata; private SQLite never reaches model/UI.
+        # Publish only the evidenced aggregate for this fixed subset; private SQLite never reaches model/UI.
         atomic(self.root/(key+'.aggregate.json'),result)
         return result
 
@@ -131,50 +140,52 @@ class CohortReader:
             if action:
                 if action not in ('create','refresh','pause','resume','cancel'):raise ValueError('cohort_action')
                 if action in ('pause','resume','cancel') and monitor is None:raise ValueError('cohort_not_started')
-                if monitor is None:
+                if monitor is None and action in ('create','resume'):
                     if len(list(self.root.glob('*.monitor.json')))>=32:return {'status':'unavailable','reason':'cohort_registry_capacity'}
-                    monitor={'state':'active' if action=='create' else 'manual','frequency_seconds':86400,'window_days':q['window_days'],'next_due':datetime.now(timezone.utc).isoformat() if action=='create' else None,'query':q}
+                    monitor={'state':'active','frequency_seconds':86400,'window_days':q['window_days'],'next_due':datetime.now(timezone.utc).isoformat(),'query':q}
                 if action in ('pause','cancel'):monitor.update(state='paused' if action=='pause' else 'cancelled',next_due=None)
                 if action=='resume':monitor.update(state='active',next_due=datetime.now(timezone.utc).isoformat())
-                atomic(self.root/(key+'.monitor.json'),monitor)
+                if monitor is not None:atomic(self.root/(key+'.monitor.json'),monitor)
                 if action in ('pause','cancel'):return {'status':'available','monitor':monitor,'previous':previous,'inflight_note':'already running read may finish; no next automatic read'}
             if previous:
                 previous['monitor']=monitor
                 if monitor and monitor.get('last_status') in ('failed','partial'):
                     previous.update(status='partial',retained_previous=True,last_attempt_status=monitor['last_status'])
-        if not create:
-            with self.lock:
-                job=self.jobs.get(key)
-                if job and not job[0].done():return {'status':'pending','retryAfter':3,'previous':previous}
-                if job:
-                    try:
-                        result=job[0].result()
-                        if result.get('status')=='pending' and time.monotonic()-job[1]>=result.get('retryAfter',3):return self.get(args,refresh=True,create=True)
-                        return dict(result,monitor=self.monitor(key),previous=previous) if result.get('status')!='available' else dict(result,monitor=self.monitor(key))
-                    except Exception:return {'status':'unavailable','reason':'cohort_source_failed','previous':previous}
-            return previous or {'status':'unavailable','reason':'observation_not_started'}
+        # A plain read is a one-shot capture on a cache miss, never a monitor registration.
+        # Inspect the job before a prior aggregate: an explicit refresh may be in flight.
         with self.lock:
             job=self.jobs.get(key);now=time.monotonic()
             if job and job[0].done():
+                age=now-self.finished.get(key,job[1])
                 try:
                     result=job[0].result()
                     if result.get('status')=='pending':
-                        if now-job[1]<result.get('retryAfter',3):return dict(result,monitor=self.monitor(key),previous=previous)
-                    elif now-job[1]<30 or not refresh and now-job[1]<900:return dict(result,monitor=self.monitor(key))
+                        if age<result.get('retryAfter',3):return dict(result,monitor=self.monitor(key),previous=previous,archive_id=key)
+                    elif result.get('status')=='available':
+                        if age<30 or not refresh and age<900:return dict(result,monitor=self.monitor(key),archive_id=key)
+                    elif age<60:
+                        return dict(result,monitor=self.monitor(key),previous=previous,archive_id=key,retryAfter=max(1,round(60-age)))
                 except Exception:
-                    if now-job[1]<60:return {'status':'unavailable','reason':'cohort_source_failed','previous':previous}
-            elif job:return {'status':'pending','retryAfter':3,'previous':previous}
+                    if age<60:return {'status':'unavailable','reason':'cohort_source_failed','retryAfter':max(1,round(60-age)),'archive_id':key,'previous':previous}
+            elif job:return {'status':'pending','retryAfter':3,'previous':previous,'archive_id':key,'monitor':monitor}
+            if not create and previous:return previous
             if not refresh and previous and datetime.now(timezone.utc)-datetime.fromisoformat(previous['captured_at'])<timedelta(minutes=15):return previous
-            if sum(not f.done() for f,_ in self.jobs.values())>=2:return {'status':'pending','retryAfter':10,'reason':'cohort_queue_capacity','previous':previous}
+            # Publish the query identity before returning an id while the pool is full.
             atomic(self.root/(key+'.query.json'),q)
-            self.jobs[key]=(self.detail.pool.submit(self.run,q,key),now)
+            if sum(not f.done() for f,_ in self.jobs.values())>=2:return {'status':'pending','retryAfter':10,'reason':'cohort_queue_capacity','previous':previous,'archive_id':key}
+            future=self.detail.pool.submit(self.run,q,key)
+            self.jobs[key]=(future,now)
+            future.add_done_callback(lambda _done,k=key:self.finished.__setitem__(k,time.monotonic()))
         return {'status':'pending','retryAfter':3,'previous':previous,'monitor':monitor,'archive_id':key}
 
     def get_id(self,key):
         if not isinstance(key,str) or not re.fullmatch(r'[a-f0-9]{64}',key):raise ValueError('cohort_archive_id')
         path=self.root/(key+'.query.json')
         if not path.exists():return {'status':'unavailable','reason':'observation_not_started'}
-        return self.get(json.loads(path.read_text('utf-8')),create=False)
+        q=json.loads(path.read_text('utf-8'))
+        if checked_query(q)!=q or hashlib.sha256(json.dumps({'query':q,'config':self.detail.config,'contract':CONTRACT},sort_keys=True).encode()).hexdigest()!=key:
+            raise ValueError('cohort_archive_scope')
+        return self.get(q,create=False)
 
     def tick(self):
         """One due group per existing service tick; work runs on the existing pool."""

@@ -62,6 +62,112 @@ class DiscountTest(unittest.TestCase):
 
 class ProductTest(unittest.TestCase):
     args={'profile':'FC27','model_id':123,'start':'2026-10-17','end':'2026-10-17','platform':'XBOX'}
+    def test_generic_model_maps_actual_pids_and_deduplicates_whole_order(self):
+        query={'profile':'D4','model_id':44656527,'start':'2026-10-17','end':'2026-10-17'}
+        seen=[]
+        def request(path,timeout):
+            params=parse_qs(urlsplit(path).query)
+            if path.startswith('/admin/goods.Goods/index'):
+                self.assertEqual(params['search[0][val]'],['266'])
+                self.assertEqual(params['search[1][val]'],['456'])
+                self.assertEqual(params['search[2][val]'],['44656527'])
+                rows=[{'id':1002,'site_id':266,'gid':456,'mid':44656527,'aid':22,
+                    'title':'Synthetic Gold B','gameArea':{'title':'Realm B'}},
+                    {'id':1001,'site_id':266,'gid':456,'mid':44656527,'aid':21,
+                    'title':'Synthetic Gold A','gameArea':{'title':'Realm A'}}]
+                data={'total':2,'list':rows}
+            else:
+                pid=int(params['search[2][val]'][0]);seen.append(pid)
+                title='Synthetic Gold B' if pid==1002 else 'Synthetic Gold A'
+                area='Realm B' if pid==1002 else 'Realm A'
+                content=f'<em class="game">Diablo IV</em><em class="area">[{area}]</em><span class="item">{title} x 1 = $5.00</span>'
+                row={'id':pid,'site_id':266,'gid':456,'pid':pid,'order_no':'SYNTHETIC-SHARED',
+                    'paytime':'2026-10-17 12:00:00','amount':'10','currency_code':'USD',
+                    'status_format':'Complete','pay_status_format':'Paid','content':content}
+                data={'total':1,'list':[row]}
+            return 200,json.dumps({'code':1,'data':data}).encode()
+        result=product.collect(request,query)
+        self.assertEqual(result['status'],'available')
+        self.assertEqual(seen,[1002,1001])
+        self.assertEqual(result['quality']['mapping']['source_total'],2)
+        self.assertEqual(result['quality']['read_products'],2)
+        self.assertEqual(result['totals']['distinct_orders'],1)
+        self.assertEqual(result['totals']['order_amount_usd'],'10')
+        self.assertEqual([(p['product_id'],p['area_title']) for p in result['products']],[(1002,'Realm B'),(1001,'Realm A')])
+        self.assertNotIn('SYNTHETIC-SHARED',json.dumps(result))
+
+    def test_generic_model_genuine_empty_mapping_is_zero_but_incomplete_is_not(self):
+        query={'profile':'AION2','model_id':123,'start':'2026-10-17','end':'2026-10-17'}
+        def empty(path,timeout):return 200,json.dumps({'code':1,'data':{'total':0,'list':[]}}).encode()
+        zero=product.collect(empty,query)
+        self.assertEqual(zero['status'],'available')
+        self.assertEqual(zero['quality']['mapping']['source_total'],0)
+        self.assertEqual(zero['totals']['distinct_orders'],0)
+        def incomplete(path,timeout):
+            rows=[{'id':300-i,'site_id':266,'gid':891,'mid':123,'title':'Synthetic','gameArea':{'title':'A'}} for i in range(100)] if parse_qs(urlsplit(path).query)['page']==['1'] else []
+            return 200,json.dumps({'code':1,'data':{'total':101,'list':rows}}).encode()
+        partial=product.collect(incomplete,query)
+        self.assertEqual(partial['status'],'unavailable')
+        self.assertIsNone(partial['totals'])
+        self.assertFalse(partial['quality']['mapping_complete'])
+
+    def test_generic_model_cross_pid_amount_conflict_is_not_summed(self):
+        q={'profile':'D4','model_id':123,'start':'2026-10-17','end':'2026-10-17'}
+        def request(path,timeout):
+            params=parse_qs(urlsplit(path).query)
+            if path.startswith('/admin/goods.Goods/index'):
+                rows=[{'id':202,'site_id':266,'gid':456,'mid':123,'title':'Synthetic B','gameArea':{'title':'B'}},
+                      {'id':201,'site_id':266,'gid':456,'mid':123,'title':'Synthetic A','gameArea':{'title':'A'}}]
+                return 200,json.dumps({'code':1,'data':{'total':2,'list':rows}}).encode()
+            pid=int(params['search[2][val]'][0])
+            row={'id':pid,'site_id':266,'gid':456,'pid':pid,'order_no':'SYNTHETIC-ONE',
+                'paytime':'2026-10-17 12:00:00','amount':'10' if pid==202 else '11',
+                'currency_code':'USD','status_format':'Complete','pay_status_format':'Paid',
+                'content':''}
+            return 200,json.dumps({'code':1,'data':{'total':1,'list':[row]}}).encode()
+        result=product.collect(request,q)
+        self.assertEqual(result['status'],'partial')
+        self.assertEqual(result['quality']['conflicting_orders'],1)
+        self.assertIsNone(result['totals']['order_amount_usd'])
+
+    def test_generic_model_over_pid_budget_never_publishes_top_subset(self):
+        q={'profile':'D4','model_id':123,'start':'2026-10-17','end':'2026-10-17'}
+        def request(path,timeout):
+            self.assertTrue(path.startswith('/admin/goods.Goods/index'))
+            page=int(parse_qs(urlsplit(path).query)['page'][0])
+            ids=list(range(700,187,-1))[(page-1)*100:page*100]
+            rows=[{'id':pid,'site_id':266,'gid':456,'mid':123,'title':'Synthetic',
+                'gameArea':{'title':'A'}} for pid in ids]
+            return 200,json.dumps({'code':1,'data':{'total':513,'list':rows}}).encode()
+        result=product.collect(request,q)
+        self.assertEqual(result['status'],'unavailable')
+        self.assertEqual(result['reason'],'product_pid_budget_exceeded')
+        self.assertEqual(result['products'],[])
+        self.assertEqual(result['quality']['mapped_products'],513)
+        self.assertIsNone(result['totals'])
+
+    def test_generic_model_189_pids_all_read_with_background_budget(self):
+        q={'profile':'AION2','model_id':17815737,'start':'2026-10-17','end':'2026-10-17'}
+        order_reads=[]
+        def request(path,timeout):
+            params=parse_qs(urlsplit(path).query)
+            if path.startswith('/admin/goods.Goods/index'):
+                page=int(params['page'][0])
+                ids=list(range(500,311,-1))[(page-1)*100:page*100]
+                rows=[{'id':pid,'site_id':266,'gid':891,'mid':17815737,
+                    'title':'Synthetic Kina','gameArea':{'title':'Realm '+str(pid)}} for pid in ids]
+                data={'total':189,'list':rows}
+            else:
+                order_reads.append(int(params['search[2][val]'][0]))
+                data={'total':0,'list':[]}
+            return 200,json.dumps({'code':1,'data':data}).encode()
+        result=product.collect(request,q,model_seconds=540)
+        self.assertEqual(result['status'],'available')
+        self.assertEqual(result['quality']['mapped_products'],189)
+        self.assertEqual(result['quality']['read_products'],189)
+        self.assertEqual(len(order_reads),189)
+        self.assertEqual(result['totals']['distinct_orders'],0)
+
     def request(self,path,timeout):
         self.paths.append(path)
         params=parse_qs(urlsplit(path).query)
