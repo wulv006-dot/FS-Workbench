@@ -159,6 +159,8 @@ def selfcheck():
         raise AssertionError('report track release must run affected checks')
     if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
         raise RuntimeError('hermes_research_integration_mapping_missing')
+    if select(['releases/fs-dashboard/hermes-conversation-20261018/source/conversation_store.py'])!=['hermes-conversation']:
+        raise RuntimeError('hermes_conversation_mapping_missing')
     class Good(unittest.TestCase):
         def runTest(self):self.assertTrue(True)
     class Bad(unittest.TestCase):
@@ -308,6 +310,8 @@ def select(paths):
             groups.add("fc-players-shared-login");continue
         if name.startswith("releases/fs-dashboard/hermes-data-workspace-20261018/"):
             groups.add("hermes-data-workspace");continue
+        if name.startswith("releases/fs-dashboard/hermes-conversation-20261018/"):
+            groups.add("hermes-conversation");continue
         if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
             groups.add("admin-data-tools");continue
         if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
@@ -810,6 +814,10 @@ def main():
             node(release+"/tests/test_brain_handoff.cjs")
             node(release+"/tests/test_cohort_prompt.cjs")
             node(release+"/frontend/test-workspace.cjs")
+        elif group=="hermes-conversation":
+            release="releases/fs-dashboard/hermes-conversation-20261018"
+            units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
+            units(release+"/deploy",["test_http","test_release"])
         elif group=="hermes-report-method":
             units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
             node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")
@@ -861,25 +869,4 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

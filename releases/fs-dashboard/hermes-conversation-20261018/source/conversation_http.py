@@ -1,0 +1,130 @@
+"""FS-authenticated HTTP adapter for the separate Hermes conversation service."""
+
+import json
+import re
+import time
+from urllib.parse import parse_qs, quote
+
+
+PREFIX = "/api/hermes/conversations"
+IDENT = r"[a-zA-Z0-9_-]{8,80}"
+
+
+def respond(handler, status, data, content_type="application/json; charset=utf-8", headers=()):
+    body = data if isinstance(data, bytes) else json.dumps(data, ensure_ascii=False).encode("utf-8")
+    handler.send_response(status)
+    for key, value in (("Content-Type", content_type), ("Content-Length", str(len(body))),
+                       ("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"),
+                       ("Connection", "close"), *headers):
+        handler.send_header(key, value)
+    handler.end_headers()
+    handler.close_connection = True
+    handler.wfile.write(body)
+
+
+def handle(handler, method, uri, user, service, authorized):
+    """Return True only for this exact path family; never trust client role headers."""
+    path = uri.path
+    if path != PREFIX and not path.startswith(PREFIX + "/"):
+        return False
+    if not user:
+        respond(handler, 401, {"error": "login_required"})
+        return True
+    if not authorized(user):
+        respond(handler, 403, {"error": "admin_required"})
+        return True
+    parts = path[len(PREFIX):].strip("/").split("/") if path != PREFIX else []
+    ids = ([parts[0]] if parts else []) + ([parts[2]] if len(parts) > 2 else [])
+    if any(not re.fullmatch(IDENT, part) for part in ids):
+        respond(handler, 404, {"error": "not_found"})
+        return True
+    if method == "POST" and (handler.headers.get("X-FS-Advisor-Action") != "submit" or
+                             handler.headers.get("Sec-Fetch-Site") != "same-origin"):
+        respond(handler, 403, {"error": "same_origin_required"})
+        return True
+    try:
+        params = parse_qs(uri.query, keep_blank_values=True, max_num_fields=2)
+        if method == "GET" and not parts and not params:
+            respond(handler, 200, service.listed(user))
+        elif method == "POST" and not parts and not params:
+            body = read_json(handler)
+            if body: raise ValueError("create_body")
+            respond(handler, 201, service.create(user))
+        elif method == "GET" and len(parts) == 1 and not params:
+            respond(handler, 200, service.detail(user, parts[0]))
+        elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
+            body = read_json(handler, {"text", "client_request_id"})
+            respond(handler, 202, service.submit(user, parts[0], body["text"], body["client_request_id"]))
+        elif method == "GET" and len(parts) == 2 and parts[1] == "events" and set(params) == {"after"} and len(params["after"]) == 1:
+            stream_events(handler, service, user, parts[0], params["after"][0])
+        elif method == "POST" and len(parts) == 4 and parts[1] == "runs" and parts[3] in {"steer", "stop"} and not params:
+            names = {"text", "client_request_id"} if parts[3] == "steer" else {"client_request_id"}
+            body = read_json(handler, names)
+            result = (service.steer(user, parts[0], parts[2], body["text"], body["client_request_id"])
+                      if parts[3] == "steer" else service.stop(user, parts[0], parts[2], body["client_request_id"]))
+            respond(handler, 202, result)
+        elif method == "GET" and len(parts) == 3 and parts[1] == "artifacts" and set(params) in (set(), {"view"}):
+            if params and params != {"view": ["1"]}: raise ValueError("view")
+            artifact = service.artifact(user, parts[0], parts[2])
+            data = artifact["content"]
+            if not isinstance(data, bytes): raise ValueError("artifact_bytes")
+            filename = artifact["filename"].replace("/", "_").replace("\\", "_").replace("\r", "_").replace("\n", "_")
+            preview = bool(params) and artifact["mime"] in {"text/html", "text/plain", "text/csv"}
+            disposition = "inline" if preview else "attachment"
+            extra = [("Content-Disposition", disposition + "; filename*=UTF-8''" + quote(filename))]
+            if preview:
+                script = " allow-scripts" if artifact["mime"] == "text/html" else ""
+                extra.append(("Content-Security-Policy", "sandbox" + script + "; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'"))
+            respond(handler, 200, data, artifact["mime"] + "; charset=utf-8", extra)
+        else:
+            respond(handler, 404, {"error": "not_found"})
+    except PermissionError:
+        respond(handler, 403, {"error": "forbidden"})
+    except LookupError:
+        respond(handler, 404, {"error": "not_found"})
+    except (ValueError, KeyError, TypeError):
+        respond(handler, 422, {"error": "invalid_request"})
+    except Exception:
+        respond(handler, 503, {"error": "conversation_unavailable"})
+    return True
+
+
+def read_json(handler, fields=None):
+    if handler.headers.get("Transfer-Encoding") or handler.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+        raise ValueError("json_required")
+    lengths = handler.headers.get_all("Content-Length", [])
+    if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,5}", lengths[0]) or not 1 <= int(lengths[0]) <= 16384:
+        raise ValueError("body_size")
+    handler.connection.settimeout(15)
+    raw = handler.rfile.read(int(lengths[0]))
+    if len(raw) != int(lengths[0]): raise ValueError("body_incomplete")
+    body = json.loads(raw)
+    if not isinstance(body, dict) or (fields is not None and set(body) != fields): raise ValueError("body_fields")
+    return body
+
+
+def stream_events(handler, service, user, conversation_id, after):
+    if not re.fullmatch(r"[0-9]{1,12}", after): raise ValueError("after")
+    # Authorize ownership before writing headers, including an empty event stream.
+    service.detail(user, conversation_id)
+    handler.send_response(200)
+    for key, value in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
+                       ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"),
+                       ("Connection", "close")):
+        handler.send_header(key, value)
+    handler.end_headers()
+    handler.close_connection = True
+    cursor = int(after)
+    end = time.monotonic() + 20
+    try:
+        while time.monotonic() < end:
+            rows = service.events(user, conversation_id, cursor)
+            for row in rows:
+                cursor = max(cursor, row["seq"])
+                handler.wfile.write(b"data: " + json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n\n")
+            handler.wfile.flush()
+            if rows: break
+            time.sleep(1)
+    except Exception:
+        # The stream already has 200 headers; the browser reconnects and rechecks the cursor.
+        return
