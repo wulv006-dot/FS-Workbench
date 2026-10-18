@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'admin-data-tools-20261018'/'candidate/hermes'))
+sys.path.append(str(Path(__file__).resolve().parents[2]/'admin-data-tools-20261018'/'candidate/hermes'))
 from cohort_es_source import project_dataset,join_paid,archive_for,read_archive
 
 

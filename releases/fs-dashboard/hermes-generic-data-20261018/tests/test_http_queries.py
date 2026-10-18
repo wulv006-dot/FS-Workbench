@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 PACKAGE=Path(__file__).resolve().parents[1]
 SIBLINGS=PACKAGE.parent
 sys.path.insert(0,str(SIBLINGS/'admin-data-tools-20261018/candidate/hermes'))
+sys.path.insert(0,str(PACKAGE/'source'))
 
 def method(file,cls,name,scope):
     tree=ast.parse(file.read_text('utf-8'))

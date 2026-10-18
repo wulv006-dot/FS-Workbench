@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
  const profileSource=fs.readFileSync(path.resolve(__dirname,'../../admin-data-tools-20261018/candidate/hermes/es_order_structure.py'),'utf8');
  const gameLabels=profileSource.match(/^GAME_LABELS=\{([^\n]+)\}/m)?.[1];
  assert.ok(gameLabels,'source GAME_LABELS required');
- const gameSources=['../../admin-data-tools-20261018/candidate/hermes/admin_product_orders.py','../../hermes-generic-data-20261018/source/cohort_paid_source.py'];
+ const gameSources=['../../hermes-generic-data-20261018/source/admin_product_orders.py','../../hermes-generic-data-20261018/source/cohort_paid_source.py'];
  const ui = path.resolve(__dirname,'../../../../ui-system');
  const css = fs.readFileSync(path.join(ui,'tokens/fs-tokens.css'),'utf8') + fs.readFileSync(path.join(ui,'modules/native/business.css'),'utf8');
  const businessSource=fs.readFileSync(path.join(ui,'modules/native/business.js'),'utf8');

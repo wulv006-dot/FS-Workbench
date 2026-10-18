@@ -15,9 +15,10 @@ SOURCE=Path(__file__).resolve().parents[1]/'source'
 WORKSPACE=SOURCE.parents[1]
 PILOT=SOURCE.parents[1]/'hermes-fc-pilot-20261013'
 if not (PILOT/'pilot.py').is_file():raise RuntimeError('portable_pilot_missing')
-sys.path.insert(0,str(SOURCE));sys.path.append(str(PILOT))
-sys.path.insert(0,str(SOURCE.parents[1]/'admin-data-tools-20261018/candidate/hermes'))
-sys.path.insert(0,str(SOURCE.parents[1]/'hermes-generic-data-20261018/source'))
+sys.path[:0]=[str(SOURCE),
+              str(SOURCE.parents[1]/'hermes-generic-data-20261018/source'),
+              str(SOURCE.parents[1]/'admin-data-tools-20261018/candidate/hermes')]
+sys.path.append(str(PILOT))
 
 
 class ToolChainTests(unittest.TestCase):

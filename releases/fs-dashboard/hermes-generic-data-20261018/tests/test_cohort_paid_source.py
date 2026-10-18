@@ -15,6 +15,7 @@ SIBLINGS=PACKAGE.parent
 sys.path.insert(0,str(PACKAGE/'source'))
 from cohort_paid_source import checked_query,collect
 sys.path.insert(0,str(SIBLINGS/'admin-data-tools-20261018'/'candidate/hermes'))
+sys.path.insert(0,str(PACKAGE/'source'))
 from es_order_structure import GAME_LABELS
 from admin_product_orders import GAME_IDS as PRODUCT_GAME_IDS
 from cohort_paid_source import GAME_IDS as PAID_GAME_IDS
