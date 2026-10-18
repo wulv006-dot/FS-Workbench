@@ -219,7 +219,7 @@ class ResearchBook:
             result['source_cache']=deepcopy(self.data['source_cache'])
         if name in ('fc.query_es_order_structure','fc.query_discount_analysis'):result.update(scope='Admin ES导出原范围',timezone='unverified')
         if name=='fc.query_product_orders':result.update(scope='Admin FC27 main site266 exact model/platform product query',timezone='unverified')
-        if name=='fc.query_cohort_observation':result.update(scope='Admin FC27 paid isNew observation; site-local identity; requested site/platform scope',timezone='Asia/Shanghai')
+        if name=='fc.query_cohort_observation':result.update(scope='Admin ES-new flag privately joined to FC27 paid orders; stable site-local identity subset; requested site/platform scope',timezone='Asia/Shanghai')
         result['evidence_id'] = 'ev_'+digest(result)[:24]
         with self._lock:
             self.evidence[result['evidence_id']] = deepcopy(result)
@@ -263,7 +263,7 @@ class ResearchBook:
                 'es_order_structure':{'tool':'fc.query_es_order_structure','status':'on_demand' if self.es_structure else 'not_wired','scope':'Admin ES导出文件集合；原状态与USD订单金额结构，非Admin主盘；站点/分销/时区及上游完整性未核实','dimensions':['game','source_game','product','country','payment','new_customer','status']},
                 'discount_analysis':{'tool':'fc.query_discount_analysis','status':'on_demand' if self.es_structure else 'not_wired','scope':'same ES file set; actual 折扣金额 uniformly USD, final user confirmation 2026-10-18; original states and new/old flags; exclusive campaign attribution/refund reversals/rate base unverified'},
                 'product_orders':{'tool':'fc.query_product_orders','status':'on_demand' if self.product_orders else 'not_wired','scope':'FC27 site266 live model/platform product mapping then exact pid order query; whole-order USD distinct from original-currency item lines; observed paytime filter despite UI 下单时间 label'},
-                'cohort_observation':{'tool':'fc.query_cohort_observation','status':'on_demand' if self.cohort_observation else 'not_wired','scope':'FC27 isNew-flagged site-local paid customer observation group; fixed acquisition window; daily tracking through 30 days; not verified first purchase or campaign attribution'},
+                'cohort_observation':{'tool':'fc.query_cohort_observation','status':'on_demand' if self.cohort_observation else 'not_wired','scope':'FC27 stable linked ES-new-flagged paid customer subset; private order-hash join; missing uid excluded with coverage; not all-site first purchase or campaign attribution'},
                 'marketing_snapshot':{'tool':'fc.query_marketing_snapshot','status':'on_demand' if self.marketing else 'not_wired','scope':'FC27/Coins names identify FC-project Ads and published search-term/page matches; preserve coverage. Unfiltered GA4/GSC data are whole-site background; no order join','ads_geography':'not_collected_by_existing_source','collection':'existing_exact_range_on_demand; may prepare missing periods'},
                 'game_news':{'tool':'fc.query_game_news','status':'shared_snapshot_readonly' if self.news else 'not_wired','scope':'MMOEXP News／主站SEO资讯（非游戏官方公告）','no_new_collection':True,'no_network':True,'claim_policy':'Use actual source URL and publication/event/collection times; missing or stale snapshots do not trigger collection. Publication time alone never establishes an event countdown.'},
                 'report_constraints':{'review_standard':'Useful direction first; roughly 90% verifiable coverage is a user quality target, not measured confidence. Minor gaps/rounding annotate rather than suppress the whole judgment. State confidence, next action and what would reverse it.','partitions':'Full group deltas and named residuals are strongest; partial reconciliation may support labelled directional hypotheses, not an audited complete bridge.','marginal_tables_are_not_order_joins':True,'quantity_discount_mechanism':'Requires verified order lines/definitions, not sale_total equals order_count','complete_multidimensional_groups':'May marginalize only after page/key/total/scope/time reconciliation','thresholds':'Existing approved policy or explicitly pending proposal; screening and suggested review dates are not execution authority'},
@@ -283,7 +283,7 @@ class ResearchBook:
             query=checked_query(args)
             query.pop('action',None)
             value=self.cohort_observation(query) if self.cohort_observation else {'status':'unavailable','reason':'cohort_adapter_missing'}
-            return self.register(name,query,value,'Admin FC27匿名付款观察组；非已验证全历史首购cohort',value.get('captured_at'))
+            return self.register(name,query,value,'Admin ES新客标记关联FC27已付稳定匿名子群；非全站或已验证首购cohort',value.get('captured_at'))
         if name=='fc.query_product_orders':
             from admin_product_orders import checked_query
             query=checked_query({k:v for k,v in args.items() if k!='evidence_id'})

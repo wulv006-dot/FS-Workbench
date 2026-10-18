@@ -32,5 +32,5 @@ def checked_request(value):
 def request_context(value):
     value=checked_request(value)
     return ('\n用户从FS数据专区提交的确切分析请求：'+json.dumps(value,ensure_ascii=False)+
-            '\n请调用fc.query_'+value['kind']+'取冻结证据。参数日期是该来源自己的范围；cohort日期是获客观察窗，7/14/30天只用成熟分母，isNew观察组不是已验证首购资格/净留存/活动因果。'+
+            '\n请调用fc.query_'+value['kind']+'取冻结证据。参数日期是该来源自己的范围；cohort日期是获取窗，ES新客标记私有关联已付款且有稳定匿名客户键的子群，缺uid订单计排除覆盖，不是全站新客。7/14/30天只用成熟分母，不等于已验证首购资格/净留存/活动因果。'+
             '单品关联整单USD不是SKU收入，原币商品行分币种；优惠ES全局与游戏/主站范围分开。请自主分析并呈现，FS不代写结论。')

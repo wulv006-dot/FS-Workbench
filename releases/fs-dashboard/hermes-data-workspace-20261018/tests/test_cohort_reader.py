@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -30,9 +31,11 @@ class ReaderTests(unittest.TestCase):
         self.reader=CohortReader(self.detail)
         self.stub=patch.dict(sys.modules,{'fc_detail':SimpleNamespace(atomic=atomic)})
         self.stub.start()
+        self.es=patch('cohort_es_source.archive_for',return_value={'status':'available','rows':[{'order_hash':hashlib.sha256(ident.encode()).hexdigest(),'flag':'new','payment_day':self.start} for ident in ('ORDER-PRIVATE','ORDER-OTHER-SITE')],'source_version':'test-es','coverage':{}})
+        self.es.start()
 
     def tearDown(self):
-        self.pool.shutdown();self.stub.stop();self.tmp.cleanup()
+        self.pool.shutdown();self.es.stop();self.stub.stop();self.tmp.cleanup()
 
     def test_create_freeze_archive_and_scope(self):
         self.assertEqual(self.reader.get(self.q,create=False)['reason'],'observation_not_started')
@@ -55,7 +58,7 @@ class ReaderTests(unittest.TestCase):
         self.detail.config['enabled']=False
         self.assertEqual(self.reader.get(self.q)['reason'],'fc_detail_disabled')
         self.detail.config.update(enabled=True,trust_customer_flag=False)
-        self.assertEqual(self.reader.get(self.q)['reason'],'customer_flag_not_verified')
+        self.assertEqual(self.reader.get(self.q)['reason'],'observation_not_started')
 
     def test_incomplete_paid_source_fails(self):
         self.detail.reader=lambda q,c:{'orders':[],'coverage':{'paid_complete':False}}

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import sqlite3
 
-CONTRACT = 'fc-cohort-observation-v1'
+CONTRACT = 'fc-es-customer-observation-v2'
 
 
 def update(path, group, start, end, rows, *, complete_through, source_complete, source_version):
@@ -88,7 +88,7 @@ def update(path, group, start, end, rows, *, complete_through, source_complete, 
                 repeat += any(customer == key and anchor < datetime.fromisoformat(paid) <= boundary for customer, paid in payments)
             windows.append({'days':days,'mature_customers':mature,'immature_customers':len(members)-mature,'repeat_customers':repeat,'repeat_rate':repeat/mature if mature else None})
         result = {'kind':'cohort_observation','contract':CONTRACT,'status':'partial' if missing_identity or missing_time else 'available','period':{'start':start,'end':end},
-                'definition':'isNew-flagged paid customer observation group; not verified first-purchase cohort',
+                'definition':'Stable linked ES-new-flag paid customer observation group; not verified first-purchase cohort',
                 'members':len(members),'windows':windows,'coverage':{'complete_through':complete_through,'source_version':source_version,'source_complete':True,'orders_without_customer_key':missing_identity,'orders_without_paid_at':missing_time},
                 'campaign_eligibility':'unknown','identity_scope':'site-local anonymous customer key; not cross-site identity',
                 'limitations':['No verified historical first qualified purchase','Repeat paid orders do not prove promotion incrementality or net settled retention','Membership frozen at first complete acquisition scan; late changes require a separately versioned group'],

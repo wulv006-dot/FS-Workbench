@@ -1,0 +1,216 @@
+[
+  {
+    "name": "product number",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "product_orders",
+      "data_evidence": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "model_id": "123",
+      "platform": "ALL"
+    },
+    "expected": {
+      "kind": "product_orders",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "model_id": 123,
+        "platform": "ALL"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "discount new_customer",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "discount",
+      "data_evidence": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "group_by": "discount_new_customer"
+    },
+    "expected": {
+      "kind": "discount_analysis",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "group_by": "new_customer"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "discount type",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "discount",
+      "data_evidence": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "group_by": "discount_type"
+    },
+    "expected": {
+      "kind": "discount_analysis",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "group_by": "type"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "discount day",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "discount",
+      "data_evidence": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "group_by": "discount_day"
+    },
+    "expected": {
+      "kind": "discount_analysis",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "ws_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "group_by": "day"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "cohort 7",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "cohort",
+      "data_evidence": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "window_days": "7",
+      "platform": "all",
+      "site_group": "satellite"
+    },
+    "expected": {
+      "kind": "cohort_observation",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "window_days": 7,
+        "platform": "all",
+        "site_group": "satellite"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "cohort 14",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "cohort",
+      "data_evidence": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "window_days": "14",
+      "platform": "all",
+      "site_group": "satellite"
+    },
+    "expected": {
+      "kind": "cohort_observation",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "window_days": 14,
+        "platform": "all",
+        "site_group": "satellite"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "cohort 30",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "cohort",
+      "data_evidence": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "window_days": "30",
+      "platform": "all",
+      "site_group": "satellite"
+    },
+    "expected": {
+      "kind": "cohort_observation",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "window_days": 30,
+        "platform": "all",
+        "site_group": "satellite"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "invalid window",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "cohort",
+      "data_evidence": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "window_days": "999"
+    },
+    "expected": {
+      "kind": "cohort_observation",
+      "query": {
+        "start": "2026-10-01",
+        "end": "2026-10-01",
+        "profile": "FC27",
+        "evidence_id": "cohort_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "window_days": 999
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown kind",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "unknown",
+      "data_evidence": "ws_aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "expected": null,
+    "valid": false
+  },
+  {
+    "name": "invalid archive identity",
+    "input": {
+      "start": "2026-10-01",
+      "end": "2026-10-01",
+      "profile": "FC27",
+      "data_kind": "cohort",
+      "data_evidence": "bad-id"
+    },
+    "expected": null,
+    "valid": false
+  }
+]

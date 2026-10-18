@@ -60,10 +60,15 @@ export function mountDataWorkspace(root, options = {}) {
     facts(body, d.quality);
   }
   function renderCohort(body, d) {
-    body.append(el('p', '观察组基于已见新客标志和站内匿名关联；不等于已核全历史首购，也不单独证明优惠造成复购。', 'hint'));
+    body.append(el('p', '范围：可稳定关联客户的 ES 新客标记付费组；缺身份订单排除并单独显示覆盖，不代表所有新客。不等于已核全历史首购，也不单独证明优惠造成复购。', 'hint'));
+    const coverage=d.coverage||{};
+    body.append(el('p', `获客窗已付 ${coverage.acquisition_paid_orders ?? '源未提供'} 单 · ES 匹配 ${coverage.matched_es_orders ?? '源未提供'} 单 · 未匹配 ${coverage.unmatched_es_orders ?? '源未提供'} 单`));
+    body.append(el('p', `获客窗 ES 新客标记 ${coverage.es_new_marked_paid_orders ?? '源未提供'} 单 · 可稳定关联 ${coverage.stable_es_new_marked_paid_orders ?? '源未提供'} 单 · 缺身份排除 ${coverage.excluded_es_new_identity_orders ?? '源未提供'} 单（均为订单数，不是客户人数）`));
+    body.append(el('p', `已关联观察组客户 ${d.members ?? '源未提供'} 人 · 获取及后续观察付款范围排除缺身份订单 ${coverage.excluded_identity_orders ?? '源未提供'} 单`));
     if(d.reason==='initial_customer_linkage_incomplete_not_frozen')body.append(el('p','观察组尚未建立：首次扫描缺少客户关联，未冻结不完整成员。需完整扫描后再建立；当前不显示零客户或复购率。'));
+    if(d.reason==='es_paid_link_incomplete_not_frozen')body.append(el('p','观察组尚未建立：ES 与已付订单匹配不完整或冲突，未冻结成员；当前不显示零客户或复购率。'));
     if (d.monitor) body.append(el('p', `追踪状态：${d.monitor.state ?? '源未提供'} · 下次观察：${d.monitor.next_due ?? '源未提供'} · 观察频率：${d.monitor.frequency_seconds ?? '源未提供'} 秒`));
-    if (d.windows?.length) body.append(table(['观察窗', '成熟客户', '待成熟客户', '复购客户', '成熟组复购率'], d.windows.map(w => [w.days + ' 日', w.mature_customers, w.immature_customers, w.repeat_customers, w.repeat_rate == null ? '源未提供' : new Intl.NumberFormat('zh-CN',{style:'percent',maximumFractionDigits:1}).format(w.repeat_rate)])));
+    if (d.windows?.length) body.append(table(['观察窗', '已关联组成熟客户', '待成熟客户', '已关联组复购客户', '已关联成熟组复购率'], d.windows.map(w => [w.days + ' 日', w.mature_customers, w.immature_customers, w.repeat_customers, w.repeat_rate == null ? '源未提供' : new Intl.NumberFormat('zh-CN',{style:'percent',maximumFractionDigits:1}).format(w.repeat_rate)])));
     else body.append(el('p', '当前尚无可展示的成熟观察窗，请查看能力与数据覆盖说明。'));
     facts(body, {members:d.members, definition:d.definition, identity_scope:d.identity_scope, campaign_eligibility:d.campaign_eligibility, coverage:d.coverage, limitations:d.limitations, capability:d.capability, observed_at:d.observed_at, progress:d.progress});
   }
@@ -85,7 +90,7 @@ export function mountDataWorkspace(root, options = {}) {
       field(form, '站点组', 'site_group', [['main','MMOEXP 主站'],['satellite','卫星站'],['all','全部已授权站点']]);
       field(form, '持续观察', 'window_days', [['30','30 日'],['14','14 日'],['7','7 日']]);
       const yesterday=new Date(Date.now()+8*3600000-86400000).toISOString().slice(0,10);start.max=yesterday;end.max=yesterday;
-      article.append(el('p','日期用于固定新客入组期间。创建后持续观察 7/14/30 日窗口；成熟进度以真实覆盖为准。仅 FC27 已接入，其他游戏尚不可用。','hint'));
+      article.append(el('p','日期用于固定可稳定关联客户的 ES 新客标记付费组，不代表所有新客。缺身份订单排除并显示覆盖；创建后持续观察 7/14/30 日窗口，成熟进度以真实覆盖为准。仅 FC27 已接入，其他游戏尚不可用。','hint'));
     }
     const submit = el('button', '查询', 'applybtn'); submit.type = 'submit'; form.append(submit);
     const status = el('p', '尚未查询', 'hint'); status.setAttribute('role','status'); status.setAttribute('aria-live','polite'); article.append(status);
