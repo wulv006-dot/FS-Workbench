@@ -154,6 +154,27 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(item["mime"], "text/html")
             self.assertEqual(service.artifact("admin", cid, item["artifact_id"])["content"], html.encode())
 
+    def test_embedded_single_complete_html_is_archived_verbatim(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hermes = types.SimpleNamespace(root=Path(directory), authorizer=lambda user: user == "admin",
+                                           daily=None, tasks=None)
+            service = self.module.ConversationService(hermes, Path(directory) / "data", Path(directory) / "run")
+            service.pool.shutdown(wait=True)
+            cid = service.create("admin")["conversation_id"]
+            turn = service.store.reserve_turn("admin", cid, "report", "request_001")
+            run_id = "run_" + "f" * 32
+            service.store.bind_run("admin", cid, turn["turn_id"], run_id)
+            html = '<!DOCTYPE html>\n<html lang="zh"><body>原字节</body></html>'
+            reply = '报告如下：\n<article class="card">\n' + html + '\n</article>\n请下载查看。'
+            service._terminal_from_status("admin", cid, run_id, reply)
+            snapshot = service.detail("admin", cid)["turns"][0]
+            self.assertEqual(snapshot["reply"], reply)
+            item = snapshot["artifacts"][0]
+            self.assertEqual(item["mime"], "text/html")
+            self.assertEqual(service.artifact("admin", cid, item["artifact_id"])["content"], html.encode())
+            self.assertIsNone(service._html_document(reply + html))
+            self.assertIsNone(service._html_document('报告如下：\n' + html[:-7]))
+
     def test_unconfirmed_worker_status_keeps_task_for_reconciliation(self):
         with tempfile.TemporaryDirectory() as directory:
             tasks = Tasks()
@@ -192,6 +213,10 @@ class ServiceTests(unittest.TestCase):
             memory_id = next(row["section_id"] for row in index["sections"] if row["path"] == "profile/memories/MEMORY.md")
             self.assertIn("现行方法", book.call("fc.read_skill", {"topic": "methods", "section_id": method_id})["text"])
             self.assertIn("已审业务记忆", book.call("fc.read_skill", {"topic": "methods", "section_id": memory_id})["text"])
+            legacy = book.call("fc.read_skill", {"topic": "methods", "section_id": "M1"})
+            self.assertEqual(legacy["kind"], "index")
+            self.assertEqual(legacy["unknown_section_id"], "M1")
+            self.assertEqual(legacy["sections"], index["sections"])
             self.assertEqual(index["owner_learning_sha256"], "a" * 64)
             book.call("fc.read_skill", {"topic": "methods"})
             self.assertEqual(calls, ["method", "owner"])

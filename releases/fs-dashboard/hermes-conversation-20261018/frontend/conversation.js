@@ -119,9 +119,14 @@
       const answer = el('article', undefined, box, 'message assistant');
       el('h2', 'Hermes', answer);
       const hasHtml = turn.artifacts?.some(artifact => artifact.mime?.split(';')[0].toLowerCase() === 'text/html');
+      const hasText = turn.artifacts?.some(artifact => artifact.mime?.split(';')[0].toLowerCase() === 'text/plain');
       const htmlReply = hasHtml || /<(!doctype\s+html|html(?:\s|>))/i.test((turn.reply || '').slice(0, 1024));
       if (htmlReply) {
-        el('p', hasHtml ? '已生成 HTML，可打开原稿查看。' : 'HTML 原稿正在归档，稍后可打开。', answer);
+        const label = hasHtml ? '已生成 HTML，可打开原稿查看。'
+          : ['preparing', 'queued', 'running', 'stopping'].includes(turn.state) ? 'HTML 原稿正在归档，稍后可打开。'
+          : hasText ? '回复已归档为文本，可打开原稿查看。'
+          : '暂无可打开的 HTML 原稿，可展开原始回复查看。';
+        el('p', label, answer);
         if (turn.reply) {
           const details = el('details', undefined, answer);
           el('summary', '展开 Hermes 原始回复', details);

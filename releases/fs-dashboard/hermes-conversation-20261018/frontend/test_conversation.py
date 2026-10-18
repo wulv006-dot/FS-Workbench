@@ -130,9 +130,20 @@ def check():
         assert page.evaluate("document.documentElement.dataset.fsTheme") == "dark"
         state["turn"]["artifacts"] = []
         state["turn"]["reply"] = "<!doctype html><html><body>原始标记</body></html>"
+        state["turn"]["state"] = "running"
         page.reload()
         page.get_by_text("HTML 原稿正在归档，稍后可打开。", exact=True).wait_for()
         assert not page.get_by_text("原始标记").is_visible()
+        state["turn"]["state"] = "completed"
+        state["turn"]["reply"] = "前言 <article>外套</article> <!doctype html><html><body>文本归档原稿</body></html> 后言"
+        state["turn"]["artifacts"] = [{"artifact_id": "e" * 32, "filename": "original.txt", "mime": "text/plain"}]
+        page.reload()
+        page.get_by_text("回复已归档为文本，可打开原稿查看。", exact=True).wait_for()
+        assert page.get_by_role("link", name="打开原稿 · original.txt").get_attribute("target") == "_blank"
+        assert not page.get_by_text("文本归档原稿").is_visible()
+        page.get_by_text("展开 Hermes 原始回复").click()
+        page.get_by_text("前言", exact=False).wait_for(state="visible")
+        state["turn"]["artifacts"] = []
         state["turn"]["state"] = "running"
         page.reload()
         page.get_by_label("给 Hermes 发消息").fill("补充证据")
