@@ -1,0 +1,16 @@
+[Unit]
+Description=FC27 server P2PAH session manager
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+ExecStartPre=/usr/bin/install -d -o root -g 987 -m 2710 /run/fs-player-session
+ExecStartPre=-/usr/bin/docker rm -f fc27-p2pah-session
+ExecStart=/usr/bin/docker run --rm --name fc27-p2pah-session --network fc27-cloud-net --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m --cap-drop ALL --security-opt no-new-privileges --group-add 11028 --mount type=bind,src=/etc/fc27-cloud/fc27.env,dst=/run/secrets/fc27.env,readonly --mount type=bind,src=/var/lib/fc27-es-exports,dst=/var/lib/fc27-es-exports --mount type=bind,src=/run/fs-player-session,dst=/run/fs-player-session -p 127.0.0.1:8767:8767 fc27-cloud-session:players-shared-20261018-v1
+ExecStop=/usr/bin/docker stop -t 10 fc27-p2pah-session
+TimeoutStopSec=20
+[Install]
+WantedBy=multi-user.target
