@@ -585,7 +585,7 @@ class HermesService:
         task=None;token=None;session_id=None;completed_stopped=False;deadline=None
         try:
             design_text,design_receipt=html_design_context(body['question'])
-            if design_receipt:design_receipt=dict(design_receipt,report_kind=request_report_kind(body),teaching_examples=['daily','weekly'])
+            if design_receipt:design_receipt=dict(design_receipt,report_kind=request_report_kind(body),teaching_examples=[])
             deadline=self.nightly.deadline(key)
             if deadline is not None and self.clock()>=deadline:
                 self.update(key,state='CANCELLED',error='nightly_deadline_exceeded');return

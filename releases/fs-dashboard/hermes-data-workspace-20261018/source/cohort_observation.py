@@ -72,7 +72,7 @@ def update(path, group, start, end, rows, *, complete_through, source_complete, 
             if previous and previous != (key, paid):
                 raise ValueError('observation_order_conflict')
             db.execute('INSERT OR IGNORE INTO payments VALUES (?,?,?,?)', (group, order, key, paid))
-        db.execute('INSERT INTO groups VALUES (?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET cutoff=excluded.cutoff,version=excluded.version', (group,start,end,complete_through,source_version))
+        db.execute('INSERT OR REPLACE INTO groups VALUES (?,?,?,?,?)', (group,start,end,complete_through,source_version))
         members = db.execute('SELECT customer,anchor FROM members WHERE group_name=?', (group,)).fetchall()
         payments = db.execute('SELECT customer,paid FROM payments WHERE group_name=?', (group,)).fetchall()
         windows = []
@@ -93,7 +93,7 @@ def update(path, group, start, end, rows, *, complete_through, source_complete, 
                 'campaign_eligibility':'unknown','identity_scope':'site-local anonymous customer key; not cross-site identity',
                 'limitations':['No verified historical first qualified purchase','Repeat paid orders do not prove promotion incrementality or net settled retention','Membership frozen at first complete acquisition scan; late changes require a separately versioned group'],
                 'raw_identifiers_exposed':False}
-        db.execute('INSERT INTO snapshots VALUES (?,?) ON CONFLICT(group_name) DO UPDATE SET payload=excluded.payload', (group,json.dumps(result)))
+        db.execute('INSERT OR REPLACE INTO snapshots VALUES (?,?)', (group,json.dumps(result)))
         return result
 
 

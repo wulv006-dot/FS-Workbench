@@ -806,7 +806,7 @@ def main():
             node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
         elif group=="hermes-data-workspace":
             release="releases/fs-dashboard/hermes-data-workspace-20261018"
-            units(release+"/tests",["test_cohort_observation","test_cohort_reader","test_cohort_es_source","test_workspace_evidence","test_tool_chain","test_original_output","test_brain_handoff","test_single_method"])
+            units(release+"/tests",["test_cohort_observation","test_cohort_reader","test_cohort_es_source","test_workspace_evidence","test_tool_chain","test_original_output","test_brain_handoff","test_single_method","test_receipt_metadata"])
             node(release+"/tests/test_brain_handoff.cjs")
             node(release+"/frontend/test-workspace.cjs")
         elif group=="hermes-report-method":
