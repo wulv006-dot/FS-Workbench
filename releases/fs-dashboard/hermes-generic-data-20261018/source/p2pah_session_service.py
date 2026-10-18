@@ -5,6 +5,7 @@ neither credentials nor response bodies are written to logs.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -61,6 +62,43 @@ class SessionManager:
         self.last_ok = None
         self.last_refresh = 0.0
         self.status = "starting"
+        self.model_lock = threading.RLock()
+        self.model_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="admin-model-product")
+        self.model_jobs = {}
+
+    def model_product(self, query, token):
+        """One bounded read per model; polling never starts duplicate Admin scans."""
+        from admin_product_orders import collect
+        key = json.dumps(query, sort_keys=True)
+        with self.model_lock:
+            now = time.monotonic()
+            for old, entry in list(self.model_jobs.items()):
+                if entry['finished'] is not None and now-entry['finished'] > (900 if entry['status']=='available' else 60):
+                    del self.model_jobs[old]
+            entry = self.model_jobs.get(key)
+            if entry is None:
+                if any(not item['future'].done() for item in self.model_jobs.values()):
+                    return {'kind':'admin_product_orders','query':query,'status':'pending','reason':'model_read_busy','retryAfter':3}
+                if len(self.model_jobs) >= 8:
+                    oldest=min(self.model_jobs,key=lambda old:self.model_jobs[old]['finished'] or float('inf'))
+                    del self.model_jobs[oldest]
+                def run():
+                    return collect(lambda path,timeout:self.request(path,token=token,timeout=min(timeout,10)),
+                                   query,model_seconds=540)
+                future = self.model_pool.submit(run)
+                entry = {'future':future,'finished':None,'status':None}
+                self.model_jobs[key] = entry
+                def finish(done):
+                    with self.model_lock:
+                        entry['finished'] = time.monotonic()
+                        try:entry['status'] = done.result().get('status')
+                        except Exception:entry['status'] = 'unavailable'
+                future.add_done_callback(finish)
+            future = entry['future']
+        if not future.done():
+            return {'kind':'admin_product_orders','query':query,'status':'pending','retryAfter':3}
+        try:return future.result()
+        except Exception:return {'kind':'admin_product_orders','query':query,'status':'unavailable','reason':'product_source_unavailable'}
 
     def request(self, path: str, *, data: dict | None = None, token: str | None = None, timeout: float = 15):
         headers = dict(HEADERS)
@@ -79,10 +117,10 @@ class SessionManager:
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read()
 
-    def identity_ok(self, token: str | None) -> bool:
+    def identity_ok(self, token: str | None, timeout: float = 15) -> bool:
         if not token:
             return False
-        status, raw = self.request("/admin/index/index", token=token)
+        status, raw = self.request("/admin/index/index", token=token, timeout=timeout)
         try:
             return status == 200 and json.loads(raw).get("code") == 1
         except (ValueError, UnicodeDecodeError):
@@ -174,8 +212,10 @@ class SessionManager:
 
     def health(self) -> dict:
         with self.lock:
+            with self.model_lock:
+                active=sum(not item['future'].done() for item in self.model_jobs.values())
             return {"status": self.status, "ready": self.status == "ready",
-                    "last_ok": self.last_ok}
+                    "last_ok": self.last_ok, "active_model_reads": active}
 
     def new_customers(self, target: str) -> dict:
         """Return only the verified FC27 OrderEs new_people aggregate."""
@@ -231,10 +271,17 @@ class SessionManager:
         if isinstance(query,dict) and query.get('kind')=='product_orders':
             from admin_product_orders import checked_query, collect
             args={k:v for k,v in query.items() if k!='kind'}
-            checked_query(args)
+            checked=checked_query(args)
             with self.lock:
-                if not self.identity_ok(self.token):return {'kind':'admin_product_orders','query':checked_query(args),'status':'unavailable','reason':'existing_auth_unavailable'}
-                return collect(lambda path,timeout:self.request(path,token=self.token,timeout=timeout),args)
+                token=self.token
+                if not self.identity_ok(token,timeout=10):
+                    return {'kind':'admin_product_orders','query':checked,'status':'unavailable','reason':'existing_auth_unavailable'}
+                if 'model_id' in checked and 'platform' not in checked:
+                    # The 540-second read runs after manager.lock is released.
+                    pass
+                else:
+                    return collect(lambda path,timeout:self.request(path,token=token,timeout=timeout),args)
+            return self.model_product(checked,token)
         if isinstance(query,dict) and query.get('kind')=='es_structure':
             from es_order_structure import checked_query,session_bundle
             if set(query)-{'kind','profile','start','end','group_by','status','poll_only'} or not isinstance(query.get('poll_only',False),bool):raise ValueError('es_query_fields')

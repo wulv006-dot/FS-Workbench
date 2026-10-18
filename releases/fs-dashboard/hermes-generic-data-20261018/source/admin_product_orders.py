@@ -11,7 +11,7 @@ import threading
 import time
 from urllib.parse import urlencode
 
-VERSION = 'admin-model-product-orders-20261018-v1'
+VERSION = 'admin-model-product-orders-20261018-v2'
 AREAS = {'PC': (21589, 'PC Platform'), 'XBOX': (21585, 'Xbox Series X|S'), 'PS': (21587, 'PlayStation 4|5')}
 # Admin gids from the active transaction collector's PROFILES (2026-10-18).
 # A PID read is deliberately limited to the already approved main site.
@@ -20,6 +20,7 @@ GAME_IDS = {'FC27':1327,'D4':456,'AION2':891,'POE2':552,'NBA2K27':1329,
     'MAPLESTORY_CLASSIC':1333,'DARK_AND_DARKER':589,'WOW_FOREVER':1367,
     'ARENA_BREAKOUT_INFINITE':897,'COD_BO7':859}
 SHANGHAI = timezone(timedelta(hours=8))
+MAX_MODEL_PIDS = 512
 
 
 def checked_query(args):
@@ -32,20 +33,20 @@ def checked_query(args):
     if direct:
         if 'platform' in args or type(args['product_id']) is not int or not 1 <= args['product_id'] <= 999999999:
             raise ValueError('product_query_product')
-    elif args['profile'] != 'FC27' or type(args['model_id']) is not int or not 1 <= args['model_id'] <= 999999999:
+    elif type(args['model_id']) is not int or not 1 <= args['model_id'] <= 999999999 or 'platform' in args and args['profile']!='FC27':
         raise ValueError('product_query_model')
     lo, hi = (date.fromisoformat(args[k]) for k in ('start', 'end'))
     if lo.isoformat() != args['start'] or hi.isoformat() != args['end'] or not 0 <= (hi-lo).days <= 30 or hi > datetime.now(SHANGHAI).date():
         raise ValueError('product_query_period')
     platform, pages = args.get('platform', 'ALL'), args.get('max_pages', 20)
-    if (not direct and platform not in ('ALL', *AREAS)) or type(pages) is not int or not 1 <= pages <= 50:
+    if (not direct and 'platform' in args and platform not in ('ALL', *AREAS)) or type(pages) is not int or not 1 <= pages <= 50:
         raise ValueError('product_query_budget')
-    return dict(args, **({'max_pages':pages} if direct else {'platform':platform, 'max_pages':pages}))
+    return dict(args,max_pages=pages)
 
 
 def tool_schema():
     return {'type':'function','function':{'name':'mcp__fcro__fc_query_product_orders',
-        'description':'Read one exact Admin product PID in the selected game on main site 266, all statuses. FC27 model_id/platform is a legacy alternative. Never infer product IDs. Whole-order USD is not SKU revenue; line x-count and original-currency amount are included only when one matching line is verified. Dates use Admin paytime RANGE, timezone unverified. Aggregate only, no PII. Pending: poll identical query.',
+        'description':'Read all verified Admin PIDs for one exact game/model ID on main site 266; product_id reads one exact PID. FC27 model_id/platform remains a legacy explicit alternative. Mapping and every PID order page must be complete before the model total is complete. Whole-order USD is deduplicated across PIDs, not SKU revenue; line amounts are only included when uniquely verified. Dates use Admin paytime RANGE, timezone unverified. Aggregate only, no PII. Pending: poll identical query.',
         'parameters':{'type':'object','properties':{'profile':{'type':'string','enum':list(GAME_IDS)},'product_id':{'type':'integer','minimum':1,'maximum':999999999},'model_id':{'type':'integer','minimum':1,'maximum':999999999},'start':{'type':'string'},'end':{'type':'string'},'platform':{'type':'string','enum':['ALL',*AREAS]},'max_pages':{'type':'integer','minimum':1,'maximum':50}},'required':['profile','start','end'],'additionalProperties':False}}}
 
 
@@ -90,7 +91,7 @@ class ProductMarkup(HTMLParser):
         self.text = ''
 
 
-def collect_product_id(request, q):
+def collect_product_id(request, q, mapped_item=None, shared_deadline=None, private_orders=False):
     """Exact Admin PID read; keep unverified item allocations out of the result."""
     from es_order_structure import amount, safe_label, GAME_LABELS
     gid, pid = GAME_IDS[q['profile']], q['product_id']
@@ -100,7 +101,7 @@ def collect_product_id(request, q):
         'period':{'start':q['start']+' 00:00:00','end':q['end']+' 23:59:59',
             'timezone':'unverified','source_field':'paytime','ui_label':'付款时间'},
         'products':[],'totals':None}
-    evidence=[];deadline=time.monotonic()+22
+    evidence=[];deadline=shared_deadline if shared_deadline is not None else time.monotonic()+22
     def read(path,max_bytes=2000000):
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError('product_read_deadline')
@@ -117,14 +118,20 @@ def collect_product_id(request, q):
     try:
         # The live Admin product page uses this exact ID search field/operator.
         # Verify site and game on the returned row rather than assume compound filtering.
-        goods=read(endpoint('/admin/goods.Goods/index',[('id',pid,'=')],limit=10))
-        if goods['total']!=1 or len(goods['list'])!=1:raise ValueError('product_mapping_missing_or_ambiguous')
-        item=goods['list'][0]
+        if mapped_item is None:
+            goods=read(endpoint('/admin/goods.Goods/index',[('id',pid,'=')],limit=10))
+            if goods['total']!=1 or len(goods['list'])!=1:raise ValueError('product_mapping_missing_or_ambiguous')
+            item=goods['list'][0]
+        else:item=mapped_item
         if item.get('site_id')!=266 or item.get('gid')!=gid or item.get('id')!=pid:
             raise ValueError('product_mapping_scope')
         title=safe_label(item.get('title'))
         if title in ('unknown','未知'):raise ValueError('product_mapping_title')
-        product={'product_id':pid,'title':title,'platform':safe_label((item.get('gameArea') or {}).get('title'))}
+        area=(item.get('gameArea') or {}).get('title')
+        product={'product_id':pid,'model_id':item.get('mid') if type(item.get('mid')) is int and item['mid']>0 else None,
+            'title':title,'platform':safe_label(area),
+            'area_id':item.get('aid') if type(item.get('aid')) is int else None,
+            'area_title':safe_label(area)}
         seen={};order_row_ids={};source_row_ids=set();repeated=0;totals=[];pages=[]
         previous_id=None;previous_page=None;previous_ident=None;previous_projection=None
         ordering_stable=True;row_id_types={'int':0,'numeric_string':0,'other':0}
@@ -224,17 +231,110 @@ def collect_product_id(request, q):
                 'refund_history':'current statuses only; net settlement unknown',
                 'source_version':hashlib.sha256(json.dumps(evidence).encode()).hexdigest(),
                 'raw_order_ids_exposed':False,'game_label':GAME_LABELS[q['profile']]})
+        if private_orders:out['_private_orders']={key:value[:3] for key,value in seen.items()}
     except (ValueError,TypeError,KeyError,PermissionError,TimeoutError,OSError,json.JSONDecodeError):
         out.update(status='partial' if out['products'] else 'unavailable',
             reason='product_source_unavailable_or_contract_unclosed')
     return out
 
 
-def collect(request, args, now=None):
+def collect_model(request, q, *, max_seconds=22):
+    """Map every site/game/model PID, then reuse the verified exact-PID reader."""
+    gid=GAME_IDS[q['profile']]
+    out={'kind':'admin_product_orders','contract':VERSION,'readonly':True,'http_status':200,
+        'query':q,'status':'unavailable','captured_at':datetime.now(timezone.utc).isoformat(),
+        'scope':{'site_id':266,'site':'www.mmoexp.com','game_id':gid,'profile':q['profile']},
+        'period':{'start':q['start']+' 00:00:00','end':q['end']+' 23:59:59',
+            'timezone':'unverified','source_field':'paytime','ui_label':'付款时间'},
+        'products':[],'totals':None}
+    deadline=time.monotonic()+max_seconds;mapping_pages=[];mapped=[];seen_pids=set();previous_id=None
+    source_total=None;mapping_complete=False;global_orders={};conflicts=set();versions=[]
+    try:
+        # A complete goods mapping is required before any model total is published.
+        for page in range(1,21):
+            remaining=deadline-time.monotonic()
+            if remaining<=0:break
+            path=endpoint('/admin/goods.Goods/index',
+                [('site_id',266,'='),('gid',gid,'='),('mid',q['model_id'],'=')],
+                page,limit=100,order='id,desc')
+            code,raw=request(path,min(10,remaining))
+            if code in (401,403):raise PermissionError('existing_auth_unavailable')
+            if code!=200 or len(raw)>8*1024*1024:raise ValueError('product_mapping_source')
+            value=json.loads(raw)
+            data=value.get('data') if value.get('code')==1 else None
+            if not isinstance(data,dict) or type(data.get('total')) is not int or not isinstance(data.get('list'),list):
+                raise ValueError('product_mapping_contract')
+            rows=data['list'];total=data['total']
+            if total<0 or len(rows)>100 or source_total is not None and source_total!=total:
+                raise ValueError('product_mapping_pagination')
+            if source_total is None:source_total=total
+            mapping_pages.append({'page':page,'rows':len(rows),'source_total':total})
+            versions.append(hashlib.sha256(raw if isinstance(raw,bytes) else raw.encode()).hexdigest())
+            for row in rows:
+                pid=row.get('id');mid=row.get('mid')
+                if (type(pid) is not int or pid<=0 or pid in seen_pids or
+                    previous_id is not None and pid>=previous_id or
+                    row.get('site_id')!=266 or row.get('gid')!=gid or mid!=q['model_id']):
+                    raise ValueError('product_mapping_scope_or_order')
+                seen_pids.add(pid);previous_id=pid;mapped.append(row)
+            if len(mapped)==total:
+                mapping_complete=True;break
+            if not rows:raise ValueError('product_mapping_empty_page')
+        if not mapping_complete:
+            raise ValueError('product_mapping_incomplete')
+        if len(mapped)>MAX_MODEL_PIDS:
+            out.update(reason='product_pid_budget_exceeded',quality={'complete':False,
+                'mapping_complete':True,'mapping':{'source_total':source_total,
+                    'received':len(mapped),'pages':mapping_pages,'complete':True},
+                'mapped_products':len(mapped),'read_products':0,'raw_order_ids_exposed':False})
+            return out
+        for item in mapped:
+            if deadline-time.monotonic()<=0:break
+            pid=item['id']
+            child_q={'profile':q['profile'],'start':q['start'],'end':q['end'],
+                'product_id':pid,'max_pages':q['max_pages']}
+            child=collect_product_id(request,child_q,mapped_item=item,
+                shared_deadline=deadline,private_orders=True)
+            if child['status']=='unavailable' or not child['products']:
+                break
+            product=child['products'][0]
+            out['products'].append(product)
+            versions.append(child['quality']['source_version'])
+            for ident,projection in child.pop('_private_orders').items():
+                if ident in global_orders and global_orders[ident]!=projection:conflicts.add(ident)
+                else:global_orders[ident]=projection
+        all_products_complete=len(out['products'])==len(mapped) and all(
+            p['coverage']['complete'] for p in out['products'])
+        valid=[v for k,v in global_orders.items() if k not in conflicts]
+        known=[v[0] for v in valid if v[0] is not None]
+        complete=all_products_complete and not conflicts and len(known)==len(valid)
+        out['totals']=({'distinct_orders':len(valid),'order_amount_usd':str(sum(known,Decimal(0)))
+            if known or not valid and complete else None,'known_amount_orders':len(known)}
+            if out['products'] or not mapped else None)
+        out['status']='available' if complete else 'partial'
+        out['quality']={'complete':complete,'mapping_complete':True,
+            'mapping':{'source_total':source_total,'received':len(mapped),'pages':mapping_pages,
+                'complete':True},'mapped_products':len(mapped),'read_products':len(out['products']),
+            'conflicting_orders':len(conflicts),
+            'amount_definition':'whole-order USD, deduplicated across all mapped PIDs; not SKU revenue',
+            'time_basis':'Admin paytime RANGE; timezone unverified',
+            'source_version':hashlib.sha256(json.dumps(versions).encode()).hexdigest(),
+            'raw_order_ids_exposed':False}
+        if not complete:out['reason']='product_pid_pages_incomplete_or_budget'
+    except (ValueError,TypeError,KeyError,PermissionError,TimeoutError,OSError,json.JSONDecodeError):
+        out.update(status='unavailable',reason='product_mapping_unavailable_or_incomplete',totals=None,
+            products=[],quality={'complete':False,'mapping_complete':False,
+                'mapping':{'source_total':source_total,'received':len(mapped),
+                    'pages':mapping_pages,'complete':False},'raw_order_ids_exposed':False})
+    return out
+
+
+def collect(request, args, now=None, *, model_seconds=22):
     from es_order_structure import amount, safe_label
     q = checked_query(args)
     if 'product_id' in q:
         return collect_product_id(request,q)
+    if 'platform' not in q:return collect_model(request,q,max_seconds=model_seconds)
     out = {'kind':'admin_product_orders','contract':VERSION,'readonly':True,'http_status':200,'query':q,
         'status':'unavailable','captured_at':datetime.now(timezone.utc).isoformat(),
         'scope':{'site_id':266,'site':'www.mmoexp.com','game_id':1327,'profile':'FC27'},
@@ -349,7 +449,12 @@ def read(args):
     with LOCK:
         now=time.monotonic()
         for old,(f,started) in list(CACHE.items()):
-            if f.done() and now-started>900:CACHE.pop(old)
+            if f.done():
+                try:
+                    status=f.result().get('status')
+                    ttl=900 if status=='available' else 3 if status=='pending' else 60
+                except Exception:ttl=60
+                if now-started>ttl:CACHE.pop(old)
         if key not in CACHE:
             if len(CACHE)>=16:return {'status':'unavailable','reason':'product_cache_capacity'}
             CACHE[key]=(POOL.submit(server_read,q),now)

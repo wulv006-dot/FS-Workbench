@@ -18,7 +18,7 @@ export function mountDataWorkspace(root, options = {}) {
     const input = el(choices ? 'select' : 'input', null, choices ? 'hsel' : 'dinput');
     input.name = name;
     if (choices) for (const [value, text] of choices) { const option = el('option', text); option.value = value; input.append(option); }
-    else { input.type = name === 'product_id' ? 'text' : 'date'; input.required = true; if (name === 'product_id') { input.inputMode = 'numeric'; input.pattern = '[1-9][0-9]{0,8}'; input.maxLength = 9; input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('autocapitalize','off'); } }
+    else { input.type = ['product_id','model_id'].includes(name) ? 'text' : 'date'; input.required = true; if (['product_id','model_id'].includes(name)) { input.inputMode = 'numeric'; input.pattern = '[1-9][0-9]{0,8}'; input.maxLength = 9; input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('autocapitalize','off'); } }
     input.value = initial || (choices ? choices[0][0] : '');
     label.append(input); form.append(label);
     return input;
@@ -32,23 +32,30 @@ export function mountDataWorkspace(root, options = {}) {
     t.append(body); wrap.append(t); return wrap;
   }
   function details(parent, label, node) { const d = el('details', null, 'source-details'); d.append(el('summary', label), node); parent.append(d); }
-  function facts(parent, data) {
+  function facts(parent, data, label = '来源、分页覆盖与限制') {
     const entries = Object.entries(data || {}).filter(([,value])=>value!==undefined);
     if (!entries.length) return;
     const list = el('dl'); for (const [key, value] of entries) { list.append(el('dt', key), el('dd', value==null?'源未提供':typeof value === 'object' ? JSON.stringify(value) : value)); }
-    details(parent, '来源、分页覆盖与限制', list);
+    details(parent, label, list);
   }
   function renderProduct(body, d) {
     body.append(el('p', `去重关联订单 ${d.totals?.distinct_orders ?? '源未提供'} 单 · 关联整单金额 ${money(d.totals?.order_amount_usd)}`));
     body.append(el('p', '关联整单 USD 不是 SKU 收入或单价；商品行金额按原币分别列示。原状态是当前状态，不能还原历史日末。', 'hint'));
-    for (const product of d.products || []) {
-      body.append(el('h4', `${product.title} · ${product.platform}`));
-      body.append(el('p', '商品数量（按原状态） · ' + ((product.groups || []).map(g => `${g.order_status} / ${g.payment_status}：${g.quantity ?? '源未提供'}`).join('；') || '无已返回商品行')));
+    if (d.quality?.mapping) body.append(el('p', `模型关联商品映射 ${d.quality.mapping.received ?? '源未提供'} / ${d.quality.mapping.source_total ?? '源未提供'} 项 · ${d.quality.mapping.complete ? '映射完整' : '映射未完整，不能当全部关联商品'}`, 'hint'));
+    const products = d.products || [];
+    const productList = products.length > 12 ? el('div') : body;
+    for (const product of products) {
+      const productBody = el('div');
+      productBody.append(el('p', '商品数量（按原状态） · ' + ((product.groups || []).map(g => `${g.order_status} / ${g.payment_status}：${g.quantity ?? '源未提供'}`).join('；') || '无已返回商品行')));
       const rows = (product.groups || []).map(g => [g.order_status, g.payment_status, g.orders, g.quantity, money(g.order_amount_usd), Object.entries(g.item_line_by_currency || {}).map(([currency, amount]) => `${amount} ${currency}`).join(' / ') || '源未提供']);
-      details(body, `原状态明细 · ${product.platform}`, table(['订单状态', '付款状态', '订单数', '商品数量', '关联整单金额', '原币商品行金额'], rows));
-      facts(body, product.coverage);
+      productBody.append(table(['订单状态', '付款状态', '订单数', '商品数量', '关联整单金额', '原币商品行金额'], rows));
+      facts(productBody, product.coverage, '该商品的分页覆盖与限制');
+      const platform = String(product.platform || '').trim(), area = String(product.area_title || '').trim();
+      const scope = platform && area && platform.toLocaleLowerCase() === area.toLocaleLowerCase() ? platform : [platform, area].filter(Boolean).join(' · ');
+      details(productList, `商品 PID ${product.product_id ?? '源未提供'} · ${product.title || '商品'} · ${scope || '平台/区服源未提供'}`, productBody);
     }
-    facts(body, d.quality);
+    if (products.length > 12) details(body, `全部关联商品（${products.length}项）`, productList);
+    facts(body, {quality:d.quality, period:d.period, source:d.source, captured_at:d.captured_at});
   }
   function renderDiscount(body, d) {
     const total = d.discount_totals;
@@ -91,8 +98,17 @@ export function mountDataWorkspace(root, options = {}) {
     const start = field(form, '开始日期', 'start', null, options.start || '');
     const end = field(form, '结束日期', 'end', null, options.end || '');
     if (kind === 'product_orders') {
-      field(form, '商品 ID（Admin PID）', 'product_id', null);
-      article.append(el('p', '按所选游戏和 Admin 商品 ID 查询；商品 ID 唯一定位商品，无需选平台。最长 31 个日历日。D4/Aion2 纳入本次真实验收；其他游戏按通用接口查询，服务端逐次核验游戏与商品 ID 归属。', 'hint'));
+      const mode = field(form, '查询方式', 'product_mode', [['model_id','模型 ID（全部关联商品）'],['product_id','商品 PID（直接查询）']]);
+      const productId = field(form, '模型 ID（Admin MID）', 'model_id', null);
+      const hint = el('p', '', 'hint'); article.append(hint);
+      const syncMode = () => {
+        const model = mode.value === 'model_id';
+        productId.name = model ? 'model_id' : 'product_id';
+        productId.closest('label').firstChild.textContent = model ? '模型 ID（Admin MID） ' : '商品 PID（Admin PID） ';
+        productId.value = '';
+        hint.textContent = model ? '按游戏和模型 ID 汇总该模型在 MMOEXP 主站的全部关联商品、平台及区服；不必逐个填写商品 PID。最长 31 个日历日。' : '按游戏和单个 Admin 商品 PID 直接查询，无需选平台。最长 31 个日历日。';
+      };
+      mode.addEventListener('change', syncMode); syncMode();
     }
     if (kind === 'discount') field(form, '细分', 'group_by', [['discount_new_customer','新老客'],['discount_type','优惠类型'],['discount_day','日期']]);
     if (kind === 'cohort') {
@@ -111,16 +127,32 @@ export function mountDataWorkspace(root, options = {}) {
     }
     const submit = el('button', '查询', 'applybtn'); submit.type = 'submit'; form.append(submit);
     const status = el('p', '尚未查询', 'hint'); status.setAttribute('role','status'); status.setAttribute('aria-live','polite'); article.append(status);
+    const pollProgress = el('p', '', 'hint'); article.append(pollProgress);
     const body = el('div'); article.append(body);
-    const hermes = el('button', '交给 Hermes 提炼一句结论', 'ghostbtn'); hermes.type = 'button'; hermes.disabled = true; article.append(hermes);
-    let epoch = 0, abort, result, selection, uncertain = false, uncertainKey = '', writing = false;
+    const hermes = el('button', '请 Hermes 提炼结论', 'ghostbtn'); hermes.type = 'button'; hermes.disabled = true; hermes.hidden = typeof options.onHermes !== 'function'; article.append(hermes);
+    const insight = el('div', null, 'source-details'); article.append(insight);
+    let epoch = 0, abort, insightAbort, result, selection, uncertain = false, uncertainKey = '', writing = false;
     const groupKey=q=>JSON.stringify(['profile','start','end','platform','site_group','window_days'].map(k=>String(q[k])));
     const actions = [];
     const archives = new Map();
-    const invalidate = () => { ++epoch; abort?.abort(); result = null; selection = null; hermes.disabled = true; submit.disabled = false; body.replaceChildren(); status.textContent = '筛选已变更，请查询'; article.removeAttribute('aria-busy'); };
+    const invalidate = () => { ++epoch; abort?.abort(); insightAbort?.abort(); result = null; selection = null; hermes.disabled = true; submit.disabled = false; body.replaceChildren(); insight.replaceChildren(); pollProgress.textContent = ''; status.textContent = '筛选已变更，请查询'; article.removeAttribute('aria-busy'); };
     form.addEventListener('input', invalidate);
     form.addEventListener('change', invalidate);
-    hermes.addEventListener('click', () => { if (result && options.onHermes) options.onHermes({kind, selection:{...selection}, data:result, instruction:'根据本次筛选及已归档数据，提炼一句经营结论，并注明关键限制。'}); });
+    hermes.addEventListener('click', async () => {
+      if (!result || !options.onHermes || hermes.disabled) return;
+      const token = epoch, evidence = result;
+      insightAbort = new win.AbortController(); hermes.disabled = true;
+      insight.replaceChildren(el('p', 'Hermes 正在读取本次已归档数据…'));
+      try {
+        const conclusion = await options.onHermes({kind, selection:{...selection}, data:evidence}, {
+          signal:insightAbort.signal,
+          progress:message => { if (token === epoch) insight.replaceChildren(el('p', message)); }
+        });
+        if (token === epoch) insight.replaceChildren(el('p', conclusion));
+      } catch (error) {
+        if (token === epoch && error.name !== 'AbortError') insight.replaceChildren(el('p', error.message || '提炼结果待核对，请稍后继续查看。'));
+      } finally { if (token === epoch) hermes.disabled = false; }
+    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -128,26 +160,67 @@ export function mountDataWorkspace(root, options = {}) {
       if (kind === 'product_orders' && (Date.parse(end.value) - Date.parse(start.value)) / 86400000 > 30) { status.textContent = '单品区间最多 31 个日历日'; return; }
       invalidate(); const token = epoch; abort = new win.AbortController();
       const params = new URLSearchParams({mode:'hermes',structure:kind === 'discount' ? 'es' : kind,profile:profile.value,start:start.value,end:end.value});
-      for (const input of form.elements) if (['product_id','platform','group_by','site_group','window_days'].includes(input.name)) params.set(input.name,input.value);
+      for (const input of form.elements) if (['model_id','product_id','platform','group_by','site_group','window_days'].includes(input.name)) params.set(input.name,input.value);
       selection = Object.fromEntries(params); submit.disabled = true; article.setAttribute('aria-busy','true'); status.textContent = '读取中…';
       if(kind==='cohort'){
         const archived=archives.get(groupKey(selection));
         if(archived){for(const key of [...params.keys()])params.delete(key);params.set('mode','hermes');params.set('structure','cohort');params.set('id',archived);}
       }
       try {
-        const response = await request(endpoint + '?' + params, {signal:abort.signal,credentials:'same-origin',headers:{Accept:'application/json'}});
-        if (!response.ok) throw new Error('http');
-        const d = await response.json(); if (token !== epoch) return;
+        const started = Date.now();
+        let d;
+        for (;;) {
+          let response;
+          try {
+            response = await request(endpoint + '?' + params, {signal:win.AbortSignal.any([abort.signal,win.AbortSignal.timeout(20000)]),credentials:'same-origin',redirect:'error',headers:{Accept:'application/json'}});
+          } catch (error) {
+            if (abort.signal.aborted || token !== epoch) throw error;
+            if (Date.now() - started + 3000 > (options.maxPollMs ?? 600000)) throw error;
+            status.textContent = '连接暂时中断，正按原条件继续读取…';
+            pollProgress.textContent = `已等待 ${Math.floor((Date.now() - started) / 1000)} 秒；不会重新创建观察任务。`;
+            await new Promise((resolve,reject) => {
+              const timer = win.setTimeout(() => {abort.signal.removeEventListener('abort',cancel);resolve();},3000);
+              function cancel() {win.clearTimeout(timer);reject(new win.DOMException('已取消','AbortError'));}
+              abort.signal.addEventListener('abort',cancel,{once:true});
+            });
+            continue;
+          }
+          if (!response.ok) throw new Error('http');
+          d = await response.json(); if (token !== epoch) return;
+          if (d.monitor && (!uncertain || groupKey(selection) === uncertainKey)) { uncertain = false; uncertainKey = ''; for (const action of actions) action.disabled = false; }
+          if (!['pending','queued'].includes(d.status)) break;
+          if (kind === 'cohort' && /^[a-f0-9]{64}$/.test(d.archive_id || '')) {
+            archives.set(groupKey(selection),d.archive_id);
+            for (const key of [...params.keys()]) params.delete(key);
+            params.set('mode','hermes'); params.set('structure','cohort'); params.set('id',d.archive_id);
+          }
+          const delay = Math.max(options.minPollMs ?? 2000,Math.min(10000,Number(d.retryAfter || 3)*1000));
+          if (Date.now() - started + delay > (options.maxPollMs ?? 600000)) {
+            status.textContent = '仍在后台读取；可稍后按相同条件继续查询。';
+            pollProgress.textContent = '';
+            body.replaceChildren(el('p','当前结果尚未完成，未作为可用数据展示。','hint'));
+            return;
+          }
+          status.textContent = '后台读取中，完成后自动显示…';
+          pollProgress.textContent = `已等待 ${Math.floor((Date.now() - started) / 1000)} 秒；保持此页即可自动显示结果。`;
+          await new Promise((resolve,reject) => {
+            const timer = win.setTimeout(() => {abort.signal.removeEventListener('abort',cancel);resolve();},delay);
+            function cancel() {win.clearTimeout(timer);reject(new win.DOMException('已取消','AbortError'));}
+            abort.signal.addEventListener('abort',cancel,{once:true});
+          });
+        }
         if(kind==='cohort'&&/^[a-f0-9]{64}$/.test(d.archive_id||''))archives.set(groupKey(selection),d.archive_id);
         if(kind==='discount')for(const item of d.available_profiles||[]){const code=typeof item==='string'?item:item.code,label=typeof item==='string'?item:item.label;if(!/^[A-Z0-9_]{1,24}$/.test(code||'')||[...profile.options].some(o=>o.value===code))continue;const option=el('option',label||code);option.value=code;profile.append(option);}
         if (d.monitor && (!uncertain || groupKey(selection)===uncertainKey)) { uncertain = false; uncertainKey=''; for (const action of actions) action.disabled = false; }
         const labels = {pending:'查询已排队或读取中，稍后按相同条件查询',queued:'查询排队中',disabled:'当前查询能力未启用',unavailable:'来源暂不可用，请稍后重试',failed:'读取失败，请重试',available:'读取完成',partial:'部分数据，覆盖不完整'};
-        status.textContent = labels[d.status] || '响应状态未知，未展示为成功';
+        status.textContent = (labels[d.status] || '响应状态未知，未展示为成功') + (d.captured_at && ['available','partial'].includes(d.status) ? ` · 数据采集于 ${d.captured_at}（归档结果）` : '');
+        pollProgress.textContent = '';
+        body.replaceChildren();
         body.append(el('p', `${profile.value === 'ALL' ? '全局' : profile.value} · ${start.value} 至 ${end.value} · ${kind === 'discount' ? 'ES 导出范围（不等同主站）' : kind === 'cohort' ? form.elements.site_group.selectedOptions[0].textContent : 'MMOEXP 主站'}`));
-        if (['available','partial'].includes(d.status)) { render(body,d); result = d; hermes.disabled = typeof options.onHermes !== 'function' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id || ''); if (!d.evidence_id) body.append(el('p','本次结果尚未取得归档证据编号，暂不能交给 Hermes。','hint')); }
+        if (['available','partial'].includes(d.status)) { render(body,d); result = d; hermes.disabled = typeof options.onHermes !== 'function' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id || '') || (kind !== 'discount' && !d.query); if (!d.evidence_id) body.append(el('p','本次结果尚未取得归档证据编号，暂不能交给 Hermes。','hint')); }
         if (d.reason) body.append(el('p', d.reason));
-        if (d.period) facts(body,{period:d.period, source:d.source, captured_at:d.captured_at});
-      } catch (error) { if (token === epoch && error.name !== 'AbortError') { status.textContent = '读取失败，请重试'; body.replaceChildren(); } }
+        if (d.period && kind !== 'product_orders') facts(body,{period:d.period, source:d.source, captured_at:d.captured_at});
+      } catch (error) { if (token === epoch && error.name !== 'AbortError') { status.textContent = '读取失败，请重试'; pollProgress.textContent = ''; body.replaceChildren(); } }
       finally { if (token === epoch) { submit.disabled = false; article.removeAttribute('aria-busy'); } }
     });
     if (kind === 'cohort') {
@@ -160,14 +233,16 @@ export function mountDataWorkspace(root, options = {}) {
           invalidate(); const token=epoch; writing=true; for (const input of form.elements) input.disabled=true; for(const b of actions)b.disabled=true;
           const payload={kind:'hermes_cohort_observation',action,profile:profile.value,start:start.value,end:end.value,platform:form.elements.platform.value,site_group:form.elements.site_group.value,window_days:Number(form.elements.window_days.value)};
           selection={...payload}; status.textContent='正在更新观察任务…'; article.setAttribute('aria-busy','true');
+          let readPending = false;
           try {
             const response=await (options.writeFetch || request)(endpoint,{method:'POST',credentials:'same-origin',redirect:'error',signal:win.AbortSignal.timeout(20000),headers:{'Content-Type':'application/json','X-FS-Advisor-Action':'submit'},body:JSON.stringify(payload)});
             const d=await response.json(); if(token!==epoch)return;
             if(/^[a-f0-9]{64}$/.test(d.archive_id||''))archives.set(groupKey(selection),d.archive_id);
             if(!response.ok){if(response.status>=500)uncertain=true;throw Error('cohort_action_rejected');}
-            status.textContent='观察任务状态已返回';renderCohort(body,d);result=d;hermes.disabled=typeof options.onHermes!=='function'||!/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id||'');
+            status.textContent='观察任务状态已返回';renderCohort(body,d);result=d;hermes.disabled=typeof options.onHermes!=='function'||!/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id||'')||!d.query;
+            readPending=['pending','queued'].includes(d.status);
           }catch(error){if(error.message!=='cohort_action_rejected')uncertain=true;if(uncertain)uncertainKey=groupKey(payload); status.textContent=uncertain?'更新结果待核对，请先查询相同条件的任务状态，勿重复提交。':'操作未获准，请检查权限、条件与当前任务状态。';}
-          finally {writing=false;for(const input of form.elements)input.disabled=false;for(const b of actions)b.disabled=uncertain;article.removeAttribute('aria-busy');}
+          finally {writing=false;for(const input of form.elements)input.disabled=false;for(const b of actions)b.disabled=uncertain;article.removeAttribute('aria-busy');if(readPending&&token===epoch)form.requestSubmit();}
         });
       }
     }
