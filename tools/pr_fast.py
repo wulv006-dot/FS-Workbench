@@ -304,6 +304,9 @@ def selfcheck():
     for area in ("source/controller.py","tests/test_http_queries.py","deploy/prepare_release.py"):
         if select(["releases/fs-dashboard/hermes-generic-data-20261018/"+area]) != ["hermes-generic-data"]:
             raise RuntimeError("hermes_generic_data_mapping_missing:"+area)
+    for area in ("source/customer_tracking.py","tests/test_customer_tracking.py","frontend/page.js","frontend/entry/brain.js","learning/CUSTOMER-METHOD.md","deploy/prepare_release.py"):
+        if select(["releases/fs-dashboard/hermes-customer-tracking-20261018/"+area]) != ["hermes-customer-tracking"]:
+            raise RuntimeError("hermes_customer_tracking_mapping_missing:"+area)
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -318,6 +321,8 @@ def select(paths):
             groups.add("hermes-data-workspace");continue
         if name.startswith("releases/fs-dashboard/hermes-conversation-20261018/"):
             groups.add("hermes-conversation");continue
+        if name.startswith("releases/fs-dashboard/hermes-customer-tracking-20261018/"):
+            groups.add("hermes-customer-tracking");continue
         if name.startswith("releases/fs-dashboard/hermes-generic-data-20261018/"):
             groups.add("hermes-generic-data");continue
         if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
@@ -826,6 +831,10 @@ def main():
             release="releases/fs-dashboard/hermes-conversation-20261018"
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
             units(release+"/deploy",["test_http","test_release"])
+        elif group=="hermes-customer-tracking":
+            release="releases/fs-dashboard/hermes-customer-tracking-20261018"
+            units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers"])
+            browser_python(release+"/frontend/test_page.py")
         elif group=="hermes-generic-data":
             generic="releases/fs-dashboard/hermes-generic-data-20261018"
             workspace="releases/fs-dashboard/hermes-data-workspace-20261018"

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
+  <title>智体客单追踪 · FS</title>
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
+  <link rel="stylesheet" href="page.css">
+  <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
+  <script defer src="/__hub/hubnav.js?v=fs-revision-20261015"></script>
+  <script defer src="page.js"></script>
+</head>
+<body class="fs-ui-page">
+  <a class="skip" href="#main">跳到主内容</a>
+  <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/fs-home/brain/index.html">Hermes 智体</a><span aria-hidden="true"> / </span><span aria-current="page">智体客单追踪</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
+  <main id="main" tabindex="-1">
+    <div class="intro"><p class="eyebrow">HERMES · FC27 CUSTOMER TRACKING</p><h1>智体客单追踪</h1><p>首期聚焦 FC27。筛选高价值订单，人工决定是否加入持续观察。Hermes 只提出维护建议；联系客户、发券及修改订单均需另行人工操作。</p></div>
+    <p id="status" class="status" role="status" aria-live="polite">正在核对管理员权限…</p><button id="reconcile-write" class="fs-btn" type="button" hidden>核对上次操作</button>
+    <div id="app" hidden>
+      <section class="panel" aria-labelledby="config-title"><div class="section-head"><h2 id="config-title">筛选条件</h2><span id="config-version" class="muted"></span></div>
+        <form id="config-form">
+          <div class="fields"><label>游戏 <select name="profile" required disabled><option value="FC27">FC27（首期）</option></select></label><fieldset><legend>商品品类</legend><label><input type="checkbox" name="product_types" value="Coins"> Coins（货币）</label><label><input type="checkbox" name="product_types" value="Items"> Items（物品）</label></fieldset><label>单笔订单金额高于（USD） <input name="min_order_usd_exclusive" type="number" min="0" step="0.01" required></label><label>折扣金额低于（USD） <input name="max_discount_usd_exclusive" type="number" min="0" step="0.01" required></label><fieldset><legend>新老客标记</legend><label><input type="checkbox" name="customer_flags" value="new"> 新客</label><label><input type="checkbox" name="customer_flags" value="old"> 老客</label><label><input type="checkbox" name="customer_flags" value="unknown"> 未识别</label></fieldset></div>
+          <p class="hint">金额为严格大于／小于；新老客以数据源标记为准，游客 UID 0 不等于新客。</p><p id="enabled-state" class="muted"></p><div class="actions"><button id="save-config" class="fs-btn fs-btn--primary" type="submit">保存条件</button><span id="config-state" class="muted"></span></div>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="candidate-title"><div class="section-head"><div><h2 id="candidate-title">每日候选名单</h2><p class="hint">仅管理员可见。名单按所选日期的已归档业务数据生成，显示采集时间和覆盖情况。</p></div><form id="date-form"><label>查询日期 <input id="candidate-date" name="day" type="date" required></label><button class="fs-btn" type="submit">查看名单</button><button id="scan-day" class="fs-btn fs-btn--primary" type="button">扫描该日</button></form></div><p id="candidate-meta" class="muted"></p><div id="candidate-list" class="list"><p class="empty">选择日期查看名单。</p></div></section>
+      <section class="panel" aria-labelledby="tracked-title"><div class="section-head"><h2 id="tracked-title">持续观察名单</h2><button id="refresh-tracked" class="fs-btn" type="button">刷新名单</button></div><div id="tracked-list" class="list"><p class="empty">正在读取观察名单…</p></div></section>
+      <section id="detail-section" class="panel" aria-labelledby="detail-title" hidden><div class="section-head"><h2 id="detail-title">客户观察详情</h2><button id="refresh-detail" class="fs-btn" type="button">刷新观察</button></div><div id="detail"></div></section>
+    </div>
+  </main>
+</body>
+</html>

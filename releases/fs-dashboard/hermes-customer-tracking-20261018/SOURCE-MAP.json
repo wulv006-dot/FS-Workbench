@@ -1,0 +1,38 @@
+{
+  "status": "local-candidate-frozen-awaiting-controlled-inspect",
+  "date": "2026-10-18",
+  "scope": "FC27 customer tracking phase one; private PII ledger; no deployment in this package",
+  "source_root": "fs_customer_tracking_20261018/source",
+  "files": [
+    {"source":"conversation_service.py","sha256":"62991168636fcb43cb1f531e820873fa1429fa40a2bdca63d841089fd69c6c8f","targets":[{"path":"/opt/fs-hermes-fc/conversation_service.py","before_sha256":"4bb96ba87e6c9b08182f362e2e7d3deb1deb1f7fb9dd9df1d6aa2392267e032e"}]},
+    {"source":"customer_reports.py","sha256":"2d27a418b7bf596e505528ef985be23e97b7cc0201a7cf36ca537880c0addfb8","targets":[{"path":"/opt/fs-hermes-fc/customer_reports.py","before_sha256":null}]},
+    {"source":"customer_tracking.py","sha256":"ff9bca8ae386caa565a679e035e7099389148e07fe9a397828661bb156d8ec33","targets":[{"path":"/opt/fs-hermes-fc/customer_tracking.py","before_sha256":null},{"path":"/opt/fc27-cloud/marketing-session-20261009/customer_tracking.py","before_sha256":null},{"path":"/usr/local/bin/customer_tracking.py","location":"new-session-image"}]},
+    {"source":"p2pah_session_service.py","sha256":"e316b53cd5535a456535574dc89eb10032da3d4db98c6baefc3f409894ec19bc","targets":[{"path":"/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py","before_sha256":"3194512ae2ccb93d9156401aae3acf157efb30f4e8667d290f6e44c610b0fcbb"},{"path":"/usr/local/bin/p2pah_session_service.py","location":"new-session-image"}]},
+    {"source":"range_api.py","sha256":"82da6576d6b89899489731c2ecb9b6bdbc4fab8a2ca66b866e680229154dd4ac","targets":[{"path":"/opt/fs-exact-range-20261001/range_api.py","before_sha256":"7cb5897a0f6a5e346803d7072ae783a4faf789cb2f821ba7bbc972b3082f2118"}]},
+    {"source":"research.py","sha256":"1f17e522a8f628cb3c74e8597bed3737ebd84629d80111061827f0eadaef1c83","targets":[{"path":"/opt/fs-hermes-fc/research.py","before_sha256":"49aaa72ffd82d43d8a1fb03f6b19520fd91a726c07f56c0e3da8377381659b59"}]},
+    {"source":"tracking_controller.py","sha256":"3612eb0a50a5cbce59437cb27ef9453b82f137a264fb96ca07f1b6f5edbdf284","targets":[{"path":"/opt/fs-hermes-fc/tracking_controller.py","before_sha256":null}]},
+    {"source":"tracking_private_session.py","sha256":"0b89997f7a1d76f2dc6c493dd0939b5264bcd3ecf765cedaeb96988d082a7a01","targets":[{"path":"/opt/fc27-cloud/marketing-session-20261009/tracking_private_session.py","before_sha256":null},{"path":"/usr/local/bin/tracking_private_session.py","location":"new-session-image"}]},
+    {"source":"tracking_source.py","sha256":"cfa9ecd3fcf704dd8c7c97409ccc3be6b8f6d4312a35cf870f854058251485dd","targets":[{"path":"/opt/fc27-cloud/marketing-session-20261009/tracking_source.py","before_sha256":null},{"path":"/usr/local/bin/tracking_source.py","location":"new-session-image"}]},
+    {"source":"tracking_tool.py","sha256":"f64794e31f092c6dd89f9b682472f9f8e45c1f169c788361d6d725f5921ecf8f","targets":[{"path":"/opt/fs-hermes-fc/tracking_tool.py","before_sha256":null}]}
+  ],
+  "private_runtime": {
+    "ledger_directory":"/var/lib/fs-hermes-fc/fs/customer-tracking",
+    "ledger_mode":"0700",
+    "database":"/var/lib/fs-hermes-fc/fs/customer-tracking/tracking.db",
+    "database_mode":"0600",
+    "key_host":"/var/lib/fs-hermes-fc/private/customer-tracking.key",
+    "key_container":"/run/secrets/fs-customer-tracking.key",
+    "key_mode":"0600",
+    "key_material_in_payload":false,
+    "session_private_endpoint":"POST /business/customer-tracking-private",
+    "public_aggregate_endpoint_extended_with_pii":false
+  },
+  "services_to_restart_after_cas": ["fc27-p2pah-session.service", "fs-hermes-fc.service", "fs-business-range.service"],
+  "quiescence": {
+    "session_health_field":"active_customer_reads",
+    "range_health_field":"active_customer_reports",
+    "pending_scan_query":"SELECT 1 FROM scan_jobs WHERE state='pending' LIMIT 1",
+    "active_report_query":"SELECT 1 FROM milestones WHERE state IN ('claimed','creating','dispatch_unknown','queued','running') LIMIT 1"
+  },
+  "verification":"32 local unit/integration checks passed; production role and real-day report acceptance pending"
+}
