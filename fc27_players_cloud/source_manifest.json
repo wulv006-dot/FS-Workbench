@@ -1,22 +1,22 @@
 {
-  "version": "2026.10.08-cloud.10",
+  "version": "2026.10.18-cloud.11.1",
   "files": {
-    "VERSION": "416a9b43a35b73e1058fa194e0ed703470132dc898cae4a4e65dd2248b97e478",
+    "VERSION": "9582dacbd61a93ded816619d7e1316961dd6d716145844cd251fe4b886f728de",
     "player_web/__init__.py": "81ea19257665430e41cb6eb69fa47f6c63dbf97702f2a90eb4ae7e000d998e7c",
     "player_web/cli.py": "404652e305c36f5ccd240bb6caf42ba1abc79f6de9d7a5411312afae65e5329b",
     "player_web/client_factory.py": "466696752fa56e329f54d0ea23b198e048c915a6f7045788d03811cd53585581",
     "player_web/collection.py": "c759ee202546f3a3b4ae5e8e92af29bfa1de12d89ab48a84f9574f5bfd473ead",
     "player_web/existing_action_service.py": "7fb9c393fcbba877de5ce86d832dd68af64a6c29828e77d3d5e452d3a478330b",
-    "player_web/main.py": "20ac9e6c56c190b0f294768c11f07508aa7709d66d512bfa4add618546ba9714",
+    "player_web/main.py": "b29dfbee9d60123dd96a2cd099863780c519ac937c3e81f5b9848e1ebce0f38c",
     "player_web/model_service.py": "80bb7d1463d0ff2b500f74c0c6c02eacdb08a7a8e565049f51609726f061963f",
     "player_web/new_card_service.py": "ee523ab232e8007169e17e1fcd38c6582d58a22af9be489cc23c9a3e2d0c25ae",
     "player_web/price_lock.py": "2ae15833cf33ddb144a4d0b5b1a7f6813a6d357bfccb9519c2718ca15c7b0778",
     "player_web/repository.py": "bd93cc2a13d0b69ddf6f42b70798c0b9e55fc2828bbcef711be80fba4839be31",
-    "player_web/settings.py": "1a89246fe4e2a1a7e27bff803a90cd76df08393cc78e2f5433026eb1f3beb8ea",
+    "player_web/settings.py": "20cb7e2c1626feaf5c928f9a1b86c63e11d20e635852bd4e7ed53ad7b1d3d56d",
     "player_web/static/app.css": "e6c8788119aea1558520f002d01f33214fcbdcfa9d81ad2843ca82f9c7264087",
-    "player_web/static/app.js": "e1afd2bcde343ad87f4629b23144075fe32487d5f1656fca3076add1c36b40b9",
-    "player_web/static/index.html": "4eb99b14f36076878669782974730378efff822e72be7022cc7ba7ae656c86c9",
-    "player_web/static/models.html": "73e04ae4f8e0d789e3cbca62b7c8104ae7cf93ee4514c2eb1030cb72e532516a",
+    "player_web/static/app.js": "50b13e1dfcda14db687ddf24caefe3232532fc3a846a8c664fb2c11b0a73a6ce",
+    "player_web/static/index.html": "8788c7ac9f891f07fb78e55e2dcd7f30698f252d63f0f70611cde2a598fe4ec0",
+    "player_web/static/models.html": "82d6032e28c643fa866183002d2d7cfd6c4e8490df3e65956ede435f843f5d88",
     "requirements.lock": "034baf43f01db4418243a2d55d69cb89ccb6362c69c1c1a4b4d3b2f8e6277ea4",
     "球员维护工具/__init__.py": "5b3cad86ccf0c577bd59c5644978cd5820cb11ea8dc3eca4c1cc65ad2726f5e0",
     "球员维护工具/adapters.py": "2625c932f3cd2bf9a84f11d8a97fef6f03db7a08a4b1c33d0a9057cc1557f3a4",
@@ -45,6 +45,7 @@
     "球员维护工具/transformer.py": "c6d3b0e7d8dc64a58b13e271800b623097fbafb92ba865bc35d57903cfa9cff7",
     "player_web/model_image_service.py": "68dba2deca7c35095a54282d4a74f71a8baa32858888d11db245d37781957d40",
     "player_web/media_client.py": "1c49773baa25862ebf513acaf1cb9c5cca2fb4c2e84f0aec1d0b22ea9f267751",
-    "player_web/static/images.js": "9fb3fe95365dea189460bb21dd79ff17e66adc590251751bc641166b4ae99312"
+    "player_web/static/images.js": "9fb3fe95365dea189460bb21dd79ff17e66adc590251751bc641166b4ae99312",
+    "player_web/shared_session.py": "8ab864276e4107ccbf874ce8e06edc58c3665e2f7a51d6456b1f664508ba8e59"
   }
 }

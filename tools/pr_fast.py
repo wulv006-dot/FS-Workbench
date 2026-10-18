@@ -262,6 +262,8 @@ def selfcheck():
         raise RuntimeError("lootbar_mapping_missing")
     for path,group in [("releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/lootbar_server_collector.py","fc-browser-readiness"),("releases/fc-coins/result-read-20261016/source/fc27-quote-cloud.js","fc-result-read"),("releases/fs-dashboard/business-refresh-20261016/source/live_summary.py","fs-business-refresh"),("fc27_players_cloud/player_web/main.py","fc-players-cloud10"),("releases/fs-dashboard/deployed-source-backfill-20261017/test_inventory.py","deployed-source-backfill")]:
         if select([path]) != [group]:raise RuntimeError("deployed_source_mapping_missing:"+path)
+    for path in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py","releases/fc-players/shared-login-20261018/source/session/fc27-p2pah-session.service"):
+        if select([path]) != ["fc-players-shared-login"]:raise RuntimeError("shared_login_mapping_missing:"+path)
     if select(["releases/fc-coins/prewrite-recovery-20261012/source/monitor/read_only_status.py"]) != ["fc-prewrite"]:
         raise RuntimeError("fc_prewrite_scope_missing")
     if select(["releases/fc-coins/noncore-emergency-20261009/source/fc27_quote_engine.py"]) != ["fc-noncore"]:
@@ -302,6 +304,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-players/shared-login-20261018/") or name in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py"):
+            groups.add("fc-players-shared-login");continue
         if name.startswith("releases/fs-dashboard/hermes-data-workspace-20261018/"):
             groups.add("hermes-data-workspace");continue
         if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
@@ -572,6 +576,9 @@ def main():
         elif group=="fs-business-refresh":
             units("releases/fs-dashboard/business-refresh-20261016/tests",["test_refresh"])
             node("releases/fs-dashboard/business-refresh-20261016/tests/test_refresh.cjs")
+        elif group=="fc-players-shared-login":
+            units("fc27_players_cloud",["tests_cloud.test_shared_session"])
+            units("releases/fc-players/shared-login-20261018",["test_session_socket"])
         elif group=="fc-players-cloud10":
             units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend"])
             node("fc27_players_cloud/tests_cloud/check_manual_recommend_button.cjs")

@@ -14,6 +14,7 @@ from wsgiref.simple_server import WSGIServer, WSGIRequestHandler, make_server
 from socketserver import ThreadingMixIn
 
 from 球员维护工具.admin_adapter import AdminAdapter, build_existing_model_map
+from 球员维护工具.admin_client import AdminAuthError
 from 球员维护工具.existing_model_domain import normalize_model_rows
 
 from .client_factory import admin_client
@@ -24,6 +25,7 @@ from .new_card_service import (execute_confirmed_plan, prepare_plan,
                                verify_manual_new_card_scope, verify_source_policy)
 from .repository import Repository, StateError
 from .settings import Settings
+from .shared_session import shared_client
 from .model_image_service import (create_batch, stage_png, prepare_image_plan,
                                   verify_image_plan, execute_image_plan, MAX_PNG_BYTES)
 
@@ -165,6 +167,7 @@ class App:
                     csrf = self._csrf.setdefault(session_key, secrets.token_urlsafe(32))
                 return self._json(start, "200 OK", {
                     "owner": owner, "role": role, "csrf": csrf, "root_path": self.settings.root_path,
+                    "shared_backend_session": self.settings.shared_backend_session,
                     "backend_authenticated": self._session(session_key) is not None,
                     "write_enabled": self.settings.write_enabled,
                     "new_card_write_enabled": self.settings.new_card_write_enabled,
@@ -291,6 +294,20 @@ class App:
                                       {"count": len(content.splitlines())})
                 return self._bytes(start, "200 OK", content, "text/plain; charset=utf-8",
                                    [("Content-Disposition", 'attachment; filename="fc27_selected_futbin_ids.txt"')])
+            if path == "/api/auth/shared":
+                if not self.settings.shared_backend_session:
+                    raise StateError("FS_SHARED_SESSION_DISABLED")
+                client = shared_client(self.settings)
+                with self._state_lock:
+                    old = self._sessions.pop(session_key, None)
+                    if old:
+                        old[0].clear_auth()
+                    self._sessions[session_key] = (client, time.time(), time.time())
+                    self._csrf[session_key] = secrets.token_urlsafe(32)
+                self.repository.audit(owner, "backend_login", "", {"status": "success", "method": "fs_shared"})
+                return self._json(start, "200 OK", {"authenticated": True, "csrf": self._csrf[session_key]})
+            if path in {"/api/auth/challenge", "/api/auth/login"} and self.settings.shared_backend_session:
+                raise StateError("USE_FS_SHARED_SESSION")
             if path == "/api/auth/challenge":
                 with self._state_lock:
                     if time.time() - self._last_challenge.get(session_key, 0) < 15:
@@ -440,10 +457,13 @@ class App:
             return self._json(start, "404 Not Found", {"error": "NOT_FOUND"})
         except PermissionError as exc:
             return self._json(start, "403 Forbidden", {"error": str(exc)})
+        except AdminAuthError:
+            return self._json(start, "409 Conflict", {"error": "BACKEND_AUTH_UNAVAILABLE"})
         except (StateError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             code = str(exc)
             # 不把任意异常文本、上游响应或用户输入返回给浏览器。
             known = {"WRITE_DISABLED", "PLAN_BLOCKED", "PLAN_STALE", "AUTH_REQUIRED",
+                     "FS_SHARED_SESSION_DISABLED", "USE_FS_SHARED_SESSION",
                      "CHALLENGE_EXPIRED", "CHALLENGE_RATE_LIMITED", "COLLECTOR_DISABLED",
                      "UNRESOLVED_IMPORT", "LEGACY_UNRESOLVED", "EXPLICIT_CONFIRMATION_REQUIRED",
                      "MODEL_SNAPSHOT_REQUIRED", "INVALID_DAYS_NEW", "SOURCE_PAGE_INCOMPLETE",
