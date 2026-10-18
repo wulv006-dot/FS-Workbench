@@ -19,6 +19,14 @@ HOME = "/var/www/dashboard/fs-home/index.html"
 NAV = "/var/www/dashboard/fs-home/navigation.json"
 LEDGER = "/var/lib/fs-dashboard-release/current.json"
 PREVIOUS = "workspace-native-20261006-e162b639a1d1"
+FAILED_RELEASE = "workspace-native-20261006-d897858564a5"
+FAILED_ASSETS = {
+    "shell.js": "cf9119de22addd3f30a5243d5b5286f99956a9200145419533850b6555aefcc2",
+    "index.html": "24c1100bfc9a489ac445ff17b616326d6afab833b9fd8d48dfb78f22714d125f",
+    "tools-index.html": "b2cb4f32abc7940e32669f3caf851b362f3627c1b1595e42c567167646c42ff5",
+    "page.css": "7740dbafdf516aa5b9158c85e4a3ed465d447dec1442c67ff3c9a0f90be4b8f0",
+    "page.js": "d3087a70b7e2cb96ab32888057df69e71826757bd1fe794f9d22af4fce3944b3",
+}
 PREFIX = "/var/lib/fs-navigation-formal-static/"
 URL = "/dashboard/workspace-assets/"
 EXPECTED = {
@@ -135,9 +143,16 @@ def build_formal(current, release_id):
         block = replace_one(template, (old_url + old_name).encode(), (new_url + name).encode(), "immutable_route_" + name)
         block = replace_one(block, (old_root + old_name).encode(), (new_root + name).encode(), "immutable_alias_" + name)
         additions.append(block.replace(b"    alias ", b"    types { }\n    default_type " + mime[name] + b";\n    alias ", 1))
-    page_entry = entry.replace(b"/dashboard/analytics/index.html", b"/dashboard/data-tools/")
+    page_entry = replace_one(entry, b"/dashboard/analytics/index.html", b"/dashboard/data-tools/index.html", "tools_entry_route")
     page_entry = replace_one(page_entry, (old_root + "index.html").encode(), (new_root + "tools-index.html").encode(), "tools_entry_alias")
     additions.append(page_entry.replace(b"    alias ", b"    types { }\n    default_type text/html;\n    alias ", 1))
+    additions.append(b"location = /dashboard/data-tools/ {\n"
+                     b"    if ($request_method !~ ^(GET|HEAD)$) { return 405; }\n"
+                     b"    auth_request /__nav_formal_native_session;\n"
+                     b"    error_page 401 = @auth_login;\n"
+                     b"    disable_symlinks on;\n"
+                     b"    rewrite ^ /dashboard/data-tools/index.html last;\n"
+                     b"}")
     for name in ("page.css", "page.js"):
         template = asset_templates["shell.js"]
         block = replace_one(template, (old_url + "shell.js").encode(), ("/dashboard/data-tools/" + name).encode(), "page_route_" + name)
@@ -146,7 +161,26 @@ def build_formal(current, release_id):
     for block in additions:
         if b"auth_request /__nav_formal_native_session;" not in block or b"disable_symlinks on;" not in block:
             raise ValueError("new_route_missing_auth_or_symlink_guard")
-    return current + b"\n\n" + b"\n\n".join(additions) + b"\n"
+    result = current + b"\n\n" + b"\n\n".join(additions) + b"\n"
+    verify_tools_routes(result, release_id)
+    return result
+
+
+def verify_tools_routes(formal, release_id):
+    blocks = location_blocks(formal)
+    slash = exact_block(blocks, "/dashboard/data-tools/")
+    if b"alias " in slash or b"rewrite ^ /dashboard/data-tools/index.html last;" not in slash:
+        raise ValueError("tools_slash_must_rewrite_without_file_alias")
+    targets = {
+        "/dashboard/data-tools/index.html": ("tools-index.html", b"text/html"),
+        "/dashboard/data-tools/page.css": ("page.css", b"text/css"),
+        "/dashboard/data-tools/page.js": ("page.js", b"application/javascript"),
+    }
+    for route, (name, mime) in targets.items():
+        block = exact_block(blocks, route)
+        alias = ("alias " + PREFIX + release_id + "/" + name + ";").encode()
+        if alias not in block or b"types { }" not in block or b"default_type " + mime + b";" not in block:
+            raise ValueError("tools_route_alias_or_mime_drift:" + route)
 
 
 def protected_map(ui, obs):
@@ -159,6 +193,8 @@ def protected_map(ui, obs):
     for name in ("shell.js", "data-workspace.js", "index.html"):
         path = PREFIX + PREVIOUS + "/" + name
         protected[path] = EXPECTED[path]
+    for name, digest in FAILED_ASSETS.items():
+        protected[PREFIX + FAILED_RELEASE + "/" + name] = digest
     for path in (FORMAL, HOME, NAV):
         protected.pop(path, None)
     if len(protected) < 325 or protected.get("/var/www/dashboard/fs-home/brain/brain.js") is None:
@@ -197,7 +233,7 @@ def prepare(output):
         raise ValueError("active_shell_reference_drift")
     nav = navigation(obs[NAV])
     source_sig = b"".join(source_files[name] for name in sorted(source_files))
-    release_id = "workspace-native-20261006-" + sha(source_sig + obs[FORMAL] + obs[HOME] + nav)[:12]
+    release_id = "workspace-native-20261006-" + sha(source_sig + obs[FORMAL] + obs[HOME] + nav + b"tools-entry-internal-rewrite-v2")[:12]
     new_script = (URL + release_id + "/shell.js").encode()
     assets = {
         "shell.js": source_files["analytics-shell.js"],
