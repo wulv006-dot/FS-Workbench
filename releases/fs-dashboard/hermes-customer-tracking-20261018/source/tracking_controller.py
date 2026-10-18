@@ -9,6 +9,7 @@ import re
 import stat
 import threading
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from customer_tracking import AdminService, Store, ID
@@ -16,6 +17,20 @@ from customer_tracking import AdminService, Store, ID
 SESSION_URL='http://127.0.0.1:8767/business/customer-tracking-private'
 KEY_FILE=Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/var/lib/fs-hermes-fc/private/customer-tracking.key'))
 SHANGHAI=timezone(timedelta(hours=8))
+
+
+def safe_client_failure(error):
+    """Never persist a URL, key, email, order, or untrusted exception text."""
+    if isinstance(error,HTTPError):
+        return 'private_client_http_'+str(error.code) if error.code in (400,403,404,503) else 'private_client_http_unavailable'
+    if isinstance(error,PermissionError) and str(error) in {
+            'tracking_key_integrity','tracking_key_permissions','tracking_key_format'}:
+        return 'private_client_key_unavailable'
+    if isinstance(error,json.JSONDecodeError):return 'private_client_json_invalid'
+    if isinstance(error,ValueError) and str(error)=='private_result_size':return 'private_client_result_size'
+    if isinstance(error,TimeoutError):return 'private_client_timeout'
+    if isinstance(error,OSError):return 'private_client_transport_unavailable'
+    return 'private_client_unavailable'
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
@@ -86,7 +101,8 @@ class TrackingController:
         query={'action':'scan','day':day,'config':{key:value for key,value in config.items()
             if key not in ('version','last_request_id','enabled_profiles')}}
         try:result=self.client.read(query)
-        except (OSError,ValueError,PermissionError):result={'status':'unavailable','reason':'private_source_unavailable'}
+        except (OSError,ValueError,PermissionError) as error:
+            result={'status':'unavailable','reason':safe_client_failure(error)}
         self.store.finish_scan(day,job['config_version'],result)
 
     def _poll_history(self,tracking_id,max_age_seconds=900):

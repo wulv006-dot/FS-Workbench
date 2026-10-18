@@ -70,7 +70,13 @@ def admin_paid_day(request,day,profile,wanted):
             'received':0,'pages':[],'complete':True,'matched_candidate_orders':0,
             'candidate_orders_requested':0,'missing_candidate_orders':0,
             'admin_read_skipped':'no ES rows pass product, discount and customer-flag prefilter'}}
-    found={};seen_ids={};previous_id=None;expected=None;raw_count=0;pages=[];deadline=time.monotonic()+850
+    found={};seen_ids={};matched_ids=set();matched_rows=0;previous_id=None;expected=None;raw_count=0;pages=[];deadline=time.monotonic()+850
+    excluded_scope={'gid':0,'site_id':0,'pay_status':0};excluded_rows=0
+    def scope_id(row,field):
+        value=row.get(field)
+        if type(value) is int and 0<=value<10**10:return value
+        if isinstance(value,str) and re.fullmatch(r'[0-9]{1,10}',value):return int(value)
+        raise ValueError('admin_day_scope')
     for page in range(1,MAX_PAGES+1):
         remaining=deadline-time.monotonic()
         if remaining<=0:break
@@ -92,8 +98,6 @@ def admin_paid_day(request,day,profile,wanted):
         if expected is None:expected=total
         ids=[]
         for row in batch:
-            if str(row.get('gid'))!=str(gid) or str(row.get('site_id'))!='266' or str(row.get('pay_status'))!='1':
-                raise ValueError('admin_day_scope')
             ident=row.get('id');order=row.get('order_no')
             if not str(ident).isdigit() or not isinstance(order,str):raise ValueError('admin_day_identity')
             when=row.get('paytime')
@@ -102,6 +106,14 @@ def admin_paid_day(request,day,profile,wanted):
             row_sha=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
             if ident in seen_ids and seen_ids[ident]!=row_sha:raise ValueError('admin_day_duplicate_conflict')
             seen_ids[ident]=row_sha
+            mismatches={field:value for field,value in (('gid',gid),('site_id',266),('pay_status',1))
+                if scope_id(row,field)!=value}
+            if mismatches:
+                excluded_rows+=1
+                for field in mismatches:excluded_scope[field]+=1
+                continue
+            matched_rows+=1
+            matched_ids.add(ident)
             if order not in wanted:continue
             projection={key:row.get(key) for key in ('order_no','gid','site_id','pay_status','email','uid','amount')}
             if order in found and found[order]!=projection:raise ValueError('admin_order_conflict')
@@ -112,10 +124,14 @@ def admin_paid_day(request,day,profile,wanted):
         raw_count+=len(batch);pages.append({'page':page,'rows':len(batch),'source_total':total})
         if raw_count>=total:break
         if not batch:raise ValueError('admin_day_empty_page')
-    complete=expected is not None and raw_count==expected
+    complete=expected is not None and raw_count==expected and len(seen_ids)==expected
     return {'status':'available' if complete else 'partial','orders':found,
         'coverage':{'source_total':expected,'received':raw_count,'unique_source_ids':len(seen_ids),'pages':pages,
-            'complete':complete,'matched_candidate_orders':len(found),
+            'complete':complete,'scope_matched_source_rows':matched_rows,
+            'scope_matched_unique_ids':len(matched_ids),
+            'scope_excluded_source_rows':excluded_rows,'scope_excluded_by_field':excluded_scope,
+            'source_total_basis':'complete pages of upstream returned set; only exact gid/site_id/pay_status rows enter candidate matching',
+            'matched_candidate_orders':len(found),
             'candidate_orders_requested':len(wanted),
             'missing_candidate_orders':len(wanted-set(found))}}
 

@@ -80,7 +80,7 @@ class SourceTests(unittest.TestCase):
         def request(path,timeout):
             return 200,json.dumps({'code':1,'data':{'total':2,'list':[order,dict(order)]}}).encode()
         result=admin_paid_day(request,'2026-10-17','FC27',{'ORDER-1'})
-        self.assertEqual(result['status'],'available')
+        self.assertEqual(result['status'],'partial')
         self.assertEqual(result['coverage']['received'],2)
         self.assertEqual(result['coverage']['unique_source_ids'],1)
         self.assertEqual(len(result['orders']),1)

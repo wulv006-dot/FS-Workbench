@@ -833,7 +833,7 @@ def main():
             units(release+"/deploy",["test_http","test_release"])
         elif group=="hermes-customer-tracking":
             release="releases/fs-dashboard/hermes-customer-tracking-20261018"
-            units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers"])
+            units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers","test_safe_diagnostic","test_scope_filter"])
             browser_python(release+"/frontend/test_page.py")
         elif group=="hermes-generic-data":
             generic="releases/fs-dashboard/hermes-generic-data-20261018"

@@ -19,6 +19,27 @@ from tracking_source import admin_email_history, scan_day
 
 KEY_FILE = Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/run/secrets/fs-customer-tracking.key'))
 DAY = re.compile(r'\d{4}-\d{2}-\d{2}')
+SAFE_SOURCE_ERRORS = frozenset({
+    'admin_day_query', 'admin_day_response', 'admin_day_contract',
+    'admin_day_pagination', 'admin_day_scope', 'admin_day_identity',
+    'admin_day_time', 'admin_day_duplicate_conflict', 'admin_order_conflict',
+    'admin_day_sort_or_duplicate', 'admin_day_empty_page',
+    'admin_identity_unavailable', 'archive_link', 'archive_permissions',
+    'archive_manifest_integrity', 'archive_file_set', 'archive_source_version',
+    'archive_digest', 'archive_file_integrity', 'archive_hash_mismatch',
+})
+
+
+def safe_source_failure(error):
+    """Only fixed, code-owned labels may cross the private API boundary."""
+    label=str(error)
+    if type(error) in (ValueError,PermissionError) and label in SAFE_SOURCE_ERRORS:
+        return label
+    if isinstance(error,json.JSONDecodeError):return 'private_source_json_invalid'
+    if isinstance(error,TimeoutError):return 'private_source_timeout'
+    if isinstance(error,OSError):return 'private_source_transport_unavailable'
+    if isinstance(error,(KeyError,TypeError)):return 'private_source_shape_invalid'
+    return 'private_source_unavailable'
 
 
 def private_key(path=KEY_FILE):
@@ -103,4 +124,4 @@ class PrivateReads:
             future=job['future']
         if not future.done():return {'status':'pending','retryAfter':5}
         try:return future.result()
-        except Exception:return {'status':'unavailable','reason':'private_source_unavailable'}
+        except Exception as error:return {'status':'unavailable','reason':safe_source_failure(error)}
