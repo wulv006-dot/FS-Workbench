@@ -33,3 +33,8 @@
 注册专用增量运行37623684963、37630588766的真实失败保留。后续QA run37645305282为completed/success；311/311数量沿用已有用户/交接证据，本轮未重取完整日志或重跑，不用driver静态绿替代集成验收。
 
 [此前状态快照](https://github.com/wulv006-dot/FS-Workbench/blob/7154ba13288accff164b717f1f3ad86a4e25ad31/docs/collaboration/CURRENT-STATUS.md)的正文观察为2026-10-07 13:50 UTC/ee8f36b，早期“修复进行中”不覆盖本页后续结果；旧failed/unknown与原manifest仍按对象和时点保留。
+
+
+## 2026-10-18 FC27 Players 共享登录回补
+
+已上线 cloud.11.1 与真实873模型/6标签读取验收；保留原写入范围及人工确认。本 PR 仅回补代码、相关CI与活动来源，合并不再发布。当前共享会话服务在本批增加UID992本机通道，其它HTTP业务方法保持；后续基于本批活动源合并，避免旧Admin工具文件整包覆盖。详见 [交付](../../releases/fc-players/shared-login-20261018/README.md) 和 [SOURCE-MAP](../../releases/fc-players/shared-login-20261018/SOURCE-MAP.json)。

@@ -7,9 +7,10 @@
   function msg(id,value,kind="muted") { const el=$(id); el.className=kind; el.textContent=String(value); }
   function renderAuth() {
     const signedIn=state.auth;
-    $("authForm").hidden=signedIn||state.role!=="admin";
+    $("authForm").hidden=signedIn||state.role!=="admin"||state.shared;
+    $("sharedAuth").hidden=signedIn||!state.shared||state.role!=="admin";
     $("authSession").hidden=!signedIn;
-    msg("authState",signedIn?"P2PAH 后台已登录":state.role==="admin"?"P2PAH 后台未登录，请在下方登录。":"当前门禁为只读身份，无法登录后台。","auth-state "+(signedIn?"signed-in":"signed-out"));
+    msg("authState",signedIn?(state.shared?"已连接 FS 默认后台账号":"P2PAH 后台已登录"):state.role==="admin"?(state.shared?"FS 默认后台账号尚未连接，请点击连接。":"P2PAH 后台未登录，请在下方登录。") :"当前门禁为只读身份，无法登录后台。","auth-state "+(signedIn?"signed-in":"signed-out"));
   }
   function node(tag,text,cls) { const el=document.createElement(tag); if(text!==undefined)el.textContent=String(text); if(cls)el.className=cls; return el; }
   function cell(value) { return node("td",value ?? ""); }
@@ -37,7 +38,7 @@
     return data;
   }
   async function bootstrap() {
-    const data=await api("/api/bootstrap"); state.csrf=data.csrf; state.role=data.role; state.owner=data.owner; state.write=!!data.write_enabled; state.auth=!!data.backend_authenticated;
+    const data=await api("/api/bootstrap"); state.csrf=data.csrf; state.role=data.role; state.owner=data.owner; state.write=!!data.write_enabled; state.auth=!!data.backend_authenticated; state.shared=!!data.shared_backend_session;
     msg("identity",data.owner+" · "+(data.role==="admin"?"管理员":"只读")+" · "+(state.auth?"后台已登录":"后台未登录"),"pill");
     renderAuth();
     for(const id of ["challenge","login","logout","prepare"]){$(id).disabled=data.role!=="admin";}
@@ -47,9 +48,17 @@
     $("challenge").onclick=challenge;
     $("login").onclick=login;
     $("logout").onclick=logout;
+    $("sharedLogin").onclick=()=>connectShared().catch(e=>msg("authMessage",e.message,"error"));
+    if(state.shared&&state.role==="admin"&&!state.auth){try{await connectShared();}catch(e){msg("authMessage",e.message,"error");}}
     const current=await status();
     if(page==="new")await startNew(current);else await startModels(current);
     await loadJobs();
+  }
+  async function connectShared() {
+    const button=$("sharedLogin"); button.disabled=true; button.textContent="正在连接…";
+    try{const data=await api("/api/auth/shared","POST",{});state.csrf=data.csrf;state.auth=true;await status();msg("authMessage","已连接 FS 默认后台账号，写入仍须预览并人工确认。","ok");}
+    catch(e){throw new Error(e.message==="BACKEND_AUTH_UNAVAILABLE"?"FS 后台会话暂不可用，请稍后重新连接。":e.message);}
+    finally{button.disabled=false;button.textContent="连接 FS 默认后台账号";}
   }
   async function challenge() { try {const data=await api("/api/auth/challenge","POST",{});state.challenge=data.challenge_id;$("captchaImage").src=prefix+data.image_url;$("captchaImage").hidden=false;msg("authMessage","请填写后台账号、密码和验证码。");}catch(e){msg("authMessage",e.message,"error");} }
   async function login() { try {const data=await api("/api/auth/login","POST",{challenge_id:state.challenge,username:$("username").value,password:$("password").value,captcha:$("captcha").value});$("password").value="";$("captcha").value="";$("captchaImage").hidden=true;state.challenge="";state.csrf=data.csrf;msg("authMessage","后台登录成功。","ok");await status();if(page==="new")await loadCandidates();else await loadModels();}catch(e){$("password").value="";msg("authMessage",e.message,"error");} }

@@ -1,0 +1,125 @@
+{
+  "status": "deployed_and_real_admin_read_verified",
+  "observed_date": "2026-10-18 Asia/Shanghai",
+  "players_version": "2026.10.18-cloud.11.1",
+  "players_image": "sha256:700512f179ecfcd520e875f746d2b454bf1eab932a6f5eb60f2a809f69d2ec01",
+  "session_image": "sha256:08c381f103f932ca219a72aab5cf360e6584ae321012bf9fee066ffc1d3bc352",
+  "players": [
+    {
+      "source": "fc27_players_cloud/VERSION",
+      "target": "/opt/fc27-player-tool/current/VERSION",
+      "container": "fc27-player-tool:/app/VERSION",
+      "sha256": "9582dacbd61a93ded816619d7e1316961dd6d716145844cd251fe4b886f728de"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/main.py",
+      "target": "/opt/fc27-player-tool/current/player_web/main.py",
+      "container": "fc27-player-tool:/app/player_web/main.py",
+      "sha256": "b29dfbee9d60123dd96a2cd099863780c519ac937c3e81f5b9848e1ebce0f38c"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/settings.py",
+      "target": "/opt/fc27-player-tool/current/player_web/settings.py",
+      "container": "fc27-player-tool:/app/player_web/settings.py",
+      "sha256": "20cb7e2c1626feaf5c928f9a1b86c63e11d20e635852bd4e7ed53ad7b1d3d56d"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/shared_session.py",
+      "target": "/opt/fc27-player-tool/current/player_web/shared_session.py",
+      "container": "fc27-player-tool:/app/player_web/shared_session.py",
+      "sha256": "8ab864276e4107ccbf874ce8e06edc58c3665e2f7a51d6456b1f664508ba8e59"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/static/app.js",
+      "target": "/opt/fc27-player-tool/current/player_web/static/app.js",
+      "container": "fc27-player-tool:/app/player_web/static/app.js",
+      "sha256": "50b13e1dfcda14db687ddf24caefe3232532fc3a846a8c664fb2c11b0a73a6ce"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/static/index.html",
+      "target": "/opt/fc27-player-tool/current/player_web/static/index.html",
+      "container": "fc27-player-tool:/app/player_web/static/index.html",
+      "sha256": "8788c7ac9f891f07fb78e55e2dcd7f30698f252d63f0f70611cde2a598fe4ec0"
+    },
+    {
+      "source": "fc27_players_cloud/player_web/static/models.html",
+      "target": "/opt/fc27-player-tool/current/player_web/static/models.html",
+      "container": "fc27-player-tool:/app/player_web/static/models.html",
+      "sha256": "82d6032e28c643fa866183002d2d7cfd6c4e8490df3e65956ede435f843f5d88"
+    }
+  ],
+  "session": [
+    {
+      "source": "releases/fc-players/shared-login-20261018/source/session/p2pah_session_service.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/p2pah_session_service.py",
+      "sha256": "f642b162fbddf1fbb4d415b64119a147d6d2c6064e0f921badd7237bb731e9a2"
+    },
+    {
+      "source": "releases/fc-players/shared-login-20261018/source/session/player_session_socket.py",
+      "target": "/opt/fc27-cloud/marketing-session-20261009/player_session_socket.py",
+      "sha256": "2ffe7988a0135d84ff361af043cb57a5865936e8df1784a4cb7c0b2f099f60d3"
+    },
+    {
+      "source": "releases/fc-players/shared-login-20261018/source/session/fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "sha256": "425ce7db212dcbd353e66deeff5cbc19df804e5bed1dc90e5e84bf002bb82234"
+    }
+  ],
+  "unchanged_players_files": 39,
+  "release_manifests": [
+    {
+      "phase": "shared_login",
+      "sha256": "397ad7559ae3ddf6b4ca119e7c96f34bcb8b746f2656b33d030b0d7f59f89a73"
+    },
+    {
+      "phase": "visibility",
+      "sha256": "c6a26be1637233c858ca3b9d843908273f47a925b105717b04e56c4468b5fadc"
+    }
+  ],
+  "actual_read": {
+    "fs_user": "wulv",
+    "snapshot_prefix": "e67a1282",
+    "captured_at": "2026-10-18T05:34:06+00:00",
+    "model_total": 873,
+    "tags": 6
+  },
+  "policy": {
+    "WRITE_ENABLED": "false",
+    "AUTO_WRITE_ENABLED": "false",
+    "MANUAL_NEW_CARDS_ENABLED": "true",
+    "MANUAL_MODEL_IMAGES_ENABLED": "true",
+    "MANUAL_EXISTING_RECOMMEND_ENABLED": "true"
+  },
+  "new_authentication_flag": {
+    "FS_SHARED_BACKEND_SESSION": "true"
+  },
+  "execution_ledgers_unchanged": {
+    "executions": {
+      "rows": 13,
+      "sha256": "0d9478e720d7e30fe9ea8fc9b97aaee27b69a9978e52adae13c4f6ca90a31772"
+    },
+    "execution_items": {
+      "rows": 156,
+      "sha256": "1510a2caa1f8bf7a02de7cbdb2c7df6b7479e32b0dde35879c0c34897e6bb028"
+    },
+    "active_scope": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "legacy_unresolved": {
+      "rows": 22,
+      "sha256": "e1e0b0d7c73f1d69d3a9cc4f9c262eafac9d2f9c415e5dca6b13eb951a8a9e34"
+    },
+    "events": {
+      "rows": 819,
+      "sha256": "734f0371b9eb232cf69d3e0abca5091c1fde6760568ac5e59baa7f02d2dbc782"
+    }
+  },
+  "protected_sha256": {
+    "/etc/systemd/system/fc27-player-collect.timer": "8bd4d964f5a64e6dfe2576e42fa2a3fcbf5dd891712eea1b87542a75ff684ede",
+    "/etc/systemd/system/fc27-player-collect.service": "652fae8b1bd2be74a2e362643810a0bd5c1e4c3f05bb517fcf4c5f9fc42b9e09",
+    "/var/www/dashboard/fs-home/navigation.js": "2cdf5b550ddee42709967f5defad1e8c0efc7c480b91588939536cbf1a20e95a",
+    "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf": "80bc26452be485ec1ba50998f0a6c7459911d6e643dbd2c42fd9ec9ec52d1241"
+  },
+  "git": "This PR archives the deployed source; merging does not republish."
+}

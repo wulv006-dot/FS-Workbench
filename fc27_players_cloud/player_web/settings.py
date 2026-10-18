@@ -22,6 +22,7 @@ class Settings:
     manual_new_cards_enabled: bool = False
     manual_model_images_enabled: bool = False
     manual_existing_recommend_enabled: bool = False
+    shared_backend_session: bool = False
 
     def existing_action_write_enabled(self, action: str) -> bool:
         return self.write_enabled or (self.manual_existing_recommend_enabled and action == "recommend_enable")
@@ -87,4 +88,5 @@ class Settings:
             manual_new_cards_enabled=os.environ.get("MANUAL_NEW_CARDS_ENABLED", "false").lower() == "true",
             manual_model_images_enabled=os.environ.get("MANUAL_MODEL_IMAGES_ENABLED", "false").lower() == "true",
             manual_existing_recommend_enabled=os.environ.get("MANUAL_EXISTING_RECOMMEND_ENABLED", "false").lower() == "true",
+            shared_backend_session=os.environ.get("FS_SHARED_BACKEND_SESSION", "false").lower() == "true",
         )
