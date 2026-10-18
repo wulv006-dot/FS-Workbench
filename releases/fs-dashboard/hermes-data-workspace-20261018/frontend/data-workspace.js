@@ -217,7 +217,7 @@ export function mountDataWorkspace(root, options = {}) {
         pollProgress.textContent = '';
         body.replaceChildren();
         body.append(el('p', `${profile.value === 'ALL' ? '全局' : profile.value} · ${start.value} 至 ${end.value} · ${kind === 'discount' ? 'ES 导出范围（不等同主站）' : kind === 'cohort' ? form.elements.site_group.selectedOptions[0].textContent : 'MMOEXP 主站'}`));
-        if (['available','partial'].includes(d.status)) { render(body,d); result = d; hermes.disabled = typeof options.onHermes !== 'function' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id || '') || !d.query; if (!d.evidence_id) body.append(el('p','本次结果尚未取得归档证据编号，暂不能交给 Hermes。','hint')); }
+        if (['available','partial'].includes(d.status)) { render(body,d); result = d; hermes.disabled = typeof options.onHermes !== 'function' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.evidence_id || '') || (kind !== 'discount' && !d.query); if (!d.evidence_id) body.append(el('p','本次结果尚未取得归档证据编号，暂不能交给 Hermes。','hint')); }
         if (d.reason) body.append(el('p', d.reason));
         if (d.period && kind !== 'product_orders') facts(body,{period:d.period, source:d.source, captured_at:d.captured_at});
       } catch (error) { if (token === epoch && error.name !== 'AbortError') { status.textContent = '读取失败，请重试'; pollProgress.textContent = ''; body.replaceChildren(); } }

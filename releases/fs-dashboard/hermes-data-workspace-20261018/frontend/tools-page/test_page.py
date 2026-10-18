@@ -65,6 +65,10 @@ def check_page(role):
                 state["urls"].append(request.request.url)
                 if state["denied"]:
                     return request.fulfill(status=403, body='{"error":"forbidden"}', content_type="application/json")
+                if "structure=es" in request.request.url:
+                    return request.fulfill(body=json.dumps({"status":"available", "evidence_id":"ws_" + "e" * 24,
+                                                           "discount_totals":{"orders":2,"discount_amount_usd":"5","unknown_discount_orders":0},
+                                                           "groups":[],"quality":{"discount_groups_truncated":False}}), content_type="application/json")
                 direct = "product_id=" in request.request.url
                 return request.fulfill(body=json.dumps({"status": "available", "evidence_id": "ws_" + ("c" if direct else "a") * 24,
                                                        "query": {"profile": "FC27", "product_id" if direct else "model_id": 123, "start": "2026-10-17", "end": "2026-10-17"},
@@ -120,6 +124,15 @@ def check_page(role):
             product.get_by_text("关联订单为零，先核商品和日期范围；不据此判断需求为零。", exact=True).wait_for()
             assert state["creates"] == state["turns"] == 2, "ambiguous 503 reconciles by the exact turn text without repost"
             assert "fc.query_product_orders" in state["turn_text"] and "ws_" + "c" * 24 in state["turn_text"]
+            discount = page.locator("article").nth(1)
+            discount.get_by_role("button", name="查询", exact=True).click()
+            discount.get_by_text("订单 2 单 · 原始折扣 5 USD", exact=False).wait_for()
+            discount_insight = discount.get_by_role("button", name="请 Hermes 提炼结论")
+            assert discount_insight.is_enabled(), "real ES shape has evidence_id but no top-level query"
+            discount_insight.click()
+            discount.get_by_text("关联订单为零，先核商品和日期范围；不据此判断需求为零。", exact=True).wait_for()
+            assert '"group_by":"new_customer"' in state["turn_text"] and '"status":"all"' in state["turn_text"]
+            assert "ws_" + "e" * 24 in state["turn_text"] and state["creates"] == state["turns"] == 3
         else:
             assert insight.is_hidden()
         page.locator("#theme").select_option("dark")

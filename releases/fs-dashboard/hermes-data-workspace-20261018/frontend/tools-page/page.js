@@ -53,16 +53,20 @@ async function conversationPost(path, body, signal) {
   return response.json();
 }
 
-async function summarizeEvidence({kind, data}, {signal, progress}) {
+async function summarizeEvidence({kind, data, selection}, {signal, progress}) {
   const tool = {product_orders:'fc.query_product_orders', discount:'fc.query_discount_analysis', cohort:'fc.query_cohort_observation'}[kind];
   const evidenceId = data?.evidence_id;
-  if (!tool || !/^(?:ws|cohort)_[a-f0-9]{24}$/.test(evidenceId || '') || !data.query || typeof data.query !== 'object') throw Error('本次结果缺少有效归档，暂不能提炼。');
+  const fallback = kind === 'discount' && !data?.query && selection &&
+    ['discount_new_customer','discount_type','discount_day'].includes(selection.group_by) ?
+    {profile:selection.profile,start:selection.start,end:selection.end,group_by:selection.group_by,status:selection.status || 'all'} : null;
+  const archivedQuery = data?.query || fallback;
+  if (!tool || !/^(?:ws|cohort)_[a-f0-9]{24}$/.test(evidenceId || '') || !archivedQuery || typeof archivedQuery !== 'object') throw Error('本次结果缺少有效归档，暂不能提炼。');
   const key = kind + ':' + evidenceId;
   let item = insights.get(key);
   if (item?.reply) return item.reply;
   if (!item) {
     const requestId = 'data_' + crypto.randomUUID().replaceAll('-','');
-    const query = {...data.query};
+    const query = {...archivedQuery};
     if (kind === 'discount' && typeof query.group_by === 'string') query.group_by = query.group_by.replace(/^discount_/, '');
     const text = `请实际调用 ${tool}，使用以下精确参数读取已归档数据：${JSON.stringify({...query,evidence_id:evidenceId})}。可按需充分核对数据，但最终只用中文写 1–2 句、约 80–120 汉字：挑一个最关键的经营判断和一条可执行建议，把必要限制融入句内；不要逐项复述字段或展示证据编号，不生成报告，不把整单金额说成单品收入，不将缺失或部分覆盖解释为零。请求标识 ${requestId} 仅用于核对，勿当业务数据或写进回复。`;
     item = {requestId, text, state:'new'};
