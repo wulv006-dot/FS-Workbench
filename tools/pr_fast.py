@@ -293,6 +293,9 @@ def selfcheck():
         raise RuntimeError("hermes_report_theme_mapping_missing")
     if select(["releases/fs-dashboard/hermes-full-html-task-20261017/source/controller.py"]) != ["hermes-full-html"]:
         raise RuntimeError("hermes_full_html_mapping_missing")
+    for area in ("source/controller.py","tests/test_workspace_evidence.py","frontend/data-workspace.js","skills/METHOD.md"):
+        if select(["releases/fs-dashboard/hermes-data-workspace-20261018/"+area]) != ["hermes-data-workspace"]:
+            raise RuntimeError("hermes_data_workspace_mapping_missing:"+area)
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -303,6 +306,8 @@ def select(paths):
     for name in paths:
         if name.startswith("releases/fc-players/shared-login-20261018/") or name in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py"):
             groups.add("fc-players-shared-login");continue
+        if name.startswith("releases/fs-dashboard/hermes-data-workspace-20261018/"):
+            groups.add("hermes-data-workspace");continue
         if name.startswith("releases/fs-dashboard/admin-data-tools-20261018/"):
             groups.add("admin-data-tools");continue
         if name.startswith("releases/fs-dashboard/hermes-report-method-20261017/"):
@@ -799,6 +804,12 @@ def main():
             units("releases/fs-dashboard/hermes-followup-evidence-20261017/tests",["test_continuation_sources","test_learning_append"])
             units("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests",["test_report_kind"])
             node("releases/fs-dashboard/hermes-report-kind-actions-20261017/tests/check_actions.cjs")
+        elif group=="hermes-data-workspace":
+            release="releases/fs-dashboard/hermes-data-workspace-20261018"
+            units(release+"/tests",["test_cohort_observation","test_cohort_reader","test_cohort_es_source","test_workspace_evidence","test_tool_chain","test_original_output","test_brain_handoff","test_single_method","test_receipt_metadata"])
+            node(release+"/tests/test_brain_handoff.cjs")
+            node(release+"/tests/test_cohort_prompt.cjs")
+            node(release+"/frontend/test-workspace.cjs")
         elif group=="hermes-report-method":
             units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
             node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")

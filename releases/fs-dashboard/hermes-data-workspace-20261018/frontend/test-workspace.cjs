@@ -1,0 +1,139 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { chromium } = require('playwright');
+(async () => {
+ const browser = await chromium.launch({headless:true});
+ const page = await browser.newPage();
+ const source = fs.readFileSync(path.join(__dirname,'data-workspace.js'),'utf8');
+ const ui = path.resolve(__dirname,'../../../../ui-system');
+ const css = fs.readFileSync(path.join(ui,'tokens/fs-tokens.css'),'utf8') + fs.readFileSync(path.join(ui,'modules/native/business.css'),'utf8');
+ const businessSource=fs.readFileSync(path.join(ui,'modules/native/business.js'),'utf8');
+ const originalRenderNav=businessSource.slice(businessSource.indexOf('function renderNav(){'),businessSource.indexOf('function syncNav(){'));
+ const originalFcHide=businessSource.split('\n').find(line=>line.includes("for(const id of ['sideNav','secStruct'"));
+ assert.ok(originalRenderNav.includes("nav.innerHTML=''")&&originalFcHide,'real navigation lifecycle fragments required');
+ const baseline=fs.readFileSync(path.join(ui,'modules/native/shell.js'));
+ assert.equal(crypto.createHash('sha256').update(baseline).digest('hex'),'84c8a2846349faca2f8902b19ffe0d37b252bd868138ce2019be12ae66101ee8','frozen shell baseline changed');
+ const candidate=fs.readFileSync(path.join(__dirname,'shell.js'),'utf8');
+ assert.equal(candidate.replace("import {mountBusinessDataWorkspace} from './data-workspace.js';\n",'').replace("if(state.mode==='business')mountBusinessDataWorkspace(scope,state,url=>location.assign(url),halt);",''),baseline.toString('utf8'),'only intended host wiring');
+ await page.setContent('<div id="host"></div>');
+ await page.evaluate(async ({source,css}) => {
+   const mod = await import('data:text/javascript;base64,'+btoa(unescape(encodeURIComponent(source))));
+   const host = document.querySelector('#host');
+   const shadow = host.attachShadow({mode:'open'});
+   const style = document.createElement('style'); style.textContent = css; shadow.append(style);
+   window.requests=[];window.requestOptions=[];window.deliveries=[];window.mock={status:'available',evidence_id:'query_test_123',totals:{distinct_orders:0,order_amount_usd:'0'},products:[],quality:{complete:true}};
+   window.resolveNext=null;
+   window.module=mod;window.widget=mod.mountDataWorkspace(shadow,{start:'2026-10-01',end:'2026-10-17',onHermes:data=>window.deliveries.push(data),fetch:async(url,options)=>{
+     window.requests.push(url);window.requestOptions.push(options); const value=window.mock;
+     if(window.throwRequest)throw Error('network');
+     if(window.hold) await new Promise(resolve=>window.resolveNext=resolve);
+     return {ok:!window.fail,json:async()=>value};
+   }});
+ },{source,css});
+ const article = page.locator('article').nth(0);
+ await article.locator('[name=model_id]').fill('123');
+ assert.equal(await page.evaluate(()=>requests.length),0,'no background query');
+ await article.getByRole('button',{name:'查询',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#host').shadowRoot.textContent.includes('关联整单金额 0 USD'));
+ await article.getByRole('button',{name:'交给 Hermes 提炼一句结论'}).click();
+ assert.equal(await page.evaluate(()=>deliveries.length),1);
+ assert.match(await page.evaluate(()=>requests[0]),/structure=product_orders/);
+ await page.evaluate(()=>{window.hold=true;window.mock={status:'available',evidence_id:'query_test_123',totals:{distinct_orders:999,order_amount_usd:'999'},products:[]};});
+ await article.getByRole('button',{name:'查询',exact:true}).click();
+ await article.locator('[name=end]').fill('2026-10-16');
+ await page.evaluate(()=>{window.hold=false;window.resolveNext();});
+ assert.equal(await article.getByText('关联整单金额 999 USD',{exact:false}).count(),0,'stale response ignored');
+ assert.equal(await article.getByRole('button',{name:'交给 Hermes 提炼一句结论'}).isDisabled(),true);
+ for(const state of ['pending','disabled','unavailable','partial']) {
+   await page.evaluate(state=>{window.mock={status:state,products:[],quality:{complete:false}};},state);
+   await article.getByRole('button',{name:'查询',exact:true}).click();
+   await page.waitForFunction(()=>!document.querySelector('#host').shadowRoot.querySelector('article').hasAttribute('aria-busy'));
+   if(state!=='partial') assert.equal(await article.getByRole('button',{name:'交给 Hermes 提炼一句结论'}).isDisabled(),true,state);
+ }
+ await page.evaluate(()=>{window.fail=true;});
+ await article.getByRole('button',{name:'查询',exact:true}).click();
+ await article.getByRole('status').filter({hasText:'读取失败'}).waitFor();
+ const discount = page.locator('article').nth(1);
+ await page.evaluate(()=>{window.fail=false;window.mock={status:'partial',available_profiles:[{code:'NBA2K27',label:'NBA 2K27'}],discount_totals:{orders:3,discount_amount_usd:null,unknown_discount_orders:3},groups:[{label:'<img src=x onerror=alert(1)>',orders:3}],quality:{discount_groups_truncated:true}};});
+ await discount.getByRole('button',{name:'查询',exact:true}).click();
+ await discount.getByText('细分已截断：不据此计算完整新老客占比或绘制全期趋势。').waitFor();
+ assert.equal(await page.locator('img').count(),0,'untrusted data remains text');
+ assert.equal(await discount.locator('details[open]').count(),0,'detail collapsed');
+ await discount.locator('[name=profile]').selectOption('NBA2K27');await discount.getByRole('button',{name:'查询',exact:true}).click();
+ assert.match(await page.evaluate(()=>requests.at(-1)),/profile=NBA2K27/,'game selection preserved');
+ await discount.locator('[name=profile]').selectOption('ALL');await discount.getByRole('button',{name:'查询',exact:true}).click();
+ assert.match(await page.evaluate(()=>requests.at(-1)),/profile=ALL/,'global selection preserved');
+ const cohort=page.locator('article').nth(2);
+ await page.evaluate(()=>{window.mock={status:'available',members:6,windows:[{days:7,mature_customers:4,immature_customers:2,repeat_customers:1,repeat_rate:.25}],coverage:{complete_through:'2026-10-17',excluded_identity_orders:9,acquisition_paid_orders:21,matched_es_orders:21,unmatched_es_orders:0,es_new_marked_paid_orders:11,stable_es_new_marked_paid_orders:8,excluded_es_new_identity_orders:3}};});
+ await cohort.getByRole('button',{name:'查询',exact:true}).click();
+ await cohort.getByRole('cell',{name:'25%',exact:true}).waitFor();
+ await cohort.getByText('已关联观察组客户 6 人 · 获取及后续观察付款范围排除缺身份订单 9 单',{exact:true}).waitFor();
+ assert.equal(await cohort.getByText('获客窗已付 21 单 · ES 匹配 21 单 · 未匹配 0 单',{exact:true}).isVisible(),true);
+ assert.equal(await cohort.getByText('获客窗 ES 新客标记 11 单 · 可稳定关联 8 单 · 缺身份排除 3 单（均为订单数，不是客户人数）',{exact:true}).isVisible(),true);
+ assert.equal(await cohort.getByText('范围：可稳定关联客户的 ES 新客标记付费组；缺身份订单排除并单独显示覆盖，不代表所有新客。不等于已核全历史首购，也不单独证明优惠造成复购。',{exact:true}).isVisible(),true);
+ await page.evaluate(()=>{window.mock={status:'available',members:58,windows:[{days:7,mature_customers:0,immature_customers:58,repeat_customers:0,repeat_rate:null},{days:14,mature_customers:4,immature_customers:0,repeat_customers:0,repeat_rate:0},{days:30,mature_customers:4,immature_customers:0,repeat_customers:0,repeat_rate:null}],monitor:{state:'active',next_due:'2026-10-18T23:30:00+00:00',frequency_seconds:86400}};});
+ await cohort.getByRole('button',{name:'查询',exact:true}).click();
+ await cohort.getByRole('cell',{name:'尚未成熟',exact:true}).waitFor();
+ assert.equal(await cohort.getByRole('cell',{name:'0%',exact:true}).count(),1,'a mature zero remains zero');
+ assert.equal(await cohort.getByRole('cell',{name:'源未提供',exact:true}).count(),1,'missing mature rate remains missing');
+ await cohort.getByText('追踪状态：追踪中 · 下次观察：2026/10/19 07:30（北京时间） · 观察频率：每日一次',{exact:true}).waitFor();
+ for(const fixture of [
+  {monitor:{state:'paused',next_due:null,frequency_seconds:3600},text:'追踪状态：已暂停 · 下次观察：无后续安排 · 观察频率：每 1 小时一次'},
+  {monitor:{state:'needs_review',next_due:'invalid',frequency_seconds:600},text:'追踪状态：需复核 · 下次观察：源未提供 · 观察频率：每 10 分钟一次'}
+ ]){
+  await page.evaluate(monitor=>{window.mock={status:'available',members:0,windows:[{days:7,mature_customers:0,immature_customers:0,repeat_customers:0,repeat_rate:null}],monitor};},fixture.monitor);
+  await cohort.getByRole('button',{name:'查询',exact:true}).click();
+  await cohort.getByText(fixture.text,{exact:true}).waitFor();
+  assert.equal(await cohort.getByRole('cell',{name:'暂无成熟客户',exact:true}).count(),1);
+ }
+ await page.evaluate(()=>{window.mock={status:'partial',reason:'es_paid_link_incomplete_not_frozen',members:null,windows:[],coverage:{}};});
+ await cohort.getByRole('button',{name:'查询',exact:true}).click();
+ await cohort.getByText('观察组尚未建立：ES 与已付订单匹配不完整或冲突，未冻结成员；当前不显示零客户或复购率。',{exact:true}).waitFor();
+ assert.equal(await cohort.getByRole('cell',{name:'25%',exact:true}).count(),0,'old rate cleared on incomplete ES join');
+ assert.equal(await cohort.getByText('已关联观察组客户 源未提供 人 · 获取及后续观察付款范围排除缺身份订单 源未提供 单',{exact:true}).isVisible(),true,'null is not zero');
+ assert.equal(new URL('https://fs.invalid'+await page.evaluate(()=>requests.at(-1))).searchParams.size,7,'cohort fits existing seven-key gate');
+ await page.evaluate(()=>{window.mock={status:'pending',archive_id:'a'.repeat(64),monitor:{state:'active',frequency_seconds:86400}};});
+ await cohort.getByRole('button',{name:'创建观察组',exact:true}).click();
+ const mutation=await page.evaluate(()=>requestOptions.at(-1));
+ assert.equal(mutation.method,'POST');assert.equal(mutation.headers['X-FS-Advisor-Action'],'submit');
+ assert.deepEqual(JSON.parse(mutation.body),{kind:'hermes_cohort_observation',action:'create',profile:'FC27',start:'2026-10-01',end:'2026-10-17',platform:'all',site_group:'main',window_days:30});
+ await page.evaluate(()=>{window.throwRequest=true;});
+ await cohort.getByRole('button',{name:'刷新观察',exact:true}).click();
+ await cohort.getByRole('status').filter({hasText:'更新结果待核对'}).waitFor();
+ assert.equal(await cohort.getByRole('button',{name:'刷新观察',exact:true}).isDisabled(),true,'no blind mutation retry');
+ await page.evaluate(()=>{window.throwRequest=false;});await cohort.getByRole('button',{name:'查询',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('#host').shadowRoot.querySelectorAll('article')[2].hasAttribute('aria-busy'));
+ assert.equal(await cohort.getByRole('button',{name:'刷新观察',exact:true}).isDisabled(),false,'readback clears uncertain action');
+ const archivedQuery=new URL('https://fs.invalid'+await page.evaluate(()=>requests.at(-1)));assert.equal(archivedQuery.searchParams.size,3);assert.equal(archivedQuery.searchParams.get('id'),'a'.repeat(64));
+ for(const theme of ['light','dark']) for(const width of [390,1280]) {
+   await page.setViewportSize({width,height:900});
+   await page.evaluate(theme=>document.querySelector('#host').setAttribute('data-theme',theme),theme);
+   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+   assert.equal(overflow,false,`${theme} ${width} overflow`);
+ }
+ await page.evaluate(()=>widget.dispose());
+ assert.equal(await page.locator('article').count(),0);
+ await page.evaluate(()=>{
+   const root=document.querySelector('#host').shadowRoot;
+   const body=document.createElement('div');body.className='native-body';const nav=document.createElement('nav');nav.id='sideNav';body.append(nav);root.append(body);
+   window.lifecycle=new AbortController();window.navigated=[];
+   const widget=window.module.mountBusinessDataWorkspace({root,fetch:async()=>({ok:true,json:async()=>({status:'available',evidence_id:'query_host_123',totals:{distinct_orders:0,order_amount_usd:'0'},products:[]})}),signal:lifecycle.signal},{b_start:'2026-10-01',b_end:'2026-10-17'},url=>navigated.push(url));
+ });
+ await page.evaluate(({originalRenderNav,originalFcHide})=>{
+  const root=document.querySelector('#host').shadowRoot,localDocument={getElementById:id=>root.getElementById(id)};
+  new Function('document','NAV','syncNav','navGo','foldAll',originalRenderNav+';renderNav();')(localDocument,[['概览','secOverview']],()=>{},()=>{},()=>{});
+  new Function('document','on',originalFcHide)(localDocument,true);
+  root.querySelector('.native-body').classList.add('fc-view');
+ },{originalRenderNav,originalFcHide});
+ assert.equal(await page.getByRole('button',{name:'查询工具 · 数据专区',exact:true}).isVisible(),true,'entry survives business renderNav replacement and FC hide');
+ await page.getByRole('button',{name:'查询工具 · 数据专区',exact:true}).click();
+ const hostProduct=page.locator('article').nth(0);await hostProduct.locator('[name=model_id]').fill('123');
+ await hostProduct.getByRole('button',{name:'查询',exact:true}).click();
+ await hostProduct.getByRole('button',{name:'交给 Hermes 提炼一句结论'}).click();
+ const handoff=await page.evaluate(()=>navigated[0]);assert.match(handoff,/data_evidence=query_host_123/);assert.match(handoff,/model_id=123/);assert.match(handoff,/platform=ALL/);
+ await page.evaluate(()=>lifecycle.abort());assert.equal(await page.locator('article').count(),0);
+ await browser.close(); console.log('PASS: on-demand, zero/missing, pending/disabled/failure/partial, stale date response, safe text, collapsed detail, cohort rate, themes/mobile, dispose');
+})().catch(error=>{console.error(error);process.exit(1);});
+
