@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import timezone
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -190,6 +191,44 @@ class ServiceTests(unittest.TestCase):
             book.call("fc.read_skill", {"topic": "methods"})
             self.assertEqual(calls, ["method", "owner"])
             self.assertEqual(book.call("fc.read_skill", {"topic": "background"})["old"], "fc.read_skill")
+
+    def test_business_policy_question_can_read_current_reviewed_memory(self):
+        self.assertIn("经营政策", self.module.SHORT_RULES)
+        self.assertIn("fc.read_skill", self.module.SHORT_RULES)
+        sibling = SOURCE.parents[1]
+        candidates = (
+            (sibling / "hermes-data-workspace-20261018/source/business_context.py",
+             sibling / "hermes-data-workspace-20261018/skills"),
+            (sibling / "fs_hermes_data_workspace_20261018/hermes/source/business_context.py",
+             sibling / "fs_hermes_data_workspace_20261018/skills"),
+        )
+        found = [(source, skills) for source, skills in candidates if source.is_file() and skills.is_dir()]
+        self.assertEqual(len(found), 1, "reviewed_learning_source_missing_or_ambiguous")
+        source, skills = found[0]
+        self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),
+                         "8e4b799340957d5e03b92f8b9d2c6d32407fcd0e02592b3525687a77ab825dfd")
+        skill = (skills / "data-storytelling/SKILL.md").read_bytes()
+        self.assertEqual(hashlib.sha256(skill.replace(b"\r\n", b"\n")).hexdigest(),
+                         "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd")
+        spec = importlib.util.spec_from_file_location("active_business_context_candidate", source)
+        active = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(active)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "desktop-business-context.md").write_text("已确认业务规则", encoding="utf-8")
+            context = types.ModuleType("business_context")
+            context.learning_bundle = lambda _: active.learning_bundle(
+                root, skill_root=skills, profile_root=root)
+            method = types.ModuleType("report_method")
+            method.method_bundle = lambda track: {"version": "report-html-1.5.1", "sha256": "c" * 64,
+                                                  "methods_text": "现行方法", "governance_text": "现行验收"}
+            book = types.SimpleNamespace(call=lambda name, args: {"old": name})
+            with patch.dict(sys.modules, {"business_context": context, "report_method": method}):
+                self.module.attach_current_learning(book, root)
+                policy = book.call("fc.read_skill", {"topic": "governance"})
+            self.assertIn("新客首单30%", policy["text"])
+            self.assertTrue(any(row["path"] == "skills/data-storytelling/SKILL.md"
+                                for row in policy["owner_learning_files"]))
 
 
 if __name__ == "__main__":
