@@ -73,6 +73,21 @@ const { chromium } = require('playwright');
  assert.equal(await cohort.getByText('获客窗已付 21 单 · ES 匹配 21 单 · 未匹配 0 单',{exact:true}).isVisible(),true);
  assert.equal(await cohort.getByText('获客窗 ES 新客标记 11 单 · 可稳定关联 8 单 · 缺身份排除 3 单（均为订单数，不是客户人数）',{exact:true}).isVisible(),true);
  assert.equal(await cohort.getByText('范围：可稳定关联客户的 ES 新客标记付费组；缺身份订单排除并单独显示覆盖，不代表所有新客。不等于已核全历史首购，也不单独证明优惠造成复购。',{exact:true}).isVisible(),true);
+ await page.evaluate(()=>{window.mock={status:'available',members:58,windows:[{days:7,mature_customers:0,immature_customers:58,repeat_customers:0,repeat_rate:null},{days:14,mature_customers:4,immature_customers:0,repeat_customers:0,repeat_rate:0},{days:30,mature_customers:4,immature_customers:0,repeat_customers:0,repeat_rate:null}],monitor:{state:'active',next_due:'2026-10-18T23:30:00+00:00',frequency_seconds:86400}};});
+ await cohort.getByRole('button',{name:'查询',exact:true}).click();
+ await cohort.getByRole('cell',{name:'尚未成熟',exact:true}).waitFor();
+ assert.equal(await cohort.getByRole('cell',{name:'0%',exact:true}).count(),1,'a mature zero remains zero');
+ assert.equal(await cohort.getByRole('cell',{name:'源未提供',exact:true}).count(),1,'missing mature rate remains missing');
+ await cohort.getByText('追踪状态：追踪中 · 下次观察：2026/10/19 07:30（北京时间） · 观察频率：每日一次',{exact:true}).waitFor();
+ for(const fixture of [
+  {monitor:{state:'paused',next_due:null,frequency_seconds:3600},text:'追踪状态：已暂停 · 下次观察：无后续安排 · 观察频率：每 1 小时一次'},
+  {monitor:{state:'needs_review',next_due:'invalid',frequency_seconds:600},text:'追踪状态：需复核 · 下次观察：源未提供 · 观察频率：每 10 分钟一次'}
+ ]){
+  await page.evaluate(monitor=>{window.mock={status:'available',members:0,windows:[{days:7,mature_customers:0,immature_customers:0,repeat_customers:0,repeat_rate:null}],monitor};},fixture.monitor);
+  await cohort.getByRole('button',{name:'查询',exact:true}).click();
+  await cohort.getByText(fixture.text,{exact:true}).waitFor();
+  assert.equal(await cohort.getByRole('cell',{name:'暂无成熟客户',exact:true}).count(),1);
+ }
  await page.evaluate(()=>{window.mock={status:'partial',reason:'es_paid_link_incomplete_not_frozen',members:null,windows:[],coverage:{}};});
  await cohort.getByRole('button',{name:'查询',exact:true}).click();
  await cohort.getByText('观察组尚未建立：ES 与已付订单匹配不完整或冲突，未冻结成员；当前不显示零客户或复购率。',{exact:true}).waitFor();
@@ -121,3 +136,4 @@ const { chromium } = require('playwright');
  await page.evaluate(()=>lifecycle.abort());assert.equal(await page.locator('article').count(),0);
  await browser.close(); console.log('PASS: on-demand, zero/missing, pending/disabled/failure/partial, stale date response, safe text, collapsed detail, cohort rate, themes/mobile, dispose');
 })().catch(error=>{console.error(error);process.exit(1);});
+

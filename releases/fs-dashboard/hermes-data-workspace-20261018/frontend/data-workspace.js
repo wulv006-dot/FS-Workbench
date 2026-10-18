@@ -67,8 +67,14 @@ export function mountDataWorkspace(root, options = {}) {
     body.append(el('p', `已关联观察组客户 ${d.members ?? '源未提供'} 人 · 获取及后续观察付款范围排除缺身份订单 ${coverage.excluded_identity_orders ?? '源未提供'} 单`));
     if(d.reason==='initial_customer_linkage_incomplete_not_frozen')body.append(el('p','观察组尚未建立：首次扫描缺少客户关联，未冻结不完整成员。需完整扫描后再建立；当前不显示零客户或复购率。'));
     if(d.reason==='es_paid_link_incomplete_not_frozen')body.append(el('p','观察组尚未建立：ES 与已付订单匹配不完整或冲突，未冻结成员；当前不显示零客户或复购率。'));
-    if (d.monitor) body.append(el('p', `追踪状态：${d.monitor.state ?? '源未提供'} · 下次观察：${d.monitor.next_due ?? '源未提供'} · 观察频率：${d.monitor.frequency_seconds ?? '源未提供'} 秒`));
-    if (d.windows?.length) body.append(table(['观察窗', '已关联组成熟客户', '待成熟客户', '已关联组复购客户', '已关联成熟组复购率'], d.windows.map(w => [w.days + ' 日', w.mature_customers, w.immature_customers, w.repeat_customers, w.repeat_rate == null ? '源未提供' : new Intl.NumberFormat('zh-CN',{style:'percent',maximumFractionDigits:1}).format(w.repeat_rate)])));
+    if (d.monitor) {
+      const {state,next_due,frequency_seconds:seconds}=d.monitor;
+      const status={active:'追踪中',paused:'已暂停',cancelled:'已取消',completed:'已完成',needs_review:'需复核',manual:'单次观察'}[state]||'状态待确认';
+      const next=typeof next_due==='string'&&Number.isFinite(Date.parse(next_due))?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(next_due))+'（北京时间）':!next_due&&['paused','cancelled','completed','manual'].includes(state)?'无后续安排':'源未提供';
+      const frequency=Number.isInteger(seconds)&&seconds>0?(seconds===86400?'每日一次':seconds%86400===0?`每 ${seconds/86400} 天一次`:seconds%3600===0?`每 ${seconds/3600} 小时一次`:seconds%60===0?`每 ${seconds/60} 分钟一次`:`每 ${seconds} 秒一次`):'源未提供';
+      body.append(el('p', `追踪状态：${status} · 下次观察：${next} · 观察频率：${frequency}`));
+    }
+    if (d.windows?.length) body.append(table(['观察窗', '已关联组成熟客户', '待成熟客户', '已关联组复购客户', '已关联成熟组复购率'], d.windows.map(w => [w.days + ' 日', w.mature_customers, w.immature_customers, w.repeat_customers, w.repeat_rate == null ? w.mature_customers===0?(w.immature_customers>0?'尚未成熟':'暂无成熟客户'):'源未提供' : new Intl.NumberFormat('zh-CN',{style:'percent',maximumFractionDigits:1}).format(w.repeat_rate)])));
     else body.append(el('p', '当前尚无可展示的成熟观察窗，请查看能力与数据覆盖说明。'));
     facts(body, {members:d.members, definition:d.definition, identity_scope:d.identity_scope, campaign_eligibility:d.campaign_eligibility, coverage:d.coverage, limitations:d.limitations, capability:d.capability, observed_at:d.observed_at, progress:d.progress});
   }
