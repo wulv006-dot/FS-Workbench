@@ -175,7 +175,12 @@
       const link = document.createElement('a');
       link.href = '/dashboard/fs-home/hermes/conversation/';
       link.textContent = '与 Hermes 持续对话 ↗';
-      document.querySelector('.hero-actions').append(link);
+      link.className = 'primary';
+      const actions = document.querySelector('.hero-actions');
+      const investigation = actions.querySelector('a[href="#ask"]');
+      investigation.classList.remove('primary');
+      actions.prepend(link);
+      actions.append(investigation);
     }).catch(() => {});
   async function refresh() {
     if(document.hidden)return;if(busy){refreshQueued=true;return;}busy=true;refreshQueued=false;clearTimeout(timer);
