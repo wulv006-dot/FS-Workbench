@@ -9,7 +9,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from cohort_reader import CohortReader, SHANGHAI, checked_query, refresh_registered
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'hermes-generic-data-20261018'/'source'))
+from cohort_reader import CohortReader, SHANGHAI, checked_query, refresh_registered, tool_schema
 
 
 def atomic(path,data):
@@ -18,6 +19,13 @@ def atomic(path,data):
 
 
 class ReaderTests(unittest.TestCase):
+    def test_tool_schema_exposes_all_observation_windows_read_only(self):
+        schema=tool_schema()['function']['parameters']
+        self.assertEqual(schema['properties']['window_days'],{
+            'type':'integer','enum':[7,14,30],
+            'description':'Requested maximum observation days; default 30; monitor stops at this mature cutoff'})
+        self.assertEqual(schema['properties']['action']['enum'],['read'])
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.pool=ThreadPoolExecutor(max_workers=1)
         self.today=datetime.now(SHANGHAI).date()
@@ -102,6 +110,26 @@ class ReaderTests(unittest.TestCase):
         result=self.reader.get_id(first['archive_id'])
         self.assertEqual([w['days'] for w in result['windows']],[7])
         self.assertEqual(result['monitor']['window_days'],7)
+
+    def test_d4_generic_main_site_uses_pseudonymous_paid_source(self):
+        q=dict(self.q,profile='D4')
+        hashed=hashlib.sha256(b'ORDER-PRIVATE').hexdigest()
+        def source(args):
+            period={'start':args['start']+' 00:00','end':
+                (datetime.fromisoformat(args['end'])+timedelta(days=1)).date().isoformat()+' 00:00'}
+            return {'kind':'cohort_paid_orders','status':'available','query':args,
+                'orders':[{'id':hashed,'id_is_hashed':True,'customer_key':'ANON-D4',
+                    'paid_at':self.start+'T10:00:00+08:00','site_group':'main','platform':'all'}],
+                'coverage':{'period':period,'paid_complete':True,'missing_payment_time':0,'missing_days':[]},
+                'snapshot_id':'synthetic-d4','as_of':datetime.now(SHANGHAI).isoformat()}
+        with patch('cohort_paid_source.read_service',side_effect=source):
+            self.reader.get(q,action='create')
+            next(iter(self.reader.jobs.values()))[0].result()
+        value=self.reader.get(q)
+        self.assertEqual(value['members'],1)
+        self.assertEqual(value['scope']['profile'],'D4')
+        self.assertNotIn('ANON-D4',json.dumps(value))
+        with self.assertRaises(ValueError):checked_query(dict(q,site_group='all'))
 
 
 if __name__=='__main__':unittest.main()

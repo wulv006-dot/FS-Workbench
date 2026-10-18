@@ -7,6 +7,7 @@ import re
 import threading
 import time
 from cohort_observation import update, read, CONTRACT
+from cohort_paid_source import GAME_IDS
 
 SHANGHAI=timezone(timedelta(hours=8))
 
@@ -16,11 +17,13 @@ def checked_query(args):
         raise ValueError('cohort_fields')
     lo,hi=(date.fromisoformat(args[k]) for k in ('start','end'))
     yesterday=datetime.now(SHANGHAI).date()-timedelta(days=1)
-    if args['profile']!='FC27' or lo.isoformat()!=args['start'] or hi.isoformat()!=args['end'] or not 0 <= (hi-lo).days <= 30 or hi>yesterday:
+    if args['profile'] not in GAME_IDS or lo.isoformat()!=args['start'] or hi.isoformat()!=args['end'] or not 0 <= (hi-lo).days <= 30 or hi>yesterday:
         raise ValueError('cohort_period')
     platform,site=args.get('platform','all'),args.get('site_group','main')
     if platform not in ('all','PS','PC','XBOX') or site not in ('main','satellite','all'):
         raise ValueError('cohort_scope')
+    if args['profile']!='FC27' and (platform!='all' or site!='main'):
+        raise ValueError('cohort_generic_scope_unverified')
     if 'evidence_id' in args and (not isinstance(args['evidence_id'],str) or not re.fullmatch(r'cohort_[a-f0-9]{24}',args['evidence_id'])):raise ValueError('cohort_evidence_id')
     if args.get('action','read') not in ('read','create','refresh','pause','resume','cancel'):raise ValueError('cohort_action')
     days=args.get('window_days',30)
@@ -29,8 +32,8 @@ def checked_query(args):
 
 
 def tool_schema():
-    result={'type':'function','function':{'name':'mcp__fcro__fc_query_cohort_observation','description':'Read a frozen stable-identity subset of ES-new-flagged paid customers privately joined by order hash to Admin paid orders. No-uid orders are excluded with explicit coverage; not all-site new customers, verified historical first purchases, promotion eligibility, causal or net settled retention. Default read never starts monitoring. Dates define acquisition window. Aggregate only; pending poll identical query.',
-        'parameters':{'type':'object','properties':{'profile':{'type':'string','enum':['FC27']},'start':{'type':'string'},'end':{'type':'string'},'platform':{'type':'string','enum':['all','PS','PC','XBOX']},'site_group':{'type':'string','enum':['main','satellite','all']},'evidence_id':{'type':'string','description':'Optional exact immutable aggregate returned by FS workspace; reuse that archive instead of a new capture'},'action':{'type':'string','enum':['read','create','refresh','pause','resume','cancel'],'description':'Default read never starts monitoring. Only explicit user requested create starts daily monitoring; refresh reads once; pause/cancel stop next automatic reads.'}},'required':['profile','start','end'],'additionalProperties':False}}}
+    result={'type':'function','function':{'name':'mcp__fcro__fc_query_cohort_observation','description':'Read ES-new-flagged paid customer groups by selected exact game, linked to Admin orders by order hash and private site-local UID. Generic games currently main site only, platform all; FC27 retains existing filters. No-uid orders excluded with coverage. Not verified historical first purchases, causal or net settled retention. Default read never starts monitoring; aggregate only.',
+        'parameters':{'type':'object','properties':{'profile':{'type':'string','enum':list(GAME_IDS)},'start':{'type':'string'},'end':{'type':'string'},'platform':{'type':'string','enum':['all','PS','PC','XBOX']},'site_group':{'type':'string','enum':['main','satellite','all']},'evidence_id':{'type':'string','description':'Optional exact immutable aggregate returned by FS workspace; reuse that archive instead of a new capture'},'action':{'type':'string','enum':['read','create','refresh','pause','resume','cancel'],'description':'Default read never starts monitoring. Only explicit user requested create starts daily monitoring; refresh reads once; pause/cancel stop next automatic reads.'}},'required':['profile','start','end'],'additionalProperties':False}}}
     result['function']['parameters']['properties']['window_days']={'type':'integer','enum':[7,14,30],'description':'Requested maximum observation days; default 30; monitor stops at this mature cutoff'}
     result['function']['parameters']['properties']['action']={'type':'string','enum':['read'],'description':'Model tools are read-only. Create/refresh/pause/resume/cancel are explicit authenticated workspace admin actions.'}
     return result
@@ -72,7 +75,11 @@ class CohortReader:
         if es['status'] in ('pending','unavailable'):return es
         cutoff=min(datetime.now(SHANGHAI).date()-timedelta(days=1),date.fromisoformat(q['end'])+timedelta(days=q['window_days']))
         source_q={'start':q['start'],'end':cutoff.isoformat(),'period':{'start':q['start']+' 00:00','end':(cutoff+timedelta(days=1)).isoformat()+' 00:00'}}
-        data=self.detail.reader(source_q,self.detail.config)
+        if q['profile']=='FC27':
+            data=self.detail.reader(source_q,self.detail.config)
+        else:
+            from cohort_paid_source import read_service
+            data=read_service({'profile':q['profile'],'start':q['start'],'end':cutoff.isoformat()})
         coverage=data.get('coverage',{})
         if coverage.get('period')!=source_q['period'] or coverage.get('paid_complete') is not True or coverage.get('missing_payment_time') or coverage.get('missing_days'):
             raise ValueError('cohort_paid_source_incomplete')
@@ -85,7 +92,7 @@ class CohortReader:
         result['definition']='可稳定关联客户的ES新客标记付费观察组；非全站新客cohort或已验证首购'
         result['coverage'].update(source_paid_complete=True,source_status=data.get('data_status'),unknown_scope_orders=coverage.get('unknown_scope_orders',0),excluded_distribution_orders=coverage.get('excluded_distribution_orders',0),current_backlog_status=coverage.get('backlog_status','unknown'))
         if coverage.get('unknown_scope_orders'):result['status']='partial'
-        result.update(query=q,scope={'profile':'FC27','site_group':q['site_group'],'platform':q['platform'],'customer_identity':'site-local; never merged across sites'},captured_at=data['as_of'])
+        result.update(query=q,scope={'profile':q['profile'],'site_group':q['site_group'],'platform':q['platform'],'customer_identity':'site-local; never merged across sites'},captured_at=data['as_of'])
         result['windows']=[w for w in result['windows'] if w['days']<=q['window_days']]
         result['evidence_id']='cohort_'+hashlib.sha256(json.dumps(result,sort_keys=True).encode()).hexdigest()[:24]
         result['archive_id']=key

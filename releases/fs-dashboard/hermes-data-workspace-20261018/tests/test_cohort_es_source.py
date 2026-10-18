@@ -6,14 +6,15 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from cohort_es_source import project_dataset,join_paid,archive_for
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'admin-data-tools-20261018'/'candidate/hermes'))
+from cohort_es_source import project_dataset,join_paid,archive_for,read_archive
 
 
 def digest(value):return hashlib.sha256(value.encode()).hexdigest()
 
 
 class ESJoinTests(unittest.TestCase):
-    q={'start':'2026-10-01','end':'2026-10-01'}
+    q={'profile':'FC27','start':'2026-10-01','end':'2026-10-01'}
 
     def dataset(self):
         return {'status':'available','hashes':['a'*64],'parse_failures':0,'declared_files':1,'failed_files':0,'rows':[
@@ -76,12 +77,35 @@ class ESJoinTests(unittest.TestCase):
         self.assertEqual(quality['payment_day_mismatches'],1)
         self.assertFalse(quality['link_complete'])
 
+    def test_aion2_excel_flag_matches_hashed_admin_order_only_same_game(self):
+        query=dict(self.q,profile='AION2')
+        data=self.dataset()
+        data['rows']=[dict(data['rows'][0],游戏='Aion 2'),dict(data['rows'][1],游戏='Diablo 4')]
+        es=project_dataset(data,query)
+        self.assertEqual(len(es['rows']),1)
+        rows=[{'id':digest('new-id'),'id_is_hashed':True,'customer_key':'site-local-anon',
+            'paid_at':'2026-10-01T12:00:00+08:00'}]
+        selected,quality=join_paid(rows,es,query)
+        self.assertTrue(quality['link_complete'])
+        self.assertEqual(selected[0]['customer'],'new')
+
     def test_missing_archive_uses_existing_reader_only(self):
         calls=[]
         reader=SimpleNamespace(get=lambda q:calls.append(q) or {'status':'pending','retryAfter':3})
         with patch('cohort_es_source.read_archive',return_value={'status':'missing'}),patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(reader_for=lambda detail:reader)}):
             value=archive_for(object(),self.q)
         self.assertEqual(value['status'],'pending');self.assertEqual(len(calls),1)
+
+    def test_archive_read_passes_selected_game_without_new_export(self):
+        calls=[]
+        def run(argv,**kwargs):
+            calls.append((argv,kwargs))
+            return SimpleNamespace(returncode=0,stdout=b'{"status":"available","rows":[]}')
+        q=dict(self.q,profile='D4')
+        with patch('cohort_es_source.subprocess.run',side_effect=run):
+            self.assertEqual(read_archive(q)['status'],'available')
+        self.assertEqual(__import__('json').loads(calls[0][0][-1])['profile'],'D4')
+        self.assertIn(b'GAME_LABELS',calls[0][1]['input'])
 
 
 if __name__=='__main__':unittest.main()

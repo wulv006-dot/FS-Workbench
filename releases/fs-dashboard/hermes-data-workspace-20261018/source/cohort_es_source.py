@@ -8,11 +8,12 @@ import subprocess
 
 
 def project_dataset(dataset, query):
+    from es_order_structure import GAME_LABELS
     if dataset is None:return {'status':'missing'}
     complete=(dataset.get('status')=='available' and not dataset.get('parse_failures') and not dataset.get('failed_files') and type(dataset.get('declared_files')) is int and dataset['declared_files']==len(dataset.get('hashes',[])) and bool(dataset.get('hashes')))
     found={};conflicts=set();unknown_time=missing_keys=outside=0
     for row in dataset.get('rows',[]):
-        if row.get('游戏','').strip()!='FC 27':continue
+        if row.get('游戏','').strip()!=GAME_LABELS[query['profile']]:continue
         ident=row.get('订单号','')
         if not re.fullmatch(r'[a-f0-9]{64}',ident):missing_keys+=1;continue
         try:when=datetime.strptime(row.get('付款时间',''),'%Y/%m/%d %H:%M:%S')
@@ -25,16 +26,16 @@ def project_dataset(dataset, query):
         found[ident]=(item,signature)
     return {'status':'available' if complete and not (conflicts or unknown_time or missing_keys or outside) else 'partial',
             'rows':[item for ident,(item,_) in found.items() if ident not in conflicts],
-            'coverage':{'file_set_complete':complete,'conflicting_orders':len(conflicts),'unknown_payment_time':unknown_time,'missing_order_hash':missing_keys,'outside_period':outside,'fc_es_orders':len(found),'declared_files':dataset.get('declared_files'),'read_files':len(dataset.get('hashes',[]))},
+            'coverage':{'file_set_complete':complete,'conflicting_orders':len(conflicts),'unknown_payment_time':unknown_time,'missing_order_hash':missing_keys,'outside_period':outside,'selected_game_es_orders':len(found),'declared_files':dataset.get('declared_files'),'read_files':len(dataset.get('hashes',[]))},
             'source_version':hashlib.sha256(json.dumps({'hashes':dataset.get('hashes'),'rule':'cohort-es-paid-join-v1'},sort_keys=True).encode()).hexdigest(),
             'captured_at':dataset.get('captured_at'),'origin':dataset.get('origin')}
 
 
 def read_archive(query):
     """Existing container safely parses its archive; only pseudonymous flags leave it."""
-    prefix='import sys,json,hashlib,re\nfrom datetime import datetime\nsys.path.insert(0,"/usr/local/bin")\nfrom es_order_structure import archived_dataset\n'
+    prefix='import sys,json,hashlib,re\nfrom datetime import datetime\nsys.path.insert(0,"/usr/local/bin")\nfrom es_order_structure import archived_dataset, GAME_LABELS\n'
     script=prefix+inspect.getsource(project_dataset)+'\nq=json.loads(sys.argv[1])\nprint(json.dumps(project_dataset(archived_dataset(q),q),ensure_ascii=False))\n'
-    result=subprocess.run(['docker','exec','-i','fc27-p2pah-session','python3','-',json.dumps({'profile':'FC27','start':query['start'],'end':query['end']})],input=script.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
+    result=subprocess.run(['docker','exec','-i','fc27-p2pah-session','python3','-',json.dumps({'profile':query['profile'],'start':query['start'],'end':query['end']})],input=script.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
     if result.returncode or len(result.stdout)>8*1024*1024:raise ValueError('cohort_es_archive_unavailable_or_size')
     value=json.loads(result.stdout)
     if value.get('status') not in ('available','partial','missing'):raise ValueError('cohort_es_archive_contract')
@@ -45,7 +46,7 @@ def archive_for(detail,query):
     value=read_archive(query)
     if value['status']=='missing':
         from es_order_structure import reader_for
-        prior=reader_for(detail).get({'profile':'FC27','start':query['start'],'end':query['end'],'group_by':'new_customer','status':'all'})
+        prior=reader_for(detail).get({'profile':query['profile'],'start':query['start'],'end':query['end'],'group_by':'new_customer','status':'all'})
         if prior.get('status') in ('available','partial'):
             value=read_archive(query)
             if value['status']!='missing':return value
@@ -64,7 +65,7 @@ def join_paid(rows,es,query):
         row['paid_at']=when.isoformat()
         if query['start']<=when.date().isoformat()<=query['end']:
             acquisition+=1
-            ident=hashlib.sha256(row['id'].encode()).hexdigest()
+            ident=row['id'] if row.get('id_is_hashed') else hashlib.sha256(row['id'].encode()).hexdigest()
             flag=flags.get(ident)
             if flag is None:missing+=1
             else:
