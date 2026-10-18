@@ -42,17 +42,18 @@ class SourceTests(unittest.TestCase):
     def test_archive_sha_and_original_order_no_private(self):
         with tempfile.TemporaryDirectory() as dirname:
             root=Path(dirname);raw=b'synthetic-xlsx';digest=hashlib.sha256(raw).hexdigest()
-            (root/(digest+'.xlsx')).write_bytes(raw)
+            root.chmod(0o700)
+            archive=root/(digest+'.xlsx');archive.write_bytes(raw);archive.chmod(0o600)
             manifest={'file_sha256':[digest],'query':{'profile':'FC27','start':'2026-10-17','end':'2026-10-17'},
                 'file_set':{'declared_files':1,'failed_files':0},'captured_at':'2026-10-18T01:00:00Z',
                 'rule_version':'synthetic-rule'}
             manifest['source_version']=hashlib.sha256(json.dumps({'files':[digest],'rule':'synthetic-rule'},sort_keys=True).encode()).hexdigest()
-            (root/'manifest.json').write_text(json.dumps(manifest),'utf-8')
+            saved=root/'manifest.json';saved.write_text(json.dumps(manifest),'utf-8');saved.chmod(0o600)
             with patch('es_order_structure.parse_files',return_value=([row()],[digest],0)):
                 value=private_es_day('2026-10-17',root)
             self.assertEqual(value['status'],'available')
             self.assertEqual(value['rows'][0]['订单号'],'ORDER-1')
-            (root/(digest+'.xlsx')).write_bytes(b'tampered')
+            archive.write_bytes(b'tampered')
             with self.assertRaises(ValueError):private_es_day('2026-10-17',root)
 
     def test_verified_full_day_admin_exact_match_and_uid_zero(self):

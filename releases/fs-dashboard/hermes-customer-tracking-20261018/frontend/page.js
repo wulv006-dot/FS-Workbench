@@ -184,7 +184,7 @@
       for (const milestone of value.milestones || []) {
         const card = node('article', undefined, milestoneHost, 'record');
         const originalReady = milestone.state === 'completed' && idPattern.test(milestone.conversation_id || '') && idPattern.test(milestone.artifact_id || '');
-        const stateLabel = milestone.state === 'completed' ? originalReady ? '完整 HTML 原稿已就绪' : '已完成，原稿待核对' : milestone.state === 'needs_review' ? milestone.turn_id ? '需复核：已有模型输出，但完整 HTML 原稿未就绪' : '任务结果需人工核对，报告未完成' : ({scheduled:'待到期',claimed:'已领取分析任务',creating:'正在建立会话',dispatch_unknown:'派发结果待核对',pending:'正在生成建议',preparing:'正在准备证据',running:'Hermes 正在分析',failed:'生成失败'})[milestone.state] || asText(milestone.state);
+        const stateLabel = milestone.state === 'completed' ? originalReady ? '完整 HTML 原稿已就绪' : '已完成，原稿待核对' : milestone.state === 'needs_review' ? milestone.turn_id ? '需复核：已有模型输出，但完整 HTML 原稿未就绪' : '任务结果需人工核对，报告未完成' : milestone.days === 0 && milestone.state === 'scheduled' ? '首次建议待派发' : ({scheduled:'待到期',claimed:'已领取分析任务',creating:'正在建立会话',dispatch_unknown:'派发结果待核对',pending:'正在生成建议',preparing:'正在准备证据',running:'Hermes 正在分析',failed:'生成失败'})[milestone.state] || asText(milestone.state);
         node('h3', (milestone.days === 0 ? '首次维护建议' : '加入后第 ' + milestone.days + ' 天') + ' · ' + stateLabel, card);
         node('p', '到期时间（北京时间）：' + timeText(milestone.due_at), card, 'muted');
         if (milestone.summary || milestone.advice) node('p', milestone.summary || milestone.advice, card);
@@ -198,7 +198,7 @@
           link.target = '_blank'; link.rel = 'noopener noreferrer';
         }
       }
-      const reportPending = (value.milestones || []).some(item => item.days === 0 && ['claimed','creating','dispatch_unknown','pending','preparing','running'].includes(item.state));
+      const reportPending = (value.milestones || []).some(item => item.days === 0 && ['scheduled','claimed','creating','dispatch_unknown','pending','preparing','running'].includes(item.state));
       if ((value.history_status === 'pending' || reportPending) && !document.hidden && Date.now() - detailPollStarted < 10 * 60 * 1000) detailTimer = setTimeout(() => { if (chosen === id) loadDetail(id); }, 5000);
     } catch (error) { if (detailAbort.signal.aborted || epoch !== detailEpoch) return; if (error.status === 403) { denied(); return; } host.replaceChildren(); node('p', '详情读取失败：' + error.message, host, 'error'); }
   }

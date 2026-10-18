@@ -27,7 +27,7 @@ EMAIL_ONLY = dict(VERIFIED, candidate_id="f" * 32, order_no="ORDER-3", email="ot
 
 
 def run(role, visual=None):
-    state = {"posts": [], "urls": [], "tracked": [], "errors": [], "fail_track_once": True, "receipt": None, "denied_after": False, "partial": False}
+    state = {"posts": [], "urls": [], "tracked": [], "errors": [], "fail_track_once": True, "receipt": None, "denied_after": False, "partial": False, "scheduled_once": False, "detail_reads": 0}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page()
@@ -75,7 +75,16 @@ def run(role, visual=None):
                 elif view == "candidates": value = {"status": "partial" if state["partial"] else "available", "date": query["day"][0], "captured_at": "2026-10-18T08:00:00+08:00", "coverage": {"summary": "覆盖不足" if state["partial"] else "完整"}, "items": [] if state["partial"] else [VERIFIED, MISSING, EMAIL_ONLY]}
                 elif view == "tracked": value = {"status": "available", "items": state["tracked"]}
                 elif view == "request": value = state["receipt"] or {"status": "unknown"}
-                elif view == "detail": value = {"status": "active", "tracking_id": "c" * 32, "email": VERIFIED["email"], "uid": 0, "tracked_at": "2026-10-18T12:00:00+08:00", "orders": [dict(VERIFIED, status="paid")], "milestones": [{"days": 0, "due_at": "2026-10-18T12:00:00+08:00", "state": "needs_review", "conversation_id": "a" * 32, "turn_id": "9" * 32, "artifact_id": None}, {"days": 7, "due_at": "2026-10-25T12:00:00+08:00", "state": "completed", "conversation_id": "d" * 32, "artifact_id": "e" * 32}]}
+                elif view == "detail":
+                    state["detail_reads"] += 1
+                    milestones = [{"days": 0, "due_at": "2026-10-18T12:00:00+08:00", "state": "needs_review", "conversation_id": "a" * 32, "turn_id": "9" * 32, "artifact_id": None}, {"days": 7, "due_at": "2026-10-25T12:00:00+08:00", "state": "completed", "conversation_id": "d" * 32, "artifact_id": "e" * 32}]
+                    if state["scheduled_once"]:
+                        milestones = [{"days": 0, "due_at": "2026-10-18T12:00:00+08:00", "state": "scheduled"}, {"days": 7, "due_at": "2026-10-25T12:00:00+08:00", "state": "scheduled"}]
+                        state["scheduled_once"] = False
+                    elif state["detail_reads"] > 1:
+                        milestones[0] = {"days": 0, "due_at": "2026-10-18T12:00:00+08:00", "state": "completed", "conversation_id": "a" * 32, "artifact_id": "f" * 32}
+                        milestones[1] = {"days": 7, "due_at": "2026-10-25T12:00:00+08:00", "state": "scheduled"}
+                    value = {"status": "active", "tracking_id": "c" * 32, "email": VERIFIED["email"], "uid": 0, "tracked_at": "2026-10-18T12:00:00+08:00", "history_status": "available", "orders": [dict(VERIFIED, status="paid")], "milestones": milestones}
                 else: value = {"status": "unknown"}
                 return req.fulfill(body=json.dumps(value, ensure_ascii=False), content_type="application/json")
             return req.fulfill(status=404)
@@ -101,6 +110,11 @@ def run(role, visual=None):
             page.get_by_role("link", name="打开 Hermes 报告原稿").wait_for()
             assert page.get_by_text("已有模型输出，但完整 HTML 原稿未就绪", exact=False).count() == 1
             assert page.get_by_role("link", name="查看 Hermes 建议").count() == 1
+            state["scheduled_once"] = True
+            page.get_by_role("button", name="刷新观察").click()
+            page.get_by_text("首次维护建议 · 首次建议待派发").wait_for()
+            page.get_by_text("首次维护建议 · 完整 HTML 原稿已就绪").wait_for(timeout=8000)
+            assert state["detail_reads"] == 3, "only day-0 scheduled must resume polling; day-7 scheduled remains dormant"
             assert "2026-10-17 12:00" in page.locator("#candidate-list").inner_text()
             assert "T12:00:00" not in page.locator("main").inner_text()
             if visual:

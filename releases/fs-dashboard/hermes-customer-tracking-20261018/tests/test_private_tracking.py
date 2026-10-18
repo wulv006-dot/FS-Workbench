@@ -72,6 +72,7 @@ class PrivateTests(unittest.TestCase):
     def test_private_key_required_and_query_deduplicated(self):
         with tempfile.TemporaryDirectory() as dirname:
             path=Path(dirname)/'key';path.write_bytes(b'a'*64+b'\n')
+            path.chmod(0o600)
             calls=[];reads=PrivateReads(Manager(),path)
             self.assertFalse(reads.authorized(None))
             self.assertFalse(reads.authorized('b'*64))
