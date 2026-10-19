@@ -22,4 +22,13 @@ class ReleaseBoundary(unittest.TestCase):
    with self.assertRaises(ValueError):b.validate(dict(m,businessWrites=True),stage)
    (stage/'candidate'/rows[0]['candidate']).write_bytes(b'drift')
    with self.assertRaises(ValueError):b.validate(m,stage)
+class UIFinish(unittest.TestCase):
+ def test_no_data_targets_or_range_restart(self):
+  import release_ui_finish as ui
+  from unittest.mock import patch
+  self.assertEqual(len(ui.TARGETS),5)
+  self.assertTrue(all('/opt/' not in v for v in ui.TARGETS.values()))
+  b=ui.publisher()
+  with patch.object(ui.subprocess,'run') as run:b.restart_for({'scope':ui.SCOPE})
+  self.assertFalse(any('fs-marketing-range.service' in call.args[0] for call in run.call_args_list))
 if __name__=='__main__':unittest.main()

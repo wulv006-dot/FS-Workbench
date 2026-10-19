@@ -38,7 +38,7 @@ const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metric
 
 // Exercise the actual default-period upgrade controller with DOM-free form events.
 (async()=>{
- class Node{constructor(){this.listeners={};this.dataset={};}setAttribute(){}append(){}after(){}addEventListener(k,f){this.listeners[k]=f;}requestSubmit(){this.pending=this.listeners.submit({preventDefault(){}});}}
+ class Node{constructor(){this.listeners={};this.dataset={};this.isConnected=true;}setAttribute(){}append(){}after(){}addEventListener(k,f){this.listeners[k]=f;}requestSubmit(){this.pending=this.listeners.submit({preventDefault(){}});}}
  const old={id:'legacy_week',start:'2026-10-05',end:'2026-10-11'},model={details:{periods:[old]}},root={},container=new Node();container.dataset={period:old.id,brand:'mmoexp'};container.isConnected=true;container.getRootNode=()=>root;
  const scope={root,model},scheduled=[],calls=[],rendered=[];
  const ctx={scope,URLSearchParams,structuredClone,Set,Intl,Date,el:()=>new Node(),setTimeout:f=>scheduled.push(f),currentTrafficPeriod:p=>p?.rule_version==='traffic-multigame-name-hints-20261017-v3',fetch:async url=>{calls.push(url);return {status:200,ok:true,json:async()=>({status:'available',start:old.start,end:old.end,period:{...old,game_projection_version:'traffic-game-projections-20261019-v1',rule_version:'traffic-multigame-name-hints-20261017-v3'}})};},render:(c,m)=>{rendered.push(m);c.querySelector=()=>({});}};
@@ -60,4 +60,15 @@ const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metric
  vm.createContext(ctx);vm.runInContext(source.match(/function workspaceSync[^\n]+/)[0]+'\nthis.workspaceSync=workspaceSync',ctx);
  ctx.workspaceSync();assert.equal(notifications,0);raf.shift()();raf.shift()();assert.equal(applies,1);assert.equal(notifications,2);assert.equal(raf.length,0);
  console.log('PASS shell URL restoration does not recursively re-enter render');
+}
+
+{
+ const tasks=[],inputs={'流量开始日期':{},'流量结束日期':{}};let submitted=0,rendered=0;
+ const form={isConnected:true,querySelector:q=>inputs[q.includes('开始')?'流量开始日期':'流量结束日期'],requestSubmit:()=>submitted++};
+ const target={dataset:{},querySelector:()=>form};
+ const ctx={scope:{model:{details:{periods:[]}},gameLabels:{all:'全部游戏'}},document:{getElementById:()=>target},window:{MMOEXPMarketing:{render:()=>rendered++}},setTimeout:f=>tasks.push(f)};
+ vm.createContext(ctx);vm.runInContext(extract('workspaceApply')+'\nthis.apply=workspaceApply',ctx);
+ assert.equal(ctx.apply({g_period:'custom_2026-10-01_2026-10-07',g_source:'ads',g_project:'all',g_brand:'mmoexp'}),true);
+ assert.equal(rendered,1);assert.equal(inputs['流量开始日期'].value,'2026-10-01');assert.equal(inputs['流量结束日期'].value,'2026-10-07');tasks.shift()();assert.equal(submitted,1);assert.equal(ctx.scope.restoreRangeWanted,null);
+ console.log('PASS custom date URL restores exact range without relabelling old results');
 }

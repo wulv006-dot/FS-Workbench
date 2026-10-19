@@ -274,12 +274,12 @@ function rangeControls(toolbar,container,model,periods,selector){
   }catch(error){if(container.isConnected&&generation===scope.rangeGeneration)note.textContent=error.message;}finally{if(generation===scope.rangeGeneration){scope.rangePending=false;container.setAttribute('aria-busy','false');apply.disabled=false;}}
  });
  return function ensureCurrentPeriod(period){
-  if(currentGamePeriod(period)||!period?.start||!period?.end)return;
+  if(scope.restoreRangeWanted||currentGamePeriod(period)||!period?.start||!period?.end)return;
   scope.rangeUpgradeTried??=new Set();const key=period.start+'_'+period.end;
   if(scope.rangeUpgradeTried.has(key)){note.textContent='当前旧版细分缓存尚未升级成功；可点击应用区间重试，不按全量解释。';return;}
   note.textContent='当前为旧版细分缓存，尚未按当前规则核实全量；正在读取同期间准确数据。';
   setTimeout(()=>{
-   if(!container.isConnected||scope.model!==model||container.dataset.period!==period.id||container.dataset.brand==='business'||scope.rangePending||scope.rangeUpgradeTried.has(key))return;
+   if(!controls.isConnected||!container.isConnected||scope.model!==model||container.dataset.period!==period.id||container.dataset.brand==='business'||scope.rangePending||scope.rangeUpgradeTried.has(key))return;
    scope.rangeUpgradeTried.add(key);start.value=period.start;end.value=period.end;controls.requestSubmit();
   },0);
  };
@@ -302,6 +302,7 @@ function renderSourceBody(panel,p,site,source){
  const s=p.sources?.[source];scope.activePeriod=p;
  const note=section('数据范围',p.start+' — '+p.end+' · '+(source==='ads'?'广告账号范围':'来源原生统计窗口'));
  note.append(el('p',source==='ads'?'广告归因不等于Admin实收；平台ROAS与订单规则归因回报分开。':'GA4按访问行为、GSC按自然搜索统计；不与订单拼成逐人转化漏斗。','coverage'));panel.append(note);
+ if(site==='all'&&source!=='ads')note.append(el('p','当前仅MMOEXP已验证接通此来源；这里不代表全部卫星站合计。','coverage'));
  if(source!=='ads'&&site==='rsorder'){panel.append(section('该站点尚未接通 '+source.toUpperCase(),'RSOrder暂无此来源数据，不使用MMOEXP数据替代，也不填0。'));return;}
  if(source!=='ads'&&!s){panel.append(section('来源数据尚未提供','保留缺口，未按0解释。'));return;}
  const overview=section(source==='ads'?'Ads · 全局投放':source==='ga4'?'GA4 · 全局访问与行为':'GSC · 全局自然搜索','全局指标不随右侧游戏选择改名；游戏表现见下方。');
@@ -312,7 +313,7 @@ function renderSourceBody(panel,p,site,source){
  panel.append(overview);
  const projection=gameProjection(source,accounts),rows=projection?.rows||[],grid=el('div',null,'traffic-dual');
  const keys=source==='ads'?['cost','conversions','cpa','platformRoas']:source==='ga4'?['sessions']:['clicks','impressions','ctr','position'];
- const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
+ const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).map(v=>({explicit_game_path:'游戏目录',news_slug_hint:'资讯标题线索（待核）',site_home:'站点首页',unmapped_page:'页面待映射'}[v]||v)).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
  left.querySelectorAll('tbody tr').forEach((tr,i)=>{if(!rows[i])return;const cell=tr.firstElementChild;cell.replaceChildren();const button=el('button',rows[i].label,'fs-btn');button.type='button';button.setAttribute('aria-pressed',String(game===rows[i].game));button.onclick=()=>{scope.trafficProject=rows[i].game;render(document.getElementById('marketing'),scope.model);};cell.append(button);});
  grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',(gameLabels[game]||game)+' · 深入查看'));
  if(game==='all')right.append(el('p','选择左侧游戏，查看它的国家、渠道或广告系列。','coverage'));
@@ -368,8 +369,12 @@ function workspaceApply(s){
  scope.trafficProject=Object.hasOwn(scope.gameLabels||{},s.g_project)?s.g_project:'all';
  scope.source=['ga4','gsc','ads'].includes(s.g_source)?s.g_source:'ga4';
  target.dataset.brand=['mmoexp','rsorder','all'].includes(s.g_brand)?s.g_brand:'mmoexp';
- if(scope.model.details?.periods.some(p=>p.id===s.g_period))target.dataset.period=s.g_period;
- window.MMOEXPMarketing.render(target,scope.model);return true;
+ const found=scope.model.details?.periods.some(p=>p.id===s.g_period),match=/^custom_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/.exec(s.g_period||'');
+ if(found)target.dataset.period=s.g_period;
+ scope.restoreRangeWanted=!found&&match?match:null;
+ window.MMOEXPMarketing.render(target,scope.model);
+ if(scope.restoreRangeWanted){const wanted=scope.restoreRangeWanted,form=target.querySelector('.traffic-range');form.querySelector('[aria-label="流量开始日期"]').value=wanted[1];form.querySelector('[aria-label="流量结束日期"]').value=wanted[2];setTimeout(()=>{if(form.isConnected&&scope.restoreRangeWanted===wanted){scope.restoreRangeWanted=null;form.requestSubmit();}},0);}
+ return true;
 }
 function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{workspaceQueued=false;if(scope.root.isConnected!==false)scope.changed(workspaceState());});}
 return {state:workspaceState,apply:workspaceApply,update:()=>window.MMOEXPMarketing.load(document.getElementById("marketing"))};
