@@ -3,7 +3,7 @@ import json,hashlib
 P=Path(__file__).parent;C=P/'candidate'
 R='/var/lib/fs-navigation-formal-static/workspace-native-20261006-346f59eea565/'
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
-T={'page.js':(R+'page.js','7584b337ac09f1c4d3c86114af0355731be3f4a472db82eac481becdf1059701'),'customer-index.html':(R+'index.html','ec7814903309a5babc7d27d2bf745d07ad13c5230b079bb2a3ff079b75d89f61'),'detail-feedback.css':(R+'detail-feedback.css',None)}
+T={'page.js':(R+'page.js','7584b337ac09f1c4d3c86114af0355731be3f4a472db82eac481becdf1059701'),'customer-index.html':(R+'index.html','ec7814903309a5babc7d27d2bf745d07ad13c5230b079bb2a3ff079b75d89f61'),'page.css':(R+'page.css','5204d0d9e5cadaddcb7195d8c5ba559fd9deb21b63f9081373713a1752bf6f66')}
 for name,(target,sha) in T.items():
  if digest(Path(target))!=sha:raise ValueError('baseline drift: '+target)
 # Preserve current protected requirements from the independently verified prior release.
