@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 ROOT = Path('/opt/mmoexp-marketing')
 CUSTOMERS = {'1430398974': ('mmoexp', 'MMOEXP-1'), '8154986819': ('rsorder', 'RSOrder-1'), '3552474396': ('rsorder', 'rsgoldfast.com')}
 GA_METRICS = ['sessions','activeUsers','newUsers','engagedSessions','engagementRate','screenPageViews','averageSessionDuration','bounceRate','ecommercePurchases','purchaseRevenue']
-GA_REPORTS = {'total': [], 'daily': ['date'], 'source_medium': ['sessionSourceMedium'], 'device': ['deviceCategory'], 'country': ['country'], 'landing_page': ['landingPage']}
-GSC_REPORTS = {'total': [], 'daily': ['date'], 'query': ['query'], 'page': ['page'], 'page_total': [], 'country': ['country'], 'country_query': ['country','query']}
+GA_REPORTS = {'total': [], 'daily': ['date'], 'source_medium': ['sessionSourceMedium'], 'device': ['deviceCategory'], 'country': ['country'], 'landing_page': ['landingPage'], 'landing_country':['landingPage','country'], 'landing_source':['landingPage','sessionSourceMedium']}
+GSC_REPORTS = {'total': [], 'daily': ['date'], 'query': ['query'], 'page': ['page'], 'page_total': [], 'country': ['country'], 'country_query': ['country','query'], 'page_country':['page','country']}
 SCHEMA = '''CREATE TABLE IF NOT EXISTS detail_reports(source TEXT, resource TEXT, report TEXT, start_date TEXT, end_date TEXT, payload_json TEXT, collected_at TEXT, PRIMARY KEY(source,resource,report,start_date,end_date));
 CREATE TABLE IF NOT EXISTS detail_attempts(id INTEGER PRIMARY KEY, source TEXT, resource TEXT, report TEXT, start_date TEXT, end_date TEXT, checked_at TEXT, status TEXT, error_code TEXT);
 '''
@@ -117,7 +117,7 @@ class Reader:
         dimensions=GSC_REPORTS[name]; rows=[]; page_size=25000; complete=False
         body={'startDate':start,'endDate':end,'dimensions':dimensions,'type':'web','dataState':'final','rowLimit':page_size}
         if name=='page_total':body['aggregationType']='byPage'
-        elif name not in ['page']: body['aggregationType']='byProperty'
+        elif name not in ['page','page_country']: body['aggregationType']='byProperty'
         while len(rows)<50000:
             body['startRow']=len(rows)
             data=self.request('gsc','https://www.googleapis.com/webmasters/v3/sites/'+quote('sc-domain:mmoexp.com',safe='')+'/searchAnalytics/query',body)
@@ -136,7 +136,7 @@ class Reader:
                 redacted+=int(clean!=url); key=clean; values=row['metrics']; state=merged.setdefault(key,{'clicks':Decimal(0),'impressions':Decimal(0),'position_sum':Decimal(0)})
                 state['clicks']+=Decimal(values['clicks']); state['impressions']+=Decimal(values['impressions']); state['position_sum']+=Decimal(values['position'])*Decimal(values['impressions'])
             rows=[{'dimensions':{'page':key},'metrics':{'clicks':str(v['clicks']),'impressions':str(v['impressions']),'ctr':str(v['clicks']/v['impressions']) if v['impressions'] else '0','position':str(v['position_sum']/v['impressions']) if v['impressions'] else '0'}} for key,v in merged.items()]
-        return {'rows':rows,'quality':{'pagination_complete':complete,'pagination_capped':not complete,'returned_rows':len(rows),'data_state':'final','top_rows_not_all_queries':name in ['query','page','country_query'],'url_query_fragments_removed':redacted,'aggregation':data.get('responseAggregationType')},'timezone':'America/Los_Angeles','currency':None}
+        return {'rows':rows,'quality':{'pagination_complete':complete,'pagination_capped':not complete,'returned_rows':len(rows),'data_state':'final','top_rows_not_all_queries':name in ['query','page','country_query','page_country'],'url_query_fragments_removed':redacted,'aggregation':data.get('responseAggregationType')},'timezone':'America/Los_Angeles','currency':None}
     def ads_metadata(self,customer):
         if customer not in CUSTOMERS: raise ValueError('SELECTED_CUSTOMER_REQUIRED')
         data=self.request('ads','https://googleads.googleapis.com/v25/customers/'+customer+'/googleAds:search',{'query':'SELECT customer.id, customer.descriptive_name, customer.manager, customer.status, customer.currency_code, customer.time_zone FROM customer'})
@@ -229,3 +229,4 @@ def main():
     finally: reader.close(); db.close()
 
 if __name__=='__main__': main()
+
