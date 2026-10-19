@@ -286,9 +286,10 @@
         }
       }
       detailFeedback(id, 'ready', value.history_status === 'pending' ? '详情已打开，历史订单仍在整理，稍后自动更新。' : '订单与观察节点已加载；下方保留各节点的实际状态。');
+      if (interactive) focusDetail();
       const reportPending = (value.milestones || []).some(item => item.days === 0 && ['scheduled','claimed','creating','dispatch_unknown','pending','preparing','running'].includes(item.state));
       if ((value.history_status === 'pending' || reportPending) && !document.hidden && Date.now() - detailPollStarted < 10 * 60 * 1000) detailTimer = setTimeout(() => { if (chosen === id) loadDetail(id); }, 5000);
-    } catch (error) { if (controller.signal.aborted || epoch !== detailEpoch) return; if (error.status === 403) { denied(); return; } host.replaceChildren(); node('p', '详情读取失败：' + error.message, host, 'error'); detailFeedback(id, 'error', '读取失败，请点击“刷新详情”重试。'); }
+    } catch (error) { if (controller.signal.aborted || epoch !== detailEpoch) return; if (error.status === 403) { denied(); return; } host.replaceChildren(); node('p', '详情读取失败：' + error.message, host, 'error'); detailFeedback(id, 'error', '读取失败，请点击“刷新观察”重试。'); }
     finally { if (epoch === detailEpoch) { detailLoading = false; if (controller.signal.aborted) detailFeedback(id, 'idle', '读取已中断，可重新查看。'); } }
   }
   function shanghaiYesterday() { const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(Date.now() - 86400000); const field = type => parts.find(part => part.type === type)?.value; return field('year') + '-' + field('month') + '-' + field('day'); }
