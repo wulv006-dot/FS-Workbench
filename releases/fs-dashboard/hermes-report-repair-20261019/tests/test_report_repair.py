@@ -35,6 +35,14 @@ class EvidenceTests(unittest.TestCase):
     def setUp(self):
         self.book=types.SimpleNamespace(evidence={EV:{'data':{'rows':[{'n':n,'text':'字'*2000} for n in range(40)],'total':40},'query':{'profile':'FC27'}}})
 
+    def test_report_revision_keeps_new_read_and_html_tools(self):
+        from continuation import FrozenEvidenceBook
+        book=object.__new__(FrozenEvidenceBook);book.evidence=self.book.evidence
+        value=book.call('fc.read_evidence',{'evidence_id':EV,'path':'/data/total'})
+        self.assertEqual(value['value'],40)
+        value=book.call('fc.check_report_html',{'html':'<!doctype html><html><body>report</body></html>'})
+        self.assertEqual(value['issue_count'],0)
+
     def test_large_data_is_indexed_and_all_rows_are_readable(self):
         record={'evidence_id':EV,'data':self.book.evidence[EV]['data']}
         view=model_view(record)
