@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / 'releases/fs-dashboard/hermes-report-repair-20261019/source'
 sys.path[:0] = [str(SOURCE), str(ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013'),
-                str(ROOT/'releases/fs-dashboard/admin-data-tools-20261018/source'), str(ROOT)]
+                str(ROOT/'releases/fs-dashboard/admin-data-tools-20261018/candidate/hermes'), str(ROOT)]
 if sys.platform == 'win32':
     sys.modules.setdefault('fcntl', types.SimpleNamespace())
 from evidence_access import read_evidence, model_view
