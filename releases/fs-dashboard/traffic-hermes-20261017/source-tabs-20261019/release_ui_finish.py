@@ -10,6 +10,8 @@ SCOPE='traffic-source-tabs-ui-finish-20261019'
 def publisher():
  path=Path(__file__).with_name('release_source_tabs.py');m=types.ModuleType('ui_bridge');m.__file__=str(path);exec(compile(path.read_bytes(),str(path),'exec'),m.__dict__)
  m.SCOPE=SCOPE;m.TARGETS=TARGETS;b=m.publisher()
+ # Five static files only: retain both native release locks, without pausing unrelated data readers.
+ b.locks=b.ui_only_locks
  def restart(manifest,fence=None):
   if manifest['scope']!=SCOPE:raise ValueError('unexpected UI scope')
   subprocess.run(['nginx','-t'],check=True);subprocess.run(['systemctl','reload','nginx.service'],check=True)

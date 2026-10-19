@@ -45,6 +45,7 @@ def publisher():
   subprocess.run(['systemctl','is-active','--quiet','nginx.service','fs-marketing-range.service'],check=True)
  b.validate=validate;b.guards=guards;b.restart_for=restart
  old_locks=b.locks
+ b.ui_only_locks=old_locks
  @contextlib.contextmanager
  def locks(root):
   import fcntl

@@ -28,7 +28,7 @@ class UIFinish(unittest.TestCase):
   from unittest.mock import patch
   self.assertEqual(len(ui.TARGETS),5)
   self.assertTrue(all('/opt/' not in v for v in ui.TARGETS.values()))
-  b=ui.publisher()
+  b=ui.publisher();self.assertIs(b.locks,b.ui_only_locks)
   with patch.object(ui.subprocess,'run') as run:b.restart_for({'scope':ui.SCOPE})
   self.assertFalse(any('fs-marketing-range.service' in call.args[0] for call in run.call_args_list))
 if __name__=='__main__':unittest.main()
