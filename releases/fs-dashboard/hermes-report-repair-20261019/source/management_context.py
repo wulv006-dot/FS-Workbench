@@ -206,7 +206,7 @@ def scheduled_question(now,public=PUBLIC):
  facts=json.loads(path.read_text('utf-8'))
  if facts.get('contract')!='fs-management-daily-v2' or facts.get('businessDate')!=now.date().isoformat() or not ID.fullmatch(facts.get('snapshotId','')):raise ValueError('management_facts_not_current')
  if not any(type(p.get('month',{}).get('values',{}).get('rev')) in (int,float) or type(p.get('yesterday',{}).get('values',{}).get('rev')) in (int,float) for p in facts.get('projects',[])):raise ValueError('management_no_facts')
- return MARKER+'更新当日经营简述：用300–600字、2–4个短段说明关键进展/偏差、判断及今日优先动作；只选重要项目，不逐项罗列。模块数字由FS更新。直接输出简洁中文原文，不生成HTML、JSON或详细报告。结论当日有效。快照 '+facts['snapshotId']
+ return MARKER+'更新当日经营简述：用300–600字、2–4个短段说明关键进展/偏差、判断及今日优先动作；只选重要项目，不逐项罗列。跑速必须和同一指标比较，不用收入日均证明利润达标；建议动作不冒充已批准执行，调整正式目标须提出待决。模块数字由FS更新。直接输出简洁中文原文，不生成HTML、JSON或详细报告。结论当日有效。快照 '+facts['snapshotId']
 
 def scheduled_weekly_question(now,public=PUBLIC):
  daily=scheduled_question(now,public)
