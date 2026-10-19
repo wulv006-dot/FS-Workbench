@@ -47,6 +47,7 @@ const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metric
  assert.equal(calls.length,1);assert(calls[0].startsWith('/dashboard/marketing/range.json?'));assert.equal(new URL(calls[0],'https://fs.invalid').searchParams.get('start'),old.start);assert.equal(rendered[0].details.periods.length,1);assert.equal(scope.customRange.period.rule_version,'traffic-multigame-name-hints-20261017-v3');
  ensure(old);assert.equal(scheduled.length,0);assert.equal(calls.length,1);
  const n=scheduled.length;ensure({start:old.start,end:old.end,rule_version:'traffic-multigame-name-hints-20261017-v3'});assert.equal(scheduled.length,n);
- assert(source.includes("section('全站背景 · 非游戏专属'"));assert(source.includes("renderGameAds(panel,p,scope.trafficProject);renderESStructure(panel,p)"));
+ assert(source.includes('全局维度参考 · 非所选游戏专属'));assert(source.includes('renderSourceBody(panel,p,site,scope.source)'));assert(source.includes("sites.setAttribute('aria-label','流量站点')"));assert(!source.includes('scrollIntoView'));
  console.log('PASS default legacy period upgrades via exact range once, current contract skips, ES remains separate, game details precede background');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+

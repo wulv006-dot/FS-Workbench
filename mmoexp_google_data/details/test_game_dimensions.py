@@ -1,6 +1,6 @@
 import sys,unittest
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'mmoexp_google_data/details'))
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from game_dimensions import classify_campaign, classify_page, project, aggregate
 class Games(unittest.TestCase):
  def test_global_overrides_fc_name(self):self.assertEqual(classify_campaign('google-FC27-PMAX-Coins-US')['game'],'GLOBAL')
