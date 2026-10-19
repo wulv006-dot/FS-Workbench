@@ -2,7 +2,7 @@
 import contextlib, hashlib, json, os, stat, subprocess, sys, types
 from pathlib import Path
 SCOPE='traffic-source-tabs-20261019'
-PACKAGE='workspace-native-20261019-traffic-v1'
+PACKAGE='workspace-native-20261019-traffic-v2'
 STATIC='/var/lib/fs-navigation-formal-static/'
 CONFIG='/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 OLD=STATIC+'workspace-native-20261006-37fe775358df/'

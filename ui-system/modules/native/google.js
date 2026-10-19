@@ -349,7 +349,7 @@ function render(container,model){
  const panel=el('div');panel.id='brand-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','source-tab-'+scope.source);container.append(panel);
  scope.esGeneration=(scope.esGeneration||0)+1;scope.esAbort?.abort();clearTimeout(scope.esTimer);
  if(p){ensure(p);renderSourceBody(panel,p,site,scope.source);}else panel.append(el('p','所选区间尚未取得数据，未填0。','coverage'));
- const audit=el('details',null,'source-details');audit.append(el('summary','数据更新与口径'),el('p','快照生成 '+(model.data_generated_at||'未知')+'；来源时区、数据截至和覆盖分别列示。Admin主源，Order仅补缺；参考利润保持估算。','snapshot-time'));container.append(audit);scope.changed(workspaceState());
+ const audit=el('details',null,'source-details');audit.append(el('summary','数据更新与口径'),el('p','快照生成 '+(model.data_generated_at||'未知')+'；来源时区、数据截至和覆盖分别列示。Admin主源，Order仅补缺；参考利润保持估算。','snapshot-time'));container.append(audit);workspaceSync();
 }
 
 async function load(container){if(scope.rangePending)return;const generation=scope.rangeGeneration||0;try{const response=await fetch('/dashboard/marketing/data.json',{cache:'no-store',credentials:'same-origin'});if(!response.ok)throw Error('DATA_NOT_AVAILABLE');scope.checkedAt=new Date().toISOString();const fresh=await response.json();if(scope.rangePending||generation!==(scope.rangeGeneration||0))return;if(scope.customRange){fresh.details.periods=[scope.customRange.period,...fresh.details.periods];fresh.businessLinks=scope.customRange.businessLinks;}render(container,fresh);}catch{const old=container.querySelector('.refresh-error');if(old)old.remove();container.prepend(el('p','本次更新未成功；若有已显示数据则保留，重新登录后再刷新。','refresh-error failure'));}}
@@ -365,7 +365,7 @@ function workspaceApply(s){
  if(scope.model.details?.periods.some(p=>p.id===s.g_period))target.dataset.period=s.g_period;
  window.MMOEXPMarketing.render(target,scope.model);return true;
 }
-function workspaceSync(){scope.changed(workspaceState());}
+function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{workspaceQueued=false;if(scope.root.isConnected!==false)scope.changed(workspaceState());});}
 return {state:workspaceState,apply:workspaceApply,update:()=>window.MMOEXPMarketing.load(document.getElementById("marketing"))};
 }
 

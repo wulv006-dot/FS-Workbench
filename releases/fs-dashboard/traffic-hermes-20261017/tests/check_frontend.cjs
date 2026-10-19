@@ -51,3 +51,13 @@ const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metric
  console.log('PASS default legacy period upgrades via exact range once, current contract skips, ES remains separate, game details precede background');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
+
+// Real host capture applies restored URL state during its first notification.
+// Notifications must be deferred to avoid recursively entering render/apply.
+{
+ const raf=[];let restored=false,applies=0,notifications=0;
+ const ctx={workspaceQueued:false,scope:{root:{isConnected:true},changed(){notifications++;if(!restored){applies++;ctx.workspaceSync();restored=true;}}},requestAnimationFrame:f=>raf.push(f),workspaceState:()=>({g_source:'ga4'})};
+ vm.createContext(ctx);vm.runInContext(source.match(/function workspaceSync[^\n]+/)[0]+'\nthis.workspaceSync=workspaceSync',ctx);
+ ctx.workspaceSync();assert.equal(notifications,0);raf.shift()();raf.shift()();assert.equal(applies,1);assert.equal(notifications,2);assert.equal(raf.length,0);
+ console.log('PASS shell URL restoration does not recursively re-enter render');
+}
