@@ -246,17 +246,32 @@ function renderReportLinks(parent,period){
  for(const [kind,label]of [['daily','日报'],['weekly','周报'],['investigation','自定义报告']]){const a=el('a',label,'fs-btn');a.href='/dashboard/fs-home/brain/index.html?report_kind='+kind+'&start='+period.start+'&end='+period.end;links.append(a);}block.append(links);parent.append(block);
 }
 
+function rangeStatusText(state){
+ if(!state)return '';
+ const dates=state.lo+' — '+state.hi;
+ if(state.kind==='loading')return (state.slow?'仍在读取 ':'正在加载 ')+dates+(state.slow?'，首次查询可能稍久，请耐心等待；当前仍显示原日期数据。':'；当前仍显示原日期数据。');
+ if(state.kind==='success')return '已更新 '+dates;
+ return state.message||'本次读取未成功，已保留原日期数据。';
+}
+function paintRangeStatus(container){
+ const state=scope.rangeStatus,note=container.querySelector('.traffic-range-status');
+ if(note){note.textContent=rangeStatusText(state);note.hidden=!state;note.dataset.state=state?.kind||'';}
+ container.setAttribute('aria-busy',String(scope.rangePending===true));
+ const button=container.querySelector('.traffic-range button[type="submit"]');if(button){button.disabled=scope.rangePending===true;button.textContent=scope.rangePending?'读取中…':'应用区间';}
+}
 function rangeControls(toolbar,container,model,periods,selector){
  scope.rangeGeneration??=0;
  const controls=el('form',null,'traffic-range');controls.setAttribute('aria-label','流量分析自定义区间');
  const start=el('input'),end=el('input');start.type=end.type='date';start.required=end.required=true;start.setAttribute('aria-label','流量开始日期');end.setAttribute('aria-label','流量结束日期');
- const current=periods.find(p=>p.id===selector.value)||periods[0];start.value=current?.start||'';end.value=current?.end||'';
- const apply=el('button','应用区间');apply.type='submit';const note=el('p','可自定义起止日期；Google各来源按自己的时区与实际覆盖返回，关联会员按北京时间统计。','coverage');note.setAttribute('role','status');
+ const current=periods.find(p=>p.id===selector.value)||periods[0];start.value=(scope.rangePending?scope.rangeStatus?.lo:null)||current?.start||'';end.value=(scope.rangePending?scope.rangeStatus?.hi:null)||current?.end||'';
+ const apply=el('button','应用区间');apply.type='submit';const note=el('p',null,'coverage traffic-range-status');note.setAttribute('role','status');note.setAttribute('aria-live','polite');note.hidden=true;
  const shortcuts=el('div',null,'toolbar traffic-shortcuts');for(const [label,days] of [['今日',0],['昨日',1],['近7天',7],['近14天',14],['近30天',30],['上月',-1],['本月截至昨日',-2]]){const button=el('button',label,'fs-btn');button.type='button';button.addEventListener('click',()=>{const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());const hi=new Date(today+'T12:00:00Z');if(days!==0)hi.setUTCDate(hi.getUTCDate()-1);const lo=new Date(hi);if(days>0)lo.setUTCDate(lo.getUTCDate()-days+1);if(days===-1){hi.setTime(new Date(today+'T12:00:00Z'));hi.setUTCDate(0);lo.setTime(hi);lo.setUTCDate(1);}if(days===-2){lo.setTime(new Date(today+'T12:00:00Z'));lo.setUTCDate(1);}start.value=lo.toISOString().slice(0,10);end.value=hi.toISOString().slice(0,10);controls.requestSubmit();});shortcuts.append(button);}toolbar.after(shortcuts);
  controls.append(el('span','自定义日期'),start,el('span','至'),end,apply);toolbar.after(controls,note);
  controls.addEventListener('submit',async event=>{
-  event.preventDefault();if(!start.value||!end.value||start.value>end.value){note.textContent='起始日期不能晚于结束日期。';return;}
-  const lo=start.value,hi=end.value,generation=++scope.rangeGeneration;scope.rangePending=true;container.setAttribute('aria-busy','true');apply.disabled=true;note.textContent=(!currentTrafficPeriod(current)?'旧版细分缓存尚未按当前规则核实全量；':'')+'正在查询 '+lo+' — '+hi+'；来源读取期间保留原视图。';
+  event.preventDefault();if(!start.value||!end.value||start.value>end.value){scope.rangeStatus={kind:'error',message:'起始日期不能晚于结束日期。'};paintRangeStatus(container);return;}
+  if(scope.rangePending&&scope.rangeStatus?.lo===start.value&&scope.rangeStatus?.hi===end.value)return;
+  const lo=start.value,hi=end.value,generation=++scope.rangeGeneration;clearTimeout(scope.rangeNoticeTimer);scope.rangePending=true;scope.rangeStatus={kind:'loading',lo,hi};paintRangeStatus(container);
+  const slowTimer=setTimeout(()=>{if(generation===scope.rangeGeneration&&scope.rangePending){scope.rangeStatus.slow=true;paintRangeStatus(container);}},20000);
   try{
    const url='/dashboard/marketing/range.json?'+new URLSearchParams({start:lo,end:hi});let result;
    for(let attempt=0;attempt<130;attempt++){
@@ -269,14 +284,14 @@ function rangeControls(toolbar,container,model,periods,selector){
    if(generation!==scope.rangeGeneration||start.value!==lo||end.value!==hi)return;
    if(!container.isConnected||scope.root!==container.getRootNode()&&!scope.root.contains(container))return;
    const next=structuredClone(model),p=result.period;p.id='custom_'+lo+'_'+hi;p.isCustomRange=true;
-   next.details.periods=[p,...next.details.periods.filter(x=>!x.isCustomRange&&!(x.start===lo&&x.end===hi))];next.businessLinks=result.businessLinks;scope.customRange={period:p,businessLinks:result.businessLinks};container.dataset.period=p.id;render(container,next);
-   container.querySelector('.traffic-range + .coverage').textContent=(result.status==='stale'?'本次更新失败，保留原日期结果 ':'已查询 ')+lo+' — '+hi+'；各来源覆盖及失败项见对应卡片。';
-  }catch(error){if(container.isConnected&&generation===scope.rangeGeneration)note.textContent=error.message;}finally{if(generation===scope.rangeGeneration){scope.rangePending=false;container.setAttribute('aria-busy','false');apply.disabled=false;}}
+   next.details.periods=[p,...next.details.periods.filter(x=>!x.isCustomRange&&!(x.start===lo&&x.end===hi))];next.businessLinks=result.businessLinks;scope.customRange={period:p,businessLinks:result.businessLinks};container.dataset.period=p.id;scope.rangePending=false;scope.rangeStatus={kind:result.status==='stale'?'error':'success',lo,hi,message:'本次更新未成功，显示 '+lo+' — '+hi+' 的历史结果；来源覆盖见下方。'};render(container,next);
+   if(result.status!=='stale')scope.rangeNoticeTimer=setTimeout(()=>{if(generation===scope.rangeGeneration&&!scope.rangePending){scope.rangeStatus=null;paintRangeStatus(container);}},4000);
+  }catch(error){if(container.isConnected&&generation===scope.rangeGeneration)scope.rangeStatus={kind:'error',lo,hi,message:error.message};}finally{clearTimeout(slowTimer);if(generation===scope.rangeGeneration){scope.rangePending=false;if(scope.rangeStatus?.kind==='loading')scope.rangeStatus=null;paintRangeStatus(container);}}
  });
  return function ensureCurrentPeriod(period){
   if(scope.restoreRangeWanted||currentGamePeriod(period)||!period?.start||!period?.end)return;
   scope.rangeUpgradeTried??=new Set();const key=period.start+'_'+period.end;
-  if(scope.rangeUpgradeTried.has(key)){note.textContent='当前旧版细分缓存尚未升级成功；可点击应用区间重试，不按全量解释。';return;}
+  if(scope.rangeUpgradeTried.has(key)){if(!scope.rangePending){scope.rangeStatus={kind:'error',message:'当前细分缓存尚未升级成功；可点击应用区间重试。'};paintRangeStatus(container);}return;}
   note.textContent='当前为旧版细分缓存，尚未按当前规则核实全量；正在读取同期间准确数据。';
   setTimeout(()=>{
    if(!controls.isConnected||!container.isConnected||scope.model!==model||container.dataset.period!==period.id||container.dataset.brand==='business'||scope.rangePending||scope.rangeUpgradeTried.has(key))return;
@@ -315,6 +330,7 @@ function renderSourceBody(panel,p,site,source){
  const keys=source==='ads'?['cost','clicks','ctr','conversions','conversionsValue','cpa','platformRoas']:source==='ga4'?['sessions']:['clicks','impressions','ctr','position'];
  const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).map(v=>({explicit_game_path:'游戏目录',news_slug_hint:'资讯标题线索（待核）',site_home:'站点首页',unmapped_page:'页面待映射'}[v]||v)).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
  left.querySelectorAll('tbody tr').forEach((tr,i)=>{if(!rows[i])return;const cell=tr.firstElementChild;cell.replaceChildren();const button=el('button',rows[i].label,'fs-btn');button.type='button';button.setAttribute('aria-pressed',String(game===rows[i].game));button.onclick=()=>{scope.trafficProject=rows[i].game;render(document.getElementById('marketing'),scope.model);};cell.append(button);});
+ if(game!=='all'){const reset=el('button','查看全部游戏','fs-btn');reset.type='button';reset.onclick=()=>{scope.trafficProject='all';render(document.getElementById('marketing'),scope.model);};left.prepend(reset);}
  grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',(gameLabels[game]||game)+' · 深入查看'));
  if(game==='all')right.append(el('p','选择左侧游戏，查看它的国家、渠道或广告系列。','coverage'));
  else if(source==='ads'){
@@ -352,7 +368,7 @@ function render(container,model){
  tabs.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const bs=[...tabs.children],i=bs.indexOf(document.activeElement),n=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;bs[n].click();container.querySelector('#'+bs[n].id)?.focus();};toolbar.append(tabs);
  const sites=el('select');sites.setAttribute('aria-label','流量站点');for(const [v,label]of [['mmoexp','MMOEXP'],['rsorder','RSOrder业务账号'],['all','全部已接入范围']]){const o=el('option',label);o.value=v;sites.append(o);}sites.value=site;sites.onchange=()=>{container.dataset.brand=sites.value;scope.trafficProject='all';render(container,scope.model);};toolbar.append(sites);container.append(toolbar);
  const ensure=rangeControls(toolbar,container,model,periods,selector),p=periods.find(x=>x.id===selector.value);
- const project=el('select');project.setAttribute('aria-label','流量项目');for(const [key,label]of Object.entries(gameLabels)){const o=el('option',label);o.value=key;project.append(o);}project.value=scope.trafficProject;project.onchange=()=>{scope.trafficProject=project.value;render(container,scope.model);};toolbar.append(project);
+ paintRangeStatus(container);
  const panel=el('div');panel.id='brand-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','source-tab-'+scope.source);container.append(panel);
  scope.esGeneration=(scope.esGeneration||0)+1;scope.esAbort?.abort();clearTimeout(scope.esTimer);
  if(p){ensure(p);renderSourceBody(panel,p,site,scope.source);}else panel.append(el('p','所选区间尚未取得数据，未填0。','coverage'));
@@ -363,7 +379,7 @@ async function load(container){if(scope.rangePending)return;const generation=sco
 window.MMOEXPMarketing={render,load};const target=document.getElementById('marketing');if(target){load(target);setInterval(()=>{if(!document.hidden)load(target);},300000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(target);});}
 })();
 let workspaceQueued=false;
-function workspaceState(){const target=document.getElementById('marketing');scope.businessProfile=target.querySelector('[aria-label="经营项目"]')?.value||scope.businessProfile||scope.seed?.g_business_profile||'MMOEXP';return {g_brand:target.dataset.brand||'mmoexp',g_period:target.dataset.period||'',g_source:scope.source||'all',g_project:scope.trafficProject||'all',g_business_profile:scope.businessProfile,details:target.querySelector('.snapshot-time')?.textContent,generatedAt:scope.model?.data_generated_at,checkedAt:scope.checkedAt,phase:target.querySelector('.refresh-error')?'error':target.querySelector('.brand-tabs')?'available':'loading'};}
+function workspaceState(){const target=document.getElementById('marketing');scope.businessProfile=target.querySelector('[aria-label="经营项目"]')?.value||scope.businessProfile||scope.seed?.g_business_profile||'MMOEXP';return {g_brand:target.dataset.brand||'mmoexp',g_period:target.dataset.period||'',g_source:scope.source||'all',g_project:scope.trafficProject||'all',g_business_profile:scope.businessProfile,details:target.querySelector('.snapshot-time')?.textContent,generatedAt:scope.model?.data_generated_at,checkedAt:scope.checkedAt,phase:scope.rangePending?'loading':target.querySelector('.refresh-error')?'error':target.querySelector('.brand-tabs')?'available':'loading'};}
 function workspaceApply(s){
  const target=document.getElementById('marketing');if(!scope.model)return false;
  scope.trafficProject=Object.hasOwn(scope.gameLabels||{},s.g_project)?s.g_project:'all';
