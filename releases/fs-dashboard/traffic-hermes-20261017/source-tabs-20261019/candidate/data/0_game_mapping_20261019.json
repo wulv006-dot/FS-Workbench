@@ -1,0 +1,507 @@
+{
+  "version": "user-adgroup-game-map-20261019-v1",
+  "source": "用户提供 广告组对应广告系列及游戏名(1).csv",
+  "key_scope": "campaign_name + ad_group_name; account IDs absent; verify against selected accounts",
+  "rows": [
+    {
+      "ad_group_name": "OSRS-Gold-General",
+      "campaign_name": "RSOrders-SN-OSRS-Gold",
+      "game_label": "RS"
+    },
+    {
+      "ad_group_name": "Gold-General",
+      "campaign_name": "RSOrders-SN-General-Gold",
+      "game_label": "RS"
+    },
+    {
+      "ad_group_name": "OSRS-Gold-Buy-Intent",
+      "campaign_name": "RSOrders-SN-OSRS-Gold",
+      "game_label": "RS"
+    },
+    {
+      "ad_group_name": "AG-Buy-FUT",
+      "campaign_name": "FC27-SN-Buy-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Gold-General",
+      "campaign_name": "WOW-Forever-SN-Gold-US",
+      "game_label": "WOW Forever"
+    },
+    {
+      "ad_group_name": "ARCR-Items-Generic",
+      "campaign_name": "ARCR-Items",
+      "game_label": "ARC"
+    },
+    {
+      "ad_group_name": "AG-Buy-PS5",
+      "campaign_name": "FC27-SN-Buy-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Comprar",
+      "campaign_name": "FC27-SN-Buy-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-PasCher",
+      "campaign_name": "FC27-SN-Buy-FR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Aspects",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Brand-All",
+      "campaign_name": "FC27-SN-Brand-FR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-FC27",
+      "campaign_name": "FC27-SN-Buy-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Buy-Direct",
+      "campaign_name": "Madden-SN-Coins-EN-Buy",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "AG-Buy-FC27",
+      "campaign_name": "FC27-SN-Buy-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Kinah-General",
+      "campaign_name": "A2-SN-Kinah-US",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "AG NL Buy&Generic",
+      "campaign_name": "FC27-SN-Coins-NL-NL",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Buy",
+      "campaign_name": "D4-SN-Items-EN-Buy",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Coins-Generic",
+      "campaign_name": "FC27-SN-Coins-FR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Discovery-Info",
+      "campaign_name": "FC27-SN-Discovery-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy&Generic",
+      "campaign_name": "FC27-SN-Coins-NL-EN",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Cheap",
+      "campaign_name": "FC27-SN-Buy-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Runes",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Coins-Generic",
+      "campaign_name": "FC27-SN-Coins-IT",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Gold-General",
+      "campaign_name": "WOW-Forever-SN-Gold-FR",
+      "game_label": "WOW Forever"
+    },
+    {
+      "ad_group_name": "POE2-EN-General-Currency",
+      "campaign_name": "POE2-US-Currency-General-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "Kinah-General",
+      "campaign_name": "A2-SN-Kinah-DE",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "Kinah-Buy-Intent",
+      "campaign_name": "A2-SN-Kinah-FR",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "AG-Buy-Cheap",
+      "campaign_name": "FC27-SN-Buy-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG Buy&Generic",
+      "campaign_name": "FC27-SN-Coins-BR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Gems",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Kinah-Buy-Intent",
+      "campaign_name": "A2-SN-Kinah-US",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "POE2-EN-Buy-Currency",
+      "campaign_name": "POE2-US-Currency-Buy-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "General-Broad",
+      "campaign_name": "D4-SN-Discovery-General",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Gold-Buy-Intent",
+      "campaign_name": "WOW-Forever-SN-Gold-FR",
+      "game_label": "WOW Forever"
+    },
+    {
+      "ad_group_name": "Kinah-Buy-Intent",
+      "campaign_name": "A2-SN-Kinah-EN-UK",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "Global-Brand",
+      "campaign_name": "D4-SN-Brand-Global",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Gear-General",
+      "campaign_name": "D4-SN-Items-EN-General",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "POE2-EN-General-Orbs",
+      "campaign_name": "POE2-US-Currency-General-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "General-MUT",
+      "campaign_name": "Madden-SN-Coins-EN-General",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "Buy-Cheap",
+      "campaign_name": "Madden-SN-Coins-EN-Buy",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "AG-Buy-Münzen",
+      "campaign_name": "FC27-SN-Buy-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Discovery-Info",
+      "campaign_name": "FC27-SN-Discovery-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Credit",
+      "campaign_name": "FC27-SN-Buy-FR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "ARCR-BP-Bundle",
+      "campaign_name": "ARCR-Blueprints",
+      "game_label": "ARC"
+    },
+    {
+      "ad_group_name": "广告组 1",
+      "campaign_name": "FC27-SN-General-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-FUT",
+      "campaign_name": "FC27-SN-Buy-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Mythic-Unique",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Buy-Prezzo",
+      "campaign_name": "FC27-SN-Buy-IT",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-Lairkey",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Brand-All",
+      "campaign_name": "FC27-SN-Brand-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Brand-All",
+      "campaign_name": "FC27-SN-Brand-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Guenstig",
+      "campaign_name": "FC27-SN-Buy-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Gear-Buy",
+      "campaign_name": "D4-SN-Items-EN-Buy",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Buy-ForSale",
+      "campaign_name": "Madden-SN-Coins-EN-Buy",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "AG-Boosting",
+      "campaign_name": "MSC-SN-Boosting-EN-US",
+      "game_label": "Maplestory Classic World"
+    },
+    {
+      "ad_group_name": "Gold-Buy-Intent",
+      "campaign_name": "WOW-Forever-SN-Gold-US",
+      "game_label": "WOW Forever"
+    },
+    {
+      "ad_group_name": "AG-Buy-Comprare",
+      "campaign_name": "FC27-SN-Buy-IT",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "General-Stickers",
+      "campaign_name": "MG-SN-Stickers-EN-US",
+      "game_label": "Monopoly Go"
+    },
+    {
+      "ad_group_name": "AG-Buy-Paginas",
+      "campaign_name": "FC27-SN-Buy-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Brand-All",
+      "campaign_name": "FC27-SN-Brand-IT",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-FIFA",
+      "campaign_name": "FC27-SN-Buy-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-FIFA",
+      "campaign_name": "FC27-SN-Buy-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Mesos-General",
+      "campaign_name": "MSC-SN-Mesos-General-EN-US",
+      "game_label": "MS"
+    },
+    {
+      "ad_group_name": "AG-Buy-Coins-Kaufen",
+      "campaign_name": "FC27-SN-Buy-DE",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Buy-Instant",
+      "campaign_name": "Madden-SN-Coins-EN-Buy",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "ARCR-Materials-Keys",
+      "campaign_name": "ARCR-Items",
+      "game_label": "ARC"
+    },
+    {
+      "ad_group_name": "AG-Buy-Coins-EN",
+      "campaign_name": "FC27-SN-Buy-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "POE2-EN-Buy-Items",
+      "campaign_name": "POE2-US-Currency-Buy-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "POE2-EN-General-Items",
+      "campaign_name": "POE2-US-Currency-General-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "AG-Coins-Generic",
+      "campaign_name": "FC27-SN-Coins-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Coins",
+      "campaign_name": "FC27-SN-Buy-IT",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "General-NFL",
+      "campaign_name": "Madden-SN-Coins-EN-General",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "POE2-EN-Buy-Orbs",
+      "campaign_name": "POE2-US-Currency-Buy-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "AG-Buy-Coins",
+      "campaign_name": "FC27-SN-Buy-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Mesos-ISR",
+      "campaign_name": "MSC-SN-Mesos-EN-ISR",
+      "game_label": "Maplestory Classic World"
+    },
+    {
+      "ad_group_name": "AG-Coins-Generic",
+      "campaign_name": "FC27-SN-Coins-EN-UK",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-HCM",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Items-General",
+      "campaign_name": "D4-SN-Items-EN-General",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "General-Madden",
+      "campaign_name": "Madden-SN-Coins-EN-General",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "Items-Boosting",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "POE2-EN-Buy-Generic",
+      "campaign_name": "POE2-US-Currency-Buy-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "Items-Boosting",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Kinah-Buy-Intent",
+      "campaign_name": "A2-SN-Kinah-DE",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "Buy-Stickers",
+      "campaign_name": "MG-SN-Stickers-EN-US",
+      "game_label": "MG SN"
+    },
+    {
+      "ad_group_name": "AG-Buy-Comprar-LATAM",
+      "campaign_name": "FC27-SN-Buy-ES-LATAM",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Kinah-General",
+      "campaign_name": "A2-SN-Kinah-EN-UK",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "ARCR-BP-Core",
+      "campaign_name": "ARCR-Blueprints",
+      "game_label": "ARC"
+    },
+    {
+      "ad_group_name": "AG-Buy-Coins",
+      "campaign_name": "FC27-SN-Buy-FR",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "Items-For-Sale",
+      "campaign_name": "D4-SN-Items-EN-Buy",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Mesos-Buy-Intent",
+      "campaign_name": "MSC-SN-Mesos-EN-US",
+      "game_label": "Maplestory Classic World"
+    },
+    {
+      "ad_group_name": "Items-Materials",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "AG-Coins-Generic",
+      "campaign_name": "FC27-SN-Coins-EN-US",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "AG-Buy-Baratas",
+      "campaign_name": "FC27-SN-Buy-ES",
+      "game_label": "FC27"
+    },
+    {
+      "ad_group_name": "广告组 1",
+      "campaign_name": "POE2-US-Discovery-NB",
+      "game_label": "POE2"
+    },
+    {
+      "ad_group_name": "Buy-BestPlace",
+      "campaign_name": "Madden-SN-Coins-EN-Buy",
+      "game_label": "Madden"
+    },
+    {
+      "ad_group_name": "ARCR-BP-Specific",
+      "campaign_name": "ARCR-Blueprints",
+      "game_label": "ARC"
+    },
+    {
+      "ad_group_name": "Kinah-General",
+      "campaign_name": "A2-SN-Kinah-FR",
+      "game_label": "A2"
+    },
+    {
+      "ad_group_name": "Items-Marketplace",
+      "campaign_name": "D4-SN-Items-EN-Buy",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Items-Maxroll",
+      "campaign_name": "D4-SN-Items-EN-Specific",
+      "game_label": "D4"
+    },
+    {
+      "ad_group_name": "Gold-Buy-Intent",
+      "campaign_name": "My-WOW-Forever-SN-Gold-US",
+      "game_label": "WOW Forever"
+    }
+  ]
+}
