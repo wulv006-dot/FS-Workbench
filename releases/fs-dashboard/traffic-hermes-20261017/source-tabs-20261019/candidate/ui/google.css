@@ -38,4 +38,4 @@
 .google .traffic-source-first .report-section{margin:18px 0}
 .google .traffic-source-first .line-chart{margin:16px 0}
 .google .traffic-dual button[aria-pressed=true]{outline:2px solid var(--fs-brand)}
-@media(max-width:1050px){.google .traffic-dual{grid-template-columns:1fr}}
+@media(max-width:1450px){.google .traffic-dual{grid-template-columns:1fr}}
