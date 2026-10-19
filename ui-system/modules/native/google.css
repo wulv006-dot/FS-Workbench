@@ -24,3 +24,18 @@
 @media(max-width:600px){.google .kpi-grid,.google .traffic-overview .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .google .scope-select>span{white-space:nowrap}
+
+
+/* Source-first traffic layout; existing FS theme variables remain authoritative. */
+.google .traffic-dual{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin:20px 0}
+.google .traffic-dual>.breakdown{margin:0;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.google .traffic-dual .table-scroll{max-height:520px!important;overflow:auto}
+.google .traffic-dual th:first-child{min-width:140px}
+.google .traffic-dual th{position:sticky;top:0;background:var(--surface);z-index:1;min-width:90px}
+.google .traffic-dual td{vertical-align:top}
+.google .traffic-source-first .brand-tabs{flex-wrap:wrap}
+.google .traffic-source-first .toolbar{flex-wrap:wrap;gap:12px}
+.google .traffic-source-first .report-section{margin:18px 0}
+.google .traffic-source-first .line-chart{margin:16px 0}
+.google .traffic-dual button[aria-pressed=true]{outline:2px solid var(--fs-brand)}
+@media(max-width:1450px){.google .traffic-dual{grid-template-columns:1fr}}

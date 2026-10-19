@@ -1,0 +1,50 @@
+{
+  "observed_at": "2026-10-19T09:27:50+00:00",
+  "production_readback": "12 files matched expected SHA256",
+  "authenticated_browser": "existing wulv session",
+  "unauthenticated_range_http": 401,
+  "services": {
+    "nginx": "active",
+    "fs-marketing-range": "active"
+  },
+  "source_commit": "6ba4b71b0381be2655889b9ae48f0bcc837535cf",
+  "business_data_included": false,
+  "files": [
+    {
+      "path": "/opt/mmoexp-marketing/details/game_dimensions.py",
+      "sha256": "7c2a49815b96febfbdaeb3d75ca80bbed15620ed3e30bf3881ea29c7776187e1"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/game_mapping_20261019.json",
+      "sha256": "ce81ac1af7f78ca79b06d025d692b4ed44ec6db0671f904ff65d6e50e07d8c46"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/collect_details.py",
+      "sha256": "1bd3e06231235696623a5bee18c1329093ef4b2d8b263f92fc6fcdf76aedf1d7"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/details/detail_model.py",
+      "sha256": "f7cdab2dd8dcdee19f36182c49ba4f7b56ffb7c459a1d96d06938b6adfe4c4a4"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/custom-range/custom_range.py",
+      "sha256": "735a537b53e645a00103a245570640fdc8ae961d9c1dcf0a778be8a97e09bbb6"
+    },
+    {
+      "path": "/opt/mmoexp-marketing/custom-range/range_api.py",
+      "sha256": "56f73a523b94e3e978bfaa45ef6d37ad4826cc462e88f7e8ce7b6cca30429c8c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.js",
+      "sha256": "31757295fd6108023d87e3820f27c5491101e00438d2026417f54d61a3048429"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.css",
+      "sha256": "e7824dd9d6e69f78c2c3a91a72a85c3b9efa0c27637acae408c4dd3df510343a"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/shell.js",
+      "sha256": "e99faee4443358302dc6e3b6251fa6cc5f158d77e8a8e3e244476e7cfc14f62e"
+    }
+  ]
+}

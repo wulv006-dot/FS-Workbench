@@ -13,7 +13,7 @@ class UIContract(unittest.TestCase):
   self.assertNotIn('Order主源',traffic)
  def test_macro_traffic_owns_click_only_es_and_preserves_native_scope(self):
   traffic=(ROOT/'modules/native/google.js').read_text(encoding='utf8');business=(ROOT/'modules/native/business.js').read_text(encoding='utf8');shell=(ROOT/'modules/native/shell.js').read_text(encoding='utf8')
-  self.assertIn("scope.trafficProject??='all'",traffic);self.assertIn('renderNativeOverview(panel,p,which);renderESStructure(panel,p);',traffic)
+  self.assertIn("scope.trafficProject??='all'",traffic);self.assertIn('renderSourceBody(panel,p,site,scope.source)',traffic);self.assertIn("tabs.setAttribute('aria-label','流量数据来源')",traffic);self.assertNotIn('scrollIntoView',traffic)
   self.assertNotIn('esStructureSync',business);self.assertNotIn('es-order-structure',business);self.assertIn("'g_project'",shell)
   self.assertNotIn('renderDecisions',traffic);self.assertIn('function renderReportLinks',traffic);self.assertIn('data.profile!==q.profile',traffic)
   self.assertIn("button.disabled=waiting",traffic);self.assertIn('Date.now()+120000',traffic);self.assertIn('游戏选择不改变或重新命名这组总数',traffic)
@@ -68,3 +68,4 @@ class LegacyIsolation(unittest.TestCase):
   s=(ROOT/'adapters/hubnav.js').read_text()
   self.assertIn("styledModule?['fs-tokens.css','fs-ui.css','legacy.css','hubnav.css']:['fs-tokens.css','hubnav.css']",s)
   self.assertIn("if(styledModule)document.body.classList.add('fs-ui-page')",s)
+

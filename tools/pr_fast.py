@@ -865,7 +865,8 @@ def main():
         elif group=="admin-data-tools":
             units("releases/fs-dashboard/admin-data-tools-20261018",["test_admin_data_tools","test_publisher_boundary"])
         elif group=="traffic-hermes":
-            units("mmoexp_google_data/details",["test_details"])
+            units("releases/fs-dashboard/traffic-hermes-20261017/source-tabs-20261019",["test_release"])
+            units("mmoexp_google_data/details",["test_details","test_game_dimensions","test_game_cache"])
             units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
             units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
             node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
@@ -903,4 +904,5 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 

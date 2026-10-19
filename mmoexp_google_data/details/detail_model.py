@@ -3,6 +3,7 @@ import argparse, datetime as dt, json, re, sqlite3, hashlib
 from decimal import Decimal
 from pathlib import Path
 from traffic_contract import RULE_VERSION, GAME_PROFILES, campaign_scope, content_match_basis
+from game_dimensions import project, classify_campaign, VERSION as GAME_VERSION
 
 CUSTOMERS={'1430398974':{'brand':'mmoexp','label':'MMOEXP-1'},'8154986819':{'brand':'rsorder','label':'RSOrder-1'},'3552474396':{'brand':'rsorder','label':'rsgoldfast.com · RSOrder业务'}}
 QUERY_RULES={'version':'mmoexp-query-v1','precedence':['brand','transaction','content','other'],'brand':r'\bmmo\s*exp\b|mmoexp','transaction':r'\b(buy|buying|sale|cheap|price|gold|coins?|currency|gil|gp|accounts?|boost|boosting)\b','content':r'\b(how|guide|guides|best|build|builds|quest|quests|news|wiki|tips|tutorial|leveling)\b','unmatched':'other','anonymous_or_unreturned_queries':'not_inferred'}
@@ -85,12 +86,15 @@ def top_table(report,metric,limit,total):
 
 def make_period(start,end,reports):
     def get(source,resource,name):return reports.get((source,resource,name))
-    period={'id':start+'_'+end,'start':start,'end':end,'sources':{},'adsAccounts':[],'game_profiles':[dict(p) for p in GAME_PROFILES],'query_rules':QUERY_RULES,'rule_version':RULE_VERSION,'period_start':start,'period_end_exclusive':(dt.date.fromisoformat(end)+dt.timedelta(days=1)).isoformat()}
+    period={'game_projection_version':GAME_VERSION,'id':start+'_'+end,'start':start,'end':end,'sources':{},'adsAccounts':[],'game_profiles':[dict(p) for p in GAME_PROFILES],'query_rules':QUERY_RULES,'rule_version':RULE_VERSION,'period_start':start,'period_end_exclusive':(dt.date.fromisoformat(end)+dt.timedelta(days=1)).isoformat()}
     ga_total=get('ga4','541418940','total'); ga_daily=get('ga4','541418940','daily')
     ga_values=ga_total['rows'][0]['metrics'] if ga_total and len(ga_total['rows'])==1 else None
     ga={'resource':'541418940','brand':'mmoexp','timezone':'Asia/Shanghai','currency':'USD','metrics':ga_values,'daily':(ga_daily or {}).get('rows',[]),'coverage':date_coverage(ga_daily,start,end),'status':report_status(ga_total),'breakdowns':{},'revenue_financial_source':False,'new_users_definition':'首次触发first_visit/first_open的用户；不代表后台首购客户'}
     for name,limit in [('source_medium',15),('device',20),('country',10),('landing_page',15)]:ga['breakdowns'][name]=top_table(get('ga4','541418940',name),'sessions',limit,(ga_values or {}).get('sessions'))
     ga['contract']=envelope(ga_total,'ga4',start,end,ga['timezone'],ga['currency'])
+    ga['games']=project(get('ga4','541418940','landing_page'),'ga4','landingPage')
+    ga['game_countries']=project(get('ga4','541418940','landing_country'),'ga4','landingPage','country')
+    ga['game_channels']=project(get('ga4','541418940','landing_source'),'ga4','landingPage','sessionSourceMedium')
     period['sources']['ga4']=ga
     total=get('gsc','sc-domain:mmoexp.com','total'); daily=get('gsc','sc-domain:mmoexp.com','daily')
     values=total['rows'][0]['metrics'] if total and len(total['rows'])==1 else None
@@ -118,6 +122,8 @@ def make_period(start,end,reports):
             market['categories'].append({'category':category,'returned_query_rows':len(matches),'metrics':m})
         gsc['markets'].append(market)
     gsc['contract']=envelope(total,'gsc',start,end,gsc['timezone'],None)
+    gsc['games']=project(get('gsc','sc-domain:mmoexp.com','page'),'gsc','page')
+    gsc['game_countries']=project(get('gsc','sc-domain:mmoexp.com','page_country'),'gsc','page','country')
     period['sources']['gsc']=gsc
     for customer,settings in CUSTOMERS.items():
         daily=get('ads',customer,'daily'); campaign=get('ads',customer,'campaign'); aggregate=get('ads',customer,'total'); campaign_total=get('ads',customer,'campaign_total')
@@ -132,6 +138,7 @@ def make_period(start,end,reports):
         campaigns=[]
         for key,items in groups.items():
             campaigns.append({'customerId':key[0],'campaignId':key[1],'campaignName':items[-1]['dimensions']['campaignName'],'channelType':items[-1]['dimensions'].get('channelType'),**campaign_scope(items[-1]['dimensions']['campaignName']),'currency':'USD','timezone':'Asia/Hong_Kong','metrics':ads_sum(items),'dates':sorted({r['dimensions']['date'] for r in (campaign or {}).get('rows',[]) if r['dimensions'].get('campaignId')==key[1]})})
+        for item in campaigns:item['game_mapping']={**classify_campaign(item['campaignName']),'version':GAME_VERSION}
         campaigns.sort(key=lambda r:Decimal(r['metrics']['cost']),reverse=True)
         ad_group_source=get('ads',customer,'ad_group_total')
         ad_groups=[]
@@ -140,7 +147,9 @@ def make_period(start,end,reports):
             if dims.get('channelType') == 'PERFORMANCE_MAX':raise ValueError('PMAX_AD_GROUP_UNEXPECTED')
             ad_groups.append({**dims,**campaign_scope(dims['campaignName']),'currency':'USD','timezone':'Asia/Hong_Kong','metrics':ads_sum([row])})
         ad_groups.sort(key=lambda r:Decimal(r['metrics']['cost']),reverse=True)
-        period['adsAccounts'].append({'customerId':customer,**settings,'observed_name':(daily or {}).get('account',{}).get('descriptiveName'),'timezone':'Asia/Hong_Kong','currency':'USD','metrics':metrics,'daily':rows,'coverage':ads_coverage(daily,start,end),'status':report_status(metrics_source),'metrics_source_report':(metrics_source or {}).get('report'),'ad_groups':{'rows':ad_groups,'status':report_status(ad_group_source),'contract':envelope(ad_group_source,'ads',start,end,'Asia/Hong_Kong','USD'),'calculation_complete':bool(ad_group_source and ad_group_source.get('quality',{}).get('pagination_complete') and ad_group_source.get('last_attempt',{}).get('status') not in ('failed','empty')),'scope':'ad_group_only; PERFORMANCE_MAX uses campaign totals, asset_group not collected; never add to campaign/account totals'},'campaigns':campaigns[:12],'calculation_campaigns':campaigns,'campaign_display_truncated':len(campaigns)>12,'campaign_omitted_rows':max(0,len(campaigns)-12),'campaign_calculation_complete':bool(campaign_source and campaign_source.get('quality',{}).get('pagination_complete') and campaign_source.get('last_attempt',{}).get('status') not in ('failed','empty')),'campaign_count':len(campaigns),'campaign_row_cost_coverage':ratio(str(sum((Decimal(r['metrics']['cost']) for r in campaigns),Decimal(0))), (metrics or {}).get('cost')),'campaign_status':report_status(campaign_source),'contract':envelope(metrics_source,'ads',start,end,'Asia/Hong_Kong','USD'),'conversion_definition':{'scope':'primary_conversions','time_basis':'interaction_date','all_conversions_included':False,'conversion_goal_metadata':'not_collected'},'platform_attributed_metrics_not_financial_revenue':True})
+        country_report=get('ads',customer,'country_campaign')
+        country_rows=[{**row['dimensions'],'game_mapping':{**classify_campaign(row['dimensions']['campaignName']),'version':GAME_VERSION},'metrics':ads_sum([row])} for row in (country_report or {}).get('rows',[])]
+        period['adsAccounts'].append({'customerId':customer,**settings,'countries':{'rows':country_rows,'status':report_status(country_report),'contract':envelope(country_report,'ads',start,end,'Asia/Hong_Kong','USD'),'basis':'user_location_view_actual_physical_country'},'observed_name':(daily or {}).get('account',{}).get('descriptiveName'),'timezone':'Asia/Hong_Kong','currency':'USD','metrics':metrics,'daily':rows,'coverage':ads_coverage(daily,start,end),'status':report_status(metrics_source),'metrics_source_report':(metrics_source or {}).get('report'),'ad_groups':{'rows':ad_groups,'status':report_status(ad_group_source),'contract':envelope(ad_group_source,'ads',start,end,'Asia/Hong_Kong','USD'),'calculation_complete':bool(ad_group_source and ad_group_source.get('quality',{}).get('pagination_complete') and ad_group_source.get('last_attempt',{}).get('status') not in ('failed','empty')),'scope':'ad_group_only; PERFORMANCE_MAX uses campaign totals, asset_group not collected; never add to campaign/account totals'},'campaigns':campaigns[:12],'calculation_campaigns':campaigns,'campaign_display_truncated':len(campaigns)>12,'campaign_omitted_rows':max(0,len(campaigns)-12),'campaign_calculation_complete':bool(campaign_source and campaign_source.get('quality',{}).get('pagination_complete') and campaign_source.get('last_attempt',{}).get('status') not in ('failed','empty')),'campaign_count':len(campaigns),'campaign_row_cost_coverage':ratio(str(sum((Decimal(r['metrics']['cost']) for r in campaigns),Decimal(0))), (metrics or {}).get('cost')),'campaign_status':report_status(campaign_source),'contract':envelope(metrics_source,'ads',start,end,'Asia/Hong_Kong','USD'),'conversion_definition':{'scope':'primary_conversions','time_basis':'interaction_date','all_conversions_included':False,'conversion_goal_metadata':'not_collected'},'platform_attributed_metrics_not_financial_revenue':True})
     return period
 
 def build(db):
@@ -194,3 +203,4 @@ def main():
     tmp=a.output.with_suffix('.tmp');tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8');tmp.replace(a.output)
     print(json.dumps({'periods':len(value['periods']),'scope':value['allowed_customers'],'mock':False}))
 if __name__=='__main__':main()
+

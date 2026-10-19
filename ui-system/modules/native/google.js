@@ -9,6 +9,7 @@ window.MMOEXPBusiness={mount(panel){const title=document.createElement('h2'),not
 (function(){
 const TRAFFIC_RULE_VERSION='traffic-multigame-name-hints-20261017-v3';
 function currentTrafficPeriod(period){return period?.rule_version===TRAFFIC_RULE_VERSION;}
+function currentGamePeriod(period){return currentTrafficPeriod(period)&&period?.game_projection_version==='traffic-game-projections-20261019-v1';}
 const labels={nativeCvr:'Ads原生CVR',interactions:'广告互动',sessions:'会话',activeUsers:'活跃用户',newUsers:'新用户',engagedSessions:'参与会话',engagementRate:'参与率',screenPageViews:'页面/屏幕浏览',averageSessionDuration:'平均会话时长',bounceRate:'跳出率',ecommercePurchases:'购买事件',purchaseRevenue:'GA4报告收入',clicks:'点击',impressions:'展示',ctr:'CTR（点击率）',position:'平均位置',cost:'花费 · USD',cpc:'CPC（单次点击花费）· USD',conversions:'Ads归因转化',cpa:'CPA（单次转化花费）· USD',conversionsValue:'Ads归因价值 · USD',platformRoas:'Ads平台ROAS（广告回报倍数）',share:'占比',impressionShare:'展示占比',campaignId:'Campaign ID（广告系列编号）',customerId:'Customer ID（广告账号编号）',campaignName:'广告系列',date:'数据日期'};
 const explanations={
  sessions:'一次访问过程；同一个人可多次访问。默认连续30分钟没有互动后结束一次会话，实际以GA4设置为准。',
@@ -273,21 +274,91 @@ function rangeControls(toolbar,container,model,periods,selector){
   }catch(error){if(container.isConnected&&generation===scope.rangeGeneration)note.textContent=error.message;}finally{if(generation===scope.rangeGeneration){scope.rangePending=false;container.setAttribute('aria-busy','false');apply.disabled=false;}}
  });
  return function ensureCurrentPeriod(period){
-  if(currentTrafficPeriod(period)||!period?.start||!period?.end)return;
+  if(scope.restoreRangeWanted||currentGamePeriod(period)||!period?.start||!period?.end)return;
   scope.rangeUpgradeTried??=new Set();const key=period.start+'_'+period.end;
   if(scope.rangeUpgradeTried.has(key)){note.textContent='当前旧版细分缓存尚未升级成功；可点击应用区间重试，不按全量解释。';return;}
   note.textContent='当前为旧版细分缓存，尚未按当前规则核实全量；正在读取同期间准确数据。';
   setTimeout(()=>{
-   if(!container.isConnected||scope.model!==model||container.dataset.period!==period.id||container.dataset.brand==='business'||scope.rangePending||scope.rangeUpgradeTried.has(key))return;
+   if(!controls.isConnected||!container.isConnected||scope.model!==model||container.dataset.period!==period.id||container.dataset.brand==='business'||scope.rangePending||scope.rangeUpgradeTried.has(key))return;
    scope.rangeUpgradeTried.add(key);start.value=period.start;end.value=period.end;controls.requestSubmit();
   },0);
  };
 }
 
-function render(container,model){scope.trafficProject??='all';scope.tipId=scope.tipId||0;scope.root.querySelectorAll('.help-tooltip').forEach(n=>n.remove());scope.model=model;const brand=container.dataset.brand||'mmoexp',saved=container.dataset.period;container.replaceChildren();if(model.schemaVersion!==1||model.isMock!==false){container.append(el('p','未取得已验证真实快照。','failure'));return;}const header=el('header',null,'module-heading'),title=el('div');title.append(el('small','MARKETING INTELLIGENCE','eyebrow'),el('h1','Google 运营数据'),el('p','流量、搜索、广告分来源核对 · MMOEXP / RSOrder分品牌'));const home=el('a','返回主页','home-link');home.href='/dashboard/';header.append(title,home);container.append(el('p','Google快照生成 '+model.data_generated_at+' · Google每日北京时间00:10准备 / 页签每5分钟检查 · 经营标签独立每60秒检查 · 不缓存','snapshot-time'));const latest=el('p','日汇总最新数据：'+model.sources.map(s=>s.id.toUpperCase()+' '+(s.latestDate||'—')).join(' · ')+'。以下细分按所选日期请求，各来源实际覆盖单独显示。','watermark');container.append(latest,el('aside','经营金额与订单采用Admin原生统计优先、Order仅补缺；主站范围及分销排除按实际证据显示，0为有效值；GA4购买事件、Ads归因价值分别展示，不拼成全站财务或逐用户转化率。','financial-note'));
-const toolbar=el('div',null,'toolbar'),tabs=el('div',null,'brand-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','经营品牌');const periods=model.details?.periods||[],selector={value:periods.some(p=>p.id===saved)?saved:periods[0]?.id};toolbar.append(tabs);container.append(toolbar);const ensureCurrentPeriod=rangeControls(toolbar,container,model,periods,selector);const project=el('select');project.setAttribute('aria-label','流量项目');for(const [value,label] of [['all','全局宏观'],['FC27','FC27'],['D4','Diablo IV'],['AION2','Aion2']]){const option=el('option',label);option.value=value;project.append(option);}for(const item of scope.esProfiles||[]){if(!item.code||item.code==='ALL'||[...project.options].some(o=>o.value===item.code))continue;const o=el('option',item.label||item.code);o.value=item.code;project.append(o);}project.value=scope.trafficProject||'all';const projectLabel=el('label',null,'scope-select');projectLabel.append(el('span','游戏范围'),project);toolbar.append(projectLabel);project.addEventListener('change',()=>{scope.trafficProject=project.value;show(container.dataset.brand);workspaceSync();});const panel=el('div');panel.id='brand-panel';panel.setAttribute('role','tabpanel');container.append(panel);const buttons=[];
-function show(which){container.dataset.brand=which;container.dataset.period=selector.value;container.querySelector('.traffic-range').hidden=which==='business';window.MMOEXPBusiness?.unmount();for(const button of buttons){const selected=button.dataset.brand===which;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;}scope.esGeneration=(scope.esGeneration||0)+1;scope.esAbort?.abort();clearTimeout(scope.esTimer);panel.replaceChildren();panel.setAttribute('aria-labelledby','tab-'+which);if(which==='business'){window.MMOEXPBusiness?.mount(panel);return;}const p=periods.find(v=>v.id===selector.value);if(!p){panel.append(el('p','细分报告尚未接入。日汇总请使用现有数据，失败不按零显示。','empty'),table([{key:'label',label:'来源'},{key:'latestDate',label:'最新来源日期'}],model.sources.concat(model.adsAccounts||[])));return;}ensureCurrentPeriod(p);panel.append(el('p',(p.isCustomRange?'自定义区间 ':'统计周 ')+p.start+' — '+p.end+' · 前周 '+(p.comparison_period||'未取得')+' · '+(which==='rsorder'?'仅RSOrder业务的两个Ads customer；其GA4/GSC未接入。':'MMOEXP GA4/GSC与指定Ads customer。'),'period-title'));if(which==='mmoexp'){if(scope.trafficProject==='all'){renderNativeOverview(panel,p,which);renderESStructure(panel,p);renderGA(panel,p.sources.ga4,p);renderGSC(panel,p.sources.gsc,p);renderAds(panel,p.adsAccounts.filter(a=>a.brand===which),which,p);}else{renderGameAds(panel,p,scope.trafficProject);renderESStructure(panel,p);const background=section('全站背景 · 非游戏专属','以下指标属于全站，未按所选游戏过滤。');background.append(el('p','GA4全站会话 '+fmt('sessions',p.sources.ga4?.metrics?.sessions)+' · GSC全站点击 '+fmt('clicks',p.sources.gsc?.metrics?.clicks),'coverage'));const detail=el('details',null,'source-details');detail.append(el('summary','展开全站GA4 / GSC / Ads背景'));renderNativeOverview(detail,p,which);renderGA(detail,p.sources.ga4,p);renderGSC(detail,p.sources.gsc,p);background.append(detail);panel.append(background);}renderReportLinks(panel,p);}else renderAds(panel,p.adsAccounts.filter(a=>a.brand===which),which,p);const gaps=section('尚未接入的经营关联','这里保留明确缺口，不把未接入字段填成零。');gaps.append(el('p','所有网站经营指标、项目利润率及国家/设备等维度见“经营对照·所有网站”标签；采集与Google独立，不混算转化率。','coverage'));for(const gap of (model.details?.phase2_gaps||[]).filter(gap=>!gap.module.includes('订单/游戏'))){const connected=which==='mmoexp'&&/KOL|折扣码|优惠券|会员/.test(gap.module);gaps.append(el('h3',connected?'KOL推广与订单归因':gap.module),el('p',connected?'会员统计、折扣码和优惠券已接入上方经营关联；创作者归属、佣金、推广花费与渠道订单归因仍未接入。':gap.reason,'coverage'));}if(which==='mmoexp'){const links=el('div');links.className='business-links-host';panel.append(links);loadBusinessLinks(links,p,model.businessLinks);}panel.append(gaps);}
-for(const [b,label] of [['mmoexp','MMOEXP'],['rsorder','RSOrder'],['business','经营对照·所有网站']]){const button=el('button',label);button.id='tab-'+b;button.type='button';button.dataset.brand=b;button.setAttribute('role','tab');button.setAttribute('aria-controls','brand-panel');button.addEventListener('click',()=>show(b));buttons.push(button);tabs.append(button);}tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const i=buttons.indexOf(document.activeElement),next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(i+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].focus();show(buttons[next].dataset.brand);});show(['rsorder','business'].includes(brand)?brand:'mmoexp');container.append(el('footer','已登录只读 · Google广告写操作未开放 · 查询分类规则可查看 · 来源数据可修订','module-footer'));}
+const gameLabels=scope.gameLabels={all:'全部游戏',FC27:'FC27',FC26:'FC26',D4:'Diablo IV',AION2:'Aion2',RS:'RuneScape',MADDEN:'Madden',POE2:'POE2',ARC:'ARC Raiders',WOW_FOREVER:'WoW Forever',MSCW:'MapleStory Classic World',MONOPOLY_GO:'Monopoly Go',NBA2K:'NBA2K',MLB:'MLB',GLOBAL:'全局品牌 / 通用',UNKNOWN:'未映射 / 待核'};
+function sumAdsRows(rows){
+ if(!rows.length)return null;
+ const m={};for(const key of ['cost','clicks','impressions','conversions','conversionsValue'])m[key]=rows.every(r=>r.metrics?.[key]!=null)?rows.reduce((n,r)=>n+Number(r.metrics[key]),0):null;
+ m.cpa=m.cost!=null&&m.conversions>0?m.cost/m.conversions:null;m.platformRoas=m.conversionsValue!=null&&m.cost>0?m.conversionsValue/m.cost:null;return m;
+}
+function gameProjection(source,accounts){
+ if(source!=='ads')return scope.activePeriod.sources?.[source]?.games;
+ const groups=new Map();for(const a of accounts)for(const c of a.calculation_campaigns||a.campaigns||[]){const game=c.game_mapping?.game||'UNKNOWN';if(!groups.has(game))groups.set(game,[]);groups.get(game).push(c);}
+ return {status:accounts.length&&accounts.every(a=>a.campaign_calculation_complete)?'available':'partial',rows:[...groups].map(([game,items])=>({game,label:gameLabels[game]||game,metrics:sumAdsRows(items),row_count:items.length,basis:['广告系列映射']})).sort((a,b)=>(b.metrics?.cost||0)-(a.metrics?.cost||0))};
+}
+function fullDetail(title,columns,rows,note){const box=el('article',null,'breakdown');box.append(el('h3',title));if(note)box.append(el('p',note,'coverage'));box.append(table(columns,rows||[]));return box;}
+function renderSourceBody(panel,p,site,source){
+ const game=scope.trafficProject||'all',accounts=(p.adsAccounts||[]).filter(a=>site==='all'||a.brand===site);
+ const s=p.sources?.[source];scope.activePeriod=p;
+ const note=section('数据范围',p.start+' — '+p.end+' · '+(source==='ads'?'广告账号范围':'来源原生统计窗口'));
+ note.append(el('p',source==='ads'?'广告归因不等于Admin实收；平台ROAS与订单规则归因回报分开。':'GA4按访问行为、GSC按自然搜索统计；不与订单拼成逐人转化漏斗。','coverage'));panel.append(note);
+ if(site==='all'&&source!=='ads')note.append(el('p','当前仅MMOEXP已验证接通此来源；这里不代表全部卫星站合计。','coverage'));
+ if(source!=='ads'&&site==='rsorder'){panel.append(section('该站点尚未接通 '+source.toUpperCase(),'RSOrder暂无此来源数据，不使用MMOEXP数据替代，也不填0。'));return;}
+ if(source!=='ads'&&!s){panel.append(section('来源数据尚未提供','保留缺口，未按0解释。'));return;}
+ const overview=section(source==='ads'?'Ads · 全局投放':source==='ga4'?'GA4 · 全局访问与行为':'GSC · 全局自然搜索','全局指标不随右侧游戏选择改名；游戏表现见下方。');
+ if(source==='ads'){
+  const currencies=new Set(accounts.map(a=>a.currency));const m=currencies.size===1&&currencies.has('USD')?sumAdsRows(accounts):null;
+  overview.append(cards(['cost','clicks','conversions','cpa','platformRoas'],m));for(const a of accounts)overview.append(el('p',a.label+' · '+a.customerId+' · '+a.currency+' · '+a.timezone,'coverage'),statusNote(a));
+ }else {overview.append(cards(source==='ga4'?['sessions','activeUsers','newUsers','engagementRate']:['clicks','impressions','ctr','position'],s.metrics,s.changes),statusNote(s),line(s.daily||[],source==='ga4'?'sessions':'clicks',p));}
+ panel.append(overview);
+ const projection=gameProjection(source,accounts),rows=projection?.rows||[],grid=el('div',null,'traffic-dual');
+ const keys=source==='ads'?['cost','conversions','cpa','platformRoas']:source==='ga4'?['sessions']:['clicks','impressions','ctr','position'];
+ const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).map(v=>({explicit_game_path:'游戏目录',news_slug_hint:'资讯标题线索（待核）',site_home:'站点首页',unmapped_page:'页面待映射'}[v]||v)).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
+ left.querySelectorAll('tbody tr').forEach((tr,i)=>{if(!rows[i])return;const cell=tr.firstElementChild;cell.replaceChildren();const button=el('button',rows[i].label,'fs-btn');button.type='button';button.setAttribute('aria-pressed',String(game===rows[i].game));button.onclick=()=>{scope.trafficProject=rows[i].game;render(document.getElementById('marketing'),scope.model);};cell.append(button);});
+ grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',(gameLabels[game]||game)+' · 深入查看'));
+ if(game==='all')right.append(el('p','选择左侧游戏，查看它的国家、渠道或广告系列。','coverage'));
+ else if(source==='ads'){
+  const selected=accounts.flatMap(a=>a.calculation_campaigns||a.campaigns||[]).filter(c=>(c.game_mapping?.game||'UNKNOWN')===game);
+  const countryGroups=new Map();for(const a of accounts)for(const r of a.countries?.rows||[]){if((r.game_mapping?.game||'UNKNOWN')!==game)continue;const key=r.country||('criterion:'+r.countryCriterionId);if(!countryGroups.has(key))countryGroups.set(key,[]);countryGroups.get(key).push(r);}
+  const countries=[...countryGroups].map(([country,items])=>({country,metrics:sumAdsRows(items)})).sort((a,b)=>(b.metrics.cost||0)-(a.metrics.cost||0));
+  right.append(fullDetail('实际用户国家',[{key:'country',label:'国家'},...keys.map(metricCol)],countries,'Google Ads user_location_view；未知国家保留来源ID。'+accounts.map(a=>a.label+' '+(a.countries?.status?.status||'未接通')).join(' · ')),fullDetail('广告系列',[{key:'campaignName',label:'广告系列'},...keys.map(metricCol)],selected,'系列国家后缀不作为实际国家；全局品牌费用不分摊。'));
+ }else{
+  const countries=s.game_countries;right.append(fullDetail('国家',[{key:'dimension',label:'国家'},...keys.map(metricCol)],(countries?.rows||[]).filter(r=>r.game===game),countries?'联合查询状态 '+countries.status:'游戏×国家尚未接通，不能拼接全站国家表。'));
+  if(source==='ga4'){const channels=s.game_channels;right.append(fullDetail('来源 / 媒介',[{key:'dimension',label:'来源 / 媒介'},metricCol('sessions')],(channels?.rows||[]).filter(r=>r.game===game),channels?'联合查询状态 '+channels.status:'游戏×渠道尚未接通。'));}
+ }
+ grid.append(right);panel.append(grid);
+ const details=section(game==='all'?'全局维度明细':'全局维度参考 · 非所选游戏专属','原始来源、范围与完整性单独保留。');
+ if(source==='ads')renderAds(details,accounts,site,p);
+ else {const specs=source==='ga4'?[['country','国家','country'],['source_medium','来源 / 媒介','sessionSourceMedium'],['landing_page','落地页','landingPage'],['device','设备','deviceCategory']]:[['country','国家','country'],['query','搜索词','query'],['page','搜索页面','page']];
+  for(const [key,title,dim]of specs){const t=s.breakdowns?.[key]||{};details.append(fullDetail(title,[{key:dim,label:title,get:r=>r.dimensions?.[dim]},...(source==='ga4'?['sessions','activeUsers','bounceRate']:['clicks','impressions','ctr','position']).map(metricCol)],t.rows,'返回 '+(t.returned_dimension_rows??'未知')+' 行；本页展示 '+(t.rows?.length??0)+' 行，展示范围不等于来源完整总量。'));}
+ }
+ if(game==='all')panel.append(details);else{const d=el('details',null,'source-details');d.append(el('summary','展开全局维度参考（不属于当前游戏）'),details);panel.append(d);}
+ const related=el('details',null,'source-details');related.append(el('summary','经营关联 · 订单结构与新客优惠（按需）'));
+ if(site!=='rsorder'){
+  if(['all','FC27','D4','AION2'].includes(game))renderESStructure(related,p);else related.append(el('p','当前游戏的订单结构映射尚未核实；不拿全站订单代替。','coverage'));
+  const membership=el('div'),read=el('button','读取同期间会员与优惠情况','fs-btn');read.type='button';read.onclick=()=>loadBusinessLinks(membership,p,scope.model.businessLinks);related.append(read,membership);
+ }else related.append(el('p','此经营关联仅验证MMOEXP主站，未用它代替RSOrder。','coverage'));
+ panel.append(related);
+ const action=section('经营解读与行动','查看已生成报告，或进入Hermes按所选日期研究；切标签不会触发模型重跑。');renderReportLinks(action,p);const business=el('a','查看经营分析 →','fs-btn');business.href='/dashboard/analytics/?mode=business';action.append(business);panel.append(action);
+}
+function render(container,model){
+ scope.tipId??=0;scope.trafficProject??='all';scope.source=['ga4','gsc','ads'].includes(scope.source)?scope.source:'ga4';scope.model=model;const saved=container.dataset.period;
+ container.replaceChildren();container.classList.add('traffic-source-first');
+ if(model.schemaVersion!==1||model.isMock!==false){container.append(el('p','未取得已验证真实快照。','failure'));return;}
+ const site=['mmoexp','rsorder','all'].includes(container.dataset.brand)?container.dataset.brand:'mmoexp';container.dataset.brand=site;
+ const periods=model.details?.periods||[],selector={value:periods.some(p=>p.id===saved)?saved:periods[0]?.id};container.dataset.period=selector.value||'';
+ const toolbar=el('div',null,'toolbar'),tabs=el('div',null,'brand-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','流量数据来源');
+ for(const [key,name]of [['ga4','GA4 · 访问与行为'],['gsc','GSC · 自然搜索'],['ads','Ads · 广告经营']]){const b=el('button',name);b.type='button';b.id='source-tab-'+key;b.dataset.source=key;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(scope.source===key));b.setAttribute('aria-controls','brand-panel');b.tabIndex=scope.source===key?0:-1;b.onclick=()=>{scope.source=key;render(container,scope.model);};tabs.append(b);}
+ tabs.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const bs=[...tabs.children],i=bs.indexOf(document.activeElement),n=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;bs[n].click();container.querySelector('#'+bs[n].id)?.focus();};toolbar.append(tabs);
+ const sites=el('select');sites.setAttribute('aria-label','流量站点');for(const [v,label]of [['mmoexp','MMOEXP'],['rsorder','RSOrder业务账号'],['all','全部已接入范围']]){const o=el('option',label);o.value=v;sites.append(o);}sites.value=site;sites.onchange=()=>{container.dataset.brand=sites.value;scope.trafficProject='all';render(container,scope.model);};toolbar.append(sites);container.append(toolbar);
+ const ensure=rangeControls(toolbar,container,model,periods,selector),p=periods.find(x=>x.id===selector.value);
+ const project=el('select');project.setAttribute('aria-label','流量项目');for(const [key,label]of Object.entries(gameLabels)){const o=el('option',label);o.value=key;project.append(o);}project.value=scope.trafficProject;project.onchange=()=>{scope.trafficProject=project.value;render(container,scope.model);};toolbar.append(project);
+ const panel=el('div');panel.id='brand-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','source-tab-'+scope.source);container.append(panel);
+ scope.esGeneration=(scope.esGeneration||0)+1;scope.esAbort?.abort();clearTimeout(scope.esTimer);
+ if(p){ensure(p);renderSourceBody(panel,p,site,scope.source);}else panel.append(el('p','所选区间尚未取得数据，未填0。','coverage'));
+ const audit=el('details',null,'source-details');audit.append(el('summary','数据更新与口径'),el('p','快照生成 '+(model.data_generated_at||'未知')+'；来源时区、数据截至和覆盖分别列示。Admin主源，Order仅补缺；参考利润保持估算。','snapshot-time'));container.append(audit);workspaceSync();
+}
+
 async function load(container){if(scope.rangePending)return;const generation=scope.rangeGeneration||0;try{const response=await fetch('/dashboard/marketing/data.json',{cache:'no-store',credentials:'same-origin'});if(!response.ok)throw Error('DATA_NOT_AVAILABLE');scope.checkedAt=new Date().toISOString();const fresh=await response.json();if(scope.rangePending||generation!==(scope.rangeGeneration||0))return;if(scope.customRange){fresh.details.periods=[scope.customRange.period,...fresh.details.periods];fresh.businessLinks=scope.customRange.businessLinks;}render(container,fresh);}catch{const old=container.querySelector('.refresh-error');if(old)old.remove();container.prepend(el('p','本次更新未成功；若有已显示数据则保留，重新登录后再刷新。','refresh-error failure'));}}
 window.MMOEXPMarketing={render,load};const target=document.getElementById('marketing');if(target){load(target);setInterval(()=>{if(!document.hidden)load(target);},300000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(target);});}
 })();
@@ -295,35 +366,17 @@ let workspaceQueued=false;
 function workspaceState(){const target=document.getElementById('marketing');scope.businessProfile=target.querySelector('[aria-label="经营项目"]')?.value||scope.businessProfile||scope.seed?.g_business_profile||'MMOEXP';return {g_brand:target.dataset.brand||'mmoexp',g_period:target.dataset.period||'',g_source:scope.source||'all',g_project:scope.trafficProject||'all',g_business_profile:scope.businessProfile,details:target.querySelector('.snapshot-time')?.textContent,generatedAt:scope.model?.data_generated_at,checkedAt:scope.checkedAt,phase:target.querySelector('.refresh-error')?'error':target.querySelector('.brand-tabs')?'available':'loading'};}
 function workspaceApply(s){
  const target=document.getElementById('marketing');if(!scope.model)return false;
- scope.trafficProject=['all','FC27','D4','AION2',...(scope.esProfiles||[]).map(p=>p.code)].includes(s.g_project)?s.g_project:'all';
- const project=target.querySelector('[aria-label="流量项目"]');if(project)project.value=scope.trafficProject;
- if(scope.model.details?.periods.some(p=>p.id===s.g_period)){if(target.dataset.period!==s.g_period){const old=scope.model.details.periods.find(p=>p.id===target.dataset.period);if(scope.rangePending&&old)scope.rangeUpgradeTried?.delete(old.start+'_'+old.end);scope.rangeGeneration=(scope.rangeGeneration||0)+1;scope.rangePending=false;}target.dataset.period=s.g_period;window.MMOEXPMarketing.render(target,scope.model);}
- target.querySelector('[data-brand="'+(['mmoexp','rsorder','business'].includes(s.g_brand)?s.g_brand:'mmoexp')+'"]')?.click();
- scope.source=['all','ga4','gsc','ads'].includes(s.g_source)?s.g_source:'all';workspaceSync();return true;
+ scope.trafficProject=Object.hasOwn(scope.gameLabels||{},s.g_project)?s.g_project:'all';
+ scope.source=['ga4','gsc','ads'].includes(s.g_source)?s.g_source:'ga4';
+ target.dataset.brand=['mmoexp','rsorder','all'].includes(s.g_brand)?s.g_brand:'mmoexp';
+ const found=scope.model.details?.periods.some(p=>p.id===s.g_period),match=/^custom_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/.exec(s.g_period||'');
+ if(found)target.dataset.period=s.g_period;
+ scope.restoreRangeWanted=!found&&match?match:null;
+ window.MMOEXPMarketing.render(target,scope.model);
+ if(scope.restoreRangeWanted){const wanted=scope.restoreRangeWanted,form=target.querySelector('.traffic-range');form.querySelector('[aria-label="流量开始日期"]').value=wanted[1];form.querySelector('[aria-label="流量结束日期"]').value=wanted[2];setTimeout(()=>{if(form.isConnected&&scope.restoreRangeWanted===wanted){scope.restoreRangeWanted=null;form.requestSubmit();}},0);}
+ return true;
 }
-function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{
- workspaceQueued=false;const target=document.getElementById('marketing'),toolbar=target.querySelector('.toolbar');
- if(toolbar&&!document.getElementById('google-sources')){const tabs=document.createElement('nav');tabs.id='google-sources';tabs.className='content-tabs';tabs.setAttribute('aria-label','Google 来源');
-  for(const [key,label] of [['all','全部来源'],['ga4','GA4 · 站内行为'],['gsc','GSC · 全站搜索及相关内容'],['ads','Ads · 广告投放']]){const button=document.createElement('button');button.type='button';button.dataset.source=key;button.textContent=label;button.onclick=()=>{scope.source=key;workspaceSync();const block=[...target.querySelectorAll('.report-section')].find(s=>s.dataset.source===key);for(let parent=block?.parentElement;parent&&parent!==target;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;block?.scrollIntoView({block:'start'});};tabs.append(button);}toolbar.after(tabs);}
- for(const block of target.querySelectorAll('#brand-panel .report-section')){const title=block.querySelector('h2')?.textContent||'';const key=title.startsWith('GA4')?'ga4':title.startsWith('GSC')||title.includes('搜索意图')?'gsc':title.startsWith('Google Ads')?'ads':'other';block.dataset.source=key;}
- for(const button of target.querySelectorAll('#google-sources button')){button.setAttribute('aria-pressed',String((scope.source||'all')===button.dataset.source));button.disabled=target.dataset.brand!=='mmoexp'&&['ga4','gsc'].includes(button.dataset.source);}
- const time=target.querySelector('.snapshot-time');if(time&&!time.closest('details')){const detail=document.createElement('details');detail.className='source-details';detail.append(document.createElement('summary'));detail.firstChild.textContent='Google 快照与口径详情';target.append(detail);detail.append(time);
-  for(const p of target.querySelectorAll(':scope > .watermark,:scope > .financial-note'))detail.append(p);
- }
- const period=target.querySelector('#brand-panel > .period-title'),overall=target.querySelector(':scope > .source-details');
- if(period&&overall){overall.querySelector('[data-panel-period]')?.remove();period.dataset.panelPeriod='true';overall.append(period);}
- const head=target.querySelector('.business-toolbar')?.closest('.report-section');
- if(head&&!head.querySelector('.native-audit')){const detail=document.createElement('details');detail.className='source-details native-audit';detail.append(document.createElement('summary'));detail.firstChild.textContent='经营对照来源与口径';
-  for(const p of head.querySelectorAll(':scope > .section-meta,:scope > .watermark,:scope > .coverage,:scope > .financial-note'))detail.append(p);head.append(detail);
- }
- for(const card of target.querySelectorAll('.report-section,.breakdown')){const note=card.querySelector(':scope > .watermark[data-native-summary]');if(!note||note.closest('details'))continue;
-  const line=document.createElement('p');line.className='source-summary';line.textContent=note.dataset.nativeSummary;note.before(line);
-  const detail=document.createElement('details');detail.className='source-details source-audit';detail.append(document.createElement('summary'));detail.firstChild.textContent='来源覆盖与口径详情';card.append(detail);detail.append(note);
-  const meta=card.querySelector(':scope > .section-meta');if(meta)detail.append(meta);
- }
- scope.changed(workspaceState());
-});}
-new MutationObserver(workspaceSync).observe(scope.root,{subtree:true,childList:true,attributes:true,attributeFilter:['data-brand','data-period']});workspaceSync();
-
+function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{workspaceQueued=false;if(scope.root.isConnected!==false)scope.changed(workspaceState());});}
 return {state:workspaceState,apply:workspaceApply,update:()=>window.MMOEXPMarketing.load(document.getElementById("marketing"))};
 }
+

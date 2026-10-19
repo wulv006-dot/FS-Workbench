@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 ROOT = Path('/opt/mmoexp-marketing')
 CUSTOMERS = {'1430398974': ('mmoexp', 'MMOEXP-1'), '8154986819': ('rsorder', 'RSOrder-1'), '3552474396': ('rsorder', 'rsgoldfast.com')}
 GA_METRICS = ['sessions','activeUsers','newUsers','engagedSessions','engagementRate','screenPageViews','averageSessionDuration','bounceRate','ecommercePurchases','purchaseRevenue']
-GA_REPORTS = {'total': [], 'daily': ['date'], 'source_medium': ['sessionSourceMedium'], 'device': ['deviceCategory'], 'country': ['country'], 'landing_page': ['landingPage']}
-GSC_REPORTS = {'total': [], 'daily': ['date'], 'query': ['query'], 'page': ['page'], 'page_total': [], 'country': ['country'], 'country_query': ['country','query']}
+GA_REPORTS = {'total': [], 'daily': ['date'], 'source_medium': ['sessionSourceMedium'], 'device': ['deviceCategory'], 'country': ['country'], 'landing_page': ['landingPage'], 'landing_country':['landingPage','country'], 'landing_source':['landingPage','sessionSourceMedium']}
+GSC_REPORTS = {'total': [], 'daily': ['date'], 'query': ['query'], 'page': ['page'], 'page_total': [], 'country': ['country'], 'country_query': ['country','query'], 'page_country':['page','country']}
 SCHEMA = '''CREATE TABLE IF NOT EXISTS detail_reports(source TEXT, resource TEXT, report TEXT, start_date TEXT, end_date TEXT, payload_json TEXT, collected_at TEXT, PRIMARY KEY(source,resource,report,start_date,end_date));
 CREATE TABLE IF NOT EXISTS detail_attempts(id INTEGER PRIMARY KEY, source TEXT, resource TEXT, report TEXT, start_date TEXT, end_date TEXT, checked_at TEXT, status TEXT, error_code TEXT);
 '''
@@ -117,7 +117,7 @@ class Reader:
         dimensions=GSC_REPORTS[name]; rows=[]; page_size=25000; complete=False
         body={'startDate':start,'endDate':end,'dimensions':dimensions,'type':'web','dataState':'final','rowLimit':page_size}
         if name=='page_total':body['aggregationType']='byPage'
-        elif name not in ['page']: body['aggregationType']='byProperty'
+        elif name not in ['page','page_country']: body['aggregationType']='byProperty'
         while len(rows)<50000:
             body['startRow']=len(rows)
             data=self.request('gsc','https://www.googleapis.com/webmasters/v3/sites/'+quote('sc-domain:mmoexp.com',safe='')+'/searchAnalytics/query',body)
@@ -136,7 +136,7 @@ class Reader:
                 redacted+=int(clean!=url); key=clean; values=row['metrics']; state=merged.setdefault(key,{'clicks':Decimal(0),'impressions':Decimal(0),'position_sum':Decimal(0)})
                 state['clicks']+=Decimal(values['clicks']); state['impressions']+=Decimal(values['impressions']); state['position_sum']+=Decimal(values['position'])*Decimal(values['impressions'])
             rows=[{'dimensions':{'page':key},'metrics':{'clicks':str(v['clicks']),'impressions':str(v['impressions']),'ctr':str(v['clicks']/v['impressions']) if v['impressions'] else '0','position':str(v['position_sum']/v['impressions']) if v['impressions'] else '0'}} for key,v in merged.items()]
-        return {'rows':rows,'quality':{'pagination_complete':complete,'pagination_capped':not complete,'returned_rows':len(rows),'data_state':'final','top_rows_not_all_queries':name in ['query','page','country_query'],'url_query_fragments_removed':redacted,'aggregation':data.get('responseAggregationType')},'timezone':'America/Los_Angeles','currency':None}
+        return {'rows':rows,'quality':{'pagination_complete':complete,'pagination_capped':not complete,'returned_rows':len(rows),'data_state':'final','top_rows_not_all_queries':name in ['query','page','country_query','page_country'],'url_query_fragments_removed':redacted,'aggregation':data.get('responseAggregationType')},'timezone':'America/Los_Angeles','currency':None}
     def ads_metadata(self,customer):
         if customer not in CUSTOMERS: raise ValueError('SELECTED_CUSTOMER_REQUIRED')
         data=self.request('ads','https://googleads.googleapis.com/v25/customers/'+customer+'/googleAds:search',{'query':'SELECT customer.id, customer.descriptive_name, customer.manager, customer.status, customer.currency_code, customer.time_zone FROM customer'})
@@ -145,7 +145,38 @@ class Reader:
         meta=rows[0]['customer']
         if str(meta['id'])!=customer or meta.get('manager') or meta.get('currencyCode')!='USD' or meta.get('timeZone')!='Asia/Hong_Kong': raise ValueError('ADS_METADATA_MISMATCH')
         self.metadata[customer]={n:meta.get(n) for n in ['id','descriptiveName','status','currencyCode','timeZone']}
+    def ads_country(self,customer,start,end):
+        """Physical user countries; never infer geography from campaign names."""
+        if self.metadata.get(customer,{}).get('id')!=customer: raise ValueError('ADS_METADATA_REQUIRED')
+        url='https://googleads.googleapis.com/v25/customers/'+customer+'/googleAds:search'
+        fields='campaign.id, campaign.name, user_location_view.country_criterion_id, user_location_view.targeting_location, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value'
+        body={'query':"SELECT "+fields+" FROM user_location_view WHERE segments.date BETWEEN '"+start+"' AND '"+end+"'"}
+        rows=[];seen=set();complete=False
+        for page in range(10):
+            data=self.request('ads',url,body)
+            for item in data.get('results',[]):
+                geo=item['userLocationView'];campaign=item['campaign'];country=str(geo['countryCriterionId'])
+                targeted=geo.get('targetingLocation',False);key=(str(campaign['id']),country,targeted)
+                if key in seen:raise ValueError('DUPLICATE_ADS_COUNTRY_CAMPAIGN')
+                seen.add(key)
+                rows.append({'dimensions':{'customerId':customer,'campaignId':str(campaign['id']),'campaignName':campaign.get('name',''),'countryCriterionId':country,'targetingLocation':targeted},'metrics':{n:number(item.get('metrics',{}).get(n,0)) for n in ('impressions','clicks','costMicros','conversions','conversionsValue')}})
+            if not data.get('nextPageToken'):complete=True;break
+            body['pageToken']=data['nextPageToken']
+        if not complete:raise ValueError('ADS_COUNTRY_PAGINATION_CAPPED')
+        # Country identifiers remain usable if name lookup is unavailable.
+        names={}
+        try:
+            lookup=self.request('ads',url,{'query':"SELECT geo_target_constant.id, geo_target_constant.name, geo_target_constant.country_code FROM geo_target_constant WHERE geo_target_constant.target_type = 'Country'"})
+            if not lookup.get('nextPageToken'):
+                names={str(r['geoTargetConstant']['id']):r['geoTargetConstant'] for r in lookup.get('results',[])}
+        except ValueError:pass
+        for row in rows:
+            dims=row['dimensions'];meta=names.get(dims['countryCriterionId'],{})
+            dims['country']=meta.get('countryCode') or 'criterion:'+dims['countryCriterionId']
+            dims['countryName']=meta.get('name')
+        return {'rows':rows,'quality':{'pagination_complete':True,'returned_rows':len(rows),'geography_basis':'user_location_view_actual_physical_country','country_name_lookup_complete':bool(names)},'timezone':'Asia/Hong_Kong','currency':'USD','account':self.metadata[customer]}
     def ads(self,customer,name,start,end):
+        if name=='country_campaign':return self.ads_country(customer,start,end)
         if self.metadata.get(customer,{}).get('id')!=customer: raise ValueError('ADS_METADATA_REQUIRED')
         fields='segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.interactions, metrics.conversions_from_interactions_rate'
         if name in ('campaign','campaign_total','ad_group_total'): fields='campaign.id, campaign.name, campaign.advertising_channel_type, '+fields
@@ -204,7 +235,7 @@ def main():
             try: reader.ads_metadata(customer)
             except Exception as exc: reader.metadata[customer]={'status':'metadata_failed','exception_class':type(exc).__name__}
         for start,end in ranges:
-            specs=[('ga4','541418940',n) for n in GA_REPORTS]+[('gsc','sc-domain:mmoexp.com',n) for n in GSC_REPORTS]+[('ads',c,n) for c in CUSTOMERS for n in ['total','daily','campaign','campaign_total','ad_group_total']]
+            specs=[('ga4','541418940',n) for n in GA_REPORTS]+[('gsc','sc-domain:mmoexp.com',n) for n in GSC_REPORTS]+[('ads',c,n) for c in CUSTOMERS for n in ['total','daily','campaign','campaign_total','ad_group_total','country_campaign']]
             for source,resource,name in specs:
                 try:
                     old=db.execute('SELECT collected_at FROM detail_reports WHERE source=? AND resource=? AND report=? AND start_date=? AND end_date=?',(source,resource,name,start,end)).fetchone()
@@ -229,3 +260,4 @@ def main():
     finally: reader.close(); db.close()
 
 if __name__=='__main__': main()
+
