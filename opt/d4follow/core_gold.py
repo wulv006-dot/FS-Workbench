@@ -860,9 +860,12 @@ class IggmGold(object):
       熔断期内再 fetch 会**零网络请求**直接抛错 —— 调用方 catch 即可。
     """
 
-    def __init__(self, log=print, timeout=40):
+    def __init__(self, log=print, timeout=40, sess=None):
         self.log = log or (lambda *a: None)
         self.timeout = timeout
+        # 2026-10-19：可指定会话缸。缺省 = 金币缸（冒险岛/暗黑4 等量小的游戏）；
+        #   AION2 有 86 个区、请求量大，由 build_plan 传 AION2_SESSION 单独隔离。
+        self.sess = sess or _ci.GOLD_SESSION
 
     def warm(self, force=False, page=None):
         """预热金币页拿 Cloudflare cookie（幂等；由 core_iggm 按 CF_TTL 缓存）。
@@ -873,7 +876,7 @@ class IggmGold(object):
         """
         page = page or GAME_PARAMS[DEFAULT_GAME]["IGGM金币页"]
         ok = _ci._prime(IGGM_BASE + page, timeout=self.timeout, force=force,
-                        sess=_ci.GOLD_SESSION)
+                        sess=self.sess)
         if not ok:
             self.log("  [金币/IGGM] 取 cookie 失败（%s）" % page)
         return ok
@@ -894,7 +897,7 @@ class IggmGold(object):
         })
         body = _ci._get(IGGM_BASE + "/goods/goods_ajax?" + qs,
                         referer=IGGM_BASE + page, timeout=self.timeout, retry=retry,
-                        sess=_ci.GOLD_SESSION)
+                        sess=self.sess)
         d = (json.loads(body) or {}).get("data") or {}
         g = d.get("one_goods") or {}
         tiers = [{"num": int(x.get("num") or 0), "all": _f(x.get("all")),
@@ -1159,6 +1162,11 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             _ms = None
     items = []
     _blk_hit = [False]        # 本轮 IGGM 是否已撞熔断（只记第一条日志）
+    # 2026-10-19：AION2 单独一条会话缸。它有 86 个区，是金币侧请求量最大的一方
+    #   （86 次 ajax/轮），撞限流会把同缸的冒险岛、暗黑4 一起带走。隔离后
+    #   AION2 自己被拦只影响它自己的监控价，冒险岛定价不受牵连。
+    #   外部传入 iggm_obj（单测/dry-run）时不动它，保持原行为。
+    _ig_aion2 = [None]
     for sv in svs:
         if sv.get("跟价", True) is False:
             log("  [金币] %s 未勾选跟价，跳过" % sv.get("中文名"))
@@ -1181,8 +1189,13 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                "采购成本_旧": _known.get(sv.get("key")),
                "利润率": rl, "对标档位": tier,
                "展示倍率": _dm, "展示单位": _ul}
+        _ig = ig
+        if gm == "AION2" and iggm_obj is None:
+            if _ig_aion2[0] is None:
+                _ig_aion2[0] = IggmGold(log=log, sess=_ci.AION2_SESSION)
+            _ig = _ig_aion2[0]
         try:
-            igd = ig.fetch(sv.get("iggm_sid"), page=gp["IGGM金币页"])
+            igd = _ig.fetch(sv.get("iggm_sid"), page=gp["IGGM金币页"])
             rec["IGGM每M"] = igd.get("unit_price")
             rec["IGGM档位"] = igd.get("tiers")
             rec["IGGM标题"] = igd.get("title")
@@ -1199,9 +1212,10 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["错误"] = "IGGM 熔断：%r" % e
                 if not _blk_hit[0]:
                     _blk_hit[0] = True
-                    log("  [金币/IGGM] 撞 CF 拦截 → 本轮停止后续 IGGM 抓取"
-                        "（金币侧冷却剩余 %ss）：%r"
-                        % (_ci.breaker_state(_ci.GOLD_SESSION).get("remain_s"), e))
+                    log("  [金币/IGGM] 撞 CF 拦截 → 本缸（%s）冷却期内不再抓"
+                        "（剩余 %ss）：%r"
+                        % (getattr(getattr(_ig, "sess", None), "name", "gold"),
+                           _ci.breaker_state(_ig.sess).get("remain_s"), e))
             else:
                 rec["错误"] = "IGGM 抓取失败：%r" % e
                 log("  [金币/IGGM] %s 抓取失败：%r" % (sv.get("中文名"), e))

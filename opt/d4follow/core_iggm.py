@@ -128,8 +128,14 @@ class _Sess(object):
 # 两个主缸：物品（默认）与金币；另可 new_session() 临时开干净会话
 _ITEM = _Sess("items")
 _GOLD = _Sess("gold")
+# 2026-10-19 第二层分缸：AION2 有 86 个服务区，是金币侧最大的请求量来源
+#   （一轮 86 次 ajax，30 分钟一轮 ≈ 4100 次/天），撞限流会把同缸的
+#   冒险岛 / 暗黑4 一起带走。AION2 的 IGGM 只是监控/参考口径，单独一缸后
+#   它自己被拦也不影响冒险岛定价。
+_AION2 = _Sess("aion2")
 ITEM_SESSION = _ITEM        # 对外暴露（core_gold 等模块显式指定用哪条会话）
 GOLD_SESSION = _GOLD
+AION2_SESSION = _AION2
 CF_MARK = "cf_chl_opt"          # 挑战页里必有的标记；正常 JSON 不会出现
 CF_TTL = 300                    # ⭐ __cf_bm 寿命约 30min，取 5min 保守刷新（原 600s 太赌）
 SLEEP_FLOOR = 1.5               # ⭐ 单请求最小间隔（原 0.8 太激进）
@@ -201,8 +207,9 @@ def breaker_state(sess=None):
 
 
 def breaker_state_all():
-    """两条主缸的熔断状态（采集日志 / 看板用）。"""
-    return {"items": breaker_state(_ITEM), "gold": breaker_state(_GOLD)}
+    """三条缸的熔断状态（采集日志 / 看板用）。"""
+    return {"items": breaker_state(_ITEM), "gold": breaker_state(_GOLD),
+            "aion2": breaker_state(_AION2)}
 
 
 def _sleep(base=None):
