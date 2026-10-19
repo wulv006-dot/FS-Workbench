@@ -33,6 +33,7 @@ import core_gold
 import core_iggm
 import core_qd
 import engine
+import msg_alert
 import store
 import shelf_check
 import shelf_notify
@@ -1722,6 +1723,92 @@ def _auto_dispatch(t, cfg, con):
         t.log("    [队列] 本轮共入队 %d 张单（%d 件改价）；当前排队/执行中 %d 张 —— "
               "执行器按 FIFO 一张一张跑，未跑到的自动等待，不会丢单"
               % (_tot, _items, _pending))
+IGGM_STREAK_FILE = os.path.join(ROOT, "data", "iggm_empty_streak.json")
+
+
+def _iggm_streak(step=None, detail=""):
+    """IGGM 连续「整轮 0 条」的轮次计数（跨轮、跨进程，落小 JSON）。
+
+    为什么不用 runs 表：`runs.iggm_count` 记的是**快照行数** —— 0 条时会沿用上一份
+    仍是上千行，看不出「本轮到底抓没抓到」。所以单独记一个计数器（2026-10-19）。
+
+    step=1 累加；step=0 归零（旧值放进返回的 was）；None 只读。
+    """
+    d = {"n": 0, "last_fail": "", "ts": ""}
+    try:
+        with open(IGGM_STREAK_FILE, encoding="utf-8") as f:
+            d.update(json.load(f) or {})
+    except Exception:
+        pass
+    was = int(d.get("n") or 0)
+    if step == 1:
+        d["n"] = was + 1
+        d["last_fail"] = detail or d.get("last_fail") or ""
+    elif step == 0:
+        d["n"] = 0
+    if step is not None:
+        d["ts"] = dt.datetime.now().isoformat(timespec="seconds")
+        try:
+            os.makedirs(os.path.dirname(IGGM_STREAK_FILE), exist_ok=True)
+            tmp = IGGM_STREAK_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f, ensure_ascii=False)
+            os.replace(tmp, IGGM_STREAK_FILE)
+        except Exception:
+            pass
+    d["was"] = was
+    return d
+
+
+def _iggm_alert_need(cfg):
+    """连续多少轮 0 条才告警（config: iggm.空轮告警阈值，默认 3）。"""
+    try:
+        return max(1, int(float(cfg_get(cfg, "iggm.空轮告警阈值", 3) or 3)))
+    except (TypeError, ValueError):
+        return 3
+
+
+def _pick_exec_mode(cfg, con, log=None):
+    """这张单派给谁：config 说了算，但**服务器执行器不在线时自动改派本机**。
+
+    2026-10-19 新增的兜底：
+      · 执行方式=server，而 srv_exec 停了 / 心跳过期 / 急停开关在 ⇒ 单子会一直
+        pending 没人执行（历史上停过一次，一整天没人发现）。这里当场改派本机。
+      · 改派前提是**本机执行器有新鲜心跳**（≤5 分钟），否则留在服务器队列等它恢复
+        —— 不然本机根本没开机，单子改派过去就变成「两边都不执行」。
+    """
+    mode = str(cfg_get(cfg, "跟价.执行方式", "server")).lower()
+    mode = "local" if mode == "local" else "server"
+    if mode != "server":
+        return mode
+    try:
+        st = _srv_exec_state()
+        if st.get("alive"):
+            return "server"
+        why = st.get("why") or "状态未知"
+    except Exception as e:                                  # noqa: BLE001
+        why = "读状态失败：%r" % (e,)
+    # 服务器不可用 —— 看本机在不在
+    fresh = False
+    try:
+        ag = store.local_agent_get(con) or {}
+        ls = ag.get("last_seen") or ""
+        if ls:
+            age = (dt.datetime.now() - dt.datetime.strptime(ls, "%Y-%m-%dT%H:%M:%S")
+                   ).total_seconds()
+            fresh = age <= 300
+            if fresh and log:
+                log("  ⚠ 服务器执行器不可用（%s）→ 本单**自动改派本机**执行"
+                    % why)
+                log("     （本机执行器 %d 秒前刚报到，在线）" % int(age))
+            elif log:
+                log("  ⚠ 服务器执行器不可用（%s），本机执行器也未在线 → 仍派服务器队列等恢复"
+                    % why)
+    except Exception:
+        fresh = False
+    return "local" if fresh else "server"
+
+
 def task_collect(t, opts):
     """采集一轮：IGGM（服务器直连）+ 我方前端（MMOEXP 公开页）+ 千岛（用本机推送的最近快照）
 
@@ -1772,9 +1859,63 @@ def task_collect(t, opts):
     if ig_rows:
         store.save_iggm(con, ts, ig_rows)
         ig_ts = ts
+        _st = _iggm_streak(0)
+        if _st.get("was", 0) >= _iggm_alert_need(cfg):
+            # 刚从「连续 0 条」里爬出来：回一条恢复消息，避免只看到告警看不到恢复
+            msg_alert.alert(
+                con, "iggm-recover", "IGGM 采集已恢复",
+                "本轮拿到 **%d** 条（此前连续 **%d** 轮 0 条，最后失败于 %s）\n\n"
+                "- 时间：%s" % (len(ig_rows), _st.get("was", 0),
+                               _st.get("last_fail") or "—", ts),
+                cooldown_s=1800)
     else:
-        ig_ts = store.prev_ts(con, "iggm_price", ts)
-        t.log("  ⚠ IGGM 本轮 0 条 → 复用上一份快照 %s" % ig_ts)
+        # 0 条有两种原因，必须分开处理（2026-10-19）：
+        #   ② 本轮只是「没有到期的 IGGM 目标」—— 例如只有 AION2 / 冒险岛到期，
+        #      它们的竞品价走 core_gold 那条线，不经过 scrape_all ⇒ 0 条**正常**，
+        #      不能兜底、不能告警、不能动计数器（否则一晚上几十条误报）。
+        _meta = core_iggm.last_run() or {}
+        if not _meta.get("blocked"):
+            ig_ts = store.prev_ts(con, "iggm_price", ts)
+            t.log("  ⓘ IGGM 本轮 0 条（%s）→ 沿用上一份快照 %s（正常，不告警）"
+                  % (_meta.get("reason") or "本轮无到期 IGGM 目标", ig_ts))
+        else:
+            # ① 被 CF 拦：先试金币侧独立通道（十几个区，量小、往往还通）。
+            #    抓到的 G: 行覆盖进快照，其余行由 carryover 沿用上一份。
+            _gold_only = []
+            try:
+                _gold_only = core_iggm.scrape_golds_only(cfg, log=t.log, games=due)
+            except Exception:
+                t.log("  ⚠ 金币独立兜底异常：%s" % traceback.format_exc()[-300:])
+            if _gold_only:
+                try:
+                    _cn = store.iggm_carryover(con, ts)
+                    t.log("  ↺ 金币兜底：沿用上一份全量 %d 行" % _cn)
+                except Exception:
+                    t.log("  ⚠ 金币兜底：沿用上一份全量失败（快照可能只剩金币行）：%s"
+                          % traceback.format_exc()[-200:])
+                store.save_iggm(con, ts, _gold_only)
+                ig_ts = ts
+                t.log("  ✔ 金币侧独立通道成功 %d 个区（物品侧被拦；金币不再受物品熔断连带）"
+                      % len(_gold_only))
+            else:
+                ig_ts = store.prev_ts(con, "iggm_price", ts)
+                t.log("  ⚠ IGGM 被 CF 拦且金币独立通道也空 → 复用上一份快照 %s" % ig_ts)
+                _n = _iggm_streak(1, "IGGM 整轮被 CF 拦（金币独立通道也空）")["n"]
+                _need = _iggm_alert_need(cfg)
+                if _n >= _need:
+                    msg_alert.alert(
+                        con, "iggm-empty", "IGGM 连续 %d 轮 0 条" % _n,
+                        "竞争价源（www.iggm.com）已被 Cloudflare 拦住，**冒险岛金币没有可比价的基准**。\n\n"
+                        "- 连续空轮：**%d** 轮（阈值 %d）\n"
+                        "- 熔断状态：物品 %s ｜ 金币 %s\n"
+                        "- 快照：仍在沿用上一份（%s），不会写错价\n"
+                        "- 建议：查 IGGM 是否对服务器 IP 限流；本机执行器在线时可改由本机取价\n\n"
+                        "时间：%s" % (_n, _need,
+                                   core_iggm.breaker_state(core_iggm.ITEM_SESSION),
+                                   core_iggm.breaker_state(core_iggm.GOLD_SESSION),
+                                   ig_ts, ts),
+                        cooldown_s=int(float(cfg_get(cfg, "iggm.空轮告警冷却小时", 6) or 6)
+                                       * 3600))
     iggm_now = {r["goods_no"]: r for r in (store.iggm_rows(con, ig_ts) if ig_ts else [])}
     prev_t = store.prev_ts(con, "iggm_price", ig_ts) if ig_ts else None
     iggm_prev = {r["goods_no"]: r for r in (store.iggm_rows(con, prev_t) if prev_t else [])}
@@ -2047,6 +2188,29 @@ def task_collect(t, opts):
                                       known=store.gold_state_map(con),
                                       dd373_costs=_dd_costs)
             store.save_gold(con, ts, gp)
+            # 2026-10-19：IGGM 取不到价 ⇒ 冒险岛这类「只跟 IGGM」的区会直接 hold，
+            # 表现出来就是"改价莫名其妙不动"。这里必须告警，否则没人知道是被 CF 拦了。
+            try:
+                _noig = [it for it in (gp.get("items") or [])
+                         if it.get("定价模式") == "iggm_undercut"
+                         and it.get("IGGM每M_跟价用") is None]
+                if _noig:
+                    msg_alert.alert(
+                        con, "gold-no-iggm",
+                        "金币缺竞品价：%d 个区本轮 hold" % len(_noig),
+                        "这些区的定价**完全依赖 IGGM**，但这一轮没取到价：\n" + "\n".join(
+                            "- %s（%s）：%s" % (it.get("中文名"), it.get("游戏"),
+                                               it.get("错误") or "IGGM 价为 None")
+                            for it in _noig[:6])
+                        + "\n\n熔断：金币侧 %s\n时间：%s"
+                          % (core_iggm.breaker_state(core_iggm.GOLD_SESSION), ts),
+                        cooldown_s=int(float(cfg_get(cfg, "iggm.空轮告警冷却小时", 6) or 6)
+                                       * 3600))
+                    for it in _noig[:6]:
+                        t.log("  ⚠ [金币/告警] %s 无 IGGM 价 → 本轮 hold（已推钉钉）"
+                              % it.get("中文名"))
+            except Exception:
+                t.log("  ⚠ 金币缺价告警失败（不影响跟价）：%s" % traceback.format_exc()[-200:])
             # 2026-10-02：记「真实发生的调价」（对比上轮我方前端价）→ 看板「改价操作」列
             try:
                 _na, _acts = store.gold_action_detect(con, ts, gp)
@@ -2096,7 +2260,7 @@ def task_collect(t, opts):
                     if it.get("利润率上限触发"):
                         # 2026-10-12：跟价后利润率超上限 ⇒ 被强行压价
                         _tflag += " ⛔利润率上限(压到成本÷%.2f)" % (
-                            1.0 - float(it.get("利润率上限") or 0.45))
+                            1.0 - float(it.get("利润率上限") or 0.30))
                     if it.get("基准来源") == "无货兜底":
                         # 2026-10-09：货源闸命中的区**本轮没抓 G2G**（基准价 = None）。
                         #   老模板会打成「G2G 无货兜底 $None −1%」—— 既难看又自相矛盾
@@ -2559,8 +2723,8 @@ def task_apply(t, opts):
     # 2026-09-27：新机 IP 已进 order.p2pah.cn 白名单，服务器自己就能改价 + 清缓存。
     _cf = (cfg.get("跟价") or {}).get("缓存刷新") or {}
     _want_cache = bool(_cf.get("自动刷新", True))
-    _exec_mode = str(cfg_get(cfg, "跟价.执行方式", "server")).lower()
-    _exec_mode = "local" if _exec_mode == "local" else "server"
+    # 2026-10-19：配置 + 服务器执行器存活状态一起决定派给谁（服务器挂了自动改派本机）
+    _exec_mode = _pick_exec_mode(cfg, con, log=t.log)
 
     outdir = os.path.join(ROOT, "output")
     os.makedirs(outdir, exist_ok=True)
@@ -2728,8 +2892,8 @@ def task_gold_apply(t, opts):
 
     _cf = (cfg.get("跟价") or {}).get("缓存刷新") or {}
     _want_cache = bool(_cf.get("自动刷新", True))
-    _exec_mode = str(cfg_get(cfg, "跟价.执行方式", "server")).lower()
-    _exec_mode = "local" if _exec_mode == "local" else "server"
+    # 2026-10-19：配置 + 服务器执行器存活状态一起决定派给谁（服务器挂了自动改派本机）
+    _exec_mode = _pick_exec_mode(cfg, con, log=t.log)
     gcfg = cfg.get("金币") or {}
     outdir = os.path.join(ROOT, "output")
     os.makedirs(outdir, exist_ok=True)
@@ -2993,17 +3157,17 @@ def api_gold():
                      (_pol_a.get("无cheapold利润率") or 0.30),
                      (_pol_a.get("无cheapold利润率") or 0.30) * 100,
                      (_pol_a.get("利润率下限")
-                      if _pol_a.get("利润率下限") is not None else 0.30) * 100,
+                      if _pol_a.get("利润率下限") is not None else 0.23) * 100,
                      (_pol_a.get("利润率下限")
-                      if _pol_a.get("利润率下限") is not None else 0.30) * 100,
+                      if _pol_a.get("利润率下限") is not None else 0.23) * 100,
                      1.0 - (_pol_a.get("利润率下限")
-                            if _pol_a.get("利润率下限") is not None else 0.30),
+                            if _pol_a.get("利润率下限") is not None else 0.23),
                      (_pol_a.get("利润率上限")
-                      if _pol_a.get("利润率上限") is not None else 0.45) * 100,
+                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
                      (_pol_a.get("利润率上限")
-                      if _pol_a.get("利润率上限") is not None else 0.45) * 100,
+                      if _pol_a.get("利润率上限") is not None else 0.30) * 100,
                      1.0 - (_pol_a.get("利润率上限")
-                            if _pol_a.get("利润率上限") is not None else 0.45))
+                            if _pol_a.get("利润率上限") is not None else 0.30))
                   if _pol_a.get("模式") == "g2g_cheapold" else
                   ("AION2 走旧三源比价策略（multisrc）" if _pol_a else "默认口径")))),
         },
@@ -3228,13 +3392,13 @@ def api_gold_cost():
              % ((_pol.get("下浮比例") or 0.03) * 100,
                 (_pol.get("无cheapold利润率") or 0.30),
                 (_pol.get("无cheapold利润率") or 0.30) * 100,
-                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30) * 100,
-                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30) * 100,
-                1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.30),
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.23) * 100,
+                (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.23) * 100,
+                1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.23),
                 (_pol.get("无货兜底售价_USD每M") or 19.9),
-                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45) * 100,
-                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45) * 100,
-                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.45))
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
+                (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30) * 100,
+                1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.30))
              if _pol.get("模式") == "g2g_cheapold" else
              ("售价 = DD373 该区成本（买满 1 亿基纳的订单簿加权均价）折 $/M ÷ (1−%.1f%%)；"
               "成本 = 同一条口径；利润率 = (售价 − 成本) / 售价，可为负。"

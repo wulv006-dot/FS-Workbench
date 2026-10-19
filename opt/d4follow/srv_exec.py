@@ -60,6 +60,7 @@ POLL_S = 10                 # 空转轮询间隔
 JOB_TIMEOUT_S = 3600        # 单张工单最长执行时间（金币单要跑推送+清缓存，给足）
 
 sys.path.insert(0, ROOT)
+import msg_alert  # noqa: E402
 import store as S  # noqa: E402
 
 STOP = False
@@ -144,6 +145,77 @@ def _read_result(kind, t0):
     except Exception as e:
         log("结果文件解析失败 %s：%r" % (best, e))
         return None
+
+
+def _failover_to_local(con, cfg, job, why):
+    """改价失败 → 把同一张工单**克隆成 exec_mode='local'**，交本机执行器重试。
+
+    为什么需要（2026-10-19 老板要求）：服务器出口 IP 被 CF / 后台风控拦住的场景，
+    在容器里怎么重试都没用；本机是住宅 IP + 独立浏览器 profile，往往一次就过。
+    等人工在看板点「改用本机执行」太慢，这里失败即自动改派。
+
+    三道闸（防重复 / 防循环 / 防误发）：
+      ① config `跟价.本机兜底` = false → 不兜底（只告警）；
+      ② 本单本身已经是兜底单（标题带「本机兜底」）→ 不再二次兜底，只告警，
+         否则两边会互相踢单、无限重试；
+      ③ 队列里已有**同内容**（同 kind + 同 plan_json）的 pending/dispatched 本机单
+         → 不重复派，避免同一批价改两遍。
+    返回新单号（没派则 None）。
+    """
+    jid = job.get("id") or "?"
+    title = job.get("title") or ""
+    if not bool(cfg_get(cfg, "跟价.本机兜底", True)):
+        log("  ↪ 失败转本机：config 跟价.本机兜底=false，不兜底（仅告警）")
+        msg_alert.alert(con, "job-fail-" + jid, "改价失败（未兜底）",
+                        "- 工单：%s（%s）\n- 原因：%s\n\n兜底开关已关，需人工处理。"
+                        % (jid, title, why), cooldown_s=1800)
+        return None
+    if "本机兜底" in title:
+        log("  ↪ 本单已是本机兜底单，失败后不再二次兜底（防来回踢单）")
+        msg_alert.alert(con, "job-local-fail-" + jid, "本机兜底单也失败了",
+                        "- 工单：%s（%s）\n- 原因：%s\n\n请人工核对后台价格。"
+                        % (jid, title, why), cooldown_s=900)
+        return None
+    try:
+        plan = json.loads(job.get("plan_json") or "{}")
+    except Exception as e:
+        log("  ⚠ 兜底派单失败：工单 JSON 解析不了：%r" % e)
+        return None
+    try:
+        dup = con.execute(
+            "SELECT id FROM local_job WHERE kind=? AND exec_mode='local'"
+            " AND status IN ('pending','dispatched') AND plan_json=? LIMIT 1",
+            (job.get("kind"), job.get("plan_json") or "")).fetchone()
+    except Exception:
+        dup = None
+    if dup:
+        log("  ↪ 队列里已有同内容的本机单 %s，不重复派" % dup[0])
+        return None
+    try:
+        nid = S.local_job_add(
+            con, kind=job.get("kind") or "write",
+            title=("%s（服务器失败→本机兜底）" % title)[:120],
+            plan_path=job.get("plan_path") or "", plan=plan,
+            summary="服务器执行失败自动转本机：%s" % (why or "")[:120],
+            actor="srv-exec/auto-failover", exec_mode="local")
+    except Exception as e:
+        log("  ⚠ 兜底派单失败：%r" % e)
+        return None
+    # 原单留痕（看板上能直接看到「这单被谁接手了」）
+    try:
+        now = dt.datetime.now().isoformat(timespec="seconds")
+        con.execute("UPDATE local_job SET log=coalesce(log,'')||char(10)||? WHERE id=?",
+                    ("%s ↩ 已自动转本机兜底：新单 %s" % (now, nid), jid))
+        con.commit()
+    except Exception as e:
+        log("  ⚠ 原单留痕失败：%r" % e)
+    log("  ↪ 已自动转本机兜底：新单 %s" % nid)
+    msg_alert.alert(
+        con, "job-failover-" + nid, "改价失败，已自动转本机执行",
+        "- 原工单：%s（%s）\n- 失败原因：%s\n- 兜底单：**%s**\n\n"
+        "本机执行器在线即自动执行；不在线会在队列里等，不会丢单。"
+        % (jid, title, why, nid), cooldown_s=600)
+    return nid
 
 
 def run_once():
@@ -259,6 +331,14 @@ def run_once():
 
     tail = [ln for ln in out.strip().splitlines() if ln.strip()][-160:]
     S.local_job_finish(con, jid, ok=ok, log="\n".join(tail), result=res, agent="srv-exec")
+
+    # 2026-10-19：改价失败（含超时 / 复核不通过）→ 自动把同一张工单转本机重试。
+    # 先写结果再兜底：即使兜底派单出错，原单的成败已经落库，不会变成"状态不明"。
+    if not ok:
+        try:
+            _failover_to_local(con, cfg, job, (tail[-1] if tail else "执行失败"))
+        except Exception as e:
+            log("  ⚠ 转本机兜底异常（不影响本单结论）：%r" % e)
 
     # 金币单：把容器现场读到的「采购成本现值」落 gold_state 表（与本机通道同一张表）。
     # 容器直接产出的是 p2pah_local 的原始结果，只有 jobs[].改前实际；本机 worker 会把它
