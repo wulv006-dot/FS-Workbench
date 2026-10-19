@@ -35,6 +35,9 @@ const {
 const ROOT = __dirname;
 const CONFIG_PATH = path.join(ROOT, 'config.json');
 const WL_PATH = path.join(ROOT, 'whitelist.json');
+// 处置台账（append-only JSONL）。审计日志不可编辑、频道消息会翻页，
+// 这里留一份结构化留痕：谁、什么时间、因为哪个字段的哪个值被处置。
+const LEDGER_PATH = process.env.GUARD_LEDGER || path.join(ROOT, 'action-ledger.jsonl');
 
 /* ---------------------------------- 配置 ---------------------------------- */
 
@@ -531,6 +534,38 @@ async function canActOn(member) {
   return null;
 }
 
+/* ---------------------------- 处置留痕 / 取证 ---------------------------- */
+
+/** 把「命中字段 + 命中值」拼进 Discord 审计理由。
+ *  为什么要这么做：Discord 的审计日志只保留 `reason` 一栏，且**不可事后编辑**；
+ *  实测有人被封后立刻把用户名改回随机串（如 captivating_beagle_38232），
+ *  事后翻 Audit Log / 封禁名单只能看到「很正常」的账号名，完全查不出为什么被封。
+ *  把命中值写进 reason，封禁那一刻的名字就永久钉在审计日志上。
+ *  Discord reason 上限 512 字符 → 这里截到 400 留余量。 */
+function reasonWithHit(base, hit) {
+  const key = (hit.field || '').split(' ').pop() || 'name';
+  return `${base || ''} [${key}=${hit.value}]`.slice(0, 400);
+}
+
+/** 处置瞬间的名字快照 —— 对方事后改名也能还原「当时叫什么」。 */
+function snapshotNames(member) {
+  return {
+    username: (member.user && member.user.username) || null,
+    global_name: (member.user && member.user.globalName) || null,
+    nickname: member.nickname || null,
+    display_name: member.displayName || null,
+  };
+}
+
+/** 本地台账（append-only JSONL）。写失败只告警，绝不影响处置主流程。 */
+function appendLedger(rec) {
+  try {
+    fs.appendFileSync(LEDGER_PATH, JSON.stringify(rec) + '\n', { mode: 0o644 });
+  } catch (e) {
+    console.warn('[WARN] 台账写入失败（不影响处置）：', e.message);
+  }
+}
+
 async function act(member, reason) {
   const mode = state.config.action;
   if (mode === 'none') return 'none(仅记录)';
@@ -606,12 +641,31 @@ async function handle(member, source) {
   }
 
   try {
-    const done = await act(member, planned === 'ban' ? state.config.banReason : state.config.kickReason);
+    const reason = reasonWithHit(planned === 'ban' ? state.config.banReason : state.config.kickReason, hit);
+    const done = await act(member, reason);
     noteHit(done);
-    console.log(`[${at}] ACTION ${done} user=${member.user.tag} (${member.id}) field=${hit.field} value="${hit.value}" src=${source}`);
+    const snap = snapshotNames(member);
+    console.log(
+      `[${at}] ACTION ${done} user=${member.user.tag} (${member.id}) field=${hit.field} value="${hit.value}" ` +
+      `via=${hit.via} src=${source} names=${JSON.stringify(snap)} reason="${reason}"`
+    );
+    appendLedger({
+      ts: at,
+      action: done,
+      user_id: member.id,
+      tag: member.user.tag,
+      ...snap,
+      field: hit.field,
+      value: hit.value,
+      via: hit.via,
+      src: source,
+      reason,
+    });
     await log(member.client, {
       title: '已处置：冒充官方前缀',
-      body: `${who}\n字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  动作：**${done}**  来源：\`${source}\``,
+      body: `${who}\n字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  动作：**${done}**  来源：\`${source}\`` +
+        `\n\n**处置时的名字**\n用户名：\`${snap.username}\`　全局显示名：\`${snap.global_name || '（无）'}\`　服务器昵称：\`${snap.nickname || '（无）'}\`` +
+        `\n写入审计日志的理由：\`${reason}\``,
       fields: [{ name: '账号创建于', value: `${ageDays} 天前`, inline: true }],
     }, 0x3ba55d);
   } catch (e) {
