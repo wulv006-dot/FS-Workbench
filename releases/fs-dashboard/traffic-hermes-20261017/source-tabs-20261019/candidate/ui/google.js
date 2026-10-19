@@ -332,6 +332,12 @@ function renderSourceBody(panel,p,site,source){
   for(const [key,title,dim]of specs){const t=s.breakdowns?.[key]||{};details.append(fullDetail(title,[{key:dim,label:title,get:r=>r.dimensions?.[dim]},...(source==='ga4'?['sessions','activeUsers','bounceRate']:['clicks','impressions','ctr','position']).map(metricCol)],t.rows,'返回 '+(t.returned_dimension_rows??'未知')+' 行；本页展示 '+(t.rows?.length??0)+' 行，展示范围不等于来源完整总量。'));}
  }
  if(game==='all')panel.append(details);else{const d=el('details',null,'source-details');d.append(el('summary','展开全局维度参考（不属于当前游戏）'),details);panel.append(d);}
+ const related=el('details',null,'source-details');related.append(el('summary','经营关联 · 订单结构与新客优惠（按需）'));
+ if(site!=='rsorder'){
+  if(['all','FC27','D4','AION2'].includes(game))renderESStructure(related,p);else related.append(el('p','当前游戏的订单结构映射尚未核实；不拿全站订单代替。','coverage'));
+  const membership=el('div'),read=el('button','读取同期间会员与优惠情况','fs-btn');read.type='button';read.onclick=()=>loadBusinessLinks(membership,p,scope.model.businessLinks);related.append(read,membership);
+ }else related.append(el('p','此经营关联仅验证MMOEXP主站，未用它代替RSOrder。','coverage'));
+ panel.append(related);
  const action=section('经营解读与行动','查看已生成报告，或进入Hermes按所选日期研究；切标签不会触发模型重跑。');renderReportLinks(action,p);const business=el('a','查看经营分析 →','fs-btn');business.href='/dashboard/analytics/?mode=business';action.append(business);panel.append(action);
 }
 function render(container,model){
