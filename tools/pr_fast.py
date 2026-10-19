@@ -321,6 +321,8 @@ def select(paths):
             groups.add("hermes-data-workspace");continue
         if name.startswith("releases/fs-dashboard/hermes-conversation-20261018/"):
             groups.add("hermes-conversation");continue
+        if name.startswith("releases/fs-dashboard/hermes-report-repair-20261019/"):
+            groups.add("hermes-report-repair");continue
         if name.startswith("releases/fs-dashboard/hermes-customer-tracking-20261018/"):
             groups.add("hermes-customer-tracking");continue
         if name.startswith("releases/fs-dashboard/hermes-generic-data-20261018/"):
@@ -831,6 +833,10 @@ def main():
             release="releases/fs-dashboard/hermes-conversation-20261018"
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
             units(release+"/deploy",["test_http","test_release"])
+        elif group=="hermes-report-repair":
+            release="releases/fs-dashboard/hermes-report-repair-20261019"
+            units(release+"/tests",["test_report_repair"])
+            browser_python(release+"/tests/test_bulk_browser.py")
         elif group=="hermes-customer-tracking":
             release="releases/fs-dashboard/hermes-customer-tracking-20261018"
             units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers","test_safe_diagnostic","test_scope_filter"])
