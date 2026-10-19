@@ -56,7 +56,7 @@ def prepare():
  for rel,(target,sha) in TARGETS.items():
   if digest(Path(target))!=sha:raise ValueError('baseline drift '+target)
  m={'schemaVersion':1,'scope':'traffic-source-tabs-ui-finish-20261019','releaseReady':True,'businessWrites':False,'timersChanged':False,'runtimeRequired':{'nginx.service':{'ActiveState':'active'},'fs-marketing-range.service':{'ActiveState':'active'}},'unchangedRequired':[],'files':[{'candidate':r,'target':t,'beforeSha256':sha,'sha256':digest(C/r)} for r,(t,sha) in TARGETS.items()]}
- for path in ['/opt/fs-hermes-fc/tracking_controller.py','/opt/fs-hermes-fc/customer_tracking.py','/var/www/dashboard/fs-home/hermes/conversation/conversation.js','/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.js','/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.css']:
+ for path in ['/var/www/dashboard/index.html','/opt/fs-hermes-fc/tracking_controller.py','/opt/fs-hermes-fc/customer_tracking.py','/var/www/dashboard/fs-home/hermes/conversation/conversation.js','/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.js','/var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.css']:
   m['unchangedRequired'].append({'path':path,'sha256':digest(Path(path))})
  (P/'targets.json').write_text(json.dumps({r:t for r,(t,_) in TARGETS.items()},indent=2))
  raw=json.dumps(m,indent=2).encode();(P/'manifest.json').write_bytes(raw)
