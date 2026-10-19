@@ -522,6 +522,8 @@ def select(paths):
             if name.startswith("opt/nba-reprice/backend/api_security"):
                 groups.add("nba")
             groups.add("ops-modules");continue
+        if name.startswith("releases/fs-dashboard/hermes-navigation-range-20261019/") and suffix in (".py",".js",".cjs"):
+            groups.add("hermes-navigation-range");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
@@ -837,6 +839,9 @@ def main():
             release="releases/fs-dashboard/hermes-report-repair-20261019"
             units(release+"/tests",["test_report_repair","test_management_cadence"])
             browser_python(release+"/tests/test_bulk_browser.py")
+        elif group=="hermes-navigation-range":
+            units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
+            node("releases/fs-dashboard/hermes-navigation-range-20261019/tests/range.cjs")
         elif group=="hermes-customer-tracking":
             release="releases/fs-dashboard/hermes-customer-tracking-20261018"
             units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers","test_safe_diagnostic","test_scope_filter"])
@@ -904,5 +909,6 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 

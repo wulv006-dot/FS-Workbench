@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
+  <title>智体客单追踪 · FS</title>
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
+  <link rel="stylesheet" href="page.css">
+  <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
+  <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
+  <script defer src="page.js?v=hermes-nav-20261019-v1"></script>
+<link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v1">
+<script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
+</head>
+<body class="fs-ui-page fs-unified-navigation">
+<nav id="hubNav" aria-label="FS 统一导航">
+<a class="hn-brand" href="/dashboard/">FS · MMOEXP</a>
+<a class="hn-home" href="/dashboard/">首页</a>
+<section class="hn-group">
+<a class="hn-heading" href="/dashboard/modules/analytics/"><span class="hn-icon">▥</span><span>数据分析</span></a>
+<a class="hn-tool" href="/dashboard/analytics/?mode=business">数据看板</a>
+<a class="hn-tool" href="/dashboard/data-tools/">数据分析工具</a>
+<a class="hn-tool" href="/dashboard/fs-home/brain/index.html?report_kind=weekly#reports">运营报告</a>
+<a class="hn-tool" href="/dashboard/management/">经营管理台</a>
+<a class="hn-tool" href="/dashboard/game-monitor/">游戏监控台</a>
+</section>
+<section class="hn-group"><a class="hn-heading" href="/dashboard/modules/hermes/" aria-current="true"><span class="hn-icon">◈</span><span>Hermes 智体</span></a><a class="hn-tool" href="/dashboard/fs-home/brain/index.html">智体决策报告</a><a class="hn-tool" href="/dashboard/fs-home/hermes/conversation/">持续对话</a><a class="hn-tool" href="/dashboard/fs-home/hermes/customer-tracking/">智体客单追踪</a></section>
+<section class="hn-group">
+<a class="hn-heading" href="/dashboard/modules/sports/"><span class="hn-icon">◉</span><span>球类工作区</span></a>
+</section>
+<section class="hn-group">
+<a class="hn-heading" href="/dashboard/modules/arpg/"><span class="hn-icon">♜</span><span>RPG 工作区</span></a>
+</section>
+<section class="hn-group">
+<a class="hn-heading" href="/dashboard/modules/bots/"><span class="hn-icon">⚙</span><span>机器人管理</span></a>
+</section>
+<section class="hn-group">
+<a class="hn-heading" href="/dashboard/modules/collaboration/"><span class="hn-icon">▦</span><span>协作工具</span></a>
+</section>
+<div class="hn-account"><a href="/__auth/status" data-fs-user>当前账号</a><a href="/__auth/access/" data-fs-admin hidden>账号与权限管理</a></div>
+</nav>
+<button id="hubNavToggle" type="button" aria-controls="hubNav" aria-expanded="false">☰ 导航</button>
+<button id="hubNavScrim" type="button" hidden aria-label="关闭导航"></button>
+  <a class="skip" href="#main">跳到主内容</a>
+  <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/modules/hermes/">Hermes 智体</a><span aria-hidden="true"> / </span><span aria-current="page">智体客单追踪</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
+  <main id="main" tabindex="-1">
+    <div class="intro"><p class="eyebrow">HERMES · FC27 CUSTOMER TRACKING</p><h1>智体客单追踪</h1><p>首期聚焦 FC27。筛选高价值订单，人工决定是否加入持续观察。Hermes 只提出维护建议；联系客户、发券及修改订单均需另行人工操作。</p></div>
+    <p id="status" class="status" role="status" aria-live="polite">正在核对管理员权限…</p><button id="reconcile-write" class="fs-btn" type="button" hidden>核对上次操作</button>
+    <div id="app" hidden>
+      <section class="panel" aria-labelledby="config-title"><div class="section-head"><h2 id="config-title">筛选条件</h2><span id="config-version" class="muted"></span></div>
+        <form id="config-form">
+          <div class="fields"><label>游戏 <select name="profile" required disabled><option value="FC27">FC27（首期）</option></select></label><fieldset><legend>商品品类</legend><label><input type="checkbox" name="product_types" value="Coins"> Coins（货币）</label><label><input type="checkbox" name="product_types" value="Items"> Items（物品）</label></fieldset><label>单笔订单金额高于（USD） <input name="min_order_usd_exclusive" type="number" min="0" step="0.01" required></label><label>折扣金额低于（USD） <input name="max_discount_usd_exclusive" type="number" min="0" step="0.01" required></label><fieldset><legend>新老客标记</legend><label><input type="checkbox" name="customer_flags" value="new"> 新客</label><label><input type="checkbox" name="customer_flags" value="old"> 老客</label><label><input type="checkbox" name="customer_flags" value="unknown"> 未识别</label></fieldset></div>
+          <p class="hint">金额为严格大于／小于；新老客以数据源标记为准，游客 UID 0 不等于新客。</p><p id="enabled-state" class="muted"></p><div class="actions"><button id="save-config" class="fs-btn fs-btn--primary" type="submit">保存条件</button><span id="config-state" class="muted"></span></div>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="candidate-title"><div class="section-head"><div><h2 id="candidate-title">区间候选名单</h2><p class="hint">仅管理员可见。按北京时间所选起止日期（含首尾）合并每日归档，缺失日期单独提示，不当作零订单。</p></div><form id="date-form"><label>开始日期 <input id="candidate-date" name="start" type="date" required></label><label>结束日期 <input id="candidate-end" name="end" type="date" required></label><button class="fs-btn" type="submit">查看名单</button><button id="scan-day" class="fs-btn fs-btn--primary" type="button">扫描所选区间</button></form></div><p id="candidate-meta" class="muted"></p><div id="candidate-list" class="list"><p class="empty">选择起止日期查看名单。</p></div></section>
+      <section class="panel" aria-labelledby="tracked-title"><div class="section-head"><h2 id="tracked-title">持续观察名单</h2><button id="refresh-tracked" class="fs-btn" type="button">刷新名单</button></div><div id="tracked-list" class="list"><p class="empty">正在读取观察名单…</p></div></section>
+      <section id="detail-section" class="panel" aria-labelledby="detail-title" hidden><div class="section-head"><h2 id="detail-title">客户观察详情</h2><button id="refresh-detail" class="fs-btn" type="button">刷新观察</button></div><div id="detail"></div></section>
+    </div>
+  </main>
+</body>
+</html>

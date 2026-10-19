@@ -1,0 +1,34 @@
+#hubNav{--n-surface:#fff;--n-surface2:#f7f9fb;--n-text:#1b2632;--n-muted:#596980;--n-line:#dce3eb;--n-line-soft:#e8edf3;--n-brand:#1f6f73;--n-brand-soft:#e3f0ef;--n-focus:#147a80;--n-font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+html[data-fs-theme="dark"] #hubNav,#hubNav[data-theme="dark"]{--n-surface:#121d31;--n-surface2:#182641;--n-text:#e8eef6;--n-muted:#b6c4d7;--n-line:#35465f;--n-line-soft:#293a51;--n-brand:#4db8b0;--n-brand-soft:#183a40;--n-focus:#7fd0c9}
+body.fs-unified-navigation{margin-left:236px!important}
+body.fs-unified-navigation #sidebar,body.fs-unified-navigation .global-nav,body.fs-unified-navigation #menu{display:none!important}
+body.fs-unified-navigation .shell{margin-left:0!important}body.fs-unified-navigation .platform-header{padding-inline:24px}
+body.fs-unified-navigation .topbar{left:236px}
+#hubNav{display:block;position:fixed;inset:0 auto 0 0;width:236px;overflow-y:auto;z-index:80;background:var(--n-surface);color:var(--n-text);border-right:1px solid var(--n-line);font:13px/1.55 var(--n-font);padding:22px 14px;text-align:left;margin:0}
+#hubNav,#hubNav *{box-sizing:border-box}#hubNav a{display:block;color:inherit;text-decoration:none;border-radius:9px;padding:9px 11px;cursor:pointer}
+#hubNav a:hover,#hubNav a[aria-current]{background:var(--n-brand-soft);color:var(--n-brand)}
+#hubNav a:focus-visible,#hubNav select:focus-visible,#hubNavToggle:focus-visible{outline:3px solid var(--n-focus);outline-offset:2px}
+#hubNav .hn-brand{font-size:18px;font-weight:700;padding:8px 11px 24px;letter-spacing:.02em}#hubNav .hn-home{font-weight:600}
+#hubNav .hn-group{padding-top:5px;margin-top:5px}#hubNav .hn-heading{font-weight:600;display:flex;gap:11px;align-items:center}
+#hubNav .hn-icon{font-size:17px;width:21px;text-align:center;color:var(--n-brand)}
+#hubNav .hn-tool{font-size:12px;margin-left:14px;padding:7px 12px;border-left:1px solid var(--n-line);border-radius:0 8px 8px 0}
+#hubNav .hn-account{border-top:1px solid var(--n-line);margin-top:22px;padding-top:15px;font-size:12px}
+#hubNav .hn-status{font-size:12px;color:var(--n-muted);padding:4px 11px}
+#hubNav .hn-theme{display:grid;gap:7px;padding:12px 11px 4px;color:var(--n-muted);font-size:12px}
+#hubNav .hn-theme select{width:100%;padding:7px 9px;border:1px solid var(--n-line);border-radius:9px;background:var(--n-surface2);color:var(--n-text)}
+body.fs-unified-navigation #hubNavToggle,body.fs-unified-navigation #hubNavScrim{display:none}
+@media(max-width:899px){body.fs-unified-navigation{margin-left:0!important;padding-top:50px!important}#hubNav{transform:translateX(-100%);width:min(270px,85vw);padding-top:52px}#hubNav.open{transform:none}body.fs-unified-navigation .topbar{left:0}body.fs-unified-navigation #hubNavToggle{display:block;position:fixed;top:8px;left:12px;z-index:81;border:1px solid var(--n-line);border-radius:9px;background:var(--n-surface);color:var(--n-text);padding:7px 12px;font:13px var(--n-font)}body.fs-unified-navigation #hubNavScrim:not([hidden]){display:block;position:fixed;inset:0;z-index:79;background:#07172b66;border:0;width:100%;height:100%}}
+@media print{#hubNav,#hubNavToggle,#hubNavScrim{display:none!important}body.fs-unified-navigation{margin-left:0!important}}
+#hubNavGate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;background:rgba(7,23,43,.16);backdrop-filter:blur(2px)}
+#hubNavGate .card{min-width:260px;max-width:86vw;background:#fff;color:#1b2632;border:1px solid #dce3eb;border-radius:14px;padding:22px 24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+#hubNavGate .card p{margin:12px 0 0;font:14px/1.55 system-ui}#hubNavGate .card strong{font-size:15px}
+#hubNavGate a.btn{display:inline-block;margin-top:14px;padding:9px 16px;border-radius:9px;background:#1f6f73;color:#fff;text-decoration:none;font:14px system-ui}
+#hubNavGate.fade{opacity:0;transition:opacity .25s ease}/* Shared same-origin document transition: native history/auth remain authoritative. */
+@view-transition{navigation:auto}
+#hubNav{view-transition-name:fs-nav}
+::view-transition-old(fs-nav),::view-transition-new(fs-nav){animation:none}
+::view-transition-old(root){animation-duration:.10s}
+::view-transition-new(root){animation-duration:.16s}
+@media(prefers-reduced-motion:reduce){@view-transition{navigation:none}::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
+
+#hubNav [hidden]{display:none!important}
