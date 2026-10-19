@@ -9,7 +9,7 @@ def main():
   if sha(target)!=value:raise ValueError('current UI baseline drift')
  previous=json.loads((p/'manifest.json').read_text())
  protected={r['target']:r['sha256'] for r in previous['files'] if r['candidate'].startswith(('data/','range/'))}
- protected['/var/www/dashboard/index.html']='5c6c217a4353ae9cd8aa9ec0a10f97c1cddac89041a028418a17d2fdb8b603ba'
+ protected['/var/www/dashboard/index.html']='5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475'
  for target,value in protected.items():
   if sha(target)!=value:raise ValueError('protected runtime drift')
  config=Path(CONFIG).read_text()
