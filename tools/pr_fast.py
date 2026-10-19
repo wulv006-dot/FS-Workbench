@@ -842,6 +842,7 @@ def main():
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
             node("releases/fs-dashboard/hermes-navigation-range-20261019/tests/range.cjs")
+            node("releases/fs-dashboard/hermes-navigation-range-20261019/detail-feedback/tests/detail-feedback.cjs")
         elif group=="hermes-customer-tracking":
             release="releases/fs-dashboard/hermes-customer-tracking-20261018"
             units(release+"/tests",["test_customer_tracking","test_tracking_source","test_private_tracking","test_tracking_tool","test_customer_reports","test_legacy_consumers","test_safe_diagnostic","test_scope_filter"])
