@@ -2032,23 +2032,23 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     const _ddPark = isNaN(_ddParkNum) ? 19.9 : _ddParkNum;
     /* 2026-10-09（老板口径「该区无 cheapold 卖家，则保持30%的利润」）：
        无 cheapold 卖家的区不再跟 G2G 推荐前二，改按 **成本 ÷ (1−利润率)** 定价。
-       利润率走 config（金币.定价策略.无cheapold利润率，默认 0.30）—— 看板文案跟着配置走，
+       利润率走 config（金币.定价策略.无cheapold利润率，默认 0.22）—— 看板文案跟着配置走，
        日后改利润率不会出现「看板还写着旧值」的滞后。 */
     const _ncNum = Number(_pol['无cheapold利润率']);
-    const _nc = (isNaN(_ncNum) || _ncNum < 0) ? 0.30 : _ncNum;
-    const _ncAdd = Math.round(_nc * 100);                  // 30（利润率 30%）
-    const _ncMg = Math.round(_nc * 1000) / 10;             // 30（平台口径利润率 (P−C)/P）
+    const _nc = (isNaN(_ncNum) || _ncNum < 0) ? 0.22 : _ncNum;
+    const _ncAdd = Math.round(_nc * 100);                  // 22（利润率 22%）
+    const _ncMg = Math.round(_nc * 1000) / 10;             // 22（平台口径利润率 (P−C)/P）
     /* 2026-10-09（老板口径「如果跟了 cheapold，利润率低于 20%，则强制调价到 20%」）：
        跟价后利润率不足下限的区会被**强制抬价**，看板要能一眼看出是哪几行被抬过。 */
     const _limNum = Number(_pol['利润率下限']);
-    const _limMg = isNaN(_limNum) ? 0.30 : _limNum;
-    const _limAdd = Math.round(_limMg * 100);              // 20
+    const _limMg = isNaN(_limNum) ? 0.15 : _limNum;
+    const _limAdd = Math.round(_limMg * 100);              // 15（2026-10-19 由 23 下调）
     /* 2026-10-12（老板口径「跟价后利润大于 30% 就强行压到 30% 利润左右」）：
        跟价后**利润率**超过上限的行会被**强行压价**，看板要能一眼看出是哪几行被压过。
-       口径 = 利润率 (P−C)/P（config 金币.定价策略.利润率上限，默认 0.45）。 */
+       口径 = 利润率 (P−C)/P（config 金币.定价策略.利润率上限，默认 0.22）。 */
     const _capNum = Number(_pol['利润率上限']);
-    const _capMg  = isNaN(_capNum) ? 0.45 : _capNum;
-    const _capAdd = Math.round(_capMg * 100);              // 45（利润率上限 45%）
+    const _capMg  = isNaN(_capNum) ? 0.22 : _capNum;
+    const _capAdd = Math.round(_capMg * 100);              // 22（利润率上限 22%）
     /* 旧「定价级别」单元格 —— 只在 dd373 两种模式下还有意义（D4 等游戏仍走这里，逐字不变）。 */
     const tierCell = (tier==null)
       ? '<td class="num" style="color:var(--sub)">'+(_isDDonly?'—':'旧口径')+'</td>'
@@ -2107,7 +2107,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
     /* ===== 2026-10-09（老板口径）· **跟价基准** 单元格 =====
        主数字 = 我方真正在跟的那个价：
          · 有 cheapold → cheapold 价（成本兜底前，不受保本抬价影响）；
-         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 ÷ (1−利润率)（默认 0.30）**，
+         · 无 cheapold → **2026-10-09 起 = 本区 DD373 成本 ÷ (1−利润率)（默认 0.22）**，
            不再跟 G2G 推荐前二（该口径已废止）。
        · 新列 g2g_base 落库后优先用；旧快照该列还是 NULL ⇒ 回落 src_base_v
          （两者等价；唯一差别是「成本兜底」那几行旧快照会短暂显示成本价，下一轮自动校正）。 */
@@ -2230,15 +2230,15 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
      还是「第N级 / 三源 G2G 最低」，就成了新的口径不一致。所以这里按模式分叉。 */
   const _isG2GC2 = _pol2['模式']==='g2g_cheapold';
   /* 2026-10-09：无 cheapold 卖家的区改按「成本 ÷ (1−利润率)」定价 ⇒ 表头副标与分布都要跟上，
-     利润率从 config 读（金币.定价策略.无cheapold利润率，默认 0.30）。 */
+     利润率从 config 读（金币.定价策略.无cheapold利润率，默认 0.22）。 */
   const _ncv2 = Number(_pol2['无cheapold利润率']);
-  const _nc2 = (isNaN(_ncv2) || _ncv2 < 0) ? 0.30 : _ncv2;
+  const _nc2 = (isNaN(_ncv2) || _ncv2 < 0) ? 0.22 : _ncv2;
   /* 2026-10-09：20% 利润下限（config 金币.定价策略.利润率下限）—— 表头/汇总条跟着配置走。 */
   const _limv2 = Number(_pol2['利润率下限']);
-  const _limLbl2 = Math.round((isNaN(_limv2) ? 0.30 : _limv2) * 100);
-  /* 2026-10-12：利润率上限（config 金币.定价策略.利润率上限，默认 0.45）—— 同上。 */
+  const _limLbl2 = Math.round((isNaN(_limv2) ? 0.15 : _limv2) * 100);
+  /* 2026-10-12：利润率上限（config 金币.定价策略.利润率上限，默认 0.22；沿革 0.45→0.30(10-17)→0.22(10-19)）—— 同上。 */
   const _capv2 = Number(_pol2['利润率上限']);
-  const _capLbl2 = Math.round((isNaN(_capv2) ? 0.45 : _capv2) * 100);
+  const _capLbl2 = Math.round((isNaN(_capv2) ? 0.22 : _capv2) * 100);
   if(_pol2['模式']==='dd373_markup'){
     sumBits.push('第1级 '+_dist[1]+' ｜ <span style="color:var(--yellow)">第2级 '+_dist[2]
       + '</span> ｜ <span style="color:var(--red)">第3级 '+_dist[3]+'</span>');
@@ -2356,7 +2356,7 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
                  + '利润率低于 '+_limLbl2+'% ⇒ <b style="color:var(--red)">强制抬到 '
                  + _limLbl2+'% 利润</b>（含成本兜底那批）；'
                  + '利润率超 '+_capLbl2+'% ⇒ <b style="color:var(--red)">强行压到 成本÷'
-                 + (1 - (isNaN(_capv2) ? 0.45 : _capv2)).toFixed(2)+'</b>（只对正常跟 cheapold 的行）；'
+                 + (1 - (isNaN(_capv2) ? 0.22 : _capv2)).toFixed(2)+'</b>（只对正常跟 cheapold 的行）；'
                  + '竞品低于我方成本 ⇒ 不再跟降（按成本价，随后一样受上述利润下限约束）；'
                  + 'DD373 无货 ⇒ 统一挂 $'
                  + (Number(_pol2['无货兜底售价_USD每M'])||19.9).toFixed(2)+'/M 保护</b>')
