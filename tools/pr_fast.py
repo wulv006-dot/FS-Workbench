@@ -522,6 +522,8 @@ def select(paths):
             if name.startswith("opt/nba-reprice/backend/api_security"):
                 groups.add("nba")
             groups.add("ops-modules");continue
+        if name.startswith("releases/fs-dashboard/hermes-customer-lifecycle-20261019/") and suffix in (".py",".js",".cjs"):
+            groups.add("customer-lifecycle");continue
         if name.startswith("releases/fs-dashboard/hermes-navigation-range-20261019/") and suffix in (".py",".js",".cjs"):
             groups.add("hermes-navigation-range");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
@@ -839,6 +841,8 @@ def main():
             release="releases/fs-dashboard/hermes-report-repair-20261019"
             units(release+"/tests",["test_report_repair","test_management_cadence"])
             browser_python(release+"/tests/test_bulk_browser.py")
+        elif group=="customer-lifecycle":
+            units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle"])
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
             node("releases/fs-dashboard/hermes-navigation-range-20261019/tests/range.cjs")
