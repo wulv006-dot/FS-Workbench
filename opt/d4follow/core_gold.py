@@ -399,7 +399,7 @@ def pricing_policy(cfg, game=None):
         # 🔴 2026-10-12 老板定案 · **利润率上限闸**（「利润率下限」的对称"天花板"）
         #   老板原话：「在跟进 cheapold 的价的同时，如果跟价后利润大于 30%，则强行将
         #   价格压到 30% 利润左右」。口径经确认为 **利润率** (售价−成本)÷售价：
-        #     · 上限价 = 本区 DD373 成本 ÷ (1 − 上限) = 成本 ÷ 0.55（上限 45%）；
+        #     · 上限价 = 本区 DD373 成本 ÷ (1 − 上限) = 成本 ÷ 0.70（上限 30%）；
         #     · 有 cheapold 的区目标 = min( cheapold价 × (1−下浮) , 成本 ÷ (1−上限) )。
         #   2026-10-13 老板定案：**上限由 30% 提到 40%，同日 02:15 再提到 45%**
         #   （与 g2gfollow 统一口径）。下限亦由 20% 上调为 30%，45% > 30% ⇒ 不打架。
@@ -657,7 +657,22 @@ def servers_of(cfg):
     return DEFAULT_SERVERS
 
 
-def tier_of(cfg):
+def tier_of(cfg, game=None):
+    """对标档位（K/M 数）：**按游戏覆盖优先**，其次全局。
+
+    2026-10-17：原来只读全局 `金币.对标档位`（=10000），
+      ⇒ MSCW 在 `游戏参数.MapleStory Classic World.对标档位` 配的 500（现 1000）
+         **根本没被读**，看板一直拿「我方最大档 5000K」当尺子，
+        跟客户实际看的 100K / 1000K 档对不上。这里先按游戏取。
+    """
+    try:
+        _p = (cfg_gold(cfg).get("游戏参数") or {}).get(game or "") or {}
+        if isinstance(_p, dict):
+            _v = int(_p.get("对标档位"))
+            if _v > 0:
+                return _v
+    except (TypeError, ValueError):
+        pass
     try:
         return int(cfg_gold(cfg).get("对标档位", 10000))
     except (TypeError, ValueError):
@@ -852,9 +867,11 @@ class IggmGold(object):
 
         ⚠ 原来是「按金币页路径分别记 _warmed」，现统一交给 core_iggm 的进程级会话
           —— cookie 是域级，预热过任意页面即全站可用。
+        ⚠ 2026-10-19：显式用**金币缸**（core_iggm.GOLD_SESSION），不再借物品侧的会话。
         """
         page = page or GAME_PARAMS[DEFAULT_GAME]["IGGM金币页"]
-        ok = _ci._prime(IGGM_BASE + page, timeout=self.timeout, force=force)
+        ok = _ci._prime(IGGM_BASE + page, timeout=self.timeout, force=force,
+                        sess=_ci.GOLD_SESSION)
         if not ok:
             self.log("  [金币/IGGM] 取 cookie 失败（%s）" % page)
         return ok
@@ -865,13 +882,17 @@ class IggmGold(object):
         `page` = 该游戏的金币页路径（同时决定 Referer 与 cookie 预热页），缺省 = D4。
         URL 与改造前**逐字一致**（golds 模板不带 game_sku）；
         重试 / 会话自愈 / 熔断由 core_iggm 负责（`retry` 透传给 core_iggm._get）。
+
+        ⚠ 2026-10-19：整条链路走**金币缸**（不与物品共用 cookie/熔断）——
+          物品全量被抓不再让金币一起熔断（冒险岛「隔一轮断一次」的根因）。
         """
         page = page or GAME_PARAMS[DEFAULT_GAME]["IGGM金币页"]
         qs = urllib.parse.urlencode({
             "template_type": "golds", "server_id": str(server_id), "cate_id": 0,
         })
         body = _ci._get(IGGM_BASE + "/goods/goods_ajax?" + qs,
-                        referer=IGGM_BASE + page, timeout=self.timeout, retry=retry)
+                        referer=IGGM_BASE + page, timeout=self.timeout, retry=retry,
+                        sess=_ci.GOLD_SESSION)
         d = (json.loads(body) or {}).get("data") or {}
         g = d.get("one_goods") or {}
         tiers = [{"num": int(x.get("num") or 0), "all": _f(x.get("all")),
@@ -1142,6 +1163,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             continue
         gm = server_game(cfg, sv)                  # 该服务区属于哪个游戏（多游戏接入）
         gp = game_param(cfg, gm)
+        tier = tier_of(cfg, gm)                    # ⭐ 对标档位按游戏取（MSCW = 1000K）
         _k_row = factor_of(cfg, gm)                # ⭐ 折算系数**按游戏**（MSCW = 1.0）
         _dm = display_mult_of(cfg, gm)             # 展示倍率（D4 = 1e5 / Aion 2 = 1）
         # 展示单位名（10万M / M / K）—— 优先用游戏参数里的显式声明（MSCW = "K"；
@@ -1176,8 +1198,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 if not _blk_hit[0]:
                     _blk_hit[0] = True
                     log("  [金币/IGGM] 撞 CF 拦截 → 本轮停止后续 IGGM 抓取"
-                        "（冷却剩余 %ss）：%r"
-                        % (_ci.breaker_state().get("remain_s"), e))
+                        "（金币侧冷却剩余 %ss）：%r"
+                        % (_ci.breaker_state(_ci.GOLD_SESSION).get("remain_s"), e))
             else:
                 rec["错误"] = "IGGM 抓取失败：%r" % e
                 log("  [金币/IGGM] %s 抓取失败：%r" % (sv.get("中文名"), e))
@@ -1619,10 +1641,35 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 except Exception as _e:            # noqa: BLE001
                     log("  [金币/多源] %s 三源解析失败：%r" % (sv.get("中文名"), _e))
             if igp:
+                # ── 2026-10-17 老板口径：「按 1000K 的标准，读他 1000K 的价格，我们要比他们低」
+                #   基准**不再用 IGGM 的基础单价**（那是它 50K 档的价 0.119，比 1000K 档贵 5.3%
+                #   —— 拿它当锚等于让我们整体贵 5%），改成读 **对标档位那一档**的每K价：
+                #   config.金币.游戏参数.<游戏>.对标档位（MSCW 现为 1000）→ IGGM 同档价。
+                #   目标 = 该档价 × (1 − 让价比例)；成本除数按**该档前台折扣**算（前台系数）。
+                _igp_base = igp
+                _ig_map0 = {}
+                for _t in (rec.get("IGGM档位") or []):
+                    _n0, _a0 = int(_t.get("num") or 0), _f(_t.get("all"))
+                    if _n0 and _a0:
+                        _ig_map0[_n0] = _a0 / _n0
+                if _ig_map0 and tier:
+                    _n3 = int(tier)
+                    _igk3 = _ig_map0.get(_n3)
+                    if _igk3 is None:                     # 无同档 → 取「不超过该档的最大档」= 更严
+                        _lo3 = [n for n in _ig_map0 if n <= _n3]
+                        _igk3 = _ig_map0[max(_lo3)] if _lo3 else _ig_map0[min(_ig_map0)]
+                    if _igk3 and _igk3 > 0:
+                        igp = _igk3
+                        rec["IGGM基础单价"] = _igp_base
+                        rec["IGGM同档"] = _n3
+                        rec["IGGM同档每K"] = round(_igk3, 6)
+                        rec["IGGM每M"] = igp
+                        rec["IGGM每M_跟价用"] = igp
                 _tgt_from_base = igp * (1.0 - float(_disc2))
                 _base_src = "IGGM"
                 rec["基准价"] = igp
-                rec["基准来源"] = "IGGM真价"
+                rec["基准来源"] = "IGGM真价%s" % (
+                    "（%sK 档）" % rec.get("IGGM同档") if rec.get("IGGM同档") else "")
                 rec["定价来源级别"] = 1
                 _base_detail = ("IGGM 真价 $%s/%s × (1−%.0f%%)（无成本加价）"
                                 % (fmt_money(per_100k(igp, _dm)), _ul, float(_disc2) * 100))
@@ -1799,7 +1846,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["利润率_压价前"] = round(_mkup, 6)
                 rec["利润率上限"] = _capu
                 if _mkup > _capu + 1e-9:
-                    # P ≤ C÷(1−cap)：cap=0.45 ⇒ 成本 ÷ 0.55
+                    # P ≤ C÷(1−cap)：cap=0.30 ⇒ 成本 ÷ 0.70
                     _cap_price = _cu5 / (1.0 - min(float(_capu), 0.99))
                     _pre_c = float(tgt_m)
                     tgt_m = _cap_price
@@ -1921,7 +1968,9 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                         if _igk is None:
                             _lo_n = [n for n in _ig_map if n <= _n2]
                             _igk = _ig_map[max(_lo_n)] if _lo_n else _ig_map[min(_ig_map)]
-                        _c = _igk / _dsc * _div_base
+                        # 让价：老板口径「我们要比他们低」⇒ 每一个档位都按 (1−让价比例) 再压一次，
+                        #   否则最紧的那档（500K）只会打平、看起来「没比比人低」。
+                        _c = _igk / _dsc * _div_base * (1.0 - float(_disc2))
                         if _cap is None or _c < _cap:
                             _cap, _cap_tier = _c, _n2
                             _cap_igk, _cap_dsc = _igk, _dsc

@@ -94,9 +94,42 @@ def _mul(v, k):
 # 实测：用同一 UA 先 GET 一次品类页（HTTP 200，种下 __cf_bm / SESS_ID / a2ec…），
 # 再打 ajax 就回到 HTTP 200。这里用进程级 CookieJar 复用这些 cookie，
 # 并在「首次」与「失败重试」时补一次页面请求（幂等、便宜，进程内 10 分钟只做一次）。
-_CJ = http.cookiejar.CookieJar()
-_OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_CJ))
-_PRIMED = {"ok": False, "ts": 0.0}
+class _Sess(object):
+    """一条独立的抓取会话：**自己的** CookieJar + 预热状态 + 熔断计数。
+
+    2026-10-19 新增（分缸）。为什么必须分：
+      · 物品全量一轮上千次 ajax（暗黑4 分类 + 多游戏物品），最容易撞上
+        CF 的速率阈值 ⇒ 403/挑战 ⇒ 熔断；
+      · 金币只有十几个服务区、量小，但它是**改价基准**，缺一轮就没价可跟。
+      原来两者共用同一 CookieJar + 同一熔断器 ⇒ 物品侧一被封，金币侧
+      **零网络请求**直接放弃 ⇒ 冒险岛（IGGM 是它唯一价源）「隔一轮断一次」。
+    分缸后：物品被封只影响物品，金币用自己干净的 cookie 继续抓。
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self.cj = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.cj))
+        self.primed_ok = False
+        self.primed_ts = 0.0
+        self.fails = 0
+        self.until = 0.0
+
+    def reset(self):
+        """清 jar + 重建 opener（撞拦截后会话必已被污染）。"""
+        self.cj = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.cj))
+        self.primed_ok = False
+        self.primed_ts = 0.0
+
+
+# 两个主缸：物品（默认）与金币；另可 new_session() 临时开干净会话
+_ITEM = _Sess("items")
+_GOLD = _Sess("gold")
+ITEM_SESSION = _ITEM        # 对外暴露（core_gold 等模块显式指定用哪条会话）
+GOLD_SESSION = _GOLD
 CF_MARK = "cf_chl_opt"          # 挑战页里必有的标记；正常 JSON 不会出现
 CF_TTL = 300                    # ⭐ __cf_bm 寿命约 30min，取 5min 保守刷新（原 600s 太赌）
 SLEEP_FLOOR = 1.5               # ⭐ 单请求最小间隔（原 0.8 太激进）
@@ -124,45 +157,52 @@ class IGGMBlocked(RuntimeError):
     """撞上 Cloudflare 挑战 / 被限 —— 调用方必须**立刻停止本轮所有 IGGM 请求**。"""
 
 
-# 熔断状态：fails = 连续失败次数；until = 冷却截止时间戳
-_BREAK = {"fails": 0, "until": 0.0}
+# 熔断状态：fails = 连续失败次数；until = 冷却截止时间戳（已搬进 _Sess）
 
 
-def _reset_session():
+def new_session(name="adhoc"):
+    """给调用方一条**干净独立**的会话（不共享 cookie / 不共享熔断）。"""
+    return _Sess(name)
+
+
+def _reset_session(sess=None):
     """⭐ 关键修复：清空 CookieJar 并重建 opener。
 
     原实现撞挑战时只清 `_PRIMED` 标志，jar 里那个失效的 `__cf_bm` 会被一直带着发出去，
     导致 prime 永远 403 —— 这就是「一封就连续十几轮、且不会自愈」的根因。
     """
-    global _CJ, _OPENER
-    _CJ = http.cookiejar.CookieJar()
-    _OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_CJ))
-    _PRIMED["ok"] = False
-    _PRIMED["ts"] = 0.0
+    (sess or _ITEM).reset()
 
 
-def _backoff(blocked=True):
+def _backoff(blocked=True, sess=None):
     """失败 → 递增冷却；成功 → 归零。返回本次冷却秒数。"""
+    s = sess or _ITEM
     if not blocked:
-        _BREAK["fails"] = 0
-        _BREAK["until"] = 0.0
+        s.fails = 0
+        s.until = 0.0
         return 0
-    _BREAK["fails"] += 1
-    wait = BACKOFF_STEPS[min(_BREAK["fails"], len(BACKOFF_STEPS)) - 1]
-    _BREAK["until"] = time.time() + wait
+    s.fails += 1
+    wait = BACKOFF_STEPS[min(s.fails, len(BACKOFF_STEPS)) - 1]
+    s.until = time.time() + wait
     return wait
 
 
-def _blocked_now():
+def _blocked_now(sess=None):
     """冷却期内 → True（调用方应直接放弃，一次网络都不要打）。"""
-    return time.time() < _BREAK["until"]
+    return time.time() < (sess or _ITEM).until
 
 
-def breaker_state():
-    """给看板/日志看熔断状态（只读）。"""
-    return {"fails": _BREAK["fails"],
-            "cooling": _blocked_now(),
-            "remain_s": max(0, int(_BREAK["until"] - time.time()))}
+def breaker_state(sess=None):
+    """给看板/日志看熔断状态（只读）。缺省 = 物品侧（保持老调用方行为）。"""
+    s = sess or _ITEM
+    return {"sess": s.name, "fails": s.fails,
+            "cooling": _blocked_now(s),
+            "remain_s": max(0, int(s.until - time.time()))}
+
+
+def breaker_state_all():
+    """两条主缸的熔断状态（采集日志 / 看板用）。"""
+    return {"items": breaker_state(_ITEM), "gold": breaker_state(_GOLD)}
 
 
 def _sleep(base=None):
@@ -174,35 +214,41 @@ def _sleep(base=None):
     time.sleep(max(b, SLEEP_FLOOR) + random.uniform(0, SLEEP_JITTER))
 
 
-def _prime(referer, timeout=30, force=False):
+def _prime(referer, timeout=30, force=False, sess=None):
     """请求一次页面拿 Cloudflare cookie；失败会**清 jar 重建**后重试一次。"""
+    s = sess or _ITEM
     now = time.time()
-    if not force and _PRIMED["ok"] and (now - _PRIMED["ts"]) < CF_TTL:
+    if not force and s.primed_ok and (now - s.primed_ts) < CF_TTL:
         return True
     url = referer or (BASE + "/")
     for attempt in (0, 1):
         try:
             req = urllib.request.Request(url, headers=_HEADERS)
-            with _OPENER.open(req, timeout=timeout) as r:
+            with s.opener.open(req, timeout=timeout) as r:
                 body = r.read()
             if CF_MARK.encode("utf-8") in body:      # HTTP 200 也可能是挑战页
                 raise RuntimeError("prime 拿到挑战页（len=%d）" % len(body))
-            _PRIMED["ok"] = True
-            _PRIMED["ts"] = time.time()
+            s.primed_ok = True
+            s.primed_ts = time.time()
             return True
         except Exception:
             # ⭐ 每次都从干净会话重试，绝不复用失效 cookie
-            _reset_session()
+            s.reset()
             if attempt == 0:
                 time.sleep(1.0)
     return False
 
 
-def _get(url, referer=None, timeout=30, retry=3):
-    """打 ajax。撞 CF 挑战 → 会话自愈重试；仍失败 → 抛 `IGGMBlocked`（调用方须停轮）。"""
-    if _blocked_now():
-        raise IGGMBlocked("IGGM 熔断冷却中（剩余 %.0f 分钟）"
-                          % ((_BREAK["until"] - time.time()) / 60.0))
+def _get(url, referer=None, timeout=30, retry=3, sess=None):
+    """打 ajax。撞 CF 挑战 → 会话自愈重试；仍失败 → 抛 `IGGMBlocked`（调用方须停轮）。
+
+    sess：走哪条会话（缺省 = 物品侧 _ITEM；金币侧传 GOLD_SESSION）。
+          会话自带熔断，所以金币不会被物品侧的冷却拖住。
+    """
+    s = sess or _ITEM
+    if _blocked_now(s):
+        raise IGGMBlocked("IGGM(%s) 熔断冷却中（剩余 %.0f 分钟）"
+                          % (s.name, (s.until - time.time()) / 60.0))
     headers = dict(_HEADERS)
     if referer:
         headers["Referer"] = referer
@@ -211,35 +257,36 @@ def _get(url, referer=None, timeout=30, retry=3):
     for i in range(retry):
         try:
             if referer:             # 先补页面 cookie 再打 ajax（挑战拦截的解法）
-                if not _prime(referer, timeout, force=(i > 0)):
+                if not _prime(referer, timeout, force=(i > 0), sess=s):
                     raise IGGMBlocked("prime 失败（页面被 CF 拦）")
             req = urllib.request.Request(url, headers=headers)
-            with _OPENER.open(req, timeout=timeout) as r:
+            with s.opener.open(req, timeout=timeout) as r:
                 body = r.read().decode("utf-8", "replace")
             if CF_MARK in body:     # HTTP 200 也可能是挑战页
                 raise IGGMBlocked("撞上 Cloudflare 挑战页（len=%d）" % len(body))
-            _backoff(blocked=False)         # ⭐ 成功即把连续失败归零
+            _backoff(blocked=False, sess=s)         # ⭐ 成功即把连续失败归零
             return body
         except urllib.error.HTTPError as e:
             net_util.drain_close(e)   # 2026-10-16 修 socket 泄漏：403 响应体不读就抛会把连接卡在 Recv-Q
             if e.code in (403, 429, 503):
-                _reset_session()            # ⭐ 拦截态 → 会话已被污染，重建
+                s.reset()                   # ⭐ 拦截态 → 会话已被污染，重建
                 last, cf_fail = IGGMBlocked("HTTP %d（CF 拦截）" % e.code), cf_fail + 1
             else:
-                _PRIMED["ok"] = False
+                s.primed_ok = False
                 last = e
         except IGGMBlocked as e:
-            _reset_session()
+            s.reset()
             last, cf_fail = e, cf_fail + 1
         except Exception as e:              # 网络抖动：不清 jar，重试
-            _PRIMED["ok"] = False
+            s.primed_ok = False
             last = e
         if cf_fail >= 2:                    # ⭐ 连续 2 次拦截判定 = 已被封，别再多打
             break
         time.sleep(min(1.5 * (i + 1), 5))
     if isinstance(last, IGGMBlocked):
-        wait = _backoff(blocked=True)
-        raise IGGMBlocked("%s ｜ 已熔断，冷却 %.0f 分钟" % (last, wait / 60.0))
+        wait = _backoff(blocked=True, sess=s)
+        raise IGGMBlocked("%s ｜ %s 已熔断，冷却 %.0f 分钟"
+                          % (last, s.name, wait / 60.0))
     raise last
 
 
@@ -253,12 +300,15 @@ def goods_ajax(game_sku, server_id, cate_id, page=1, referer=None):
 
 
 def goods_ajax_gold(game_sku, server_id, referer=None):
-    """金币行情（golds 模板）。返回 data 原样（含 one_goods / result_goods）"""
+    """金币行情（golds 模板）。返回 data 原样（含 one_goods / result_goods）
+
+    ⚠ 2026-10-19：固定走金币缸（GOLD_SESSION），与物品全量抓取互不影响。
+    """
     qs = urllib.parse.urlencode({
         "template_type": "golds", "server_id": str(server_id), "cate_id": 0,
         "game_sku": game_sku,
     })
-    body = _get(BASE + "/goods/goods_ajax?" + qs, referer=referer)
+    body = _get(BASE + "/goods/goods_ajax?" + qs, referer=referer, sess=_GOLD)
     return (json.loads(body) or {}).get("data") or {}
 
 
@@ -383,6 +433,26 @@ def scrape_zones(cfg, log=print, games=None):
     return out
 
 
+# 上一轮 scrape_all 的结果摘要（2026-10-19）
+# 为什么要它：`scrape_all` 返回 [] 有**两种完全不同的原因** ——
+#   ① 被 CF 拦（blocked = True，需要告警 + 金币兜底）；
+#   ② 本轮到期的游戏本来就没有 IGGM 目标（例如只有 AION2 / 冒险岛到期，
+#      它们的价走 core_gold 那条线，不走 scrape_all）⇒ 0 条是**正常**。
+# 上层只看 rows 会把 ② 当成 ①，一晚上发十几条误报的告警。
+LAST_RUN = {"ts": "", "blocked": False, "rows": 0, "reason": ""}
+
+
+def last_run():
+    """上一轮 scrape_all 的结果摘要（只读副本）。"""
+    return dict(LAST_RUN)
+
+
+def _mark_run(blocked, rows, reason=""):
+    LAST_RUN.update({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                     "blocked": bool(blocked), "rows": int(rows or 0),
+                     "reason": reason or ""})
+
+
 def gold_targets(cfg, games=None):
     out = []
     for game, g in ((cfg.get("iggm") or {}).get("多游戏") or {}).items():
@@ -410,12 +480,16 @@ def gold_targets(cfg, games=None):
 
 
 def scrape_golds(cfg, log=print, games=None):
-    """多游戏：按服务区抓金币行情 → 一条 `G:<服务区key>` 行（每万金价）"""
+    """多游戏：按服务区抓金币行情 → 一条 `G:<服务区key>` 行（每万金价）
+
+    ⚠ 2026-10-19：整段走**金币缸**（GOLD_SESSION）—— cookie 与熔断都与物品侧分开，
+      物品全量被抓也不会拖停金币。
+    """
     out = []
     delay = float(((cfg.get("iggm") or {}).get("请求延迟秒", 0.8)) or 0.8)
     for t in gold_targets(cfg, games=games):
-        if _blocked_now():                          # ⭐ 已熔断 → 一个都别再打
-            log("  [IGGM/金币] ⛔ 熔断冷却中，中止本轮其余金币区")
+        if _blocked_now(_GOLD):                     # ⭐ 金币缸熔断 → 一个都别再打
+            log("  [IGGM/金币] ⛔ 金币侧熔断冷却中，中止本轮其余金币区")
             break
         try:
             game = t["游戏"]
@@ -466,6 +540,25 @@ def scrape_golds(cfg, log=print, games=None):
 D4_GAME = "暗黑破坏神4"      # IGGM 主站分类（`目标` + `扩展分类`）固定归暗黑4
 
 
+def scrape_golds_only(cfg, log=print, games=None):
+    """**只抓金币**的独立通道（2026-10-19 新增）。
+
+    背景：`scrape_all` 一旦物品侧被 CF 拦，就整轮返回 []（合同：杜绝"半份快照"）。
+    但金币侧只有十几个区、量小得多，物品被封时它往往还是通的；而金币是改价基准，
+    丢了这一轮就没价可跟。上层（app.task_collect）在 0 条时调这里补一次：
+    抓到的金币行用于覆盖快照里的 G:xxx 行，其余行由 carryover 沿用上一份。
+
+    返回 rows（可能为空，不抛异常）。
+    """
+    try:
+        return scrape_golds(cfg, log=log, games=games)
+    except IGGMBlocked as e:
+        log("  [IGGM/金币] ⛔ 独立通道也被拦：%s" % e)
+    except Exception as e:
+        log("  [IGGM/金币] 独立通道异常：%r" % e)
+    return []
+
+
 def scrape_all(cfg, log=print, games=None):
     """抓 config 里所有启用的目标（暗黑4 分类 + 多游戏服务区 + 多游戏金币）
 
@@ -475,6 +568,7 @@ def scrape_all(cfg, log=print, games=None):
     if _blocked_now():                              # ⭐ 熔断中 → 整轮直接放弃
         log("  [IGGM] ⛔ 熔断冷却中（%s），本轮整轮跳过，沿用上一份快照"
             % breaker_state())
+        _mark_run(True, 0, "熔断冷却中（上一轮已被拦）")
         return []
     targets = []
     if games is None or D4_GAME in games:
@@ -523,7 +617,9 @@ def scrape_all(cfg, log=print, games=None):
     #   绝不返回「半个快照」—— 半份会让看板缺行、下一轮比价基线断。
     if blocked:
         log("  [IGGM] ⛔ 本轮被 CF 拦，整轮返回 0 条（上层沿用上一份完整快照）")
+        _mark_run(True, 0, "本轮被 CF 拦")
         return []
+    _mark_run(False, len(out), "" if out else "本轮无到期 IGGM 目标（正常空）")
     return out
 
 
