@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "scopeContract": "Existing global portal sessions/current membership only; FC login/register/roles/fallback retired; writes remain existing admins",
+  "sections": [
+    {
+      "id": "analytics",
+      "title": "数据分析",
+      "icon": "▥",
+      "intro": "数据看板、运营报告、经营管理与游戏监控。",
+      "ids": [
+        "unified-business",
+        "data-analysis-tools",
+        "weekly",
+        "management",
+        "game-monitor"
+      ],
+      "path": "/dashboard/modules/analytics/"
+    },
+    {
+      "id": "brain",
+      "title": "Hermes 智体",
+      "icon": "◈",
+      "intro": "决策报告、持续对话与客单追踪。",
+      "ids": [
+        "brain",
+        "hermes-conversation",
+        "customer-tracking"
+      ],
+      "path": "/dashboard/modules/hermes/"
+    },
+    {
+      "id": "sports",
+      "title": "球类工作区",
+      "icon": "◉",
+      "intro": "按 FC、MLB、NBA2K、Madden 进入业务工具。",
+      "ids": [
+        "coins",
+        "fc27-bundles",
+        "fc27-sbc",
+        "ops",
+        "players",
+        "gallery",
+        "odds",
+        "mlb",
+        "nba",
+        "madden"
+      ],
+      "path": "/dashboard/modules/sports/"
+    },
+    {
+      "id": "arpg",
+      "title": "RPG 工作区",
+      "icon": "♜",
+      "intro": "D4、PoE2、Aion2 改价、G2G 自动改价与销售数据看板。",
+      "ids": [
+        "d4",
+        "g2g",
+        "sales"
+      ],
+      "path": "/dashboard/modules/arpg/"
+    },
+    {
+      "id": "bots",
+      "title": "机器人管理",
+      "icon": "⚙",
+      "intro": "GuardBot 防冒充、Shugo-bot 迎新与资讯的统一控制台。",
+      "ids": [
+        "bot-console"
+      ],
+      "path": "/dashboard/modules/bots/"
+    },
+    {
+      "id": "collaboration",
+      "title": "协作工具",
+      "icon": "▦",
+      "intro": "项目任务、团队手册与共享工具。",
+      "ids": [
+        "tasks",
+        "docs",
+        "sites",
+        "deploy"
+      ],
+      "path": "/dashboard/modules/collaboration/"
+    }
+  ],
+  "tools": [
+    {
+      "id": "fc27-sbc",
+      "label": "FC27 SBC 上架工具",
+      "path": "/dashboard/fc27-sbc/",
+      "icon": "▣",
+      "short": "SBC / Packs 上架、改价与下架 · 仅管理员操作",
+      "section": "sports",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "category": "FC",
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "data-analysis-tools",
+      "label": "数据分析工具",
+      "path": "/dashboard/data-tools/",
+      "icon": "▤",
+      "short": "独立查询与归档数据",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "unified-business",
+      "label": "数据看板",
+      "path": "/dashboard/analytics/?mode=business",
+      "icon": "▥",
+      "short": "经营表现与流量分析，按所选日期查看",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "tasks",
+      "label": "项目工作任务台",
+      "path": "/dashboard/tasks/",
+      "icon": "☑",
+      "short": "任务下发、接手确认、自检放行",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "coins",
+      "label": "FC27 金币控制台",
+      "path": "/dashboard/fc27-coins.html",
+      "icon": "◎",
+      "short": "竞品、报价与自动化",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "ops",
+      "label": "FC27 运营看板",
+      "path": "/s/wulv/fc27-ops/",
+      "icon": "▥",
+      "short": "运营统计与分析 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "players",
+      "label": "FC27 球员维护",
+      "path": "/tools/fc27-players/",
+      "icon": "▣",
+      "short": "同步、校验与维护 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "gallery",
+      "label": "FC27 收藏馆调价",
+      "path": "/tools/fc27-gallery/",
+      "icon": "▧",
+      "short": "收藏馆代币与等级服务定价、执行状态",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "mlb",
+      "label": "MLB 新卡工作台",
+      "path": "/mlb/",
+      "icon": "◇",
+      "short": "新卡上架业务工具",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "MLB"
+    },
+    {
+      "id": "nba",
+      "label": "NBA2K 自动改价台",
+      "path": "/nba2k27/",
+      "icon": "◉",
+      "short": "报价与现行浏览器自动化控制",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "NBA2K"
+    },
+    {
+      "id": "d4",
+      "label": "RPG 游戏改价系统",
+      "path": "/d4/",
+      "icon": "♜",
+      "short": "D4 / PoE2 / Aion2 共用控制台，进入后选择游戏",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "arpg",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "docs",
+      "label": "部门手册",
+      "path": "/docs/",
+      "icon": "▤",
+      "short": "现有团队文档入口",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "sites",
+      "label": "团队工具目录",
+      "path": "/s/",
+      "icon": "▦",
+      "short": "现有共享业务站点",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify",
+      "scope": "global-portal",
+      "section": "collaboration",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "deploy",
+      "label": "现有部署工作台",
+      "path": "/deploy/",
+      "icon": "↥",
+      "short": "现有发布入口 · deploy组",
+      "ownerId": null,
+      "requiredGroup": "deploy",
+      "serverGuard": "/__auth_verify_deploy",
+      "scope": "global-portal",
+      "section": "collaboration"
+    },
+    {
+      "id": "weekly",
+      "label": "运营报告",
+      "path": "/dashboard/fs-home/brain/index.html?report_kind=weekly#reports",
+      "icon": "▤",
+      "short": "Hermes 日报、周报、月报与报告历史",
+      "scope": "global-portal",
+      "section": "analytics",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "madden",
+      "label": "Madden 金币看板",
+      "path": "/dashboard/madden27-coins.html",
+      "icon": "◎",
+      "short": "既有金币看板",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "Madden"
+    },
+    {
+      "id": "odds",
+      "label": "FC26 库存与交付（历史工具）",
+      "path": "/s/wulv/fc-odds/",
+      "icon": "◈",
+      "short": "历史业务工具，仅按现有用途使用",
+      "scope": "global-portal",
+      "section": "sports",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "game-monitor",
+      "label": "游戏监控台",
+      "short": "全球新游上线 · 版本赛季 · 开服节点一屏追踪",
+      "icon": "◉",
+      "path": "/dashboard/game-monitor/",
+      "section": "analytics",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "serverGuard": "/__nav_formal_native_session"
+    },
+    {
+      "id": "management",
+      "label": "经营管理台",
+      "short": "三组进度 · 健康度责任到人 · 目标沙盘与经营决策",
+      "icon": "▦",
+      "path": "/dashboard/management/",
+      "section": "analytics",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "serverGuard": "/__nav_formal_native_session"
+    },
+    {
+      "id": "brain",
+      "label": "智体决策报告",
+      "short": "任务、经营判断与日报周报月报",
+      "icon": "◈",
+      "path": "/dashboard/fs-home/brain/index.html",
+      "section": "brain",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "serverGuard": "/__nav_formal_native_session"
+    },
+    {
+      "id": "fc27-bundles",
+      "label": "FC27 捆绑包改价",
+      "path": "/dashboard/modules/sports/bundles/",
+      "icon": "↗",
+      "short": "捆绑包配置、定价预览与现有后台改价功能",
+      "section": "sports",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "category": "FC"
+    },
+    {
+      "id": "g2g",
+      "label": "G2G 自动改价",
+      "path": "/g2g/",
+      "icon": "↗",
+      "short": "AION2 Kinah · 使用原 G2G 控制台与原改价护栏",
+      "section": "arpg",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "sales",
+      "label": "销售部系统",
+      "path": "/sales/",
+      "icon": "▥",
+      "short": "Aion2 销售数据看板 · 渠道、销量与趋势",
+      "section": "arpg",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "bot-console",
+      "label": "Discord 机器人控制台",
+      "path": "/bots/",
+      "icon": "↗",
+      "short": "GuardBot 防冒充、Shugo-bot 迎新与资讯；按原权限管理",
+      "section": "bots",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard"
+    },
+    {
+      "id": "hermes-conversation",
+      "section": "brain",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "icon": "◈",
+      "label": "持续对话",
+      "path": "/dashboard/fs-home/hermes/conversation/",
+      "short": "延续上下文，讨论问题与调查结果"
+    },
+    {
+      "id": "customer-tracking",
+      "section": "brain",
+      "scope": "global-portal",
+      "requiredGroup": "dashboard",
+      "icon": "◈",
+      "label": "智体客单追踪",
+      "path": "/dashboard/fs-home/hermes/customer-tracking/",
+      "short": "按日期区间筛选候选，查看持续观察与维护建议"
+    }
+  ],
+  "analyticsContract": {
+    "status": "BLOCKED_SECURITY_REVIEW_REAL_ROLE_ACCEPTANCE",
+    "legacyBusiness": "/dashboard/index.html",
+    "legacyGoogle": "/dashboard/marketing/",
+    "unifiedPath": "/dashboard/analytics/?mode=business",
+    "googlePath": "/dashboard/analytics/?mode=google",
+    "retiredDisplayEntries": [
+      "/dashboard/index.html",
+      "/dashboard/marketing/"
+    ],
+    "sharedDataServicesRetained": true
+  }
+}
