@@ -522,6 +522,8 @@ def select(paths):
             if name.startswith("opt/nba-reprice/backend/api_security"):
                 groups.add("nba")
             groups.add("ops-modules");continue
+        if name.startswith("releases/fs-dashboard/cohort-wording-20261020/") and suffix in (".py",".js",".cjs"):
+            groups.add("cohort-wording");continue
         if name.startswith("releases/fs-dashboard/fc-order-wait-sort-20261020/") and suffix==".py":
             groups.add("fc-wait-sort");continue
         if name.startswith("releases/fs-dashboard/hermes-customer-lifecycle-20261019/") and suffix in (".py",".js",".cjs"):
@@ -843,6 +845,8 @@ def main():
             release="releases/fs-dashboard/hermes-report-repair-20261019"
             units(release+"/tests",["test_report_repair","test_management_cadence"])
             browser_python(release+"/tests/test_bulk_browser.py")
+        elif group=="cohort-wording":
+            node("releases/fs-dashboard/cohort-wording-20261020/tests/wording.cjs")
         elif group=="fc-wait-sort":
             units("releases/fs-dashboard/fc-order-wait-sort-20261020/tests",["test_wait_sort"])
         elif group=="customer-lifecycle":
