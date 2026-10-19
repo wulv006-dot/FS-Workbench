@@ -19,4 +19,15 @@ class Games(unittest.TestCase):
  def test_joint(self):
   r={'quality':{'pagination_complete':True},'rows':[{'dimensions':{'landingPage':'/Fc-27/Coins.html','country':'US'},'metrics':{'sessions':'3'}}]}
   a=project(r,'ga4','landingPage','country')['rows'][0];self.assertEqual((a['game'],a['dimension'],a['metrics']['sessions']),('FC27','US','3'))
+class AdsCountries(unittest.TestCase):
+ def test_physical_country_report(self):
+  from collect_details import Reader
+  r=Reader();r.metadata['1430398974']={'id':'1430398974'};calls=[]
+  def request(source,url,body):
+   calls.append(body['query'])
+   if 'FROM geo_target_constant' in body['query']:return {'results':[{'geoTargetConstant':{'id':'2840','name':'United States','countryCode':'US'}}]}
+   return {'results':[{'campaign':{'id':'7','name':'FC27-SN-Buy-DE'},'userLocationView':{'countryCriterionId':'2840','targetingLocation':True},'metrics':{'costMicros':'2000000','conversions':'0.5','conversionsValue':'4','clicks':'3','impressions':'20'}}]}
+  r.request=request;out=r.ads('1430398974','country_campaign','2026-10-12','2026-10-18');self.assertEqual(out['rows'][0]['dimensions']['country'],'US');self.assertEqual(out['rows'][0]['metrics']['conversions'],'0.5');self.assertIn('FROM user_location_view',calls[0]);self.assertTrue(out['quality']['pagination_complete'])
+ def test_partial_search_rows(self):
+  self.assertEqual(project({'rows':[],'quality':{'pagination_complete':True,'top_rows_not_all_queries':True}},'gsc','page')['status'],'partial')
 if __name__=='__main__':unittest.main()

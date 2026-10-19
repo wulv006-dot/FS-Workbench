@@ -865,7 +865,7 @@ def main():
         elif group=="admin-data-tools":
             units("releases/fs-dashboard/admin-data-tools-20261018",["test_admin_data_tools","test_publisher_boundary"])
         elif group=="traffic-hermes":
-            units("mmoexp_google_data/details",["test_details","test_game_dimensions"])
+            units("mmoexp_google_data/details",["test_details","test_game_dimensions","test_game_cache"])
             units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
             units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
             node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")

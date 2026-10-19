@@ -4,14 +4,16 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from urllib.parse import urlsplit,parse_qs
-import json,subprocess,sys,time,urllib.request,urllib.parse,os,tempfile
+import json,subprocess,sys,time,urllib.request,urllib.parse,os,tempfile,sqlite3
 from datetime import datetime,timezone,timedelta
 SHANGHAI=timezone(timedelta(hours=8))
 from hashlib import sha256
 from custom_range import validate
 from traffic_contract import RULE_VERSION
+from game_dimensions import VERSION as GAME_VERSION
 POOL=ThreadPoolExecutor(max_workers=1);LOCK=RLock();JOBS={};BUSY=None
 CACHE=Path('/opt/mmoexp-marketing/data/verified-readonly/traffic-ranges')
+DETAIL_DATABASE=Path('/opt/mmoexp-marketing/data/verified-readonly/marketing.db')
 
 def cache_path(start,end):
  validate(start,end)
@@ -21,16 +23,45 @@ def ttl(end):
  today=datetime.now(SHANGHAI).date().isoformat()
  return 900 if end>=today else 86400
 
+
+def project_cached_content(value,start,end):
+ # Only hydrate this additive display contract from the same stored raw snapshot.
+ # Never recollect, replace totals, infer FC rows from global Top, or rewrite cache.
+ breakdowns=((value.get('period') or {}).get('sources',{}).get('gsc') or {}).get('breakdowns',{})
+ missing=[name for name in ('query','page') if isinstance(breakdowns.get(name,{}).get('fc27_content'),dict) and 'rows' not in breakdowns[name]['fc27_content']]
+ if not missing:return value
+ for name in missing:breakdowns[name]['fc27_content']['detail_projection']='legacy_cache_missing_raw'
+ if any(p.is_symlink() for p in (DETAIL_DATABASE,*DETAIL_DATABASE.parents)) or not DETAIL_DATABASE.is_file():return value
+ try:
+  from detail_model import top_table
+  db=sqlite3.connect(DETAIL_DATABASE.resolve().as_uri()+'?mode=ro',uri=True,timeout=2)
+  try:
+   for name in missing:
+    item=db.execute('SELECT payload_json FROM detail_reports WHERE source=? AND resource=? AND report=? AND start_date=? AND end_date=?',('gsc','sc-domain:mmoexp.com',name,start,end)).fetchone()
+    if not item or len(item[0])>8*1024*1024:continue
+    raw=json.loads(item[0]);raw['report']=name
+    old=breakdowns[name];content=old['fc27_content']
+    # A different raw capture must not silently replace the cache's frozen facts.
+    if not old.get('status',{}).get('collected_at') or raw.get('collected_at')!=old['status']['collected_at']:continue
+    projected=top_table(raw,'clicks',20,None)['fc27_content']
+    if projected['metrics']!=content.get('metrics') or projected['returned_matching_rows']!=content.get('returned_matching_rows'):continue
+    projected['status']=dict(old.get('status') or {});projected['detail_projection']='stored_raw_same_snapshot'
+    old['fc27_content']=projected
+  finally:db.close()
+ except (OSError,ValueError,TypeError,KeyError,ArithmeticError,sqlite3.Error):pass
+ return value
+
 def cached(start,end,allow_stale=False):
  p=cache_path(start,end)
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('linked_range_cache')
  if not p.is_file() or not allow_stale and time.time()-p.stat().st_mtime>=ttl(end):return None
  if p.stat().st_size>8*1024*1024:raise ValueError('range_cache_size')
  value=json.loads(p.read_text('utf8'))
+ if not allow_stale and (value.get('period') or {}).get('game_projection_version')!=GAME_VERSION:return None
  if not allow_stale and value.get('validated_day')!=datetime.now(SHANGHAI).date().isoformat():return None
  if not allow_stale and value.get('status')=='partial' and time.time()-p.stat().st_mtime>120:return None
  if value.get('start')!=start or value.get('end')!=end or (value.get('period') or {}).get('rule_version')!=RULE_VERSION:return None
- return value
+ return project_cached_content(value,start,end)
 
 def retained(start,end):
  value=cached(start,end,allow_stale=True)

@@ -323,7 +323,7 @@ class CacheTests(unittest.TestCase):
         range_api.JOBS.clear();range_api.BUSY=None
 
     def test_success_cached_and_archived_without_replay(self):
-        value={'schemaVersion':1,'status':'available','start':'2026-10-15','end':'2026-10-15','period':{'rule_version':contract.RULE_VERSION}}
+        value={'schemaVersion':1,'status':'available','start':'2026-10-15','end':'2026-10-15','period':{'game_projection_version':range_api.GAME_VERSION,'rule_version':contract.RULE_VERSION}}
         range_api.save_cache(value['start'],value['end'],value)
         self.assertEqual(range_api.query(value['start'],value['end'],submit=lambda *a:self.fail('replayed'))[0],200)
         value['generatedAt']='new';range_api.save_cache(value['start'],value['end'],value)
@@ -344,7 +344,7 @@ class CacheTests(unittest.TestCase):
 
     def test_failed_refresh_retains_original_date_and_versions(self):
         value={'schemaVersion':1,'status':'available','start':'2026-10-15','end':'2026-10-15','generatedAt':'2026-10-16T00:10:00Z',
-               'period':{'rule_version':contract.RULE_VERSION,'sources':{'ga4':{'metrics':{'sessions':10},'status':{'collected_at':'2026-10-16T00:10:00Z'},'contract':{'status':'success'}}}}}
+               'period':{'game_projection_version':range_api.GAME_VERSION,'rule_version':contract.RULE_VERSION,'sources':{'ga4':{'metrics':{'sessions':10},'status':{'collected_at':'2026-10-16T00:10:00Z'},'contract':{'status':'success'}}}}}
         range_api.save_cache(value['start'],value['end'],value)
         retained=range_api.retained(value['start'],value['end'])
         self.assertEqual(retained['status'],'stale');self.assertEqual(retained['generatedAt'],value['generatedAt'])
@@ -352,7 +352,7 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(len(list((range_api.CACHE/'versions').iterdir())),1)
 
     def test_partial_source_does_not_clear_other_successful_sources(self):
-        period={'rule_version':contract.RULE_VERSION,'sources':{'ga4':{'metrics':{'sessions':10},'status':{},'contract':{'status':'success'}},'gsc':{'metrics':{'clicks':5}}}}
+        period={'game_projection_version':range_api.GAME_VERSION,'rule_version':contract.RULE_VERSION,'sources':{'ga4':{'metrics':{'sessions':10},'status':{},'contract':{'status':'success'}},'gsc':{'metrics':{'clicks':5}}}}
         value={'schemaVersion':1,'status':'available','start':'2026-10-15','end':'2026-10-15','period':period}
         range_api.save_cache(value['start'],value['end'],value)
         partial=copy.deepcopy(value);partial['status']='partial';partial['period']['sources']['ga4']['metrics']=None;partial['period']['sources']['gsc']['metrics']['clicks']=7
@@ -392,4 +392,5 @@ class ActionTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
 

@@ -9,6 +9,7 @@ window.MMOEXPBusiness={mount(panel){const title=document.createElement('h2'),not
 (function(){
 const TRAFFIC_RULE_VERSION='traffic-multigame-name-hints-20261017-v3';
 function currentTrafficPeriod(period){return period?.rule_version===TRAFFIC_RULE_VERSION;}
+function currentGamePeriod(period){return currentTrafficPeriod(period)&&period?.game_projection_version==='traffic-game-projections-20261019-v1';}
 const labels={nativeCvr:'Ads原生CVR',interactions:'广告互动',sessions:'会话',activeUsers:'活跃用户',newUsers:'新用户',engagedSessions:'参与会话',engagementRate:'参与率',screenPageViews:'页面/屏幕浏览',averageSessionDuration:'平均会话时长',bounceRate:'跳出率',ecommercePurchases:'购买事件',purchaseRevenue:'GA4报告收入',clicks:'点击',impressions:'展示',ctr:'CTR（点击率）',position:'平均位置',cost:'花费 · USD',cpc:'CPC（单次点击花费）· USD',conversions:'Ads归因转化',cpa:'CPA（单次转化花费）· USD',conversionsValue:'Ads归因价值 · USD',platformRoas:'Ads平台ROAS（广告回报倍数）',share:'占比',impressionShare:'展示占比',campaignId:'Campaign ID（广告系列编号）',customerId:'Customer ID（广告账号编号）',campaignName:'广告系列',date:'数据日期'};
 const explanations={
  sessions:'一次访问过程；同一个人可多次访问。默认连续30分钟没有互动后结束一次会话，实际以GA4设置为准。',
@@ -273,7 +274,7 @@ function rangeControls(toolbar,container,model,periods,selector){
   }catch(error){if(container.isConnected&&generation===scope.rangeGeneration)note.textContent=error.message;}finally{if(generation===scope.rangeGeneration){scope.rangePending=false;container.setAttribute('aria-busy','false');apply.disabled=false;}}
  });
  return function ensureCurrentPeriod(period){
-  if(currentTrafficPeriod(period)||!period?.start||!period?.end)return;
+  if(currentGamePeriod(period)||!period?.start||!period?.end)return;
   scope.rangeUpgradeTried??=new Set();const key=period.start+'_'+period.end;
   if(scope.rangeUpgradeTried.has(key)){note.textContent='当前旧版细分缓存尚未升级成功；可点击应用区间重试，不按全量解释。';return;}
   note.textContent='当前为旧版细分缓存，尚未按当前规则核实全量；正在读取同期间准确数据。';
@@ -311,13 +312,15 @@ function renderSourceBody(panel,p,site,source){
  panel.append(overview);
  const projection=gameProjection(source,accounts),rows=projection?.rows||[],grid=el('div',null,'traffic-dual');
  const keys=source==='ads'?['cost','conversions','cpa','platformRoas']:source==='ga4'?['sessions']:['clicks','impressions','ctr','position'];
- const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按来源返回明细归类，非全站去重用户。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
+ const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
  left.querySelectorAll('tbody tr').forEach((tr,i)=>{if(!rows[i])return;const cell=tr.firstElementChild;cell.replaceChildren();const button=el('button',rows[i].label,'fs-btn');button.type='button';button.setAttribute('aria-pressed',String(game===rows[i].game));button.onclick=()=>{scope.trafficProject=rows[i].game;render(document.getElementById('marketing'),scope.model);};cell.append(button);});
  grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',(gameLabels[game]||game)+' · 深入查看'));
  if(game==='all')right.append(el('p','选择左侧游戏，查看它的国家、渠道或广告系列。','coverage'));
  else if(source==='ads'){
   const selected=accounts.flatMap(a=>a.calculation_campaigns||a.campaigns||[]).filter(c=>(c.game_mapping?.game||'UNKNOWN')===game);
-  right.append(table([{key:'campaignName',label:'广告系列'},...keys.map(metricCol)],selected),el('p','国家实际分布尚未取得；系列名的US/UK等后缀不冒充用户实际国家。跨游戏品牌费用不分摊到单游戏。','coverage'));
+  const countryGroups=new Map();for(const a of accounts)for(const r of a.countries?.rows||[]){if((r.game_mapping?.game||'UNKNOWN')!==game)continue;const key=r.country||('criterion:'+r.countryCriterionId);if(!countryGroups.has(key))countryGroups.set(key,[]);countryGroups.get(key).push(r);}
+  const countries=[...countryGroups].map(([country,items])=>({country,metrics:sumAdsRows(items)})).sort((a,b)=>(b.metrics.cost||0)-(a.metrics.cost||0));
+  right.append(fullDetail('实际用户国家',[{key:'country',label:'国家'},...keys.map(metricCol)],countries,'Google Ads user_location_view；未知国家保留来源ID。'+accounts.map(a=>a.label+' '+(a.countries?.status?.status||'未接通')).join(' · ')),fullDetail('广告系列',[{key:'campaignName',label:'广告系列'},...keys.map(metricCol)],selected,'系列国家后缀不作为实际国家；全局品牌费用不分摊。'));
  }else{
   const countries=s.game_countries;right.append(fullDetail('国家',[{key:'dimension',label:'国家'},...keys.map(metricCol)],(countries?.rows||[]).filter(r=>r.game===game),countries?'联合查询状态 '+countries.status:'游戏×国家尚未接通，不能拼接全站国家表。'));
   if(source==='ga4'){const channels=s.game_channels;right.append(fullDetail('来源 / 媒介',[{key:'dimension',label:'来源 / 媒介'},metricCol('sessions')],(channels?.rows||[]).filter(r=>r.game===game),channels?'联合查询状态 '+channels.status:'游戏×渠道尚未接通。'));}
