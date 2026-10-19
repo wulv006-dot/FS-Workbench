@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PLAN_SHA = '9a681250c8f5c40663e2741b6526985d06baba3fbfe83a9a94f99b9a030aaffe'
+PLAN_SHA = 'efceaa2d11c588a351daa48bd1c7d196e5a25d0ed197808ae9e70ba92c625e92'
 UI_READY_SHA = "c159d268efa7a1ba38dbd3c0f47906150ffb86cf50c769629b3abe7b29e9703e"
 
 
