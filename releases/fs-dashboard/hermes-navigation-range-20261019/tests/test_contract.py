@@ -14,7 +14,7 @@ class HermesNavigation(unittest.TestCase):
   s=(R/'candidate/nav.js').read_text();self.assertNotIn('history.pushState',s);self.assertNotIn('iframe',s)
  def test_range_keeps_existing_contract_and_unknown_guard(self):
   s=(R/'candidate/page.js').read_text();self.assertIn("get('candidates',{day}",s);self.assertIn('candidateEpoch',s);self.assertIn("write('scan',{day}",s);self.assertIn('pendingWrite',s);self.assertIn('config_version!==version',s)
-  self.assertNotIn("localStorage.setItem",s);self.assertNotIn("sessionStorage.setItem",s)
+  self.assertNotIn("localStorage.setItem",s);self.assertNotIn("sessionStorage.setItem",s);self.assertIn("event.persisted",s);self.assertIn("disposed=false",s)
  def test_bridge_and_exact_preparation(self):
   p=(R/'prepare_release.py').read_text();ast.parse(p);self.assertIn('baseline drift',p);self.assertIn("'/var/www/dashboard/index.html'",p)
   s=(R/'release_ui.py').read_text();ast.parse(s);self.assertIn('b=ui.publisher()',s);self.assertIn('b.apply(',s);self.assertIn('b.rollback(',s);self.assertNotIn('b.locks=',s)
