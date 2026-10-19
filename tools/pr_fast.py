@@ -835,7 +835,7 @@ def main():
             units(release+"/deploy",["test_http","test_release"])
         elif group=="hermes-report-repair":
             release="releases/fs-dashboard/hermes-report-repair-20261019"
-            units(release+"/tests",["test_report_repair"])
+            units(release+"/tests",["test_report_repair","test_management_cadence"])
             browser_python(release+"/tests/test_bulk_browser.py")
         elif group=="hermes-customer-tracking":
             release="releases/fs-dashboard/hermes-customer-tracking-20261018"

@@ -10,11 +10,14 @@ SH=timezone(timedelta(hours=8))
 ROOT=Path('/var/lib/fs-boss-workspaces/management-v2')
 PUBLIC=Path('/var/lib/fs-boss-workspaces/public/management-v2.json')
 MARKER='【经营管理台日更】'
+WEEKLY_MARKER='【全项目经营周报】'
 ID=re.compile(r'management-[a-f0-9]{24}')
 def encoded(v):return json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False)
 def digest(v):return hashlib.sha256(encoded(v).encode()).hexdigest()
 def request_snapshot(body):
- if not isinstance(body,dict) or body.get('mode')!='kpi' or not str(body.get('question','')).startswith(MARKER):return None
+ if not isinstance(body,dict):return None
+ question=str(body.get('question',''))
+ if not ((body.get('mode')=='kpi' and question.startswith(MARKER)) or (body.get('mode')=='investigation' and question.startswith(WEEKLY_MARKER))):return None
  if body.get('parent_report') or body.get('continuation_from'):raise ValueError('management_mixed_request')
  matches=ID.findall(body['question'])
  if len(matches)!=1:raise ValueError('management_snapshot_required')
@@ -29,11 +32,14 @@ def load(body,root=ROOT):
  base={k:v for k,v in value.items() if k not in ('snapshotId','analysis','collectionFinishedAt')}
  if 'management-'+digest(base)[:24]!=snapshot:raise ValueError('management_snapshot_hash')
  day=date.fromisoformat(value['businessDate']);yesterday=day-timedelta(days=1)
- expected_start=yesterday.replace(day=1).isoformat()
- if body.get('start')!=expected_start or body.get('end')!=yesterday.isoformat():raise ValueError('management_period_mismatch')
+ end=day-timedelta(days=day.weekday()+1) if is_weekly(body) else yesterday
+ start=end-timedelta(days=6) if is_weekly(body) else end.replace(day=1)
+ if body.get('start')!=start.isoformat() or body.get('end')!=end.isoformat():raise ValueError('management_period_mismatch')
  projects=value.get('projects')
  if not isinstance(projects,list) or not 1<=len(projects)<=40 or len({p['profile'] for p in projects})!=len(projects):raise ValueError('management_project_list')
  return value
+
+def is_weekly(body):return str(body.get('question','')).startswith(WEEKLY_MARKER)
 
 def recent_three_day(facts,projects):
  end=date.fromisoformat(facts['period']['end']);days=[(end-timedelta(days=i)).isoformat() for i in (2,1,0)]
@@ -126,6 +132,17 @@ def text(v,limit):
  return v[:limit]
 
 def analysis_from_result(result,facts,task_id,now):
+ if result.get('output_format')=='text':
+  brief=result.get('research_text','').strip();context=result.get('management_context') or {}
+  eid=context.get('evidenceId');issues=[]
+  if not 30<=len(brief)<=1800 or re.search(r'<!doctype|<html|management_frozen_context_only|Cannot set properties',brief,re.I):issues.append('当日简述应为简短原文，不是完整HTML或通道错误')
+  if context.get('snapshotId')!=facts['snapshotId'] or not isinstance(eid,str) or not re.fullmatch(r'ev_[a-f0-9]{24}',eid):issues.append('缺少本批冻结经营证据绑定')
+  return {'deliveryVersion':'management-brief-v1','status':'needs_review' if issues else 'succeeded',
+          'qualityIssues':issues,'snapshotId':facts['snapshotId'],'businessDate':facts['businessDate'],
+          'generatedAt':now.isoformat(),'validUntil':facts['validUntil'],'taskId':task_id,
+          'summary':brief,'researchText':brief,'actions':[],'projects':[],'limitations':[],
+          'evidenceIds':[eid] if eid else [],'reasoningEffort':result.get('reasoning_effort'),
+          'source':'Hermes原始当日经营简述；FS保留原文，模块进展由冻结数据更新'}
  profiles={p['profile'] for p in facts['projects']};rows=[];actions=[]
  for item in result.get('actions',[])[:30]:
   if not isinstance(item,dict):continue
@@ -155,6 +172,7 @@ def atomic_json(path,value):
   if os.path.exists(name):os.unlink(name)
 
 def publish(body,result,task_id,*,root=ROOT,public=PUBLIC,now=None):
+ if is_weekly(body):return False
  facts=load(body,root)
  if facts is None:return False
  now=(now or datetime.now(SH)).astimezone(SH)
@@ -167,8 +185,9 @@ def publish(body,result,task_id,*,root=ROOT,public=PUBLIC,now=None):
   if public.is_symlink() or not public.is_file():raise ValueError('management_public_boundary')
   current=json.loads(public.read_text('utf-8'))
   if current.get('snapshotId')!=facts['snapshotId']:return False
-  if current.get('analysis',{}).get('taskId')==task_id and current.get('analysis',{}).get('deliveryVersion')=='management-delivery-v2':return True
+  if current.get('analysis',{}).get('taskId')==task_id and current.get('analysis',{}).get('deliveryVersion') in {'management-delivery-v2','management-brief-v1'}:return True
   analysis=analysis_from_result(result,facts,task_id,now)
+  if current.get('analysis',{}).get('status')=='succeeded' and analysis['status']!='succeeded':return False
   current['analysis']=analysis;atomic_json(public,current)
   return True
  finally:os.close(fd)
@@ -187,19 +206,25 @@ def scheduled_question(now,public=PUBLIC):
  facts=json.loads(path.read_text('utf-8'))
  if facts.get('contract')!='fs-management-daily-v2' or facts.get('businessDate')!=now.date().isoformat() or not ID.fullmatch(facts.get('snapshotId','')):raise ValueError('management_facts_not_current')
  if not any(type(p.get('month',{}).get('values',{}).get('rev')) in (int,float) or type(p.get('yesterday',{}).get('values',{}).get('rev')) in (int,float) for p in facts.get('projects',[])):raise ValueError('management_no_facts')
- return MARKER+'基于全项目昨日及月累计冻结数据，分析三组目标进度、关键偏差与可执行动作。结论仅当日有效。快照 '+facts['snapshotId']
+ return MARKER+'更新当日经营简述：用300–600字、2–4个短段说明关键进展/偏差、判断及今日优先动作；只选重要项目，不逐项罗列。模块数字由FS更新。直接输出简洁中文原文，不生成HTML、JSON或详细报告。结论当日有效。快照 '+facts['snapshotId']
 
-def task_prompt(facts,evidence_id):
+def scheduled_weekly_question(now,public=PUBLIC):
+ daily=scheduled_question(now,public)
+ return WEEKLY_MARKER+'复盘上个完整周一至周日全项目经营，对比前一完整周，覆盖三组和重要项目，月目标只作背景。自主调查、判断与给出可落实动作及复查；按重要性组织，图表优先、文字精炼，自主设计完整离线交互HTML。使用同一冻结资料库，缺对比时按登记profile读取准确区间。快照 '+ID.search(daily)[0]
+
+def task_prompt(facts,evidence_id,weekly=False,period=None):
     rollups=verified_rollups(facts)
     overview={k:facts.get(k) for k in ('snapshotId','businessDate','period','targetVersion','profitPolicy')}
     overview['verifiedRollups']=rollups
     overview['projects']=[{k:p.get(k) for k in ('profile','name','group','owner')} for p in facts['projects']]
-    return ('本任务分析经营管理台全项目，不是FC单项目。以下为完整组级宏观汇总，主盘与目标沿冻结版本。'
+    purpose=('本次是全项目上周复盘，报告期'+encoded(period)+'，与前一完整自然周比较。冻结资料的month、目标及日序列保留各自日期，不能冒充周数据；previousWeek仅在其period与报告期一致时直接使用，缺准确对比可按目录profile只读补查。自主分析并输出完整离线交互HTML，图表优先，提炼判断、行动与复查。'
+             if weekly else '本次只写当日经营简述，300–600字、2–4个短段，聚焦最重要变化、判断和今天动作，直接输出简洁中文原文，不输出HTML或JSON，不写详细报告，不逐项目凑章节。FS负责更新各模块数据。')
+    return ('本任务分析经营管理台全项目，不是FC单项目。以下为完整组级宏观汇总，主盘与目标沿冻结版本。'+purpose+
         '先比较三组及关键项目，不逐项目罗列。下面省略的项目细项仍在原证据中，不能称数据缺失。'
         '用fc.read_evidence读取本任务证据ID '+evidence_id+'；/data/projects 为项目列表，offset翻页；/data/verifiedRollups为核平汇总。'
         '确需补查可按目录中的profile调用已注册fc.query_native_statistics，保留其来源/日期/补查时间，不改冻结主盘与目标。'
         'pending按retryAfter轮询同查询，已有证据过大按content_index下钻，不把截断当来源不可用。'
-        '自主分析并产出完整可交互HTML，图表优先，文字提炼判断、行动与复查；不要输出系统通道说明充当经营报告。'
+        '不要输出系统通道说明充当经营分析。'
         '建议不等于执行，利润为参考估算，缺项不补零。完整原证据ID：'+evidence_id+'\n'+encoded(overview))
 
 

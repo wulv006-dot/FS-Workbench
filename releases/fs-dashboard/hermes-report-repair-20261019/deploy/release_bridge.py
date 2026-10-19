@@ -11,7 +11,7 @@ import types
 from contextlib import closing
 from pathlib import Path
 
-from release_scope import NEW_ALLOWED, SCOPE, TARGETS
+from release_scope import NEW_ALLOWED, SCOPE, TARGETS, APPLICATION_SCHEDULE
 
 
 HERE = Path(__file__).resolve().parent
@@ -55,6 +55,8 @@ def load_base():
         raise ValueError("exact_new_and_existing_targets_required")
     if approved.get("businessWrites") is not False or approved.get("timersChanged") is not False:
         raise ValueError("read_only_business_boundary")
+    if approved.get('applicationScheduleChanges')!=APPLICATION_SCHEDULE:
+        raise ValueError('exact_management_cadence_required')
     if approved.get("runtimeRequired") != {"fs-business-range.service": {"ActiveState": "active"},
                                             "fs-hermes-fc.service": {"ActiveState": "active"}}:
         raise ValueError("active_services_required")

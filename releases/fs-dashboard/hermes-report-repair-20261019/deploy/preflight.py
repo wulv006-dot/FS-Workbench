@@ -8,7 +8,7 @@ import re
 import shutil
 from pathlib import Path
 
-from release_scope import NEW_ALLOWED, SCOPE, TARGETS
+from release_scope import NEW_ALLOWED, SCOPE, TARGETS, APPLICATION_SCHEDULE
 
 
 HERE = Path(__file__).resolve().parent
@@ -57,6 +57,7 @@ def prepare(baseline, source_commit, stage, release_ready=False):
                 "sourceCommit": source_commit, "imageId": IMAGE, "files": files,
                 "unchangedRequired": protected,
                 "runtimeRequired": observed["units"], "businessWrites": False, "timersChanged": False,
+                "applicationScheduleChanges": APPLICATION_SCHEDULE,
                 "baselineObservedAt": observed["observed_at"], "baselineSha256": digest(baseline)}
     if digest(BASE) != BASE_SHA: raise ValueError("frozen_publisher_drift")
     stage.mkdir(parents=True)

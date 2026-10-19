@@ -639,7 +639,7 @@ class HermesService:
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
                        'report_mode':body['mode'],'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+('' if design_receipt else FORMAT)}
             report_kind=request_report_kind(body)
-            if management:admission['prompt']+='\n'+management_context.task_prompt(management['facts'],management['evidence']['evidence_id'])
+            if management:admission['prompt']+='\n'+management_context.task_prompt(management['facts'],management['evidence']['evidence_id'],weekly=management_context.is_weekly(body),period={'start':body['start'],'end':body['end']})
             if prepared:admission['prompt']+='\nFS已准备并注册的本期事实（无需重复取数，缺项再查）：\n'+encoded(prepared)
             admission['skill_question']=body['question']
             admission['prompt']+=data_request_context(body)
