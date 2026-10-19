@@ -283,9 +283,11 @@ def pricing_policy(cfg, game=None):
     │ 🔴 2026-10-06 **成本兜底**（老板定案，仅对有 cheapold 的区）：      │
     │   · 基准价 < 我方 DD373 成本价（买满 1 亿的订单簿加权均价）        │
     │     ⇒ 不再跟降，**目标 = 成本价**（不下浮）；                      │
-    │   · 最后按 **利润率下限（默认 +30%）强制兜底**：利润率 < 30% ⇒        │
-    │     抬到 成本 ÷ 0.7（2026-10-13 由 +20% 上调；                        │
+    │   · 最后按 **利润率下限（默认 +15%）强制兜底**：利润率 < 15% ⇒        │
+    │     抬到 成本 ÷ 0.85（2026-10-19 由 +23% 下调；                       │
     │     含成本兜底那批；货源闸行除外）。                                  │
+    │   · **利润率上限（默认 +22%）**：利润率 > 22% ⇒ 压到 成本 ÷ 0.78      │
+    │     （只对正常跟 cheapold 的行）。                                    │
     │   ⇒ DD373 成本由此**升级为定价输入**（此前仅监控）。               │
     └─────────────────────────────────────────────────────────────────┘
 
@@ -360,10 +362,13 @@ def pricing_policy(cfg, game=None):
         #   ⇒ 现在**正负都支持**（公式 P ≥ 成本 ÷ (1−下限) 一支通用），不再钳到 0。
         # 2026-10-13 02:15 老板定案：利润率下限由 **+20% 上调为 +30%**
         #   ⇒ 地板价 = 成本 ÷ 0.70（原 成本 ÷ 0.80）。
+        # 🔴 2026-10-17 → 2026-10-19 老板两次定案：利润率带
+        #   「30% / 45%」→「23% / 30%」→「**15% / 22%**」
+        #   ⇒ 下限 **+30% → +23% → +15%**，地板价 = 成本 ÷ 0.85（P(1−0.15) ≥ C）。
         try:
-            _mlim = float(p.get("利润率下限", 0.30))
+            _mlim = float(p.get("利润率下限", 0.15))
         except (TypeError, ValueError):
-            _mlim = 0.30
+            _mlim = 0.15
         if _mlim >= 1.0:                 # 100% 利润率 ⇒ 售价无穷大，无意义 ⇒ 夹到 90%
             _mlim = 0.90
         if _mlim <= -2.0:                # 亏损下限低于 −200% 也无意义（售价会是成本的 1/3）
@@ -382,10 +387,13 @@ def pricing_policy(cfg, game=None):
         #   ① 利润公式 = **售价 = 成本 ÷ 0.7**（真利润率 30%；2026-10-12 由「×1.3 加价」口径修正）；
         #   ② 与「推荐前二」是**替换**关系（该区直接与 G2G 竞品价脱钩）。
         #   ⇒ 该区不再取 G2G 推荐前二价，目标 = 本区 DD373 成本 ÷ (1−利润率)。
-        #   ⚠ 利润率走配置，方便日后微调；非法/缺失一律回落 0.30（＝÷0.70）。
+        #   ⚠ 利润率走配置，方便日后微调；非法/缺失一律回落 0.22（＝÷0.78）。
+        #     2026-10-19：0.30 → **0.22**。本值**不吃上限闸**（见 build_plan 里
+        #     「定价来源级别 == 1」的条件），故下调上限时必须手工一并降到 22%，
+        #     否则无 cheapold 区会停在 30% 破带。
         _nc = _f(p.get("无cheapold利润率"))
         if _nc is None or _nc < 0:
-            _nc = 0.30
+            _nc = 0.22
         if _nc >= 1.0:                      # 兼容旧「乘数」口径（1.30 ⇒ 23.08%），防误配
             _nc = 1.0 - 1.0 / _nc
         # 🔴 2026-10-12 老板定案 · **利润率上限闸**（「利润率下限」的对称"天花板"）
@@ -395,10 +403,13 @@ def pricing_policy(cfg, game=None):
         #     · 有 cheapold 的区目标 = min( cheapold价 × (1−下浮) , 成本 ÷ (1−上限) )。
         #   2026-10-13 老板定案：**上限由 30% 提到 40%，同日 02:15 再提到 45%**
         #   （与 g2gfollow 统一口径）。下限亦由 20% 上调为 30%，45% > 30% ⇒ 不打架。
-        #   ⚠ 利润率走配置；缺失 / 非法 / 负数一律回落 0.45（＝成本 ÷0.55）。
+        #   🔴 2026-10-19 老板定案：利润率带下调为 **15% / 22%**
+        #      （10-17 曾先降到 23%/30%）⇒ 上限 45% → 30% → **22%**，
+        #      压价线 = 成本 ÷ 0.78。22% > 15% ⇒ 上下限不打架。
+        #   ⚠ 利润率走配置；缺失 / 非法 / 负数一律回落 0.22（＝成本 ÷0.78）。
         _capu = _f(p.get("利润率上限"))
         if _capu is None or _capu < 0:
-            _capu = 0.45
+            _capu = 0.22
         if _capu > 0.99:                    # 利润率必须 < 1（仅防除零）
             _capu = 0.99
         # 🔴 2026-10-12 老板定案 · **条数降级**（闸门 1.5 亿 -> 5 亿 的配套口径）：
@@ -419,7 +430,7 @@ def pricing_policy(cfg, game=None):
                 "条数不足售价_USD每M": _shortp, "条数下限": _minq,
                 "口径": ("每个子服务器进 G2G 取价：有卖家 %s → 目标 = %s价 × (1−%.1f%%)；"
                         "无 %s 卖家 → 目标 = 本区 DD373 成本 ÷ (1−%.2f)"
-                        "（老板口径「保持 30%% 的利润」，不再跟推荐前二）。"
+                        "（老板口径「保持 %.0f%% 的利润」，不再跟推荐前二）。"
                         "⚠ DD373 货源闸（2026-10-12 更新）：可买量 < %.0f 万基纳（不足 %s）时"
                         "不再一律挂保护价 —— ① 挂单 ≥ %.0f 条 ⇒ 成本改按「吃满 10 条」算，照常跟价；"
                         "② 挂单 1~%.0f 条 ⇒ 统一挂 $%.2f/M（条数不足价）；"
@@ -433,7 +444,7 @@ def pricing_policy(cfg, game=None):
                         "⚠ **利润率上限 %.0f%%（2026-10-12 新增）**：目标价算完后，"
                         "若利润率 (售价−成本)÷售价 > %.0f%% ⇒ **强行压到 成本 ÷ %.2f**"
                         "（与利润率下限对称：地板 %.0f%% / 天花板 %.0f%%；货源闸行除外）"
-                        % (_cn, _cn, disc * 100, _cn, _nc,
+                        % (_cn, _cn, disc * 100, _cn, _nc, _nc * 100,
                            _need, need_yi_txt(_need), _minq, _minq - 1, _shortp, _park,
                            _mlim * 100, _mlim * 100, 1.0 - _mlim,
                            _capu * 100, _capu * 100, 1.0 - _capu, _mlim * 100, _capu * 100))}
@@ -1518,7 +1529,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     if not _issrc and _cost_ok and _cusd:
                         _nc = _f(_row_pol.get("无cheapold利润率"))
                         if _nc is None or _nc < 0:
-                            _nc = 0.30
+                            _nc = 0.22
                         if _nc >= 1.0:              # 兼容旧「乘数」口径
                             _nc = 1.0 - 1.0 / _nc
                         _cb_base = _cusd / (1.0 - min(float(_nc), 0.99))
@@ -1647,7 +1658,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                            float(rec.get("无货兜底售价_USD每M") or 0)))
                 elif rec.get("无cheapold利润率"):
                     # 2026-10-09：无 cheapold 卖家的区改走「成本 × 系数」，不再是推荐前二×下浮。
-                    _nc_t = rec.get("无cheapold利润率") or 0.30
+                    _nc_t = rec.get("无cheapold利润率") or 0.22
                     rec["目标前端每M_口径"] = (
                         "该区无 cheapold 卖家（G2G 推荐前二 $%.4f/M 不跟）⇒ "
                         "目标 = **成本价** $%.4f/M ÷ (1 − %.2f)（利润率 %.0f%%）"
@@ -1725,11 +1736,11 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             _cu2 = _f(_cost2.get("usd_per_m"))
             _lim = _row_pol.get("利润率下限")
             if _lim is None:
-                _lim = 0.20
+                _lim = 0.15
             try:
                 _lim = float(_lim)
             except (TypeError, ValueError):
-                _lim = 0.20
+                _lim = 0.15
             if _cu2 and _cu2 > 0 and abs(_lim) > 1e-9:
                 _mg = (float(tgt_m) - _cu2) / float(tgt_m)
                 rec["利润率_兜底前"] = round(_mg, 6)
@@ -1755,15 +1766,16 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         # 老板原话：「在跟进 cheapold 的价的同时，如果跟价后利润大于 30%，则强行将
         #   价格压到 30% 利润左右」——口径经确认为 **利润率** (售价−成本)÷售价。
         #   推导：利润率 ≤ cap ⇔ (P−C)/P ≤ cap ⇔ P ≤ C÷(1−cap)；
-        #        cap = +0.45 ⇒ P ≤ 成本 ÷ 0.55（2026-10-13 由 0.30 → 0.40 → 0.45）。
+        #        cap = +0.22 ⇒ P ≤ 成本 ÷ 0.78（沿革 0.30 → 0.40 → 0.45（10-13）
+        #        → 0.30（10-17）→ **0.22（10-19）**）。
         #   ⇒ 有 cheapold 的区最终目标 = min( cheapold价×(1−下浮) , 成本÷(1−cap) )。
-        #   ⚠ 反方向的「利润率下限 30%」就在上面一段：上限 45% > 下限 30% ⇒
-        #     45% 利润的价必然高于 30% 底线 ⇒ 两者不会打架（上限先压、下限不再抬）。
+        #   ⚠ 反方向的「利润率下限 15%」就在上面一段：上限 22% > 下限 15% ⇒
+        #     22% 利润的价必然高于 15% 底线 ⇒ 两者不会打架（上限先压、下限不再抬）。
         #   ⚠ **只对「正常跟 cheapold 的行」生效**（定价来源级别 1 且非成本兜底）：
         #     老板说的是「跟了 cheapold 才受这条约束」——无 cheapold 区走「成本×系数」、
         #     成本兜底区、货源闸 $19.9 保护价**都不吃这条闸**（否则会凭空改掉那些价位，
-        #     例如日后把「无cheapold利润率」调到 0.50 时会被这条闸莫名压回 0.45）。
-        #   ⚠ 下限触发行也排除：那批本来利润就低，利润率必然远低于 40%，不该再被压。
+        #     例如日后把「无cheapold利润率」调到 0.50 时会被这条闸莫名压回 0.22）。
+        #   ⚠ 下限触发行也排除：那批本来利润就低，利润率必然远低于上限，不该再被压。
         if (tgt_m and gm == "AION2" and _mode_used == "g2g_cheapold"
                 and rec.get("定价来源级别") == 1
                 and not rec.get("目标来自成本兜底")
@@ -1773,11 +1785,11 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             _cu5 = _f(_cost5.get("usd_per_m"))
             _capu = _row_pol.get("利润率上限")
             if _capu is None:
-                _capu = 0.45
+                _capu = 0.22
             try:
                 _capu = float(_capu)
             except (TypeError, ValueError):
-                _capu = 0.45
+                _capu = 0.22
             if _capu < 0:
                 _capu = 0.0
             if _capu > 0.99:
@@ -2080,8 +2092,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                                     "强制抬到 成本÷%.2f"
                                     % (fmt_money(per_100k(rec.get("利润率下限前目标价"), _dm)),
                                        _ul, (rec.get("利润率_兜底前") or 0) * 100,
-                                       (rec.get("利润率下限") or 0.30) * 100,
-                                       1.0 - (rec.get("利润率下限") or 0.30)))
+                                       (rec.get("利润率下限") or 0.15) * 100,
+                                       1.0 - (rec.get("利润率下限") or 0.15)))
                     else:
                         _cb_tail = " ⇒ 按成本价定价，不下浮"
                     _pre = ("目标 $%s/%s（⛔ 成本兜底：竞品 %s $%s/%s < 我方成本 $%s/%s"
@@ -2095,7 +2107,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     #   的乘积（R7：cheapold $1.10 × 0.99 = $1.089，实际被抬到 $1.25）。
                     #   若沿用下面那句算式，页面第一眼看到的数字和算式对不上 ⇒ 显式写明
                     #   「原算得多少 → 为什么抬 → 抬到多少（= 成本÷(1−下限)）」。
-                    _fl_lim = float(rec.get("利润率下限") or 0.30)
+                    _fl_lim = float(rec.get("利润率下限") or 0.15)
                     _pre = ("目标 $%s/%s（⛔ 利润率下限 %.0f%%：原算得 $%s/%s 利润率仅 %.2f%% "
                             "⇒ 强制抬到 成本÷%.2f）｜我方 $%s/%s（%+.2f%%）"
                             % (fmt_money(per_100k(tgt_m, _dm)), _ul, _fl_lim * 100,
@@ -2118,7 +2130,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     #   压价后 tgt_m 已不是「cheapold × (1−下浮)」的乘积，必须显式写明
                     #   「跟价算得多少 → 为什么压 → 压到多少（= 成本÷(1−上限)）」，
                     #   否则页面第一眼的价与算式对不上（同利润率下限的处理方式）。
-                    _capu_l = float(rec.get("利润率上限") or 0.45)
+                    _capu_l = float(rec.get("利润率上限") or 0.22)
                     _pre = ("目标 $%s/%s（⛔ 利润率上限 %.0f%%：按 %s $%s/%s 跟价算得 "
                             "利润率 %.2f%% 超上限 ⇒ 强行压到 成本÷%.2f）"
                             "｜我方 $%s/%s（%+.2f%%）"
