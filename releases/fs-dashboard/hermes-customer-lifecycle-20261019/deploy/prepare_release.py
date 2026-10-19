@@ -19,5 +19,5 @@ guards=[{'path':t,'sha256':sha(Path(t))} for t in sorted(paths-set(TARGETS.value
 if any(r['sha256'] is None for r in guards):raise ValueError('protected baseline missing')
 observed=datetime.datetime.now(datetime.timezone.utc).isoformat()
 raw=json.dumps({'observed_at':observed,'files':rows,'protected':guards},sort_keys=True).encode();(P/'baseline.json').write_bytes(raw)
-m.update(scope=SCOPE,sourceCommit='candidate-customer-pool-lifecycle-20261019',files=rows,unchangedRequired=guards,applicationScheduleChanges=APPLICATION_SCHEDULE,baselineObservedAt=observed,baselineSha256=hashlib.sha256(raw).hexdigest(),imageId=subprocess.check_output(['docker','inspect','-f','{{.Image}}','fc27-p2pah-session'],text=True).strip())
+m.update(scope=SCOPE,sourceCommit='58f5318bf3b5684e15008a4ac1fb6f161e701c09',files=rows,unchangedRequired=guards,applicationScheduleChanges=APPLICATION_SCHEDULE,baselineObservedAt=observed,baselineSha256=hashlib.sha256(raw).hexdigest())
 raw=json.dumps(m,indent=2).encode();(P/'approved-manifest.json').write_bytes(raw);print('MANIFEST',hashlib.sha256(raw).hexdigest(),'GUARDS',len(guards))

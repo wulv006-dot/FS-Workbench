@@ -79,4 +79,15 @@ class Tests(unittest.TestCase):
   self.assertFalse(any(isinstance(n,ast.Call) for n in ast.walk(queue)))
   self.assertIn('datetime.now(SHANGHAI).hour>=7',s)
   self.assertIn("body.get('action')=='generate_pool'",s)
+ def test_controller_manual_report_and_stop_routes(self):
+  from tracking_controller import TrackingController
+  self.track();self.observe();f=FakeConversation()
+  class Client:
+   def read(self,body):raise AssertionError('unexpected upstream read')
+  c=TrackingController(self.tmp.name,lambda u:u=='tester',client=Client(),auto_start=False,conversation=f)
+  code,r=c.post('tester',{'kind':'hermes_customer_tracking','action':'generate_pool','request_id':'c'*32})
+  self.assertEqual(code,200);self.assertEqual(f.calls,1)
+  code,r=c.get('tester',{'mode':['hermes'],'structure':['customer_tracking'],'view':['pool_reports']});self.assertEqual(r['items'][0]['state'],'completed')
+  c.post('tester',{'kind':'hermes_customer_tracking','action':'stop','tracking_id':self.id,'request_id':'d'*32})
+  self.assertEqual(c._poll_history(self.id),'stopped');c._queue_reports();self.assertEqual(f.calls,1)
 if __name__=='__main__':unittest.main()
