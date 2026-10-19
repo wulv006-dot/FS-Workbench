@@ -74,7 +74,7 @@ def project(report, source, page_dimension, extra_dimension=None):
     rows.sort(key=lambda r:Decimal(r['metrics'][metric]),reverse=True)
     quality=(report or {}).get('quality',{})
     attempt=(report or {}).get('last_attempt',{})
-    return {'version':VERSION,'rows':rows,'status':'unavailable' if report is None else 'stale' if attempt.get('status') in ('failed','empty') else 'partial' if not quality.get('pagination_complete') or any(quality.get(k) for k in ('sampling_present','subject_to_thresholding','data_loss_from_other_row')) else 'available',
+    return {'version':VERSION,'rows':rows,'status':'unavailable' if report is None else 'stale' if attempt.get('status') in ('failed','empty') else 'partial' if not quality.get('pagination_complete') or any(quality.get(k) for k in ('sampling_present','subject_to_thresholding','data_loss_from_other_row','top_rows_not_all_queries')) else 'available',
             'basis':'landing_page_sessions' if source=='ga4' else 'search_page_rows',
             'source_quality':quality,'returned_rows':len((report or {}).get('rows',[])),
             'not_site_total':True,'active_users_not_additive':True,'collected_at':(report or {}).get('collected_at')}
