@@ -39,3 +39,8 @@
 .google .traffic-source-first .line-chart{margin:16px 0}
 .google .traffic-dual button[aria-pressed=true]{outline:2px solid var(--fs-brand)}
 @media(max-width:1450px){.google .traffic-dual{grid-template-columns:1fr}}
+
+/* Compact trend and concise metric columns, 2026-10-19 user feedback. */
+.google .traffic-source-first .line-chart{padding:10px 14px;margin:10px 0}
+.google .traffic-source-first .line-chart h3{margin:0 0 4px}
+.google .traffic-source-first .line-chart svg{display:block;width:100%;height:auto;max-width:1100px;max-height:220px;margin:0 auto}

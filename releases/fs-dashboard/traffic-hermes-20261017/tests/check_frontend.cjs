@@ -72,3 +72,10 @@ const d4=context.probe.selectedAccounts(d4Period,'D4')[0];assert.equal(d4.metric
  assert.equal(rendered,1);assert.equal(inputs['流量开始日期'].value,'2026-10-01');assert.equal(inputs['流量结束日期'].value,'2026-10-07');tasks.shift()();assert.equal(submitted,1);assert.equal(ctx.scope.restoreRangeWanted,null);
  console.log('PASS custom date URL restores exact range without relabelling old results');
 }
+
+{
+ const ctx={};vm.createContext(ctx);vm.runInContext(extract('sumAdsRows')+'\nthis.sum=sumAdsRows;'+source.match(/const metricCol=[^\n]+/)[0]+'\nthis.col=metricCol',ctx);
+ const out=ctx.sum([{metrics:{cost:10,clicks:10,impressions:100,conversions:2,conversionsValue:30}},{metrics:{cost:20,clicks:20,impressions:400,conversions:3,conversionsValue:50}}]);
+ assert.equal(out.ctr,.06);assert.equal(out.conversionsValue,80);assert.equal(ctx.col('cpa').label,'CPA');assert.equal(ctx.col('ctr').get({metrics:{clicks:0,impressions:0}}),null);
+ assert(source.includes('单位USD（美元）'));assert(source.includes("viewBox','0 0 1000 180'"));console.log('PASS weighted Ads CTR, income, zero handling and compact headers/chart');
+}
