@@ -150,6 +150,7 @@
   }
   async function loadCandidates(date, end=$('candidate-end').value) {
     let days;try{days=rangeDays(date,end);}catch(error){setStatus(error.message,true);return;}
+    setStatus('正在读取所选日期区间；未取得的日期会单独提示。');
     const epoch=++candidateEpoch;candidateAbort?.abort();candidateAbort=new AbortController();
     const signal=candidateAbort.signal, results=new Map(), version=config?.version;
     const host=$('candidate-list');host.replaceChildren();node('p','正在读取所选区间名单…',host,'empty');
@@ -269,6 +270,7 @@
   $('reconcile-write').onclick = reconcile;
   $('refresh-detail').onclick = () => { if (chosen) loadDetail(chosen); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) { candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); $('detail-section').hidden = true; } else { loadConfig().then(() => { if (config) { if (pendingWrite) reconcile(); loadCandidates($('candidate-date').value); loadTracked(); } }); } });
+  window.addEventListener('pageshow', event => { if(event.persisted) { disposed=false; loadConfig().then(() => { if(config) { loadCandidates($('candidate-date').value); loadTracked(); } }); } });
   window.addEventListener('pagehide', () => { disposed = true; candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); });
   loadConfig().then(() => { if (config) { loadCandidates($('candidate-date').value); loadTracked(); } });
 })();
