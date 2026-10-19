@@ -647,7 +647,7 @@ class HermesService:
                 from data_workspace_request import request_context
                 admission['prompt']+=request_context(body['data_request'])
             admission['prompt']+='\n交付前自检：pending/reading按retryAfter继续轮询同查询；工具返回content_index/read_more时按fc.read_evidence分段读取，不把省略或截断称为来源缺失。先尝试现有只读恢复链路，已知失败有界重试，导出结果未知只对账原请求不重复生成。完整HTML在交付前调用fc.check_report_html，修复结构告警后再交付；该工具不执行脚本，不替代浏览器验收。最后核图表：每个非零数据确有可见图元，span作柱条时使用block/inline-block或明确定位；检查宽高、父容器、变量、零线、标签和关键交互。结论与行动必须使用本次实际取到的证据，不把系统故障说明替代经营分析。缺口先列已尝试路径、终态和可执行后续，不无界重试。'
-            admission['prompt']+='\n同时核对总判断与分组数字是否一致；不同时长先换算日均再比较，月末跑速情景写明维持当前节奏的条件，不把推算说成确定结果。'
+            admission['prompt']+='\n同时核对总判断与分组数字是否一致；不同时长先换算日均再比较，月末跑速情景写明维持当前节奏的条件，不把推算说成确定结果。按已确认的Admin优先、Order补缺使用字段，范围差异保留标注，不因此拒用补缺字段；不跨日期、游戏挪用，不把参考利润当实结。'
             admission['prompt']+='\n实际生成时点：'+self.clock().isoformat()+'。行动期限按此时点安排为尚可完成的未来时间；未校准数值只作为建议观察线，不是已确认业务阈值。'
             admission['frozen_skills']=book.skills
             admission['learning_receipt']={k:knowledge[k] for k in ('version','identity','files','memory_path','native_skip_reason')}
