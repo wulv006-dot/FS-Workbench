@@ -59,6 +59,23 @@ def run(unknown=False):
         browser.close()
 
 
+def management_brief():
+    source=(SOURCE/'management-live.js').read_text('utf-8')
+    render=next(line for line in source.splitlines() if line.startswith('function renderAI()'))
+    script="""const data={period:{end:'2026-10-18'},analysis:{generatedAt:'2026-10-19'}};
+const aiBody=document.getElementById('ai');
+const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));
+function activeAdvice(){return {summary:'先看关键偏差。\\n\\n再安排行动。<img src=x onerror=alert(1)>',actions:[],limitations:[],validUntil:'2026-10-20'};}
+"""+render+'\nrenderAI();'
+    with sync_playwright() as p:
+        browser=p.chromium.launch(headless=True);page=browser.new_page()
+        page.set_content('<div id="ai"></div>');page.add_script_tag(content=script)
+        assert page.locator('.ai-summary').count()==2
+        assert page.locator('img').count()==0
+        assert '<img' in page.locator('.ai-summary').nth(1).inner_text()
+        browser.close()
+
+
 if __name__=='__main__':
-    run();run(unknown=True)
-    print('bulk selection, cancel, partial failure, unknown stop, mobile: PASS')
+    run();run(unknown=True);management_brief()
+    print('bulk selection, cancel, partial failure, unknown stop, mobile, brief paragraphs: PASS')

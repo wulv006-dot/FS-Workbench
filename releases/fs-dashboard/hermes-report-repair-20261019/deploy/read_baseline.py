@@ -1,4 +1,4 @@
-"""Read-only Linux inventory for the exact 371-path tracking follow-up scope."""
+"""Read-only Linux inventory for the exact 372-path tracking follow-up scope."""
 
 import datetime
 import hashlib
@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PLAN_SHA = '0137cefd65e90c3d948ba65af100c7a7ce367f8930b4980964a0c2a2620da796'
+PLAN_SHA = '9a681250c8f5c40663e2741b6526985d06baba3fbfe83a9a94f99b9a030aaffe'
 UI_READY_SHA = "c159d268efa7a1ba38dbd3c0f47906150ffb86cf50c769629b3abe7b29e9703e"
 
 
@@ -24,9 +24,9 @@ def read(plan_path=None):
     expected = plan.get("expectedSha256")
     if plan.get("contract") != "fs-hermes-report-repair-inventory-v1" or \
        plan.get("productionWrites") != 0 or \
-       not isinstance(names, list) or len(names) != 371 or len(set(names)) != 371 or \
+       not isinstance(names, list) or len(names) != 372 or len(set(names)) != 372 or \
        set(expected) != set(names) or names != sorted(names):
-        raise ValueError("fixed_371_path_contract_required")
+        raise ValueError("fixed_372_path_contract_required")
     rows = []
     for name in names:
         target = Path(name)
