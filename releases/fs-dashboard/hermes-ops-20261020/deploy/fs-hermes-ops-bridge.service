@@ -1,0 +1,18 @@
+[Unit]
+Description=Hermes scoped operations snapshot and reviewed repair bridge
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-hermes-ops/host.py
+TimeoutStartSec=180
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=full
+Environment=PYTHONDONTWRITEBYTECODE=1
