@@ -16,7 +16,7 @@
       "previous_repository": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/controller.py",
       "runtime": "/opt/fs-hermes-fc/controller.py",
       "before_sha256": "06dd0acb055b5144fb8469be9778200093ed956e38f6dedcdc82a6684adc8d31",
-      "sha256": "2780da43aa7d579fe3da3fe4d0bdf08ef71f1a286d45439643ff9805ae4db6eb"
+      "sha256": "6a9132acc08de69f4c40cb6bf913ecdfdeeb1ef736f3428fb28af4664771e09c"
     },
     {
       "local": "hermes_v2_core_20261020/source/conversation_service.py",
@@ -63,14 +63,14 @@
       "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_registry.py",
       "runtime": "/opt/fs-hermes-fc/learning_registry.py",
       "before_sha256": null,
-      "sha256": "9081049b50ffde9d81a93b65ecdb259b7f53f2aabfb48e1e1ca0216b078d185b"
+      "sha256": "7ce0fff4039a4c1fab81fcd3fbe4987bf383c58f341ec3c3e127c9731cb47885"
     },
     {
       "local": "hermes_v2_core_20261020/source/learning_service.py",
       "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_service.py",
       "runtime": "/opt/fs-hermes-fc/learning_service.py",
       "before_sha256": null,
-      "sha256": "0e4a2966f96bb123e68b7adc7a148ac9348fe8f57b0dbf1ecea83fe3a9688cf3"
+      "sha256": "c894eb400d3f90017b7a0a602d705474f52e52331c144316b74297d7f3dfbe21"
     }
   ],
   "status": "candidate_not_deployed",

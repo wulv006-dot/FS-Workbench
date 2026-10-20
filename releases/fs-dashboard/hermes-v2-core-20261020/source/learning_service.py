@@ -57,6 +57,19 @@ def handle(service, user, body):
     now = service.clock();project = 'FS'
     action = body.get('action')
     try:
+        if action=='reconcile' and set(body)=={'kind','action','event'}:
+            with service.tasks.db() as db:row=registry.event(db,user,project,body['event'])
+            if row['state']!='unknown':raise ValueError('learning_not_unknown')
+            with service.daily.db() as db:
+                calls=db.execute('SELECT m.state,m.content FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint WHERE r.owner=? AND r.task=? ORDER BY r.turn',(user,body['event'])).fetchall()
+            if not calls or any(r['state']!='succeeded' for r in calls):raise ValueError('learning_outcome_unknown')
+            response=json.loads(calls[-1]['content'])
+            with service.tasks.db() as db:
+                db.execute('BEGIN IMMEDIATE')
+                changed=db.execute("UPDATE learning_events SET state='running' WHERE id=? AND owner=? AND state='unknown' AND attempt=?",(body['event'],user,row['attempt']))
+                if changed.rowcount!=1:raise ValueError('learning_attempt_conflict')
+                result=complete_review(db,user,body['event'],row['attempt'],response,now)
+            return 200,dict(result,model_replayed=False)
         if action in ('pause','resume') and set(body)=={'kind','action'}:
             with service.tasks.db() as db:registry.set_paused(db,user,project,action=='pause')
             return 200, {'paused':action=='pause','research_unchanged':True}
@@ -104,7 +117,7 @@ def handle(service, user, body):
         if action == 'list' and set(body) == {'kind', 'action'}:
             with service.tasks.db() as db:
                 result = registry.manifest(db, user, project, now)
-                events = [dict(r) for r in db.execute('SELECT id,source,source_hash,event_type,state,result FROM learning_events WHERE owner=? AND project=? ORDER BY rowid DESC LIMIT 50', (user, project))]
+                events = [dict(r) for r in db.execute('SELECT id,source,source_hash,event_type,state,attempt,result FROM learning_events WHERE owner=? AND project=? ORDER BY rowid DESC LIMIT 50', (user, project))]
                 versions = [dict(r) for r in db.execute('SELECT id,event,content,content_hash,risk,expires_at FROM experience_versions WHERE owner=? AND project=? ORDER BY rowid DESC LIMIT 50', (user, project))]
             return 200, dict(result, events=events, candidates=versions, auto_publish=False)
         raise ValueError('learning_action')
@@ -136,6 +149,21 @@ class LearningScope:
         return row
 
 
+def complete_review(db, owner, key, attempt, response, now):
+    value=json.loads(response['message'].get('content'))
+    receipt={k:response[k] for k in ('provider_request_id','usage','model','model_validation','finish_reason') if k in response}
+    if value is None:
+        row=registry.event(db,owner,'FS',key)
+        if row['state']!='running' or row['attempt']!=attempt:raise ValueError('learning_attempt_changed')
+        result={'status':'no_substantive_candidate','model_receipt':receipt}
+        db.execute("UPDATE learning_events SET state='completed',result=? WHERE id=? AND attempt=?",(encoded(result),key,attempt))
+    else:
+        result=registry.candidate(db,owner,'FS',key,attempt,value,now)
+        result=dict(result,model_receipt=receipt)
+        db.execute('UPDATE learning_events SET result=? WHERE id=? AND attempt=?',(encoded(result),key,attempt))
+    return result
+
+
 def review_model(service, owner, key, attempt):
     """One explicit bounded review through the existing proxy, ledger and stop gates."""
     try:
@@ -154,19 +182,9 @@ def review_model(service, owner, key, attempt):
             '经验是待审候选，不声称已验证收益；不输出私有推理。当前时点：'+service.clock().isoformat())
         response=item.call(owner,key,attempt,0,dict(messages=[{'role':'system','content':instruction},
             {'role':'user','content':row['input']}],max_tokens=OUTPUT_TOKENS,reasoning_effort='high',auxiliary=True))
-        text=response['message'].get('content')
-        value=json.loads(text)
-        receipt={k:response[k] for k in ('provider_request_id','usage','model','model_validation','finish_reason') if k in response}
         with service.tasks.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            if value is None:
-                scope_row=registry.event(db,owner,'FS',key)
-                if scope_row['state']!='running' or scope_row['attempt']!=attempt:raise ValueError('learning_attempt_changed')
-                result={'status':'no_substantive_candidate','model_receipt':receipt}
-                db.execute("UPDATE learning_events SET state='completed',result=? WHERE id=? AND attempt=?",(encoded(result),key,attempt))
-            else:
-                result=registry.candidate(db,owner,'FS',key,attempt,value,service.clock())
-                db.execute('UPDATE learning_events SET result=? WHERE id=? AND attempt=?',(encoded(dict(result,model_receipt=receipt)),key,attempt))
+            complete_review(db,owner,key,attempt,response,service.clock())
     except Exception as error:
         with service.tasks.db() as db:
             db.execute("UPDATE learning_events SET state=?,result=? WHERE id=? AND attempt=? AND state='running'",

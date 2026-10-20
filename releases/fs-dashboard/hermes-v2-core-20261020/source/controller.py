@@ -113,8 +113,9 @@ class HermesService:
         self.recovery_stop=threading.Event();self.recovery_thread=None
         self.delivery_retries={}
         with self.tasks.db() as db:
-            from learning_registry import schema as learning_schema
+            from learning_registry import schema as learning_schema,recover_interrupted
             learning_schema(db)
+            recover_interrupted(db)
             db.executescript('CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,owner TEXT,request_id TEXT,body TEXT,state TEXT,task_id TEXT,error TEXT,result TEXT,UNIQUE(owner,request_id));'
                              'CREATE TABLE IF NOT EXISTS evidence(task_id TEXT,evidence_id TEXT,content TEXT,PRIMARY KEY(task_id,evidence_id));'
                              'CREATE TABLE IF NOT EXISTS report_trash(id TEXT PRIMARY KEY,deleted_by TEXT NOT NULL,deleted_at TEXT NOT NULL);'

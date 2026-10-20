@@ -41,7 +41,13 @@ def instant(value):
 def set_paused(db, owner, project, paused):
     identity(owner, project);schema(db)
     if type(paused) is not bool:raise ValueError('learning_pause_boolean')
-    db.execute('INSERT INTO learning_control(owner,project,paused) VALUES(?,?,?) ON CONFLICT(owner,project) DO UPDATE SET paused=excluded.paused', (owner,project,int(paused)))
+    db.execute('INSERT OR REPLACE INTO learning_control(owner,project,paused) VALUES(?,?,?)', (owner,project,int(paused)))
+
+
+def recover_interrupted(db):
+    schema(db)
+    # A process restart cannot prove that a billed provider request stopped.
+    db.execute("UPDATE learning_events SET state='unknown' WHERE state='running'")
 
 
 def manifest(db, owner, project, now):
@@ -118,7 +124,7 @@ def candidate(db, owner, project, key, attempt, value, now):
     if not isinstance(refs, list) or not refs or not all(isinstance(x, str) and x in available for x in refs) or len(set(refs)) != len(refs):
         raise ValueError('experience_source_refs')
     expiry = instant(value['expires_at'])
-    if not now < expiry or (expiry-now).days > 366:
+    if not now < expiry or (expiry-now).total_seconds() > 366*86400:
         raise ValueError('experience_expiry')
     key_version = digest(dict(event=key, content=value))
     db.execute('INSERT OR IGNORE INTO experience_versions VALUES(?,?,?,?,?,?,?,?)',
@@ -133,6 +139,8 @@ def release(db, owner, project, key, expected_manifest, state, actor, reason, no
         raise PermissionError('knowledge_release_identity')
     if not isinstance(reason, str) or not 8 <= len(reason.strip()) <= 1000:
         raise ValueError('knowledge_review_reason')
+    from report_delivery import private_report
+    if private_report(reason) or re.search(r'sk-[A-Za-z0-9_-]{8,}',reason):raise ValueError('knowledge_review_sensitive')
     current = manifest(db, owner, project, now)
     if current['sha256'] != expected_manifest:
         raise ValueError('knowledge_manifest_conflict')

@@ -106,6 +106,8 @@ class Registry(unittest.TestCase):
 
     def test_restart_unknown_is_not_retried_and_late_attempt_denied(self):
         attempt=lr.claim(self.db,'wulv','FS',self.ev['id'])
+        lr.recover_interrupted(self.db)
+        self.assertEqual(lr.event(self.db,'wulv','FS',self.ev['id'])['state'],'unknown')
         with self.assertRaisesRegex(ValueError,'reconcile'):lr.claim(self.db,'wulv','FS',self.ev['id'])
         with self.assertRaisesRegex(ValueError,'attempt_changed'):
             lr.candidate(self.db,'wulv','FS',self.ev['id'],'stale-attempt',self.value,NOW)
@@ -127,6 +129,19 @@ class Registry(unittest.TestCase):
 
 
 class LearningBoundary(unittest.TestCase):
+    def test_reconciliation_reuses_original_settled_output(self):
+        from learning_service import complete_review
+        db=sqlite3.connect(':memory:');db.row_factory=sqlite3.Row
+        baseline=lr.manifest(db,'wulv','FS',NOW)
+        ev=lr.enqueue(db,'wulv','FS','a'*32,baseline['sha256'],'completed_report',{'evidence_refs':['original']})
+        attempt=lr.claim(db,'wulv','FS',ev['id']);lr.recover_interrupted(db)
+        self.assertEqual(lr.event(db,'wulv','FS',ev['id'])['state'],'unknown')
+        db.execute("UPDATE learning_events SET state='running' WHERE id=? AND attempt=?",(ev['id'],attempt))
+        r=complete_review(db,'wulv',ev['id'],attempt,{'message':{'content':'null'},'provider_request_id':'original-settled-call'},NOW)
+        self.assertEqual(r['model_receipt']['provider_request_id'],'original-settled-call')
+        self.assertEqual(lr.event(db,'wulv','FS',ev['id'])['state'],'completed')
+        db.close()
+
     def test_review_sees_visible_conclusions_without_executable_markup(self):
         from learning_service import visible_result
         result=visible_result({'output_format':'html','research_text':'<style>secret css</style><h1>已完成的经营判断</h1><script>do_not_execute()</script><p>反例与缺口</p>'})
