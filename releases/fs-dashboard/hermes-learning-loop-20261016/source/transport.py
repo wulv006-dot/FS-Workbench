@@ -189,14 +189,18 @@ class Proxy:
         learning=getattr(gateway,'learning',None);proof=None
         if learning:
             from business_context import effective_learning
-            proof=dict(effective_learning(learning,messages),request_sha256=digest(request),status='validated_for_provider')
+            from proxy_gateway import schemas
+            proof=dict(effective_learning(learning,messages),request_sha256=digest(request),status='validated_for_provider',
+                task_id=grant.task_id,owner=grant.owner,project='FS',tool_schema_sha256=digest(schemas()),
+                requested_model=gateway.budget.policy['model'],reasoning_effort=effort,
+                evidence_refs=sorted(getattr(gateway.scope.book,'evidence',{})),report_contract='hermes-autonomous-original-v1')
             gateway.record_learning(proof)
         turn = self._turn(gateway.budget.db, grant, request)
         with self._active_lock:self._active[grant.task_id]=self._active.get(grant.task_id,0)+1
         try:receipt = gateway.call(grant.owner, grant.task_id, grant.lease, turn, request)
         finally:
             with self._active_lock:self._active[grant.task_id]-=1
-        if proof:gateway.record_learning(dict(proof,status='provider_response_success',provider_request_id=receipt['provider_request_id'],model=receipt['model']))
+        if proof:gateway.record_learning(dict(proof,status='provider_response_success',provider_request_id=receipt['provider_request_id'],model=receipt['model'],model_validation=receipt.get('model_validation'),finish_reason=receipt['finish_reason']))
         message = receipt['message']
         return {'id': receipt['provider_request_id'], 'object': 'chat.completion',
                 'created': int(time.time()), 'model': receipt['model'], 'usage': receipt['usage'],

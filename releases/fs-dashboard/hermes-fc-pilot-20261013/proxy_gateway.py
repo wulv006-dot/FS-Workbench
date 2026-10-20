@@ -389,6 +389,11 @@ class UnifiedBudget:
                        'cost_basis':'configured_public_rate_estimate_not_account_invoice' if p['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
             receipt['finish_reason']=finish_reason
+            validation=response.get('model_validation')
+            if isinstance(validation,dict):
+                if validation.get('status') not in ('accepted_no_effort_echo','provider_metadata_confirmed') or validation.get('requested_effort')!=request.get('reasoning_effort') or validation.get('response_model')!=p['model'] or validation.get('forwarded_verified') is not True:
+                    raise ValueError('model_validation_invalid')
+                receipt['model_validation']=deepcopy(validation)
             receipt.update(transport_trace(response))
             reasoning_tokens=response.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens') if isinstance(response.get('usage',{}).get('completion_tokens_details'),dict) else None
             if reasoning_tokens is not None:

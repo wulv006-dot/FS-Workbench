@@ -69,7 +69,8 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None):
   if total>MAX_TOTAL:raise ValueError('desktop_learning_bundle_too_large')
   text=raw.decode('utf-8-sig').strip()
   if not text:continue
-  sha=hashlib.sha256(raw).hexdigest();rows.append({'path':name,'sha256':sha,'bytes':len(raw)})
+  sha=hashlib.sha256(raw).hexdigest();rows.append({'path':name,'sha256':sha,'bytes':len(raw),
+       'asset_type':'core_contract' if name=='runtime/learning-loop.md' else 'experience' if name.startswith('profile/memories/') else 'method'})
   parts.append('\n<owner_learning_document path="'+name+'" sha256="'+sha+'">\n'+text+'\n</owner_learning_document>')
  if not any(row['path'] in ('desktop-business-context.md','profile/memories/MEMORY.md','profile/memories/USER.md') for row in rows):return '',None,[]
  manifest=json.dumps({'version':'desktop-learning-v2','files':rows},ensure_ascii=False,sort_keys=True,separators=(',',':'))
@@ -89,18 +90,29 @@ def read_desktop_context(root):
  return text,sha
 
 
-def freeze_learning(root,skills,background,mode,*,skill_root=SKILL_ROOT,profile_root=None):
+def freeze_learning(root,skills,background,mode,*,skill_root=SKILL_ROOT,profile_root=None,owner=None,experience_manifest=None):
  """Publish at admission, before reuse; unchanged input retains the same version."""
  from report_artifacts import write_file
  text,sha,rows=learning_bundle(root,skill_root,profile_root)
  if not text:raise ValueError('business_knowledge_missing')
+ if experience_manifest is not None:
+  from learning_registry import context,identity
+  identity(owner,'FS')
+  if experience_manifest.get('owner')!=owner or experience_manifest.get('project')!='FS':raise PermissionError('knowledge_owner_mismatch')
+  material={k:v for k,v in experience_manifest.items() if k!='sha256'}
+  from pilot import digest
+  if digest(material)!=experience_manifest.get('sha256'):raise ValueError('experience_manifest_changed')
+  text+=context(experience_manifest)
+  sha=hashlib.sha256(text.encode()).hexdigest()
  identity={'contract':'fs-learning-v2','knowledge_sha256':sha,'skill_sha256':skills['sha256'],
            'frozen_skills_sha256':hashlib.sha256(json.dumps(skills,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
            'background_sha256':hashlib.sha256(json.dumps(background,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
            'reasoning_effort':'max' if mode in {'investigation','pricing'} else 'high'}
+ if experience_manifest is not None:identity.update(owner=owner,project='FS',experience_manifest_sha256=experience_manifest['sha256'])
  version='learning-'+hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
  value={'version':version,'identity':identity,'text':text,'files':rows,'skills':skills,
         'memory_path':'explicit_frozen_business_snapshot','native_skip_reason':'shared_home_write_and_owner_isolation'}
+ if experience_manifest is not None:value['experience_manifest']=experience_manifest
  folder=Path(root)/'knowledge';folder.mkdir(exist_ok=True,mode=0o700)
  if folder.is_symlink():raise ValueError('desktop_learning_symlink')
  write_file(folder/(version+'.json'),json.dumps(value,sort_keys=True,ensure_ascii=False).encode())
@@ -114,6 +126,10 @@ def loaded_learning(root,version):
  actual='learning-'+hashlib.sha256(json.dumps(value['identity'],sort_keys=True).encode()).hexdigest()
  if (actual!=version or hashlib.sha256(value['text'].encode()).hexdigest()!=value['identity']['knowledge_sha256'] or
      hashlib.sha256(json.dumps(value['skills'],sort_keys=True,ensure_ascii=False).encode()).hexdigest()!=value['identity']['frozen_skills_sha256']):raise ValueError('knowledge_changed')
+ if 'experience_manifest' in value:
+  from pilot import digest
+  material={k:v for k,v in value['experience_manifest'].items() if k!='sha256'}
+  if digest(material)!=value['identity'].get('experience_manifest_sha256') or value['experience_manifest'].get('owner')!=value['identity'].get('owner'):raise ValueError('experience_manifest_changed')
  return value
 
 
@@ -121,4 +137,7 @@ def effective_learning(knowledge,messages):
  system='\n\n'.join(m['content'] for m in messages if isinstance(m,dict) and m.get('role')=='system' and isinstance(m.get('content'),str)) if isinstance(messages,list) else ''
  if not knowledge['text'] or knowledge['text'] not in system:raise ValueError('effective_business_memory_missing')
  return {'knowledge_version':knowledge['version'],'knowledge_sha256':knowledge['identity']['knowledge_sha256'],
-         'system_prompt_sha256':hashlib.sha256(system.encode()).hexdigest(),'knowledge_present':True,'characters':len(system)}
+         'system_prompt_sha256':hashlib.sha256(system.encode()).hexdigest(),'knowledge_present':True,'characters':len(system),
+         'experience_manifest_sha256':knowledge['identity'].get('experience_manifest_sha256'),
+         'experiences':[{'id':r['id'],'sha256':r['sha256']} for r in knowledge.get('experience_manifest',{}).get('experiences',[])],
+         'asset_types':['core_contract','method','experience'],'business_facts_source':'task_scoped_tools'}

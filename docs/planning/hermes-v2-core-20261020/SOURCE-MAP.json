@@ -1,0 +1,75 @@
+{
+  "contract": "hermes-v2-core-source-map-v1",
+  "base": "361caad3c6f73c4cb1d1f2dccddfdb04e4b034e1",
+  "files": [
+    {
+      "local": "hermes_v2_core_20261020/source/business_context.py",
+      "repository": "releases/fs-dashboard/hermes-data-workspace-20261018/source/business_context.py",
+      "runtime": "/opt/fs-hermes-fc/business_context.py",
+      "before_sha256": "8e4b799340957d5e03b92f8b9d2c6d32407fcd0e02592b3525687a77ab825dfd",
+      "sha256": "bc88a8b3d90399e1a2394c7b6dfff1496b8ddd5516450898f4956badd7648fe6"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/controller.py",
+      "repository": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "before_sha256": "06dd0acb055b5144fb8469be9778200093ed956e38f6dedcdc82a6684adc8d31",
+      "sha256": "2780da43aa7d579fe3da3fe4d0bdf08ef71f1a286d45439643ff9805ae4db6eb"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/conversation_service.py",
+      "repository": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/conversation_service.py",
+      "runtime": "/opt/fs-hermes-fc/conversation_service.py",
+      "before_sha256": "62991168636fcb43cb1f531e820873fa1429fa40a2bdca63d841089fd69c6c8f",
+      "sha256": "b9546a8776a258386cfa299455896622049be014ce91a7cce5a35e593120a875"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/hermes_worker.py",
+      "repository": "releases/fs-dashboard/hermes-conversation-20261018/source/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "before_sha256": "4917c6ad9a0f5694fbcf94f2562fdda54919058ab85b95b68ce5932b6f018bc0",
+      "sha256": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/proxy_gateway.py",
+      "repository": "releases/fs-dashboard/hermes-fc-pilot-20261013/proxy_gateway.py",
+      "runtime": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "before_sha256": "1f418da7f7a472913f7fb2798f5574a922a85c19ff40321a3831bc53e42fe087",
+      "sha256": "d964e15bdd4c358077f5df5412a6a9644d9078888bf952abe1da9cf8ef137eca"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/direct_provider.py",
+      "repository": "releases/fs-dashboard/hermes-fc-pilot-20261013/direct_provider.py",
+      "runtime": "/opt/fs-hermes-fc/direct_provider.py",
+      "before_sha256": "9ac9e09238f0c934ca6977a3af02df58f3a9185d8f0b9668f56d0fd4c7a55fed",
+      "sha256": "91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/transport.py",
+      "repository": "releases/fs-dashboard/hermes-learning-loop-20261016/source/transport.py",
+      "runtime": "/opt/fs-hermes-fc/transport.py",
+      "before_sha256": "1609bd2275d0add327c622f40b0d5ed663bdee77e48f6bf787d8d7e19207cc7c",
+      "sha256": "e677a186a893c346379ba572576afdfbd412612cc5c63146751182558743f843"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/learning_registry.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_registry.py",
+      "runtime": "/opt/fs-hermes-fc/learning_registry.py",
+      "before_sha256": null,
+      "sha256": "9081049b50ffde9d81a93b65ecdb259b7f53f2aabfb48e1e1ca0216b078d185b"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/learning_service.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_service.py",
+      "runtime": "/opt/fs-hermes-fc/learning_service.py",
+      "before_sha256": null,
+      "sha256": "b246620a8735c45df122576bc957f9c6dae787f3953ae4822f5b57647b3d6747"
+    }
+  ],
+  "status": "candidate_not_deployed",
+  "publisher": "existing release_navigation_base adapter; CAS, admission/provider locks, backup, rollback and original-ID readback required",
+  "business_writes": false,
+  "automatic_strategy_changes": false,
+  "timers_changed": false,
+  "not_in_server187_manifest": true
+}

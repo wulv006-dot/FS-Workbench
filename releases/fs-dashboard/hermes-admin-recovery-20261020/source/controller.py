@@ -113,6 +113,8 @@ class HermesService:
         self.recovery_stop=threading.Event();self.recovery_thread=None
         self.delivery_retries={}
         with self.tasks.db() as db:
+            from learning_registry import schema as learning_schema
+            learning_schema(db)
             db.executescript('CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,owner TEXT,request_id TEXT,body TEXT,state TEXT,task_id TEXT,error TEXT,result TEXT,UNIQUE(owner,request_id));'
                              'CREATE TABLE IF NOT EXISTS evidence(task_id TEXT,evidence_id TEXT,content TEXT,PRIMARY KEY(task_id,evidence_id));'
                              'CREATE TABLE IF NOT EXISTS report_trash(id TEXT PRIMARY KEY,deleted_by TEXT NOT NULL,deleted_at TEXT NOT NULL);'
@@ -215,6 +217,10 @@ class HermesService:
             if current['state']=='RUNNING':current=self.tasks.observe(task['id'],owner,current['lease'],'completed',worker_stopped=True)
             if current['state']=='VALIDATING':self.tasks.change(current,'PARTIAL' if result['limitations'] else 'SUCCEEDED')
             self.update(key,state='COMPLETED',error=None,result=receipt)
+        from learning_service import enqueue_completed
+        try:enqueue_completed(self,owner,key)
+        except Exception as error:
+            atomic(self.root/'learning-status.json',{'source':key,'state':'failed','error_type':type(error).__name__},mode=0o600)
 
     def mark_progress(self,task_id,stage,tool=None):
         path=self.root/'progress';path.mkdir(exist_ok=True,mode=0o700)
@@ -355,6 +361,9 @@ class HermesService:
             if set(body)!={'kind','id'}:return 422,{'error':'report_action_fields'}
             return self.trash_report(user,body['id'],body['kind']=='hermes_restore')
         if not self.authorizer(user):return 403,{'error':'admin_required'}
+        if body.get('kind')=='hermes_learning':
+            from learning_service import handle
+            return handle(self,user,body)
         if body.get('kind')=='hermes_cohort_observation':
             from cohort_reader import reader_for
             if set(body)-{'kind','profile','start','end','platform','site_group','window_days','action'}:return 422,{'error':'cohort_fields'}
@@ -470,7 +479,9 @@ class HermesService:
                 try:load_report_followup(self.tasks,body['parent_report'],body['start'],body['end'],self.source_root,self.root)
                 except PermissionError:return 403,{'error':'followup_source_unavailable'}
                 except (ValueError,TypeError,KeyError,OSError):return 422,{'error':'followup_source_incompatible'}
-            knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'])
+            from learning_registry import manifest
+            experiences=manifest(db,user,'FS',self.clock())
+            knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'],owner=user,experience_manifest=experiences)
             reused=self.matching_report(db,body,user,knowledge['version'])
             if reused:return 200,reused
             hold = spending_hold(self.daily, self.tasks, user)
@@ -614,6 +625,8 @@ class HermesService:
             if frozen is None:raise ValueError('knowledge_snapshot_missing')
             knowledge=loaded_learning(self.root,frozen['version'])
             book.skills=knowledge['skills']
+            from learning_registry import record_use
+            with self.tasks.db() as db:record_use(db,key,owner,'FS',knowledge['version'],knowledge.get('experience_manifest',{'experiences':[]}))
             book.background=self.proxy.background
             book.action_history=self.action_history(owner)
             management=management_context.attach(book,body)
