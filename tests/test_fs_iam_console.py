@@ -236,6 +236,23 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual(200, h.response["code"])
         self.assertIn("entries", h.json)
 
+    def test_cli_grant_accepts_comma_list(self):
+        """--roles 是「逗号分隔的字符串」，不是字符列表（踩过：按字符拆成了 O,P,c…）。"""
+        import admin_cli
+        rc = admin_cli.main(["grant", "--user", VIEWER,
+                             "--roles", "PricingOps,Analyst", "--by", ADMIN])
+        self.assertEqual(0, rc)
+        policy = rbac.load_policy()
+        # grant 是「追加」，原有 Viewer 保留，权限取并集
+        self.assertEqual(["Analyst", "PricingOps", "Viewer"], policy["bindings"][VIEWER]["roles"])
+        self.assertEqual(200, rbac.authorize(policy, VIEWER, "POST", "/d4/api/price"))
+
+    def test_cli_rejects_unknown_role(self):
+        import admin_cli
+        self.assertEqual(1, admin_cli.main(["grant", "--user", VIEWER,
+                                            "--roles", "NoSuchRole", "--by", ADMIN]))
+        self.assertEqual(["Viewer"], rbac.load_policy()["bindings"][VIEWER]["roles"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
