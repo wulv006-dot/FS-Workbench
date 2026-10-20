@@ -136,7 +136,7 @@ def rename_source_selfcheck():
         regular.write_text("VALUE=2\n")
         git("add","-A");git("commit","-qm","synthetic moves and modification")
         head=git("rev-parse","HEAD").decode().strip()
-        command=[base if token=="" else head if token=="" else token for token in command]
+        command=[base if token=="$PR_BASE" else head if token=="$PR_HEAD" else token for token in command]
         paths=subprocess.check_output(command,cwd=root).decode("utf-8").rstrip("\0").split("\0")
         expected={name for pair in pairs for name in pair}|{"fc27_quote_engine.py"}
         if set(paths)!=expected:raise RuntimeError("rename_source_omitted_by_workflow")
