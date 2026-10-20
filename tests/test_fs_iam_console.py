@@ -114,12 +114,46 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual(302, h.response["code"])
         self.assertIn("/__auth/access/", h.response["headers"]["Location"])
 
-    def test_page_serves_for_admin(self):
+    def test_bare_url_redirects_to_portal(self):
+        """唯一入口是门户的「账号与访问申请」页；裸访问 /iam/ 直接送回去，
+        避免又多出一个没人知道的地址。"""
         h = FakeHandler("GET", cookie_user=ADMIN)
-        self.call(h, "/iam")
+        self.call(h, "/iam/")
+        self.assertEqual(302, h.response["code"])
+        self.assertEqual("/__auth/access/", h.response["headers"]["Location"])
+
+    def test_embed_page_serves_for_admin(self):
+        h = FakeHandler("GET", cookie_user=ADMIN)
+        self.call(h, "/iam/", {"embed": ["1"]})
         self.assertEqual(200, h.response["code"])
         self.assertIn("访问控制", h.response["body"])
         self.assertIn("Set-Cookie", h.response["headers"])
+        # 嵌入模式只放开同源，不能退化成谁都能嵌
+        self.assertEqual("SAMEORIGIN", h.response["headers"]["X-Frame-Options"])
+        self.assertIn("frame-ancestors 'self'", h.response["headers"]["Content-Security-Policy"])
+
+    def test_embed_requires_login_without_redirect(self):
+        """embed 里 302 会在框内套一层登录页，必须就地给提示、绝不跳转。"""
+        h = FakeHandler("GET")
+        self.call(h, "/iam/", {"embed": ["1"]})
+        self.assertEqual(200, h.response["code"])
+        self.assertIn("登录状态已过期", h.response["body"])
+        self.assertNotIn("Location", h.response["headers"])
+
+    def test_embed_never_redirects_any_static(self):
+        """embed 请求一旦被 302 回 /access/，父页里的 iframe 会再加载一次父页，
+        形成无限自我嵌套 —— 每个静态路径都必须就地 200。"""
+        for path in ("/iam", "/iam/", "/iam/app.css", "/iam/app.js"):
+            h = FakeHandler("GET", cookie_user=ADMIN)
+            self.call(h, path, {"embed": ["1"]})
+            self.assertEqual(200, h.response["code"], path)
+            self.assertNotIn("Location", h.response["headers"], path)
+
+    def test_embed_flag_off_still_redirects(self):
+        for flag in ("0", "no", "", "false"):
+            h = FakeHandler("GET", cookie_user=ADMIN)
+            self.call(h, "/iam/", {"embed": [flag]})
+            self.assertEqual(302, h.response["code"], flag)
 
     def test_viewer_cannot_read_api(self):
         h = FakeHandler("GET", cookie_user=VIEWER)
