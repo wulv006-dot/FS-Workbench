@@ -1,0 +1,19 @@
+{
+  "targets": {
+    "automation_tick.py": {
+      "target": "/opt/fc27-cloud-browser/automation_tick.py",
+      "before": "b42f56a9c003b56c7db34ceb76656c1f0e599d8917a26a9f08223c4241423b17",
+      "after": "5f674ee3e9b701934326c1303c8dcd94f68620faea3d62e832e6421b02e50096"
+    },
+    "automation_policy.py": {
+      "target": "/opt/fc27-cloud-browser/automation_policy.py",
+      "before": "f8f96eeb0a9b5bbbcbdfa149b9445c79be7f335389033b9aaf37e0996fbcf13f",
+      "after": "0bd3a9a0dd1c1179a5f7918b26b2787b73dea1843dd9082237cfa7e8c262b5e3"
+    },
+    "fc27_quote_engine.py": {
+      "target": "/opt/fc27-cloud-browser/fc27_quote_engine.py",
+      "before": "b25e497dd4bce85761085f65b1e17046a96b98980625b5f468809deff40af060",
+      "after": "2fe936d3e114da5ebd5684f824c28c65fe1de0f4ea143dbf1abf2393cea673f0"
+    }
+  }
+}
