@@ -116,7 +116,6 @@ def _stream_events(response, trace=None):
 
 def _read_stream(response, trace=None):
     identity = model = finish = usage = None
-    effort_echo = None
     text = []; reasoning = []; calls = {}; size = 0; done = False; terminal_usage = False
     for payload in _stream_events(response, trace):
         if trace is not None:trace['stream_events_received'] += 1
@@ -125,10 +124,6 @@ def _read_stream(response, trace=None):
         chunk = json.loads(payload)
         if not isinstance(chunk, dict) or chunk.get('error'):
             raise ValueError('invalid_stream_chunk')
-        echoed=chunk.get('reasoning_effort')
-        if echoed is not None:
-            if echoed not in ('low','high','max') or effort_echo not in (None,echoed):raise ValueError('stream_effort_changed')
-            effort_echo=echoed
         for key, old in (('id', identity), ('model', model)):
             value = chunk.get(key)
             if value is not None and (not isinstance(value, str) or old is not None and value != old):
@@ -189,7 +184,6 @@ def _read_stream(response, trace=None):
             for index,tool in sorted(calls.items())]
     result = {'id':identity,'model':model,'object':'chat.completion','usage':usage,
               'choices':[{'index':0,'finish_reason':finish,'message':message}]}
-    if effort_echo is not None:result['reasoning_effort']=effort_echo
     if len(json.dumps(result,ensure_ascii=False,separators=(',',':')).encode('utf-8')) > WIRE_BYTES:
         raise ValueError('stream_response_too_large')
     return result
@@ -304,12 +298,4 @@ def request_model(request, approved_tools, deadline=None):
         return result
     if result.get('model') != MODEL:
         return {'status': 'invalid_response'}
-    import hashlib
-    echoed=result.get('reasoning_effort')
-    if echoed is not None and echoed!=request['reasoning_effort']:return {'status':'invalid_response'}
-    result['model_validation']={'status':'provider_metadata_confirmed' if echoed is not None else 'accepted_no_effort_echo',
-        'forwarded_verified':True,'endpoint_type':'chat_completions','requested_model':MODEL,
-        'response_model':result['model'],'actual_backend_version':'unknown','requested_effort':request['reasoning_effort'],
-        'provider_effort_echo':echoed,'payload_sha256':hashlib.sha256(payload).hexdigest(),
-        'provider_response_id':result.get('id'),'thinking_enabled':True}
     return result

@@ -202,6 +202,31 @@ class TaskConstruction(unittest.TestCase):
             self.assertEqual(again[0],200)
 
 
+class PublisherBoundary(unittest.TestCase):
+    def setUp(self):
+        path=HERE/'deploy/release.py'
+        spec=importlib.util.spec_from_file_location('v2_publisher',path)
+        self.publisher=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.publisher)
+        self.manifest=dict(scope=self.publisher.SCOPE,businessWrites=False,timersChanged=False,files=[
+            dict(candidate=k,target=v,owner='0:0',mode='0o644',beforeSha256=None if k in self.publisher.NEW else 'a'*64)
+            for k,v in self.publisher.TARGETS.items()])
+
+    def test_exact_existing_and_two_absent_new_modules(self):
+        self.assertEqual(self.publisher.checked_manifest(self.manifest),self.manifest)
+        self.manifest['files'][0]['beforeSha256']=None
+        with self.assertRaisesRegex(ValueError,'new_existing'):self.publisher.checked_manifest(self.manifest)
+
+    def test_no_additional_target_or_business_side_effect(self):
+        changed=json.loads(json.dumps(self.manifest));changed['files'][0]['target']='/opt/fc27-cloud-browser/automation.json'
+        with self.assertRaisesRegex(ValueError,'targets'):self.publisher.checked_manifest(changed)
+        self.manifest['timersChanged']=True
+        with self.assertRaisesRegex(ValueError,'schedule'):self.publisher.checked_manifest(self.manifest)
+
+    def test_frozen_publisher_is_mandatory(self):
+        with patch.object(Path,'read_bytes',return_value=b'unreviewed publisher'):
+            with self.assertRaisesRegex(ValueError,'publisher_drift'):self.publisher.load_base()
+
+
 class Wire(unittest.TestCase):
     def request(self):
         return dict(model=dp.MODEL,messages=[{'role':'user','content':'验证任务'}],max_tokens=dp.OUTPUT_TOKENS,
@@ -250,6 +275,15 @@ class Wire(unittest.TestCase):
             self.assertNotIn(value['lesson'],fresh['text'])
             self.assertEqual(original['identity']['reasoning_effort'],'high')
         db.close()
+
+
+def load_tests(loader, tests, pattern):
+    path=ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013/test_direct_provider.py'
+    if not path.exists():path=ROOT/'.agent_runtime/hermes-v2-core-20261020/related-tests/test_direct_provider.py'
+    spec=importlib.util.spec_from_file_location('v2_existing_provider_regressions',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
+    return tests
 
 
 if __name__ == '__main__':unittest.main()

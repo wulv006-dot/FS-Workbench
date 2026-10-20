@@ -37,7 +37,7 @@ def admission(session_id):
     if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt','report_mode','skill_question','frozen_skills','learning_receipt','learning_text','conversation','run_id'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
     if session_id.startswith('hc_'):
-        if item.get('conversation') is not True or 'report_mode' in item or 'background' in item:
+        if item.get('conversation') is not True or 'report_mode' in item or 'background' in item or 'frozen_skills' in item or 'learning_text' in item:
             raise PermissionError('conversation_admission_invalid')
         if 'run_id' in item and not re.fullmatch(r'run_[a-f0-9]{32}',item['run_id']):
             raise PermissionError('conversation_run_invalid')

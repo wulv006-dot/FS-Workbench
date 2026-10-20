@@ -37,7 +37,7 @@ SHORT_RULES = (
 )
 
 
-def attach_current_learning(book, root, knowledge=None):
+def attach_current_learning(book, root):
     """Expose bounded sections of reviewed knowledge through the existing skill tool."""
     original = book.call
     cache = {}
@@ -50,8 +50,8 @@ def attach_current_learning(book, root, knowledge=None):
         if topic not in cache:
             from business_context import learning_bundle
             from report_method import method_bundle
-            method = knowledge['skills'] if knowledge is not None else method_bundle("operations")
-            owner_text, owner_sha, files = (knowledge['text'],knowledge['identity']['knowledge_sha256'],knowledge['files']) if knowledge is not None else learning_bundle(root)
+            method = method_bundle("operations")  # checks the pinned current manifest and files
+            owner_text, owner_sha, files = learning_bundle(root)
             if not owner_text or not owner_sha:
                 raise ValueError("owner_learning_unavailable")
             current = method["methods_text"] if topic == "methods" else method["governance_text"]
@@ -61,10 +61,6 @@ def attach_current_learning(book, root, knowledge=None):
                 raise ValueError("owner_learning_manifest_changed")
             documents = [("current/report-html-authoring/" + topic, method["sha256"], current)]
             documents += [(match.group(1), match.group(2), match.group(3)) for match in matches]
-            if knowledge is not None:
-                from learning_registry import context
-                for row in knowledge.get('experience_manifest',{}).get('experiences',[]):
-                    documents.append(('experience/'+row['id'],row['sha256'],context({'experiences':[row]})))
             documents.sort(key=lambda row: (0 if row[0] == "skills/data-storytelling/SKILL.md" else
                                             1 if row[0].startswith("current/") else
                                             2 if row[0] == "runtime/learning-loop.md" else
@@ -205,19 +201,13 @@ class ConversationService:
             book = build_book(self.hermes.detail, self.hermes.daily, self.hermes.read_range,
                               self.hermes.diagnostics, day_text, day_text, self.hermes.source_root, user,
                               recent_days=14, lazy_session=turn_id)
-            from business_context import freeze_learning
-            from skill_bundle import load_bundle
-            from learning_registry import manifest,record_use
-            with self.hermes.tasks.db() as db:
-                experiences=manifest(db,user,'FS',self.hermes.clock())
-            knowledge=freeze_learning(self.hermes.root,load_bundle(self.hermes.source_root,question=text),self.hermes.proxy.background,'daily',owner=user,experience_manifest=experiences)
-            attach_current_learning(book, self.hermes.root,knowledge)
+            attach_current_learning(book, self.hermes.root)
             attach_customer_tracking(book,self.customer_tracking,user)
             spec = {"period": {"start": day_text, "end_exclusive": (day + timedelta(days=1)).isoformat(),
                                 "timezone": "Asia/Shanghai"},
                     "snapshot_id": book.capture_id,
                     "template_version": "conversation-" + turn_id,
-                    "knowledge_version": knowledge['version'],
+                    "knowledge_version": "deferred-current-method-read",
                     "budget_policy_id": "hermes-conversation-v1"}
             with self.hermes.lock:
                 task = self.hermes.tasks.create(user, spec)
@@ -226,15 +216,11 @@ class ConversationService:
                 lease = secrets.token_hex(16)
                 self.hermes.tasks.reserve_dispatch(task["id"], user, lease)
                 self.store.bind_task(user, conversation_id, turn_id, task["id"], lease)
-            with self.hermes.tasks.db() as db:record_use(db,task['id'],user,'FS',knowledge['version'],experiences)
             def persist(value):
                 with self.hermes.tasks.db() as db:
                     db.execute("INSERT OR IGNORE INTO evidence VALUES(?,?,?)", (task["id"], value["evidence_id"], encoded(value)))
             book.persist = persist
             item_gateway = gateway(self.hermes.daily, self.hermes.tasks, book)
-            item_gateway.learning=knowledge
-            context_path=self.hermes.root/'contexts';context_path.mkdir(exist_ok=True,mode=0o700)
-            item_gateway.record_learning=lambda value:atomic(context_path/(turn_id+'-effective-input.json'),value,mode=0o600)
             token = self.hermes.grants.mint(user, task["id"], lease, reasoning_effort="high")
             with self.hermes.lock:
                 self.hermes.tokens[task["id"]] = token
@@ -247,8 +233,6 @@ class ConversationService:
                          "prompt": SHORT_RULES + "当前日期（Asia/Shanghai）：" + datetime.now(SHANGHAI).date().isoformat() + "。",
                          "reasoning_effort": "high",
                          "conversation": True, "ready": False}
-            admission.update(frozen_skills=knowledge['skills'],learning_text=knowledge['text'],
-                learning_receipt={k:knowledge[k] for k in ('version','identity','files','memory_path','native_skip_reason')})
             atomic(admission_path, admission)
             body = {"input": text, "session_id": session_id}
             key = "hc-" + digest({"user": user, "conversation": conversation_id, "request_id": request_id})
