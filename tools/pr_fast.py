@@ -288,6 +288,9 @@ def selfcheck():
                  "opt/nba-reprice/backend/server.js","opt/iggm-web/deploy/setup.sh"):
         if select([path]) != ["ops-modules"]:
             raise RuntimeError("ops_module_mapping_missing:"+path)
+    for path in ("tests/test_fs_iam_rbac.py","tests/test_fs_iam_console.py"):
+        if select([path]) != ["iam"]:
+            raise RuntimeError("iam_mapping_missing:"+path)
     if select(["opt/nba-reprice/backend/api_security.js"]) != ["nba","ops-modules"]:
         raise RuntimeError("nba_guard_mapping_regressed")
     if select(["opt/auth-portal/login.html"]) != ["frontend"]:
@@ -522,6 +525,10 @@ def select(paths):
             if name.startswith("opt/nba-reprice/backend/api_security"):
                 groups.add("nba")
             groups.add("ops-modules");continue
+        # 全站访问控制（2026-10-20 fs-iam）：策略引擎与控制台的离线用例。
+        # 这两个文件不在任何 releases/ 批次里，必须显式登记，否则一入仓就 UNMAPPED。
+        if name in ("tests/test_fs_iam_rbac.py", "tests/test_fs_iam_console.py"):
+            groups.add("iam");continue
         if name.startswith("releases/fc-coins/publish-entry-20261020/") and suffix in (".py", ".json", ".sh"):
             groups.add("fc-publish-entry");continue
         if name.startswith("releases/fc-coins/natural-recovery-20261020/") and suffix in (".py", ".sh"):
@@ -595,6 +602,10 @@ def main():
         elif group=="ops-modules":
             units("tools",["pr_fast_tests.OpsModuleContracts"])
             units("opt/mlb-online",["test_writeback_guards"])
+        elif group=="iam":
+            # 授权引擎的硬门槛：新引擎必须与改造前的旧实现逐格同判定。
+            # 任何一个格子对不上，这里就红 —— 换引擎不许顺带改谁的权限。
+            units("tests",["test_fs_iam_rbac","test_fs_iam_console"])
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
