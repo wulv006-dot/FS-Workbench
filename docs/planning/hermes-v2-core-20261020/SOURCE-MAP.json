@@ -66,20 +66,22 @@
       "sha256": "7ce0fff4039a4c1fab81fcd3fbe4987bf383c58f341ec3c3e127c9731cb47885"
     },
     {
-      "local": "hermes_v2_core_20261020/source/learning_service.py",
-      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_service.py",
+      "local": "hermes_v2_review_repair_20261021/source/learning_service.py",
+      "repository": "releases/fs-dashboard/hermes-v2-review-repair-20261021/source/learning_service.py",
       "runtime": "/opt/fs-hermes-fc/learning_service.py",
-      "before_sha256": null,
-      "sha256": "c894eb400d3f90017b7a0a602d705474f52e52331c144316b74297d7f3dfbe21"
+      "before_sha256": "c894eb400d3f90017b7a0a602d705474f52e52331c144316b74297d7f3dfbe21",
+      "sha256": "6ce14f11825de4c97449352e6d0aac456e1cdd10d5326ba6cc14348e01664ef4",
+      "previous_repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_service.py"
     }
   ],
-  "status": "nine_targets_deployed_first_acceptance_recorded",
+  "status": "deployed_and_first_real_acceptance_passed_with_limits",
   "publisher": "existing release_navigation_base adapter; CAS, admission/provider locks, backup, rollback and original-ID readback required",
   "business_writes": false,
   "automatic_strategy_changes": false,
   "timers_changed": false,
   "not_in_server187_manifest": true,
-  "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+  "source_commit": "d9276b8ccebe6412de725cd6a621f2e0c4360732",
   "production_receipt": "PRODUCTION-ACCEPTANCE.md",
-  "release_id": "nav-20261020T155745Z"
+  "release_id": "nav-20261020T162706Z",
+  "first_release_source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d"
 }

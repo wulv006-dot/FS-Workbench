@@ -16,6 +16,6 @@ W0原准入对账：原请求a27c149fe2ae3bdf8ea9e4154772ee60处于NEEDS_RECONCI
 
 本机检查：22项新增回归、23项原direct-provider回归，共45项通过。首个head CI因修改了旧固定字节对象而失败，已恢复全部历史对象原字节，独立V2候选head bc685194与a06fb7c9的正式pr-fast通过；随后补充原attempt中断恢复与已结算输出复用，须按新head复验。完整服务本机导入因Windows无fcntl未覆盖，不能称Linux集成通过。PR/CI、部署、真实知识任务、真实多轮模型、经验发布与撤销均须各自回执更新本记录；当前不能称上线完成。
 
-现有任务基线报告只确认已完成，用户验收状态unknown；未把它冒称认可样本。附件在首次读取后临时路径消失，已保留主文件读取回执；不得把该读取回执中平台截断的部分当完整附件归档。
+现有任务基线报告只确认已完成，用户验收状态unknown；未把它冒称认可样本。用户重新提供 Downloads ZIP 后，完整施工主文件及附件已恢复到 attachment/；W4–W6 直接实施见 STRATEGY-DELIVERY.md。
 
 安全重跑：`python -B hermes_v2_core_20261020/test_core.py`。测试只使用临时库和合成响应，无生产写入。真实review_model会消耗既有模型额度，不重复提交运行/unknown事件；publish/revoke按原manifest核对，不盲重试。一次性旧准入对账脚本不重复执行。
