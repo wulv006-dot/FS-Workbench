@@ -3,7 +3,9 @@
 """fs-iam 控制台 · 成员 / 角色 / 授权 / 自检 / 审计
 =================================================
 
-挂在统一门户下：`/__auth/iam/`（nginx 把 /__auth/ 反代到本机 8895）。
+挂在统一门户下：对外就是门户导航栏那个 `/__auth/access/`。nginx 把这个前缀
+内部改写到后端的 `/iam/`，所以本文件里的路径常量仍然是 `/iam`（后端不对外暴露）；
+页面里的相对路径 `./api/*` 由浏览器解析成 `/__auth/access/api/*`，同样被改写回来。
 
 由 auth_portal 调用，不自己监听端口、不自己认证 —— 身份来自门户已签名的
 Cookie，`portal.read_token()` 已经做了 epoch 校验，这里只做**授权**：
@@ -23,7 +25,6 @@ import os
 import re
 import sys
 import time
-from urllib.parse import parse_qs, quote
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -51,34 +52,6 @@ PAGE_HEADERS = (
      "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
      "img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
 )
-
-# 嵌入模式（?embed=1）：控制台是作为 /__auth/access/ 管理区的一部分被同源 iframe 加载的。
-# 只放开「同源可嵌」，不放开第三方 —— X-Frame-Options 没有「仅指定页面可嵌」这一档，
-# 所以非 embed 的普通访问仍然保持 DENY + frame-ancestors 'none'。
-EMBED_HEADERS = (
-    ("X-Frame-Options", "SAMEORIGIN"),
-    ("X-Content-Type-Options", "nosniff"),
-    ("Referrer-Policy", "same-origin"),
-    ("Content-Security-Policy",
-     "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
-     "img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'self'"),
-)
-
-# iframe 里会话过期时不能 302（会在框内套一层登录页），也不能用内联脚本跳顶层
-# （CSP 不放内联）。给一段无脚本、无内联样式的纯提示，让用户刷新整个页面。
-_EMBED_EXPIRED = (
-    '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
-    "<title>登录已过期</title></head><body>"
-    "<h3>登录状态已过期</h3><p>请刷新整个页面重新登录后再回到这里。</p>"
-    "</body></html>"
-)
-
-
-def _is_embed(qs):
-    """?embed=1 时走嵌入模式。qs 是 parse_qs 的结果（dict of list）。"""
-    values = (qs or {}).get("embed") or []
-    return bool(values) and str(values[0]).lower() in ("1", "true", "yes")
-
 
 # ---------------------------------------------------------------- 基础工具
 
@@ -413,24 +386,16 @@ def _audit_entries(portal, limit=120):
 
 def handle(portal, handler, path, qs):
     actor = _session_user(portal, handler)
-    embed = _is_embed(qs)
 
     if handler.command in ("GET", "HEAD") and path in _STATIC:
-        if not actor:
-            if embed:
-                return handler._send(200, _EMBED_EXPIRED, "text/html; charset=utf-8",
-                                     headers=list(EMBED_HEADERS))
-            return handler._redirect(
-                portal.CFG["prefix"] + "/access/?next=" +
-                quote(portal.CFG["prefix"] + "/iam/"))
-        if portal._fs_policy.explain(actor, "GET", "/__auth/iam/", "").get("code") != 200:
+        # 已登录但没权限 -> 403 说明页。
+        if actor and portal._fs_policy.explain(actor, "GET", "/__auth/iam/", "").get("code") != 200:
             return _deny_page(handler, actor)
-        # 唯一入口收敛到门户的「账号与访问申请」页（导航栏本来就指向它）。
-        # 裸访问这个地址会被送回去，避免多出一个没人知道的 URL；
-        # 只有嵌入模式（iframe）才真正渲染控制台本体。
-        if path in ("/iam", "/iam/") and not embed:
-            return handler._redirect(portal.CFG["prefix"] + "/access/")
-        return _page(portal, handler, path, embed)
+        # 未登录也返回页面本体，不 302：这个地址本身就是全站未登录的登录落点
+        # （nginx @auth_login 就 302 到这里），302 的目标还是它自己。
+        # 页面里的 app.js 先问 ./api/session，未登录就摆出登录框，
+        # 并把 ?err=noperm|expired / ?msg= 的文案显示出来。
+        return _page(portal, handler, path)
 
     if not path.startswith("/iam/api/"):
         return handler._send(404, "not found")
@@ -476,10 +441,10 @@ def handle(portal, handler, path, qs):
     return _json(handler, code, payload)
 
 
-def _page(portal, handler, path, embed=False):
+def _page(portal, handler, path):
     name, ctype = _STATIC[path]
     token, header = _csrf_token(portal, handler, issue=True)
-    headers = list(EMBED_HEADERS if embed else PAGE_HEADERS)
+    headers = list(PAGE_HEADERS)
     if header:
         headers.append(header)
     try:
@@ -508,18 +473,16 @@ border-color:#232c3a}p{color:#a4afc1}code{background:#1e2634}}
 <p>当前身份：<code>__USER__</code></p>
 <p>访问成员与权限控制台需要在策略里被授予 <code>admin</code> 资源的
 <code>manage</code> 动作。请联系管理员分配角色。</p>
-<p style="margin-top:14px"><a href="../access/" target="_top">← 返回门户</a> ·
-<a href="../logout" target="_top">退出登录</a></p>
+<p style="margin-top:14px"><a href="../logout?next=/__auth/access/">换个账号登录</a> ·
+<a href="../account/">账号与密码</a></p>
 </div></body></html>"""
 
 
 def _deny_page(handler, actor):
     body = _DENY_HTML.replace("__USER__", html.escape(actor))
     # 这一页带内联样式，所以不放 CSP 的 style-src 'self'；无脚本、无外部资源。
-    # 用 SAMEORIGIN 而不是 DENY：这个 403 说明页可能出现在 /__auth/access/ 的 iframe 里，
-    # 设成 DENY 会变成浏览器自己的空白错误页，把「为什么没权限」这句话也一起挡掉。
     return handler._send(403, body, "text/html; charset=utf-8", headers=[
-        ("X-Frame-Options", "SAMEORIGIN"), ("X-Content-Type-Options", "nosniff")])
+        ("X-Frame-Options", "DENY"), ("X-Content-Type-Options", "nosniff")])
 
 
 def _get(portal, handler, endpoint, qs):

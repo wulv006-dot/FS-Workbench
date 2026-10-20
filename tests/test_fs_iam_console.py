@@ -108,52 +108,53 @@ class ConsoleTest(unittest.TestCase):
         return iam_console.handle(self.portal, handler, path, qs or {})
 
     # ---- 认证与准入 ----
-    def test_page_requires_login(self):
-        h = FakeHandler("GET")
-        self.call(h, "/iam")
-        self.assertEqual(302, h.response["code"])
-        self.assertIn("/__auth/access/", h.response["headers"]["Location"])
+    def test_page_serves_to_anonymous(self):
+        """未登录也必须 200 返回页面本体，绝不 302。
 
-    def test_bare_url_redirects_to_portal(self):
-        """唯一入口是门户的「账号与访问申请」页；裸访问 /iam/ 直接送回去，
-        避免又多出一个没人知道的地址。"""
+        这个地址（/__auth/access/）本身就是全站未登录的登录落点 —— nginx 的
+        @auth_login 就是 302 到这里。如果这里再 302，浏览器会无限重定向，
+        谁都登不进来。所以登录框必须由页面自己出。
+        """
+        h = FakeHandler("GET")
+        self.call(h, "/iam/")
+        self.assertEqual(200, h.response["code"])
+        self.assertNotIn("Location", h.response["headers"])
+        self.assertIn('id="login-view"', h.response["body"])
+        self.assertIn('action="../login"', h.response["body"])
+
+    def test_anonymous_gets_csrf_cookie(self):
+        """未登录也要签发 CSRF 双提交 Cookie，否则登录后第一次写操作必然 403。"""
+        h = FakeHandler("GET")
+        self.call(h, "/iam/")
+        self.assertIn("Set-Cookie", h.response["headers"])
+
+    def test_page_serves_to_admin(self):
         h = FakeHandler("GET", cookie_user=ADMIN)
         self.call(h, "/iam/")
-        self.assertEqual(302, h.response["code"])
-        self.assertEqual("/__auth/access/", h.response["headers"]["Location"])
-
-    def test_embed_page_serves_for_admin(self):
-        h = FakeHandler("GET", cookie_user=ADMIN)
-        self.call(h, "/iam/", {"embed": ["1"]})
         self.assertEqual(200, h.response["code"])
-        self.assertIn("访问控制", h.response["body"])
-        self.assertIn("Set-Cookie", h.response["headers"])
-        # 嵌入模式只放开同源，不能退化成谁都能嵌
-        self.assertEqual("SAMEORIGIN", h.response["headers"]["X-Frame-Options"])
-        self.assertIn("frame-ancestors 'self'", h.response["headers"]["Content-Security-Policy"])
+        self.assertIn('id="app-view"', h.response["body"])
+        # 整页渲染，不再允许被任何页面嵌入（之前的 iframe 方案已废弃）
+        self.assertEqual("DENY", h.response["headers"]["X-Frame-Options"])
+        self.assertIn("frame-ancestors 'none'", h.response["headers"]["Content-Security-Policy"])
 
-    def test_embed_requires_login_without_redirect(self):
-        """embed 里 302 会在框内套一层登录页，必须就地给提示、绝不跳转。"""
-        h = FakeHandler("GET")
-        self.call(h, "/iam/", {"embed": ["1"]})
-        self.assertEqual(200, h.response["code"])
-        self.assertIn("登录状态已过期", h.response["body"])
-        self.assertNotIn("Location", h.response["headers"])
+    def test_anonymous_never_redirected_on_any_static(self):
+        """静态资源也必须就地 200。
 
-    def test_embed_never_redirects_any_static(self):
-        """embed 请求一旦被 302 回 /access/，父页里的 iframe 会再加载一次父页，
-        形成无限自我嵌套 —— 每个静态路径都必须就地 200。"""
+        页面里是相对路径 ./app.css、./app.js，浏览器会解析到同一个前缀下；
+        任何一个 302 都会让样式或脚本加载成一页 HTML，整页白屏/错乱。
+        """
         for path in ("/iam", "/iam/", "/iam/app.css", "/iam/app.js"):
-            h = FakeHandler("GET", cookie_user=ADMIN)
-            self.call(h, path, {"embed": ["1"]})
+            h = FakeHandler("GET")
+            self.call(h, path)
             self.assertEqual(200, h.response["code"], path)
             self.assertNotIn("Location", h.response["headers"], path)
 
-    def test_embed_flag_off_still_redirects(self):
-        for flag in ("0", "no", "", "false"):
-            h = FakeHandler("GET", cookie_user=ADMIN)
-            self.call(h, "/iam/", {"embed": [flag]})
-            self.assertEqual(302, h.response["code"], flag)
+    def test_non_admin_gets_deny_page(self):
+        """非管理员拿到 403 说明页，而不是控制台骨架（避免看到一堆空表格）。"""
+        h = FakeHandler("GET", cookie_user=VIEWER)
+        self.call(h, "/iam/")
+        self.assertEqual(403, h.response["code"])
+        self.assertIn(VIEWER, h.response["body"])
 
     def test_viewer_cannot_read_api(self):
         h = FakeHandler("GET", cookie_user=VIEWER)

@@ -287,28 +287,49 @@ input:focus,select:focus{outline:2px solid var(--brand-soft);border-color:var(--
   display:flex;gap:10px;padding:10px 14px;border-radius:8px;font-size:12.5px;
   background:var(--warn-soft);color:var(--warn);margin-bottom:14px;border:1px solid transparent;
 }
-/* ---------------- 嵌入模式（/__auth/access/ 管理区里的 iframe） ----------------
-   门诊页面本身已有顶栏，嵌进来后自己的顶栏多余；容器宽度是门户 main 的
-   1120px 上限（实际可用约 1056px），所以侧栏收窄、间距压紧、矩阵列也收窄，
-   保证「资源 + 5 个动作」在 ~830px 主区里不折行。 */
-html.embed .topbar{display:none}
-html.embed .shell{min-height:100vh}
-html.embed .side{width:186px;flex:0 0 186px;top:0;height:100vh;padding:10px 8px}
-html.embed .side-foot{display:none}
-html.embed .main{padding:14px 16px 40px}
-html.embed .page-head{margin-bottom:12px}
-html.embed .page-head h1{font-size:18px}
-html.embed .page-head p{font-size:12.5px}
-html.embed .stats{grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:12px}
-html.embed .stat{padding:10px 12px}
-html.embed .stat .v{font-size:21px}
-html.embed .roles-grid{grid-template-columns:232px minmax(0,1fr);gap:10px}
-html.embed .role-item{padding:9px 11px}
-html.embed .matrix td{padding:5px 8px}
-html.embed .matrix th{padding:7px 8px}
-html.embed .matrix td.c{width:auto;min-width:56px}
-html.embed .check-form{grid-template-columns:150px 108px minmax(0,1fr) 96px auto;gap:8px;padding:12px}
-html.embed table{font-size:12.5px}
+/* ---------------- 登录视图 ----------------
+   这个地址（/__auth/access/）同时是全站未登录的登录落点，所以未登录时由本页
+   自己出登录框，而不是 302 到别的页面 —— 302 的目标就是它自己。 */
+.login-wrap{
+  position:fixed;inset:0;z-index:60;display:grid;place-items:center;
+  padding:24px;background:var(--bg);
+}
+.login-card{
+  width:100%;max-width:392px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:26px 26px 20px;box-shadow:var(--shadow);
+}
+.login-brand{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.login-brand .brand-text strong{display:block;font-size:15px;line-height:1.25}
+.login-brand .brand-text small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.login-card form label{
+  display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:12px;font-weight:500;
+}
+.login-card form input[type=text],
+.login-card form input[type=password],
+.login-card form input:not([type]){
+  display:block;width:100%;margin-top:5px;padding:8px 11px;font:inherit;
+  border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--ink);
+}
+.login-card form input:focus{
+  outline:none;border-color:var(--brand);background:var(--panel);
+  box-shadow:0 0 0 3px var(--brand-soft);
+}
+.login-remember{
+  display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
+  margin:2px 0 16px !important;font-weight:400;
+}
+.login-remember input{width:auto;margin:0}
+.btn.block{display:block;width:100%;padding:9px 13px;font-size:14px}
+.login-msg{
+  font-size:12.5px;line-height:1.6;padding:9px 12px;border-radius:7px;
+  margin-bottom:16px;border:1px solid transparent;
+}
+.login-msg.bad{background:var(--bad-soft);color:var(--bad);border-color:currentColor}
+.login-msg.ok{background:var(--ok-soft);color:var(--ok);border-color:currentColor}
+.login-foot{
+  margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line-2);
+  font-size:11.5px;color:var(--ink-3);line-height:1.6;
+}
 
 @media (max-width:980px){
   .side{display:none}

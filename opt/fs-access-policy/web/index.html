@@ -3,22 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FS 访问控制 · 成员与授权</title>
+<title>账号与权限 · FS 访问控制</title>
 <link rel="stylesheet" href="./app.css">
 <script defer src="./app.js"></script>
 </head>
 <body>
+
+<!-- 未登录时显示。这个地址同时是全站登录落点（nginx 把未登录的都 302 过来，
+     并带上 ?next= 与 ?err=noperm|expired），所以登录框必须由本页自己提供。 -->
+<div class="login-wrap" id="login-view" hidden>
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="mark">FS</span>
+      <div class="brand-text">
+        <strong>账号与权限</strong>
+        <small>成员 · 角色 · 授权 · 审计</small>
+      </div>
+    </div>
+    <div class="login-msg" id="login-msg" hidden></div>
+    <form method="post" action="../login" id="login-form">
+      <input type="hidden" name="next" id="login-next" value="">
+      <label>账号<input name="username" required autocomplete="username" autofocus></label>
+      <label>密码<input name="password" type="password" required autocomplete="current-password"></label>
+      <label class="login-remember"><input type="checkbox" name="remember" value="1" checked> 保持登录</label>
+      <button class="btn primary block" type="submit">登录</button>
+    </form>
+    <p class="login-foot">用门户账号登录。没有账号请联系管理员开通。</p>
+  </div>
+</div>
+
+<div id="app-view" hidden>
+
 <header class="topbar">
   <div class="brand">
     <span class="mark">FS</span>
     <div class="brand-text">
-      <strong>访问控制 IAM</strong>
+      <strong>账号与权限</strong>
       <small>成员 · 角色 · 授权</small>
     </div>
   </div>
   <div class="top-right">
-    <a class="ghost" id="link-portal" href="../access/" target="_top" title="账号密码与注册审批仍在原页面">账号与密码</a>
+    <a class="ghost" href="../account/" title="注册、我的申请、修改密码、注册审批">账号与密码</a>
     <span class="who" id="who">—</span>
+    <a class="ghost" href="../logout?next=/__auth/access/">退出</a>
   </div>
 </header>
 
@@ -77,5 +104,8 @@
 </dialog>
 
 <div class="toast" id="toast" hidden></div>
+
+</div>
+
 </body>
 </html>
