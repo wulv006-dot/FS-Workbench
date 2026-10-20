@@ -6,6 +6,7 @@ HERE=Path(__file__).resolve().parent
 CORE=next(p for p in (HERE.parent/'hermes-v2-core-20261020',HERE.parent/'hermes_v2_core_20261020') if p.exists())
 spec=importlib.util.spec_from_file_location('core_support',CORE/'test_core.py');support=importlib.util.module_from_spec(spec);spec.loader.exec_module(support)
 sys.path.insert(0,str(HERE/'source'))
+sys.path.append(str(support.ROOT/'releases/fs-dashboard/hermes-data-workspace-20261018/source'))
 from copy import deepcopy
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
