@@ -1,0 +1,18 @@
+{
+ "_comment": "复制到 releases/fc-coins/<release>/approval.json，随该 release 一起进 PR；数值必须是本次 PR 的真实值，不得预填占位。",
+ "pr": 231,
+ "merge_commit": "0123456789abcdef0123456789abcdef01234567",
+ "authorized_by": "吴律",
+ "authorized_at": "2026-10-20T09:00:00+08:00",
+ "scope": [
+  "automation_tick.py",
+  "fc27_cloud_worker.py",
+  "player_sync_job.py",
+  "sync_players.sh"
+ ],
+ "_notes": [
+  "merge_commit 必须是合并后 origin/main 上的真实 squash 提交，subject 形如 'fix(fc-coins): ... (#231)'。",
+  "scope 必须与同一目录 targets.json 的 targets 键集合完全一致，多一个少一个都会拒绝发布。",
+  "authorized_by/authorized_at 记录谁在什么时间授权了这次生产发布，PR 合并本身不算授权。"
+ ]
+}
