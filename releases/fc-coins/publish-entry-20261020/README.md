@@ -24,7 +24,7 @@ PR 合并、产物属于准确 merge commit、前后哈希都要验证，并明�
 | 用途 | 路径 |
 |---|---|
 | 策略（root:root 0644） | `/etc/fc27-cloud/release-policy.json` |
-| 宿主仓库检出（root 所有，只有 root 能 fetch；入口**只读**它的 git 对象、不联网） | `/opt/fc27-workbench` |
+| 宿主仓库检出（root 所有；刷新由 root 单独执行，入口只读它的 git 对象） | `/opt/fc27-workbench` |
 | 主分支引用 | `refs/remotes/origin/main` |
 | 状态根（既有） | `/var/lib/fc27-cloud` |
 | 本次备份（唯一新建目录） | `/var/lib/fc27-cloud/rollback/<UTCSTAMP>-<module>/` |
@@ -110,6 +110,25 @@ Cmnd_Alias FC27_PUBLISH = /usr/local/sbin/fc27-publish
 %fc27ops ALL=(root) NOPASSWD: FC27_PUBLISH
 ```
 
+## 7.5 授权与卸载（安装属于持久发布权限，需单独授权）
+
+**CI 通过不构成安装授权。** 本入口一旦装到 `/usr/local/sbin` 并配上 sudoers，就等于长期放行
+"以 root 替换 `/opt/fc27-cloud-browser` 指定文件并重启三个单元"这一能力。因此：
+
+1. 安装前需要有明确的人、明确的时间窗、明确的范围（模块 + 目标清单 + 三单元），
+   并书面记录谁授权、授权到哪一版 `fc27_publish_entry.py`（sha256 记录在收据与安装输出里）。
+2. 安装只做加法、不启停服务；真正的第一件事是**只跑 `--check`**（不加 `--apply`），
+   看计划是否符合预期，再决定是否执行。
+3. 卸载/收回（同样需要授权）：
+
+```
+sudo rm -f /usr/local/sbin/fc27-publish /etc/sudoers.d/fc27-publish
+sudo rm -f /etc/fc27-cloud/release-policy.json          # 先备份/留存，便于审计
+sudo visudo -c                                          # 确认 sudoers 语法未坏
+```
+
+`/etc/fc27-cloud/monitor-user`、`/var/lib/fc27-cloud/rollback|releases` 为既有身份与审计记录，卸载入口时**不删**。
+
 ## 8. 现场校准（发布前必做，只读）
 
 策略里的目标是**路径白名单**，不等于"现场就是这个哈希"。两步：
@@ -127,7 +146,24 @@ sha256sum /opt/fc27-cloud-browser/*.py | python3 source/calibrate.py \
 `not_in_policy`（现场有、未登记，仅提示不阻断）。要和某次发布清单对照时加
 `--targets releases/fc-coins/<release>/targets.json`，按该清单的 `before` 比较。
 
-## 9. 离线测试
+## 9. 演练：只检查、不发布（已实跑）
+
+```
+python3 source/rehearse.py --release-dir ../../../releases/fc-coins/<release> --pr <pr>
+```
+
+沙盒内用**真 git 仓库**跑 `GitArtifacts`（`git cat-file` / `merge-base --is-ancestor` / `log -1`）、
+真实 sha256、真实 flock 与空闲判定；systemctl 用桩，不碰任何单元；不写 `/opt`、`/var/lib/fc27-cloud`、`/etc`。
+默认跑五个场景：`base`（应出计划）、`candidate`（应 `candidate_hash_mismatch`）、
+`baseline`（应 `baseline_drift`）、`scope`（应 `approval_scope_mismatch`）、`pr`（应 `approval_pr_mismatch`）。
+
+2026-10-20 用 PR #231 的真实发布目录（4 文件真实字节）实跑结果：五场景全部符合预期，
+`base` 推导出的单元为 `fc27-automation-tick.timer` + `fc27-cloud-worker`，同一单元只停/启一次。
+
+沙盒的三处映射会写进报告 `scope`：策略 `/opt` 路径映射进沙盒、`approval.json` 为生成（`rehearsal: true`）、
+无 `--live-dir` 时用候选字节当现场基线。**这些都不是生产状态**，只证明校验路径与拒绝条件成立。
+
+## 10. 离线测试
 
 ```
 cd releases/fc-coins/publish-entry-20261020 && python3 -m unittest discover -s tests -t tests
@@ -140,20 +176,22 @@ scope 不一致、候选字节与 commit 不符、现场基线漂移、symlink�
 
 测试全部注入假 git/systemd/monitor，**不连网、不起进程、不碰真实 `/opt`**；`install.sh` 另有 `bash -n` 语法检查。
 
-### 检出刷新与失败关闭
+### 谁联网、谁不联网（别混）
 
-入口**不联网**，只认本地 `/opt/fc27-workbench` 的 `refs/remotes/origin/main`。每次发布前由 root 刷新：
-
-```
-git -C /opt/fc27-workbench fetch --prune
-```
+| 动作 | 是否联网 | 谁执行 | 说明 |
+|---|---|---|---|
+| `git -C /opt/fc27-workbench fetch --prune` | **会联网** | root，单独执行（手动或复用既有定时任务） | 运维动作，**不属于发布入口** |
+| `/usr/local/sbin/fc27-publish ...` | **不联网** | 发布入口 | 只读本地 `refs/remotes/origin/main` 的 git 对象；不拉取、不调 GitHub API |
 
 没刷新时新 release 不在本地 main 上，入口直接以 `release_not_on_main` 失败——fail-closed，不会误发旧版本。
 检出目录必须 `root:root` 且组外不可写（`chmod -R go-w`），否则任何人改了对象就能影响发布判断。
 
-## 10. 尚未做（需用户确认后才谈）
+## 11. 尚未做（都要单独授权，不做默认动作）
 
-- 宿主安装 `/usr/local/sbin/fc27-publish` 与 `/etc/fc27-cloud/release-policy.json`；
-- sudoers 只放行那一条命令；
-- 策略里 37 个目标需与宿主回读的现场一致（当前 30 个已登记、2 个只有合同文本、
-  4 个被 PR #231 更新、其余待宿主 sha256 回读后校准）。
+| 项 | 状态 | 门槛 |
+|---|---|---|
+| 宿主安装 `/usr/local/sbin/fc27-publish` + `/etc/fc27-cloud/release-policy.json` | 未做 | 需明确授权；`install.sh` 在 `FC27_INSTALL_AUTHORIZED != 1` 时直接 exit 3 |
+| sudoers 仅放行一条命令 | 未做 | 同上，人工 `visudo -c` 校验 |
+| 37 个目标的现场 sha256 校准 | 未做 | 需 root 侧跑 `calibrate.py --emit-commands` 后回读；当前 30 个已登记、2 个只有合同文本、4 个被 PR #231 更新 |
+| 首次 `--check` 演练（真实宿主） | 未做 | 安装完成、策略校准后，只跑不带 `--apply` 的一次 |
+| 首次 `--apply` | 未做 | 需对具体 release 的发布授权（`approval.json`）+ 单独发话 |
