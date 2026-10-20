@@ -524,6 +524,8 @@ def select(paths):
             groups.add("ops-modules");continue
         if name.startswith("releases/fc-coins/publish-entry-20261020/") and suffix in (".py", ".json", ".sh"):
             groups.add("fc-publish-entry");continue
+        if name.startswith("releases/fc-coins/natural-recovery-20261020/") and suffix in (".py", ".sh"):
+            groups.add("fc-natural-recovery");continue
         if name.startswith("releases/fs-dashboard/cohort-wording-20261020/") and suffix in (".py",".js",".cjs"):
             groups.add("cohort-wording");continue
         if name.startswith("releases/fs-dashboard/fc-order-wait-sort-20261020/") and suffix==".py":
@@ -850,6 +852,8 @@ def main():
         elif group=="fc-publish-entry":
             # 宿主发布入口与调用端：策略/白名单/批准绑定/回退，全部注入假 git、systemd、monitor。
             units("releases/fc-coins/publish-entry-20261020/tests", ["test_publish_entry", "test_fc_publish", "test_calibrate"])
+        elif group=="fc-natural-recovery":
+            units("releases/fc-coins/natural-recovery-20261020", ["test_recovery"])
         elif group=="cohort-wording":
             node("releases/fs-dashboard/cohort-wording-20261020/tests/wording.cjs")
         elif group=="fc-wait-sort":
