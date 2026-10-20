@@ -30,3 +30,8 @@
 ## 发布范围
 
 PR #245：77e1ab8f1fc5eae599de3242c98d233c89e8dd83 首版CI run39373502427/pr-fast成功；新增精确两目标发布适配器后按新head复验。复用SHA1d070ee8…f2de的既有release_navigation_base.py，保留发布双锁、来源/消费者CAS、admission与provider锁、真实在途队列检查、intent日志、备份及按原ID回滚。fc_daily从不变保护池转入本次目标CAS，未减少实际文件保护。新增适配器仅停启fs-business-range，不重启Hermes服务；会话/客单任务与来源读取仍须空闲。15项本地测试（含两项发布范围、源哈希、冻结发布器和仅8931重载断言）全部通过。
+
+
+## 云端续接：2026-10-20 13:25 北京时间
+
+原任务因用量限制中断，沿用 PR245 及候选，不重建任务载荷。独立复现 CI 的两项 frozen_publisher_drift：仓库 LF 字节 SHA256 为 57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840；仅转换为 CRLF 后恰好得到原固定值 1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de。改为固定仓库 LF 字节，仍拒绝任何字节漂移，不取消哈希检查。15 项定向测试在 dot 云端重新通过。后续部署必须携带仓库 LF 版本的基础发布器。此处仅记录测试修复，未部署。

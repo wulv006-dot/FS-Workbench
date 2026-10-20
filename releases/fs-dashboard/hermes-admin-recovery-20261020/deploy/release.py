@@ -8,7 +8,8 @@ import urllib.request
 from contextlib import closing
 
 HERE = Path(__file__).resolve().parent
-BASE_SHA = '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
+# Pin repository LF bytes. The former hash described the same source with CRLF.
+BASE_SHA = '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840'
 SCOPE = 'hermes-admin-recovery-20261020'
 TARGETS = {'source/controller.py': '/opt/fs-hermes-fc/controller.py',
            'source/fc_daily.py': '/opt/fs-exact-range-20261001/fc_daily.py'}
