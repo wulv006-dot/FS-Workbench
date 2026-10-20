@@ -10,11 +10,11 @@ version: 1.0.0
 
 当前巡检与群路由由原生 no-agent cron 运行，不调用模型、不重新采价/改价。私有群与负责人ID保存在 `/profile/ops-watchdog/private-target.json`，不在输出中抄录。
 
-查看：`/opt/hermes/.venv/bin/python /profile/ops-watchdog/code/watch.py status`。
+查看：`/opt/hermes/.venv/bin/python /profile/scripts/fs-ops-watchdog/watch.py status`。
 
 当用户、吴律的 Codex 或陈超的 WorkBuddy明确回复接管且给出16位事件ID时，记录接管：
 
-`/opt/hermes/.venv/bin/python /profile/ops-watchdog/code/watch.py claim <事件ID> --owner codex`
+`/opt/hermes/.venv/bin/python /profile/scripts/fs-ops-watchdog/watch.py claim <事件ID> --owner codex`
 
 WorkBuddy的RPG接单使用相同命令但 `--owner workbuddy`；两份租约隔离，不覆盖对方接单。释放时保留同一owner。
 

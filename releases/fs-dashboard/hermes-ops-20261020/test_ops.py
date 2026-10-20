@@ -209,6 +209,7 @@ class WatchChecks(unittest.TestCase):
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         self.assertEqual(len(module.MAP), 14)
         self.assertFalse(any('/opt/fc27-cloud-browser/' in str(p) for p in module.MAP.values()))
+        self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/watch.py')
         timer = (ROOT/'deploy/fs-hermes-ops-bridge.timer').read_text()
         self.assertIn('Persistent=false', timer)
         self.assertIn('OnUnitActiveSec=5min', timer)
