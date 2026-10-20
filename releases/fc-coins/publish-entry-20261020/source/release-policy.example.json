@@ -1,0 +1,144 @@
+{
+ "version": 1,
+ "_comment": "宿主策略示例：安装到 /etc/fc27-cloud/release-policy.json（root:root 0644）。只列已登记映射的文件，不新增强制推导。",
+ "checkout": "/opt/fc27-workbench",
+ "modules": {
+  "fc-coins": {
+   "release_prefix": "releases/fc-coins/",
+   "allowed_roots": [
+    "/opt/fc27-cloud-browser",
+    "/opt/fc27-collector",
+    "/var/www/dashboard",
+    "/var/www/sites/wulv/fc27-ops"
+   ],
+   "units": {
+    "fc27-cloud-api": [
+     "is-active",
+     "stop",
+     "restart"
+    ],
+    "fc27-cloud-worker": [
+     "is-active",
+     "stop",
+     "restart"
+    ],
+    "fc27-automation-tick.timer": [
+     "is-active",
+     "stop",
+     "restart"
+    ]
+   },
+   "targets": {
+    "activity_log_store.py": "/opt/fc27-cloud-browser/activity_log_store.py",
+    "automation_policy.py": "/opt/fc27-cloud-browser/automation_policy.py",
+    "automation_tick.py": "/opt/fc27-cloud-browser/automation_tick.py",
+    "clear_cache_after_write.py": "/opt/fc27-cloud-browser/clear_cache_after_write.py",
+    "coin_all_sync_job.py": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+    "collect_competitor.sh": "/opt/fc27-cloud-browser/collect_competitor.sh",
+    "collect_competitor_browser.py": "/opt/fc27-collector/collect_competitor_browser.py",
+    "collect_fx.sh": "/opt/fc27-cloud-browser/collect_fx.sh",
+    "collect_fx_browser.py": "/opt/fc27-collector/collect_fx_browser.py",
+    "collect_lootbar.sh": "/opt/fc27-cloud-browser/collect_lootbar.sh",
+    "collect_p2pah_cost.py": "/opt/fc27-cloud-browser/collect_p2pah_cost.py",
+    "collect_p2pah_cost.sh": "/opt/fc27-cloud-browser/collect_p2pah_cost.sh",
+    "execute_price.sh": "/opt/fc27-cloud-browser/execute_price.sh",
+    "fc-analytics.css": "/var/www/sites/wulv/fc27-ops/data/fc-analytics.css",
+    "fc-analytics.js": "/var/www/sites/wulv/fc27-ops/data/fc-analytics.js",
+    "fc-products.css": "/var/www/sites/wulv/fc27-ops/data/fc-products.css",
+    "fc-products.js": "/var/www/sites/wulv/fc27-ops/data/fc-products.js",
+    "fc27_cloud_api.py": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+    "fc27_cloud_worker.py": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
+    "fc27_coins_cloud.html": "/var/www/dashboard/fc27-coins.html",
+    "fc27_quote_cloud.js": "/var/www/dashboard/fc27-quote-cloud.js",
+    "fc27_quote_engine.py": "/opt/fc27-cloud-browser/fc27_quote_engine.py",
+    "index.html": "/var/www/sites/wulv/fc27-ops/index.html",
+    "lootbar_server_collector.py": "/opt/fc27-collector/lootbar_server_collector.py",
+    "player_sync_job.py": "/opt/fc27-cloud-browser/player_sync_job.py",
+    "player_sync_policy.py": "/opt/fc27-cloud-browser/player_sync_policy.py",
+    "price_writer.py": "/opt/fc27-cloud-browser/price_writer.py",
+    "repricing_logic.js": "/opt/fc27-cloud-browser/repricing_logic.js",
+    "restore_price.py": "/opt/fc27-cloud-browser/restore_price.py",
+    "restore_price.sh": "/opt/fc27-cloud-browser/restore_price.sh",
+    "server_quote_job.py": "/opt/fc27-cloud-browser/server_quote_job.py",
+    "snapshot-client.js": "/var/www/sites/wulv/fc27-ops/data/snapshot-client.js",
+    "snapshot_layer.py": "/opt/fc27-cloud-browser/snapshot_layer.py",
+    "storefront_monitor.py": "/opt/fc27-cloud-browser/storefront_monitor.py",
+    "supplement-insights.css": "/var/www/sites/wulv/fc27-ops/data/supplement-insights.css",
+    "supplement-insights.js": "/var/www/sites/wulv/fc27-ops/data/supplement-insights.js",
+    "sync_players.sh": "/opt/fc27-cloud-browser/sync_players.sh"
+   },
+   "target_units": {
+    "activity_log_store.py": [
+     "fc27-cloud-worker"
+    ],
+    "automation_policy.py": [
+     "fc27-cloud-worker"
+    ],
+    "automation_tick.py": [
+     "fc27-automation-tick.timer",
+     "fc27-cloud-worker"
+    ],
+    "clear_cache_after_write.py": [
+     "fc27-cloud-worker"
+    ],
+    "coin_all_sync_job.py": [
+     "fc27-cloud-worker"
+    ],
+    "collect_competitor.sh": [],
+    "collect_competitor_browser.py": [],
+    "collect_fx.sh": [],
+    "collect_fx_browser.py": [],
+    "collect_lootbar.sh": [],
+    "collect_p2pah_cost.py": [
+     "fc27-cloud-worker"
+    ],
+    "collect_p2pah_cost.sh": [],
+    "execute_price.sh": [],
+    "fc-analytics.css": [],
+    "fc-analytics.js": [],
+    "fc-products.css": [],
+    "fc-products.js": [],
+    "fc27_cloud_api.py": [
+     "fc27-cloud-api"
+    ],
+    "fc27_cloud_worker.py": [
+     "fc27-cloud-worker"
+    ],
+    "fc27_coins_cloud.html": [],
+    "fc27_quote_cloud.js": [],
+    "fc27_quote_engine.py": [
+     "fc27-cloud-worker"
+    ],
+    "index.html": [],
+    "lootbar_server_collector.py": [],
+    "player_sync_job.py": [
+     "fc27-cloud-worker"
+    ],
+    "player_sync_policy.py": [
+     "fc27-cloud-worker"
+    ],
+    "price_writer.py": [
+     "fc27-cloud-worker"
+    ],
+    "repricing_logic.js": [],
+    "restore_price.py": [
+     "fc27-cloud-worker"
+    ],
+    "restore_price.sh": [],
+    "server_quote_job.py": [
+     "fc27-cloud-worker"
+    ],
+    "snapshot-client.js": [],
+    "snapshot_layer.py": [
+     "fc27-cloud-worker"
+    ],
+    "storefront_monitor.py": [
+     "fc27-cloud-worker"
+    ],
+    "supplement-insights.css": [],
+    "supplement-insights.js": [],
+    "sync_players.sh": []
+   }
+  }
+ }
+}
