@@ -50,7 +50,31 @@ SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 IDLE_JOB_RUNNING = {"queued", "running"}
-UNRESOLVED_EXECUTION = {"RUNNING", "UNCERTAIN", "PARTIAL"}
+def resolved_execution(record):
+    """Fail closed; mirrors the FC scheduler's audited terminal ledger contracts."""
+    try:
+        if record.get("status") in {"CONFIRMED", "RESTORED", "CHECK_ONLY"}:
+            return True
+        if record.get("status") == "FAILED_BEFORE_WRITE":
+            return not record.get("changed")
+        if (record.get("kind") == "all_baseline_repair" and record.get("status") == "ALL_ALIGNED"
+                and record.get("stage") == "all_alignment_complete" and record.get("sync_confirmed") is True
+                and record.get("mmoexp_write_performed") is False):
+            baseline = record.get("all_baseline") or {}
+            return baseline.get("status") == "confirmed" and set(baseline.get("platforms") or []) == {"PS", "XBOX", "PC"}
+        if (record.get("kind") == "player_validation_once" and record.get("status") == "VALIDATED"
+                and record.get("stage") == "complete_independent_readback" and record.get("completed_at")):
+            proof = record.get("independent_readback") or {}
+            digest = proof.get("sha256")
+            count = record.get("sample_verified_count")
+            checked = datetime.fromisoformat(str(proof.get("checked_at", "")).replace("Z", "+00:00"))
+            completed = datetime.fromisoformat(str(record["completed_at"]).replace("Z", "+00:00"))
+            return (isinstance(digest, str) and bool(SHA_RE.fullmatch(digest))
+                    and checked.tzinfo is not None and completed.tzinfo is not None and checked <= completed
+                    and type(count) is int and count > 0 and count == len(record.get("samples") or []))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        pass
+    return False
 
 
 class PublishError(Exception):
@@ -619,7 +643,11 @@ class Publisher:
                     and not job.get("completed_at")):
                 raise PublishError("job_not_idle", path.name)
         for path in self.paths.executions.glob("*.json"):
-            if json.loads(path.read_text(encoding="utf-8")).get("status") in UNRESOLVED_EXECUTION:
+            try:
+                record = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                raise PublishError("coin_execution_unresolved", path.name)
+            if not resolved_execution(record):
                 raise PublishError("coin_execution_unresolved", path.name)
 
     def locks(self):
@@ -780,7 +808,12 @@ class Publisher:
     def _rollback(self, payload, plan, backup_dir, stopped, swapped):
         """ok 只表示文件字节已恢复到 before；单元状态问题单独记，但同样不忽略。"""
         result = {"ok": False, "restored": {}, "errors": [], "unit_errors": []}
-        if not swapped and not stopped:
+        if not swapped:
+            # A failed stop or post-stop CAS must never overwrite concurrent edits.
+            for unit in stopped:
+                ok, detail = self._systemd(unit, "restart")
+                if not ok:
+                    result["unit_errors"].append(f"restart:{unit}:{detail}")
             result["ok"] = True
             result["note"] = "nothing_written"
             return result
@@ -791,6 +824,9 @@ class Publisher:
             ok, detail = self._systemd(unit, "stop")
             if not ok:
                 result["unit_errors"].append(f"stop:{unit}:{detail}")
+        if result["unit_errors"]:
+            result["errors"].append("rollback_stop_failed_no_files_restored")
+            return result
         for name, row in plan["targets"].items():
             copy = backup_dir / name
             try:
@@ -803,10 +839,12 @@ class Publisher:
                     result["errors"].append(f"restore_mismatch:{name}")
             except Exception as exc:  # noqa: BLE001
                 result["errors"].append(f"restore:{name}:{exc}")
-        for unit in stopped:
-            ok, detail = self._systemd(unit, "restart")
-            if not ok:
-                result["unit_errors"].append(f"restart:{unit}:{detail}")
+        # Keep services stopped when file restoration is incomplete.
+        if not result["errors"]:
+            for unit in stopped:
+                ok, detail = self._systemd(unit, "restart")
+                if not ok:
+                    result["unit_errors"].append(f"restart:{unit}:{detail}")
         result["ok"] = not result["errors"]
         return result
 
@@ -866,3 +904,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+

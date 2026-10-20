@@ -457,6 +457,7 @@ class ReverifyTest(Harness):
         self.assertEqual(ctx.exception.code, "rolled_back")
         self.assertEqual(ctx.exception.detail.split(":")[0], "baseline_drift")
         self.assertEqual((self.opt / "automation_tick.py").read_bytes(), self.live["automation_tick.py"])
+        self.assertEqual((self.opt / "price_writer.py").read_bytes(), b"tampered while stopping\n")
 
 
 class StopFailureTest(Harness):
@@ -473,7 +474,7 @@ class StopFailureTest(Harness):
         for name, data in self.live.items():
             self.assertEqual((self.opt / name).read_bytes(), data, "停服务失败时不能替换代码")
         stored = json.loads(list((self.state / "releases").glob("*.json"))[0].read_text())
-        self.assertEqual(stored["rollback"]["restored"] == {}, False)  # 已停单元的回退也跑了
+        self.assertEqual(stored["rollback"]["restored"], {})  # 未替换时不重写任何文件
         self.assertTrue(stored["rollback"]["ok"])
         self.assertNotIn("installed", json.dumps(stored["targets"]), "没替换就不该有 installed 记录")
 
@@ -487,10 +488,12 @@ class StopFailureTest(Harness):
         plan = pub.plan(self.MODULE, self.RELEASE, self.PR)
         with self.assertRaises(entry.PublishError) as ctx:
             pub.apply(plan, module_entry)
-        self.assertEqual(ctx.exception.code, "rolled_back_unit_errors")
+        self.assertEqual(ctx.exception.code, "unknown_write_state")
         stored = json.loads(list((self.state / "releases").glob("*.json"))[0].read_text())
         self.assertTrue(any("stop:" in e for e in stored["rollback"]["unit_errors"]))
-        for name, data in self.live.items():
+        self.assertFalse(stored["rollback"]["ok"])
+        self.assertEqual(stored["rollback"]["restored"], {})
+        for name, data in self.new.items():
             self.assertEqual((self.opt / name).read_bytes(), data)
 
 
@@ -700,6 +703,37 @@ class RuntimeGateTest(Harness):
             self.publisher().check_idle()
         self.assertEqual(ctx.exception.code, "coin_execution_unresolved")
 
+    def test_unknown_missing_and_corrupt_execution_fail_closed(self):
+        path = self.state / "executions" / "unknown.json"
+        for value in ('{"status":"UNKNOWN"}', '{}', 'null', '[]', '{broken', '{"status":"FUTURE_STATE"}'):
+            with self.subTest(value=value):
+                path.write_text(value)
+                with self.assertRaises(entry.PublishError) as ctx:
+                    self.publisher().check_idle()
+                self.assertEqual(ctx.exception.code, "coin_execution_unresolved")
+
+    def test_resolved_execution_contracts(self):
+        for status in ("CONFIRMED", "RESTORED", "CHECK_ONLY", "FAILED_BEFORE_WRITE"):
+            self.assertTrue(entry.resolved_execution({"status": status}))
+        self.assertFalse(entry.resolved_execution({"status": "FAILED_BEFORE_WRITE", "changed": ["PS"]}))
+        aligned = {"kind": "all_baseline_repair", "status": "ALL_ALIGNED",
+                   "stage": "all_alignment_complete", "sync_confirmed": True,
+                   "mmoexp_write_performed": False,
+                   "all_baseline": {"status": "confirmed", "platforms": ["PS", "XBOX", "PC"]}}
+        self.assertTrue(entry.resolved_execution(aligned))
+        aligned["all_baseline"]["platforms"].pop()
+        self.assertFalse(entry.resolved_execution(aligned))
+        validated = {"kind": "player_validation_once", "status": "VALIDATED",
+                     "stage": "complete_independent_readback", "completed_at": "2026-10-20T01:00:00Z",
+                     "independent_readback": {"sha256": "a" * 64, "checked_at": "2026-10-20T00:59:00Z"},
+                     "sample_verified_count": 1, "samples": [{}]}
+        self.assertTrue(entry.resolved_execution(validated))
+        validated["sample_verified_count"] = 2
+        self.assertFalse(entry.resolved_execution(validated))
+        validated["sample_verified_count"] = 1
+        validated["independent_readback"]["checked_at"] = "2026-10-20T02:00:00Z"
+        self.assertFalse(entry.resolved_execution(validated))
+
     def test_confirmed_without_completed_at(self):
         (self.state / "jobs" / "a.json").write_text(json.dumps(
             {"kind": "auto_cycle", "status": "done", "result": {"status": "confirmed"}}))
@@ -826,3 +860,4 @@ class UsageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
