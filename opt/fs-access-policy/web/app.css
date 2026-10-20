@@ -20,6 +20,10 @@
   }
 }
 *{box-sizing:border-box}
+/* .drawer 用了 display:flex、.toast/.scrim 用了 position:fixed，作者样式表优先级高于
+   UA 的 [hidden]{display:none}，会导致「hidden 的抽屉仍然浮在页面上挡住点击」。
+   必须显式压住，否则关闭抽屉后整页不可操作。 */
+[hidden]{display:none !important}
 html,body{height:100%}
 body{
   margin:0;background:var(--bg);color:var(--ink);
@@ -75,10 +79,15 @@ button{font:inherit;cursor:pointer}
 }
 .nav-item.active .pill{background:#fff;color:var(--brand)}
 .side-foot{
-  margin-top:auto;font-size:11.5px;color:var(--ink-3);line-height:1.7;
-  border-top:1px solid var(--line);padding:12px 4px 2px;word-break:break-all;
+  margin-top:auto;font-size:11.5px;color:var(--ink-3);line-height:1.65;
+  border-top:1px solid var(--line);padding:12px 4px 2px;overflow-wrap:anywhere;
 }
 .side-foot b{color:var(--ink-2);font-weight:600}
+/* 策略文件路径：单行省略，完整路径放 title，避免长路径把侧栏底部顶成三行 */
+.side-foot .fp{
+  display:block;margin-top:5px;font-size:10.5px;opacity:.8;cursor:default;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 
 .main{flex:1;min-width:0;padding:20px 24px 48px}
 .loading{padding:60px 0;text-align:center;color:var(--ink-3)}
@@ -153,8 +162,10 @@ tbody tr:hover{background:var(--panel-2)}
 .role-item:hover{background:var(--panel-2)}
 .role-item.on{background:var(--brand-soft);box-shadow:inset 3px 0 0 var(--brand)}
 .role-item .rn{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
-.role-item .rd{font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
-.role-item .rm{font-size:11px;color:var(--ink-3);margin-top:5px}
+/* 说明与成员数必须各占一行：都是 inline 时 margin-top 不生效，
+   会渲染成「…等价权限）1 名成员」「…含部署与成员授权4 名成员」。 */
+.role-item .rd{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
+.role-item .rm{display:block;font-size:11px;color:var(--ink-3);margin-top:5px}
 
 .matrix-tools{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -202,8 +213,11 @@ tbody tr:hover{background:var(--panel-2)}
 }
 .role-pick label:hover{border-color:var(--ink-3)}
 .role-pick label.on{border-color:var(--brand);background:var(--brand-soft)}
-.role-pick .rt{font-weight:600;font-size:13px}
-.role-pick .rs{font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
+/* 角色名与说明必须各占一行：两者都是 inline span 时 margin-top 不生效，
+   渲染出来是「协作编辑项目任务工作台…」黏成一坨，读不出边界。 */
+.role-pick label>span{flex:1;min-width:0}
+.role-pick .rt{display:block;font-weight:600;font-size:13px}
+.role-pick .rs{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
 .matrix-mini{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 
 /* ---------------- 自检 ---------------- */
@@ -229,7 +243,9 @@ input:focus,select:focus{outline:2px solid var(--brand-soft);border-color:var(--
   background:var(--panel-2);font-size:12px;color:var(--ink-2);
 }
 .step{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.step b{color:var(--ink-3);font-weight:600;font-size:11px;margin-right:4px}
 .step.on{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.step.on b{color:var(--brand)}
 .arrow{color:var(--ink-3)}
 
 /* ---------------- 审计 ---------------- */
