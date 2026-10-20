@@ -91,7 +91,11 @@ def cmd_grant(args):
         current = list(binding)
     else:
         current = []
-    roles = sorted(set(current) | set(args.roles))
+    wanted = [r.strip() for r in str(args.roles).split(",") if r.strip()]
+    if not wanted:
+        print("--roles 为空", file=sys.stderr)
+        return 1
+    roles = sorted(set(current) | set(wanted))
     unknown = [r for r in roles if r not in (policy.get("roles") or {})]
     if unknown:
         print("角色不存在：%s" % ",".join(unknown), file=sys.stderr)
