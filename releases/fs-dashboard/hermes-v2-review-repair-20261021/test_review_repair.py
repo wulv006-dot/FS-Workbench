@@ -18,6 +18,17 @@ lr=support.lr;NOW=support.NOW
 
 
 class ReviewRepair(unittest.TestCase):
+    def test_publisher_is_one_existing_target_with_original_frozen_base(self):
+        spec=importlib.util.spec_from_file_location('repair_release',HERE/'deploy/release.py')
+        release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
+        self.assertEqual(release.TARGETS,{'source/learning_service.py':'/opt/fs-hermes-fc/learning_service.py'})
+        self.assertEqual(release.NEW,frozenset())
+        self.assertEqual(release.BASE_SHA,'1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de')
+        manifest=dict(scope=release.SCOPE,files=[dict(candidate='source/learning_service.py',target='/opt/fs-hermes-fc/learning_service.py',beforeSha256='a'*64,owner='0:0',mode='0o644')],businessWrites=False,timersChanged=False)
+        self.assertEqual(release.checked_manifest(manifest),manifest)
+        manifest['files'][0]['beforeSha256']=None
+        with self.assertRaises(ValueError):release.checked_manifest(manifest)
+
     def setUp(self):
         self.folder=tempfile.TemporaryDirectory();self.addCleanup(self.folder.cleanup)
         from pilot import TaskStore
