@@ -318,6 +318,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/hermes-v2-simulation-learning-20261021/"):
+            groups.add("hermes-v2-simulation-learning");continue
         if name.startswith("releases/fs-dashboard/hermes-v2-ui-fit-20261021/"):
             groups.add("hermes-v2-ui-fit");continue
         if name.startswith("releases/fs-dashboard/hermes-v2-learning-evidence-20261021/"):
@@ -917,6 +919,8 @@ def main():
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-ops":
             units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
+        elif group=="hermes-v2-simulation-learning":
+            units("releases/fs-dashboard/hermes-v2-simulation-learning-20261021",["test_simulation_learning"])
         elif group=="hermes-v2-ui-fit":
             units("releases/fs-dashboard/hermes-v2-ui-fit-20261021",["test_ui_source"])
         elif group=="hermes-v2-learning-evidence":
