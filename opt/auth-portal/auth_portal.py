@@ -567,6 +567,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._do_logout(q("next"))
             if path == "/verify":
                 return self._do_verify(q("group"))
+            if path == "/iam" or path.startswith("/iam/"):
+                return self._do_iam(path, qs)
             if path == "/health":
                 return self._send(200, json.dumps({
                     "ok": True, "version": VERSION, "groups": list(GROUPS.keys()),
@@ -650,6 +652,14 @@ class Handler(BaseHTTPRequestHandler):
 
         hits = authenticate(username, password)
         if not hits:
+            # 注册账号的会话不在门户 token（CFG["cookie"]）体系内：改用注册会话登录
+            # 并下发 FS_ACCESS_CANDIDATE cookie，Bridge.verify 才能识别。
+            _bridge = getattr(sys.modules[__name__], '_registration_bridge', None)
+            if _bridge is not None:
+                _resp = _bridge.try_reg_login(self, username, password, nxt)
+                if _resp is not None:
+                    log("登录成功(注册账号) user=%s ip=%s" % (username, self.ip), "info")
+                    return _resp
             n = note_fail(self.ip, username)
             log("登录失败 user=%s ip=%s 累计失败=%d ua=%s" % (username, self.ip, n, self._uaprefix()), "warn")
             bad = "locked" if n >= CFG["max_fails"] else "bad"
@@ -717,6 +727,27 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, "OK", headers=[("X-Auth-User", user),
             ("X-Auth-Groups", ",".join(groups)), ("X-Auth-Role", role),
             ("X-Fc27-User", user), ("X-Fc27-Role", role)])
+
+    # ---- 成员与权限控制台（fs-iam） ----
+    def _do_iam(self, path, qs):
+        """把 /__auth/iam/* 交给 /opt/fs-access-policy/iam_console.py。
+
+        拆出去的原因：auth_portal 只管「认证 + auth_request 网关」，
+        「谁能干什么」的策略与界面全部收敛在 fs-access-policy 一个目录里，
+        两边职责不混。这里只做接线，任何异常都退化成 503，不带崩主服务。
+        """
+        try:
+            if "iam_console" not in sys.modules:
+                policy_dir = "/opt/fs-access-policy"
+                if policy_dir not in sys.path:
+                    sys.path.insert(0, policy_dir)
+                import iam_console  # noqa: F401
+            module = sys.modules["iam_console"]
+            portal = sys.modules.get(__name__) or sys.modules.get("__main__")
+            return module.handle(portal, self, path, qs)
+        except Exception as exc:
+            log("IAM 控制台异常 %s: %r" % (path, exc), "error")
+            return self._send(503, "IAM 暂时不可用", "text/plain; charset=utf-8")
 
 
     # ---------------------------------------------------------------- 自检

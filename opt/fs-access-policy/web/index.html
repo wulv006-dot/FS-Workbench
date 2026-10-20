@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FS 访问控制 · 成员与授权</title>
+<link rel="stylesheet" href="./app.css">
+<script defer src="./app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark">FS</span>
+    <div class="brand-text">
+      <strong>访问控制 IAM</strong>
+      <small>成员 · 角色 · 授权</small>
+    </div>
+  </div>
+  <div class="top-right">
+    <a class="ghost" id="link-portal" href="../access/" title="账号密码与注册审批仍在原页面">账号与密码</a>
+    <span class="who" id="who">—</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="side">
+    <button class="nav-item active" data-view="members" type="button">
+      <span class="nav-ico">◧</span>成员管理<i id="nav-members" class="pill"></i>
+    </button>
+    <button class="nav-item" data-view="roles" type="button">
+      <span class="nav-ico">◆</span>角色与策略<i id="nav-roles" class="pill"></i>
+    </button>
+    <button class="nav-item" data-view="check" type="button">
+      <span class="nav-ico">◎</span>权限自检
+    </button>
+    <button class="nav-item" data-view="audit" type="button">
+      <span class="nav-ico">☰</span>审计日志
+    </button>
+    <div class="side-foot" id="side-foot"></div>
+  </nav>
+
+  <main class="main" id="main">
+    <div class="loading" id="loading">正在载入策略…</div>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" hidden>
+  <div class="drawer-head">
+    <div>
+      <h3 id="drawer-title">成员</h3>
+      <p id="drawer-sub"></p>
+    </div>
+    <button class="icon" id="drawer-close" type="button">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-foot">
+    <span class="hint" id="drawer-hint"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="drawer-cancel" type="button">取消</button>
+    <button class="btn primary" id="drawer-save" type="button">保存</button>
+  </div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+
+<dialog id="role-dialog" class="dialog">
+  <form method="dialog" id="role-form">
+    <h3>新建角色</h3>
+    <label>角色标识<input name="name" id="role-name" required pattern="[A-Za-z][A-Za-z0-9_.\-]{1,39}" placeholder="例如 WarehouseOps"></label>
+    <label>显示名<input name="label" id="role-label" required maxlength="40" placeholder="例如 仓库运营"></label>
+    <label>说明<input name="desc" id="role-desc" maxlength="200" placeholder="这个角色能做什么"></label>
+    <p class="hint">创建后到右侧矩阵里勾选它被允许的资源与动作。</p>
+    <div class="dialog-foot">
+      <button class="btn" value="cancel" type="submit">取消</button>
+      <button class="btn primary" value="ok" type="submit">创建</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+</body>
+</html>

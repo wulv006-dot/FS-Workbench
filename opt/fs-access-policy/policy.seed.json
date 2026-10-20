@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "generation": 1,
+  "updated_at": "2026-10-20T10:13:28+0800",
+  "updated_by": "system:seed",
+  "roles": {
+    "PlatformAdmin": {
+      "label": "平台管理员",
+      "desc": "全部模块全部动作，含部署与成员授权",
+      "super": true,
+      "rules": []
+    },
+    "Viewer": {
+      "label": "只读访客",
+      "desc": "只能浏览，不能改动任何数据（改造前非管理员账号的等价权限）",
+      "rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "actions": [
+            "view"
+          ]
+        }
+      ]
+    },
+    "PricingOps": {
+      "label": "定价运营",
+      "desc": "RPG / 球类改价：可改价、可触发采集，不可部署、不可授权",
+      "rules": [
+        {
+          "resources": [
+            "d4",
+            "g2g",
+            "nba",
+            "fc27-bundles",
+            "fc27-sbc",
+            "coins",
+            "madden",
+            "players",
+            "gallery",
+            "game-monitor"
+          ],
+          "actions": [
+            "view",
+            "edit",
+            "execute"
+          ]
+        }
+      ]
+    },
+    "SportsOps": {
+      "label": "球类运营",
+      "desc": "FC27 / FC26 / NBA2K / MLB 全部可改可跑",
+      "rules": [
+        {
+          "resources": [
+            "coins",
+            "fc27-bundles",
+            "fc27-sbc",
+            "ops",
+            "players",
+            "gallery",
+            "odds",
+            "mlb",
+            "nba",
+            "madden"
+          ],
+          "actions": [
+            "view",
+            "edit",
+            "execute"
+          ]
+        }
+      ]
+    },
+    "ArpgOps": {
+      "label": "RPG 运营",
+      "desc": "D4 / G2G / 销售部系统可改可跑",
+      "rules": [
+        {
+          "resources": [
+            "d4",
+            "g2g",
+            "sales"
+          ],
+          "actions": [
+            "view",
+            "edit",
+            "execute"
+          ]
+        }
+      ]
+    },
+    "CollabEditor": {
+      "label": "协作编辑",
+      "desc": "任务台 / 绿茵计划 / 部门手册可读写，其余只读",
+      "rules": [
+        {
+          "resources": [
+            "tasks",
+            "green_plan",
+            "docs"
+          ],
+          "actions": [
+            "view",
+            "edit",
+            "execute"
+          ]
+        },
+        {
+          "resources": [
+            "*"
+          ],
+          "actions": [
+            "view"
+          ]
+        }
+      ]
+    },
+    "Deployer": {
+      "label": "部署负责人",
+      "desc": "可使用部署工作台，其余按只读",
+      "rules": [
+        {
+          "resources": [
+            "deploy"
+          ],
+          "actions": [
+            "view",
+            "deploy"
+          ]
+        },
+        {
+          "resources": [
+            "*"
+          ],
+          "actions": [
+            "view"
+          ]
+        }
+      ]
+    },
+    "Auditor": {
+      "label": "审计员",
+      "desc": "全站只读 + 可查授权变更与决策日志",
+      "rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "actions": [
+            "view"
+          ]
+        }
+      ]
+    },
+    "Analyst": {
+      "label": "数据分析",
+      "desc": "只看数据看板 / 监控台 / Hermes 智体",
+      "rules": [
+        {
+          "resources": [
+            "unified-business",
+            "data-analysis-tools",
+            "management",
+            "game-monitor",
+            "brain",
+            "home"
+          ],
+          "actions": [
+            "view"
+          ]
+        }
+      ]
+    }
+  },
+  "bindings": {
+    "wulv": {
+      "roles": [
+        "PlatformAdmin"
+      ]
+    },
+    "chenchao": {
+      "roles": [
+        "PlatformAdmin"
+      ]
+    },
+    "DY": {
+      "roles": [
+        "PlatformAdmin"
+      ]
+    },
+    "fstech": {
+      "roles": [
+        "PlatformAdmin"
+      ]
+    },
+    "mmoexp": {
+      "roles": [
+        "Viewer"
+      ]
+    }
+  },
+  "compat_exceptions": [
+    {
+      "id": "green-plan-task-patch",
+      "desc": "任务台内部自带成员/指派人/字段校验，仅放行该精确路由的 PATCH",
+      "methods": [
+        "PATCH"
+      ],
+      "uri": "/dashboard/tasks/api/green-plan/tasks/G[0-9]+",
+      "excludeSubjectPrefix": "reg:"
+    }
+  ],
+  "unbound_role": "Viewer"
+}
