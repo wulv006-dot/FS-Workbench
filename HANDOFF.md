@@ -14,3 +14,9 @@
 
 负责人吴律，直接消费者为本仓库处理 FC27 与绿茵计划文档的人和 AI。HOTFIX、业务规则、原 owner/source 映射及生产权限保持；本变更的确切提交与文档检查见所属 PR。绿茵计划具体产品稿作为独立本地交付，未因模板同步自动导入线上任务或声明功能完成。
 
+
+## 2026-10-21 Codex 全局偏好与项目规则核验
+
+负责人吴律。用户要求核验全局与项目MD冲突、说明情境和优势，并在核验后同步GitHub/Notion。实际全局正文与新稿一致；E工程旧10/7协作流程已明确为历史，按需读取、原仓库禁推与独立私库白名单同步的范围已澄清。沿用本仓短版入口，只追加本次链接；没有上传E工程长篇AGENTS/HANDOFF或覆盖业务源码。
+
+[全局稿](docs/planning/codex-instructions-20261021/GLOBAL-INSTRUCTIONS.md)、[使用与同步边界](docs/planning/codex-instructions-20261021/README.md)、[冲突情境与优势](docs/planning/codex-instructions-20261021/AUDIT.md)为本次三份脱敏文档。检查了正文一致性、相对链接、历史和业务规则保留、五路径载荷及来源基线；正式CI和合并结果见所属PR及读回。Notion只追加对应方法和结果，不证明Hermes已学习；无生产发布、付费模型调用或业务写入。HOTFIX、实际main保护、业务权限与原owner/source保持。
