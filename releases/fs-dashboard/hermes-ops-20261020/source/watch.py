@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -69,7 +70,11 @@ def run(home=HOME, transport=send, now=None):
     if not issues and not previous.get('issues') and not repair:
         write(home/'watch-state.json', {'signature': signature, 'issues': [], 'checked_at': now.isoformat()})
         return {'state': 'healthy_quiet'}
-    incident = previous.get('incident') if issues == previous.get('issues') else None
+    incident = None
+    if issues == previous.get('issues'):
+        # Pre-incident state files still have live requests/claims using this ID.
+        # Migrate a continuing fault without orphaning those records.
+        incident = previous.get('incident') or sha(json.dumps(issues).encode())[:16]
     if not incident:
         incident = sha((str(previous.get('signature')) + str(previous.get('checked_at')) + json.dumps(issues)).encode())[:16]
     config = read(home/'private-target.json')
@@ -93,17 +98,23 @@ def run(home=HOME, transport=send, now=None):
     if old.get('state') in {'sending', 'unknown'}:
         return {'state': 'notification_unknown_no_retry'}
     if old.get('state') == 'sent':
+        # Old releases did not persist the delivered ID. During migration it
+        # could be either the legacy ID or #249's fresh ID: never guess or resend.
+        delivered = old.get('incident')
+        if not isinstance(delivered, str) or not re.fullmatch('[a-f0-9]{16}', delivered):
+            return {'state': 'notification_unknown_no_retry'}
+        incident = delivered
         request_repair()
         write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'incident': incident, 'checked_at': now.isoformat()})
         return {'state': 'reconciled_sent'}
-    write(pending, {'state': 'sending', 'signature': signature, 'created_at': now.isoformat()})
+    write(pending, {'state': 'sending', 'incident': incident, 'signature': signature, 'created_at': now.isoformat()})
     try:
         receipt = transport(text, config['target'])
         mid = message_id(receipt)
-        write(pending, {'state': 'sent' if mid else 'unknown', 'message_id': mid, 'checked_at': now.isoformat()})
+        write(pending, {'state': 'sent' if mid else 'unknown', 'incident': incident, 'message_id': mid, 'checked_at': now.isoformat()})
         if not mid: return {'state': 'notification_unknown_no_retry'}
     except Exception as error:
-        write(pending, {'state': 'unknown', 'error': type(error).__name__, 'checked_at': now.isoformat()})
+        write(pending, {'state': 'unknown', 'incident': incident, 'error': type(error).__name__, 'checked_at': now.isoformat()})
         return {'state': 'notification_unknown_no_retry'}
     write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'incident': incident, 'checked_at': now.isoformat()})
     request_repair()
