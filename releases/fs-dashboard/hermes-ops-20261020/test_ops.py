@@ -247,6 +247,48 @@ class WatchChecks(unittest.TestCase):
         for name, content in before.items():
             self.assertEqual((self.home/name).read_bytes(), content)
 
+    def test_sent_outbox_reconciles_exact_delivered_id_after_crash(self):
+        issues, _ = self.legacy_state()
+        self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
+        real_write = watch.write
+        def crash_state(path, value):
+            if path.name == 'watch-state.json':
+                raise RuntimeError('simulated_crash_after_send')
+            return real_write(path, value)
+        with patch.object(watch, 'write', side_effect=crash_state):
+            with self.assertRaises(RuntimeError):
+                watch.run(self.home, self.transport, NOW)
+        outbox = next((self.home/'outbox').glob('*.json'))
+        receipt = watch.read(outbox)
+        self.assertEqual(receipt['state'], 'sent')
+        self.assertIn(receipt['incident'], self.calls[0][0])
+        # Test receipt authority independently of the currently selected fallback.
+        delivered = 'f'*16
+        watch.write(outbox, dict(receipt, incident=delivered))
+        self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'reconciled_sent')
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(watch.read(self.home/'request.json')['incident'], delivered)
+        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], delivered)
+
+    def test_old_sent_outbox_without_id_blocks_without_mutation_or_resend(self):
+        issues, _ = self.legacy_state()
+        self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
+        # Produce the exact event key, then represent a pre-patch sent receipt.
+        watch.run(self.home, lambda *args: {'success': True}, NOW)
+        outbox = next((self.home/'outbox').glob('*.json'))
+        for incident in (None, '', 'invalid'):
+            receipt = {'state': 'sent', 'message_id': 'old-message'}
+            if incident is not None:
+                receipt['incident'] = incident
+            watch.write(outbox, receipt)
+            before = {p: p.read_bytes() for p in
+                      (outbox, self.home/'watch-state.json', self.home/'request.json')}
+            self.assertEqual(watch.run(self.home, self.transport, NOW)['state'],
+                             'notification_unknown_no_retry')
+            self.assertEqual(self.calls, [])
+            for path, content in before.items():
+                self.assertEqual(path.read_bytes(), content)
+
     def test_unknown_notification_does_not_request_repair(self):
         self.snapshot(['brain_ui_dependencies_missing'], brain={'repairable':True})
         watch.run(self.home, lambda *args: {'success':True}, NOW)
