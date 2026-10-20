@@ -219,6 +219,72 @@ class RecoveryTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def publisher(self):
+        import hashlib
+        spec = importlib.util.spec_from_file_location('admin_release', HERE / 'deploy/release.py')
+        adapter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(adapter)
+        stage = self.root / 'stage'
+        stage.mkdir()
+        adapter.HERE = stage
+        base = ROOT / 'releases/fs-dashboard/hermes-report-repair-20261019/deploy/release_navigation_base.py'
+        if not base.exists():
+            base = ROOT / 'fs_hermes_report_repair_20261019/deploy/release_navigation_base.py'
+        (stage / 'release_navigation_base.py').write_bytes(base.read_bytes())
+        files = []
+        for relative, target in adapter.TARGETS.items():
+            path = stage / 'candidate' / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('fixture')
+            files.append({'candidate': relative, 'target': target, 'beforeSha256': 'a' * 64,
+                          'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'mode': '0o644', 'owner': '0:0'})
+        manifest = {'schemaVersion': 1, 'scope': adapter.SCOPE, 'files': files,
+                    'businessWrites': False, 'timersChanged': False, 'unchangedRequired': [],
+                    'imageId': 'sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544',
+                    'runtimeRequired': {name: {'ActiveState': 'active'} for name in ('fs-business-range.service', 'fs-hermes-fc.service')}}
+        (stage / 'approved-manifest.json').write_text(json.dumps(manifest))
+        publisher = adapter.load_base()
+        protected = set(publisher.HERMES_TARGETS.values()) | {
+            '/opt/fs-exact-range-20261001/' + name for name in ('boss_insights.py', 'fc_deep_model.py', 'fc_daily.py',
+            'fc_daily_model.py', 'fc_detail.py', 'fc_detail_model.py', 'fc_detail_reader.py', 'fc_detail_config.json',
+            'fc_deep_sources.py', 'summary_bridge.py')}
+        protected |= {'/var/www/dashboard/index.html', '/var/www/dashboard/fs-home/index.html',
+                      '/var/www/dashboard/fs-home/navigation.js', '/opt/fs-access-policy/access_policy.py'}
+        protected -= set(adapter.TARGETS.values())
+        manifest['unchangedRequired'] = [{'path': path, 'sha256': 'b' * 64} for path in sorted(protected)]
+        (stage / 'approved-manifest.json').write_text(json.dumps(manifest))
+        return adapter, stage, manifest, adapter.load_base()
+
+    def test_publisher_keeps_exact_scope_source_hash_and_protection_checks(self):
+        adapter, stage, manifest, publisher = self.publisher()
+        self.assertEqual(len(publisher.validate(manifest, stage)), 2)
+        with self.assertRaises(ValueError):
+            publisher.validate(dict(manifest, timersChanged=True), stage)
+        (stage / 'candidate/source/controller.py').write_text('changed')
+        with self.assertRaises(ValueError):
+            publisher.validate(manifest, stage)
+        changed = dict(manifest, files=manifest['files'] + [dict(manifest['files'][0], candidate='extra')])
+        (stage / 'approved-manifest.json').write_text(json.dumps(changed))
+        with self.assertRaises(ValueError):
+            adapter.load_base()
+        (stage / 'release_navigation_base.py').write_text('changed')
+        with self.assertRaises(ValueError):
+            adapter.load_base()
+
+    def test_publisher_reload_stops_reader_and_never_restarts_hermes(self):
+        adapter, stage, manifest, publisher = self.publisher()
+        fence = Mock()
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = b'{"ok":true}'
+        with patch.object(publisher.subprocess, 'run') as run, patch.object(publisher.urllib.request, 'urlopen', return_value=response):
+            publisher.restart_for(manifest, fence)
+        fence.stop_then_unlock_database.assert_called_once_with()
+        self.assertEqual([call.args[0] for call in run.call_args_list],
+                         [['systemctl', 'restart', 'fs-business-range.service'],
+                          ['systemctl', 'is-active', '--quiet', 'fs-business-range.service']])
+
 
 if __name__ == '__main__':
     unittest.main()

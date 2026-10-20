@@ -25,3 +25,8 @@
 宿主策略代码root:root 0644，进程内外inode2235172相同，没有陈旧bind mount证据。admin_cli真实策略generation10/revision b2063367864717d5，超级管理员为DY、chenchao、fstech、wulv；mmoexp本次不是管理员，不据历史猜测扩权。新Python进程中四人admin=true且policy.status.degraded为空，但长期运行8931仍列表503/会话403，故障与长期进程状态有关，具体被吞内部异常尚未取得，不能宣称已证实挂载陈旧。
 
 本次重新下载两个活动源：fc_daily.py SHA256 5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80；controller.py SHA256 01e2687ea0a6a2786808bdac158340de6f51cc00e7cbf77cdef753bd4da7e774。fc_daily旧候选仅末尾空行有差异，已按活动字节重建最小补丁。策略、账号、Hermes网关及原失败证据保持。
+
+
+## 发布范围
+
+PR #245：77e1ab8f1fc5eae599de3242c98d233c89e8dd83 首版CI run39373502427/pr-fast成功；新增精确两目标发布适配器后按新head复验。复用SHA1d070ee8…f2de的既有release_navigation_base.py，保留发布双锁、来源/消费者CAS、admission与provider锁、真实在途队列检查、intent日志、备份及按原ID回滚。fc_daily从不变保护池转入本次目标CAS，未减少实际文件保护。新增适配器仅停启fs-business-range，不重启Hermes服务；会话/客单任务与来源读取仍须空闲。15项本地测试（含两项发布范围、源哈希、冻结发布器和仅8931重载断言）全部通过。

@@ -20,8 +20,8 @@
     {
       "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/test_admin_recovery.py",
       "local_path": "fs_hermes_admin_recovery_20261020/test_admin_recovery.py",
-      "sha256": "6c1e413bd7d10526c4c94ebf3eeb917296a4c2241d52c6706c381a203bbc68a9",
-      "bytes": 10881
+      "sha256": "aef8616c2c4cbec0f41c3e35d5e038a809812737e054e559088d69a4ebdb3fe6",
+      "bytes": 15107
     },
     {
       "repo_path": "tools/pr_fast.py",
@@ -32,14 +32,20 @@
     {
       "repo_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
       "local_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
-      "sha256": "6a917dfe59b474db474711bd5783305070fd20fce05b139e6f19aa1088729fe9",
-      "bytes": 4391
+      "sha256": "964038e77423944516c4381d23dff299683b4ba79e12b1f593224435711b8625",
+      "bytes": 5099
     },
     {
       "repo_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
       "local_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
       "sha256": "ad5686b9fe79364b4e8773b29e876a221d765e45bf2dd30b79039ea2877465da",
       "bytes": 929
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/deploy/release.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/deploy/release.py",
+      "sha256": "1bee31d7f0ed212e686b38fb76949f61c54b34df847c532db6a063a655b53153",
+      "bytes": 4158
     }
   ],
   "runtime_targets": {
@@ -47,10 +53,11 @@
     "source/fc_daily.py": "/opt/fs-exact-range-20261001/fc_daily.py"
   },
   "runtime_mapping_status": "fresh_host_source_sha_verified",
-  "tests": 13,
+  "tests": 15,
   "live_acceptance": false,
   "active_before": {
     "/opt/fs-exact-range-20261001/fc_daily.py": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80",
     "/opt/fs-hermes-fc/controller.py": "01e2687ea0a6a2786808bdac158340de6f51cc00e7cbf77cdef753bd4da7e774"
-  }
+  },
+  "pull_request": "https://github.com/wulv006-dot/FS-Workbench/pull/245"
 }
