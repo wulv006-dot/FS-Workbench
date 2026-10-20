@@ -1,0 +1,81 @@
+{
+  "contract": "hermes-v2-strategy-source-map-v1",
+  "base": "d9276b8ccebe6412de725cd6a621f2e0c4360732",
+  "state": "candidate_not_deployed",
+  "files": [
+    {
+      "local": "hermes_v2_strategy_20261021/source/controller.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "440ac7866caed5273eb894756a47c058eaf520f1a508fadc779ff4586e44ab45",
+      "before_sha256": "6a9132acc08de69f4c40cb6bf913ecdfdeeb1ef736f3428fb28af4664771e09c",
+      "previous_repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/controller.py"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/proxy_gateway.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/proxy_gateway.py",
+      "runtime": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "d64690cf8428bd98abcdb007e0f40eb57d00207f26c7fb86af9d2b8643905ab4",
+      "before_sha256": "d964e15bdd4c358077f5df5412a6a9644d9078888bf952abe1da9cf8ef137eca",
+      "previous_repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/proxy_gateway.py"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/runs_contract.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/runs_contract.py",
+      "runtime": "/opt/fs-hermes-fc/runs_contract.py",
+      "sha256": "ea5ba3906f0dc85ef3bc52cdf17f9f9cfaae2b91ad79b195c86a9779688d4792",
+      "before_sha256": "317f183828f8f51cba1600d633ad7da8884da2784fe7968d5c09a5fe53fb6f78",
+      "previous_repository": "releases/fs-dashboard/hermes-fc-pilot-20261013/runs_contract.py"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/learning_service.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/learning_service.py",
+      "runtime": "/opt/fs-hermes-fc/learning_service.py",
+      "sha256": "a3a3e91648bd3641184b227f46a3dd8989832ab3be64639f7e41eb4cb23562b8",
+      "before_sha256": "6ce14f11825de4c97449352e6d0aac456e1cdd10d5326ba6cc14348e01664ef4",
+      "previous_repository": "releases/fs-dashboard/hermes-v2-review-repair-20261021/source/learning_service.py"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/pricing_simulation.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/pricing_simulation.py",
+      "runtime": "/opt/fs-hermes-fc/pricing_simulation.py",
+      "sha256": "4f11c74ac242044dff770d186fce60ea283b549acc6680057938d4cee24b8bab",
+      "before_sha256": null,
+      "previous_repository": null
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/strategy_tools.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/strategy_tools.py",
+      "runtime": "/opt/fs-hermes-fc/strategy_tools.py",
+      "sha256": "4abb06ee69ca0f134248cf113936e3b3b8c43e75e4440bda51f13b57cf596730",
+      "before_sha256": null,
+      "previous_repository": null
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/strategy_workspace.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/strategy_workspace.py",
+      "runtime": "/opt/fs-hermes-fc/strategy_workspace.py",
+      "sha256": "c16750b877840ba8c8b7ea3d6ea7eb49182159003dadb0861f2a72ced94f6d06",
+      "before_sha256": null,
+      "previous_repository": null
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/brain.html",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/brain.html",
+      "runtime": "/var/www/dashboard/fs-home/brain/index.html",
+      "sha256": "f9e16771024f79fc09a0a867a7e75db70f75fc023d0805818b5dd088fe311e6e",
+      "before_sha256": "346ef40d8ab4baa76f58db90917072df92e1eaf72ba554e3d5126f11f332f2d1",
+      "previous_repository": "releases/fs-dashboard/hermes-ops-20261020/repairs/346ef40d8ab4baa7/source/brain-index.html"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/frontend/strategy.js",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/frontend/strategy.js",
+      "runtime": "/var/www/dashboard/fs-home/brain/hermes-v2-7fd115d3da5b.js",
+      "sha256": "7fd115d3da5ba07c4c15c51b3f0bd85735a87a7e48298df642bae7e429765e79",
+      "before_sha256": null,
+      "previous_repository": null
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false
+}

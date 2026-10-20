@@ -16,6 +16,14 @@ PR #251 已合并，merge `dffb16550733b4ae038df973c441821e3ad96b6d`。用户明
 
 代码验证：PR251最终head `635fa71f9cb7600982e8f99b3b97f2a469e9032d` 的正式pr-fast run39451875865成功；45项本机测试通过。修复候选5项回归通过，部署状态另记；不能用本记录替代其发布。
 
-未完成：学习模型候选类型修复尚未生产验收；独立持续会话、自然夜间周期、真实取消/进程中断及长上下文压缩验收尚未完成。W4已核实际价格引擎、策略和快照读取路径，草案/模拟工具未上线。附件临时路径消失，原回执在W4后半被截断，W5–W6完整正文不可用，已请求补充，不自行编造章节要求。
+未完成：独立持续会话、自然夜间周期、真实取消/进程中断及长上下文压缩验收尚未完成。W4已核实际价格引擎、策略和快照读取路径，草案/模拟工具未上线。用户已重新提供 Downloads ZIP，完整 W4–W6 及原包已恢复到 attachment/；后续实施见 STRATEGY-DELIVERY.md。
 
 安全重跑：本地 `python -B hermes_v2_core_20261020/test_core.py` 和 `python -B hermes_v2_review_repair_20261021/test_review_repair.py` 只用临时库及合成响应。真实模型/发布/撤销均非普通可重跑检查；先按原请求、event、attempt和manifest核对，禁止盲重试。
+
+## 同期真实失败修复回执
+
+PR #252最终head `d9bf768dd07c446036ca2b684fc4bba76b46ffc4` 的pr-fast run39456694573成功，5项定向及原45项核心检查通过；正常合并 `d9276b8ccebe6412de725cd6a621f2e0c4360732`。单文件learning_service修复沿原发布器上线，manifest `7b21aeba345cd305a4a06ca99081e7f2165ff9fd5f7b310f2115f60f6ce1fff1`，活动SHA256 `6ce14f11825de4c97449352e6d0aac456e1cdd10d5326ba6cc14348e01664ef4`，备份 `/var/backups/fs-navigation-20261006/nav-20261020T162706Z`。独立读回1目标+385保护对象全匹配，两服务active，无业务worker/timer操作。
+
+真实原failed学习事件经认证人工修订：保持原attempt `9c4a1fcf8434b73c1b20694ea18b04f9`、previous_review及原模型账本，原模型调用数仍1；仅候选，未发布。新学习事件 `2efc4fbce49971def0b800bab760eff48cdd837d5baa090ecdc25790fba348b5` 用修复后明确字段类型的提示，经一次真实high请求成功生成L1待审候选；提供商ID `672e0bbb-bff8-4c8f-b66a-bbbe7387633c`，5057 tokens，accepted_no_effort_echo，未自动发布。当前正式经验manifest恢复为空，三条候选保留，收益均unverified。
+
+第一批用户指定终点已取得真实证据；不等于W0–W6全部验收。其余未测项及 W4–W6 另行实测。
