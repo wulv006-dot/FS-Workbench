@@ -643,12 +643,12 @@ class Handler(BaseHTTPRequestHandler):
         remember = f("remember") in ("1", "on", "true", "yes")
 
         if not username or not password:
-            return self._redirect(CFG["prefix"] + "/login?err=bad&next=" + urllib.parse.quote(nxt))
+            return self._login_fail("bad", nxt)
 
         left = locked_for(self.ip, username)
         if left:
             log("登录被拒(锁定中 %ds) user=%s ip=%s" % (left, username, self.ip), "warn")
-            return self._redirect(CFG["prefix"] + "/login?err=locked&next=" + urllib.parse.quote(nxt))
+            return self._login_fail("locked", nxt)
 
         hits = authenticate(username, password)
         if not hits:
@@ -663,7 +663,7 @@ class Handler(BaseHTTPRequestHandler):
             n = note_fail(self.ip, username)
             log("登录失败 user=%s ip=%s 累计失败=%d ua=%s" % (username, self.ip, n, self._uaprefix()), "warn")
             bad = "locked" if n >= CFG["max_fails"] else "bad"
-            return self._redirect(CFG["prefix"] + "/login?err=%s&next=" % bad + urllib.parse.quote(nxt))
+            return self._login_fail(bad, nxt)
 
         clear_fail(self.ip, username)
         ttl = (CFG["ttl_days"] * 86400) if remember else (CFG["sess_hours"] * 3600)
@@ -671,6 +671,19 @@ class Handler(BaseHTTPRequestHandler):
         log("登录成功 user=%s 组=%s ip=%s ttl=%ds remember=%s" %
             (username, ",".join(hits), self.ip, ttl, remember), "info")
         return self._redirect(nxt, [self._cookie_header(token, ttl)])
+
+    def _login_fail(self, err, nxt):
+        """登录失败后回哪。
+
+        从新控制台（/__auth/access/）提交的表单，就回它自己 —— 那个页面的登录框
+        会就地显示 err 文案，用户不用在两个不同风格的登录页之间跳。其他来源
+        仍旧回老的统一登录页，行为不变。
+        """
+        base = CFG["prefix"] + "/login"
+        if nxt == CFG["prefix"] + "/access" or nxt.startswith(CFG["prefix"] + "/access/"):
+            base = CFG["prefix"] + "/access/"
+        sep = "&" if "?" in base else "?"
+        return self._redirect(base + sep + "err=" + err + "&next=" + urllib.parse.quote(nxt))
 
     # ---- 登出 ----
     def _do_logout(self, next_q):

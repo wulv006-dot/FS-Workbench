@@ -59,8 +59,19 @@ cd /opt/fs-access-policy
 /opt/python39/bin/python3 admin_cli.py revoke --user zhang --role PricingOps --by chenchao
 ```
 
-网页：`https://47.85.224.112/__auth/iam/`（左侧菜单：成员管理 / 角色与策略 /
-权限自检 / 审计日志）。**只有拿到 `admin:manage` 的成员能进。**
+网页：`https://47.85.224.112/__auth/access/` —— 就是主入口导航栏里那个「账号权限」
+入口，整页就是本控制台（左侧菜单：成员管理 / 角色与策略 / 权限自检 / 审计日志）。
+**只有拿到 `admin:manage` 的成员能进**，其他人看到 403 说明页。
+
+> 这个地址同时是全站未登录的登录落点（nginx `@auth_login` 就 302 到这里），
+> 所以未登录时由页面自己出登录框，服务端**不 302** —— 否则会自己跳自己，
+> 无限重定向，谁都登不进来。
+
+老的门户页（注册 / 我的申请 / 修改密码 / 注册审批）整体迁到
+`https://47.85.224.112/__auth/account/`，控制台右上角有入口。
+
+路由怎么接的：nginx 把 `/__auth/access/*` 内部改写到后端的 `/iam/*`，
+因此 `iam_console.py` 里的路径常量仍是 `/iam`，后端不对外暴露。
 
 ## 安全闸门
 

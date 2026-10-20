@@ -1,13 +1,8 @@
 /* FS 访问控制 IAM · 控制台前端
-   零依赖、零外网；所有数据走 /__auth/iam/api/*。 */
+   零依赖、零外网。对外地址是 /__auth/access/，API 走 ./api/*；
+   nginx 把这个前缀内部改写到后端的 /iam/，所以这里一律用相对路径。 */
 (function () {
   'use strict';
-
-  // 嵌入模式：本页被 /__auth/access/ 的管理区用同源 iframe 加载时带 ?embed=1。
-  // 此时页面自己的顶栏是多余的（外面已经有门户顶栏），由 CSS 收起。
-  if (/(?:^|[?&])embed=1(?:&|$)/.test(window.location.search)) {
-    document.documentElement.className += ' embed';
-  }
 
   var API = './api/';
   var S = {
@@ -522,9 +517,62 @@
       return load();
     }).catch(function (e) { toast(e.message, 'bad'); });
   });
+  /* ------------------------------------------------------------ 登录 / 启动 */
+  function showLogin() {
+    var q = {};
+    window.location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+      if (!kv) return;
+      var i = kv.indexOf('=');
+      var k = i < 0 ? kv : kv.slice(0, i);
+      q[decodeURIComponent(k)] = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+    });
+
+    // next 只接受站内绝对路径，杜绝 //evil.com、/\evil.com 这类外跳。
+    var nxt = q.next || '';
+    if (!/^\/[^\/\\]/.test(nxt)) nxt = '/__auth/access/';
+
+    $('login-next').value = nxt;
+    $('login-view').hidden = false;
+    $('app-view').hidden = true;
+
+    var map = {
+      noperm: '这个账号没有访问「账号与权限」的权限，请换一个有管理员权限的账号登录。',
+      expired: '登录状态已过期，请重新登录。',
+      bad: '账号或密码不正确，请重试。',
+      locked: '尝试次数过多，该账号已被临时锁定，请稍后再试。',
+      csrf: '请求格式不正确，请重新提交。',
+      badreq: '请求格式不正确，请重新提交。'
+    };
+    var box = $('login-msg');
+    if (q.err && map[q.err]) { box.textContent = map[q.err]; box.className = 'login-msg bad'; box.hidden = false; }
+    else if (q.msg) { box.textContent = q.msg; box.className = 'login-msg ok'; box.hidden = false; }
+    else { box.hidden = true; }
+  }
+
+  function boot() {
+    api('session').then(function (s) {
+      // 服务端已挡住非管理员，这里只是兜底：没有 user 或 admin=false 就回登录卡。
+      if (!s || !s.user || !s.admin) return showLogin();
+      $('login-view').hidden = true;
+      $('app-view').hidden = false;
+      load();
+    }).catch(function (e) {
+      var j = e.payload || {};
+      if (j.detail && j.detail.code === 403) {
+        // 已登录但没权限：不要把登录框再摆出来制造「我明明登录了」的错觉。
+        $('login-view').hidden = true;
+        $('app-view').hidden = false;
+        $('main').innerHTML = '<div class="empty">' + esc(j.error || '没有权限') +
+          '</div>';
+        return;
+      }
+      showLogin();
+    });
+  }
+
   window.addEventListener('beforeunload', function (ev) {
     if (S.dirty) { ev.preventDefault(); ev.returnValue = ''; }
   });
 
-  load();
+  boot();
 })();
