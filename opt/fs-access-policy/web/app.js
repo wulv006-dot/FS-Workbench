@@ -11,7 +11,8 @@
     role: null,      // 当前编辑的角色名
     draft: null,     // { resource: { action: true } }
     dirty: false,
-    member: null     // 抽屉里的成员
+    member: null,    // 抽屉里的成员
+    isAdmin: false   // 来自 session.admin，决定抽屉里给不给「修改密码」
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -162,13 +163,13 @@
         '<td><span class="dim">可读 ' + m.accessCount + ' 个资源' +
           (m.writable.length ? '，可写 ' + m.writable.length + ' 个' : '') + '</span></td>' +
         '<td>' + login + '</td>' +
-        '<td style="text-align:right"><button class="btn sm" data-member="' + esc(m.subject) + '">调整角色</button></td>' +
+        '<td style="text-align:right"><button class="btn sm" data-member="' + esc(m.subject) + '">管理</button></td>' +
         '</tr>';
     }).join('');
 
     return '' +
       '<div class="page-head"><div><div class="eyebrow">MEMBER</div><h1>成员管理</h1>' +
-      '<p>成员来自门户统一登录（内置账号）与注册审批（注册账号）。在这里只分配<b>角色</b>，密码仍在「账号与密码」页维护。</p></div>' +
+      '<p>成员来自门户统一登录（内置账号）与注册审批（注册账号）。点「管理」分配<b>角色</b>，也可以直接设新密码。</p></div>' +
       '</div>' +
       '<div class="stats">' + statCard('成员总数', d.members.length) + statCard('管理员', admins) +
       statCard('可授权角色', d.policy.roles.length) + statCard('未分配角色', none, '人') +
@@ -405,7 +406,31 @@
     var roles = S.data.policy.roles.slice().sort(function (a, b) {
       return (b.super ? 1 : 0) - (a.super ? 1 : 0) || b.rules.length - a.rules.length;
     });
-    $('drawer-body').innerHTML =
+    var isSelf = m.name === S.data.policy.actor;
+    // 改密码是独立动作：不需要原密码、不需要二次确认、不填原因 —— 填新密码点更新即可。
+    // 放在抽屉最上方：角色列表有 9 项、约 600px 高，放下面就得先滚到底才看得见。
+    var pw = S.isAdmin
+      ? '<div class="pw-block">' +
+          '<div class="pw-head"><b>修改密码</b><span class="hint">仅管理员</span></div>' +
+          '<div class="pw-row">' +
+            '<input type="password" id="pw-input" autocomplete="new-password" maxlength="128" placeholder="新密码，至少 12 位">' +
+            '<button class="btn primary" id="pw-save" type="button">更新密码</button>' +
+          '</div>' +
+          '<p class="pw-hint">不需要原密码。更新后该账号已登录的会话立即失效' +
+          (isSelf ? '，<b>包括你自己 —— 需要用新密码重新登录</b>' : '') + '。</p>' +
+        '</div>'
+      : '';
+    var writableTags = m.writable.length > 6
+      ? m.writable.slice(0, 6).map(function (r) {
+          return '<span class="tag warn">' + esc(r) + '</span>';
+        }).join('') + '<span class="tag">等 ' + m.writable.length + ' 个</span>'
+      : m.writable.map(function (r) {
+          return '<span class="tag warn">' + esc(r) + '</span>';
+        }).join('');
+    $('drawer-body').innerHTML = pw +
+        '<div class="matrix-mini">' + (m.writable.length
+          ? '<span class="hint">当前可写：</span>' + writableTags
+          : '<span class="hint">当前没有任何写权限</span>') + '</div>' +
         '<div class="role-pick">' + roles.map(function (r) {
           var on = m.roles.indexOf(r.name) >= 0;
           return '<label class="' + (on ? 'on' : '') + '">' +
@@ -413,17 +438,44 @@
             '<span><span class="rt">' + esc(r.label || r.name) +
             (r.super ? ' <span class="tag super">超级</span>' : '') + '</span>' +
             '<span class="rs">' + esc(r.summary) + '</span></span></label>';
-        }).join('') + '</div>' +
-        '<div class="matrix-mini">' + (m.writable.length
-          ? '<span class="hint">当前可写：</span>' + m.writable.map(function (r) {
-              return '<span class="tag warn">' + esc(r) + '</span>';
-            }).join('')
-          : '<span class="hint">当前没有任何写权限</span>') + '</div>';
+        }).join('') + '</div>';
     document.querySelectorAll('#drawer-body .chk').forEach(function (c) {
       c.onchange = function () { c.closest('label').classList.toggle('on', c.checked); };
     });
+    var pwBtn = $('pw-save');
+    if (pwBtn) {
+      var pwInput = $('pw-input');
+      pwBtn.onclick = function () { setPassword(m, pwInput, pwBtn); };
+      pwInput.onkeydown = function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); setPassword(m, pwInput, pwBtn); }
+      };
+    }
     $('drawer').hidden = false;
     $('scrim').hidden = false;
+  }
+
+  function setPassword(m, input, btn) {
+    var v = input.value;
+    // 12 位的下限不是产品偏好：底层 password_hash / password_matches 都硬校验
+    // 12–128，短于此会写进一个连自己都验不过的哈希，账号当场被锁死。
+    if (v.length < 12) { input.focus(); toast('新密码至少 12 位', 'bad'); return; }
+    if (v.length > 128) { toast('新密码最多 128 位', 'bad'); return; }
+    btn.disabled = true; btn.textContent = '更新中…';
+    api('member/password', { method: 'POST', body: { subject: m.subject, password: v } })
+      .then(function (r) {
+        input.value = '';
+        if (r.selfChanged) {
+          toast('密码已更新，你的登录已失效，请用新密码重新登录', 'ok');
+          setTimeout(function () { window.location.href = './'; }, 1400);
+          return;
+        }
+        toast('「' + m.name + '」的密码已更新', 'ok');
+        btn.disabled = false; btn.textContent = '更新密码';
+      })
+      .catch(function (e) {
+        btn.disabled = false; btn.textContent = '更新密码';
+        toast(e.message, 'bad');
+      });
   }
 
   function closeDrawer() {
@@ -553,6 +605,7 @@
     api('session').then(function (s) {
       // 服务端已挡住非管理员，这里只是兜底：没有 user 或 admin=false 就回登录卡。
       if (!s || !s.user || !s.admin) return showLogin();
+      S.isAdmin = !!s.admin;
       $('login-view').hidden = true;
       $('app-view').hidden = false;
       load();

@@ -23,6 +23,7 @@ import html
 import json
 import os
 import re
+import sqlite3
 import sys
 import time
 
@@ -364,6 +365,133 @@ def _api_member_roles(portal, actor, body):
                    apply, body.get("revision"))
 
 
+# ---------------------------------------------------------------- 改密码
+#
+# 密码的唯一权威存储不是 htpasswd，而是注册库 gate.db 的 account_state.password
+# （pbkdf2_sha256 覆盖值）。登录时 Accounts.authenticate() 的逻辑是「有覆盖值就
+# 用覆盖值，没有才回落 htpasswd」，所以改密码必须写这张表，改 htpasswd 无效。
+#
+# 这里刻意没有复用 account_management.Accounts.mutate()：它在方法内部硬编码要求
+# 「管理员当前密码 + 两次新密码一致 + 修改原因」，而这三项正是本次要取消的。
+# 因此下面逐行镜像它 action='password' 的落盘动作（写 account_state / 撤销会话 /
+# 追加 account_events / 升 schema 版本）。**若那边改动，这里要同步。**
+#
+# 注意长度下限 12 不能放宽：auth_candidate.password_hash() 与 password_matches()
+# 都硬校验 12–128，放宽会写进一个自己都验不过的哈希，等于把账号锁死。
+
+PASSWORD_MIN = 12
+PASSWORD_MAX = 128
+_SUBJECT_RE = re.compile(r"native:[A-Za-z][A-Za-z0-9_.-]{1,39}|reg:[a-f0-9-]{36}")
+
+
+class _PwDenied(Exception):
+    """事务内拒绝：抛出去让 transaction 回滚，再在外部翻译成 HTTP 响应。"""
+
+    def __init__(self, code, message):
+        Exception.__init__(self, message)
+        self.code = code
+        self.message = message
+
+
+def _accounts_of(portal):
+    """返回 (store, accounts)。注册库不可用时返回 (None, None)。"""
+    store = _registration_store(portal)
+    accounts = getattr(store, "accounts", None)
+    if store is None or accounts is None:
+        return None, None
+    return store, accounts
+
+
+def _password_core(accounts):
+    """借 account_management 模块顶部的 `import auth_candidate as core`。
+
+    不自己往 sys.path 里塞 vendor 目录、也不在这儿复制一份 PBKDF2 参数 —— 复制
+    就会和登录侧产生漂移（迭代次数一变，改完密码立刻登不进去）。
+    """
+    module = sys.modules.get(type(accounts).__module__)
+    return getattr(module, "core", None), module
+
+
+def _api_password(portal, actor, body):
+    """管理员直接给成员设新密码。不验旧密码、不要二次确认、不要原因。"""
+    policy = rbac.load_policy()
+    if not rbac.is_admin(policy, actor):
+        return 403, {"error": "只有管理员能改密码"}
+
+    subject = str(body.get("subject") or "").strip()
+    if not _SUBJECT_RE.fullmatch(subject):
+        return 400, {"error": "成员标识无效"}
+
+    password = body.get("password")
+    if not isinstance(password, str) or not password:
+        return 400, {"error": "请填写新密码"}
+    if not PASSWORD_MIN <= len(password) <= PASSWORD_MAX:
+        return 400, {"error": "新密码需 %d–%d 位" % (PASSWORD_MIN, PASSWORD_MAX)}
+
+    store, accounts = _accounts_of(portal)
+    if accounts is None:
+        return 503, {"error": "账号库不可用，改密码暂时不可用"}
+    core, module = _password_core(accounts)
+    if core is None or module is None:
+        return 503, {"error": "账号库不可用，改密码暂时不可用"}
+
+    try:
+        encoded = core.password_hash(password)
+    except Exception:
+        return 400, {"error": "新密码不符合要求（%d–%d 位）" % (PASSWORD_MIN, PASSWORD_MAX)}
+
+    state = {}
+    try:
+        with store.transaction() as db:
+            row = accounts.inventory(db).get(subject)
+            if row is None:
+                raise _PwDenied(404, "找不到这个成员")
+
+            if not accounts.has_schema(db):
+                # 从没改过任何账号时表还不存在，与 mutate() 一样就地建。
+                buffer = ""
+                for line in module.SCHEMA.splitlines(True):
+                    buffer += line
+                    if sqlite3.complete_statement(buffer):
+                        db.execute(buffer)
+                        buffer = ""
+                if buffer.strip():
+                    raise _PwDenied(500, "账号表结构不完整，未写入任何改动")
+
+            if row["subject"].startswith("reg:"):
+                uid = row["subject"][4:]
+                db.execute("UPDATE users SET password=? WHERE id=?", (encoded, uid))
+                db.execute("UPDATE users SET epoch=epoch+1 WHERE id=?", (uid,))
+                db.execute("DELETE FROM sessions WHERE user_id=?", (uid,))
+            else:
+                db.execute("DELETE FROM sessions WHERE legacy_user=?", (row["name"],))
+
+            version = row["version"] + 1
+            db.execute("INSERT OR REPLACE INTO account_state VALUES(?,?,?,?,?,?)",
+                       (row["subject"], version, int(row["enabled"]), encoded,
+                        json.dumps(row["modules"], separators=(",", ":")), int(row["custom"])))
+            db.execute("INSERT INTO account_events(at,actor,action,subject,version,reason)"
+                       " VALUES(?,?,?,?,?,?)",
+                       (store.now(), actor, "password", row["subject"], version,
+                        "控制台直接重置"))
+            db.execute("PRAGMA user_version=5")
+            state = {"name": row["name"], "version": version,
+                     "selfChanged": row["name"] == actor}
+    except _PwDenied as exc:
+        return exc.code, {"error": exc.message}
+    except Exception as exc:
+        portal.log("IAM 改密码失败 actor=%s subject=%s err=%r" % (actor, subject, exc), "error")
+        return 500, {"error": "改密码失败，账号库未写入：%s" % type(exc).__name__}
+
+    portal.log("IAM 改密码 actor=%s subject=%s v=%d" % (actor, subject, state["version"]), "info")
+    return 200, {
+        "ok": True,
+        "subject": subject,
+        "name": state["name"],
+        "selfChanged": state["selfChanged"],
+    }
+
+
 # ---------------------------------------------------------------- 审计
 
 def _audit_entries(portal, limit=120):
@@ -441,6 +569,8 @@ def handle(portal, handler, path, qs):
 
     if endpoint == "member/roles":
         code, payload = _api_member_roles(portal, actor, body)
+    elif endpoint == "member/password":
+        code, payload = _api_password(portal, actor, body)
     elif endpoint == "role/save":
         code, payload = _api_role_save(portal, actor, body)
     elif endpoint == "role/delete":
@@ -482,8 +612,7 @@ border-color:#232c3a}p{color:#a4afc1}code{background:#1e2634}}
 <p>当前身份：<code>__USER__</code></p>
 <p>访问成员与权限控制台需要在策略里被授予 <code>admin</code> 资源的
 <code>manage</code> 动作。请联系管理员分配角色。</p>
-<p style="margin-top:14px"><a href="../logout?next=/__auth/access/">换个账号登录</a> ·
-<a href="../account/">账号与密码</a></p>
+<p style="margin-top:14px"><a href="../logout?next=/__auth/access/">换个账号登录</a></p>
 </div></body></html>"""
 
 

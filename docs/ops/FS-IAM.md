@@ -67,11 +67,28 @@ cd /opt/fs-access-policy
 > 所以未登录时由页面自己出登录框，服务端**不 302** —— 否则会自己跳自己，
 > 无限重定向，谁都登不进来。
 
-老的门户页（注册 / 我的申请 / 修改密码 / 注册审批）整体迁到
-`https://47.85.224.112/__auth/account/`，控制台右上角有入口。
+老门户页（注册 / 我的申请 / 注册审批）已下线：`/__auth/account/` 现在 302 回
+本控制台，页面不再提供。**改密码已并入本控制台**（见下）。
 
 路由怎么接的：nginx 把 `/__auth/access/*` 内部改写到后端的 `/iam/*`，
 因此 `iam_console.py` 里的路径常量仍是 `/iam`，后端不对外暴露。
+
+## 改密码
+
+入口：成员管理 → 点某个成员的「管理」→ 抽屉底部「修改密码」。
+
+- **只有超级管理员**（绑定 `PlatformAdmin` 这类 `super` 角色）能改，其他人
+  连输入框都看不到，接口也直接 403。
+- **不需要原密码、不需要二次确认、不填原因** —— 填新密码点「更新密码」即可。
+- 长度必须 **12–128 位**。这不是产品偏好：`auth_candidate.password_hash()`
+  与 `password_matches()` 都硬校验这个区间，短于此写进去的哈希连自己都
+  验不过，等于当场把账号锁死。
+- 写入的是**密码的权威存储** `gate.db` 的 `account_state.password`
+  （pbkdf2_sha256 覆盖值）。登录时 `Accounts.authenticate()` 是「有覆盖值
+  用覆盖值，没有才回落 htpasswd」，所以改 htpasswd 无效。
+- 写入同时：`version+1`（旧 token 失效）、删掉该账号的 `sessions`、
+  追加 `account_events`（action=`password`）。改自己的密码会把自己登出。
+
 
 ## 安全闸门
 
@@ -84,10 +101,10 @@ cd /opt/fs-access-policy
 
 ## 明确不在本系统里
 
-- **密码**。仍在 `htpasswd`（`/etc/nginx/.htpasswd-dashboard` /
-  `.htpasswd-deploy`）与注册库 `account_state` 表；自助改密仍在
-  `/__auth/access/`。凭据属红线动作，逐项另批。
-- **门户会话**。Cookie 格式、`/verify` 契约没动，nginx 一行没改。
+- **注册审批 / 注册账号申请**。老页线下线后暂时没有界面入口；相关后端
+  （`/access/api/*`、`account_management.decide`）仍在，数据不会丢。
+  真要恢复，应当重做成控制台里的一个视图，而不是把老页拖回来。
+- **门户会话**。Cookie 格式、`/verify` 契约没动。
 
 ## 已知遗留（下一步）
 

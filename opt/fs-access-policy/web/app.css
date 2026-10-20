@@ -222,7 +222,20 @@ tbody tr:hover{background:var(--panel-2)}
 .role-pick label>span{flex:1;min-width:0}
 .role-pick .rt{display:block;font-weight:600;font-size:13px}
 .role-pick .rs{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
-.matrix-mini{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.matrix-mini{display:flex;flex-wrap:wrap;gap:5px}
+
+/* 改密码区块：抽屉底部独立成块，跟上面「勾角色」是两件不同的事，
+   所以用自己的边框和标题隔开，避免被当成「一起保存」。 */
+.pw-block{margin-bottom:14px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);padding:12px 13px}
+.pw-head{display:flex;align-items:center;gap:8px}
+.pw-head b{font-size:13px}
+.pw-head .hint{margin-left:auto}
+.pw-hint{margin:8px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.6}
+.pw-hint b{color:var(--warn)}
+.pw-row{display:flex;gap:8px;align-items:center;margin-top:9px}
+.pw-row input{flex:1;min-width:0}
+.pw-row .btn{flex:0 0 auto;white-space:nowrap}
+.matrix-mini{margin-bottom:12px}
 
 /* ---------------- 自检 ---------------- */
 .check-form{display:grid;grid-template-columns:200px 150px minmax(0,1fr) 120px auto;gap:10px;padding:14px 16px;align-items:end}
