@@ -7,7 +7,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock
+import types
+from decimal import Decimal
+from unittest.mock import Mock, patch
 from contextlib import nullcontext
 sys.path.insert(0,str(Path(__file__).parent/'source'))
 from player_auto_recovery import candidate, recovery_job_id
@@ -86,7 +88,7 @@ class Probe(unittest.TestCase):
         self.env={'datetime':datetime,'timezone':timezone,'subprocess':subprocess,
           'load_player_sync_policy':Mock(return_value={'enabled':True,'revision':9}),
           'queue_mutation':nullcontext,'recovery_basis':Mock(return_value=self.b),
-          'save_job':Mock(),'run_writer_request':Mock(return_value=result),
+          'save_job':Mock(),'verify_recovery_public_prices':Mock(),'run_writer_request':Mock(return_value=result),
           'load_policy':Mock(return_value={'system_enabled':True,'mode':'auto','revision':38})}
         return function('probe_player_recovery','fc27_cloud_worker.py',self.env)
     def test_probe_readonly_bounded_and_once(self):
@@ -153,5 +155,48 @@ class CycleIntegration(unittest.TestCase):
         f,e=self.setup_handle(False);r=f(self.job);self.assertEqual(r['status'],'deferred_player_sync');e['previous_public_write_gap'].assert_not_called()
     def test_in_progress_does_not_probe(self):
         f,e=self.setup_handle(True);e['player_sync_gate']=lambda:'in_progress';r=f(self.job);self.assertEqual(r['status'],'deferred_player_sync');e['probe_player_recovery'].assert_not_called()
+
+class LedgerOwnership(unittest.TestCase):
+    def test_existing_writer_uid_only_for_operational_ledgers(self):
+        f=function('basis_owner_allowed','player_sync_job.py',{})
+        for path in ['/run/coin-execution.json','/run/coin-all-ledger.json']:
+            self.assertTrue(f(path,11027,True))
+            self.assertFalse(f(path,11027,False))
+            self.assertTrue(f(path,0,False))
+            self.assertFalse(f(path,11028,True))
+    def test_parent_and_arbitrary_paths_remain_root_only(self):
+        f=function('basis_owner_allowed','player_sync_job.py',{})
+        for path in ['/run/automatic-parent.json','/tmp/coin-all-ledger.json','/run/../run/coin-all-ledger.json']:
+            self.assertFalse(f(path,11027,True));self.assertTrue(f(path,0,False))
+    def test_probe_failure_retains_safe_reason(self):
+        case=Probe();f=case.setup_probe((1,{'status':'blocked_before_write','reason':'player_automatic_basis_file_untrusted'}))
+        self.assertFalse(f(case.job));self.assertEqual(case.job['player_recovery']['probe_result']['reason'],'player_automatic_basis_file_untrusted')
+
+class PublicReadback(unittest.TestCase):
+    def test_host_adapter_checks_all_45_tiers(self):
+        platforms={'ps':'PS','xbox':'XBOX','pc':'PC'}
+        row={'id':1,'more':{k:[1]*15 for k in ['gold','give','discount','price']}}
+        ledger={'status':'confirmed','steps':[{'platform':p,'source':row} for p in platforms.values()]}
+        payload={'goods':{'index':{'list':[{'id':1,'unit':'K','goods_list':{str(i):{'num':1,'give':1,'discount':1,'price':1,'price_discount':1} for i in range(15)}}]}}}
+        sf=types.SimpleNamespace(PAGE_URL='page',GOODS_URL='goods',PLATFORMS=platforms,
+             page_mapping=lambda b:{'servers':{p:p for p in platforms},'cid':1,'site_id':266},fetch=Mock(side_effect=['page']+[json.dumps(payload)]*3))
+        env={'json':json,'Path':Path,'Decimal':Decimal,'PLATFORMS':list(platforms.values()),'supersession_bytes':lambda p:json.dumps(ledger)}
+        f=function('verify_recovery_public_prices','fc27_cloud_worker.py',env)
+        with patch.dict(sys.modules,{'storefront_monitor':sf}):f({'coin_execution_id':CID})
+        self.assertEqual(sf.fetch.call_count,4)
+        payload['goods']['index']['list'][0]['goods_list']['14']['price']=2
+        sf.fetch=Mock(side_effect=['page',json.dumps(payload)])
+        with patch.dict(sys.modules,{'storefront_monitor':sf}):self.assertRaisesRegex(ValueError,'tier_changed',f,{'coin_execution_id':CID})
+    def test_container_backend_probe_does_not_require_outbound_adapter(self):
+        row={'id':1,'unit_price':'1','more':{k:[1]*15 for k in ['gold','give','discount','price']}}
+        ledger={'status':'confirmed','steps':[{'platform':p,'status':'confirmed','source':row,'payload':row} for p in ['PS','XBOX','PC']]}
+        audit={'after':{'rows':[{'platform':p,'b2c':'1'} for p in ['PS','XBOX','PC']]}}
+        coins=types.SimpleNamespace(read_row=Mock(return_value=row))
+        f=function('validate_basis_prices','player_sync_job.py',{'decimal':lambda v,label:Decimal(v),'Decimal':Decimal})
+        with patch.dict(sys.modules,{'coin_all_sync_job':coins,'storefront_monitor':None}):f(object(),audit,ledger,backend_only=True)
+        self.assertEqual(coins.read_row.call_count,6)
+    def test_public_failure_keeps_recovery_blocked(self):
+        case=Probe();f=case.setup_probe();case.env['verify_recovery_public_prices'].side_effect=ValueError('recovery_public_tier_changed')
+        self.assertFalse(f(case.job));self.assertEqual(case.job['player_recovery']['reason'],'recovery_public_tier_changed')
 
 if __name__=='__main__':unittest.main()

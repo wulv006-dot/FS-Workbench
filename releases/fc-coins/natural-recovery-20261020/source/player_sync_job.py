@@ -340,12 +340,19 @@ def basis_parent_hash(parent):
     return hashlib.sha256(json.dumps(fields,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
 
 
-def trusted_basis_bytes(path):
+def basis_owner_allowed(path, uid, operational=False):
+    # Normal writer containers own these two immutable, readonly-mounted ledgers.
+    # Root-only parent/supersession records retain their original requirement.
+    return uid == 0 or (operational and uid == 11027 and str(path) in {
+        '/run/coin-execution.json', '/run/coin-all-ledger.json'})
+
+
+def trusted_basis_bytes(path, operational=False):
     import stat
     descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
     try:
         before=os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode) or before.st_uid!=0 or before.st_gid not in {0,11028} or stat.S_IMODE(before.st_mode)!=0o640 or before.st_nlink!=1:raise ValueError('player_automatic_basis_file_untrusted')
+        if not stat.S_ISREG(before.st_mode) or not basis_owner_allowed(path,before.st_uid,operational) or before.st_gid not in {0,11028} or stat.S_IMODE(before.st_mode)!=0o640 or before.st_nlink!=1:raise ValueError('player_automatic_basis_file_untrusted')
         with os.fdopen(descriptor,'rb',closefd=False) as stream:raw=stream.read(32000001)
         after=os.fstat(descriptor);current=os.stat(path,follow_symlinks=False)
         if len(raw)>32000000 or (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or (current.st_dev,current.st_ino)!=(before.st_dev,before.st_ino):raise ValueError('player_automatic_basis_file_changed')
@@ -365,9 +372,9 @@ def validate_automatic_basis(request,execution,policy,parent,coin_policy,executi
     return json.loads(ledger_raw)
 
 
-def validate_basis_prices(manager,execution,ledger):
+def validate_basis_prices(manager,execution,ledger,backend_only=False):
     """Independent typed GETs: both sites and all 45 public quantities, before POST."""
-    import coin_all_sync_job as coins,storefront_monitor as sf
+    import coin_all_sync_job as coins
     rates={r['platform']:decimal(r['b2c'],'coin_sale_price') for r in execution['after']['rows']}
     steps=ledger.get('steps',[])
     if ledger.get('status')!='confirmed' or len(steps)!=3 or {x.get('platform') for x in steps}!=set(rates) or any(x.get('status')!='confirmed' for x in steps):raise ValueError('player_automatic_basis_all_incomplete')
@@ -383,6 +390,8 @@ def validate_basis_prices(manager,execution,ledger):
             for key in ['gold','give','discount','price']:
                 if [Decimal(str(x)) for x in row['more'][key]]!=[Decimal(str(x)) for x in source['more'][key]]:raise ValueError('player_automatic_basis_backend_tiers_changed')
             if site==266:backend[platform]=row
+    if backend_only:return
+    import storefront_monitor as sf
     with tempfile.TemporaryDirectory(prefix='fc27-player-basis-public-') as folder:
         jar=Path(folder)/'public-cookie.txt';mapping=sf.page_mapping(sf.fetch(sf.PAGE_URL,cookie_jar=jar))
         for key,platform in sf.PLATFORMS.items():
@@ -395,12 +404,13 @@ def validate_basis_prices(manager,execution,ledger):
 
 
 def current_automatic_basis(request,execution,policy,manager=None):
-    eraw=trusted_basis_bytes(EXECUTION);lraw=trusted_basis_bytes(Path('/run/coin-all-ledger.json'))
+    operational=((request.get('automatic_basis') or {}).get('basis') or {}).get('kind')=='prewrite_auth_recovery'
+    eraw=trusted_basis_bytes(EXECUTION,operational);lraw=trusted_basis_bytes(Path('/run/coin-all-ledger.json'),operational)
     parent=json.loads(trusted_basis_bytes(Path('/run/automatic-parent.json')))
     current=json.loads(eraw)
     if current!=execution:raise ValueError('player_automatic_basis_execution_changed')
     ledger=validate_automatic_basis(request,current,policy,parent,read(Path('/run/config/automation.json')),eraw,lraw)
-    if manager is not None:validate_basis_prices(manager,current,ledger)
+    if manager is not None:validate_basis_prices(manager,current,ledger,backend_only=operational)
 
 
 def bulk_main():
@@ -428,7 +438,7 @@ def bulk_main():
     if request.get('automatic_basis'):current_automatic_basis(request,execution,policy,manager)
     if request.get('recovery_preflight'):
         if not dry_run:raise ValueError('recovery_probe_must_be_readonly')
-        validate_basis_prices(manager,execution,json.loads(trusted_basis_bytes(Path('/run/coin-all-ledger.json'))))
+        validate_basis_prices(manager,execution,json.loads(trusted_basis_bytes(Path('/run/coin-all-ledger.json'),operational=True)),backend_only=True)
     models = list_models(manager)
     samples, sample_before = [], {}  # User retired player price verification, including wiki cards.
     scope_digest = hashlib.sha256(json.dumps([int(row["id"]) for row in models],

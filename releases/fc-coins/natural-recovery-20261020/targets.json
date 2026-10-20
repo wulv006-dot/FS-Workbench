@@ -2,22 +2,22 @@
   "targets": {
     "automation_tick.py": {
       "target": "/opt/fc27-cloud-browser/automation_tick.py",
-      "before": "e54571f3be2693ffca886cf100ae7d8b8e38b5b2ee8fe55dd6429dcc8fad6416",
+      "before": "b42f56a9c003b56c7db34ceb76656c1f0e599d8917a26a9f08223c4241423b17",
       "after": "b42f56a9c003b56c7db34ceb76656c1f0e599d8917a26a9f08223c4241423b17"
     },
     "fc27_cloud_worker.py": {
       "target": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
-      "before": "8e666f439ec886531afa8897cd6c79d88037492e5aab332cd5fba26a1c63e08d",
-      "after": "a5877f64ca56e723fc6eef5ca1dac31e9a5f0070b709fd0cb536522119b61a58"
+      "before": "a5877f64ca56e723fc6eef5ca1dac31e9a5f0070b709fd0cb536522119b61a58",
+      "after": "e5a225af3be2934bb80521eded374a65df3a9fac4922f281df5d7ea316553f01"
     },
     "player_sync_job.py": {
       "target": "/opt/fc27-cloud-browser/player_sync_job.py",
-      "before": "c5e08fa8bb53b3a49c56c313364e605b704c91ee4d2686492ec60e17ff65ca6a",
-      "after": "b91ab360abf25134061af64e3a11337aad2785b16b2682602965f352e7a61555"
+      "before": "b91ab360abf25134061af64e3a11337aad2785b16b2682602965f352e7a61555",
+      "after": "d0bf138985928d2c07c2446682d0ec4876b414fc3cf307cbb0f9d128a5e9628a"
     },
     "sync_players.sh": {
       "target": "/opt/fc27-cloud-browser/sync_players.sh",
-      "before": "28e4eae3f851b474de60d85d7acae3d978b759a41603a0de0064049499ca0a8a",
+      "before": "a81f9d0550ed7fb55bb0fb3d37840d3a8df1db0d99c8c52fe40cd358d80dd5e8",
       "after": "a81f9d0550ed7fb55bb0fb3d37840d3a8df1db0d99c8c52fe40cd358d80dd5e8"
     }
   }

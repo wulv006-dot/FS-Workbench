@@ -480,6 +480,30 @@ def recovery_basis(cycle_id, config, active_job_id=None):
     return recovery_candidate(ROOT, config, cycle_id, supersession_bytes, resolved_execution, active_job_id=active_job_id)
 
 
+def verify_recovery_public_prices(basis):
+    """Reuse the host's existing public outbound adapter; never mount its keys into the session container."""
+    import storefront_monitor as sf
+    import tempfile
+    cid = basis['coin_execution_id']
+    ledger = json.loads(supersession_bytes('all-coin-sync/' + cid + '.json'))
+    if ledger.get('status') != 'confirmed' or len(ledger.get('steps', [])) != 3:
+        raise ValueError('recovery_public_ledger_incomplete')
+    rows = {step['platform']: step['source'] for step in ledger['steps']}
+    if set(rows) != set(PLATFORMS):raise ValueError('recovery_public_platforms_incomplete')
+    with tempfile.TemporaryDirectory(prefix='fc-recovery-public-') as folder:
+        jar=Path(folder)/'public-cookie.txt'
+        mapping=sf.page_mapping(sf.fetch(sf.PAGE_URL,cookie_jar=jar))
+        for key,platform in sf.PLATFORMS.items():
+            payload=json.loads(sf.fetch(sf.GOODS_URL,{'Game_id':'1327','top_cid':'1','aid':mapping['servers'][key],'cid':mapping['cid'],'site_id':mapping['site_id']},100000,jar))
+            offers=payload['goods']['index']['list'];row=rows[platform]
+            if len(offers)!=1 or offers[0]['unit']!='K' or int(offers[0]['id'])!=int(row['id']) or len(offers[0]['goods_list'])!=15:
+                raise ValueError('recovery_public_scope_changed')
+            for i,tier in enumerate(offers[0]['goods_list'].values()):
+                for public_key,backend_key in [('num','gold'),('give','give'),('discount','discount'),('price','price'),('price_discount','price')]:
+                    if Decimal(str(tier[public_key]))!=Decimal(str(row['more'][backend_key][i])):
+                        raise ValueError('recovery_public_tier_changed')
+
+
 def probe_player_recovery(job):
     """One bounded read-only probe; eligibility is never persisted as a global gate."""
     if job.get('player_recovery'):
@@ -495,8 +519,12 @@ def probe_player_recovery(job):
                    'config_revision': config['revision'], 'dry_run': True,
                    'recovery_preflight': True}
         code, result = run_writer_request(job, 'sync_players.sh', request, 180)
+        job['player_recovery']['probe_result'] = {
+            'exit_code': code, 'status': str(result.get('status') or 'missing')[:64],
+            'reason': str(result.get('reason') or '')[:100]}
         if code or result.get('status') != 'preflight_ready':
             raise ValueError('recovery_probe_failed')
+        verify_recovery_public_prices(basis)
         with queue_mutation():
             if load_player_sync_policy() != config or recovery_basis(job['job_id'], config) != basis:
                 raise ValueError('recovery_basis_changed')
