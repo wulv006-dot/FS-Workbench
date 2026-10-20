@@ -69,7 +69,11 @@ def run(home=HOME, transport=send, now=None):
     if not issues and not previous.get('issues') and not repair:
         write(home/'watch-state.json', {'signature': signature, 'issues': [], 'checked_at': now.isoformat()})
         return {'state': 'healthy_quiet'}
-    incident = previous.get('incident') if issues == previous.get('issues') else None
+    incident = None
+    if issues == previous.get('issues'):
+        # Pre-incident state files still have live requests/claims using this ID.
+        # Migrate a continuing fault without orphaning those records.
+        incident = previous.get('incident') or sha(json.dumps(issues).encode())[:16]
     if not incident:
         incident = sha((str(previous.get('signature')) + str(previous.get('checked_at')) + json.dumps(issues)).encode())[:16]
     config = read(home/'private-target.json')

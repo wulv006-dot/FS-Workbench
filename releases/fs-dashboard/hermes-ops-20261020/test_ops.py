@@ -183,6 +183,70 @@ class WatchChecks(unittest.TestCase):
         self.assertIn('<at user_id="ou_codex"></at> FC / FS', text)
         self.assertIn('<at user_id="ou_buddy"></at> RPG', text)
 
+    def legacy_state(self):
+        issues = ['brain_ui_dependencies_missing']
+        incident = common.sha(json.dumps(issues).encode())[:16]
+        signature = common.sha(json.dumps(
+            {'issues': issues, 'repair': dict(incident=None, status=None, error=None)},
+            sort_keys=True).encode())
+        watch.write(self.home/'watch-state.json', {
+            'issues': issues, 'signature': signature, 'checked_at': NOW.isoformat()})
+        watch.write(self.home/'request.json', {
+            'incident': incident, 'action': 'brain-theme', 'created_at': NOW.isoformat()})
+        return issues, incident
+
+    def test_legacy_active_fault_keeps_request_claim_and_host_identity(self):
+        issues, incident = self.legacy_state()
+        state = self.home/'host-state'; state.mkdir()
+        record = {'incident': incident, 'action': 'brain-theme',
+                  'status': 'creating_pr', 'observed_at': NOW.isoformat()}
+        watch.write(state/'repair.json', record)
+        claim = {'active': True, 'owner': 'codex', 'incident': incident,
+                 'claimed_at': NOW.isoformat()}
+        watch.write(self.home/'claim-codex.json', claim)
+        self.snapshot(issues, brain={'repairable': True}, repair=record)
+        self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
+        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], incident)
+        self.assertEqual(watch.read(self.home/'request.json')['incident'], incident)
+        self.assertEqual(watch.read(self.home/'claim-codex.json'), claim)
+        with patch.object(host, 'STATE', state), patch.object(host, 'PROFILE', self.home):
+            self.assertTrue(host.claim_active(watch.read(self.home/'request.json'), NOW))
+            host.process(NOW)
+            watch.write(self.home/'claim-codex.json', dict(claim, active=False))
+            # A nonterminal unknown write must neither be replaced nor retried.
+            with patch.object(host, 'GitHub', side_effect=AssertionError('no replay')):
+                host.process(NOW)
+        self.assertEqual(watch.read(state/'repair.json'), record)
+
+    def test_legacy_quiet_then_progress_then_recurrence(self):
+        issues, incident = self.legacy_state()
+        self.snapshot(issues, brain={'repairable': True})
+        self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'unchanged_quiet')
+        self.assertEqual(self.calls, [])
+        self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
+        watch.run(self.home, self.transport, NOW)
+        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], incident)
+        self.snapshot()
+        watch.run(self.home, self.transport, NOW)
+        self.snapshot(issues, brain={'repairable': True})
+        watch.run(self.home, self.transport, NOW+timedelta(seconds=1))
+        self.assertNotEqual(watch.read(self.home/'request.json')['incident'], incident)
+
+    def test_legacy_unknown_notification_preserves_records_and_never_resends(self):
+        issues, incident = self.legacy_state()
+        before = {name: (self.home/name).read_bytes()
+                  for name in ('watch-state.json', 'request.json')}
+        self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
+        def uncertain(*args):
+            self.calls.append(args)
+            raise TimeoutError()
+        for _ in range(2):
+            self.assertEqual(watch.run(self.home, uncertain, NOW)['state'],
+                             'notification_unknown_no_retry')
+        self.assertEqual(len(self.calls), 1)
+        for name, content in before.items():
+            self.assertEqual((self.home/name).read_bytes(), content)
+
     def test_unknown_notification_does_not_request_repair(self):
         self.snapshot(['brain_ui_dependencies_missing'], brain={'repairable':True})
         watch.run(self.home, lambda *args: {'success':True}, NOW)
