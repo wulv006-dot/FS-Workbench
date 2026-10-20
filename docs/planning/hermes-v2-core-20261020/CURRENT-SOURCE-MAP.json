@@ -1,0 +1,247 @@
+{
+  "contract": "hermes-v2-current-runtime-map-v1",
+  "verified_at": "2026-10-20T19:17:36.581643+00:00",
+  "last_code_commit": "cb35e084bc29ea589db0f0867999895696592f47",
+  "state": "production_hashes_and_actual_entries_read_back_quality_not_accepted",
+  "files": [
+    {
+      "local": "hermes_v2_core_20261020/source/business_context.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/business_context.py",
+      "runtime": "/opt/fs-hermes-fc/business_context.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "bc88a8b3d90399e1a2394c7b6dfff1496b8ddd5516450898f4956badd7648fe6",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/controller.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/controller.py",
+      "runtime": "/opt/fs-hermes-fc/controller.py",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "440ac7866caed5273eb894756a47c058eaf520f1a508fadc779ff4586e44ab45",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/conversation_service.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/conversation_service.py",
+      "runtime": "/opt/fs-hermes-fc/conversation_service.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "b9546a8776a258386cfa299455896622049be014ce91a7cce5a35e593120a875",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/hermes_worker.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/hermes_worker.py",
+      "runtime": "/opt/fs-hermes-fc/hermes_worker.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/proxy_gateway.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/proxy_gateway.py",
+      "runtime": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "d64690cf8428bd98abcdb007e0f40eb57d00207f26c7fb86af9d2b8643905ab4",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/direct_provider.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/direct_provider.py",
+      "runtime": "/opt/fs-hermes-fc/direct_provider.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/transport.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/transport.py",
+      "runtime": "/opt/fs-hermes-fc/transport.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "e677a186a893c346379ba572576afdfbd412612cc5c63146751182558743f843",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_core_20261020/source/learning_registry.py",
+      "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_registry.py",
+      "runtime": "/opt/fs-hermes-fc/learning_registry.py",
+      "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "sha256": "7ce0fff4039a4c1fab81fcd3fbe4987bf383c58f341ec3c3e127c9731cb47885",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_simulation_learning_20261021/source/learning_service.py",
+      "repository": "releases/fs-dashboard/hermes-v2-simulation-learning-20261021/source/learning_service.py",
+      "runtime": "/opt/fs-hermes-fc/learning_service.py",
+      "source_commit": "cb35e084bc29ea589db0f0867999895696592f47",
+      "sha256": "e496838b1d3585c478673d21e783e76a8b2a28133e4d5ffd3651105f44b9683b",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/runs_contract.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/runs_contract.py",
+      "runtime": "/opt/fs-hermes-fc/runs_contract.py",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "ea5ba3906f0dc85ef3bc52cdf17f9f9cfaae2b91ad79b195c86a9779688d4792",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_simulation_learning_20261021/source/pricing_simulation.py",
+      "repository": "releases/fs-dashboard/hermes-v2-simulation-learning-20261021/source/pricing_simulation.py",
+      "runtime": "/opt/fs-hermes-fc/pricing_simulation.py",
+      "source_commit": "cb35e084bc29ea589db0f0867999895696592f47",
+      "sha256": "581d11acfc7e419945220e7c5db6b7452704399526efee226d06b086b3ad3eca",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/strategy_tools.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/strategy_tools.py",
+      "runtime": "/opt/fs-hermes-fc/strategy_tools.py",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "4abb06ee69ca0f134248cf113936e3b3b8c43e75e4440bda51f13b57cf596730",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/strategy_workspace.py",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/strategy_workspace.py",
+      "runtime": "/opt/fs-hermes-fc/strategy_workspace.py",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "c16750b877840ba8c8b7ea3d6ea7eb49182159003dadb0861f2a72ced94f6d06",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/source/brain.html",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/brain.html",
+      "runtime": "/var/www/dashboard/fs-home/brain/index.html",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "f9e16771024f79fc09a0a867a7e75db70f75fc023d0805818b5dd088fe311e6e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_strategy_20261021/frontend/strategy.js",
+      "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/frontend/strategy.js",
+      "runtime": "/var/www/dashboard/fs-home/brain/hermes-v2-7fd115d3da5b.js",
+      "source_commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "sha256": "7fd115d3da5ba07c4c15c51b3f0bd85735a87a7e48298df642bae7e429765e79",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "local": "hermes_v2_ui_fit_20261021/source/brain.css",
+      "repository": "releases/fs-dashboard/hermes-v2-ui-fit-20261021/source/brain.css",
+      "runtime": "/var/www/dashboard/fs-home/brain/brain.css",
+      "source_commit": "1ae37f79884edc305f5116ebd4975cd52a05b3b6",
+      "sha256": "8706ce5e43b60f7282b0f42c58a793069d29b31674c3d7204c639b4715055638",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "protected_objects": 393,
+  "mismatches": [],
+  "policy": {
+    "sha256": "02dbbb76ab11df3fd73f47c8ab91cc4573c09ba460d208c5d31f16641ace0e35",
+    "uid": 994,
+    "mode": "0o640"
+  },
+  "control": {
+    "strategy_enabled": true,
+    "learning_paused": false
+  },
+  "services": [
+    "active",
+    "active"
+  ],
+  "release_history": [
+    {
+      "name": "core",
+      "commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+      "manifest_sha256": "a07f62eabb1c13fce157f34f20f8add9e8a88c693536bfa6ea6a6365ea3a7674",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T155745Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 9,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "review",
+      "commit": "d9276b8ccebe6412de725cd6a621f2e0c4360732",
+      "manifest_sha256": "7b21aeba345cd305a4a06ca99081e7f2165ff9fd5f7b310f2115f60f6ce1fff1",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T162706Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 1,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "strategy",
+      "commit": "06dace669380168169c0d5f0e43e5ae50a9d1660",
+      "manifest_sha256": "40d8eabcf8aead65b60bb9bd3b83342a3b12885befd0060a868f0936aec29f7d",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T174542Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 9,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "policy_reader",
+      "commit": "a8bb0051c528a67ad73ed702453180ca92b5f548",
+      "manifest_sha256": "801719459b21d4a203c64634397ef8b8eae48bd4d62b08710c189f3d1b11e446",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T180916Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 1,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "teaching_facts",
+      "commit": "f63ffda2473690bba9403dac81a68308501a71ec",
+      "manifest_sha256": "6e64496a04bd050b35bfd721de83d93214cd20f60138a36b1b01a262c3e6eba2",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T181644Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 1,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "ui_fit",
+      "commit": "1ae37f79884edc305f5116ebd4975cd52a05b3b6",
+      "manifest_sha256": "56a28fbb4c22f38d5c886c99b22129a32a75271d0b70216706280bf28dbad2cd",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T184405Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 1,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "name": "simulation_learning",
+      "commit": "cb35e084bc29ea589db0f0867999895696592f47",
+      "manifest_sha256": "25d6d5620b46cfdfa878237d8f2f58a933b34a561d7f64f23aa422294580891e",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261020T190902Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 2,
+        "businessWorkerTimerActions": 0
+      }
+    }
+  ],
+  "data_and_credentials_in_git": false
+}

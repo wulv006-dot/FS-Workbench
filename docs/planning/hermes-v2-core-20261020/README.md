@@ -1,5 +1,7 @@
 # Hermes V2 首批实施记录
 
+当前组合生产状态见 [DELIVERY.md](DELIVERY.md) 与 [CURRENT-SOURCE-MAP.json](CURRENT-SOURCE-MAP.json)。下列早期记录按各自时点保留，不能代替当前验收。
+
 2026-10-21更新：PR251九目标已受控发布，真实模型、多轮工具和一条经验发布/撤销已取得回执，完整状态见[生产验收](PRODUCTION-ACCEPTANCE.md)。下文保留实施过程时点，不能代替最新状态。
 
 执行范围按用户2026-10-20当前消息：先W0–W3，后W4–W6。当前分支实现受控学习、有效输入和模型配置回执；不包含供应商系统、Jev/Octop迁移、生产策略自动修改或写价。

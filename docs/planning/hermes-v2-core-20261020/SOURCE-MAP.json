@@ -83,5 +83,7 @@
   "source_commit": "d9276b8ccebe6412de725cd6a621f2e0c4360732",
   "production_receipt": "PRODUCTION-ACCEPTANCE.md",
   "release_id": "nav-20261020T162706Z",
-  "first_release_source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d"
+  "first_release_source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+  "record_scope": "Historical W0-W3 source mapping; current active overrides are in CURRENT-SOURCE-MAP.json",
+  "current_runtime_map": "CURRENT-SOURCE-MAP.json"
 }

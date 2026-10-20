@@ -1,0 +1,325 @@
+{
+  "verified_at": "2026-10-20T19:17:36Z",
+  "cases": [
+    {
+      "case_id": "T01",
+      "scenario": "活动源核对",
+      "status": "pass",
+      "evidence_level": "生产",
+      "boundary": "活动16文件/导入使用及393保护对象读回；新旧源映射独立。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T02",
+      "scenario": "桌面开关与共享锁",
+      "status": "unverified",
+      "evidence_level": "未做现场并发",
+      "boundary": "共享home现状及显式冻结已核；未实际同时开关Desktop，不宣称完全物理隔离。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T03",
+      "scenario": "已有教学成果",
+      "status": "pass",
+      "evidence_level": "生产",
+      "boundary": "现行1.5.1和950f429d方法manifest保留，A/B方法与技能hash相同。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T04",
+      "scenario": "输入链路",
+      "status": "pass",
+      "evidence_level": "真实任务",
+      "boundary": "69fb5f72方法进入4fce9460实际有效输入，ID/hash可追。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T05",
+      "scenario": "历史价格记忆",
+      "status": "fail",
+      "evidence_level": "内容实测",
+      "boundary": "数值模拟强制可信新快照；原定价原稿仍混读基线/实价/时点。字段已修，内容泛化未重新通过。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T06",
+      "scenario": "范围与权限",
+      "status": "pass",
+      "evidence_level": "隔离HTTP/合同",
+      "boundary": "跨owner、项目、非FC管理任务拒绝；生产仅实测wulv，未冒称所有真实角色UI覆盖。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T07",
+      "scenario": "经验和规则冲突",
+      "status": "pass",
+      "evidence_level": "合同/生产配置",
+      "boundary": "核心合同不可由经验覆盖；参数内容被拒或待人工，自动发布关闭。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T08",
+      "scenario": "新旧任务并行",
+      "status": "pass",
+      "evidence_level": "真实任务",
+      "boundary": "A冻结空经验，发布后B含69fb；原任务与知识引用保留。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T09",
+      "scenario": "撤销及缓存",
+      "status": "pass",
+      "evidence_level": "真实发布/撤销",
+      "boundary": "7774经验撤销后c557排除，旧7315保持原引用。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T10",
+      "scenario": "同名技能与外部目录",
+      "status": "unverified",
+      "evidence_level": "源/权限已核",
+      "boundary": "未实做同名外部目录注入与真实研究身份写入反例；不能由root文件模式替代全覆盖。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T11",
+      "scenario": "高推理实参",
+      "status": "pass",
+      "evidence_level": "真实提供商回执",
+      "boundary": "出站high/max/thinking有hash/响应ID；仅accepted_no_effort_echo，后端版本unknown。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T12",
+      "scenario": "多轮工具与流式",
+      "status": "pass",
+      "evidence_level": "真实连续多轮",
+      "boundary": "原2/7轮及本批14模型调用的工具ID链；本轮实际非流式路径，流式分支不宣称实测。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T13",
+      "scenario": "档位不支持",
+      "status": "pass",
+      "evidence_level": "直接回归",
+      "boundary": "不支持档位明确拒绝，不静默none/换模型；未制造真实provider档位拒绝。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T14",
+      "scenario": "日期与缺失",
+      "status": "pass",
+      "evidence_level": "直接回归/真实闭日",
+      "boundary": "原日期、零/缺失合同及10月19/20闭日实际查询；价格时点措辞缺陷另记T05。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T15",
+      "scenario": "转化与利润口径",
+      "status": "pass",
+      "evidence_level": "真实报告/合同",
+      "boundary": "Admin主源、Order补缺及参考利润估算保持；不把全站流量冒作FC转化。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T16",
+      "scenario": "数据部分缺失",
+      "status": "pass",
+      "evidence_level": "实际故障与合同",
+      "boundary": "价格源不可用不阻断学习/经营报告；原非核心来源策略、缺费用预检不完整保持。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T17",
+      "scenario": "长上下文",
+      "status": "unverified",
+      "evidence_level": "未执行",
+      "boundary": "未实际触发长上下文压缩后再验证核心合同/引用。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T18",
+      "scenario": "手动/自然入口",
+      "status": "unverified",
+      "evidence_level": "部分实证",
+      "boundary": "原自然任务与手动同high/知识规则已核；最后版本自然入口尚未发生。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T19",
+      "scenario": "学习事件重复",
+      "status": "pass",
+      "evidence_level": "原事件/直接回归",
+      "boundary": "同源版本幂等；每轮新输入一个原attempt，旧结算不重放、不递归学笔记。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T20",
+      "scenario": "学习任务中断",
+      "status": "unverified",
+      "evidence_level": "部分实证",
+      "boundary": "真实已结算失败人工修订与unknown测试通过；未强杀真实学习进程再恢复。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T21",
+      "scenario": "普通经验分级",
+      "status": "pass",
+      "evidence_level": "生产/直接回归",
+      "boundary": "8版本均L1/人工候选，低风险自动范围未开，不把业务参数伪装L0。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T22",
+      "scenario": "Skill候选与合并",
+      "status": "unverified",
+      "evidence_level": "隔离合同已过",
+      "boundary": "方法L2候选/base冲突有测试；未实际合并或切换新的正式Skill方法版本。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T23",
+      "scenario": "核心规则变更",
+      "status": "pass",
+      "evidence_level": "接口/生产边界",
+      "boundary": "未暴露策略或价格执行器，最低毛利/权限/核心口径无自动发布路径。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T24",
+      "scenario": "恶意内容与秘密",
+      "status": "pass",
+      "evidence_level": "投影/敏感边界回归",
+      "boundary": "聚合白名单及原模拟owner/task隔离；不把外部文字当权限，无订单/客户/秘密/私有推理入候选。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T25",
+      "scenario": "基线一致性",
+      "status": "pass",
+      "evidence_level": "生产纯计算",
+      "boundary": "1fb4509e同快照baseline与原qualified quote严格全结果一致。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T26",
+      "scenario": "模拟无副作用",
+      "status": "pass",
+      "evidence_level": "生产回执/源hash",
+      "boundary": "2模拟false写/授权；原policy和价格源码不变，采集仅原timer自然产生。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T27",
+      "scenario": "伪造输入",
+      "status": "pass",
+      "evidence_level": "直接回归",
+      "boundary": "伪造actor/approved/cost/manual/path/来源引用及跨任务拒绝。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T28",
+      "scenario": "参数与粒度",
+      "status": "pass",
+      "evidence_level": "直接回归/真实工具",
+      "boundary": "min>max、未知档位/平台拒绝；用户已允许突破旧10%研究上限，新算法仅想法。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T29",
+      "scenario": "赠送与平台联动",
+      "status": "pass",
+      "evidence_level": "生产计算/直接回归",
+      "boundary": "原5K赠送、完整PS/XBOX/PC、底线及链接不变；原稿误读不因此记内容通过。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T30",
+      "scenario": "来源与有效期",
+      "status": "pass",
+      "evidence_level": "限定范围测试/生产源",
+      "boundary": "成本资格/TTL/未来/不合条件报价拒绝；实际模拟用原自然有效快照，不假时钟或补旧价。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T31",
+      "scenario": "版本变化",
+      "status": "pass",
+      "evidence_level": "直接回归",
+      "boundary": "policy/proposal/engine变更与旧结果缓存冲突；未为测试修改真实policy。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T32",
+      "scenario": "保护与授权分开",
+      "status": "pass",
+      "evidence_level": "生产UI/回执",
+      "boundary": "模拟不等于预检/批准；纯想法DRAFT，读取复查为未执行/尚不可评估效果。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T33",
+      "scenario": "结果与敏感性",
+      "status": "pass",
+      "evidence_level": "计算合同/当前状态",
+      "boundary": "固定输入算术，无销量预测器或已验证收益；原稿自拟观察条件不当正式执行标准。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T34",
+      "scenario": "新客优惠",
+      "status": "pass",
+      "evidence_level": "合同/真实学习",
+      "boundary": "新老客原标记、UID=0游客规则保持；优惠计算目录不支持，不冒算券价。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T35",
+      "scenario": "未执行与历史动作",
+      "status": "pass",
+      "evidence_level": "真实入口",
+      "boundary": "草案未执行不评效果，空行动账本不推出从未运营；人工笔记不造系统ID。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T36",
+      "scenario": "真实复查",
+      "status": "unverified",
+      "evidence_level": "缺实际动作证据",
+      "boundary": "未接足可核执行/生效/覆盖/成熟窗/混杂证据；人工作业可用真实人工凭证，不要求伪系统ID。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T37",
+      "scenario": "原文与阅读版",
+      "status": "pass",
+      "evidence_level": "真实入口/原文归档",
+      "boundary": "原稿原字节保留并直接展示/下载，盲评原文无人工修稿，排版不另调模型。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T38",
+      "scenario": "取消与迟到结果",
+      "status": "unverified",
+      "evidence_level": "合同已测",
+      "boundary": "租约撤权/事务回退用例通过；未做真实运行中取消、进程中断及迟到产物演练。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T39",
+      "scenario": "同输入内容对照",
+      "status": "fail",
+      "evidence_level": "同条件真实对照",
+      "boundary": "一组未教学事实问题已对照；仍有无依据机制/阈值判断，负责人盲评待回，不宣称能力提升。",
+      "owner": "当前Work；业务质量由吴律评审"
+    },
+    {
+      "case_id": "T40",
+      "scenario": "自然周期与回退",
+      "status": "unverified",
+      "evidence_level": "降级已过/最终自然待验",
+      "boundary": "新入口停用恢复、历史及原policy保持；前夜任务早于最终版本，实际代码回退与最终自然未验。",
+      "owner": "当前Work；业务质量由吴律评审"
+    }
+  ]
+}
