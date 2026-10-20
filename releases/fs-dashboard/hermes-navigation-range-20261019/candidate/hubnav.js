@@ -14,7 +14,11 @@ const ID_CACHE='fs-nav-identity', REG_CACHE='fs-nav-registry-hermes-v1';
 const ID_TTL=30000, REG_TTL=300000;
 const NAV_W=236;
 
-if(window.parent!==window||document.getElementById('hubNav')||location.pathname.startsWith('/__auth/')||location.pathname.startsWith('/fc27/'))return;
+/* 2026-10-20：/__auth/access/（账号与权限控制台）也并入这条全站导航。
+   它不靠 nginx 注入，而是页面自己确认「已登录 + 是管理员」后再加载本脚本，
+   所以未登录的登录落点不会露出整条导航。其余 /__auth/* 仍是独立门面。 */
+const IAM_PAGE=location.pathname.startsWith('/__auth/access');
+if(window.parent!==window||document.getElementById('hubNav')||(location.pathname.startsWith('/__auth/')&&!IAM_PAGE)||location.pathname.startsWith('/fc27/'))return;
 if(!document.body)return;
 
 const uiRoot='/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/';
@@ -159,7 +163,9 @@ async function refresh(){
   const c=readJSON(ID_CACHE);
   const user=(c&&c.user&&c.user.name&&Date.now()-c.ts<ID_TTL)?c.user:await fetchIdentity();
   if(stopped)return;
-  if(!user.name||!user.groups.includes('dashboard')){if(!prev){denied();}return;}
+  // 控制台的准入由服务端按 admin/manage 判，不要求 dashboard 组；
+  // 这里再按组拦一次，会让「有授权但不在 dashboard 组」的管理员被整屏遮住。
+  if(!user.name||(!IAM_PAGE&&!user.groups.includes('dashboard'))){if(!prev){denied();}return;}
   const rc=readJSON(REG_CACHE);
   const reg=(rc&&rc.reg&&Date.now()-rc.ts<REG_TTL)?null:await fetchRegistryData().catch(()=>null);
   const changedUser=!prev||user.name!==prev.name||user.role!==prev.role||JSON.stringify(user.groups)!==JSON.stringify(prev.groups);
@@ -170,7 +176,7 @@ async function refresh(){
  }catch{/* 网络波动：保留已渲染导航 */}
 }
 refresh();
-function watch(){return setInterval(async()=>{if(document.hidden||!currentUser)return;try{const user=await fetchIdentity();if(!user.name||!user.groups.includes('dashboard')){denied();return;}if(user.name!==currentUser.name||user.role!==currentUser.role||JSON.stringify(user.groups)!==JSON.stringify(currentUser.groups)){currentUser=user;render(user,makeTools(registry));}}catch{/* 保留现状 */}},60000);}
+function watch(){return setInterval(async()=>{if(document.hidden||!currentUser)return;try{const user=await fetchIdentity();if(!user.name||(!IAM_PAGE&&!user.groups.includes('dashboard'))){denied();return;}if(user.name!==currentUser.name||user.role!==currentUser.role||JSON.stringify(user.groups)!==JSON.stringify(currentUser.groups)){currentUser=user;render(user,makeTools(registry));}}catch{/* 保留现状 */}},60000);}
 let timer=watch();
 addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);homeCardsObserver?.disconnect();});
 addEventListener('pageshow',e=>{if(e.persisted){stopped=false;clearInterval(timer);timer=watch();refresh();}});

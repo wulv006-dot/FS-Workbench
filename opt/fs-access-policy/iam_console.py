@@ -49,9 +49,15 @@ PAGE_HEADERS = (
     ("X-Frame-Options", "DENY"),
     ("X-Content-Type-Options", "nosniff"),
     ("Referrer-Policy", "same-origin"),
+    # style-src 必须放 'unsafe-inline'：全站统一导航 hubnav.js 是把导航样式以
+    # <style> 内联注入的（它要保证导航 DOM 与样式同帧生效）。
+    # 'inline-speculation-rules' 只为 hubnav 里那段 <script type=speculationrules>
+    # 预热规则开口，它不等于放开内联脚本：普通 <script> 仍然只认 'self'。
     ("Content-Security-Policy",
-     "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
-     "img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
+     "default-src 'none'; style-src 'self' 'unsafe-inline'; "
+     "script-src 'self' 'inline-speculation-rules'; connect-src 'self'; "
+     "img-src 'self' data:; base-uri 'none'; form-action 'self'; "
+     "frame-ancestors 'none'"),
 )
 
 # ---------------------------------------------------------------- 基础工具

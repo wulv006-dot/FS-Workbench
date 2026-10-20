@@ -234,6 +234,41 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual("DENY", h.response["headers"]["X-Frame-Options"])
         self.assertIn("frame-ancestors 'none'", h.response["headers"]["Content-Security-Policy"])
 
+    def test_page_shares_platform_nav_and_back_link(self):
+        """页头与导航必须和平台其他页面一致，而不是自成一套门面。
+
+        左侧那条全站导航的唯一真源是 /var/www/hub/hubnav.js（nginx 给所有页面
+        sub_filter 注入的那份）。本页不再自建竖侧栏，改成「平台通用页头 + 横向
+        视图页签」，页头右侧给一个回平台的入口。导航脚本只在确认「已登录 + 是
+        管理员」之后由 app.js 挂载 —— 这个 URL 同时是全站登录落点，不能给匿名
+        访问者摆出整条导航。
+        """
+        h = FakeHandler("GET", cookie_user=ADMIN)
+        self.call(h, "/iam/")
+        body = h.response["body"]
+        self.assertIn('class="platform-header"', body)
+        self.assertIn('id="back-platform"', body)
+        self.assertIn('href="/dashboard/"', body)
+        self.assertNotIn('class="topbar"', body)
+
+        js = FakeHandler("GET", cookie_user=ADMIN)
+        self.call(js, "/iam/app.js")
+        self.assertIn("/__hub/hubnav.js", js.response["body"])
+
+    def test_csp_opens_inline_style_for_hubnav(self):
+        """hubnav 是把导航样式以 <style> 内联注入的，CSP 必须放开内联样式。
+
+        但只放开 style-src 和 speculation-rules：script-src 里绝不能出现
+        'unsafe-inline'，否则等于把内联 <script> 也放进来。
+        """
+        h = FakeHandler("GET", cookie_user=ADMIN)
+        self.call(h, "/iam/")
+        csp = h.response["headers"]["Content-Security-Policy"]
+        self.assertIn("style-src 'self' 'unsafe-inline'", csp)
+        self.assertIn("script-src 'self' 'inline-speculation-rules'", csp)
+        script_src = csp.split("script-src", 1)[1].split(";", 1)[0]
+        self.assertNotIn("unsafe-inline", script_src)
+
     def test_anonymous_never_redirected_on_any_static(self):
         """静态资源也必须就地 200。
 
