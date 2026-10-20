@@ -3,6 +3,12 @@
 (function () {
   'use strict';
 
+  // 嵌入模式：本页被 /__auth/access/ 的管理区用同源 iframe 加载时带 ?embed=1。
+  // 此时页面自己的顶栏是多余的（外面已经有门户顶栏），由 CSS 收起。
+  if (/(?:^|[?&])embed=1(?:&|$)/.test(window.location.search)) {
+    document.documentElement.className += ' embed';
+  }
+
   var API = './api/';
   var S = {
     view: 'members',
