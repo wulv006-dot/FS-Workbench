@@ -12,7 +12,7 @@
 
 ## 文件与运行位置
 
-`source/{common,watch,host,github_api}.py` → `/opt/fs-hermes-ops/`；原生watch代码副本在 `/var/lib/hermes-dingtalk/profile/ops-watchdog/code/`。本任务冻结UI发布器只复用仓库menu-cache既有字节SHA `5548d9c8…1357`，不上传副本进私库。
+`source/{common,watch,host,github_api}.py` → `/opt/fs-hermes-ops/`；原生watch代码副本在官方允许的 `/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/`，状态仍独立存于profile的ops-watchdog目录。本任务冻结UI发布器只复用仓库menu-cache既有字节SHA `5548d9c8…1357`，不上传副本进私库。
 
 `deploy/release_ui.py` 只适配 `/var/www/dashboard/fs-home/brain/index.html`；`deploy/publish_monitor.py` 沿用现有monitor发布器，只接受旧 `b326c548…` → 已验 `792b84ee…` 的单文件修复。模板、旧发布器和全站样式均不覆盖。
 
