@@ -1,0 +1,22 @@
+{
+  "status": "business_review_pending_engineering_found_unverified_causal_claims",
+  "samples": 2,
+  "paired_questions": 1,
+  "question_and_parent_equal": true,
+  "background_method_governance_skill_equal": true,
+  "native_version_sets_equal": true,
+  "tool_schema_equal": true,
+  "model_alias": "deepseek-flash",
+  "requested_effort": "high",
+  "provider_effort_status": "accepted_no_effort_echo",
+  "actual_backend_version": "unknown",
+  "frozen_parent": "e21fff6c63d421e8fd7fbce41305d68f",
+  "first_sample_model_calls": 4,
+  "second_sample_model_calls": 4,
+  "first_sample_tokens": 631470,
+  "second_sample_tokens": 659203,
+  "price_or_strategy_executed": false,
+  "blind_originals": "local_only_BLIND-REVIEW.md_not_uploaded_to_GitHub",
+  "business_owner_score": null,
+  "profit_benefit": "unverified"
+}

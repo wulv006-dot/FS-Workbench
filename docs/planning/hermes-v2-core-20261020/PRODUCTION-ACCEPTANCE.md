@@ -1,5 +1,7 @@
 # Hermes V2 首批生产验收 · 2026-10-21 北京
 
+当前组合生产状态见 [DELIVERY.md](DELIVERY.md) 与 [CURRENT-SOURCE-MAP.json](CURRENT-SOURCE-MAP.json)。下列早期记录按各自时点保留，不能代替当前验收。
+
 PR #251 已合并，merge `dffb16550733b4ae038df973c441821e3ad96b6d`。用户明确批准九目标后，原发布器于2026-10-20 23:57:45北京执行；manifest SHA256 `a07f62eabb1c13fce157f34f20f8add9e8a88c693536bfa6ea6a6365ea3a7674`。九目标活动哈希全部匹配，两服务active。备份 `/var/backups/fs-navigation-20261006/nav-20261020T155745Z`，保留原journal/intent/锁/CAS/回退；未改价格、业务策略、调度或开关。
 
 真实已登录Chrome的wulv入口刷新后显示“已连接云端 Hermes”和本次任务。后端同一管理员路径及学习接口200、auto_publish=false。私有详细回执均在 `.agent_runtime/hermes-v2-core-20261020/`，不加入Git。
