@@ -73,10 +73,13 @@
       "sha256": "c894eb400d3f90017b7a0a602d705474f52e52331c144316b74297d7f3dfbe21"
     }
   ],
-  "status": "candidate_not_deployed",
+  "status": "nine_targets_deployed_first_acceptance_recorded",
   "publisher": "existing release_navigation_base adapter; CAS, admission/provider locks, backup, rollback and original-ID readback required",
   "business_writes": false,
   "automatic_strategy_changes": false,
   "timers_changed": false,
-  "not_in_server187_manifest": true
+  "not_in_server187_manifest": true,
+  "source_commit": "dffb16550733b4ae038df973c441821e3ad96b6d",
+  "production_receipt": "PRODUCTION-ACCEPTANCE.md",
+  "release_id": "nav-20261020T155745Z"
 }
