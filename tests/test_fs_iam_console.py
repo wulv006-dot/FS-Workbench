@@ -13,10 +13,12 @@ import io
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 import types
 import unittest
+from contextlib import contextmanager
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POLICY_DIR = os.path.join(ROOT, "opt", "fs-access-policy")
@@ -83,6 +85,84 @@ def fake_portal(policy_path, audit_path):
     module._registration_bridge = None
     module._fs_policy = access_policy
     return module
+
+
+# ---------------------------------------------------------------- 改密码替身
+#
+# iam_console._password_core() 是「借 account_management 模块顶部的
+# `import auth_candidate as core`」来拿 password_hash 的，所以它按
+# type(accounts).__module__ 去找模块。下面这几个名字就是让本测试模块
+# 冒充那个模块：core 提供 password_hash，SCHEMA 用真实建表语句
+# （逐条 complete_statement 拆分的正确性也要靠它验证）。
+core = types.SimpleNamespace(
+    password_hash=lambda pw: "pbkdf2-test$" + pw if len(pw) >= 12 else None)
+
+SCHEMA = '''
+CREATE TABLE account_state(subject TEXT PRIMARY KEY,version INTEGER NOT NULL,
+ enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),password TEXT NOT NULL,
+ modules TEXT NOT NULL,custom INTEGER NOT NULL CHECK(custom IN (0,1)));
+CREATE TABLE account_events(id INTEGER PRIMARY KEY,at INTEGER NOT NULL,
+ actor TEXT NOT NULL,action TEXT NOT NULL,subject TEXT NOT NULL,
+ version INTEGER NOT NULL,reason TEXT NOT NULL);
+CREATE TRIGGER account_events_no_update BEFORE UPDATE ON account_events
+ BEGIN SELECT RAISE(ABORT,'append-only account audit'); END;
+CREATE TRIGGER account_events_no_delete BEFORE DELETE ON account_events
+ BEGIN SELECT RAISE(ABORT,'append-only account audit'); END;
+'''
+
+
+class FakeAccounts(object):
+    """只实现 iam_console 用到的那两个方法：inventory / has_schema。"""
+
+    def __init__(self, rows, has_schema=False):
+        self.rows = rows
+        self._has = has_schema
+
+    def inventory(self, db):
+        return self.rows
+
+    def has_schema(self, db):
+        return self._has
+
+
+class FakeStore(object):
+    def __init__(self, db, accounts):
+        self.db = db
+        self.accounts = accounts
+        self.committed = 0
+        self.rolled_back = 0
+
+    def now(self):
+        return 1700000000
+
+    @contextmanager
+    def transaction(self):
+        try:
+            yield self.db
+            self.db.commit()
+            self.committed += 1
+        except BaseException:
+            self.db.rollback()
+            self.rolled_back += 1
+            raise
+
+
+def _memory_db():
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE users(id TEXT PRIMARY KEY,name TEXT,state TEXT,"
+        "epoch INTEGER NOT NULL DEFAULT 0,password TEXT);"
+        "CREATE TABLE sessions(id INTEGER PRIMARY KEY,user_id TEXT,legacy_user TEXT);")
+    return db
+
+
+def _member(subject, name, enabled=True, custom=False, version=0):
+    return {
+        "subject": subject, "name": name, "enabled": enabled,
+        "modules": {"d4": "read"}, "custom": custom, "version": version,
+        "_password": "", "state": "native",
+    }
 
 
 class ConsoleTest(unittest.TestCase):
@@ -304,6 +384,139 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual(1, admin_cli.main(["grant", "--user", VIEWER,
                                             "--roles", "NoSuchRole", "--by", ADMIN]))
         self.assertEqual(["Viewer"], rbac.load_policy()["bindings"][VIEWER]["roles"])
+
+    # ---- 改密码 ----
+    def attach_store(self, rows, has_schema=False):
+        """把假注册库挂到 portal 上；返回 (store, db) 供断言。"""
+        db = _memory_db()
+        store = FakeStore(db, FakeAccounts(rows, has_schema=has_schema))
+        self.portal._registration_bridge = types.SimpleNamespace(
+            adapter=types.SimpleNamespace(store=store))
+        return store, db
+
+    def test_password_requires_super_admin(self):
+        """改密码只给管理员，不给「能进控制台但只是成员管理员」的角色。"""
+        store, db = self.attach_store({"native:wulv": _member("native:wulv", "wulv")})
+        code, body = iam_console._api_password(
+            self.portal, VIEWER, {"subject": "native:wulv", "password": "a" * 12})
+        self.assertEqual(403, code)
+        self.assertIn("管理员", body["error"])
+        self.assertFalse(db.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='account_state'").fetchone())
+
+    def test_password_rejects_short_secret(self):
+        """12 位下限不是产品偏好，是硬约束。
+
+        底层 password_hash / password_matches 都校验 12–128；短于此写进去的
+        哈希连自己都验不过，等于当场把账号锁死。
+        """
+        store, db = self.attach_store({"native:wulv": _member("native:wulv", "wulv")})
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:wulv", "password": "short11char"})
+        self.assertEqual(400, code)
+        self.assertIn("12", body["error"])
+        self.assertFalse(db.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='account_state'").fetchone())
+
+    def test_password_rejects_bad_subject(self):
+        self.attach_store({})
+        for bad in ("", "wulv", "native:", "reg:xyz", "reg:../../etc", "native:a b"):
+            code, _ = iam_console._api_password(
+                self.portal, ADMIN, {"subject": bad, "password": "d" * 12})
+            self.assertEqual(400, code, bad)
+
+    def test_password_unknown_subject(self):
+        self.attach_store({})
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:nobody", "password": "d" * 12})
+        self.assertEqual(404, code)
+        self.assertIn("找不到", body["error"])
+
+    def test_password_writes_authoritative_store(self):
+        """密码的权威存储是 account_state.password，不是 htpasswd。
+
+        登录时 Accounts.authenticate() 是「有覆盖值就用覆盖值，没有才回落
+        htpasswd」—— 所以只改 htpasswd 等于没改。
+        """
+        store, db = self.attach_store({"native:wulv": _member("native:wulv", "wulv")})
+        db.execute("INSERT INTO sessions(user_id, legacy_user) VALUES(NULL,'wulv')")
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:wulv", "password": "a" * 12})
+        self.assertEqual(200, code, body)
+
+        row = db.execute("SELECT password,version,enabled,custom FROM account_state").fetchone()
+        self.assertTrue(row["password"].startswith("pbkdf2-test$"))
+        self.assertEqual(1, row["version"])
+        self.assertEqual(1, row["enabled"])
+        self.assertEqual(0, row["custom"])
+        # 旧会话必须被踢掉，否则改完密码旧会话还能继续用
+        self.assertEqual(0, db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0])
+        ev = db.execute("SELECT actor,action,subject FROM account_events").fetchall()
+        self.assertEqual(1, len(ev))
+        self.assertEqual(("chenchao", "password", "native:wulv"),
+                         (ev[0]["actor"], ev[0]["action"], ev[0]["subject"]))
+        self.assertEqual(1, store.committed)
+        self.assertEqual(0, store.rolled_back)
+        self.assertIs(False, body["selfChanged"])
+
+    def test_password_updates_registered_account(self):
+        """reg: 账号要同时改 users.password 并抬 epoch，否则它自己的登录绕开新密码。"""
+        uid = "11111111-1111-1111-1111-111111111111"
+        subject = "reg:" + uid
+        store, db = self.attach_store({subject: _member(subject, "bob")})
+        db.execute("INSERT INTO users VALUES(?,?,?,?,?)", (uid, "bob", "readonly", 3, "old-hash"))
+        db.execute("INSERT INTO sessions(user_id) VALUES(?)", (uid,))
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": subject, "password": "b" * 16})
+        self.assertEqual(200, code, body)
+        row = db.execute("SELECT password,epoch FROM users WHERE id=?", (uid,)).fetchone()
+        self.assertTrue(row["password"].startswith("pbkdf2-test$"))
+        self.assertEqual(4, row["epoch"])
+        self.assertEqual(0, db.execute(
+            "SELECT COUNT(*) FROM sessions WHERE user_id=?", (uid,)).fetchone()[0])
+
+    def test_password_self_change_is_flagged(self):
+        """改自己的密码会撤销自己的会话，前端据此提示「你会被登出」。"""
+        store, db = self.attach_store(
+            {"native:chenchao": _member("native:chenchao", "chenchao")})
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:chenchao", "password": "c" * 12})
+        self.assertEqual(200, code, body)
+        self.assertIs(True, body["selfChanged"])
+
+    def test_password_reuses_existing_schema(self):
+        """account_state 已存在时不能再建一次（会报 table already exists）。"""
+        store, db = self.attach_store(
+            {"native:wulv": _member("native:wulv", "wulv")}, has_schema=True)
+        db.executescript(SCHEMA)
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:wulv", "password": "f" * 12})
+        self.assertEqual(200, code, body)
+        self.assertEqual(1, db.execute("SELECT COUNT(*) FROM account_state").fetchone()[0])
+
+    def test_password_needs_csrf(self):
+        self.attach_store({"native:wulv": _member("native:wulv", "wulv")})
+        body = json.dumps({"subject": "native:wulv", "password": "e" * 12}).encode()
+        h = FakeHandler("POST", cookie_user=ADMIN, body=body)
+        self.call(h, "/iam/api/member/password")
+        self.assertEqual(403, h.response["code"])
+        self.assertIn("CSRF", h.response["body"])
+
+    def test_password_denied_to_viewer_over_http(self):
+        """走完整 handle 链路时，非管理员在「成员与授权」门槛就被挡住。"""
+        self.attach_store({"native:wulv": _member("native:wulv", "wulv")})
+        body = json.dumps({"subject": "native:wulv", "password": "e" * 12}).encode()
+        h = FakeHandler("POST", cookie_user=VIEWER, body=body, csrf="t0k")
+        self.call(h, "/iam/api/member/password")
+        self.assertEqual(403, h.response["code"])
+
+    def test_password_survives_when_store_missing(self):
+        """注册库不可用时应报 503，不能抛栈把控制台整页打挂。"""
+        self.portal._registration_bridge = None
+        code, body = iam_console._api_password(
+            self.portal, ADMIN, {"subject": "native:wulv", "password": "g" * 12})
+        self.assertEqual(503, code)
+        self.assertIn("不可用", body["error"])
 
 
 if __name__ == "__main__":
