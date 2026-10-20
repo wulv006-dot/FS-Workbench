@@ -11,7 +11,7 @@ BASE_SHA='1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
 SCOPE='hermes-v2-strategy-20261021'
 NAMES=('controller.py','proxy_gateway.py','runs_contract.py','learning_service.py','pricing_simulation.py','strategy_tools.py','strategy_workspace.py')
 TARGETS={'source/'+n:'/opt/fs-hermes-fc/'+n for n in NAMES}
-TARGETS.update({'source/brain.html':'/var/www/dashboard/fs-home/brain/index.html','frontend/strategy.js':'/var/www/dashboard/fs-home/brain/hermes-v2-b934524c42e3.js'})
+TARGETS.update({'source/brain.html':'/var/www/dashboard/fs-home/brain/index.html','frontend/strategy.js':'/var/www/dashboard/fs-home/brain/hermes-v2-7fd115d3da5b.js'})
 NEW=frozenset(('source/pricing_simulation.py','source/strategy_tools.py','source/strategy_workspace.py','frontend/strategy.js'))
 
 

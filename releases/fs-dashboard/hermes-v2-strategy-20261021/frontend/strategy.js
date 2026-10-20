@@ -68,6 +68,10 @@
     for(const item of data.candidates){const content=JSON.parse(item.content);const state=active.has(item.id)?'已发布':release.get(item.id)?.state==='revoked'?'已撤销':'待审候选';const card=node('article',undefined,'knowledge-item');card.append(node('h3',content.lesson),node('p',`${state} · ${item.risk} · 收益未验证`,'pill'),node('p',`适用：${content.applies_to}`),node('p',`反例或限制：${content.counterexample}`));detail(card,'版本、来源及发布记录',{id:item.id,hash:item.content_hash,event:item.event,expires_at:item.expires_at,evidence_refs:content.evidence_refs,publication:release.get(item.id) || null});list.append(card);const option=node('option',`${state} · ${content.lesson.slice(0,45)}`);option.value=item.id;select.append(option);}
     if(!data.candidates.length)list.append(node('p','暂无经验候选；已有教学方法继续按原版本使用。','empty'));
     $('learning-submit').disabled=!select.options.length;$('learning-pause').textContent=data.paused?'恢复新学习入队':'暂停新学习入队';$('learning-pause').disabled=false;
+    const sources=$('learning-source'),selected=sources.value;sources.replaceChildren();
+    for(const source of new Set(data.events.map(e=>e.source))){const option=node('option',`报告 ${source}`);option.value=source;sources.append(option);}
+    if([...sources.options].some(o=>o.value===selected))sources.value=selected;
+    $('learning-reflect-submit').disabled=data.paused || !sources.options.length;
     detail(list,'学习批次与失败记录',data.events.map(e=>({id:e.id,source:e.source,state:label(e.state),attempt:e.attempt,result:e.result?JSON.parse(e.result):null})));
   }
   async function loadStrategy(){message('strategy-status','正在读取策略与复查记录…');try{renderStrategy(await request({kind:'hermes_strategy',action:'list'}));}catch(e){error('strategy-status',e);}}
@@ -76,6 +80,12 @@
   refresh('strategy-refresh',loadStrategy);refresh('learning-refresh',loadLearning);
   $('strategy-enabled').addEventListener('click',async()=>{const button=$('strategy-enabled');button.disabled=true;try{await request({kind:'hermes_strategy',action:'set_enabled',enabled:!workspace.enabled});await loadStrategy();}catch(e){error('strategy-status',e);}finally{button.disabled=false;}});
   $('learning-pause').addEventListener('click',async()=>{const button=$('learning-pause');button.disabled=true;try{await request({kind:'hermes_learning',action:learning.paused?'resume':'pause'});await loadLearning();}catch(e){error('learning-status',e);}finally{button.disabled=false;}});
+  $('learning-reflect').addEventListener('submit',async event=>{event.preventDefault();const button=$('learning-reflect-submit');button.disabled=true;try{
+    const entry=await request({kind:'hermes_learning',action:'enqueue',source:$('learning-source').value,correction:$('learning-feedback').value});
+    if(entry.state==='queued'){await request({kind:'hermes_learning',action:'review_model',event:entry.id});message('learning-reflect-status',`Hermes 正在独立复盘；批次 ${entry.id}。请刷新查看候选，迁移能力尚未验证。`);}
+    else message('learning-reflect-status',`原批次状态：${label(entry.state)}。已保留原记录，未重复调用模型；经验保存不代表已经学会。`);
+    await loadLearning();
+  }catch(e){error('learning-reflect-status',e);}finally{button.disabled=!!learning?.paused || !$('learning-source').options.length;}});
   $('learning-publish').addEventListener('submit',async event=>{event.preventDefault();const button=$('learning-submit');button.disabled=true;try{await request({kind:'hermes_learning',action:new FormData(event.target).get('action'),id:$('learning-version').value,expected_manifest:learning.sha256,reason:$('learning-reason').value});message('learning-action-status','知识版本操作已记录；新任务按新版本检索，旧任务保留原引用。');await loadLearning();}catch(e){error('learning-action-status',e);}finally{button.disabled=!learning?.candidates.length;}});
   $('strategy-review-form').addEventListener('submit',async event=>{event.preventDefault();const button=$('strategy-review-submit');button.disabled=true;try{const result=await request({kind:'hermes_strategy',action:'read_review',decision_id:$('strategy-decision').value,start:$('strategy-start').value,end:$('strategy-end').value});message('strategy-review-status',`${label(result.execution_state)} · ${label(result.outcome_state)}`);$('strategy-review-result').textContent=JSON.stringify(result,null,2);}catch(e){error('strategy-review-status',e);}finally{button.disabled=!$('strategy-decision').options.length;}});
   loadStrategy();loadLearning();

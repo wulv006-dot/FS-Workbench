@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>智体决策报告 · Hermes · MMOEXP</title><link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css"><link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css"><script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script><link rel="stylesheet" href="brain.css"><script defer src="/__hub/hubnav.js?v=3dda7cae"></script><script defer src="brain.js?v=hermes-repair-20261019-94497730990e"></script><link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2"><script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script><script defer src="hermes-v2-b934524c42e3.js"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>智体决策报告 · Hermes · MMOEXP</title><link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css"><link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css"><script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script><link rel="stylesheet" href="brain.css"><script defer src="/__hub/hubnav.js?v=3dda7cae"></script><script defer src="brain.js?v=hermes-repair-20261019-94497730990e"></script><link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2"><script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script><script defer src="hermes-v2-7fd115d3da5b.js"></script></head>
 <body class="fs-unified-navigation">
 <nav id="hubNav" aria-label="FS 统一导航">
 <a class="hn-brand" href="/dashboard/">FS · MMOEXP</a>
@@ -59,6 +59,12 @@
 <section id="experience-method" class="panel" aria-labelledby="learning-title">
 <div class="section-head"><div><div class="eyebrow">EXPERIENCE &amp; METHODS</div><h2 id="learning-title">经验与方法</h2></div><button id="learning-refresh" type="button" class="quiet">刷新经验批次</button></div>
 <p id="learning-status" role="status" aria-live="polite">正在读取…</p><button id="learning-pause" type="button" class="quiet" disabled>学习状态待核</button>
+<p class="muted">经验已保存或已发布，只说明知识可用。分析能力是否提升，要看 Hermes 能否在未见过的问题中独立取证、找反例并修正判断。</p>
+<form id="learning-reflect" action="/dashboard/fs-home/advisor.json" method="post">
+<fieldset><legend>教 Hermes 从真实报告中学习</legend><label for="learning-source">本人已完成报告</label><select id="learning-source" name="source" required></select>
+<label for="learning-feedback">问题与反馈</label><textarea id="learning-feedback" name="correction" minlength="8" maxlength="2000" aria-describedby="learning-reflect-help" required></textarea>
+<p id="learning-reflect-help" class="muted">指出值得复查的判断或能力缺口，让 Hermes 自己核查、归纳检查步骤及反例。此操作会发起一次有账本的模型复盘，只生成待审候选；保存既定答案不算学会，新问题复测另验。</p>
+<button id="learning-reflect-submit" type="submit" class="primary" disabled>让 Hermes 自己复盘</button></fieldset><p id="learning-reflect-status" role="status" aria-live="polite"></p></form>
 <div id="learning-records"></div><h3>方法差异候选</h3><div id="method-candidates"></div>
 <form id="learning-publish" action="/dashboard/fs-home/advisor.json" method="post">
 <fieldset><legend>审核后的知识版本操作</legend><label for="learning-version">经验版本</label><select id="learning-version" name="id" required></select>

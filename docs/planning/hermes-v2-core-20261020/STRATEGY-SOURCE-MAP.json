@@ -31,7 +31,7 @@
       "local": "hermes_v2_strategy_20261021/source/learning_service.py",
       "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/learning_service.py",
       "runtime": "/opt/fs-hermes-fc/learning_service.py",
-      "sha256": "3c7a15a5e56df14f6aa6a61e09f254f17b9e12a192c586303a9d154247c19a80",
+      "sha256": "a3a3e91648bd3641184b227f46a3dd8989832ab3be64639f7e41eb4cb23562b8",
       "before_sha256": "6ce14f11825de4c97449352e6d0aac456e1cdd10d5326ba6cc14348e01664ef4",
       "previous_repository": "releases/fs-dashboard/hermes-v2-review-repair-20261021/source/learning_service.py"
     },
@@ -63,15 +63,15 @@
       "local": "hermes_v2_strategy_20261021/source/brain.html",
       "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/source/brain.html",
       "runtime": "/var/www/dashboard/fs-home/brain/index.html",
-      "sha256": "8a58eaceaac0f6a26a6cae688256aa68cbafe9463d56910b5714b9708984d1f1",
+      "sha256": "f9e16771024f79fc09a0a867a7e75db70f75fc023d0805818b5dd088fe311e6e",
       "before_sha256": "346ef40d8ab4baa76f58db90917072df92e1eaf72ba554e3d5126f11f332f2d1",
       "previous_repository": "releases/fs-dashboard/hermes-ops-20261020/repairs/346ef40d8ab4baa7/source/brain-index.html"
     },
     {
       "local": "hermes_v2_strategy_20261021/frontend/strategy.js",
       "repository": "releases/fs-dashboard/hermes-v2-strategy-20261021/frontend/strategy.js",
-      "runtime": "/var/www/dashboard/fs-home/brain/hermes-v2-b934524c42e3.js",
-      "sha256": "b934524c42e3df94183a7344e8480727e25dfb04b483c800fcab94037a36cdcd",
+      "runtime": "/var/www/dashboard/fs-home/brain/hermes-v2-7fd115d3da5b.js",
+      "sha256": "7fd115d3da5ba07c4c15c51b3f0bd85735a87a7e48298df642bae7e429765e79",
       "before_sha256": null,
       "previous_repository": null
     }

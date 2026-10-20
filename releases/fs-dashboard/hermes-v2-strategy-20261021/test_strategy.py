@@ -269,6 +269,24 @@ class TaskBoundary(Fixture):
         result=st.learning_propose(self.tasks,'wulv',{'source':source,'candidate':value},NOW,lambda:None)
         self.assertEqual(result['risk'],'L2');self.assertEqual(result['publication_state'],'NOT_PUBLISHED')
 
+    def test_model_reflection_teaches_method_without_claiming_generalization(self):
+        spec=importlib.util.spec_from_file_location('teaching_service',HERE/'source/learning_service.py');service=importlib.util.module_from_spec(spec);spec.loader.exec_module(service)
+        with self.tasks.db() as db:
+            event=support.lr.enqueue(db,'wulv','FS','c'*32,support.lr.manifest(db,'wulv','FS',NOW)['sha256'],'user_correction',dict(source_kind='user_correction',evidence_refs=['ev_real'],correction='请独立核查分析方法。'))
+            attempt=support.lr.claim(db,'wulv','FS',event['id'])
+        sent=[]
+        class Gateway:
+            def call(inner,owner,key,lease,turn,body):
+                inner.scope.context(owner,key,lease);sent.append(body)
+                return dict(message={'content':'null'},provider_request_id='synthetic-test')
+        factory=types.ModuleType('fs_inprocess');factory.gateway=lambda *a:Gateway();factory.spending_hold=lambda *a:None
+        controller=types.SimpleNamespace(tasks=self.tasks,daily=None,clock=lambda:NOW,authorizer=lambda u:u=='wulv')
+        with patch.dict(sys.modules,{'fs_inprocess':factory}):service.review_model(controller,'wulv',event['id'],attempt)
+        self.assertEqual(len(sent),1);prompt=sent[0]['messages'][0]['content']
+        for phrase in ('你自己学会分析','检查步骤','替代解释','独立复测前','没有实质经验时仅输出null'):self.assertIn(phrase,prompt)
+        with self.tasks.db() as db:
+            result=json.loads(support.lr.event(db,'wulv','FS',event['id'])['result']);self.assertEqual(result['status'],'no_substantive_candidate');self.assertEqual(support.lr.manifest(db,'wulv','FS',NOW)['experiences'],[])
+
     def test_existing_http_dispatch_keeps_authentication_and_same_origin(self):
         import threading,urllib.request,urllib.error
         from http.server import BaseHTTPRequestHandler,HTTPServer
