@@ -400,7 +400,18 @@ def handle(portal, handler, path, qs):
     if not path.startswith("/iam/api/"):
         return handler._send(404, "not found")
 
+    endpoint = path[len("/iam/api/"):].strip("/")
+
     if not actor:
+        # 未登录时 session 返回 200 + user:""，前端据此显示登录框。
+        # 不用 401 是因为这是页面启动的第一次请求，401 会在浏览器控制台留一条
+        # 红字，看起来像页面坏了。其余端点仍是 401 —— 别把「未登录」伪装成成功。
+        if endpoint == "session" and handler.command in ("GET", "HEAD"):
+            token, header = _csrf_token(portal, handler, issue=True)
+            return _json(handler, 200, {
+                "user": "", "admin": False, "csrf": token,
+                "meta": _meta(rbac.load_policy()),
+            }, headers=[header] if header else None)
         return _json(handler, 401, {"error": "登录状态已过期，请重新登录门户"})
 
     # 唯一的准入判定：admin 资源 + manage 动作
@@ -410,8 +421,6 @@ def handle(portal, handler, path, qs):
             "error": "你没有「成员与授权」权限",
             "detail": decision,
         })
-
-    endpoint = path[len("/iam/api/"):].strip("/")
 
     if handler.command in ("GET", "HEAD"):
         return _get(portal, handler, endpoint, qs)
