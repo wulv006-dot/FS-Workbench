@@ -70,7 +70,7 @@
       "repository": "releases/fs-dashboard/hermes-v2-core-20261020/source/learning_service.py",
       "runtime": "/opt/fs-hermes-fc/learning_service.py",
       "before_sha256": null,
-      "sha256": "b246620a8735c45df122576bc957f9c6dae787f3953ae4822f5b57647b3d6747"
+      "sha256": "0e4a2966f96bb123e68b7adc7a148ac9348fe8f57b0dbf1ecea83fe3a9688cf3"
     }
   ],
   "status": "candidate_not_deployed",

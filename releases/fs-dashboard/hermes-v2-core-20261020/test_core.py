@@ -127,6 +127,18 @@ class Registry(unittest.TestCase):
 
 
 class LearningBoundary(unittest.TestCase):
+    def test_review_sees_visible_conclusions_without_executable_markup(self):
+        from learning_service import visible_result
+        result=visible_result({'output_format':'html','research_text':'<style>secret css</style><h1>已完成的经营判断</h1><script>do_not_execute()</script><p>反例与缺口</p>'})
+        self.assertIn('经营判断',result['text']);self.assertIn('反例',result['text'])
+        self.assertNotIn('do_not_execute',result['text']);self.assertNotIn('secret css',result['text'])
+        self.assertFalse(result['truncated'])
+
+    def test_review_marks_omitted_prose_and_rejects_personal_details(self):
+        from learning_service import visible_result
+        self.assertTrue(visible_result({'research_text':'a'*16001})['truncated'])
+        with self.assertRaisesRegex(ValueError,'sensitive'):visible_result({'research_text':'person@example.com'})
+
     def test_model_cannot_publish_or_supply_actor(self):
         import learning_service as service
         controller=types.SimpleNamespace(authorizer=lambda _:False)

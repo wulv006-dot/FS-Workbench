@@ -4,6 +4,25 @@ from pilot import digest, encoded
 import learning_registry as registry
 
 
+def visible_result(report):
+    text=report.get('research_text') or report.get('summary') or ''
+    if report.get('output_format')=='html':
+        from html.parser import HTMLParser
+        class Text(HTMLParser):
+            def __init__(self):super().__init__();self.hidden=0;self.parts=[]
+            def handle_starttag(self,tag,attrs):
+                if tag in ('script','style'):self.hidden+=1
+            def handle_endtag(self,tag):
+                if tag in ('script','style') and self.hidden:self.hidden-=1
+            def handle_data(self,data):
+                if not self.hidden:self.parts.append(data)
+        parser=Text();parser.feed(text);text=' '.join(parser.parts)
+    text=' '.join(text.split())
+    from report_delivery import private_report
+    if private_report(text):raise ValueError('learning_source_sensitive')
+    return {'text':text[:16000],'truncated':len(text)>16000,'original_characters':len(text)}
+
+
 def source_snapshot(service, owner, source, correction=None):
     job = service.get_job(owner, source)
     if not job or job['owner'] != owner or job['state'] != 'COMPLETED' or not job.get('task_id'):
@@ -19,8 +38,11 @@ def source_snapshot(service, owner, source, correction=None):
     refs.append('report:'+source+':'+digest(artifact))
     result = dict(source_kind='completed_report', source=source, artifact_hash=digest(artifact),
         question=job['body']['question'], summary=report.get('summary', ''),
+        visible_result=visible_result(report),
         evidence_refs=refs, tool_trace=[dict(source=r.get('source'), query=r.get('query'), evidence_id=r['evidence_id']) for r in evidence],
         findings=report.get('findings', []), limitations=report.get('limitations', []))
+    from report_method import HTML_DESIGN_MANIFEST_SHA256
+    result['method_manifest_sha256']=HTML_DESIGN_MANIFEST_SHA256
     if correction is not None:
         from report_delivery import private_report
         if not isinstance(correction, str) or not 1 <= len(correction.strip()) <= 2000 or private_report(correction):
@@ -69,6 +91,12 @@ def handle(service, user, body):
                 raise ValueError('learning_fields')
             with service.tasks.db() as db:
                 db.execute('BEGIN IMMEDIATE')
+                if action=='publish':
+                    row=db.execute('SELECT event FROM experience_versions WHERE id=? AND owner=? AND project=?',(body['id'],user,project)).fetchone()
+                    if row is None:raise PermissionError('experience_not_found')
+                    source=json.loads(registry.event(db,user,project,row['event'])['input'])
+                    from report_method import HTML_DESIGN_MANIFEST_SHA256
+                    if source.get('method_manifest_sha256')!=HTML_DESIGN_MANIFEST_SHA256:raise ValueError('experience_method_conflict')
                 result = registry.release(db, user, project, body['id'], body['expected_manifest'],
                     'published' if action == 'publish' else 'revoked', user, body['reason'], now)
                 uses = registry.affected(db, user, project, body['id'])
