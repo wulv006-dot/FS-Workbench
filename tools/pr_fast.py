@@ -522,6 +522,8 @@ def select(paths):
             if name.startswith("opt/nba-reprice/backend/api_security"):
                 groups.add("nba")
             groups.add("ops-modules");continue
+        if name.startswith("releases/fc-coins/publish-entry-20261020/") and suffix in (".py", ".json", ".sh"):
+            groups.add("fc-publish-entry");continue
         if name.startswith("releases/fc-coins/natural-recovery-20261020/") and suffix in (".py", ".sh"):
             groups.add("fc-natural-recovery");continue
         if name.startswith("releases/fs-dashboard/cohort-wording-20261020/") and suffix in (".py",".js",".cjs"):
@@ -847,6 +849,9 @@ def main():
             release="releases/fs-dashboard/hermes-report-repair-20261019"
             units(release+"/tests",["test_report_repair","test_management_cadence"])
             browser_python(release+"/tests/test_bulk_browser.py")
+        elif group=="fc-publish-entry":
+            # 宿主发布入口与调用端：策略/白名单/批准绑定/回退，全部注入假 git、systemd、monitor。
+            units("releases/fc-coins/publish-entry-20261020/tests", ["test_publish_entry", "test_fc_publish", "test_calibrate"])
         elif group=="fc-natural-recovery":
             units("releases/fc-coins/natural-recovery-20261020", ["test_recovery"])
         elif group=="cohort-wording":
@@ -926,7 +931,6 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
-
 
 
 
