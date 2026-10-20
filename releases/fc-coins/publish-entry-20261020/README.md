@@ -93,20 +93,54 @@ PR 合并本身不构成生产授权。
 收据始终落盘（成功或失败都写），另有 `journald`。失败后**不自动重试**，未知写入视为未知，不盲重放。
 备份目录保留，人工确认后再清理。
 
-## 7. 离线测试
+## 7. 安装（宿主，root，一次性）
+
+```
+sudo bash releases/fc-coins/publish-entry-20261020/install.sh     # FC27_PUBLISH_GROUP=fc27ops 可覆盖
+```
+
+脚本只做五件事：校验源码可解析并打印 sha256 → `install -m 0755` 到 `/usr/local/sbin/fc27-publish` →
+**策略存在则不覆盖** → 检查 `/etc/fc27-cloud/monitor-user` 是否存在（不打印内容）→ 打印 sudoers 片段。
+不启停单元、不碰 `/opt` 源码、不写 `/var/lib/fc27-cloud`。最后用"无参数应返回 2"自检。
+
+sudoers 只放行一条命令，人工写入并 `visudo -c`：
+
+```
+Cmnd_Alias FC27_PUBLISH = /usr/local/sbin/fc27-publish
+%fc27ops ALL=(root) NOPASSWD: FC27_PUBLISH
+```
+
+## 8. 现场校准（发布前必做，只读）
+
+策略里的目标是**路径白名单**，不等于"现场就是这个哈希"。两步：
+
+```
+# 1) 生成回读命令
+python3 source/calibrate.py --policy /etc/fc27-cloud/release-policy.json --module fc-coins --emit-commands
+
+# 2) 把回读结果贴回，得到差异表（有漂移/缺失退出码 4）
+sha256sum /opt/fc27-cloud-browser/*.py | python3 source/calibrate.py \
+    --policy /etc/fc27-cloud/release-policy.json --module fc-coins --readback -
+```
+
+报告分四类：`matched`、`drift`（期望 vs 实际）、`missing`（策略有、现场没有）、
+`not_in_policy`（现场有、未登记，仅提示不阻断）。要和某次发布清单对照时加
+`--targets releases/fc-coins/<release>/targets.json`，按该清单的 `before` 比较。
+
+## 9. 离线测试
 
 ```
 cd releases/fc-coins/publish-entry-20261020 && python3 -m unittest discover -s tests -t tests
 ```
 
-45 条用例，覆盖：策略/白名单越界、目标名/发布名路径穿越、PR 与 merge commit 绑定、
+57 条用例，覆盖：策略/白名单越界、目标名/发布名路径穿越、PR 与 merge commit 绑定、
 scope 不一致、候选字节与 commit 不符、现场基线漂移、symlink、队列/作业/执行未结、
 锁占用、单元 inactive、单元动词越权、成功发布（备份+收据+原子替换+停启顺序+去重）、
 重启失败回退、读回不符回退、保护文件漂移回退、健康超时回退、回退失败→unknown、调用端预检与不写入。
 
-测试全部注入假 git/systemd/monitor，**不连网、不起进程、不碰真实 `/opt`**。
+测试全部注入假 git/systemd/monitor，**不连网、不起进程、不碰真实 `/opt`**；`install.sh` 另有 `bash -n` 语法检查。
 
-## 8. 尚未做（需用户确认后才谈）
+## 10. 尚未做（需用户确认后才谈）
 
 - 宿主安装 `/usr/local/sbin/fc27-publish` 与 `/etc/fc27-cloud/release-policy.json`；
 - sudoers 只放行那一条命令；
