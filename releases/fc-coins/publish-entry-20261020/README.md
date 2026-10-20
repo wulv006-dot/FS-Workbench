@@ -24,7 +24,7 @@ PR 合并、产物属于准确 merge commit、前后哈希都要验证，并明�
 | 用途 | 路径 |
 |---|---|
 | 策略（root:root 0644） | `/etc/fc27-cloud/release-policy.json` |
-| 宿主仓库检出（root 所有，只有 root 能 fetch） | `/opt/fc27-workbench` |
+| 宿主仓库检出（root 所有，只有 root 能 fetch；入口**只读**它的 git 对象、不联网） | `/opt/fc27-workbench` |
 | 主分支引用 | `refs/remotes/origin/main` |
 | 状态根（既有） | `/var/lib/fc27-cloud` |
 | 本次备份（唯一新建目录） | `/var/lib/fc27-cloud/rollback/<UTCSTAMP>-<module>/` |
@@ -99,7 +99,7 @@ PR 合并本身不构成生产授权。
 sudo bash releases/fc-coins/publish-entry-20261020/install.sh     # FC27_PUBLISH_GROUP=fc27ops 可覆盖
 ```
 
-脚本只做五件事：校验源码可解析并打印 sha256 → `install -m 0755` 到 `/usr/local/sbin/fc27-publish` →
+脚本只做六件事：校验源码可解析并打印 sha256 → 检查 `/opt/fc27-workbench` 检出是否有 `refs/remotes/origin/main`（缺则给命令，不自动 clone，私有仓库凭据由 root 侧准备）→ `install -m 0755` 到 `/usr/local/sbin/fc27-publish` →
 **策略存在则不覆盖** → 检查 `/etc/fc27-cloud/monitor-user` 是否存在（不打印内容）→ 打印 sudoers 片段。
 不启停单元、不碰 `/opt` 源码、不写 `/var/lib/fc27-cloud`。最后用"无参数应返回 2"自检。
 
@@ -139,6 +139,17 @@ scope 不一致、候选字节与 commit 不符、现场基线漂移、symlink�
 重启失败回退、读回不符回退、保护文件漂移回退、健康超时回退、回退失败→unknown、调用端预检与不写入。
 
 测试全部注入假 git/systemd/monitor，**不连网、不起进程、不碰真实 `/opt`**；`install.sh` 另有 `bash -n` 语法检查。
+
+### 检出刷新与失败关闭
+
+入口**不联网**，只认本地 `/opt/fc27-workbench` 的 `refs/remotes/origin/main`。每次发布前由 root 刷新：
+
+```
+git -C /opt/fc27-workbench fetch --prune
+```
+
+没刷新时新 release 不在本地 main 上，入口直接以 `release_not_on_main` 失败——fail-closed，不会误发旧版本。
+检出目录必须 `root:root` 且组外不可写（`chmod -R go-w`），否则任何人改了对象就能影响发布判断。
 
 ## 10. 尚未做（需用户确认后才谈）
 

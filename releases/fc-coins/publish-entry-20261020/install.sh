@@ -27,17 +27,33 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [ -f "$SRC_POLICY" ] || die "missing $SRC_POLICY"
 command -v systemctl >/dev/null 2>&1 || die "systemctl not found: not the host?"
 
-say "== 1/5 校验源码 =="
+say "== 1/6 校验源码 =="
 python3 -c 'import ast,sys;ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$SRC_ENTRY" \
   || die "entry source does not parse"
 sha256sum "$SRC_ENTRY"
 
-say "== 2/5 安装入口 $ENTRY =="
+say "== 2/6 宿主检出 /opt/fc27-workbench =="
+CHECKOUT=/opt/fc27-workbench
+if [ -d "$CHECKOUT/.git" ]; then
+  if git -C "$CHECKOUT" rev-parse --verify -q refs/remotes/origin/main >/dev/null; then
+    say "检出存在：$(git -C "$CHECKOUT" rev-parse --short refs/remotes/origin/main)"
+  else
+    say "警告：$CHECKOUT 没有 refs/remotes/origin/main；先以 root 执行 git -C $CHECKOUT fetch --prune"
+    say "否则发布入口会以 release_not_on_main 失败（fail-closed，不会误发）。"
+  fi
+else
+  say "缺失：发布入口只读 $CHECKOUT 的 git 对象，不读工作区。私有仓库需 root 侧凭据："
+  say "  git clone <repo-url> $CHECKOUT && chown -R root:root $CHECKOUT && chmod -R go-w $CHECKOUT"
+  say "  git -C $CHECKOUT fetch --prune     # 每次发布前由 root 刷新，入口自己不联网"
+  say "未建检出时所有发布都会 fail-closed。"
+fi
+
+say "== 3/6 安装入口 $ENTRY =="
 install -d -o root -g root -m 0755 /usr/local/sbin "$POLICY_DIR"
 install -o root -g root -m 0755 "$SRC_ENTRY" "$ENTRY"
 say "installed: $(sha256sum "$ENTRY")"
 
-say "== 3/5 策略 $POLICY =="
+say "== 4/6 策略 $POLICY =="
 if [ -e "$POLICY" ]; then
   say "已存在，不覆盖：$POLICY"
   say "如需按示例重建，先人工比对：diff -u $POLICY $SRC_POLICY"
@@ -49,7 +65,7 @@ fi
 python3 -c 'import json,sys;json.load(open(sys.argv[1],encoding="utf-8"))' "$POLICY" \
   || die "policy is not valid json"
 
-say "== 4/5 monitor 身份文件 $MONITOR_USER =="
+say "== 5/6 monitor 身份文件 $MONITOR_USER =="
 if [ -s "$MONITOR_USER" ]; then
   say "已存在（$(( $(wc -c < "$MONITOR_USER") )) 字节），不打印内容"
 else
@@ -58,7 +74,7 @@ else
   say "该文件缺失时，发布入口会在写回读阶段失败并回退，不会静默成功。"
 fi
 
-say "== 5/5 sudoers（不自动写入，请人工确认）=="
+say "== 6/6 sudoers（不自动写入，请人工确认）=="
 cat <<EOF
 
 把下面内容交给 visudo -f /etc/sudoers.d/fc27-publish（只放行这一条命令，不给 shell）：
