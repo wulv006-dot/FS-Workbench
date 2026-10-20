@@ -64,7 +64,23 @@ else
 fi
 
 say "== 3/6 安装入口 $ENTRY =="
-install -d -o root -g root -m 0755 /usr/local/sbin "$POLICY_DIR"
+# Preserve existing directory permissions; never follow an installation symlink.
+ensure_directory() {
+  local directory="$1" mode="$2"
+  [ ! -L "$directory" ] || die "symlink directory: $directory"
+  if [ -e "$directory" ]; then
+    [ -d "$directory" ] || die "not a directory: $directory"
+    say "preserved: $(stat -c '%n %U:%G %a' "$directory")"
+  else
+    install -d -o root -g root -m "$mode" "$directory"
+  fi
+}
+ensure_directory /usr/local/sbin 0755
+ensure_directory "$POLICY_DIR" 0755
+ensure_directory "$POLICY_DIR/authorizations" 0700
+ensure_directory "$POLICY_DIR/authorizations/fc-coins" 0700
+[ ! -L "$ENTRY" ] || die "symlink entry: $ENTRY"
+[ ! -L "$POLICY" ] || die "symlink policy: $POLICY"
 install -o root -g root -m 0755 "$SRC_ENTRY" "$ENTRY"
 say "installed: $(sha256sum "$ENTRY")"
 
@@ -114,3 +130,4 @@ set -e
 say "exit=$code"
 [ "$code" -eq 2 ] || die "self-check failed: expected usage exit 2"
 say "OK：入口已安装。本脚本没有启动/停止任何服务，也没有改任何源码。"
+
