@@ -128,6 +128,23 @@ class ConsoleTest(unittest.TestCase):
         self.call(h, "/iam/")
         self.assertIn("Set-Cookie", h.response["headers"])
 
+    def test_anonymous_session_is_200_without_user(self):
+        """页面启动第一件事就是问 session。
+
+        这条用 401 会在浏览器控制台留一条红字，看起来像页面坏了；改成
+        200 + user:"" 更干净，前端判断 !user 就摆登录框。其余端点仍是 401。
+        """
+        h = FakeHandler("GET")
+        self.call(h, "/iam/api/session")
+        self.assertEqual(200, h.response["code"])
+        body = json.loads(h.response["body"])
+        self.assertEqual("", body["user"])
+        self.assertIs(False, body["admin"])
+        # 其他端点不跟随：未登录就该是 401
+        h2 = FakeHandler("GET")
+        self.call(h2, "/iam/api/overview")
+        self.assertEqual(401, h2.response["code"])
+
     def test_page_serves_to_admin(self):
         h = FakeHandler("GET", cookie_user=ADMIN)
         self.call(h, "/iam/")
