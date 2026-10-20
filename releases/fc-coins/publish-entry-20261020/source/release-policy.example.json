@@ -67,78 +67,26 @@
     "supplement-insights.js": "/var/www/sites/wulv/fc27-ops/data/supplement-insights.js",
     "sync_players.sh": "/opt/fc27-cloud-browser/sync_players.sh"
    },
-   "target_units": {
-    "activity_log_store.py": [
-     "fc27-cloud-worker"
+   "module_source_dir": "fc27_cloud_browser",
+   "queue_lock": {
+    "module_dir": "/opt/fc27-cloud-browser",
+    "factory": "automation_tick:queue_mutation"
+   },
+   "unit_entrypoints": {
+    "fc27-cloud-api": [
+     "fc27_cloud_api.py"
     ],
-    "automation_policy.py": [
-     "fc27-cloud-worker"
+    "fc27-cloud-worker": [
+     "fc27_cloud_worker.py"
     ],
-    "automation_tick.py": [
-     "fc27-automation-tick.timer",
-     "fc27-cloud-worker"
-    ],
-    "clear_cache_after_write.py": [
-     "fc27-cloud-worker"
-    ],
-    "coin_all_sync_job.py": [
-     "fc27-cloud-worker"
-    ],
-    "collect_competitor.sh": [],
-    "collect_competitor_browser.py": [],
-    "collect_fx.sh": [],
-    "collect_fx_browser.py": [],
-    "collect_lootbar.sh": [],
-    "collect_p2pah_cost.py": [
-     "fc27-cloud-worker"
-    ],
-    "collect_p2pah_cost.sh": [],
-    "execute_price.sh": [],
-    "fc-analytics.css": [],
-    "fc-analytics.js": [],
-    "fc-products.css": [],
-    "fc-products.js": [],
-    "fc27_cloud_api.py": [
-     "fc27-cloud-api"
-    ],
-    "fc27_cloud_worker.py": [
-     "fc27-cloud-worker"
-    ],
-    "fc27_coins_cloud.html": [],
-    "fc27_quote_cloud.js": [],
-    "fc27_quote_engine.py": [
-     "fc27-cloud-worker"
-    ],
-    "index.html": [],
-    "lootbar_server_collector.py": [],
-    "player_sync_job.py": [
-     "fc27-cloud-worker"
-    ],
-    "player_sync_policy.py": [
-     "fc27-cloud-worker"
-    ],
-    "price_writer.py": [
-     "fc27-cloud-worker"
-    ],
-    "repricing_logic.js": [],
-    "restore_price.py": [
-     "fc27-cloud-worker"
-    ],
-    "restore_price.sh": [],
-    "server_quote_job.py": [
-     "fc27-cloud-worker"
-    ],
-    "snapshot-client.js": [],
-    "snapshot_layer.py": [
-     "fc27-cloud-worker"
-    ],
-    "storefront_monitor.py": [
-     "fc27-cloud-worker"
-    ],
-    "supplement-insights.css": [],
-    "supplement-insights.js": [],
-    "sync_players.sh": []
+    "fc27-automation-tick.timer": [
+     "automation_tick.py"
+    ]
    }
   }
+ },
+ "_notes": {
+  "queue_lock": "沿用模块自带的 queue_mutation：不创建锁、拒绝符号链接、校验元数据、NB flock；随后再取 price-writer.lock，顺序不可换。",
+  "unit_entrypoints": "单元 → 进程入口文件；重启集合由真实 import 闭包推导（例如 automation_tick.py 被 api/worker 同时导入，三个单元都要重启），不手写目标→单元。"
  }
 }

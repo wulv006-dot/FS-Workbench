@@ -91,9 +91,10 @@ def preflight(checkout, module, release, pr, entry=DEFAULT_ENTRY):
         "candidates_verified": sorted(rows),
         "live_baseline": "not_checked_here: 只有宿主入口能读 /opt 现场哈希",
         "policy_and_scope": "not_checked_here: 策略文件在宿主 /etc，本端不读",
+        "authorization": "not_checked_here: 授权文件在宿主 /etc/fc27-cloud/authorizations（同一 fd + 父目录无符号链接），只有宿主入口能校验",
         "host_command": f"sudo {entry} {module} {release} {pr}",
         "host_command_apply": f"sudo {entry} {module} {release} {pr} --apply",
-        "note": "宿主入口会重新校验策略、目标白名单、现场基线与队列/锁，本端结论不构成授权",
+        "note": "宿主入口会重新校验策略、目标白名单、现场基线、宿主授权文件、提交作者白名单、队列锁+价格写锁与依赖单元；本端结论不构成授权",
     }
 
 

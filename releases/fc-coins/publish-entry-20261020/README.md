@@ -29,7 +29,8 @@ PR 合并、产物属于准确 merge commit、前后哈希都要验证，并明�
 | 状态根（既有） | `/var/lib/fc27-cloud` |
 | 本次备份（唯一新建目录） | `/var/lib/fc27-cloud/rollback/<UTCSTAMP>-<module>/` |
 | 发布收据（唯一新建文件） | `/var/lib/fc27-cloud/releases/<UTCSTAMP>-<module>.json` |
-| 既有写锁（**只按原协议** flock，不改写、不清空） | `/var/lib/fc27-cloud/state/price-writer.lock` |
+| 队列锁（**先用模块自带 `queue_mutation`**：`O_NOFOLLOW`、不创建、校验属主/权限/`nlink==1`/`0o644`、`NB flock`） | `/var/lib/fc27-cloud/state/automation-tick.lock` |
+| 价格写锁（**队列锁之后**再取，`O_NOFOLLOW`、不创建、`NB flock`，同样校验元数据与 inode） | `/var/lib/fc27-cloud/state/price-writer.lock` |
 | 空闲判定（**只读**） | `queue/*.json`、`jobs/*.json`、`executions/*.json` |
 | 监控读回（只读 GET，既有身份头） | `http://127.0.0.1:8879/monitor` + `/etc/fc27-cloud/monitor-user` |
 
@@ -51,20 +52,36 @@ sudo /usr/local/sbin/fc27-publish <module> <release> <pr-number> [--apply]
 
 ## 4. 校验顺序（任一失败即停，不写）
 
-1. 策略可读、`version == 1`、模块名/目标名/根前缀/单元动词都合法。
+1. 策略可读（同一 fd 校验属主/权限）、`version == 1`、模块名/目标名/根前缀/单元动词/入口文件都合法。
 2. 发布名合法；`<release_prefix><release>/approval.json` **存在于 origin/main**。
-3. `approval.merge_commit` 是 40 hex、**是 origin/main 的祖先**、其 subject 含 `(#<pr>)`（squash 绑定）。
-4. `approval.pr == pr`，`authorized_by`/`authorized_at` 非空，`approval.scope` 与 manifest 的 targets **集合相等**。
-5. manifest 取自 **该 merge commit**（不是工作区）；每个 `before`/`after` 是合法 sha256。
-6. 每个候选字节 = `git cat-file blob <commit>:<base>/source/<name>`，其 sha256 必须等于 `after`。
-7. 每个目标：在策略里、路径与策略逐字符一致、不是 symlink、`realpath` 一致、现场 sha256 必须等于 `before`（否则 `baseline_drift`）。
-8. 空闲与锁：`queue/` 无文件；`jobs/` 无 queued/running、无"auto_cycle 已 confirmed 但未 completed_at"；`executions/` 无 RUNNING/UNCERTAIN/PARTIAL；对既有 `price-writer.lock` 取 `LOCK_EX|LOCK_NB`。
-9. 单元：策略授予 `is-active`，三个单元必须全部 active。
+3. `approval.merge_commit` 是 40 hex、**是 origin/main 的祖先**、其 subject 含 `(#<pr>)`（squash 绑定）、
+   `approval.pr == pr`、`approval.scope` 与 manifest 的 targets **集合相等**。
+4. manifest 取自 **该 merge commit**（不是工作区）；每个 `before`/`after` 是合法 sha256。
+5. 每个候选字节 = `git cat-file blob <commit>:<base>/source/<name>`，其 sha256 必须等于 `after`。
+6. **授权（同一 fd）**：逐级 `O_NOFOLLOW` 打开授权文件及其父目录（任一级是符号链接即失败），
+   在同一 fd 上校验：常规文件、`nlink==1`、属主=策略 `authorization.owner_uid`、权限不含组/其他写、≤64KB；
+   读完后用 `dir_fd` 重新比对 inode，防止"先 stat 后读"之间被替换。内容要求 `merge_commit` 与本次一致、
+   `scope` 与文件清单完全一致、`authorized_by` 非空、`expires_at` 带时区且未过期，
+   且该 merge commit 的**提交作者**在策略白名单里。
+7. 每个目标：在策略里、路径与策略逐字符一致、本身不是 symlink、**父目录每一级都不是 symlink**、现场 sha256 等于 `before`。
+8. 重启单元 **由真实 import 闭包推导**（`unit_entrypoints` → 模块依赖图），推导出的每个单元必须在策略里授予 `restart`/`is-active`。
+9. 空闲：`queue/` 无文件；`jobs/` 无 queued/running、无"auto_cycle 已 confirmed 但未 completed_at"；`executions/` 无 RUNNING/UNCERTAIN/PARTIAL（只读判定）。
+10. **取锁**：先 `queue_mutation`（模块自带协议），再 `price-writer.lock`。
+    锁只以 `O_NOFOLLOW` 只读方式打开、**不 mkdir、不 `a+b` 创建**：缺失、符号链接、`nlink!=1`、属主不对或被组/其他写，一律停止。
+11. `is-active`：推导出的单元必须全部 active。
 
-**什么算"已有发布授权"**：两层同时成立 —— 宿主策略文件声明该模块可发布（root 维护），
-且本次 release 目录里的 `approval.json`（经 PR 合并进 main）写明 `pr`、`merge_commit`、
-`authorized_by`、`authorized_at`、`scope`，`scope` 与文件清单完全一致。缺一层都不发布。
-PR 合并本身不构成生产授权。
+**取锁后、停服务后各再核一次**（`reverify`）：授权有效期、候选 blob 哈希、现场 `before`。
+等待锁之前的检查结果不能直接用于发布；任何一处不符即中止，未写先退回。
+
+**什么算"已有发布授权"**（可验证，不靠自填字段）：
+
+1. 宿主策略 `/etc/fc27-cloud/release-policy.json` 声明该模块可发布、哪些文件、哪些单元 —— root 维护，仓库改不动；
+2. 宿主授权文件 `authorizations/<module>/<release>.json` 绑定**同一个 merge commit** 与**同一份文件清单**，
+   有到期时间，由 root 写入且不可被组外改写；文件与父目录都不接受符号链接；
+3. 该 merge commit 的**提交作者**在策略 `authorization.commit_authors` 白名单里；
+4. 仓库里的 `approval.json` 只是声明（pr / merge_commit / scope），必须与上面三者对齐 —— 它本身不构成授权。
+
+所以"在 PR 里填个 authorized_by 和时间"发不出去；PR 合并本身也不构成生产授权。
 
 ## 5. 允许动作（穷举）
 
@@ -72,7 +89,7 @@ PR 合并本身不构成生产授权。
 |---|---|---|
 | 白名单文件 | 原子替换（临时文件 `.<name>.publish-tmp` → fsync → `os.replace` → fsync 目录），保留 mode/uid/gid | 仅 `targets` 内的 37 个路径 |
 | systemd | `is-active`、`stop`、`restart` | 仅 `fc27-cloud-api`、`fc27-cloud-worker`、`fc27-automation-tick.timer` |
-| 单元选择 | 由目标推导：`automation_tick.py` → timer + worker；`fc27_cloud_api.py` → api；其他 .py → worker；`.sh`/`/opt/fc27-collector/*`/静态文件 → 不重启 | 同一单元只停/启一次 |
+| 单元选择 | **由真实 import 闭包推导**：哪个单元的入口进程（策略 `unit_entrypoints`）直接或间接 import 了被替换的模块，就重启哪个单元。`automation_tick.py` 被 api、worker 同时 import → 三个单元全部重启；`.sh`/静态文件不匹配任何模块 → 不重启 | 同一单元只停/启一次 |
 | 目录 | `mkdir` 本次 `rollback/<stamp>-<module>/`、`releases/` 收据 | `O_EXCL`，不覆盖既有 |
 | 读 | 策略、git 对象、目标现场哈希、`monitor` GET | 只读 |
 
@@ -86,9 +103,11 @@ PR 合并本身不构成生产授权。
 |---|---|---|---|
 | 校验 | 直接退出，不创建任何目录 | 无 | 3（`baseline_drift` 为 4） |
 | 忙/锁占用 | 直接退出 | 无 | 5 |
+| **停服务失败** | 立即停止发布，**不替换任何文件**；已停的单元按回退流程处理 | `rolled_back` | 6 |
 | 停单元后未写入 | 重新拉起单元 | `rolled_back`（`nothing_written`） | 6 |
 | 写入/重启/读回失败 | 停单元 → 用备份换回 → 重启 → 逐个核对 `before` | `rolled_back` | 6 |
 | 文件字节无法恢复到 `before` | 停止重试，保留现场 | `unknown_write_state` | 7 |
+| 字节已恢复但单元没起来/回退时停服务失败 | 记录 `unit_errors`，不当作成功 | `rolled_back_unit_errors` | 6 |
 
 收据始终落盘（成功或失败都写），另有 `journald`。失败后**不自动重试**，未知写入视为未知，不盲重放。
 备份目录保留，人工确认后再清理。
@@ -158,7 +177,7 @@ python3 source/rehearse.py --release-dir ../../../releases/fc-coins/<release> --
 `baseline`（应 `baseline_drift`）、`scope`（应 `approval_scope_mismatch`）、`pr`（应 `approval_pr_mismatch`）。
 
 2026-10-20 用 PR #231 的真实发布目录（4 文件真实字节）实跑结果：五场景全部符合预期，
-`base` 推导出的单元为 `fc27-automation-tick.timer` + `fc27-cloud-worker`，同一单元只停/启一次。
+`base` 在真实字节上推导出三个单元都要重启（`automation_tick.py` 被 api、worker、timer 同时加载），同一单元只停/启一次。
 
 沙盒的三处映射会写进报告 `scope`：策略 `/opt` 路径映射进沙盒、`approval.json` 为生成（`rehearsal: true`）、
 无 `--live-dir` 时用候选字节当现场基线。**这些都不是生产状态**，只证明校验路径与拒绝条件成立。
@@ -169,7 +188,7 @@ python3 source/rehearse.py --release-dir ../../../releases/fc-coins/<release> --
 cd releases/fc-coins/publish-entry-20261020 && python3 -m unittest discover -s tests -t tests
 ```
 
-57 条用例，覆盖：策略/白名单越界、目标名/发布名路径穿越、PR 与 merge commit 绑定、
+88 条用例，覆盖：策略/白名单越界、目标名/发布名路径穿越、PR 与 merge commit 绑定、
 scope 不一致、候选字节与 commit 不符、现场基线漂移、symlink、队列/作业/执行未结、
 锁占用、单元 inactive、单元动词越权、成功发布（备份+收据+原子替换+停启顺序+去重）、
 重启失败回退、读回不符回退、保护文件漂移回退、健康超时回退、回退失败→unknown、调用端预检与不写入。

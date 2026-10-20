@@ -21,7 +21,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -32,9 +34,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import fc27_publish_entry as entry  # noqa: E402
 
-SCENARIOS = ("base", "candidate", "baseline", "scope", "pr")
+SCENARIOS = ("base", "candidate", "baseline", "scope", "pr", "authz")
 EXPECT = {"base": None, "candidate": "candidate_hash_mismatch", "baseline": "baseline_drift",
-          "scope": "approval_scope_mismatch", "pr": "approval_pr_mismatch"}
+          "scope": "approval_scope_mismatch", "pr": "approval_pr_mismatch",
+          "authz": "path_missing"}
+
+
+def _null_queue():
+    """沙盒里没有模块的 queue_mutation，用空上下文代替；真实入口必须用它自己的协议。"""
+    return contextlib.nullcontext()
 
 
 def sha(path):
@@ -49,7 +57,9 @@ def git(repo, *args, check=True):
 class Sandbox:
     """三提交结构：A=基线，B=带 (#pr) 的 squash 形态提交（=merge_commit），C=main 顶端（放最终 approval）。"""
 
-    def __init__(self, root, release_dir, policy_path, module, release, pr, live_dir=None):
+    def __init__(self, root, release_dir, policy_path, module, release, pr, live_dir=None,
+                 repo_root=None):
+        self.repo_root = Path(repo_root or Path(__file__).resolve().parents[4])
         self.root = Path(root)
         self.release_dir = Path(release_dir)
         self.policy_path = Path(policy_path)
@@ -93,14 +103,27 @@ class Sandbox:
         module_policy = policy["modules"][self.module]
         module_policy["allowed_roots"] = [str(self.live_root)]
         module_policy["targets"] = {name: str(self.live_root / name) for name in targets}
-        module_policy["target_units"] = {name: module_policy.get("target_units", {}).get(name, [])
-                                         for name in targets}
+        self.authorization_dir = self.root / "authorizations"
+        (self.authorization_dir / self.module).mkdir(parents=True)
+        policy["authorization"] = {"dir": str(self.authorization_dir), "owner_uid": os.getuid(),
+                                   "commit_authors": ["rehearsal@local"]}
+        # unit_entrypoints / module_source_dir 原样保留：重启集合由真实 import 闭包推导
         self.policy_sandbox = self.root / "release-policy.json"
         self.policy_sandbox.write_text(json.dumps(policy, ensure_ascii=False, indent=1), encoding="utf-8")
 
         # 发布目录（候选字节原样）
         release_out = self.checkout / self.base
         shutil.copytree(self.release_dir / "source", release_out / "source")
+
+        # 模块快照：沙盒里也要有整模块，import 闭包才推得出来（真实生产用 /opt 现场）
+        source_dir = module_policy["module_source_dir"].rstrip("/")
+        snapshot_dst = self.checkout / source_dir
+        snapshot_src = self.repo_root / source_dir
+        snapshot_dst.mkdir(parents=True, exist_ok=True)
+        for candidate in sorted(snapshot_src.glob("*.py")):
+            shutil.copy2(candidate, snapshot_dst / candidate.name)
+        for candidate in sorted((self.release_dir / "source").glob("*.py")):
+            shutil.copy2(candidate, snapshot_dst / candidate.name)
         out = {"targets": {name: {"target": str(self.live_root / name), "before": before[name],
                                   "after": sha(release_out / "source" / name)} for name in targets}}
         (release_out / "targets.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -135,6 +158,18 @@ class Sandbox:
 
         approval["merge_commit"] = merge_commit
         approval_path.write_text(json.dumps(approval, ensure_ascii=False, indent=1), encoding="utf-8")
+        # 宿主授权文件（沙盒等价物；生产由 root 写在 /etc/fc27-cloud/authorizations）
+        if scenario != "authz":
+            auth_path = self.authorization_dir / self.module / f"{self.release}.json"
+            auth_path.write_text(json.dumps({
+                "merge_commit": merge_commit,
+                "scope": sorted(targets),
+                "authorized_by": "rehearsal",
+                "authorized_at": "2026-10-20T00:00:00+08:00",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            }, ensure_ascii=False, indent=1), encoding="utf-8")
+            os.chmod(auth_path, 0o640)
+
         git(self.checkout, "add", "-A")
         git(self.checkout, "commit", "-q", "-m", "rehearsal approval")      # C
         git(self.checkout, "update-ref", "refs/remotes/origin/main", "HEAD")
@@ -147,6 +182,7 @@ class Sandbox:
             paths=entry.Paths(policy=self.policy_sandbox, checkout=self.checkout, state_root=self.state_root),
             artifacts=entry.GitArtifacts(self.checkout),
             systemd=lambda unit, action: (True, "active" if action == "is-active" else "ok"),
+            queue_factory=_null_queue,
             monitor=lambda: {"health": {"worker": "ok"}},
             sleep=lambda _s: None,
         )
