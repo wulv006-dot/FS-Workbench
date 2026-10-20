@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "status": "branch_created_pr_in_progress",
+  "base_commit": "e72ecf3f7b6ab85d21d4720c5284bbacd8d87f60",
+  "branch": "codex/hermes-admin-recovery-20261020",
+  "github_branch_creation": "created_after_user_authorization",
+  "files": [
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/controller.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/source/controller.py",
+      "sha256": "06dd0acb055b5144fb8469be9778200093ed956e38f6dedcdc82a6684adc8d31",
+      "bytes": 57630
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/fc_daily.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/source/fc_daily.py",
+      "sha256": "056e1a16fcd48cda19903e17ecdeda4d3739d54f62525edbf5ec8dfc1ad3d6fa",
+      "bytes": 15781
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/test_admin_recovery.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/test_admin_recovery.py",
+      "sha256": "aef8616c2c4cbec0f41c3e35d5e038a809812737e054e559088d69a4ebdb3fe6",
+      "bytes": 15107
+    },
+    {
+      "repo_path": "tools/pr_fast.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/candidate/tools/pr_fast.py",
+      "sha256": "3646a21795e69f91daf26e7077c4521491ac0eb439e3e7bce7c84ccb08ec1341",
+      "bytes": 72280
+    },
+    {
+      "repo_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
+      "local_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
+      "sha256": "964038e77423944516c4381d23dff299683b4ba79e12b1f593224435711b8625",
+      "bytes": 5099
+    },
+    {
+      "repo_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
+      "local_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
+      "sha256": "ad5686b9fe79364b4e8773b29e876a221d765e45bf2dd30b79039ea2877465da",
+      "bytes": 929
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/deploy/release.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/deploy/release.py",
+      "sha256": "1bee31d7f0ed212e686b38fb76949f61c54b34df847c532db6a063a655b53153",
+      "bytes": 4158
+    }
+  ],
+  "runtime_targets": {
+    "source/controller.py": "/opt/fs-hermes-fc/controller.py",
+    "source/fc_daily.py": "/opt/fs-exact-range-20261001/fc_daily.py"
+  },
+  "runtime_mapping_status": "fresh_host_source_sha_verified",
+  "tests": 15,
+  "live_acceptance": false,
+  "active_before": {
+    "/opt/fs-exact-range-20261001/fc_daily.py": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80",
+    "/opt/fs-hermes-fc/controller.py": "01e2687ea0a6a2786808bdac158340de6f51cc00e7cbf77cdef753bd4da7e774"
+  },
+  "pull_request": "https://github.com/wulv006-dot/FS-Workbench/pull/245"
+}
