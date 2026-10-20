@@ -163,13 +163,19 @@ class WatchChecks(unittest.TestCase):
     def test_incident_change_only_and_recovery(self):
         self.snapshot(['latest_coin_job_failed'])
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
+        first = watch.read(self.home/'watch-state.json')['incident']
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'unchanged_quiet')
+        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], first)
+        self.snapshot(['latest_coin_job_failed'], repair={'status':'pr_open'})
+        self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
+        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], first)
         self.snapshot()
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(len(self.calls), 3)
         self.snapshot(['latest_coin_job_failed'])
         self.assertEqual(watch.run(self.home, self.transport, NOW+timedelta(seconds=1))['state'], 'sent')
-        self.assertEqual(len(self.calls), 3)
+        self.assertEqual(len(self.calls), 4)
+        self.assertNotEqual(watch.read(self.home/'watch-state.json')['incident'], first)
 
     def test_group_routes_both_owners(self):
         config = {'owners': {'codex': 'ou_codex', 'workbuddy': 'ou_buddy'}}

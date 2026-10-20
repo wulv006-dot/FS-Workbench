@@ -69,7 +69,9 @@ def run(home=HOME, transport=send, now=None):
     if not issues and not previous.get('issues') and not repair:
         write(home/'watch-state.json', {'signature': signature, 'issues': [], 'checked_at': now.isoformat()})
         return {'state': 'healthy_quiet'}
-    incident = sha(json.dumps(issues).encode())[:16]
+    incident = previous.get('incident') if issues == previous.get('issues') else None
+    if not incident:
+        incident = sha((str(previous.get('signature')) + str(previous.get('checked_at')) + json.dumps(issues)).encode())[:16]
     config = read(home/'private-target.json')
     def request_repair():
         action = 'brain-theme' if snapshot.get('brain', {}).get('repairable') and 'brain_ui_dependencies_missing' in issues else 'monitor-health' if snapshot.get('monitor_repairable') and 'monitor_known_health_schema_regression' in issues else None
@@ -92,7 +94,7 @@ def run(home=HOME, transport=send, now=None):
         return {'state': 'notification_unknown_no_retry'}
     if old.get('state') == 'sent':
         request_repair()
-        write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'checked_at': now.isoformat()})
+        write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'incident': incident, 'checked_at': now.isoformat()})
         return {'state': 'reconciled_sent'}
     write(pending, {'state': 'sending', 'signature': signature, 'created_at': now.isoformat()})
     try:
@@ -103,7 +105,7 @@ def run(home=HOME, transport=send, now=None):
     except Exception as error:
         write(pending, {'state': 'unknown', 'error': type(error).__name__, 'checked_at': now.isoformat()})
         return {'state': 'notification_unknown_no_retry'}
-    write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'checked_at': now.isoformat()})
+    write(home/'watch-state.json', {'signature': signature, 'issues': issues, 'incident': incident, 'checked_at': now.isoformat()})
     request_repair()
     return {'state': 'sent', 'message_id': mid}
 
