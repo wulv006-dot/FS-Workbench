@@ -318,6 +318,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/hermes-admin-recovery-20261020/"):
+            groups.add("hermes-admin-recovery");continue
         if name.startswith("releases/fc-players/shared-login-20261018/") or name in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py"):
             groups.add("fc-players-shared-login");continue
         if name.startswith("releases/fs-dashboard/hermes-data-workspace-20261018/"):
@@ -895,6 +897,8 @@ def main():
             node(workspace+"/frontend/test-workspace.cjs")
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
+        elif group=="hermes-admin-recovery":
+            units("releases/fs-dashboard/hermes-admin-recovery-20261020",["test_admin_recovery"])
         elif group=="hermes-report-method":
             units("releases/fs-dashboard/hermes-report-method-20261017/tests",["test_method","test_html_archive","test_followup_input","test_followup_admin_tools"])
             node("releases/fs-dashboard/hermes-report-method-20261017/tests/test_viewer.cjs")
@@ -947,6 +951,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 

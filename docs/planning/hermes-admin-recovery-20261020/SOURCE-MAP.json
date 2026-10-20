@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "status": "branch_created_pr_in_progress",
+  "base_commit": "e72ecf3f7b6ab85d21d4720c5284bbacd8d87f60",
+  "branch": "codex/hermes-admin-recovery-20261020",
+  "github_branch_creation": "created_after_user_authorization",
+  "files": [
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/controller.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/source/controller.py",
+      "sha256": "06dd0acb055b5144fb8469be9778200093ed956e38f6dedcdc82a6684adc8d31",
+      "bytes": 57630
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/fc_daily.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/source/fc_daily.py",
+      "sha256": "056e1a16fcd48cda19903e17ecdeda4d3739d54f62525edbf5ec8dfc1ad3d6fa",
+      "bytes": 15781
+    },
+    {
+      "repo_path": "releases/fs-dashboard/hermes-admin-recovery-20261020/test_admin_recovery.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/test_admin_recovery.py",
+      "sha256": "6c1e413bd7d10526c4c94ebf3eeb917296a4c2241d52c6706c381a203bbc68a9",
+      "bytes": 10881
+    },
+    {
+      "repo_path": "tools/pr_fast.py",
+      "local_path": "fs_hermes_admin_recovery_20261020/candidate/tools/pr_fast.py",
+      "sha256": "3646a21795e69f91daf26e7077c4521491ac0eb439e3e7bce7c84ccb08ec1341",
+      "bytes": 72280
+    },
+    {
+      "repo_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
+      "local_path": "docs/planning/hermes-admin-recovery-20261020/README.md",
+      "sha256": "6a917dfe59b474db474711bd5783305070fd20fce05b139e6f19aa1088729fe9",
+      "bytes": 4391
+    },
+    {
+      "repo_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
+      "local_path": "docs/planning/hermes-admin-recovery-20261020/PR-BODY.md",
+      "sha256": "ad5686b9fe79364b4e8773b29e876a221d765e45bf2dd30b79039ea2877465da",
+      "bytes": 929
+    }
+  ],
+  "runtime_targets": {
+    "source/controller.py": "/opt/fs-hermes-fc/controller.py",
+    "source/fc_daily.py": "/opt/fs-exact-range-20261001/fc_daily.py"
+  },
+  "runtime_mapping_status": "fresh_host_source_sha_verified",
+  "tests": 13,
+  "live_acceptance": false,
+  "active_before": {
+    "/opt/fs-exact-range-20261001/fc_daily.py": "5b4a00a3da8e6cfed5e85aa1c3c5de998c8e49b87c3ca3fae7bad3c299fa0b80",
+    "/opt/fs-hermes-fc/controller.py": "01e2687ea0a6a2786808bdac158340de6f51cc00e7cbf77cdef753bd4da7e774"
+  }
+}
