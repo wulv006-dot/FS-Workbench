@@ -12,6 +12,6 @@
 
 ## 边界
 
-- 管理端不改 `/fs-source`（宿主机 `/opt/fs-hermes-fc` 的读写 bind mount）以外的线上文件。
-- FC 自动采价/改价/Player 同步文件以宿主 `/opt/fc27-cloud-browser` 为运行真源；仓库顶层的 `fc27_cloud_browser/` 是 2026-10-05 归档口径，**不等于线上**。
+- **生产变更一律走发布入口，没有例外。** `/fs-source` 是宿主机 `/opt/fs-hermes-fc` 的读写 bind mount，能写不等于可以直接改：即使只改 `/fs-source`，也要先 PR、再按该模块既有 publisher 发布，不能就地热修。
+- FC 自动采价/改价/Player 同步文件以宿主 `/opt/fc27-cloud-browser` 为运行真源；仓库顶层的 `fc27_cloud_browser/` 是 2026-10-05 归档口径，**不等于线上**。发布入口见 `releases/fc-coins/publish-entry-20261020/README.md`。
 - 代码完成、PR 合并、生产部署、实际业务恢复是四件独立的事，分别记录，不互相顶替。
