@@ -318,6 +318,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/hermes-ops-20261020/"):
+            groups.add("hermes-ops");continue
         if name.startswith("releases/fs-dashboard/hermes-admin-recovery-20261020/"):
             groups.add("hermes-admin-recovery");continue
         if name.startswith("releases/fc-players/shared-login-20261018/") or name in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py"):
@@ -901,6 +903,8 @@ def main():
             node(workspace+"/frontend/test-workspace.cjs")
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
+        elif group=="hermes-ops":
+            units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
         elif group=="hermes-admin-recovery":
             units("releases/fs-dashboard/hermes-admin-recovery-20261020",["test_admin_recovery"])
         elif group=="hermes-report-method":
