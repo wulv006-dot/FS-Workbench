@@ -136,7 +136,7 @@ def rename_source_selfcheck():
         regular.write_text("VALUE=2\n")
         git("add","-A");git("commit","-qm","synthetic moves and modification")
         head=git("rev-parse","HEAD").decode().strip()
-        command=[base if token=="$PR_BASE" else head if token=="$PR_HEAD" else token for token in command]
+        command=[base if token=="" else head if token=="" else token for token in command]
         paths=subprocess.check_output(command,cwd=root).decode("utf-8").rstrip("\0").split("\0")
         expected={name for pair in pairs for name in pair}|{"fc27_quote_engine.py"}
         if set(paths)!=expected:raise RuntimeError("rename_source_omitted_by_workflow")
@@ -533,6 +533,8 @@ def select(paths):
             groups.add("iam");continue
         if name.startswith("releases/fc-coins/publish-entry-20261020/") and suffix in (".py", ".json", ".sh"):
             groups.add("fc-publish-entry");continue
+        if name.startswith("releases/fc-coins/monitor-health-20261020/") and suffix in (".py", ".json"):
+            groups.add("monitor-health");continue
         if name.startswith("releases/fc-coins/source-policy-20261020/") and suffix in (".py", ".json"):
             groups.add("fc-source-policy");continue
         if name.startswith("releases/fc-coins/natural-recovery-20261020/") and suffix in (".py", ".sh"):
@@ -867,6 +869,8 @@ def main():
         elif group=="fc-publish-entry":
             # 宿主发布入口与调用端：策略/白名单/批准绑定/回退，全部注入假 git、systemd、monitor。
             units("releases/fc-coins/publish-entry-20261020/tests", ["test_publish_entry", "test_fc_publish", "test_calibrate"])
+        elif group=="monitor-health":
+            units("releases/fc-coins/monitor-health-20261020/tests", ["test_monitor", "test_publish"])
         elif group=="fc-source-policy":
             units("releases/fc-coins/source-policy-20261020", ["test_source_guard", "test_recovery_guard"])
             units("releases/fc-coins/natural-recovery-20261020", ["test_recovery"])
