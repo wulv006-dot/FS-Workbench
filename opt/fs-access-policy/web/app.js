@@ -60,11 +60,18 @@
       $('who').textContent = d.policy.actor + (d.members.some(function (m) { return m.subject === d.policy.actor && m.admin; }) ? ' · 管理员' : '');
       $('nav-members').textContent = d.members.length;
       $('nav-roles').textContent = d.policy.roles.length;
+      // 侧栏底部只放「一眼要看得到」的信息：版本、修订、谁什么时候改的。
+      // 路径很长，单行省略 + title 兜完整值，否则会把侧栏底部顶成三四行。
+      var fullPath = String(d.meta.path || '');
+      var shortPath = fullPath.replace(/^\/opt\/auth-portal\/data\//, '');
+      var stamp = String(d.meta.updatedAt || '').replace('T', ' ');
+      if (stamp.length >= 16) stamp = stamp.slice(5, 16);
+      var fullRev = String(d.meta.revision || '');
       $('side-foot').innerHTML =
-        '策略版本 <b>#' + esc(d.meta.generation) + '</b><br>' +
-        '修订 <b class="mono">' + esc(d.meta.revision) + '</b><br>' +
-        '更新 <b>' + esc((d.meta.updatedAt || '').replace('T', ' ')) + '</b> · ' + esc(d.meta.updatedBy) +
-        '<br><span class="dim">' + esc(d.meta.path) + '</span>';
+        '策略版本 <b>#' + esc(d.meta.generation) + '</b> · 修订 <b class="mono" title="' + esc(fullRev) + '">' +
+        esc(fullRev.slice(0, 8)) + '</b><br>' +
+        '更新 <b>' + esc(stamp || '—') + '</b> · ' + esc(d.meta.updatedBy || '—') +
+        '<span class="fp" title="' + esc(fullPath) + '">' + esc(shortPath) + '</span>';
       if (d.degraded) {
         S.degraded = d.degraded;
       }
@@ -163,7 +170,7 @@
       '<p>成员来自门户统一登录（内置账号）与注册审批（注册账号）。在这里只分配<b>角色</b>，密码仍在「账号与密码」页维护。</p></div>' +
       '</div>' +
       '<div class="stats">' + statCard('成员总数', d.members.length) + statCard('管理员', admins) +
-      statCard('可授权角色', d.policy.roles.length) + statCard('未授权', none, '人') +
+      statCard('可授权角色', d.policy.roles.length) + statCard('未分配角色', none, '人') +
       (reg ? statCard('注册账号', reg) : '') + '</div>' +
       '<div class="card"><div class="card-head"><div><h2>成员列表</h2>' +
       '<div class="sub">「可写」= 该成员在多少个资源上拿到了改数据 / 执行 / 部署 / 授权</div></div>' +
@@ -449,7 +456,15 @@
     api(q).then(function (d) {
       var v = d.decision;
       var allow = v.code === 200;
-      var path = ['成员', '角色', '规则', '资源', '动作', '结论'];
+      // 决策链不再是纯装饰的六个空标签，每一步都带上真实值 —— 排障时能直接顺着读下来。
+      var chain = [
+        ['成员', v.subject || '—'],
+        ['角色', (v.roles || []).join(' + ') || '未绑定'],
+        ['规则', (v.matched || []).join('、') || '无'],
+        ['资源', v.resource || '—'],
+        ['动作', v.action || '—'],
+        ['结论', String(v.code)]
+      ];
       var hits = (v.matched || []).join('、') || '无';
       $('ck-result').innerHTML =
         '<div class="verdict"><div class="big ' + (allow ? 'allow' : 'deny') + '">' +
@@ -465,8 +480,9 @@
         '<dt>所需动作</dt><dd>' + esc(v.actionLabel || v.action) + ' <span class="dim mono">' + esc(v.action) + '</span></dd>' +
         '<dt>状态码</dt><dd class="mono">' + esc(v.code) + '</dd>' +
         '</dl>' +
-        '<div class="pathbar">' + path.map(function (p, i) {
-          return '<span class="step' + (i === 5 ? ' on' : '') + '">' + esc(p) + '</span>' + (i < 5 ? '<span class="arrow">›</span>' : '');
+        '<div class="pathbar">' + chain.map(function (p, i) {
+          return '<span class="step' + (i === chain.length - 1 ? ' on' : '') + '"><b>' + esc(p[0]) + '</b>' +
+            esc(p[1]) + '</span>' + (i < chain.length - 1 ? '<span class="arrow">›</span>' : '');
         }).join('') + '</div>';
     }).catch(function (e) {
       $('ck-result').innerHTML = '<div class="empty">判定失败：' + esc(e.message) + '</div>';
