@@ -23,6 +23,21 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "must run as root"
+
+# 安装会建立“长期以 root 替换指定文件并重启三个单元”的权限，必须显式声明已获授权。
+if [ "${FC27_INSTALL_AUTHORIZED:-}" != "1" ]; then
+  cat >&2 <<'EOM'
+REFUSED: 这是持久发布权限的安装，需要单独授权，CI 通过不构成授权。
+
+确认以下三项都已明确后再运行：
+  1) 谁授权（人）、授权到哪一版入口（本目录 source/fc27_publish_entry.py 的 sha256）；
+  2) 范围（模块 fc-coins + 策略里的目标清单 + 三个单元）；
+  3) 时间窗与回滚方式（README §7.5 的卸载命令）。
+
+确认后： FC27_INSTALL_AUTHORIZED=1 sudo -E bash install.sh
+EOM
+  exit 3
+fi
 [ -f "$SRC_ENTRY" ] || die "missing $SRC_ENTRY"
 [ -f "$SRC_POLICY" ] || die "missing $SRC_POLICY"
 command -v systemctl >/dev/null 2>&1 || die "systemctl not found: not the host?"
@@ -44,7 +59,7 @@ if [ -d "$CHECKOUT/.git" ]; then
 else
   say "缺失：发布入口只读 $CHECKOUT 的 git 对象，不读工作区。私有仓库需 root 侧凭据："
   say "  git clone <repo-url> $CHECKOUT && chown -R root:root $CHECKOUT && chmod -R go-w $CHECKOUT"
-  say "  git -C $CHECKOUT fetch --prune     # 每次发布前由 root 刷新，入口自己不联网"
+  say "  git -C $CHECKOUT fetch --prune     # 该 fetch 会联网，是 root 单独执行的运维动作，不属于发布入口"
   say "未建检出时所有发布都会 fail-closed。"
 fi
 
