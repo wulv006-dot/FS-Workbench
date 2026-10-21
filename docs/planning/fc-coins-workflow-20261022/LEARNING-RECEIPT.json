@@ -1,0 +1,63 @@
+{
+  "source": "f28998eba2c74920be6534e295aed4d6",
+  "event": "ac81102744a9c7ef79f7b4288f1db9c73a10db6dd11c1677ea64f0eeacac34b8",
+  "source_hash": "c478f3822e3040f12f982905417cc0154a7dd56b75a8bae3f69b9c86cb8b761a",
+  "candidate": {
+    "id": "b78c03bb723aad3656d420edb070adeea7c18a9a55ae80a5d45a205798e97259",
+    "content_hash": "704691cfb67245abdcefdf8faff0384b279b0cae1e0818d398cf1ca4135f0bcc",
+    "risk": "L1",
+    "expires_at": "2027-04-21T00:00:00+00:00"
+  },
+  "content": {
+    "applies_to": "FC Coins 定价模拟回执的复盘与候选核验；不适用于缺少同口径回执、输入口径未核或需要真实订单/广告归因的场景。",
+    "counterexample": "若回执没有行级或交易级预算字段，或成本与含赠送口径未核，则不能把“最紧约束/该档预算”外推；若主候选已是最终尾价、无独立尾价步骤，分层检查不产生新信息，应停在现有结论并标未知。",
+    "evidence_refs": [
+      "ev_59c8cae599a0a2ef2be0e10b",
+      "conversation:f28998eba2c74920be6534e295aed4d6:42fc0ebcc9fb7a3649734682bd009b16fd774d2e5fce30067aa1056541d5fe3f"
+    ],
+    "expires_at": "2027-04-21T00:00:00+00:00",
+    "kind": "experience",
+    "lesson": "遇到定价模拟报告，先分命题：历史描述、未来需求假设、价格因果，分别找证据，不互相替代。先锁定输入口径（平台、优惠档、含赠送成本、广告是否未知），只读机器回执对应字段；再核对主候选方向与尾价选择是否有行级/交易级字段支持，逐优惠档看底线、预算和最紧约束；交易级未给预算就记未知，不能用行级拒绝推断该档更紧。程序结论只限定为声明输入下可行，不写成最优、增利或因果；未显示的授权字段标待核。撤回历史描述仅在原输入或原核算被有效证据纠正时发生，未来观察窗的新结果只检验未来假设；广告未知不得补零，广告后贡献及其保本门槛保持未知。"
+  },
+  "publication_steps": [
+    {
+      "action": "publish",
+      "manifest_sha256": "9d5665a4dffa67cf20035541915effa92f4622001a141a2206580b939d33c369",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e",
+        "b78c03bb723aad3656d420edb070adeea7c18a9a55ae80a5d45a205798e97259"
+      ],
+      "affected_tasks": [],
+      "business_write_performed": false
+    },
+    {
+      "action": "revoke",
+      "manifest_sha256": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "affected_tasks": [],
+      "business_write_performed": false
+    },
+    {
+      "action": "republish",
+      "manifest_sha256": "9d5665a4dffa67cf20035541915effa92f4622001a141a2206580b939d33c369",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e",
+        "b78c03bb723aad3656d420edb070adeea7c18a9a55ae80a5d45a205798e97259"
+      ],
+      "affected_tasks": [],
+      "business_write_performed": false
+    }
+  ],
+  "auto_publish": false,
+  "final_state": "published_after_reviewed_revoke_and_republish",
+  "original_experiences_preserved": true,
+  "scope": "method only; business facts, policies and prices unchanged"
+}

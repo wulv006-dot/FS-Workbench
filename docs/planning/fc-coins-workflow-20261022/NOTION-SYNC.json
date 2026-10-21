@@ -1,0 +1,28 @@
+{
+  "page_id": "3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a",
+  "url": "https://app.notion.com/p/3ff9a8a79c4e81bc8a4feb15aab87a5a",
+  "business_baseline": "business-baseline-20261021-v9",
+  "workflow": "astra-fc-coins-v2",
+  "async_tasks": [
+    {
+      "id": "task_caf18b383be54f1ca380771d2768efd8",
+      "status": "succeeded"
+    },
+    {
+      "id": "task_4e2bfe26e86641fa911f5de66b666963",
+      "status": "succeeded"
+    }
+  ],
+  "readback": {
+    "version9": true,
+    "shared_cost_market": true,
+    "new_section20": true,
+    "protected418": true,
+    "experience_cycle": true,
+    "old_model_marked_history": true,
+    "admin_section_preserved": true,
+    "codex_appendix_preserved": true
+  },
+  "page_last_edited_at": "2026-10-21T17:26:53.282Z",
+  "weekly_first_run_verified": false
+}
