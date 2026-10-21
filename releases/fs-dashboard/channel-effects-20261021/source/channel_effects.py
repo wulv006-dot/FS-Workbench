@@ -174,7 +174,7 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
                    refunded=str(order.get('pay_status')) == '2' or '退款' in clean(order.get('status_format')),
                    country=clean(order.get('country_code') or order.get('country')) or '国家未提供',
                    payment=clean(order.get('paytype_display') or order.get('paytype')) or '支付方式未提供',
-                   customerType={'1': '新客', '0': '老客'}.get(str(order.get('isNew')), '新老客未提供'),
+                   customerType='新老客未提供',
                    coupons=logs.get(sn, []), **costs.get(sn, EMPTY_COST), **attribution.resolve(order))
         result.append(row)
     return result
@@ -342,6 +342,9 @@ class ChannelService:
                     self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
                     self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
             if data:
+                if self.source is None:
+                    from channel_source import apply_customer_types
+                    data = apply_customer_types(data)
                 result = view(data, query)
                 result.update(status='available', refreshing=state in ('pending','cost_pending'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
                 return 200, result

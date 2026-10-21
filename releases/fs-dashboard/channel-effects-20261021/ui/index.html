@@ -47,7 +47,7 @@
       <div class="two-columns">
         <section class="panel" aria-labelledby="countries-title"><h2 id="countries-title">国家 / 地区</h2><div id="countries"></div></section>
         <section class="panel" aria-labelledby="payments-title"><h2 id="payments-title">支付方式</h2><div id="payments"></div></section>
-        <section class="panel" aria-labelledby="customers-title"><h2 id="customers-title">新老客</h2><div id="customers"></div></section>
+        <section class="panel" aria-labelledby="customers-title"><h2 id="customers-title">新老客</h2><p class="muted">以该笔订单下单时 ES「是否新客户」为准；缺失或冲突单列。</p><div id="customers"></div></section>
         <section class="panel" aria-labelledby="states-title"><h2 id="states-title">订单状态</h2><div id="states"></div></section>
       </div>
       <section class="panel" aria-labelledby="orders-title"><div class="section-header"><h2 id="orders-title">订单明细</h2><label>排序<select id="sort"><option value="paidAt">付款时间</option><option value="salesUsd">销售额 USD</option><option value="costCny">采购成本 ¥</option><option value="profitCny">毛利 ¥</option></select></label><button id="direction" type="button" aria-label="切换排序方向">降序 ↓</button></div><div id="orders"></div><nav class="pagination" aria-label="订单分页"><span id="total"></span><button id="prev" type="button">上一页</button><span id="page"></span><button id="next" type="button">下一页</button></nav></section>

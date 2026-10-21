@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from channel_effects import Attribution, ChannelService, TZ, metrics, money, normalize, parse_query, view
-from channel_source import pages, windows
+from channel_source import pages, windows, apply_customer_types, customer_types
 from channel_cost_source import delivery_timestamp
 
 
@@ -42,6 +42,44 @@ class Effects(unittest.TestCase):
 
     def data(self):
         return dict(period=self.period, generatedAt=datetime.now(TZ).isoformat(), orders=self.rows(), sources={}, mapping={})
+
+    def test_customer_uses_order_time_es_flag_and_corrects_old_cache(self):
+        import hashlib
+        data = self.data()
+        for row in data['orders']: row['customerType'] = '老客'
+        records = [dict(订单号=hashlib.sha256(sn.encode()).hexdigest(), 付款时间='2026/10/20 12:00:00', 是否新客户=flag) for sn, flag in [('A','是'),('B','否')]]
+        dataset = dict(rows=records, parse_failures=0, failed_files=0, declared_files=1, hashes=['a'*64], captured_at='2026-10-21T00:00:00Z')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); (root/'manifest.json').write_text(json.dumps(dict(query=self.period,captured_at=dataset['captured_at'])))
+            customer_types.cache_clear()
+            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(archived_dataset=lambda *a,**kw:dataset)}):
+                apply_customer_types(data)
+        self.assertEqual([r['customerType'] for r in data['orders']],['新客','老客','新老客未提供','新老客未提供'])
+        self.assertEqual(data['sources']['customer']['matchedOrders'],2)
+        # Admin flags and UID=0 never override the ES order flag.
+        self.assertTrue(all(r['customerType']=='新老客未提供' for r in self.rows()))
+
+    def test_customer_conflicting_es_flags_are_not_assigned(self):
+        import hashlib
+        digest=hashlib.sha256(b'A').hexdigest()
+        records=[{'订单号':digest,'付款时间':'2026/10/20 12:00:00','是否新客户':v} for v in ('是','否')]
+        dataset=dict(rows=records,parse_failures=0,failed_files=0,declared_files=1,hashes=['b'*64],captured_at='2026-10-21T00:00:00Z')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); (root/'manifest.json').write_text(json.dumps(dict(query=self.period)))
+            customer_types.cache_clear()
+            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(archived_dataset=lambda *a,**kw:dataset)}):
+                data=apply_customer_types(self.data())
+        self.assertEqual(data['orders'][0]['customerType'],'待核：新老客冲突')
+
+    def test_missing_es_source_keeps_unknown_and_uses_existing_export_entry(self):
+        from unittest.mock import Mock
+        export=Mock(return_value={'status':'unavailable','reason':'existing_attempt_unknown'})
+        with tempfile.TemporaryDirectory() as folder:
+            customer_types.cache_clear()
+            with patch('channel_source.ES_ARCHIVE',Path(folder)), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(server_bundle=export)}):
+                data=apply_customer_types(self.data(),request=True)
+        self.assertTrue(all(r['customerType']=='新老客未提供' for r in data['orders']))
+        self.assertEqual(export.call_count,1)
 
     def test_casefold_preserves_spelling_and_directory_precedence(self):
         a = Attribution(self.mapping, self.config, self.directory)

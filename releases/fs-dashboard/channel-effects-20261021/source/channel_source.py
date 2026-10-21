@@ -3,6 +3,9 @@ import json
 import sys
 import os
 import tempfile
+import hashlib
+import time
+from functools import lru_cache
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -11,6 +14,64 @@ from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, n
 COLLECTOR = '/opt/sales-dashboard/collector'
 SALES = Path('/opt/sales-dashboard/data')
 ROOT = Path('/var/lib/fs-channel-effects')
+ES_ARCHIVE = Path('/var/lib/fc27-es-exports')
+
+
+@lru_cache(maxsize=8)
+def customer_types(start, end, manifests, archive):
+    """Reuse immutable ES files, including complete sets covering a wider period."""
+    import es_order_structure as es
+    root = Path(archive)
+    candidates = [json.loads((root / name).read_text('utf-8')) for name in manifests]
+    cursor, selected = start, []
+    while cursor <= end:
+        options = [v for v in candidates if v['query']['start'] <= cursor <= v['query']['end']]
+        if not options: break
+        value = max(options, key=lambda v: (v['query']['end'], v.get('captured_at') or ''))
+        selected.append(value)
+        cursor = (date.fromisoformat(value['query']['end']) + timedelta(days=1)).isoformat()
+    flags, hashes, captures, complete = {}, set(), [], cursor > end
+    for value in selected:
+        dataset = es.archived_dataset(value['query'], root=root)
+        if not dataset: complete = False; continue
+        complete &= dataset['parse_failures'] == 0 and dataset['failed_files'] == 0 and dataset['declared_files'] == len(dataset['hashes'])
+        hashes.update(dataset['hashes']); captures.append(dataset['captured_at'])
+        for row in dataset['rows']:
+            paid = str(row.get('付款时间') or '').replace('/', '-')[:10]
+            if start <= paid <= end and row.get('订单号'):
+                flags.setdefault(row['订单号'], set()).add(str(row.get('是否新客户') or '').strip())
+    index = {key: {'是': '新客', '否': '老客'}.get(next(iter(values)), '新老客未提供') if len(values) == 1 else '待核：新老客冲突' for key, values in flags.items()}
+    return index, dict(status='complete' if complete else 'partial', source='Admin ES订单：下单时是否新客户',
+                       generatedAt=max((v for v in captures if v), default=None),
+                       sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest(),
+                       files=len(hashes), limitation='按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。')
+
+
+def apply_customer_types(data, request=False):
+    """Correct old normalized caches too; never retain the mistaken Admin flag."""
+    sys.path.insert(0, '/opt/fs-hermes-fc')
+    start, end = data['period']['start'], data['period']['end']
+    def read():
+        names = tuple(sorted(p.name for p in ES_ARCHIVE.glob('*.json')))
+        return customer_types(start, end, names, str(ES_ARCHIVE))
+    try:
+        index, info = read()
+        if request and info['status'] != 'complete':
+            import es_order_structure as es
+            query = dict(profile='ALL', start=start, end=end, group_by='new_customer', status='all')
+            deadline = time.monotonic() + 160
+            while time.monotonic() < deadline:
+                # The existing durable attempt ledger prevents a duplicate export.
+                result = es.server_bundle(query)
+                if result.get('status') != 'pending' and not result.get('refresh_pending'): break
+                time.sleep(3)
+            index, info = read()
+    except (OSError, ValueError, KeyError, TypeError, ImportError):
+        index, info = {}, dict(status='unavailable', source='Admin ES订单：下单时是否新客户', limitation='ES字段暂未取得，保持未知，不按老客推断。')
+    for row in data['orders']:
+        row['customerType'] = index.get(hashlib.sha256(row['orderNo'].encode()).hexdigest(), '新老客未提供')
+    data['sources']['customer'] = dict(info, matchedOrders=sum(r['customerType'] in ('新客', '老客') for r in data['orders']))
+    return data
 
 
 def search(filters):
@@ -163,11 +224,11 @@ def collect(period):
     directory_path = SALES / 'promoter_dir.json'
     directory = json.loads(directory_path.read_text('utf-8')) if directory_path.is_file() else {}
     deliveries, cost_info = load_costs()
-    return dict(period=period, generatedAt=datetime.now(TZ).isoformat(),
+    return apply_customer_types(dict(period=period, generatedAt=datetime.now(TZ).isoformat(),
                 mapping={k: v for k, v in mapping.items() if k != 'entries'},
                 codeCatalog=Attribution(mapping, discounts, directory).catalog(),
                 sources=dict(orders=dict(status='complete', source='Admin 销售订单', rows=len(orders), site='MMOEXP', dateBasis='paytime', currency='USD'),
                              coupons=dict(status='complete', source='Admin 优惠券使用日志，按订单号关联', rows=len(logs)),
                              cost=cost_info, attribution=dict(source='Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID',
                                                              historical='当前映射回溯应用；未提供历史生效日期')),
-                orders=normalize(orders, discounts, logs, templates, deliveries, directory, mapping))
+                orders=normalize(orders, discounts, logs, templates, deliveries, directory, mapping)), request=True)
