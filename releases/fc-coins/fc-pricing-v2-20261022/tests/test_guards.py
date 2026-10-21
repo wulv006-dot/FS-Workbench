@@ -18,6 +18,19 @@ SOURCE=Path(__file__).resolve().parents[1]/'source'
 
 
 class FinalGuards(unittest.TestCase):
+    def test_shared_admin_uses_existing_full_runtime_from_stdlib_caller(self):
+        from types import SimpleNamespace
+        import subprocess
+        quote=quoted();envelope=quote['evidence']['promotion_envelope'];public=quote['evidence']['storefront']
+        with patch('subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=json.dumps(envelope))) as run:
+            self.assertEqual(sources.collect(public,persist=False),envelope)
+            self.assertEqual(run.call_args.args[0][0],'/opt/python39/bin/python3')
+            self.assertFalse(json.loads(run.call_args.kwargs['input'])['persist'])
+        with patch('subprocess.run',return_value=SimpleNamespace(returncode=1,stdout=json.dumps(dict(reason='current_source_failed')))):
+            with self.assertRaisesRegex(ValueError,'current_source_failed'):sources.collect(public)
+        with patch('subprocess.run',side_effect=subprocess.TimeoutExpired('collect',40)):
+            with self.assertRaisesRegex(ValueError,'shared_source_timeout'):sources.collect(public)
+
     def test_write_rechecks_live_promotions_and_rejects_new_configuration(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
