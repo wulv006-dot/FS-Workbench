@@ -20,6 +20,13 @@ def functions(path,names,namespace):
 
 
 class Jobs(unittest.TestCase):
+    def test_temporary_local_route_failure_is_a_deferred_read_receipt(self):
+        from urllib.error import URLError
+        with patch.object(jobs,'build_opener') as opener:
+            opener.return_value.open.side_effect=URLError(ConnectionRefusedError('fixture'))
+            code,result=jobs.read_route({'mode':'catalog'})
+            self.assertEqual(code,503);self.assertEqual(result['reason'],'local_route_temporarily_unavailable')
+
     def test_daily_presets_exclude_today_and_history_stops_at_september(self):
         profiles={'FC27':('FC27','FC27',1322,1327,'sports')}
         daily=list(jobs.candidates(date(2026,10,22),profiles,True))
