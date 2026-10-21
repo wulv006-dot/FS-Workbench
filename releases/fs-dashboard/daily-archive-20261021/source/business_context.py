@@ -6,7 +6,6 @@ import hashlib,json,os,stat
 from pathlib import Path
 SKILL_ROOT=Path('/var/lib/fs-hermes-fc/profile/skills')
 FILES=(
- 'data-archive-first/SKILL.md',
  'data-storytelling/SKILL.md',
  'product-design-review/SKILL.md',
  'modern-web-report-guidance/SKILL.md',
@@ -65,6 +64,7 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None):
   if name.startswith('reviewed-business-20261015/'):continue
   candidates.append(('skills/'+name,read_regular(skill_root/name,skill_root,optional=True)))
  # Keep current confirmed corrections after historical memory and method examples.
+ candidates.append(('runtime/data-archive-first/SKILL.md',read_regular(source/'data-archive-first.md',source,expected_owner=Path(__file__).stat().st_uid)))
  candidates.append(('runtime/learning-loop.md',read_regular(source/'learning-loop.md',source,expected_owner=Path(__file__).stat().st_uid)))
  candidates.append(('runtime/business-baseline.md',baseline))
  for name,raw in candidates:

@@ -17,7 +17,7 @@ TARGETS={
  'marketing/range_api.py':'/opt/mmoexp-marketing/custom-range/range_api.py',
  'channel/channel_effects.py':'/opt/fs-hermes-fc/channel_effects.py',
  'channel/channel_cache.py':'/opt/fs-hermes-fc/channel_cache.py',
- 'skills/data-archive-first/SKILL.md':'/var/lib/fs-hermes-fc/profile/skills/data-archive-first/SKILL.md',
+ 'skills/data-archive-first/SKILL.md':'/opt/fs-hermes-fc/data-archive-first.md',
  'units/fs-data-archive.service':'/etc/systemd/system/fs-data-archive.service',
  'units/fs-data-archive.timer':'/etc/systemd/system/fs-data-archive.timer'}
 SOURCES={key:('skills/data-archive-first/SKILL.md' if key.startswith('skills/') else
