@@ -16,7 +16,7 @@ class Client:
     def authenticated(self): return bool(self._token)
     def login_with_ocr(self, username, password, ocr=None, *, keep=True, tries=3):
         raise AssertionError('old login')
-    def login(self, username, password, captcha, captcha_id):
+    def login(self, username, password, captcha, captcha_id, *, google_code=''):
         raise AssertionError('old login')
     def _headers(self, *, auth):
         if auth and not self._token: raise AdminAuthError('missing')
@@ -47,6 +47,10 @@ class Client:
             request = client._request if kind == 'mlb' else client._bytes
             with self.assertRaisesRegex(namespace['AdminAuthError'], 'FS_SHARED_AUTH_ONLY'):
                 request('POST', '/admin/index/login')
+            with self.assertRaisesRegex(namespace['AdminAuthError'], 'FS_SHARED_AUTH_ONLY'):
+                request('POST', '/admin/index/loginGoogle')
+            if kind == 'sbc':
+                self.assertEqual(client.login('', '', '', '', google_code='synthetic').args[0], 'synthetic-current')
             namespace['_fs_shared_admin_token'] = Mock(side_effect=RuntimeError('no session'))
             with self.assertRaisesRegex(namespace['AdminAuthError'], 'FS_SHARED_SESSION_UNAVAILABLE'):
                 if kind == 'mlb': client._headers(auth=True)
