@@ -92,10 +92,13 @@ class Attribution:
             if person:
                 uid, name, origin = positive_id(person.get('uid')), clean(person.get('name')), 'promoter_directory'
             elif configs:
-                owners = {(positive_id(r.get('uid')), clean((r.get('admins') or {}).get('nickname'))) for r in configs}
+                owners = set()
+                for record in configs:
+                    owner_uid = positive_id(record.get('uid'))
+                    owners.add((owner_uid, '' if owner_uid else clean((record.get('admins') or {}).get('nickname'))))
                 if len(owners) == 1:
                     owner_uid, name = next(iter(owners))
-                    uid = owner_uid or uid
+                    uid = owner_uid if owner_uid or name else uid
                     origin = 'discount_configuration'
                 else:
                     conflict, origin = True, 'configuration_conflict'

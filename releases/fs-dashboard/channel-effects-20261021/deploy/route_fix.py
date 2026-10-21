@@ -1,9 +1,8 @@
 """Single-route correction using the original locked CAS/backup/rollback engine."""
-import subprocess
 import release
 
 SCOPE = 'fs-channel-route-20261021'
-TARGETS = {'generated/navigation.conf':'/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'}
+TARGETS = {'generated/navigation.conf':'/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf', 'runtime/channel_effects.py':'/opt/fs-hermes-fc/channel_effects.py'}
 
 
 def candidate(before):
@@ -17,12 +16,7 @@ def candidate(before):
 
 def load_base():
     release.SCOPE, release.TARGETS, release.NEW = SCOPE, TARGETS, frozenset()
-    base = release.load_base()
-    def reload(manifest, admission_fence=None):
-        subprocess.run(['nginx','-t'],check=True,timeout=20)
-        subprocess.run(['systemctl','reload','nginx'],check=True,timeout=20)
-    base.restart_for = reload
-    return base
+    return release.load_base()
 
 
 if __name__ == '__main__': load_base().main()
