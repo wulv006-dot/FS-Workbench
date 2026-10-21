@@ -1,0 +1,26 @@
+{
+  "scope": "fc-coins-evidence-20261021",
+  "status": "candidate_not_deployed",
+  "source": "current live bytes before minimal caller changes; historical release copies are not deployment inputs",
+  "runtime_before_sha256": {
+    "research.py": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d",
+    "fs_evidence.py": "18de6ffe03bf10edbabf5654e01d8d030a3bfffaede372e1b5a46a330406025d",
+    "source_snapshots.py": "c8b3c5977838a36641813dccf8df3e0c0013447989d757505fe59ebc51d516e7",
+    "business-baseline.md": "0382e57f85d86e5641c00b9ffaabf26763ebdbbae3559d2acc9a02fb75fe51ab"
+  },
+  "targets": {
+    "runtime/coins_evidence.py": "/opt/fs-hermes-fc/coins_evidence.py",
+    "runtime/research.py": "/opt/fs-hermes-fc/research.py",
+    "runtime/fs_evidence.py": "/opt/fs-hermes-fc/fs_evidence.py",
+    "runtime/source_snapshots.py": "/opt/fs-hermes-fc/source_snapshots.py",
+    "runtime/business-baseline.md": "/opt/fs-hermes-fc/business-baseline.md"
+  },
+  "businessWrites": false,
+  "timersChanged": false,
+  "preserve": [
+    "all existing tools",
+    "Admin/Order shared session and OCR",
+    "coupon/channel archives and refresh600s",
+    "Coins automatic pricing and other-product formulas"
+  ]
+}
