@@ -20,7 +20,7 @@ class Release(unittest.TestCase):
         self.assertEqual({module.SOURCES[k] for k in module.TARGETS if k.endswith('/daily_archive.py')},{'source/daily_archive.py'})
         self.assertFalse(any('price' in p or 'automation' in p for p in module.TARGETS.values()))
         timer=(ROOT/'deploy/fs-data-archive.timer').read_text()
-        self.assertIn('00:50:00 Asia/Shanghai',timer);self.assertIn('Persistent=false',timer)
+        self.assertIn('00:50:00',timer);self.assertIn('Persistent=false',timer)
 
 
 if __name__=='__main__':unittest.main()

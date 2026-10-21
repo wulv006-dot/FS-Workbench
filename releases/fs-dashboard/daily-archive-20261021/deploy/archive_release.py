@@ -36,7 +36,7 @@ def load_base():
         quiescent(root)
         if str(root)!='/':return
         for unit in ('fs-business-range.service','fs-marketing-range.service'):
-            pid=subprocess.check_output(['systemctl','show',unit,'--property=MainPID','--value'],text=True,timeout=10).strip()
+            pid=subprocess.check_output(['systemctl','show',unit,'--property=MainPID'],text=True,timeout=10).strip().split('=',1)[-1]
             if not pid.isdigit() or pid=='0':raise ValueError('archive_runtime_not_mapped')
             if any(p.read_text().strip() for p in Path('/proc',pid,'task').glob('*/children')):
                 raise ValueError('active_native_or_marketing_read')
@@ -46,6 +46,7 @@ def load_base():
         if manifest.get('scope')!=SCOPE:return
         subprocess.run(['systemctl','restart','fs-marketing-range.service'],check=True,timeout=40)
         if all(Path(p).is_file() for p in UNITS):
+            if 'Asia/Shanghai' not in subprocess.check_output(['timedatectl','status'],text=True,timeout=10):raise ValueError('archive_requires_shanghai_server_timezone')
             subprocess.run(['systemd-analyze','verify',*sorted(UNITS)],check=True,timeout=30)
             subprocess.run(['systemctl','daemon-reload'],check=True,timeout=30)
             subprocess.run(['systemctl','enable','--now','fs-data-archive.timer'],check=True,timeout=30)
