@@ -10,8 +10,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
-from channel_effects import Attribution, ChannelService, TZ, metrics, money, normalize, parse_query, view
-from channel_source import pages, windows, apply_customer_types, customer_types
+from channel_effects import Attribution, ChannelService, TZ, metrics, money, normalize, parse_query, view, accounting_row
+from channel_source import pages, windows, apply_customer_types, customer_types, apply_cost_overrides
 from channel_cost_source import delivery_timestamp
 
 
@@ -41,7 +41,44 @@ class Effects(unittest.TestCase):
         return normalize(orders, self.config, logs, [], deliveries, self.directory, self.mapping)
 
     def data(self):
-        return dict(period=self.period, generatedAt=datetime.now(TZ).isoformat(), orders=self.rows(), sources={}, mapping={})
+        return dict(period=self.period, generatedAt=datetime.now(TZ).isoformat(), orders=self.rows(),
+                    sources={'orders':{'status':'complete'},'coupons':{'status':'complete'}}, mapping={})
+
+    def test_uncompleted_and_fraud_orders_do_not_have_cost_or_profit(self):
+        data=self.data();data['orders'][0]['status']='问题订单';data['orders'][1]['status']='验证·未通过'
+        result=view(data,{});rows={r['orderNo']:r for r in result['orders']}
+        self.assertEqual(result['summary']['completedOrders'],1)
+        self.assertEqual(result['summary']['pendingOrders'],2)
+        self.assertEqual(result['summary']['fraudOrders'],1)
+        self.assertEqual(result['summary']['missingCostOrders'],0)
+        self.assertIsNone(rows['A']['costCny']);self.assertIsNone(rows['A']['profitCny'])
+        self.assertEqual(rows['B']['costStatus'],'欺诈单：待退款/申诉')
+        self.assertEqual(data['orders'][0]['costCny'],35)  # Original source evidence stays intact.
+
+    def test_confirmed_historical_zero_cost_order_has_full_profit(self):
+        row=self.rows()[0];row.update(saleCny=None,costCny=None,profitCny=None,deliveryRows=0)
+        rule={'A':dict(gid='1',salesUsd='10',saleCny='67.25',costCny='0',productTitle='fictional historical coupon')}
+        result=accounting_row(row,rule)
+        self.assertEqual((result['saleCny'],result['costCny'],result['profitCny']),(67.25,0,67.25))
+        self.assertEqual(metrics([result])['margin'],1)
+        self.assertEqual(metrics([result])['zeroCostOrders'],1)
+        other=dict(row,orderNo='other');self.assertIsNone(accounting_row(other,rule)['costCny'])
+        changed=dict(row,salesUsd=11);self.assertIsNone(accounting_row(changed,rule)['costCny'])
+        refunded=dict(row,refunded=True);self.assertIsNone(accounting_row(refunded,rule)['profitCny'])
+
+    def test_scm_completed_cost_remains_unknown(self):
+        for game in ('NBA2K27','ARC Raiders'):
+            row=dict(self.rows()[0],game=game,costCny=None,saleCny=None,profitCny=None)
+            result=accounting_row(row,{})
+            self.assertIn('SCM',result['costStatus'])
+            self.assertIsNone(metrics([result])['profitCny'])
+
+    def test_invalid_nonzero_override_is_not_applied(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'accounting-overrides.json';path.write_text(json.dumps(dict(contract='channel-zero-cost-v1',orders={'A':dict(gid='1',salesUsd='10',saleCny='67',costCny='5',productTitle='fictional')})));path.chmod(0o600)
+            with patch('channel_source.ROOT',Path(folder)):data=apply_cost_overrides(self.data())
+        self.assertEqual(data['costOverrides'],{})
+        self.assertEqual(data['sources']['accounting']['status'],'unavailable')
 
     def test_customer_uses_order_time_es_flag_and_corrects_old_cache(self):
         import hashlib
@@ -207,7 +244,7 @@ class Effects(unittest.TestCase):
                 def enrich(data, force=False):
                     self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
                     if fail_cost: raise ValueError('shared_order_unavailable')
-                    data['sources'] = {'cost_enriched':True}; return data
+                    data['sources']['cost_enriched'] = True; return data
                 fake = SimpleNamespace(collect=lambda period:deepcopy(initial),enrich=enrich)
                 service = ChannelService(root, lambda user: True)
                 with patch.dict(sys.modules, {'fcntl':SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2),'channel_source':fake}):

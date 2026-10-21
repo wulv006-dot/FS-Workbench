@@ -9,12 +9,37 @@ from functools import lru_cache
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, normalize
+from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, normalize, money
 
 COLLECTOR = '/opt/sales-dashboard/collector'
 SALES = Path('/opt/sales-dashboard/data')
 ROOT = Path('/var/lib/fs-channel-effects')
 ES_ARCHIVE = Path('/var/lib/fc27-es-exports')
+
+
+def apply_cost_overrides(data):
+    path = ROOT / 'accounting-overrides.json'
+    rules = {}
+    info = dict(status='available', source='用户确认的历史零成本商品', orders=0)
+    try:
+        if path.exists():
+            if path.is_symlink() or path.stat().st_mode & 0o077 or path.stat().st_size > 128*1024: raise ValueError('unsafe_accounting_overrides')
+            raw = path.read_text('utf-8'); config = json.loads(raw)
+            info['sourceVersion'] = hashlib.sha256(raw.encode()).hexdigest()
+            rules = config['orders']
+            if config.get('contract') != 'channel-zero-cost-v1' or not isinstance(rules,dict) or len(rules)>200:
+                raise ValueError('invalid_accounting_overrides')
+            for sn, rule in rules.items():
+                if not isinstance(sn,str) or not 1 <= len(sn) <= 160 or not str(rule['gid']).isdigit() or not rule.get('productTitle'):
+                    raise ValueError('invalid_zero_cost_identity')
+                if money(rule.get('costCny')) != 0 or money(rule.get('salesUsd')) is None or money(rule.get('salesUsd')) < 0 or money(rule.get('saleCny')) is None or money(rule.get('saleCny')) < 0:
+                    raise ValueError('invalid_zero_cost_amount')
+            info['orders'] = len(rules)
+    except (OSError,ValueError,KeyError,TypeError):
+        rules = {}; info.update(status='unavailable', limitation='零成本注释暂不可用，未匹配完成单保持待核，不推定为零。')
+    data['costOverrides'] = rules
+    data['sources']['accounting'] = info
+    return data
 
 
 @lru_cache(maxsize=8)
@@ -224,11 +249,11 @@ def collect(period):
     directory_path = SALES / 'promoter_dir.json'
     directory = json.loads(directory_path.read_text('utf-8')) if directory_path.is_file() else {}
     deliveries, cost_info = load_costs()
-    return apply_customer_types(dict(period=period, generatedAt=datetime.now(TZ).isoformat(),
+    return apply_cost_overrides(apply_customer_types(dict(period=period, generatedAt=datetime.now(TZ).isoformat(),
                 mapping={k: v for k, v in mapping.items() if k != 'entries'},
                 codeCatalog=Attribution(mapping, discounts, directory).catalog(),
                 sources=dict(orders=dict(status='complete', source='Admin 销售订单', rows=len(orders), site='MMOEXP', dateBasis='paytime', currency='USD'),
                              coupons=dict(status='complete', source='Admin 优惠券使用日志，按订单号关联', rows=len(logs)),
                              cost=cost_info, attribution=dict(source='Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID',
                                                              historical='当前映射回溯应用；未提供历史生效日期')),
-                orders=normalize(orders, discounts, logs, templates, deliveries, directory, mapping)), request=True)
+                orders=normalize(orders, discounts, logs, templates, deliveries, directory, mapping)), request=True))

@@ -141,6 +141,32 @@ def delivery_index(deliveries):
 EMPTY_COST = dict(saleCny=None, costCny=None, profitCny=None, deliveryRows=0)
 
 
+def completed(row):
+    return row['status'] == '已完成' and not row['refunded']
+
+
+def fraud(row):
+    return re.sub(r'[·\s]', '', row['status']) == '验证未通过'
+
+
+def accounting_row(raw, overrides):
+    row = dict(raw, zeroCost=False)
+    if not completed(row):
+        row.update(saleCny=None, costCny=None, profitCny=None,
+                   costStatus='已退款：不核算' if row['refunded'] else '欺诈单：待退款/申诉' if fraud(row) else '未完成：不核算')
+        return row
+    rule = overrides.get(row['orderNo'])
+    if rule and str(rule['gid']) == row['gid'] and money(rule['salesUsd']) == money(row['salesUsd']):
+        sale = money(rule['saleCny'])
+        row.update(saleCny=number(sale), costCny=0.0, profitCny=number(sale), zeroCost=True,
+                   costStatus='已完成：确认零成本', costBasis=rule['productTitle'])
+    else:
+        row['costStatus'] = '已完成：成本待核' if row['costCny'] is None or row['saleCny'] is None else '已完成：成本已核'
+        if row['costStatus'].endswith('成本待核') and (row['game'].replace(' ', '').startswith('NBA2K') or row['game'] == 'ARC Raiders'):
+            row['costStatus'] = '已完成：SCM发货，当前源无成本'
+    return row
+
+
 def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, mapping):
     attribution = Attribution(mapping, discounts, directory)
     costs, logs = delivery_index(deliveries), defaultdict(list)
@@ -181,10 +207,16 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
 
 
 def metrics(rows):
-    covered = [r for r in rows if r['costCny'] is not None]
+    covered = [r for r in rows if completed(r) and r['costCny'] is not None and r['saleCny'] is not None]
     total = lambda key, items: sum((Decimal(str(r[key])) for r in items), Decimal(0))
     usd, sale, cost = total('salesUsd', rows), total('saleCny', covered), total('costCny', covered)
     return dict(orders=len(rows), salesUsd=number(usd), coveredOrders=len(covered),
+                completedOrders=sum(completed(r) for r in rows), pendingOrders=sum(not completed(r) and not r['refunded'] for r in rows),
+                refundedOrders=sum(r['refunded'] for r in rows),
+                fraudOrders=sum(fraud(r) for r in rows),
+                missingCostOrders=sum(completed(r) and (r['costCny'] is None or r['saleCny'] is None) for r in rows),
+                scmOrders=sum('SCM发货' in r.get('costStatus','') for r in rows),
+                zeroCostOrders=sum(r.get('zeroCost',False) for r in covered),
                 deliveryRows=sum(r['deliveryRows'] for r in covered),
                 saleCny=number(sale) if covered else None, costCny=number(cost) if covered else None,
                 profitCny=number(sale - cost) if covered else None,
@@ -205,7 +237,7 @@ def grouped(rows, key, labels=None):
 
 
 def view(data, query):
-    rows = data['orders']
+    rows = [accounting_row(r, data.get('costOverrides', {})) for r in data['orders']]
     base = [r for r in rows if (not query.get('gid') or r['gid'] == query['gid'])
             and (query.get('status', 'valid') != 'valid' or not r['refunded'])
             and (query.get('status') != 'refund' or r['refunded'])
@@ -314,12 +346,16 @@ class ChannelService:
                 if data.get('period') != period or not isinstance(data.get('orders'), list):
                     raise ValueError('source_contract_failed')
                 self.publish(data, target)
+                if self.source is None:
+                    from channel_cache import store_days
+                    store_days(data, self.root)
             if self.source is None:
                 from channel_source import enrich
                 cost_phase = True
                 with self.lock: self.jobs[key] = 'cost_pending'
                 data = enrich(data, force=force)
                 self.publish(data, target)
+                store_days(data, self.root)
             with self.lock: self.jobs[key] = 'available'
         except Exception:
             with self.lock: self.jobs[key] = 'cost_failed' if cost_phase else 'source_failed'
@@ -331,10 +367,14 @@ class ChannelService:
         period = {k: query[k] for k in ('start', 'end')}
         key = hashlib.sha256((VERSION + json.dumps(period, sort_keys=True)).encode()).hexdigest()[:24]
         target = self.root / (key + '.json')
-        data = json.loads(target.read_text('utf-8')) if target.is_file() else None
+        archived = None
+        if self.source is None and period['end'] < datetime.now(TZ).date().isoformat():
+            from channel_cache import compose
+            archived = compose(period, self.root)
+        data = archived or (json.loads(target.read_text('utf-8')) if target.is_file() else None)
         with self.lock:
             state = self.jobs.get(key)
-            fresh = data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600
+            fresh = archived is not None or (data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600)
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
@@ -343,8 +383,11 @@ class ChannelService:
                     self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
             if data:
                 if self.source is None:
-                    from channel_source import apply_customer_types
-                    data = apply_customer_types(data)
+                    from channel_source import apply_customer_types, apply_cost_overrides
+                    if archived:
+                        from channel_cache import apply_delivery_cache
+                        data = apply_delivery_cache(data, self.root)
+                    data = apply_cost_overrides(apply_customer_types(data))
                 result = view(data, query)
                 result.update(status='available', refreshing=state in ('pending','cost_pending'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
                 return 200, result

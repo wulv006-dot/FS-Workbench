@@ -12,6 +12,7 @@ SCOPE='fs-channel-effects-20261021'
 TARGETS={'runtime/channel_effects.py': '/opt/fs-hermes-fc/channel_effects.py', 'runtime/channel_source.py': '/opt/fs-hermes-fc/channel_source.py', 'runtime/channel_cost_source.py': '/opt/fs-hermes-fc/channel_cost_source.py', 'runtime/channel_mapping.json': '/opt/fs-hermes-fc/channel_mapping.json', 'http/range_api.py': '/opt/fs-exact-range-20261001/range_api.py', 'nav/hubnav.js': '/var/www/hub/hubnav.js', 'nav/navigation.json': '/var/www/dashboard/fs-home/navigation.json', 'nav/index.html': '/var/www/dashboard/fs-home/index.html', 'ui/index.html': '/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/index.html', 'ui/channel.js': '/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.js', 'ui/channel.css': '/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.css', 'generated/navigation.conf': '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'}
 REPOSITORY_SOURCES={'runtime/channel_effects.py': 'source/channel_effects.py', 'runtime/channel_source.py': 'source/channel_source.py', 'runtime/channel_cost_source.py': 'source/channel_cost_source.py', 'runtime/channel_mapping.json': 'source/channel_mapping.json', 'http/range_api.py': 'source/range_api.py', 'nav/hubnav.js': 'source/hubnav.js', 'nav/navigation.json': 'source/navigation.json', 'nav/index.html': 'source/home-index.html', 'ui/index.html': 'ui/index.html', 'ui/channel.js': 'ui/channel.js', 'ui/channel.css': 'ui/channel.css'}
 NEW=frozenset(['runtime/channel_cost_source.py', 'runtime/channel_effects.py', 'runtime/channel_mapping.json', 'runtime/channel_source.py', 'ui/channel.css', 'ui/channel.js', 'ui/index.html'])
+AUTHORIZED_TIMERS=frozenset()
 
 
 def checked_manifest(approved):
@@ -20,8 +21,10 @@ def checked_manifest(approved):
     for row in approved['files']:
         if (row.get('beforeSha256') is None)!=(row['candidate'] in NEW) or row.get('owner')!='0:0' or row.get('mode')!='0o644':
             raise ValueError('v2_exact_new_existing_boundary')
-    if approved.get('businessWrites') is not False or approved.get('timersChanged') is not False:
+    if approved.get('businessWrites') is not False or approved.get('timersChanged') is not bool(AUTHORIZED_TIMERS):
         raise ValueError('v2_readonly_schedule_boundary')
+    if AUTHORIZED_TIMERS and {v for k,v in TARGETS.items() if k.startswith('units/')} != AUTHORIZED_TIMERS:
+        raise ValueError('exact_authorized_channel_units_required')
     return approved
 
 
@@ -38,6 +41,11 @@ def load_base():
     guard_anchor="  if not required.issubset(protected) or set(protected)&set(targets.values()):"
     if source.count(guard_anchor)!=1:raise ValueError('frozen_consumer_guard_anchor_drift')
     source=source.replace(guard_anchor,"  required-=set(TARGETS_CHANGED_NAV)\n"+guard_anchor,1)
+    if AUTHORIZED_TIMERS:
+        # This publisher instance admits only the four newly authorized channel units.
+        needle="manifest.get('timersChanged') is not False:raise ValueError('Hermes readonly/schedule boundary')"
+        if source.count(needle)!=2:raise ValueError('frozen_schedule_guard_drift')
+        source=source.replace(needle,"manifest.get('timersChanged') is not True:raise ValueError('channel scheduling approval required')")
     base=types.ModuleType('frozen_hermes_v2_publisher');base.__file__=str(HERE/'release_navigation_base.py')
     base.V2_NEW=NEW
     base.TARGETS_CHANGED_NAV={'/var/www/dashboard/fs-home/index.html'}
