@@ -335,7 +335,7 @@ class ChannelService:
         finally:
             if os.path.exists(temp): os.unlink(temp)
 
-    def capture(self, period, key, target, force=False):
+    def capture(self, period, key, target, force=False, cost_only=False):
         cost_phase = False
         try:
             import fcntl
@@ -344,8 +344,8 @@ class ChannelService:
             with (self.root / 'collector.lock').open('a+b') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 if self.source is None:
-                    from channel_cache import collect_period
-                    source = lambda p: collect_period(p, self.root, force=force)
+                    from channel_cache import collect_period, compose
+                    source = (lambda p: compose(p, self.root)) if cost_only else (lambda p: collect_period(p, self.root, force=force))
                 else:
                     source = self.source
                 data = source(period)
@@ -382,7 +382,8 @@ class ChannelService:
             state = self.jobs.get(key)
             coverage=(data or {}).get('sources',{}).get('cache',{})
             fixed=bool(archived and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete'))
-            fresh = data and (fixed or time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600)
+            stamp = data['sources'].get('cost',{}).get('generatedAt') if fixed else (data or {}).get('generatedAt')
+            fresh = bool(stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < 600)
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
@@ -390,7 +391,8 @@ class ChannelService:
                         state = 'deferred'
                     else:
                         self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
-                        self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
+                        self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')),
+                                         cost_only=bool(fixed and not query.get('refresh')))
             if data:
                 if self.source is None:
                     from channel_source import apply_customer_types, apply_cost_overrides
