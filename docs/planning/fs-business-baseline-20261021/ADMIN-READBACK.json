@@ -1,0 +1,12 @@
+{
+  "scope": "FC27 Admin existing shared session and native_loss readonly query after user-reported recovery",
+  "verified_on": "2026-10-21",
+  "health": {"status":"ready", "ready":true, "consecutive_failures":0, "login_attempts":1, "last_ok":"2026-10-21T07:05:44.362498+00:00"},
+  "services": {"fc27-p2pah-session":"active", "fs-hermes-fc":"active", "fs-business-range":"active"},
+  "query": {"kind":"native_loss", "profile":"FC27", "start":"2026-10-21", "end":"2026-10-21"},
+  "evidence": {"initial":"ev_a4bae0a150de920e7228cd58", "initial_status":"pending", "completed":"ev_696f0b263b1257b1176c9559", "status":"available", "source_system":"Admin", "captured_at":"2026-10-21T07:16:14.604675+00:00", "source_data_as_of":null, "immutable_watermark":false},
+  "period": {"timezone":"Asia/Shanghai", "start":"2026-10-21 00:00:00", "end":"2026-10-21 15:16:14", "closed_natural_day":false},
+  "actual_hermes_task":"f274576e6ba98305dac745f1452fd80e",
+  "limits":["A scoped business readback, not all Admin endpoints or customer tracking acceptance", "Source watermark unknown; loss classification semantics are not independently verified", "Raw business amounts stay in FS and the ignored local receipt directory"],
+  "this_work_actions":{"credential_changes":0,"login_attempts":0,"service_start_or_restart":0,"price_writes":0,"timer_changes":0}
+}
