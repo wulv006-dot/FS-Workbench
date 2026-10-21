@@ -1,7 +1,7 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "implemented_local_checks_only_not_deployed",
-  "main_base": "c4ee3e29b899cdd3ba287272fc55e1d4937db24d",
+  "main_base": "e64c16088a70cc1979c3ceb8dd8b951ea15adcba",
   "files": [
     {
       "candidate": "source/automation_policy.py",
@@ -21,7 +21,7 @@
     },
     {
       "candidate": "source/fc27_cloud_worker.py",
-      "sha256": "ebd464be1d2b6803be6cd9e0534c6063ac547a01e1a43e3e45cbfcce4ea4d134",
+      "sha256": "366eab9f8d1c588f637d428a7e0fcac6a522f0a927a9d5ae1a19703ffb1d6efd",
       "target": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
       "beforeSha256": "e5a225af3be2934bb80521eded374a65df3a9fac4922f281df5d7ea316553f01",
       "owner": "0:0",
@@ -69,7 +69,7 @@
     },
     {
       "candidate": "source/execute_price.sh",
-      "sha256": "226d27df528e4e8b216ab58317681aefa7ca1464ad7edf0b6f48cb60e572af63",
+      "sha256": "cade852b5da35a768ec4aaad423dae7f381eabb43546abf8af56c418e2533ebc",
       "target": "/opt/fc27-cloud-browser/execute_price.sh",
       "beforeSha256": "74a194eae4c50713a8b5375d8668e964ba1b272f8ab918f0048dd46adce437ce",
       "owner": "0:0",
@@ -77,7 +77,7 @@
     },
     {
       "candidate": "source/restore_price.sh",
-      "sha256": "f7a6e3195a07dc2680240be916cdd38039ab431be1c63cb8fcfed57bd87d547a",
+      "sha256": "35993f7f850bdb87885739db9f89565c06368a88791d856db85955678e16349b",
       "target": "/opt/fc27-cloud-browser/restore_price.sh",
       "beforeSha256": "d7251442b4a3e84238d7a69bb4d87435536c7c52ec932976cbf5a9942ec7aaf7",
       "owner": "0:0",
@@ -101,7 +101,7 @@
     },
     {
       "candidate": "source/pricing_sources.py",
-      "sha256": "5b37de892da15e93233b75f44b761d454d8ca2336cfb60bec841c9f1dd786dcb",
+      "sha256": "7c48481ab8b3463aabf29a81b728e55ac467ca6deb9082a9c09955917cf26880",
       "target": "/opt/fc27-cloud-browser/pricing_sources.py",
       "beforeSha256": null,
       "owner": "0:0",
@@ -165,7 +165,7 @@
     },
     {
       "candidate": "source/business-baseline.md",
-      "sha256": "b38a6a525ec51f5a3a6713bb1774c4024f583a9594a274ef0a5dcae447a1a9f5",
+      "sha256": "9fd86822aa8ad31ab8c577b774875fc478737bca0af0cded8e8a2f1861753b69",
       "target": "/opt/fs-hermes-fc/business-baseline.md",
       "beforeSha256": "c903efc25ddb07c81c621876c7a1a14a2e9441cf3bd88807b04217c83bd45093",
       "mode": "0o644",

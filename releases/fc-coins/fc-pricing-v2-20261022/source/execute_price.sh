@@ -7,6 +7,11 @@ case "$request" in /var/lib/fc27-cloud/requests/*) ;; *) exit 2;; esac
 state=/var/lib/fc27-cloud/state
 exec 9>"$state/price-writer.lock"
 flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
+if guard_result=$(timeout 45s /opt/python39/bin/python3 -B /opt/fc27-cloud-browser/pricing_sources.py "$request"); then :
+else
+  if [ -n "$guard_result" ]; then printf '%s\n' "$guard_result"; else printf '%s\n' '{"status":"FAILED","reason":"pricing_live_constraints_unavailable"}'; fi
+  exit 1
+fi
 exec_dir=/var/lib/fc27-cloud/executions
 install -d -o root -g 11028 -m 2770 "$exec_dir"
 all_dir=/var/lib/fc27-cloud/all-coin-sync

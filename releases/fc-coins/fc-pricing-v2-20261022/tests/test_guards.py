@@ -12,11 +12,32 @@ from test_pricing_v2 import NOW
 import pricing_v2 as p
 import automation_policy
 import hermes_pricing_bridge as bridge
+import pricing_sources as sources
 
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 
 
 class FinalGuards(unittest.TestCase):
+    def test_write_rechecks_live_promotions_and_rejects_new_configuration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for name in ('quotes','previews','monitor'):(root/name).mkdir()
+            quote=quoted();(root/'quotes'/(RUN+'.json')).write_text(json.dumps(quote))
+            (root/'previews'/(RUN+'.json')).write_text(json.dumps(dict(run_id=RUN)))
+            public=quote['evidence']['storefront'];public.update(status='ok',source='https://www.mmoexp.com/Fc-27/Coins.html',currency='USD')
+            (root/'monitor/storefront.json').write_text(json.dumps(public))
+            request=dict(preview_id=RUN,platforms=['PS','XBOX','PC'])
+            with patch.object(automation_policy,'load_policy',lambda:{'minimum_gross_margin_pct':'10'}),patch.object(p,'datetime',wraps=datetime) as pc,patch.object(sources,'datetime',wraps=datetime) as sc,patch.object(sources,'collect') as collect:
+                pc.now.return_value=sc.now.return_value=NOW
+                collect.return_value=quote['evidence']['promotion_envelope']
+                self.assertEqual(sources.refresh_before_write(request,root)['status'],'current_promotions_rechecked')
+                self.assertTrue(collect.call_args.kwargs['persist'])
+                collect.return_value=dict(quote['evidence']['promotion_envelope'],sha256='newly_changed')
+                with self.assertRaisesRegex(ValueError,'promotions_changed_since_quote'):sources.refresh_before_write(request,root)
+                public['rows']['PS']['package_usd']='19.99';(root/'monitor/storefront.json').write_text(json.dumps(public))
+                collect.return_value=quote['evidence']['promotion_envelope']
+                self.assertEqual(sources.refresh_before_write(dict(source_execution_id=RUN,platforms=['PS','XBOX']),root)['status'],'current_promotions_rechecked')
+
     def test_unverified_legal_coupon_combination_is_analysis_only(self):
         quote=quoted();envelope=quote['evidence']['promotion_envelope']
         envelope['coupon_other_benefits_contract']='unverified'
