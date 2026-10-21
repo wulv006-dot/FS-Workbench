@@ -41,7 +41,7 @@ def active(row, now, *, coupon=False):
 
 def normalize(discounts, coupons, goods, storefront, *, now=None):
     now = now or datetime.now(timezone.utc)
-    codes=[];vouchers=[];unissued_directed=[]
+    codes=[];vouchers=[];unissued_directed=[];compensation=[]
     for row in discounts:
         if not active(row,now):continue
         if str(row.get('type')) != '1':
@@ -52,6 +52,13 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
     code_min=min([number(r['retained_ratio']) for r in codes]+[Decimal(1)])
     for row in coupons:
         if not active(row,now,coupon=True):continue
+        if (str(row.get('id'))=='1259' and row.get('title')=='Compensation coupon'
+                and str(row.get('fetch_scene'))=='4' and str(row.get('mode_type'))=='1'):
+            compensation.append(dict(id='1259',title=row['title'],fixed_usd=str(number(row.get('reduce'))),
+                fetch_qty=str(row.get('fetch_qty')),used_qty=str(row.get('used_qty')),
+                accounting='separate_after_sales_issue_and_redemption_reconciliation_required',
+                source='Admin coupon ledger; human confirmed separate from ordinary pricing 2026-10-22'))
+            continue
         # Directed templates with no issued coupons cannot be redeemed; a first issue changes the envelope.
         if (str(row.get('fetch_scene'))=='4' and str(row.get('fetch_qty'))=='0' and str(row.get('used_qty'))=='0'
                 and str(row.get('mode_type'))=='1'):
@@ -62,12 +69,9 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
             raise ValueError('pricing_coupon_mode_unverified')
         ratio=number(row.get('reduce'))/100
         if ratio>1:raise ValueError('pricing_coupon_ratio_invalid')
-        stack=str(row['is_open'])=='1'
-        # Cart computes separate deductions on the original total; coupon selection clears points, not VIP.
-        combined=ratio-(1-code_min if stack else 0)-Decimal('.05')
-        if combined<=0:raise ValueError('pricing_coupon_no_positive_retention')
-        vouchers.append(dict(id=str(row['id']),retained_ratio=str(combined),coupon_retained_ratio=str(ratio),
-                             code_stack=stack,threshold_ignored_conservatively=True,
+        if str(row['is_open'])=='1':raise ValueError('pricing_coupon_exclusivity_conflict')
+        vouchers.append(dict(id=str(row['id']),retained_ratio=str(ratio),coupon_retained_ratio=str(ratio),
+                             code_stack=False,threshold_ignored_conservatively=True,
                              cap_ignored_conservatively=True))
     # Current published VIP contract: automatic discount <=5%, points <=10%, mutually
     # exclusive with regular codes. Both are dominated by the observed FC 30% coupon.
@@ -107,21 +111,21 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
             source='Admin product quantity/gift/discount configuration, checked against same-run public 100K',
             custom_basis='existing integer-K custom amount, minimum published tier; no formula changes')
     body=dict(contract='fc-coins-promotion-envelope-v1',status='verified',site_id=266,game_id=1327,
-        coupon_other_benefits_contract='verified_included_in_envelope' if vouchers else 'not_applicable',
+        coupon_other_benefits_contract='verified_mutually_exclusive' if vouchers else 'not_applicable',
         minimum_retained_ratio=str(minimum),code_count=len(codes),coupon_count=len(vouchers),
         codes_sha256=fingerprint(codes),coupons=vouchers,packages=packages,
-        unissued_directed_templates=unissued_directed,
+        unissued_directed_templates=unissued_directed,after_sales_compensation=compensation,
         vip_contract=dict(url='https://www.mmoexp.com/Vip.html',verified_date='2026-10-22',
                           automatic_discount_max_pct='5',points_max_pct='10',regular_code_exclusive=True,
-                          coupon_points_exclusive=True,coupon_vip_allowance_pct='5',
-                          combination='conservative additive original-amount deductions',
+                          coupon_points_exclusive=True,coupon_vip_allowance_pct='0',
+                          combination='VIP_points_code_coupon_mutually_exclusive',
                           cart_source_url='https://www.mmoexp.com/Cart.html',cart_source_sha256=CART_SHA,
-                          verification='public cart computeCouponPrice/clearPointsUi/priceProcessing source inspected; backend transaction not placed'),
+                          verification='human explicitly confirmed all four mutually exclusive 2026-10-22; supersedes earlier Cart inference; backend transaction not placed'),
         custom_contract=dict(url=CUSTOM_URL,sha256=CUSTOM_SHA,integer_k=True,
             minimum='minimum_public_tier',non_tier_gifts='0',tier_discount_bound='minimum_configured_discount',
             unit_bound='custom uses max(current unit, derived tier unit)',verified_date='2026-10-22',
             verification='workstation public source inspection; fixed formula retained by user, not a per-cycle remote fetch'),
-        scope='all current applicable percentage promotions; ignored caps/eligibility only overestimate discounts')
+        scope='ordinary sales; mutually exclusive benefits; after-sales compensation accounted separately; ignored caps/eligibility only overestimate discounts')
     return dict(body,sha256=fingerprint(body),checked_at=now.isoformat())
 
 
