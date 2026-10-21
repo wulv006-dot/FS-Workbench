@@ -21,6 +21,10 @@ class Release(unittest.TestCase):
         self.assertFalse(any('price' in p or 'automation' in p for p in module.TARGETS.values()))
         timer=(ROOT/'deploy/fs-data-archive.timer').read_text()
         self.assertIn('00:50:00',timer);self.assertIn('Persistent=false',timer)
+        spec=importlib.util.spec_from_file_location('archive_metrics_fix',ROOT/'deploy/archive_metrics_fix.py')
+        fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+        self.assertEqual(len(fix.TARGETS),3)
+        self.assertFalse(any('/systemd/' in path for path in fix.TARGETS.values()))
 
 
 if __name__=='__main__':unittest.main()
