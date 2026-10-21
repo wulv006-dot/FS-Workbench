@@ -1,7 +1,7 @@
 {
   "scope": "fs-channel-effects-20261021",
   "status": "deployed_real_entry_verified",
-  "sourceCommit": "f942008584efe06077f43f9d7620200021cb5b37",
+  "sourceCommit": "eba6ef3fc66395c4089b618b12f9a66edd409c58",
   "businessWrites": false,
   "timersChanged": true,
   "newChannelTimers": [
@@ -71,6 +71,15 @@
       "backup": "/var/backups/fs-navigation-20261006/nav-20261021T130109Z",
       "manifestSha256": "0817ed2e9bdebccdaebf125253732da8d38653140012da7b277c942a2e0d3e68",
       "targets": 11
+    },
+    {
+      "releaseId": "nav-20261021T132616Z",
+      "stage": "/opt/fs-release-stage/fs-channel-cache-refresh-cbde783c37d5",
+      "head": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
+      "mergeCommit": "eba6ef3fc66395c4089b618b12f9a66edd409c58",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T132616Z",
+      "manifestSha256": "db0d9dfc58ebefc9311313ad2f3897ffe7783507ac66a35563b094b89781d411",
+      "targets": 2
     }
   ],
   "files": [
@@ -137,11 +146,11 @@
     {
       "candidate": "runtime/channel_cache.py",
       "target": "/opt/fs-hermes-fc/channel_cache.py",
-      "sha256": "24fc15353856a691bfb0b8a9bed858951f5c9b42ce6a2ee3faa12e98e7884fd3",
-      "beforeSha256": null,
+      "sha256": "59f788b0214cf269f315feb56e03b9cd01b3927e66f54509f9b4101dbafbf3fa",
+      "beforeSha256": "24fc15353856a691bfb0b8a9bed858951f5c9b42ce6a2ee3faa12e98e7884fd3",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "sourceCommit": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
       "role": "current_source_or_target"
     },
     {
@@ -157,11 +166,11 @@
     {
       "candidate": "runtime/channel_effects.py",
       "target": "/opt/fs-hermes-fc/channel_effects.py",
-      "sha256": "15a8af4723ab790a73254fe33772b4f579c20fbab35eaa581c8165c051f8858e",
-      "beforeSha256": "495f4cd27430c12d71fa1598081ea5d217b65ef572f9faa93275c839a8b44213",
+      "sha256": "5302dfc46113f1fec86052e5673b9b81ef97978f1f10b656a8cd97eed6e04ba8",
+      "beforeSha256": "15a8af4723ab790a73254fe33772b4f579c20fbab35eaa581c8165c051f8858e",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "sourceCommit": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
       "role": "current_source_or_target"
     },
     {
@@ -398,5 +407,6 @@
   "readback": "READBACK.json",
   "oldImmutableAssetsRetained": true,
   "naturalNightlyCycle": "not_yet_observed",
-  "historyBackfill": "scheduled; 74 order days pending at 2026-10-21 21:03"
+  "historyBackfill": "scheduled; 74 historical order days still pending at prior complete snapshot",
+  "currentCacheBehavior": "archive_first_then_original_600_second_background_refresh"
 }
