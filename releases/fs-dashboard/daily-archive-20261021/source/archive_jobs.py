@@ -84,7 +84,7 @@ def read_route(params,port=8931,path='/range'):
 def candidates(today,definitions,daily):
     end=(today-timedelta(days=1)).isoformat()
     if daily:
-        for offset in range(1,6):
+        for offset in range(1,7):
             day=(today-timedelta(days=offset)).isoformat()
             yield dict(profile='marketing',start=day,end=day)
         for length in (7,30):
@@ -113,7 +113,7 @@ def run_once(daily=False,budget=480):
     completed=0;begin=time.monotonic();definition=profiles()
     for args in candidates(now.date(),definition,daily):
         if time.monotonic()-begin>=budget or not daily and datetime.now(TZ).hour>=7:break
-        marketing=args['profile']=='marketing';key=hashlib.sha256(encoded(args)).hexdigest()
+        marketing=args['profile']=='marketing';key=hashlib.sha256(encoded({'cadence':'daily' if daily else 'history','query':args})).hexdigest()
         prior=state.get(key,{})
         if prior.get('retryAfter',0)>time.time():continue
         if daily and prior.get('status')=='complete' and prior.get('at','')[:10]==now.date().isoformat():continue
