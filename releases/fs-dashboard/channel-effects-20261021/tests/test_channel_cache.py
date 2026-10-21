@@ -59,6 +59,14 @@ class Archive(unittest.TestCase):
             result=cache.collect_period(data['period'],root)
             source.assert_called_once_with(data['period'])
             self.assertTrue(all('adminSaleCny' in row for row in result['orders']))
+    def test_open_status_rechecks_admin_but_final_history_reuses_archive(self):
+        data=self.fixture()
+        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch('channel_source.collect',return_value=data) as source:
+            root=Path(folder);cache.store_days(data,root)
+            cache.collect_period(data['period'],root);source.assert_not_called()
+            data['orders'][0]['status']='发货中';data['generatedAt']=datetime.now(TZ).isoformat()
+            cache.store_days(data,root)
+            cache.collect_period(data['period'],root);source.assert_called_once_with(data['period'])
 
     def test_partially_cached_period_only_reads_missing_days(self):
         data=self.fixture();empty=deepcopy(data);empty.update(period=dict(start='2026-10-19',end='2026-10-19'),orders=[])

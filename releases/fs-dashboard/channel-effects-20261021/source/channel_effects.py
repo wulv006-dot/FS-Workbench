@@ -149,6 +149,10 @@ def fraud(row):
     return re.sub(r'[·\s]', '', row['status']) == '验证未通过'
 
 
+def final_order_statuses(data):
+    return all(r['status'] == '已完成' or r['refunded'] or fraud(r) for r in data['orders'])
+
+
 def accounting_row(raw, overrides, tests=None, admin_revenue=True):
     row = dict(raw, zeroCost=False, testOrder=False,
                revenueBasis='admin_order_cny' if admin_revenue and 'adminSaleCny' in raw else 'legacy_delivery')
@@ -394,7 +398,7 @@ class ChannelService:
             state = self.jobs.get(key)
             coverage=(data or {}).get('sources',{}).get('cache',{})
             revenue_ready=bool(data is not None and all('adminSaleCny' in r for r in data['orders']))
-            fixed=bool(archived and revenue_ready and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete'))
+            fixed=bool(archived and revenue_ready and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete') and final_order_statuses(data))
             stamp = data['sources'].get('cost',{}).get('generatedAt') if fixed else (data or {}).get('generatedAt')
             fresh = bool(revenue_ready and stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < 600)
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):

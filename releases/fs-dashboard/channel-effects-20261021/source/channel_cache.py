@@ -151,13 +151,14 @@ def collect_period(period, root=ROOT, force=False):
     from copy import deepcopy
     requested = list(days(period))
     known = {day: compose(dict(start=day, end=day), root) for day in requested}
-    known = {day: value if value is not None and all('adminSaleCny' in r for r in value['orders']) else None
+    from channel_effects import final_order_statuses
+    known = {day: value if value is not None and all('adminSaleCny' in r for r in value['orders']) and final_order_statuses(value) else None
              for day, value in known.items()}
     missing = [day for day in requested if known[day] is None]
     if force or len(missing) == len(requested): return collect(period)
     if not missing:
         value=compose(period,root)
-        return value if value['sources']['cache']['customerDayComplete'] else collect(period)
+        return value if value['sources']['cache']['customerDayComplete'] and final_order_statuses(value) else collect(period)
     chunks = []
     for day in missing:
         if chunks and (date.fromisoformat(day)-date.fromisoformat(chunks[-1]['end'])).days == 1:
