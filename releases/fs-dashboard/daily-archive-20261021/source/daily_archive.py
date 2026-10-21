@@ -232,13 +232,14 @@ def derive_summary(query):
     result['profile']['period'] = result['query']['period']
     sums = {'orders','revenueUsd','pureSalesUsd','deductedAmountUsd','refundAmountUsd','refundOrders','newCustomerRevenueUsd','receiptsCny','goodsPaymentCny'}
     total = lambda numbers: float(sum((Decimal(str(n)) for n in numbers),Decimal(0))) if all(isinstance(n,(float,int)) and not isinstance(n,bool) for n in numbers) else None
+    scalar = lambda source,key: source.get(key,source.get('metrics',{}).get(key,{}).get('value'))
     for name in ('primary','supplement'):
         sources = [v['profile'][name] for v in values]
         first = sources[0]
         if any(any(s.get(k)!=first.get(k) for k in ('system','currency','normalisedScope','endpoint')) for s in sources):return None
         source = result['profile'][name]
         source.update(period=result['query']['period'],capturedAt=min(s['capturedAt'] for s in sources),sourceDataAsOf=None)
-        for key in ('orders','revenueUsd'):source[key]=total([s.get(key) for s in sources])
+        for key in ('orders','revenueUsd'):source[key]=total([scalar(s,key) for s in sources])
         source['newCustomers']=None
         source['dimensions']={'period':source['period'],'source':'daily-archive-derived'}
         source['charts'],source['rows'],source['nativeSeries']=[],[],[]
@@ -246,7 +247,7 @@ def derive_summary(query):
             numbers=[s.get('metrics',{}).get(key,{}).get('value') for s in sources]
             derived=total(numbers) if key in sums else None
             if key in ('minOrderAmountUsd','maxOrderAmountUsd'):
-                numbers=[n for n,s in zip(numbers,sources) if s.get('orders') and isinstance(n,(int,float))]
+                numbers=[n for n,s in zip(numbers,sources) if scalar(s,'orders') and isinstance(n,(int,float))]
                 if numbers:derived=(min if key.startswith('min') else max)(numbers)
             metric.update(value=derived,status='available' if derived is not None else 'not_derived',raw=None,
                           definition='同口径完整日归档合计/边界；不可加和人数与原生百分比待整段读取',derived=True)
