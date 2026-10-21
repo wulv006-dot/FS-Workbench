@@ -67,13 +67,15 @@ class BaselineTests(unittest.TestCase):
         from unittest.mock import patch
         sys.path.insert(0,str(Path(__file__).parent/'deploy'))
         import navigation_patch as nav
-        raw=b'\n'.join(('alias /var/lib/fs-navigation-formal-static/'+p+';').encode() for p in ('workspace-native-20261006-afff372192a3/tools-index.html','workspace-native-20261006-afff372192a3/page.js','workspace-native-20261006-346f59eea565/page.js'))
+        routes={'/dashboard/data-tools/index.html':'workspace-native-20261006-afff372192a3/tools-index.html','/dashboard/data-tools/page.js':'workspace-native-20261006-afff372192a3/page.js','/dashboard/fs-home/hermes/customer-tracking/page.js':'workspace-native-20261006-346f59eea565/page.js','/dashboard/workspace-assets/workspace-native-20261006-afff372192a3/page.js':'workspace-native-20261006-afff372192a3/page.js'}
+        raw=b'\n'.join(('location = '+uri+' {\n    alias /var/lib/fs-navigation-formal-static/'+p+';\n}').encode() for uri,p in routes.items())
         raw+=b'\nlocation = /dashboard/workspace-assets/workspace-native-20261006-916087de9ef6/data-workspace.js {\n    if ($request_method !~ ^(GET|HEAD)$) { return 405; }\n    auth_request /__nav_formal_native_session;\n    alias /var/lib/fs-navigation-formal-static/workspace-native-20261006-916087de9ef6/data-workspace.js;\n}\n'
         with patch.object(nav,'BEFORE',hashlib.sha256(raw).hexdigest()):
             new=nav.candidate(raw,'workspace-native-20261006-4f4a56f7a335')
             self.assertEqual(new.count(b'auth_request /__nav_formal_native_session;'),2)
             self.assertEqual(new.count(b'{'),new.count(b'}'))
             self.assertIn(b'workspace-native-20261006-916087de9ef6/data-workspace.js',new)
+            self.assertEqual(new.count(b'alias /var/lib/fs-navigation-formal-static/workspace-native-20261006-afff372192a3/page.js;'),1)
             with self.assertRaises(ValueError):nav.candidate(raw+b'changed','workspace-native-20261006-4f4a56f7a335')
 
     def test_package_ending_boundaries_and_margin(self):
