@@ -1,0 +1,640 @@
+{
+  "phases": [
+    {
+      "phase": "workflow_case_20261022",
+      "state": {
+        "id": "a36c0f6ab64c4ac0b5ab7fae301bf094",
+        "conversation_id": "68e143281b4e4ea3815945410d4feb98",
+        "state": "completed",
+        "run_id": "run_bae0edba90c84efaad1ae365d5565a16",
+        "task_id": "6e7348346bef19a20ff775f7a708b4fa"
+      },
+      "knowledge_version": "learning-7479f8404a019f3a28ec7bd9f1ed557a76ced0672c11f2b2db63f6d14a0017d6",
+      "experience_manifest_sha256": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "model": "deepseek-flash",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "aae39022046ee238c92b3451037b7db706ab3fd1fbf92cc85d86a05b7f4852ac",
+        "provider_effort_echo": null,
+        "provider_response_id": "37cee53b-1444-447d-9f95-ad36728316df",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "provider_request_ids": [
+        "56f53c30-d5d8-4bcb-aef4-f3f2ffc921d0",
+        "a24a36cc-81dd-453b-a0f4-5d3dc90ebb87",
+        "c59798e6-3082-4b0d-ab12-e287f9567a7e",
+        "37cee53b-1444-447d-9f95-ad36728316df"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2500,
+          "path": "runtime/data-archive-first/SKILL.md",
+          "sha256": "1f805ce0b7f5ff0ff5762ee0936a4735f67b9fbf3a8f17ec7bf5d4596bd512ce"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 30756,
+          "path": "runtime/business-baseline.md",
+          "sha256": "93e7c01791972cd4f10ecb3a5c1aee00f59d9f09adbf2aa636ee5ca255f61169"
+        }
+      ],
+      "workflows": [
+        {
+          "evidence_id": "ev_42d3563965cf936b39060679",
+          "query": {
+            "action": "review",
+            "end": "2026-10-20",
+            "profile": "FC27",
+            "start": "2026-10-14"
+          },
+          "workflow_version": "astra-fc-coins-v1",
+          "receipt_sha256": "e01b6950c82bf10fd31cb0d69e5f573580d9b591b2c80d8b6b23a3acc8bd32e6",
+          "workflow_sha256": null,
+          "status": "partial"
+        },
+        {
+          "evidence_id": "ev_593f47b2244feb7797b803e5",
+          "query": {
+            "action": "scenario",
+            "case": {
+              "currency": "USD",
+              "delivered_cost_includes_gifts": true,
+              "discounts_pct": [
+                "0",
+                "5"
+              ],
+              "economics": {
+                "after": {
+                  "ads_usd": "130",
+                  "delivered_cost_unit_usd": "8.60",
+                  "net_unit_usd": "11.80",
+                  "orders": 90
+                },
+                "before": {
+                  "ads_usd": "100",
+                  "delivered_cost_unit_usd": "8.60",
+                  "net_unit_usd": "12.60",
+                  "orders": 80
+                }
+              },
+              "platforms": [
+                {
+                  "current_usd": "12.60",
+                  "delivered_cost_usd": "8.60",
+                  "main_usd": "11.80",
+                  "platform": "PS"
+                },
+                {
+                  "current_usd": "12.60",
+                  "delivered_cost_usd": "10.20",
+                  "main_usd": "11.80",
+                  "platform": "XBOX"
+                },
+                {
+                  "current_usd": "14.50",
+                  "delivered_cost_usd": "10.50",
+                  "main_usd": "14.09",
+                  "platform": "PC"
+                }
+              ]
+            },
+            "end": "2026-10-20",
+            "profile": "FC27",
+            "start": "2026-10-14"
+          },
+          "workflow_version": "astra-fc-coins-v1",
+          "receipt_sha256": "4355ddeb289f314ab07817634ebc54a625183d8a6db0201a0e627238b089cac2",
+          "workflow_sha256": null,
+          "status": "available"
+        },
+        {
+          "evidence_id": "ev_61814314ea01c10a114e8b3a",
+          "query": {
+            "action": "review",
+            "end": "2026-10-20",
+            "profile": "FC27",
+            "start": "2026-10-14"
+          },
+          "workflow_version": "astra-fc-coins-v1",
+          "receipt_sha256": "651ed2f4c64ccac234679bb14576050640acd02a4c36186d3fd3b77e7f16ea33",
+          "workflow_sha256": null,
+          "status": "pending"
+        }
+      ],
+      "failed_learning_source_attempts": 0
+    },
+    {
+      "phase": "workflow_g_20261022",
+      "state": {
+        "id": "f28998eba2c74920be6534e295aed4d6",
+        "conversation_id": "4bceebc8645043af8c3da96d439947f2",
+        "state": "completed",
+        "run_id": "run_befae2b395c64e1ea6d97dc7ec80c5d5",
+        "task_id": "de6889a75e68a24cce2ae4ad752e92e0"
+      },
+      "knowledge_version": "learning-be72f292cc4951c4a69ab4c912e7dccb7df3b1377bcdb2d601436352452916fc",
+      "experience_manifest_sha256": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "model": "deepseek-flash",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "3cc102d4ceb4854f70e8a5d9f061de2e1a0937e8e5e2ffb7bc3dec85f9ea8cf0",
+        "provider_effort_echo": null,
+        "provider_response_id": "ccf71a7f-a9fc-4e0d-be05-48919f6326f1",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "provider_request_ids": [
+        "5ae42c2f-a70c-46c0-b8de-17fa3e063df8",
+        "7956fd3a-8003-4842-982d-34236e4aaa41",
+        "75bdc66a-528e-438d-8ef3-e6a710b8db8d",
+        "6b55aa98-a9e7-490f-9c69-cf61a5544dfa",
+        "1193f38d-1e6b-4e1d-b111-f5043f76d2f5",
+        "e4d7da2b-4b59-4911-80db-3830114be3b9",
+        "5d6b44ed-0f09-4d33-a61c-cf1129338fd1",
+        "71a3e606-0481-4ef9-8037-7ea9a6606d24",
+        "1f86ef2f-11d8-4348-877e-620373f2ea4a",
+        "ccf71a7f-a9fc-4e0d-be05-48919f6326f1"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2500,
+          "path": "runtime/data-archive-first/SKILL.md",
+          "sha256": "1f805ce0b7f5ff0ff5762ee0936a4735f67b9fbf3a8f17ec7bf5d4596bd512ce"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 32376,
+          "path": "runtime/business-baseline.md",
+          "sha256": "e0ef2ff5cc844f08e188f7410b8b3df3e5d09a3b15cad25e0865e01d2f6e2958"
+        }
+      ],
+      "workflows": [
+        {
+          "evidence_id": "ev_59c8cae599a0a2ef2be0e10b",
+          "query": {
+            "action": "scenario",
+            "case": {
+              "currency": "USD",
+              "delivered_cost_includes_gifts": true,
+              "discounts_pct": [
+                "0",
+                "8"
+              ],
+              "economics": {
+                "after": {
+                  "ads_usd": null,
+                  "delivered_cost_unit_usd": "12.60",
+                  "net_unit_usd": "17.99",
+                  "orders": 205
+                },
+                "before": {
+                  "ads_usd": null,
+                  "delivered_cost_unit_usd": "12.60",
+                  "net_unit_usd": "18.00",
+                  "orders": 200
+                }
+              },
+              "platforms": [
+                {
+                  "current_usd": "18.00",
+                  "delivered_cost_usd": "12.60",
+                  "main_usd": "18.09",
+                  "platform": "PS"
+                },
+                {
+                  "current_usd": "18.00",
+                  "delivered_cost_usd": "12.60",
+                  "main_usd": "18.09",
+                  "platform": "XBOX"
+                },
+                {
+                  "current_usd": "9.99",
+                  "delivered_cost_usd": "8.10",
+                  "main_usd": "10.09",
+                  "platform": "PC"
+                }
+              ]
+            },
+            "end": "2026-10-21",
+            "profile": "FC27",
+            "start": "2026-10-21"
+          },
+          "workflow_version": "astra-fc-coins-v2",
+          "receipt_sha256": "ef976e22c38141794e47ac33e3a7fb0ff8aa5d0e2162e120af6b63d6f979a99f",
+          "workflow_sha256": "645f1b5bd40833b2cf1c2d8a834761b718eda6514c46941a1f60015246f2180f",
+          "status": "available"
+        }
+      ],
+      "failed_learning_source_attempts": 2
+    },
+    {
+      "phase": "workflow_h_20261022",
+      "state": {
+        "id": "1c8cc106affd4498b13ac81f2fb5515d",
+        "conversation_id": "b0ddda5bbd7c416597bcd2db1c854966",
+        "state": "completed",
+        "run_id": "run_ad3bb52e6b75470eb8d78c1ac0fb8cee",
+        "task_id": "b7df7837040967d5f6e76e3b3d3e116e"
+      },
+      "knowledge_version": "learning-613abba2ca3499485cbecd40a62b5dcec26b0272930f1febb04819ad0337e608",
+      "experience_manifest_sha256": "9d5665a4dffa67cf20035541915effa92f4622001a141a2206580b939d33c369",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e",
+        "b78c03bb723aad3656d420edb070adeea7c18a9a55ae80a5d45a205798e97259"
+      ],
+      "model": "deepseek-flash",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "5e2ee014aa1326562dd1980abac4ecf5fd3c76b587a32c1b63d19c7a9999d48c",
+        "provider_effort_echo": null,
+        "provider_response_id": "d0d9acd0-df4b-49ac-9d49-91b9a296ba14",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "provider_request_ids": [
+        "80a2a947-4edd-4d62-b482-e79ba1396f0d",
+        "3aae50eb-a72b-41c9-8ba7-1932ffa8f19e",
+        "d0d9acd0-df4b-49ac-9d49-91b9a296ba14"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2500,
+          "path": "runtime/data-archive-first/SKILL.md",
+          "sha256": "1f805ce0b7f5ff0ff5762ee0936a4735f67b9fbf3a8f17ec7bf5d4596bd512ce"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 32376,
+          "path": "runtime/business-baseline.md",
+          "sha256": "e0ef2ff5cc844f08e188f7410b8b3df3e5d09a3b15cad25e0865e01d2f6e2958"
+        }
+      ],
+      "workflows": [
+        {
+          "evidence_id": "ev_384671aecb39ac03dc8a221d",
+          "query": {
+            "action": "scenario",
+            "case": {
+              "currency": "USD",
+              "delivered_cost_includes_gifts": true,
+              "discounts_pct": [
+                "0",
+                "10"
+              ],
+              "economics": {
+                "after": {
+                  "ads_usd": "250",
+                  "delivered_cost_unit_usd": "10.40",
+                  "net_unit_usd": "14.40",
+                  "orders": 160
+                },
+                "before": {
+                  "ads_usd": "200",
+                  "delivered_cost_unit_usd": "10.40",
+                  "net_unit_usd": "15.00",
+                  "orders": 150
+                }
+              },
+              "platforms": [
+                {
+                  "current_usd": "15.00",
+                  "delivered_cost_usd": "10.40",
+                  "main_usd": "14.40",
+                  "platform": "PS"
+                },
+                {
+                  "current_usd": "15.00",
+                  "delivered_cost_usd": "10.40",
+                  "main_usd": "14.40",
+                  "platform": "XBOX"
+                },
+                {
+                  "current_usd": "11.99",
+                  "delivered_cost_usd": "8.00",
+                  "main_usd": "12.09",
+                  "platform": "PC"
+                }
+              ]
+            },
+            "end": "2026-10-21",
+            "profile": "FC27",
+            "start": "2026-10-21"
+          },
+          "workflow_version": "astra-fc-coins-v2",
+          "receipt_sha256": "eb46c99a2346e67c8eb0220a2bb35f6e8de9cf2059ef21803ee0601363081573",
+          "workflow_sha256": "645f1b5bd40833b2cf1c2d8a834761b718eda6514c46941a1f60015246f2180f",
+          "status": "available"
+        }
+      ],
+      "failed_learning_source_attempts": 0
+    }
+  ],
+  "total_successful_responses": 17,
+  "learning_reviewer": {
+    "finish_reason": "stop",
+    "model": "deepseek-flash",
+    "model_validation": {
+      "actual_backend_version": "unknown",
+      "endpoint_type": "chat_completions",
+      "forwarded_verified": true,
+      "payload_sha256": "2a4425a96de66961298d511c70ee1bb61036b9a20fe93b22947314c75935ff3c",
+      "provider_effort_echo": null,
+      "provider_response_id": "82706c17-80e8-4b00-bc35-015be48153c0",
+      "requested_effort": "high",
+      "requested_model": "deepseek-flash",
+      "response_model": "deepseek-flash",
+      "status": "accepted_no_effort_echo",
+      "thinking_enabled": true
+    },
+    "provider_request_id": "82706c17-80e8-4b00-bc35-015be48153c0",
+    "usage": {
+      "completion_tokens": 3678,
+      "prompt_tokens": 13003,
+      "total_tokens": 16681
+    }
+  },
+  "statement": "Real FS tasks; high/thinking forwarded, provider effort/backend version not echoed. Limited novel scenarios, no long-term growth or profit claim."
+}

@@ -1,0 +1,15 @@
+{
+  "id": "astra-fc-hermes",
+  "kind": "heartbeat",
+  "name": "Astra 每周复核 FC 金币策略与 Hermes 成长",
+  "status": "ACTIVE",
+  "target_thread_id": "01a159da-838f-7aa1-88ff-829cb53e167a",
+  "schedule": "每周一10:00 Asia/Shanghai",
+  "first_expected": "2026-10-26T10:00:00+08:00",
+  "prompt_sha256": "553dea0a938f732dcdbcb151f16e5cc1556393d9bd6fe28946d76834abaed32d",
+  "astra_model_requested": "gpt-6-astra",
+  "reasoning_effort_requested": "high",
+  "first_natural_run_verified": false,
+  "scope": "readonly analysis and reviewed method candidates; no production pricing/policy writes",
+  "local_runtime_required": true
+}

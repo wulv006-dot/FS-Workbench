@@ -1,0 +1,54 @@
+{
+  "workflow_version": "astra-fc-coins-v2",
+  "business_baseline": {
+    "version": "business-baseline-20261021-v9",
+    "sha256": "e0ef2ff5cc844f08e188f7410b8b3df3e5d09a3b15cad25e0865e01d2f6e2958"
+  },
+  "protected_files_matched": 418,
+  "http_role_readback": [
+    {
+      "identity": "owner",
+      "status": 200
+    },
+    {
+      "identity": "other_admin",
+      "status": 404
+    },
+    {
+      "identity": "anonymous",
+      "status": 401
+    }
+  ],
+  "automatic_learning_events": [
+    {
+      "source": "a36c0f6ab64c4ac0b5ab7fae301bf094",
+      "state": "queued"
+    },
+    {
+      "source": "f28998eba2c74920be6534e295aed4d6",
+      "state": "completed"
+    },
+    {
+      "source": "1c8cc106affd4498b13ac81f2fb5515d",
+      "state": "queued"
+    }
+  ],
+  "console_current_observation_status": "source_reconciliation_required",
+  "policy_sha256": "7547c65c1271ed7d31a9b06e19d2d61c5b57fed64055667e79ebd4a30f5b6bd5",
+  "policy_preserved": {
+    "revision": 40,
+    "system_enabled": true,
+    "mode": "auto",
+    "interval_minutes": 120,
+    "minimum_gross_margin_pct": "10"
+  },
+  "services": {
+    "fs-business-range": "active",
+    "fs-hermes-fc": "active"
+  },
+  "business_writes": false,
+  "production_price_recommendation": false,
+  "weekly_first_natural_run_verified": false,
+  "long_term_transfer_or_causal_profit_verified": false,
+  "observed_at": "2026-10-21T17:23:28.476087+00:00"
+}

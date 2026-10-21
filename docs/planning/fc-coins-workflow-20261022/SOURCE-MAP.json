@@ -1,68 +1,231 @@
 {
-  "scope": "fc-coins-workflow-20261022",
-  "observed_main": "536ce5274b12ba43f9bf40e24fd527bf882fe4e6",
-  "businessWrites": false,
-  "timersChanged": false,
-  "targets": [
+  "workflow": "astra-fc-coins-v2",
+  "business_baseline": {
+    "version": "business-baseline-20261021-v9",
+    "sha256": "e0ef2ff5cc844f08e188f7410b8b3df3e5d09a3b15cad25e0865e01d2f6e2958"
+  },
+  "active_targets": [
     {
       "candidate": "runtime/business-baseline.md",
       "target": "/opt/fs-hermes-fc/business-baseline.md",
-      "beforeSha256": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26",
-      "sha256": "93e7c01791972cd4f10ecb3a5c1aee00f59d9f09adbf2aa636ee5ca255f61169"
+      "beforeSha256": "93e7c01791972cd4f10ecb3a5c1aee00f59d9f09adbf2aa636ee5ca255f61169",
+      "sha256": "e0ef2ff5cc844f08e188f7410b8b3df3e5d09a3b15cad25e0865e01d2f6e2958",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "cea738f0dd844e90e9c71e86577589e679e241cc",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/business-baseline.md"
     },
     {
       "candidate": "runtime/controller.py",
       "target": "/opt/fs-hermes-fc/controller.py",
       "beforeSha256": "440ac7866caed5273eb894756a47c058eaf520f1a508fadc779ff4586e44ab45",
-      "sha256": "571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af"
+      "sha256": "571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/controller.py"
     },
     {
       "candidate": "runtime/conversation_service.py",
       "target": "/opt/fs-hermes-fc/conversation_service.py",
       "beforeSha256": "b9546a8776a258386cfa299455896622049be014ce91a7cce5a35e593120a875",
-      "sha256": "07012a1993f8ec99fc84a7b45ca416fb4f8cf2c025f9a82e20104d246058e02b"
+      "sha256": "07012a1993f8ec99fc84a7b45ca416fb4f8cf2c025f9a82e20104d246058e02b",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/conversation_service.py"
     },
     {
       "candidate": "runtime/fs_evidence.py",
       "target": "/opt/fs-hermes-fc/fs_evidence.py",
       "beforeSha256": "b3be359f33ba47579203b5f930066007332bf430764122aae93bff56e8a05ed4",
-      "sha256": "f5058125d04cdb37ad303df938a136c80a3a28d045b7e2ebbfe3d1aad5981216"
+      "sha256": "f5058125d04cdb37ad303df938a136c80a3a28d045b7e2ebbfe3d1aad5981216",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py"
     },
     {
       "candidate": "runtime/learning_registry.py",
       "target": "/opt/fs-hermes-fc/learning_registry.py",
       "beforeSha256": "7ce0fff4039a4c1fab81fcd3fbe4987bf383c58f341ec3c3e127c9731cb47885",
-      "sha256": "07dcd3cbbc840194034d039f03b013b420b1688fcc5132e4b7d3c22cddc36b39"
+      "sha256": "07dcd3cbbc840194034d039f03b013b420b1688fcc5132e4b7d3c22cddc36b39",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/learning_registry.py"
     },
     {
       "candidate": "runtime/learning_service.py",
       "target": "/opt/fs-hermes-fc/learning_service.py",
-      "beforeSha256": "e496838b1d3585c478673d21e783e76a8b2a28133e4d5ffd3651105f44b9683b",
-      "sha256": "a21b065f2c791ac303a5328fd84e9b38f360a84dde3e58f1740de083c36aebd8"
+      "beforeSha256": "3db05bd9b3464728f017ad9b6435cc2b3c3c8220fd39f6d987fcf01b8ccf476d",
+      "sha256": "2ee01ebd043cf042f725d2203cd92339168a54aa65e2be934e626bcd04232adc",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "cea738f0dd844e90e9c71e86577589e679e241cc",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/learning_service.py"
     },
     {
       "candidate": "runtime/pricing_workflow.py",
       "target": "/opt/fs-hermes-fc/pricing_workflow.py",
-      "beforeSha256": null,
-      "sha256": "74d1514ee7dc9f2972d81526e1c7537aced1ec8cf8e730c637122b4f947cabb9"
+      "beforeSha256": "b5b302048beef0877ae8ad7f54322e9e03f6dc899798739d0e5d8471ecbb1d49",
+      "sha256": "645f1b5bd40833b2cf1c2d8a834761b718eda6514c46941a1f60015246f2180f",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "cea738f0dd844e90e9c71e86577589e679e241cc",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"
     },
     {
       "candidate": "runtime/research.py",
       "target": "/opt/fs-hermes-fc/research.py",
-      "beforeSha256": "4ab949b58f15fe4c6b622ec8f3a22ea46586923d2c7444c728e0a5f2ac857356",
-      "sha256": "9105cc79db30f73de11f7a0385c53bd049dbd1516790096af242072707b7b3be"
+      "beforeSha256": "9105cc79db30f73de11f7a0385c53bd049dbd1516790096af242072707b7b3be",
+      "sha256": "9580a39fd71045571695ea2eb26b9655289e42b8fb90525156e676aa13ba5c6d",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "cea738f0dd844e90e9c71e86577589e679e241cc",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/research.py"
     },
     {
       "candidate": "runtime/source_snapshots.py",
       "target": "/opt/fs-hermes-fc/source_snapshots.py",
       "beforeSha256": "4b32d3dead18eb7266995760adee09b0301cb03440902f83d929508778f4725b",
-      "sha256": "5e80a829bd2dfd7e55a325d637ee11db822bf505aace24e11de810c99159e080"
+      "sha256": "5e80a829bd2dfd7e55a325d637ee11db822bf505aace24e11de810c99159e080",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/source_snapshots.py"
     },
     {
       "candidate": "runtime/strategy_tools.py",
       "target": "/opt/fs-hermes-fc/strategy_tools.py",
       "beforeSha256": "4abb06ee69ca0f134248cf113936e3b3b8c43e75e4440bda51f13b57cf596730",
-      "sha256": "4d9ce6c4f81ed858d25b9f1f0dd8e029a747440fe7008038116f7d1358427d1e"
+      "sha256": "4d9ce6c4f81ed858d25b9f1f0dd8e029a747440fe7008038116f7d1358427d1e",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "repository_path": "releases/fs-dashboard/fc-coins-workflow-20261022/source/strategy_tools.py"
+    }
+  ],
+  "releases": [
+    {
+      "scope": "fc-coins-workflow-20261022",
+      "sourceCommit": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+      "release_id": "nav-20261021T165457Z",
+      "manifest_sha256": "ba88e838705e3a28b0cb2b13a25a0d057bc0320d81496914940382a6051d0c90",
+      "targets": 10,
+      "guards": 408,
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261021T165457Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 10,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "scope": "fc-coins-workflow-receipts-20261022",
+      "sourceCommit": "210b85138e49f4e4032bd830754d235e203d7a35",
+      "release_id": "nav-20261021T170343Z",
+      "manifest_sha256": "dde8c605381b8913aab719a7d118889e8e9e6908a7fd20045c8a77857b7bdec0",
+      "targets": 2,
+      "guards": 416,
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261021T170343Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 2,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    {
+      "scope": "fc-coins-common-market-20261022",
+      "sourceCommit": "cea738f0dd844e90e9c71e86577589e679e241cc",
+      "release_id": "nav-20261021T171315Z",
+      "manifest_sha256": "7dc18c917f7d9c17548a285ed4b0edc49c5c3910bbec30137f91d2c96fd2700a",
+      "targets": 4,
+      "guards": 414,
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261021T171315Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 4,
+        "businessWorkerTimerActions": 0
+      }
+    }
+  ],
+  "pull_requests": [
+    {
+      "pr": {
+        "number": 300,
+        "url": "https://github.com/wulv006-dot/FS-Workbench/pull/300",
+        "head": "538c7842c16f39b8b2a039e91ab7ddeea681d547",
+        "base": "536ce5274b12ba43f9bf40e24fd527bf882fe4e6",
+        "branch": "codex/fc-coins-workflow-20261022"
+      },
+      "ci": {
+        "pr": {
+          "number": 300,
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/300",
+          "head": "538c7842c16f39b8b2a039e91ab7ddeea681d547",
+          "base": "536ce5274b12ba43f9bf40e24fd527bf882fe4e6",
+          "branch": "codex/fc-coins-workflow-20261022"
+        },
+        "ready": true,
+        "checks": [
+          {
+            "name": "pr-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39637437847/job/119351695250"
+          }
+        ]
+      },
+      "merge": {
+        "sha": "f44525bec7f7a1b6f309c5e9334860ee35c59f3d",
+        "merged": true,
+        "message": "Pull Request successfully merged"
+      }
+    },
+    {
+      "pr": {
+        "number": 302,
+        "url": "https://github.com/wulv006-dot/FS-Workbench/pull/302",
+        "head": "71b130fdaea5ebfc6ebdf3acb2c5d6d797553894",
+        "base": "261f85fa1c7e72f0bd506e440a9215e3cace4c2c",
+        "branch": "codex/fc-coins-workflow-receipts-20261022"
+      },
+      "ci": [
+        {
+          "name": "pr-fast",
+          "status": "completed",
+          "conclusion": "success",
+          "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39640129803/job/119361164856"
+        }
+      ],
+      "merge": {
+        "sha": "210b85138e49f4e4032bd830754d235e203d7a35",
+        "merged": true,
+        "message": "Pull Request successfully merged"
+      }
+    },
+    {
+      "pr": {
+        "number": 304,
+        "url": "https://github.com/wulv006-dot/FS-Workbench/pull/304",
+        "head": "7c8a1ad675003ef91a0a2a7402dfaf76783fa38a",
+        "base": "52b0e8438e3183dcc740dbb5e6897fa7d2e169e6",
+        "branch": "codex/fc-coins-common-market-20261022"
+      },
+      "ci": [
+        {
+          "name": "pr-fast",
+          "status": "completed",
+          "conclusion": "success",
+          "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39641408939/job/119365599688"
+        }
+      ],
+      "merge": {
+        "sha": "cea738f0dd844e90e9c71e86577589e679e241cc",
+        "merged": true,
+        "message": "Pull Request successfully merged"
+      }
     }
   ]
 }
