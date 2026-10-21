@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import sys
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -13,6 +14,21 @@ release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release
 
 
 class Publisher(unittest.TestCase):
+    def test_directory_entry_rewrites_to_an_exact_file_route(self):
+        sys.path.insert(0, str(ROOT/'deploy'))
+        try:
+            fix_spec = importlib.util.spec_from_file_location('channel_route_test', ROOT/'deploy/route_fix.py')
+            fix = importlib.util.module_from_spec(fix_spec); fix_spec.loader.exec_module(fix)
+            broken = b'before\nlocation = /dashboard/channel-effects/ {\n    if ($request_method !~ ^(GET|HEAD)$) { return 405; }\n    alias /some/index.html;\n}\nafter'
+            corrected = fix.candidate(broken)
+            self.assertIn(b'location = /dashboard/channel-effects/index.html {',corrected)
+            self.assertIn(b'rewrite ^ /dashboard/channel-effects/index.html last;',corrected)
+            self.assertTrue(corrected.startswith(b'before\n') and corrected.endswith(b'\nafter'))
+            corrected_crlf = fix.candidate(broken.replace(b'\n',b'\r\n'))
+            self.assertEqual(corrected_crlf,corrected.replace(b'\n',b'\r\n'))
+            with self.assertRaises(ValueError):fix.candidate(corrected)
+        finally:sys.path.pop(0)
+
     def test_exact_targets_and_existing_file_boundary(self):
         manifest = json.loads((ROOT/'deploy/approved-manifest.json').read_text())
         self.assertEqual(len(release.checked_manifest(manifest)['files']),12)
