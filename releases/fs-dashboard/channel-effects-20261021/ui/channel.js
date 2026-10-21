@@ -21,6 +21,8 @@ let poll = null;
 let generation = 0;
 let denied = false;
 let identity = null;
+let renderedQuery = '';
+const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -196,6 +198,7 @@ function render() {
   $('results').hidden = false;
   if (data.costRefreshing) show('订单已取得，正在从共享源关联采购成本；当前毛利仅代表已匹配发货。', 'partial');
   else if (data.costError) show('本次采购成本读取未完成，订单与优惠券结果保留；成本缺口见覆盖说明，可稍后刷新。', 'partial');
+  else if (data.sources.cost.status === 'unavailable') show('Order 共享源暂不可用，当前复用已有发货成本；未匹配成本保持缺失。', 'partial');
   else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
   else if (data.summary.coveredOrders < data.summary.orders) show('订单与优惠券关联已完成；部分订单缺少采购成本，毛利和利润率仅代表发货覆盖单。', 'partial');
@@ -205,11 +208,16 @@ async function load(refresh = false) {
   if (denied || document.hidden || !form.reportValidity()) return;
   clearTimeout(poll); readController?.abort(); readController = new AbortController();
   const mine = ++generation;
-  $('refresh').disabled = true;
-  $('results').hidden = true;
-  show('正在读取当前筛选范围…');
+  const query = params(refresh);
+  const applied = new URLSearchParams(query); applied.delete('refresh');
+  const sameView = data && renderedQuery === applied.toString();
+  if (!sameView) $('results').hidden = true;
+  if (!sameView || refresh) {
+    $('refresh').disabled = true;
+    show(refresh ? '正在刷新当前范围，保留已有结果…' : '正在读取当前筛选范围…');
+  }
   try {
-    const response = await protectedRead('./data.json?' + params(refresh), {credentials:'same-origin', cache:'no-store', redirect:'error', signal:AbortSignal.any([readController.signal, lifetime.signal, AbortSignal.timeout(25000)])}, deny);
+    const response = await protectedRead('./data.json?' + query, {credentials:'same-origin', cache:'no-store', redirect:'error', signal:AbortSignal.any([readController.signal, lifetime.signal, AbortSignal.timeout(25000)])}, deny);
     if (mine !== generation || denied) return;
     const next = await response.json();
     if (mine !== generation) return;
@@ -218,10 +226,17 @@ async function load(refresh = false) {
       poll = setTimeout(() => load(), (next.retryAfter || 3) * 1000); return;
     }
     if (!response.ok || next.version !== 'channel-effects-v1') throw Error('source_failed');
-    data = next; render();
+    const unchanged = sameView && snapshotKey(data) === snapshotKey(next);
+    data = next;
+    if (!unchanged || refresh) render();
+    renderedQuery = params().toString();
     if (next.refreshing) poll = setTimeout(() => load(), 3000);
   } catch (error) {
     if (mine !== generation || denied || error.name === 'AbortError') return;
+    if (error.message === 'protected_read_failed_429') {
+      show('已有查询正在执行，稍后继续读取。', 'partial');
+      poll = setTimeout(() => load(), 10000); return;
+    }
     show('本次数据未取得。请稍后刷新；不会把失败、缺数或旧范围显示成零。', 'error');
   } finally { if (mine === generation && !denied) $('refresh').disabled = false; }
 }

@@ -297,7 +297,7 @@ class ChannelService:
         finally:
             if os.path.exists(temp): os.unlink(temp)
 
-    def capture(self, period, key, target):
+    def capture(self, period, key, target, force=False):
         cost_phase = False
         try:
             import fcntl
@@ -318,7 +318,7 @@ class ChannelService:
                 from channel_source import enrich
                 cost_phase = True
                 with self.lock: self.jobs[key] = 'cost_pending'
-                data = enrich(data)
+                data = enrich(data, force=force)
                 self.publish(data, target)
             with self.lock: self.jobs[key] = 'available'
         except Exception:
@@ -340,7 +340,7 @@ class ChannelService:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
                         return 429, {'status': 'busy', 'retryAfter': 10}
                     self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
-                    self.pool.submit(self.capture, period, key, target)
+                    self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
             if data:
                 result = view(data, query)
                 result.update(status='available', refreshing=state in ('pending','cost_pending'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')

@@ -59,7 +59,7 @@ def load_costs():
     rows = json.loads(path.read_text('utf-8')) if path.is_file() else []
     info = dict(status='partial' if rows else 'unavailable', source='Sales 现有发货缓存（Aion2）',
                 generatedAt=datetime.fromtimestamp(path.stat().st_mtime, TZ).isoformat() if path.is_file() else None,
-                limitation='Order 共享源待修复；未关联采购成本保持缺失。匹配行不代表整单已履约或已最终结算。')
+                limitation='当前仅使用可关联的发货缓存；未匹配采购成本保持缺失，不代表整单已履约或已最终结算。')
     global_path = ROOT / 'order-deliveries.json'
     if global_path.is_file():
         data = json.loads(global_path.read_text('utf-8'))
@@ -74,9 +74,8 @@ def load_costs():
     return rows, info
 
 
-def enrich(data):
+def enrich(data, force=False):
     """Publish orders first, then fill costs through the same shared Order source."""
-    import fcntl
     from urllib.request import urlopen
     try:
         with urlopen('http://127.0.0.1:8768/health', timeout=5) as response:
@@ -84,9 +83,21 @@ def enrich(data):
     except OSError:
         ready = False
     if not ready:
+        data['sources']['cost']['status'] = 'unavailable'
         data['sources']['cost']['limitation'] = 'Order 共享源暂不可用；保留已有发货覆盖，不将缺失成本补零。'
         return data
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path = ROOT / 'order-deliveries.json'
+    previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
+    if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
+        raise ValueError('invalid_order_cost_cache')
+    if previous and not force:
+        period = previous['period']
+        age = (datetime.now(TZ) - datetime.fromisoformat(previous['generatedAt'])).total_seconds()
+        if period['start'] <= data['period']['start'] and period['end'] == datetime.now(TZ).date().isoformat() and 0 <= age < 600:
+            data['sources']['cost']['limitation'] = '复用固定发货截止 ' + period.get('until',period['end']) + ' 的完整读取；未匹配不补零，匹配不等于最终结算。手动刷新可重新取数。'
+            return data
+    import fcntl
     with (ROOT / 'order-deliveries.lock').open('a+b') as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -101,7 +112,6 @@ def enrich(data):
         try:
             fresh = cost_collect(session, data['period']['start'], cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M'))
         finally: session.close()
-        path = ROOT / 'order-deliveries.json'
         previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
         if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
             raise ValueError('invalid_order_cost_cache')

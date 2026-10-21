@@ -1,4 +1,5 @@
 import json
+import io
 import sys
 import tempfile
 import unittest
@@ -165,7 +166,7 @@ class Effects(unittest.TestCase):
             with tempfile.TemporaryDirectory() as root:
                 target = Path(root)/'fixed.json'
                 initial = self.data()
-                def enrich(data):
+                def enrich(data, force=False):
                     self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
                     if fail_cost: raise ValueError('shared_order_unavailable')
                     data['sources'] = {'cost_enriched':True}; return data
@@ -176,6 +177,71 @@ class Effects(unittest.TestCase):
                 self.assertEqual(service.jobs['fixed'], 'cost_failed' if fail_cost else 'available')
                 self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
                 service.pool.shutdown()
+
+    def test_recent_complete_cost_range_is_reused_without_another_order_read(self):
+        import channel_source
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root)/'order-deliveries.json'
+            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,generatedAt=datetime.now(TZ).isoformat(),period=dict(start='2026-10-01',end=datetime.now(TZ).date().isoformat(),until='2026-10-21 19:00'),rows=[])))
+            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')):
+                data = self.data();data['sources']={'cost':{}}
+                result = channel_source.enrich(data)
+            self.assertIn('复用固定发货截止', result['sources']['cost']['limitation'])
+            fake_session = SimpleNamespace(close=lambda:None)
+            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')), patch.dict(sys.modules,{'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2),'p2pah_auth':SimpleNamespace(Session=lambda:fake_session)}), patch('channel_cost_source.collect',side_effect=ValueError('forced_order_read')):
+                with self.assertRaisesRegex(ValueError,'forced_order_read'):channel_source.enrich(data,force=True)
+
+    def test_order_unavailable_preserves_orders_and_marks_the_source(self):
+        import channel_source
+        data = self.data();data['sources'] = {'cost':{}}
+        before = deepcopy(data['orders'])
+        with patch('urllib.request.urlopen',side_effect=OSError('unavailable')):
+            result = channel_source.enrich(data)
+        self.assertEqual(result['orders'],before)
+        self.assertEqual(result['sources']['cost']['status'],'unavailable')
+
+    def test_long_admin_period_is_split_and_complete_before_merge(self):
+        import channel_source
+        requested = {'start':'2026-08-01','end':'2026-10-20'}
+        segments = []
+        closed = []
+        session = SimpleNamespace(bind_admin_token=lambda token:None,close=lambda:closed.append(True))
+        def page_rows(session,path,filters=(),limit=200):
+            if path != '/admin/order.Order/index': return []
+            start,end = next(value for field,operator,value in filters if field=='paytime').split(',')
+            self.assertLessEqual((datetime.fromisoformat(end).date()-datetime.fromisoformat(start).date()).days,27)
+            segments.append((start,end))
+            return [order('SEG'+str(len(segments)), **{'paytime':start})]
+        auth = SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',''))
+        with patch.dict(sys.modules,{'p2pah_auth':auth}),patch.object(channel_source,'pages',side_effect=page_rows),patch.object(channel_source,'load_costs',return_value=([],{'status':'unavailable'})):
+            result = channel_source.collect(requested)
+        self.assertEqual(len(segments),3)
+        self.assertEqual(segments[0][0],'2026-08-01 00:00:00')
+        self.assertEqual(segments[-1][1],'2026-10-20 23:59:59')
+        self.assertEqual([r['orderNo'] for r in result['orders']],['SEG1','SEG2','SEG3'])
+        self.assertEqual(result['sources']['orders']['rows'],3)
+        self.assertEqual(closed,[True])
+
+    def test_later_month_failure_keeps_previous_complete_capture(self):
+        import channel_source
+        requested={'start':'2026-08-01','end':'2026-10-20'};segments=[];closed=[]
+        session=SimpleNamespace(bind_admin_token=lambda token:None,close=lambda:closed.append(True))
+        def page_rows(session,path,filters=(),limit=200):
+            self.assertEqual(path,'/admin/order.Order/index')
+            segments.append(filters)
+            if len(segments)==2:raise ValueError('admin_page_failed')
+            return [order('SEG1',**{'paytime':'2026-08-01 00:00:00'})]
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',''))
+        with tempfile.TemporaryDirectory() as root:
+            target=Path(root)/'previous.json';target.write_text('previous-complete')
+            service=ChannelService(root,lambda user:True,channel_source.collect)
+            with patch.dict(sys.modules,{'p2pah_auth':auth,'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2)}),patch.object(channel_source,'pages',side_effect=page_rows):
+                service.capture(requested,'previous',target)
+            self.assertEqual(target.read_text(),'previous-complete')
+            self.assertEqual(service.jobs['previous'],'source_failed')
+            service.pool.shutdown()
+        self.assertEqual(len(segments),2)
+        self.assertEqual(closed,[True])
 
 
 class Paging(unittest.TestCase):
