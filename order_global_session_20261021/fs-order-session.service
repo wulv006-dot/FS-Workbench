@@ -1,0 +1,18 @@
+[Unit]
+Description=FS global Order session broker
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fs-order-session
+ExecStart=/usr/bin/python3 /opt/fs-order-session/service.py
+Restart=on-failure
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,209 @@
+{
+  "captured_at": "2026-10-21T08:11:23.778889+00:00",
+  "services": {
+    "fs-order-session.service": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fc27-p2pah-session.service": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fc27-cloud-worker.service": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fc27-cloud-api.service": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fc27-automation-tick.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    }
+  },
+  "tests": {
+    "local": 16,
+    "server": 16,
+    "pr_fast_isolation_local": 16,
+    "skipped": 0,
+    "formal_ci": "recorded_separately_in_GIT-RESULT.json"
+  },
+  "policy": {
+    "revision": 40,
+    "mode": "auto",
+    "system_enabled": true,
+    "interval_minutes": 120,
+    "minimum_gross_margin_pct": "10",
+    "platforms": [
+      "PS",
+      "XBOX",
+      "PC"
+    ]
+  },
+  "natural_coin": {
+    "job_id": "f8189270-230b-4d65-9abc-dc05087c5011",
+    "kind": "auto_cycle",
+    "actor": "system-automation",
+    "created_at": "2026-10-21T07:40:42.886992+00:00",
+    "started_at": "2026-10-21T07:40:43.354440+00:00",
+    "completed_at": "2026-10-21T07:43:07.873460+00:00",
+    "status": "ready",
+    "error": null,
+    "result": {
+      "run_id": "f8189270-230b-4d65-9abc-dc05087c5011",
+      "quote_status": "ready_for_preview",
+      "status": "confirmed",
+      "platforms": [
+        "PS",
+        "XBOX"
+      ],
+      "unchanged_platforms": [
+        "PC"
+      ],
+      "blocked_platforms": {},
+      "execution_id": "f8189270-230b-4d65-9abc-dc05087c5011"
+    },
+    "public_page_readback": {
+      "status": "verified",
+      "platforms": [
+        "PS",
+        "XBOX"
+      ],
+      "checked_at": "2026-10-21T07:43:03.654705+00:00",
+      "attempts": 1
+    }
+  },
+  "cache_refresh": {
+    "status": "cleared",
+    "attempts": 1,
+    "checked_at": "2026-10-21T07:43:03.467449+00:00"
+  },
+  "audit": {
+    "execution_id": "f8189270-230b-4d65-9abc-dc05087c5011",
+    "status": "CONFIRMED",
+    "stage": "readback_confirmed",
+    "sync_confirmed": true,
+    "all_baseline": {
+      "status": "confirmed",
+      "platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "products": [
+        163329309,
+        163329275,
+        163329343
+      ],
+      "completed_at": "2026-10-21T07:43:02.703262+00:00"
+    }
+  },
+  "all_ledger": {
+    "status": "confirmed",
+    "step_statuses": [
+      "confirmed",
+      "confirmed",
+      "confirmed"
+    ]
+  },
+  "player": {
+    "job_id": "f976f32c-c142-55fc-80e6-cf1916e507ac",
+    "kind": "player_sync",
+    "status": "ready",
+    "result": {
+      "status": "confirmed",
+      "mode": "category_all",
+      "model_count": 885,
+      "sample_count": 0,
+      "price_verification": "disabled",
+      "category_response": "accepted",
+      "sample_verified_count": 0,
+      "coin_execution_id": "f8189270-230b-4d65-9abc-dc05087c5011"
+    },
+    "completed_at": "2026-10-21T07:43:09.423386+00:00"
+  },
+  "manual_reconciliation": {
+    "status": "confirmed",
+    "execution_id": "f1815592-9d7d-45ba-82c8-9c8da6ff42f4",
+    "recovery": {
+      "kind": "manual_empty_preflight_continuation",
+      "original_error": "coin_identity_invalid",
+      "original_automatic": true,
+      "order_posts_replayed": 0,
+      "claimed_at": "2026-10-21T07:22:24.016561+00:00",
+      "order": {
+        "matched": true,
+        "checked_at": "2026-10-21T07:22:18.184710+00:00"
+      }
+    },
+    "completed_at": "2026-10-21T07:22:31.586338+00:00",
+    "result": {
+      "status": "confirmed",
+      "platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "changed_products": [
+        163329309,
+        163329275
+      ]
+    },
+    "public_readback": {
+      "status": "verified",
+      "platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "checked_at": "2026-10-21T07:24:40.878596+00:00"
+    }
+  },
+  "health": {
+    "api": "ok",
+    "worker": "ok",
+    "browser": "ok",
+    "p2pah_session": "ok",
+    "order_session": "ok",
+    "queue_depth": 0,
+    "incomplete_executions": 0
+  },
+  "current_session_health": {
+    "8767": {
+      "status": "ready",
+      "ready": true,
+      "last_ok": "2026-10-21T08:10:46.686591+00:00",
+      "active_model_reads": 0,
+      "active_customer_reads": 0,
+      "retry_after_s": 0,
+      "consecutive_failures": 0,
+      "login_attempts": 1
+    },
+    "8768": {
+      "service": "fs-order-session",
+      "ready": true,
+      "last_error": null,
+      "checking": false,
+      "verified_age_seconds": 5.8,
+      "probe_seconds": 3.279,
+      "probe_path": "/admin/index/index.html",
+      "login_attempts": 0
+    }
+  },
+  "order_stability": {
+    "samples": 13,
+    "duration_seconds": 60,
+    "all_ready": true,
+    "latency_ms_min": 0.8,
+    "latency_ms_max": 3.2,
+    "long_term_observed": false
+  },
+  "admin_read_fix": {
+    "admin_candidate_only": true,
+    "active_source_sha256": "27ab5e9b6f263ec711dd61a7cc6348dab755289241c3cc75a4ba8a60143e7100",
+    "candidate_sha256": "1e9c42eab1e7dd8cce0ac57e66d1eb2f3ae23bc3652e90d6eb0007a0032de0f2",
+    "service_restart": false,
+    "source_replaced": false
+  }
+}
