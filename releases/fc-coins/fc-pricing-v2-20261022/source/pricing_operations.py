@@ -15,6 +15,14 @@ ACTIONS=('capabilities','state','evaluate','recommend','apply_recommendation','c
 MUTATING=frozenset(ACTIONS)-{'capabilities','state','evaluate','read_job'}
 AUTO=('capabilities','state','evaluate','recommend','read_job')
 ROOT=Path('/var/lib/fs-hermes-fc/fs')
+FIELDS={a:set(v.split()) for a,v in {
+    'capabilities':'action','state':'action','read_job':'action job_id',
+    'evaluate':'action run_id console_usd pc_usd reason',
+    'recommend':'action request_key run_id console_choice pc_choice reason counterexample evidence_refs',
+    'apply_recommendation':'action request_key recommendation_id','collect':'action request_key',
+    'preview':'action request_key run_id','execute':'action request_key preview_id',
+    'restore_preview':'action request_key source_execution_id',
+    'restore':'action request_key source_execution_id restore_preview_id'}.items()}
 
 
 def schema():
@@ -26,7 +34,7 @@ def schema():
         counterexample={'type':'string','minLength':4,'maxLength':400},
         evidence_refs={'type':'array','items':text,'minItems':1,'maxItems':20})
     return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control',
-            'description':'FC Coins real control. First capabilities/state: only this task explicit grant allows writes; no grant means reads/evaluation only. Automatic-review tasks may recommend hold/baseline/parity or evaluated custom console_usd/pc_usd candidates, not run a second queue while the FC worker waits. Both choices must be evaluated for custom prices; program rechecks the entire catalog. Operator-workflow tasks may collect, apply_recommendation, preview and execute through original FC locks/CAS/UNKNOWN. Every price and restore must pass non-overridable >=10% net procurement margin incl promotions/gifts/packages. Use stable request_key per intent; unknown must read original job, never resubmit. No order/coupon/credential/source-code writes.',
+            'description':'FC Coins real control. First capabilities/state: explicit grant required for writes. Follow capabilities.action_fields EXACTLY and omit unrelated fields. recommend baseline/hold/parity has no console_usd/pc_usd; custom requires BOTH choices evaluated and BOTH prices. Use state.quote_evidence_ref verbatim as the sole sufficient evidence_refs entry. Fix rejected fields from expected_fields/received_fields; never guess hash prefixes or recollect to fix parameter errors. Scenario/100K-only receipts do not prove full-catalog feasibility; only evaluate current run does. Automatic-review may evaluate/recommend, not enqueue. Operator may apply_recommendation→read_job→preview→read_job→execute→read_job and state monitor readback. Every price/restore must pass >=10% net procurement margin incl promotions/gifts/packages. Stable request_key per intent; UNKNOWN reads original job, never resubmits. No order/coupon/credential/source-code writes.',
         'parameters':{'type':'object','properties':fields,'required':['action'],'additionalProperties':False}}}
 
 
@@ -89,12 +97,18 @@ def call(scope,owner,task,lease,args,request=native):
     if action=='capabilities':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         return dict(allowed_actions=allowed,mode=auth['mode'] if auth else 'read_only',hard_margin_pct='10',
-                    scoped_runs=auth['runs'] if auth else [],restore_sources=auth['restore_sources'] if auth else [],lease_required=True,unknown_replay=False)
+                    scoped_runs=auth['runs'] if auth else [],restore_sources=auth['restore_sources'] if auth else [],lease_required=True,unknown_replay=False,
+                    action_fields={a:sorted(FIELDS[a]) for a in allowed},custom_recommendation='Both choices evaluated; add console_usd and pc_usd only for that case.')
     if action=='state':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         data=request('/pricing/state',owner);quote=data.pop('quote',None)
-        data['current_quote']=quote
-        data['quote_sha256']=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest() if quote else None
+        usable=bool(data.get('quote_usable'))
+        digest=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest() if quote else None
+        data['current_quote']=quote if usable else None
+        data['historical_quote']=quote if not usable else None
+        data['quote_sha256']=digest if usable else None
+        data['historical_quote_sha256']=digest if not usable else None
+        data['quote_evidence_ref']='pricing:'+digest if usable and digest else None
         data['allowed_actions']=allowed
         data['policy']=request('/automation',owner)
         data['monitor']=request('/monitor',owner)
@@ -200,6 +214,14 @@ def call(scope,owner,task,lease,args,request=native):
         state='unknown' if isinstance(exc,HTTPError) and exc.code>=500 else 'rejected'
         result={'error':str(exc) if isinstance(exc,(ValueError,PermissionError)) else 'native_http_'+str(exc.code),
                 'original_job_id':request_id,'do_not_replay':state=='unknown'}
+        if isinstance(exc,HTTPError):
+            try:code=json.loads(exc.read(4096)).get('error')
+            except (OSError,ValueError,AttributeError):code=None
+            if isinstance(code,str) and re.fullmatch('[A-Za-z0-9_:-]{1,100}',code):result['native_error']=code
+        if isinstance(exc,ValueError) and str(exc)=='pricing_tool_fields':
+            result.update(expected_fields=sorted(fields),received_fields=sorted(args))
+        if isinstance(exc,ValueError) and str(exc)=='pricing_recommendation_evidence_required':
+            result['expected_evidence_ref']='pricing:'+canonical
     except Exception as exc:
         state='unknown';result={'error':type(exc).__name__,'original_job_id':request_id,'do_not_replay':True}
     with scope.tasks.db() as db:

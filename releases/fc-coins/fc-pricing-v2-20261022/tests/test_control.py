@@ -87,12 +87,42 @@ class Control(unittest.TestCase):
         result=self.call({'action':'state'})
         self.assertEqual(result['monitor']['publication']['execution_id'],'original_execution')
         self.assertEqual(result['quote_sha256'],p.fingerprint(self.quote))
+        self.assertEqual(result['quote_evidence_ref'],'pricing:'+p.fingerprint(self.quote))
         self.assertTrue(all(body is None for _,_,body in self.calls))
 
     def test_auto_review_cannot_deadlock_worker_with_another_queue(self):
         self.grant('automatic_review')
         self.assertIn('recommend',self.call({'action':'capabilities'})['allowed_actions'])
         with self.assertRaises(PermissionError):self.call({'action':'collect','request_key':'c1'})
+
+    def test_unusable_quote_is_history_not_current_model_fact(self):
+        original=self.request
+        def request(path,owner,body=None):
+            if path=='/pricing/state':return {'quote':copy.deepcopy(self.quote),'quote_usable':False}
+            return original(path,owner,body)
+        result=self.call({'action':'state'},request=request)
+        self.assertIsNone(result['current_quote']);self.assertIsNone(result['quote_sha256'])
+        self.assertEqual(result['historical_quote'],self.quote)
+        self.assertEqual(result['historical_quote_sha256'],p.fingerprint(self.quote))
+        self.assertIsNone(result['quote_evidence_ref'])
+
+    def test_rejected_tool_calls_explain_fields_and_exact_evidence(self):
+        self.grant()
+        result=self.call(dict(action='collect',request_key='bad-fields',run_id=RUN))
+        self.assertEqual(result['result']['expected_fields'],['action','request_key'])
+        result=self.recommend(evidence_refs=['invented'])
+        self.assertEqual(result['result']['expected_evidence_ref'],'pricing:'+p.fingerprint(self.quote))
+        self.assertEqual(self.call({'action':'capabilities'})['action_fields']['collect'],['action','request_key'])
+
+    def test_native_rejection_retains_machine_reason_without_replay(self):
+        import io
+        from urllib.error import HTTPError
+        self.grant()
+        def rejected(*args,**kwargs):raise HTTPError('native',400,'bad',{},io.BytesIO(b'{"error":"pricing_newer_run_exists"}'))
+        result=self.call(dict(action='collect',request_key='http-reject'),request=rejected)
+        self.assertEqual(result['state'],'rejected')
+        self.assertEqual(result['result']['native_error'],'pricing_newer_run_exists')
+        self.assertFalse(result['do_not_replay'])
 
     def test_lease_is_required_before_any_api_or_database_mutation(self):
         def denied(*args):raise PermissionError('lease lost')
