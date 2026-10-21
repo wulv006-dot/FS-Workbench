@@ -91,14 +91,24 @@ class Pricing(unittest.TestCase):
         code=dict(id=1,status=1,site_id=266,gid='1327',type=1,discount='90',attain='0')
         coupon=dict(id=2,status=1,site_id=266,game_id=1327,product_type=1,type=1,mode_type=2,reduce='70',time_effect=2,is_open=0)
         single=s.normalize([code],[coupon],goods,e['storefront'],now=NOW)
-        self.assertEqual(Decimal(single['minimum_retained_ratio']),Decimal('.7'))
+        self.assertEqual(Decimal(single['minimum_retained_ratio']),Decimal('.65'))
         coupon['is_open']=1
         stack=s.normalize([code],[coupon],goods,e['storefront'],now=NOW)
-        self.assertEqual(Decimal(stack['minimum_retained_ratio']),Decimal('.63'))
+        self.assertEqual(Decimal(stack['minimum_retained_ratio']),Decimal('.55'))
 
     def test_fixed_coupon_is_unknown_not_zero(self):
         e,_,goods=fixture()
         coupon=dict(id=2,status=1,site_id=266,game_id=1327,product_type=1,type=1,mode_type=1,reduce='5',time_effect=2,is_open=0)
+        with self.assertRaisesRegex(ValueError,'mode_unverified'):s.normalize([],[coupon],goods,e['storefront'],now=NOW)
+
+    def test_only_unissued_backend_directed_templates_are_ineligible(self):
+        e,_,goods=fixture()
+        coupon=dict(id=1259,status=1,site_id=0,game_id=0,product_type=0,type=1,mode_type=1,
+                    reduce='20',time_effect=1,is_open=0,start_time=0,end_time=0,fetch_scene=4,fetch_qty=0,used_qty=0)
+        result=s.normalize([],[coupon],goods,e['storefront'],now=NOW)
+        self.assertEqual(result['coupon_count'],0)
+        self.assertEqual(result['unissued_directed_templates'][0]['id'],'1259')
+        coupon['fetch_qty']=1
         with self.assertRaisesRegex(ValueError,'mode_unverified'):s.normalize([],[coupon],goods,e['storefront'],now=NOW)
 
     def test_other_game_or_expired_coupon_does_not_inflate_floor(self):
