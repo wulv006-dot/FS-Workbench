@@ -116,15 +116,6 @@ class SummaryCache:
             archived = read('summary', selector)
             if archived is not None:
                 archived['origin'] = 'dated-archive'
-                at = datetime.fromisoformat(archived['archive']['sourceCapturedAt'].replace('Z','+00:00'))
-                if (datetime.now(timezone.utc)-at).total_seconds() < HISTORY_TTL:
-                    return 200, archived
-                code, current = self.get_live(q)
-                if code == 403: return code, current
-                if code == 200 and complete_summary(current):
-                    save('summary', selector, current)
-                    return code, current
-                archived['archive']['refreshing'] = True
                 return 200, archived
         derived = derive_summary(selector) if not q.get('refresh') else None
         if derived is not None: derived['query'] = copy.deepcopy(q)

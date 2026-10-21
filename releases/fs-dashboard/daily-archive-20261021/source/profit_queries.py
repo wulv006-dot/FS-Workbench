@@ -30,7 +30,7 @@ class ProfitQueries:
                 row=json.loads(target.read_text());validate_row(row,self.expected)
                 if row['profileKey']!=key or row['date']!=day:return None
                 age=(datetime.now(timezone.utc)-datetime.fromisoformat(row['capturedAt'])).total_seconds()
-                from daily_archive import closed
+                from daily_archive import closed, cutoff
                 if not closed({'start':day,'end':day}) or date.fromisoformat(day)<cutoff() or age<0:return None
                 return row
             except (OSError,ValueError,KeyError,TypeError):return None
