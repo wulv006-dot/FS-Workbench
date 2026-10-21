@@ -1,18 +1,16 @@
 {
-  "at": "2026-10-21T13:03:16.581718+00:00",
+  "at": "2026-10-21T13:33:10.744057+00:00",
   "release": {
-    "releaseId": "nav-20261021T130109Z",
-    "stage": "/opt/fs-release-stage/fs-channel-cache-20ffb993bd05",
-    "head": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
-    "mergeCommit": "f942008584efe06077f43f9d7620200021cb5b37",
+    "releaseId": "nav-20261021T132616Z",
+    "stage": "/opt/fs-release-stage/fs-channel-cache-refresh-cbde783c37d5",
+    "head": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
+    "mergeCommit": "eba6ef3fc66395c4089b618b12f9a66edd409c58",
     "result": {
-      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T130109Z",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T132616Z",
       "status": "applied-awaiting-actual-http-role-acceptance",
-      "staticFiles": 11,
+      "staticFiles": 2,
       "businessWorkerTimerActions": 0
-    },
-    "newChannelTimers": 2,
-    "accountingAnnotationSha256": "624281bfe2e49f839c76574c5bec7f183677b1122e2e6af7f189b0226862ed2b"
+    }
   },
   "verified_file_count": 78,
   "source_drift": [],
@@ -107,11 +105,6 @@
     "remainingDays": 74,
     "deliveryDays": 20
   },
-  "cacheReadSeconds": [
-    3.281,
-    0.251
-  ],
-  "cacheReadTriggeredUpstreamJobs": false,
   "period": {
     "start": "2026-10-14",
     "end": "2026-10-20"
@@ -212,5 +205,22 @@
     "dailyCacheExplanationVisible": true,
     "newConsoleErrors": 0,
     "screenshotPrivate": ".agent_runtime/fs-channel-dashboard-20261021/live-cache-accounting.png"
+  },
+  "initialCacheOnlyMeasurement": {
+    "cacheReadSeconds": [
+      3.281,
+      0.251
+    ],
+    "cacheReadTriggeredUpstreamJobs": false
+  },
+  "currentCacheBehavior": "archive_first_then_original_600_second_background_refresh",
+  "backgroundRefreshObservedWithVisible3113Orders": true,
+  "refreshQA": {
+    "head": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
+    "archivedOrders": 3113,
+    "immediateCacheReadSeconds": 2.958,
+    "originalAutomaticRefreshPreserved": true,
+    "busySourceStillReturnsCache": true,
+    "actualUpstreamCalls": 0
   }
 }
