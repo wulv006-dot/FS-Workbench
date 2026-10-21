@@ -25,6 +25,10 @@ class Release(unittest.TestCase):
         fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
         self.assertEqual(len(fix.TARGETS),3)
         self.assertFalse(any('/systemd/' in path for path in fix.TARGETS.values()))
+        spec=importlib.util.spec_from_file_location('archive_maturity_fix',ROOT/'deploy/archive_maturity_fix.py')
+        fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+        self.assertEqual(len(fix.TARGETS),8)
+        self.assertFalse(any('/systemd/' in path for path in fix.TARGETS.values()))
 
 
 if __name__=='__main__':unittest.main()

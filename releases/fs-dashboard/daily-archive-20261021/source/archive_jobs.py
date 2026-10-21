@@ -82,13 +82,17 @@ def read_route(params,port=8931,path='/range'):
 def candidates(today,definitions,daily):
     end=(today-timedelta(days=1)).isoformat()
     if daily:
+        for offset in range(1,6):
+            day=(today-timedelta(days=offset)).isoformat()
+            yield dict(profile='marketing',start=day,end=day)
+        for length in (7,30):
+            yield dict(profile='marketing',start=(today-timedelta(days=length)).isoformat(),end=end)
         ordered=sorted(definitions,key=lambda key:(key not in ('MMOEXP','FC27'),list(definitions).index(key)))
         for profile in ordered:
             for length in (1,7,30):
                 start=(today-timedelta(days=length)).isoformat()
                 yield dict(mode='summary',profile=profile,start=start,end=end)
                 yield dict(archiveFamily='native',profile=profile,start=start,end=end)
-        yield dict(profile='marketing',start=end,end=end)
         return
     lo=max(date(2026,9,1),cutoff(today));day=today-timedelta(days=1)
     while day>=lo:
@@ -112,7 +116,7 @@ def run_once(daily=False,budget=480):
         if prior.get('retryAfter',0)>time.time():continue
         if daily and prior.get('status')=='complete' and prior.get('at','')[:10]==now.date().isoformat():continue
         native=args.get('archiveFamily')=='native'
-        if not daily and not marketing:
+        if not marketing:
             from live_summary import query
             selector=native_key(dict(args,grain='day'),definition[args['profile']]) if native else summary_key(query({k:[v] for k,v in args.items()},definition))
             if store.get('native' if native else 'summary',selector) is not None:continue
@@ -122,19 +126,21 @@ def run_once(daily=False,budget=480):
             if code!=200:return {'status':'deferred','reason':'catalog_unavailable','completed':completed}
             params['snapshotId']=catalog['catalogId']
         requested=prior.get('requestedAt') if prior.get('status')=='pending' else datetime.now(timezone.utc).isoformat()
-        if daily and prior.get('status')!='pending':params['refresh']='true'
+        if daily and marketing and prior.get('status')!='pending':params['refresh']='true'
         state[key]=dict(query=args,status='pending',requestedAt=requested);atomic(state_path,state)
         deadline=min(begin+budget,time.monotonic()+90);outcome='pending'
         while time.monotonic()<deadline:
             code,value=read_route(params,8935 if marketing else 8931)
             params.pop('refresh',None)
             if code in (403,429):outcome=value['status'];break
+            if (value.get('archive') or {}).get('refreshDeferred'):
+                outcome='busy';break
             valid=(value.get('status')=='available') if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
             capture=(value.get('archive') or {}).get('sourceCapturedAt') or value.get('generatedAt') or ''
             fresh=False
             try:fresh=datetime.fromisoformat(capture.replace('Z','+00:00'))>=datetime.fromisoformat(requested)-timedelta(seconds=60)
             except (ValueError,TypeError):pass
-            if valid and (not daily or fresh):outcome='complete';break
+            if valid and (not (daily and marketing) or fresh):outcome='complete';break
             if code==503:outcome='unavailable';break
             time.sleep(2)
         failures=0 if outcome=='complete' else prior.get('failures',0)+1

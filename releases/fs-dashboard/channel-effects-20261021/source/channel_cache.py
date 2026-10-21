@@ -80,7 +80,8 @@ def compose(period, root=ROOT):
     sources['cache'] = dict(source='已校验的逐日归档', days=len(captures), oldest=oldest,
                             newest=max(v['generatedAt'] for v in captures),
                             deliveryDayComplete=all(v.get('deliveryDayComplete') for v in captures),
-                            limitation='按采集时点保存；十分钟过期后后台自动刷新，需立即核验后续退款、状态和归因变化可手动刷新。')
+                            customerDayComplete=all(v['sources'].get('customer',{}).get('status')=='complete' for v in captures),
+                            limitation='按原采集时点保存；完整历史日直接复用，缺口继续补齐，需要重新核验时可手动刷新。')
     return dict(captures[-1], period=period, generatedAt=oldest, orders=rows, sources=sources)
 
 
@@ -119,13 +120,16 @@ def apply_delivery_cache(data, root=ROOT):
 
 
 def collect_period(period, root=ROOT, force=False):
-    """Reuse complete days on a cache miss; keep full refresh for existing ranges."""
+    """Reuse fixed historical facts and collect missing contiguous days only."""
     from channel_source import collect
     from copy import deepcopy
     requested = list(days(period))
     known = {day: compose(dict(start=day, end=day), root) for day in requested}
     missing = [day for day in requested if known[day] is None]
-    if force or not missing or len(missing) == len(requested): return collect(period)
+    if force or len(missing) == len(requested): return collect(period)
+    if not missing:
+        value=compose(period,root)
+        return value if value['sources']['cache']['customerDayComplete'] else collect(period)
     chunks = []
     for day in missing:
         if chunks and (date.fromisoformat(day)-date.fromisoformat(chunks[-1]['end'])).days == 1:
@@ -159,7 +163,7 @@ def cache_day(day, root=ROOT):
     with (root / 'collector.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         data = compose(period, root)
-        if data is None or data['sources']['customer']['status'] != 'complete' or day == (datetime.now(TZ).date()-timedelta(days=1)).isoformat():
+        if data is None or data['sources']['customer']['status'] != 'complete':
             data = collect(period)
             store_days(data, root)
     path = root / 'delivery-days' / (day + '.json')

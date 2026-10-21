@@ -110,7 +110,8 @@ class Consumers(unittest.TestCase):
         source=Mock(side_effect=AssertionError('unexpected upstream'))
         new=SummaryCache(source,source,profiles)
         try:
-            code,result=new.get(q)
+            got['archive']['sourceCapturedAt']='2026-10-01T00:00:00+00:00'
+            with patch.object(archive,'read',return_value=got):code,result=new.get(q)
             self.assertEqual(code,200);self.assertEqual(result['profile']['primary']['orders'],3)
             self.assertEqual(result['origin'],'dated-archive');source.assert_not_called()
         finally:new.close()

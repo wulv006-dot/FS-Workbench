@@ -129,6 +129,17 @@ class Archive(unittest.TestCase):
     def test_old_archive_returns_immediately_and_preserves_automatic_refresh(self):
         self.assert_stale_archive(False)
 
+    def test_complete_fixed_history_does_not_repeat_sources_after_ten_minutes(self):
+        data=self.fixture();data.update(generatedAt='2026-10-21T00:00:00+08:00',deliveryDayComplete=True)
+        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}):
+            root=Path(folder);cache.store_days(data,root)
+            service=ChannelService(root,lambda user:True);service.pool.shutdown();service.pool=Mock()
+            with patch('channel_source.apply_customer_types',side_effect=lambda d:d),patch('channel_source.apply_cost_overrides',side_effect=lambda d:d),patch('channel_source.collect',side_effect=AssertionError('fixed facts must not recollect')):
+                code,result=service.get({k:[v] for k,v in data['period'].items()},'admin')
+                self.assertEqual(code,200);self.assertFalse(result['refreshing']);self.assertFalse(result['stale'])
+                service.pool.submit.assert_not_called()
+                self.assertEqual(cache.collect_period(data['period'],root)['orders'],data['orders'])
+
     def test_busy_sources_still_return_existing_archive_then_retry_refresh(self):
         self.assert_stale_archive(True)
 

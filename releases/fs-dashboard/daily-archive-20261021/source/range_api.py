@@ -158,11 +158,6 @@ def get_range(params):
  q=query(params,snapshot());selector=native_key(q,PROFILE_MAP[q['profile']])
  archived=None if force else read('native',selector)
  if archived is not None:
-  at=datetime.fromisoformat(archived['archive']['sourceCapturedAt'].replace('Z','+00:00'))
-  if (datetime.now(timezone.utc)-at).total_seconds()>=7200:
-   code,current=get_range_live(params)
-   if code==403:return code,current
-   archived['archive']['refreshing']=code==202
   return 200,rebind_native(archived,q)
  code,value=get_range_live(params,force=force)
  if code==200 and complete_native(value):save('native',selector,value)
