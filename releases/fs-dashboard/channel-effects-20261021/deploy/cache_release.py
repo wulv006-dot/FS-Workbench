@@ -20,6 +20,8 @@ def load_base():
         restart(manifest,admission_fence)
         if manifest.get('scope')!=SCOPE:return
         if all(Path(p).is_file() for p in UNITS):
+            if 'Asia/Shanghai' not in subprocess.check_output(['timedatectl','status'],text=True,timeout=10):
+                raise ValueError('channel_schedule_requires_shanghai_server_timezone')
             subprocess.run(['systemd-analyze','verify',*sorted(UNITS)],check=True,timeout=30)
             subprocess.run(['systemctl','daemon-reload'],check=True,timeout=30)
             subprocess.run(['systemctl','enable','--now',*TIMERS],check=True,timeout=30)

@@ -2,7 +2,7 @@
 Description=FS channel effects daily cache at 00:35 Shanghai
 
 [Timer]
-OnCalendar=*-*-* 00:35:00 Asia/Shanghai
+OnCalendar=*-*-* 00:35:00
 Persistent=true
 AccuracySec=30s
 Unit=fs-channel-cache.service

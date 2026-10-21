@@ -1,17 +1,16 @@
 [Unit]
 Description=FS channel effects yesterday verified cache
 After=network-online.target
-StartLimitIntervalSec=6h
-StartLimitBurst=12
 
 [Service]
-Type=oneshot
+Type=simple
+StartLimitInterval=6h
+StartLimitBurst=12
 User=root
 UMask=0077
 ExecStart=/opt/python39/bin/python3 -B /opt/fs-hermes-fc/channel_cache.py
 Nice=10
 IOSchedulingClass=idle
 NoNewPrivileges=true
-TimeoutStartSec=2h
 Restart=on-failure
 RestartSec=5min
