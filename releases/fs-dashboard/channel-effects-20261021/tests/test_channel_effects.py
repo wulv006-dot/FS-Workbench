@@ -1,4 +1,5 @@
 import json
+import io
 import sys
 import tempfile
 import unittest
@@ -165,7 +166,7 @@ class Effects(unittest.TestCase):
             with tempfile.TemporaryDirectory() as root:
                 target = Path(root)/'fixed.json'
                 initial = self.data()
-                def enrich(data):
+                def enrich(data, force=False):
                     self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
                     if fail_cost: raise ValueError('shared_order_unavailable')
                     data['sources'] = {'cost_enriched':True}; return data
@@ -176,6 +177,28 @@ class Effects(unittest.TestCase):
                 self.assertEqual(service.jobs['fixed'], 'cost_failed' if fail_cost else 'available')
                 self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
                 service.pool.shutdown()
+
+    def test_recent_complete_cost_range_is_reused_without_another_order_read(self):
+        import channel_source
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root)/'order-deliveries.json'
+            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,generatedAt=datetime.now(TZ).isoformat(),period=dict(start='2026-10-01',end=datetime.now(TZ).date().isoformat(),until='2026-10-21 19:00'),rows=[])))
+            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')):
+                data = self.data();data['sources']={'cost':{}}
+                result = channel_source.enrich(data)
+            self.assertIn('复用固定发货截止', result['sources']['cost']['limitation'])
+            fake_session = SimpleNamespace(close=lambda:None)
+            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')), patch.dict(sys.modules,{'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2),'p2pah_auth':SimpleNamespace(Session=lambda:fake_session)}), patch('channel_cost_source.collect',side_effect=ValueError('forced_order_read')):
+                with self.assertRaisesRegex(ValueError,'forced_order_read'):channel_source.enrich(data,force=True)
+
+    def test_order_unavailable_preserves_orders_and_marks_the_source(self):
+        import channel_source
+        data = self.data();data['sources'] = {'cost':{}}
+        before = deepcopy(data['orders'])
+        with patch('urllib.request.urlopen',side_effect=OSError('unavailable')):
+            result = channel_source.enrich(data)
+        self.assertEqual(result['orders'],before)
+        self.assertEqual(result['sources']['cost']['status'],'unavailable')
 
 
 class Paging(unittest.TestCase):

@@ -7,19 +7,21 @@ const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '..');
 const fixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'ui-fixtures.json')));
 let access = 'admin';
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Cache-Control','no-store');
   if (url.pathname.endsWith('/data.json')) {
     res.setHeader('Content-Type','application/json');
     if (url.searchParams.get('q') === 'fixture-error') {res.writeHead(503);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-auth') {res.writeHead(403);res.end('{}');return;}
-    const key = url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? 'kol' : 'code');
+    if (url.searchParams.get('q') === 'fixture-busy') {res.writeHead(429);res.end('{}');return;}
+    const key = url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? 'kol' : 'code');
+    if (key.startsWith('pages')) await new Promise(resolve => setTimeout(resolve, 500));
     res.end(JSON.stringify(fixtures[key]));return;
   }
   if (url.pathname.endsWith('runtime.js')) {
     res.setHeader('Content-Type','text/javascript');
-    res.end(`export async function sessionIdentity(){return {name:'fixture',role:${JSON.stringify(access)}}}export async function protectedRead(u,o,deny){const r=await fetch(u,o);if([401,403].includes(r.status))deny(r.status);return r}`);return;
+    res.end(`export async function sessionIdentity(){return {name:'fixture',role:${JSON.stringify(access)}}}export async function protectedRead(u,o,deny){const r=await fetch(u,o);if([401,403].includes(r.status))deny(r.status);if(!r.ok)throw Error('protected_read_failed_'+r.status);return r}`);return;
   }
   if (url.pathname.endsWith('fs-theme.js')) {
     res.setHeader('Content-Type','text/javascript');res.end("window.FSTheme={get:()=>document.documentElement.dataset.fsTheme||'light',set:v=>{document.documentElement.dataset.fsTheme=v;dispatchEvent(new Event('fs-theme-change'))}};");return;
@@ -46,6 +48,23 @@ const server = http.createServer((req, res) => {
     assert.match(await page.locator('#projects').innerText(), /无推广归属（对照）/);
     assert.equal(await page.locator('.table-wrapper').evaluateAll(nodes => nodes.every(n => n.tabIndex === 0 && n.getAttribute('role') === 'region' && n.getAttribute('aria-label'))),true);
     assert.equal(await page.locator('#orders img').count(),0);
+    await page.locator('[name=q]').fill('fixture-pages'); await page.locator('button[type=submit]').click();
+    await page.locator('#total').filter({hasText:'120'}).waitFor();
+    const nextRequest = page.waitForRequest(req => req.url().includes('fixture-pages') && req.url().includes('page=1'));
+    const nextResponse = page.waitForResponse(resp => resp.url().includes('fixture-pages') && resp.url().includes('page=1'));
+    await page.locator('#next').focus();
+    await nextRequest;
+    assert.equal(await page.locator('#results').isVisible(),true);
+    await nextResponse;
+    await page.waitForTimeout(50);
+    assert.equal(await page.locator('#next').evaluate(e => e === document.activeElement),true);
+    await page.locator('#next').click();
+    await page.locator('#page').filter({hasText:'2 / 3'}).waitFor();
+    assert.equal(await page.locator('#orders tbody tr').count(),50);
+    await page.locator('[name=q]').fill('fixture-busy'); await page.locator('button[type=submit]').click();
+    await page.locator('#status').filter({hasText:'已有查询正在执行'}).waitFor();
+    await page.locator('[name=q]').fill(''); await page.locator('button[type=submit]').click();
+    await page.locator('#total').filter({hasText:'共 3 单'}).waitFor();
     await page.locator('[name=project]').selectOption('KOL');
     await page.waitForFunction(() => document.querySelector('#kpis').textContent.includes('$30.00'));
     assert.match(await page.locator('#kpis').innerText(), /50.0%/);
@@ -72,6 +91,6 @@ const server = http.createServer((req, res) => {
     await page.goto(url); await page.locator('#status[data-state=error]').waitFor();
     assert.equal(await page.locator('#results').isVisible(),false);
     assert.deepEqual(failures,[]);
-    console.log('channel UI: attribution, denominators, coupon dedup/batch, theme, mobile, keyboard regions, empty/error and role denial passed');
+    console.log('channel UI: attribution, pagination during cost polling, stable focus, busy, coupon dedup/batch, theme, mobile, empty/error and role denial passed');
   } finally {await browser.close();server.close();}
 })().catch(error => {console.error(error);server.close();process.exitCode=1;});
