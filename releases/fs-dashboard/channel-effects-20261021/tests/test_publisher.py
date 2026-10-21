@@ -14,6 +14,21 @@ release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release
 
 
 class Publisher(unittest.TestCase):
+    def test_new_cache_schedule_admits_only_its_exact_four_units(self):
+        sys.path.insert(0,str(ROOT/'deploy'))
+        try:
+            spec=importlib.util.spec_from_file_location('channel_cache_release_test',ROOT/'deploy/cache_release.py')
+            fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+            new=frozenset(k for k in fix.TARGETS if k.startswith(('ui/','units/')) or k=='runtime/channel_cache.py')
+            with patch.multiple(release,SCOPE=fix.SCOPE,TARGETS=fix.TARGETS,NEW=new,AUTHORIZED_TIMERS=fix.UNITS):
+                manifest=dict(scope=fix.SCOPE,businessWrites=False,timersChanged=True,files=[dict(candidate=k,target=v,beforeSha256=None if k in new else 'a'*64,owner='0:0',mode='0o644') for k,v in fix.TARGETS.items()])
+                self.assertEqual(len(release.checked_manifest(manifest)['files']),11)
+                bad=deepcopy(manifest);bad['files'][-1]['target']='/etc/systemd/system/other.timer'
+                with self.assertRaises(ValueError):release.checked_manifest(bad)
+                bad=deepcopy(manifest);bad['timersChanged']=False
+                with self.assertRaises(ValueError):release.checked_manifest(bad)
+        finally:sys.path.pop(0)
+
     def test_display_only_publication_reloads_nginx_without_stopping_readers(self):
         sys.path.insert(0,str(ROOT/'deploy'))
         try:

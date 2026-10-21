@@ -24,7 +24,7 @@ let generation = 0;
 let denied = false;
 let identity = null;
 let renderedQuery = '';
-const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
+const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -112,27 +112,28 @@ function kpis() {
   const s = data.summary, coupon = field('mode').value === 'coupon';
   const labels = [
     ['订单数', count(s.orders), coupon ? '去重后的用券订单' : '用码 + 推荐人无码'],
-    ['销售额（USD）', usd(s.salesUsd), '订单美元实付合计'],
-    ['销售额（¥）', cny(s.saleCny), '已关联发货记录原值'],
-    ['采购成本（¥）', cny(s.costCny), `${s.coveredOrders} / ${s.orders} 单有关联发货`],
-    ['毛利（¥）', cny(s.profitCny), '已关联发货销售 − 采购'],
-    ['综合利润率', pct(s.margin), '仅发货覆盖单 · 加权'],
+    ['销售额（USD）', usd(s.salesUsd), '付款订单金额，含待完成单'],
+    ['销售额（¥）', cny(s.saleCny), '已完成且已核算的订单金额'],
+    ['采购成本（¥）', cny(s.costCny), `${s.coveredOrders} / ${s.completedOrders} 已完成单已核算`],
+    ['毛利（¥）', cny(s.profitCny), '仅已完成且已核算订单'],
+    ['综合利润率', pct(s.margin), '已完成核算群体 · 加权'],
     ['客单价（USD）', usd(s.aovUsd), '美元销售额 / 订单数'],
     coupon ? ['用券订单占全站', pct(s.couponShareSite), `${count(s.overlapOrders)} 单同时使用优惠码`] : ['用码订单占比', pct(s.shareAllCodes) + ' / ' + pct(s.shareSite), '占全部用码 / 全站订单']
   ];
   $('kpis').replaceChildren(...labels.map(([name, value, hint]) => {
     const card = text('article', null, 'panel kpi'); card.append(text('span', name, 'name'), text('strong', value), text('small', hint)); return card;
   }));
-  $('coverage').textContent = `发货匹配 ${count(s.coveredOrders)} / ${count(s.orders)} 单`;
+  $('coverage').textContent = `已完成 ${count(s.completedOrders)} 单 · 成本未覆盖 ${count(s.missingCostOrders)} 单（SCM ${count(s.scmOrders)}） · 待完成 ${count(s.pendingOrders)} 单`;
   const paragraphs = [
     `范围：MMOEXP；${data.period.start} 至 ${data.period.end}，按订单付款日期、北京时间。${coupon ? '按模板/活动与批次追踪，渠道无依据保持未归类。' : '渠道业绩包含实际用码与推荐人无码；自然流量（对照）指无码且无推荐人，与GA4自然搜索渠道分开。'}`,
     `全站分母 ${count(data.denominator.orders)} 单，用码分母 ${count(data.denominator.codedOrders)} 单；均沿用当前游戏、国家、支付与状态筛选，不随项目/单码筛选缩小。${count(s.referrerOnly)} 单为推荐人无码，不算用码订单。`,
-    `销售额、客单价：Admin 订单美元金额。人民币销售、成本、毛利、利润率：仅匹配的 Order「订单发货」记录，先加总再相除。缺成本不当作零；匹配不证明全部交付、退款后净收入或最终结算。${count(s.conflicts)} 单有归因冲突待核。`,
-    `成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。${data.sources.cost.limitation}`,
+    `销售额、客单价：Admin 付款订单美元金额，保留当前订单状态范围。成本、毛利和利润率仅核算已完成订单；待完成 ${count(s.pendingOrders)} 单（其中验证未通过欺诈单 ${count(s.fraudOrders)} 单）不计成本和利润。已完成成本未覆盖 ${count(s.missingCostOrders)} 单，其中SCM发货 ${count(s.scmOrders)} 单：NBA2K、ARC由另一系统履约，当前源无成本，不补零。已确认零成本商品 ${count(s.zeroCostOrders)} 单按100%利润率。${count(s.conflicts)} 单有归因冲突待核。`,
+    `常规成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。已确认零成本历史商品使用用户确认及该笔Admin原人民币金额；不按Items类别泛化，也不套固定汇率。`,
     `新老客来源：该笔订单下单时 ES「是否新客户」，是为新客、否为老客。${data.sources.customer?.limitation || '字段未提供时保持未知。'}`,
     `优惠码与优惠券分开统计，同一订单可重叠；模板、批次分项也可能重叠，不能直接相加。状态保留后台原值；“排除退款”不代表全部为已完成订单。`,
     `归因：保留原码，忽略大小写；同码冲突待核。分销是推广分类，站点单独筛选。${data.sources.attribution.historical}。`
   ];
+  if (data.sources.cache) paragraphs.push(`缓存：${data.sources.cache.days} 个完整日归档直接合并；采集时间 ${data.sources.cache.oldest} 至 ${data.sources.cache.newest}。${data.sources.cache.limitation}`);
   $('definitions').replaceChildren(...paragraphs.map(p => text('p', p)));
 }
 const svgNode = (tag, attributes, content) => {
@@ -167,15 +168,15 @@ function trend() {
     if (i % Math.max(1, Math.ceil(rows.length / 9)) === 0 || i === rows.length - 1) chart.append(svgNode('text', {x:x(i),y:bottom + 24,'text-anchor':'middle'}, r.key.slice(5)));
   }); flush();
   if (rows.length <= 31) rows.forEach((r, i) => { if (r.profitCny != null) chart.append(svgNode('circle', {cx:x(i),cy:yProfit(r.profitCny),r:3,class:'point'})); });
-  const legend = text('div', null, 'chart-legend'); legend.append(text('span', '销售额（USD，左轴）'), text('span', '毛利（¥，右轴；仅发货覆盖）'));
+  const legend = text('div', null, 'chart-legend'); legend.append(text('span', '销售额（USD，左轴）'), text('span', '毛利（¥，右轴；已完成且已核算）'));
   $('trend').replaceChildren(chart, legend);
-  table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '发货覆盖'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.orders}`], '每日销售与毛利数值');
+  table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '已完成核算'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.completedOrders}`], '每日销售与毛利数值');
 }
 function orders() {
   const coupon = field('mode').value === 'coupon';
-  table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
+  table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '核算销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态 / 核算'], data.orders, r => [
     r.paidAt, r.orderNo, r.game, r.customerType, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
-    r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', countryLabel(r.country),r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status
+    r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', countryLabel(r.country),r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status + ' · ' + r.costStatus + (r.costBasis ? ' · ' + r.costBasis : '')
   ], '当前筛选订单明细');
   $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单';
   $('page').textContent = `${data.page} / ${data.pages}`;
@@ -199,12 +200,13 @@ function render() {
   kpis(); comparison(); trend(); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
   $('results').hidden = false;
-  if (data.costRefreshing) show('订单已取得，正在从共享源关联采购成本；当前毛利仅代表已匹配发货。', 'partial');
+  if (data.costRefreshing) show('订单已取得，正在关联已完成订单的成本；未完成订单不计毛利。', 'partial');
   else if (data.costError) show('本次采购成本读取未完成，订单与优惠券结果保留；成本缺口见覆盖说明，可稍后刷新。', 'partial');
   else if (data.sources.cost.status === 'unavailable') show('Order 共享源暂不可用，当前复用已有发货成本；未匹配成本保持缺失。', 'partial');
   else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
-  else if (data.summary.coveredOrders < data.summary.orders) show('订单与优惠券关联已完成；部分订单缺少采购成本，毛利和利润率仅代表发货覆盖单。', 'partial');
+  else if (data.summary.missingCostOrders) show(`${count(data.summary.missingCostOrders)} 笔已完成订单成本未覆盖（SCM ${count(data.summary.scmOrders)} 笔）；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`, 'partial');
+  else if (data.summary.pendingOrders) show(`已完成订单已核算；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`);
   else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');
 }
 async function load(refresh = false) {
@@ -255,7 +257,7 @@ for (const key of ['mode','gid','project','code','status','country','payment']) 
 for (const button of form.querySelectorAll('[data-days]')) button.addEventListener('click', () => {
   field('end').value = beijingDay(); field('start').value = shift(field('end').value, 1 - Number(button.dataset.days)); page = 1; load();
 });
-$('reset').addEventListener('click', () => { form.reset(); field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
+$('reset').addEventListener('click', () => { HTMLFormElement.prototype.reset.call(form); field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
 $('refresh').addEventListener('click', () => load(true));
 $('sort').addEventListener('change', () => { page = 1; load(); });
 $('direction').addEventListener('click', () => { direction = direction === 'desc' ? 'asc' : 'desc'; $('direction').textContent = direction === 'desc' ? '降序 ↓' : '升序 ↑'; page = 1; load(); });

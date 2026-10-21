@@ -7,6 +7,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -25,6 +31,13 @@
       "orders": 3,
       "salesUsd": 70.0,
       "coveredOrders": 2,
+      "completedOrders": 3,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 1,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -43,6 +56,13 @@
       "orders": 4,
       "salesUsd": 100.0,
       "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -61,6 +81,13 @@
         "orders": 3,
         "salesUsd": 70.0,
         "coveredOrders": 2,
+        "completedOrders": 3,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 2,
         "saleCny": 350.0,
         "costCny": 287.0,
@@ -80,6 +107,13 @@
         "orders": 1,
         "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -97,6 +131,13 @@
         "orders": 2,
         "salesUsd": 30.0,
         "coveredOrders": 1,
+        "completedOrders": 2,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -114,6 +155,13 @@
         "orders": 1,
         "salesUsd": 30.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -133,6 +181,13 @@
         "orders": 1,
         "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -151,6 +206,13 @@
         "orders": 1,
         "salesUsd": 20.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -169,6 +231,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -190,6 +259,13 @@
           "orders": 3,
           "salesUsd": 70.0,
           "coveredOrders": 2,
+          "completedOrders": 3,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 2,
           "saleCny": 350.0,
           "costCny": 287.0,
@@ -209,6 +285,13 @@
           "orders": 3,
           "salesUsd": 70.0,
           "coveredOrders": 2,
+          "completedOrders": 3,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 2,
           "saleCny": 350.0,
           "costCny": 287.0,
@@ -228,6 +311,13 @@
           "orders": 3,
           "salesUsd": 70.0,
           "coveredOrders": 2,
+          "completedOrders": 3,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 2,
           "saleCny": 350.0,
           "costCny": 287.0,
@@ -247,6 +337,13 @@
           "orders": 2,
           "salesUsd": 60.0,
           "coveredOrders": 1,
+          "completedOrders": 2,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 280.0,
           "costCny": 252.0,
@@ -264,6 +361,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -283,6 +387,13 @@
           "orders": 3,
           "salesUsd": 70.0,
           "coveredOrders": 2,
+          "completedOrders": 3,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 2,
           "saleCny": 350.0,
           "costCny": 287.0,
@@ -336,7 +447,9 @@
         "promoterUid": "43",
         "attribution": "折扣码",
         "attributionSource": "discount_configuration",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "B",
@@ -363,7 +476,9 @@
         "promoterUid": "42",
         "attribution": "推荐人无码",
         "attributionSource": "recommend_uid",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本待核"
       },
       {
         "orderNo": "A",
@@ -407,7 +522,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 1,
@@ -426,6 +543,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -444,6 +567,13 @@
       "orders": 2,
       "salesUsd": 30.0,
       "coveredOrders": 1,
+      "completedOrders": 2,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 1,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 1,
       "saleCny": 70.0,
       "costCny": 35.0,
@@ -462,6 +592,13 @@
       "orders": 4,
       "salesUsd": 100.0,
       "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -480,6 +617,13 @@
         "orders": 2,
         "salesUsd": 30.0,
         "coveredOrders": 1,
+        "completedOrders": 2,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -499,6 +643,13 @@
         "orders": 1,
         "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -516,6 +667,13 @@
         "orders": 2,
         "salesUsd": 30.0,
         "coveredOrders": 1,
+        "completedOrders": 2,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -533,6 +691,13 @@
         "orders": 1,
         "salesUsd": 30.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -552,6 +717,13 @@
         "orders": 1,
         "salesUsd": 20.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -570,6 +742,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -591,6 +770,13 @@
           "orders": 2,
           "salesUsd": 30.0,
           "coveredOrders": 1,
+          "completedOrders": 2,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -610,6 +796,13 @@
           "orders": 2,
           "salesUsd": 30.0,
           "coveredOrders": 1,
+          "completedOrders": 2,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -629,6 +822,13 @@
           "orders": 2,
           "salesUsd": 30.0,
           "coveredOrders": 1,
+          "completedOrders": 2,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -648,6 +848,13 @@
           "orders": 1,
           "salesUsd": 20.0,
           "coveredOrders": 0,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 0,
           "saleCny": null,
           "costCny": null,
@@ -665,6 +872,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -684,6 +898,13 @@
           "orders": 2,
           "salesUsd": 30.0,
           "coveredOrders": 1,
+          "completedOrders": 2,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 1,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -737,7 +958,9 @@
         "promoterUid": "42",
         "attribution": "推荐人无码",
         "attributionSource": "recommend_uid",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本待核"
       },
       {
         "orderNo": "A",
@@ -781,7 +1004,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 1,
@@ -792,7 +1017,7 @@
     "stale": false,
     "sourceError": false
   },
-  "coupon": {
+  "single": {
     "version": "channel-effects-v1",
     "period": {
       "start": "2026-10-20",
@@ -800,6 +1025,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -818,6 +1049,13 @@
       "orders": 1,
       "salesUsd": 10.0,
       "coveredOrders": 1,
+      "completedOrders": 1,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 1,
       "saleCny": 70.0,
       "costCny": 35.0,
@@ -830,12 +1068,19 @@
       "conflicts": 0,
       "shareAllCodes": 0.5,
       "shareSite": 0.25,
-      "couponShareSite": 0.25
+      "couponShareSite": null
     },
     "denominator": {
       "orders": 4,
       "salesUsd": 100.0,
       "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -854,6 +1099,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -868,64 +1120,117 @@
     ],
     "projects": [
       {
-        "key": "7",
-        "label": "券",
+        "key": "SEO",
+        "label": "SEO",
         "orders": 1,
-        "salesUsd": 10.0,
+        "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 280.0,
+        "costCny": 252.0,
+        "profitCny": 28.0,
+        "margin": 0.1,
+        "aovUsd": 40.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      },
+      {
+        "key": "KOL",
+        "label": "KOL",
+        "orders": 2,
+        "salesUsd": 30.0,
+        "coveredOrders": 1,
+        "completedOrders": 2,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
         "profitCny": 35.0,
         "margin": 0.5,
-        "aovUsd": 10.0,
+        "aovUsd": 15.0,
         "codedOrders": 1,
-        "referrerOnly": 0,
+        "referrerOnly": 1,
         "overlapOrders": 1,
         "conflicts": 0
       },
       {
-        "key": "8",
-        "label": "另一券",
+        "key": "无推广归属",
+        "label": "无推广归属",
         "orders": 1,
-        "salesUsd": 10.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "margin": 0.5,
-        "aovUsd": 10.0,
-        "codedOrders": 1,
+        "salesUsd": 30.0,
+        "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 30.0,
+        "codedOrders": 0,
         "referrerOnly": 0,
-        "overlapOrders": 1,
+        "overlapOrders": 0,
         "conflicts": 0
       }
     ],
     "codes": [
       {
-        "key": "one",
-        "label": "one",
+        "key": "",
+        "label": "推荐人无码",
         "orders": 1,
-        "salesUsd": 10.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "margin": 0.5,
-        "aovUsd": 10.0,
-        "codedOrders": 1,
-        "referrerOnly": 0,
-        "overlapOrders": 1,
-        "conflicts": 0
+        "salesUsd": 20.0,
+        "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 20.0,
+        "codedOrders": 0,
+        "referrerOnly": 1,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "promoters": "推广甲"
       },
       {
-        "key": "two",
-        "label": "two",
+        "key": "alpha",
+        "label": "Alpha",
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -935,7 +1240,8 @@
         "codedOrders": 1,
         "referrerOnly": 0,
         "overlapOrders": 1,
-        "conflicts": 0
+        "conflicts": 0,
+        "promoters": "推广甲"
       }
     ],
     "breakdowns": {
@@ -946,6 +1252,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -965,6 +1278,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -984,6 +1304,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1003,6 +1330,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1022,6 +1356,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1092,7 +1433,412 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
+      }
+    ],
+    "page": 1,
+    "pages": 1,
+    "total": 1,
+    "status": "available",
+    "refreshing": false,
+    "stale": false,
+    "sourceError": false
+  },
+  "coupon": {
+    "version": "channel-effects-v1",
+    "period": {
+      "start": "2026-10-20",
+      "end": "2026-10-20"
+    },
+    "generatedAt": "2026-10-21T00:00:00+08:00",
+    "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
+      "cost": {
+        "source": "fictional fixture",
+        "generatedAt": "2026-10-21T00:00:00+08:00",
+        "limitation": "虚构金额，非业务数据"
+      },
+      "attribution": {
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
+      }
+    },
+    "mapping": {},
+    "summary": {
+      "orders": 1,
+      "salesUsd": 10.0,
+      "coveredOrders": 1,
+      "completedOrders": 1,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
+      "deliveryRows": 1,
+      "saleCny": 70.0,
+      "costCny": 35.0,
+      "profitCny": 35.0,
+      "margin": 0.5,
+      "aovUsd": 10.0,
+      "codedOrders": 1,
+      "referrerOnly": 0,
+      "overlapOrders": 1,
+      "conflicts": 0,
+      "shareAllCodes": 0.5,
+      "shareSite": 0.25,
+      "couponShareSite": 0.25
+    },
+    "denominator": {
+      "orders": 4,
+      "salesUsd": 100.0,
+      "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
+      "deliveryRows": 2,
+      "saleCny": 350.0,
+      "costCny": 287.0,
+      "profitCny": 63.0,
+      "margin": 0.18,
+      "aovUsd": 25.0,
+      "codedOrders": 2,
+      "referrerOnly": 1,
+      "overlapOrders": 1,
+      "conflicts": 0
+    },
+    "trend": [
+      {
+        "key": "2026-10-20",
+        "label": "2026-10-20",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      }
+    ],
+    "projects": [
+      {
+        "key": "7",
+        "label": "券",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      },
+      {
+        "key": "8",
+        "label": "另一券",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      }
+    ],
+    "codes": [
+      {
+        "key": "one",
+        "label": "one",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      },
+      {
+        "key": "two",
+        "label": "two",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      }
+    ],
+    "breakdowns": {
+      "game": [
+        {
+          "key": "Game A",
+          "label": "Game A",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "country": [
+        {
+          "key": "US",
+          "label": "US",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "payment": [
+        {
+          "key": "PayPal",
+          "label": "PayPal",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "customerType": [
+        {
+          "key": "新客",
+          "label": "新客",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "status": [
+        {
+          "key": "已完成",
+          "label": "已完成",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ]
+    },
+    "options": {
+      "games": [
+        [
+          "1",
+          "Game A"
+        ]
+      ],
+      "countries": [
+        "US"
+      ],
+      "payments": [
+        "PayPal"
+      ]
+    },
+    "orders": [
+      {
+        "orderNo": "A",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 10.0,
+        "status": "已完成",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "新客",
+        "coupons": [
+          {
+            "id": "1",
+            "templateId": "7",
+            "title": "券",
+            "batch": "one",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          },
+          {
+            "id": "2",
+            "templateId": "8",
+            "title": "另一券",
+            "batch": "two",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          }
+        ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
+        "code": "Alpha",
+        "codeKey": "alpha",
+        "project": "KOL",
+        "promoter": "推广甲",
+        "promoterUid": "42",
+        "attribution": "折扣码",
+        "attributionSource": "promoter_directory",
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 1,
@@ -1111,6 +1857,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -1129,6 +1881,13 @@
       "orders": 1,
       "salesUsd": 10.0,
       "coveredOrders": 1,
+      "completedOrders": 1,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 1,
       "saleCny": 70.0,
       "costCny": 35.0,
@@ -1147,6 +1906,13 @@
       "orders": 4,
       "salesUsd": 100.0,
       "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -1165,6 +1931,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1184,6 +1957,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1201,6 +1981,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1220,6 +2007,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1240,6 +2034,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1259,6 +2060,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1278,6 +2086,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1297,6 +2112,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1316,6 +2138,13 @@
           "orders": 1,
           "salesUsd": 10.0,
           "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
@@ -1386,7 +2215,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 1,
@@ -1405,6 +2236,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -1423,6 +2260,13 @@
       "orders": 0,
       "salesUsd": 0.0,
       "coveredOrders": 0,
+      "completedOrders": 0,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 0,
       "saleCny": null,
       "costCny": null,
@@ -1441,6 +2285,13 @@
       "orders": 4,
       "salesUsd": 100.0,
       "coveredOrders": 2,
+      "completedOrders": 4,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 2,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 2,
       "saleCny": 350.0,
       "costCny": 287.0,
@@ -1458,6 +2309,13 @@
         "orders": 0,
         "salesUsd": 0.0,
         "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -1477,6 +2335,13 @@
         "orders": 1,
         "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -1494,6 +2359,13 @@
         "orders": 2,
         "salesUsd": 30.0,
         "coveredOrders": 1,
+        "completedOrders": 2,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1511,6 +2383,13 @@
         "orders": 1,
         "salesUsd": 30.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -1530,6 +2409,13 @@
         "orders": 1,
         "salesUsd": 40.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -1548,6 +2434,13 @@
         "orders": 1,
         "salesUsd": 20.0,
         "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 0,
         "saleCny": null,
         "costCny": null,
@@ -1566,6 +2459,13 @@
         "orders": 1,
         "salesUsd": 10.0,
         "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 1,
         "saleCny": 70.0,
         "costCny": 35.0,
@@ -1609,6 +2509,589 @@
     "stale": false,
     "sourceError": false
   },
+  "accounting": {
+    "version": "channel-effects-v1",
+    "period": {
+      "start": "2026-10-20",
+      "end": "2026-10-20"
+    },
+    "generatedAt": "2026-10-21T00:00:00+08:00",
+    "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
+      "cost": {
+        "source": "fictional fixture",
+        "generatedAt": "2026-10-21T00:00:00+08:00",
+        "limitation": "虚构金额，非业务数据"
+      },
+      "attribution": {
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
+      }
+    },
+    "mapping": {},
+    "summary": {
+      "orders": 3,
+      "salesUsd": 70.0,
+      "coveredOrders": 1,
+      "completedOrders": 1,
+      "pendingOrders": 2,
+      "refundedOrders": 0,
+      "fraudOrders": 1,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 1,
+      "deliveryRows": 1,
+      "saleCny": 268.0,
+      "costCny": 0.0,
+      "profitCny": 268.0,
+      "margin": 1.0,
+      "aovUsd": 23.33,
+      "codedOrders": 2,
+      "referrerOnly": 1,
+      "overlapOrders": 1,
+      "conflicts": 0,
+      "shareAllCodes": 1.0,
+      "shareSite": 0.5,
+      "couponShareSite": null
+    },
+    "denominator": {
+      "orders": 4,
+      "salesUsd": 100.0,
+      "coveredOrders": 1,
+      "completedOrders": 2,
+      "pendingOrders": 2,
+      "refundedOrders": 0,
+      "fraudOrders": 1,
+      "missingCostOrders": 1,
+      "scmOrders": 0,
+      "zeroCostOrders": 1,
+      "deliveryRows": 1,
+      "saleCny": 268.0,
+      "costCny": 0.0,
+      "profitCny": 268.0,
+      "margin": 1.0,
+      "aovUsd": 25.0,
+      "codedOrders": 2,
+      "referrerOnly": 1,
+      "overlapOrders": 1,
+      "conflicts": 0
+    },
+    "trend": [
+      {
+        "key": "2026-10-20",
+        "label": "2026-10-20",
+        "orders": 3,
+        "salesUsd": 70.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 2,
+        "refundedOrders": 0,
+        "fraudOrders": 1,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 268.0,
+        "costCny": 0.0,
+        "profitCny": 268.0,
+        "margin": 1.0,
+        "aovUsd": 23.33,
+        "codedOrders": 2,
+        "referrerOnly": 1,
+        "overlapOrders": 1,
+        "conflicts": 0
+      }
+    ],
+    "projects": [
+      {
+        "key": "SEO",
+        "label": "SEO",
+        "orders": 1,
+        "salesUsd": 40.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 268.0,
+        "costCny": 0.0,
+        "profitCny": 268.0,
+        "margin": 1.0,
+        "aovUsd": 40.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      },
+      {
+        "key": "KOL",
+        "label": "KOL",
+        "orders": 2,
+        "salesUsd": 30.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 2,
+        "refundedOrders": 0,
+        "fraudOrders": 1,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 15.0,
+        "codedOrders": 1,
+        "referrerOnly": 1,
+        "overlapOrders": 1,
+        "conflicts": 0
+      },
+      {
+        "key": "无推广归属",
+        "label": "无推广归属",
+        "orders": 1,
+        "salesUsd": 30.0,
+        "coveredOrders": 0,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 1,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 30.0,
+        "codedOrders": 0,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      }
+    ],
+    "codes": [
+      {
+        "key": "beta",
+        "label": "beta",
+        "orders": 1,
+        "salesUsd": 40.0,
+        "coveredOrders": 1,
+        "completedOrders": 1,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 268.0,
+        "costCny": 0.0,
+        "profitCny": 268.0,
+        "margin": 1.0,
+        "aovUsd": 40.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "promoters": "推广人 43"
+      },
+      {
+        "key": "",
+        "label": "推荐人无码",
+        "orders": 1,
+        "salesUsd": 20.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 1,
+        "refundedOrders": 0,
+        "fraudOrders": 1,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 20.0,
+        "codedOrders": 0,
+        "referrerOnly": 1,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "promoters": "推广甲"
+      },
+      {
+        "key": "alpha",
+        "label": "Alpha",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 1,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0,
+        "promoters": "推广甲"
+      }
+    ],
+    "breakdowns": {
+      "game": [
+        {
+          "key": "Game A",
+          "label": "Game A",
+          "orders": 3,
+          "salesUsd": 70.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 2,
+          "refundedOrders": 0,
+          "fraudOrders": 1,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 268.0,
+          "costCny": 0.0,
+          "profitCny": 268.0,
+          "margin": 1.0,
+          "aovUsd": 23.33,
+          "codedOrders": 2,
+          "referrerOnly": 1,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "country": [
+        {
+          "key": "US",
+          "label": "US",
+          "orders": 3,
+          "salesUsd": 70.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 2,
+          "refundedOrders": 0,
+          "fraudOrders": 1,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 268.0,
+          "costCny": 0.0,
+          "profitCny": 268.0,
+          "margin": 1.0,
+          "aovUsd": 23.33,
+          "codedOrders": 2,
+          "referrerOnly": 1,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "payment": [
+        {
+          "key": "PayPal",
+          "label": "PayPal",
+          "orders": 3,
+          "salesUsd": 70.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 2,
+          "refundedOrders": 0,
+          "fraudOrders": 1,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 268.0,
+          "costCny": 0.0,
+          "profitCny": 268.0,
+          "margin": 1.0,
+          "aovUsd": 23.33,
+          "codedOrders": 2,
+          "referrerOnly": 1,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "customerType": [
+        {
+          "key": "老客",
+          "label": "老客",
+          "orders": 2,
+          "salesUsd": 60.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 1,
+          "refundedOrders": 0,
+          "fraudOrders": 1,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 268.0,
+          "costCny": 0.0,
+          "profitCny": 268.0,
+          "margin": 1.0,
+          "aovUsd": 30.0,
+          "codedOrders": 1,
+          "referrerOnly": 1,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
+          "key": "新客",
+          "label": "新客",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 1,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "status": [
+        {
+          "key": "已完成",
+          "label": "已完成",
+          "orders": 1,
+          "salesUsd": 40.0,
+          "coveredOrders": 1,
+          "completedOrders": 1,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 268.0,
+          "costCny": 0.0,
+          "profitCny": 268.0,
+          "margin": 1.0,
+          "aovUsd": 40.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
+          "key": "验证·未通过",
+          "label": "验证·未通过",
+          "orders": 1,
+          "salesUsd": 20.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 1,
+          "refundedOrders": 0,
+          "fraudOrders": 1,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": 20.0,
+          "codedOrders": 0,
+          "referrerOnly": 1,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
+          "key": "问题订单",
+          "label": "问题订单",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 1,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ]
+    },
+    "options": {
+      "games": [
+        [
+          "1",
+          "Game A"
+        ]
+      ],
+      "countries": [
+        "US"
+      ],
+      "payments": [
+        "PayPal"
+      ]
+    },
+    "orders": [
+      {
+        "orderNo": "D",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 40.0,
+        "status": "已完成",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "老客",
+        "coupons": [],
+        "saleCny": 268.0,
+        "costCny": 0.0,
+        "profitCny": 268.0,
+        "deliveryRows": 1,
+        "code": "beta",
+        "codeKey": "beta",
+        "project": "SEO",
+        "promoter": "推广人 43",
+        "promoterUid": "43",
+        "attribution": "折扣码",
+        "attributionSource": "discount_configuration",
+        "conflict": false,
+        "zeroCost": true,
+        "costStatus": "已完成：确认零成本",
+        "costBasis": "fictional confirmed coupon"
+      },
+      {
+        "orderNo": "B",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 20.0,
+        "status": "验证·未通过",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "老客",
+        "coupons": [],
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "deliveryRows": 0,
+        "code": "",
+        "codeKey": "",
+        "project": "KOL",
+        "promoter": "推广甲",
+        "promoterUid": "42",
+        "attribution": "推荐人无码",
+        "attributionSource": "recommend_uid",
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "欺诈单：待退款/申诉"
+      },
+      {
+        "orderNo": "A",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 10.0,
+        "status": "问题订单",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "新客",
+        "coupons": [
+          {
+            "id": "1",
+            "templateId": "7",
+            "title": "券",
+            "batch": "one",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          },
+          {
+            "id": "2",
+            "templateId": "8",
+            "title": "另一券",
+            "batch": "two",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          }
+        ],
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "deliveryRows": 1,
+        "code": "Alpha",
+        "codeKey": "alpha",
+        "project": "KOL",
+        "promoter": "推广甲",
+        "promoterUid": "42",
+        "attribution": "折扣码",
+        "attributionSource": "promoter_directory",
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "未完成：不核算"
+      }
+    ],
+    "page": 1,
+    "pages": 1,
+    "total": 3,
+    "status": "available",
+    "refreshing": false
+  },
   "pages1": {
     "version": "channel-effects-v1",
     "period": {
@@ -1617,6 +3100,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -1635,6 +3124,13 @@
       "orders": 120,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
+      "completedOrders": 120,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 120,
       "saleCny": 8400.0,
       "costCny": 4200.0,
@@ -1653,6 +3149,13 @@
       "orders": 120,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
+      "completedOrders": 120,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 120,
       "saleCny": 8400.0,
       "costCny": 4200.0,
@@ -1671,6 +3174,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -1690,6 +3200,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -1709,6 +3226,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -1730,6 +3254,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -1749,6 +3280,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -1768,6 +3306,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -1787,6 +3332,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -1806,6 +3358,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -1876,7 +3435,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-118",
@@ -1920,7 +3481,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-117",
@@ -1964,7 +3527,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-116",
@@ -2008,7 +3573,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-115",
@@ -2052,7 +3619,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-114",
@@ -2096,7 +3665,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-113",
@@ -2140,7 +3711,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-112",
@@ -2184,7 +3757,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-111",
@@ -2228,7 +3803,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-110",
@@ -2272,7 +3849,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-109",
@@ -2316,7 +3895,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-108",
@@ -2360,7 +3941,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-107",
@@ -2404,7 +3987,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-106",
@@ -2448,7 +4033,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-105",
@@ -2492,7 +4079,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-104",
@@ -2536,7 +4125,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-103",
@@ -2580,7 +4171,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-102",
@@ -2624,7 +4217,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-101",
@@ -2668,7 +4263,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-100",
@@ -2712,7 +4309,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-099",
@@ -2756,7 +4355,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-098",
@@ -2800,7 +4401,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-097",
@@ -2844,7 +4447,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-096",
@@ -2888,7 +4493,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-095",
@@ -2932,7 +4539,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-094",
@@ -2976,7 +4585,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-093",
@@ -3020,7 +4631,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-092",
@@ -3064,7 +4677,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-091",
@@ -3108,7 +4723,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-090",
@@ -3152,7 +4769,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-089",
@@ -3196,7 +4815,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-088",
@@ -3240,7 +4861,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-087",
@@ -3284,7 +4907,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-086",
@@ -3328,7 +4953,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-085",
@@ -3372,7 +4999,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-084",
@@ -3416,7 +5045,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-083",
@@ -3460,7 +5091,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-082",
@@ -3504,7 +5137,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-081",
@@ -3548,7 +5183,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-080",
@@ -3592,7 +5229,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-079",
@@ -3636,7 +5275,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-078",
@@ -3680,7 +5321,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-077",
@@ -3724,7 +5367,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-076",
@@ -3768,7 +5413,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-075",
@@ -3812,7 +5459,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-074",
@@ -3856,7 +5505,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-073",
@@ -3900,7 +5551,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-072",
@@ -3944,7 +5597,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-071",
@@ -3988,7 +5643,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-070",
@@ -4032,7 +5689,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 1,
@@ -4052,6 +5711,12 @@
     },
     "generatedAt": "2026-10-21T00:00:00+08:00",
     "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
@@ -4070,6 +5735,13 @@
       "orders": 120,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
+      "completedOrders": 120,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 120,
       "saleCny": 8400.0,
       "costCny": 4200.0,
@@ -4088,6 +5760,13 @@
       "orders": 120,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
+      "completedOrders": 120,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
       "deliveryRows": 120,
       "saleCny": 8400.0,
       "costCny": 4200.0,
@@ -4106,6 +5785,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -4125,6 +5811,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -4144,6 +5837,13 @@
         "orders": 120,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
+        "completedOrders": 120,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
         "deliveryRows": 120,
         "saleCny": 8400.0,
         "costCny": 4200.0,
@@ -4165,6 +5865,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -4184,6 +5891,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -4203,6 +5917,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -4222,6 +5943,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -4241,6 +5969,13 @@
           "orders": 120,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
+          "completedOrders": 120,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
           "deliveryRows": 120,
           "saleCny": 8400.0,
           "costCny": 4200.0,
@@ -4311,7 +6046,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-068",
@@ -4355,7 +6092,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-067",
@@ -4399,7 +6138,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-066",
@@ -4443,7 +6184,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-065",
@@ -4487,7 +6230,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-064",
@@ -4531,7 +6276,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-063",
@@ -4575,7 +6322,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-062",
@@ -4619,7 +6368,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-061",
@@ -4663,7 +6414,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-060",
@@ -4707,7 +6460,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-059",
@@ -4751,7 +6506,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-058",
@@ -4795,7 +6552,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-057",
@@ -4839,7 +6598,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-056",
@@ -4883,7 +6644,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-055",
@@ -4927,7 +6690,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-054",
@@ -4971,7 +6736,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-053",
@@ -5015,7 +6782,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-052",
@@ -5059,7 +6828,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-051",
@@ -5103,7 +6874,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-050",
@@ -5147,7 +6920,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-049",
@@ -5191,7 +6966,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-048",
@@ -5235,7 +7012,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-047",
@@ -5279,7 +7058,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-046",
@@ -5323,7 +7104,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-045",
@@ -5367,7 +7150,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-044",
@@ -5411,7 +7196,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-043",
@@ -5455,7 +7242,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-042",
@@ -5499,7 +7288,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-041",
@@ -5543,7 +7334,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-040",
@@ -5587,7 +7380,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-039",
@@ -5631,7 +7426,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-038",
@@ -5675,7 +7472,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-037",
@@ -5719,7 +7518,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-036",
@@ -5763,7 +7564,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-035",
@@ -5807,7 +7610,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-034",
@@ -5851,7 +7656,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-033",
@@ -5895,7 +7702,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-032",
@@ -5939,7 +7748,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-031",
@@ -5983,7 +7794,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-030",
@@ -6027,7 +7840,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-029",
@@ -6071,7 +7886,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-028",
@@ -6115,7 +7932,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-027",
@@ -6159,7 +7978,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-026",
@@ -6203,7 +8024,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-025",
@@ -6247,7 +8070,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-024",
@@ -6291,7 +8116,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-023",
@@ -6335,7 +8162,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-022",
@@ -6379,7 +8208,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-021",
@@ -6423,7 +8254,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       },
       {
         "orderNo": "fixture-pages-020",
@@ -6467,7 +8300,9 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false
+        "conflict": false,
+        "zeroCost": false,
+        "costStatus": "已完成：成本已核"
       }
     ],
     "page": 2,
@@ -6478,335 +8313,5 @@
     "costRefreshing": true,
     "sourceError": false,
     "costError": false
-  },
-  "single": {
-    "version": "channel-effects-v1",
-    "period": {
-      "start": "2026-10-20",
-      "end": "2026-10-20"
-    },
-    "generatedAt": "2026-10-21T00:00:00+08:00",
-    "sources": {
-      "cost": {
-        "source": "fictional fixture",
-        "generatedAt": "2026-10-21T00:00:00+08:00",
-        "limitation": "虚构金额，非业务数据"
-      },
-      "attribution": {
-        "historical": "fictional fixture"
-      },
-      "customer": {
-        "source": "fictional ES fixture",
-        "status": "complete"
-      }
-    },
-    "mapping": {},
-    "summary": {
-      "orders": 1,
-      "salesUsd": 10.0,
-      "coveredOrders": 1,
-      "deliveryRows": 1,
-      "saleCny": 70.0,
-      "costCny": 35.0,
-      "profitCny": 35.0,
-      "margin": 0.5,
-      "aovUsd": 10.0,
-      "codedOrders": 1,
-      "referrerOnly": 0,
-      "overlapOrders": 1,
-      "conflicts": 0,
-      "shareAllCodes": 0.5,
-      "shareSite": 0.25,
-      "couponShareSite": null
-    },
-    "denominator": {
-      "orders": 4,
-      "salesUsd": 100.0,
-      "coveredOrders": 2,
-      "deliveryRows": 2,
-      "saleCny": 350.0,
-      "costCny": 287.0,
-      "profitCny": 63.0,
-      "margin": 0.18,
-      "aovUsd": 25.0,
-      "codedOrders": 2,
-      "referrerOnly": 1,
-      "overlapOrders": 1,
-      "conflicts": 0
-    },
-    "trend": [
-      {
-        "key": "2026-10-20",
-        "label": "2026-10-20",
-        "orders": 1,
-        "salesUsd": 10.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "margin": 0.5,
-        "aovUsd": 10.0,
-        "codedOrders": 1,
-        "referrerOnly": 0,
-        "overlapOrders": 1,
-        "conflicts": 0
-      }
-    ],
-    "projects": [
-      {
-        "key": "SEO",
-        "label": "SEO",
-        "orders": 1,
-        "salesUsd": 40.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 280.0,
-        "costCny": 252.0,
-        "profitCny": 28.0,
-        "margin": 0.1,
-        "aovUsd": 40.0,
-        "codedOrders": 1,
-        "referrerOnly": 0,
-        "overlapOrders": 0,
-        "conflicts": 0
-      },
-      {
-        "key": "KOL",
-        "label": "KOL",
-        "orders": 2,
-        "salesUsd": 30.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "margin": 0.5,
-        "aovUsd": 15.0,
-        "codedOrders": 1,
-        "referrerOnly": 1,
-        "overlapOrders": 1,
-        "conflicts": 0
-      },
-      {
-        "key": "无推广归属",
-        "label": "无推广归属",
-        "orders": 1,
-        "salesUsd": 30.0,
-        "coveredOrders": 0,
-        "deliveryRows": 0,
-        "saleCny": null,
-        "costCny": null,
-        "profitCny": null,
-        "margin": null,
-        "aovUsd": 30.0,
-        "codedOrders": 0,
-        "referrerOnly": 0,
-        "overlapOrders": 0,
-        "conflicts": 0
-      }
-    ],
-    "codes": [
-      {
-        "key": "",
-        "label": "推荐人无码",
-        "orders": 1,
-        "salesUsd": 20.0,
-        "coveredOrders": 0,
-        "deliveryRows": 0,
-        "saleCny": null,
-        "costCny": null,
-        "profitCny": null,
-        "margin": null,
-        "aovUsd": 20.0,
-        "codedOrders": 0,
-        "referrerOnly": 1,
-        "overlapOrders": 0,
-        "conflicts": 0,
-        "promoters": "推广甲"
-      },
-      {
-        "key": "alpha",
-        "label": "Alpha",
-        "orders": 1,
-        "salesUsd": 10.0,
-        "coveredOrders": 1,
-        "deliveryRows": 1,
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "margin": 0.5,
-        "aovUsd": 10.0,
-        "codedOrders": 1,
-        "referrerOnly": 0,
-        "overlapOrders": 1,
-        "conflicts": 0,
-        "promoters": "推广甲"
-      }
-    ],
-    "breakdowns": {
-      "game": [
-        {
-          "key": "Game A",
-          "label": "Game A",
-          "orders": 1,
-          "salesUsd": 10.0,
-          "coveredOrders": 1,
-          "deliveryRows": 1,
-          "saleCny": 70.0,
-          "costCny": 35.0,
-          "profitCny": 35.0,
-          "margin": 0.5,
-          "aovUsd": 10.0,
-          "codedOrders": 1,
-          "referrerOnly": 0,
-          "overlapOrders": 1,
-          "conflicts": 0
-        }
-      ],
-      "country": [
-        {
-          "key": "US",
-          "label": "US",
-          "orders": 1,
-          "salesUsd": 10.0,
-          "coveredOrders": 1,
-          "deliveryRows": 1,
-          "saleCny": 70.0,
-          "costCny": 35.0,
-          "profitCny": 35.0,
-          "margin": 0.5,
-          "aovUsd": 10.0,
-          "codedOrders": 1,
-          "referrerOnly": 0,
-          "overlapOrders": 1,
-          "conflicts": 0
-        }
-      ],
-      "payment": [
-        {
-          "key": "PayPal",
-          "label": "PayPal",
-          "orders": 1,
-          "salesUsd": 10.0,
-          "coveredOrders": 1,
-          "deliveryRows": 1,
-          "saleCny": 70.0,
-          "costCny": 35.0,
-          "profitCny": 35.0,
-          "margin": 0.5,
-          "aovUsd": 10.0,
-          "codedOrders": 1,
-          "referrerOnly": 0,
-          "overlapOrders": 1,
-          "conflicts": 0
-        }
-      ],
-      "customerType": [
-        {
-          "key": "新客",
-          "label": "新客",
-          "orders": 1,
-          "salesUsd": 10.0,
-          "coveredOrders": 1,
-          "deliveryRows": 1,
-          "saleCny": 70.0,
-          "costCny": 35.0,
-          "profitCny": 35.0,
-          "margin": 0.5,
-          "aovUsd": 10.0,
-          "codedOrders": 1,
-          "referrerOnly": 0,
-          "overlapOrders": 1,
-          "conflicts": 0
-        }
-      ],
-      "status": [
-        {
-          "key": "已完成",
-          "label": "已完成",
-          "orders": 1,
-          "salesUsd": 10.0,
-          "coveredOrders": 1,
-          "deliveryRows": 1,
-          "saleCny": 70.0,
-          "costCny": 35.0,
-          "profitCny": 35.0,
-          "margin": 0.5,
-          "aovUsd": 10.0,
-          "codedOrders": 1,
-          "referrerOnly": 0,
-          "overlapOrders": 1,
-          "conflicts": 0
-        }
-      ]
-    },
-    "options": {
-      "games": [
-        [
-          "1",
-          "Game A"
-        ]
-      ],
-      "countries": [
-        "US"
-      ],
-      "payments": [
-        "PayPal"
-      ]
-    },
-    "orders": [
-      {
-        "orderNo": "A",
-        "gid": "1",
-        "game": "Game A",
-        "paidAt": "2026-10-20 12:00:00",
-        "day": "2026-10-20",
-        "salesUsd": 10.0,
-        "status": "已完成",
-        "payStatus": "1",
-        "refunded": false,
-        "country": "US",
-        "payment": "PayPal",
-        "customerType": "新客",
-        "coupons": [
-          {
-            "id": "1",
-            "templateId": "7",
-            "title": "券",
-            "batch": "one",
-            "usedAt": "2026-10-20 11:59:59",
-            "status": ""
-          },
-          {
-            "id": "2",
-            "templateId": "8",
-            "title": "另一券",
-            "batch": "two",
-            "usedAt": "2026-10-20 11:59:59",
-            "status": ""
-          }
-        ],
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "profitCny": 35.0,
-        "deliveryRows": 1,
-        "code": "Alpha",
-        "codeKey": "alpha",
-        "project": "KOL",
-        "promoter": "推广甲",
-        "promoterUid": "42",
-        "attribution": "折扣码",
-        "attributionSource": "promoter_directory",
-        "conflict": false
-      }
-    ],
-    "page": 1,
-    "pages": 1,
-    "total": 1,
-    "status": "available",
-    "refreshing": false,
-    "stale": false,
-    "sourceError": false
   }
 }

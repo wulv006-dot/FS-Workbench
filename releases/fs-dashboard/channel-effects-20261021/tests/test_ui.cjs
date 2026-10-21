@@ -15,7 +15,7 @@ const server = http.createServer(async (req, res) => {
     if (url.searchParams.get('q') === 'fixture-error') {res.writeHead(503);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-auth') {res.writeHead(403);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-busy') {res.writeHead(429);res.end('{}');return;}
-    const key = url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
+    const key = url.searchParams.get('q') === 'fixture-accounting' ? 'accounting' : url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
     if (key.startsWith('pages') || ['kol','single'].includes(key)) await new Promise(resolve => setTimeout(resolve, 500));
     res.end(JSON.stringify(fixtures[key]));return;
   }
@@ -87,6 +87,17 @@ const server = http.createServer(async (req, res) => {
     await codeResponse;
     await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$10.00'));
     assert.equal(await page.locator('#results').getAttribute('aria-busy'),'false');
+    await page.locator('#reset').click();
+    await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$70.00'));
+    assert.equal(await page.locator('[name=project]').inputValue(),'');
+    assert.equal(await page.locator('[name=code]').inputValue(),'');
+    await page.locator('[name=q]').fill('fixture-accounting'); await page.locator('button[type=submit]').click();
+    await page.locator('#orders').getByText(/fictional confirmed coupon/).waitFor();
+    assert.match(await page.locator('#orders').innerText(),/欺诈单：待退款\/申诉/);
+    assert.match(await page.locator('#kpis').innerText(),/100.0%/);
+    assert.match(await page.locator('#coverage').innerText(),/成本未覆盖 0/);
+    await page.locator('#reset').click();
+    await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$70.00'));
     await page.locator('[name=mode]').selectOption('coupon');
     await page.locator('#projects-title').filter({hasText:'优惠券模板'}).waitFor();
     assert.match(await page.locator('#kpis').innerText(), /\$10.00/);
