@@ -1,0 +1,322 @@
+{
+  "captured_at": "2026-10-21T08:11:23.778889+00:00",
+  "operations": {
+    "order-global-fc-20261021-v1": [
+      {
+        "path": "/opt/fc27-cloud-browser/p2pah_browser_login.py",
+        "before": "b4beef7bf46fb1f9288bdb79b914f1d3ad7cdef37997f189b6b23c9d0ea5bb9f",
+        "after": "ed226b797eb4f4fdd445597d03da02c4c5de987deaf1c4bf2bac897a4fe5aed8"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/price_writer.py",
+        "before": "b54ab99335bea22cff4cda8b844694be8b23c8db43fe6124cf0b22d07502b6b1",
+        "after": "44a410efc175025afa2ff355f535240a3839bafc364f0d0672234ee294fa7509"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/preview_backend.py",
+        "before": "9fd82551c660daf5bdf25cdc5ec85094a14151e2e901784a063a769b0583c79d",
+        "after": "4d4848bfd62b7ad98984ad744cf8b905b74ef97d068d1927b66ebc12a93d7c06"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/restore_price.py",
+        "before": "7967a2019756c854c36b399670e5b56f812da002e5346f2489f45b960b727b8f",
+        "after": "bf2af45768c7688f574cfd472aefc8ccbec5b7f73ecb2106ed81d860f48d2e5e"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collect_p2pah_cost.py",
+        "before": "455767a6678da6cdbcd2a83ef66d1fb11860d6498e91762e9ed6484ffa465321",
+        "after": "312f47f8305308558d69401a92d170aed1726e4f67f1944ac246b1d66c1ef812"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collect_p2pah_cost.sh",
+        "before": "68be8db78bd7dbb8db29bedb9cadaca3993d3f252c3e1b0705709b7fdd08edd5",
+        "after": "f7bf7534f14e79e6eb19c82370c3dbd5b6d40e48eeb9a66b4871ccfde86f3124"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/preview_backend.sh",
+        "before": "a90bc0c17b2a4676d161da13a01adaf3a499e5925670420cfaf04042d5919bd3",
+        "after": "316c6241c17ca86d0856344ed650a080d1fd75a59552a5c5e9e4f1f9a89c9ddc"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/execute_price.sh",
+        "before": "b19357af0777913cd608a4a2e2860e5de0b85bbe6b1573f7bf15e1926edd7f91",
+        "after": "a8be89522769a053bb264500934eb6dd50038f4c00926125f61e34fe54063758"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/restore_price.sh",
+        "before": "c1b8e7d18778850ae9a7bc2f728b5f514c841a3be53947e8c188898448bb0988",
+        "after": "d7251442b4a3e84238d7a69bb4d87435536c7c52ec932976cbf5a9942ec7aaf7"
+      }
+    ],
+    "order-global-runtime-20261021-v2": [
+      {
+        "path": "/opt/fs-order-session/fs_order_client.py",
+        "before": "485b431047b3e09d5259911c1ecef6a09351a6c8eaae14f336dcf040ce9a5ee8",
+        "after": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collector/fs_order_client.py",
+        "before": "485b431047b3e09d5259911c1ecef6a09351a6c8eaae14f336dcf040ce9a5ee8",
+        "after": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2"
+      },
+      {
+        "path": "/opt/madden-workbench/fs_order_client.py",
+        "before": "485b431047b3e09d5259911c1ecef6a09351a6c8eaae14f336dcf040ce9a5ee8",
+        "after": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2"
+      },
+      {
+        "path": "/opt/d4follow/_p2pah_srv/fs_order_client.py",
+        "before": "485b431047b3e09d5259911c1ecef6a09351a6c8eaae14f336dcf040ce9a5ee8",
+        "after": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2"
+      },
+      {
+        "path": "/opt/fs-order-session/service.py",
+        "before": "ea98a16195bcf2deae6d0d371daefccd5cde19d955f77e008972040204a6fe27",
+        "after": "36fa7b7a243f4fc115a1a759cfba8b5358793af7aa75ca704bd507d86cb33d82"
+      }
+    ],
+    "order-global-health-budget-20261021-v2": [
+      {
+        "path": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+        "before": "348c43cd41b9248ae316e7937e2a9fe63cd259c4ac57d20a46db77ca2a4ced81",
+        "after": "113f01760011eff4bd473e63b7bfedd5d367a1562664d1bc7fc8706483437c52"
+      }
+    ],
+    "order-global-remaining-20261021-v1": [
+      {
+        "path": "/opt/fc27-pack-bundles/vendor/p2pah_price.py",
+        "before": "39fb0becb97135211ff0f3b3a47e2e91dbae2dce7aed16c9f736a2a64ce5ab4d",
+        "after": "032322c26c90fa0975266228a1373a0459eb82585e55366225faf7c5b231f73d"
+      },
+      {
+        "path": "/opt/dashboard-collect/profit_fetch.py",
+        "before": "21c1adce915841a472d82c2706be8aa1b80496ec36739d7f9fd9e0a2c88d5b6b",
+        "after": "cf9fe9ed9c74c2254569f6358587f29a3b71eb0b15585b9c8e8e2fae8f911fb2"
+      },
+      {
+        "path": "/opt/nba-reprice/backend/server.js",
+        "before": "8be4282da477d414702cebbfe6802f12dbdd4d65bd0bfcdcdc71ab9e03ebf556",
+        "after": "1a632c7e34cc7d8622d8a55ff26e2834c033a975c082ef9685e67db3d8c53077"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
+        "before": "d786e2af1dbd1b9fd4cd801af3fc56a514c8dc34b56ac60756addb9d6ac9ca35",
+        "after": "348c43cd41b9248ae316e7937e2a9fe63cd259c4ac57d20a46db77ca2a4ced81"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collector/probe_backend_page.py",
+        "before": "b3eadf54079d668a4e94d8a3e8488926d7d00f1ae7b9daf59c4f138a67d0deaa",
+        "after": "25d19de59b32a2819880b4ff572da499f66cd5b43f238b909a810aba01d3cefe"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collector/probe_order_frontend_browser.py",
+        "before": "4dcb1c06923f3b02b9b39d63172fbe996d79656da8b2e6d598199fb58ded4b58",
+        "after": "93d0daf56c0b938efd037ed1183666ab434a99ffd4aa048e104aa61461b10fe9"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/collector/probe_p2pah_rows.py",
+        "before": "fa9c69979641e1737a25d9266cf6fac82dbd7a39df3daa68e62e5ba406e82406",
+        "after": "8f36cc717bce85507bfe65de1d959e1cc3d84b0d7c23411c36c1cf11aef5927f"
+      }
+    ],
+    "order-global-rpg-auth-20261021-v2": [
+      {
+        "path": "/opt/d4follow/core_p2pah.py",
+        "before": "4c7914587c31f061dccaf724531ad0339f89178410dbff6c0aa931ea9ae4e560",
+        "after": "a55a9ea66f21694d556377af2003d372eab6c81149b2d2e1b7ecf05f26fb0633"
+      }
+    ],
+    "order-global-fc-import-20261021-v2": [
+      {
+        "path": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+        "before": "75bfd3bfc00f392fb9ba91da8d521ce724ccbcf0093ecb26d812f7e986d61f64",
+        "after": "8ea19ed3b6a842745df17235b53d8a3762ad81501ae10dbcf40b3a92e1a565fd"
+      }
+    ],
+    "order-global-consumers-20261021-v1": [
+      {
+        "path": "/opt/fs-exact-range-20261001/range_primary_reader.py",
+        "before": "433e8f3f8491cbe6b08eba53f415a679ee726e0b1a7cbbf6a919166c093981c1",
+        "after": "eb28bfae2483b62aa960612ed51a7d38acd2346418cc49dc292991740d47ff3b"
+      },
+      {
+        "path": "/opt/fs-exact-range-20261001/fc_order_reader.py",
+        "before": "247d291f99cb00f5688a7e010b84db055106e059bc0b673f7554f72f2ccacccd",
+        "after": "72f251f7d41a95c8c1aaaeae1f50a8aec230f91659f7b2439dbeb2b7b1bcff97"
+      },
+      {
+        "path": "/opt/fs-transaction-snapshot/primary_reader.py",
+        "before": "c246da9acd7b6b75bc41b79564b39a532b286eb3bf109598e6825738bdcb8f30",
+        "after": "b008ab89502b31ed817e3d03575298a4d9c5b6cf824d506bc5e6dbad63de9333"
+      },
+      {
+        "path": "/opt/fs-transaction-snapshot/profit_daily_reader.py",
+        "before": "92633c6db461e8f9f981fe0b702e7b1e0323c3b78ea46f0e9b67943c48c3ec03",
+        "after": "06a4ae8502579ad439d99db0ac30115a95956b361f4ddd1919f69822ad163c62"
+      },
+      {
+        "path": "/opt/fs-transaction-snapshot/fc_category_reader.py",
+        "before": "2dc8f805386f4bde5a3927a6a6e31275ae25349d7d4ca9490e480a922ef597c6",
+        "after": "7e01d568687a825b2843307af29d097f7dbd84ade52edd4d0b5a609bb95ab5d1"
+      },
+      {
+        "path": "/opt/fc27-ops/order_query.py",
+        "before": "f59b0d48c0e48f9784e13ec6283c5251c8a2b1b5b3827d14b54dc5c2dec05f06",
+        "after": "845a65aa39eac4a7bcbbee386aee9a63cc1ecffee91b5a34ce0744f5954744a2"
+      },
+      {
+        "path": "/opt/sales-dashboard/collector/p2pah_auth.py",
+        "before": "f6a90024e5ac648fce96978cc31b3292768676669b1404aa466ed8227fb175b4",
+        "after": "f21200652de47461d5069cc3d317bddd076dc3bf29a8fb692553fa7e4fee8777"
+      },
+      {
+        "path": "/opt/madden-workbench/madden_nfl_27/collect_cost.py",
+        "before": "57a8069b7659fe69fa7ce13b90565f7aa0dc180c1843be22b921be172cded970",
+        "after": "8ae6e3d2fcfcd65083b391ac19ce5e558614710e59238a667a42222a7d880ec9"
+      },
+      {
+        "path": "/opt/mlb-admin-write/src/p2pah_price.py",
+        "before": "39fb0becb97135211ff0f3b3a47e2e91dbae2dce7aed16c9f736a2a64ce5ab4d",
+        "after": "032322c26c90fa0975266228a1373a0459eb82585e55366225faf7c5b231f73d"
+      },
+      {
+        "path": "/opt/mlb-online/mlb_coins_rate.py",
+        "before": "5a5118f6786622b486cbc8b3b50b98d57d274eb0736c2b6a281ea1a6cc6e9fa7",
+        "after": "1e391377326df7636133aaff6dc7952a2402b7c1df254a341cb6eb85d299add1"
+      },
+      {
+        "path": "/opt/d4follow/core_p2pah.py",
+        "before": "5811c9c8eab58bbf94e3341f72a4c7b06ae088be0989f768c4a3b277f50ab29b",
+        "after": "4c7914587c31f061dccaf724531ad0339f89178410dbff6c0aa931ea9ae4e560"
+      },
+      {
+        "path": "/opt/d4follow/_p2pah_srv/p2pah_local.py",
+        "before": "2b18e3f3f19aac7abf6a9677750c545458b4bd0b8bef6853f2ca4704bdbb115f",
+        "after": "1e0688eee7f5459b18a3b7c68f7cacc321ad0b2eae3d034914c75352c4527485"
+      },
+      {
+        "path": "/opt/d4follow/_p2pah_srv/p2pah_autologin.py",
+        "before": "612bacd0804e1e736cba1b45f03ce478a2960027a8c8438ae3b4d4099bc6277a",
+        "after": "63e2d8db2a4a9ac0bea6efe67d16fd383cd4e66c6e28bfd070aa13029351c67c"
+      }
+    ],
+    "order-global-light-probe-20261021-v3": [
+      {
+        "path": "/opt/fs-order-session/service.py",
+        "before": "36fa7b7a243f4fc115a1a759cfba8b5358793af7aa75ca704bd507d86cb33d82",
+        "after": "94762bc009f92e6f55d3f00491f307c1699a62c0a6df37df0eda6752f633b8bc"
+      }
+    ],
+    "order-global-fc-admin-consumer-20261021-v1": [
+      {
+        "path": "/opt/fc27-cloud-browser/coin_all_sync_job.py",
+        "before": "27d4cd624f9546c6c56c3c4b7c8643922cae19b6216a861c037b83b7cd987830",
+        "after": "75bfd3bfc00f392fb9ba91da8d521ce724ccbcf0093ecb26d812f7e986d61f64"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/player_sync_job.py",
+        "before": "d0bf138985928d2c07c2446682d0ec4876b414fc3cf307cbb0f9d128a5e9628a",
+        "after": "c48933e29d848aa098e8e6ce7832b36bf469add2450e8afee354350a937a1924"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/clear_cache_after_write.py",
+        "before": "a130c021ea04134c86dfcdd7ac81e324061d4be91f33c51d89f2833741be51a0",
+        "after": "b452462f095cd694b76a5322f33d5925c42a2e415bedaeb5e52fb206516e3126"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/execute_price.sh",
+        "before": "a8be89522769a053bb264500934eb6dd50038f4c00926125f61e34fe54063758",
+        "after": "74a194eae4c50713a8b5375d8668e964ba1b272f8ab918f0048dd46adce437ce"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/clear_cache_after_write.sh",
+        "before": "30b4ad3932d606f423cb4e3cfeae501e327e8d6891dfd32b08c13d50e06625e6",
+        "after": "e7a29b1e191df9cfbdabfaf9a04ce890ebfa30c8524f5231fccf6e06ebb455cb"
+      },
+      {
+        "path": "/opt/fc27-cloud-browser/sync_players.sh",
+        "before": "a81f9d0550ed7fb55bb0fb3d37840d3a8df1db0d99c8c52fe40cd358d80dd5e8",
+        "after": "07bc537f5c95a7507c3cddc02391f568002440f54037892fa2c7f8a746903834"
+      }
+    ]
+  },
+  "runtime": {
+    "/etc/systemd/system/fs-order-session.service": {
+      "sha256": "99c53780e64b16691c6c816456485d481796f67aca16c64978fbac464cb071e5",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "/opt/fs-order-session/service.py": {
+      "sha256": "94762bc009f92e6f55d3f00491f307c1699a62c0a6df37df0eda6752f633b8bc",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "/opt/fs-order-session/fs_order_client.py": {
+      "sha256": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "/opt/fs-order-session/fc_shared_admin.py": {
+      "sha256": "a676388f0011b5f0ca116b0bfb2a1d428c8782e5538f8402e8734a5405beaa42",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "/etc/fc27-cloud/global-admin-principal.json": {
+      "sha256": "9b48c127a52ed96875e21740d0dda52749452fec2fc9328370247b4480d3c673",
+      "mode": "0o640",
+      "uid": 0,
+      "gid": 11028
+    }
+  },
+  "current_file_hashes": {
+    "/opt/fc27-cloud-browser/p2pah_browser_login.py": "ed226b797eb4f4fdd445597d03da02c4c5de987deaf1c4bf2bac897a4fe5aed8",
+    "/opt/fc27-cloud-browser/price_writer.py": "44a410efc175025afa2ff355f535240a3839bafc364f0d0672234ee294fa7509",
+    "/opt/fc27-cloud-browser/preview_backend.py": "4d4848bfd62b7ad98984ad744cf8b905b74ef97d068d1927b66ebc12a93d7c06",
+    "/opt/fc27-cloud-browser/restore_price.py": "bf2af45768c7688f574cfd472aefc8ccbec5b7f73ecb2106ed81d860f48d2e5e",
+    "/opt/fc27-cloud-browser/collect_p2pah_cost.py": "312f47f8305308558d69401a92d170aed1726e4f67f1944ac246b1d66c1ef812",
+    "/opt/fc27-cloud-browser/collect_p2pah_cost.sh": "f7bf7534f14e79e6eb19c82370c3dbd5b6d40e48eeb9a66b4871ccfde86f3124",
+    "/opt/fc27-cloud-browser/preview_backend.sh": "316c6241c17ca86d0856344ed650a080d1fd75a59552a5c5e9e4f1f9a89c9ddc",
+    "/opt/fc27-cloud-browser/execute_price.sh": "74a194eae4c50713a8b5375d8668e964ba1b272f8ab918f0048dd46adce437ce",
+    "/opt/fc27-cloud-browser/restore_price.sh": "d7251442b4a3e84238d7a69bb4d87435536c7c52ec932976cbf5a9942ec7aaf7",
+    "/opt/fs-order-session/fs_order_client.py": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2",
+    "/opt/fc27-cloud-browser/collector/fs_order_client.py": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2",
+    "/opt/madden-workbench/fs_order_client.py": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2",
+    "/opt/d4follow/_p2pah_srv/fs_order_client.py": "ce780ffe48c11ea2a6a4e243b8c196b072ea683fc80129e2b4cc05d9b663ddc2",
+    "/opt/fs-order-session/service.py": "94762bc009f92e6f55d3f00491f307c1699a62c0a6df37df0eda6752f633b8bc",
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py": "113f01760011eff4bd473e63b7bfedd5d367a1562664d1bc7fc8706483437c52",
+    "/opt/fc27-pack-bundles/vendor/p2pah_price.py": "032322c26c90fa0975266228a1373a0459eb82585e55366225faf7c5b231f73d",
+    "/opt/dashboard-collect/profit_fetch.py": "cf9fe9ed9c74c2254569f6358587f29a3b71eb0b15585b9c8e8e2fae8f911fb2",
+    "/opt/nba-reprice/backend/server.js": "1a632c7e34cc7d8622d8a55ff26e2834c033a975c082ef9685e67db3d8c53077",
+    "/opt/fc27-cloud-browser/collector/probe_backend_page.py": "25d19de59b32a2819880b4ff572da499f66cd5b43f238b909a810aba01d3cefe",
+    "/opt/fc27-cloud-browser/collector/probe_order_frontend_browser.py": "93d0daf56c0b938efd037ed1183666ab434a99ffd4aa048e104aa61461b10fe9",
+    "/opt/fc27-cloud-browser/collector/probe_p2pah_rows.py": "8f36cc717bce85507bfe65de1d959e1cc3d84b0d7c23411c36c1cf11aef5927f",
+    "/opt/d4follow/core_p2pah.py": "a55a9ea66f21694d556377af2003d372eab6c81149b2d2e1b7ecf05f26fb0633",
+    "/opt/fc27-cloud-browser/coin_all_sync_job.py": "8ea19ed3b6a842745df17235b53d8a3762ad81501ae10dbcf40b3a92e1a565fd",
+    "/opt/fs-exact-range-20261001/range_primary_reader.py": "eb28bfae2483b62aa960612ed51a7d38acd2346418cc49dc292991740d47ff3b",
+    "/opt/fs-exact-range-20261001/fc_order_reader.py": "72f251f7d41a95c8c1aaaeae1f50a8aec230f91659f7b2439dbeb2b7b1bcff97",
+    "/opt/fs-transaction-snapshot/primary_reader.py": "b008ab89502b31ed817e3d03575298a4d9c5b6cf824d506bc5e6dbad63de9333",
+    "/opt/fs-transaction-snapshot/profit_daily_reader.py": "06a4ae8502579ad439d99db0ac30115a95956b361f4ddd1919f69822ad163c62",
+    "/opt/fs-transaction-snapshot/fc_category_reader.py": "7e01d568687a825b2843307af29d097f7dbd84ade52edd4d0b5a609bb95ab5d1",
+    "/opt/fc27-ops/order_query.py": "845a65aa39eac4a7bcbbee386aee9a63cc1ecffee91b5a34ce0744f5954744a2",
+    "/opt/sales-dashboard/collector/p2pah_auth.py": "3b33f2c3f79d71f312d06ee0ab8593f977b7b0cacdf2f169d688679e7d815ff9",
+    "/opt/madden-workbench/madden_nfl_27/collect_cost.py": "8ae6e3d2fcfcd65083b391ac19ce5e558614710e59238a667a42222a7d880ec9",
+    "/opt/mlb-admin-write/src/p2pah_price.py": "032322c26c90fa0975266228a1373a0459eb82585e55366225faf7c5b231f73d",
+    "/opt/mlb-online/mlb_coins_rate.py": "1e391377326df7636133aaff6dc7952a2402b7c1df254a341cb6eb85d299add1",
+    "/opt/d4follow/_p2pah_srv/p2pah_local.py": "1e0688eee7f5459b18a3b7c68f7cacc321ad0b2eae3d034914c75352c4527485",
+    "/opt/d4follow/_p2pah_srv/p2pah_autologin.py": "63e2d8db2a4a9ac0bea6efe67d16fd383cd4e66c6e28bfd070aa13029351c67c",
+    "/opt/fc27-cloud-browser/player_sync_job.py": "c48933e29d848aa098e8e6ce7832b36bf469add2450e8afee354350a937a1924",
+    "/opt/fc27-cloud-browser/clear_cache_after_write.py": "b452462f095cd694b76a5322f33d5925c42a2e415bedaeb5e52fb206516e3126",
+    "/opt/fc27-cloud-browser/clear_cache_after_write.sh": "e7a29b1e191df9cfbdabfaf9a04ce890ebfa30c8524f5231fccf6e06ebb455cb",
+    "/opt/fc27-cloud-browser/sync_players.sh": "07bc537f5c95a7507c3cddc02391f568002440f54037892fa2c7f8a746903834"
+  },
+  "authorized_later_changes": {
+    "/opt/sales-dashboard/collector/p2pah_auth.py": {
+      "sha256": "3b33f2c3f79d71f312d06ee0ab8593f977b7b0cacdf2f169d688679e7d815ff9",
+      "owner": "Sales parallel session, PR268 cleanup; global Order calls preserved; do not overwrite"
+    }
+  }
+}
