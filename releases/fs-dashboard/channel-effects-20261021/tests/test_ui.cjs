@@ -15,7 +15,7 @@ const server = http.createServer(async (req, res) => {
     if (url.searchParams.get('q') === 'fixture-error') {res.writeHead(503);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-auth') {res.writeHead(403);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-busy') {res.writeHead(429);res.end('{}');return;}
-    const key = url.searchParams.get('q') === 'fixture-test' ? 'test' : url.searchParams.get('q') === 'fixture-accounting' ? 'accounting' : url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
+    const key = url.searchParams.get('q') === 'fixture-legacy' ? 'legacy' : url.searchParams.get('q') === 'fixture-test' ? 'test' : url.searchParams.get('q') === 'fixture-accounting' ? 'accounting' : url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
     if (key.startsWith('pages') || ['kol','single'].includes(key)) await new Promise(resolve => setTimeout(resolve, 500));
     res.end(JSON.stringify(fixtures[key]));return;
   }
@@ -91,6 +91,8 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$70.00'));
     assert.equal(await page.locator('[name=project]').inputValue(),'');
     assert.equal(await page.locator('[name=code]').inputValue(),'');
+    await page.locator('[name=q]').fill('fixture-legacy'); await page.locator('button[type=submit]').click();
+    await page.locator('#status').getByText(/新旧收入字段不会混算/).waitFor();
     await page.locator('[name=q]').fill('fixture-accounting'); await page.locator('button[type=submit]').click();
     await page.locator('#orders').getByText(/fictional confirmed coupon/).waitFor();
     assert.match(await page.locator('#orders').innerText(),/欺诈单：待退款\/申诉/);

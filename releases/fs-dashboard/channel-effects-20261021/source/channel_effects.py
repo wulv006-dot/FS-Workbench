@@ -132,9 +132,9 @@ def delivery_index(deliveries):
     result = {}
     for sn, records in costs.items():
         sale, cost = [money(r.get('sale_total')) for r in records], [money(r.get('cost_total')) for r in records]
-        covered = all(v is not None and v >= 0 for v in sale + cost)
-        s, c = sum(sale, Decimal(0)) if covered else None, sum(cost, Decimal(0)) if covered else None
-        result[sn] = dict(saleCny=number(s), costCny=number(c), profitCny=number(s-c) if covered else None, deliveryRows=len(records))
+        s = sum(sale, Decimal(0)) if all(v is not None and v >= 0 for v in sale) else None
+        c = sum(cost, Decimal(0)) if all(v is not None and v >= 0 for v in cost) else None
+        result[sn] = dict(saleCny=number(s), costCny=number(c), profitCny=number(s-c) if s is not None and c is not None else None, deliveryRows=len(records))
     return result
 
 
@@ -149,8 +149,9 @@ def fraud(row):
     return re.sub(r'[·\s]', '', row['status']) == '验证未通过'
 
 
-def accounting_row(raw, overrides, tests=None):
-    row = dict(raw, zeroCost=False, testOrder=False)
+def accounting_row(raw, overrides, tests=None, admin_revenue=True):
+    row = dict(raw, zeroCost=False, testOrder=False,
+               revenueBasis='admin_order_cny' if admin_revenue and 'adminSaleCny' in raw else 'legacy_delivery')
     test = (tests or {}).get(row['orderNo'])
     if test and str(test['gid']) == row['gid'] and money(test['salesUsd']) == money(row['salesUsd']):
         row.update(testOrder=True, saleCny=None, costCny=None, profitCny=None, costStatus='测试单：不计经营指标')
@@ -165,7 +166,12 @@ def accounting_row(raw, overrides, tests=None):
         row.update(saleCny=number(sale), costCny=0.0, profitCny=number(sale), zeroCost=True,
                    costStatus='已完成：确认零成本', costBasis=rule['productTitle'])
     else:
+        if row['revenueBasis'] == 'admin_order_cny':
+            sale, cost = money(row['adminSaleCny']), money(row['costCny'])
+            row.update(saleCny=number(sale), profitCny=number(sale-cost) if sale is not None and cost is not None else None)
         row['costStatus'] = '已完成：成本待核' if row['costCny'] is None or row['saleCny'] is None else '已完成：成本已核'
+        if row['revenueBasis'] == 'admin_order_cny' and row['saleCny'] is None:
+            row['costStatus'] = '已完成：Admin人民币收入待核'
         if row['costStatus'].endswith('成本待核') and (row['game'].replace(' ', '').startswith('NBA2K') or row['game'] == 'ARC Raiders'):
             row['costStatus'] = '已完成：SCM发货，当前源无成本'
     return row
@@ -200,8 +206,9 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
             raise ValueError('missing_usd_order_amount')
         row = dict(orderNo=sn, gid=str(order.get('gid')), game=clean(order.get('game_format') or (order.get('game') or {}).get('title')) or '游戏未提供',
                    paidAt=clean(order.get('paytime')), day=clean(order.get('paytime'))[:10], salesUsd=number(amount),
+                   adminSaleCny=number(money(order.get('amount_rmb_format'))),
                    status=clean(order.get('status_format')) or '状态未提供', payStatus=clean(order.get('pay_status')),
-                   refunded=str(order.get('pay_status')) == '2' or '退款' in clean(order.get('status_format')),
+                   refunded=str(order.get('pay_status')) == '2' or clean(order.get('status_format')).startswith('已退款'),
                    country=clean(order.get('country_code') or order.get('country')) or '国家未提供',
                    payment=clean(order.get('paytype_display') or order.get('paytype')) or '支付方式未提供',
                    customerType='新老客未提供',
@@ -213,13 +220,17 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
 def metrics(rows):
     test_count = sum(r.get('testOrder',False) for r in rows)
     rows = [r for r in rows if not r.get('testOrder')]
+    fraud_rows = [r for r in rows if fraud(r)]
+    rows = [r for r in rows if not fraud(r)]
     covered = [r for r in rows if completed(r) and r['costCny'] is not None and r['saleCny'] is not None]
     total = lambda key, items: sum((Decimal(str(r[key])) for r in items), Decimal(0))
     usd, sale, cost = total('salesUsd', rows), total('saleCny', covered), total('costCny', covered)
     return dict(orders=len(rows), testOrders=test_count, salesUsd=number(usd), coveredOrders=len(covered),
                 completedOrders=sum(completed(r) for r in rows), pendingOrders=sum(not completed(r) and not r['refunded'] for r in rows),
                 refundedOrders=sum(r['refunded'] for r in rows),
-                fraudOrders=sum(fraud(r) for r in rows),
+                fraudOrders=len(fraud_rows), excludedFraudUsd=number(total('salesUsd', fraud_rows)),
+                legacyRevenueOrders=sum(r.get('revenueBasis') == 'legacy_delivery' for r in covered),
+                missingRevenueOrders=sum(completed(r) and r.get('revenueBasis') == 'admin_order_cny' and r['saleCny'] is None for r in rows),
                 missingCostOrders=sum(completed(r) and (r['costCny'] is None or r['saleCny'] is None) for r in rows),
                 scmOrders=sum('SCM发货' in r.get('costStatus','') for r in rows),
                 zeroCostOrders=sum(r.get('zeroCost',False) for r in covered),
@@ -243,7 +254,8 @@ def grouped(rows, key, labels=None):
 
 
 def view(data, query):
-    rows = [accounting_row(r, data.get('costOverrides', {}), data.get('testOrders', {})) for r in data['orders']]
+    admin_revenue = all('adminSaleCny' in r for r in data['orders'])
+    rows = [accounting_row(r, data.get('costOverrides', {}), data.get('testOrders', {}), admin_revenue) for r in data['orders']]
     base = [r for r in rows if (not query.get('gid') or r['gid'] == query['gid'])
             and (query.get('status', 'valid') != 'valid' or not r['refunded'])
             and (query.get('status') != 'refund' or r['refunded'])
@@ -292,7 +304,7 @@ def view(data, query):
     reverse = query.get('direction', 'desc') == 'desc'
     selected.sort(key=lambda r: (r[sort] is not None, r[sort] if r[sort] is not None else 0, r['orderNo']), reverse=reverse)
     page = min(int(query.get('page', '1')), max(1, (len(selected) + 49) // 50))
-    return dict(version=VERSION, period=data['period'], generatedAt=data['generatedAt'], sources=data['sources'],
+    return dict(version=VERSION, revenueBasis='admin_order_cny' if admin_revenue else 'legacy_delivery', period=data['period'], generatedAt=data['generatedAt'], sources=data['sources'],
                 mapping=data['mapping'], summary=summary, denominator=denominator, trend=trend,
                 projects=sorted(left, key=lambda r: -r['salesUsd']), codes=sorted(right, key=lambda r: -r['salesUsd']),
                 breakdowns={key: grouped(selected, key) for key in ('game', 'country', 'payment', 'customerType', 'status')},
@@ -381,9 +393,10 @@ class ChannelService:
         with self.lock:
             state = self.jobs.get(key)
             coverage=(data or {}).get('sources',{}).get('cache',{})
-            fixed=bool(archived and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete'))
+            revenue_ready=bool(data is not None and all('adminSaleCny' in r for r in data['orders']))
+            fixed=bool(archived and revenue_ready and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete'))
             stamp = data['sources'].get('cost',{}).get('generatedAt') if fixed else (data or {}).get('generatedAt')
-            fresh = bool(stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < 600)
+            fresh = bool(revenue_ready and stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < 600)
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
