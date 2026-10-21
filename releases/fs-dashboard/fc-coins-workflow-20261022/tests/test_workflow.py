@@ -1,0 +1,132 @@
+"""Fictional monetary cases and real SQLite ownership; no external service or price writer."""
+import ast,importlib.util,json,sqlite3,sys,tempfile,unittest
+from contextlib import contextmanager,closing
+from copy import deepcopy
+from datetime import datetime,timedelta,timezone
+from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+HERE=Path(__file__).resolve().parents[1]
+def sibling(remote,local):return next(p for p in (HERE.parent/remote,HERE.parent/local) if p.exists())
+sys.path[:0]=[str(HERE/'source'),str(sibling('hermes-fc-pilot-20261013','hermes_fc_pilot_20261013')),str(sibling('fs-business-baseline-20261021','fs_business_baseline_20261021')/'source'),str(sibling('fc-coins-evidence-20261021','fs_coins_evidence_20261021')/'source'),str(sibling('hermes-report-repair-20261019','fs_hermes_report_repair_20261019')/'source')]
+from pricing_workflow import Workflow,evaluate,current_accounting,number,SOURCE,VERSION,schema
+from pilot import digest,encoded
+import learning_service as learning
+import learning_registry as registry
+
+def case():
+ return dict(currency='USD',delivered_cost_includes_gifts=True,platforms=[dict(platform=p,current_usd='10.00',main_usd='9.20',delivered_cost_usd=c) for p,c in [('PS','6'),('XBOX','7'),('PC','5')]],discounts_pct=['0','5'])
+
+class Arithmetic(unittest.TestCase):
+ def test_main_change_is_not_limited_by_ending_budget(self):
+  v=evaluate(case(),'10');self.assertTrue(v['console_main_pass']);self.assertEqual(v['rows'][0]['main_change_pct'],'-8.00');self.assertEqual(v['rows'][0]['selected_usd'],'9.20')
+ def test_worst_console_and_each_discount_not_average(self):
+  c=case();c['platforms'][1]['delivered_cost_usd']='8';v=evaluate(c,'10')
+  self.assertFalse(v['console_main_pass']);self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],[None,None]);self.assertIsNotNone(v['rows'][2]['selected_usd'])
+ def test_coupon_ending_budget_rejects_even_when_floor_passes(self):
+  c=case();c['discounts_pct']=['0','10']
+  for r in c['platforms']:r.update(main_usd='10.09',delivered_cost_usd='7.90')
+  v=evaluate(c,'10');r=v['rows'][0]
+  self.assertTrue(r['ending_preview']['reason']=='applied');self.assertTrue(r['transactions'][1]['ending']['floor_pass'])
+  self.assertFalse(r['transactions'][1]['ending_budget_pass']);self.assertEqual(r['selected_usd'],'10.09')
+ def test_one_console_ending_failure_retains_common_main(self):
+  c=case()
+  for r in c['platforms']:r['main_usd']='10.09'
+  c['platforms'][1]['delivered_cost_usd']='8.6'
+  v=evaluate(c,'10');self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],['10.09','10.09'])
+ def test_already_99_never_falls_another_dollar(self):
+  c=case()
+  for r in c['platforms']:r['main_usd']='109.99'
+  self.assertTrue(all(r['selected_usd']=='109.99' for r in evaluate(c,'10')['rows']))
+ def test_gross_and_ad_contribution_and_ceiling(self):
+  c=case();c['economics']={'before':dict(orders=100,net_unit_usd='10',delivered_cost_unit_usd='6',ads_usd='100'),'after':dict(orders=120,net_unit_usd='9',delivered_cost_unit_usd='6',ads_usd='150')}
+  v=evaluate(c,'10')['economics'];self.assertEqual(v['totals']['before']['procurement_gross_usd'],'400');self.assertEqual(v['totals']['after']['ad_after_contribution_usd'],'210');self.assertEqual(v['minimum_whole_orders'],150)
+  c['economics']['after']['ads_usd']='151';self.assertEqual(evaluate(c,'10')['economics']['minimum_whole_orders'],151)
+  c['economics']['after']['ads_usd']=None;self.assertIsNone(evaluate(c,'10')['economics']['break_even_orders'])
+ def test_untrusted_fields_and_number_forms(self):
+  for n in (True,1,'1e2','NaN','Infinity',' 1','-1','1000000000001','0.00000000001'):
+   with self.assertRaises(ValueError):number(n)
+  for field,value in [('minimum_margin','0'),('currency','CNY'),('delivered_cost_includes_gifts',False)]:
+   c=case();c[field]=value
+   with self.assertRaises(ValueError):evaluate(c,'10')
+  c=case();c['platforms'][0]['main_usd']='9.201'
+  with self.assertRaises(ValueError):evaluate(c,'10')
+ def test_current_uses_delivered_gift_and_valid_fx_once(self):
+  m={'fx':{'status':'available','cny_per_usd':'7'},'costs':[dict(platform='PS',status='available',cny_per_1k='0.7')],'storefront':{'rows':[dict(platform='PS',status='available',base_k='100',bonus_k='5',gross_usd='15')]}}
+  r=current_accounting(m,'10')['rows'][0];self.assertEqual(r['delivered_cost_usd'],'10.5');self.assertEqual(r['procurement_gross_usd'],'4.5')
+  m['fx']['status']='unusable';self.assertEqual(current_accounting(m,'10')['rows'],[])
+
+class Sources(unittest.TestCase):
+ def setUp(self):
+  self.q=dict(profile='FC27',action='review',start='2026-10-14',end='2026-10-20');self.calls=[];self.pending=True
+  def call(name,args):
+   self.calls.append((name,dict(args)));data={'status':'available'}
+   if name=='fc.query_pricing_evidence' and args['kind']=='price_history':data.update(events=[args.get('page',1)],pagination=dict(has_more=args.get('page',1)==1,total_events=2))
+   if name=='fc.query_pricing_evidence' and args['kind']=='order_costs':data.update(summary=dict(completedOrders=2,coveredOrders=1,missingCostOrders=1,saleCny=20,costCny=10,profitCny=10),quality_checks={'covered_profit_identity':True})
+   if name=='fc.query_marketing_snapshot' and self.pending:data['status']='pending'
+   ident='ev_'+digest([name,args,data])[:24];record=dict(evidence_id=ident,source=name,query=args,data=data);self.book.evidence[ident]=record
+   return dict(record,data={'status':data['status'],'model_view_omitted':True})
+  self.book=SimpleNamespace(call=call,evidence={});bridge=SimpleNamespace(baseline=lambda:(None,{'minimum_gross_margin_pct':'10'},{'revision':40,'sha256':'a'*64}))
+  self.flow=Workflow(self.book,bridge)
+ def test_pending_repoll_then_full_records_freeze_and_hash(self):
+  a=self.flow(self.q);self.assertEqual(a['status'],'pending');self.pending=False;b=self.flow(self.q);self.assertEqual(b['status'],'partial')
+  self.assertTrue(b['checks']['execution_pages_complete']);self.assertEqual(b['checks']['execution_events'],2);self.assertEqual(b['procurement_accounting']['profitCny'],10)
+  self.assertEqual(b['receipt_sha256'],digest({k:v for k,v in b.items() if k!='receipt_sha256'}));n=len(self.calls);self.assertEqual(self.flow(self.q),b);self.assertEqual(len(self.calls),n)
+  self.assertFalse(b['execution_authorized']);self.assertFalse(b['existing_automation_changed']);self.assertIsNone(b['ad_after_contribution']['value'])
+ def test_strict_tool_boundary(self):
+  for q in (dict(self.q,url='http://bad'),dict(self.q,action='write'),dict(self.q,case=case()),dict(self.q,action='scenario'),dict(self.q,profile='ALL')):
+   with self.assertRaises(ValueError):self.flow(q)
+  v=self.flow(dict(self.q,action='scenario',case=case()));self.assertEqual(v['source_kind'],'declared_hypothesis');self.assertEqual(schema()['function']['name'],'mcp__fcro__fc_run_pricing_workflow')
+
+class Learning(unittest.TestCase):
+ def setUp(self):
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name);(self.root/'conversations').mkdir();self.source='a'*32;self.now=datetime.now(timezone.utc)
+  with closing(sqlite3.connect(self.root/'conversations/conversations.db')) as db:
+   db.executescript('CREATE TABLE conversations(id TEXT,owner TEXT); CREATE TABLE turns(id TEXT,conversation_id TEXT,state TEXT,task_id TEXT,text TEXT,run_id TEXT); CREATE TABLE events(seq INTEGER,turn_id TEXT,type TEXT,payload TEXT);')
+   db.execute('INSERT INTO conversations VALUES(?,?)',('conv','wulv'));db.execute('INSERT INTO turns VALUES(?,?,?,?,?,?)',(self.source,'conv','completed','task','question','run_real'));db.execute('INSERT INTO events VALUES(?,?,?,?)',(1,self.source,'run.completed',encoded({'output':'先查同范围来源，之后比较候选，并列出反证。'})))
+   db.commit()
+  self.task=dict(state='SUCCEEDED',spec={'snapshot_id':'fc-detail-conversation-'+self.source})
+  self.db=sqlite3.connect(self.root/'tasks.sqlite3');self.db.row_factory=sqlite3.Row;self.db.execute('CREATE TABLE evidence(task_id TEXT,content TEXT)');self.addCleanup(self.db.close)
+  @contextmanager
+  def db():
+   yield self.db
+   self.db.commit()
+  def get(ident,owner):
+   if owner!='wulv' or ident!='task':raise PermissionError('task_not_found')
+   return deepcopy(self.task)
+  self.service=SimpleNamespace(root=self.root,tasks=SimpleNamespace(db=db,get=get),get_job=lambda *a:None,clock=lambda:self.now)
+ def test_completed_conversation_is_owned_and_actual_output_required(self):
+  v=learning.conversation_source(self.service,'wulv',self.source);self.assertIn('先查',v['report']['research_text']);self.assertEqual(v['job']['result']['run_id'],'run_real')
+  for owner,source in [('DY',self.source),('wulv','../escape'),('wulv','b'*32)]:
+   with self.assertRaises(PermissionError):learning.conversation_source(self.service,owner,source)
+  for state in ('RUNNING','FAILED','CANCELLED'):
+   self.task['state']=state
+   with self.assertRaises(PermissionError):learning.conversation_source(self.service,'wulv',self.source)
+ def test_original_learning_queue_uses_distinct_source_kind_idempotently(self):
+  record=dict(evidence_id='ev_fixed',source=SOURCE,query={},data={'workflow_version':VERSION})
+  self.db.execute('INSERT INTO evidence VALUES(?,?)',('task',encoded(record)))
+  with patch.dict(sys.modules,report_artifacts=SimpleNamespace(),report_method=SimpleNamespace(HTML_DESIGN_MANIFEST_SHA256='b'*64)),patch.object(learning,'review_evidence',return_value={'coverage':{'complete':False}}),patch.object(learning,'visible_result',side_effect=lambda r:{'text':r['research_text']}):
+   a=learning.enqueue_workflow_completed(self.service,'wulv',self.source,'task');b=learning.enqueue_workflow_completed(self.service,'wulv',self.source,'task')
+  self.assertEqual(a['id'],b['id']);self.assertEqual(a['state'],'queued');self.assertEqual(a['event_type'],'completed_conversation');snapshot=json.loads(a['input']);self.assertEqual(snapshot['task_id'],'task');self.assertTrue(snapshot['evidence_refs'][-1].startswith('conversation:'))
+  self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
+ def test_only_workflow_conversations_autoqueue(self):
+  self.assertEqual(learning.enqueue_workflow_completed(self.service,'wulv',self.source,'task')['state'],'not_applicable')
+ def test_review_projection_keeps_machine_scenario_not_raw_input(self):
+  data=dict(workflow_version=VERSION,receipt_sha256='c'*64,write_performed=False,execution_authorized=False,source_kind='declared_hypothesis',scenario=evaluate(case(),'10'),raw_orders=[{'email':'private@example.invalid'}])
+  # Only the unrelated private-data classifier is isolated here; projection and bounds are real.
+  with patch.dict(sys.modules,report_delivery=SimpleNamespace(private_report=lambda s:'private@example' in s)):
+   v=learning.review_evidence([dict(evidence_id='ev_flow',source=SOURCE,query={},data=data)])
+  self.assertEqual(v['items'][0]['values']['pricing_workflow']['scenario']['basis'],'declared_hypothesis');self.assertNotIn('private@example',encoded(v))
+
+class Wiring(unittest.TestCase):
+ def test_all_callers_retain_original_tools_and_guards(self):
+  for p in (HERE/'source').glob('*.py'):ast.parse(p.read_text('utf8'))
+  text=(HERE/'source/research.py').read_text('utf8');self.assertIn("'fc.query_pricing_evidence','fc.run_pricing_workflow'",text)
+  self.assertIn('workflow_schema()',text);self.assertIn("self.config.get('enabled') is True",text)
+  self.assertIn("body['mode']=='pricing'",(HERE/'source/controller.py').read_text('utf8'))
+  self.assertIn("if state=='completed' and task_id:",(HERE/'source/conversation_service.py').read_text('utf8'))
+  self.assertIn("tasks.get(snapshot['task_id'],owner)",(HERE/'source/strategy_tools.py').read_text('utf8'))
+  self.assertIn('business-baseline-20261021-v8',(HERE/'source/business-baseline.md').read_text('utf8'))
+
+if __name__=='__main__':unittest.main()
