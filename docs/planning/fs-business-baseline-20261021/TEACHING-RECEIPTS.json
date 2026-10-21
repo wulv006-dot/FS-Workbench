@@ -1,0 +1,711 @@
+{
+  "contract": "hermes-decision-teaching-20261021-v1",
+  "source": "actual FS visible receipts; no hidden reasoning or raw business values",
+  "stages": [
+    {
+      "stage": "correction",
+      "task": "fb4f4735838a2c2cfa8ec163b6a85ed4",
+      "turn": "68332ca4e59247609a1a0ea1c56509f3",
+      "state": "completed",
+      "model_calls": 3,
+      "provider_request_ids": [
+        "3a5e5cc7-4f54-483c-a537-19c7119cf519",
+        "82568704-dd7b-47db-857f-3de7e029a57a",
+        "20e16a65-634f-4056-a40b-41b635a714a4"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "0005222f50c6a52593892111a441b65e5cf2fc0f108b1449e3a4b025702611c9",
+        "provider_effort_echo": null,
+        "provider_response_id": "20e16a65-634f-4056-a40b-41b635a714a4",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-2d2643581057d00d872f14899166f63f8eb80657fab72088986d2985f28e3be5",
+      "knowledge_sha256": "368d850c9c8d58cd9b97c32f8ffb2dc8c39981b5f3140a5fefdf4968e322b224",
+      "experience_manifest": "87cfa0ead996623059090e002c556ec5993692876277318bb21eb98358bfe37d",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "transfer1",
+      "task": "f274576e6ba98305dac745f1452fd80e",
+      "turn": "f6ee97dc11b44bafa87726bb40bff717",
+      "state": "completed",
+      "model_calls": 11,
+      "provider_request_ids": [
+        "a4187d9e-aeb2-4a82-b34a-3a4de17e2ef3",
+        "bcaa7a31-3e4a-47df-8454-9a54babdafd4",
+        "f05462a4-f63e-4367-acbf-443d3cf5d588",
+        "a84b6cfa-a476-4ce6-b659-ea30a8f539e0",
+        "1b2bdbf0-243b-4acd-a0a4-f55188918d49",
+        "6d5c6146-1e96-412f-ab40-bc239734326f",
+        "ea691fac-3f7a-40d2-a538-8ec85b31e830",
+        "249232eb-e3c6-48ae-9111-f3e3da133ab0",
+        "baf92a26-26f3-454f-9158-6a7919e3469e",
+        "1ef62b54-9477-4075-a2a7-c16dd3085706",
+        "f3a96b65-3adb-488f-8cb0-9d92ea5f82b9"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "3e37f2bc8b5b05088d00c82fd264abe601de6534d0ec2bf34a4caffd2124160b",
+        "provider_effort_echo": null,
+        "provider_response_id": "f3a96b65-3adb-488f-8cb0-9d92ea5f82b9",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-d432c33f16c0ba369af80d5d469f3f752f119ab917d957291a63e5e83a75f90b",
+      "knowledge_sha256": "5aa4ab761a406cc7ade642b702f58a8a16561dc951c1ee450ce33a1b44cdbc02",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "correction2",
+      "task": "825168badac92d473e61bfb8aa544b4a",
+      "turn": "e50d08fd909f4b09956ae050a46a27d1",
+      "state": "completed",
+      "model_calls": 5,
+      "provider_request_ids": [
+        "0e2887ad-7be8-44de-a586-d0ebf212e7cb",
+        "3083bb6d-1e36-42b7-9b6a-3ed4cde00762",
+        "7045ed09-5c32-4f2f-b532-f7fdfc8c05fc",
+        "645c0950-d75e-44be-80ba-bd2de1717caf",
+        "9924647f-efe6-4de1-aa9f-56a92ae7565b"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "aa67aa917c2fe5bf82e306ff146ef99b2a07a165784f739efe733b438b048bfa",
+        "provider_effort_echo": null,
+        "provider_response_id": "9924647f-efe6-4de1-aa9f-56a92ae7565b",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-d432c33f16c0ba369af80d5d469f3f752f119ab917d957291a63e5e83a75f90b",
+      "knowledge_sha256": "5aa4ab761a406cc7ade642b702f58a8a16561dc951c1ee450ce33a1b44cdbc02",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "transfer2_after_hold",
+      "task": "8d6a12d39a9a09998b67a48ed92e1415",
+      "turn": "cc0238a7e4ca483385b9a16c03ecbfd7",
+      "state": "completed",
+      "model_calls": 8,
+      "provider_request_ids": [
+        "17b2209f-0262-4fd5-8896-fecc91b280e4",
+        "3ae7bb3f-3328-4b17-96fc-f2b34140723d",
+        "ecc44dec-7dc2-4f4f-b809-de0cc9b1b7ee",
+        "348a6d70-675c-48b9-82f1-a9c4985e4ab1",
+        "f462212f-a7fc-4f9b-a1a1-c405dbe27c65",
+        "e9b446bc-f03c-4c1f-95e3-6fa2608c823c",
+        "7fb669a5-f8be-4121-ae86-8df5e4f295f9",
+        "760237a9-1a7d-4b93-be73-cd665a1dd38d"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "b48b55d5c6ebf8fa51644d8b79d67b13118460be5b514f7390113e499d10cfa8",
+        "provider_effort_echo": null,
+        "provider_response_id": "760237a9-1a7d-4b93-be73-cd665a1dd38d",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-d432c33f16c0ba369af80d5d469f3f752f119ab917d957291a63e5e83a75f90b",
+      "knowledge_sha256": "5aa4ab761a406cc7ade642b702f58a8a16561dc951c1ee450ce33a1b44cdbc02",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "correction3",
+      "task": "ed8f3dc73589f744ddf84b66edeb2b57",
+      "turn": "c1162fceaa2547bb86701636f4d4d0ac",
+      "state": "completed",
+      "model_calls": 1,
+      "provider_request_ids": [
+        "62da3f22-8fb8-4791-84d8-c55aa3435548"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "d838b2fb5e2f7ffea212d43fd6c99e6085ad1efbf7d96c98603b7204df1b1ef9",
+        "provider_effort_echo": null,
+        "provider_response_id": "62da3f22-8fb8-4791-84d8-c55aa3435548",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-d432c33f16c0ba369af80d5d469f3f752f119ab917d957291a63e5e83a75f90b",
+      "knowledge_sha256": "5aa4ab761a406cc7ade642b702f58a8a16561dc951c1ee450ce33a1b44cdbc02",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "transfer3",
+      "task": "88544deb6295b78a52b597bac809de73",
+      "turn": "a7042020a6e34e3f8a8a4c6b8cce8e63",
+      "state": "completed",
+      "model_calls": 1,
+      "provider_request_ids": [
+        "4b3f5e05-a020-40e7-adbe-fe77e1dd2dcf"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "7c886e27c8aad51e5cf1de8edf8526d04cd69a7bdadc3ab555e75250c433ddd4",
+        "provider_effort_echo": null,
+        "provider_response_id": "4b3f5e05-a020-40e7-adbe-fe77e1dd2dcf",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-d432c33f16c0ba369af80d5d469f3f752f119ab917d957291a63e5e83a75f90b",
+      "knowledge_sha256": "5aa4ab761a406cc7ade642b702f58a8a16561dc951c1ee450ce33a1b44cdbc02",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "transfer4",
+      "task": "6d7ad37de07aa26d39abf9488be0ead1",
+      "turn": "0fac8cd0764949f0858a387d57edd926",
+      "state": "completed",
+      "model_calls": 2,
+      "provider_request_ids": [
+        "024707e6-0ac5-4dac-ba2e-ba20b18605e2",
+        "ad416aee-9341-4b4c-adfc-7c9cc733f6a5"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "f1979329138fbc0e5b21cc3d85cf7687eb7edb496652a3b971950d516ff1612e",
+        "provider_effort_echo": null,
+        "provider_response_id": "ad416aee-9341-4b4c-adfc-7c9cc733f6a5",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-2330fe363cececcb30db1201fa505b10d7bc707f179538637fcff15013689ee6",
+      "knowledge_sha256": "533ac1800e2711cb80df9a5005f323ef6f6ba781fd581032d782fa2f480635a0",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "correction4",
+      "task": "c5b5269d8c1e0020b88393a2e8b99ec4",
+      "turn": "701d84f0110e4444980fe30bdd7c336a",
+      "state": "completed",
+      "model_calls": 1,
+      "provider_request_ids": [
+        "2d8b78b0-4750-4df9-b206-1da02d8232ba"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "22d45930042411b576f53a2aaf111f9998161100cc0d6d681e218e56a1208672",
+        "provider_effort_echo": null,
+        "provider_response_id": "2d8b78b0-4750-4df9-b206-1da02d8232ba",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-2330fe363cececcb30db1201fa505b10d7bc707f179538637fcff15013689ee6",
+      "knowledge_sha256": "533ac1800e2711cb80df9a5005f323ef6f6ba781fd581032d782fa2f480635a0",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "transfer5",
+      "task": "2cdff32d38514fee18ae57ff2b460376",
+      "turn": "e173b0dc46c1499494dd42a864326f87",
+      "state": "completed",
+      "model_calls": 1,
+      "provider_request_ids": [
+        "18eb16d3-eeea-4a00-93b4-d5f2384f2a4c"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "41a80bc096a26a99c0826f21ebc9cda1a8b710cd47d075f53b44c44d53ba483e",
+        "provider_effort_echo": null,
+        "provider_response_id": "18eb16d3-eeea-4a00-93b4-d5f2384f2a4c",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-2330fe363cececcb30db1201fa505b10d7bc707f179538637fcff15013689ee6",
+      "knowledge_sha256": "533ac1800e2711cb80df9a5005f323ef6f6ba781fd581032d782fa2f480635a0",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": []
+    },
+    {
+      "stage": "strategy",
+      "task": "5e019475aa430457bf51f7ac314dba1a",
+      "turn": "1395a35b6f514896b500cf8459d10b8e",
+      "state": "completed",
+      "model_calls": 8,
+      "provider_request_ids": [
+        "bc81be96-ce0f-426c-a7a7-383d79ae3e4b",
+        "7bea3af4-5a72-46c3-be58-a645975f1d27",
+        "2d9800a9-dace-440b-956f-c12ef01729fe",
+        "32d45b88-bfc0-4d3e-8101-79356acc523f",
+        "7909b45e-a12f-401b-866d-f16b03f94f93",
+        "bdde0476-8238-47e7-9f99-27fa1fb63598",
+        "98d08220-6f6b-45f8-834b-053cb07b721c",
+        "b7487396-ec89-4b8d-9e31-89a973a96f4e"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "62fdcd022164c35fad8ad746c3bec845d4f7969f3f8590dd29fe4e89ac7e1e25",
+        "provider_effort_echo": null,
+        "provider_response_id": "b7487396-ec89-4b8d-9e31-89a973a96f4e",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-2330fe363cececcb30db1201fa505b10d7bc707f179538637fcff15013689ee6",
+      "knowledge_sha256": "533ac1800e2711cb80df9a5005f323ef6f6ba781fd581032d782fa2f480635a0",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 19385,
+          "path": "runtime/business-baseline.md",
+          "sha256": "24acf0e87bbc72a630169989e1bbc87fa64f30851576476df9ac6405c0b1e576"
+        }
+      ]
+    },
+    {
+      "stage": "strategy_review",
+      "task": "01c072ef849661805724ff0c0dff6242",
+      "turn": "b9159f592fba47f7acc3e29f988c336e",
+      "state": "completed",
+      "model_calls": 2,
+      "provider_request_ids": [
+        "6fe0cd48-957f-4e02-9f32-9aad3a800ad8",
+        "6872a9e8-f531-476e-98c4-44cdd711af8b"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "3710077a8d820b5fff51b83c206efc73646016fb0552ed8a65de44747d65c697",
+        "provider_effort_echo": null,
+        "provider_response_id": "6872a9e8-f531-476e-98c4-44cdd711af8b",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-efe7f54aa09db8fdf86d3e1036904a3b50e83ff63776a67b53555e085cf39546",
+      "knowledge_sha256": "5846f38a26b113c0765b46a7a3e44046fbfa07cc1ff1aabe257ed8fe1293824c",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 22435,
+          "path": "runtime/business-baseline.md",
+          "sha256": "92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2"
+        }
+      ]
+    },
+    {
+      "stage": "strategy_final_review",
+      "task": "8f4161b2aac4fa87375edee5d52eafbe",
+      "turn": "a650424a4a7a4afe87c4abe85852fd0f",
+      "state": "completed",
+      "model_calls": 1,
+      "provider_request_ids": [
+        "9209fbeb-cfb2-4ae4-bc2b-868605f9cee2"
+      ],
+      "reasoning_effort": "high",
+      "model_validation": {
+        "actual_backend_version": "unknown",
+        "endpoint_type": "chat_completions",
+        "forwarded_verified": true,
+        "payload_sha256": "06cfebdac5662e320ffd9a91b2ad98957784d94ce52d19fff7861621b262db60",
+        "provider_effort_echo": null,
+        "provider_response_id": "9209fbeb-cfb2-4ae4-bc2b-868605f9cee2",
+        "requested_effort": "high",
+        "requested_model": "deepseek-flash",
+        "response_model": "deepseek-flash",
+        "status": "accepted_no_effort_echo",
+        "thinking_enabled": true
+      },
+      "knowledge_version": "learning-efe7f54aa09db8fdf86d3e1036904a3b50e83ff63776a67b53555e085cf39546",
+      "knowledge_sha256": "5846f38a26b113c0765b46a7a3e44046fbfa07cc1ff1aabe257ed8fe1293824c",
+      "experience_manifest": "29cce34ba91f8bc89509ae179834a50ba951d2baed0ba1516469bffa41bda513",
+      "experience_ids": [
+        "4eb2abc45eadfad5b74613185b76d92fa82e6d682640812b278e9aa623469cd5",
+        "69fb5f72f419c1b627ba63b78009412778a330f26216dc4a1437bdbff4ed9dbe",
+        "a53cc4adb8df14f5df6e9a6603d0101745325a0923d3da4680fe3c8653736a5e"
+      ],
+      "knowledge_files": [
+        {
+          "asset_type": "experience",
+          "bytes": 2978,
+          "path": "profile/memories/USER.md",
+          "sha256": "db2171f9f8ee8730288a8362fc9b8b34f90033cdac3e51753097bcdc9a57da33"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6559,
+          "path": "skills/data-storytelling/SKILL.md",
+          "sha256": "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1587,
+          "path": "skills/product-design-review/SKILL.md",
+          "sha256": "9cb4ceb2d72e1f878191c60cd1d529fb6ad5b64ddcf6b0b3ae237bb692b5d93e"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1661,
+          "path": "skills/modern-web-report-guidance/SKILL.md",
+          "sha256": "ed534631ae95572011fe8d2549bfe81d57dc5f09a608a3c2de5dfb01f72196c7"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 1103,
+          "path": "skills/humanizer-zh-business/SKILL.md",
+          "sha256": "ffefafc63c80b5b5c85b464d9e9f37536d235895910973979729ea8e6818fe49"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 12614,
+          "path": "skills/report-html-authoring/SKILL.md",
+          "sha256": "d153767d376f8ea8f9f3c727ea1e78f8e32140fff730b605d22ec17f72f29914"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 15788,
+          "path": "skills/report-html-authoring/METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 2416,
+          "path": "skills/report-html-authoring/ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 14192,
+          "path": "skills/report-html-authoring/APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3496,
+          "path": "skills/report-html-authoring/references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 3652,
+          "path": "skills/report-html-authoring/references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 22751,
+          "path": "skills/fs-operations/fs-task-verification/SKILL.md",
+          "sha256": "9dcc5817d5c7c30e7f50fdad48d653b774a730d4023094a89458a3616b7fa981"
+        },
+        {
+          "asset_type": "method",
+          "bytes": 6765,
+          "path": "skills/fs-operations/fs-task-verification/references/reuse-and-fingerprint.md",
+          "sha256": "8835088a4fb24dd12eb8c6e00a9a6fb35a367a20d82a58b8c1d86cc9da81eb53"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 25283,
+          "path": "runtime/learning-loop.md",
+          "sha256": "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46"
+        },
+        {
+          "asset_type": "core_contract",
+          "bytes": 22435,
+          "path": "runtime/business-baseline.md",
+          "sha256": "92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2"
+        }
+      ]
+    }
+  ],
+  "final_hermes_strategy_sha256": "9aebcc72fc970a347ce8d58a084db87b2135959c7a9649713e3c24d3e7beb335",
+  "final_strategy_task": "8f4161b2aac4fa87375edee5d52eafbe",
+  "business_effect": "unverified",
+  "automatic_strategy_changes": false,
+  "price_writes": false
+}
