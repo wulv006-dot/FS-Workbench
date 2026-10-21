@@ -80,7 +80,7 @@ def compose(period, root=ROOT):
     sources['cache'] = dict(source='已校验的逐日归档', days=len(captures), oldest=oldest,
                             newest=max(v['generatedAt'] for v in captures),
                             deliveryDayComplete=all(v.get('deliveryDayComplete') for v in captures),
-                            limitation='按采集时点保存；后续退款、状态和归因变化请手动刷新。')
+                            limitation='按采集时点保存；十分钟过期后后台自动刷新，需立即核验后续退款、状态和归因变化可手动刷新。')
     return dict(captures[-1], period=period, generatedAt=oldest, orders=rows, sources=sources)
 
 
