@@ -67,3 +67,8 @@ Notion完整基准及三关联页已更新读回，冲突旧正文清理，历�
 ## 2026-10-21 认证迁移完成后清理旧代码
 
 用户明确要求实际验证通过后删除历史独立认证和一次性迁移源码。Sales真实Admin订单code1/Order发货页通过；SBC实际FC27模型读取通过。活动源码删除本地登录/验证码/缓存及旧表单，上传签名密钥留服务器0600。原始凭据未导出。保留当前维护源shared_backend_session，删除旧sales_shared_session_20261021脚本；SBC webapp沿用原规范路径。Sales原同步已启动，结果另记；旧数据、队列和失败审计保持。见docs/planning/sales-shared-session-20261021/CLEANUP.md。本地工作目录按新源CI合并后逐文件删除，不递归清理未知内容。
+
+
+## 2026-10-21折扣码筛选与Admin指定订单日志补充
+
+用户新确认的MMOEXP限定折扣码筛选、有效期/统计窗口区分、Sales/Sum/Used原字段与ES逐单状态/订单日志查证顺序已补入业务基准v3，保留PR267全部v2澄清。真实浏览器核到两个后台入口；不假称已注册新API。发布/真实模型装入另验，见docs/planning/fs-business-baseline-20261021/ROUTES-UPDATE.md。无UI、价格、登录、权限或调度变更，保留全部既有前缀。

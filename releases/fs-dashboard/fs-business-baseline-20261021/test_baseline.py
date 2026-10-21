@@ -130,7 +130,10 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-DESKTOP-COST-RULE',text)
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
-            self.assertIn('business-baseline-20261021-v2',text)
+            self.assertIn('business-baseline-20261021-v3',text)
+            self.assertIn('/admin/orderes/orderlog',text)
+            self.assertIn('/admin/market/discount',text)
+            self.assertIn('不是实际折扣让利额',text)
             self.assertIn('预算公式中的 `P` 统一指 `P1`',text)
             self.assertEqual(files[-1]['path'],'runtime/business-baseline.md')
 
