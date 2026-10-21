@@ -1,7 +1,7 @@
 {
   "scope": "fs-channel-effects-20261021",
   "status": "deployed_real_entry_verified",
-  "sourceCommit": "eba6ef3fc66395c4089b618b12f9a66edd409c58",
+  "sourceCommit": "f2cf864bce62b1be20a33f515a7cd8f48ec93c1f",
   "businessWrites": false,
   "timersChanged": true,
   "newChannelTimers": [
@@ -80,17 +80,26 @@
       "backup": "/var/backups/fs-navigation-20261006/nav-20261021T132616Z",
       "manifestSha256": "db0d9dfc58ebefc9311313ad2f3897ffe7783507ac66a35563b094b89781d411",
       "targets": 2
+    },
+    {
+      "releaseId": "nav-20261021T140710Z",
+      "stage": "/opt/fs-release-stage/fs-channel-accounting-2084e2153e87",
+      "head": "2084e2153e874c3be68213bd8b5858b208fdee3d",
+      "mergeCommit": "f2cf864bce62b1be20a33f515a7cd8f48ec93c1f",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T140710Z",
+      "manifestSha256": "23c27c78b5d4d7160d5ad2d8adeb77c647b5cab2db1655c17352d412e6495c3a",
+      "targets": 8
     }
   ],
   "files": [
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "40517936ab561f6728a0c8756f1d350f6d41024c4955c4152fbe89b04c3c7d8f",
-      "beforeSha256": "975f13c674562359bbb7ab356e6aeb8636279f4d0df3d0f75189ac9cf6339a00",
+      "sha256": "c755390d3f5e4645ee3926e98f6809edb53cafd0b783f21fdf00f25b13798c5b",
+      "beforeSha256": "40517936ab561f6728a0c8756f1d350f6d41024c4955c4152fbe89b04c3c7d8f",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
@@ -146,31 +155,31 @@
     {
       "candidate": "runtime/channel_cache.py",
       "target": "/opt/fs-hermes-fc/channel_cache.py",
-      "sha256": "59f788b0214cf269f315feb56e03b9cd01b3927e66f54509f9b4101dbafbf3fa",
-      "beforeSha256": "24fc15353856a691bfb0b8a9bed858951f5c9b42ce6a2ee3faa12e98e7884fd3",
+      "sha256": "a86a1a0cd19f466d721236ec8428eb2bc1840e9ca818816832bb3335b77809ea",
+      "beforeSha256": "59f788b0214cf269f315feb56e03b9cd01b3927e66f54509f9b4101dbafbf3fa",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_cost_source.py",
       "target": "/opt/fs-hermes-fc/channel_cost_source.py",
-      "sha256": "36978ebd356e2e6fd28b84703069d67596667b1fd8408af652922dd583e0e16c",
-      "beforeSha256": null,
+      "sha256": "7f3de5bc4dce1c1c048e56bb12f7fc0ac5a133e79f2f857e31686cae7b8ad015",
+      "beforeSha256": "36978ebd356e2e6fd28b84703069d67596667b1fd8408af652922dd583e0e16c",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_effects.py",
       "target": "/opt/fs-hermes-fc/channel_effects.py",
-      "sha256": "5302dfc46113f1fec86052e5673b9b81ef97978f1f10b656a8cd97eed6e04ba8",
-      "beforeSha256": "15a8af4723ab790a73254fe33772b4f579c20fbab35eaa581c8165c051f8858e",
+      "sha256": "5043e3268a304c37e88bda088d65f362a6e07d17187e85df7b572e83ce2fc3be",
+      "beforeSha256": "5302dfc46113f1fec86052e5673b9b81ef97978f1f10b656a8cd97eed6e04ba8",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "cbde783c37d5a538ca08d00d3d8c972478cf0cbc",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
@@ -186,11 +195,11 @@
     {
       "candidate": "runtime/channel_source.py",
       "target": "/opt/fs-hermes-fc/channel_source.py",
-      "sha256": "baf2831a23b432c441ca88aefa40c7231ca3546d28dcd3893dba3e0c9417eeee",
-      "beforeSha256": "20e7482e74fa92d55e9abdccb442290cfe9154eecc2569dc5ceb3841c723c451",
+      "sha256": "0e2825bf61a311ec0685c5a644c158a5771469bc8bb678e062f80b94f805214f",
+      "beforeSha256": "baf2831a23b432c441ca88aefa40c7231ca3546d28dcd3893dba3e0c9417eeee",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
@@ -231,7 +240,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
-      "role": "current_source_or_target"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.js",
@@ -241,7 +250,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
-      "role": "current_source_or_target"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/index.html",
@@ -251,6 +260,36 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-64ded3f49f1a/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-64ded3f49f1a/channel.js",
+      "sha256": "bca3b49a1d88ca6e651aeb13c28b92ed5e777bc34fcab73669d020d6156b9f7a",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-64ded3f49f1a/index.html",
+      "sha256": "0dbcaca61c864dced9b7f92f03549a897fb205580432e510d499e55e6ae56cd9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "2084e2153e874c3be68213bd8b5858b208fdee3d",
       "role": "current_source_or_target"
     },
     {
@@ -407,6 +446,7 @@
   "readback": "READBACK.json",
   "oldImmutableAssetsRetained": true,
   "naturalNightlyCycle": "not_yet_observed",
-  "historyBackfill": "scheduled; 74 historical order days still pending at prior complete snapshot",
-  "currentCacheBehavior": "archive_first_then_original_600_second_background_refresh"
+  "historyBackfill": "12 complete order days; 69 pending of 81 at 2026-10-21 22:13 CST",
+  "currentCacheBehavior": "archive_first_then_original_600_second_background_refresh",
+  "currentReleaseTimersChanged": false
 }

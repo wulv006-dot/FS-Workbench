@@ -222,5 +222,202 @@
     "originalAutomaticRefreshPreserved": true,
     "busySourceStillReturnsCache": true,
     "actualUpstreamCalls": 0
+  },
+  "latestAccountingBoundary": {
+    "at": "2026-10-21T14:13:11.232413+00:00",
+    "release": {
+      "releaseId": "nav-20261021T140710Z",
+      "stage": "/opt/fs-release-stage/fs-channel-accounting-2084e2153e87",
+      "head": "2084e2153e874c3be68213bd8b5858b208fdee3d",
+      "mergeCommit": "f2cf864bce62b1be20a33f515a7cd8f48ec93c1f",
+      "result": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261021T140710Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 8,
+        "businessWorkerTimerActions": 0
+      }
+    },
+    "verified_file_count": 81,
+    "source_drift": [],
+    "anonymous": [
+      {
+        "path": "/dashboard/channel-effects/",
+        "status": 302
+      },
+      {
+        "path": "/dashboard/channel-effects/index.html",
+        "status": 302
+      },
+      {
+        "path": "/dashboard/channel-effects/channel.js",
+        "status": 302
+      },
+      {
+        "path": "/dashboard/channel-effects/channel.css",
+        "status": 302
+      },
+      {
+        "path": "/dashboard/channel-effects/data.json?start=2026-10-14&end=2026-10-20",
+        "status": 401
+      }
+    ],
+    "range_health": {
+      "active_customer_reports": 0,
+      "ok": true,
+      "readonly": true,
+      "service": "fs-business-range"
+    },
+    "shared_sources": {
+      "8767": {
+        "ready": true,
+        "status": "ready",
+        "last_error": null,
+        "last_ok": "2026-10-21T14:11:54.210159+00:00",
+        "login_attempts": 1
+      },
+      "8768": {
+        "ready": true,
+        "status": null,
+        "last_error": null,
+        "last_ok": null,
+        "login_attempts": 0
+      }
+    },
+    "units": {
+      "fs-channel-cache.timer": {
+        "NextElapseUSecRealtime": "56y 9month 2w 5d 18h 5min",
+        "Result": "success",
+        "ActiveState": "active",
+        "UnitFileState": "enabled"
+      },
+      "fs-channel-backfill.timer": {
+        "NextElapseUSecRealtime": "56y 9month 2w 5d 18h 30min",
+        "Result": "success",
+        "ActiveState": "active",
+        "UnitFileState": "enabled"
+      },
+      "fs-channel-cache.service": {
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ActiveState": "inactive",
+        "UnitFileState": "static"
+      }
+    },
+    "naturalNightlyCycle": "not_yet_observed",
+    "history": {
+      "period": {
+        "start": "2026-08-01",
+        "end": "2026-10-20"
+      },
+      "targetDays": 81,
+      "orderDays": [
+        "2026-10-01",
+        "2026-10-10",
+        "2026-10-11",
+        "2026-10-12",
+        "2026-10-13",
+        "2026-10-14",
+        "2026-10-15",
+        "2026-10-16",
+        "2026-10-17",
+        "2026-10-18",
+        "2026-10-19",
+        "2026-10-20"
+      ],
+      "remainingDays": 69,
+      "deliveryDays": 20
+    },
+    "productionAudit": {
+      "scope": "same_completed_Admin_cohort_plus_updated_native_delivery_coverage",
+      "adminCapturedAt": "2026-10-21T20:28:41.670921+08:00",
+      "priorCompletedOrders": 24829,
+      "costStatus": {
+        "已完成：成本已核": 24797,
+        "已完成：SCM发货，当前源无成本": 23,
+        "已完成：确认零成本": 6,
+        "已完成：成本待核": 2,
+        "测试单：不计经营指标": 1
+      },
+      "knownCouponCount": 6,
+      "testExcluded": 1,
+      "manualRecordsVerified": 3,
+      "dayOrderArchives": 10,
+      "deliveryDayArchives": 20,
+      "checks": "passed; no new Admin source fetch in this audit",
+      "remainingAuditGapGames": {
+        "ARC Raiders": 21,
+        "Madden NFL 27": 1,
+        "NBA 2K27": 2,
+        "Raven 2": 1
+      },
+      "remainingAuditGaps": 25,
+      "missingCompletedCosts": 25,
+      "scmOrders": 23,
+      "unexplainedOrders": 2
+    },
+    "privateDataRepair": {
+      "head": "2084e2153e874c3be68213bd8b5858b208fdee3d",
+      "repairs": [
+        {
+          "file": "/var/lib/fs-channel-effects/delivery-days/2026-10-13.json",
+          "added": [
+            "4537270",
+            "4537268",
+            "4537266"
+          ],
+          "tailRows": 3,
+          "total": 1622,
+          "window": {
+            "start": "2026-10-13 23:59:00",
+            "end": "2026-10-13 23:59:59"
+          }
+        },
+        {
+          "file": "/var/lib/fs-channel-effects/order-deliveries.json",
+          "added": [
+            "4561668"
+          ],
+          "tailRows": 1,
+          "total": 11421,
+          "window": {
+            "start": "2026-10-21 21:28:00",
+            "end": "2026-10-21 21:28:59"
+          }
+        }
+      ],
+      "annotation": {
+        "orders": 6,
+        "testOrders": 1,
+        "sha256": "e3af7714be5155d72fa9567b19e0a1f9a983e952e5e4a241f3723709542225ec"
+      },
+      "backup": "/opt/fs-release-stage/fs-channel-accounting-2084e2153e87/private-accounting-backup"
+    },
+    "browserAcceptance": {
+      "identity": "existing authenticated wulv",
+      "testOrder": {
+        "operatingOrders": 0,
+        "salesUsd": 0,
+        "detailRows": 1,
+        "rawPaymentUsd": 0.5,
+        "costMissing": 0,
+        "label": "测试单：不计经营指标"
+      },
+      "couponSample": {
+        "costCny": 0,
+        "profitCny": 14.59,
+        "margin": 1
+      },
+      "manualChannelSample": {
+        "costCny": 590.11,
+        "saleCny": 799.19,
+        "profitCny": 209.08
+      },
+      "otherTwoManualOrders": "native production finance verified; no code/referrer, excluded from default channel details as natural control",
+      "newConsoleErrors": 0,
+      "screenshotsPrivate": [
+        "live-test-exclusion.png",
+        "live-manual-cost-repaired.png"
+      ]
+    }
   }
 }
