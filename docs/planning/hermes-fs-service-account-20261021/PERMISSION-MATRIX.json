@@ -2604,9 +2604,9 @@
       "sha256": "6ca8d2f330b9dc58c60703c2c26496985b0aa2a9fe2c55cf9fa2fa8127381658"
     },
     "S3": {
-      "path": "docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md",
-      "level": "当前共享会话恢复/旧独立登录退役记录",
-      "sha256": "a1db0f5cfd1d6582d416855006c4ce182c62dc2e6b2ebdbac684795bdcb34cad"
+      "path": "shared_backend_session/OCR-SESSION.md",
+      "level": "当前8767 OCR登录与共享会话维护合同；新账号未验",
+      "sha256": "6eba8fe06336e3f1635d8b2e1c53a975f07e69f8a2adb4c1dada9631075e84c4"
     },
     "S4": {
       "path": "docs/planning/fs-permissions-unification-20260930/role-contract-and-acceptance.md",
