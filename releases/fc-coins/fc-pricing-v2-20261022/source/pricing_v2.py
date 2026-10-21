@@ -10,6 +10,7 @@ HARD_MARGIN = Decimal('10')
 CENT = Decimal('.01')
 STEP = Decimal('.0001')
 CONSOLE = ('PS', 'XBOX')
+ROUNDING_RESERVE = Decimal('.02')
 
 
 def number(value, *, zero=False):
@@ -104,12 +105,13 @@ def prove_price(unit, cost_cny, fx, delivered_k, base_k, ratio, minimum='10'):
     cost = number(cost_cny) / number(fx) * delivered
     gross = (number(unit) * base).quantize(CENT, rounding=ROUND_DOWN)
     # A rounded-down receipt is the conservative cent settlement, never rounded margin.
-    net = (gross * number(ratio)).quantize(CENT, rounding=ROUND_DOWN)
+    reserve=ROUNDING_RESERVE if number(ratio)<1 else Decimal(0)
+    net = (gross * number(ratio)).quantize(CENT, rounding=ROUND_DOWN)-reserve
     hard_floor(cost_cny, fx, delivered/base, ratio, minimum)
     required = cost / (1 - number(minimum) / 100)
     if net <= 0 or net < required:
         raise ValueError('pricing_hard_margin_floor')
-    return dict(public_usd=str(gross), worst_net_usd=str(net), delivered_k=str(delivered),
+    return dict(public_usd=str(gross), worst_net_usd=str(net), rounding_reserve_usd=str(reserve), delivered_k=str(delivered),
                 delivered_cost_usd=str(cost), procurement_gross_usd=str(net-cost),
                 procurement_margin_pct=str((net-cost)/net*100), minimum_margin_pct=str(minimum))
 
@@ -123,7 +125,7 @@ def catalog_floor(cost, fx, ratio, minimum, rules):
     if qty<1 or qty!=qty.to_integral_value() or retained>1 or not 1<=delivered<=2:
         raise ValueError('pricing_catalog_bounds_invalid')
     # At any q >= minimum, two downward cent roundings cost less than this bound.
-    settlement=(CENT*ratio+CENT)/qty
+    settlement=(CENT*ratio+CENT+(ROUNDING_RESERVE if ratio<1 else 0))/qty
     unit=(number(cost)/number(fx)*delivered/(1-margin/100)+settlement)/(retained*ratio)
     return unit.quantize(STEP,rounding=ROUND_CEILING)
 
@@ -231,7 +233,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
             row = by[p]
             proof = prove_price(target/base,c,rate,delivered,base,r,m)
             proof['catalog']=prove_catalog(target/base,c,rate,r,m,package_rules[p])
-            old_net = (old*r).quantize(CENT,rounding=ROUND_DOWN)
+            old_net = max(Decimal(0),(old*r).quantize(CENT,rounding=ROUND_DOWN)-(ROUNDING_RESERVE if r<1 else 0))
             old_gp = old_net-number(proof['delivered_cost_usd'])
             new_gp = number(proof['procurement_gross_usd'])
             multiplier = old_gp/new_gp if old_gp>0 else None

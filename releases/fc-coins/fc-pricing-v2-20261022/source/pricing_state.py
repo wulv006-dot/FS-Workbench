@@ -58,6 +58,11 @@ def state(root=ROOT,owner=None):
     if quote:
         try:
             fresh(quote['created_at'],now)
+            fresh(quote['evidence']['checked_at'],now)
+            fresh(quote['evidence']['fx']['checked_at'],now)
+            for platform in ('PS','XBOX','PC'):
+                fresh(quote['evidence']['costs'][platform]['checked_at'],now)
+                fresh(quote['evidence']['storefront']['rows'][platform]['checked_at'],now)
             fresh(quote['evidence']['promotion_envelope']['checked_at'],now,900)
             valid=quote['result'].get('strategy_version')==VERSION
             reason='本轮来源有效' if valid else '历史策略报价，须新采集'
