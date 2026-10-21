@@ -1,5 +1,12 @@
 # 业务基准修订与工具接入
 
+## 最新继续教学交付（2026-10-21）
+
+[两套通俗定价策略](PRICING-STRATEGIES.md)、[我的完整策略](MY-PRICING-STRATEGY.md)、[Hermes独立原文](HERMES-PRICING-STRATEGY.md)、[教学验收](TEACHING-RESULT.md)。Admin恢复后今日业务查询已实际读回；五个新会话纠错后，限定五项判定和完整条件策略通过本Work复核。新方法实际装入，v2计算澄清已由并行v3保留；旧失败不抹去，广泛泛化与经营收益未验证。下方初批次状态按各自时点保留，以本节及TEACHING-RESULT的后续验收为准。
+
+## 初批次代码与入口说明
+
+
 当前业务入口：[BUSINESS-BASELINE.md](BUSINESS-BASELINE.md)。旧版本只作历史追溯，不用于新判断。
 
 本批代码维护源 `fs_business_baseline_20261021/`，基于当前活动源码逐文件核对，保留Hermes V2、客户生命周期、多游戏查询、UI和原发布器修复。代码已受控发布并通过真实入口读回；分析能力仅局部通过，收益未验证。分层回执见[DELIVERY.md](DELIVERY.md)，Astra参考见[ASTRA-REFERENCE.md](ASTRA-REFERENCE.md)，剩余见[REMAINING.md](REMAINING.md)。
