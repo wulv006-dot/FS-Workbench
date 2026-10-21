@@ -47,7 +47,7 @@ def review_evidence(records,max_bytes=48000):
             values['simulation_receipt']=projected
         from pricing_workflow import SOURCE,VERSION
         if record.get('source')==SOURCE and data.get('workflow_version')==VERSION and data.get('write_performed') is False and data.get('execution_authorized') is False:
-            values['pricing_workflow']={k:data[k] for k in ('workflow_version','receipt_sha256','source_kind','scope','baseline_policy','business_baseline','status','checks','source_refs','source_statuses','current_package_accounting','procurement_accounting','accounting_currency','ad_after_contribution','gaps','scenario','hermes_responsibility') if k in data}
+            values['pricing_workflow']={k:data[k] for k in ('workflow_version','workflow_sha256','captured_at','receipt_sha256','source_kind','scope','baseline_policy','business_baseline','status','checks','source_refs','source_statuses','current_package_accounting','procurement_accounting','accounting_currency','ad_after_contribution','gaps','scenario','hermes_responsibility') if k in data}
         for family in ('authoritative_fields','selected_derived'):
             source=data.get(family)
             if isinstance(source,dict):

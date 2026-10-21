@@ -39,11 +39,15 @@ class Arithmetic(unittest.TestCase):
   c=case()
   for r in c['platforms']:r['main_usd']='109.99'
   self.assertTrue(all(r['selected_usd']=='109.99' for r in evaluate(c,'10')['rows']))
+ def test_main_raise_can_end_below_actual_original_price(self):
+  c=case();c['discounts_pct']=['0','8']
+  for r,cost in zip(c['platforms'],['11','12.6','8.1']):r.update(current_usd='18.00',main_usd='18.09',delivered_cost_usd=cost)
+  v=evaluate(c,'10');r=v['rows'][0];self.assertGreater(Decimal(r['main_change_pct']),0);self.assertEqual(r['selected_usd'],'17.99');self.assertEqual(r['selected_direction'],'down');self.assertLess(Decimal(r['selected_change_pct']),0)
  def test_gross_and_ad_contribution_and_ceiling(self):
   c=case();c['economics']={'before':dict(orders=100,net_unit_usd='10',delivered_cost_unit_usd='6',ads_usd='100'),'after':dict(orders=120,net_unit_usd='9',delivered_cost_unit_usd='6',ads_usd='150')}
   v=evaluate(c,'10')['economics'];self.assertEqual(v['totals']['before']['procurement_gross_usd'],'400');self.assertEqual(v['totals']['after']['ad_after_contribution_usd'],'210');self.assertEqual(v['minimum_whole_orders'],150)
   c['economics']['after']['ads_usd']='151';self.assertEqual(evaluate(c,'10')['economics']['minimum_whole_orders'],151)
-  c['economics']['after']['ads_usd']=None;self.assertIsNone(evaluate(c,'10')['economics']['break_even_orders'])
+  c['economics']['after']['ads_usd']=None;v=evaluate(c,'10')['economics'];self.assertIsNone(v['break_even_orders']);self.assertEqual(v['procurement_minimum_whole_orders'],134)
  def test_untrusted_fields_and_number_forms(self):
   for n in (True,1,'1e2','NaN','Infinity',' 1','-1','1000000000001','0.00000000001'):
    with self.assertRaises(ValueError):number(n)
@@ -74,6 +78,7 @@ class Sources(unittest.TestCase):
   self.assertTrue(b['checks']['execution_pages_complete']);self.assertEqual(b['checks']['execution_events'],2);self.assertEqual(b['procurement_accounting']['profitCny'],10)
   self.assertEqual(b['receipt_sha256'],digest({k:v for k,v in b.items() if k!='receipt_sha256'}));n=len(self.calls);self.assertEqual(self.flow(self.q),b);self.assertEqual(len(self.calls),n)
   self.assertFalse(b['execution_authorized']);self.assertFalse(b['existing_automation_changed']);self.assertIsNone(b['ad_after_contribution']['value'])
+  self.assertIsNotNone(datetime.fromisoformat(b['captured_at']).tzinfo);self.assertEqual(len(b['workflow_sha256']),64)
  def test_strict_tool_boundary(self):
   for q in (dict(self.q,url='http://bad'),dict(self.q,action='write'),dict(self.q,case=case()),dict(self.q,action='scenario'),dict(self.q,profile='ALL')):
    with self.assertRaises(ValueError):self.flow(q)
@@ -112,6 +117,21 @@ class Learning(unittest.TestCase):
   self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
  def test_only_workflow_conversations_autoqueue(self):
   self.assertEqual(learning.enqueue_workflow_completed(self.service,'wulv',self.source,'task')['state'],'not_applicable')
+ def test_original_completed_report_and_foreign_denial_are_retained(self):
+  self.service.get_job=lambda *a:dict(owner='wulv',state='COMPLETED',task_id='task',body={'question':'old report'},result={'artifact_sha256':'d'*64})
+  with patch.dict(sys.modules,report_artifacts=SimpleNamespace(read_file=lambda *a:{'content':encoded({'summary':'original report'})}),report_method=SimpleNamespace(HTML_DESIGN_MANIFEST_SHA256='b'*64)),patch.object(learning,'review_evidence',return_value={}),patch.object(learning,'visible_result',side_effect=lambda r:{'text':r['summary']}):
+   v=learning.source_snapshot(self.service,'wulv',self.source);self.assertEqual(v['source_kind'],'completed_report');self.assertEqual(v['visible_result']['text'],'original report');self.assertTrue(v['evidence_refs'][-1].startswith('report:'))
+   with self.assertRaises(PermissionError):learning.source_snapshot(self.service,'DY',self.source)
+ def test_candidate_stays_unpublished_until_CAS_release_and_can_revoke(self):
+  private=patch.dict(sys.modules,report_delivery=SimpleNamespace(private_report=lambda _:False));private.start();self.addCleanup(private.stop)
+  source={'source_kind':'completed_conversation','evidence_refs':['ev_fixed']};base=registry.manifest(self.db,'wulv','FS',self.now)
+  event=registry.enqueue(self.db,'wulv','FS',self.source,base['sha256'],'completed_conversation',source);attempt=registry.claim(self.db,'wulv','FS',event['id'])
+  candidate=dict(kind='experience',lesson='先读取固定核算回执，再区分可行性与收益条件，并列反证。',applies_to='金币候选比较',evidence_refs=['ev_fixed'],counterexample='输入覆盖不全时只保留条件，不能据可行性断言增利。',expires_at=(self.now+timedelta(days=30)).isoformat())
+  result=registry.candidate(self.db,'wulv','FS',event['id'],attempt,candidate,self.now);ident=result.get('id') or result['candidate']
+  self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
+  with self.assertRaises(ValueError):registry.release(self.db,'wulv','FS',ident,'f'*64,'published','wulv','test',self.now)
+  registry.release(self.db,'wulv','FS',ident,base['sha256'],'published','wulv','reviewed test',self.now);published=registry.manifest(self.db,'wulv','FS',self.now);self.assertEqual(len(published['experiences']),1)
+  registry.release(self.db,'wulv','FS',ident,published['sha256'],'revoked','wulv','rollback test',self.now);self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
  def test_review_projection_keeps_machine_scenario_not_raw_input(self):
   data=dict(workflow_version=VERSION,receipt_sha256='c'*64,write_performed=False,execution_authorized=False,source_kind='declared_hypothesis',scenario=evaluate(case(),'10'),raw_orders=[{'email':'private@example.invalid'}])
   # Only the unrelated private-data classifier is isolated here; projection and bounds are real.
