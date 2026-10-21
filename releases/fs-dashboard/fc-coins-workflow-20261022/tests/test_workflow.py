@@ -155,6 +155,16 @@ class Learning(unittest.TestCase):
   self.assertEqual(status,409);self.assertEqual(result['error'],'experience_business_baseline_conflict');self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
 
 class Wiring(unittest.TestCase):
+ def test_archived_cost_tool_does_not_start_live_paid_read(self):
+  tree=ast.parse((HERE/'source/fs_evidence.py').read_text('utf8'));calls=[];paid=[]
+  ns={'AsyncRead':lambda reader:SimpleNamespace(get=lambda:paid.append('read') or {'status':'pending','reason':'source_read_running'})}
+  exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='lazy_paid_capture'],type_ignores=[]),'lazy-paid-test','exec'),ns)
+  def call(name,args):calls.append((name,args));return {'status':'partial','revenue_basis':'admin_order_cny','platform_unknown_orders':2}
+  book=SimpleNamespace(call=call,data={'coverage':{'status':'not_loaded'}})
+  ns['lazy_paid_capture'](book,None,{'enabled':True})
+  v=book.call('fc.query_pricing_evidence',{'kind':'order_costs'})
+  self.assertEqual(v['revenue_basis'],'admin_order_cny');self.assertEqual(v['platform_unknown_orders'],2);self.assertEqual(paid,[])
+  self.assertEqual(book.call('fc.query_business',{})['status'],'pending');self.assertEqual(paid,['read']);self.assertEqual(len(calls),1)
  def test_all_callers_retain_original_tools_and_guards(self):
   for p in (HERE/'source').glob('*.py'):ast.parse(p.read_text('utf8'))
   text=(HERE/'source/research.py').read_text('utf8');self.assertIn("'fc.query_pricing_evidence','fc.run_pricing_workflow'",text)
