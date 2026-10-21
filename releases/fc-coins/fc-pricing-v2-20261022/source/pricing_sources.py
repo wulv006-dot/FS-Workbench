@@ -125,7 +125,7 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
     return dict(body,sha256=fingerprint(body),checked_at=now.isoformat())
 
 
-def collect(storefront, *, persist=True):
+def _collect_shared_admin(storefront, *, persist=True):
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages, COLLECTOR
     sys.path.insert(0,COLLECTOR)
@@ -146,6 +146,21 @@ def collect(storefront, *, persist=True):
         import os
         os.chown(FILE,0,11028);os.chmod(FILE,0o640)
     return result
+
+
+def collect(storefront, *, persist=True):
+    # FC's system Python is stdlib-only; keep the existing authenticated client in its runtime.
+    import subprocess
+    try:
+        done=subprocess.run(['/opt/python39/bin/python3','-B',str(Path(__file__).resolve()),'collect'],
+            input=json.dumps(dict(storefront=storefront,persist=persist)),stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+            universal_newlines=True,timeout=40)
+    except subprocess.TimeoutExpired:raise ValueError('pricing_admin_shared_source_timeout') from None
+    try:value=json.loads(done.stdout)
+    except ValueError:raise ValueError('pricing_admin_shared_source_reply_invalid') from None
+    if done.returncode:raise ValueError(value.get('reason') or 'pricing_admin_shared_source_failed')
+    if value.get('status')!='verified':raise ValueError('pricing_admin_shared_source_unverified')
+    return value
 
 
 def refresh_before_write(request,root=ROOT):
@@ -176,8 +191,13 @@ def refresh_before_write(request,root=ROOT):
 
 if __name__=='__main__':
     try:
-        request=json.loads(Path(sys.argv[1]).read_text('utf-8'))
-        print(json.dumps(refresh_before_write(request)))
+        if sys.argv[1]=='collect':
+            data=json.load(sys.stdin)
+            if set(data)!={'storefront','persist'} or type(data['persist']) is not bool:raise ValueError('pricing_source_fields')
+            result=_collect_shared_admin(data['storefront'],persist=data['persist'])
+        else:
+            request=json.loads(Path(sys.argv[1]).read_text('utf-8'));result=refresh_before_write(request)
+        print(json.dumps(result))
     except Exception as exc:
         print(json.dumps(dict(status='FAILED',reason=str(exc)[:100] if isinstance(exc,ValueError) else type(exc).__name__)))
         raise SystemExit(1)
