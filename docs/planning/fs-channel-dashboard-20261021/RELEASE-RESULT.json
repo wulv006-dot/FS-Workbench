@@ -1,0 +1,76 @@
+{
+  "releases": [
+    {
+      "releaseId": "nav-20261021T103410Z",
+      "stage": "/opt/fs-release-stage/fs-channel-effects-20261021-fc4d9bc01bb7",
+      "head": "fc4d9bc01bb7c592337898912467ebb717334c9a",
+      "mergeCommit": "b030e054c64149ed5776b9b76f9c22cf88904a30",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T103410Z",
+      "manifestSha256": "8d0cb81b098eac01c860930854ec45063bd377df870746d637e935a1db38e368",
+      "targets": 12
+    },
+    {
+      "releaseId": "nav-20261021T104854Z",
+      "stage": "/opt/fs-release-stage/fs-channel-route-fix-000d69300672",
+      "head": "000d69300672ef99405c066307a0778fffdc0f6a",
+      "mergeCommit": "3636d6d35b8c248c727e9325e6431294f7a7975d",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T104854Z",
+      "manifestSha256": "beb1b76750390b4afafc9d66f71fdd1adbb6f0a6df26d661deb05ac0a2211b84",
+      "targets": 2
+    },
+    {
+      "releaseId": "nav-20261021T113003Z",
+      "stage": "/opt/fs-release-stage/fs-channel-ui-fix-d641ff9eb7ca",
+      "head": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
+      "mergeCommit": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T113003Z",
+      "manifestSha256": "f3d3eacacc1cde474a3d13a358573294d95e0c995e0127ec6f04e3a47cb66a82",
+      "targets": 6
+    }
+  ],
+  "pullRequests": [
+    {
+      "number": 278,
+      "url": "https://github.com/wulv006-dot/FS-Workbench/pull/278",
+      "head": "fc4d9bc01bb7c592337898912467ebb717334c9a",
+      "mergeCommit": "b030e054c64149ed5776b9b76f9c22cf88904a30",
+      "merged": true,
+      "checks": [
+        {
+          "name": "pr-fast",
+          "conclusion": "success",
+          "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39585195792/job/119172252050"
+        }
+      ]
+    },
+    {
+      "number": 280,
+      "url": "https://github.com/wulv006-dot/FS-Workbench/pull/280",
+      "head": "000d69300672ef99405c066307a0778fffdc0f6a",
+      "mergeCommit": "3636d6d35b8c248c727e9325e6431294f7a7975d",
+      "merged": true,
+      "checks": [
+        {
+          "name": "pr-fast",
+          "conclusion": "success",
+          "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39587017801/job/119178325268"
+        }
+      ]
+    },
+    {
+      "number": 281,
+      "url": "https://github.com/wulv006-dot/FS-Workbench/pull/281",
+      "head": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
+      "mergeCommit": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a",
+      "merged": true,
+      "checks": [
+        {
+          "name": "pr-fast",
+          "conclusion": "success",
+          "html_url": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39592193722/job/119195661343"
+        }
+      ]
+    }
+  ],
+  "currentMain": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a"
+}
