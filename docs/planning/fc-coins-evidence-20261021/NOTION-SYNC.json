@@ -1,0 +1,13 @@
+{
+  "page_id": "3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a",
+  "url": "https://app.notion.com/p/3ff9a8a79c4e81bc8a4feb15aab87a5a",
+  "baseline_task": "task_b126cfe43db146b596ba500961319d64",
+  "strategies_task": "task_bc16ceb4e40d485dad81c9b12ddac2ff",
+  "status": "both_succeeded_and_fetch_readback_passed",
+  "baseline": "business-baseline-20261021-v7",
+  "updated": "2026-10-22 Asia/Shanghai",
+  "checks": ["v7 active baseline", "new readonly tool", "Coins only and existing formulas", "section18 latest strategies", "Hermes original hash", "historical status retired", "Admin section17 preserved", "Codex appendix preserved"],
+  "hermes_original_sha256": "bbd4b69bcad0d8079f3a7401ddff6f9dca267245a88a8d6efd92779690b0015e",
+  "scope": "rules methods and sanitized acceptance; no real financial/order/provider protocol payload",
+  "not_proof_of_learning": true
+}
