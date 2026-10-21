@@ -1,0 +1,50 @@
+{
+  "installed": false,
+  "candidate_only": true,
+  "original_module_sha256": "e711cb9fcaf9c2cdc03af1d28619895dc7f391aaa7f8b4cc3846fca5fc6a3663",
+  "candidate_module_sha256": "160fbb2de797c88b2fc9c28775863020ffda0856eb94069182edbca2fdd41d18",
+  "status": "available",
+  "received": 15669,
+  "source_total": 15669,
+  "paid_complete": true,
+  "pages": 159,
+  "segments": [
+    {
+      "start": "2026-10-01",
+      "end": "2026-10-20",
+      "status": "available",
+      "source_total": 9687,
+      "received": 9687,
+      "paid_complete": true,
+      "source_scanned_total": 9699,
+      "source_scanned_received": 9699,
+      "excluded_refunded": 12
+    },
+    {
+      "start": "2026-09-17",
+      "end": "2026-09-30",
+      "status": "available",
+      "source_total": 5982,
+      "received": 5982,
+      "paid_complete": true,
+      "source_scanned_total": 6173,
+      "source_scanned_received": 6173,
+      "excluded_refunded": 191
+    }
+  ],
+  "period": {
+    "start": "2026-09-17 00:00",
+    "end": "2026-10-21 00:00"
+  },
+  "response_bytes": 3367433,
+  "source_scanned_total": 15872,
+  "source_scanned_received": 15872,
+  "excluded_refunded": 203,
+  "seconds": 205.442,
+  "concurrent_samples": 206,
+  "concurrent_all_ready": true,
+  "max_health_and_token_seconds": 0.009,
+  "same_access_token": true,
+  "login_attempts_before": 1,
+  "login_attempts_after": 1
+}

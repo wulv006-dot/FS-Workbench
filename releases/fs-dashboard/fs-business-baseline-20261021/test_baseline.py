@@ -130,7 +130,9 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-DESKTOP-COST-RULE',text)
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
-            self.assertIn('business-baseline-20261021-v4',text)
+            self.assertIn('business-baseline-20261021-v5',text)
+            self.assertIn('excluded_refunded',text)
+            self.assertIn('这一投影不改写原生经营总盘',text)
             self.assertIn('/admin/order.Order/index',text)
             self.assertIn('下单时间查询范围不能超过一个月',text)
             self.assertIn('限制仅有上述逐笔端点的证据',text)
@@ -143,4 +145,3 @@ class BaselineTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
-
