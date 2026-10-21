@@ -156,7 +156,7 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
-    if select(["sales_shared_session_20261021/shared_admin.py"]) != ["admin-single-owner"]:
+    if select(["shared_backend_session/shared_admin.py"]) != ["admin-single-owner"]:
         raise RuntimeError("shared_admin_affected_tests_missing")
     if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
         raise RuntimeError('SBC security checks missing')
@@ -320,7 +320,7 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
-        if name.startswith("sales_shared_session_20261021/"):
+        if name.startswith("shared_backend_session/") or (name.startswith("sales_shared_session_20261021/") and not (ROOT/name).exists()):
             groups.add("admin-single-owner");continue
         if name.startswith("releases/fs-dashboard/fs-business-baseline-20261021/"):
             groups.add("fs-business-baseline");continue
@@ -614,7 +614,7 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="admin-single-owner":units("sales_shared_session_20261021",["test_patch","test_unify_admin","test_manual_captcha"])
+        if group=="admin-single-owner":units("shared_backend_session",["test_shared_admin","test_consumers","test_manual_captcha"])
         elif group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
         elif group=="registration-management":

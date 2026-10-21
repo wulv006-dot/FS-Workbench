@@ -62,3 +62,8 @@ Notion完整基准及三关联页已更新读回，冲突旧正文清理，历�
 ## 2026-10-21 Admin 人工恢复及旧认证废弃
 
 用户授权临时wulv账号及人工验证码恢复Admin，并明确旧独立登录入口废弃。8767于14:55:44单次登录后ready，下一轮仍ready且login_attempts=1；sales/NBA/MLB/商品包/SBC/Players共享桥真实身份读取通过。保留当前2FA源并改人工验证码收件箱；SBC当前版本重接8767，旧dashboard daemon已屏蔽，probe废弃；8767自启恢复。ops无排队后恢复，旧失败保留。sales定时器因Order会话未验继续停用。具体SHA/操作ID/备份/测试和重启限制见docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md；不包含任何凭据或原始生产源码。
+
+
+## 2026-10-21 认证迁移完成后清理旧代码
+
+用户明确要求实际验证通过后删除历史独立认证和一次性迁移源码。Sales真实Admin订单code1/Order发货页通过；SBC实际FC27模型读取通过。活动源码删除本地登录/验证码/缓存及旧表单，上传签名密钥留服务器0600。原始凭据未导出。保留当前维护源shared_backend_session，删除旧sales_shared_session_20261021脚本；SBC webapp沿用原规范路径。Sales原同步已启动，结果另记；旧数据、队列和失败审计保持。见docs/planning/sales-shared-session-20261021/CLEANUP.md。本地工作目录按新源CI合并后逐文件删除，不递归清理未知内容。
