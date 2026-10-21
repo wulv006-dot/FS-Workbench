@@ -1,9 +1,20 @@
 {
-  "at": "2026-10-21T11:49:35.335541+00:00",
-  "firstRelease": "nav-20261021T103410Z",
-  "fixRelease": "nav-20261021T114854Z",
-  "sourceCommit": "7dbf1a802e8d2d7be385e186e773f6fc3fa4cb05",
-  "verified_file_count": 64,
+  "at": "2026-10-21T13:03:16.581718+00:00",
+  "release": {
+    "releaseId": "nav-20261021T130109Z",
+    "stage": "/opt/fs-release-stage/fs-channel-cache-20ffb993bd05",
+    "head": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+    "mergeCommit": "f942008584efe06077f43f9d7620200021cb5b37",
+    "result": {
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T130109Z",
+      "status": "applied-awaiting-actual-http-role-acceptance",
+      "staticFiles": 11,
+      "businessWorkerTimerActions": 0
+    },
+    "newChannelTimers": 2,
+    "accountingAnnotationSha256": "624281bfe2e49f839c76574c5bec7f183677b1122e2e6af7f189b0226862ed2b"
+  },
+  "verified_file_count": 78,
   "source_drift": [],
   "anonymous": [
     {
@@ -34,169 +45,12 @@
     "readonly": true,
     "service": "fs-business-range"
   },
-  "cache": [
-    {
-      "period": {
-        "start": "2026-10-14",
-        "end": "2026-10-20"
-      },
-      "generatedAt": "2026-10-21T19:44:29.122147+08:00",
-      "sources": {
-        "orders": {
-          "status": "complete",
-          "source": "Admin 销售订单",
-          "rows": 8153,
-          "site": "MMOEXP",
-          "dateBasis": "paytime",
-          "currency": "USD"
-        },
-        "coupons": {
-          "status": "complete",
-          "source": "Admin 优惠券使用日志，按订单号关联",
-          "rows": 712
-        },
-        "cost": {
-          "status": "partial",
-          "source": "Order 逐条订单发货记录 + Sales 已有缓存",
-          "generatedAt": "2026-10-21T19:43:43.448874+08:00",
-          "limitation": "复用固定发货截止 2026-10-21 19:30 的完整读取；未匹配不补零，匹配不等于最终结算。手动刷新可重新取数。",
-          "period": {
-            "start": "2026-10-14",
-            "end": "2026-10-21",
-            "until": "2026-10-21 19:30"
-          }
-        },
-        "attribution": {
-          "source": "Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID",
-          "historical": "当前映射回溯应用；未提供历史生效日期"
-        },
-        "customer": {
-          "status": "complete",
-          "source": "Admin ES订单：下单时是否新客户",
-          "generatedAt": "2026-10-20T16:00:51.825244+00:00",
-          "sourceVersion": "9d7672ae416d649fd9a6b05d41a01b48336cca7659d9b01b780c9d8d4b4ad1a0",
-          "files": 2,
-          "limitation": "按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。",
-          "matchedOrders": 8152
-        }
-      },
-      "code_summary": {
-        "orders": 3113,
-        "salesUsd": 185402.06,
-        "coveredOrders": 3022,
-        "deliveryRows": 3814,
-        "saleCny": 1213042.5,
-        "costCny": 905520.58,
-        "profitCny": 307521.92,
-        "margin": 0.2535128983526958,
-        "aovUsd": 59.56,
-        "codedOrders": 3035,
-        "referrerOnly": 78,
-        "overlapOrders": 0,
-        "conflicts": 0,
-        "shareAllCodes": 1.0,
-        "shareSite": 0.3811856317508164,
-        "couponShareSite": null
-      },
-      "coupon_summary": {
-        "orders": 703,
-        "salesUsd": 55709.07,
-        "coveredOrders": 685,
-        "deliveryRows": 820,
-        "saleCny": 369628.95,
-        "costCny": 297578.11,
-        "profitCny": 72050.84,
-        "margin": 0.19492748065323345,
-        "aovUsd": 79.24,
-        "codedOrders": 0,
-        "referrerOnly": 15,
-        "overlapOrders": 0,
-        "conflicts": 0,
-        "shareAllCodes": 0.0,
-        "shareSite": 0.0,
-        "couponShareSite": 0.08829439839236372
-      },
-      "code_customers": [
-        {
-          "key": "老客",
-          "label": "老客",
-          "orders": 2432,
-          "salesUsd": 147351.27,
-          "coveredOrders": 2403,
-          "deliveryRows": 3149,
-          "saleCny": 977675.91,
-          "costCny": 732150.96,
-          "profitCny": 245524.95,
-          "margin": 0.251131226093113,
-          "aovUsd": 60.59,
-          "codedOrders": 2379,
-          "referrerOnly": 53,
-          "overlapOrders": 0,
-          "conflicts": 0
-        },
-        {
-          "key": "新客",
-          "label": "新客",
-          "orders": 681,
-          "salesUsd": 38050.79,
-          "coveredOrders": 619,
-          "deliveryRows": 665,
-          "saleCny": 235366.59,
-          "costCny": 173369.62,
-          "profitCny": 61996.97,
-          "margin": 0.2634059914790795,
-          "aovUsd": 55.87,
-          "codedOrders": 656,
-          "referrerOnly": 25,
-          "overlapOrders": 0,
-          "conflicts": 0
-        }
-      ],
-      "coupon_customers": [
-        {
-          "key": "老客",
-          "label": "老客",
-          "orders": 489,
-          "salesUsd": 41463.9,
-          "coveredOrders": 481,
-          "deliveryRows": 588,
-          "saleCny": 276226.39,
-          "costCny": 213156.58,
-          "profitCny": 63069.81,
-          "margin": 0.22832651869359766,
-          "aovUsd": 84.79,
-          "codedOrders": 0,
-          "referrerOnly": 10,
-          "overlapOrders": 0,
-          "conflicts": 0
-        },
-        {
-          "key": "新客",
-          "label": "新客",
-          "orders": 214,
-          "salesUsd": 14245.17,
-          "coveredOrders": 204,
-          "deliveryRows": 232,
-          "saleCny": 93402.56,
-          "costCny": 84421.53,
-          "profitCny": 8981.03,
-          "margin": 0.09615400263119127,
-          "aovUsd": 66.57,
-          "codedOrders": 0,
-          "referrerOnly": 5,
-          "overlapOrders": 0,
-          "conflicts": 0
-        }
-      ]
-    }
-  ],
-  "cost_cache_exists": true,
   "shared_sources": {
     "8767": {
       "ready": true,
       "status": "ready",
       "last_error": null,
-      "last_ok": "2026-10-21T11:46:47.381917+00:00",
+      "last_ok": "2026-10-21T13:01:50.257273+00:00",
       "login_attempts": 1
     },
     "8768": {
@@ -207,14 +61,156 @@
       "login_attempts": 0
     }
   },
-  "cost_cache": {
-    "generatedAt": "2026-10-21T19:43:43.448874+08:00",
-    "period": {
-      "start": "2026-10-14",
-      "end": "2026-10-21",
-      "until": "2026-10-21 19:30"
+  "units": {
+    "fs-channel-cache.timer": {
+      "NextElapseUSecRealtime": "56y 9month 2w 5d 18h 5min",
+      "Result": "success",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
     },
-    "records": 11336,
-    "complete": true
+    "fs-channel-backfill.timer": {
+      "NextElapseUSecRealtime": "56y 9month 2w 5d 18h 30min",
+      "Result": "success",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "fs-channel-cache.service": {
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "UnitFileState": "static"
+    }
+  },
+  "dailyManualReceipt": {
+    "day": "2026-10-20",
+    "orders": 1084,
+    "customer": "complete",
+    "status": "complete",
+    "at": "2026-10-21T21:01:46.096736+08:00"
+  },
+  "naturalNightlyCycle": "not_yet_observed",
+  "history": {
+    "period": {
+      "start": "2026-08-01",
+      "end": "2026-10-20"
+    },
+    "targetDays": 81,
+    "orderDays": [
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20"
+    ],
+    "remainingDays": 74,
+    "deliveryDays": 20
+  },
+  "cacheReadSeconds": [
+    3.281,
+    0.251
+  ],
+  "cacheReadTriggeredUpstreamJobs": false,
+  "period": {
+    "start": "2026-10-14",
+    "end": "2026-10-20"
+  },
+  "generatedAt": "2026-10-21T20:42:52.315319+08:00",
+  "sources": {
+    "orders": {
+      "status": "complete",
+      "source": "Admin 销售订单",
+      "rows": 8153,
+      "site": "MMOEXP",
+      "dateBasis": "paytime",
+      "currency": "USD"
+    },
+    "coupons": {
+      "status": "complete",
+      "source": "Admin 优惠券使用日志，按订单号关联",
+      "rows": 712
+    },
+    "cost": {
+      "status": "partial",
+      "source": "Order完整分页日归档 / 原全局缓存",
+      "generatedAt": "2026-10-21T21:00:15.761222+08:00",
+      "limitation": "按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。",
+      "period": {
+        "start": "2026-10-14",
+        "end": "2026-10-21",
+        "until": "2026-10-21 20:07"
+      }
+    },
+    "attribution": {
+      "source": "Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID",
+      "historical": "当前映射回溯应用；未提供历史生效日期"
+    },
+    "customer": {
+      "status": "complete",
+      "source": "Admin ES订单：下单时是否新客户",
+      "generatedAt": "2026-10-20T16:00:51.825244+00:00",
+      "sourceVersion": "9d7672ae416d649fd9a6b05d41a01b48336cca7659d9b01b780c9d8d4b4ad1a0",
+      "files": 2,
+      "limitation": "按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。",
+      "matchedOrders": 8152
+    },
+    "accounting": {
+      "status": "available",
+      "source": "用户确认的历史零成本商品",
+      "orders": 2,
+      "sourceVersion": "624281bfe2e49f839c76574c5bec7f183677b1122e2e6af7f189b0226862ed2b"
+    },
+    "cache": {
+      "source": "已校验的逐日归档",
+      "days": 7,
+      "oldest": "2026-10-21T20:42:52.315319+08:00",
+      "newest": "2026-10-21T21:01:45.797698+08:00",
+      "deliveryDayComplete": true,
+      "limitation": "按采集时点保存；后续退款、状态和归因变化请手动刷新。"
+    }
+  },
+  "code_summary": {
+    "orders": 3113,
+    "salesUsd": 185402.06,
+    "coveredOrders": 3005,
+    "completedOrders": 3007,
+    "pendingOrders": 106,
+    "refundedOrders": 0,
+    "fraudOrders": 6,
+    "missingCostOrders": 2,
+    "scmOrders": 2,
+    "zeroCostOrders": 2,
+    "deliveryRows": 3788,
+    "saleCny": 1204634.21,
+    "costCny": 900249.76,
+    "profitCny": 304384.45,
+    "margin": 0.25267790626666664,
+    "aovUsd": 59.56,
+    "codedOrders": 3035,
+    "referrerOnly": 78,
+    "overlapOrders": 0,
+    "conflicts": 0,
+    "shareAllCodes": 1.0,
+    "shareSite": 0.3811856317508164,
+    "couponShareSite": null
+  },
+  "timerSchedule": {
+    "timezone": "Asia/Shanghai",
+    "nextDaily": "2026-10-22 00:35:00 +08:00",
+    "nextBackfill": "2026-10-22 01:00:00 +08:00",
+    "source": "systemctl list-timers actual readback 2026-10-21 21:08"
+  },
+  "browserAcceptance": {
+    "identity": "existing authenticated wulv",
+    "defaultChannelOrders": 3113,
+    "couponOrders": 703,
+    "couponCompletedAccounted": 675,
+    "pendingCouponOrders": 28,
+    "zeroCostCouponDetail": "exact approved historical order displays original native CNY, zero cost and 100 percent margin",
+    "resetAfterSingleOrder": "default3113 restored; q empty",
+    "dailyCacheExplanationVisible": true,
+    "newConsoleErrors": 0,
+    "screenshotPrivate": ".agent_runtime/fs-channel-dashboard-20261021/live-cache-accounting.png"
   }
 }
