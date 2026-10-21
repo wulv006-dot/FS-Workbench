@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["admin_session_continuity_20261021/session_state.py"]) != ["admin-session-continuity"]:
+        raise RuntimeError("admin_continuity_affected_tests_missing")
     if select(["order_global_session_20261021/service.py"]) != ["order-global-session"]:
         raise RuntimeError("order_global_affected_tests_missing")
     if select(["shared_backend_session/shared_admin.py"]) != ["admin-single-owner"]:
@@ -322,6 +324,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("admin_session_continuity_20261021/"):
+            groups.add("admin-session-continuity");continue
         if name.startswith("order_global_session_20261021/"):
             groups.add("order-global-session");continue
         if name.startswith("shared_backend_session/") or (name.startswith("sales_shared_session_20261021/") and not (ROOT/name).exists()):
@@ -618,7 +622,10 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
+        if group=="admin-session-continuity":
+            units("admin_session_continuity_20261021",["test_continuity"])
+            units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
+        elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
         elif group=="admin-single-owner":units("shared_backend_session",["test_shared_admin","test_consumers","test_manual_captcha","test_sales_pagination"])
         elif group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
