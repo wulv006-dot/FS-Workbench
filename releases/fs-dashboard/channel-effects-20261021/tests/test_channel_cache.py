@@ -168,6 +168,17 @@ class Archive(unittest.TestCase):
     def test_old_archive_returns_immediately_and_preserves_automatic_refresh(self):
         self.assert_stale_archive(False)
 
+    def test_late_cost_refresh_reuses_complete_order_archive(self):
+        data=self.fixture();data.update(generatedAt='2026-10-21T00:00:00+08:00',deliveryDayComplete=True)
+        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}):
+            root=Path(folder);cache.store_days(data,root)
+            service=ChannelService(root,lambda user:True)
+            with patch('channel_source.collect',side_effect=AssertionError('complete orders must be reused')),patch('channel_source.enrich',side_effect=lambda value,force=False:value) as enrich:
+                service.capture(data['period'],'late',root/'late.json',cost_only=True)
+            self.assertEqual(service.jobs['late'],'available');enrich.assert_called_once()
+            self.assertEqual(json.loads((root/'late.json').read_text())['orders'],data['orders'])
+            service.pool.shutdown()
+
     def test_complete_history_still_refreshes_late_costs_after_ten_minutes(self):
         self.assert_stale_archive(False, complete=True)
 
@@ -190,6 +201,7 @@ class Archive(unittest.TestCase):
                     service.pool.submit.assert_not_called();service.jobs.clear()
                     code,result=service.get(params,'admin')
                 service.pool.submit.assert_called_once()
+                self.assertEqual(service.pool.submit.call_args.kwargs['cost_only'],complete)
 
     def test_scheduled_busy_does_not_claim_success_and_can_retry(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch.object(cache,'ROOT',Path(folder)),patch.object(cache,'cache_day',side_effect=BlockingIOError):
