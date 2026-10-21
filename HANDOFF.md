@@ -36,3 +36,8 @@
 相同问题/原报告/冻结native版本集合/背景/方法/工具schema、高档位别名的两份原稿分别4模型调用、631470/659203tokens；内容仍有无证据机制和未验证阈值，质量未验收。原文盲评BLIND-REVIEW.md仅本机，不发GitHub；已向吴律请求评价，不以模型自评分替代。W5实际动作效果、Desktop开关并发、真实长上下文压缩/取消中断迟到、最后版本自然与实际代码回退未验。旧自然e21fff6c/1eb377df成稿发生在后续代码前，不冒作最终自然；不强制补采或调时。OD-HERMES-ADMIN-RECOVERY原读取故障以本轮真实入口恢复关闭；新增OD-HERMES-V2-QUALITY，原质量/自然整体事项保持。
 
 安全回归：各新维护目录test*.py及策略frontend/test_strategy.cjs（合成/临时库）；同输入已有证据复用。实际模型、发布、版本操作先核原request/event/attempt/manifest，不盲重跑一次性脚本；503拒绝已核无任务后用同ID继续，历史unknown/失败不清。私有证据.agent_runtime/hermes-v2-core-20261020/{final-readback,simulation-teaching-read,degraded-readback,transfer-read-final,research-read-final}.json，无凭据或私有推理导出。应用层与其他owner未覆盖项逐条标记，不能把合并/文档/CI当上线或学会。
+
+
+## 2026-10-21 业务基准与数据工具修订
+
+本Work按用户八项取数规则实施，373码渠道映射、真实成本与调价参数分离、知识有效输入替代、客户订单日志复核链接、动态毛利预算尾价预览；范围与来源见docs/planning/fs-business-baseline-20261021。保留PR237、最新V2/多游戏/生命周期/UI及原锁CAS回退；不改采价/自动化/原定价引擎或writer。此条为代码交接，不是上线与Hermes学会的回执。服务器Admin身份被拒，用户交运维修复并授权浏览器当前登录态只读核验；继续复用原导出，缺项不伪造。
