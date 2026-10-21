@@ -1,0 +1,2793 @@
+{
+  "version": "hermes-fs-fresh-account-permissions-20261021-v1",
+  "generated_date": "2026-10-21",
+  "new_account_name": null,
+  "account_created": false,
+  "permissions_granted": false,
+  "new_account_verified": false,
+  "scope": "从零开通全部现有Hermes/FS业务能力；本文件是申请与回填清单，不是开权限或执行业务的回执",
+  "capabilities": [
+    {
+      "id": "A01",
+      "system": "身份",
+      "feature": "Admin专用账号",
+      "requested_actions": "登录配置、验证码、登录、刷新、身份、退出、会话恢复",
+      "scope": "Admin菜单/API/媒体域实际使用身份",
+      "access": "认证",
+      "evidence_refs": [
+        "S1",
+        "S3"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A02",
+      "system": "身份",
+      "feature": "Order专用账号",
+      "requested_actions": "登录、验证码、会话、身份、过期判定与恢复",
+      "scope": "Order管理及统计模块",
+      "access": "认证",
+      "evidence_refs": [
+        "S1"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A03",
+      "system": "身份",
+      "feature": "FS专用账号",
+      "requested_actions": "统一登录、页面和API身份、角色及项目授权",
+      "scope": "全部现有FS模块；新账号加入管理员/允许名单",
+      "access": "认证/读/写",
+      "evidence_refs": [
+        "S4",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A04",
+      "system": "身份",
+      "feature": "服务端访问条件",
+      "requested_actions": "IP白名单、WAF/API网关、域名、HTTPS、跨域及机器会话策略",
+      "scope": "实际服务器出口、获准浏览器和各API/媒体/下载域",
+      "access": "网络准入",
+      "evidence_refs": [
+        "S1",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A05",
+      "system": "身份",
+      "feature": "共享会话接入",
+      "requested_actions": "将新账号绑定现有Admin/Order会话代理及合法消费者",
+      "scope": "沿当前统一会话入口；不恢复旧独立登录器",
+      "access": "认证配置",
+      "evidence_refs": [
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A06",
+      "system": "身份",
+      "feature": "范围字典",
+      "requested_actions": "游戏、站点、卫星站、区服、平台、品类、商品及状态字典",
+      "scope": "所有现有业务游戏/站点/平台；不能只开FC或只开自己创建的数据",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A07",
+      "system": "身份",
+      "feature": "完整数据权限",
+      "requested_actions": "跨操作员/推广人/供应商、全状态、历史及分页、字段、导出权限",
+      "scope": "不使用“仅本人/本组/新建后数据”默认范围；按任务筛选MMOEXP",
+      "access": "读/导出",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "A08",
+      "system": "身份",
+      "feature": "新身份审计",
+      "requested_actions": "记录账号ID、实际操作者、任务、原请求、变更前后和结果",
+      "scope": "Admin/Order/FS/执行器审计可关联；保留旧任务原归属",
+      "access": "读/审计",
+      "evidence_refs": [
+        "S4",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D01",
+      "system": "Admin",
+      "feature": "经营原生统计",
+      "requested_actions": "初始化字典、ES聚合、时间曲线、游戏/站点/品类/国家/支付/来源、新老客、退款/CB/追回",
+      "scope": "全部现有经营范围，含准确区间与历史",
+      "access": "读",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D02",
+      "system": "Admin",
+      "feature": "旧统计兼容",
+      "requested_actions": "普通订单统计初始化及聚合操作节点",
+      "scope": "仍被工具依赖或有独有数据的旧接口；退役须给替代映射",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D03",
+      "system": "Admin",
+      "feature": "订单列表及详情",
+      "requested_actions": "单号、客户邮箱、原状态、付款/订单时间、商品、数量、币种、实际优惠、来源、推广人、支付状态",
+      "scope": "全状态及分页；客户邮箱与支付邮箱分别授权",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D04",
+      "system": "Admin",
+      "feature": "ES订单下载全链",
+      "requested_actions": "创建导出、取原任务、查询状态、列文件、下载全部分片、失败信息、重用归档",
+      "scope": "ES销售订单下载及ES下载订单数据；历史日期、全原状态",
+      "access": "导出生成/读/下载",
+      "evidence_refs": [
+        "S5",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D05",
+      "system": "Admin",
+      "feature": "指定订单日志",
+      "requested_actions": "精确单号、操作人、时间/状态筛选、全分页、完整备注及字典",
+      "scope": "ES订单日志与仍有独有内容的旧日志；按需脱敏",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D06",
+      "system": "Admin",
+      "feature": "商品销售分析",
+      "requested_actions": "销量排行榜、产品订单、国家/游戏详情抽屉、全部页与总数",
+      "scope": "每个游戏/模型/产品/平台/主站卫星站",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D07",
+      "system": "Admin",
+      "feature": "产品身份与选择器",
+      "requested_actions": "游戏→类目→模型→产品、平台/区服/站点、标签、附件、分页及详情",
+      "scope": "全现有业务；允许查询所有相关产品而非只读本人产品",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D08",
+      "system": "Admin",
+      "feature": "会员及游客追踪",
+      "requested_actions": "会员列表/详情/状态、首购/历史订单关联、新老客原标记、冻结/可用状态只读字段",
+      "scope": "UID与客户邮箱；UID=0游客仍可按订单邮箱追踪",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D09",
+      "system": "Admin",
+      "feature": "会员统计及复购",
+      "requested_actions": "会员统计初始化、summary、按站点/游戏/日期统计、复购关联明细",
+      "scope": "历史及全部分页；明确首购与成熟观察窗",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D10",
+      "system": "Admin",
+      "feature": "会员/订单身份导出",
+      "requested_actions": "追踪所需邮箱等指定字段导出、文件生成与下载",
+      "scope": "限受控内部取数进程；不能把密码/密码哈希等混入模型",
+      "access": "导出",
+      "evidence_refs": [
+        "S2",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D11",
+      "system": "Admin",
+      "feature": "折扣码汇总与筛选",
+      "requested_actions": "码、推广人UID、MMOEXP站点、应用游戏、有效起止、统计窗口、状态、Total Used/Sales/Sum",
+      "scope": "完整搜索、分页及统计辅助操作节点一并授权",
+      "access": "读",
+      "evidence_refs": [
+        "S2",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D12",
+      "system": "Admin",
+      "feature": "折扣码配置",
+      "requested_actions": "新增、编辑、有效期、游戏/站点限制、状态开关及详情回读",
+      "scope": "现有发码/改码功能的全部动作；使用仍经原批准链",
+      "access": "写/回读",
+      "evidence_refs": [
+        "S1",
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D13",
+      "system": "Admin",
+      "feature": "优惠券模板/会员券",
+      "requested_actions": "模板、发放批次、会员券对象、有效期/状态及适用范围",
+      "scope": "列表、详情、字典及关联订单",
+      "access": "读",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D14",
+      "system": "Admin",
+      "feature": "核销与复购追踪",
+      "requested_actions": "核销列表、90天复购订单、原订单金额/优惠、状态、导出及分页",
+      "scope": "核销ID/模板ID/会员券ID/批次号分别保留",
+      "access": "读/导出",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D15",
+      "system": "Admin",
+      "feature": "优惠券发放与管理",
+      "requested_actions": "创建/编辑券、定向发放、批次及发放结果、停用/撤回/作废等现有动作",
+      "scope": "精确动作及可撤销能力由技术映射；不得凭“券菜单”推定已开全部按钮",
+      "access": "写/任务查询/回读",
+      "evidence_refs": [
+        "S1",
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D16",
+      "system": "Admin",
+      "feature": "推广归因及佣金",
+      "requested_actions": "推广人列表/详情、月份统计、游戏费率、关联订单、推广链接/渠道与统计导出",
+      "scope": "推广人/站点/游戏全范围；推广分类不代替站点",
+      "access": "读/导出",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D17",
+      "system": "Admin",
+      "feature": "效率/履约/异常",
+      "requested_actions": "订单处理效率、客服、发货/问题/退款/CB/消损/追回状态与明细",
+      "scope": "当前使用及历史曾被拒的统计节点均纳申请",
+      "access": "读",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D18",
+      "system": "Admin",
+      "feature": "商品/模型创建与导入",
+      "requested_actions": "模型/产品新增、批量表导入、服务器接收文件、导入任务ID与进度",
+      "scope": "FC Players、MLB及全部现有自动上品消费者；不能只开上传而缺导入执行",
+      "access": "写/上传/异步查询",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D19",
+      "system": "Admin",
+      "feature": "模型维护",
+      "requested_actions": "模型详情、标题/规格/描述、状态/上下架、标签/推荐、平台/区服/站点关系、图片绑定",
+      "scope": "现有edit/singleEdit等实际字段级限制也需开通",
+      "access": "写/回读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D20",
+      "system": "Admin",
+      "feature": "产品维护及库存",
+      "requested_actions": "产品详情、创建/编辑、实际库存/售卖状态、平台和站点产品映射",
+      "scope": "模型和产品是不同ACL；单条与批量操作分别授权",
+      "access": "写/回读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D21",
+      "system": "Admin",
+      "feature": "商品改价及重算",
+      "requested_actions": "单品售价/原价/折扣价编辑、批量编辑、FC类别/模型重算、结果查询",
+      "scope": "FC Players/Packs/SBC/Bundles/Gallery等实际调用链；保留原身份/配置护栏",
+      "access": "写/回读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D22",
+      "system": "Admin/媒体",
+      "feature": "图片及附件",
+      "requested_actions": "上传签名/初始化、文件上传、附件ID/详情、模型/产品绑定及最终图片读取",
+      "scope": "Admin API与实际媒体上传域可能分开认证/IP许可",
+      "access": "上传/写/读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D23",
+      "system": "Admin",
+      "feature": "缓存及前台生效",
+      "requested_actions": "原缓存清理操作、站点/产品范围、任务状态、实际商品/金币公开入口回读",
+      "scope": "没有清缓存/公开回读，写入成功也不能验收最终售价",
+      "access": "写/读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "D24",
+      "system": "Admin",
+      "feature": "内容/活动现有能力",
+      "requested_actions": "新闻创建/编辑、促销产品、秒杀/活动配置、优惠创建、发布状态与回读",
+      "scope": "当前FS实际连接的内容/活动模块；未知写动作由技术逐项映射",
+      "access": "读/写/回读",
+      "evidence_refs": [
+        "S1",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O01",
+      "system": "Order",
+      "feature": "经营全盘与分类",
+      "requested_actions": "订单统计、游戏发货、供应商发货、状态及品类统计",
+      "scope": "全游戏/站点含G2G/ELD原全局范围；按任务选范围",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O02",
+      "system": "Order",
+      "feature": "发货统计/参考利润",
+      "requested_actions": "销售总额、采购总额、利润率及历史准确区间",
+      "scope": "Admin缺项补源；不把参考率叫财务净利",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O03",
+      "system": "Order",
+      "feature": "订单列表/详情/日志",
+      "requested_actions": "游戏/区服/类型/标题/单号/客户邮箱/原状态与日期筛选、完整日志",
+      "scope": "关键字=客户邮箱/角色名；问题/取消/退款/CB均可查",
+      "access": "读",
+      "evidence_refs": [
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O04",
+      "system": "Order",
+      "feature": "单笔交货成本",
+      "requested_actions": "交货记录列表/详情、订单号、供应商、数量K、成本CNY、类型、时间、利润率及分页",
+      "scope": "最新有效订单发货成交成本与历史成本分别读取",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O05",
+      "system": "Order",
+      "feature": "采购汇总/供应商",
+      "requested_actions": "交货记录统计、供应商分平台数量/总价/最新单价、库存记录读取",
+      "scope": "关键字=供应商；供应商主数据和成本/库存读权限",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O06",
+      "system": "Order",
+      "feature": "损失与客服统计",
+      "requested_actions": "CB/退款/问题、成本损失统计、客服处理统计、原生日志与字典",
+      "scope": "含历史被拒cb_order/customer_order_count两个节点",
+      "access": "读",
+      "evidence_refs": [
+        "S2"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O07",
+      "system": "Order",
+      "feature": "金币价及参数读取",
+      "requested_actions": "游戏/平台价格列表与详情、最新采购价、调价参数、利润/汇率参数、B2C价、赠送",
+      "scope": "FC/NBA/MLB/Madden及现有支持游戏；每K/套餐明确",
+      "access": "读",
+      "evidence_refs": [
+        "S1",
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O08",
+      "system": "Order",
+      "feature": "金币写价",
+      "requested_actions": "参数/单价编辑、批量或平台联动保存、必要同步、原写入状态、回读",
+      "scope": "itemEdit/saveprice等GET也可能写入，按动作申请而非只按HTTP动词",
+      "access": "写/回读",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O09",
+      "system": "Order",
+      "feature": "道具/ARPG写价",
+      "requested_actions": "物品/金币价格列表、goodsEdit等现有编辑、区服/规格/供应商成本参数",
+      "scope": "D4/PoE2/Aion2及FS当前RPG支持范围",
+      "access": "读/写/回读",
+      "evidence_refs": [
+        "S1",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O10",
+      "system": "Order",
+      "feature": "价格联动/缓存",
+      "requested_actions": "金币到球员/类别的现有同步、缓存刷新及任务回执",
+      "scope": "保留球员wiki价格日常复验退役范围，不据开权限重开复验",
+      "access": "写/任务查询",
+      "evidence_refs": [
+        "S1",
+        "S6"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "O11",
+      "system": "Order",
+      "feature": "订单/履约操作储备",
+      "requested_actions": "若“全业务账号”包含后续人工处置：备注、改状态、派单、交货/补发/取消、退款、CB处理等实际动作",
+      "scope": "逐动作登记；目前研究工具没有这些写工具，现存写链以外仍待实现/批准",
+      "access": "能力储备/写",
+      "evidence_refs": [
+        "S5"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F01",
+      "system": "FS",
+      "feature": "全工作台与查询",
+      "requested_actions": "首页、全局经营、准确区间、结构、销售/利润、流量Google、周报、游戏监控与经营页",
+      "scope": "全部已登记游戏/看板/工具，含独立入口与API",
+      "access": "读",
+      "evidence_refs": [
+        "S4",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F02",
+      "system": "FS",
+      "feature": "数据查询工具",
+      "requested_actions": "profile/统计、产品订单、ES结构、优惠、渠道、新老客、队列、成本和能力补证",
+      "scope": "全profile grant及字段/日期/平台/站点范围；非默认仅FC27",
+      "access": "读/按需取数",
+      "evidence_refs": [
+        "S5",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F03",
+      "system": "FS",
+      "feature": "订单及客户追踪",
+      "requested_actions": "候选筛选、已核客户关联、添加/更新/停止、日更、历史与手动活跃池报告",
+      "scope": "新账号自身池及明确共享池；允许名单/管理员门按现规则补齐",
+      "access": "读/应用写",
+      "evidence_refs": [
+        "S5",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F04",
+      "system": "FS/Hermes",
+      "feature": "研究与连续会话",
+      "requested_actions": "创建/读取会话、提交/续轮、事件/进度、停止/引导、恢复及本人历史",
+      "scope": "真实新owner映射、任务账本及模型费用预留/归属",
+      "access": "应用写/读",
+      "evidence_refs": [
+        "S7",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F05",
+      "system": "FS/Hermes",
+      "feature": "报告管理",
+      "requested_actions": "生成日/周/月/区间/专题报告、读取HTML/附件/历史、导入/修订/反馈/共享",
+      "scope": "生成、归档、读取与管理操作分开；不自动继承旧账号私有报告",
+      "access": "应用写/读",
+      "evidence_refs": [
+        "S7",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F06",
+      "system": "FS/Hermes",
+      "feature": "学习闭环",
+      "requested_actions": "候选/复盘、模型复盘、人工review/publish/revoke、暂停/恢复、版本与使用记录",
+      "scope": "新账号加入原名单并授FS项目/scope；CAS/本人来源检查保持",
+      "access": "应用写/审核/读",
+      "evidence_refs": [
+        "S7"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F07",
+      "system": "FS/Hermes",
+      "feature": "策略研究与模拟",
+      "requested_actions": "capabilities/propose/simulate/read_review/learning.propose、草案与模拟历史",
+      "scope": "当前wulv限定处增加新账号；策略开关/底线/生产写价保持原规则",
+      "access": "应用写/只读模拟",
+      "evidence_refs": [
+        "S7"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F08",
+      "system": "FS/Hermes",
+      "feature": "所有现有研究工具",
+      "requested_actions": "附录C逐个工具及兼容名的schema、代理允许名单、任务scope、数据源授权",
+      "scope": "新账号端到端调用；有底层接口权限仍要有工具权限",
+      "access": "读/计算",
+      "evidence_refs": [
+        "S7",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F09",
+      "system": "FS",
+      "feature": "FC金币改价台",
+      "requested_actions": "原采集/手动刷新、报价/预览、批准后执行、策略配置与启停、任务/回执/前台回读",
+      "scope": "原锁/CAS/UNKNOWN/人工OFF/利润底线不变；账号有权不代表现在切开关",
+      "access": "读/执行/配置",
+      "evidence_refs": [
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F10",
+      "system": "FS",
+      "feature": "FC Players/Gallery",
+      "requested_actions": "搜索/采集、计划预览、手动上新、图片绑定、模型维护、批准写价、执行进度与读回",
+      "scope": "沿现有模块scope与名单；不恢复wiki例行复验",
+      "access": "读/写/上传",
+      "evidence_refs": [
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F11",
+      "system": "FS",
+      "feature": "FC Packs/SBC/Bundles",
+      "requested_actions": "产品映射、方案/定价、维护配置、现有写价动作、任务进度与回读",
+      "scope": "Bundles一期/二期按当前实际部署区分；不能因历史文档只读漏申请现有写通道",
+      "access": "读/写/配置",
+      "evidence_refs": [
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F12",
+      "system": "FS",
+      "feature": "NBA/MLB/Madden",
+      "requested_actions": "价格/采集/配置、MLB表生成下载与后台导入、上新及各现有执行器",
+      "scope": "各模块单独API门、后台身份、进度/回执与结果回读",
+      "access": "读/写/上传/下载",
+      "evidence_refs": [
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F13",
+      "system": "FS",
+      "feature": "ARPG及其他现有工具",
+      "requested_actions": "D4/PoE2/Aion2、G2G等现有工作台的数据、报价、配置、写入与回读",
+      "scope": "申请业务能力覆盖；保持各模块owner和原执行范围，不实施新供应商系统",
+      "access": "读/写/配置",
+      "evidence_refs": [
+        "S1",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F14",
+      "system": "FS",
+      "feature": "经营采集/刷新服务",
+      "requested_actions": "业务准确区间、营销、销售、订单成本等刷新及原任务状态",
+      "scope": "既有服务消费者支持新账号；不因权限盘点启停timer或补跑",
+      "access": "按需取数/读",
+      "evidence_refs": [
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F15",
+      "system": "FS",
+      "feature": "任务台/活动/运维视图",
+      "requested_actions": "任务读写/自检、活动账本/操作史、健康/日志/审计/失败和UNKNOWN对账",
+      "scope": "现有管理员写动作与各模块scope；不能只开前端菜单",
+      "access": "读/应用写",
+      "evidence_refs": [
+        "S4",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "F16",
+      "system": "FS",
+      "feature": "发布回退能力",
+      "requested_actions": "若该账号承担既有发布角色：受控发布入口、状态/备份/回退与审计读取",
+      "scope": "独立于业务后台ACL；沿原发布器/锁/CAS，不能借业务账号默认获得SSH root",
+      "access": "受控运维",
+      "evidence_refs": [
+        "S4",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X01",
+      "system": "外部",
+      "feature": "Google数据",
+      "requested_actions": "GA4属性、GSC站点、Ads全部当前白名单账号及所需报告维度",
+      "scope": "另有OAuth/服务账号绑定；Admin/Order权限不能替代",
+      "access": "读/现有导出",
+      "evidence_refs": [
+        "S9"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X02",
+      "system": "外部",
+      "feature": "模型代理与Hermes服务",
+      "requested_actions": "现有模型别名/推理配置、工具调用、多轮、费用归属、用量与请求回执",
+      "scope": "沿现有额度/到额停止；新FS owner映射到既有代理授权",
+      "access": "调用/读",
+      "evidence_refs": [
+        "S7",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X03",
+      "system": "外部",
+      "feature": "公开行情/资讯/汇率",
+      "requested_actions": "Lootbar/U4GM/IGGM/U7Buy、FUTBIN/现有球员库、ShowDD、官方新闻、公开售价、汇率",
+      "scope": "现有网络/浏览器/合法登录态及各实际来源；不是Admin角色可解决",
+      "access": "读",
+      "evidence_refs": [
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X04",
+      "system": "外部",
+      "feature": "文件和媒体交付",
+      "requested_actions": "ES/商品表/图片/报告产物的上传下载、分片、保留/清理与读取",
+      "scope": "受控路径访问/文件ACL，不以“下载按钮可见”替代实际文件读取",
+      "access": "读/上传/下载",
+      "evidence_refs": [
+        "S1",
+        "S6",
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X05",
+      "system": "外部",
+      "feature": "通知与知识归档",
+      "requested_actions": "现有飞书/钉钉/邮件/Notion等已接入目标的实际应用权限",
+      "scope": "按现有报告投递/告警/归档功能列绑定；不自动赋全部通讯录/任意发送权限",
+      "access": "现有投递/归档",
+      "evidence_refs": [
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    },
+    {
+      "id": "X06",
+      "system": "外部",
+      "feature": "其他平台接入凭据",
+      "requested_actions": "G2G/ELD等当前实际接入源/写入通道的账户与API角色",
+      "scope": "后台“分销”推广标签不代替第三方平台登录授权；新迁移/供应商系统不在实施范围",
+      "access": "按现有功能",
+      "evidence_refs": [
+        "S8"
+      ],
+      "required": true,
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "role_id": null,
+      "new_account_id": null,
+      "grant_status": "待新账号创建及逐项开通",
+      "acceptance_status": "未用新账号验证",
+      "receipt": null,
+      "owner": null
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "ORDER-STATS",
+      "system": "Order",
+      "method": "GET",
+      "path": "/stats/admin_order/index.html",
+      "access": "read",
+      "evidence": "2026-10-12实际区间读取；本次未重新请求",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-ORDER-SUPPLEMENT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/order.Order/orderStaticsDetailByEs",
+      "access": "read",
+      "evidence": "2026-10-12实际读取；当前源码明确POST JSON；本次未重新请求",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-PRODUCT-RANK",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/stats.productSalesByEs/index",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-CATEGORY",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.GoodsCategory/categorySelect",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-COST-FC",
+      "system": "Order",
+      "method": "GET",
+      "path": "/order/admin_delivery/index.html",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-PRICE-FC",
+      "system": "Order",
+      "method": "GET",
+      "path": "/game/admin_game_price/index.html",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-PRICE-SYNC-FC",
+      "system": "Order",
+      "method": "GET",
+      "path": "/game/admin_game_price/saveprice.html",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-D4-LIST",
+      "system": "Order",
+      "method": "GET",
+      "path": "/game/admin_game_price/index_item.html",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-D4-EDIT",
+      "system": "Order",
+      "method": "POST",
+      "path": "/game/admin_game_price/goodsEdit",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-LOGIN",
+      "system": "Order",
+      "method": "POST",
+      "path": "/admin/public/dologin.html",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-CAPTCHA",
+      "system": "Order",
+      "method": "GET",
+      "path": "/new_captcha.html",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-LOGIN-CONFIG",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/index/login",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-LOGIN-PLAYERS",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/index/login",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-LOGIN-NBA",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/login",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-CAPTCHA",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/api/common/captcha",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-REFRESH",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/api/common/refreshToken",
+      "access": "authentication",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-IDENTITY",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/index/index",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MODELS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.GoodsMould/index",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MODEL-DETAIL",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.GoodsMould/edit",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-TAGS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.GoodsTag/tagSelect",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-GOODS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.Goods/index",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-GOODS-DETAIL",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.Goods/edit",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-GOODS-EDIT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/goods.Goods/edit",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MODEL-EDIT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/goods.GoodsMould/edit",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-IMPORT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/goods.GoodsMould/importPlayers",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-IMPORT-PROGRESS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/goods.GoodsMould/importPlayersProgress",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-SINGLE-EDIT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/goods.GoodsMould/singleEdit",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-RECALC",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/goods.GoodsMould/recalcFc27Price",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "MEDIA-UPLOAD",
+      "system": "Media",
+      "method": "POST",
+      "path": "/upload/file",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-CACHE-CLEAR",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/tools.Caches/clear",
+      "access": "write",
+      "evidence": "2026-10-12受控缓存维护与相关修复记录；不代表同事获得清缓存权限",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-CACHE-LEGACY",
+      "system": "Order",
+      "method": "GET",
+      "path": "/admin/setting/clearcache.html",
+      "access": "write-or-side-effect-unknown",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-CACHE-LEGACY",
+      "system": "Order",
+      "method": "POST",
+      "path": "/admin/setting/clearcache.html",
+      "access": "write-or-side-effect-unknown",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-COST-NBA",
+      "system": "Order",
+      "method": "GET",
+      "path": "/order/admin_delivery/index.html",
+      "access": "read",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-GOLD-EDIT",
+      "system": "Order",
+      "method": "POST",
+      "path": "/game/admin_game_price/itemEdit",
+      "access": "write",
+      "evidence": "历史源码目录，非本次逐项生产测试",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MEMBER-SUMMARY",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/stats.MemberStats/summary",
+      "access": "read",
+      "evidence": "已有源码及交付记录；本轮未请求业务接口",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-DISCOUNT-LIST",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/market.Discount/index",
+      "access": "read",
+      "evidence": "已有源码及交付记录；本轮未请求业务接口",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-COUPON-LIST",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/market.Coupon/index",
+      "access": "read",
+      "evidence": "已有源码及交付记录；本轮未请求业务接口",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-COUPON-LOG",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.MemberCouponLog/index",
+      "access": "read",
+      "evidence": "已有源码及交付记录；本轮未请求业务接口",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-SITE-LIST",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/site.Site/siteList",
+      "access": "read",
+      "evidence": "2026-10-12/13 FC详细分析交付实际读；本轮未重新请求",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-ORDER-LIST",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.Order/index",
+      "access": "read",
+      "evidence": "2026-10-12/13真实FC读取/导出；不可推定其他游戏字段完全相同",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "OPEN-createNews",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/api/open.platform/createNews",
+      "access": "write",
+      "evidence": "文档明确路径；未试写；研发说明链接404",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "OPEN-createDiscount",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/api/open.platform/createDiscount",
+      "access": "write",
+      "evidence": "文档明确路径；未试写；研发说明链接404",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "OPEN-createCoupon",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/api/open.platform/createCoupon",
+      "access": "write",
+      "evidence": "文档明确路径；未试写；研发说明链接404",
+      "source": "S1",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-STATS-INIT",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.Order/getOrderStatics",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-STATS-TIME",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.Order/getOrderTimeDuan",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-OLD-STATS",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/order.Order/orderStaticsDetail",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-EXPEND-DETAIL",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.Order/orderExpendDetail",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-STATS-EXPORT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/order.OrderExcel/xsDownload",
+      "access": "export-generation",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-STATS-LOG-EXPORT",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/order.OrderExcel/xsLogsDownload",
+      "access": "export-generation",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-EXPORT-CLEANUP",
+      "system": "Admin",
+      "method": "POST",
+      "path": "/admin/order.OrderExcel/delOrderEXport",
+      "access": "write-export-cleanup",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MEMBER-LIST",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.Member/index",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MEMBER-EXPORT",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.Member/export",
+      "access": "export",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-MEMBER-INDEX",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/stats.MemberStats/index",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-ES-LOG",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.OrderEs/getOrderLogsindex",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-ES-REFUND-NUM",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/order.OrderEs/getRefundNum",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-LEGACY-LOG",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/stats.OrderLog/index",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-ES-EXPORT",
+      "system": "Admin",
+      "method": "待技术确认原合同",
+      "path": "/admin/order.OrderExcelByEs/downloadsMake",
+      "access": "export-generation",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S5",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-GAMES",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/site.Game/gameList",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-COUPON-REPURCHASE",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.MemberCouponLog/repurchaseOrders",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-COUPON-EXPORT",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.MemberCouponLog/export",
+      "access": "export",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-COUPON-EMAILS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/user.MemberCouponLog/exportEmails",
+      "access": "export",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-AFFILIATES",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/market.Affiliate/index",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-AFFILIATE-STATS",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/market.Affiliate/statindex",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ADMIN-AFFILIATE-RATES",
+      "system": "Admin",
+      "method": "GET",
+      "path": "/admin/market.Affiliate/gameRates",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-CB-STATS",
+      "system": "Order",
+      "method": "GET",
+      "path": "/stats/admin_order/cb_order.html",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    },
+    {
+      "id": "ORDER-CUSTOMER-STATS",
+      "system": "Order",
+      "method": "GET",
+      "path": "/stats/admin_order/customer_order_count.html",
+      "access": "read",
+      "evidence": "既有合同记录；本轮未逐端点重新请求",
+      "source": "S2",
+      "backend_acl_name": null,
+      "backend_acl_id": null,
+      "new_account_test": "未执行"
+    }
+  ],
+  "tools": [
+    {
+      "name": "fc.calculate",
+      "source_files": [
+        "transport.py",
+        "research.py",
+        "continuation.py",
+        "hermes_worker.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.check_report_html",
+      "source_files": [
+        "research.py",
+        "continuation.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.compare_periods",
+      "source_files": [
+        "fs_evidence.py",
+        "research.py",
+        "proxy_gateway.py",
+        "pilot.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_breakdown",
+      "source_files": [
+        "fs_evidence.py",
+        "research.py",
+        "proxy_gateway.py",
+        "pilot.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_business_snapshot",
+      "source_files": [
+        "pilot.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_data_catalog",
+      "source_files": [
+        "research.py",
+        "continuation.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_metric_definitions",
+      "source_files": [
+        "research.py",
+        "continuation.py",
+        "proxy_gateway.py",
+        "pilot.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_order_reference",
+      "source_files": [
+        "research.py",
+        "pilot.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.get_problem_clues",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_action_history",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_business",
+      "source_files": [
+        "fs_evidence.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_capability",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_cohort_observation",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_customer_tracking",
+      "source_files": [
+        "research.py",
+        "conversation_service.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_discount_analysis",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_es_order_structure",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_game_news",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_market_snapshot",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_marketing_snapshot",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_native_statistics",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_official_intelligence",
+      "source_files": [
+        "source_snapshots.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_product_orders",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_queue",
+      "source_files": [
+        "fs_evidence.py",
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.query_reference",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.read_evidence",
+      "source_files": [
+        "evidence_access.py",
+        "research.py",
+        "continuation.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.read_history",
+      "source_files": [
+        "research.py",
+        "continuation.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fc.read_skill",
+      "source_files": [
+        "research.py",
+        "continuation.py",
+        "conversation_service.py",
+        "management_context.py"
+      ],
+      "permission": "读取/计算/验证",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fs.learning.propose",
+      "source_files": [
+        "strategy_tools.py"
+      ],
+      "permission": "策略草案/模拟/学习候选",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fs.pricing.simulate_candidate",
+      "source_files": [
+        "strategy_tools.py"
+      ],
+      "permission": "策略草案/模拟/学习候选",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fs.strategy.capabilities",
+      "source_files": [
+        "strategy_tools.py"
+      ],
+      "permission": "策略草案/模拟/学习候选",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fs.strategy.propose",
+      "source_files": [
+        "strategy_tools.py"
+      ],
+      "permission": "策略草案/模拟/学习候选",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    },
+    {
+      "name": "fs.strategy.read_review",
+      "source_files": [
+        "strategy_tools.py"
+      ],
+      "permission": "策略草案/模拟/学习候选",
+      "registration": "活动源码出现；含兼容别名，实际可调用以当前schema/代理目录为准",
+      "new_account_test": "未执行",
+      "backend_acl_name": null
+    }
+  ],
+  "unmapped_requirements": [
+    {
+      "system": "Admin",
+      "requirement": "ES导出状态/任务列表/分片文件/签名下载域",
+      "capability": "D04",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Admin",
+      "requirement": "折扣码Total Used/Sales/Sum相关辅助统计动作及完整搜索字段",
+      "capability": "D11",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Admin",
+      "requirement": "会员详情/可用与冻结状态/首购历史",
+      "capability": "D08",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Admin",
+      "requirement": "优惠券定向发放/批次/停用或撤回",
+      "capability": "D15",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Admin",
+      "requirement": "商品/模型add、批量上下架/标签/库存/价格字段的正式ACL",
+      "capability": "D18-D21",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Admin/媒体",
+      "requirement": "当前上传签名/凭证初始化/附件查询的实际域和动作",
+      "capability": "D22",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Order",
+      "requirement": "订单列表/详情/完整日志及交货记录统计的当前实际URL",
+      "capability": "O03-O05",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "Order",
+      "requirement": "发货统计/供应商统计及各只读详情的当前URL",
+      "capability": "O01-O02/O05",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "FS",
+      "requirement": "各动态kind/新账号名单/项目grant/资源owner范围",
+      "capability": "F01-F16",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    },
+    {
+      "system": "外部",
+      "requirement": "Google及其他平台的实际资源ID/角色与账号绑定",
+      "capability": "X01-X06",
+      "status": "待技术负责人映射正式ACL和当前接口"
+    }
+  ],
+  "sources": {
+    "S1": {
+      "path": "docs/planning/admin-order-api-reuse-20261013/share/接口总表.md",
+      "level": "2026-10-13整理的源码/历史接口合同；本轮未逐接口实测",
+      "sha256": "e765f667d0d142dd940fc752fc10cdfc56170abdaba09cf03fe82b10e0fb2a38"
+    },
+    "S2": {
+      "path": "docs/planning/admin-order-capability-audit-20261014/DEEP-READ-CONTRACTS.md",
+      "also": [
+        "docs/planning/admin-order-capability-audit-20261014/ADMIN-BUNDLE-CONTRACT.md",
+        "docs/planning/admin-order-capability-audit-20261014/COUPON-PAGING-CONTRACT.md"
+      ],
+      "level": "既有静态合同及其标注的历史实测；非新账号实测",
+      "sha256": "6ca8d2f330b9dc58c60703c2c26496985b0aa2a9fe2c55cf9fa2fa8127381658"
+    },
+    "S3": {
+      "path": "docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md",
+      "level": "当前共享会话恢复/旧独立登录退役记录",
+      "sha256": "a1db0f5cfd1d6582d416855006c4ce182c62dc2e6b2ebdbac684795bdcb34cad"
+    },
+    "S4": {
+      "path": "docs/planning/fs-permissions-unification-20260930/role-contract-and-acceptance.md",
+      "level": "历史角色合同；实际当前名单须按活动策略核，不复制旧三管理员人数",
+      "sha256": "4c32cf7754906e25c7c99942264ee90f1e2b6e7a9d8c780bd53ee12e1a8090c9"
+    },
+    "S5": {
+      "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+      "level": "当前v3业务规则，源码SHA256 92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2",
+      "sha256": "92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2"
+    },
+    "S6": {
+      "path": "docs/fc27-players/model-images-20261003/README.md",
+      "also": [
+        "docs/planning/mlb-admin-api-feasibility-20261012/README.md",
+        "docs/planning/fc27-pack-bundles-20261013/README.md"
+      ],
+      "level": "模块接口/执行合同；各记录按时点解释",
+      "sha256": "9eb9c6b8e3c8c686f153df7facc936fa90acde755d5b714bbdd8da6306dcd1d8"
+    },
+    "S7": {
+      "path": "docs/planning/hermes-v2-core-20261020/STRATEGY-DELIVERY.md",
+      "also": [
+        "docs/planning/hermes-v2-core-20261020/PRODUCTION-ACCEPTANCE.md"
+      ],
+      "level": "现有研究/学习合同及本轮活动源码盘点",
+      "sha256": "73924b9153829bfb53c3c625fc40245a9f08aaa1b4e19d429a942172c8236fa2"
+    },
+    "S8": {
+      "path": "2026-10-21本轮服务器只读盘点",
+      "level": "32个活动源码文件路由/工具名及nginx -T已加载配置；未执行业务写入；不是接口或新账号权限实测"
+    },
+    "S9": {
+      "path": "docs/planning/mmoexp-google-data-20260930/weekly-details-delivery.md",
+      "level": "现有Google账号/报告范围合同；外部授权另核",
+      "sha256": "8a6c89b3a9eba63f11db0d3f91099f60113d82638ae6bc1057884d56b1fad460"
+    }
+  },
+  "current_source_hashes": {
+    "fs_evidence.py": "18de6ffe03bf10edbabf5654e01d8d030a3bfffaede372e1b5a46a330406025d",
+    "report_semantics.py": "afc5c0499767c346aec33a568ba1008fbff0edb89d14d803828a7217700d7716",
+    "evidence_access.py": "27c85f4f21cd293e23f07cc7f5becd3117c4c1ba0d22a9ca6d01ea988f84b27d",
+    "source_snapshots.py": "c8b3c5977838a36641813dccf8df3e0c0013447989d757505fe59ebc51d516e7",
+    "business_context.py": "eec6afbe487a5dc9dc0e14c88a3240beadf32129b69075f3b8eee03c517db3a4",
+    "transport.py": "e677a186a893c346379ba572576afdfbd412612cc5c63146751182558743f843",
+    "network_guard.py": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23",
+    "research.py": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d",
+    "cohort_paid_source.py": "e711cb9fcaf9c2cdc03af1d28619895dc7f391aaa7f8b4cc3846fca5fc6a3663",
+    "boss_renderer.py": "1ecd8c91a9306b3caf15656b5efdaea857d17951162bd511e2498a1ec8a209c4",
+    "cohort_reader.py": "2aadaa44adbf41eff443b78a5d80e786456b56763714508374d29ca1577049ce",
+    "cohort_es_source.py": "1ef04fa03035d8afab0a95e5c2462e9e32b8f516d27fef29b32c75a5f0670293",
+    "official_intelligence.py": "0659c7dc6683ff9caf7042b5bd9e4ca459a2567e072bd372c390b7104d8f4e1a",
+    "continuation.py": "8af613072e82c08d13cc2c07d391fcf3f591a96066f139e5b853e1f889b84169",
+    "report_html.py": "9fc8b2fe831900ff61b245feb537ae577d8709fa67f98a0ff556893889a68510",
+    "proxy_gateway.py": "d64690cf8428bd98abcdb007e0f40eb57d00207f26c7fb86af9d2b8643905ab4",
+    "pilot.py": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999",
+    "controller.py": "440ac7866caed5273eb894756a47c058eaf520f1a508fadc779ff4586e44ab45",
+    "runs_contract.py": "ea5ba3906f0dc85ef3bc52cdf17f9f9cfaae2b91ad79b195c86a9779688d4792",
+    "conversation_service.py": "b9546a8776a258386cfa299455896622049be014ce91a7cce5a35e593120a875",
+    "pricing_simulation.py": "7fdd0daf2a3e1138ab5b37f6663d3c227596c670cd1bc362b829ac8b3845f5f2",
+    "strategy_tools.py": "4abb06ee69ca0f134248cf113936e3b3b8c43e75e4440bda51f13b57cf596730",
+    "hermes_worker.py": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00",
+    "es_order_structure.py": "3af4bdd3f95cd76df823bf9fe136f391716f5e939512c414949facf640053b80",
+    "workspace_evidence.py": "55b17f3965d2bc6be80e1d52fdecf1ef341bea2e5be1886218bccdd21082cd63",
+    "imported_reports.py": "54e2d96f3663ce2b59905d68dd73a4553bfa7dd6892a10ab7add15800d45d29c",
+    "direct_provider.py": "91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa",
+    "admin_product_orders.py": "ed987f811757a94e5fc910566122590437bf59260f8ba97bbd99b898b37a3175",
+    "report_validation.py": "e0fab83d5f6b095d28ea31ca0928397ba23d7441ae88261c42ba3c2c597f6a9a",
+    "management_context.py": "c0dafc3e10847eb82c90d4fd9e37b96cffbe4d0b09bfe11bb55bb76c7d7a4d06",
+    "/opt/fc27-cloud-browser/fc27_cloud_api.py": "113f01760011eff4bd473e63b7bfedd5d367a1562664d1bc7fc8706483437c52",
+    "/opt/fs-exact-range-20261001/range_api.py": "82da6576d6b89899489731c2ecb9b6bdbc4fab8a2ca66b866e680229154dd4ac"
+  },
+  "loaded_nginx_entry_lines": [
+    "location /api/fc27/cloud/ {",
+    "location /api/madden/cloud/ {",
+    "location /d4/ {",
+    "location /dashboard/ {",
+    "location /dashboard/api/ {",
+    "location /dashboard/fc27-activity-api/ {",
+    "location /dashboard/fc27-bundles-api/ {",
+    "location /dashboard/fc27-quote-api/ {",
+    "location /dashboard/fc27-sbc/ {",
+    "location /dashboard/fs-home/ {",
+    "location /deploy/ {",
+    "location /g2g/ {",
+    "location /mlb/ {",
+    "location /nba2k27/ {",
+    "location /nba2k27/api/ {",
+    "location /s/wulv/fc27-ops/api/ {",
+    "location /sales/ {",
+    "location /tools/fc27-gallery/ {",
+    "location /tools/fc27-players/ {",
+    "location = / { return 301 /dashboard/; }",
+    "location = /api/fs/v1/profiles {",
+    "location = /api/fs/v1/statistics {",
+    "location = /api/hermes/conversations {",
+    "location = /d4 { return 301 /d4/; }",
+    "location = /dashboard { return 301 /dashboard/; }",
+    "location = /dashboard/ {",
+    "location = /dashboard/__preview/management-v2-20261015/aion2.html {",
+    "location = /dashboard/__preview/management-v2-20261015/arc_raiders.html {",
+    "location = /dashboard/__preview/management-v2-20261015/arena_breakout_infinite.html {",
+    "location = /dashboard/__preview/management-v2-20261015/cfb27.html {",
+    "location = /dashboard/__preview/management-v2-20261015/cod_bo7.html {",
+    "location = /dashboard/__preview/management-v2-20261015/d4.html {",
+    "location = /dashboard/__preview/management-v2-20261015/dark_and_darker.html {",
+    "location = /dashboard/__preview/management-v2-20261015/fc27.html {",
+    "location = /dashboard/__preview/management-v2-20261015/index.html {",
+    "location = /dashboard/__preview/management-v2-20261015/maplestory_classic.html {",
+    "location = /dashboard/__preview/management-v2-20261015/mlb26.html {",
+    "location = /dashboard/__preview/management-v2-20261015/nba2k27.html {",
+    "location = /dashboard/__preview/management-v2-20261015/nfl27.html {",
+    "location = /dashboard/__preview/management-v2-20261015/poe2.html {",
+    "location = /dashboard/__preview/management-v2-20261015/rs.html {",
+    "location = /dashboard/__preview/management-v2-20261015/sandbox.html {",
+    "location = /dashboard/__preview/management-v2-20261015/wow_forever.html {",
+    "location = /dashboard/__preview/navigation-20261006/analytics/ {",
+    "location = /dashboard/__preview/navigation-20261006/analytics/index.html {",
+    "location = /dashboard/analytics/ {",
+    "location = /dashboard/analytics/index.html {",
+    "location = /dashboard/boss-api/insight {",
+    "location = /dashboard/data-tools/ {",
+    "location = /dashboard/data-tools/index.html {",
+    "location = /dashboard/fc27-sbc { return 301 /dashboard/fc27-sbc/; }",
+    "location = /dashboard/fs-home/hermes/conversation/ {",
+    "location = /dashboard/fs-home/hermes/conversation/index.html {",
+    "location = /dashboard/fs-home/hermes/customer-tracking/ {",
+    "location = /dashboard/fs-home/hermes/customer-tracking/index.html {",
+    "location = /dashboard/game-monitor { return 302 /dashboard/game-monitor/; }",
+    "location = /dashboard/game-monitor/ { rewrite ^ /dashboard/game-monitor/index.html last; }",
+    "location = /dashboard/game-monitor/index.html {",
+    "location = /dashboard/index.html {",
+    "location = /dashboard/management { return 302 /dashboard/management/; }",
+    "location = /dashboard/management/ { rewrite ^ /dashboard/management/index.html last; }",
+    "location = /dashboard/management/aion2.html {",
+    "location = /dashboard/management/arc_raiders.html {",
+    "location = /dashboard/management/arena_breakout_infinite.html {",
+    "location = /dashboard/management/cfb27.html {",
+    "location = /dashboard/management/cod_bo7.html {",
+    "location = /dashboard/management/d4.html {",
+    "location = /dashboard/management/dark_and_darker.html {",
+    "location = /dashboard/management/fc27.html {",
+    "location = /dashboard/management/index.html {",
+    "location = /dashboard/management/maplestory_classic.html {",
+    "location = /dashboard/management/mlb26.html {",
+    "location = /dashboard/management/nba2k27.html {",
+    "location = /dashboard/management/nfl27.html {",
+    "location = /dashboard/management/poe2.html {",
+    "location = /dashboard/management/rs.html {",
+    "location = /dashboard/management/sandbox.html {",
+    "location = /dashboard/management/wow_forever.html {",
+    "location = /dashboard/marketing {",
+    "location = /dashboard/marketing/ {",
+    "location = /dashboard/marketing/index.html {",
+    "location = /dashboard/marketing/weekly/ {",
+    "location = /dashboard/marketing/weekly/index.html {",
+    "location = /dashboard/marketing/weekly/legacy-index.html {",
+    "location = /dashboard/ops.html { return 301 /dashboard/; }",
+    "location = /dashboard/release-radar { return 302 /dashboard/game-monitor/; }",
+    "location = /dashboard/release-radar/ { return 302 /dashboard/game-monitor/; }",
+    "location = /dashboard/release-radar/index.html { return 302 /dashboard/game-monitor/; }",
+    "location = /dashboard/tasks {",
+    "location = /deploy { return 301 /deploy/; }",
+    "location = /deploy/api/client.py {",
+    "location = /g2g { return 301 /g2g/; }",
+    "location = /mlb { return 301 /mlb/; }",
+    "location = /nba2k27 { return 301 /nba2k27/; }",
+    "location = /sales { return 301 /sales/; }",
+    "location = /sales/api/refresh {",
+    "location = /sales/api/status {",
+    "location = /tools/fc27-gallery { return 301 /tools/fc27-gallery/; }",
+    "location = /tools/fc27-players { return 301 /tools/fc27-players/; }",
+    "location ^~ /api/hermes/conversations/ {",
+    "location ^~ /dashboard/__preview/navigation-20261006/ { return 404; }",
+    "location ^~ /dashboard/analytics/ { return 404; }",
+    "location ^~ /dashboard/api/marketing/ {",
+    "location ^~ /dashboard/game-monitor/ { return 404; }",
+    "location ^~ /dashboard/management/ { return 404; }",
+    "location ^~ /dashboard/marketing/ {",
+    "location ^~ /dashboard/release-radar/ { return 410; }",
+    "location ^~ /dashboard/tasks/ {",
+    "location ^~ /dashboard/tasks/api/ {"
+  ]
+}
