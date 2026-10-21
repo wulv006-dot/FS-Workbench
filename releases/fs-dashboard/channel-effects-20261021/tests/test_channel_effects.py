@@ -59,6 +59,13 @@ class Effects(unittest.TestCase):
         self.config += [dict(code='Alpha', site_id='266', gid='1', uid=99, admins={})]
         self.assertTrue(Attribution(self.mapping, self.config, {}).resolve(order())['conflict'])
 
+    def test_member_uid_is_not_labeled_as_the_code_admin(self):
+        self.config.append(dict(code='Alpha', site_id='266', gid='1', uid=42, admins={'nickname':'另一操作员'}))
+        row = Attribution(self.mapping, self.config, {}).resolve(order())
+        self.assertEqual(row['promoterUid'], '42')
+        self.assertEqual(row['promoter'], '推广人 42')
+        self.assertFalse(row['conflict'])
+
     def test_referrer_without_code_not_counted_as_coded(self):
         rows = self.rows()
         self.assertEqual(rows[1]['project'], 'KOL')
