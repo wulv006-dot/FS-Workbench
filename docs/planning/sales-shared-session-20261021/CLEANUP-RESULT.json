@@ -1,0 +1,118 @@
+{
+  "operation": "fs-auth-cleanup-20261021-v1",
+  "state": "CLEANED_VERIFIED",
+  "entries": [
+    {
+      "name": "sales_auth.py",
+      "path": "/opt/sales-dashboard/collector/p2pah_auth.py",
+      "before": "f21200652de47461d5069cc3d317bddd076dc3bf29a8fb692553fa7e4fee8777",
+      "after": "3b33f2c3f79d71f312d06ee0ab8593f977b7b0cacdf2f169d688679e7d815ff9",
+      "before_bytes": 11571,
+      "after_bytes": 6767
+    },
+    {
+      "name": "sbc_admin.py",
+      "path": "/opt/fc27-sbc-tool/admin_client.py",
+      "before": "9c96deec225595950633e9ef0157e0c6ebd7cc20ec466527c788b16282ef2f33",
+      "after": "dac7ec0009b966775fcea98bc788241bdd0a4881be2cbc8d0e39b97f507e5173",
+      "before_bytes": 52456,
+      "after_bytes": 49467
+    },
+    {
+      "name": "sbc_webapp.py",
+      "path": "/opt/fc27-sbc-tool/webapp.py",
+      "before": "a3329cd056493cc6f0aea8ac58da3f089e8f32ada9a9b34781041f018b85231f",
+      "after": "377d6b03a772227c7058b573620cb774da3f5afd4061112d011ec20958dc25e6",
+      "before_bytes": 261127,
+      "after_bytes": 269654
+    }
+  ],
+  "login_requests": 0,
+  "upload_signing_externalized": true,
+  "runtime_compile_fix": "PAGE literal split into lines; actual service Python compiled",
+  "retired_source_files": [
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/deploy_sales.py",
+      "sha256": "9e340f5ad5f10444a166d008d22e3a17cf0cc0fd0fad9feaa69d3031a5ca72d1"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/verify_updated_credentials.py",
+      "sha256": "120b7633a889d9c569dcc7f32e4a226a2544f1b758a558861553383764a78168"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/prepare_patch.py",
+      "sha256": "925cdba2686e23449da0b168b2b644ad3a4be72b12a92a6736f5a1ef32e61ca8"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/fetch_manual_captcha.py",
+      "sha256": "8b7e29e602222a67feb8a5e46707311abba5bdb5c28da3603544e8f83e652c2b"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/unify_admin.py",
+      "sha256": "f0c06a5dd5b8049748a92f01b6c508d241346b29fc3cc03bab33e88f84059807"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/shared_admin.py",
+      "sha256": "6ab54fdcdf2ae4d95e9ce53dc16869b6f663471c2f04be0b0e784c5374218cdd"
+    },
+    {
+      "path": "/opt/sales-dashboard/maintenance/shared-session-20261021-v1/deploy_admin.py",
+      "sha256": "59fa1e9196b24e1cd815d64055a448ccb183c051d05560b78f9ef4044285a7ee"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/prepare_manual_session.py",
+      "sha256": "ce1630eb2878f79a6f1e4c09669ce36646e36fab3811a3a941173e10813b612c"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/deploy_sales.py",
+      "sha256": "9e340f5ad5f10444a166d008d22e3a17cf0cc0fd0fad9feaa69d3031a5ca72d1"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/deploy_manual_session.py",
+      "sha256": "2b156ccaf40749e62fd459e7888dcbcb090ed4c3a17f71859abf24a8d9e49804"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/prepare.py",
+      "sha256": "6a6829e4a24042dc989c099b53dad4d5feb4920ff77b8fb89641017308bd8ad5"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/prepare_patch.py",
+      "sha256": "925cdba2686e23449da0b168b2b644ad3a4be72b12a92a6736f5a1ef32e61ca8"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/unify_admin.py",
+      "sha256": "c238cf4948e05c9254d1a31f4ff887f4852f653cf62cd6bfa832608dc5c67c9d"
+    },
+    {
+      "path": "/opt/fc27-session-build/20261021-wulv-manual-v1/retire_independent_admin.py",
+      "sha256": "cb61316057138202ccfe193a83b214d2b7f357d2d613680806df7edd767a6e0c"
+    },
+    {
+      "path": "/opt/fc27-cloud-browser/p2pah_auth_probe.py",
+      "sha256": "f6a739a564e328b58b4816d07efcc866af81c30edefa3e53736e39370cec5fa8"
+    }
+  ],
+  "obsolete_sales_credential_keys_removed": true,
+  "git_merge": "63032f63a339ae0b9cdf872e18ce30e32ca34b2f",
+  "git_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/268",
+  "git_head": "9607259efa586251702e3709d41cf11007d340a5",
+  "git_base": "04c15783aaafa917006aa02b7dfb6c855c7f88dc",
+  "git_ci_run": 39563795024,
+  "git_ci_tests": 46,
+  "git_readback_paths": 13,
+  "git_removed_paths": 12,
+  "local_removed_files": 18,
+  "local_bundle_files": 219,
+  "shared_inventory_files": 704,
+  "sales_full_sync": "passed_2026-10-21T16:14:03+08:00",
+  "git_ci_job": 119101090961,
+  "sales_failure": "global_order_unavailable; five consecutive delivery pages rejected; no new publish",
+  "order_fix_coordination_authorized": true,
+  "order_fix_owner_thread": "01a15c8a-caea-7c30-8063-9425d1722906",
+  "local_sbc_source": "fc27_sbc_fix_20261015/source/webapp.py",
+  "acceptance_result": "ACCEPTANCE-RESULT.json",
+  "sales_timer": "active/enabled",
+  "prior_failed_run_preserved": true,
+  "natural_cycle": "passed_2026-10-21T16:23:06+08:00",
+  "natural_result": "NATURAL-RESULT.json"
+}

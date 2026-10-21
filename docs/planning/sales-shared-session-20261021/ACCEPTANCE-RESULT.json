@@ -1,0 +1,64 @@
+{
+  "operation": "fs-sales-acceptance-20261021-v1",
+  "state": "FULL_SYNC_PUBLISHED_TIMER_RESTORED",
+  "captured_at": "2026-10-21T16:15:36.071357+08:00",
+  "pid": 29017,
+  "service": {
+    "MainPID": "0",
+    "Result": "success",
+    "ExecMainStatus": "0",
+    "ActiveState": "inactive",
+    "SubState": "dead",
+    "UnitFileState": "static"
+  },
+  "metadata": {
+    "start": "2026-09-17",
+    "end": "2026-10-21",
+    "admin_gid": 891,
+    "order_gid": 826,
+    "fetched_at": "2026-10-21 16:14:02",
+    "full": true,
+    "orders": 2481,
+    "discounts": 1393,
+    "members": 473,
+    "deliveries": 4534
+  },
+  "published_sha256": "060a768b09684f8df3fdbde5c763f54ac45d77a887366ed734315794f69f6383",
+  "published_files_identical": true,
+  "delivery_pages": [
+    147,
+    81
+  ],
+  "source_sha256": {
+    "/opt/sales-dashboard/collector/p2pah_auth.py": "3b33f2c3f79d71f312d06ee0ab8593f977b7b0cacdf2f169d688679e7d815ff9",
+    "/opt/sales-dashboard/collector/fetch_all.py": "28f71b37cea11406cf66cf6e1fa9483d243aec072916e88a105924672c7df396",
+    "/opt/fc27-sbc-tool/admin_client.py": "dac7ec0009b966775fcea98bc788241bdd0a4881be2cbc8d0e39b97f507e5173",
+    "/opt/fc27-sbc-tool/webapp.py": "377d6b03a772227c7058b573620cb774da3f5afd4061112d011ec20958dc25e6"
+  },
+  "health": {
+    "8767": {
+      "ready": true,
+      "last_ok": "2026-10-21T08:10:46.686591+00:00",
+      "last_error": null,
+      "login_attempts": 1,
+      "probe_path": null
+    },
+    "8768": {
+      "ready": true,
+      "last_ok": null,
+      "last_error": null,
+      "login_attempts": 0,
+      "probe_path": "/admin/index/index.html"
+    }
+  },
+  "retired_unit_masked": true,
+  "pagination_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/270",
+  "pagination_merge": "00c1166769e765a30e5cd464b4d820fc488ce36f",
+  "natural_cycle": "not_yet_observed",
+  "timer_enable_exit_code": 0,
+  "timer": {
+    "ActiveState": "active",
+    "SubState": "waiting",
+    "UnitFileState": "enabled"
+  }
+}
