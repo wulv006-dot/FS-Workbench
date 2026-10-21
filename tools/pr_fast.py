@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py"]) != ["hermes-server-unify"]:
+        raise RuntimeError("hermes_server_unify_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
         raise RuntimeError("coins_workflow_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
@@ -364,6 +366,8 @@ def select(paths):
             groups.add("hermes-v2-review-repair");continue
         if name.startswith("releases/fs-dashboard/hermes-v2-core-20261020/"):
             groups.add("hermes-v2-core");continue
+        if name.startswith("releases/fs-dashboard/hermes-server-unify-20261022/"):
+            groups.add("hermes-server-unify");continue
         if name.startswith("releases/fs-dashboard/hermes-ops-20261020/"):
             groups.add("hermes-ops");continue
         if name.startswith("releases/fs-dashboard/hermes-admin-recovery-20261020/"):
@@ -967,6 +971,8 @@ def main():
             node(workspace+"/frontend/test-workspace.cjs")
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
+        elif group=="hermes-server-unify":
+            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly"])
         elif group=="hermes-ops":
             units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
         elif group=="fs-business-baseline":
@@ -1043,3 +1049,4 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+

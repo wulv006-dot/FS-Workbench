@@ -18,6 +18,26 @@ def age(stamp, now):
         raise ValueError('timezone_required')
     return (now - value).total_seconds()
 
+
+def feishu_connection(log, started_at, previous=None):
+    """Only accept a connection event from the current supervised gateway process."""
+    for line in reversed(log.splitlines()):
+        if 'gateway.run:' not in line:
+            continue
+        state = 'disconnected' if 'feishu disconnected' in line else 'connected' if 'feishu connected' in line else None
+        if state is None:
+            continue
+        try:
+            event = datetime.strptime(line[:23], '%Y-%m-%d %H:%M:%S,%f').replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            return 'unknown'
+        if event >= started_at:
+            return state
+        break
+    # A retained event survives log rotation only for the same process incarnation.
+    previous = previous or {}
+    return previous.get('state', 'unknown') if previous.get('started_at') == started_at else 'unknown'
+
 def repair_html(before):
     text = before.decode('utf-8')
     if text.count('<head>') != 1 or text.count('</head>') != 1 or text.count('<link rel="stylesheet" href="brain.css">') != 1:
