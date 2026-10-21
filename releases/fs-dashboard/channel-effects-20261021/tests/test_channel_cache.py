@@ -72,6 +72,33 @@ class Archive(unittest.TestCase):
                 self.assertEqual(code,200);self.assertTrue(result['refreshing'])
                 service.pool.submit.assert_called_once()
 
+    def test_exact_order_supplement_merges_without_double_count_and_is_scoped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);row=dict(delivery_id='1',genre=1,source='www.mmoexp.com',sn='A',sale_total='70',cost_total='35')
+            value=dict(contract='channel-order-deliveries-v1',complete=True,generatedAt='2026-10-21T00:00:00+08:00',rows=[row])
+            cache.atomic(root/'order-deliveries.json',value)
+            cache.atomic(root/'order-supplements.json',dict(value,scope='exact_orders',orderNos=['A']))
+            result=cache.apply_delivery_cache(self.fixture(),root)
+            self.assertEqual((result['orders'][0]['costCny'],result['orders'][0]['deliveryRows']),(35,1))
+            cache.atomic(root/'order-supplements.json',dict(value,scope='exact_orders',orderNos=['B']))
+            with self.assertRaisesRegex(ValueError,'supplement_order_scope'):cache.apply_delivery_cache(self.fixture(),root)
+
+    def test_delivery_closed_day_includes_final_minute_and_rejects_outside_window(self):
+        from channel_cost_source import collect
+        def page(stamp):
+            cells=['','42','订单发货','www.mmoexp.com','A',stamp,'Game','1','0','35','35','70','50','','','','','','']
+            return '<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead><tbody><tr>'+''.join('<td>'+v+'</td>' for v in cells)+'</tr></tbody></table>'
+        session=SimpleNamespace(get_order=Mock(return_value=(200,page('26-10-13 23:59:35'))))
+        result=collect(session,'2026-10-13','2026-10-13')
+        self.assertEqual(result[0]['trade_at'],'2026-10-13 23:59:35')
+        self.assertEqual(session.get_order.call_args.kwargs['end'],'2026-10-13 23:59:59')
+        collect(session,'2026-10-13','2026-10-13',since='2026-10-13 23:59',until='2026-10-13 23:59')
+        self.assertEqual(session.get_order.call_args.kwargs['start'],'2026-10-13 23:59:00')
+        self.assertEqual(session.get_order.call_args.kwargs['end'],'2026-10-13 23:59:59')
+        session.get_order.return_value=(200,page('26-10-14 00:00:00'))
+        with self.assertRaisesRegex(ValueError,'delivery_filter_not_honored'):collect(session,'2026-10-13','2026-10-13')
+        with self.assertRaisesRegex(ValueError,'invalid_delivery_window'):collect(session,'2026-10-13','2026-10-13',until='2026-10-14 00:00')
+
     def test_nightly_defaults_to_shanghai_yesterday_and_idle_window_does_no_daytime_read(self):
         current=datetime(2026,10,21,20,0,tzinfo=TZ)
         with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch.object(cache,'ROOT',Path(folder)),patch.object(cache,'datetime') as clock,patch.object(cache,'cache_day',return_value={'status':'complete'}) as collect:

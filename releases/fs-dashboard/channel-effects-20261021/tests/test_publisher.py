@@ -14,6 +14,19 @@ release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release
 
 
 class Publisher(unittest.TestCase):
+    def test_accounting_release_changes_only_four_readers_and_three_assets(self):
+        sys.path.insert(0,str(ROOT/'deploy'))
+        try:
+            spec=importlib.util.spec_from_file_location('channel_accounting_release',ROOT/'deploy/accounting_fix.py')
+            fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+            self.assertEqual(len(fix.TARGETS),8)
+            self.assertEqual({k for k in fix.TARGETS if k.startswith('runtime/')},{'runtime/'+n for n in ('channel_effects.py','channel_source.py','channel_cache.py','channel_cost_source.py')})
+            before=('preserved\n'+('alias /var/lib/fs-navigation-formal-static/'+fix.OLD+'/file;\n')*3).encode()
+            after=fix.candidate(before)
+            self.assertTrue(after.startswith(b'preserved\n'));self.assertEqual(after.count(fix.NEW.encode()),3)
+            with self.assertRaises(ValueError):fix.candidate(before+b'alias /var/lib/fs-navigation-formal-static/'+fix.OLD.encode()+b'/extra;')
+        finally:sys.path.pop(0)
+
     def test_new_cache_schedule_admits_only_its_exact_four_units(self):
         sys.path.insert(0,str(ROOT/'deploy'))
         try:

@@ -29,6 +29,7 @@
     "mapping": {},
     "summary": {
       "orders": 3,
+      "testOrders": 0,
       "salesUsd": 70.0,
       "coveredOrders": 2,
       "completedOrders": 3,
@@ -54,6 +55,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -79,6 +81,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 3,
+        "testOrders": 0,
         "salesUsd": 70.0,
         "coveredOrders": 2,
         "completedOrders": 3,
@@ -105,6 +108,7 @@
         "key": "SEO",
         "label": "SEO",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -129,6 +133,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 1,
         "completedOrders": 2,
@@ -153,6 +158,7 @@
         "key": "无推广归属",
         "label": "无推广归属",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -179,6 +185,7 @@
         "key": "beta",
         "label": "beta",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -204,6 +211,7 @@
         "key": "",
         "label": "推荐人无码",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 20.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -229,6 +237,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -257,6 +266,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 2,
           "completedOrders": 3,
@@ -283,6 +293,7 @@
           "key": "US",
           "label": "US",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 2,
           "completedOrders": 3,
@@ -309,6 +320,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 2,
           "completedOrders": 3,
@@ -335,6 +347,7 @@
           "key": "老客",
           "label": "老客",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 60.0,
           "coveredOrders": 1,
           "completedOrders": 2,
@@ -359,6 +372,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -385,6 +399,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 2,
           "completedOrders": 3,
@@ -449,6 +464,7 @@
         "attributionSource": "discount_configuration",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -478,6 +494,7 @@
         "attributionSource": "recommend_uid",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本待核"
       },
       {
@@ -524,6 +541,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -565,6 +583,7 @@
     "mapping": {},
     "summary": {
       "orders": 2,
+      "testOrders": 0,
       "salesUsd": 30.0,
       "coveredOrders": 1,
       "completedOrders": 2,
@@ -590,6 +609,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -615,6 +635,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 1,
         "completedOrders": 2,
@@ -641,6 +662,7 @@
         "key": "SEO",
         "label": "SEO",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -665,6 +687,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 1,
         "completedOrders": 2,
@@ -689,6 +712,7 @@
         "key": "无推广归属",
         "label": "无推广归属",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -715,6 +739,7 @@
         "key": "",
         "label": "推荐人无码",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 20.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -740,6 +765,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -768,6 +794,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 30.0,
           "coveredOrders": 1,
           "completedOrders": 2,
@@ -794,6 +821,7 @@
           "key": "US",
           "label": "US",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 30.0,
           "coveredOrders": 1,
           "completedOrders": 2,
@@ -820,6 +848,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 30.0,
           "coveredOrders": 1,
           "completedOrders": 2,
@@ -846,6 +875,7 @@
           "key": "老客",
           "label": "老客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 20.0,
           "coveredOrders": 0,
           "completedOrders": 1,
@@ -870,6 +900,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -896,6 +927,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 30.0,
           "coveredOrders": 1,
           "completedOrders": 2,
@@ -960,6 +992,7 @@
         "attributionSource": "recommend_uid",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本待核"
       },
       {
@@ -1006,6 +1039,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -1047,6 +1081,7 @@
     "mapping": {},
     "summary": {
       "orders": 1,
+      "testOrders": 0,
       "salesUsd": 10.0,
       "coveredOrders": 1,
       "completedOrders": 1,
@@ -1072,6 +1107,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -1097,6 +1133,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1123,6 +1160,7 @@
         "key": "SEO",
         "label": "SEO",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1147,6 +1185,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 1,
         "completedOrders": 2,
@@ -1171,6 +1210,7 @@
         "key": "无推广归属",
         "label": "无推广归属",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -1197,6 +1237,7 @@
         "key": "",
         "label": "推荐人无码",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 20.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -1222,6 +1263,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1250,6 +1292,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1276,6 +1319,7 @@
           "key": "US",
           "label": "US",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1302,6 +1346,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1328,6 +1373,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1354,6 +1400,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1435,6 +1482,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -1476,6 +1524,7 @@
     "mapping": {},
     "summary": {
       "orders": 1,
+      "testOrders": 0,
       "salesUsd": 10.0,
       "coveredOrders": 1,
       "completedOrders": 1,
@@ -1501,6 +1550,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -1526,6 +1576,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1552,6 +1603,7 @@
         "key": "7",
         "label": "券",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1576,6 +1628,7 @@
         "key": "8",
         "label": "另一券",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1602,6 +1655,7 @@
         "key": "one",
         "label": "one",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1626,6 +1680,7 @@
         "key": "two",
         "label": "two",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1653,6 +1708,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1679,6 +1735,7 @@
           "key": "US",
           "label": "US",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1705,6 +1762,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1731,6 +1789,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1757,6 +1816,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -1838,6 +1898,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -1879,6 +1940,7 @@
     "mapping": {},
     "summary": {
       "orders": 1,
+      "testOrders": 0,
       "salesUsd": 10.0,
       "coveredOrders": 1,
       "completedOrders": 1,
@@ -1904,6 +1966,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -1929,6 +1992,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1955,6 +2019,7 @@
         "key": "7",
         "label": "券",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -1979,6 +2044,7 @@
         "key": "8",
         "label": "另一券",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2005,6 +2071,7 @@
         "key": "one",
         "label": "one",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2032,6 +2099,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2058,6 +2126,7 @@
           "key": "US",
           "label": "US",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2084,6 +2153,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2110,6 +2180,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2136,6 +2207,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2217,6 +2289,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -2258,6 +2331,7 @@
     "mapping": {},
     "summary": {
       "orders": 0,
+      "testOrders": 0,
       "salesUsd": 0.0,
       "coveredOrders": 0,
       "completedOrders": 0,
@@ -2283,6 +2357,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 2,
       "completedOrders": 4,
@@ -2307,6 +2382,7 @@
       {
         "key": "2026-10-20",
         "orders": 0,
+        "testOrders": 0,
         "salesUsd": 0.0,
         "coveredOrders": 0,
         "completedOrders": 0,
@@ -2333,6 +2409,7 @@
         "key": "SEO",
         "label": "SEO",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2357,6 +2434,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 1,
         "completedOrders": 2,
@@ -2381,6 +2459,7 @@
         "key": "无推广归属",
         "label": "无推广归属",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -2407,6 +2486,7 @@
         "key": "beta",
         "label": "beta",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2432,6 +2512,7 @@
         "key": "",
         "label": "推荐人无码",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 20.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -2457,6 +2538,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2539,6 +2621,7 @@
     "mapping": {},
     "summary": {
       "orders": 3,
+      "testOrders": 0,
       "salesUsd": 70.0,
       "coveredOrders": 1,
       "completedOrders": 1,
@@ -2564,6 +2647,7 @@
     },
     "denominator": {
       "orders": 4,
+      "testOrders": 0,
       "salesUsd": 100.0,
       "coveredOrders": 1,
       "completedOrders": 2,
@@ -2589,6 +2673,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 3,
+        "testOrders": 0,
         "salesUsd": 70.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2615,6 +2700,7 @@
         "key": "SEO",
         "label": "SEO",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2639,6 +2725,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 2,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 0,
@@ -2663,6 +2750,7 @@
         "key": "无推广归属",
         "label": "无推广归属",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 30.0,
         "coveredOrders": 0,
         "completedOrders": 1,
@@ -2689,6 +2777,7 @@
         "key": "beta",
         "label": "beta",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 40.0,
         "coveredOrders": 1,
         "completedOrders": 1,
@@ -2714,6 +2803,7 @@
         "key": "",
         "label": "推荐人无码",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 20.0,
         "coveredOrders": 0,
         "completedOrders": 0,
@@ -2739,6 +2829,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 1,
+        "testOrders": 0,
         "salesUsd": 10.0,
         "coveredOrders": 0,
         "completedOrders": 0,
@@ -2767,6 +2858,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2793,6 +2885,7 @@
           "key": "US",
           "label": "US",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2819,6 +2912,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 3,
+          "testOrders": 0,
           "salesUsd": 70.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2845,6 +2939,7 @@
           "key": "老客",
           "label": "老客",
           "orders": 2,
+          "testOrders": 0,
           "salesUsd": 60.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2869,6 +2964,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 0,
           "completedOrders": 0,
@@ -2895,6 +2991,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 40.0,
           "coveredOrders": 1,
           "completedOrders": 1,
@@ -2919,6 +3016,7 @@
           "key": "验证·未通过",
           "label": "验证·未通过",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 20.0,
           "coveredOrders": 0,
           "completedOrders": 0,
@@ -2943,6 +3041,7 @@
           "key": "问题订单",
           "label": "问题订单",
           "orders": 1,
+          "testOrders": 0,
           "salesUsd": 10.0,
           "coveredOrders": 0,
           "completedOrders": 0,
@@ -3007,6 +3106,7 @@
         "attributionSource": "discount_configuration",
         "conflict": false,
         "zeroCost": true,
+        "testOrder": false,
         "costStatus": "已完成：确认零成本",
         "costBasis": "fictional confirmed coupon"
       },
@@ -3037,6 +3137,7 @@
         "attributionSource": "recommend_uid",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "欺诈单：待退款/申诉"
       },
       {
@@ -3083,6 +3184,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "未完成：不核算"
       }
     ],
@@ -3122,6 +3224,7 @@
     "mapping": {},
     "summary": {
       "orders": 120,
+      "testOrders": 0,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
       "completedOrders": 120,
@@ -3147,6 +3250,7 @@
     },
     "denominator": {
       "orders": 120,
+      "testOrders": 0,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
       "completedOrders": 120,
@@ -3172,6 +3276,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -3198,6 +3303,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -3224,6 +3330,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -3252,6 +3359,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -3278,6 +3386,7 @@
           "key": "US",
           "label": "US",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -3304,6 +3413,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -3330,6 +3440,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -3356,6 +3467,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -3437,6 +3549,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3483,6 +3596,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3529,6 +3643,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3575,6 +3690,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3621,6 +3737,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3667,6 +3784,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3713,6 +3831,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3759,6 +3878,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3805,6 +3925,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3851,6 +3972,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3897,6 +4019,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3943,6 +4066,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -3989,6 +4113,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4035,6 +4160,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4081,6 +4207,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4127,6 +4254,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4173,6 +4301,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4219,6 +4348,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4265,6 +4395,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4311,6 +4442,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4357,6 +4489,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4403,6 +4536,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4449,6 +4583,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4495,6 +4630,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4541,6 +4677,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4587,6 +4724,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4633,6 +4771,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4679,6 +4818,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4725,6 +4865,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4771,6 +4912,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4817,6 +4959,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4863,6 +5006,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4909,6 +5053,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -4955,6 +5100,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5001,6 +5147,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5047,6 +5194,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5093,6 +5241,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5139,6 +5288,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5185,6 +5335,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5231,6 +5382,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5277,6 +5429,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5323,6 +5476,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5369,6 +5523,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5415,6 +5570,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5461,6 +5617,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5507,6 +5664,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5553,6 +5711,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5599,6 +5758,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5645,6 +5805,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -5691,6 +5852,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -5733,6 +5895,7 @@
     "mapping": {},
     "summary": {
       "orders": 120,
+      "testOrders": 0,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
       "completedOrders": 120,
@@ -5758,6 +5921,7 @@
     },
     "denominator": {
       "orders": 120,
+      "testOrders": 0,
       "salesUsd": 1200.0,
       "coveredOrders": 120,
       "completedOrders": 120,
@@ -5783,6 +5947,7 @@
         "key": "2026-10-20",
         "label": "2026-10-20",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -5809,6 +5974,7 @@
         "key": "KOL",
         "label": "KOL",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -5835,6 +6001,7 @@
         "key": "alpha",
         "label": "Alpha",
         "orders": 120,
+        "testOrders": 0,
         "salesUsd": 1200.0,
         "coveredOrders": 120,
         "completedOrders": 120,
@@ -5863,6 +6030,7 @@
           "key": "Game A",
           "label": "Game A",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -5889,6 +6057,7 @@
           "key": "US",
           "label": "US",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -5915,6 +6084,7 @@
           "key": "PayPal",
           "label": "PayPal",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -5941,6 +6111,7 @@
           "key": "新客",
           "label": "新客",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -5967,6 +6138,7 @@
           "key": "已完成",
           "label": "已完成",
           "orders": 120,
+          "testOrders": 0,
           "salesUsd": 1200.0,
           "coveredOrders": 120,
           "completedOrders": 120,
@@ -6048,6 +6220,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6094,6 +6267,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6140,6 +6314,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6186,6 +6361,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6232,6 +6408,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6278,6 +6455,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6324,6 +6502,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6370,6 +6549,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6416,6 +6596,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6462,6 +6643,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6508,6 +6690,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6554,6 +6737,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6600,6 +6784,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6646,6 +6831,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6692,6 +6878,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6738,6 +6925,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6784,6 +6972,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6830,6 +7019,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6876,6 +7066,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6922,6 +7113,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -6968,6 +7160,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7014,6 +7207,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7060,6 +7254,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7106,6 +7301,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7152,6 +7348,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7198,6 +7395,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7244,6 +7442,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7290,6 +7489,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7336,6 +7536,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7382,6 +7583,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7428,6 +7630,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7474,6 +7677,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7520,6 +7724,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7566,6 +7771,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7612,6 +7818,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7658,6 +7865,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7704,6 +7912,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7750,6 +7959,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7796,6 +8006,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7842,6 +8053,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7888,6 +8100,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7934,6 +8147,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -7980,6 +8194,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8026,6 +8241,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8072,6 +8288,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8118,6 +8335,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8164,6 +8382,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8210,6 +8429,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8256,6 +8476,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       },
       {
@@ -8302,6 +8523,7 @@
         "attributionSource": "promoter_directory",
         "conflict": false,
         "zeroCost": false,
+        "testOrder": false,
         "costStatus": "已完成：成本已核"
       }
     ],
@@ -8313,5 +8535,370 @@
     "costRefreshing": true,
     "sourceError": false,
     "costError": false
+  },
+  "test": {
+    "version": "channel-effects-v1",
+    "period": {
+      "start": "2026-10-20",
+      "end": "2026-10-20"
+    },
+    "generatedAt": "2026-10-21T00:00:00+08:00",
+    "sources": {
+      "orders": {
+        "status": "complete"
+      },
+      "coupons": {
+        "status": "complete"
+      },
+      "cost": {
+        "source": "fictional fixture",
+        "generatedAt": "2026-10-21T00:00:00+08:00",
+        "limitation": "虚构金额，非业务数据"
+      },
+      "attribution": {
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
+      }
+    },
+    "mapping": {},
+    "summary": {
+      "orders": 0,
+      "testOrders": 1,
+      "salesUsd": 0.0,
+      "coveredOrders": 0,
+      "completedOrders": 0,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
+      "deliveryRows": 0,
+      "saleCny": null,
+      "costCny": null,
+      "profitCny": null,
+      "margin": null,
+      "aovUsd": null,
+      "codedOrders": 0,
+      "referrerOnly": 0,
+      "overlapOrders": 0,
+      "conflicts": 0,
+      "shareAllCodes": null,
+      "shareSite": null,
+      "couponShareSite": null
+    },
+    "denominator": {
+      "orders": 0,
+      "testOrders": 1,
+      "salesUsd": 0.0,
+      "coveredOrders": 0,
+      "completedOrders": 0,
+      "pendingOrders": 0,
+      "refundedOrders": 0,
+      "fraudOrders": 0,
+      "missingCostOrders": 0,
+      "scmOrders": 0,
+      "zeroCostOrders": 0,
+      "deliveryRows": 0,
+      "saleCny": null,
+      "costCny": null,
+      "profitCny": null,
+      "margin": null,
+      "aovUsd": null,
+      "codedOrders": 0,
+      "referrerOnly": 0,
+      "overlapOrders": 0,
+      "conflicts": 0
+    },
+    "trend": [
+      {
+        "key": "2026-10-20",
+        "label": "2026-10-20",
+        "orders": 0,
+        "testOrders": 1,
+        "salesUsd": 0.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": null,
+        "codedOrders": 0,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      }
+    ],
+    "projects": [
+      {
+        "key": "KOL",
+        "label": "KOL",
+        "orders": 0,
+        "testOrders": 1,
+        "salesUsd": 0.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": null,
+        "codedOrders": 0,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      }
+    ],
+    "codes": [
+      {
+        "key": "alpha",
+        "label": "Alpha",
+        "orders": 0,
+        "testOrders": 1,
+        "salesUsd": 0.0,
+        "coveredOrders": 0,
+        "completedOrders": 0,
+        "pendingOrders": 0,
+        "refundedOrders": 0,
+        "fraudOrders": 0,
+        "missingCostOrders": 0,
+        "scmOrders": 0,
+        "zeroCostOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": null,
+        "codedOrders": 0,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "promoters": "推广甲"
+      }
+    ],
+    "breakdowns": {
+      "game": [
+        {
+          "key": "Game A",
+          "label": "Game A",
+          "orders": 0,
+          "testOrders": 1,
+          "salesUsd": 0.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": null,
+          "codedOrders": 0,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ],
+      "country": [
+        {
+          "key": "US",
+          "label": "US",
+          "orders": 0,
+          "testOrders": 1,
+          "salesUsd": 0.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": null,
+          "codedOrders": 0,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ],
+      "payment": [
+        {
+          "key": "PayPal",
+          "label": "PayPal",
+          "orders": 0,
+          "testOrders": 1,
+          "salesUsd": 0.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": null,
+          "codedOrders": 0,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ],
+      "customerType": [
+        {
+          "key": "新老客未提供",
+          "label": "新老客未提供",
+          "orders": 0,
+          "testOrders": 1,
+          "salesUsd": 0.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": null,
+          "codedOrders": 0,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ],
+      "status": [
+        {
+          "key": "已完成",
+          "label": "已完成",
+          "orders": 0,
+          "testOrders": 1,
+          "salesUsd": 0.0,
+          "coveredOrders": 0,
+          "completedOrders": 0,
+          "pendingOrders": 0,
+          "refundedOrders": 0,
+          "fraudOrders": 0,
+          "missingCostOrders": 0,
+          "scmOrders": 0,
+          "zeroCostOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": null,
+          "codedOrders": 0,
+          "referrerOnly": 0,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ]
+    },
+    "options": {
+      "games": [
+        [
+          "1",
+          "Game A"
+        ]
+      ],
+      "countries": [
+        "US"
+      ],
+      "payments": [
+        "PayPal"
+      ]
+    },
+    "orders": [
+      {
+        "orderNo": "fixture-test",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 0.5,
+        "status": "已完成",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "新老客未提供",
+        "coupons": [
+          {
+            "id": "1",
+            "templateId": "7",
+            "title": "券",
+            "batch": "one",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          },
+          {
+            "id": "2",
+            "templateId": "8",
+            "title": "另一券",
+            "batch": "two",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          }
+        ],
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "deliveryRows": 1,
+        "code": "Alpha",
+        "codeKey": "alpha",
+        "project": "KOL",
+        "promoter": "推广甲",
+        "promoterUid": "42",
+        "attribution": "折扣码",
+        "attributionSource": "promoter_directory",
+        "conflict": false,
+        "zeroCost": false,
+        "testOrder": true,
+        "costStatus": "测试单：不计经营指标"
+      }
+    ],
+    "page": 1,
+    "pages": 1,
+    "total": 1,
+    "status": "available",
+    "refreshing": false
   }
 }

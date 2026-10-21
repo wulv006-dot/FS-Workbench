@@ -142,15 +142,19 @@ EMPTY_COST = dict(saleCny=None, costCny=None, profitCny=None, deliveryRows=0)
 
 
 def completed(row):
-    return row['status'] == '已完成' and not row['refunded']
+    return row['status'] == '已完成' and not row['refunded'] and not row.get('testOrder')
 
 
 def fraud(row):
     return re.sub(r'[·\s]', '', row['status']) == '验证未通过'
 
 
-def accounting_row(raw, overrides):
-    row = dict(raw, zeroCost=False)
+def accounting_row(raw, overrides, tests=None):
+    row = dict(raw, zeroCost=False, testOrder=False)
+    test = (tests or {}).get(row['orderNo'])
+    if test and str(test['gid']) == row['gid'] and money(test['salesUsd']) == money(row['salesUsd']):
+        row.update(testOrder=True, saleCny=None, costCny=None, profitCny=None, costStatus='测试单：不计经营指标')
+        return row
     if not completed(row):
         row.update(saleCny=None, costCny=None, profitCny=None,
                    costStatus='已退款：不核算' if row['refunded'] else '欺诈单：待退款/申诉' if fraud(row) else '未完成：不核算')
@@ -207,10 +211,12 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
 
 
 def metrics(rows):
+    test_count = sum(r.get('testOrder',False) for r in rows)
+    rows = [r for r in rows if not r.get('testOrder')]
     covered = [r for r in rows if completed(r) and r['costCny'] is not None and r['saleCny'] is not None]
     total = lambda key, items: sum((Decimal(str(r[key])) for r in items), Decimal(0))
     usd, sale, cost = total('salesUsd', rows), total('saleCny', covered), total('costCny', covered)
-    return dict(orders=len(rows), salesUsd=number(usd), coveredOrders=len(covered),
+    return dict(orders=len(rows), testOrders=test_count, salesUsd=number(usd), coveredOrders=len(covered),
                 completedOrders=sum(completed(r) for r in rows), pendingOrders=sum(not completed(r) and not r['refunded'] for r in rows),
                 refundedOrders=sum(r['refunded'] for r in rows),
                 fraudOrders=sum(fraud(r) for r in rows),
@@ -237,7 +243,7 @@ def grouped(rows, key, labels=None):
 
 
 def view(data, query):
-    rows = [accounting_row(r, data.get('costOverrides', {})) for r in data['orders']]
+    rows = [accounting_row(r, data.get('costOverrides', {}), data.get('testOrders', {})) for r in data['orders']]
     base = [r for r in rows if (not query.get('gid') or r['gid'] == query['gid'])
             and (query.get('status', 'valid') != 'valid' or not r['refunded'])
             and (query.get('status') != 'refund' or r['refunded'])
@@ -386,9 +392,8 @@ class ChannelService:
             if data:
                 if self.source is None:
                     from channel_source import apply_customer_types, apply_cost_overrides
-                    if archived:
-                        from channel_cache import apply_delivery_cache
-                        data = apply_delivery_cache(data, self.root)
+                    from channel_cache import apply_delivery_cache
+                    data = apply_delivery_cache(data, self.root)
                     data = apply_cost_overrides(apply_customer_types(data))
                 result = view(data, query)
                 result.update(status='available', refreshing=state in ('pending','cost_pending','deferred'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
