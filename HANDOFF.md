@@ -48,3 +48,12 @@
 PR260–263已通过正式CI、合并并受控发布；最后代码9fb41c8e8f75，最后单目标/402保护读回匹配。保留运维Admin新unit及冷却停服，不启服/登录/重试。真实渠道查询、原档时间、Order精确全状态复核和匿名HTTPS入口通过；价格/原策略/周期/开关/底线/writer保持。Astra仅按用户指定做一次只读参考并结束，主Work完成Hermes实际取证、纠错、本人L1方法人工发布和新会话装入。留出质量局部通过，组合约束/利润定义/反证仍待训，不能宣称学会或收益提高。
 
 Notion完整基准及三关联页已更新读回，冲突旧正文清理，历史任务/无关Codex附录保留。当前说明、逐文件映射、模型与生产分层回执、Astra参考、旧规则废弃及剩余见docs/planning/fs-business-baseline-20261021/{README,DELIVERY,SOURCE-MAP,ASTRA-REFERENCE,REMAINING,NOTION-SYNC}。真实经营样本/订单/模型原可见回执留FS和受控本机，不随文档共享。原7774…经验真实发布/使用/撤销回执复用且最终又核账本与新任务排除；新4eb2…方法保持发布，两新任务实际使用。本文档PR不触发模型、采集或生产。保留私库HANDOFF全部原前缀，不混入E工程dirty和并行sales/Admin改造，E原库无Git写入。
+
+
+## 2026-10-21 Admin统一8767与单次验证
+
+用户明确授权部署、统一后台Admin凭证入口，并后续明确授权脱敏提交/PR/CI后合并。当前Codex串行执行。sales两文件及NBA/MLB/FC商品包/SBC/旧dashboard/独立探测七份增量已受控发布并读回SHA；受限原字节备份仅服务器保留。旧dashboard服务及sales timer停用disabled，全局8767保持inactive/disabled，SBC和商品包空闲重载后active。Players保留UID992受限socket桥；Order未发现可供sales取cookie的统一服务，按用户条件不另建、不改其登录。部署阶段无后台登录/业务写入。
+
+维护源sales_shared_session_20261021；部署与原/后SHA见docs/planning/sales-shared-session-20261021/DEPLOYMENT.md和两份脱敏回执。本PR最小登记原8项离线测试到现有pr-fast，不新增workflow、不放宽断言。正式CI、合并以PR回执为准；原失败/队列/锁/业务角色/定价保持。
+
+用户后续明确要求现在验证登录：2026-10-21 13:50:30上海时间，用同一全局镜像/原只读配置只执行1次登录，code=0、credentials_rejected，未进入身份检查，没有第二次尝试。此次非原one_day_penalty文案，不据此判密码已改。仅服务器内核对配置mtime仍09-27，两处账号密码一致；未导出密码/token/hash。8767与sales timer仍inactive/disabled。真实登录仍失败，真实消费者业务与自然周期未验；旧明天11:30不再作为完整冷却保证，不自动重试/改密码/恢复循环。
