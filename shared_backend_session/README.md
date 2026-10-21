@@ -7,8 +7,9 @@
 | shared_admin.py | /opt/fs-shared-session/shared_admin.py；Sales collector 同名模块 |
 | manual_captcha.py | 8767镜像 /usr/local/bin/manual_captcha.py |
 | sales_auth.py | /opt/sales-dashboard/collector/p2pah_auth.py |
+| sales_collection.py | /opt/sales-dashboard/collector/fetch_all.py；发货页失败只重试原页，仍失败整轮不发布 |
 | sbc_admin.py | /opt/fc27-sbc-tool/admin_client.py |
-| sbc_webapp.py（本地） | /opt/fc27-sbc-tool/webapp.py；私库规范文件沿用 releases/fc-sbc/security-20261015/source/webapp.py |
+| fc27_sbc_fix_20261015/source/webapp.py（本地） | /opt/fc27-sbc-tool/webapp.py；私库规范文件沿用 releases/fc-sbc/security-20261015/source/webapp.py |
 
 Admin只读取8767；Order由独立的全局8768服务与受限socket提供。客户端不接收账号密码/验证码，不落盘缓存会话，也不回退独立登录。FS用户登录及业务权限校验保持。
 
