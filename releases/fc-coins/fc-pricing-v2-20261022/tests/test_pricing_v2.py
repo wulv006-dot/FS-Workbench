@@ -93,15 +93,25 @@ class Pricing(unittest.TestCase):
         e,rows,_=fixture()
         with self.assertRaisesRegex(ValueError,'stale'):p.apply_decision(rows,e,{},now=NOW+timedelta(minutes=16))
 
-    def test_legal_coupon_code_stack_and_single_coupon(self):
+    def test_human_confirmed_mutual_exclusion_and_backend_conflict(self):
         e,_,goods=fixture()
         code=dict(id=1,status=1,site_id=266,gid='1327',type=1,discount='90',attain='0')
         coupon=dict(id=2,status=1,site_id=266,game_id=1327,product_type=1,type=1,mode_type=2,reduce='70',time_effect=2,is_open=0)
         single=s.normalize([code],[coupon],goods,e['storefront'],now=NOW)
-        self.assertEqual(Decimal(single['minimum_retained_ratio']),Decimal('.65'))
+        self.assertEqual(Decimal(single['minimum_retained_ratio']),Decimal('.70'))
+        self.assertEqual(single['coupon_other_benefits_contract'],'verified_mutually_exclusive')
         coupon['is_open']=1
-        stack=s.normalize([code],[coupon],goods,e['storefront'],now=NOW)
-        self.assertEqual(Decimal(stack['minimum_retained_ratio']),Decimal('.55'))
+        with self.assertRaisesRegex(ValueError,'exclusivity_conflict'):s.normalize([code],[coupon],goods,e['storefront'],now=NOW)
+
+    def test_exact_compensation_is_separate_even_when_issued_not_generic_coupon(self):
+        e,_,goods=fixture()
+        coupon=dict(id=1259,title='Compensation coupon',status=1,site_id=0,game_id=0,product_type=0,type=1,mode_type=1,
+                    reduce='20',time_effect=1,is_open=0,start_time=0,end_time=0,fetch_scene=4,fetch_qty=1,used_qty=1)
+        result=s.normalize([],[coupon],goods,e['storefront'],now=NOW)
+        self.assertEqual(result['coupon_count'],0);self.assertEqual(result['after_sales_compensation'][0]['used_qty'],'1')
+        self.assertIn('reconciliation_required',result['after_sales_compensation'][0]['accounting'])
+        coupon['id']=1260
+        with self.assertRaisesRegex(ValueError,'mode_unverified'):s.normalize([],[coupon],goods,e['storefront'],now=NOW)
 
     def test_fixed_coupon_is_unknown_not_zero(self):
         e,_,goods=fixture()

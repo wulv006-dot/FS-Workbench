@@ -306,6 +306,19 @@ def publication_view(storefront):
     if not audits:
         return {"status": "no_confirmed_write", "platforms": []}
     latest = max(audits, key=lambda row: datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')))
+    if latest.get('basis')=='backend_preview':
+        # A later unchanged observation does not erase the confirmed write identity.
+        observed=latest
+        def same_prices(a,b):
+            try:
+                left={r['platform']:(str(r['id']),Decimal(r['costPrice']),Decimal(r['lirunlv']),Decimal(r['b2c'])) for r in a['after']['rows']}
+                right={r['platform']:(str(r['id']),Decimal(r['costPrice']),Decimal(r['lirunlv']),Decimal(r['b2c'])) for r in b['after']['rows']}
+                return len(a['after']['rows'])==len(b['after']['rows'])==3 and set(left)=={'PS','XBOX','PC'} and left==right and a['after']['exchangeRate']==b['after']['exchangeRate']
+            except (KeyError,TypeError,InvalidOperation):return False
+        matches=[a for a in audits if a.get('status')=='CONFIRMED' and a['created_at']<=observed['created_at'] and same_prices(a,observed)]
+        if matches:
+            latest=dict(max(matches,key=lambda a:a['created_at']),basis='confirmed_write_and_matching_backend_preview',
+                        observed_at=observed['created_at'],observation_preview_id=observed['preview_id'])
     execution_id = latest["execution_id"]
     try:
         after = {row["platform"]: row for row in latest["after"]["rows"]}
@@ -332,7 +345,8 @@ def publication_view(storefront):
                   else "matched")
         return {"status": status, "execution_id": execution_id,
                 "basis": latest.get('basis', 'confirmed_write'), "preview_id": latest.get('preview_id'),
-                "backend_checked_at": latest['created_at'],
+                "backend_checked_at": latest.get('observed_at',latest['created_at']),
+                "observation_preview_id": latest.get('observation_preview_id'),
                 "write_mode": ("manual" if latest.get("automatic") is False else
                                "automatic" if latest.get("automatic") is True else "unknown"),
                 "backend_written_at": None if latest.get('basis') == 'backend_preview' else latest["created_at"], "platforms": details}
