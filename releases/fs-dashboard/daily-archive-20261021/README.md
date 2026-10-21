@@ -30,3 +30,9 @@
 ## 借鉴
 
 沿用 [DuckDB 日期分区过滤](https://github.com/duckdb/duckdb-web/blob/main/docs/current/data/partitioning/hive_partitioning.md) 的按日期缩小读取、[dlt 分段补采](https://dlthub.com/docs/examples/backfill_in_chunks) 的小批游标，以及 [Superset 缓存配置](https://github.com/apache/superset/blob/master/superset/config.py) 的分源有效期思路。当前数据量使用既有标准库即可，不引入其完整平台。
+
+## 失败补采与报告（2026-10-22）
+
+来源读取失败保留原查询、首次请求时间、尝试时间、失败次数及退避时点；5/10/20分钟逐步退避，最长4小时。营销忙或拒绝时暂停该来源，继续独立经营读取；不重试生产写入。沿原00:50与凌晨01–06点15分钟低优先级任务，在预算和07点边界内续跑。
+
+Hermes原00:25预采失败后，在夜间窗口按同样退避续采；成功来源复用现有快照，原部分回执按attempt保留。现行报告计划、原request_id、截止时间及UNKNOWN保护不变；新闻/流量准备缺失传入报告缺口，不延迟FC日报/周报/月报。缺数据可有依据地预估，但须逐项标明真实数据暂未提供、证据/方法/假设/范围/不确定性及复核条件；不混入真实归档。实际值补齐后由Hermes后续报告核对误差，原报告不覆盖。纯取数重试不自动重新派发模型或发布报告。

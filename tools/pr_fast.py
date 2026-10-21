@@ -653,7 +653,7 @@ def main():
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
-            units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release"])
+            units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")

@@ -75,7 +75,7 @@ def read_route(params,port=8931,path='/range'):
             if len(raw)>16*1024*1024:raise ValueError('archive_route_size')
             return response.status,json.loads(raw)
     except HTTPError as error:
-        if error.code not in (403,409,429,503):raise
+        if error.code not in (403,409,429,500,502,503,504):raise
         return error.code,{'status':'denied' if error.code==403 else 'busy' if error.code==429 else 'unavailable'}
     except (URLError,TimeoutError,ConnectionError):
         return 503,{'status':'unavailable','reason':'local_route_temporarily_unavailable'}
@@ -110,10 +110,12 @@ def run_once(daily=False,budget=480):
     if not daily and not 1<=now.hour<7:return {'status':'outside_idle_window'}
     state_path=ROOT/'scheduler-state.json'
     state=json.loads(state_path.read_text()) if state_path.is_file() else {}
-    completed=0;begin=time.monotonic();definition=profiles()
+    completed=0;begin=time.monotonic();definition=profiles();blocked={}
     for args in candidates(now.date(),definition,daily):
         if time.monotonic()-begin>=budget or not daily and datetime.now(TZ).hour>=7:break
         marketing=args['profile']=='marketing';key=hashlib.sha256(encoded({'cadence':'daily' if daily else 'history','query':args})).hexdigest()
+        port=8935 if marketing else 8931
+        if port in blocked:continue
         prior=state.get(key,{})
         if prior.get('retryAfter',0)>time.time():continue
         if daily and prior.get('status')=='complete' and prior.get('at','')[:10]==now.date().isoformat():continue
@@ -127,12 +129,13 @@ def run_once(daily=False,budget=480):
             code,catalog=read_route({'mode':'catalog'})
             if code!=200:return {'status':'deferred','reason':'catalog_unavailable','completed':completed}
             params['snapshotId']=catalog['catalogId']
-        requested=prior.get('requestedAt') if prior.get('status')=='pending' else datetime.now(timezone.utc).isoformat()
+        requested=prior.get('requestedAt') or datetime.now(timezone.utc).isoformat()
+        attempt_at=prior.get('attemptStartedAt',requested) if prior.get('status')=='pending' else datetime.now(timezone.utc).isoformat()
         if daily and marketing and prior.get('status')!='pending':params['refresh']='true'
-        state[key]=dict(query=args,status='pending',requestedAt=requested);atomic(state_path,state)
+        state[key]=dict(query=args,status='pending',requestedAt=requested,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
         deadline=min(begin+budget,time.monotonic()+90);outcome='pending'
         while time.monotonic()<deadline:
-            code,value=read_route(params,8935 if marketing else 8931)
+            code,value=read_route(params,port)
             params.pop('refresh',None)
             if code in (403,429):outcome=value['status'];break
             if (value.get('archive') or {}).get('refreshDeferred'):
@@ -140,16 +143,17 @@ def run_once(daily=False,budget=480):
             valid=(value.get('status')=='available') if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
             capture=(value.get('archive') or {}).get('sourceCapturedAt') or value.get('generatedAt') or ''
             fresh=False
-            try:fresh=datetime.fromisoformat(capture.replace('Z','+00:00'))>=datetime.fromisoformat(requested)-timedelta(seconds=60)
+            try:fresh=datetime.fromisoformat(capture.replace('Z','+00:00'))>=datetime.fromisoformat(attempt_at)-timedelta(seconds=60)
             except (ValueError,TypeError):pass
             if valid and (not (daily and marketing) or fresh):outcome='complete';break
-            if code==503:outcome='unavailable';break
+            if code in (500,502,503,504):outcome='unavailable';break
             time.sleep(2)
         failures=0 if outcome=='complete' else prior.get('failures',0)+1
-        state[key].update(status=outcome,failures=failures,at=datetime.now(TZ).isoformat(),retryAfter=time.time()+(0 if not failures else min(14400,300*2**min(failures,5))))
+        state[key].update(status=outcome,failures=failures,at=datetime.now(TZ).isoformat(),retryAfter=time.time()+(0 if not failures else min(14400,300*2**min(failures-1,6))))
         atomic(state_path,state)
         if outcome=='complete':completed+=1
-        if outcome in ('busy','denied'):return {'status':'deferred','reason':outcome,'completed':completed}
+        if outcome in ('busy','denied'):blocked[port]=outcome
+    if blocked:return {'status':'deferred','reason':next(iter(blocked.values())),'completed':completed,'deferredSources':blocked}
     return {'status':'budget_finished','completed':completed,'seconds':round(time.monotonic()-begin,3)}
 
 

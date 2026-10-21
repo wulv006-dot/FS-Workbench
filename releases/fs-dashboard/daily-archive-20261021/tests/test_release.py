@@ -32,6 +32,10 @@ class Release(unittest.TestCase):
         fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
         self.assertEqual(len(fix.TARGETS),8)
         self.assertFalse(any('/systemd/' in path for path in fix.TARGETS.values()))
+        spec=importlib.util.spec_from_file_location('report_source_retry',ROOT/'deploy/report_source_retry.py')
+        fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+        self.assertEqual(len(fix.TARGETS),4)
+        self.assertFalse(any('/systemd/' in p or 'price' in p for p in fix.TARGETS.values()))
 
 
 if __name__=='__main__':unittest.main()
