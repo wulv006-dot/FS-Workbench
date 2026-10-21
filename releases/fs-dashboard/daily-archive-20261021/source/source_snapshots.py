@@ -124,6 +124,7 @@ def prepare_supplements(book,start,end,weekly=False):
     plan += [('fc.query_discount_analysis',dict(q,group_by='new_customer')) for q in queries]
     # Same native preparation schedule; reuse archives, never start another collector.
     plan += [('fc.query_pricing_evidence',dict(queries[0],kind=kind)) for kind in ('price_history','order_costs')]
+    plan += [('fc.run_pricing_workflow',dict(queries[0],action='review'))]
     pending=list(plan);results={};until=time.monotonic()+45
     while pending:
         retry=[]
@@ -132,7 +133,7 @@ def prepare_supplements(book,start,end,weekly=False):
             try:
                 row=book.research(name,args);data=row['data']
                 results[key]={'tool':name,'query':args,'evidence_id':row['evidence_id'],'status':data.get('status'),
-                    'source_cache':data.get('source_cache'),'reason':data.get('reason'),
+                    'source_cache':data.get('source_cache'),'archive':data.get('archive'),'reason':data.get('reason'),
                     'available_periods':data.get('available_periods')}
                 if native_pending(data):retry.append((name,args))
             except (OSError,ValueError,TypeError,KeyError,PermissionError) as error:
@@ -187,41 +188,63 @@ def prepared_brief(book,start,end,weekly=False):
             'preparation_status':'ready' if native_cacheable(result['data']) else 'partial',
             'data':{k:v for k,v in result['data'].items() if k in ('status','selected_totals','selected_derived','authoritative_fields','native_customer_comparison','source_cache','reason')}})
     supplements=prepare_supplements(book,start,end,weekly)
+    gaps=[{'tool':'fc.query_native_statistics','query':r['query'],'evidence_id':r['evidence_id'],'status':r['preparation_status']} for r in rows if r['preparation_status']!='ready']
+    gaps += [r for r in supplements if r['status'] not in ('available','empty')]
     return {'contract':'fc-prepared-input-v1','native':rows,'daily_detail_trend':trend,'supplements':supplements,
+            'collection_readiness':{'status':'partial' if gaps else 'ready','gaps':gaps,'blocks_publication':False},
             'total_basis':'FS原生总盘Admin优先、Order补缺；支付明细只作结构',
-            'rule':'这些证据已注册，可直接引用及绑定计算。缺失再补查；同一查询无需重复调用。旧报告只学方法，不能复制旧结论。'}
+            'rule':'这些证据已注册，可直接引用及绑定计算。缺失再补查；同一查询无需重复调用。旧报告只学方法，不能复制旧结论。缺失数据不阻塞发布；有可比趋势和已核相关数据才可推算，逐项标注“预估，真实数据暂未提供”，写明证据、方法、假设、适用范围及后续核对条件。无依据则保留未知，不补零。预估不可写入真实归档或作为已验证结论，后续报告取得真实值后核对原估计及误差，追加修订并保留原稿。'}
+
+
+def preparation_complete(results):
+    return bool(results) and all('error_type' not in r and all(s=='ready' for s in r['native_statuses'])
+        and all(s['status'] in ('available','empty') for s in r['supplements']) for r in results)
 
 
 class Preparation:
     def __init__(self,service):
-        self.service=service;self.thread=None;self.day=None
+        self.service=service;self.thread=None
 
     def tick(self,now):
         local=now.astimezone(SHANGHAI)
-        if not (25<=local.hour*60+local.minute<35):return
+        if not (25<=local.hour*60+local.minute<7*60):return
         if not self.service.nightly.config() or not self.service.detail.config.get('enabled'):return
         day=local.date().isoformat()
-        if self.day==day or (self.thread and self.thread.is_alive()):return
+        if self.thread and self.thread.is_alive():return
         store=SnapshotStore();store.directory();receipt=store.root/('preparation-'+day+'.json')
-        if receipt.exists():self.day=day;return
-        self.day=day
-        self.thread=threading.Thread(target=self.run,args=(local,receipt),name='hermes-source-preparation',daemon=True)
+        prior=store.read(receipt) if receipt.exists() else {}
+        if prior.get('status')=='ready' and preparation_complete(prior.get('results',[])):return
+        if prior.get('retry_after',0)>local.timestamp():return
+        tasks=getattr(self.service,'tasks',None)
+        if tasks:
+            with tasks.db() as db:
+                if db.execute("SELECT 1 FROM requests WHERE state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED') LIMIT 1").fetchone():return
+        attempt=prior.get('attempt',0)+1
+        # Persist before starting so a restart cannot immediately repeat a failed batch.
+        if prior:atomic(receipt.with_name(receipt.stem+'-attempt-'+str(attempt-1)+'.json'),prior)
+        atomic(receipt,dict(prior,day=day,status='retrying',attempt=attempt,retry_after=local.timestamp()+min(14400,300*2**min(attempt-1,6))))
+        self.thread=threading.Thread(target=self.run,args=(local,receipt,attempt),name='hermes-source-preparation',daemon=True)
         self.thread.start()
 
-    def run(self,now,receipt):
+    def run(self,now,receipt,attempt=1):
         from fs_evidence import build_book
         from nightly import closed_period
         results=[]
-        for kind in (('daily','weekly') if now.weekday()==0 else ('daily',)):
+        kinds=['daily']+(['weekly'] if now.weekday()==0 else [])+(['monthly'] if now.day==1 else [])
+        for kind in kinds:
             if not self.service.nightly.config() or not self.service.detail.config.get('enabled'):break
             start,end=closed_period(now.date(),kind)
             try:
                 book=build_book(self.service.detail,self.service.daily,self.service.read_range,self.service.diagnostics,
-                    start,end,self.service.source_root,'wulv',recent_days=30 if kind=='weekly' else 14)
+                    start,end,self.service.source_root,'wulv',deadline=now.replace(hour=6,minute=59,second=0,microsecond=0),recent_days=30 if kind=='weekly' else 14)
                 brief=prepared_brief(book,start,end,kind=='weekly')
                 results.append({'kind':kind,'snapshot_id':book.capture_id,'native_statuses':[r['preparation_status'] for r in brief['native']],
                     'supplements':brief['supplements']})
             except Exception as error:
                 results.append({'kind':kind,'error_type':type(error).__name__})
-        atomic(receipt,{'day':now.date().isoformat(),'completed_at':datetime.now(timezone.utc).isoformat(),
-            'model_calls':0,'results':results,'status':'ready' if results and all('error_type' not in r and all(s=='ready' for s in r['native_statuses']) and all(s['status'] in ('available','partial','empty') for s in r['supplements']) for r in results) else 'partial'})
+        complete=preparation_complete(results)
+        value={'day':now.date().isoformat(),'completed_at':datetime.now(timezone.utc).isoformat(),
+            'model_calls':0,'results':results,'attempt':attempt,'retry_after':datetime.now(timezone.utc).timestamp()+min(14400,300*2**min(attempt-1,6)),
+            'status':'ready' if complete else 'partial','blocks_publication':False}
+        atomic(receipt.with_name(receipt.stem+'-attempt-'+str(attempt)+'.json'),value)
+        atomic(receipt,value)

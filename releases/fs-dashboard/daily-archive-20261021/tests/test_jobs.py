@@ -20,6 +20,31 @@ def functions(path,names,namespace):
 
 
 class Jobs(unittest.TestCase):
+    def test_busy_marketing_does_not_prevent_independent_business_archive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);marketing=dict(profile='marketing',start='2026-10-20',end='2026-10-20')
+            business=dict(marketing,profile='FC27',mode='summary')
+            with patch.object(jobs,'ROOT',root),patch.object(jobs,'Archive',return_value=archive.Archive(root)),patch.object(jobs,'profiles',return_value={'FC27':('FC27','FC27',1322,1327,'sports')}),patch.object(jobs,'candidates',return_value=iter([marketing,business])),patch.object(jobs,'atomic',side_effect=lambda p,v:p.write_bytes(archive.encoded(v))),patch.object(jobs,'complete_summary',return_value=True),patch.object(jobs,'read_route',side_effect=[(429,{'status':'busy'}),(200,{})]) as read:
+                result=jobs.run_once(True,5)
+                self.assertEqual(result['completed'],1);self.assertEqual(result['reason'],'busy')
+                self.assertEqual([c.args[1] for c in read.call_args_list],[8935,8931])
+
+    def test_gateway_failure_keeps_first_request_and_retries_with_fresh_attempt_time(self):
+        from urllib.error import HTTPError
+        with patch.object(jobs,'build_opener') as opener:
+            opener.return_value.open.side_effect=HTTPError('http://127.0.0.1',502,'fixture',{},None)
+            self.assertEqual(jobs.read_route({})[0],502)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);args=dict(profile='marketing',start='2026-10-20',end='2026-10-20')
+            key=__import__('hashlib').sha256(archive.encoded({'cadence':'daily','query':args})).hexdigest()
+            prior=dict(query=args,status='unavailable',requestedAt='2026-10-01T00:00:00+00:00',failures=2,retryAfter=0)
+            (root/'scheduler-state.json').write_bytes(archive.encoded({key:prior}))
+            with patch.object(jobs,'ROOT',root),patch.object(jobs,'Archive',return_value=archive.Archive(root)),patch.object(jobs,'profiles',return_value={}),patch.object(jobs,'candidates',return_value=iter([args])),patch.object(jobs,'atomic',side_effect=lambda p,v:p.write_bytes(archive.encoded(v))),patch.object(jobs,'read_route',return_value=(502,{'status':'unavailable'})):
+                self.assertEqual(jobs.run_once(True,5)['completed'],0)
+            state=__import__('json').loads((root/'scheduler-state.json').read_text())[key]
+            self.assertEqual(state['requestedAt'],prior['requestedAt']);self.assertEqual(state['failures'],3)
+            self.assertGreater(state['attemptStartedAt'],state['requestedAt'])
+
     def test_temporary_local_route_failure_is_a_deferred_read_receipt(self):
         from urllib.error import URLError
         with patch.object(jobs,'build_opener') as opener:
