@@ -97,6 +97,11 @@ class BaselineTests(unittest.TestCase):
             self.assertEqual(ending['package_usd'],p)
             self.assertEqual(ending['reduction_usd'],'0.00')
             self.assertEqual(ending['reason'],'already_99')
+        # Actual 26 and engine baseline 25 are comparisons, not the extra-tail budget basis.
+        main=package_ending('24.02','21.60','10')
+        self.assertEqual(main['allowed_reduction_usd'],'0.02')
+        self.assertEqual(main['package_usd'],'24.02')
+        self.assertEqual(main['reason'],'margin_floor')
         for args in [('NaN','8','10'),('10','-1','10'),('10','0','10'),('10','8','100')]:
             with self.assertRaises(ValueError):package_ending(*args)
 
@@ -125,7 +130,8 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-DESKTOP-COST-RULE',text)
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
-            self.assertIn('business-baseline-20261021-v1',text)
+            self.assertIn('business-baseline-20261021-v2',text)
+            self.assertIn('预算公式中的 `P` 统一指 `P1`',text)
             self.assertEqual(files[-1]['path'],'runtime/business-baseline.md')
 
 
