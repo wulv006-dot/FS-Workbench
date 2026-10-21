@@ -41,6 +41,10 @@ class Jobs(unittest.TestCase):
                 state=list(__import__('json').loads((root/'scheduler-state.json').read_text()).values())[0]
                 self.assertEqual(state['query'],args);self.assertTrue(state['requestedAt'])
                 self.assertGreater(state['retryAfter'],0)
+                (root/'scheduler-state.json').unlink()
+                with patch.object(jobs,'read_route',return_value=(200,{'status':'available','archive':{'refreshDeferred':True}})) as deferred:
+                    self.assertEqual(jobs.run_once(True,5)['reason'],'busy')
+                    self.assertEqual(deferred.call_count,1)
 
     def test_marketing_archive_returns_immediately_while_busy(self):
         from threading import RLock

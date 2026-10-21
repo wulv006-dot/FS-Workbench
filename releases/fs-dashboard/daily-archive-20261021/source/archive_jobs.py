@@ -133,6 +133,8 @@ def run_once(daily=False,budget=480):
             code,value=read_route(params,8935 if marketing else 8931)
             params.pop('refresh',None)
             if code in (403,429):outcome=value['status'];break
+            if (value.get('archive') or {}).get('refreshDeferred'):
+                outcome='busy';break
             valid=(value.get('status')=='available') if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
             capture=(value.get('archive') or {}).get('sourceCapturedAt') or value.get('generatedAt') or ''
             fresh=False
