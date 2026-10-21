@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import time
+import uuid
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 
 ROOT=Path('/var/lib/fc27-cloud')
@@ -53,19 +54,26 @@ def recommendation(conversation,owner,turn,quote):
 
 def review(job,quote,*,mode='automatic_review',wait_seconds=180):
     owner='wulv' if mode=='automatic_review' else job['actor']
+    restore_source=job.get('request',{}).get('restore_source_execution_id')
+    if restore_source:
+        if mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
+        restore_source=str(uuid.UUID(restore_source))
+        audit=json.loads((ROOT/'executions'/(restore_source+'.json')).read_text('utf-8'))
+        if audit.get('execution_id')!=restore_source or audit.get('status')!='CONFIRMED' or not audit.get('sync_confirmed'):
+            raise ValueError('pricing_restore_source_not_confirmed')
     request_id='fc_pricing_'+job['job_id'].replace('-','')
     path=ROOT/'evidence'/('hermes-pricing-'+job['job_id']+'.json')
     created=datetime.now(timezone.utc)
     if path.exists():
         record=json.loads(path.read_text('utf-8'))
-        if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode:
+        if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode or record.get('restore_source_execution_id')!=restore_source:
             raise ValueError('pricing_hermes_intent_conflict')
         if record.get('phase') in {'completed','failed','timeout','unknown'}:return record
         if not record.get('conversation_id'):
             record.update(phase='unknown',reason='original_create_receipt_required');save(path,record);return record
     else:
         record=dict(owner=owner,mode=mode,job_id=job['job_id'],run_id=quote['run_id'],request_id=request_id,
-                    phase='creating',created_at=created.isoformat(),price_write_performed=False)
+                    phase='creating',created_at=created.isoformat(),price_write_performed=False,restore_source_execution_id=restore_source)
         # O_EXCL reserves the intent before an FS call that may create or bill work.
         with path.open('x',encoding='utf-8') as stream:
             json.dump(record,stream,ensure_ascii=False);stream.flush();os.fsync(stream.fileno())
@@ -77,14 +85,15 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
             from pricing_operations import grant
             with sqlite3.connect(FS/'tasks.sqlite3',timeout=5) as db:
                 grant(db,owner,conversation,quote['run_id'],mode,(created+timedelta(hours=1)).isoformat(),
-                      'human_authorized_fc_coins_v2_20261022_nonoverridable_10pct')
+                      'human_authorized_fc_coins_v2_20261022_nonoverridable_10pct',restore_sources=[restore_source] if restore_source else [])
             scope=('本任务为自动周期审核，允许核实、核算并recommend程序给出的候选；FC worker正等待，不能另排采集或写价任务。'
-                   if mode=='automatic_review' else '用户已授权本次FC金币操作流程；先核capabilities，只能在本任务授予范围内取数、核算、预览和执行。')
+                   if mode=='automatic_review' else '用户已授权本次FC金币操作流程；先核capabilities，只能在本任务授予范围内取数、核算、预览和执行。执行后用read_job核后台CONFIRMED，再state核monitor.publication.execution_id为本次操作、写后时间和三平台matched；缺任一项都只能报告未证，不据accepted或会话完成宣称真实生效。')
             text=('FC Coins本轮真实决策，运行编号'+quote['run_id']+'。'+scope+
                 '先读取当前业务知识及fs.pricing.control的capabilities/state，再按需核对经营、成本与营销证据。'
                 '用fc.run_pricing_workflow取得固定分析回执；10%最低采购毛利硬红线含合法优惠、赠送、套餐和小额舍入，任何策略不能覆盖。'
                 'PS/Xbox共同成本共同基价，PC独立。不要机械花掉高毛利。先比较baseline/hold/parity；如有新方案，可evaluate并用evaluated选择提交自定console_usd/pc_usd，由程序重新核验。实际调用recommend并引用pricing:quote_sha256或本任务证据；说明采购毛利、广告后贡献、保本销量条件及反证。'
                 '不把短期相关当因果，不臆造广告归因或需求增量。终态后原队列受控学习，不用运行中snapshot作为经验来源。最后用通俗中文说明判断。')
+            if restore_source:text+='本次另明确授权协助恢复原操作'+restore_source+'，先restore_preview，核当前成本和优惠红线后才restore；不恢复其他历史操作。'
             record.update(phase='submitting',input_sha256=hashlib.sha256(text.encode()).hexdigest());save(path,record)
             submitted=request(owner,'/api/hermes/conversations/'+conversation+'/turns',{'text':text,'client_request_id':request_id})
             record.update(phase='submitted',turn_id=submitted['turn_id']);save(path,record)
