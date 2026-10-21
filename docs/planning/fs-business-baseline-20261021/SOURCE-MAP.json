@@ -1,7 +1,7 @@
 {
   "contract": "fs-business-baseline-source-v1",
-  "status": "candidate_not_deployed",
-  "main": "5d45761818ba9259f138c9a71c2d6db968a8859c",
+  "status": "deployed_entries_verified_learning_partial",
+  "main": "9fb41c8e8f755e1942d3432fb4a33a412856d679",
   "files": [
     {
       "candidate": "runtime/coupon_channels.py",
@@ -9,7 +9,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/coupon_channels.py",
       "generated": false,
       "before_sha256": null,
-      "sha256": "f733067ea2e1e98b50ec04e16d5e104ebb0145318650c4720583d69e05e051c9"
+      "sha256": "f733067ea2e1e98b50ec04e16d5e104ebb0145318650c4720583d69e05e051c9",
+      "initial_candidate_sha256": "f733067ea2e1e98b50ec04e16d5e104ebb0145318650c4720583d69e05e051c9",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/coupon_channels.json",
@@ -17,7 +19,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/coupon_channels.json",
       "generated": false,
       "before_sha256": null,
-      "sha256": "345d70d1156fd3825d51294bd87586bf52ffe2b55f1c8c0a523a664636b784e5"
+      "sha256": "345d70d1156fd3825d51294bd87586bf52ffe2b55f1c8c0a523a664636b784e5",
+      "initial_candidate_sha256": "345d70d1156fd3825d51294bd87586bf52ffe2b55f1c8c0a523a664636b784e5",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/admin_discount_analysis.py",
@@ -25,7 +29,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/admin_discount_analysis.py",
       "generated": false,
       "before_sha256": "e43d689746e83ea474432a5aa1f6acf66cb8732172035b86e6f4e7df12d9ad98",
-      "sha256": "bf84091977c6915a7577fe3422d2cb44d3f907f7bbec28a1c6f347efba2b2dd5"
+      "sha256": "bf84091977c6915a7577fe3422d2cb44d3f907f7bbec28a1c6f347efba2b2dd5",
+      "initial_candidate_sha256": "bf84091977c6915a7577fe3422d2cb44d3f907f7bbec28a1c6f347efba2b2dd5",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/price_ending.py",
@@ -33,7 +39,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/price_ending.py",
       "generated": false,
       "before_sha256": null,
-      "sha256": "782565dd5067bc9279f13fb85fd5efda1fd18dff61038bf430795a6c3dcc24fb"
+      "sha256": "d4468d96bd53ea26b5b4ed798ba6f743f8245bd7d8c6df71b16ef42c4039e4ab",
+      "initial_candidate_sha256": "782565dd5067bc9279f13fb85fd5efda1fd18dff61038bf430795a6c3dcc24fb",
+      "deployed_source_commit": "9fb41c8e8f755e1942d3432fb4a33a412856d679"
     },
     {
       "candidate": "runtime/es_order_structure.py",
@@ -41,7 +49,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/es_order_structure.py",
       "generated": false,
       "before_sha256": "b0d90693420c85d7099a80cffdec1dbd0031d7ef36e78fc241576e8c9bd0e68e",
-      "sha256": "1ba8541a9c8b36654fd1a03eb7be6d2b93ea97a6524b87da71fdeed5a0ab341b"
+      "sha256": "3af4bdd3f95cd76df823bf9fe136f391716f5e939512c414949facf640053b80",
+      "initial_candidate_sha256": "1ba8541a9c8b36654fd1a03eb7be6d2b93ea97a6524b87da71fdeed5a0ab341b",
+      "deployed_source_commit": "65a0aa6ae0f312190e7f53c5ce736b87748b0118"
     },
     {
       "candidate": "runtime/research.py",
@@ -49,7 +59,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/research.py",
       "generated": false,
       "before_sha256": "9bbb3ba2756c66cba5475b55dc541fcc3dd6a7b31ffe15004565081805b53c27",
-      "sha256": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d"
+      "sha256": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d",
+      "initial_candidate_sha256": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/data_workspace_request.py",
@@ -57,7 +69,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/data_workspace_request.py",
       "generated": false,
       "before_sha256": "fc56c454a2f8ebf52a1c45a3129d0b875d5815f046fe85ba0c817a96988388e9",
-      "sha256": "087e9deba8b67b94e034c8696fcd2552701ecf99dc5abbe251db80db14af129f"
+      "sha256": "087e9deba8b67b94e034c8696fcd2552701ecf99dc5abbe251db80db14af129f",
+      "initial_candidate_sha256": "087e9deba8b67b94e034c8696fcd2552701ecf99dc5abbe251db80db14af129f",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/business_context.py",
@@ -65,7 +79,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business_context.py",
       "generated": false,
       "before_sha256": "bc88a8b3d90399e1a2394c7b6dfff1496b8ddd5516450898f4956badd7648fe6",
-      "sha256": "eec6afbe487a5dc9dc0e14c88a3240beadf32129b69075f3b8eee03c517db3a4"
+      "sha256": "eec6afbe487a5dc9dc0e14c88a3240beadf32129b69075f3b8eee03c517db3a4",
+      "initial_candidate_sha256": "eec6afbe487a5dc9dc0e14c88a3240beadf32129b69075f3b8eee03c517db3a4",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/pricing_simulation.py",
@@ -73,7 +89,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/pricing_simulation.py",
       "generated": false,
       "before_sha256": "581d11acfc7e419945220e7c5db6b7452704399526efee226d06b086b3ad3eca",
-      "sha256": "7fdd0daf2a3e1138ab5b37f6663d3c227596c670cd1bc362b829ac8b3845f5f2"
+      "sha256": "7fdd0daf2a3e1138ab5b37f6663d3c227596c670cd1bc362b829ac8b3845f5f2",
+      "initial_candidate_sha256": "7fdd0daf2a3e1138ab5b37f6663d3c227596c670cd1bc362b829ac8b3845f5f2",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "runtime/business-baseline.md",
@@ -81,7 +99,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md",
       "generated": false,
       "before_sha256": null,
-      "sha256": "093d51f655bb4b840f73c0428645c72064fafd9389bb702a5b0d48c3ed84b206"
+      "sha256": "093d51f655bb4b840f73c0428645c72064fafd9389bb702a5b0d48c3ed84b206",
+      "initial_candidate_sha256": "093d51f655bb4b840f73c0428645c72064fafd9389bb702a5b0d48c3ed84b206",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "ui/data-workspace.js",
@@ -89,7 +109,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/ui/data-workspace.js",
       "generated": false,
       "before_sha256": null,
-      "sha256": "4f4a56f7a335357f0a83ab0034a49b8757a6cd6eef64541dfba837249c38fba0"
+      "sha256": "4f4a56f7a335357f0a83ab0034a49b8757a6cd6eef64541dfba837249c38fba0",
+      "initial_candidate_sha256": "4f4a56f7a335357f0a83ab0034a49b8757a6cd6eef64541dfba837249c38fba0",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "ui/page.js",
@@ -97,7 +119,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/ui/page.js",
       "generated": false,
       "before_sha256": null,
-      "sha256": "7827b3f3b04da8bfd3b608b808a3ddf971fa81e416684c67fb2ad9ac3390615a"
+      "sha256": "7827b3f3b04da8bfd3b608b808a3ddf971fa81e416684c67fb2ad9ac3390615a",
+      "initial_candidate_sha256": "7827b3f3b04da8bfd3b608b808a3ddf971fa81e416684c67fb2ad9ac3390615a",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "ui/tools-index.html",
@@ -105,7 +129,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/ui/tools-index.html",
       "generated": false,
       "before_sha256": null,
-      "sha256": "825338d393d55c1e7598b2c0d3a9e5bf2e27c5d54800950d46a030957b7f2f56"
+      "sha256": "825338d393d55c1e7598b2c0d3a9e5bf2e27c5d54800950d46a030957b7f2f56",
+      "initial_candidate_sha256": "825338d393d55c1e7598b2c0d3a9e5bf2e27c5d54800950d46a030957b7f2f56",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "ui/tracking-page.js",
@@ -113,7 +139,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/ui/tracking-page.js",
       "generated": false,
       "before_sha256": null,
-      "sha256": "856f84db0c2f8263237fe4b2e684403c9eeec2dba96a03c254d2d4bb11854c2b"
+      "sha256": "856f84db0c2f8263237fe4b2e684403c9eeec2dba96a03c254d2d4bb11854c2b",
+      "initial_candidate_sha256": "856f84db0c2f8263237fe4b2e684403c9eeec2dba96a03c254d2d4bb11854c2b",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "ui/brain-index.html",
@@ -121,7 +149,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/ui/brain-index.html",
       "generated": false,
       "before_sha256": "f9e16771024f79fc09a0a867a7e75db70f75fc023d0805818b5dd088fe311e6e",
-      "sha256": "eed3a06fb045279601380e123c79e381396e4e41ec4725cfbcdbe5c7143be355"
+      "sha256": "eed3a06fb045279601380e123c79e381396e4e41ec4725cfbcdbe5c7143be355",
+      "initial_candidate_sha256": "eed3a06fb045279601380e123c79e381396e4e41ec4725cfbcdbe5c7143be355",
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     },
     {
       "candidate": "generated/navigation.conf",
@@ -129,7 +159,9 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/deploy/navigation_patch.py",
       "generated": true,
       "before_sha256": "5d59f2254e02878f4755ad29fce29f688102181d0fc01c07b29997d4384a56be",
-      "sha256": null
+      "sha256": "e241cea8112427ea23b896cc238cb85fafc076d536ee4a4e938873abd1bcfa53",
+      "initial_candidate_sha256": null,
+      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
     }
   ],
   "protected": "original composed V2 manifest and current validated source guards",
@@ -138,5 +170,36 @@
   "session_container_changed": false,
   "original_price_engine_changed": false,
   "price_ending": "adaptive readonly preview, not applied to baseline/candidate/writer",
-  "local_repository_git_writes": false
+  "local_repository_git_writes": false,
+  "initial_main": "5d45761818ba9259f138c9a71c2d6db968a8859c",
+  "releases": [
+    {
+      "source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5",
+      "manifest_sha256": "317adb95b644dca1822c305e53b9c751baa7b63f7a7dc9e1c1cb78a8c2a00627",
+      "backup": "nav-20261021T035838Z",
+      "targets": 16,
+      "guards": 387
+    },
+    {
+      "source_commit": "65a0aa6ae0f312190e7f53c5ce736b87748b0118",
+      "manifest_sha256": "e0071160cf9f50f8db5faeeb6bdfa989688c97747fda91645ec3fb1a9c9543c7",
+      "backup": "nav-20261021T040536Z",
+      "targets": 1,
+      "guards": 402
+    },
+    {
+      "source_commit": "9fb41c8e8f755e1942d3432fb4a33a412856d679",
+      "manifest_sha256": "45c2ad989d7f7fb3f1ab1510b1406075cf2e2163af67a374d934c4dd3216c657",
+      "backup": "nav-20261021T042040Z",
+      "targets": 1,
+      "guards": 402
+    }
+  ],
+  "entry_acceptance": {
+    "data_tools": "authenticated real channel query and original archive timestamp verified",
+    "tracking": "real exact sn/status=all Order entry opened; no order writes",
+    "anonymous_tls": "4 routes exact 302 to original __auth/access/ with matching next; default TLS verification",
+    "hermes": "new baseline in actual model input; old business inputs excluded; first quality failures preserved"
+  },
+  "admin_session": "operations single-owner unit preserved; inactive under parallel cooling schedule, no start/login/retry; fresh data recovery unverified"
 }
