@@ -16,13 +16,15 @@ import learning_service as learning
 import learning_registry as registry
 
 def case():
- return dict(currency='USD',delivered_cost_includes_gifts=True,platforms=[dict(platform=p,current_usd='10.00',main_usd='9.20',delivered_cost_usd=c) for p,c in [('PS','6'),('XBOX','7'),('PC','5')]],discounts_pct=['0','5'])
+ return dict(currency='USD',delivered_cost_includes_gifts=True,platforms=[dict(platform=p,current_usd='10.00',main_usd='9.20',delivered_cost_usd=c) for p,c in [('PS','7'),('XBOX','7'),('PC','5')]],discounts_pct=['0','5'])
 
 class Arithmetic(unittest.TestCase):
  def test_main_change_is_not_limited_by_ending_budget(self):
   v=evaluate(case(),'10');self.assertTrue(v['console_main_pass']);self.assertEqual(v['rows'][0]['main_change_pct'],'-8.00');self.assertEqual(v['rows'][0]['selected_usd'],'9.20')
  def test_worst_console_and_each_discount_not_average(self):
-  c=case();c['platforms'][1]['delivered_cost_usd']='8';v=evaluate(c,'10')
+  c=case()
+  for r in c['platforms'][:2]:r['delivered_cost_usd']='8'
+  v=evaluate(c,'10')
   self.assertFalse(v['console_main_pass']);self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],[None,None]);self.assertIsNotNone(v['rows'][2]['selected_usd'])
  def test_coupon_ending_budget_rejects_even_when_floor_passes(self):
   c=case();c['discounts_pct']=['0','10']
@@ -33,7 +35,7 @@ class Arithmetic(unittest.TestCase):
  def test_one_console_ending_failure_retains_common_main(self):
   c=case()
   for r in c['platforms']:r['main_usd']='10.09'
-  c['platforms'][1]['delivered_cost_usd']='8.6'
+  for r in c['platforms'][:2]:r['delivered_cost_usd']='8.6'
   v=evaluate(c,'10');self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],['10.09','10.09'])
  def test_already_99_never_falls_another_dollar(self):
   c=case()
@@ -41,13 +43,18 @@ class Arithmetic(unittest.TestCase):
   self.assertTrue(all(r['selected_usd']=='109.99' for r in evaluate(c,'10')['rows']))
  def test_main_raise_can_end_below_actual_original_price(self):
   c=case();c['discounts_pct']=['0','8']
-  for r,cost in zip(c['platforms'],['11','12.6','8.1']):r.update(current_usd='18.00',main_usd='18.09',delivered_cost_usd=cost)
+  for r,cost in zip(c['platforms'],['12.6','12.6','8.1']):r.update(current_usd='18.00',main_usd='18.09',delivered_cost_usd=cost)
   v=evaluate(c,'10');r=v['rows'][0];self.assertGreater(Decimal(r['main_change_pct']),0);self.assertEqual(r['selected_usd'],'17.99');self.assertEqual(r['selected_direction'],'down');self.assertLess(Decimal(r['selected_change_pct']),0)
  def test_gross_and_ad_contribution_and_ceiling(self):
   c=case();c['economics']={'before':dict(orders=100,net_unit_usd='10',delivered_cost_unit_usd='6',ads_usd='100'),'after':dict(orders=120,net_unit_usd='9',delivered_cost_unit_usd='6',ads_usd='150')}
   v=evaluate(c,'10')['economics'];self.assertEqual(v['totals']['before']['procurement_gross_usd'],'400');self.assertEqual(v['totals']['after']['ad_after_contribution_usd'],'210');self.assertEqual(v['minimum_whole_orders'],150)
   c['economics']['after']['ads_usd']='151';self.assertEqual(evaluate(c,'10')['economics']['minimum_whole_orders'],151)
   c['economics']['after']['ads_usd']=None;v=evaluate(c,'10')['economics'];self.assertIsNone(v['break_even_orders']);self.assertEqual(v['procurement_minimum_whole_orders'],134)
+ def test_different_console_costs_are_source_conflict_not_platform_policy(self):
+  c=case();c['platforms'][1]['delivered_cost_usd']='8'
+  with self.assertRaisesRegex(ValueError,'console_common_cost'):evaluate(c,'10')
+  m={'fx':{'status':'available','cny_per_usd':'7'},'costs':[dict(platform=p,status='available',cny_per_1k=v) for p,v in [('PS','0.7'),('XBOX','0.8')]],'storefront':{'rows':[dict(platform=p,status='available',base_k='100',bonus_k='5',gross_usd='15') for p in ('PS','XBOX')]}}
+  v=current_accounting(m,'10');self.assertEqual(v['rows'],[]);self.assertEqual(v['console_common_cost_status'],'source_reconciliation_required');self.assertEqual(len(v['console_cost_observations']),2)
  def test_untrusted_fields_and_number_forms(self):
   for n in (True,1,'1e2','NaN','Infinity',' 1','-1','1000000000001','0.00000000001'):
    with self.assertRaises(ValueError):number(n)
@@ -58,7 +65,7 @@ class Arithmetic(unittest.TestCase):
   with self.assertRaises(ValueError):evaluate(c,'10')
  def test_current_uses_delivered_gift_and_valid_fx_once(self):
   m={'fx':{'status':'available','cny_per_usd':'7'},'costs':[dict(platform='PS',status='available',cny_per_1k='0.7')],'storefront':{'rows':[dict(platform='PS',status='available',base_k='100',bonus_k='5',gross_usd='15')]}}
-  r=current_accounting(m,'10')['rows'][0];self.assertEqual(r['delivered_cost_usd'],'10.5');self.assertEqual(r['procurement_gross_usd'],'4.5')
+  r=current_accounting(m|{'costs':m['costs']+[dict(m['costs'][0],platform='XBOX')]},'10')['rows'][0];self.assertEqual(r['delivered_cost_usd'],'10.5');self.assertEqual(r['procurement_gross_usd'],'4.5')
   m['fx']['status']='unusable';self.assertEqual(current_accounting(m,'10')['rows'],[])
 
 class Sources(unittest.TestCase):
@@ -138,6 +145,13 @@ class Learning(unittest.TestCase):
   with patch.dict(sys.modules,report_delivery=SimpleNamespace(private_report=lambda s:'private@example' in s)):
    v=learning.review_evidence([dict(evidence_id='ev_flow',source=SOURCE,query={},data=data)])
   self.assertEqual(v['items'][0]['values']['pricing_workflow']['scenario']['basis'],'declared_hypothesis');self.assertNotIn('private@example',encoded(v))
+ def test_changed_core_contract_blocks_old_candidate_publish(self):
+  self.service.authorizer=lambda user:user=='wulv'
+  with patch.dict(sys.modules,report_delivery=SimpleNamespace(private_report=lambda _:False),report_method=SimpleNamespace(HTML_DESIGN_MANIFEST_SHA256='b'*64)):
+   base=registry.manifest(self.db,'wulv','FS',self.now);event=registry.enqueue(self.db,'wulv','FS',self.source,base['sha256'],'completed_conversation',{'evidence_refs':['ev_fixed'],'method_manifest_sha256':'b'*64,'business_baseline':{'version':'superseded','sha256':'f'*64}});attempt=registry.claim(self.db,'wulv','FS',event['id'])
+   c=dict(kind='experience',lesson='先核口径，再比较。',applies_to='候选比较',evidence_refs=['ev_fixed'],counterexample='不同范围不能合并。',expires_at=(self.now+timedelta(days=30)).isoformat());v=registry.candidate(self.db,'wulv','FS',event['id'],attempt,c,self.now)
+   self.db.commit();status,result=learning.handle(self.service,'wulv',dict(kind='hermes_learning',action='publish',id=v.get('id') or v['candidate'],expected_manifest=base['sha256'],reason='test'))
+  self.assertEqual(status,409);self.assertEqual(result['error'],'experience_business_baseline_conflict');self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
 
 class Wiring(unittest.TestCase):
  def test_all_callers_retain_original_tools_and_guards(self):
@@ -147,6 +161,6 @@ class Wiring(unittest.TestCase):
   self.assertIn("body['mode']=='pricing'",(HERE/'source/controller.py').read_text('utf8'))
   self.assertIn("if state=='completed' and task_id:",(HERE/'source/conversation_service.py').read_text('utf8'))
   self.assertIn("tasks.get(snapshot['task_id'],owner)",(HERE/'source/strategy_tools.py').read_text('utf8'))
-  self.assertIn('business-baseline-20261021-v8',(HERE/'source/business-baseline.md').read_text('utf8'))
+  self.assertIn('business-baseline-20261021-v9',(HERE/'source/business-baseline.md').read_text('utf8'))
 
 if __name__=='__main__':unittest.main()

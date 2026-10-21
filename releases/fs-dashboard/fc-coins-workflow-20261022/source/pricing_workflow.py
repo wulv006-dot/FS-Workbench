@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from pilot import digest
 
-VERSION='astra-fc-coins-v1'
+VERSION='astra-fc-coins-v2'
 SOURCE='Astra FC金币固定决策流程'
 STEPS=('锁定范围和来源','核对执行与实际暴露','分开采购毛利和广告后贡献','比较保持/涨/降候选','联合约束与独立尾价','明确反证和复盘候选')
 PLATFORMS=('PS','XBOX','PC')
@@ -35,8 +35,11 @@ def figures(price,cost,discount):
 def current_accounting(market,floor):
     """Latest cost values only price current packages; they never rewrite historical COGS."""
     fx=market.get('fx') or {};costs={r.get('platform'):r for r in market.get('costs',[])};rows=[]
+    console=[costs.get(p,{}) for p in ('PS','XBOX')]
+    common=all(r.get('status')=='available' for r in console) and all(r.get('cny_per_1k') is not None for r in console) and Decimal(str(console[0]['cny_per_1k']))==Decimal(str(console[1]['cny_per_1k']))
     for row in (market.get('storefront') or {}).get('rows',[]):
         cost=costs.get(row.get('platform'),{})
+        if row.get('platform') in ('PS','XBOX') and not common:continue
         if row.get('status')!='available' or cost.get('status')!='available' or fx.get('status')!='available':continue
         try:
             qty=number(str(row['base_k']))+number(str(row['bonus_k']),True)
@@ -45,7 +48,7 @@ def current_accounting(market,floor):
         except (KeyError,ValueError):continue
         rows.append(dict(platform=row['platform'],delivered_k=str(qty),current_package_usd=str(row['gross_usd']),delivered_cost_usd=str(delivered),**value,
             no_additional_discount_floor_pass=Decimal(value['procurement_margin_pct'])>=Decimal(str(floor))))
-    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'basis':'current public package + latest transaction CNY/K × delivered K / verified FX; zero additional discount is a sensitivity, not proof of coupon eligibility or actual net income','historical_COGS_rewritten':False}
+    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'console_common_cost_status':'matching_valid_observations' if common else 'source_reconciliation_required','console_cost_observations':[{k:r.get(k) for k in ('platform','status','cny_per_1k','trade_at','checked_at')} for r in console],'basis':'PS/Xbox share one supplier-cost market and base price. Different historical/latest records require time/source reconciliation, never platform cost differentiation or automatic mean/min selection. Current public package + latest verified CNY/K × delivered K / FX; zero additional discount is only a sensitivity.','historical_COGS_rewritten':False}
 
 
 def evaluate(case,floor):
@@ -64,6 +67,7 @@ def evaluate(case,floor):
         if not isinstance(row,dict) or set(row)!={'platform','current_usd','main_usd','delivered_cost_usd'} or row['platform'] not in PLATFORMS or row['platform'] in parsed:raise ValueError('workflow_platform')
         parsed[row['platform']]=(money(row['current_usd']),money(row['main_usd']),number(row['delivered_cost_usd']))
     if not {'PS','XBOX'}<=set(parsed) or parsed['PS'][:2]!=parsed['XBOX'][:2]:raise ValueError('workflow_console_linkage')
+    if parsed['PS'][2]!=parsed['XBOX'][2]:raise ValueError('workflow_console_common_cost_required')
     endings={p:package_ending(str(main),str(cost),str(floor)) for p,(old,main,cost) in parsed.items()}
     candidates={p:Decimal(v['package_usd']) for p,v in endings.items()}
     # One console parameter cannot apply two different ending choices.
@@ -96,7 +100,7 @@ def evaluate(case,floor):
         r['selected_change_pct']=None if selected is None else str((selected/Decimal(r['current_usd'])-1)*100)
         r['selected_direction']='blocked' if selected is None else 'hold' if selected==Decimal(r['current_usd']) else 'up' if selected>Decimal(r['current_usd']) else 'down'
     result={'basis':'declared_hypothesis','currency':'USD','rows':output,'console_main_pass':main_pass,'console_ending_pass':ending_pass,
-      'rule':'P0→P1 is a main research change, not limited by ending budgets. All legal discount cases tested separately. Floor is a procurement margin ratio; ad-after contribution is a separate amount. Feasible is not profitable or executable.'}
+      'rule':'PS/Xbox share one cost market and base price; customer mix does not authorize platform base-price discrimination. P0→P1 is a main research change, not limited by ending budgets. All legal redemption cases tested separately. Floor is a procurement margin ratio; ad-after contribution is a separate amount. Feasible is not profitable or executable.'}
     if 'economics' in case:
         pair=case['economics']
         if not isinstance(pair,dict) or set(pair)!={'before','after'}:raise ValueError('workflow_economics_fields')
@@ -119,7 +123,7 @@ def schema():
     platform={'type':'object','properties':{'platform':{'enum':list(PLATFORMS)},**{k:decimal for k in ('current_usd','main_usd','delivered_cost_usd')}},'required':['platform','current_usd','main_usd','delivered_cost_usd'],'additionalProperties':False}
     economics={'type':'object','properties':{'orders':{'type':'integer','minimum':0},'net_unit_usd':decimal,'delivered_cost_unit_usd':decimal,'ads_usd':{'anyOf':[decimal,{'type':'null'}]}},'required':['orders','net_unit_usd','delivered_cost_unit_usd','ads_usd'],'additionalProperties':False}
     case={'type':'object','properties':{'currency':{'const':'USD'},'delivered_cost_includes_gifts':{'const':True},'platforms':{'type':'array','items':platform,'minItems':2,'maxItems':3},'discounts_pct':{'type':'array','items':decimal,'minItems':1,'maxItems':10},'economics':{'type':'object','properties':{'before':economics,'after':economics},'required':['before','after'],'additionalProperties':False}},'required':['currency','delivered_cost_includes_gifts','platforms','discounts_pct'],'additionalProperties':False}
-    return {'type':'function','function':{'name':'mcp__fcro__fc_run_pricing_workflow','description':'Mandatory Astra FC Coins fixed decision receipt. review reads existing task-bound execution, completed Gold cost/coupon, exact marketing and current market; source gaps never stop existing automation. scenario performs deterministic joint PS/Xbox and separate PC net-discount, margin, independent ending budgets and break-even accounting. Scenario values are declared hypotheses, never observed prices or execution permission. Read receipt values instead of recalculating in prose. Propose evidence-backed exceptions and falsifiers separately; changes enter existing reviewed learning, never auto-modify the workflow or business rules.',
+    return {'type':'function','function':{'name':'mcp__fcro__fc_run_pricing_workflow','description':'Mandatory Astra FC Coins fixed decision receipt. review reads existing task-bound execution, completed Gold cost/coupon, exact marketing and current market; source gaps never stop existing automation. scenario requires common PS/Xbox cost and base price in their shared market; different source records need reconciliation, not platform base-price differentiation. scenario performs deterministic joint PS/Xbox and separate PC net-discount, margin, independent ending budgets and break-even accounting. Scenario values are declared hypotheses, never observed prices or execution permission. Read receipt values instead of recalculating in prose. Propose evidence-backed exceptions and falsifiers separately; changes enter existing reviewed learning, never auto-modify the workflow or business rules.',
       'parameters':{'type':'object','properties':{'profile':{'const':'FC27'},'action':{'enum':['review','scenario']},'start':{'type':'string'},'end':{'type':'string'},'case':case},'required':['profile','action','start','end'],'additionalProperties':False}}}
 
 
