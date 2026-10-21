@@ -1,6 +1,6 @@
 {
   "contract": "fs-business-baseline-source-v1",
-  "status": "deployed_entries_verified_learning_partial",
+  "status": "deployed_entries_verified_targeted_learning_checks_passed_effect_unverified",
   "main": "9fb41c8e8f755e1942d3432fb4a33a412856d679",
   "files": [
     {
@@ -99,9 +99,11 @@
       "repository": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md",
       "generated": false,
       "before_sha256": null,
-      "sha256": "093d51f655bb4b840f73c0428645c72064fafd9389bb702a5b0d48c3ed84b206",
+      "sha256": "92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2",
       "initial_candidate_sha256": "093d51f655bb4b840f73c0428645c72064fafd9389bb702a5b0d48c3ed84b206",
-      "deployed_source_commit": "3dc15db0334ed7f96ac4271f6abc65b2794c65c5"
+      "deployed_source_commit": null,
+      "observed_matches_repository_commit": "1fc4abce63367229f70af8da526b9606ff31ff23",
+      "last_this_work_deployed_source_commit": "04c15783aaafa917006aa02b7dfb6c855c7f88dc"
     },
     {
       "candidate": "ui/data-workspace.js",
@@ -193,13 +195,28 @@
       "backup": "nav-20261021T042040Z",
       "targets": 1,
       "guards": 402
+    },
+    {
+      "source_commit": "04c15783aaafa917006aa02b7dfb6c855c7f88dc",
+      "manifest_sha256": "fab2d1cef2825b5c992c3cdeba00254674c921f9b292b85a2912d85b107a73f6",
+      "backup": "nav-20261021T073934Z",
+      "targets": 1,
+      "guards": 402
     }
   ],
   "entry_acceptance": {
     "data_tools": "authenticated real channel query and original archive timestamp verified",
     "tracking": "real exact sn/status=all Order entry opened; no order writes",
     "anonymous_tls": "4 routes exact 302 to original __auth/access/ with matching next; default TLS verification",
-    "hermes": "new baseline in actual model input; old business inputs excluded; first quality failures preserved"
+    "hermes": "reviewed method and v2 clarification loaded; latest v3 frozen in final model; bounded five-item transfer and complete conditional strategy reviewed, broad generalization and profit effect unverified"
   },
-  "admin_session": "operations single-owner unit preserved; inactive under parallel cooling schedule, no start/login/retry; fresh data recovery unverified"
+  "admin_session": "ready and actual current-day native_loss available; scoped readback, other endpoints and natural cycles separately unverified",
+  "observed_main": "1fc4abce63367229f70af8da526b9606ff31ff23",
+  "current_baseline_observation": {
+    "sha256": "92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2",
+    "version": "版本：business-baseline-20261021-v3。业务决定来源：吴律本次八项说明、两项补充确认和尾价修订，以及已确认项目合同。v2澄清尾价计算基准与利润/反证定义，不改变预算、底线或执行权限。v3补充用户确认的折扣码管理筛选与Admin ES订单日志链路，保留v2全部计算澄清。适用业务规则自本次确认生效；代码、部署、工具和模型的验证状态另见验收记录，本文存在不代表它们已完成。",
+    "matches_repository_commit": "1fc4abce63367229f70af8da526b9606ff31ff23",
+    "observed_at": "2026-10-21T08:11:46.717261+00:00",
+    "scope": "v3 by parallel task preserved; deployment receipt external, actual final model loaded this SHA"
+  }
 }
