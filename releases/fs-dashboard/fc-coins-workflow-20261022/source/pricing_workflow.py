@@ -1,6 +1,9 @@
 """Astra FC Coins decision order; arithmetic is authoritative, business execution absent."""
 from copy import deepcopy
 from decimal import Decimal,InvalidOperation,ROUND_CEILING
+from datetime import datetime,timezone
+import hashlib
+from pathlib import Path
 import re
 from pilot import digest
 
@@ -89,6 +92,9 @@ def evaluate(case,floor):
         for r in consoles:r['selected_usd']=r['linked_ending_usd']
     for r in output:
         if r['platform']=='PC':r['selected_usd']=r['linked_ending_usd'] if r['ending_pass'] else r['main_usd'] if r['main_pass'] else None
+        selected=None if r['selected_usd'] is None else Decimal(r['selected_usd'])
+        r['selected_change_pct']=None if selected is None else str((selected/Decimal(r['current_usd'])-1)*100)
+        r['selected_direction']='blocked' if selected is None else 'hold' if selected==Decimal(r['current_usd']) else 'up' if selected>Decimal(r['current_usd']) else 'down'
     result={'basis':'declared_hypothesis','currency':'USD','rows':output,'console_main_pass':main_pass,'console_ending_pass':ending_pass,
       'rule':'P0→P1 is a main research change, not limited by ending budgets. All legal discount cases tested separately. Floor is a procurement margin ratio; ad-after contribution is a separate amount. Feasible is not profitable or executable.'}
     if 'economics' in case:
@@ -101,9 +107,10 @@ def evaluate(case,floor):
             totals[label]={'orders':row['orders'],'gross_unit_usd':str(g),'procurement_gross_usd':str(gp),'ads_usd':None if ads is None else str(ads),'ad_after_contribution_usd':None if ads is None else str(gp-ads)}
         before,after=totals['before'],totals['after'];g1=Decimal(after['gross_unit_usd'])
         target=None
+        gross_target=max(Decimal(0),Decimal(before['procurement_gross_usd'])/g1) if g1>0 else None
         if before['ad_after_contribution_usd'] is not None and after['ads_usd'] is not None and g1>0:
             target=max(Decimal(0),(Decimal(before['ad_after_contribution_usd'])+Decimal(after['ads_usd']))/g1)
-        result['economics']={'totals':totals,'break_even_orders':str(target) if target is not None else None,'minimum_whole_orders':int(target.to_integral_value(rounding=ROUND_CEILING)) if target is not None else None,'causal_effect':'not_identified_by_two_period_accounting','assumptions':'declared comparable cohort, mature refunds, net income, delivered costs and same-scope Ads in USD; no double discount deduction'}
+        result['economics']={'totals':totals,'procurement_break_even_orders':str(gross_target) if gross_target is not None else None,'procurement_minimum_whole_orders':int(gross_target.to_integral_value(rounding=ROUND_CEILING)) if gross_target is not None else None,'break_even_orders':str(target) if target is not None else None,'minimum_whole_orders':int(target.to_integral_value(rounding=ROUND_CEILING)) if target is not None else None,'break_even_basis':'same-scope ad-after contribution; unknown Ads stays null while procurement threshold remains separately calculable','causal_effect':'not_identified_by_two_period_accounting','assumptions':'declared comparable cohort, mature refunds, net income, delivered costs and same-scope Ads in USD; no double discount deduction'}
     return result
 
 
@@ -128,7 +135,7 @@ class Workflow:
         checked_query({k:v for k,v in dict(args,kind='readiness').items() if k not in ('action','case')})
         if ('case' in args)!=(args['action']=='scenario'):raise ValueError('workflow_case_boundary')
         engine,policy,identity=self.bridge.baseline();floor=policy['minimum_gross_margin_pct']
-        result={'workflow_version':VERSION,'steps':list(STEPS),'scope':{k:args[k] for k in ('profile','start','end')},'baseline_policy':identity,'business_baseline':baseline_identity(),
+        result={'workflow_version':VERSION,'workflow_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'captured_at':datetime.now(timezone.utc).isoformat(),'steps':list(STEPS),'scope':{k:args[k] for k in ('profile','start','end')},'baseline_policy':identity,'business_baseline':baseline_identity(),
           'minimum_procurement_margin_pct':str(floor),'write_performed':False,'execution_authorized':False,'existing_automation_changed':False}
         if args['action']=='scenario':result.update(status='available',scenario=evaluate(args['case'],floor),source_kind='declared_hypothesis')
         else:
