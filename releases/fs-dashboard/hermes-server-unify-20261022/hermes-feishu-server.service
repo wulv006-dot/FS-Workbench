@@ -1,0 +1,19 @@
+[Unit]
+Description=Hermes Feishu gateway on the shared FS server profile
+After=docker.service fs-hermes-desktop.service
+Requires=docker.service
+Wants=fs-hermes-desktop.service
+PartOf=fs-hermes-desktop.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker exec --env HERMES_ALLOW_ROOT_GATEWAY=1 fs-hermes-desktop /opt/hermes/.venv/bin/python -m hermes_cli.main gateway run
+ExecStop=/usr/bin/docker exec fs-hermes-desktop /opt/hermes/.venv/bin/python -m hermes_cli.main gateway stop
+TimeoutStartSec=90
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

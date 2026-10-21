@@ -8,14 +8,14 @@ import subprocess
 
 STAGE = Path(__file__).resolve().parent
 ROOT = Path('/opt/fs-hermes-ops')
-PROFILE = Path('/var/lib/hermes-dingtalk/profile/ops-watchdog')
+PROFILE = Path('/var/lib/fs-hermes-fc/profile/ops-watchdog')
 MAP = {**{name: ROOT/name for name in ('common.py','github_api.py','host.py','watch.py','release_ui.py','release_navigation_base.py','publish_monitor.py')},
        'monitor-health-hooks.py': ROOT/'recipes/monitor-health/hooks.py',
        'fs-hermes-ops-bridge.service': Path('/etc/systemd/system/fs-hermes-ops-bridge.service'),
        'fs-hermes-ops-bridge.timer': Path('/etc/systemd/system/fs-hermes-ops-bridge.timer'),
-       'watch.py.profile': Path('/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/watch.py'),
-       'common.py.profile': Path('/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/common.py'),
-       'SKILL.md': Path('/var/lib/hermes-dingtalk/profile/skills/fs-operations/fs-ops-watchdog/SKILL.md'),
+       'watch.py.profile': Path('/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py'),
+       'common.py.profile': Path('/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/common.py'),
+       'SKILL.md': Path('/var/lib/fs-hermes-fc/profile/skills/fs-operations/fs-ops-watchdog/SKILL.md'),
        'private-target.json': PROFILE/'private-target.json'}
 
 def main():

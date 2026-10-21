@@ -9,12 +9,12 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from common import age, assess, repair_html, repair_content, sha, MONITOR_BEFORE
+from common import age, assess, repair_html, repair_content, sha, MONITOR_BEFORE, feishu_connection
 from github_api import GitHub
 
 HERE = Path(__file__).resolve().parent
 STATE = Path('/var/lib/fs-hermes-ops')
-PROFILE = Path('/var/lib/hermes-dingtalk/profile/ops-watchdog')
+PROFILE = Path('/var/lib/fs-hermes-fc/profile/ops-watchdog')
 BRAIN = Path('/var/www/dashboard/fs-home/brain/index.html')
 ASSETS = Path('/var/lib/fs-navigation-formal-static/workspace-native-20261006-561eda9b98e2/ui')
 PREFIX = 'releases/fs-dashboard/hermes-ops-20261020/repairs/'
@@ -77,7 +77,7 @@ def collect(now):
     except (OSError, ValueError): raw = {}
     issues = assess(raw, now)
     services = {}
-    for unit in ('nginx', 'fs-hermes-fc', 'fs-hermes-desktop', 'fc27-cloud-api', 'fc27-cloud-worker'):
+    for unit in ('nginx', 'fs-hermes-fc', 'fs-hermes-desktop', 'hermes-dingtalk', 'fc27-cloud-api', 'fc27-cloud-worker'):
         child = subprocess.run(['systemctl', 'is-active', unit], capture_output=True, text=True, timeout=4)
         services[unit] = child.stdout.strip()
         if services[unit] != 'active': issues.append('service_unavailable:' + unit)
@@ -91,8 +91,20 @@ def collect(now):
     except (OSError, ValueError): issues.append('brain_ui_unverified')
     monitor_repairable = sha(safe(Path('/opt/fc-ops-readonly-monitor/hooks.py')).read_bytes()) == MONITOR_BEFORE
     if monitor_repairable: issues.append('monitor_known_health_schema_regression')
-    gateway = read(Path('/var/lib/hermes-dingtalk/profile/gateway_state.json'), {})
-    feishu = gateway.get('platforms', {}).get('feishu', {}).get('state')
+    # The research API also writes gateway_state.json; use the live gateway's own connection events.
+    try:
+        owner = subprocess.run(['systemctl','show','hermes-dingtalk','-p','MainPID'], capture_output=True, text=True, timeout=4)
+        pid = int(owner.stdout.strip().split('=',1)[1])
+        ticks = int(Path('/proc/'+str(pid)+'/stat').read_text().rsplit(')',1)[1].split()[19])
+        boot = int(next(l.split()[1] for l in Path('/proc/stat').read_text().splitlines() if l.startswith('btime ')))
+        started_at = boot + ticks / os.sysconf('SC_CLK_TCK')
+        previous = read(STATE/'feishu-connection.json', {})
+        if previous.get('pid') != pid: previous = {}
+        log = (PROFILE.parent/'logs/gateway.log').read_text('utf-8',errors='replace')
+        feishu = feishu_connection(log, started_at, previous)
+        write(STATE/'feishu-connection.json', {'pid':pid,'started_at':started_at,'state':feishu})
+    except (OSError, ValueError, IndexError, StopIteration, subprocess.TimeoutExpired):
+        feishu = 'unknown'
     if feishu != 'connected': issues.append('hermes_feishu_disconnected')
     coin = raw.get('coin', {})
     job = coin.get('job', {})

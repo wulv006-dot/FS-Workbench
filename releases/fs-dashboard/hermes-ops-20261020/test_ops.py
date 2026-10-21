@@ -321,10 +321,24 @@ class WatchChecks(unittest.TestCase):
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         self.assertEqual(len(module.MAP), 14)
         self.assertFalse(any('/opt/fc27-cloud-browser/' in str(p) for p in module.MAP.values()))
-        self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/watch.py')
+        self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py')
         timer = (ROOT/'deploy/fs-hermes-ops-bridge.timer').read_text()
         self.assertIn('Persistent=false', timer)
         self.assertIn('OnUnitActiveSec=5min', timer)
+
+class ConnectionChecks(unittest.TestCase):
+    def test_current_process_event_and_disconnect(self):
+        started=datetime(2026,10,21,16,18,tzinfo=timezone.utc).timestamp()
+        connected='2026-10-21 16:18:38,425 INFO gateway.run: feishu connected'
+        self.assertEqual(common.feishu_connection(connected,started),'connected')
+        self.assertEqual(common.feishu_connection(connected+'\n2026-10-21 16:19:00,000 INFO gateway.run: feishu disconnected',started),'disconnected')
+        self.assertEqual(common.feishu_connection(connected,started+60),'unknown')
+
+    def test_log_rotation_cache_is_bound_to_process_incarnation(self):
+        previous={'started_at':100,'state':'connected'}
+        self.assertEqual(common.feishu_connection('',100,previous),'connected')
+        self.assertEqual(common.feishu_connection('',101,previous),'unknown')
+        self.assertEqual(common.feishu_connection('bad timestamp INFO gateway.run: feishu connected',100,previous),'unknown')
 
 class GitChecks(unittest.TestCase):
     def client(self, changed=None, conclusion='success'):

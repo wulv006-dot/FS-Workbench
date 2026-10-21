@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-22T00:46:23+08:00",
+  "runtime": "fs-hermes-desktop",
+  "profile": "/var/lib/fs-hermes-fc/profile",
+  "entries": [
+    {
+      "local": "fs_hermes_ops_20261020/source/host.py",
+      "server": "/opt/fs-hermes-ops/host.py",
+      "sha256": "2aef3f6a761e08a595648aeffc1ae602a6f1ac694e82c1703ff42784455dc356",
+      "state": "live_readback_matches"
+    },
+    {
+      "local": "fs_hermes_ops_20261020/source/common.py",
+      "server": "/opt/fs-hermes-ops/common.py",
+      "sha256": "0499e52f16756250be46a6263be9303dd8e89dda0a5510fdf2ac96faaf6f80e3",
+      "state": "live_readback_matches"
+    },
+    {
+      "local": "fs_hermes_ops_20261020/source/common.py",
+      "server": "/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/common.py",
+      "sha256": "0499e52f16756250be46a6263be9303dd8e89dda0a5510fdf2ac96faaf6f80e3",
+      "state": "live_readback_matches"
+    },
+    {
+      "local": "fs_hermes_ops_20261020/deploy/hermes-feishu-server.service",
+      "server": "/etc/systemd/system/hermes-dingtalk.service",
+      "sha256": "62061e0dfcc3d431c4486f25d30e40f6c39e510abc78fb56891c3494d2df790a",
+      "state": "live_readback_matches"
+    },
+    {
+      "local": "hermes_server_unify_20261022/fs_readonly/__init__.py",
+      "server": "/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/__init__.py",
+      "sha256": "19846a767e204f446ff7181b454601dfc3dfbf5ec021a4704ef20f5bf0db31cf",
+      "state": "live_readback_matches"
+    },
+    {
+      "local": "hermes_server_unify_20261022/fs_readonly/plugin.yaml",
+      "server": "/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/plugin.yaml",
+      "sha256": "05d7ff85b94921d601866bfe3a8ab8f0d6d06c194f7ecc761d37a2afc08000ea",
+      "state": "live_readback_matches"
+    },
+    {
+      "server": "/var/lib/fs-hermes-fc/profile/AGENTS.md",
+      "sha256": "4d2b162541f167fd2285aadf1f896088f7af2e5beaa60ad41113b2d7f5547829",
+      "state": "live_preserved_with_append",
+      "append_source": "hermes_server_unify_20261022/profile-note.md",
+      "append_sha256": "bfa102ddb89e1743c0ded60184c3da038b4470c3f9e2ad0d0df3d1490a2aad57"
+    },
+    {
+      "server": "/var/lib/fs-hermes-fc/profile/skills/fs-operations/fs-ops-watchdog/SKILL.md",
+      "version": "1.2.0",
+      "sha256": "a0c3e4bc6ee59bff1a6e53f5330b082d0f33483fe71a14a3a9523faeaaebdea1",
+      "state": "existing_newer_body_preserved_with_migration_note",
+      "local_old_candidate_not_deployable": "fs_hermes_ops_20261020/skill/SKILL.md"
+    },
+    {
+      "server": "/opt/fs-hermes-fc/business-baseline.md",
+      "version": "business-baseline-20261021-v7",
+      "sha256": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26",
+      "state": "existing_active_baseline_unchanged"
+    },
+    {
+      "server": "/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py",
+      "host_copy": "/opt/fs-hermes-ops/watch.py",
+      "sha256": "d6aca8463473c433423e15d8b261289358e2dedad1f9a62cfce6d2e014a2d58a",
+      "state": "existing_runtime_preserved_not_redeployed",
+      "local_canonical": "fs_hermes_ops_20261020/source/watch.py",
+      "canonical_sha256": "efc70b3b4c98473b134514a02cc5417fde788fb1710fd9cd3efb6dffc558dc1b",
+      "canonical_ref": "d942147e930ecad4f8e57ba4a5ad9166049e4954",
+      "open_decision": "OD-HERMES-WATCH-SOURCE-20261022"
+    }
+  ],
+  "backup": "/var/backups/hermes-server-unify-20261022",
+  "remote_source_sync": "authorized_in_progress",
+  "formal_ci": "not_run",
+  "natural_cycle": "not_observed"
+}
