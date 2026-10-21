@@ -1,0 +1,47 @@
+{
+  "contract": "fs-business-baseline-notion-sync-v1",
+  "at": "2026-10-21",
+  "canonical": {
+    "id": "3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a",
+    "title": "📘 MMOEXP / FS 业务基准与取数手册｜10月21日修订",
+    "url": "https://app.notion.com/p/3ff9a8a79c4e81bc8a4feb15aab87a5a?pvs=204",
+    "last_edited_at": "2026-10-21T04:39:37.145Z",
+    "read_back": true,
+    "baseline_version": "business-baseline-20261021-v1",
+    "old_conflicting_business_body_removed": true,
+    "codex_appendix_preserved": true,
+    "astra_reference_present": true,
+    "partial_quality_explicit": true,
+    "admin_cooldown_explicit": true
+  },
+  "related": [
+    {
+      "id": "3fc9a8a7-9c4e-8157-8ed1-c5fa218837ea",
+      "title": "🧭 构建 FS 运营决策中枢",
+      "url": "https://app.notion.com/p/3fc9a8a79c4e81578ed1c5fa218837ea?pvs=204",
+      "last_edited_at": "2026-10-21T04:37:27.108Z",
+      "current_baseline_link_verified": true
+    },
+    {
+      "id": "3fd9a8a7-9c4e-81be-833d-ec86874f31ad",
+      "title": "验收FC27高金额低优惠客户追踪闭环",
+      "url": "https://app.notion.com/p/3fd9a8a79c4e81be833dec86874f31ad?pvs=204",
+      "last_edited_at": "2026-10-21T04:37:30.303Z",
+      "current_baseline_link_verified": true
+    },
+    {
+      "id": "3fc9a8a7-9c4e-81d8-8d6d-d6c400ad6ecb",
+      "title": "核实流量报告口径与映射",
+      "url": "https://app.notion.com/p/3fc9a8a79c4e81d88d6dd6c400ad6ecb?pvs=204",
+      "last_edited_at": "2026-10-21T04:37:33.202Z",
+      "current_baseline_link_verified": true
+    }
+  ],
+  "historical_task_pages_deleted": false,
+  "permissions_changed": false,
+  "operating_rows_or_financial_samples_uploaded": false,
+  "notes": [
+    "First long update_content returned no_match for business body; actual readback detected non-update. Full requested business revision then replaced content while preserving Codex appendix and zero child pages.",
+    "Notion auto-converted documented enhanced mention tags to its current native date/mention syntax; final table cells and key sections read back."
+  ]
+}
