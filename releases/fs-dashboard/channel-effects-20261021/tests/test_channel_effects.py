@@ -16,7 +16,7 @@ from channel_cost_source import delivery_timestamp
 
 
 def order(sn='A', **changes):
-    return dict(dict(id=sn, site_id=266, order_no=sn, gid=1, game_format='Game A', amount_usd_format='$ 10.00',
+    return dict(dict(id=sn, site_id=266, order_no=sn, gid=1, game_format='Game A', amount_usd_format='$ 10.00', amount_rmb_format='¥ 70',
                 paytime='2026-10-20 12:00:00', status_format='已完成', pay_status=1, discount_code='Alpha',
                 recommend_uid=0, country_code='US', paytype_display='PayPal', isNew=1), **changes)
 
@@ -32,7 +32,7 @@ class Effects(unittest.TestCase):
     def rows(self):
         orders = [order(), order('B', **{'discount_code':'', 'recommend_uid':42, 'amount_usd_format':'$ 20'}),
                   order('C', **{'discount_code':'', 'amount_usd_format':'$ 30'}),
-                  order('D', **{'discount_code':'beta', 'amount_usd_format':'$ 40'})]
+                  order('D', **{'discount_code':'beta', 'amount_usd_format':'$ 40', 'amount_rmb_format':'¥ 280'})]
         deliveries = [dict(delivery_id='1', source='www.mmoexp.com', genre='订单发货', sn='A', sale_total='¥ 70', cost_total='¥ 35'),
                       dict(delivery_id='2', source='www.mmoexp.com', genre=1, sn='D', sale_total='280', cost_total='252'),
                       dict(delivery_id='3', source='eldorado.gg', genre=1, sn='B', sale_total='100', cost_total='0')]
@@ -44,11 +44,60 @@ class Effects(unittest.TestCase):
         return dict(period=self.period, generatedAt=datetime.now(TZ).isoformat(), orders=self.rows(),
                     sources={'orders':{'status':'complete'},'coupons':{'status':'complete'}}, mapping={})
 
+    def test_admin_income_is_counted_once_across_multiple_deliveries(self):
+        from channel_effects import delivery_index
+        raw=self.rows()[0]
+        records=[dict(delivery_id=str(n),genre=1,source='www.mmoexp.com',sn='A',sale_total='1000',cost_total=str(cost)) for n,cost in ((1,10),(2,20))]
+        raw.update(delivery_index(records)['A'])
+        result=accounting_row(raw,{})
+        self.assertEqual((result['saleCny'],result['costCny'],result['profitCny']),(70,30,40))
+        self.assertEqual(result['deliveryRows'],2)
+        self.assertEqual(result['revenueBasis'],'admin_order_cny')
+        self.assertAlmostEqual(metrics([result])['margin'],40/70)
+
+    def test_missing_delivery_revenue_cannot_erase_known_purchase_cost(self):
+        from channel_effects import delivery_index
+        raw=self.rows()[0]
+        raw.update(delivery_index([dict(delivery_id='one',genre=1,source='www.mmoexp.com',sn='A',sale_total=None,cost_total='35')])['A'])
+        result=accounting_row(raw,{})
+        self.assertEqual((result['saleCny'],result['costCny'],result['profitCny']),(70,35,35))
+
+    def test_missing_admin_income_is_unknown_without_falling_back_to_delivery_sale(self):
+        raw=dict(self.rows()[0],adminSaleCny=None)
+        result=accounting_row(raw,{})
+        self.assertEqual(result['costCny'],35)
+        self.assertIsNone(result['saleCny']);self.assertIsNone(result['profitCny'])
+        self.assertEqual(metrics([result])['missingRevenueOrders'],1)
+
+    def test_fraud_keeps_audit_detail_but_leaves_operating_denominators(self):
+        data=self.data();data['orders'][0]['status']='验证·未通过'
+        result=view(data,{})
+        self.assertIn('A',{r['orderNo'] for r in result['orders']})
+        self.assertEqual(result['summary']['salesUsd'],60)
+        self.assertEqual(result['summary']['orders'],2)
+        self.assertEqual(result['denominator']['salesUsd'],90)
+        self.assertEqual(result['summary']['fraudOrders'],1)
+
+    def test_refund_application_does_not_equal_actual_refund(self):
+        result=normalize([order(status_format='申请退款',pay_status=1)],[],[],[],[],{},dict(entries=[]))[0]
+        self.assertFalse(result['refunded'])
+        self.assertEqual(view(dict(self.data(),orders=[result]),{})['summary']['orders'],1)
+        result=normalize([order(status_format='已退款',pay_status=1)],[],[],[],[],{},dict(entries=[]))[0]
+        self.assertTrue(result['refunded'])
+
+    def test_mixed_old_cache_does_not_mix_two_income_methods(self):
+        data=self.data();data['orders'][1].pop('adminSaleCny')
+        data['orders'][0]['saleCny']=60
+        result=view(data,{})
+        self.assertEqual(result['revenueBasis'],'legacy_delivery')
+        self.assertEqual(next(r for r in result['orders'] if r['orderNo']=='A')['saleCny'],60)
+
     def test_uncompleted_and_fraud_orders_do_not_have_cost_or_profit(self):
         data=self.data();data['orders'][0]['status']='问题订单';data['orders'][1]['status']='验证·未通过'
         result=view(data,{});rows={r['orderNo']:r for r in result['orders']}
         self.assertEqual(result['summary']['completedOrders'],1)
-        self.assertEqual(result['summary']['pendingOrders'],2)
+        self.assertEqual(result['summary']['pendingOrders'],1)
+        self.assertEqual(result['summary']['excludedFraudUsd'],20)
         self.assertEqual(result['summary']['fraudOrders'],1)
         self.assertEqual(result['summary']['missingCostOrders'],0)
         self.assertIsNone(rows['A']['costCny']);self.assertIsNone(rows['A']['profitCny'])

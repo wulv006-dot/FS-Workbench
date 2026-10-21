@@ -163,7 +163,7 @@ def load_costs():
         by_id.update({str(r['delivery_id']): r for r in data['rows']})
         rows = list(by_id.values())
         info.update(source='Order 逐条订单发货记录 + Sales 已有缓存', generatedAt=data['generatedAt'],
-                    period=data['period'], limitation='仅匹配发货记录计算人民币毛利；未匹配不补零，未视作最终结算。')
+                    period=data['period'], limitation='仅关联实际发货采购成本；收入使用Admin单笔原人民币金额，缺失不补零，不视作财务最终结算。')
     return rows, info
 
 

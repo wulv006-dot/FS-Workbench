@@ -151,6 +151,8 @@ def collect_period(period, root=ROOT, force=False):
     from copy import deepcopy
     requested = list(days(period))
     known = {day: compose(dict(start=day, end=day), root) for day in requested}
+    known = {day: value if value is not None and all('adminSaleCny' in r for r in value['orders']) else None
+             for day, value in known.items()}
     missing = [day for day in requested if known[day] is None]
     if force or len(missing) == len(requested): return collect(period)
     if not missing:
@@ -189,7 +191,7 @@ def cache_day(day, root=ROOT):
     with (root / 'collector.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         data = compose(period, root)
-        if data is None or data['sources']['customer']['status'] != 'complete':
+        if data is None or data['sources']['customer']['status'] != 'complete' or any('adminSaleCny' not in r for r in data['orders']):
             data = collect(period)
             store_days(data, root)
     path = root / 'delivery-days' / (day + '.json')
@@ -232,7 +234,7 @@ def main():
             if args.backfill:
                 if datetime.now(TZ).hour >= 7: break
                 cached = compose(dict(start=day, end=day))
-                if cached and cached['sources']['cache'].get('deliveryDayComplete') and cached['sources']['customer']['status'] == 'complete': continue
+                if cached and cached['sources']['cache'].get('deliveryDayComplete') and cached['sources']['customer']['status'] == 'complete' and all('adminSaleCny' in r for r in cached['orders']): continue
             try: result = cache_day(day)
             except BlockingIOError:
                 result = dict(day=day, status='deferred', reason='foreground_source_read_active')

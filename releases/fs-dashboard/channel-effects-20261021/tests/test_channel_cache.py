@@ -51,6 +51,15 @@ class Archive(unittest.TestCase):
             with self.assertRaises(ValueError):cache.store_days(bad,root)
             self.assertEqual((root/'days/2026-10-20.json').read_bytes(),before)
 
+    def test_old_income_schema_is_recollected_before_new_method(self):
+        data=self.fixture();old=deepcopy(data)
+        for row in old['orders']:row.pop('adminSaleCny')
+        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch('channel_source.collect',return_value=data) as source:
+            root=Path(folder);cache.store_days(old,root)
+            result=cache.collect_period(data['period'],root)
+            source.assert_called_once_with(data['period'])
+            self.assertTrue(all('adminSaleCny' in row for row in result['orders']))
+
     def test_partially_cached_period_only_reads_missing_days(self):
         data=self.fixture();empty=deepcopy(data);empty.update(period=dict(start='2026-10-19',end='2026-10-19'),orders=[])
         with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch('channel_source.collect',return_value=empty) as source:

@@ -112,11 +112,11 @@ function kpis() {
   const s = data.summary, coupon = field('mode').value === 'coupon';
   const labels = [
     ['订单数', count(s.orders), (coupon ? '去重后的用券订单' : '用码 + 推荐人无码') + (s.testOrders ? ` · 排除 ${s.testOrders} 测试单` : '')],
-    ['销售额（USD）', usd(s.salesUsd), '付款订单金额，含待完成单'],
+    ['销售额（USD）', usd(s.salesUsd), 'Admin整单金额，排除验证未通过欺诈单'],
     ['销售额（¥）', cny(s.saleCny), '已完成且已核算的订单金额'],
     ['采购成本（¥）', cny(s.costCny), `${s.coveredOrders} / ${s.completedOrders} 已完成单已核算`],
-    ['毛利（¥）', cny(s.profitCny), '仅已完成且已核算订单'],
-    ['综合利润率', pct(s.margin), '已完成核算群体 · 加权'],
+    ['毛利（¥）', cny(s.profitCny), '同群体Admin收入 − 实际采购成本'],
+    ['综合利润率', pct(s.margin), '采购口径毛利 / 同群体收入'],
     ['客单价（USD）', usd(s.aovUsd), '美元销售额 / 订单数'],
     coupon ? ['用券订单占全站', pct(s.couponShareSite), `${count(s.overlapOrders)} 单同时使用优惠码`] : ['用码订单占比', pct(s.shareAllCodes) + ' / ' + pct(s.shareSite), '占全部用码 / 全站订单']
   ];
@@ -127,8 +127,8 @@ function kpis() {
   const paragraphs = [
     `范围：MMOEXP；${data.period.start} 至 ${data.period.end}，按订单付款日期、北京时间。${coupon ? '按模板/活动与批次追踪，渠道无依据保持未归类。' : '渠道业绩包含实际用码与推荐人无码；自然流量（对照）指无码且无推荐人，与GA4自然搜索渠道分开。'}`,
     `全站分母 ${count(data.denominator.orders)} 单，用码分母 ${count(data.denominator.codedOrders)} 单；均沿用当前游戏、国家、支付与状态筛选，不随项目/单码筛选缩小。${count(s.referrerOnly)} 单为推荐人无码，不算用码订单。`,
-    `销售额、客单价：Admin 付款订单美元金额，保留当前订单状态范围。成本、毛利和利润率仅核算已完成订单；待完成 ${count(s.pendingOrders)} 单（其中验证未通过欺诈单 ${count(s.fraudOrders)} 单）不计成本和利润。已完成成本未覆盖 ${count(s.missingCostOrders)} 单，其中SCM发货 ${count(s.scmOrders)} 单：NBA2K、ARC由另一系统履约，当前源无成本，不补零。已确认零成本商品 ${count(s.zeroCostOrders)} 单按100%利润率。${count(s.conflicts)} 单有归因冲突待核。`,
-    `常规成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。已确认零成本历史商品使用用户确认及该笔Admin原人民币金额；不按Items类别泛化，也不套固定汇率。`,
+    `销售额、客单价：Admin整单美元金额；验证未通过欺诈单 ${count(s.fraudOrders)} 单、${usd(s.excludedFraudUsd || 0)} 从经营指标排除，原状态和明细保留。退款申请不等于已退款。成本、毛利和利润率仅核算同一已完成群体；待完成 ${count(s.pendingOrders)} 单不计成本和利润。已完成成本未覆盖 ${count(s.missingCostOrders)} 单，其中SCM发货 ${count(s.scmOrders)} 单：NBA2K、ARC由另一系统履约，当前源无成本，不补零。已确认零成本商品 ${count(s.zeroCostOrders)} 单按100%利润率。${count(s.conflicts)} 单有归因冲突待核。`,
+    `${data.revenueBasis === 'legacy_delivery' ? '旧收入字段缓存回补中：本范围暂保持原发货销售额口径，不与新口径混算。' : '人民币收入：Admin订单原人民币金额，每单一次；采购成本：该单实际订单发货记录合计；采购毛利=收入−采购成本，毛利率=毛利合计/同群体收入合计。支付费用、退款结算等不全时，不称财务净利润；不拿已完成覆盖单的率冒充全站率。'}常规成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。已确认零成本历史商品使用用户确认及该笔Admin原人民币金额；不按Items类别泛化，也不套固定汇率。`,
     `新老客来源：该笔订单下单时 ES「是否新客户」，是为新客、否为老客。${data.sources.customer?.limitation || '字段未提供时保持未知。'}`,
     `优惠码与优惠券分开统计，同一订单可重叠；模板、批次分项也可能重叠，不能直接相加。状态保留后台原值；“排除退款”不代表全部为已完成订单。`,
     `用户确认的测试单从经营订单数、销售额、占比分子分母、成本和利润中排除；订单明细保留原支付金额并标注测试，不计作成本缺口。当前明细含 ${count(s.testOrders)} 笔测试单。`,
@@ -206,6 +206,8 @@ function render() {
   else if (data.sources.cost.status === 'unavailable') show('Order 共享源暂不可用，当前复用已有发货成本；未匹配成本保持缺失。', 'partial');
   else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
+  else if (data.revenueBasis === 'legacy_delivery') show('正在回补Admin单笔人民币收入，暂展示旧口径完整缓存；新旧收入字段不会混算。', 'partial');
+  else if (data.summary.missingRevenueOrders) show(`${count(data.summary.missingRevenueOrders)} 笔已完成订单缺Admin人民币收入，采购成本保留，毛利保持未知。`, 'partial');
   else if (data.summary.missingCostOrders) show(`${count(data.summary.missingCostOrders)} 笔已完成订单成本未覆盖（SCM ${count(data.summary.scmOrders)} 笔）；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`, 'partial');
   else if (data.summary.pendingOrders) show(`已完成订单已核算；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`);
   else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : data.summary.testOrders ? '当前筛选仅含测试单，已从经营指标排除，明细保留。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');

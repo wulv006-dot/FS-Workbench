@@ -161,6 +161,6 @@ class Wiring(unittest.TestCase):
   self.assertIn("body['mode']=='pricing'",(HERE/'source/controller.py').read_text('utf8'))
   self.assertIn("if state=='completed' and task_id:",(HERE/'source/conversation_service.py').read_text('utf8'))
   self.assertIn("tasks.get(snapshot['task_id'],owner)",(HERE/'source/strategy_tools.py').read_text('utf8'))
-  self.assertIn('business-baseline-20261021-v9',(HERE/'source/business-baseline.md').read_text('utf8'))
+  self.assertIn('business-baseline-20261021-v10',(HERE/'source/business-baseline.md').read_text('utf8'))
 
 if __name__=='__main__':unittest.main()
