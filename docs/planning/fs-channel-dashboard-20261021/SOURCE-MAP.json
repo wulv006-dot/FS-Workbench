@@ -1,9 +1,13 @@
 {
   "scope": "fs-channel-effects-20261021",
   "status": "deployed_real_entry_verified",
-  "sourceCommit": "7dbf1a802e8d2d7be385e186e773f6fc3fa4cb05",
+  "sourceCommit": "f942008584efe06077f43f9d7620200021cb5b37",
   "businessWrites": false,
-  "timersChanged": false,
+  "timersChanged": true,
+  "newChannelTimers": [
+    "fs-channel-cache.timer",
+    "fs-channel-backfill.timer"
+  ],
   "releases": [
     {
       "releaseId": "nav-20261021T103410Z",
@@ -40,19 +44,85 @@
       "backup": "/var/backups/fs-navigation-20261006/nav-20261021T114854Z",
       "manifestSha256": "18a2426773767370675b0e40d608def84d438f07dcaa22fca7aafe82027eaf7b",
       "targets": 6
+    },
+    {
+      "releaseId": "nav-20261021T120008Z",
+      "stage": "/opt/fs-release-stage/fs-channel-label-fix-8f35206fc4a6",
+      "head": "8f35206fc4a6962d319ddbdb5e340c08763bf5b1",
+      "mergeCommit": "b83ec437f668fbe27c7a575c8502d24bf91e67bb",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T120008Z",
+      "manifestSha256": "d665f2f8a7dd079e268113d025ff5b9314b4d50257cacc392a704cd92f8c3f5b",
+      "targets": 4
+    },
+    {
+      "releaseId": "nav-20261021T120838Z",
+      "stage": "/opt/fs-release-stage/fs-channel-transition-62588e2217e7",
+      "head": "62588e2217e73dbc7967d3352dfb7d889ce544ec",
+      "mergeCommit": "23974ac212d529d6eaf1275d4ba5a9e4212de5bd",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T120838Z",
+      "manifestSha256": "6898a7c20d57da7376d7e9d7977b980b94a29d63e51ab07dd3b9c346ac6f1fd1",
+      "targets": 4
+    },
+    {
+      "releaseId": "nav-20261021T130109Z",
+      "stage": "/opt/fs-release-stage/fs-channel-cache-20ffb993bd05",
+      "head": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "mergeCommit": "f942008584efe06077f43f9d7620200021cb5b37",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T130109Z",
+      "manifestSha256": "0817ed2e9bdebccdaebf125253732da8d38653140012da7b277c942a2e0d3e68",
+      "targets": 11
     }
   ],
   "files": [
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "eebff2f161edaec7d19cec35595897e05ed27b9cd83f11705ab4edd874ce9493",
-      "beforeSha256": "3981e6ec38f509f50a696164c8000c643b0ec55f15e69356a7cddb23b9ce5304",
+      "sha256": "40517936ab561f6728a0c8756f1d350f6d41024c4955c4152fbe89b04c3c7d8f",
+      "beforeSha256": "975f13c674562359bbb7ab356e6aeb8636279f4d0df3d0f75189ac9cf6339a00",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "deploy/customer_fix.py::candidate (exact current nginx)",
-      "state": "active"
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "units/fs-channel-backfill.service",
+      "target": "/etc/systemd/system/fs-channel-backfill.service",
+      "sha256": "2cecfd3bcecd6265a7f2df19add732959cb74154910c2510b1970cc45f2edb9a",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "units/fs-channel-backfill.timer",
+      "target": "/etc/systemd/system/fs-channel-backfill.timer",
+      "sha256": "be490f6e1d43f03db71b0cdd88276cb733c498d90639dfb2bab258b38f7b71a2",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "units/fs-channel-cache.service",
+      "target": "/etc/systemd/system/fs-channel-cache.service",
+      "sha256": "0348b5073fef4a9c781a97a192b0de0fd37ccd475b6d70b6477cea9d6443b69a",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "units/fs-channel-cache.timer",
+      "target": "/etc/systemd/system/fs-channel-cache.timer",
+      "sha256": "f0ff11c991e37d1854484e7bbb903ff8d6ff6033873c06f226dadd3b2d67f498",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
     },
     {
       "candidate": "http/range_api.py",
@@ -62,8 +132,17 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/range_api.py",
-      "state": "active"
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "runtime/channel_cache.py",
+      "target": "/opt/fs-hermes-fc/channel_cache.py",
+      "sha256": "24fc15353856a691bfb0b8a9bed858951f5c9b42ce6a2ee3faa12e98e7884fd3",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_cost_source.py",
@@ -73,19 +152,17 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/channel_cost_source.py",
-      "state": "active"
+      "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_effects.py",
       "target": "/opt/fs-hermes-fc/channel_effects.py",
-      "sha256": "495f4cd27430c12d71fa1598081ea5d217b65ef572f9faa93275c839a8b44213",
-      "beforeSha256": "8ec1689d7ec86615d1a59840e594ae4304767c5b0b9ca2fec39966e7abffb472",
+      "sha256": "15a8af4723ab790a73254fe33772b4f579c20fbab35eaa581c8165c051f8858e",
+      "beforeSha256": "495f4cd27430c12d71fa1598081ea5d217b65ef572f9faa93275c839a8b44213",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "source/channel_effects.py",
-      "state": "active"
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_mapping.json",
@@ -95,19 +172,77 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/channel_mapping.json",
-      "state": "active"
+      "role": "current_source_or_target"
     },
     {
       "candidate": "runtime/channel_source.py",
       "target": "/opt/fs-hermes-fc/channel_source.py",
-      "sha256": "20e7482e74fa92d55e9abdccb442290cfe9154eecc2569dc5ceb3841c723c451",
-      "beforeSha256": "7f28dc9d75088831a3be2f6fe502004990ccdfd4c94f34d3bfe0a5cae95cdcca",
+      "sha256": "baf2831a23b432c441ca88aefa40c7231ca3546d28dcd3893dba3e0c9417eeee",
+      "beforeSha256": "20e7482e74fa92d55e9abdccb442290cfe9154eecc2569dc5ceb3841c723c451",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "source/channel_source.py",
-      "state": "active"
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-4145afae60e8/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "62588e2217e73dbc7967d3352dfb7d889ce544ec",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-4145afae60e8/channel.js",
+      "sha256": "210f1ed00a4f65a84d8acee5585d9250cc5762291080cca99e6a2234c7ed2b55",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "62588e2217e73dbc7967d3352dfb7d889ce544ec",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-4145afae60e8/index.html",
+      "sha256": "0dbcaca61c864dced9b7f92f03549a897fb205580432e510d499e55e6ae56cd9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "62588e2217e73dbc7967d3352dfb7d889ce544ec",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-46232953bcbf/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-46232953bcbf/channel.js",
+      "sha256": "1fdb8c16078d1c97d1fc17f1aa44b56f174a6af6bd34dccfd9819ee0d115dc57",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
+    },
+    {
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-46232953bcbf/index.html",
+      "sha256": "0dbcaca61c864dced9b7f92f03549a897fb205580432e510d499e55e6ae56cd9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "20ffb993bd05df235a3c85f87b1001bd2bed4c87",
+      "role": "current_source_or_target"
     },
     {
       "candidate": "ui/channel.css",
@@ -117,8 +252,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "ui/channel.css",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.js",
@@ -128,8 +262,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "ui/channel.js",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/index.html",
@@ -139,8 +272,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "ui/index.html",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.css",
@@ -150,8 +282,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
-      "source": "ui/channel.css",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.js",
@@ -161,8 +292,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
-      "source": "ui/channel.js",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/index.html",
@@ -172,8 +302,37 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
-      "source": "ui/index.html",
-      "state": "retained_immutable_previous_asset"
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ca80352f4515/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "8f35206fc4a6962d319ddbdb5e340c08763bf5b1",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ca80352f4515/channel.js",
+      "sha256": "c5e70f7a2d15917f0caea5e6f660bbe7a202943caa06a049955e5fb964837f98",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "8f35206fc4a6962d319ddbdb5e340c08763bf5b1",
+      "role": "immutable_prior_asset"
+    },
+    {
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ca80352f4515/index.html",
+      "sha256": "0dbcaca61c864dced9b7f92f03549a897fb205580432e510d499e55e6ae56cd9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "8f35206fc4a6962d319ddbdb5e340c08763bf5b1",
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.css",
@@ -183,8 +342,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "ui/channel.css",
-      "state": "active"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/channel.js",
@@ -194,8 +352,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "ui/channel.js",
-      "state": "active"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "ui/index.html",
@@ -205,8 +362,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
-      "source": "ui/index.html",
-      "state": "active"
+      "role": "immutable_prior_asset"
     },
     {
       "candidate": "nav/index.html",
@@ -216,8 +372,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/home-index.html",
-      "state": "active"
+      "role": "current_source_or_target"
     },
     {
       "candidate": "nav/navigation.json",
@@ -227,8 +382,7 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/navigation.json",
-      "state": "active"
+      "role": "current_source_or_target"
     },
     {
       "candidate": "nav/hubnav.js",
@@ -238,10 +392,11 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "fc4d9bc01bb7c592337898912467ebb717334c9a",
-      "source": "source/hubnav.js",
-      "state": "active"
+      "role": "current_source_or_target"
     }
   ],
   "readback": "READBACK.json",
-  "oldImmutableAssetsRetained": true
+  "oldImmutableAssetsRetained": true,
+  "naturalNightlyCycle": "not_yet_observed",
+  "historyBackfill": "scheduled; 74 order days pending at 2026-10-21 21:03"
 }
