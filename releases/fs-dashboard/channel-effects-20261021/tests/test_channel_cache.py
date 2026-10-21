@@ -10,6 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
+for name in ('fs_daily_archive_20261021','daily-archive-20261021'):
+    candidate=Path(__file__).resolve().parents[2]/name/'source'
+    if candidate.is_dir():sys.path.insert(0,str(candidate))
 import channel_cache as cache
 from channel_effects import ChannelService, TZ
 import test_channel_effects as fixtures
@@ -46,6 +49,17 @@ class Archive(unittest.TestCase):
             bad=deepcopy(data);bad['orders'][0]['day']='2026-10-19'
             with self.assertRaises(ValueError):cache.store_days(bad,root)
             self.assertEqual((root/'days/2026-10-20.json').read_bytes(),before)
+
+    def test_partially_cached_period_only_reads_missing_days(self):
+        data=self.fixture();empty=deepcopy(data);empty.update(period=dict(start='2026-10-19',end='2026-10-19'),orders=[])
+        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch('channel_source.collect',return_value=empty) as source:
+            root=Path(folder);cache.store_days(data,root)
+            result=cache.collect_period(dict(start='2026-10-19',end='2026-10-20'),root)
+            source.assert_called_once_with(dict(start='2026-10-19',end='2026-10-19'))
+            self.assertEqual(result['orders'],data['orders'])
+            self.assertEqual(result['sources']['cache']['days'],1)
+            source.reset_mock();cache.collect_period(result['period'],root,force=True)
+            source.assert_called_once_with(result['period'])
 
     def test_cost_days_deduplicate_latest_capture_and_keep_unknown(self):
         with tempfile.TemporaryDirectory() as folder:

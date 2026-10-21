@@ -1,0 +1,12 @@
+[Unit]
+Description=FS yesterday warmup 00:50 and idle backfill 01-07 Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:50:00 Asia/Shanghai
+OnCalendar=*-*-* 01,02,03,04,05,06:00,15,30,45:00 Asia/Shanghai
+Persistent=false
+AccuracySec=30s
+Unit=fs-data-archive.service
+
+[Install]
+WantedBy=timers.target

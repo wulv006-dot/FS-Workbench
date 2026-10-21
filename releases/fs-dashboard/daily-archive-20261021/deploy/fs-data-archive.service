@@ -1,0 +1,13 @@
+[Unit]
+Description=FS dated archive bounded night warmup and retention
+After=network-online.target fs-business-range.service fs-marketing-range.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-exact-range-20261001/archive_jobs.py --scheduled
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+TimeoutStartSec=10min

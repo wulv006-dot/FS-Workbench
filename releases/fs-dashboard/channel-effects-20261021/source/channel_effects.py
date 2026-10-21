@@ -344,8 +344,8 @@ class ChannelService:
             with (self.root / 'collector.lock').open('a+b') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 if self.source is None:
-                    from channel_source import collect
-                    source = collect
+                    from channel_cache import collect_period
+                    source = lambda p: collect_period(p, self.root, force=force)
                 else:
                     source = self.source
                 data = source(period)

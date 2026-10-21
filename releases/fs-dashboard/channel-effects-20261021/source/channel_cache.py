@@ -118,6 +118,38 @@ def apply_delivery_cache(data, root=ROOT):
     return data
 
 
+def collect_period(period, root=ROOT, force=False):
+    """Reuse complete days on a cache miss; keep full refresh for existing ranges."""
+    from channel_source import collect
+    from copy import deepcopy
+    requested = list(days(period))
+    known = {day: compose(dict(start=day, end=day), root) for day in requested}
+    missing = [day for day in requested if known[day] is None]
+    if force or not missing or len(missing) == len(requested): return collect(period)
+    chunks = []
+    for day in missing:
+        if chunks and (date.fromisoformat(day)-date.fromisoformat(chunks[-1]['end'])).days == 1:
+            chunks[-1]['end'] = day
+        else: chunks.append(dict(start=day, end=day))
+    parts = [value for value in known.values() if value is not None]
+    for chunk in chunks:
+        value = collect(chunk)
+        store_days(value, root)
+        parts.append(value)
+    if any(value['mapping'] != parts[-1]['mapping'] for value in parts): return collect(period)
+    result = deepcopy(parts[-1])
+    result['period'] = period
+    result['orders'] = [row for value in parts for row in value['orders']]
+    if len({r['orderNo'] for r in result['orders']}) != len(result['orders']): raise ValueError('duplicate_composed_order')
+    result['generatedAt'] = min(value['generatedAt'] for value in parts)
+    result['sources']['orders']['rows'] = len(result['orders'])
+    result['sources']['coupons']['rows'] = sum(len(row['coupons']) for row in result['orders'])
+    result['sources']['cache'] = dict(source='完整日归档与缺日完整读取', days=len(requested)-len(missing),
+        oldest=result['generatedAt'], newest=max(value['generatedAt'] for value in parts),
+        limitation='只补缺少的连续日期；各源原时间保留，缺日全部校验后才返回完整区间。')
+    return result
+
+
 def cache_day(day, root=ROOT):
     import fcntl
     from channel_source import collect
@@ -126,8 +158,10 @@ def cache_day(day, root=ROOT):
     period = dict(start=day, end=day)
     with (root / 'collector.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        data = collect(period)
-        store_days(data, root)
+        data = compose(period, root)
+        if data is None or data['sources']['customer']['status'] != 'complete' or day == (datetime.now(TZ).date()-timedelta(days=1)).isoformat():
+            data = collect(period)
+            store_days(data, root)
     path = root / 'delivery-days' / (day + '.json')
     if not path.exists():
         with (root / 'order-deliveries.lock').open('a+b') as lock:
@@ -160,7 +194,8 @@ def main():
     with (ROOT / 'schedule.lock').open('a+b') as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: print('{"status":"deferred","reason":"scheduled_job_running"}'); return
-        period = dict(start='2026-08-01', end=min(yesterday, '2026-10-31'))
+        from daily_archive import cutoff
+        period = dict(start=max('2026-09-01',cutoff(now.date()).isoformat()), end=yesterday)
         queue = list(reversed(list(days(period)))) if args.backfill else [args.day or yesterday]
         for day in queue:
             if not date.fromisoformat(day) < now.date(): raise ValueError('closed_day_required')
