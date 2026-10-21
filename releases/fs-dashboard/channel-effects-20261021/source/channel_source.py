@@ -19,14 +19,15 @@ ES_ARCHIVE = Path('/var/lib/fc27-es-exports')
 
 def apply_cost_overrides(data):
     path = ROOT / 'accounting-overrides.json'
-    rules = {}
-    info = dict(status='available', source='用户确认的历史零成本商品', orders=0)
+    rules, tests = {}, {}
+    info = dict(status='available', source='用户确认的历史零成本商品与测试单', orders=0, testOrders=0)
     try:
         if path.exists():
             if path.is_symlink() or path.stat().st_mode & 0o077 or path.stat().st_size > 128*1024: raise ValueError('unsafe_accounting_overrides')
             raw = path.read_text('utf-8'); config = json.loads(raw)
             info['sourceVersion'] = hashlib.sha256(raw.encode()).hexdigest()
             rules = config['orders']
+            tests = config.get('testOrders', {})
             if config.get('contract') != 'channel-zero-cost-v1' or not isinstance(rules,dict) or len(rules)>200:
                 raise ValueError('invalid_accounting_overrides')
             for sn, rule in rules.items():
@@ -34,10 +35,16 @@ def apply_cost_overrides(data):
                     raise ValueError('invalid_zero_cost_identity')
                 if money(rule.get('costCny')) != 0 or money(rule.get('salesUsd')) is None or money(rule.get('salesUsd')) < 0 or money(rule.get('saleCny')) is None or money(rule.get('saleCny')) < 0:
                     raise ValueError('invalid_zero_cost_amount')
+            if not isinstance(tests,dict) or len(tests)>200: raise ValueError('invalid_test_orders')
+            for sn, rule in tests.items():
+                if not isinstance(sn,str) or not 1 <= len(sn) <= 160 or not str(rule['gid']).isdigit() or money(rule.get('salesUsd')) is None or money(rule['salesUsd']) < 0:
+                    raise ValueError('invalid_test_order_identity')
             info['orders'] = len(rules)
+            info['testOrders'] = len(tests)
     except (OSError,ValueError,KeyError,TypeError):
-        rules = {}; info.update(status='unavailable', limitation='零成本注释暂不可用，未匹配完成单保持待核，不推定为零。')
+        rules, tests = {}, {}; info.update(status='unavailable', limitation='核算注释暂不可用，未匹配完成单保持待核，不推定为零或测试单。')
     data['costOverrides'] = rules
+    data['testOrders'] = tests
     data['sources']['accounting'] = info
     return data
 

@@ -73,6 +73,36 @@ class Effects(unittest.TestCase):
             self.assertIn('SCM',result['costStatus'])
             self.assertIsNone(metrics([result])['profitCny'])
 
+    def test_confirmed_test_order_keeps_detail_but_leaves_all_operating_metrics(self):
+        data=self.data();data['testOrders']={'A':dict(gid='1',salesUsd='10')}
+        result=view(data,{})
+        self.assertEqual(result['total'],3)
+        self.assertEqual((result['summary']['orders'],result['summary']['testOrders'],result['summary']['salesUsd']),(2,1,60))
+        self.assertEqual(result['denominator']['orders'],3)
+        self.assertEqual(result['summary']['codedOrders'],1)
+        self.assertEqual(result['summary']['shareAllCodes'],1)
+        self.assertAlmostEqual(result['summary']['shareSite'],1/3)
+        self.assertEqual(result['summary']['profitCny'],28)
+        self.assertEqual(result['summary']['missingCostOrders'],1)
+        row=next(r for r in result['orders'] if r['orderNo']=='A')
+        self.assertEqual((row['salesUsd'],row['status'],row['costStatus']),(10,'已完成','测试单：不计经营指标'))
+        self.assertIsNone(row['profitCny']);self.assertIsNone(row['costCny'])
+        zero=metrics([row]);self.assertEqual(zero['orders'],0)
+        self.assertEqual((zero['completedOrders'],zero['pendingOrders'],zero['missingCostOrders']),(0,0,0))
+        self.assertFalse(accounting_row(dict(row,gid='2'),{},data['testOrders'])['testOrder'])
+        self.assertEqual(data['orders'][0]['costCny'],35)
+
+    def test_test_annotation_validation_and_exact_identity(self):
+        for tests in ({'A':dict(gid='1',salesUsd='10')},{'A':dict(gid='1',salesUsd='-1')}):
+            with tempfile.TemporaryDirectory() as folder:
+                path=Path(folder)/'accounting-overrides.json'
+                path.write_text(json.dumps(dict(contract='channel-zero-cost-v1',orders={},testOrders=tests)));path.chmod(0o600)
+                with patch('channel_source.ROOT',Path(folder)),patch.object(Path,'stat',return_value=SimpleNamespace(st_mode=0o100600,st_size=100)):
+                    data=apply_cost_overrides(self.data())
+            self.assertEqual(bool(data['testOrders']),tests['A']['salesUsd']=='10')
+        raw=self.rows()[0]
+        self.assertFalse(accounting_row(dict(raw,salesUsd=11),{}, {'A':dict(gid='1',salesUsd='10')})['testOrder'])
+
     def test_invalid_nonzero_override_is_not_applied(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'accounting-overrides.json';path.write_text(json.dumps(dict(contract='channel-zero-cost-v1',orders={'A':dict(gid='1',salesUsd='10',saleCny='67',costCny='5',productTitle='fictional')})));path.chmod(0o600)

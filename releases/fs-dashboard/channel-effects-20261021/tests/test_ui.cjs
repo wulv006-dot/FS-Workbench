@@ -15,7 +15,7 @@ const server = http.createServer(async (req, res) => {
     if (url.searchParams.get('q') === 'fixture-error') {res.writeHead(503);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-auth') {res.writeHead(403);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-busy') {res.writeHead(429);res.end('{}');return;}
-    const key = url.searchParams.get('q') === 'fixture-accounting' ? 'accounting' : url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
+    const key = url.searchParams.get('q') === 'fixture-test' ? 'test' : url.searchParams.get('q') === 'fixture-accounting' ? 'accounting' : url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
     if (key.startsWith('pages') || ['kol','single'].includes(key)) await new Promise(resolve => setTimeout(resolve, 500));
     res.end(JSON.stringify(fixtures[key]));return;
   }
@@ -96,6 +96,12 @@ const server = http.createServer(async (req, res) => {
     assert.match(await page.locator('#orders').innerText(),/欺诈单：待退款\/申诉/);
     assert.match(await page.locator('#kpis').innerText(),/100.0%/);
     assert.match(await page.locator('#coverage').innerText(),/成本未覆盖 0/);
+    await page.locator('[name=q]').fill('fixture-test'); await page.locator('button[type=submit]').click();
+    await page.locator('#orders').getByText(/测试单：不计经营指标/).waitFor();
+    assert.match(await page.locator('#kpis').innerText(),/\$0.00/);
+    assert.match(await page.locator('#orders').innerText(),/\$0.50/);
+    assert.match(await page.locator('#total').innerText(),/共 1 单.*含 1 笔测试单/);
+    assert.match(await page.locator('#coverage').innerText(),/已完成 0.*成本未覆盖 0.*排除测试 1/);
     await page.locator('#reset').click();
     await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$70.00'));
     await page.locator('[name=mode]').selectOption('coupon');

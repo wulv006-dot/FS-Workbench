@@ -111,7 +111,7 @@ function breakdown(host, key, title) {
 function kpis() {
   const s = data.summary, coupon = field('mode').value === 'coupon';
   const labels = [
-    ['订单数', count(s.orders), coupon ? '去重后的用券订单' : '用码 + 推荐人无码'],
+    ['订单数', count(s.orders), (coupon ? '去重后的用券订单' : '用码 + 推荐人无码') + (s.testOrders ? ` · 排除 ${s.testOrders} 测试单` : '')],
     ['销售额（USD）', usd(s.salesUsd), '付款订单金额，含待完成单'],
     ['销售额（¥）', cny(s.saleCny), '已完成且已核算的订单金额'],
     ['采购成本（¥）', cny(s.costCny), `${s.coveredOrders} / ${s.completedOrders} 已完成单已核算`],
@@ -123,7 +123,7 @@ function kpis() {
   $('kpis').replaceChildren(...labels.map(([name, value, hint]) => {
     const card = text('article', null, 'panel kpi'); card.append(text('span', name, 'name'), text('strong', value), text('small', hint)); return card;
   }));
-  $('coverage').textContent = `已完成 ${count(s.completedOrders)} 单 · 成本未覆盖 ${count(s.missingCostOrders)} 单（SCM ${count(s.scmOrders)}） · 待完成 ${count(s.pendingOrders)} 单`;
+  $('coverage').textContent = `已完成 ${count(s.completedOrders)} 单 · 成本未覆盖 ${count(s.missingCostOrders)} 单（SCM ${count(s.scmOrders)}） · 待完成 ${count(s.pendingOrders)} 单` + (s.testOrders ? ` · 排除测试 ${count(s.testOrders)} 单` : '');
   const paragraphs = [
     `范围：MMOEXP；${data.period.start} 至 ${data.period.end}，按订单付款日期、北京时间。${coupon ? '按模板/活动与批次追踪，渠道无依据保持未归类。' : '渠道业绩包含实际用码与推荐人无码；自然流量（对照）指无码且无推荐人，与GA4自然搜索渠道分开。'}`,
     `全站分母 ${count(data.denominator.orders)} 单，用码分母 ${count(data.denominator.codedOrders)} 单；均沿用当前游戏、国家、支付与状态筛选，不随项目/单码筛选缩小。${count(s.referrerOnly)} 单为推荐人无码，不算用码订单。`,
@@ -131,6 +131,7 @@ function kpis() {
     `常规成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。已确认零成本历史商品使用用户确认及该笔Admin原人民币金额；不按Items类别泛化，也不套固定汇率。`,
     `新老客来源：该笔订单下单时 ES「是否新客户」，是为新客、否为老客。${data.sources.customer?.limitation || '字段未提供时保持未知。'}`,
     `优惠码与优惠券分开统计，同一订单可重叠；模板、批次分项也可能重叠，不能直接相加。状态保留后台原值；“排除退款”不代表全部为已完成订单。`,
+    `用户确认的测试单从经营订单数、销售额、占比分子分母、成本和利润中排除；订单明细保留原支付金额并标注测试，不计作成本缺口。当前明细含 ${count(s.testOrders)} 笔测试单。`,
     `归因：保留原码，忽略大小写；同码冲突待核。分销是推广分类，站点单独筛选。${data.sources.attribution.historical}。`
   ];
   if (data.sources.cache) paragraphs.push(`缓存：${data.sources.cache.days} 个完整日归档直接合并；采集时间 ${data.sources.cache.oldest} 至 ${data.sources.cache.newest}。${data.sources.cache.limitation}`);
@@ -178,7 +179,7 @@ function orders() {
     r.paidAt, r.orderNo, r.game, r.customerType, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
     r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', countryLabel(r.country),r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status + ' · ' + r.costStatus + (r.costBasis ? ' · ' + r.costBasis : '')
   ], '当前筛选订单明细');
-  $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单';
+  $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单' + (data.summary.testOrders ? ` · 含 ${count(data.summary.testOrders)} 笔测试单，仅留明细、不计指标` : '');
   $('page').textContent = `${data.page} / ${data.pages}`;
   $('prev').disabled = data.page <= 1; $('next').disabled = data.page >= data.pages;
   page = data.page;

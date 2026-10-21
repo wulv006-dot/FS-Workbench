@@ -87,10 +87,14 @@ def compose(period, root=ROOT):
 @lru_cache(maxsize=2)
 def cost_index(signature):
     rows, stamps = {}, []
-    for name, mtime, size in signature:
+    for name, mtime, size, inode in signature:
         value = json.loads(Path(name).read_text('utf-8'))
         if value.get('contract') != 'channel-order-deliveries-v1' or value.get('complete') is not True:
             raise ValueError('invalid_delivery_day_cache')
+        if value.get('scope') == 'exact_orders' and any(r['sn'] not in value['orderNos'] for r in value['rows']):
+            raise ValueError('supplement_order_scope_mismatch')
+        if len({str(r['delivery_id']) for r in value['rows']}) != len(value['rows']):
+            raise ValueError('duplicate_delivery_cache_record')
         stamps.append(value['generatedAt'])
         for row in value['rows']:
             previous = rows.get(str(row['delivery_id']))
@@ -102,13 +106,14 @@ def cost_index(signature):
 def apply_delivery_cache(data, root=ROOT):
     paths = sorted((root / 'delivery-days').glob('*.json'))
     if (root / 'order-deliveries.json').is_file(): paths.append(root / 'order-deliveries.json')
+    if (root / 'order-supplements.json').is_file(): paths.append(root / 'order-supplements.json')
     if not paths: return data
-    signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in paths)
+    signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size, p.stat().st_ino) for p in paths)
     index, stamp = cost_index(signature)
     for row in data['orders']:
         if row['orderNo'] in index: row.update(index[row['orderNo']])
     data['sources']['cost'] = dict(data['sources']['cost'], generatedAt=stamp,
-        source='Order完整分页日归档 / 原全局缓存',
+        source='Order完整分页日归档 / 原全局缓存 / 逐单补核',
         limitation='按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。')
     return data
 

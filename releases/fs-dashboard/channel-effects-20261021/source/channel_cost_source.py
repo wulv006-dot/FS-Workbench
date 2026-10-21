@@ -26,14 +26,19 @@ def delivery_timestamp(value):
     return parsed[0]
 
 
-def collect(session, start, end, progress=lambda page, total: None, until=None):
+def collect(session, start, end, progress=lambda page, total: None, until=None, since=None):
     from lxml import html
     result, seen, page_count = [], set(), None
     page = 1
     headers = ('', 'delivery_id', 'genre_text', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift', 'cost_unit', 'cost_total', 'sale_total', 'margin_pct', 'supplier', 'payee', 'operator', 'note', 'settle_status', 'action')
+    begin, stop = since or start + ' 00:00:00', until or end + ' 23:59:59'
+    if len(begin) == 16: begin += ':00'
+    if len(stop) == 16: stop += ':59'
+    datetime.strptime(begin, '%Y-%m-%d %H:%M:%S'); datetime.strptime(stop, '%Y-%m-%d %H:%M:%S')
+    if not start + ' 00:00:00' <= begin <= stop <= end + ' 23:59:59':
+        raise ValueError('invalid_delivery_window')
     while True:
-        stop = until or end + ' 23:59'
-        status, text = session.get_order('/order/admin_delivery/index.html', gid='0', aid='0', cid='-1', genre='1', status='-1', op_id='0', show_ccy='-1', is_stock='', keyword='', sn='', start=start + ' 00:00', end=stop, page=str(page), **{'source[]': 'www.mmoexp.com'})
+        status, text = session.get_order('/order/admin_delivery/index.html', gid='0', aid='0', cid='-1', genre='1', status='-1', op_id='0', show_ccy='-1', is_stock='', keyword='', sn='', start=begin, end=stop, page=str(page), **{'source[]': 'www.mmoexp.com'})
         doc = html.fromstring(text)
         if status != 200 or doc.xpath('//input[@name="password"]'):
             raise ValueError('shared_order_unavailable')
@@ -53,7 +58,7 @@ def collect(session, start, end, progress=lambda page, total: None, until=None):
             record['trade_at'] = delivery_timestamp(record['trade_at'])
             did = record['delivery_id']
             if not did.isdigit() or did in seen: raise ValueError('delivery_duplicate_page')
-            if record['source'] != 'www.mmoexp.com' or not start + ' 00:00:00' <= record['trade_at'] <= stop + ':59':
+            if record['source'] != 'www.mmoexp.com' or not begin <= record['trade_at'] <= stop:
                 raise ValueError('delivery_filter_not_honored')
             seen.add(did)
             result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'cost_total', 'sale_total')} | {'genre': 1})
