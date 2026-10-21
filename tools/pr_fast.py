@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
+        raise RuntimeError("fc_pricing_v2_checks_missing")
     if select(["releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py"]) != ["hermes-server-unify"]:
         raise RuntimeError("hermes_server_unify_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
@@ -336,6 +338,8 @@ def select(paths):
     for name in paths:
         if name.startswith("rea_admin_contract_20261021/"):
             groups.add("admin-monthly-paid");continue
+        if name.startswith("releases/fc-coins/fc-pricing-v2-20261022/"):
+            groups.add("fc-pricing-v2");continue
         if name.startswith("releases/fs-dashboard/fc-coins-workflow-20261022/"):
             groups.add("fc-coins-workflow");continue
         if name.startswith("releases/fs-dashboard/fc-coins-evidence-20261021/"):
@@ -647,6 +651,11 @@ def main():
         if group=="admin-monthly-paid":
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
+        elif group=="fc-pricing-v2":
+            units("releases/fc-coins/fc-pricing-v2-20261022/tests",["test_pricing_v2","test_control","test_guards"])
+            node("releases/fc-coins/fc-pricing-v2-20261022/tests/test_ui.js")
+            units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
+            units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="fc-coins-workflow":
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
