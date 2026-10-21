@@ -15,19 +15,25 @@ from channel_effects import TZ
 
 
 def delivery_timestamp(value):
-    for fmt in ('%Y-%m-%d %H:%M:%S', '%y-%m-%d %H:%M:%S'):
-        try: return datetime.strptime(value, fmt).strftime('%Y-%m-%d %H:%M:%S')
-        except ValueError: pass
-    raise ValueError('delivery_date_format_changed')
+    parts = value.split('改')
+    if len(parts) > 2: raise ValueError('delivery_date_format_changed')
+    parsed = []
+    for part in parts:
+        for fmt in ('%Y-%m-%d %H:%M:%S', '%y-%m-%d %H:%M:%S'):
+            try: parsed.append(datetime.strptime(part.strip(), fmt).strftime('%Y-%m-%d %H:%M:%S')); break
+            except ValueError: pass
+        else: raise ValueError('delivery_date_format_changed')
+    return parsed[0]
 
 
-def collect(session, start, end, progress=lambda page, total: None):
+def collect(session, start, end, progress=lambda page, total: None, until=None):
     from lxml import html
     result, seen, page_count = [], set(), None
     page = 1
     headers = ('', 'delivery_id', 'genre_text', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift', 'cost_unit', 'cost_total', 'sale_total', 'margin_pct', 'supplier', 'payee', 'operator', 'note', 'settle_status', 'action')
     while True:
-        status, text = session.get_order('/order/admin_delivery/index.html', gid='0', aid='0', cid='-1', genre='1', status='-1', op_id='0', show_ccy='-1', is_stock='', keyword='', sn='', start=start + ' 00:00', end=end + ' 23:59', page=str(page), **{'source[]': 'www.mmoexp.com'})
+        stop = until or end + ' 23:59'
+        status, text = session.get_order('/order/admin_delivery/index.html', gid='0', aid='0', cid='-1', genre='1', status='-1', op_id='0', show_ccy='-1', is_stock='', keyword='', sn='', start=start + ' 00:00', end=stop, page=str(page), **{'source[]': 'www.mmoexp.com'})
         doc = html.fromstring(text)
         if status != 200 or doc.xpath('//input[@name="password"]'):
             raise ValueError('shared_order_unavailable')
@@ -47,7 +53,7 @@ def collect(session, start, end, progress=lambda page, total: None):
             record['trade_at'] = delivery_timestamp(record['trade_at'])
             did = record['delivery_id']
             if not did.isdigit() or did in seen: raise ValueError('delivery_duplicate_page')
-            if record['source'] != 'www.mmoexp.com' or not start <= record['trade_at'][:10] <= end:
+            if record['source'] != 'www.mmoexp.com' or not start + ' 00:00:00' <= record['trade_at'] <= stop + ':59':
                 raise ValueError('delivery_filter_not_honored')
             seen.add(did)
             result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'cost_total', 'sale_total')} | {'genre': 1})

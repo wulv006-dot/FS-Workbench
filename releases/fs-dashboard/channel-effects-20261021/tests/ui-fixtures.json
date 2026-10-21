@@ -303,10 +303,11 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
+        "coupons": [],
         "saleCny": 280.0,
         "costCny": 252.0,
+        "profitCny": 28.0,
         "deliveryRows": 1,
-        "coupons": [],
         "code": "beta",
         "codeKey": "beta",
         "project": "SEO",
@@ -314,8 +315,7 @@
         "promoterUid": "43",
         "attribution": "折扣码",
         "attributionSource": "discount_configuration",
-        "conflict": false,
-        "profitCny": 28.0
+        "conflict": false
       },
       {
         "orderNo": "B",
@@ -330,10 +330,11 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
+        "coupons": [],
         "saleCny": null,
         "costCny": null,
+        "profitCny": null,
         "deliveryRows": 0,
-        "coupons": [],
         "code": "",
         "codeKey": "",
         "project": "KOL",
@@ -341,8 +342,7 @@
         "promoterUid": "42",
         "attribution": "推荐人无码",
         "attributionSource": "recommend_uid",
-        "conflict": false,
-        "profitCny": null
+        "conflict": false
       },
       {
         "orderNo": "A",
@@ -357,9 +357,6 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "deliveryRows": 1,
         "coupons": [
           {
             "id": "1",
@@ -378,6 +375,10 @@
             "status": ""
           }
         ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
         "code": "Alpha",
         "codeKey": "alpha",
         "project": "KOL",
@@ -385,8 +386,7 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false,
-        "profitCny": 35.0
+        "conflict": false
       }
     ],
     "page": 1,
@@ -683,10 +683,11 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
+        "coupons": [],
         "saleCny": null,
         "costCny": null,
+        "profitCny": null,
         "deliveryRows": 0,
-        "coupons": [],
         "code": "",
         "codeKey": "",
         "project": "KOL",
@@ -694,8 +695,7 @@
         "promoterUid": "42",
         "attribution": "推荐人无码",
         "attributionSource": "recommend_uid",
-        "conflict": false,
-        "profitCny": null
+        "conflict": false
       },
       {
         "orderNo": "A",
@@ -710,9 +710,6 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "deliveryRows": 1,
         "coupons": [
           {
             "id": "1",
@@ -731,6 +728,10 @@
             "status": ""
           }
         ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
         "code": "Alpha",
         "codeKey": "alpha",
         "project": "KOL",
@@ -738,8 +739,7 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false,
-        "profitCny": 35.0
+        "conflict": false
       }
     ],
     "page": 1,
@@ -1017,9 +1017,6 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "deliveryRows": 1,
         "coupons": [
           {
             "id": "1",
@@ -1038,6 +1035,10 @@
             "status": ""
           }
         ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
         "code": "Alpha",
         "codeKey": "alpha",
         "project": "KOL",
@@ -1045,8 +1046,7 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false,
-        "profitCny": 35.0
+        "conflict": false
       }
     ],
     "page": 1,
@@ -1307,9 +1307,6 @@
         "country": "US",
         "payment": "PayPal",
         "customerType": "新客",
-        "saleCny": 70.0,
-        "costCny": 35.0,
-        "deliveryRows": 1,
         "coupons": [
           {
             "id": "1",
@@ -1328,6 +1325,10 @@
             "status": ""
           }
         ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
         "code": "Alpha",
         "codeKey": "alpha",
         "project": "KOL",
@@ -1335,8 +1336,7 @@
         "promoterUid": "42",
         "attribution": "折扣码",
         "attributionSource": "promoter_directory",
-        "conflict": false,
-        "profitCny": 35.0
+        "conflict": false
       }
     ],
     "page": 1,

@@ -1,10 +1,12 @@
 """Reuse Admin8767 and existing Sales caches; never authenticate independently."""
 import json
 import sys
+import os
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from channel_effects import Attribution, SITE, TZ, normalize
+from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, normalize
 
 COLLECTOR = '/opt/sales-dashboard/collector'
 SALES = Path('/opt/sales-dashboard/data')
@@ -70,6 +72,56 @@ def load_costs():
         info.update(source='Order 逐条订单发货记录 + Sales 已有缓存', generatedAt=data['generatedAt'],
                     period=data['period'], limitation='仅匹配发货记录计算人民币毛利；未匹配不补零，未视作最终结算。')
     return rows, info
+
+
+def enrich(data):
+    """Publish orders first, then fill costs through the same shared Order source."""
+    import fcntl
+    from urllib.request import urlopen
+    try:
+        with urlopen('http://127.0.0.1:8768/health', timeout=5) as response:
+            ready = json.load(response).get('ready') is True
+    except OSError:
+        ready = False
+    if not ready:
+        data['sources']['cost']['limitation'] = 'Order 共享源暂不可用；保留已有发货覆盖，不将缺失成本补零。'
+        return data
+    ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (ROOT / 'order-deliveries.lock').open('a+b') as lock:
+        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            data['sources']['cost']['limitation'] = '另一项全局成本读取进行中；保留现有覆盖，完成后可刷新。'
+            return data
+        from channel_cost_source import collect as cost_collect
+        sys.path.insert(0, COLLECTOR); import p2pah_auth as auth
+        session = auth.Session()
+        # Exclude the open minute so newly created rows do not shift offset pages.
+        cutoff = datetime.now(TZ).replace(second=0, microsecond=0) - timedelta(minutes=1)
+        if data['period']['start'] > cutoff.date().isoformat(): return data
+        try:
+            fresh = cost_collect(session, data['period']['start'], cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M'))
+        finally: session.close()
+        path = ROOT / 'order-deliveries.json'
+        previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
+        if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
+            raise ValueError('invalid_order_cost_cache')
+        by_id = {str(r['delivery_id']): r for r in (previous or {}).get('rows', [])}
+        by_id.update({str(r['delivery_id']): r for r in fresh})
+        cache = dict(contract='channel-order-deliveries-v1', complete=True, generatedAt=datetime.now(TZ).isoformat(),
+                     period=dict(start=data['period']['start'], end=cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M')), rows=list(by_id.values()))
+        fd, temp = tempfile.mkstemp(dir=ROOT)
+        try:
+            with os.fdopen(fd, 'w') as output:
+                json.dump(cache, output); output.flush(); os.fsync(output.fileno())
+            os.replace(temp, path)
+        finally:
+            if os.path.exists(temp): os.unlink(temp)
+        deliveries, cost_info = load_costs()
+        index = delivery_index(deliveries)
+        for row in data['orders']: row.update(index.get(row['orderNo'], EMPTY_COST))
+        cost_info['limitation'] = '已按固定发货截止 ' + cutoff.strftime('%Y-%m-%d %H:%M') + ' 完整分页读取；未匹配不补零，匹配不等于全部履约或最终结算。'
+        data['sources']['cost'] = cost_info
+    return data
 
 
 def collect(period):

@@ -153,12 +153,31 @@ class Effects(unittest.TestCase):
             self.assertEqual(target.read_text(), 'last-complete')
             self.assertEqual(service.jobs['fixed'], 'source_failed'); service.pool.shutdown()
 
+    def test_orders_publish_before_costs_and_cost_failure_keeps_orders(self):
+        for fail_cost in (False, True):
+            with tempfile.TemporaryDirectory() as root:
+                target = Path(root)/'fixed.json'
+                initial = self.data()
+                def enrich(data):
+                    self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
+                    if fail_cost: raise ValueError('shared_order_unavailable')
+                    data['sources'] = {'cost_enriched':True}; return data
+                fake = SimpleNamespace(collect=lambda period:deepcopy(initial),enrich=enrich)
+                service = ChannelService(root, lambda user: True)
+                with patch.dict(sys.modules, {'fcntl':SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2),'channel_source':fake}):
+                    service.capture(self.period,'fixed',target)
+                self.assertEqual(service.jobs['fixed'], 'cost_failed' if fail_cost else 'available')
+                self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
+                service.pool.shutdown()
+
 
 class Paging(unittest.TestCase):
     def test_real_delivery_two_digit_year_is_normalized_not_ignored(self):
         self.assertEqual(delivery_timestamp('26-10-20 23:57:49'), '2026-10-20 23:57:49')
         self.assertEqual(delivery_timestamp('2026-10-20 23:57:49'), '2026-10-20 23:57:49')
+        self.assertEqual(delivery_timestamp('26-10-20 22:29:23        改26-10-20 22:31:20'), '2026-10-20 22:29:23')
         with self.assertRaises(ValueError): delivery_timestamp('20/10/26')
+        with self.assertRaises(ValueError): delivery_timestamp('26-10-20 22:29:23 改bad')
 
     def test_page_total_change_and_duplicate_are_rejected(self):
         class Session:

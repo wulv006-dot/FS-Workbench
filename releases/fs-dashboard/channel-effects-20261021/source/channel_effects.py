@@ -116,10 +116,8 @@ class Attribution:
                     attribution='无推广归属', attributionSource='none', conflict=False)
 
 
-def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, mapping):
-    attribution = Attribution(mapping, discounts, directory)
-    costs, logs = defaultdict(list), defaultdict(list)
-    template_map = {str(t['id']): t for t in templates}
+def delivery_index(deliveries):
+    costs = defaultdict(list)
     seen = set()
     for record in deliveries:
         did = str(record.get('delivery_id') or '')
@@ -128,6 +126,22 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
         seen.add(did)
         if str(record.get('genre')) in ('1', '订单发货') and clean(record.get('source')) == 'www.mmoexp.com':
             costs[str(record.get('sn'))].append(record)
+    result = {}
+    for sn, records in costs.items():
+        sale, cost = [money(r.get('sale_total')) for r in records], [money(r.get('cost_total')) for r in records]
+        covered = all(v is not None and v >= 0 for v in sale + cost)
+        s, c = sum(sale, Decimal(0)) if covered else None, sum(cost, Decimal(0)) if covered else None
+        result[sn] = dict(saleCny=number(s), costCny=number(c), profitCny=number(s-c) if covered else None, deliveryRows=len(records))
+    return result
+
+
+EMPTY_COST = dict(saleCny=None, costCny=None, profitCny=None, deliveryRows=0)
+
+
+def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, mapping):
+    attribution = Attribution(mapping, discounts, directory)
+    costs, logs = delivery_index(deliveries), defaultdict(list)
+    template_map = {str(t['id']): t for t in templates}
     seen = set()
     for log in coupon_logs:
         lid = str(log.get('id') or '')
@@ -151,9 +165,6 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
         amount = money(order.get('amount_usd_format'))
         if amount is None:
             raise ValueError('missing_usd_order_amount')
-        records = costs.get(sn, [])
-        sale, cost = [money(r.get('sale_total')) for r in records], [money(r.get('cost_total')) for r in records]
-        covered = bool(records) and all(v is not None and v >= 0 for v in sale + cost)
         row = dict(orderNo=sn, gid=str(order.get('gid')), game=clean(order.get('game_format') or (order.get('game') or {}).get('title')) or '游戏未提供',
                    paidAt=clean(order.get('paytime')), day=clean(order.get('paytime'))[:10], salesUsd=number(amount),
                    status=clean(order.get('status_format')) or '状态未提供', payStatus=clean(order.get('pay_status')),
@@ -161,10 +172,7 @@ def normalize(orders, discounts, coupon_logs, templates, deliveries, directory, 
                    country=clean(order.get('country_code') or order.get('country')) or '国家未提供',
                    payment=clean(order.get('paytype_display') or order.get('paytype')) or '支付方式未提供',
                    customerType={'1': '新客', '0': '老客'}.get(str(order.get('isNew')), '新老客未提供'),
-                   saleCny=number(sum(sale, Decimal(0))) if covered else None,
-                   costCny=number(sum(cost, Decimal(0))) if covered else None,
-                   deliveryRows=len(records), coupons=logs.get(sn, []), **attribution.resolve(order))
-        row['profitCny'] = number(Decimal(str(row['saleCny'])) - Decimal(str(row['costCny']))) if covered else None
+                   coupons=logs.get(sn, []), **costs.get(sn, EMPTY_COST), **attribution.resolve(order))
         result.append(row)
     return result
 
@@ -274,15 +282,26 @@ def parse_query(params):
 class ChannelService:
     def __init__(self, root, authorizer, source=None):
         self.root, self.authorizer, self.source = Path(root), authorizer, source
-        self.pool, self.lock, self.jobs, self.starts = ThreadPoolExecutor(max_workers=1), RLock(), {}, {}
+        self.pool, self.lock, self.jobs, self.starts = ThreadPoolExecutor(max_workers=2), RLock(), {}, {}
+
+    def publish(self, data, target):
+        fd, temp = tempfile.mkstemp(dir=self.root, prefix='channel-')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as output:
+                json.dump(data, output, ensure_ascii=False, allow_nan=False)
+                output.flush(); os.fsync(output.fileno())
+            os.replace(temp, target)
+        finally:
+            if os.path.exists(temp): os.unlink(temp)
 
     def capture(self, period, key, target):
+        cost_phase = False
         try:
             import fcntl
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             os.chmod(self.root, 0o700)
             with (self.root / 'collector.lock').open('a+b') as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(lock, fcntl.LOCK_EX)
                 if self.source is None:
                     from channel_source import collect
                     source = collect
@@ -291,17 +310,16 @@ class ChannelService:
                 data = source(period)
                 if data.get('period') != period or not isinstance(data.get('orders'), list):
                     raise ValueError('source_contract_failed')
-                fd, temp = tempfile.mkstemp(dir=self.root, prefix='channel-')
-                try:
-                    with os.fdopen(fd, 'w', encoding='utf-8') as output:
-                        json.dump(data, output, ensure_ascii=False, allow_nan=False)
-                        output.flush(); os.fsync(output.fileno())
-                    os.replace(temp, target)
-                finally:
-                    if os.path.exists(temp): os.unlink(temp)
+                self.publish(data, target)
+            if self.source is None:
+                from channel_source import enrich
+                cost_phase = True
+                with self.lock: self.jobs[key] = 'cost_pending'
+                data = enrich(data)
+                self.publish(data, target)
             with self.lock: self.jobs[key] = 'available'
         except Exception:
-            with self.lock: self.jobs[key] = 'source_failed'
+            with self.lock: self.jobs[key] = 'cost_failed' if cost_phase else 'source_failed'
 
     def get(self, params, user):
         if not self.authorizer(user):
@@ -314,14 +332,14 @@ class ChannelService:
         with self.lock:
             state = self.jobs.get(key)
             fresh = data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600
-            if (not fresh or query.get('refresh')) and state != 'pending':
+            if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
-                    if sum(v == 'pending' for v in self.jobs.values()) >= 2:
+                    if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
                         return 429, {'status': 'busy', 'retryAfter': 10}
                     self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
                     self.pool.submit(self.capture, period, key, target)
             if data:
                 result = view(data, query)
-                result.update(status='available', refreshing=state == 'pending', stale=not bool(fresh), sourceError=state == 'source_failed')
+                result.update(status='available', refreshing=state in ('pending','cost_pending'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
                 return 200, result
             return (503 if state == 'source_failed' else 202), dict(status=state or 'pending', retryAfter=3)

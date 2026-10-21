@@ -194,7 +194,9 @@ function render() {
   kpis(); comparison(); trend(); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
   $('results').hidden = false;
-  if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
+  if (data.costRefreshing) show('订单已取得，正在从共享源关联采购成本；当前毛利仅代表已匹配发货。', 'partial');
+  else if (data.costError) show('本次采购成本读取未完成，订单与优惠券结果保留；成本缺口见覆盖说明，可稍后刷新。', 'partial');
+  else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
   else if (data.summary.coveredOrders < data.summary.orders) show('订单与优惠券关联已完成；部分订单缺少采购成本，毛利和利润率仅代表发货覆盖单。', 'partial');
   else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : '当前筛选没有渠道订单。无推广归属可在左侧对照表查看。');

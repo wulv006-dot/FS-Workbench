@@ -17,7 +17,7 @@
     {
       "candidate": "runtime/channel_effects.py",
       "target": "/opt/fs-hermes-fc/channel_effects.py",
-      "sha256": "447b2cfe5ef8439a1ce3254acbf57c8fd380ff0c62bcf4e02757676ed80b1c6d",
+      "sha256": "a14d77e5e1176bc851a62e9edaed28850b89bef2fbdca571972f8c10852320f9",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -25,7 +25,7 @@
     {
       "candidate": "runtime/channel_source.py",
       "target": "/opt/fs-hermes-fc/channel_source.py",
-      "sha256": "dd03fe10674da3a51ad6fe415069419968c55bfbd3785daefa47337485e9dcca",
+      "sha256": "320c0958d494694ae06117ad9a1bfa085520cb1b3422c12a399bced9ba12c238",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -33,7 +33,7 @@
     {
       "candidate": "runtime/channel_cost_source.py",
       "target": "/opt/fs-hermes-fc/channel_cost_source.py",
-      "sha256": "a17b03996fcfa630513671b081c61939388a0cfd8a9956a5800d6fbfc1ca8f73",
+      "sha256": "36978ebd356e2e6fd28b84703069d67596667b1fd8408af652922dd583e0e16c",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -80,7 +80,7 @@
     },
     {
       "candidate": "ui/index.html",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/index.html",
       "sha256": "3fabacbce806dee52153ee88dd9daa181cffb242a68d602e34f75d0fa5ae00a4",
       "beforeSha256": null,
       "owner": "0:0",
@@ -88,15 +88,15 @@
     },
     {
       "candidate": "ui/channel.js",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.js",
-      "sha256": "58fcc010b64792e8584db7e41544d59b5fbbec982556636237ab9464dddec30e",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.js",
+      "sha256": "3edbc6c4f2f6e0b7cc2f3f88096526688e65eed112a3f2b92a75a14296c2a197",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "ui/channel.css",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.css",
       "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
       "beforeSha256": null,
       "owner": "0:0",
@@ -105,7 +105,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "20e7457255b9a448fa68aa71fe31eee024e8f4ca109eeaaeb36bd024e2ee79c4",
+      "sha256": "691443138604c405ec7ebdbd764c06c7f02f2074c8308552db9272b34e6b82af",
       "beforeSha256": "e241cea8112427ea23b896cc238cb85fafc076d536ee4a4e938873abd1bcfa53",
       "owner": "0:0",
       "mode": "0o644"
