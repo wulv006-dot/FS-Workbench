@@ -27,6 +27,18 @@ class Jobs(unittest.TestCase):
             code,result=jobs.read_route({'mode':'catalog'})
             self.assertEqual(code,503);self.assertEqual(result['reason'],'local_route_temporarily_unavailable')
 
+    def test_history_cache_hit_cannot_satisfy_todays_traffic_correction(self):
+        class Clock:
+            fromisoformat=datetime.fromisoformat
+            @staticmethod
+            def now(tz):return datetime(2026,10,22,1,tzinfo=archive.TZ).astimezone(tz)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);args=dict(profile='marketing',start='2026-10-20',end='2026-10-20')
+            with patch.object(jobs,'datetime',Clock),patch.object(jobs,'ROOT',root),patch.object(jobs,'Archive',return_value=archive.Archive(root)),patch.object(jobs,'profiles',return_value={}),patch.object(jobs,'candidates',side_effect=lambda *a:iter([args])),patch.object(jobs,'atomic',side_effect=lambda p,v:p.write_bytes(archive.encoded(v))),patch.object(jobs,'read_route',side_effect=[(200,{'status':'available','generatedAt':'2026-10-01T00:00:00Z'}),(503,{'status':'unavailable'})]) as read:
+                self.assertEqual(jobs.run_once(False,5)['completed'],1)
+                self.assertEqual(jobs.run_once(True,5)['completed'],0)
+                self.assertEqual(read.call_count,2)
+
     def test_daily_presets_exclude_today_and_history_stops_at_september(self):
         profiles={'FC27':('FC27','FC27',1322,1327,'sports')}
         daily=list(jobs.candidates(date(2026,10,22),profiles,True))
