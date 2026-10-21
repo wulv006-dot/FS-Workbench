@@ -17,6 +17,8 @@ SBC代码审查还发现上传签名密钥常量。值仅在服务器内迁入ro
 
 新维护源收敛到shared_backend_session；私库SBC webapp沿用原source路径。旧sales_shared_session_20261021脚本在Git中删除，旧维护/测试的有效覆盖由直接测试当前源替代，不保留旧生成器。旧原件只留私库Git历史及服务器root0700 /var/backups/fs-auth-cleanup-20261021-v1/审计，不作为工作目录备用登录代码。
 
-上线三文件精确SHA和删除清单见最终CLEANUP-RESULT.json；本地9项测试覆盖实际客户端全局token更新、不可用失败关闭、登录端点拒绝、私有签名配置、Sales无缓存bootstrap、人工验证码单次消费及过期拒绝。正式pr-fast另执行SBC原安全/发布者回归。CI/合并及完整同步结果未读回前不宣布完成。
+上线三文件精确SHA和删除清单见最终CLEANUP-RESULT.json；本地9项测试覆盖实际客户端全局token更新、不可用失败关闭、登录端点拒绝、私有签名配置、Sales无缓存bootstrap、8767图片验证码OCR自动识别及失败边界。正式pr-fast另执行SBC原安全/发布者回归。CI/合并及完整同步结果未读回前不宣布完成。
 
 边界：未执行SBC上架、上传或改价来验收本次认证清理；签名配置仅服务器内值一致检查。Order服务及FC原改价任务由分支继续处理，本轮不重放其真实写入。没有批量删除其他模块的历史副本、数据库或受限恢复备份。
+
+2026-10-21后续维护：8767图片验证码使用OCR，Google二次验证仍按原独立合同处理；当前规范源与测试见shared_backend_session/OCR-SESSION.md。客户端移除独立OCR不等于关闭全局8767的OCR。

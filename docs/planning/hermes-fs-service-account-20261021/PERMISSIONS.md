@@ -271,7 +271,7 @@ FS同源数据/管理复用原advisor入口与既有kind，包含ES/产品/优�
 |---|---|---|
 | S1 | [docs/planning/admin-order-api-reuse-20261013/share/接口总表.md](../../../docs/planning/admin-order-api-reuse-20261013/share/接口总表.md) | 2026-10-13整理的源码/历史接口合同；本轮未逐接口实测 |
 | S2 | [docs/planning/admin-order-capability-audit-20261014/DEEP-READ-CONTRACTS.md](../../../docs/planning/admin-order-capability-audit-20261014/DEEP-READ-CONTRACTS.md) | 既有静态合同及其标注的历史实测；非新账号实测 |
-| S3 | [docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md](../../../docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md) | 当前共享会话恢复/旧独立登录退役记录 |
+| S3 | [shared_backend_session/OCR-SESSION.md](../../../shared_backend_session/OCR-SESSION.md) | 当前8767 OCR登录与共享会话维护合同；新账号未验 |
 | S4 | [docs/planning/fs-permissions-unification-20260930/role-contract-and-acceptance.md](../../../docs/planning/fs-permissions-unification-20260930/role-contract-and-acceptance.md) | 历史角色合同；实际当前名单须按活动策略核，不复制旧三管理员人数 |
 | S5 | [docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md](../../../docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md) | 当前v3业务规则，源码SHA256 92058a31b3a30a6e0515df09379a2b882a663143b43833915bc3490a238686e2 |
 | S6 | [docs/fc27-players/model-images-20261003/README.md](../../../docs/fc27-players/model-images-20261003/README.md) | 模块接口/执行合同；各记录按时点解释 |
