@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
+        raise RuntimeError("coins_workflow_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
         raise RuntimeError("coins_evidence_checks_missing")
     if select(["releases/fs-dashboard/channel-effects-20261021/source/channel_effects.py"]) != ["channel-effects"]:
@@ -332,6 +334,8 @@ def select(paths):
     for name in paths:
         if name.startswith("rea_admin_contract_20261021/"):
             groups.add("admin-monthly-paid");continue
+        if name.startswith("releases/fs-dashboard/fc-coins-workflow-20261022/"):
+            groups.add("fc-coins-workflow");continue
         if name.startswith("releases/fs-dashboard/fc-coins-evidence-20261021/"):
             groups.add("fc-coins-evidence");continue
         if name.startswith("releases/fs-dashboard/daily-archive-20261021/"):
@@ -639,6 +643,9 @@ def main():
         if group=="admin-monthly-paid":
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
+        elif group=="fc-coins-workflow":
+            units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
+            units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":

@@ -1,0 +1,68 @@
+{
+  "scope": "fc-coins-workflow-20261022",
+  "observed_main": "536ce5274b12ba43f9bf40e24fd527bf882fe4e6",
+  "businessWrites": false,
+  "timersChanged": false,
+  "targets": [
+    {
+      "candidate": "runtime/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "beforeSha256": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26",
+      "sha256": "93e7c01791972cd4f10ecb3a5c1aee00f59d9f09adbf2aa636ee5ca255f61169"
+    },
+    {
+      "candidate": "runtime/controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "beforeSha256": "440ac7866caed5273eb894756a47c058eaf520f1a508fadc779ff4586e44ab45",
+      "sha256": "571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af"
+    },
+    {
+      "candidate": "runtime/conversation_service.py",
+      "target": "/opt/fs-hermes-fc/conversation_service.py",
+      "beforeSha256": "b9546a8776a258386cfa299455896622049be014ce91a7cce5a35e593120a875",
+      "sha256": "07012a1993f8ec99fc84a7b45ca416fb4f8cf2c025f9a82e20104d246058e02b"
+    },
+    {
+      "candidate": "runtime/fs_evidence.py",
+      "target": "/opt/fs-hermes-fc/fs_evidence.py",
+      "beforeSha256": "b3be359f33ba47579203b5f930066007332bf430764122aae93bff56e8a05ed4",
+      "sha256": "f5058125d04cdb37ad303df938a136c80a3a28d045b7e2ebbfe3d1aad5981216"
+    },
+    {
+      "candidate": "runtime/learning_registry.py",
+      "target": "/opt/fs-hermes-fc/learning_registry.py",
+      "beforeSha256": "7ce0fff4039a4c1fab81fcd3fbe4987bf383c58f341ec3c3e127c9731cb47885",
+      "sha256": "07dcd3cbbc840194034d039f03b013b420b1688fcc5132e4b7d3c22cddc36b39"
+    },
+    {
+      "candidate": "runtime/learning_service.py",
+      "target": "/opt/fs-hermes-fc/learning_service.py",
+      "beforeSha256": "e496838b1d3585c478673d21e783e76a8b2a28133e4d5ffd3651105f44b9683b",
+      "sha256": "a21b065f2c791ac303a5328fd84e9b38f360a84dde3e58f1740de083c36aebd8"
+    },
+    {
+      "candidate": "runtime/pricing_workflow.py",
+      "target": "/opt/fs-hermes-fc/pricing_workflow.py",
+      "beforeSha256": null,
+      "sha256": "74d1514ee7dc9f2972d81526e1c7537aced1ec8cf8e730c637122b4f947cabb9"
+    },
+    {
+      "candidate": "runtime/research.py",
+      "target": "/opt/fs-hermes-fc/research.py",
+      "beforeSha256": "4ab949b58f15fe4c6b622ec8f3a22ea46586923d2c7444c728e0a5f2ac857356",
+      "sha256": "9105cc79db30f73de11f7a0385c53bd049dbd1516790096af242072707b7b3be"
+    },
+    {
+      "candidate": "runtime/source_snapshots.py",
+      "target": "/opt/fs-hermes-fc/source_snapshots.py",
+      "beforeSha256": "4b32d3dead18eb7266995760adee09b0301cb03440902f83d929508778f4725b",
+      "sha256": "5e80a829bd2dfd7e55a325d637ee11db822bf505aace24e11de810c99159e080"
+    },
+    {
+      "candidate": "runtime/strategy_tools.py",
+      "target": "/opt/fs-hermes-fc/strategy_tools.py",
+      "beforeSha256": "4abb06ee69ca0f134248cf113936e3b3b8c43e75e4440bda51f13b57cf596730",
+      "sha256": "4d9ce6c4f81ed858d25b9f1f0dd8e029a747440fe7008038116f7d1358427d1e"
+    }
+  ]
+}
