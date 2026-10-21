@@ -87,7 +87,7 @@ def compose(period, root=ROOT):
 @lru_cache(maxsize=2)
 def cost_index(signature):
     rows, stamps = {}, []
-    for name, mtime, size in signature:
+    for name, mtime, size, inode in signature:
         value = json.loads(Path(name).read_text('utf-8'))
         if value.get('contract') != 'channel-order-deliveries-v1' or value.get('complete') is not True:
             raise ValueError('invalid_delivery_day_cache')
@@ -108,7 +108,7 @@ def apply_delivery_cache(data, root=ROOT):
     if (root / 'order-deliveries.json').is_file(): paths.append(root / 'order-deliveries.json')
     if (root / 'order-supplements.json').is_file(): paths.append(root / 'order-supplements.json')
     if not paths: return data
-    signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in paths)
+    signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size, p.stat().st_ino) for p in paths)
     index, stamp = cost_index(signature)
     for row in data['orders']:
         if row['orderNo'] in index: row.update(index[row['orderNo']])

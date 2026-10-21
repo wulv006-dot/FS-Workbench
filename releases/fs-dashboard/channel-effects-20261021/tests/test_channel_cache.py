@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -78,9 +79,11 @@ class Archive(unittest.TestCase):
             value=dict(contract='channel-order-deliveries-v1',complete=True,generatedAt='2026-10-21T00:00:00+08:00',rows=[row])
             cache.atomic(root/'order-deliveries.json',value)
             cache.atomic(root/'order-supplements.json',dict(value,scope='exact_orders',orderNos=['A']))
+            original_stamp=(root/'order-supplements.json').stat().st_mtime_ns
             result=cache.apply_delivery_cache(self.fixture(),root)
             self.assertEqual((result['orders'][0]['costCny'],result['orders'][0]['deliveryRows']),(35,1))
             cache.atomic(root/'order-supplements.json',dict(value,scope='exact_orders',orderNos=['B']))
+            os.utime(root/'order-supplements.json',ns=(original_stamp,original_stamp))
             with self.assertRaisesRegex(ValueError,'supplement_order_scope'):cache.apply_delivery_cache(self.fixture(),root)
 
     def test_delivery_closed_day_includes_final_minute_and_rejects_outside_window(self):
