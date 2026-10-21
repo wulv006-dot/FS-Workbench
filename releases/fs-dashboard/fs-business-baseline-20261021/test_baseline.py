@@ -92,6 +92,11 @@ class BaselineTests(unittest.TestCase):
         self.assertEqual(package_ending('10.00','8.991','10')['reason'],'applied')
         self.assertEqual(package_ending('10.09','9','10')['package_usd'],'10.09')
         self.assertEqual(package_ending('100.80','80','10')['package_usd'],'99.99')
+        for p,c in (('100.99','80'),('199.99','100')):
+            ending=package_ending(p,c,'10')
+            self.assertEqual(ending['package_usd'],p)
+            self.assertEqual(ending['reduction_usd'],'0.00')
+            self.assertEqual(ending['reason'],'already_99')
         for args in [('NaN','8','10'),('10','-1','10'),('10','0','10'),('10','8','100')]:
             with self.assertRaises(ValueError):package_ending(*args)
 

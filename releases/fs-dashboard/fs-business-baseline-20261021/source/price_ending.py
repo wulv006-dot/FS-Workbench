@@ -7,7 +7,7 @@ def package_ending(price, delivered_cost_usd, minimum_margin_pct):
     if not all(v.is_finite() for v in (price, cost, floor)) or price <= 0 or cost <= 0 or not 0 <= floor < 100:
         raise ValueError('price_ending_inputs')
     integer = price.to_integral_value(rounding=ROUND_FLOOR)
-    target = integer - Decimal('0.01')
+    target = price if price%1==Decimal('0.99') else integer - Decimal('0.01')
     # A near-integer preference has a bounded business cost, not a fixed dollar window.
     margin = 1 - cost / price
     limits = {'revenue_one_percent':price * Decimal('0.01'),
