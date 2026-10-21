@@ -1,0 +1,26 @@
+import importlib.util
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+ROOT=Path(__file__).resolve().parents[1]
+
+
+class Release(unittest.TestCase):
+    def test_exact_fifteen_targets_and_only_two_new_units(self):
+        sys.modules['release']=SimpleNamespace()
+        self.addCleanup(sys.modules.pop,'release',None)
+        spec=importlib.util.spec_from_file_location('archive_release',ROOT/'deploy/archive_release.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.assertEqual(len(module.TARGETS),15)
+        self.assertEqual({Path(p).name for p in module.UNITS},{'fs-data-archive.service','fs-data-archive.timer'})
+        self.assertEqual(len(module.NEW),7)
+        self.assertEqual({module.SOURCES[k] for k in module.TARGETS if k.endswith('/daily_archive.py')},{'source/daily_archive.py'})
+        self.assertFalse(any('price' in p or 'automation' in p for p in module.TARGETS.values()))
+        timer=(ROOT/'deploy/fs-data-archive.timer').read_text()
+        self.assertIn('00:50:00',timer);self.assertIn('Persistent=false',timer)
+
+
+if __name__=='__main__':unittest.main()
