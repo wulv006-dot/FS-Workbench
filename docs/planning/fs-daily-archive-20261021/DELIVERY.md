@@ -58,3 +58,6 @@ release `nav-20261021T175626Z`（上海2026-10-22 01:56:26）；manifest `956d7f
 最后来源范围复核：任务b73538062f0052cfab9cdf086928bbac，run_2b4103c5d90a4827b013de36d702cce0，实际1条营销证据。回答已区分完整固定经营直接复用、流量按自己的maturity和源缺口判断，以及补采新版本对照原估计；流量仍pending时不推算、不填零。三轮共22条证据，原回答/修订/时点与冻结版本均留存。本轮没有伪装成新的自动日报自然验收，也不声称模型永远掌握。
 
 02:03:47预采attempt-2再次完成，仍partial且不阻塞发布，成功来源reused=true，下一次退避持久保存。02:06实际读回时，归档job-status仍是01:47上一轮回执，不能拿它当PR308后2点新周期完成。状态细节见ACCEPTANCE.json，所有目标与并行合法替代映射见SOURCE-MAP.json。
+
+
+补充自然周期：02:00原定时任务于02:08:02结束，systemd Result=success/inactive；daily完成3个查询，history完成29个查询并对8931忙来源持久延期，绝不是29天或历史全覆盖；cleanup截止2026-07-22，0对象/0字节。原night_daily_20261022未重放，现场无活动报告请求。最新私有回执fs-archive-operations-receipt.json（UTC18:09:51）。

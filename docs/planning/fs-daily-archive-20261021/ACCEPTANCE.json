@@ -180,5 +180,22 @@
     "No new scheduled daily/weekly/monthly model report was replayed; future natural publication requires observation.",
     "Continuous five-day correction and later estimate-vs-actual report revision remain unobserved.",
     "PR307 revenue-method reconciliation belongs to its separate current owner; not closed here."
-  ]
+  ],
+  "naturalPostRelease": {
+    "at": "2026-10-22T02:08:02.683233+08:00",
+    "unitResult": "success",
+    "dailyCompletedQueries": 3,
+    "historyCompletedQueries": 29,
+    "historyStatus": "deferred",
+    "deferredSources": {
+      "8931": "busy"
+    },
+    "cleanup": {
+      "basis": "business_date",
+      "cutoff": "2026-07-22",
+      "objects": 0,
+      "bytes": 0
+    },
+    "means": "query count, not days or full coverage"
+  }
 }
