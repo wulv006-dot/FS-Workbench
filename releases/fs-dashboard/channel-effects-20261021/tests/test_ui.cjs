@@ -15,8 +15,8 @@ const server = http.createServer(async (req, res) => {
     if (url.searchParams.get('q') === 'fixture-error') {res.writeHead(503);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-auth') {res.writeHead(403);res.end('{}');return;}
     if (url.searchParams.get('q') === 'fixture-busy') {res.writeHead(429);res.end('{}');return;}
-    const key = url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? 'kol' : 'code');
-    if (key.startsWith('pages')) await new Promise(resolve => setTimeout(resolve, 500));
+    const key = url.searchParams.get('q') === 'fixture-pages' ? (url.searchParams.get('page') === '2' ? 'pages2' : 'pages1') : url.searchParams.get('q') ? 'empty' : url.searchParams.get('mode') === 'coupon' ? (url.searchParams.get('project') === '7' ? 'batch' : 'coupon') : (url.searchParams.get('project') === 'KOL' ? (url.searchParams.get('code')==='alpha' ? 'single' : 'kol') : 'code');
+    if (key.startsWith('pages') || ['kol','single'].includes(key)) await new Promise(resolve => setTimeout(resolve, 500));
     res.end(JSON.stringify(fixtures[key]));return;
   }
   if (url.pathname.endsWith('runtime.js')) {
@@ -71,10 +71,22 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#status').filter({hasText:'已有查询正在执行'}).waitFor();
     await page.locator('[name=q]').fill(''); await page.locator('button[type=submit]').click();
     await page.locator('#total').filter({hasText:'共 3 单'}).waitFor();
-    await page.locator('[name=project]').selectOption('KOL');
+    const projectResponse=page.waitForResponse(resp=>resp.url().includes('project=KOL'));
+    await page.locator('#projects').getByRole('button',{name:'KOL',exact:true}).click();
+    assert.equal(await page.locator('#results').isVisible(),true);
+    assert.equal(await page.locator('#results').getAttribute('aria-busy'),'true');
+    assert.match(await page.locator('#kpis').innerText(),/\$70.00/);
+    await projectResponse;
     await page.waitForFunction(() => document.querySelector('#kpis').textContent.includes('$30.00'));
     assert.match(await page.locator('#kpis').innerText(), /50.0%/);
     assert.equal(await page.locator('#projects tbody tr').count(),3);
+    const codeResponse=page.waitForResponse(resp=>resp.url().includes('code=alpha'));
+    await page.locator('#codes').getByRole('button',{name:/^Alpha/}).click();
+    assert.equal(await page.locator('#results').isVisible(),true);
+    assert.match(await page.locator('#kpis').innerText(),/\$30.00/);
+    await codeResponse;
+    await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$10.00'));
+    assert.equal(await page.locator('#results').getAttribute('aria-busy'),'false');
     await page.locator('[name=mode]').selectOption('coupon');
     await page.locator('#projects-title').filter({hasText:'优惠券模板'}).waitFor();
     assert.match(await page.locator('#kpis').innerText(), /\$10.00/);
@@ -89,7 +101,7 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#orders .empty').waitFor();
     await page.locator('[name=q]').fill('fixture-error'); await page.locator('button[type=submit]').click();
     await page.locator('#status[data-state=error]').waitFor();
-    assert.equal(await page.locator('#results').isVisible(),false);
+    assert.equal(await page.locator('#results').isVisible(),true);
     await page.locator('[name=q]').fill('fixture-auth'); await page.locator('button[type=submit]').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('未获渠道效果看板授权'));
     assert.equal(await page.locator('#refresh').isDisabled(),true);

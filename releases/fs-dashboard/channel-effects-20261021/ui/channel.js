@@ -214,10 +214,11 @@ async function load(refresh = false) {
   const query = params(refresh);
   const applied = new URLSearchParams(query); applied.delete('refresh');
   const sameView = data && renderedQuery === applied.toString();
-  if (!sameView) $('results').hidden = true;
+  if (!data) $('results').hidden = true;
+  $('results').setAttribute('aria-busy', 'true');
   if (!sameView || refresh) {
     $('refresh').disabled = true;
-    show(refresh ? '正在刷新当前范围，保留已有结果…' : '正在读取当前筛选范围…');
+    show(refresh ? '正在刷新当前范围，保留已有结果…' : data ? '正在切换筛选，暂显示上次已完成范围…' : '正在读取当前筛选范围…');
   }
   try {
     const response = await protectedRead('./data.json?' + query, {credentials:'same-origin', cache:'no-store', redirect:'error', signal:AbortSignal.any([readController.signal, lifetime.signal, AbortSignal.timeout(25000)])}, deny);
@@ -225,7 +226,7 @@ async function load(refresh = false) {
     const next = await response.json();
     if (mine !== generation) return;
     if (response.status === 202 || response.status === 429) {
-      show(response.status === 429 ? '已有查询正在执行，稍后继续读取。' : '正在从共享数据源整理订单与优惠券记录…');
+      show(response.status === 429 ? '已有查询正在执行，稍后继续读取。' : data ? '正在整理新范围，暂显示上次已完成结果…' : '正在从共享数据源整理订单与优惠券记录…');
       poll = setTimeout(() => load(), (next.retryAfter || 3) * 1000); return;
     }
     if (!response.ok || next.version !== 'channel-effects-v1') throw Error('source_failed');
@@ -240,8 +241,10 @@ async function load(refresh = false) {
       show('已有查询正在执行，稍后继续读取。', 'partial');
       poll = setTimeout(() => load(), 10000); return;
     }
-    show('本次数据未取得。请稍后刷新；不会把失败、缺数或旧范围显示成零。', 'error');
-  } finally { if (mine === generation && !denied) $('refresh').disabled = false; }
+    show(data ? '本次切换失败，仍展示上次已完成范围；请稍后重试。' : '本次数据未取得。请稍后刷新；不会把失败、缺数或旧范围显示成零。', 'error');
+  } finally {
+    if (mine === generation && !denied) { $('refresh').disabled = false; $('results').setAttribute('aria-busy', 'false'); }
+  }
 }
 form.addEventListener('submit', event => { event.preventDefault(); page = 1; load(); });
 for (const key of ['mode','gid','project','code','status','country','payment']) field(key).addEventListener('change', () => {

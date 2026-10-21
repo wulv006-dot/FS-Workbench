@@ -6478,5 +6478,335 @@
     "costRefreshing": true,
     "sourceError": false,
     "costError": false
+  },
+  "single": {
+    "version": "channel-effects-v1",
+    "period": {
+      "start": "2026-10-20",
+      "end": "2026-10-20"
+    },
+    "generatedAt": "2026-10-21T00:00:00+08:00",
+    "sources": {
+      "cost": {
+        "source": "fictional fixture",
+        "generatedAt": "2026-10-21T00:00:00+08:00",
+        "limitation": "虚构金额，非业务数据"
+      },
+      "attribution": {
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
+      }
+    },
+    "mapping": {},
+    "summary": {
+      "orders": 1,
+      "salesUsd": 10.0,
+      "coveredOrders": 1,
+      "deliveryRows": 1,
+      "saleCny": 70.0,
+      "costCny": 35.0,
+      "profitCny": 35.0,
+      "margin": 0.5,
+      "aovUsd": 10.0,
+      "codedOrders": 1,
+      "referrerOnly": 0,
+      "overlapOrders": 1,
+      "conflicts": 0,
+      "shareAllCodes": 0.5,
+      "shareSite": 0.25,
+      "couponShareSite": null
+    },
+    "denominator": {
+      "orders": 4,
+      "salesUsd": 100.0,
+      "coveredOrders": 2,
+      "deliveryRows": 2,
+      "saleCny": 350.0,
+      "costCny": 287.0,
+      "profitCny": 63.0,
+      "margin": 0.18,
+      "aovUsd": 25.0,
+      "codedOrders": 2,
+      "referrerOnly": 1,
+      "overlapOrders": 1,
+      "conflicts": 0
+    },
+    "trend": [
+      {
+        "key": "2026-10-20",
+        "label": "2026-10-20",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0
+      }
+    ],
+    "projects": [
+      {
+        "key": "SEO",
+        "label": "SEO",
+        "orders": 1,
+        "salesUsd": 40.0,
+        "coveredOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 280.0,
+        "costCny": 252.0,
+        "profitCny": 28.0,
+        "margin": 0.1,
+        "aovUsd": 40.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      },
+      {
+        "key": "KOL",
+        "label": "KOL",
+        "orders": 2,
+        "salesUsd": 30.0,
+        "coveredOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 15.0,
+        "codedOrders": 1,
+        "referrerOnly": 1,
+        "overlapOrders": 1,
+        "conflicts": 0
+      },
+      {
+        "key": "无推广归属",
+        "label": "无推广归属",
+        "orders": 1,
+        "salesUsd": 30.0,
+        "coveredOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 30.0,
+        "codedOrders": 0,
+        "referrerOnly": 0,
+        "overlapOrders": 0,
+        "conflicts": 0
+      }
+    ],
+    "codes": [
+      {
+        "key": "",
+        "label": "推荐人无码",
+        "orders": 1,
+        "salesUsd": 20.0,
+        "coveredOrders": 0,
+        "deliveryRows": 0,
+        "saleCny": null,
+        "costCny": null,
+        "profitCny": null,
+        "margin": null,
+        "aovUsd": 20.0,
+        "codedOrders": 0,
+        "referrerOnly": 1,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "promoters": "推广甲"
+      },
+      {
+        "key": "alpha",
+        "label": "Alpha",
+        "orders": 1,
+        "salesUsd": 10.0,
+        "coveredOrders": 1,
+        "deliveryRows": 1,
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "margin": 0.5,
+        "aovUsd": 10.0,
+        "codedOrders": 1,
+        "referrerOnly": 0,
+        "overlapOrders": 1,
+        "conflicts": 0,
+        "promoters": "推广甲"
+      }
+    ],
+    "breakdowns": {
+      "game": [
+        {
+          "key": "Game A",
+          "label": "Game A",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "country": [
+        {
+          "key": "US",
+          "label": "US",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "payment": [
+        {
+          "key": "PayPal",
+          "label": "PayPal",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "customerType": [
+        {
+          "key": "新客",
+          "label": "新客",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ],
+      "status": [
+        {
+          "key": "已完成",
+          "label": "已完成",
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
+          "overlapOrders": 1,
+          "conflicts": 0
+        }
+      ]
+    },
+    "options": {
+      "games": [
+        [
+          "1",
+          "Game A"
+        ]
+      ],
+      "countries": [
+        "US"
+      ],
+      "payments": [
+        "PayPal"
+      ]
+    },
+    "orders": [
+      {
+        "orderNo": "A",
+        "gid": "1",
+        "game": "Game A",
+        "paidAt": "2026-10-20 12:00:00",
+        "day": "2026-10-20",
+        "salesUsd": 10.0,
+        "status": "已完成",
+        "payStatus": "1",
+        "refunded": false,
+        "country": "US",
+        "payment": "PayPal",
+        "customerType": "新客",
+        "coupons": [
+          {
+            "id": "1",
+            "templateId": "7",
+            "title": "券",
+            "batch": "one",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          },
+          {
+            "id": "2",
+            "templateId": "8",
+            "title": "另一券",
+            "batch": "two",
+            "usedAt": "2026-10-20 11:59:59",
+            "status": ""
+          }
+        ],
+        "saleCny": 70.0,
+        "costCny": 35.0,
+        "profitCny": 35.0,
+        "deliveryRows": 1,
+        "code": "Alpha",
+        "codeKey": "alpha",
+        "project": "KOL",
+        "promoter": "推广甲",
+        "promoterUid": "42",
+        "attribution": "折扣码",
+        "attributionSource": "promoter_directory",
+        "conflict": false
+      }
+    ],
+    "page": 1,
+    "pages": 1,
+    "total": 1,
+    "status": "available",
+    "refreshing": false,
+    "stale": false,
+    "sourceError": false
   }
 }
