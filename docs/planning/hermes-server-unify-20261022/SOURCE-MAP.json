@@ -58,6 +58,16 @@
       "version": "business-baseline-20261021-v7",
       "sha256": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26",
       "state": "existing_active_baseline_unchanged"
+    },
+    {
+      "server": "/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py",
+      "host_copy": "/opt/fs-hermes-ops/watch.py",
+      "sha256": "d6aca8463473c433423e15d8b261289358e2dedad1f9a62cfce6d2e014a2d58a",
+      "state": "existing_runtime_preserved_not_redeployed",
+      "local_canonical": "fs_hermes_ops_20261020/source/watch.py",
+      "canonical_sha256": "efc70b3b4c98473b134514a02cc5417fde788fb1710fd9cd3efb6dffc558dc1b",
+      "canonical_ref": "d942147e930ecad4f8e57ba4a5ad9166049e4954",
+      "open_decision": "OD-HERMES-WATCH-SOURCE-20261022"
     }
   ],
   "backup": "/var/backups/hermes-server-unify-20261022",
