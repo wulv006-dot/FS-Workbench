@@ -380,9 +380,7 @@ class ChannelService:
         data = archived or (json.loads(target.read_text('utf-8')) if target.is_file() else None)
         with self.lock:
             state = self.jobs.get(key)
-            coverage=(data or {}).get('sources',{}).get('cache',{})
-            fixed=bool(archived and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete'))
-            fresh = data and (fixed or time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600)
+            fresh = data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:

@@ -208,10 +208,15 @@ def enrich(data, force=False):
         previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
         if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
             raise ValueError('invalid_order_cost_cache')
-        by_id = {str(r['delivery_id']): r for r in (previous or {}).get('rows', [])}
+        # A complete window replaces its membership, including records no longer returned.
+        from channel_cache import delivery_bounds
+        window = dict(start=data['period']['start'], end=cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M'))
+        begin, stop = delivery_bounds(window)
+        by_id = {str(r['delivery_id']): r for r in (previous or {}).get('rows', [])
+                 if not begin <= r['trade_at'] <= stop}
         by_id.update({str(r['delivery_id']): r for r in fresh})
         cache = dict(contract='channel-order-deliveries-v1', complete=True, generatedAt=datetime.now(TZ).isoformat(),
-                     period=dict(start=data['period']['start'], end=cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M')), rows=list(by_id.values()))
+                     period=window, rows=list(by_id.values()))
         fd, temp = tempfile.mkstemp(dir=ROOT)
         try:
             with os.fdopen(fd, 'w') as output:

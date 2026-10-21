@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from channel_effects import TZ, delivery_index
+from channel_effects import TZ, EMPTY_COST, delivery_index
 
 ROOT = Path('/var/lib/fs-channel-effects')
 CONTRACT = 'channel-day-v1'
@@ -87,7 +87,7 @@ def compose(period, root=ROOT):
 
 @lru_cache(maxsize=2)
 def cost_index(signature):
-    rows, stamps = {}, []
+    rows, captures, removed, retired = {}, [], set(), set()
     for name, mtime, size, inode in signature:
         value = json.loads(Path(name).read_text('utf-8'))
         if value.get('contract') != 'channel-order-deliveries-v1' or value.get('complete') is not True:
@@ -96,12 +96,37 @@ def cost_index(signature):
             raise ValueError('supplement_order_scope_mismatch')
         if len({str(r['delivery_id']) for r in value['rows']}) != len(value['rows']):
             raise ValueError('duplicate_delivery_cache_record')
-        stamps.append(value['generatedAt'])
+        captures.append(value)
+    captures.sort(key=lambda v: datetime.fromisoformat(v['generatedAt']).timestamp())
+    for value in captures:
+        period = value.get('period')
+        if value.get('scope') == 'exact_orders' or period:
+            begin, stop = delivery_bounds(period) if period else (None, None)
+            for identity, previous in list(rows.items()):
+                covered = previous['sn'] in value['orderNos'] if value.get('scope') == 'exact_orders' else begin <= previous['trade_at'] <= stop
+                if covered:
+                    removed.add(previous['sn'])
+                    retired.add(identity)
+                    del rows[identity]
         for row in value['rows']:
-            previous = rows.get(str(row['delivery_id']))
-            if previous is None or value['generatedAt'] > previous[0]:
-                rows[str(row['delivery_id'])] = (value['generatedAt'], row)
-    return delivery_index([r for stamp, r in rows.values()]), max(stamps, default=None)
+            identity = str(row['delivery_id'])
+            # Retained rows outside a refreshed window have no new source evidence.
+            if period and not begin <= row['trade_at'] <= stop and (identity in retired or identity in rows):
+                continue
+            rows[identity] = row
+    return delivery_index(list(rows.values())), captures[-1]['generatedAt'] if captures else None, removed
+
+
+def delivery_bounds(period):
+    begin = period.get('since', period['start'] + ' 00:00:00')
+    stop = period.get('until', period['end'] + ' 23:59:59')
+    if len(begin) == 16: begin += ':00'
+    if len(stop) == 16: stop += ':59'
+    datetime.strptime(begin, '%Y-%m-%d %H:%M:%S')
+    datetime.strptime(stop, '%Y-%m-%d %H:%M:%S')
+    if not period['start'] + ' 00:00:00' <= begin <= stop <= period['end'] + ' 23:59:59':
+        raise ValueError('invalid_delivery_window')
+    return begin, stop
 
 
 def apply_delivery_cache(data, root=ROOT):
@@ -110,9 +135,10 @@ def apply_delivery_cache(data, root=ROOT):
     if (root / 'order-supplements.json').is_file(): paths.append(root / 'order-supplements.json')
     if not paths: return data
     signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size, p.stat().st_ino) for p in paths)
-    index, stamp = cost_index(signature)
+    index, stamp, removed = cost_index(signature)
     for row in data['orders']:
         if row['orderNo'] in index: row.update(index[row['orderNo']])
+        elif row['orderNo'] in removed: row.update(EMPTY_COST)
     data['sources']['cost'] = dict(data['sources']['cost'], generatedAt=stamp,
         source='Order完整分页日归档 / 原全局缓存 / 逐单补核',
         limitation='按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。')

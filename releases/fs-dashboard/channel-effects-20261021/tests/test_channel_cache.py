@@ -100,6 +100,45 @@ class Archive(unittest.TestCase):
             os.utime(root/'order-supplements.json',ns=(original_stamp,original_stamp))
             with self.assertRaisesRegex(ValueError,'supplement_order_scope'):cache.apply_delivery_cache(self.fixture(),root)
 
+    def test_new_complete_day_removes_stale_members_but_retains_next_day(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            row=dict(delivery_id='1',genre=1,source='www.mmoexp.com',sn='A',sale_total='70',cost_total='35',trade_at='2026-10-20 21:00:00')
+            old=dict(contract='channel-order-deliveries-v1',complete=True,generatedAt='2026-10-21T00:43:00+08:00',period=dict(start='2026-10-20',end='2026-10-21',until='2026-10-21 00:32'),rows=[row,dict(row,delivery_id='2'),dict(row,delivery_id='3',sn='B',trade_at='2026-10-21 00:20:00')])
+            cache.atomic(root/'order-deliveries.json',old)
+            cache.atomic(root/'delivery-days/2026-10-20.json',dict(old,generatedAt='2026-10-21T00:48:00+08:00',period=dict(start='2026-10-20',end='2026-10-20'),rows=[dict(row,delivery_id='2')]))
+            data=cache.apply_delivery_cache(self.fixture(),root)
+            self.assertEqual((data['orders'][0]['costCny'],data['orders'][0]['deliveryRows']),(35,1))
+            self.assertEqual(data['orders'][1]['costCny'],35)
+            cache.atomic(root/'delivery-days/2026-10-20.json',dict(old,generatedAt='2026-10-21T00:49:00+08:00',period=dict(start='2026-10-20',end='2026-10-20'),rows=[]))
+            self.assertIsNone(cache.apply_delivery_cache(data,root)['orders'][0]['costCny'])
+
+    def test_fresh_window_replaces_members_and_keeps_outside_records(self):
+        import io
+        import channel_source
+        row=dict(delivery_id='1',genre=1,source='www.mmoexp.com',sn='A',sale_total='70',cost_total='35',trade_at='2026-10-20 21:00:00')
+        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules,{'fcntl':FCNTL,'p2pah_auth':SimpleNamespace(Session=lambda:SimpleNamespace(close=lambda:None))}):
+            root=Path(folder)
+            old=dict(contract='channel-order-deliveries-v1',complete=True,generatedAt='2026-10-21T00:43:00+08:00',period=dict(start='2026-10-19',end='2026-10-20'),rows=[row,dict(row,delivery_id='2',trade_at='2026-10-19 23:59:59')])
+            cache.atomic(root/'order-deliveries.json',old)
+            fresh=[dict(row,delivery_id='3',trade_at='2026-10-21 00:40:00')]
+            data=self.fixture()
+            with patch.object(channel_source,'ROOT',root),patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')),patch('channel_cost_source.collect',return_value=fresh),patch.object(channel_source,'load_costs',return_value=(fresh,{})):
+                channel_source.enrich(data,force=True)
+            saved=json.loads((root/'order-deliveries.json').read_text())
+            self.assertEqual({r['delivery_id'] for r in saved['rows']},{'2','3'})
+            before=(root/'order-deliveries.json').read_bytes()
+            with patch.object(channel_source,'ROOT',root),patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')),patch('channel_cost_source.collect',side_effect=ValueError('incomplete')):
+                with self.assertRaisesRegex(ValueError,'incomplete'):channel_source.enrich(data,force=True)
+            self.assertEqual((root/'order-deliveries.json').read_bytes(),before)
+
+    def test_incomplete_day_cannot_remove_previous_members(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            cache.atomic(root/'delivery-days/2026-10-20.json',dict(contract='channel-order-deliveries-v1',complete=False,generatedAt='2026-10-21T00:49:00+08:00',period=dict(start='2026-10-20',end='2026-10-20'),rows=[]))
+            with self.assertRaisesRegex(ValueError,'invalid_delivery_day_cache'):
+                cache.apply_delivery_cache(self.fixture(),root)
+
     def test_delivery_closed_day_includes_final_minute_and_rejects_outside_window(self):
         from channel_cost_source import collect
         def page(stamp):
@@ -129,22 +168,14 @@ class Archive(unittest.TestCase):
     def test_old_archive_returns_immediately_and_preserves_automatic_refresh(self):
         self.assert_stale_archive(False)
 
-    def test_complete_fixed_history_does_not_repeat_sources_after_ten_minutes(self):
-        data=self.fixture();data.update(generatedAt='2026-10-21T00:00:00+08:00',deliveryDayComplete=True)
-        with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}):
-            root=Path(folder);cache.store_days(data,root)
-            service=ChannelService(root,lambda user:True);service.pool.shutdown();service.pool=Mock()
-            with patch('channel_source.apply_customer_types',side_effect=lambda d:d),patch('channel_source.apply_cost_overrides',side_effect=lambda d:d),patch('channel_source.collect',side_effect=AssertionError('fixed facts must not recollect')):
-                code,result=service.get({k:[v] for k,v in data['period'].items()},'admin')
-                self.assertEqual(code,200);self.assertFalse(result['refreshing']);self.assertFalse(result['stale'])
-                service.pool.submit.assert_not_called()
-                self.assertEqual(cache.collect_period(data['period'],root)['orders'],data['orders'])
+    def test_complete_history_still_refreshes_late_costs_after_ten_minutes(self):
+        self.assert_stale_archive(False, complete=True)
 
     def test_busy_sources_still_return_existing_archive_then_retry_refresh(self):
         self.assert_stale_archive(True)
 
-    def assert_stale_archive(self, busy):
-        data=self.fixture();data['generatedAt']='2026-10-21T00:00:00+08:00'
+    def assert_stale_archive(self, busy, complete=False):
+        data=self.fixture();data['generatedAt']='2026-10-21T00:00:00+08:00';data['deliveryDayComplete']=complete
         with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules,{'fcntl':FCNTL}):
             root=Path(folder);cache.store_days(data,root)
             service=ChannelService(root,lambda user:True)
