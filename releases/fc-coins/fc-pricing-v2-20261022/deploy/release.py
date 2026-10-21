@@ -79,14 +79,14 @@ def load_base():
         if root!=Path('/'):raise ValueError('real_existing_release_locks_required')
         with original_locks(root),ExitStack() as stack:
             import fcntl,os,stat
-            for name in ['automation-tick.lock']+list(fc.tick.RETRY_LOCKS):
+            stack.enter_context(fc.api.queue_mutation())
+            for name in fc.tick.RETRY_LOCKS:
                 path=fc.ROOT/'state'/name;base.no_target_link(path)
                 fd=os.open(str(path),os.O_RDWR|getattr(os,'O_NOFOLLOW',0))
                 stream=stack.enter_context(os.fdopen(fd,'r+b'))
                 info=os.fstat(fd)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid!=0 or info.st_nlink!=1:raise ValueError('unsafe_original_fc_lock')
                 fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
-            stack.enter_context(fc.api.queue_mutation())
             yield
     base.locks=combined_locks
     original_guards=base.guards
