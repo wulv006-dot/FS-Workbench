@@ -83,6 +83,7 @@ class Sources(unittest.TestCase):
  def test_pending_repoll_then_full_records_freeze_and_hash(self):
   a=self.flow(self.q);self.assertEqual(a['status'],'pending');self.pending=False;b=self.flow(self.q);self.assertEqual(b['status'],'partial')
   self.assertTrue(b['checks']['execution_pages_complete']);self.assertEqual(b['checks']['execution_events'],2);self.assertEqual(b['procurement_accounting']['profitCny'],10)
+  self.assertEqual(b['procurement_revenue_basis'],'legacy_delivery');self.assertIn('admin_order_revenue_backfill_pending',b['gaps'])
   self.assertEqual(b['receipt_sha256'],digest({k:v for k,v in b.items() if k!='receipt_sha256'}));n=len(self.calls);self.assertEqual(self.flow(self.q),b);self.assertEqual(len(self.calls),n)
   self.assertFalse(b['execution_authorized']);self.assertFalse(b['existing_automation_changed']);self.assertIsNone(b['ad_after_contribution']['value'])
   self.assertIsNotNone(datetime.fromisoformat(b['captured_at']).tzinfo);self.assertEqual(len(b['workflow_sha256']),64)

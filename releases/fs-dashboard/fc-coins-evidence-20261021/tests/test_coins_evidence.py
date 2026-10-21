@@ -38,6 +38,17 @@ class EvidenceTests(unittest.TestCase):
     def test_closed_scope(self):
         for extra in ({'profile':'ALL'},{'kind':'write'},{'url':'https://example.com'},{'page':True},{'start':'2026-10-21','end':'2026-10-20'}):
             with self.assertRaises((ValueError,TypeError)):checked_query(self.q|extra)
+    def test_admin_income_and_fraud_exclusion_reach_coins_consumer(self):
+        v=self.costs(self.fixture([row('A',adminSaleCny=80),row('fraud',adminSaleCny=80,status='验证未通过')]))
+        self.assertEqual(v['revenue_basis'],'admin_order_cny')
+        self.assertEqual((v['summary']['saleCny'],v['summary']['profitCny']),(80,31))
+        self.assertEqual(v['summary']['actual_discount_usd'],'2')
+        self.assertEqual(v['status'],'available')
+    def test_mixed_income_schema_never_mixes_methods(self):
+        v=self.costs(self.fixture([row('A',adminSaleCny=80),row('B')]))
+        self.assertEqual(v['revenue_basis'],'legacy_delivery')
+        self.assertEqual((v['summary']['saleCny'],v['summary']['profitCny']),(140,42))
+        self.assertEqual(v['status'],'partial')
     def test_completed_only_and_test_and_coin_scope(self):
         f=self.fixture([row('coin'),row('pending',status='发货中'),row('test'),row('voucher'),row('missing',costCny=None,profitCny=None)],{'coin':'货币(Gold)','pending':'货币(Gold)','test':'货币(Gold)','voucher':'物品(Items)','missing':'货币(Gold)'})
         f[0]['testOrders']={'test':{'gid':'1327','salesUsd':'10'}}

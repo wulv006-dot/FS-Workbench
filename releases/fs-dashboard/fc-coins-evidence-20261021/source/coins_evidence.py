@@ -117,25 +117,26 @@ class CoinsEvidence:
           'rule':'Original execution ledger, not the empty manual action table. Preserve failed/unknown states. Parameters and proposed targets are not independent public price exposure or proof of business effect; no-change is not a price cut.'}
 
     def costs(self,q):
-        from channel_effects import accounting_row,metrics,completed
+        from channel_effects import accounting_row,metrics,completed,fraud
         data=self.channel_data({k:q[k] for k in ('start','end')})
         if data is None:return {'status':'not_available','reason':'existing_channel_day_cache_missing','next_step':'Use original FS /channels exact period; original background refresh and nightly backfill remain enabled. This adapter never launches a duplicate collector.'}
         if data.get('period')!={k:q[k] for k in ('start','end')} or any(data['sources'][n]['status']!='complete' for n in ('orders','coupons')):raise ValueError('coins_channel_scope')
         meta,coverage=es_metadata(q['start'],q['end'],self.archive)
         fc=[r for r in data['orders'] if str(r['gid'])=='1327']
         if len({r['orderNo'] for r in fc})!=len(fc):raise ValueError('coins_duplicate_order')
+        revenue_ready=all('adminSaleCny' in r for r in data['orders'])
         selected=[];excluded=Counter()
         paid=self.dataset();platforms={r['id']:r.get('platform','unknown') for r in paid.get('orders',[]) if r.get('site_group')=='main'}
         for raw in fc:
             if not q['start']<=raw['day']<=q['end']:raise ValueError('coins_order_period')
             info=meta.get(hashlib.sha256(raw['orderNo'].encode()).hexdigest())
             if not info or info['product']!=GOLD:excluded[info['product'] if info else 'missing_es_product']+=1;continue
-            row=accounting_row(raw,data.get('costOverrides',{}),data.get('testOrders',{}))
+            row=accounting_row(raw,data.get('costOverrides',{}),data.get('testOrders',{}),admin_revenue=revenue_ready)
             row['platform']=platforms.get(row['orderNo'],'unknown')
             row['es_discount_usd']=info['discount_usd'];selected.append(row)
         def stats(items):
             m=metrics(items)
-            applicable=[r for r in items if not r.get('testOrder') and numeric(r.get('es_discount_usd')) is not None]
+            applicable=[r for r in items if not r.get('testOrder') and not fraud(r) and numeric(r.get('es_discount_usd')) is not None]
             m.update(actual_discount_usd=str(sum((Decimal(r['es_discount_usd']) for r in applicable),Decimal(0))) if applicable else None,known_discount_orders=len(applicable))
             return m
         groups={}
@@ -150,11 +151,11 @@ class CoinsEvidence:
             'cost_coverage_reconciles':summary['completedOrders']==summary['coveredOrders']+summary['missingCostOrders'],
             'covered_profit_identity':summary['profitCny'] is None or abs(Decimal(str(summary['saleCny']))-Decimal(str(summary['costCny']))-Decimal(str(summary['profitCny'])))<=Decimal('.01')}
         if not all(checks.values()):raise ValueError('coins_accounting_identity_failed')
-        return {'status':'available' if coverage['complete'] and not excluded.get('missing_es_product') and not summary['missingCostOrders'] else 'partial','captured_at':data['generatedAt'],'source_times':{'orders_and_coupons':data['generatedAt'],'cost':data['sources']['cost'].get('generatedAt'),'es':coverage['captured_at'],'platform':paid.get('as_of')},
+        return {'status':'available' if revenue_ready and coverage['complete'] and not excluded.get('missing_es_product') and not summary['missingCostOrders'] and not summary['missingRevenueOrders'] else 'partial','revenue_basis':'admin_order_cny' if revenue_ready else 'legacy_delivery','captured_at':data['generatedAt'],'source_times':{'orders_and_coupons':data['generatedAt'],'cost':data['sources']['cost'].get('generatedAt'),'es':coverage['captured_at'],'platform':paid.get('as_of')},
           'summary':summary,'groups':groups,'coupon_orders':stats(coupon),'code_or_referrer_orders':stats(codes),'coupon_and_code_overlap':stats([r for r in coupon if r.get('codeKey') or r.get('promoterUid')]),
           'coverage':{'fc_project_orders':len(fc),'coins_selected':len(selected),'excluded_product_orders':dict(excluded),'es':coverage,'platform_unknown_orders':sum(r['platform']=='unknown' for r in selected),'package_quantity':'not_retained_in_channel_archive','historical_net_refund_settlement':'unverified'},
           'quality_checks':checks,'sources':data['sources'],
-          'rule':'FC27 main-site ES exact Gold orders only. Order-linked CNY sale/cost/covered gross profit follow existing completed-only accounting; USD order/discount amounts remain separate. These are not SKU net revenue, USD profit, ad-after contribution, final settlement or causal price effects. Do not deduct already-net discounts twice. Coupon and code groups overlap; do not sum them. Existing product formulas and automation remain unchanged.'}
+          'rule':'FC27 main-site ES exact Gold orders only. Admin whole-order CNY revenue is counted once against actual linked purchase cost for completed covered orders; legacy_delivery means the whole range still uses old delivery income pending migration. Fraud is excluded. USD order/discount amounts remain separate. These are not SKU net revenue, USD profit, ad-after contribution, final settlement or causal price effects. Do not deduct already-net discounts twice. Coupon and code groups overlap; do not sum them. Existing product formulas and automation remain unchanged.'}
 
     def __call__(self,args):
         q=checked_query(args)

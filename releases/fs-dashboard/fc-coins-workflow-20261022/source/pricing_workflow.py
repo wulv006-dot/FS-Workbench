@@ -164,13 +164,14 @@ class Workflow:
             if not complete:gaps.append('execution_pages_incomplete')
             if not accounting or not all(accounting.values()):gaps.append('cost_accounting_not_verified')
             if summary.get('missingCostOrders'):gaps.append('completed_cost_missing')
+            if costs.get('revenue_basis')!='admin_order_cny':gaps.append('admin_order_revenue_backfill_pending')
             if not market.get('can_recommend_price'):gaps.append('qualified_comparable_market_missing')
             gaps.extend(['package_quantity_not_retained','Coins_same_scope_Ads_not_attributed','net_refund_settlement_unverified','public_exposure_not_proven_by_backend_ledger'])
             if any(s not in ('available','partial') for s in states.values()):gaps.append('one_or_more_sources_not_terminal_usable')
             result.update(status='pending' if pending else 'partial' if gaps else 'available',source_kind='existing_task_evidence',source_refs=refs,source_statuses=states,
               source_times={k:{field:v[field] for field in ('captured_at','observed_at','source_times') if field in v} for k,v in data.items()},
               checks={'execution_pages_complete':complete,'execution_events':len(events),'accounting_identities':accounting,'cost_coverage':{k:summary.get(k) for k in ('completedOrders','coveredOrders','missingCostOrders')},'whole_source_coverage':costs.get('coverage')},
-              procurement_accounting={k:summary.get(k) for k in ('saleCny','costCny','profitCny','margin')},accounting_currency='CNY',
+              procurement_accounting={k:summary.get(k) for k in ('saleCny','costCny','profitCny','margin')},procurement_revenue_basis=costs.get('revenue_basis','legacy_delivery'),accounting_currency='CNY',
               current_package_accounting=current_accounting(market,floor),
               ad_after_contribution={'status':'not_identified','value':None,'rule':'FC project Ads in USD is not Coins attributed cost; never subtract from CNY covered-order gross profit'},
               candidates={'keep':'must include actual storefront P0; not an assertion that it is safe','original_engine':'use original qualified snapshot simulation as a separate baseline','research':'smallest necessary comparable change first; greater change requires a stated demand hypothesis','numeric_new_price_recommendation':False},
