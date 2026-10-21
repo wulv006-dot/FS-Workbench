@@ -11,6 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from channel_effects import Attribution, ChannelService, TZ, metrics, money, normalize, parse_query, view
 from channel_source import pages, windows
+from channel_cost_source import delivery_timestamp
 
 
 def order(sn='A', **changes):
@@ -154,6 +155,11 @@ class Effects(unittest.TestCase):
 
 
 class Paging(unittest.TestCase):
+    def test_real_delivery_two_digit_year_is_normalized_not_ignored(self):
+        self.assertEqual(delivery_timestamp('26-10-20 23:57:49'), '2026-10-20 23:57:49')
+        self.assertEqual(delivery_timestamp('2026-10-20 23:57:49'), '2026-10-20 23:57:49')
+        with self.assertRaises(ValueError): delivery_timestamp('20/10/26')
+
     def test_page_total_change_and_duplicate_are_rejected(self):
         class Session:
             def __init__(self, duplicate): self.duplicate = duplicate

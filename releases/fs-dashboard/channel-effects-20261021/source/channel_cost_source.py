@@ -4,7 +4,6 @@ Run after the shared Order source is repaired. Failed/inconsistent pages preserv
 the last complete cache; no login, retry of credentials, timer or business write.
 """
 import argparse
-import fcntl
 import json
 import os
 import sys
@@ -13,6 +12,13 @@ from datetime import date, datetime
 from pathlib import Path
 
 from channel_effects import TZ
+
+
+def delivery_timestamp(value):
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%y-%m-%d %H:%M:%S'):
+        try: return datetime.strptime(value, fmt).strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError: pass
+    raise ValueError('delivery_date_format_changed')
 
 
 def collect(session, start, end, progress=lambda page, total: None):
@@ -38,6 +44,7 @@ def collect(session, start, end, progress=lambda page, total: None):
             if len(cells) == 1 and not cells[0].strip(): continue
             if len(cells) != len(headers): raise ValueError('delivery_columns_changed')
             record = dict(zip(headers, cells))
+            record['trade_at'] = delivery_timestamp(record['trade_at'])
             did = record['delivery_id']
             if not did.isdigit() or did in seen: raise ValueError('delivery_duplicate_page')
             if record['source'] != 'www.mmoexp.com' or not start <= record['trade_at'][:10] <= end:
@@ -51,6 +58,7 @@ def collect(session, start, end, progress=lambda page, total: None):
 
 
 def main():
+    import fcntl
     parser = argparse.ArgumentParser()
     parser.add_argument('--start', required=True); parser.add_argument('--end', required=True)
     parser.add_argument('--output', default='/var/lib/fs-channel-effects/order-deliveries.json')

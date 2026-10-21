@@ -33,7 +33,7 @@
     {
       "candidate": "runtime/channel_cost_source.py",
       "target": "/opt/fs-hermes-fc/channel_cost_source.py",
-      "sha256": "3c836d32f9524dac847cef543145c32e02c9301410b4145bb05d73a710048259",
+      "sha256": "a17b03996fcfa630513671b081c61939388a0cfd8a9956a5800d6fbfc1ca8f73",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
