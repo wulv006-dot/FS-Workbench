@@ -1,0 +1,136 @@
+(() => {
+  'use strict';
+  function pageToUnit(value) {
+    if(!/^[0-9]{1,10}(?:\.[0-9]{1,2})?$/.test(value))throw Error('请填写最多两位小数的美元标价');
+    const [whole,fraction='']=value.split('.');
+    const cents=BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));
+    if(cents<=0n)throw Error('标价须大于0');
+    return `${cents/10000n}.${String(cents%10000n).padStart(4,'0')}`;
+  }
+  function money(value) {return value==null?'待核':`$${Number(value).toFixed(2)}`;}
+  function time(value) {return value?new Date(value).toLocaleString('zh-CN',{hour12:false}):'待核';}
+  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit};return;}
+  const $=id=>document.getElementById(id),BASE='/api/fc27/cloud';
+  let policy,player,state,preview,restore,busy=false,dirty=false,refreshing=false;
+  const pendingKey='fc-pricing-v2-pending';
+  const names={cost_or_promotion_floor:'成本或优惠挤压利润，先修复红线',public_anchor_parity:'只调整到本轮公开可比位置',already_competitive_hold:'已在竞争位置，主策略保持',operator_or_hermes_candidate:'人工或Hermes明确候选'};
+  const errors={pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
+  function error(value) {
+    const code=value?.code||value?.message||String(value);
+    $('error').textContent=errors[code]||`未完成：${code}。请查看原任务编号和核验记录。`;
+    $('error').classList.remove('hidden');$('error').focus();
+  }
+  function status(text){$('status').textContent=text;}
+  function node(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;}
+  async function api(path,body){
+    const response=await fetch(BASE+path,{credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});
+    let data;try{data=await response.json();}catch{throw Error('服务器未返回可读回执');}
+    if(!response.ok){const e=Error(data.error||`HTTP ${response.status}`);e.code=data.error;e.httpStatus=response.status;throw e;}
+    return data;
+  }
+  function chosen(){return policy?.platforms||[];}
+  function buttons(){
+    const pending=Boolean(sessionStorage.getItem(pendingKey));
+    $('collect').disabled=busy||pending;
+    $('preview').disabled=busy||pending||!state?.quote_usable;
+    $('execute').disabled=busy||pending||!preview||!state?.execution_ready||Date.now()>=Date.parse(preview.expires_at)||!policy?.system_enabled;
+    $('restore-execute').disabled=busy||pending||!restore||!state?.execution_ready||Date.now()>=Date.parse(restore.expires_at);
+    $('hermes-review').disabled=busy||pending||!state?.quote_usable;
+  }
+  function renderSettings(){
+    if(!dirty&&policy){$('enabled').checked=policy.system_enabled;$('auto').checked=policy.mode==='auto';$('interval').value=policy.interval_minutes;$('margin').value=policy.minimum_gross_margin_pct;$('console-enabled').checked=policy.platforms.includes('PS')&&policy.platforms.includes('XBOX');$('pc-enabled').checked=policy.platforms.includes('PC');}
+    if(player)$('player-enabled').checked=player.enabled;
+  }
+  function card(group,title){
+    const box=node('section',null,'panel');box.append(node('h2',title));
+    const quote=state?.quote,rows=quote?.result?.rows||[],row=rows.find(r=>r.platform===group[0]);
+    if(!row||quote.result.strategy_version!=='fc-coins-decision-v2'){box.append(node('p','等待新流程有效报价。历史报价不会用于新执行。'));return box;}
+    box.append(node('div',money(row.target_page_usd),'amount'),node('p',`${state.quote_usable?'本轮候选':'历史候选 · 过期'} · 金币100K标价`,'muted'));
+    const dl=node('dl');
+    for(const [label,value] of [
+      ['当前公开100K',group.map(p=>`${p} ${money(quote.evidence.storefront.rows[p].package_usd)}`).join(' / ')],
+      ['有效采购成本',`¥${row.cost_cny} / K`],[`${row.minimum_gross_margin_pct}%红线最低100K`,money(Number(row.floor_usd_per_1k)*100)],
+      ['最差优惠后实收',money(row.proof?.worst_net_usd)],['采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
+      ['主策略标价',money(row.main_page_usd)],['尾价处理',row.ending_reason],
+      ['保采购毛利所需订单倍数',row.break_even_order_multiplier?`${Number(row.break_even_order_multiplier).toFixed(3)}倍（条件计算）`:'不适用'],
+      ['套餐 / 自定义核算',`${row.proof?.catalog?.published_packages??'?'}档 · 最小${row.proof?.catalog?.minimum_custom_k??'?'}K`]]){
+        dl.append(node('dt',label),node('dd',value));
+    }
+    box.append(dl,node('p',names[row.decision_reason]||row.decision_reason),node('p','广告后贡献：待同范围投放数据核对','footnote'));
+    return box;
+  }
+  function render(){
+    $('run-state').textContent=policy?`${policy.system_enabled?'允许改价':'停止新改价'} · ${policy.mode==='auto'?'自动':'人工'}`:'状态缺失';
+    $('next-cycle').textContent=time(policy?.schedule?.next_at);
+    $('decisions').replaceChildren(card(['PS','XBOX'],'PS / Xbox 共同市场'),card(['PC'],'PC 独立市场'));
+    const q=state?.quote,receipt=q?.result?.decision_receipt;
+    $('version').textContent=`流程 ${state?.version||'未知'} · 配置 ${policy?.revision??'未知'} · 状态读取 ${time(state?.observed_at)} · ${state?.quote_status||''} ${state?.execution_block_reason||''}`;
+    $('basis').textContent=receipt?`主机共同成本依据：${receipt.common_console_cost.selected_platform}的最近有效交货记录 ${receipt.common_console_cost.record_id}，交易 ${receipt.common_console_cost.trade_at}；保留两个原始观察。最差适用优惠留存${Number(receipt.minimum_retained_ratio)*100}%，优惠与套餐配置有独立版本。`:'等待新鲜成本、公开价格及优惠/套餐配置的核算回执。';
+    $('sources').textContent=q?`操作 ${q.run_id} · 采集 ${time(q.evidence.checked_at)} · 优惠/套餐核对 ${time(q.evidence.promotion_envelope?.checked_at)} · 回执 ${receipt?.sha256||'旧版无V2回执'}`:'';
+    const tbody=$('competitors');tbody.replaceChildren();
+    for(const row of q?.result?.rows||[])for(const offer of row.offers||[]){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.comparable?'公开规格可比':'缺项或不可比'}`])tr.append(node('td',value));tbody.append(tr);}
+    const history=$('history');history.replaceChildren();
+    for(const item of state?.recent||[]){const tr=node('tr');for(const value of [time(item.completed_at||item.created_at),item.kind,item.result?.status||item.status,item.public_page_readback?.status||'未取得',`${item.job_id} ${item.error_detail||item.error||''}`])tr.append(node('td',value));history.append(tr);}
+    renderSettings();buttons();
+  }
+  async function refresh(){
+    if(refreshing)return;refreshing=true;
+    try{const values=await Promise.all([api('/automation'),api('/pricing/state'),api('/monitor'),api('/player-sync')]);[policy,state,,player]=values;
+      const monitor=values[2];$('public-state').textContent=monitor.publication?.status||monitor.page_readback?.status||'待真实读回';
+      $('health').textContent=`定时器：${monitor.health?.automation_timer||'未知'}；未确认写入：${monitor.health?.incomplete_executions??'未知'}；清缓存：${monitor.cache_refresh?.status||'待核'}`;
+      if(preview&&(preview.run_id!==state.quote?.run_id||preview.automation_policy_revision!==policy.revision))preview=null;
+      const review=state.hermes_review;
+      if(review)$('hermes-status').textContent=`Hermes ${review.phase} · 会话 ${review.conversation_id||'待核'} · 任务 ${review.task_id||'准备中'} · 模型运行 ${review.turn?.run_id||'待回执'}${review.recommendation?' · 已完成程序候选选择':' · 选择结果详见会话及操作账本'}；已采用与实际写价另查原操作。`;
+      render();await checkPending();if(!busy&&!sessionStorage.getItem(pendingKey))status(state.quote_status);
+    }catch(e){error(e);}finally{refreshing=false;}
+  }
+  async function waitJob(id){
+    status(`等待原操作 ${id}`);
+    const value=await api('/jobs/'+id);
+    if(['queued','running'].includes(value.status))return null;
+    if(value.status!=='ready'){const e=Error(value.error_detail||value.error||value.result?.reason||value.status);e.job=id;e.terminal=true;throw e;}
+    return value;
+  }
+  async function checkPending(){
+    const saved=sessionStorage.getItem(pendingKey);if(!saved)return;
+    const pending=JSON.parse(saved);
+    try{const job=await waitJob(pending.id);if(!job)return;
+      if(pending.kind==='preview'){
+        const id=job.result?.preview_id;if(!id)throw Error('预览回执缺失');preview=await api('/previews/'+id);
+        $('preview-state').textContent=`后台预览已核，操作 ${pending.id}；有效至 ${time(preview.expires_at)}。执行平台 ${chosen().join(' / ')}，同一红线再次核算。`;
+      }else if(pending.kind==='restore_preview'){
+        restore=await api('/restore-previews/'+job.result.restore_preview_id);restore.source=pending.source;
+        $('restore-state').textContent=`原操作 ${pending.source} 的恢复已按当前成本核算，有效至 ${time(restore.expires_at)}`;
+      }else if(pending.kind==='hermes_review'){
+        $('hermes-status').textContent=`Hermes原操作 ${pending.id} 已派发，会话 ${job.result?.conversation_id||'待核'}；等待真实模型任务终态。`;
+      }else{preview=null;restore=null;status(`原操作 ${pending.id} 已结束：${job.result?.status||job.status}。继续核对前台真实暴露。`);}
+      sessionStorage.removeItem(pendingKey);
+    }catch(e){if(e.terminal){sessionStorage.removeItem(pendingKey);error(e);}else{status(`原请求 ${pending.id} 回执待核，保留编号；不会重新派发。`);error(e);}}
+    buttons();
+  }
+  async function submit(path,body,kind,extra={}){
+    if(busy||sessionStorage.getItem(pendingKey))return;
+    busy=true;$('error').classList.add('hidden');buttons();
+    const id=crypto.randomUUID();sessionStorage.setItem(pendingKey,JSON.stringify({id,kind,...extra}));
+    try{const answer=await api(path,{...body,client_event_id:id});
+      if(answer.job_id&&answer.job_id!==id){const saved=JSON.parse(sessionStorage.getItem(pendingKey));saved.id=answer.job_id;sessionStorage.setItem(pendingKey,JSON.stringify(saved));}
+      await checkPending();
+    }catch(e){if(e.httpStatus>=400&&e.httpStatus<500){sessionStorage.removeItem(pendingKey);}else{status(`请求回执未知，保留原编号 ${id}；不会自动重新派发。`);}error(e);
+    }finally{busy=false;buttons();}
+  }
+  $('refresh').onclick=refresh;
+  $('collect').onclick=()=>submit('/pricing/collect',{},'collect');
+  $('preview').onclick=()=>submit('/pricing/preview',{run_id:state.quote.run_id},'preview');
+  $('execute').onclick=()=>submit('/reprice/execute',{preview_id:preview.preview_id,selected_platforms:chosen(),margin_confirmed_platforms:[],margin_exception_reason:''},'execute');
+  $('settings-form').addEventListener('input',()=>{dirty=true;$('settings-state').textContent='未保存草稿';});
+  $('settings-form').addEventListener('submit',async event=>{
+    event.preventDefault();const button=event.submitter;button.disabled=true;
+    try{policy=await api('/automation',{expected_revision:policy.revision,settings:{system_enabled:$('enabled').checked,mode:$('auto').checked?'auto':'manual',interval_minutes:Number($('interval').value),platforms:[...($('console-enabled').checked?['PS','XBOX']:[]),...($('pc-enabled').checked?['PC']:[])],minimum_gross_margin_pct:$('margin').value}});dirty=false;preview=null;$('settings-state').textContent='已保存并读回服务器配置';await refresh();}catch(e){error(e);}finally{button.disabled=false;}
+  });
+  $('player-form').addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{player=await api('/player-sync',{enabled:$('player-enabled').checked,expected_revision:player.revision});status('商品公式联动开关已读回');}catch(e){error(e);}finally{event.submitter.disabled=false;}});
+  $('candidate-form').addEventListener('submit',event=>{event.preventDefault();if(!state?.quote_usable){error(Error('请先采集新鲜数据'));return;}try{const unit=pageToUnit($('console-price').value),pc=pageToUnit($('pc-price').value);preview=null;submit('/pricing/recalculate',{run_id:state.quote.run_id,edits:{quotes:{PS:unit,XBOX:unit,PC:pc},reason:$('candidate-reason').value,minimum_gross_margin_pct:policy.minimum_gross_margin_pct}},'recalculate');}catch(e){error(e);}});
+  $('restore-form').addEventListener('submit',event=>{event.preventDefault();const source=$('restore-id').value;submit('/pricing/restore-preview',{source_execution_id:source},'restore_preview',{source});});
+  $('restore-execute').onclick=()=>submit('/reprice/'+restore.source+'/restore',{restore_preview_id:restore.restore_preview_id,selected_platforms:restore.available_platforms},'restore');
+  $('hermes-review').onclick=()=>submit('/pricing/hermes-review',{run_id:state.quote.run_id},'hermes_review');
+  setInterval(refresh,10000);refresh();
+})();
