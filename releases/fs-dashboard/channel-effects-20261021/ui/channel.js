@@ -208,7 +208,7 @@ function render() {
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
   else if (data.summary.missingCostOrders) show(`${count(data.summary.missingCostOrders)} 笔已完成订单成本未覆盖（SCM ${count(data.summary.scmOrders)} 笔）；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`, 'partial');
   else if (data.summary.pendingOrders) show(`已完成订单已核算；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`);
-  else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');
+  else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : data.summary.testOrders ? '当前筛选仅含测试单，已从经营指标排除，明细保留。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');
 }
 async function load(refresh = false) {
   if (denied || document.hidden || !form.reportValidity()) return;
@@ -224,7 +224,7 @@ async function load(refresh = false) {
     show(refresh ? '正在刷新当前范围，保留已有结果…' : data ? '正在切换筛选，暂显示上次已完成范围…' : '正在读取当前筛选范围…');
   }
   try {
-    const response = await protectedRead('./data.json?' + query, {credentials:'same-origin', cache:'no-store', redirect:'error', signal:AbortSignal.any([readController.signal, lifetime.signal, AbortSignal.timeout(25000)])}, deny);
+    const response = await protectedRead('./data.json?' + query, {credentials:'same-origin', cache:'no-store', redirect:'error', priority:sameView && !refresh ? 'low' : 'high', signal:AbortSignal.any([readController.signal, lifetime.signal, AbortSignal.timeout(25000)])}, deny);
     if (mine !== generation || denied) return;
     const next = await response.json();
     if (mine !== generation) return;
@@ -256,7 +256,8 @@ for (const key of ['mode','gid','project','code','status','country','payment']) 
   page = 1; load();
 });
 for (const button of form.querySelectorAll('[data-days]')) button.addEventListener('click', () => {
-  field('end').value = beijingDay(); field('start').value = shift(field('end').value, 1 - Number(button.dataset.days)); page = 1; load();
+  field('start').max = field('end').max = beijingDay();
+  field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, 1 - Number(button.dataset.days)); page = 1; load();
 });
 $('reset').addEventListener('click', () => { HTMLFormElement.prototype.reset.call(form); field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
 $('refresh').addEventListener('click', () => load(true));

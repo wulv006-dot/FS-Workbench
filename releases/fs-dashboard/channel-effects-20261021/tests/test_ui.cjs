@@ -102,6 +102,7 @@ const server = http.createServer(async (req, res) => {
     assert.match(await page.locator('#orders').innerText(),/\$0.50/);
     assert.match(await page.locator('#total').innerText(),/共 1 单.*含 1 笔测试单/);
     assert.match(await page.locator('#coverage').innerText(),/已完成 0.*成本未覆盖 0.*排除测试 1/);
+    assert.match(await page.locator('#status').innerText(),/仅含测试单/);
     await page.locator('#reset').click();
     await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('$70.00'));
     await page.locator('[name=mode]').selectOption('coupon');
@@ -122,6 +123,26 @@ const server = http.createServer(async (req, res) => {
     await page.locator('[name=q]').fill('fixture-auth'); await page.locator('button[type=submit]').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('未获渠道效果看板授权'));
     assert.equal(await page.locator('#refresh').isDisabled(),true);
+    const dates = await browser.newPage({timezoneId:'America/Los_Angeles'});
+    await dates.clock.setFixedTime(new Date('2026-10-21T15:59:59Z'));
+    await dates.goto(url); await dates.locator('#results').waitFor({state:'visible'});
+    for (const [button,start,end] of [['昨日','2026-10-20','2026-10-20'],['近7天','2026-10-14','2026-10-20'],['近30天','2026-09-21','2026-10-20']]) {
+      await dates.getByRole('button',{name:button,exact:true}).click();
+      assert.equal(await dates.locator('[name=start]').inputValue(),start);
+      assert.equal(await dates.locator('[name=end]').inputValue(),end);
+    }
+    await dates.clock.setFixedTime(new Date('2026-10-21T16:00:01Z'));
+    await dates.getByRole('button',{name:'昨日',exact:true}).click();
+    assert.equal(await dates.locator('[name=end]').inputValue(),'2026-10-21');
+    await dates.clock.setFixedTime(new Date('2027-12-31T16:00:01Z'));
+    await dates.getByRole('button',{name:'近7天',exact:true}).click();
+    assert.equal(await dates.locator('[name=start]').inputValue(),'2027-12-25');
+    assert.equal(await dates.locator('[name=end]').inputValue(),'2027-12-31');
+    await dates.clock.setFixedTime(new Date('2028-03-01T00:00:00Z'));
+    await dates.getByRole('button',{name:'近30天',exact:true}).click();
+    assert.equal(await dates.locator('[name=start]').inputValue(),'2028-01-31');
+    assert.equal(await dates.locator('[name=end]').inputValue(),'2028-02-29');
+    await dates.close();
     access='reader';
     await page.goto(url); await page.locator('#status[data-state=error]').waitFor();
     assert.equal(await page.locator('#results').isVisible(),false);
