@@ -9480,6 +9480,7 @@
     "pages": 1,
     "total": 3,
     "status": "available",
-    "refreshing": false
+    "refreshing": true,
+    "costRefreshing": true
   }
 }

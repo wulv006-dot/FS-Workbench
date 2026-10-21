@@ -109,14 +109,14 @@ function breakdown(host, key, title) {
   }, title + '效果明细');
 }
 function kpis() {
-  const s = data.summary, coupon = field('mode').value === 'coupon';
+  const s = data.summary, coupon = field('mode').value === 'coupon', legacy = data.revenueBasis === 'legacy_delivery';
   const labels = [
     ['订单数', count(s.orders), (coupon ? '去重后的用券订单' : '用码 + 推荐人无码') + (s.testOrders ? ` · 排除 ${s.testOrders} 测试单` : '')],
     ['销售额（USD）', usd(s.salesUsd), 'Admin整单金额，排除验证未通过欺诈单'],
-    ['销售额（¥）', cny(s.saleCny), '已完成且已核算的订单金额'],
+    ['销售额（¥）', cny(s.saleCny), legacy ? '旧发货收入字段 · Admin回补中' : '已完成且已核算的Admin订单金额'],
     ['采购成本（¥）', cny(s.costCny), `${s.coveredOrders} / ${s.completedOrders} 已完成单已核算`],
-    ['毛利（¥）', cny(s.profitCny), '同群体Admin收入 − 实际采购成本'],
-    ['综合利润率', pct(s.margin), '采购口径毛利 / 同群体收入'],
+    ['毛利（¥）', cny(s.profitCny), legacy ? '旧收入口径 · 暂未切换新法' : '同群体Admin收入 − 实际采购成本'],
+    ['综合利润率', pct(s.margin), legacy ? '旧收入口径 · 暂未切换新法' : '采购口径毛利 / 同群体收入'],
     ['客单价（USD）', usd(s.aovUsd), '美元销售额 / 订单数'],
     coupon ? ['用券订单占全站', pct(s.couponShareSite), `${count(s.overlapOrders)} 单同时使用优惠码`] : ['用码订单占比', pct(s.shareAllCodes) + ' / ' + pct(s.shareSite), '占全部用码 / 全站订单']
   ];
@@ -201,12 +201,12 @@ function render() {
   kpis(); comparison(); trend(); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
   $('results').hidden = false;
-  if (data.costRefreshing) show('订单已取得，正在关联已完成订单的成本；未完成订单不计毛利。', 'partial');
+  if (data.revenueBasis === 'legacy_delivery') show('正在回补Admin单笔人民币收入，暂展示旧口径完整缓存；新旧收入字段不会混算。' + (data.sourceError ? ' 本次来源读取失败，保留原数据待重试。' : ''), 'partial');
+  else if (data.costRefreshing) show('订单已取得，正在关联已完成订单的成本；未完成订单不计毛利。', 'partial');
   else if (data.costError) show('本次采购成本读取未完成，订单与优惠券结果保留；成本缺口见覆盖说明，可稍后刷新。', 'partial');
   else if (data.sources.cost.status === 'unavailable') show('Order 共享源暂不可用，当前复用已有发货成本；未匹配成本保持缺失。', 'partial');
   else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
-  else if (data.revenueBasis === 'legacy_delivery') show('正在回补Admin单笔人民币收入，暂展示旧口径完整缓存；新旧收入字段不会混算。', 'partial');
   else if (data.summary.missingRevenueOrders) show(`${count(data.summary.missingRevenueOrders)} 笔已完成订单缺Admin人民币收入，采购成本保留，毛利保持未知。`, 'partial');
   else if (data.summary.missingCostOrders) show(`${count(data.summary.missingCostOrders)} 笔已完成订单成本未覆盖（SCM ${count(data.summary.scmOrders)} 笔）；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`, 'partial');
   else if (data.summary.pendingOrders) show(`已完成订单已核算；${count(data.summary.pendingOrders)} 笔未完成订单暂不计成本和利润。`);
