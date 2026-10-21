@@ -45,10 +45,13 @@ const server = http.createServer(async (req, res) => {
     await page.goto(url);
     await page.locator('#results').waitFor({state:'visible'});
     assert.match(await page.locator('#kpis').innerText(), /\$70.00/);
-    assert.match(await page.locator('#projects').innerText(), /无推广归属（对照）/);
+    assert.match(await page.locator('#projects').innerText(), /自然流量（对照）/);
     assert.match(await page.locator('#customers').innerText(), /新客/);
     assert.match(await page.locator('#customers').innerText(), /老客/);
     assert.match(await page.locator('#orders').innerText(), /新老客（ES）/);
+    assert.match(await page.locator('#countries').innerText(), /美国（US）/);
+    assert.match(await page.locator('#orders').innerText(), /美国（US）/);
+    assert.equal(await page.locator('[name=country] option[value=US]').textContent(),'美国（US）');
     assert.equal(await page.locator('.table-wrapper').evaluateAll(nodes => nodes.every(n => n.tabIndex === 0 && n.getAttribute('role') === 'region' && n.getAttribute('aria-label'))),true);
     assert.equal(await page.locator('#orders img').count(),0);
     await page.locator('[name=q]').fill('fixture-pages'); await page.locator('button[type=submit]').click();
