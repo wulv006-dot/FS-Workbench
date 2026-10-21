@@ -102,9 +102,35 @@ class Control(unittest.TestCase):
             return original(path,owner,body)
         result=self.call({'action':'state'},request=request)
         self.assertIsNone(result['current_quote']);self.assertIsNone(result['quote_sha256'])
-        self.assertEqual(result['historical_quote'],self.quote)
+        self.assertEqual(result['historical_quote'],ops.quote_view(self.quote))
         self.assertEqual(result['historical_quote_sha256'],p.fingerprint(self.quote))
         self.assertIsNone(result['quote_evidence_ref'])
+
+    def test_quote_fragments_preserve_complete_source_and_original_sha(self):
+        def request(path,owner,body=None):
+            if path=='/quotes/'+RUN:return copy.deepcopy(self.quote)
+            return self.request(path,owner,body)
+        result=self.call(dict(action='read_quote',run_id=RUN,path='/evidence/promotion_envelope/packages/PS'),request=request)
+        self.assertTrue(result['complete']);self.assertEqual(result['value'],self.quote['evidence']['promotion_envelope']['packages']['PS'])
+        self.assertEqual(result['quote_sha256'],p.fingerprint(self.quote))
+        self.quote['edits']['large']={'one':'a'*11000}
+        result=self.call(dict(action='read_quote',run_id=RUN,path='/edits'),request=request)
+        self.assertFalse(result['complete']);self.assertNotIn('value',result)
+        self.assertIn('/edits/large',result['read_subpaths'])
+
+    def test_failed_job_exposes_original_partial_write_and_stops_new_intent(self):
+        self.grant();jid='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+        def request(path,owner,body=None):
+            if path=='/jobs/'+jid:return dict(job_id=jid,kind='execute',status='failed',writer_result={'status':'FAILED'})
+            if path=='/audits/'+jid:return dict(execution_id=jid,status='PARTIAL',changed=['PS','XBOX','PC'],sync_confirmed=True,after={'rows':[dict(platform='PS',b2c='.12')]})
+            if path=='/monitor':return {'health':{'incomplete_executions':1}}
+            return self.request(path,owner,body)
+        result=self.call(dict(action='read_job',job_id=jid),request=request)
+        self.assertTrue(result['price_write_observed']);self.assertTrue(result['reconciliation_required']);self.assertTrue(result['do_not_replay'])
+        self.assertEqual(result['execution_audit']['after'][0]['b2c'],'.12')
+        result=self.call(dict(action='execute',request_key='new-key',preview_id=jid),request=request)
+        self.assertEqual(result['state'],'rejected');self.assertEqual(result['result']['error'],'pricing_execution_reconciliation_required')
+        self.assertFalse(any(body for _,_,body in self.calls))
 
     def test_rejected_tool_calls_explain_fields_and_exact_evidence(self):
         self.grant()

@@ -94,7 +94,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                 'PS/Xbox共同成本共同基价，PC独立。不要机械花掉高毛利。先比较baseline/hold/parity；如有新方案，可evaluate并用evaluated选择提交自定console_usd/pc_usd，由程序重新核验。实际调用recommend并引用pricing:quote_sha256或本任务证据；说明采购毛利、广告后贡献、保本销量条件及反证。'
                 '不把短期相关当因果，不臆造广告归因或需求增量。终态后原队列受控学习，不用运行中snapshot作为经验来源。最后用通俗中文说明判断。')
             if mode=='operator_workflow':
-                text+='用户这次入口明确交给你核算并受控执行本轮，授权已给，无须再次询问。若本轮合格候选与后台不同，按capabilities.action_fields准确recommend，使用state.quote_evidence_ref原文作为唯一足够引用；apply_recommendation后read_job核原重算终态，再preview、read_job取得预览、execute、read_job及state核后台与公开读回。未通过任一护栏就停止该动作并报告。不要因参数错误重复collect；按expected_fields/received_fields及native_error修正。声明scenario或单独100K尾价通过不能替代本轮全套餐evaluate。无变化则核原预览后如实报no_price_change，不制造改价。'
+                text+='用户这次入口明确交给你核算并受控执行本轮，授权已给，无须再次询问。若本轮合格候选与后台不同，按capabilities.action_fields准确recommend，使用state.quote_evidence_ref原文作为唯一足够引用；apply_recommendation后read_job核原重算终态，再preview、read_job取得预览、execute、read_job及state核后台与公开读回。失败响应不证明没有写入，必须看read_job.execution_audit；changed、PARTIAL、UNCERTAIN或未核原结果时，不得换request_key、预览或ID再execute，只核原操作并报告待对账。未通过任一护栏就停止该动作并报告。不要因参数错误重复collect；按expected_fields/received_fields及native_error修正。state是摘要，完整依据用read_quote逐路径读取。声明scenario或单独100K尾价通过不能替代本轮全套餐evaluate。无变化则核原预览后如实报no_price_change，不制造改价。'
             if restore_source:text+='本次另明确授权协助恢复原操作'+restore_source+'，先restore_preview，核当前成本和优惠红线后才restore；不恢复其他历史操作。'
             record.update(phase='submitting',input_sha256=hashlib.sha256(text.encode()).hexdigest());save(path,record)
             submitted=request(owner,'/api/hermes/conversations/'+conversation+'/turns',{'text':text,'client_request_id':request_id})

@@ -11,12 +11,12 @@ from urllib.error import HTTPError
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 
 NAME='fs.pricing.control'
-ACTIONS=('capabilities','state','evaluate','recommend','apply_recommendation','collect','preview','execute','read_job','restore_preview','restore')
-MUTATING=frozenset(ACTIONS)-{'capabilities','state','evaluate','read_job'}
-AUTO=('capabilities','state','evaluate','recommend','read_job')
+ACTIONS=('capabilities','state','read_quote','evaluate','recommend','apply_recommendation','collect','preview','execute','read_job','restore_preview','restore')
+MUTATING=frozenset(ACTIONS)-{'capabilities','state','read_quote','evaluate','read_job'}
+AUTO=('capabilities','state','read_quote','evaluate','recommend','read_job')
 ROOT=Path('/var/lib/fs-hermes-fc/fs')
 FIELDS={a:set(v.split()) for a,v in {
-    'capabilities':'action','state':'action','read_job':'action job_id',
+    'capabilities':'action','state':'action','read_job':'action job_id','read_quote':'action run_id path',
     'evaluate':'action run_id console_usd pc_usd reason',
     'recommend':'action request_key run_id console_choice pc_choice reason counterexample evidence_refs',
     'apply_recommendation':'action request_key recommendation_id','collect':'action request_key',
@@ -29,12 +29,12 @@ def schema():
     text={'type':'string'}
     fields=dict(action={'enum':list(ACTIONS)},request_key={'type':'string','pattern':'^[A-Za-z0-9_-]{1,48}$'},
         run_id=text,job_id=text,preview_id=text,source_execution_id=text,restore_preview_id=text,recommendation_id=text,
-        console_usd=text,pc_usd=text,console_choice={'enum':['baseline','hold','parity','evaluated']},
+        path={'type':'string','maxLength':256},console_usd=text,pc_usd=text,console_choice={'enum':['baseline','hold','parity','evaluated']},
         pc_choice={'enum':['baseline','hold','parity','evaluated']},reason={'type':'string','minLength':4,'maxLength':200},
         counterexample={'type':'string','minLength':4,'maxLength':400},
         evidence_refs={'type':'array','items':text,'minItems':1,'maxItems':20})
     return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control',
-            'description':'FC Coins real control. First capabilities/state: explicit grant required for writes. Follow capabilities.action_fields EXACTLY and omit unrelated fields. recommend baseline/hold/parity has no console_usd/pc_usd; custom requires BOTH choices evaluated and BOTH prices. Use state.quote_evidence_ref verbatim as the sole sufficient evidence_refs entry. Fix rejected fields from expected_fields/received_fields; never guess hash prefixes or recollect to fix parameter errors. Scenario/100K-only receipts do not prove full-catalog feasibility; only evaluate current run does. Automatic-review may evaluate/recommend, not enqueue. Operator may apply_recommendation→read_job→preview→read_job→execute→read_job and state monitor readback. Every price/restore must pass >=10% net procurement margin incl promotions/gifts/packages. Stable request_key per intent; UNKNOWN reads original job, never resubmits. No order/coupon/credential/source-code writes.',
+            'description':'FC Coins real control. First capabilities/state; state is a bounded decision summary, read_quote(run_id,path JSON pointer) reads full source fragments. read_job includes the original execution audit: failed writer response does NOT prove no write. PARTIAL/UNCERTAIN/changed requires original reconciliation, never another execute key. Follow action_fields exactly. recommend baseline/hold/parity has no explicit prices; custom requires BOTH evaluated and BOTH prices. Use quote_evidence_ref verbatim. Scenario/100K-only receipts do not prove full-catalog feasibility; evaluate current run does. Automatic-review may evaluate/recommend, not enqueue. Operator may apply_recommendation→read_job→preview→read_job→execute→read_job and state public readback. Every price/restore must pass >=10% procurement margin incl promotions/gifts/packages. Stable request_key; UNKNOWN reads original, never resubmits. No order/coupon/credential/source-code writes.',
         'parameters':{'type':'object','properties':fields,'required':['action'],'additionalProperties':False}}}
 
 
@@ -71,6 +71,18 @@ def native(path,owner,body=None):
     return json.loads(raw)
 
 
+def quote_view(quote):
+    if not quote:return None
+    evidence=quote.get('evidence',{});envelope=evidence.get('promotion_envelope',{})
+    fields='platform cost_cny cost_record_id cost_trade_at target_page_usd main_page_usd floor_usd_per_1k gross_margin_pct pre_change_margin_pct minimum_gross_margin_pct decision_reason ending_reason change_pct break_even_order_multiplier proof'.split()
+    result=quote.get('result',{})
+    return dict(run_id=quote['run_id'],created_at=quote.get('created_at'),status=quote.get('status'),
+        view='decision_summary; use read_quote for complete original fragments',
+        evidence={k:evidence[k] for k in ('checked_at','costs','fx') if k in evidence},
+        promotion_envelope={k:envelope[k] for k in ('sha256','checked_at','status','minimum_retained_ratio','scope') if k in envelope},
+        result=dict(decision_receipt=result.get('decision_receipt'),rows=[{k:r[k] for k in fields if k in r} for r in result.get('rows',[])]))
+
+
 def authorization(scope,owner,task,now):
     root=Path(scope.tasks.path).parent
     with closing(sqlite3.connect((root/'conversations/conversations.db').as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
@@ -92,7 +104,7 @@ def call(scope,owner,task,lease,args,request=native):
     if not isinstance(args,dict) or args.get('action') not in ACTIONS:
         raise ValueError('pricing_tool_fields')
     action=args['action'];now=scope.clock();auth=authorization(scope,owner,task,now)
-    allowed=list(AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else ('capabilities','state','evaluate','read_job'))
+    allowed=list(AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else ('capabilities','state','read_quote','evaluate','read_job'))
     if action not in allowed:raise PermissionError('pricing_task_not_authorized')
     if action=='capabilities':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
@@ -104,18 +116,44 @@ def call(scope,owner,task,lease,args,request=native):
         data=request('/pricing/state',owner);quote=data.pop('quote',None)
         usable=bool(data.get('quote_usable'))
         digest=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest() if quote else None
-        data['current_quote']=quote if usable else None
-        data['historical_quote']=quote if not usable else None
+        data['current_quote']=quote_view(quote) if usable else None
+        data['historical_quote']=quote_view(quote) if not usable else None
         data['quote_sha256']=digest if usable else None
         data['historical_quote_sha256']=digest if not usable else None
         data['quote_evidence_ref']='pricing:'+digest if usable and digest else None
         data['allowed_actions']=allowed
-        data['policy']=request('/automation',owner)
-        data['monitor']=request('/monitor',owner)
+        policy=request('/automation',owner);monitor=request('/monitor',owner)
+        data['policy']={k:policy[k] for k in ('system_enabled','mode','platforms','interval_minutes','minimum_gross_margin_pct','revision','schedule') if k in policy}
+        data['monitor']={k:monitor[k] for k in ('publication','cache_refresh','page_readback','latest_attempt') if k in monitor}
+        data['monitor']['health']={k:monitor.get('health',{}).get(k) for k in ('incomplete_executions','queue_depth','automation_timer','api','worker')}
         return data
+    if action=='read_quote':
+        if set(args)!=FIELDS[action]:raise ValueError('pricing_tool_fields')
+        run=str(uuid.UUID(args['run_id']));path=args['path']
+        if not isinstance(path,str) or len(path)>256 or not re.fullmatch(r'/(evidence|result|edits)(/[^/]+)*',path):raise ValueError('pricing_quote_path_invalid')
+        quote=request('/quotes/'+run,owner);value=quote
+        for part in path[1:].split('/'):
+            key=part.replace('~1','/').replace('~0','~')
+            try:value=value[int(key)] if isinstance(value,list) else value[key]
+            except (KeyError,IndexError,ValueError,TypeError):raise ValueError('pricing_quote_path_missing') from None
+        result=dict(run_id=run,quote_sha256=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest(),path=path)
+        if len(json.dumps(value,ensure_ascii=False).encode())>10000:
+            keys=list(value) if isinstance(value,dict) else list(range(len(value))) if isinstance(value,list) else []
+            return dict(result,complete=False,read_subpaths=[path+'/'+str(k).replace('~','~0').replace('/','~1') for k in keys])
+        return dict(result,complete=True,value=value)
     if action=='read_job':
         if set(args)!={'action','job_id'}:raise ValueError('pricing_tool_fields')
-        job=str(uuid.UUID(args['job_id']));return request('/jobs/'+job,owner)
+        job=str(uuid.UUID(args['job_id']));result=request('/jobs/'+job,owner)
+        if result.get('kind') in ('execute','restore'):
+            try:audit=request('/audits/'+job,owner)
+            except HTTPError as exc:
+                if exc.code!=404:raise
+                result.update(execution_audit=None,audit_absence='no durable audit found; writer error alone does not prove no dispatch')
+            else:
+                result['execution_audit']={k:audit[k] for k in ('execution_id','preview_id','run_id','status','stage','changed','sync_confirmed','all_baseline','error','created_at','updated_at','recovery_history') if k in audit}
+                result['execution_audit']['after']=[{k:r[k] for k in ('id','platform','b2c','costPrice') if k in r} for r in audit.get('after',{}).get('rows',[])]
+                result.update(price_write_observed=bool(audit.get('changed')),reconciliation_required=audit.get('status') in ('RUNNING','PARTIAL','UNCERTAIN'),do_not_replay=True)
+        return result
     if action=='evaluate':
         if set(args)!={'action','run_id','console_usd','pc_usd','reason'}:raise ValueError('pricing_tool_fields')
         return request('/pricing/evaluate',owner,{k:v for k,v in args.items() if k!='action'})
@@ -186,6 +224,7 @@ def call(scope,owner,task,lease,args,request=native):
                 if run not in auth['runs']:raise PermissionError('pricing_run_not_granted')
                 path='/pricing/preview';body={'run_id':run}
             elif action=='execute':
+                if request('/monitor',owner).get('health',{}).get('incomplete_executions',0):raise ValueError('pricing_execution_reconciliation_required')
                 preview=request('/previews/'+str(uuid.UUID(args['preview_id'])),owner)
                 if preview['run_id'] not in auth['runs']:raise PermissionError('pricing_run_not_granted')
                 path='/reprice/execute';body={'preview_id':preview['preview_id'],'selected_platforms':request('/automation',owner)['platforms'],'margin_confirmed_platforms':[],'margin_exception_reason':''}
@@ -198,6 +237,7 @@ def call(scope,owner,task,lease,args,request=native):
                 if run not in auth['runs'] and source not in auth['restore_sources']:raise PermissionError('pricing_restore_source_not_granted')
                 if action=='restore_preview':path='/pricing/restore-preview';body={'source_execution_id':source}
                 else:
+                    if request('/monitor',owner).get('health',{}).get('incomplete_executions',0):raise ValueError('pricing_execution_reconciliation_required')
                     preview=request('/restore-previews/'+str(uuid.UUID(args['restore_preview_id'])),owner)
                     if preview['source_execution_id']!=source:raise ValueError('pricing_restore_source_changed')
                     path='/reprice/'+source+'/restore';body={'restore_preview_id':preview['restore_preview_id'],'selected_platforms':preview['available_platforms']}
