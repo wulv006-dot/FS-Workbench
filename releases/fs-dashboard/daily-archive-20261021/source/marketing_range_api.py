@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import RLock
 from urllib.parse import urlsplit,parse_qs
 import json,subprocess,sys,time,urllib.request,urllib.parse,os,tempfile,sqlite3
-from datetime import datetime,timezone,timedelta
+from datetime import date,datetime,timezone,timedelta
 SHANGHAI=timezone(timedelta(hours=8))
 from hashlib import sha256
 from custom_range import validate
@@ -54,7 +54,10 @@ def project_cached_content(value,start,end):
 def cached(start,end,allow_stale=False):
  from daily_archive import read
  archived=read('marketing',{'profile':'MMOEXP','start':start,'end':end,'rule':RULE_VERSION,'projection':GAME_VERSION})
- if archived is not None and not allow_stale:return project_cached_content(archived,start,end)
+ if archived is not None:
+  archived['archive']['correctionWindowDays']=5
+  archived['archive']['maturity']='provisional' if date.fromisoformat(end)>=datetime.now(SHANGHAI).date()-timedelta(days=5) else 'past_correction_window'
+  return project_cached_content(archived,start,end)
  p=cache_path(start,end)
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('linked_range_cache')
  if not p.is_file() or not allow_stale and time.time()-p.stat().st_mtime>=ttl(end):return None
@@ -142,7 +145,8 @@ def query(start,end,submit=POOL.submit,kind='range',refresh=False):
   existing=cached(start,end)
   if existing is not None and not refresh:
    stamp=(existing.get('archive') or {}).get('sourceCapturedAt')
-   if not stamp or (datetime.now(timezone.utc)-datetime.fromisoformat(stamp.replace('Z','+00:00'))).total_seconds()<ttl(end):return 200,existing
+   provisional=date.fromisoformat(end)>=datetime.now(SHANGHAI).date()-timedelta(days=5)
+   if not stamp or not provisional or (datetime.now(timezone.utc)-datetime.fromisoformat(stamp.replace('Z','+00:00'))).total_seconds()<ttl(end):return 200,existing
  with LOCK:
   now=time.monotonic()
   for old,record in list(JOBS.items()):
