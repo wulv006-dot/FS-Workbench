@@ -1,0 +1,184 @@
+{
+  "asOf": "2026-10-21T18:06:03.461576+00:00",
+  "scope": "date archive, source retries and report missing-data disclosure; no production pricing or permission change",
+  "code": {
+    "pr": 308,
+    "url": "https://github.com/wulv006-dot/FS-Workbench/pull/308",
+    "head": "fc6444a983b33f87a633f568882a0bfd8c5b1aad",
+    "merge": "0a8e4e9637deb327d68380d028e6a06f401071db",
+    "localChecks": 29,
+    "linuxChecks": 29,
+    "ci": "https://github.com/wulv006-dot/FS-Workbench/actions/runs/39647739687/job/119387670124",
+    "ciResult": "success"
+  },
+  "production": {
+    "releaseId": "nav-20261021T175626Z",
+    "manifestSha256": "956d7faaf95631109c445c5267d4be9be064fe6004551421fddefca2a66dd779",
+    "targets": {
+      "/opt/fs-exact-range-20261001/archive_jobs.py": "439c1f5c49674c5746442fd5f3f99a7ab307273d50b885eddfc4bfae48ec6552",
+      "/opt/fs-hermes-fc/source_snapshots.py": "5df948885e9cc769e02efc0b8e0098bcda2fd935766bb953a4d724a0889849a4",
+      "/opt/fs-hermes-fc/nightly.py": "3a4c58353d02f40a67488e26c0087be2632415c3e7c776b17c93360c494b0ab4",
+      "/opt/fs-hermes-fc/data-archive-first.md": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0"
+    },
+    "readiness": [
+      true,
+      []
+    ],
+    "method": [
+      {
+        "path": "runtime/data-archive-first/SKILL.md",
+        "sha256": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0",
+        "bytes": 3511,
+        "asset_type": "method"
+      }
+    ],
+    "preparation": {
+      "day": "2026-10-22",
+      "status": "partial",
+      "attempt": 2,
+      "retry_after": 1792606427.61648,
+      "completed_at": "2026-10-21T18:03:47.616468+00:00",
+      "model_calls": 0,
+      "blocks_publication": false
+    },
+    "originalAndAttemptReceipts": [
+      "preparation-2026-10-22-attempt-0.json",
+      "preparation-2026-10-22-attempt-2.json",
+      "preparation-2026-10-22-attempt-1.json"
+    ],
+    "missingSources": [
+      {
+        "tool": "fc.query_official_intelligence",
+        "query": {
+          "end": "2026-10-21",
+          "profile": "FC27",
+          "start": "2026-10-21"
+        },
+        "status": "partial"
+      },
+      {
+        "tool": "fc.query_marketing_snapshot",
+        "query": {
+          "end": "2026-10-21",
+          "profile": "FC27",
+          "start": "2026-10-21"
+        },
+        "status": "partial"
+      },
+      {
+        "tool": "fc.query_marketing_snapshot",
+        "query": {
+          "end": "2026-10-14",
+          "profile": "FC27",
+          "start": "2026-10-14"
+        },
+        "status": "partial"
+      },
+      {
+        "tool": "fc.query_game_news",
+        "query": {
+          "end": "2026-10-21",
+          "profile": "FC27",
+          "start": "2026-10-21"
+        },
+        "status": "stale"
+      },
+      {
+        "tool": "fc.run_pricing_workflow",
+        "query": {
+          "action": "review",
+          "end": "2026-10-21",
+          "profile": "FC27",
+          "start": "2026-10-21"
+        },
+        "status": "partial"
+      }
+    ],
+    "timerActions": 0,
+    "earlierArchiveJob": {
+      "at": "2026-10-22T01:47:29.347325+08:00",
+      "cleanup": {
+        "basis": "business_date",
+        "bytes": 0,
+        "cutoff": "2026-07-22",
+        "dryRun": false,
+        "objects": 0
+      },
+      "daily": {
+        "completed": 3,
+        "seconds": 120.755,
+        "status": "budget_finished"
+      },
+      "history": {
+        "completed": 13,
+        "reason": "busy",
+        "status": "deferred"
+      }
+    }
+  },
+  "model": {
+    "tasks": [
+      {
+        "conversationId": "98822bbed5ff4a4f8dd3a14716b44165",
+        "turnId": "8e6eb55003c84c3ba90bacf688026de7",
+        "state": "completed",
+        "taskId": "c9748b4cf6575a190743a96300543bb0",
+        "runId": "run_809729ac6c3348c180355359441427f6",
+        "evidenceCount": 18,
+        "methods": [
+          {
+            "version": "learning-503af4d82d66ec8e2b49201ef5862ae49e92cd25ed34b0ae89a6d55cddc93238",
+            "asset_type": "method",
+            "bytes": 3511,
+            "path": "runtime/data-archive-first/SKILL.md",
+            "sha256": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0"
+          }
+        ]
+      },
+      {
+        "conversationId": "98822bbed5ff4a4f8dd3a14716b44165",
+        "turnId": "e12e8d9860f54d199d21c38eae1c7222",
+        "state": "completed",
+        "taskId": "77deed9123f1a34220aae535d175f47d",
+        "runId": "run_67be322eef464a26aece9cd40a088644",
+        "evidenceCount": 3,
+        "methods": [
+          {
+            "version": "learning-503af4d82d66ec8e2b49201ef5862ae49e92cd25ed34b0ae89a6d55cddc93238",
+            "asset_type": "method",
+            "bytes": 3511,
+            "path": "runtime/data-archive-first/SKILL.md",
+            "sha256": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0"
+          }
+        ]
+      },
+      {
+        "conversationId": "98822bbed5ff4a4f8dd3a14716b44165",
+        "turnId": "40045354a6ef431d97fb4e1250dec1e0",
+        "state": "completed",
+        "taskId": "b73538062f0052cfab9cdf086928bbac",
+        "runId": "run_2b4103c5d90a4827b013de36d702cce0",
+        "evidenceCount": 1,
+        "methods": [
+          {
+            "version": "learning-503af4d82d66ec8e2b49201ef5862ae49e92cd25ed34b0ae89a6d55cddc93238",
+            "asset_type": "method",
+            "bytes": 3511,
+            "path": "runtime/data-archive-first/SKILL.md",
+            "sha256": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0"
+          }
+        ]
+      }
+    ],
+    "initialResult": "partial_pass; profit conclusion and traffic timing required correction; original preserved",
+    "correctedResult": "estimate label, conditional inference, actual-zero error rule and immutable-version distinction demonstrated; not proof of permanent learning",
+    "businessDecisionAuthority": "read_only"
+  },
+  "remaining": [
+    "History backfill to 2026-09-01 is incomplete.",
+    "Official/news/marketing and pricing-workflow partial gaps remain with persisted retries.",
+    "No new scheduled daily/weekly/monthly model report was replayed; future natural publication requires observation.",
+    "Continuous five-day correction and later estimate-vs-actual report revision remain unobserved.",
+    "PR307 revenue-method reconciliation belongs to its separate current owner; not closed here."
+  ]
+}
