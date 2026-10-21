@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, build_opener, ProxyHandler
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 import argparse
 import ast
 import hashlib
@@ -77,6 +77,8 @@ def read_route(params,port=8931,path='/range'):
     except HTTPError as error:
         if error.code not in (403,409,429,503):raise
         return error.code,{'status':'denied' if error.code==403 else 'busy' if error.code==429 else 'unavailable'}
+    except (URLError,TimeoutError,ConnectionError):
+        return 503,{'status':'unavailable','reason':'local_route_temporarily_unavailable'}
 
 
 def candidates(today,definitions,daily):
