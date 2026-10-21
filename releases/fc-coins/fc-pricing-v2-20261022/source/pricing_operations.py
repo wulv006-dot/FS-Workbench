@@ -31,20 +31,22 @@ def schema():
 
 
 def tables(db):
-    db.execute('CREATE TABLE IF NOT EXISTS pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS pricing_operations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,action TEXT NOT NULL,payload_hash TEXT NOT NULL,request_id TEXT NOT NULL,state TEXT NOT NULL,result TEXT,created_at TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS pricing_recommendations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,conversation TEXT NOT NULL,run_id TEXT NOT NULL,quote_sha256 TEXT NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL)')
 
 
-def grant(db,owner,conversation,run,mode,expires,source):
+def grant(db,owner,conversation,run,mode,expires,source,restore_sources=()):
     if mode not in ('automatic_review','operator_workflow') or not re.fullmatch('[a-f0-9]{32}',conversation):
         raise ValueError('pricing_grant_scope')
-    uuid.UUID(run);tables(db)
+    uuid.UUID(run)
+    if len(restore_sources)>1 or restore_sources and mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
+    sources=json.dumps([str(uuid.UUID(value)) for value in restore_sources]);tables(db)
     raw=json.dumps([run])
-    old=db.execute('SELECT owner,mode,runs,expires_at,source FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
-    values=(owner,mode,raw,expires,source)
+    old=db.execute('SELECT owner,mode,runs,expires_at,source,restore_sources FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
+    values=(owner,mode,raw,expires,source,sources)
     if old is not None and tuple(old)!=values:raise ValueError('pricing_grant_conflict')
-    db.execute('INSERT OR IGNORE INTO pricing_grants VALUES(?,?,?,?,?,?)',(conversation,*values))
+    db.execute('INSERT OR IGNORE INTO pricing_grants VALUES(?,?,?,?,?,?,?)',(conversation,*values))
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -73,6 +75,7 @@ def authorization(scope,owner,task,now):
     value=dict(r)
     if datetime.fromisoformat(value['expires_at'])<=now:return None
     value['runs']=json.loads(value['runs'])
+    value['restore_sources']=json.loads(value['restore_sources'])
     return value
 
 
@@ -86,7 +89,7 @@ def call(scope,owner,task,lease,args,request=native):
     if action=='capabilities':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         return dict(allowed_actions=allowed,mode=auth['mode'] if auth else 'read_only',hard_margin_pct='10',
-                    scoped_runs=auth['runs'] if auth else [],lease_required=True,unknown_replay=False)
+                    scoped_runs=auth['runs'] if auth else [],restore_sources=auth['restore_sources'] if auth else [],lease_required=True,unknown_replay=False)
     if action=='state':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         data=request('/pricing/state',owner);quote=data.pop('quote',None)
@@ -94,6 +97,7 @@ def call(scope,owner,task,lease,args,request=native):
         data['quote_sha256']=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest() if quote else None
         data['allowed_actions']=allowed
         data['policy']=request('/automation',owner)
+        data['monitor']=request('/monitor',owner)
         return data
     if action=='read_job':
         if set(args)!={'action','job_id'}:raise ValueError('pricing_tool_fields')
@@ -155,7 +159,10 @@ def call(scope,owner,task,lease,args,request=native):
                 with scope.tasks.db() as db:
                     row=db.execute('SELECT run_id,content FROM pricing_recommendations WHERE id=? AND owner=? AND task=?',(args['recommendation_id'],owner,task)).fetchone()
                 if row is None or row[0] not in auth['runs']:raise PermissionError('pricing_recommendation_not_owned')
-                value=json.loads(row[1]);policy=request('/automation',owner)
+                value=json.loads(row[1]);current=request('/pricing/state',owner)
+                if not current['quote_usable'] or current['quote']['run_id']!=row[0] or hashlib.sha256(json.dumps(current['quote'],ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()!=value['quote_sha256']:
+                    raise ValueError('pricing_recommendation_basis_changed')
+                policy=request('/automation',owner)
                 from decimal import Decimal
                 console=str(Decimal(value['console_usd'])/100);pc=str(Decimal(value['pc_usd'])/100)
                 path='/pricing/recalculate';body={'run_id':row[0],'edits':{'quotes':{'PS':console,'XBOX':console,'PC':pc},'reason':value['reason'],'minimum_gross_margin_pct':policy['minimum_gross_margin_pct']}}
@@ -168,11 +175,20 @@ def call(scope,owner,task,lease,args,request=native):
                 preview=request('/previews/'+str(uuid.UUID(args['preview_id'])),owner)
                 if preview['run_id'] not in auth['runs']:raise PermissionError('pricing_run_not_granted')
                 path='/reprice/execute';body={'preview_id':preview['preview_id'],'selected_platforms':request('/automation',owner)['platforms'],'margin_confirmed_platforms':[],'margin_exception_reason':''}
-            elif action=='restore_preview':path='/pricing/restore-preview';body={'source_execution_id':str(uuid.UUID(args['source_execution_id']))}
+            elif action in {'restore_preview','restore'}:
+                source=str(uuid.UUID(args['source_execution_id']));audit=request('/audits/'+source,owner)
+                if audit.get('execution_id')!=source or audit.get('status')!='CONFIRMED' or not audit.get('sync_confirmed'):
+                    raise ValueError('pricing_restore_source_not_confirmed')
+                run=audit.get('run_id')
+                if not run:run=request('/previews/'+str(uuid.UUID(audit['preview_id'])),owner)['run_id']
+                if run not in auth['runs'] and source not in auth['restore_sources']:raise PermissionError('pricing_restore_source_not_granted')
+                if action=='restore_preview':path='/pricing/restore-preview';body={'source_execution_id':source}
+                else:
+                    preview=request('/restore-previews/'+str(uuid.UUID(args['restore_preview_id'])),owner)
+                    if preview['source_execution_id']!=source:raise ValueError('pricing_restore_source_changed')
+                    path='/reprice/'+source+'/restore';body={'restore_preview_id':preview['restore_preview_id'],'selected_platforms':preview['available_platforms']}
             else:
-                source=str(uuid.UUID(args['source_execution_id']));preview=request('/restore-previews/'+str(uuid.UUID(args['restore_preview_id'])),owner)
-                if preview['source_execution_id']!=source:raise ValueError('pricing_restore_source_changed')
-                path='/reprice/'+source+'/restore';body={'restore_preview_id':preview['restore_preview_id'],'selected_platforms':preview['available_platforms']}
+                raise ValueError('pricing_tool_fields')
             if action=='collect':
                 with scope.tasks.db() as db:
                     runs=auth['runs']+[request_id];db.execute('UPDATE pricing_grants SET runs=? WHERE conversation=? AND owner=?',(json.dumps(runs),auth['conversation'],owner))

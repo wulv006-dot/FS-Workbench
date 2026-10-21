@@ -1,7 +1,7 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "implemented_local_checks_only_not_deployed",
-  "main_base": "a3601747af6b7c3d1752fa9c104c79ae0b17b9c4",
+  "main_base": "c4ee3e29b899cdd3ba287272fc55e1d4937db24d",
   "files": [
     {
       "candidate": "source/automation_policy.py",
@@ -13,7 +13,7 @@
     },
     {
       "candidate": "source/fc27_cloud_api.py",
-      "sha256": "c103459ae03023d34891739f52808573aa5f841255fea8f357a2a878a4ae29f4",
+      "sha256": "4735b982ff017349f9166bc68384d39991ca6b516b8a2357dea534bae313107c",
       "target": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
       "beforeSha256": "113f01760011eff4bd473e63b7bfedd5d367a1562664d1bc7fc8706483437c52",
       "owner": "0:0",
@@ -53,7 +53,7 @@
     },
     {
       "candidate": "source/price_writer.py",
-      "sha256": "f4094a64f0c43c6b426584e7b1df876fd4bd1bf863d84394f7f6cccb24a77c51",
+      "sha256": "db45ea5ebf51a469983543b61c78383ce55071c069803c068c04ebd6a287c644",
       "target": "/opt/fc27-cloud-browser/price_writer.py",
       "beforeSha256": "44a410efc175025afa2ff355f535240a3839bafc364f0d0672234ee294fa7509",
       "owner": "0:0",
@@ -93,7 +93,7 @@
     },
     {
       "candidate": "source/pricing_v2.py",
-      "sha256": "16ce90bbc8a5829278c3d564c5ef1f9e207bb4d57aa6ffb4bece631e644eb36d",
+      "sha256": "d57408fb674df752e867dec6c844255c6b6f915c7b82b44ef40197185f016eaf",
       "target": "/opt/fc27-cloud-browser/pricing_v2.py",
       "beforeSha256": null,
       "owner": "0:0",
@@ -109,7 +109,7 @@
     },
     {
       "candidate": "source/pricing_state.py",
-      "sha256": "b074a51257f15ce43a518ff303d9ec967d56e08380ca0fe8537f377eae1a1550",
+      "sha256": "ead7aef1f172c4529530858f7e32d2a8752db43a33e6c8eecd022b6852f795d3",
       "target": "/opt/fc27-cloud-browser/pricing_state.py",
       "beforeSha256": null,
       "owner": "0:0",
@@ -117,7 +117,7 @@
     },
     {
       "candidate": "source/hermes_pricing_bridge.py",
-      "sha256": "e89df2ebbb714b8ecbace469d354b3cfac2913b7fcae6399e2c4e419b32ecef2",
+      "sha256": "c794fd5cb05035b17ac02ab6745bafd7283e81a55c962299645937acd4c4bc7f",
       "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
       "beforeSha256": null,
       "owner": "0:0",
@@ -149,7 +149,7 @@
     },
     {
       "candidate": "source/pricing_simulation.py",
-      "sha256": "8eda94f5e1a182d9065de0efb735e7b744d1c1f3d96af00b5bf6e106594f59d8",
+      "sha256": "cbe8e71db42ae20c674a186ecc212b24a4ee1fa02016a2f714ab800da634cfbf",
       "target": "/opt/fs-hermes-fc/pricing_simulation.py",
       "beforeSha256": "7fdd0daf2a3e1138ab5b37f6663d3c227596c670cd1bc362b829ac8b3845f5f2",
       "owner": "0:0",
@@ -157,7 +157,7 @@
     },
     {
       "candidate": "source/pricing_operations.py",
-      "sha256": "a84c485bb7d2e01dedcfaa5c0d9d995283fadfa1d266bebdeb85a7c5ade548a9",
+      "sha256": "557448bc8f72d420d32687b878be5311781120264bde8cdb6bfeda7c0996d812",
       "target": "/opt/fs-hermes-fc/pricing_operations.py",
       "beforeSha256": null,
       "owner": "0:0",
@@ -173,7 +173,7 @@
     },
     {
       "candidate": "source/fc27-coins.html",
-      "sha256": "311e96b98831d63d09c888c076df680a32f7ccaff266d394c05d9ccd3542bc6f",
+      "sha256": "a33361e1f19cba35b97123d09d7b7b36f61ee0e0cc17cd0e42bab615f8b8fd17",
       "target": "/var/www/dashboard/fc27-coins.html",
       "beforeSha256": "ecdb15b81b960ce2187cc5606011ba58b7392a58e0b1a3d9a627f9f2411fd7d3",
       "owner": "0:0",
@@ -181,7 +181,7 @@
     },
     {
       "candidate": "source/fc27-quote-cloud.js",
-      "sha256": "ebc02e95a6466d947b445ca6a267ebd88d4b3a8a88288eb9242de3969e9f583d",
+      "sha256": "769ba0b36205d547801d4614623fb8af4a9182d106072e7085e66920393efebf",
       "target": "/var/www/dashboard/fc27-quote-cloud.js",
       "beforeSha256": "9411dc3cef1a2b7b8147966513d1fa38baf9ca2da77c7acec1f1e3fe5ebdc175",
       "owner": "0:0",
@@ -234,7 +234,7 @@
     "/opt/fs-hermes-fc/controller.py": "571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af",
     "/opt/fs-hermes-fc/daily_archive.py": "aa33c6fbfe43ef0b1816f83ac8edcc8a993857e0458e5ff0993a05d62e49e935",
     "/opt/fs-hermes-fc/data-archive-first.md": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0",
-    "/opt/fs-hermes-fc/fs_evidence.py": "f5058125d04cdb37ad303df938a136c80a3a28d045b7e2ebbfe3d1aad5981216",
+    "/opt/fs-hermes-fc/fs_evidence.py": "85aa5aa0509e06b76078f1d032cf94237b2b6b152b4f0b6ce7254e5560a04847",
     "/opt/fs-hermes-fc/fs_inprocess.py": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd",
     "/opt/fs-hermes-fc/hermes_worker.py": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00",
     "/opt/fs-hermes-fc/network_guard.py": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23",

@@ -211,6 +211,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
         hold = max(current)
         main = max(floor, min(hold, anchor))
         reason = 'cost_or_promotion_floor' if floor > hold else 'public_anchor_parity' if main < hold else 'already_competitive_hold'
+        if reason=='already_competitive_hold' and len(set(current))>1:reason='unify_common_console_base'
         if group[0] in quotes:
             main = number(quotes[group[0]])*100
             if main != main.quantize(CENT):

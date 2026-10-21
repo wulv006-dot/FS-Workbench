@@ -52,14 +52,15 @@ class Control(unittest.TestCase):
                                    book=SimpleNamespace(evidence={'e1':{}}))
         self.quote=quoted();self.calls=[]
 
-    def grant(self,mode='operator_workflow',owner='wulv',expires=None):
+    def grant(self,mode='operator_workflow',owner='wulv',expires=None,restore_sources=()):
         with self.tasks.db() as db:
-            ops.grant(db,owner,CONVERSATION,RUN,mode,(expires or NOW+timedelta(hours=1)).isoformat(),'test')
+            ops.grant(db,owner,CONVERSATION,RUN,mode,(expires or NOW+timedelta(hours=1)).isoformat(),'test',restore_sources)
 
     def request(self,path,owner,body=None):
         self.calls.append((path,owner,body))
         if path=='/pricing/state':return {'quote':copy.deepcopy(self.quote),'quote_usable':True}
         if path=='/automation':return {'platforms':['PS','XBOX','PC'],'minimum_gross_margin_pct':'10'}
+        if path=='/monitor':return {'publication':{'status':'matched','execution_id':'original_execution'}}
         if body:return {'job_id':body['client_event_id'],'accepted':True}
         raise AssertionError(path)
 
@@ -81,6 +82,12 @@ class Control(unittest.TestCase):
     def test_expired_grant_cannot_write(self):
         self.grant(expires=NOW-timedelta(seconds=1))
         with self.assertRaises(PermissionError):self.recommend()
+
+    def test_model_state_retains_original_publication_receipt(self):
+        result=self.call({'action':'state'})
+        self.assertEqual(result['monitor']['publication']['execution_id'],'original_execution')
+        self.assertEqual(result['quote_sha256'],p.fingerprint(self.quote))
+        self.assertTrue(all(body is None for _,_,body in self.calls))
 
     def test_auto_review_cannot_deadlock_worker_with_another_queue(self):
         self.grant('automatic_review')
@@ -137,6 +144,46 @@ class Control(unittest.TestCase):
     def test_grant_cannot_be_replaced_with_wider_authority(self):
         self.grant('automatic_review')
         with self.assertRaisesRegex(ValueError,'grant_conflict'):self.grant('operator_workflow')
+
+    def test_apply_rejects_changed_quote_even_in_same_run(self):
+        self.grant();rec=self.recommend()['result'];self.quote['created_at']='changed'
+        result=self.call(dict(action='apply_recommendation',request_key='apply1',recommendation_id=rec['operation_id']))
+        self.assertEqual(result['state'],'rejected')
+        self.assertEqual(result['result']['error'],'pricing_recommendation_basis_changed')
+        self.assertFalse(any(body for _,_,body in self.calls))
+
+    def test_restore_requires_original_run_or_explicit_source_grant(self):
+        source='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+        other='cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+        preview='dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+        def request(path,owner,body=None):
+            if path=='/audits/'+source:return dict(execution_id=source,run_id=other,status='CONFIRMED',sync_confirmed=True)
+            if path=='/restore-previews/'+preview:return dict(source_execution_id=source,restore_preview_id=preview,available_platforms=['PS','XBOX','PC'])
+            return self.request(path,owner,body)
+        self.grant()
+        for action in ('restore_preview','restore'):
+            args=dict(action=action,request_key=action,source_execution_id=source)
+            if action=='restore':args['restore_preview_id']=preview
+            self.assertEqual(self.call(args,request=request)['state'],'rejected')
+        self.assertFalse(any(body for _,_,body in self.calls))
+        with self.tasks.db() as db:db.execute('DELETE FROM pricing_grants')
+        self.grant(restore_sources=[source])
+        for action in ('restore_preview','restore'):
+            args=dict(action=action,request_key=action+'Granted',source_execution_id=source)
+            if action=='restore':args['restore_preview_id']=preview
+            self.assertEqual(self.call(args,request=request)['state'],'accepted')
+
+    def test_automatic_review_cannot_receive_restore_source_grant(self):
+        with self.assertRaisesRegex(ValueError,'restore_grant_scope'):
+            self.grant('automatic_review',restore_sources=['bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'])
+
+    def test_legacy_audit_restore_uses_preview_run_provenance(self):
+        self.grant();source='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';preview='cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+        def request(path,owner,body=None):
+            if path=='/audits/'+source:return dict(execution_id=source,preview_id=preview,status='CONFIRMED',sync_confirmed=True)
+            if path=='/previews/'+preview:return dict(run_id=RUN)
+            return self.request(path,owner,body)
+        self.assertEqual(self.call(dict(action='restore_preview',request_key='legacy',source_execution_id=source),request=request)['state'],'accepted')
 
     def test_custom_model_price_requires_program_evaluation_with_same_quote(self):
         self.grant('automatic_review')

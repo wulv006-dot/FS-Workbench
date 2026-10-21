@@ -251,6 +251,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
               "before": preview["backend_before"], "targets": preview["targets"]}
     record['pricing_decision_receipt']=quote['result']['decision_receipt']
     record['hermes_decision']=quote.get('hermes_decision')
+    record['pricing_basis']={'evidence':quote['evidence'],'edits':quote.get('edits') or {},'result':quote['result']}
     with sync_playwright() as playwright:
         browser = playwright.chromium.connect_over_cdp(
             os.environ.get("FC27_CDP_ENDPOINT", "http://127.0.0.1:9225"),

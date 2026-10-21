@@ -13,7 +13,7 @@ assert.equal(new Set(ids).size,ids.length,'IDs must be unique');
 for(const [,id] of source.matchAll(/\$\('([^']+)'\)/g))assert(ids.includes(id),`missing control ${id}`);
 const policy={system_enabled:true,mode:'auto',revision:40,minimum_gross_margin_pct:'10',interval_minutes:120,platforms:['PS','XBOX','PC']};
 const flush=async()=>{for(let n=0;n<8;n++)await new Promise(resolve=>setImmediate(resolve));};
-async function scenario(postStatus,pollStatus){
+async function scenario(postStatus,pollStatus,kind='collect',terminalJob=null){
   const elements=new Map(ids.map(id=>[id,{textContent:'',disabled:false,classList:{add(){},remove(){}},focus(){},append(){},replaceChildren(){},addEventListener(){}}]));
   const saved=new Map();let interval,posts=0;
   const context={document:{getElementById:id=>elements.get(id),createElement:()=>({append(){}})},
@@ -24,12 +24,12 @@ async function scenario(postStatus,pollStatus){
       if(options.method==='POST'){
         posts++;if(postStatus===0)throw new TypeError('network lost');
         status=postStatus;data=status===200?{job_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}:{error:'specific_error'};
-      }else if(pathname.startsWith('/jobs/')){status=pollStatus;data=status===200?{status:'queued'}:{error:'temporary_error'};}
-      else data=pathname==='/automation'?policy:pathname==='/pricing/state'?{version:'fc-coins-decision-v2',recent:[],quote_usable:false}:pathname==='/player-sync'?{enabled:true}:{};
+      }else if(pathname.startsWith('/jobs/')){status=pollStatus;data=status===200?(terminalJob||{status:'queued'}):{error:'temporary_error'};}
+      else data=pathname==='/automation'?policy:pathname==='/pricing/state'?{version:'fc-coins-decision-v2',recent:[],quote_usable:true,quote:{run_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',evidence:{checked_at:new Date().toISOString()}}}:pathname==='/player-sync'?{enabled:true}:{};
       return {ok:status<400,status,json:async()=>data};
     }};
   vm.runInNewContext(source,context);await flush();
-  await elements.get('collect').onclick();await flush();
+  await elements.get(kind==='collect'?'collect':'hermes-review').onclick();await flush();
   const afterPost=saved.size;
   await interval();await flush();
   return {posts,afterPost,afterPoll:saved.size,disabled:elements.get('collect').disabled};
@@ -40,5 +40,7 @@ async function scenario(postStatus,pollStatus){
     assert.equal(value.posts,1);assert.equal(value.afterPost,expected);assert.equal(value.afterPoll,expected);
     assert.equal(value.disabled,Boolean(expected));
   }
-  console.log('UI amount, controls and unknown-write recovery passed (4 transport scenarios).');
+  const unknown=await scenario(200,200,'hermes_review',{status:'ready',result:{phase:'unknown',do_not_replay:true}});
+  assert.equal(unknown.posts,1);assert.equal(unknown.afterPoll,1);
+  console.log('UI amount, controls and unknown recovery passed (4 transport scenarios and model unknown receipt).');
 })().catch(error=>{console.error(error);process.exitCode=1;});

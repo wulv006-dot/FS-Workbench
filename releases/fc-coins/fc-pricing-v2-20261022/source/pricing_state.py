@@ -40,8 +40,13 @@ def owned_review(root,owner):
                 from hermes_pricing_bridge import request
                 detail=request(owner,'/api/hermes/conversations/'+value['conversation_id'],timeout=3)
                 turn=next((t for t in detail.get('turns',[]) if t['turn_id']==value.get('turn_id')),None)
+                if turn is None and value.get('input_sha256'):
+                    matches=[t for t in detail.get('turns',[]) if hashlib.sha256(t.get('text','').encode()).hexdigest()==value['input_sha256']]
+                    if len(matches)==1:turn=matches[0]
                 if turn:
-                    value.update(turn={k:turn.get(k) for k in ('turn_id','state','run_id','progress','error')})
+                    value.update(turn_id=turn['turn_id'],turn={k:turn.get(k) for k in ('turn_id','state','run_id','progress','error')},
+                                 live_receipt='original_owned_turn_identified')
+                    if turn['state'] in {'queued','preparing','running','stopping'}:value['phase']='submitted'
                     if turn['state'] in {'completed','failed','cancelled','interrupted'}:
                         value['phase']='completed' if turn['state']=='completed' else 'failed'
             except (OSError,ValueError,KeyError,__import__('sqlite3').Error):

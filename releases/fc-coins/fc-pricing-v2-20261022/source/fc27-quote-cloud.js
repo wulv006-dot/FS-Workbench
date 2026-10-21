@@ -11,9 +11,12 @@
   function time(value) {return value?new Date(value).toLocaleString('zh-CN',{hour12:false}):'待核';}
   if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit};return;}
   const $=id=>document.getElementById(id),BASE='/api/fc27/cloud';
-  let policy,player,state,preview,restore,busy=false,dirty=false,refreshing=false;
+  let policy,player,state,preview,restore,busy=false,dirty=false,playerDirty=false,refreshing=false;
   const pendingKey='fc-pricing-v2-pending';
-  const names={cost_or_promotion_floor:'成本或优惠挤压利润，先修复红线',public_anchor_parity:'只调整到本轮公开可比位置',already_competitive_hold:'已在竞争位置，主策略保持',operator_or_hermes_candidate:'人工或Hermes明确候选'};
+  const names={cost_or_promotion_floor:'成本或优惠挤压利润，先修复红线',public_anchor_parity:'只调整到本轮公开可比位置',already_competitive_hold:'已在竞争位置，主策略保持',unify_common_console_base:'旧价不同，统一PS / Xbox共同基价',operator_or_hermes_candidate:'人工或Hermes明确候选'};
+  const endingNames={accepted:'小幅调整为.99，预算和红线均通过',already_99:'已是.99，无额外调整',no_positive_99:'金额过小，保持主策略',hard_floor:'红线限制，保持主策略',ending_budget:'让利预算限制，保持主策略',ending_margin_budget:'毛利率预算限制，保持主策略',catalog_hard_floor:'套餐红线限制，保持主策略',explicit_candidate_no_hidden_adjustment:'明确指定价，不另加尾价调整'};
+  const labels={auto_cycle:'自然自动周期',collect:'价格采集',execute:'确认执行',restore:'恢复',recalculate:'候选核算',preview:'后台只读预览',hermes_review:'Hermes审核',ready:'处理完成',queued:'排队中',running:'进行中',failed:'失败',confirmed:'已确认',CONFIRMED:'已确认',verified:'已核实',pending:'待处理',no_price_change:'价格无需变化',unknown:'原请求待核',completed:'已完成',submitted:'已提交，等待模型',timeout:'本轮等待超时，不追补执行'};
+  const label=value=>labels[value]||value;
   const errors={pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
   function error(value) {
     const code=value?.code||value?.message||String(value);
@@ -36,10 +39,11 @@
     $('execute').disabled=busy||pending||!preview||!state?.execution_ready||Date.now()>=Date.parse(preview.expires_at)||!policy?.system_enabled;
     $('restore-execute').disabled=busy||pending||!restore||!state?.execution_ready||Date.now()>=Date.parse(restore.expires_at);
     $('hermes-review').disabled=busy||pending||!state?.quote_usable;
+    $('hermes-restore').disabled=busy||pending||!state?.quote_usable;
   }
   function renderSettings(){
     if(!dirty&&policy){$('enabled').checked=policy.system_enabled;$('auto').checked=policy.mode==='auto';$('interval').value=policy.interval_minutes;$('margin').value=policy.minimum_gross_margin_pct;$('console-enabled').checked=policy.platforms.includes('PS')&&policy.platforms.includes('XBOX');$('pc-enabled').checked=policy.platforms.includes('PC');}
-    if(player)$('player-enabled').checked=player.enabled;
+    if(player&&!playerDirty)$('player-enabled').checked=player.enabled;
   }
   function card(group,title){
     const box=node('section',null,'panel');box.append(node('h2',title));
@@ -49,9 +53,10 @@
     const dl=node('dl');
     for(const [label,value] of [
       ['当前公开100K',group.map(p=>`${p} ${money(quote.evidence.storefront.rows[p].package_usd)}`).join(' / ')],
+      ['各平台实际变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
       ['有效采购成本',`¥${row.cost_cny} / K`],[`${row.minimum_gross_margin_pct}%红线最低100K`,money(Number(row.floor_usd_per_1k)*100)],
       ['最差优惠后实收',money(row.proof?.worst_net_usd)],['采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
-      ['主策略标价',money(row.main_page_usd)],['尾价处理',row.ending_reason],
+      ['主策略标价',money(row.main_page_usd)],['尾价处理',endingNames[row.ending_reason]||row.ending_reason],
       ['保采购毛利所需订单倍数',row.break_even_order_multiplier?`${Number(row.break_even_order_multiplier).toFixed(3)}倍（条件计算）`:'不适用'],
       ['套餐 / 自定义核算',`${row.proof?.catalog?.published_packages??'?'}档 · 最小${row.proof?.catalog?.minimum_custom_k??'?'}K`]]){
         dl.append(node('dt',label),node('dd',value));
@@ -70,7 +75,8 @@
     const tbody=$('competitors');tbody.replaceChildren();
     for(const row of q?.result?.rows||[])for(const offer of row.offers||[]){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.comparable?'公开规格可比':'缺项或不可比'}`])tr.append(node('td',value));tbody.append(tr);}
     const history=$('history');history.replaceChildren();
-    for(const item of state?.recent||[]){const tr=node('tr');for(const value of [time(item.completed_at||item.created_at),item.kind,item.result?.status||item.status,item.public_page_readback?.status||'未取得',`${item.job_id} ${item.error_detail||item.error||''}`])tr.append(node('td',value));history.append(tr);}
+    for(const item of state?.recent||[]){const tr=node('tr');for(const value of [time(item.completed_at||item.created_at),label(item.kind),label(item.result?.status||item.status),label(item.public_page_readback?.status)||'未取得',`${item.job_id} ${item.error_detail||item.error||''}`])tr.append(node('td',value));history.append(tr);}
+    if(!state?.recent?.length){const tr=node('tr'),td=node('td','尚无可显示的操作记录；等待原任务账本读回。');td.colSpan=5;tr.append(td);history.append(tr);}
     renderSettings();buttons();
   }
   async function refresh(){
@@ -80,9 +86,9 @@
       $('health').textContent=`定时器：${monitor.health?.automation_timer||'未知'}；未确认写入：${monitor.health?.incomplete_executions??'未知'}；清缓存：${monitor.cache_refresh?.status||'待核'}`;
       if(preview&&(preview.run_id!==state.quote?.run_id||preview.automation_policy_revision!==policy.revision))preview=null;
       const review=state.hermes_review;
-      if(review)$('hermes-status').textContent=`Hermes ${review.phase} · 会话 ${review.conversation_id||'待核'} · 任务 ${review.task_id||'准备中'} · 模型运行 ${review.turn?.run_id||'待回执'}${review.recommendation?' · 已完成程序候选选择':' · 选择结果详见会话及操作账本'}；已采用与实际写价另查原操作。`;
+      $('hermes-status').textContent=review?`Hermes ${label(review.phase)} · 会话 ${review.conversation_id||'待核'} · 任务 ${review.task_id||'准备中'} · 模型运行 ${review.turn?.run_id||'待回执'}${review.recommendation?' · 已完成程序候选选择':' · 选择结果详见会话及操作账本'}；已采用与实际写价另查原操作。`:'尚无本轮Hermes任务；发起后会显示真实会话和模型回执。';
       render();await checkPending();if(!busy&&!sessionStorage.getItem(pendingKey))status(state.quote_status);
-    }catch(e){error(e);}finally{refreshing=false;}
+    }catch(e){preview=null;restore=null;if(state)state={...state,quote_usable:false,execution_ready:false,quote_status:'状态读取失败，保留原记录等待核对'};render();error(e);}finally{refreshing=false;}
   }
   async function waitJob(id){
     status(`等待原操作 ${id}`);
@@ -102,6 +108,13 @@
         restore=await api('/restore-previews/'+job.result.restore_preview_id);restore.source=pending.source;
         $('restore-state').textContent=`原操作 ${pending.source} 的恢复已按当前成本核算，有效至 ${time(restore.expires_at)}`;
       }else if(pending.kind==='hermes_review'){
+        if(job.result?.do_not_replay||job.result?.phase==='unknown'){
+          const actual=state?.hermes_review;
+          if(actual?.job_id!==pending.id||actual.live_receipt!=='original_owned_turn_identified'){
+            $('hermes-status').textContent=`Hermes原请求 ${pending.id} 回执未知，保留编号核对；不会再派发模型。`;
+            return;
+          }
+        }
         $('hermes-status').textContent=`Hermes原操作 ${pending.id} 已派发，会话 ${job.result?.conversation_id||'待核'}；等待真实模型任务终态。`;
       }else{preview=null;restore=null;status(`原操作 ${pending.id} 已结束：${job.result?.status||job.status}。继续核对前台真实暴露。`);}
       sessionStorage.removeItem(pendingKey);
@@ -127,10 +140,12 @@
     event.preventDefault();const button=event.submitter;button.disabled=true;
     try{policy=await api('/automation',{expected_revision:policy.revision,settings:{system_enabled:$('enabled').checked,mode:$('auto').checked?'auto':'manual',interval_minutes:Number($('interval').value),platforms:[...($('console-enabled').checked?['PS','XBOX']:[]),...($('pc-enabled').checked?['PC']:[])],minimum_gross_margin_pct:$('margin').value}});dirty=false;preview=null;$('settings-state').textContent='已保存并读回服务器配置';await refresh();}catch(e){error(e);}finally{button.disabled=false;}
   });
-  $('player-form').addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{player=await api('/player-sync',{enabled:$('player-enabled').checked,expected_revision:player.revision});status('商品公式联动开关已读回');}catch(e){error(e);}finally{event.submitter.disabled=false;}});
+  $('player-form').addEventListener('input',()=>{playerDirty=true;});
+  $('player-form').addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{player=await api('/player-sync',{enabled:$('player-enabled').checked,expected_revision:player.revision});playerDirty=false;status('商品公式联动开关已读回');}catch(e){error(e);}finally{event.submitter.disabled=false;}});
   $('candidate-form').addEventListener('submit',event=>{event.preventDefault();if(!state?.quote_usable){error(Error('请先采集新鲜数据'));return;}try{const unit=pageToUnit($('console-price').value),pc=pageToUnit($('pc-price').value);preview=null;submit('/pricing/recalculate',{run_id:state.quote.run_id,edits:{quotes:{PS:unit,XBOX:unit,PC:pc},reason:$('candidate-reason').value,minimum_gross_margin_pct:policy.minimum_gross_margin_pct}},'recalculate');}catch(e){error(e);}});
   $('restore-form').addEventListener('submit',event=>{event.preventDefault();const source=$('restore-id').value;submit('/pricing/restore-preview',{source_execution_id:source},'restore_preview',{source});});
   $('restore-execute').onclick=()=>submit('/reprice/'+restore.source+'/restore',{restore_preview_id:restore.restore_preview_id,selected_platforms:restore.available_platforms},'restore');
   $('hermes-review').onclick=()=>submit('/pricing/hermes-review',{run_id:state.quote.run_id},'hermes_review');
+  $('hermes-restore').onclick=()=>{if($('restore-form').reportValidity())submit('/pricing/hermes-review',{run_id:state.quote.run_id,restore_source_execution_id:$('restore-id').value},'hermes_review');};
   setInterval(refresh,10000);refresh();
 })();

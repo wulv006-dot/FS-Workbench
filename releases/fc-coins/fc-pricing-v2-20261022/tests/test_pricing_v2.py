@@ -60,6 +60,13 @@ class Pricing(unittest.TestCase):
         p.apply_decision(rows,e,{},now=NOW)
         self.assertEqual(rows[0]['main_page_usd'],'20.00')
 
+    def test_unifying_different_console_prices_is_not_labelled_hold(self):
+        e,rows,_=fixture();e['storefront']['rows']['PS']['package_usd']='18.00'
+        receipt=p.apply_decision(rows,e,{},now=NOW)
+        self.assertEqual(receipt['decisions'][0]['reason'],'unify_common_console_base')
+        self.assertGreater(Decimal(rows[0]['change_pct']),0)
+        self.assertEqual(rows[0]['proposal'],rows[1]['proposal'])
+
     def test_only_small_needed_change_to_parity(self):
         e,rows,_=fixture()
         for offers in e['offers'].values():offers['Lootbar']['usd_price']='19.5'
