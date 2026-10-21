@@ -374,13 +374,15 @@ class ChannelService:
         data = archived or (json.loads(target.read_text('utf-8')) if target.is_file() else None)
         with self.lock:
             state = self.jobs.get(key)
-            fresh = archived is not None or (data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600)
+            fresh = data and time.time() - datetime.fromisoformat(data['generatedAt']).timestamp() < 600
             if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) >= 2:
-                        return 429, {'status': 'busy', 'retryAfter': 10}
-                    self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
-                    self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
+                        if not data or fresh: return 429, {'status': 'busy', 'retryAfter': 10}
+                        state = 'deferred'
+                    else:
+                        self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
+                        self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh')))
             if data:
                 if self.source is None:
                     from channel_source import apply_customer_types, apply_cost_overrides
@@ -389,6 +391,6 @@ class ChannelService:
                         data = apply_delivery_cache(data, self.root)
                     data = apply_cost_overrides(apply_customer_types(data))
                 result = view(data, query)
-                result.update(status='available', refreshing=state in ('pending','cost_pending'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
+                result.update(status='available', refreshing=state in ('pending','cost_pending','deferred'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
                 return 200, result
             return (503 if state == 'source_failed' else 202), dict(status=state or 'pending', retryAfter=3)

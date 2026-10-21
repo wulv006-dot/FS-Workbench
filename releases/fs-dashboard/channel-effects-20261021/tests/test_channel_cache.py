@@ -82,6 +82,29 @@ class Archive(unittest.TestCase):
             with patch.object(sys,'argv',['cache','--backfill']):cache.main()
             collect.assert_not_called()
 
+    def test_old_archive_returns_immediately_and_preserves_automatic_refresh(self):
+        self.assert_stale_archive(False)
+
+    def test_busy_sources_still_return_existing_archive_then_retry_refresh(self):
+        self.assert_stale_archive(True)
+
+    def assert_stale_archive(self, busy):
+        data=self.fixture();data['generatedAt']='2026-10-21T00:00:00+08:00'
+        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules,{'fcntl':FCNTL}):
+            root=Path(folder);cache.store_days(data,root)
+            service=ChannelService(root,lambda user:True)
+            service.pool.shutdown();service.pool=Mock()
+            if busy:service.jobs.update(other='pending',another='cost_pending')
+            with patch('channel_source.apply_customer_types',side_effect=lambda d:d),patch('channel_source.apply_cost_overrides',side_effect=lambda d:d):
+                params={k:[v] for k,v in data['period'].items()}
+                code,result=service.get(params,'admin')
+                self.assertEqual(code,200);self.assertEqual(result['summary']['orders'],3)
+                self.assertTrue(result['stale']);self.assertTrue(result['refreshing'])
+                if busy:
+                    service.pool.submit.assert_not_called();service.jobs.clear()
+                    code,result=service.get(params,'admin')
+                service.pool.submit.assert_called_once()
+
     def test_scheduled_busy_does_not_claim_success_and_can_retry(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch.object(cache,'ROOT',Path(folder)),patch.object(cache,'cache_day',side_effect=BlockingIOError):
             with patch.object(sys,'argv',['cache']):
