@@ -122,6 +122,8 @@ def prepare_supplements(book,start,end,weekly=False):
     plan += [('fc.query_marketing_snapshot',q) for q in marketing_queries]
     plan += [('fc.query_game_news',queries[0])]
     plan += [('fc.query_discount_analysis',dict(q,group_by='new_customer')) for q in queries]
+    # Same native preparation schedule; reuse archives, never start another collector.
+    plan += [('fc.query_pricing_evidence',dict(queries[0],kind=kind)) for kind in ('price_history','order_costs')]
     pending=list(plan);results={};until=time.monotonic()+45
     while pending:
         retry=[]
