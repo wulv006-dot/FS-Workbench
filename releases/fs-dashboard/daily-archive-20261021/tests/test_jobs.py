@@ -42,7 +42,7 @@ class Jobs(unittest.TestCase):
                 self.assertEqual(state['query'],args);self.assertTrue(state['requestedAt'])
                 self.assertGreater(state['retryAfter'],0)
                 (root/'scheduler-state.json').unlink()
-                with patch.object(jobs,'read_route',return_value=(200,{'status':'available','archive':{'refreshDeferred':True}})) as deferred:
+                with patch.object(jobs,'candidates',return_value=iter([args])),patch.object(jobs,'read_route',return_value=(200,{'status':'available','archive':{'refreshDeferred':True}})) as deferred:
                     self.assertEqual(jobs.run_once(True,5)['reason'],'busy')
                     self.assertEqual(deferred.call_count,1)
 
