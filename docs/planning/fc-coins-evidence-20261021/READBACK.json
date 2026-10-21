@@ -1,0 +1,39 @@
+{
+  "code_prs": [
+    294,
+    295
+  ],
+  "initial_release": "nav-20261021T152927Z",
+  "final_release": "nav-20261021T154243Z",
+  "file_checks": 408,
+  "services": {
+    "fs-business-range": "active",
+    "fs-hermes-fc": "active",
+    "fs-channel-cache.timer": "active",
+    "fs-channel-backfill.timer": "active"
+  },
+  "policy_revision": 40,
+  "policy_sha256": "7547c65c1271ed7d31a9b06e19d2d61c5b57fed64055667e79ebd4a30f5b6bd5",
+  "business_writes": false,
+  "timers_changed": false,
+  "baseline_sha256": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26",
+  "existing_sources_reused": [
+    "original FC executions",
+    "FS channel closed-day archives",
+    "Order delivery caches and exact supplements",
+    "ES original product/customer type",
+    "current marketing exact range"
+  ],
+  "source_scope_gaps": [
+    "4 completed Coins cost",
+    "1 project order ES product",
+    "82 Coins unknown platform",
+    "package quantity",
+    "complete supplemental fulfillment costs",
+    "net refund settlement",
+    "independent public exposure",
+    "Coins same-scope ad attribution"
+  ],
+  "fresh_slow_sources": "actual pending then terminal partial recorded in model evidence",
+  "natural_cycle": "not_observed"
+}

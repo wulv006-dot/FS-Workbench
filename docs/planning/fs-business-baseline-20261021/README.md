@@ -1,5 +1,8 @@
 # 业务基准修订与工具接入
 
+当前有效业务基准为v7，活动工具和知识维护源为 `releases/fs-dashboard/fc-coins-evidence-20261021/source/`。后续生产读回、失败保全和两套Coins策略见 [FC Coins证据接入](../fc-coins-evidence-20261021/README.md)。本目录早期v1–v6及旧同名源码是历史，不据此覆盖活动文件。
+
+
 ## 最新继续教学交付（2026-10-21）
 
 [两套通俗定价策略](PRICING-STRATEGIES.md)、[我的完整策略](MY-PRICING-STRATEGY.md)、[Hermes独立原文](HERMES-PRICING-STRATEGY.md)、[教学验收](TEACHING-RESULT.md)。Admin恢复后今日业务查询已实际读回；五个新会话纠错后，限定五项判定和完整条件策略通过本Work复核。新方法实际装入，v2计算澄清已由并行v3保留；旧失败不抹去，广泛泛化与经营收益未验证。下方初批次状态按各自时点保留，以本节及TEACHING-RESULT的后续验收为准。

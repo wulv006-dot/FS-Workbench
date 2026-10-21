@@ -1,6 +1,6 @@
 {
   "scope": "fc-coins-evidence-20261021",
-  "status": "candidate_not_deployed",
+  "status": "deployed_and_real_model_readback",
   "source": "current live bytes before minimal caller changes; historical release copies are not deployment inputs",
   "runtime_before_sha256": {
     "research.py": "4c4e47ee2ee80e3ca7f248575d85745ef4c18d64b97829d06a242491006a820d",
@@ -22,5 +22,31 @@
     "Admin/Order shared session and OCR",
     "coupon/channel archives and refresh600s",
     "Coins automatic pricing and other-product formulas"
-  ]
+  ],
+  "code_commits": [
+    "258b4d90802115b3008766b78a5a335a4f4e02c7",
+    "5ea9d220cfd8b76bba721c11c418c5ec1ed84e37"
+  ],
+  "releases": [
+    {
+      "id": "nav-20261021T152927Z",
+      "targets": 5,
+      "guards": 403
+    },
+    {
+      "id": "nav-20261021T154243Z",
+      "targets": 1,
+      "guards": 407
+    }
+  ],
+  "runtime_after_sha256": {
+    "coins_evidence.py": "fa341e80b2e05312ea5b260ca1f781f45bb7790c943353ebac1413863bc51d2e",
+    "research.py": "4ab949b58f15fe4c6b622ec8f3a22ea46586923d2c7444c728e0a5f2ac857356",
+    "fs_evidence.py": "b3be359f33ba47579203b5f930066007332bf430764122aae93bff56e8a05ed4",
+    "source_snapshots.py": "7c036ff163524b3b3a9e489991706544bf7c4aa2196152a66fd610269d72cdd2",
+    "business-baseline.md": "fca98dadda5013f453fadbf28677a657e36b55d0064dffc8a011e468f5499e26"
+  },
+  "acceptance": "docs/planning/fc-coins-evidence-20261021/ACCEPTANCE.md",
+  "natural_cycle": "not_observed",
+  "business_writes": false
 }
