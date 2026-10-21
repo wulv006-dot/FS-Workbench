@@ -1,5 +1,7 @@
 import ast,hashlib,json,sys,tempfile,unittest
 import importlib.util
+import threading,time
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -130,5 +132,50 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaises(ValueError):module.checked_manifest(m|{field:True})
         m['files'][0]['target']='/var/lib/fc27-cloud/config/automation.json'
         with self.assertRaises(ValueError):module.checked_manifest(m)
+
+    def test_marketing_wait_returns_pending_once_then_polls_same_native_query(self):
+        tree=ast.parse((HERE/'source/fs_evidence.py').read_text(encoding='utf8'))
+        build=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='build_book')
+        read=next(n for n in build.body if isinstance(n,ast.FunctionDef) and n.name=='marketing_read')
+        async_class=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='AsyncRead')
+        entered=threading.Event();release=threading.Event();calls=[]
+        def original(args):
+            calls.append(dict(args));entered.set();release.wait(1)
+            return {'status':'pending','reason':'exact_marketing_period_preparing'} if len(calls)==1 else {'status':'partial','actual':'terminal'}
+        ns=dict(threading=threading,ThreadPoolExecutor=ThreadPoolExecutor,marketing_lock=threading.Lock(),marketing_jobs={},
+          detail=SimpleNamespace(config={'enabled':True}),digest=lambda q:json.dumps(q,sort_keys=True),pinned_marketing=original)
+        exec(compile(ast.Module(body=[async_class,read],type_ignores=[]),'<actual-marketing-adapter>','exec'),ns)
+        q={'profile':'FC27','start':'2026-10-14','end':'2026-10-20'}
+        try:
+            with patch.dict(sys.modules,report_tracks=SimpleNamespace(fc27_marketing_view=lambda v:{'rule':'test'})):
+                self.assertEqual(ns['marketing_read'](q)['status'],'pending');self.assertTrue(entered.wait(1))
+                self.assertEqual(ns['marketing_read'](q)['reason'],'source_read_running');self.assertEqual(len(calls),1)
+                release.set()
+                until=time.monotonic()+2
+                while time.monotonic()<until:
+                    v=ns['marketing_read'](q)
+                    if v['status']=='partial':break
+                    time.sleep(.005)
+                self.assertEqual(v['actual'],'terminal');self.assertEqual(calls,[q,q])
+                ns['detail'].config['enabled']=False
+                self.assertEqual(ns['marketing_read'](q)['reason'],'fc_detail_disabled')
+        finally:
+            release.set()
+            for job in ns['marketing_jobs'].values():job.pool.shutdown(wait=True)
+
+    def test_slow_source_cannot_block_other_family_and_same_query_stays_frozen(self):
+        tree=ast.parse((HERE/'source/fs_evidence.py').read_text(encoding='utf8'))
+        node=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='SourcePins')
+        ns=dict(threading=threading,deepcopy=deepcopy,digest=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True).encode()).hexdigest())
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'<actual-source-pins>','exec'),ns)
+        pins=ns['SourcePins']();entered=threading.Event();release=threading.Event();calls=[]
+        def slow(q):
+            calls.append(q);entered.set();release.wait(2);return {'http_status':200,'status':'available','value':'first'}
+        read=pins.wrap(slow,'slow');fast=pins.wrap(lambda q:{'http_status':200,'status':'available','value':'independent'},'fast')
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            a=pool.submit(read,{});self.assertTrue(entered.wait(1));b=pool.submit(read,{})
+            try:self.assertEqual(pool.submit(fast,{}).result(timeout=.5)['value'],'independent')
+            finally:release.set()
+            first=a.result(timeout=1);self.assertEqual(first,b.result(timeout=1));self.assertEqual(len(calls),1)
 
 if __name__=='__main__':unittest.main()

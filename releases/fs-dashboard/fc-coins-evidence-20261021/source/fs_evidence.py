@@ -49,11 +49,14 @@ def authoritative_native_fields(records,args,source_status=None):
 
 class SourcePins:
     """Freeze the first usable reply per query, retaining its actual source times."""
-    def __init__(self):self.values={};self.lock=threading.RLock()
+    def __init__(self):self.values={};self.lock=threading.RLock();self.read_locks={}
     def wrap(self,reader,family,ready=None):
         def read(args):
             key=digest({'family':family,'query':args})
             with self.lock:
+                query_lock=self.read_locks.setdefault(key,threading.RLock())
+            # Freeze identical reads together; a slow family must not block other tools.
+            with query_lock:
                 if key in self.values:return deepcopy(self.values[key])
                 value=deepcopy(reader(args))
                 value['source_snapshot_id']='src_'+digest({'family':family,'query':args,'reply':value})[:24]
@@ -328,6 +331,7 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
             return read(detail,'discount_analysis',{k:v for k,v in args.items() if k!='evidence_id'},args['evidence_id'])
         return pinned_es(args)
     pinned_marketing=pins.wrap(lambda q:archived_publication('marketing',q,marketing_reader(q)),'MMOEXP-existing-marketing')
+    marketing_jobs={};marketing_lock=threading.Lock()
     pinned_news=pins.wrap(lambda q:archived_publication('news',q,shared_news(q)),'MMOEXP-SEO-shared-news')
     def news_read(args):
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
@@ -335,7 +339,14 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     def marketing_read(args):
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         from report_tracks import fc27_marketing_view
-        value=pinned_marketing(args)
+        key=digest(args)
+        with marketing_lock:
+            if key not in marketing_jobs:marketing_jobs[key]=AsyncRead(lambda:pinned_marketing(args))
+            value=marketing_jobs[key].get()
+            if value.get('status') in ('pending','busy'):
+                # A completed native pending reply polls its original query next time.
+                if value.get('reason')!='source_read_running':marketing_jobs.pop(key)
+                return value
         value['fc27_by_name']=fc27_marketing_view(value)
         value['scope']='2026-10-17明确全局品牌例外优先，FC专属与全局品牌分开；其余未筛选数据为MMOEXP全站背景，非订单级归因。'
         value['rule']=value['fc27_by_name']['rule']+' 未筛选全站数据仍为背景；名称不证明国家定向或订单级因果。'
