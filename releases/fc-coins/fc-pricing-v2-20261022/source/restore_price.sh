@@ -7,6 +7,11 @@ case "$request" in /var/lib/fc27-cloud/requests/*) ;; *) exit 2;; esac
 state=/var/lib/fc27-cloud/state
 exec 9>"$state/price-writer.lock"
 flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
+if guard_result=$(timeout 45s /opt/python39/bin/python3 -B /opt/fc27-cloud-browser/pricing_sources.py "$request"); then :
+else
+  if [ -n "$guard_result" ]; then printf '%s\n' "$guard_result"; else printf '%s\n' '{"status":"FAILED","reason":"pricing_live_constraints_unavailable"}'; fi
+  exit 1
+fi
 timeout 120s docker run --rm --network host --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --mount type=bind,src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly \

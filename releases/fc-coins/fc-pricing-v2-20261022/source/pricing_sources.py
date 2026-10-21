@@ -146,3 +146,38 @@ def collect(storefront, *, persist=True):
         import os
         os.chown(FILE,0,11028);os.chmod(FILE,0o640)
     return result
+
+
+def refresh_before_write(request,root=ROOT):
+    from pricing_v2 import verify_quote,fresh
+    from automation_policy import load_policy
+    import uuid
+    if request.get('source_execution_id'):
+        uuid.UUID(request['source_execution_id'])
+        path=max((root/'quotes').glob('*.json'),key=lambda p:p.stat().st_mtime,default=None)
+        if path is None:raise ValueError('restore_current_cost_quote_required')
+    else:
+        preview=json.loads((root/'previews'/(str(uuid.UUID(request['preview_id']))+'.json')).read_text('utf-8'))
+        path=root/'quotes'/(str(uuid.UUID(preview['run_id']))+'.json')
+    quote=json.loads(path.read_text('utf-8'));policy=load_policy()
+    verify_quote(quote,policy,request.get('platforms') or list(('PS','XBOX','PC')),for_execution=True)
+    public=json.loads((root/'monitor/storefront.json').read_text('utf-8'))
+    if public.get('status')!='ok' or public.get('source')!='https://www.mmoexp.com/Fc-27/Coins.html' or public.get('currency')!='USD' or set(public.get('rows') or {})!={'PS','XBOX','PC'}:
+        raise ValueError('pricing_current_public_required')
+    for platform,row in public['rows'].items():
+        fresh(row['checked_at'],datetime.now(timezone.utc),seconds=900)
+        if row.get('platform')!=platform or row.get('status')!='ok' or number(row['base_k'])!=100 or row['sku_id']!=quote['evidence']['storefront']['rows'][platform]['sku_id']:
+            raise ValueError('pricing_current_public_required')
+    current=collect(public,persist=True)
+    if current['sha256']!=quote['evidence']['promotion_envelope']['sha256']:
+        raise ValueError('pricing_promotions_changed_since_quote')
+    return dict(status='current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],price_write_performed=False)
+
+
+if __name__=='__main__':
+    try:
+        request=json.loads(Path(sys.argv[1]).read_text('utf-8'))
+        print(json.dumps(refresh_before_write(request)))
+    except Exception as exc:
+        print(json.dumps(dict(status='FAILED',reason=str(exc)[:100] if isinstance(exc,ValueError) else type(exc).__name__)))
+        raise SystemExit(1)

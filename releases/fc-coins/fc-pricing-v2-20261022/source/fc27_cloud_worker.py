@@ -650,7 +650,7 @@ def handle(job):
                    "platforms": selected, "margin_confirmed_platforms": [],
                    "margin_exception_reason": "", "policy_revision": revision,
                    "automatic": True}
-        code, result = run_writer_request(job, "execute_price.sh", request, 130)
+        code, result = run_writer_request(job, "execute_price.sh", request, 180)
         if code or result.get("status") != "CONFIRMED":
             job["writer_result"] = result
             job["error_detail"] = result.get("reason") or result.get("status") or "writer_failed"
@@ -677,7 +677,7 @@ def handle(job):
                    "margin_confirmed_platforms": job["request"]["margin_confirmed_platforms"],
                    "margin_exception_reason": job["request"].get("margin_exception_reason", ""),
                    "policy_revision": policy["revision"], "automatic": False}
-        code, result = run_writer_request(job, "execute_price.sh", request, 130)
+        code, result = run_writer_request(job, "execute_price.sh", request, 180)
         if code or result.get("status") != "CONFIRMED":
             job["writer_result"] = result
             job["error_detail"] = result.get("reason") or result.get("status") or "writer_failed"
@@ -685,7 +685,7 @@ def handle(job):
         return result
     if kind == "restore_preview":
         request = {"mode": "preview", "source_execution_id": job["request"]["source_execution_id"]}
-        code, result = run_writer_request(job, "restore_price.sh", request, 130)
+        code, result = run_writer_request(job, "restore_price.sh", request, 180)
         if code or result.get("status") != "restore_review_only":
             job["error_detail"] = result.get("reason") or "restore_preview_failed"
             raise ValueError("restore_preview_unavailable")
@@ -700,7 +700,7 @@ def handle(job):
                    "source_execution_id": job["request"]["source_execution_id"],
                    "execution_id": job["job_id"], "actor": job["actor"],
                    "platforms": job["request"]["platforms"]}
-        code, result = run_writer_request(job, "restore_price.sh", request, 130)
+        code, result = run_writer_request(job, "restore_price.sh", request, 180)
         if code or result.get("status") != "RESTORED":
             job["writer_result"] = result
             job["error_detail"] = result.get("reason") or "restore_failed"
