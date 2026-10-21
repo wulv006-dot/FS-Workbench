@@ -200,6 +200,49 @@ class Effects(unittest.TestCase):
         self.assertEqual(result['orders'],before)
         self.assertEqual(result['sources']['cost']['status'],'unavailable')
 
+    def test_long_admin_period_is_split_and_complete_before_merge(self):
+        import channel_source
+        requested = {'start':'2026-08-01','end':'2026-10-20'}
+        segments = []
+        closed = []
+        session = SimpleNamespace(bind_admin_token=lambda token:None,close=lambda:closed.append(True))
+        def page_rows(session,path,filters=(),limit=200):
+            if path != '/admin/order.Order/index': return []
+            start,end = next(value for field,operator,value in filters if field=='paytime').split(',')
+            self.assertLessEqual((datetime.fromisoformat(end).date()-datetime.fromisoformat(start).date()).days,27)
+            segments.append((start,end))
+            return [order('SEG'+str(len(segments)), **{'paytime':start})]
+        auth = SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',''))
+        with patch.dict(sys.modules,{'p2pah_auth':auth}),patch.object(channel_source,'pages',side_effect=page_rows),patch.object(channel_source,'load_costs',return_value=([],{'status':'unavailable'})):
+            result = channel_source.collect(requested)
+        self.assertEqual(len(segments),3)
+        self.assertEqual(segments[0][0],'2026-08-01 00:00:00')
+        self.assertEqual(segments[-1][1],'2026-10-20 23:59:59')
+        self.assertEqual([r['orderNo'] for r in result['orders']],['SEG1','SEG2','SEG3'])
+        self.assertEqual(result['sources']['orders']['rows'],3)
+        self.assertEqual(closed,[True])
+
+    def test_later_month_failure_keeps_previous_complete_capture(self):
+        import channel_source
+        requested={'start':'2026-08-01','end':'2026-10-20'};segments=[];closed=[]
+        session=SimpleNamespace(bind_admin_token=lambda token:None,close=lambda:closed.append(True))
+        def page_rows(session,path,filters=(),limit=200):
+            self.assertEqual(path,'/admin/order.Order/index')
+            segments.append(filters)
+            if len(segments)==2:raise ValueError('admin_page_failed')
+            return [order('SEG1',**{'paytime':'2026-08-01 00:00:00'})]
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',''))
+        with tempfile.TemporaryDirectory() as root:
+            target=Path(root)/'previous.json';target.write_text('previous-complete')
+            service=ChannelService(root,lambda user:True,channel_source.collect)
+            with patch.dict(sys.modules,{'p2pah_auth':auth,'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2)}),patch.object(channel_source,'pages',side_effect=page_rows):
+                service.capture(requested,'previous',target)
+            self.assertEqual(target.read_text(),'previous-complete')
+            self.assertEqual(service.jobs['previous'],'source_failed')
+            service.pool.shutdown()
+        self.assertEqual(len(segments),2)
+        self.assertEqual(closed,[True])
+
 
 class Paging(unittest.TestCase):
     def test_real_delivery_two_digit_year_is_normalized_not_ignored(self):
