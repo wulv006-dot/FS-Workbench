@@ -99,7 +99,7 @@ def lazy_paid_capture(book, reader, config):
     paid_tools={'fc.query_business','fc.query_queue','fc.compare_periods','fc.get_breakdown'}
     pending=AsyncRead(reader)
     def on_demand(name,args):
-        if (name in paid_tools or name=='fc.query_pricing_evidence' and args.get('kind')=='order_costs') and book.data['coverage'].get('status')=='not_loaded':
+        if name in paid_tools and book.data['coverage'].get('status')=='not_loaded':
             value=pending.get()
             if isinstance(value,dict):return value
             raw,actual=value
