@@ -57,13 +57,14 @@ class Jobs(unittest.TestCase):
         from threading import RLock
         value={'status':'available','archive':{'sourceCapturedAt':'2026-10-01T00:00:00Z'}}
         future=Future()
-        ns=functions('marketing_range_api.py',{'query'},dict(date=date,datetime=datetime,timedelta=timedelta,timezone=timezone,SHANGHAI=archive.TZ,
+        ns=functions('marketing_range_api.py',{'query','traffic_maturity'},dict(date=date,datetime=datetime,timedelta=timedelta,timezone=timezone,SHANGHAI=archive.TZ,
             time=__import__('time'),POOL=Mock(submit=Mock()),LOCK=RLock(),JOBS={},BUSY=future,validate=Mock(),cached=Mock(return_value=value),ttl=lambda _:86400,run=Mock(),run_links=Mock()))
         day=(datetime.now(archive.TZ).date()-timedelta(days=1)).isoformat()
         code,result=ns['query'](day,day)
         self.assertEqual(code,200);self.assertTrue(result['archive']['refreshDeferred'])
         ns['POOL'].submit.assert_not_called()
         value['archive'].pop('refreshDeferred')
+        value['archive']['sourceCapturedAt']='2026-10-10T00:00:00Z'
         code,result=ns['query']('2026-10-01','2026-10-01')
         self.assertEqual(code,200);self.assertNotIn('refreshDeferred',result['archive'])
         ns['POOL'].submit.assert_not_called()
@@ -72,6 +73,17 @@ class Jobs(unittest.TestCase):
         values=list(jobs.candidates(date(2026,10,22),{'FC27':()},True))
         self.assertEqual([(q['start'],q['end']) for q in values[:5]],[(f'2026-10-{day}',f'2026-10-{day}') for day in (21,20,19,18,17)])
         self.assertTrue(all(q['profile']=='marketing' for q in values[:7]))
+        self.assertEqual(values[5],{'profile':'marketing','start':'2026-10-16','end':'2026-10-16'})
+
+    def test_early_traffic_snapshot_is_not_frozen_just_because_five_days_passed(self):
+        class Clock:
+            @staticmethod
+            def now(tz):return datetime(2026,10,22,1,tzinfo=tz)
+        ns=functions('marketing_range_api.py',{'traffic_maturity'},dict(date=date,datetime=Clock,timedelta=timedelta,SHANGHAI=archive.TZ))
+        Clock.fromisoformat=datetime.fromisoformat
+        self.assertEqual(ns['traffic_maturity']('2026-10-20','2026-10-21T01:00:00Z'),'provisional')
+        self.assertEqual(ns['traffic_maturity']('2026-10-16','2026-10-19T01:00:00Z'),'awaiting_final_recheck')
+        self.assertEqual(ns['traffic_maturity']('2026-10-16','2026-10-21T17:00:00Z'),'past_correction_window')
 
     def test_native_profit_day_reuses_old_closed_fact_but_not_expired_business_day(self):
         from contextlib import nullcontext

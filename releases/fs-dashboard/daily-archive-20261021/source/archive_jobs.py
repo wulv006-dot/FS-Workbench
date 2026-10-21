@@ -84,7 +84,7 @@ def read_route(params,port=8931,path='/range'):
 def candidates(today,definitions,daily):
     end=(today-timedelta(days=1)).isoformat()
     if daily:
-        for offset in range(1,6):
+        for offset in range(1,7):
             day=(today-timedelta(days=offset)).isoformat()
             yield dict(profile='marketing',start=day,end=day)
         for length in (7,30):

@@ -51,12 +51,19 @@ def project_cached_content(value,start,end):
  except (OSError,ValueError,TypeError,KeyError,ArithmeticError,sqlite3.Error):pass
  return value
 
+def traffic_maturity(end,source_at):
+ final_day=date.fromisoformat(end)+timedelta(days=6)
+ if datetime.now(SHANGHAI).date()<final_day:return 'provisional'
+ if datetime.fromisoformat(source_at.replace('Z','+00:00')).astimezone(SHANGHAI).date()<final_day:return 'awaiting_final_recheck'
+ return 'past_correction_window'
+
+
 def cached(start,end,allow_stale=False):
  from daily_archive import read
  archived=read('marketing',{'profile':'MMOEXP','start':start,'end':end,'rule':RULE_VERSION,'projection':GAME_VERSION})
  if archived is not None:
   archived['archive']['correctionWindowDays']=5
-  archived['archive']['maturity']='provisional' if date.fromisoformat(end)>=datetime.now(SHANGHAI).date()-timedelta(days=5) else 'past_correction_window'
+  archived['archive']['maturity']=traffic_maturity(end,archived['archive']['sourceCapturedAt'])
   return project_cached_content(archived,start,end)
  p=cache_path(start,end)
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('linked_range_cache')
@@ -145,8 +152,8 @@ def query(start,end,submit=POOL.submit,kind='range',refresh=False):
   existing=cached(start,end)
   if existing is not None and not refresh:
    stamp=(existing.get('archive') or {}).get('sourceCapturedAt')
-   provisional=date.fromisoformat(end)>=datetime.now(SHANGHAI).date()-timedelta(days=5)
-   if not stamp or not provisional or (datetime.now(timezone.utc)-datetime.fromisoformat(stamp.replace('Z','+00:00'))).total_seconds()<ttl(end):return 200,existing
+   maturity=traffic_maturity(end,stamp) if stamp else None
+   if not stamp or maturity=='past_correction_window' or maturity=='provisional' and (datetime.now(timezone.utc)-datetime.fromisoformat(stamp.replace('Z','+00:00'))).total_seconds()<ttl(end):return 200,existing
  with LOCK:
   now=time.monotonic()
   for old,record in list(JOBS.items()):
@@ -158,7 +165,8 @@ def query(start,end,submit=POOL.submit,kind='range',refresh=False):
     lifetime=ttl(old[2]) if old[0]=='range' and success else 120 if result.get('status')=='partial' else 30
     same_day=record.get('day')==datetime.now(SHANGHAI).date().isoformat()
     if age>lifetime or not same_day:del JOBS[old]
-  if refresh and key in JOBS and JOBS[key]['future'].done() and now-JOBS[key].get('completed',now)>=60:del JOBS[key]
+  final_recheck=(existing or {}).get('archive',{}).get('maturity')=='awaiting_final_recheck'
+  if (refresh or final_recheck) and key in JOBS and JOBS[key]['future'].done() and now-JOBS[key].get('completed',now)>=60:del JOBS[key]
   if key not in JOBS:
    if BUSY is not None and not BUSY.done():
     if existing is not None:
