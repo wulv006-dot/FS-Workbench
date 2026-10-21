@@ -29,7 +29,7 @@ def collect(session, start, end, progress=lambda page, total: None):
         total = max(pages + [page])
         if page_count is None: page_count = total
         if total != page_count: raise ValueError('delivery_page_count_changed')
-        table = doc.xpath('//table[contains(@class,"table-list")]')
+        table = doc.xpath('//table[contains(@class,"table-list")][.//th[normalize-space()="商户订单号"]]')
         if len(table) != 1: raise ValueError('delivery_table_missing')
         rows = table[0].xpath('.//tbody/tr')
         for tr in rows:

@@ -167,8 +167,9 @@ function trend() {
   table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '发货覆盖'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.orders}`], '每日销售与毛利数值');
 }
 function orders() {
-  table('orders', ['付款时间', '订单号', '游戏', '项目 / 归属', '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
-    r.paidAt, r.orderNo, r.game, r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
+  const coupon = field('mode').value === 'coupon';
+  table('orders', ['付款时间', '订单号', '游戏', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
+    r.paidAt, r.orderNo, r.game, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
     r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', r.country,r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status
   ], '当前筛选订单明细');
   $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单';

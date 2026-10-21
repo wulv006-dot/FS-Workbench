@@ -1,0 +1,106 @@
+{
+  "scope": "fs-channel-effects-20261021",
+  "status": "candidate_not_deployed",
+  "baseline_main": "7f31f3e45ef4d205b4a8b1d56d740f8d1cdeef58",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "source": "source/channel_effects.py",
+      "candidate": "runtime/channel_effects.py",
+      "target": "/opt/fs-hermes-fc/channel_effects.py",
+      "before_sha256": null,
+      "sha256": "447b2cfe5ef8439a1ce3254acbf57c8fd380ff0c62bcf4e02757676ed80b1c6d",
+      "generated": false
+    },
+    {
+      "source": "source/channel_source.py",
+      "candidate": "runtime/channel_source.py",
+      "target": "/opt/fs-hermes-fc/channel_source.py",
+      "before_sha256": null,
+      "sha256": "dd03fe10674da3a51ad6fe415069419968c55bfbd3785daefa47337485e9dcca",
+      "generated": false
+    },
+    {
+      "source": "source/channel_cost_source.py",
+      "candidate": "runtime/channel_cost_source.py",
+      "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+      "before_sha256": null,
+      "sha256": "3c836d32f9524dac847cef543145c32e02c9301410b4145bb05d73a710048259",
+      "generated": false
+    },
+    {
+      "source": "source/channel_mapping.json",
+      "candidate": "runtime/channel_mapping.json",
+      "target": "/opt/fs-hermes-fc/channel_mapping.json",
+      "before_sha256": null,
+      "sha256": "1908e6ca93d46719d680fb83c335f04928819eb3061b2f835726565d0ab05b71",
+      "generated": false
+    },
+    {
+      "source": "source/range_api.py",
+      "candidate": "http/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "before_sha256": "82da6576d6b89899489731c2ecb9b6bdbc4fab8a2ca66b866e680229154dd4ac",
+      "sha256": "403845a78fe66636af374a3837d4bb876da0dab71209430829bf3b6e10620d82",
+      "generated": false
+    },
+    {
+      "source": "source/hubnav.js",
+      "candidate": "nav/hubnav.js",
+      "target": "/var/www/hub/hubnav.js",
+      "before_sha256": "a6adf7facb8feda79e520e2527955cafec8cb170fbd2d48b69e6cdcdfea61606",
+      "sha256": "c5917e0c188cff15ee0c289e95b1a1df88958a121f198a8802623c755b3da73c",
+      "generated": false
+    },
+    {
+      "source": "source/navigation.json",
+      "candidate": "nav/navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json",
+      "before_sha256": "3cefe732142a5f7993d301c5ca806724f115626ee9b3abebf89e197f3be0fe8f",
+      "sha256": "04259ecbf0d910e3994b64093875ae124151b3c666ac846e6f05055a35acedc6",
+      "generated": false
+    },
+    {
+      "source": "source/home-index.html",
+      "candidate": "nav/index.html",
+      "target": "/var/www/dashboard/fs-home/index.html",
+      "before_sha256": "f470a5e286926fc74c7f1c846cb26693756e079cebfae6e29f281c658e8b41c7",
+      "sha256": "fab7a42b4fc3ba12cd468c010c2141b8f4c9da65a3862134e7c484a693ce643f",
+      "generated": false
+    },
+    {
+      "source": "ui/index.html",
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/index.html",
+      "before_sha256": null,
+      "sha256": "3fabacbce806dee52153ee88dd9daa181cffb242a68d602e34f75d0fa5ae00a4",
+      "generated": false
+    },
+    {
+      "source": "ui/channel.js",
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.js",
+      "before_sha256": null,
+      "sha256": "58fcc010b64792e8584db7e41544d59b5fbbec982556636237ab9464dddec30e",
+      "generated": false
+    },
+    {
+      "source": "ui/channel.css",
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.css",
+      "before_sha256": null,
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "generated": false
+    },
+    {
+      "source": "deploy/routes.conf + exact current nginx",
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "before_sha256": "e241cea8112427ea23b896cc238cb85fafc076d536ee4a4e938873abd1bcfa53",
+      "sha256": "20e7457255b9a448fa68aa71fe31eee024e8f4ca109eeaaeb36bd024e2ee79c4",
+      "generated": true
+    }
+  ],
+  "protected_files": 46
+}

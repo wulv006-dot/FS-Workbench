@@ -33,7 +33,7 @@
     {
       "candidate": "runtime/channel_cost_source.py",
       "target": "/opt/fs-hermes-fc/channel_cost_source.py",
-      "sha256": "d444c31069646ba0e606bbe71acff34d611afb6c3e4c3c7bb1d41fe835ac349d",
+      "sha256": "3c836d32f9524dac847cef543145c32e02c9301410b4145bb05d73a710048259",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -80,7 +80,7 @@
     },
     {
       "candidate": "ui/index.html",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-1ebfc1a1097f/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/index.html",
       "sha256": "3fabacbce806dee52153ee88dd9daa181cffb242a68d602e34f75d0fa5ae00a4",
       "beforeSha256": null,
       "owner": "0:0",
@@ -88,15 +88,15 @@
     },
     {
       "candidate": "ui/channel.js",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-1ebfc1a1097f/channel.js",
-      "sha256": "2247e2d7490049d69be1f994980001de412b7ca8b7a83d191baaffe096b35298",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.js",
+      "sha256": "58fcc010b64792e8584db7e41544d59b5fbbec982556636237ab9464dddec30e",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "ui/channel.css",
-      "target": "/var/lib/fs-navigation-formal-static/channel-effects-1ebfc1a1097f/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-665e903dff04/channel.css",
       "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
       "beforeSha256": null,
       "owner": "0:0",
@@ -105,7 +105,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "4e7dbbe1f62da475bc13b3c149d9d0a8b03f2632dbc65c059115394f91768161",
+      "sha256": "20e7457255b9a448fa68aa71fe31eee024e8f4ca109eeaaeb36bd024e2ee79c4",
       "beforeSha256": "e241cea8112427ea23b896cc238cb85fafc076d536ee4a4e938873abd1bcfa53",
       "owner": "0:0",
       "mode": "0o644"
