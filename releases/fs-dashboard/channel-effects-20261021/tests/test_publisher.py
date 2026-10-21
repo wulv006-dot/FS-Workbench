@@ -14,6 +14,19 @@ release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release
 
 
 class Publisher(unittest.TestCase):
+    def test_display_only_publication_reloads_nginx_without_stopping_readers(self):
+        sys.path.insert(0,str(ROOT/'deploy'))
+        try:
+            spec=importlib.util.spec_from_file_location('channel_label_test',ROOT/'deploy/label_fix.py')
+            fix=importlib.util.module_from_spec(spec);spec.loader.exec_module(fix)
+            self.assertEqual(len(fix.TARGETS),4)
+            self.assertTrue(all(k.startswith(('ui/','generated/')) for k in fix.TARGETS))
+            calls=[];base=SimpleNamespace(restart_for=lambda *a:None)
+            with patch.object(fix.release,'load_base',return_value=base),patch('subprocess.run',side_effect=lambda args,**kw:calls.append(args)):
+                fix.load_base().restart_for({'scope':fix.SCOPE},SimpleNamespace())
+            self.assertEqual(calls,[['nginx','-t'],['systemctl','reload','nginx']])
+        finally:sys.path.pop(0)
+
     def test_directory_entry_rewrites_to_an_exact_file_route(self):
         sys.path.insert(0, str(ROOT/'deploy'))
         try:

@@ -1,9 +1,9 @@
 {
-  "at": "2026-10-21T11:30:41.142937+00:00",
+  "at": "2026-10-21T11:49:35.335541+00:00",
   "firstRelease": "nav-20261021T103410Z",
-  "fixRelease": "nav-20261021T113003Z",
-  "sourceCommit": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a",
-  "verified_file_count": 61,
+  "fixRelease": "nav-20261021T114854Z",
+  "sourceCommit": "7dbf1a802e8d2d7be385e186e773f6fc3fa4cb05",
+  "verified_file_count": 64,
   "source_drift": [],
   "anonymous": [
     {
@@ -40,7 +40,7 @@
         "start": "2026-10-14",
         "end": "2026-10-20"
       },
-      "generatedAt": "2026-10-21T19:03:26.362618+08:00",
+      "generatedAt": "2026-10-21T19:44:29.122147+08:00",
       "sources": {
         "orders": {
           "status": "complete",
@@ -58,28 +58,37 @@
         "cost": {
           "status": "partial",
           "source": "Order 逐条订单发货记录 + Sales 已有缓存",
-          "generatedAt": "2026-10-21T19:01:49.910673+08:00",
-          "limitation": "仅匹配发货记录计算人民币毛利；未匹配不补零，未视作最终结算。",
+          "generatedAt": "2026-10-21T19:43:43.448874+08:00",
+          "limitation": "复用固定发货截止 2026-10-21 19:30 的完整读取；未匹配不补零，匹配不等于最终结算。手动刷新可重新取数。",
           "period": {
             "start": "2026-10-14",
             "end": "2026-10-21",
-            "until": "2026-10-21 18:49"
+            "until": "2026-10-21 19:30"
           }
         },
         "attribution": {
           "source": "Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID",
           "historical": "当前映射回溯应用；未提供历史生效日期"
+        },
+        "customer": {
+          "status": "complete",
+          "source": "Admin ES订单：下单时是否新客户",
+          "generatedAt": "2026-10-20T16:00:51.825244+00:00",
+          "sourceVersion": "9d7672ae416d649fd9a6b05d41a01b48336cca7659d9b01b780c9d8d4b4ad1a0",
+          "files": 2,
+          "limitation": "按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。",
+          "matchedOrders": 8152
         }
       },
       "code_summary": {
         "orders": 3113,
         "salesUsd": 185402.06,
-        "coveredOrders": 3020,
-        "deliveryRows": 3812,
-        "saleCny": 1212909.38,
-        "costCny": 905426.08,
-        "profitCny": 307483.3,
-        "margin": 0.25350888126530935,
+        "coveredOrders": 3022,
+        "deliveryRows": 3814,
+        "saleCny": 1213042.5,
+        "costCny": 905520.58,
+        "profitCny": 307521.92,
+        "margin": 0.2535128983526958,
         "aovUsd": 59.56,
         "codedOrders": 3035,
         "referrerOnly": 78,
@@ -106,7 +115,79 @@
         "shareAllCodes": 0.0,
         "shareSite": 0.0,
         "couponShareSite": 0.08829439839236372
-      }
+      },
+      "code_customers": [
+        {
+          "key": "老客",
+          "label": "老客",
+          "orders": 2432,
+          "salesUsd": 147351.27,
+          "coveredOrders": 2403,
+          "deliveryRows": 3149,
+          "saleCny": 977675.91,
+          "costCny": 732150.96,
+          "profitCny": 245524.95,
+          "margin": 0.251131226093113,
+          "aovUsd": 60.59,
+          "codedOrders": 2379,
+          "referrerOnly": 53,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
+          "key": "新客",
+          "label": "新客",
+          "orders": 681,
+          "salesUsd": 38050.79,
+          "coveredOrders": 619,
+          "deliveryRows": 665,
+          "saleCny": 235366.59,
+          "costCny": 173369.62,
+          "profitCny": 61996.97,
+          "margin": 0.2634059914790795,
+          "aovUsd": 55.87,
+          "codedOrders": 656,
+          "referrerOnly": 25,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ],
+      "coupon_customers": [
+        {
+          "key": "老客",
+          "label": "老客",
+          "orders": 489,
+          "salesUsd": 41463.9,
+          "coveredOrders": 481,
+          "deliveryRows": 588,
+          "saleCny": 276226.39,
+          "costCny": 213156.58,
+          "profitCny": 63069.81,
+          "margin": 0.22832651869359766,
+          "aovUsd": 84.79,
+          "codedOrders": 0,
+          "referrerOnly": 10,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
+          "key": "新客",
+          "label": "新客",
+          "orders": 214,
+          "salesUsd": 14245.17,
+          "coveredOrders": 204,
+          "deliveryRows": 232,
+          "saleCny": 93402.56,
+          "costCny": 84421.53,
+          "profitCny": 8981.03,
+          "margin": 0.09615400263119127,
+          "aovUsd": 66.57,
+          "codedOrders": 0,
+          "referrerOnly": 5,
+          "overlapOrders": 0,
+          "conflicts": 0
+        }
+      ]
     }
   ],
   "cost_cache_exists": true,
@@ -115,7 +196,7 @@
       "ready": true,
       "status": "ready",
       "last_error": null,
-      "last_ok": "2026-10-21T11:26:46.576749+00:00",
+      "last_ok": "2026-10-21T11:46:47.381917+00:00",
       "login_attempts": 1
     },
     "8768": {
@@ -127,13 +208,13 @@
     }
   },
   "cost_cache": {
-    "generatedAt": "2026-10-21T19:01:49.910673+08:00",
+    "generatedAt": "2026-10-21T19:43:43.448874+08:00",
     "period": {
       "start": "2026-10-14",
       "end": "2026-10-21",
-      "until": "2026-10-21 18:49"
+      "until": "2026-10-21 19:30"
     },
-    "records": 11319,
+    "records": 11336,
     "complete": true
   }
 }

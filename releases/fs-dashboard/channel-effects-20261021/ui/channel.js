@@ -7,6 +7,8 @@ const usd = value => value == null ? '—' : new Intl.NumberFormat('en-US', {sty
 const cny = value => value == null ? '—' : '¥' + new Intl.NumberFormat('en-US', {maximumFractionDigits:2}).format(value);
 const count = value => new Intl.NumberFormat('en-US').format(value);
 const pct = value => value == null ? '—' : (100 * value).toFixed(1) + '%';
+const regions = new Intl.DisplayNames(['zh-CN'], {type:'region'});
+const countryLabel = value => /^[A-Z]{2}$/.test(value) ? `${regions.of(value)}（${value}）` : value;
 const text = (tag, value, cls) => {
   const node = document.createElement(tag);
   if (value != null) node.textContent = value;
@@ -91,7 +93,7 @@ function comparison() {
   const columns = ['订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率'];
   const values = row => [count(row.orders), usd(row.salesUsd), cny(row.costCny), cny(row.profitCny), pct(row.margin)];
   table('projects', [coupon ? '模板 / 活动' : '项目 / 渠道', ...columns, '推荐人无码'], data.projects, row => {
-    const label = !coupon && row.key === '无推广归属' ? text('span', '无推广归属（对照）', 'control') : drill(row.label, 'project', row.key);
+    const label = !coupon && row.key === '无推广归属' ? text('span', '自然流量（对照）', 'control') : drill(row.label, 'project', row.key);
     return [label, ...values(row), count(row.referrerOnly)];
   }, coupon ? '优惠券模板效果' : '项目效果对比', row => row.key === field('project').value);
   table('codes', [coupon ? '发放批次' : '折扣码 / 推广人', ...columns], data.codes, row => [drill(row.label, 'code', JSON.stringify(row.key), coupon ? '' : row.promoters), ...values(row)], coupon ? '优惠券批次效果' : '折扣码效果', row => JSON.stringify(row.key) === field('code').value);
@@ -100,7 +102,7 @@ function breakdown(host, key, title) {
   const rows = data.breakdowns[key];
   const maximum = Math.max(1, ...rows.map(row => row.salesUsd));
   table(host, [title, '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率'], rows, row => {
-    const name = text('span', row.label);
+    const name = text('span', key === 'country' ? countryLabel(row.key) : row.label);
     const track = text('span', null, 'bar-track'), fill = text('span', null, 'bar-fill');
     fill.style.width = (100 * row.salesUsd / maximum) + '%'; track.append(fill); name.append(track);
     return [name, count(row.orders), usd(row.salesUsd), cny(row.costCny), cny(row.profitCny), pct(row.margin)];
@@ -123,7 +125,7 @@ function kpis() {
   }));
   $('coverage').textContent = `发货匹配 ${count(s.coveredOrders)} / ${count(s.orders)} 单`;
   const paragraphs = [
-    `范围：MMOEXP；${data.period.start} 至 ${data.period.end}，按订单付款日期、北京时间。${coupon ? '按模板/活动与批次追踪，渠道无依据保持未归类。' : '渠道业绩包含实际用码与推荐人无码；无码且无推荐人只作对照，不等同于已证明的自然流量。'}`,
+    `范围：MMOEXP；${data.period.start} 至 ${data.period.end}，按订单付款日期、北京时间。${coupon ? '按模板/活动与批次追踪，渠道无依据保持未归类。' : '渠道业绩包含实际用码与推荐人无码；自然流量（对照）指无码且无推荐人，与GA4自然搜索渠道分开。'}`,
     `全站分母 ${count(data.denominator.orders)} 单，用码分母 ${count(data.denominator.codedOrders)} 单；均沿用当前游戏、国家、支付与状态筛选，不随项目/单码筛选缩小。${count(s.referrerOnly)} 单为推荐人无码，不算用码订单。`,
     `销售额、客单价：Admin 订单美元金额。人民币销售、成本、毛利、利润率：仅匹配的 Order「订单发货」记录，先加总再相除。缺成本不当作零；匹配不证明全部交付、退款后净收入或最终结算。${count(s.conflicts)} 单有归因冲突待核。`,
     `成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。${data.sources.cost.limitation}`,
@@ -173,7 +175,7 @@ function orders() {
   const coupon = field('mode').value === 'coupon';
   table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
     r.paidAt, r.orderNo, r.game, r.customerType, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
-    r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', r.country,r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status
+    r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', countryLabel(r.country),r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status
   ], '当前筛选订单明细');
   $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单';
   $('page').textContent = `${data.page} / ${data.pages}`;
@@ -188,11 +190,11 @@ function render() {
   $('codes-title').textContent = coupon ? '发放批次效果对比' : '折扣码效果对比';
   $('code-hint').textContent = coupon ? '当前模板 / 活动下的批次；渠道没有依据保持未归类。' : '当前项目下各折扣码；推荐人无码单列。';
   selectOptions('gid', data.options.games, '全部游戏');
-  selectOptions('country', data.options.countries.map(v => [v,v]), '全部国家 / 地区');
+  selectOptions('country', data.options.countries.map(v => [v,countryLabel(v)]), '全部国家 / 地区');
   selectOptions('payment', data.options.payments.map(v => [v,v]), '全部支付方式');
   selectOptions('project', data.projects.filter(r => coupon || r.key !== '无推广归属').map(r => [r.key,r.label]), coupon ? '全部模板 / 活动' : '全部项目');
   selectOptions('code', data.codes.map(r => [JSON.stringify(r.key),r.label]), coupon ? '全部发放批次' : '全部折扣码');
-  $('scope').textContent = `${data.period.start} — ${data.period.end} · ${field('gid').selectedOptions[0].text} · ${field('project').selectedOptions[0].text} · ${coupon ? '用券订单（跨模板去重）' : '实际用码 + 推荐人无码；无推广归属仅作对照'} · ${field('status').selectedOptions[0].text}`;
+  $('scope').textContent = `${data.period.start} — ${data.period.end} · ${field('gid').selectedOptions[0].text} · ${field('project').selectedOptions[0].text} · ${coupon ? '用券订单（跨模板去重）' : '实际用码 + 推荐人无码；自然流量仅作对照'} · ${field('status').selectedOptions[0].text}`;
   $('freshness').textContent = '更新 ' + new Date(data.generatedAt).toLocaleString('zh-CN',{hour12:false,timeZone:'Asia/Shanghai'});
   kpis(); comparison(); trend(); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
@@ -203,7 +205,7 @@ function render() {
   else if (data.sourceError) show('本次刷新失败，保留上次完整订单结果；时间与覆盖范围见下方。', 'partial');
   else if (data.refreshing) show('正在刷新，当前展示上次完整结果。', 'partial');
   else if (data.summary.coveredOrders < data.summary.orders) show('订单与优惠券关联已完成；部分订单缺少采购成本，毛利和利润率仅代表发货覆盖单。', 'partial');
-  else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : '当前筛选没有渠道订单。无推广归属可在左侧对照表查看。');
+  else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');
 }
 async function load(refresh = false) {
   if (denied || document.hidden || !form.reportValidity()) return;

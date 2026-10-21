@@ -1,7 +1,7 @@
 {
   "scope": "fs-channel-effects-20261021",
   "status": "deployed_real_entry_verified",
-  "sourceCommit": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a",
+  "sourceCommit": "7dbf1a802e8d2d7be385e186e773f6fc3fa4cb05",
   "businessWrites": false,
   "timersChanged": false,
   "releases": [
@@ -31,18 +31,27 @@
       "backup": "/var/backups/fs-navigation-20261006/nav-20261021T113003Z",
       "manifestSha256": "f3d3eacacc1cde474a3d13a358573294d95e0c995e0127ec6f04e3a47cb66a82",
       "targets": 6
+    },
+    {
+      "releaseId": "nav-20261021T114854Z",
+      "stage": "/opt/fs-release-stage/fs-channel-customer-fix-f190bd17f9b3",
+      "head": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
+      "mergeCommit": "7dbf1a802e8d2d7be385e186e773f6fc3fa4cb05",
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261021T114854Z",
+      "manifestSha256": "18a2426773767370675b0e40d608def84d438f07dcaa22fca7aafe82027eaf7b",
+      "targets": 6
     }
   ],
   "files": [
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "3981e6ec38f509f50a696164c8000c643b0ec55f15e69356a7cddb23b9ce5304",
-      "beforeSha256": "68f7e3d84d8e31d732dacc4fde4212b0b6037d384d5ccccd2d847a36991f6b7b",
+      "sha256": "eebff2f161edaec7d19cec35595897e05ed27b9cd83f11705ab4edd874ce9493",
+      "beforeSha256": "3981e6ec38f509f50a696164c8000c643b0ec55f15e69356a7cddb23b9ce5304",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
-      "source": "deploy/ui_fix.py::candidate (exact current nginx)",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
+      "source": "deploy/customer_fix.py::candidate (exact current nginx)",
       "state": "active"
     },
     {
@@ -70,11 +79,11 @@
     {
       "candidate": "runtime/channel_effects.py",
       "target": "/opt/fs-hermes-fc/channel_effects.py",
-      "sha256": "8ec1689d7ec86615d1a59840e594ae4304767c5b0b9ca2fec39966e7abffb472",
-      "beforeSha256": "4b6881f68a4eccf4555e8f3e48947eb5b22a92c4f82f09bc2900eaead082b793",
+      "sha256": "495f4cd27430c12d71fa1598081ea5d217b65ef572f9faa93275c839a8b44213",
+      "beforeSha256": "8ec1689d7ec86615d1a59840e594ae4304767c5b0b9ca2fec39966e7abffb472",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
       "source": "source/channel_effects.py",
       "state": "active"
     },
@@ -92,11 +101,11 @@
     {
       "candidate": "runtime/channel_source.py",
       "target": "/opt/fs-hermes-fc/channel_source.py",
-      "sha256": "7f28dc9d75088831a3be2f6fe502004990ccdfd4c94f34d3bfe0a5cae95cdcca",
-      "beforeSha256": "320c0958d494694ae06117ad9a1bfa085520cb1b3422c12a399bced9ba12c238",
+      "sha256": "20e7482e74fa92d55e9abdccb442290cfe9154eecc2569dc5ceb3841c723c451",
+      "beforeSha256": "7f28dc9d75088831a3be2f6fe502004990ccdfd4c94f34d3bfe0a5cae95cdcca",
       "owner": "0:0",
       "mode": "0o644",
-      "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
       "source": "source/channel_source.py",
       "state": "active"
     },
@@ -142,7 +151,7 @@
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
       "source": "ui/channel.css",
-      "state": "active"
+      "state": "retained_immutable_previous_asset"
     },
     {
       "candidate": "ui/channel.js",
@@ -153,7 +162,7 @@
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
       "source": "ui/channel.js",
-      "state": "active"
+      "state": "retained_immutable_previous_asset"
     },
     {
       "candidate": "ui/index.html",
@@ -163,6 +172,39 @@
       "owner": "0:0",
       "mode": "0o644",
       "sourceCommit": "d641ff9eb7cabc2651361824c5f73f164c8b80f7",
+      "source": "ui/index.html",
+      "state": "retained_immutable_previous_asset"
+    },
+    {
+      "candidate": "ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-fafdf954fbb3/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
+      "source": "ui/channel.css",
+      "state": "active"
+    },
+    {
+      "candidate": "ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-fafdf954fbb3/channel.js",
+      "sha256": "17a059c09fe2cdfa0bfed9dac2f47a0000d3720d1e1c110ad531580dee4f8ae2",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
+      "source": "ui/channel.js",
+      "state": "active"
+    },
+    {
+      "candidate": "ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-fafdf954fbb3/index.html",
+      "sha256": "acd59c5c71546e4e34f3194caefb39236a1583830bc657e6b8135b9487baca16",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "f190bd17f9b3b91d5e350df0bc29db0330cc78f4",
       "source": "ui/index.html",
       "state": "active"
     },
