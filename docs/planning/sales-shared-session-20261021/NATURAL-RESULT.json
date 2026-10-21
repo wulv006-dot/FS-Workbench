@@ -1,0 +1,50 @@
+{
+  "operation": "fs-sales-natural-acceptance-20261021-v1",
+  "state": "FIRST_NATURAL_SYNC_PUBLISHED_VERIFIED",
+  "captured_at": "2026-10-21T16:24:18.771534+08:00",
+  "pid": 9335,
+  "completed_at": "2026-10-21T16:23:06+08:00",
+  "service": {
+    "MainPID": "0",
+    "Result": "success",
+    "ExecMainStatus": "0"
+  },
+  "timer": {
+    "NextElapseUSecMonotonic": "3w 2d 17h 5min 2.154349s",
+    "ActiveState": "active",
+    "SubState": "waiting",
+    "UnitFileState": "enabled"
+  },
+  "metadata": {
+    "start": "2026-09-17",
+    "end": "2026-10-21",
+    "admin_gid": 891,
+    "order_gid": 826,
+    "fetched_at": "2026-10-21 16:23:05",
+    "full": false,
+    "orders": 2481,
+    "discounts": 1393,
+    "members": 473,
+    "deliveries": 4534
+  },
+  "delivery_pages_read": 81,
+  "delivery_rows_read": 1607,
+  "same_page_retries": 0,
+  "published_files_identical": true,
+  "published_sha256": "fe0d81bc6289bfe99dd29377c7f2da13aaef01aa2cf62386a21049795003c938",
+  "health": {
+    "8767": {
+      "ready": true,
+      "last_ok": "2026-10-21T08:20:47.060845+00:00",
+      "last_error": null,
+      "login_attempts": 1
+    },
+    "8768": {
+      "ready": true,
+      "last_ok": null,
+      "last_error": null,
+      "login_attempts": 0
+    }
+  },
+  "long_term_stability": "not_yet_observed"
+}

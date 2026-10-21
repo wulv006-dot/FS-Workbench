@@ -94,3 +94,8 @@ Notion完整基准及三关联页已更新读回，冲突旧正文清理，历�
 ## Sales/SBC 全局会话迁移验收（2026-10-21）
 
 Sales PID29017于16:14:03完成真实全量并发布：订单2481、折扣码1393、会员473/473、发货4534，147+81页完整；采集快照/线上/发布基线三文件SHA060a768b…一致。16:15:36恢复原timer active/enabled。PR268清理CI46项与PR270分页CI12项通过并合并；旧Sales/SBC独立登录与一次性脚本已实际删除。8768轻身份探针源94762bc0…由Order分支发布并经本轮完整读取验收。8767保留当前有效内存会话，锁分离候选未上线，避免重启丢token；自然周期尚未验收。SBC模型及页面只读通过，未新增业务写入。最终证据 docs/planning/sales-shared-session-20261021/FINAL-ACCEPTANCE.md、ACCEPTANCE-RESULT.json；15:47失败与受限备份保留。
+
+
+### 首轮自然周期验收完成（2026-10-21 16:24）
+
+原timer自动触发PID9335于16:23:06退出0并再次发布；81页1607发货全部读取、零重试，最终总订单2481/折扣1393/会员473/发货4534。源/线上/基线SHAfe0d81bc…一致，timer active/enabled，8767/8768 ready且login_attempts1/0。本地OD恢复事项已关闭，长期多轮稳定性不据首轮外推；SBC无新增业务写入、8767性能候选未上线边界保持。最终独立回执 docs/planning/sales-shared-session-20261021/NATURAL-RESULT.json，不覆盖旧失败或手工全量回执。

@@ -113,5 +113,6 @@
   "acceptance_result": "ACCEPTANCE-RESULT.json",
   "sales_timer": "active/enabled",
   "prior_failed_run_preserved": true,
-  "natural_cycle": "not_yet_observed"
+  "natural_cycle": "passed_2026-10-21T16:23:06+08:00",
+  "natural_result": "NATURAL-RESULT.json"
 }
