@@ -614,7 +614,7 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="admin-single-owner":units("sales_shared_session_20261021",["test_patch","test_unify_admin"])
+        if group=="admin-single-owner":units("sales_shared_session_20261021",["test_patch","test_unify_admin","test_manual_captcha"])
         elif group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
         elif group=="registration-management":

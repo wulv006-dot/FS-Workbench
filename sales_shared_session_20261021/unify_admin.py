@@ -52,7 +52,7 @@ def transform(source, kind):
                         and any(isinstance(t, ast.Name) and t.id == 'tk' for t in n.targets)]
         edits.append((token_assign.lineno - 1, token_assign.end_lineno,
                       ' ' * token_assign.col_offset + 'tk = _fs_shared_admin_token()\n'))
-        insert(api, "if path in ('/admin/index/login', '/api/common/refreshToken'):\n    raise RuntimeError('FS_SHARED_AUTH_ONLY')")
+        insert(api, "if path in ('/admin/index/login', '/admin/index/loginGoogle', '/api/common/refreshToken'):\n    raise RuntimeError('FS_SHARED_AUTH_ONLY')")
         credentials, = [n for n in tree.body if isinstance(n, ast.Assign)
                          and any(isinstance(t, ast.Name) and t.id == 'CRED' for t in n.targets)]
         edits.append((credentials.lineno - 1, credentials.end_lineno, 'CRED = {}\n'))
@@ -70,7 +70,7 @@ def transform(source, kind):
         # Existing authenticated checks and role/business validation remain in place.
         insert(boundary, "if auth:\n    try:\n        self._token = _fs_shared_admin_token()\n    except RuntimeError:\n        self._token = None\n        raise AdminAuthError('FS_SHARED_SESSION_UNAVAILABLE') from None")
         request = methods['_request' if kind == 'mlb' else '_bytes']
-        insert(request, "if urllib.parse.urlsplit(path).path in ('/admin/index/login', '/api/common/refreshToken'):\n    raise AdminAuthError('FS_SHARED_AUTH_ONLY')")
+        insert(request, "if urllib.parse.urlsplit(path).path in ('/admin/index/login', '/admin/index/loginGoogle', '/api/common/refreshToken'):\n    raise AdminAuthError('FS_SHARED_AUTH_ONLY')")
     elif kind == 'dashboard':
         body(functions['do_login'], "return _fs_shared_admin_token(), None")
         body(functions['ensure_token'], "return _fs_shared_admin_token()")

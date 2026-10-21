@@ -57,3 +57,8 @@ Notion完整基准及三关联页已更新读回，冲突旧正文清理，历�
 维护源sales_shared_session_20261021；部署与原/后SHA见docs/planning/sales-shared-session-20261021/DEPLOYMENT.md和两份脱敏回执。本PR最小登记原8项离线测试到现有pr-fast，不新增workflow、不放宽断言。正式CI、合并以PR回执为准；原失败/队列/锁/业务角色/定价保持。
 
 用户后续明确要求现在验证登录：2026-10-21 13:50:30上海时间，用同一全局镜像/原只读配置只执行1次登录，code=0、credentials_rejected，未进入身份检查，没有第二次尝试。此次非原one_day_penalty文案，不据此判密码已改。仅服务器内核对配置mtime仍09-27，两处账号密码一致；未导出密码/token/hash。8767与sales timer仍inactive/disabled。真实登录仍失败，真实消费者业务与自然周期未验；旧明天11:30不再作为完整冷却保证，不自动重试/改密码/恢复循环。
+
+
+## 2026-10-21 Admin 人工恢复及旧认证废弃
+
+用户授权临时wulv账号及人工验证码恢复Admin，并明确旧独立登录入口废弃。8767于14:55:44单次登录后ready，下一轮仍ready且login_attempts=1；sales/NBA/MLB/商品包/SBC/Players共享桥真实身份读取通过。保留当前2FA源并改人工验证码收件箱；SBC当前版本重接8767，旧dashboard daemon已屏蔽，probe废弃；8767自启恢复。ops无排队后恢复，旧失败保留。sales定时器因Order会话未验继续停用。具体SHA/操作ID/备份/测试和重启限制见docs/planning/sales-shared-session-20261021/MANUAL-RECOVERY.md；不包含任何凭据或原始生产源码。
