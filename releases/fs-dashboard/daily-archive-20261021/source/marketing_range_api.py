@@ -142,7 +142,7 @@ def query(start,end,submit=POOL.submit,kind='range',refresh=False):
   existing=cached(start,end)
   if existing is not None and not refresh:
    stamp=(existing.get('archive') or {}).get('sourceCapturedAt')
-   if not stamp or (datetime.now(timezone.utc)-datetime.fromisoformat(stamp)).total_seconds()<ttl(end):return 200,existing
+   if not stamp or (datetime.now(timezone.utc)-datetime.fromisoformat(stamp.replace('Z','+00:00'))).total_seconds()<ttl(end):return 200,existing
  with LOCK:
   now=time.monotonic()
   for old,record in list(JOBS.items()):
