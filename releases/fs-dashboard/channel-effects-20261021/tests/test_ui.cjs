@@ -93,6 +93,8 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.locator('[name=code]').inputValue(),'');
     await page.locator('[name=q]').fill('fixture-legacy'); await page.locator('button[type=submit]').click();
     await page.locator('#status').getByText(/新旧收入字段不会混算/).waitFor();
+    assert.match(await page.locator('#kpis').innerText(),/旧发货收入字段/);
+    assert.doesNotMatch(await page.locator('#kpis').innerText(),/同群体Admin收入/);
     await page.locator('[name=q]').fill('fixture-accounting'); await page.locator('button[type=submit]').click();
     await page.locator('#orders').getByText(/fictional confirmed coupon/).waitFor();
     assert.match(await page.locator('#orders').innerText(),/欺诈单：待退款\/申诉/);
