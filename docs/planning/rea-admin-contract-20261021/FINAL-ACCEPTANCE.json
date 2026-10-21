@@ -1,0 +1,109 @@
+{
+  "deployment": {
+    "operation": "fs-admin-monthly-paid-20261021-v1",
+    "state": "DEPLOYED_READY",
+    "unit_before": "eba3430d63ac32b97e7fecdd7456f104ebeb8682f183a5f5b165b346adfe6c15",
+    "base": "fc27-cloud-session:ocr-chenchao-20261021-v1",
+    "base_id": "sha256:0a203583d058ef27a6989e6e10f3d12d3e31c8e69f8a00eae3196bac56778b7f",
+    "image": "fc27-cloud-session:monthly-paid-20261021-v1",
+    "image_id": "sha256:205893bef1ed82ffba1c5161972a55172394a7f1b020172a81dd26602a493f81",
+    "source_before": "e711cb9fcaf9c2cdc03af1d28619895dc7f391aaa7f8b4cc3846fca5fc6a3663",
+    "source_after": "160fbb2de797c88b2fc9c28775863020ffda0856eb94069182edbca2fdd41d18",
+    "helper_sha256": "0e09650b298606a3ee323f30ba62ad2bfc52c167adc72ebe55dcf4a7a23e7b3f",
+    "service_unchanged": "52577a17418f05c1fe4adfb9a672595f39258e8750cfbfcc8154d127b1ffca01",
+    "source_commit": "7f31f3e45ef4d205b4a8b1d56d740f8d1cdeef58",
+    "unit_after": "b3441da437c9f625eeeb96ce66584d0143fe66bd05b7fe114c263ad11f357643",
+    "same_access_token": true,
+    "login_attempts_before": 1,
+    "login_attempts_after": 1,
+    "health": {
+      "status": "ready",
+      "ready": true,
+      "last_ok": "2026-10-21T09:56:43.418932+00:00",
+      "active_model_reads": 0,
+      "active_customer_reads": 0,
+      "retry_after_s": 0,
+      "consecutive_failures": 0,
+      "login_attempts": 1
+    }
+  },
+  "live": {
+    "operation": "fs-admin-monthly-paid-20261021-v1",
+    "entry": "http://127.0.0.1:8767/business/fc-capability",
+    "query": {
+      "profile": "FC27",
+      "start": "2026-09-17",
+      "end": "2026-10-20"
+    },
+    "complete": true,
+    "http_status": 200,
+    "response_bytes": 3367433,
+    "content_length_verified": true,
+    "status": "available",
+    "paid_complete": true,
+    "received": 15669,
+    "source_total": 15669,
+    "source_scanned_total": 15872,
+    "source_scanned_received": 15872,
+    "excluded_refunded": 203,
+    "pages": 159,
+    "segments": [
+      {
+        "start": "2026-10-01",
+        "end": "2026-10-20",
+        "status": "available",
+        "source_total": 9687,
+        "received": 9687,
+        "paid_complete": true,
+        "source_scanned_total": 9699,
+        "source_scanned_received": 9699,
+        "excluded_refunded": 12
+      },
+      {
+        "start": "2026-09-17",
+        "end": "2026-09-30",
+        "status": "available",
+        "source_total": 5982,
+        "received": 5982,
+        "paid_complete": true,
+        "source_scanned_total": 6173,
+        "source_scanned_received": 6173,
+        "excluded_refunded": 191
+      }
+    ],
+    "period": {
+      "start": "2026-09-17 00:00",
+      "end": "2026-10-21 00:00"
+    },
+    "unique_ids_verified": true,
+    "all_paid_timestamps_in_range": true,
+    "snapshot_id": "cohort-paid-1b21504337c7a4132ae7",
+    "seconds": 201.431,
+    "concurrent_samples": 202,
+    "concurrent_all_ready": true,
+    "concurrent_same_token": true,
+    "max_health_and_token_seconds": 0.0383,
+    "active_model_read_observed": false,
+    "same_access_token": true,
+    "login_attempts_before": 1,
+    "login_attempts_after": 1
+  },
+  "final_service_sha_readback": true,
+  "retired_dashboard_collect_masked": true,
+  "service_states": "Id=dashboard-collect.service\nLoadState=masked\nActiveState=inactive\nUnitFileState=bad\n\nId=sales-dashboard-sync.timer\nLoadState=loaded\nActiveState=active\nUnitFileState=enabled\n\nId=fc27-p2pah-session.service\nLoadState=loaded\nActiveState=active\nUnitFileState=enabled\n\nId=fs-order-session.service\nLoadState=loaded\nActiveState=active\nUnitFileState=enabled\n",
+  "global_health": {
+    "8767": {
+      "ready": true,
+      "login_attempts": 1
+    },
+    "8768": {
+      "ready": true,
+      "login_attempts": 0
+    }
+  },
+  "business_database_writes": false,
+  "price_or_schedule_changed": false,
+  "independent_login_restored": false,
+  "rollback_exercised": false,
+  "long_term_natural_cycles_verified": false
+}

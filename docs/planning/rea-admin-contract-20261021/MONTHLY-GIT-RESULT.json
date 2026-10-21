@@ -1,0 +1,15 @@
+{
+  "pr": "https://github.com/wulv006-dot/FS-Workbench/pull/277",
+  "base": "d711d5d8ca2ef199361f269f84ccb6a69eec7312",
+  "head": "bfdfd2a2d8aa96bc430cff0b30836c7dcd27552a",
+  "merge": "7f31f3e45ef4d205b4a8b1d56d740f8d1cdeef58",
+  "run": 39580590613,
+  "job": 119156915653,
+  "tests": 13,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "merged_readback_paths": 6,
+  "rea_scope_evidence": "ev_8571c0d6ff49de1ad660800fa6827a8bf708e09021d994368bdb7917df85d07a",
+  "rea_artifact_type": "derived value-free HAR; historical-reference; network timing not observed"
+}

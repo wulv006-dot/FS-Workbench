@@ -1,7 +1,7 @@
 {
   "scope": "fs-channel-effects-20261021",
   "status": "candidate_not_deployed",
-  "baseline_main": "7f31f3e45ef4d205b4a8b1d56d740f8d1cdeef58",
+  "baseline_main": "7d7a688ea7d5738b513948203af248d4dbbc4317",
   "businessWrites": false,
   "timersChanged": false,
   "files": [
@@ -97,8 +97,8 @@
       "source": "deploy/routes.conf + exact current nginx",
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "before_sha256": "e241cea8112427ea23b896cc238cb85fafc076d536ee4a4e938873abd1bcfa53",
-      "sha256": "691443138604c405ec7ebdbd764c06c7f02f2074c8308552db9272b34e6b82af",
+      "before_sha256": "a9eea4e4e2743371e167c286f5a999e69967164b1321befc27eb5a724ba80b80",
+      "sha256": "19dd288841d6acb829d5ed14a98f8d5d47f33131894cb278f746bd84b40c5dbe",
       "generated": true
     }
   ],
