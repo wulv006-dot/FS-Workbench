@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.request
 from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
