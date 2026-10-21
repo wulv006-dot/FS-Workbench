@@ -68,11 +68,14 @@ def load_base():
     base.hermes_quiescent=idle
     restart=base.restart_for
     def restart_with_navigation(manifest,admission_fence=None):
-        restart(manifest,admission_fence)
         if manifest.get('scope')==SCOPE:
+            if admission_fence is None:raise ValueError('channel admission fence required')
+            admission_fence.stop_then_unlock_database()
+            restart(dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
             import subprocess
             subprocess.run(['nginx','-t'],check=True,timeout=20)
             subprocess.run(['systemctl','reload','nginx'],check=True,timeout=20)
+        else:restart(manifest,admission_fence)
     base.restart_for=restart_with_navigation
     return base
 

@@ -634,7 +634,7 @@ def main():
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
         elif group=="channel-effects":
-            units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects"])
+            units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_publisher"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
         elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
