@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["rea_admin_contract_20261021/monthly_paid.py"]) != ["admin-monthly-paid"]:
+        raise AssertionError("monthly paid checks not selected")
     if select(["admin_session_continuity_20261021/session_state.py"]) != ["admin-session-continuity"]:
         raise RuntimeError("admin_continuity_affected_tests_missing")
     if select(["order_global_session_20261021/service.py"]) != ["order-global-session"]:
@@ -324,6 +326,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("rea_admin_contract_20261021/"):
+            groups.add("admin-monthly-paid");continue
         if name.startswith("admin_session_continuity_20261021/"):
             groups.add("admin-session-continuity");continue
         if name.startswith("order_global_session_20261021/"):
@@ -622,7 +626,10 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="admin-session-continuity":
+        if group=="admin-monthly-paid":
+            units("rea_admin_contract_20261021",["test_monthly_paid"])
+            units("admin_session_continuity_20261021",["test_continuity"])
+        elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
         elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
