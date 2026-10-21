@@ -429,7 +429,8 @@ def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opene
             if dataset is None:
                 return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'coupon_period_export_unavailable','retryable':False}
             value=aggregate_rows(dataset['rows'],dataset['hashes'],dataset['parse_failures'],query,dataset['declared_files'],dataset['failed_files'])
-            value['quality'].update(source_origin='existing_private_export',archived_capture_time=dataset.get('captured_at'))
+            value['quality'].update(source_origin='existing_private_export',archived_capture_time=dataset.get('captured_at'),aggregated_at=value['captured_at'])
+            value['captured_at']=dataset.get('captured_at')
             return {'kind':'es_order_structure_bundle','status':'available','snapshots':[{'query':query,'value':value}]}
         return _server_bundle(query,root,opener)
 
