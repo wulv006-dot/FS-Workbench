@@ -22,7 +22,7 @@ let generation = 0;
 let denied = false;
 let identity = null;
 let renderedQuery = '';
-const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
+const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -127,6 +127,7 @@ function kpis() {
     `全站分母 ${count(data.denominator.orders)} 单，用码分母 ${count(data.denominator.codedOrders)} 单；均沿用当前游戏、国家、支付与状态筛选，不随项目/单码筛选缩小。${count(s.referrerOnly)} 单为推荐人无码，不算用码订单。`,
     `销售额、客单价：Admin 订单美元金额。人民币销售、成本、毛利、利润率：仅匹配的 Order「订单发货」记录，先加总再相除。缺成本不当作零；匹配不证明全部交付、退款后净收入或最终结算。${count(s.conflicts)} 单有归因冲突待核。`,
     `成本来源：${data.sources.cost.source}；${data.sources.cost.generatedAt ? new Date(data.sources.cost.generatedAt).toLocaleString('zh-CN', {hour12:false,timeZone:'Asia/Shanghai'}) : '尚无数据'}。${data.sources.cost.limitation}`,
+    `新老客来源：该笔订单下单时 ES「是否新客户」，是为新客、否为老客。${data.sources.customer?.limitation || '字段未提供时保持未知。'}`,
     `优惠码与优惠券分开统计，同一订单可重叠；模板、批次分项也可能重叠，不能直接相加。状态保留后台原值；“排除退款”不代表全部为已完成订单。`,
     `归因：保留原码，忽略大小写；同码冲突待核。分销是推广分类，站点单独筛选。${data.sources.attribution.historical}。`
   ];
@@ -170,8 +171,8 @@ function trend() {
 }
 function orders() {
   const coupon = field('mode').value === 'coupon';
-  table('orders', ['付款时间', '订单号', '游戏', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
-    r.paidAt, r.orderNo, r.game, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
+  table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '发货销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态'], data.orders, r => [
+    r.paidAt, r.orderNo, r.game, r.customerType, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
     r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', r.country,r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status
   ], '当前筛选订单明细');
   $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单';

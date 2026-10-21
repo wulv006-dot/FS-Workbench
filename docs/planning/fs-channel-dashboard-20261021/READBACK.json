@@ -1,0 +1,139 @@
+{
+  "at": "2026-10-21T11:30:41.142937+00:00",
+  "firstRelease": "nav-20261021T103410Z",
+  "fixRelease": "nav-20261021T113003Z",
+  "sourceCommit": "f741d30bf2ecda9bd1016f2a5c1a6e7d6c4a7d3a",
+  "verified_file_count": 61,
+  "source_drift": [],
+  "anonymous": [
+    {
+      "path": "/dashboard/channel-effects/",
+      "status": 302
+    },
+    {
+      "path": "/dashboard/channel-effects/index.html",
+      "status": 302
+    },
+    {
+      "path": "/dashboard/channel-effects/channel.js",
+      "status": 302
+    },
+    {
+      "path": "/dashboard/channel-effects/channel.css",
+      "status": 302
+    },
+    {
+      "path": "/dashboard/channel-effects/data.json?start=2026-10-14&end=2026-10-20",
+      "status": 401
+    }
+  ],
+  "tls": "default certificate verification",
+  "range_health": {
+    "active_customer_reports": 0,
+    "ok": true,
+    "readonly": true,
+    "service": "fs-business-range"
+  },
+  "cache": [
+    {
+      "period": {
+        "start": "2026-10-14",
+        "end": "2026-10-20"
+      },
+      "generatedAt": "2026-10-21T19:03:26.362618+08:00",
+      "sources": {
+        "orders": {
+          "status": "complete",
+          "source": "Admin 销售订单",
+          "rows": 8153,
+          "site": "MMOEXP",
+          "dateBasis": "paytime",
+          "currency": "USD"
+        },
+        "coupons": {
+          "status": "complete",
+          "source": "Admin 优惠券使用日志，按订单号关联",
+          "rows": 712
+        },
+        "cost": {
+          "status": "partial",
+          "source": "Order 逐条订单发货记录 + Sales 已有缓存",
+          "generatedAt": "2026-10-21T19:01:49.910673+08:00",
+          "limitation": "仅匹配发货记录计算人民币毛利；未匹配不补零，未视作最终结算。",
+          "period": {
+            "start": "2026-10-14",
+            "end": "2026-10-21",
+            "until": "2026-10-21 18:49"
+          }
+        },
+        "attribution": {
+          "source": "Excel 渠道映射 / Sales 推广人目录 / Admin 折扣码配置 / 订单推荐人 UID",
+          "historical": "当前映射回溯应用；未提供历史生效日期"
+        }
+      },
+      "code_summary": {
+        "orders": 3113,
+        "salesUsd": 185402.06,
+        "coveredOrders": 3020,
+        "deliveryRows": 3812,
+        "saleCny": 1212909.38,
+        "costCny": 905426.08,
+        "profitCny": 307483.3,
+        "margin": 0.25350888126530935,
+        "aovUsd": 59.56,
+        "codedOrders": 3035,
+        "referrerOnly": 78,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "shareAllCodes": 1.0,
+        "shareSite": 0.3811856317508164,
+        "couponShareSite": null
+      },
+      "coupon_summary": {
+        "orders": 703,
+        "salesUsd": 55709.07,
+        "coveredOrders": 685,
+        "deliveryRows": 820,
+        "saleCny": 369628.95,
+        "costCny": 297578.11,
+        "profitCny": 72050.84,
+        "margin": 0.19492748065323345,
+        "aovUsd": 79.24,
+        "codedOrders": 0,
+        "referrerOnly": 15,
+        "overlapOrders": 0,
+        "conflicts": 0,
+        "shareAllCodes": 0.0,
+        "shareSite": 0.0,
+        "couponShareSite": 0.08829439839236372
+      }
+    }
+  ],
+  "cost_cache_exists": true,
+  "shared_sources": {
+    "8767": {
+      "ready": true,
+      "status": "ready",
+      "last_error": null,
+      "last_ok": "2026-10-21T11:26:46.576749+00:00",
+      "login_attempts": 1
+    },
+    "8768": {
+      "ready": true,
+      "status": null,
+      "last_error": null,
+      "last_ok": null,
+      "login_attempts": 0
+    }
+  },
+  "cost_cache": {
+    "generatedAt": "2026-10-21T19:01:49.910673+08:00",
+    "period": {
+      "start": "2026-10-14",
+      "end": "2026-10-21",
+      "until": "2026-10-21 18:49"
+    },
+    "records": 11319,
+    "complete": true
+  }
+}

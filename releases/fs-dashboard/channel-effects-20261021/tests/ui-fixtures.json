@@ -14,6 +14,10 @@
       },
       "attribution": {
         "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -238,19 +242,36 @@
       ],
       "customerType": [
         {
+          "key": "老客",
+          "label": "老客",
+          "orders": 2,
+          "salesUsd": 60.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 280.0,
+          "costCny": 252.0,
+          "profitCny": 28.0,
+          "margin": 0.1,
+          "aovUsd": 30.0,
+          "codedOrders": 1,
+          "referrerOnly": 1,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
           "key": "新客",
           "label": "新客",
-          "orders": 3,
-          "salesUsd": 70.0,
-          "coveredOrders": 2,
-          "deliveryRows": 2,
-          "saleCny": 350.0,
-          "costCny": 287.0,
-          "profitCny": 63.0,
-          "margin": 0.18,
-          "aovUsd": 23.33,
-          "codedOrders": 2,
-          "referrerOnly": 1,
+          "orders": 1,
+          "salesUsd": 10.0,
+          "coveredOrders": 1,
+          "deliveryRows": 1,
+          "saleCny": 70.0,
+          "costCny": 35.0,
+          "profitCny": 35.0,
+          "margin": 0.5,
+          "aovUsd": 10.0,
+          "codedOrders": 1,
+          "referrerOnly": 0,
           "overlapOrders": 1,
           "conflicts": 0
         }
@@ -302,7 +323,7 @@
         "refunded": false,
         "country": "US",
         "payment": "PayPal",
-        "customerType": "新客",
+        "customerType": "老客",
         "coupons": [],
         "saleCny": 280.0,
         "costCny": 252.0,
@@ -329,7 +350,7 @@
         "refunded": false,
         "country": "US",
         "payment": "PayPal",
-        "customerType": "新客",
+        "customerType": "老客",
         "coupons": [],
         "saleCny": null,
         "costCny": null,
@@ -412,6 +433,10 @@
       },
       "attribution": {
         "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -618,19 +643,36 @@
       ],
       "customerType": [
         {
+          "key": "老客",
+          "label": "老客",
+          "orders": 1,
+          "salesUsd": 20.0,
+          "coveredOrders": 0,
+          "deliveryRows": 0,
+          "saleCny": null,
+          "costCny": null,
+          "profitCny": null,
+          "margin": null,
+          "aovUsd": 20.0,
+          "codedOrders": 0,
+          "referrerOnly": 1,
+          "overlapOrders": 0,
+          "conflicts": 0
+        },
+        {
           "key": "新客",
           "label": "新客",
-          "orders": 2,
-          "salesUsd": 30.0,
+          "orders": 1,
+          "salesUsd": 10.0,
           "coveredOrders": 1,
           "deliveryRows": 1,
           "saleCny": 70.0,
           "costCny": 35.0,
           "profitCny": 35.0,
           "margin": 0.5,
-          "aovUsd": 15.0,
+          "aovUsd": 10.0,
           "codedOrders": 1,
-          "referrerOnly": 1,
+          "referrerOnly": 0,
           "overlapOrders": 1,
           "conflicts": 0
         }
@@ -682,7 +724,7 @@
         "refunded": false,
         "country": "US",
         "payment": "PayPal",
-        "customerType": "新客",
+        "customerType": "老客",
         "coupons": [],
         "saleCny": null,
         "costCny": null,
@@ -765,6 +807,10 @@
       },
       "attribution": {
         "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -1072,6 +1118,10 @@
       },
       "attribution": {
         "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -1362,6 +1412,10 @@
       },
       "attribution": {
         "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -1566,10 +1620,14 @@
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
-        "limitation": "fictional"
+        "limitation": "虚构金额，非业务数据"
       },
       "attribution": {
-        "historical": "fictional"
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
@@ -3997,10 +4055,14 @@
       "cost": {
         "source": "fictional fixture",
         "generatedAt": "2026-10-21T00:00:00+08:00",
-        "limitation": "fictional"
+        "limitation": "虚构金额，非业务数据"
       },
       "attribution": {
-        "historical": "fictional"
+        "historical": "fictional fixture"
+      },
+      "customer": {
+        "source": "fictional ES fixture",
+        "status": "complete"
       }
     },
     "mapping": {},
