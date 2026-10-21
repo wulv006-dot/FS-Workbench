@@ -1,0 +1,1877 @@
+{
+  "contract": "channel-map-v2",
+  "source_file": "折扣码渠道映射表.xlsm",
+  "source_sha256": "b9ff083166e024fa9d7e4ecb91d530ec78361b90c86513150c6c0421c6d255b7",
+  "sheet": "折扣码映射",
+  "as_of": "2026-10-21",
+  "matching": "trim_casefold_preserve_raw_conflicts_pending",
+  "historical_effective_dates": "not_supplied",
+  "distribution_label": "promotion_classification_not_order_site",
+  "entries": [
+    {
+      "code": "22cor",
+      "channel": "KOL",
+      "row": 2
+    },
+    {
+      "code": "3pvenom",
+      "channel": "KOL",
+      "row": 3
+    },
+    {
+      "code": "9to5erz",
+      "channel": "KOL",
+      "row": 4
+    },
+    {
+      "code": "abu",
+      "channel": "KOL",
+      "row": 5
+    },
+    {
+      "code": "alex",
+      "channel": "KOL",
+      "row": 6
+    },
+    {
+      "code": "alex96",
+      "channel": "KOL",
+      "row": 7
+    },
+    {
+      "code": "amp",
+      "channel": "KOL",
+      "row": 8
+    },
+    {
+      "code": "an",
+      "channel": "KOL",
+      "row": 9
+    },
+    {
+      "code": "andy",
+      "channel": "KOL",
+      "row": 10
+    },
+    {
+      "code": "ariian",
+      "channel": "KOL",
+      "row": 11
+    },
+    {
+      "code": "assist",
+      "channel": "KOL",
+      "row": 12
+    },
+    {
+      "code": "awale",
+      "channel": "KOL",
+      "row": 13
+    },
+    {
+      "code": "badrx",
+      "channel": "KOL",
+      "row": 14
+    },
+    {
+      "code": "barba",
+      "channel": "KOL",
+      "row": 15
+    },
+    {
+      "code": "belial",
+      "channel": "KOL",
+      "row": 16
+    },
+    {
+      "code": "blaze",
+      "channel": "KOL",
+      "row": 17
+    },
+    {
+      "code": "brandin",
+      "channel": "KOL",
+      "row": 18
+    },
+    {
+      "code": "brenton",
+      "channel": "KOL",
+      "row": 19
+    },
+    {
+      "code": "bullet",
+      "channel": "KOL",
+      "row": 20
+    },
+    {
+      "code": "byte",
+      "channel": "KOL",
+      "row": 21
+    },
+    {
+      "code": "c10",
+      "channel": "KOL",
+      "row": 22
+    },
+    {
+      "code": "caldy",
+      "channel": "KOL",
+      "row": 23
+    },
+    {
+      "code": "canaldojoni",
+      "channel": "KOL",
+      "row": 24
+    },
+    {
+      "code": "capgun",
+      "channel": "KOL",
+      "row": 25
+    },
+    {
+      "code": "carlosn",
+      "channel": "KOL",
+      "row": 26
+    },
+    {
+      "code": "cenk",
+      "channel": "KOL",
+      "row": 27
+    },
+    {
+      "code": "chain",
+      "channel": "KOL",
+      "row": 28
+    },
+    {
+      "code": "chigre",
+      "channel": "KOL",
+      "row": 29
+    },
+    {
+      "code": "chinoir",
+      "channel": "KOL",
+      "row": 30
+    },
+    {
+      "code": "chu",
+      "channel": "KOL",
+      "row": 31
+    },
+    {
+      "code": "codes",
+      "channel": "KOL",
+      "row": 32
+    },
+    {
+      "code": "criminal",
+      "channel": "KOL",
+      "row": 33
+    },
+    {
+      "code": "dexter",
+      "channel": "KOL",
+      "row": 34
+    },
+    {
+      "code": "doggo",
+      "channel": "KOL",
+      "row": 35
+    },
+    {
+      "code": "dom",
+      "channel": "KOL",
+      "row": 36
+    },
+    {
+      "code": "dot",
+      "channel": "KOL",
+      "row": 37
+    },
+    {
+      "code": "dut",
+      "channel": "KOL",
+      "row": 38
+    },
+    {
+      "code": "dyf",
+      "channel": "KOL",
+      "row": 39
+    },
+    {
+      "code": "dyl",
+      "channel": "KOL",
+      "row": 40
+    },
+    {
+      "code": "ensar",
+      "channel": "KOL",
+      "row": 41
+    },
+    {
+      "code": "expert",
+      "channel": "KOL",
+      "row": 42
+    },
+    {
+      "code": "exset",
+      "channel": "KOL",
+      "row": 43
+    },
+    {
+      "code": "fatish",
+      "channel": "KOL",
+      "row": 44
+    },
+    {
+      "code": "fendy",
+      "channel": "KOL",
+      "row": 45
+    },
+    {
+      "code": "ferdy",
+      "channel": "KOL",
+      "row": 46
+    },
+    {
+      "code": "fifatards",
+      "channel": "KOL",
+      "row": 47
+    },
+    {
+      "code": "filthy",
+      "channel": "KOL",
+      "row": 48
+    },
+    {
+      "code": "fra",
+      "channel": "KOL",
+      "row": 49
+    },
+    {
+      "code": "frizz",
+      "channel": "KOL",
+      "row": 50
+    },
+    {
+      "code": "fuji",
+      "channel": "KOL",
+      "row": 51
+    },
+    {
+      "code": "fuzzy",
+      "channel": "KOL",
+      "row": 52
+    },
+    {
+      "code": "gatzbii",
+      "channel": "KOL",
+      "row": 53
+    },
+    {
+      "code": "getlive",
+      "channel": "KOL",
+      "row": 54
+    },
+    {
+      "code": "goody",
+      "channel": "KOL",
+      "row": 55
+    },
+    {
+      "code": "gori",
+      "channel": "KOL",
+      "row": 56
+    },
+    {
+      "code": "grindi",
+      "channel": "KOL",
+      "row": 57
+    },
+    {
+      "code": "gutfoxx",
+      "channel": "KOL",
+      "row": 58
+    },
+    {
+      "code": "haber",
+      "channel": "KOL",
+      "row": 59
+    },
+    {
+      "code": "hawg",
+      "channel": "KOL",
+      "row": 60
+    },
+    {
+      "code": "haydog",
+      "channel": "KOL",
+      "row": 61
+    },
+    {
+      "code": "jack54",
+      "channel": "KOL",
+      "row": 62
+    },
+    {
+      "code": "jamboo",
+      "channel": "KOL",
+      "row": 63
+    },
+    {
+      "code": "james",
+      "channel": "KOL",
+      "row": 64
+    },
+    {
+      "code": "jasik",
+      "channel": "KOL",
+      "row": 65
+    },
+    {
+      "code": "jazza",
+      "channel": "KOL",
+      "row": 66
+    },
+    {
+      "code": "jey",
+      "channel": "KOL",
+      "row": 67
+    },
+    {
+      "code": "jfc",
+      "channel": "KOL",
+      "row": 68
+    },
+    {
+      "code": "jk",
+      "channel": "KOL",
+      "row": 69
+    },
+    {
+      "code": "jk8",
+      "channel": "KOL",
+      "row": 70
+    },
+    {
+      "code": "jojo",
+      "channel": "KOL",
+      "row": 71
+    },
+    {
+      "code": "jt11",
+      "channel": "KOL",
+      "row": 72
+    },
+    {
+      "code": "kamperske",
+      "channel": "KOL",
+      "row": 73
+    },
+    {
+      "code": "kav",
+      "channel": "KOL",
+      "row": 74
+    },
+    {
+      "code": "khaleed",
+      "channel": "KOL",
+      "row": 75
+    },
+    {
+      "code": "kiki",
+      "channel": "KOL",
+      "row": 76
+    },
+    {
+      "code": "kinny",
+      "channel": "KOL",
+      "row": 77
+    },
+    {
+      "code": "krasi",
+      "channel": "KOL",
+      "row": 78
+    },
+    {
+      "code": "ldg38",
+      "channel": "KOL",
+      "row": 79
+    },
+    {
+      "code": "lemon",
+      "channel": "KOL",
+      "row": 80
+    },
+    {
+      "code": "lucki",
+      "channel": "KOL",
+      "row": 81
+    },
+    {
+      "code": "lucky",
+      "channel": "KOL",
+      "row": 82
+    },
+    {
+      "code": "mamba",
+      "channel": "KOL",
+      "row": 83
+    },
+    {
+      "code": "mart1nez",
+      "channel": "KOL",
+      "row": 84
+    },
+    {
+      "code": "marwan",
+      "channel": "KOL",
+      "row": 85
+    },
+    {
+      "code": "matthd",
+      "channel": "KOL",
+      "row": 86
+    },
+    {
+      "code": "mavfam",
+      "channel": "KOL",
+      "row": 87
+    },
+    {
+      "code": "mcjell",
+      "channel": "KOL",
+      "row": 88
+    },
+    {
+      "code": "mesbah",
+      "channel": "KOL",
+      "row": 89
+    },
+    {
+      "code": "meta",
+      "channel": "KOL",
+      "row": 90
+    },
+    {
+      "code": "mezy",
+      "channel": "KOL",
+      "row": 91
+    },
+    {
+      "code": "mlplus",
+      "channel": "KOL",
+      "row": 92
+    },
+    {
+      "code": "mmofc",
+      "channel": "KOL",
+      "row": 93
+    },
+    {
+      "code": "momofc",
+      "channel": "KOL",
+      "row": 94
+    },
+    {
+      "code": "moneyshot",
+      "channel": "KOL",
+      "row": 95
+    },
+    {
+      "code": "morsey",
+      "channel": "KOL",
+      "row": 96
+    },
+    {
+      "code": "moshi",
+      "channel": "KOL",
+      "row": 97
+    },
+    {
+      "code": "mosqr",
+      "channel": "KOL",
+      "row": 98
+    },
+    {
+      "code": "natiim",
+      "channel": "KOL",
+      "row": 99
+    },
+    {
+      "code": "nextovr",
+      "channel": "KOL",
+      "row": 100
+    },
+    {
+      "code": "niko",
+      "channel": "KOL",
+      "row": 101
+    },
+    {
+      "code": "nova",
+      "channel": "KOL",
+      "row": 102
+    },
+    {
+      "code": "ntz",
+      "channel": "KOL",
+      "row": 103
+    },
+    {
+      "code": "ohchev",
+      "channel": "KOL",
+      "row": 104
+    },
+    {
+      "code": "olearbear",
+      "channel": "KOL",
+      "row": 105
+    },
+    {
+      "code": "ovvy",
+      "channel": "KOL",
+      "row": 106
+    },
+    {
+      "code": "pac",
+      "channel": "KOL",
+      "row": 107
+    },
+    {
+      "code": "pale",
+      "channel": "KOL",
+      "row": 108
+    },
+    {
+      "code": "palmer",
+      "channel": "KOL",
+      "row": 109
+    },
+    {
+      "code": "perks",
+      "channel": "KOL",
+      "row": 110
+    },
+    {
+      "code": "pgfut",
+      "channel": "KOL",
+      "row": 111
+    },
+    {
+      "code": "polocho",
+      "channel": "KOL",
+      "row": 112
+    },
+    {
+      "code": "r2s",
+      "channel": "KOL",
+      "row": 113
+    },
+    {
+      "code": "r6q",
+      "channel": "KOL",
+      "row": 114
+    },
+    {
+      "code": "r7",
+      "channel": "KOL",
+      "row": 115
+    },
+    {
+      "code": "ramis",
+      "channel": "KOL",
+      "row": 116
+    },
+    {
+      "code": "rca",
+      "channel": "KOL",
+      "row": 117
+    },
+    {
+      "code": "rca7",
+      "channel": "KOL",
+      "row": 118
+    },
+    {
+      "code": "reign4",
+      "channel": "KOL",
+      "row": 119
+    },
+    {
+      "code": "rema",
+      "channel": "KOL",
+      "row": 120
+    },
+    {
+      "code": "ruban",
+      "channel": "KOL",
+      "row": 121
+    },
+    {
+      "code": "ryan",
+      "channel": "KOL",
+      "row": 122
+    },
+    {
+      "code": "saidinho",
+      "channel": "KOL",
+      "row": 123
+    },
+    {
+      "code": "scomo",
+      "channel": "KOL",
+      "row": 124
+    },
+    {
+      "code": "senpai",
+      "channel": "KOL",
+      "row": 125
+    },
+    {
+      "code": "showtime",
+      "channel": "KOL",
+      "row": 126
+    },
+    {
+      "code": "stud",
+      "channel": "KOL",
+      "row": 127
+    },
+    {
+      "code": "swift",
+      "channel": "KOL",
+      "row": 128
+    },
+    {
+      "code": "tate",
+      "channel": "KOL",
+      "row": 129
+    },
+    {
+      "code": "throne",
+      "channel": "KOL",
+      "row": 130
+    },
+    {
+      "code": "toke",
+      "channel": "KOL",
+      "row": 131
+    },
+    {
+      "code": "tone",
+      "channel": "KOL",
+      "row": 132
+    },
+    {
+      "code": "toxic",
+      "channel": "KOL",
+      "row": 133
+    },
+    {
+      "code": "tre",
+      "channel": "KOL",
+      "row": 134
+    },
+    {
+      "code": "trod",
+      "channel": "KOL",
+      "row": 135
+    },
+    {
+      "code": "trulyy",
+      "channel": "KOL",
+      "row": 136
+    },
+    {
+      "code": "tutak",
+      "channel": "KOL",
+      "row": 137
+    },
+    {
+      "code": "tyrone",
+      "channel": "KOL",
+      "row": 138
+    },
+    {
+      "code": "venom",
+      "channel": "KOL",
+      "row": 139
+    },
+    {
+      "code": "viper",
+      "channel": "KOL",
+      "row": 140
+    },
+    {
+      "code": "wakez",
+      "channel": "KOL",
+      "row": 141
+    },
+    {
+      "code": "warrior",
+      "channel": "KOL",
+      "row": 142
+    },
+    {
+      "code": "woolf",
+      "channel": "KOL",
+      "row": 143
+    },
+    {
+      "code": "yolly",
+      "channel": "KOL",
+      "row": 144
+    },
+    {
+      "code": "zey",
+      "channel": "KOL",
+      "row": 145
+    },
+    {
+      "code": "zoho",
+      "channel": "KOL",
+      "row": 146
+    },
+    {
+      "code": "4bo7",
+      "channel": "运营",
+      "row": 147
+    },
+    {
+      "code": "4vip",
+      "channel": "运营",
+      "row": 148
+    },
+    {
+      "code": "73exp7",
+      "channel": "运营",
+      "row": 149
+    },
+    {
+      "code": "96exp",
+      "channel": "运营",
+      "row": 150
+    },
+    {
+      "code": "AMBER1",
+      "channel": "运营",
+      "row": 151
+    },
+    {
+      "code": "ac",
+      "channel": "运营",
+      "row": 152
+    },
+    {
+      "code": "angel",
+      "channel": "运营",
+      "row": 153
+    },
+    {
+      "code": "arena",
+      "channel": "运营",
+      "row": 154
+    },
+    {
+      "code": "ark",
+      "channel": "运营",
+      "row": 155
+    },
+    {
+      "code": "buck",
+      "channel": "运营",
+      "row": 156
+    },
+    {
+      "code": "burger",
+      "channel": "运营",
+      "row": 157
+    },
+    {
+      "code": "c2k",
+      "channel": "运营",
+      "row": 158
+    },
+    {
+      "code": "c2kttv",
+      "channel": "运营",
+      "row": 159
+    },
+    {
+      "code": "cc",
+      "channel": "运营",
+      "row": 160
+    },
+    {
+      "code": "chaos",
+      "channel": "运营",
+      "row": 161
+    },
+    {
+      "code": "cota",
+      "channel": "运营",
+      "row": 162
+    },
+    {
+      "code": "coupon_10",
+      "channel": "运营",
+      "row": 163
+    },
+    {
+      "code": "cut26",
+      "channel": "运营",
+      "row": 164
+    },
+    {
+      "code": "d4",
+      "channel": "运营",
+      "row": 165
+    },
+    {
+      "code": "d4chaos",
+      "channel": "运营",
+      "row": 166
+    },
+    {
+      "code": "d4s15",
+      "channel": "运营",
+      "row": 167
+    },
+    {
+      "code": "dark5",
+      "channel": "运营",
+      "row": 168
+    },
+    {
+      "code": "death",
+      "channel": "运营",
+      "row": 169
+    },
+    {
+      "code": "discord5",
+      "channel": "运营",
+      "row": 170
+    },
+    {
+      "code": "dmoney",
+      "channel": "运营",
+      "row": 171
+    },
+    {
+      "code": "dnd",
+      "channel": "运营",
+      "row": 172
+    },
+    {
+      "code": "done",
+      "channel": "运营",
+      "row": 173
+    },
+    {
+      "code": "epd5",
+      "channel": "运营",
+      "row": 174
+    },
+    {
+      "code": "exalted",
+      "channel": "运营",
+      "row": 175
+    },
+    {
+      "code": "exp32p",
+      "channel": "运营",
+      "row": 176
+    },
+    {
+      "code": "exp996",
+      "channel": "运营",
+      "row": 177
+    },
+    {
+      "code": "exparc",
+      "channel": "运营",
+      "row": 178
+    },
+    {
+      "code": "expfut",
+      "channel": "运营",
+      "row": 179
+    },
+    {
+      "code": "expmlb",
+      "channel": "运营",
+      "row": 180
+    },
+    {
+      "code": "fc27coin",
+      "channel": "运营",
+      "row": 181
+    },
+    {
+      "code": "fccoins",
+      "channel": "运营",
+      "row": 182
+    },
+    {
+      "code": "fifexpd4",
+      "channel": "运营",
+      "row": 183
+    },
+    {
+      "code": "fs9exp",
+      "channel": "运营",
+      "row": 184
+    },
+    {
+      "code": "futmag",
+      "channel": "运营",
+      "row": 185
+    },
+    {
+      "code": "gem",
+      "channel": "运营",
+      "row": 186
+    },
+    {
+      "code": "grape",
+      "channel": "运营",
+      "row": 187
+    },
+    {
+      "code": "gvg5",
+      "channel": "运营",
+      "row": 188
+    },
+    {
+      "code": "halloween6",
+      "channel": "运营",
+      "row": 189
+    },
+    {
+      "code": "handsome",
+      "channel": "运营",
+      "row": 190
+    },
+    {
+      "code": "hatred",
+      "channel": "运营",
+      "row": 191
+    },
+    {
+      "code": "hiexp",
+      "channel": "运营",
+      "row": 192
+    },
+    {
+      "code": "hordes",
+      "channel": "运营",
+      "row": 193
+    },
+    {
+      "code": "itsexp",
+      "channel": "运营",
+      "row": 194
+    },
+    {
+      "code": "jim5%",
+      "channel": "运营",
+      "row": 195
+    },
+    {
+      "code": "jim7",
+      "channel": "运营",
+      "row": 196
+    },
+    {
+      "code": "king",
+      "channel": "运营",
+      "row": 197
+    },
+    {
+      "code": "klutch",
+      "channel": "运营",
+      "row": 198
+    },
+    {
+      "code": "krs",
+      "channel": "运营",
+      "row": 199
+    },
+    {
+      "code": "loh8",
+      "channel": "运营",
+      "row": 200
+    },
+    {
+      "code": "mayz",
+      "channel": "运营",
+      "row": 201
+    },
+    {
+      "code": "mlbsum",
+      "channel": "运营",
+      "row": 202
+    },
+    {
+      "code": "mmg",
+      "channel": "运营",
+      "row": 203
+    },
+    {
+      "code": "mmoexp",
+      "channel": "运营",
+      "row": 204
+    },
+    {
+      "code": "mmoexpwtb",
+      "channel": "运营",
+      "row": 205
+    },
+    {
+      "code": "mut26exp",
+      "channel": "运营",
+      "row": 206
+    },
+    {
+      "code": "nba2king",
+      "channel": "运营",
+      "row": 207
+    },
+    {
+      "code": "nbasum",
+      "channel": "运营",
+      "row": 208
+    },
+    {
+      "code": "nflsum",
+      "channel": "运营",
+      "row": 209
+    },
+    {
+      "code": "nw5",
+      "channel": "运营",
+      "row": 210
+    },
+    {
+      "code": "ny17",
+      "channel": "运营",
+      "row": 211
+    },
+    {
+      "code": "ny19",
+      "channel": "运营",
+      "row": 212
+    },
+    {
+      "code": "nyrs",
+      "channel": "运营",
+      "row": 213
+    },
+    {
+      "code": "oct6",
+      "channel": "运营",
+      "row": 214
+    },
+    {
+      "code": "odin",
+      "channel": "运营",
+      "row": 215
+    },
+    {
+      "code": "oliver",
+      "channel": "运营",
+      "row": 216
+    },
+    {
+      "code": "orb",
+      "channel": "运营",
+      "row": 217
+    },
+    {
+      "code": "orbs",
+      "channel": "运营",
+      "row": 218
+    },
+    {
+      "code": "plute",
+      "channel": "运营",
+      "row": 219
+    },
+    {
+      "code": "pve88",
+      "channel": "运营",
+      "row": 220
+    },
+    {
+      "code": "qazx",
+      "channel": "运营",
+      "row": 221
+    },
+    {
+      "code": "qf",
+      "channel": "运营",
+      "row": 222
+    },
+    {
+      "code": "qpftemk4",
+      "channel": "运营",
+      "row": 223
+    },
+    {
+      "code": "reborn",
+      "channel": "运营",
+      "row": 224
+    },
+    {
+      "code": "return",
+      "channel": "运营",
+      "row": 225
+    },
+    {
+      "code": "rich",
+      "channel": "运营",
+      "row": 226
+    },
+    {
+      "code": "rota",
+      "channel": "运营",
+      "row": 227
+    },
+    {
+      "code": "rsfast",
+      "channel": "运营",
+      "row": 228
+    },
+    {
+      "code": "rsgoldfast",
+      "channel": "运营",
+      "row": 229
+    },
+    {
+      "code": "rsorder",
+      "channel": "运营",
+      "row": 230
+    },
+    {
+      "code": "rsorder2",
+      "channel": "运营",
+      "row": 231
+    },
+    {
+      "code": "rsorder3",
+      "channel": "运营",
+      "row": 232
+    },
+    {
+      "code": "rsorder4",
+      "channel": "运营",
+      "row": 233
+    },
+    {
+      "code": "rsorders10",
+      "channel": "运营",
+      "row": 234
+    },
+    {
+      "code": "sd11",
+      "channel": "运营",
+      "row": 235
+    },
+    {
+      "code": "sins",
+      "channel": "运营",
+      "row": 236
+    },
+    {
+      "code": "sold",
+      "channel": "运营",
+      "row": 237
+    },
+    {
+      "code": "thatdudekd",
+      "channel": "运营",
+      "row": 238
+    },
+    {
+      "code": "tit",
+      "channel": "运营",
+      "row": 239
+    },
+    {
+      "code": "vaal",
+      "channel": "运营",
+      "row": 240
+    },
+    {
+      "code": "vessel",
+      "channel": "运营",
+      "row": 241
+    },
+    {
+      "code": "vic",
+      "channel": "运营",
+      "row": 242
+    },
+    {
+      "code": "voh",
+      "channel": "运营",
+      "row": 243
+    },
+    {
+      "code": "welcome10",
+      "channel": "运营",
+      "row": 244
+    },
+    {
+      "code": "y2s2",
+      "channel": "运营",
+      "row": 245
+    },
+    {
+      "code": "zirk",
+      "channel": "运营",
+      "row": 246
+    },
+    {
+      "code": "6exp6",
+      "channel": "分销",
+      "row": 247
+    },
+    {
+      "code": "A6H9",
+      "channel": "分销",
+      "row": 248
+    },
+    {
+      "code": "AAZRI",
+      "channel": "分销",
+      "row": 249
+    },
+    {
+      "code": "AEGISARROW",
+      "channel": "分销",
+      "row": 250
+    },
+    {
+      "code": "ANGELFC",
+      "channel": "分销",
+      "row": 251
+    },
+    {
+      "code": "ANTHOOOO",
+      "channel": "分销",
+      "row": 252
+    },
+    {
+      "code": "APPLE",
+      "channel": "分销",
+      "row": 253
+    },
+    {
+      "code": "Apple",
+      "channel": "分销",
+      "row": 254
+    },
+    {
+      "code": "BARCAFC27",
+      "channel": "分销",
+      "row": 255
+    },
+    {
+      "code": "BINARIETTO",
+      "channel": "分销",
+      "row": 256
+    },
+    {
+      "code": "BLAKEKNOWS",
+      "channel": "分销",
+      "row": 257
+    },
+    {
+      "code": "BXDIEX",
+      "channel": "分销",
+      "row": 258
+    },
+    {
+      "code": "CADDY",
+      "channel": "分销",
+      "row": 259
+    },
+    {
+      "code": "CARDAK",
+      "channel": "分销",
+      "row": 260
+    },
+    {
+      "code": "CDC10",
+      "channel": "分销",
+      "row": 261
+    },
+    {
+      "code": "CHOCO22",
+      "channel": "分销",
+      "row": 262
+    },
+    {
+      "code": "CHOKITONKS",
+      "channel": "分销",
+      "row": 263
+    },
+    {
+      "code": "CHUPATACHON",
+      "channel": "分销",
+      "row": 264
+    },
+    {
+      "code": "CHUYIN",
+      "channel": "分销",
+      "row": 265
+    },
+    {
+      "code": "CLAPPS",
+      "channel": "分销",
+      "row": 266
+    },
+    {
+      "code": "CLAW",
+      "channel": "分销",
+      "row": 267
+    },
+    {
+      "code": "COLO10",
+      "channel": "分销",
+      "row": 268
+    },
+    {
+      "code": "CRACKIN",
+      "channel": "分销",
+      "row": 269
+    },
+    {
+      "code": "DA20",
+      "channel": "分销",
+      "row": 270
+    },
+    {
+      "code": "DADMODE",
+      "channel": "分销",
+      "row": 271
+    },
+    {
+      "code": "DANE",
+      "channel": "分销",
+      "row": 272
+    },
+    {
+      "code": "DOM27",
+      "channel": "分销",
+      "row": 273
+    },
+    {
+      "code": "DREACTOR",
+      "channel": "分销",
+      "row": 274
+    },
+    {
+      "code": "DROGBA",
+      "channel": "分销",
+      "row": 275
+    },
+    {
+      "code": "ELPVTRA",
+      "channel": "分销",
+      "row": 276
+    },
+    {
+      "code": "FAZICON",
+      "channel": "分销",
+      "row": 277
+    },
+    {
+      "code": "FC27COINS",
+      "channel": "分销",
+      "row": 278
+    },
+    {
+      "code": "FC27OFF",
+      "channel": "分销",
+      "row": 279
+    },
+    {
+      "code": "FREDDIE",
+      "channel": "分销",
+      "row": 280
+    },
+    {
+      "code": "FUEXT",
+      "channel": "分销",
+      "row": 281
+    },
+    {
+      "code": "GFORCE7",
+      "channel": "分销",
+      "row": 282
+    },
+    {
+      "code": "GHOST7",
+      "channel": "分销",
+      "row": 283
+    },
+    {
+      "code": "GLEB",
+      "channel": "分销",
+      "row": 284
+    },
+    {
+      "code": "GLITCHWRLD",
+      "channel": "分销",
+      "row": 285
+    },
+    {
+      "code": "GOLD",
+      "channel": "分销",
+      "row": 286
+    },
+    {
+      "code": "H3LIX8",
+      "channel": "分销",
+      "row": 287
+    },
+    {
+      "code": "ITTHATSCHEAP",
+      "channel": "分销",
+      "row": 288
+    },
+    {
+      "code": "JOHNNY",
+      "channel": "分销",
+      "row": 289
+    },
+    {
+      "code": "JUWA",
+      "channel": "分销",
+      "row": 290
+    },
+    {
+      "code": "LACHY95",
+      "channel": "分销",
+      "row": 291
+    },
+    {
+      "code": "LEGAL",
+      "channel": "分销",
+      "row": 292
+    },
+    {
+      "code": "LEGEND99",
+      "channel": "分销",
+      "row": 293
+    },
+    {
+      "code": "LUCABUFF",
+      "channel": "分销",
+      "row": 294
+    },
+    {
+      "code": "LUNE",
+      "channel": "分销",
+      "row": 295
+    },
+    {
+      "code": "LUUEEZY",
+      "channel": "分销",
+      "row": 296
+    },
+    {
+      "code": "MAGIC88",
+      "channel": "分销",
+      "row": 297
+    },
+    {
+      "code": "MAKI",
+      "channel": "分销",
+      "row": 298
+    },
+    {
+      "code": "MARTINI05",
+      "channel": "分销",
+      "row": 299
+    },
+    {
+      "code": "MAX17",
+      "channel": "分销",
+      "row": 300
+    },
+    {
+      "code": "MAXBONUS",
+      "channel": "分销",
+      "row": 301
+    },
+    {
+      "code": "MIKE08",
+      "channel": "分销",
+      "row": 302
+    },
+    {
+      "code": "MJCODES",
+      "channel": "分销",
+      "row": 303
+    },
+    {
+      "code": "MOENASTY",
+      "channel": "分销",
+      "row": 304
+    },
+    {
+      "code": "MYSTIC",
+      "channel": "分销",
+      "row": 305
+    },
+    {
+      "code": "NATHAN",
+      "channel": "分销",
+      "row": 306
+    },
+    {
+      "code": "ODRL",
+      "channel": "分销",
+      "row": 307
+    },
+    {
+      "code": "ORIN",
+      "channel": "分销",
+      "row": 308
+    },
+    {
+      "code": "PRETTYANGEL",
+      "channel": "分销",
+      "row": 309
+    },
+    {
+      "code": "REZZ",
+      "channel": "分销",
+      "row": 310
+    },
+    {
+      "code": "ROBO",
+      "channel": "分销",
+      "row": 311
+    },
+    {
+      "code": "SAGEFC",
+      "channel": "分销",
+      "row": 312
+    },
+    {
+      "code": "SAVE",
+      "channel": "分销",
+      "row": 313
+    },
+    {
+      "code": "SAVE8",
+      "channel": "分销",
+      "row": 314
+    },
+    {
+      "code": "SHAM",
+      "channel": "分销",
+      "row": 315
+    },
+    {
+      "code": "SHIFU99",
+      "channel": "分销",
+      "row": 316
+    },
+    {
+      "code": "SHIPTHEDEAL",
+      "channel": "分销",
+      "row": 317
+    },
+    {
+      "code": "SHISUI22",
+      "channel": "分销",
+      "row": 318
+    },
+    {
+      "code": "SIARRA92",
+      "channel": "分销",
+      "row": 319
+    },
+    {
+      "code": "SIMPLYCODES",
+      "channel": "分销",
+      "row": 320
+    },
+    {
+      "code": "SLAYEM40",
+      "channel": "分销",
+      "row": 321
+    },
+    {
+      "code": "SMOOTH",
+      "channel": "分销",
+      "row": 322
+    },
+    {
+      "code": "SNXGY",
+      "channel": "分销",
+      "row": 323
+    },
+    {
+      "code": "SPEIGHTY",
+      "channel": "分销",
+      "row": 324
+    },
+    {
+      "code": "STOCK",
+      "channel": "分销",
+      "row": 325
+    },
+    {
+      "code": "TEDDY1887",
+      "channel": "分销",
+      "row": 326
+    },
+    {
+      "code": "THELOUNGE",
+      "channel": "分销",
+      "row": 327
+    },
+    {
+      "code": "TNR1273912",
+      "channel": "分销",
+      "row": 328
+    },
+    {
+      "code": "TONYGCOINS",
+      "channel": "分销",
+      "row": 329
+    },
+    {
+      "code": "UZILOL",
+      "channel": "分销",
+      "row": 330
+    },
+    {
+      "code": "XWARPZ",
+      "channel": "分销",
+      "row": 331
+    },
+    {
+      "code": "focus",
+      "channel": "分销",
+      "row": 332
+    },
+    {
+      "code": "gatzkiee",
+      "channel": "分销",
+      "row": 333
+    },
+    {
+      "code": "johnnycanal",
+      "channel": "分销",
+      "row": 334
+    },
+    {
+      "code": "lpa",
+      "channel": "分销",
+      "row": 335
+    },
+    {
+      "code": "peach",
+      "channel": "分销",
+      "row": 336
+    },
+    {
+      "code": "reviewsguide",
+      "channel": "分销",
+      "row": 337
+    },
+    {
+      "code": "rocco",
+      "channel": "分销",
+      "row": 338
+    },
+    {
+      "code": "simplycoders",
+      "channel": "分销",
+      "row": 339
+    },
+    {
+      "code": "Kina",
+      "channel": "Tiktok",
+      "row": 340
+    },
+    {
+      "code": "Aion2",
+      "channel": "Tiktok",
+      "row": 341
+    },
+    {
+      "code": "CFB",
+      "channel": "Tiktok",
+      "row": 342
+    },
+    {
+      "code": "NFL",
+      "channel": "Tiktok",
+      "row": 343
+    },
+    {
+      "code": "SPORT",
+      "channel": "Tiktok",
+      "row": 344
+    },
+    {
+      "code": "Aion2",
+      "channel": "Tiktok",
+      "row": 345
+    },
+    {
+      "code": "Diablo",
+      "channel": "Tiktok",
+      "row": 346
+    },
+    {
+      "code": "eld",
+      "channel": "Tiktok",
+      "row": 347
+    },
+    {
+      "code": "FC26",
+      "channel": "Tiktok",
+      "row": 348
+    },
+    {
+      "code": "FC27",
+      "channel": "Tiktok",
+      "row": 349
+    },
+    {
+      "code": "MLB26",
+      "channel": "Tiktok",
+      "row": 350
+    },
+    {
+      "code": "NBA2K",
+      "channel": "Tiktok",
+      "row": 351
+    },
+    {
+      "code": "NFL27",
+      "channel": "Tiktok",
+      "row": 352
+    },
+    {
+      "code": "POE2",
+      "channel": "Tiktok",
+      "row": 353
+    },
+    {
+      "code": "angle",
+      "channel": "SEO",
+      "row": 354
+    },
+    {
+      "code": "bubbles",
+      "channel": "SEO",
+      "row": 355
+    },
+    {
+      "code": "byd",
+      "channel": "SEO",
+      "row": 356
+    },
+    {
+      "code": "candy",
+      "channel": "SEO",
+      "row": 357
+    },
+    {
+      "code": "east",
+      "channel": "SEO",
+      "row": 358
+    },
+    {
+      "code": "fish",
+      "channel": "SEO",
+      "row": 359
+    },
+    {
+      "code": "lily",
+      "channel": "SEO",
+      "row": 360
+    },
+    {
+      "code": "pizza",
+      "channel": "SEO",
+      "row": 361
+    },
+    {
+      "code": "winter",
+      "channel": "SEO",
+      "row": 362
+    },
+    {
+      "code": "kf10",
+      "channel": "私域",
+      "row": 363
+    },
+    {
+      "code": "promo",
+      "channel": "私域",
+      "row": 364
+    },
+    {
+      "code": "save10",
+      "channel": "私域",
+      "row": 365
+    },
+    {
+      "code": "sunrise",
+      "channel": "私域",
+      "row": 366
+    },
+    {
+      "code": "supper",
+      "channel": "私域",
+      "row": 367
+    },
+    {
+      "code": "svip",
+      "channel": "私域",
+      "row": 368
+    },
+    {
+      "code": "vip",
+      "channel": "私域",
+      "row": 369
+    },
+    {
+      "code": "TOMYJOHN",
+      "channel": "分销",
+      "row": 370
+    },
+    {
+      "code": "gio",
+      "channel": "KOL",
+      "row": 371
+    },
+    {
+      "code": "nugfut",
+      "channel": "运营",
+      "row": 372
+    },
+    {
+      "code": "poe5",
+      "channel": "谷歌广告",
+      "row": 373
+    },
+    {
+      "code": "poebr5",
+      "channel": "谷歌广告",
+      "row": 374
+    }
+  ]
+}
