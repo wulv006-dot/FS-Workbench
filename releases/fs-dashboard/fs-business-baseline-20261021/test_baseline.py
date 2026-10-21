@@ -56,10 +56,15 @@ class BaselineTests(unittest.TestCase):
         row={v:'' for v in es.COLUMNS.values()}
         row.update({'订单号':'test-order','付款时间':'2026/10/20 12:00:00','游戏':'FC 27','折扣码':'22cor','折扣金额':'1','订单金额（美元）':'10'})
         dataset=es.make_dataset([row],['d'*64],0,1,0)
+        dataset['captured_at']='2026-10-20T23:00:00+00:00'
         query=dict(profile='FC27',start='2026-10-20',end='2026-10-20',group_by='discount_channel')
         with patch.object(es,'archived_dataset',return_value=dataset),patch.object(es,'_server_bundle',side_effect=AssertionError('network source must not run')):
             result=es.server_bundle(query)
         self.assertEqual(result['snapshots'][0]['value']['groups'][0]['label'],'KOL')
+        self.assertEqual(result['snapshots'][0]['value']['captured_at'],dataset['captured_at'])
+        self.assertIn('aggregated_at',result['snapshots'][0]['value']['quality'])
+        with patch.object(es,'archived_dataset',return_value=dict(dataset,captured_at=None)):
+            self.assertIsNone(es.server_bundle(query)['snapshots'][0]['value']['captured_at'])
         with patch.object(es,'archived_dataset',return_value=None),patch.object(es,'_server_bundle',side_effect=AssertionError('network source must not run')):
             self.assertEqual(es.server_bundle(query)['reason'],'coupon_period_export_unavailable')
 
