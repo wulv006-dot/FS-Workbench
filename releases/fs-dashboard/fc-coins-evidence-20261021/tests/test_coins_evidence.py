@@ -77,6 +77,38 @@ class EvidenceTests(unittest.TestCase):
     def test_missing_cache_does_not_collect(self):
         with patch.object(self.reader,'channel_data',return_value=None):v=self.reader(self.q)
         self.assertEqual(v['status'],'not_available');self.assertFalse(v['collection_triggered'])
+    def test_current_exact_cache_preserves_source_age_and_never_collects(self):
+        from channel_effects import VERSION
+        period={k:self.q[k] for k in ('start','end')};data=self.fixture([row('A')])[0]
+        self.reader.channel_root=self.root
+        key=hashlib.sha256((VERSION+json.dumps(period,sort_keys=True)).encode()).hexdigest()[:24]
+        (self.root/(key+'.json')).write_text(json.dumps(data))
+        with patch('channel_cache.compose',return_value=None),patch('channel_cache.apply_delivery_cache',side_effect=lambda d,**kw:d),patch('channel_source.apply_customer_types',side_effect=lambda d:d),patch('channel_source.apply_cost_overrides',side_effect=lambda d:d):
+            value=self.reader.channel_data(period)
+        self.assertEqual(value['orders'],data['orders'])
+        self.assertEqual(value['generatedAt'],data['generatedAt'])
+        self.assertIn('not_freshness_guarantee',value['coinsCacheBasis'])
+    def test_exact_cache_rejects_other_period_or_incomplete_coupon_source(self):
+        from channel_effects import VERSION
+        period={k:self.q[k] for k in ('start','end')};self.reader.channel_root=self.root
+        key=hashlib.sha256((VERSION+json.dumps(period,sort_keys=True)).encode()).hexdigest()[:24]
+        for changed in ('period','source'):
+            data=self.fixture([row('A')])[0]
+            if changed=='period':data['period']['start']='2026-10-19'
+            else:data['sources']['coupons']['status']='partial'
+            (self.root/(key+'.json')).write_text(json.dumps(data))
+            with patch('channel_cache.compose',return_value=None),self.assertRaisesRegex(ValueError,'coins_live_cache_scope_or_coverage'):
+                self.reader.channel_data(period)
+    def test_promotion_usage_has_mutually_exclusive_groups_and_unknown_eligibility(self):
+        value=self.costs(self.fixture([row('A',coupons=[{'templateId':'1289'},{'templateId':'1289'}]),row('B',codeKey='secret-code'),row('C',status='已退款',refunded=True),row('D',status='验证未通过')]))
+        usage=value['promotion_usage']
+        self.assertEqual(usage['orders'],2)
+        self.assertEqual(sum(r['orders'] for r in usage['groups']),2)
+        self.assertEqual({tuple(r['coupon_template_ids']):r['orders'] for r in usage['groups']},{():1,('1289',):1})
+        self.assertIn('unknown',usage['eligibility_denominator'])
+        self.assertTrue(usage['no_coupon_does_not_mean_no_discount'])
+        self.assertEqual(value['summary']['profitCny'],42)
+        self.assertNotIn('secret-code',json.dumps(value))
     def test_duplicate_and_wrong_day_rejected(self):
         for rows in ([row('A'),row('A')],[row('A',day='2026-10-19')]):
             with self.assertRaises(ValueError):self.costs(self.fixture(rows))

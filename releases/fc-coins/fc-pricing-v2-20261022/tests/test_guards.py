@@ -102,6 +102,20 @@ class FinalGuards(unittest.TestCase):
                 self.assertEqual(len(calls),1);self.assertEqual(first['phase'],second['phase'])
                 self.assertTrue(first['do_not_replay']);self.assertEqual(first['phase'],'unknown')
 
+    def test_feedback_contract_is_sent_in_actual_review_turn(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'evidence').mkdir();calls=[]
+            def request(owner,path,body=None):
+                calls.append((path,body))
+                return {'conversation_id':'feedback-conversation'} if path=='/api/hermes/conversations' else {'turn_id':'feedback-turn'}
+            with patch.object(bridge,'ROOT',root),patch.object(bridge,'FS',root),patch.object(bridge,'request',request),patch.object(bridge,'save',lambda path,value:path.write_text(json.dumps(value))),patch.object(bridge.os,'chown',lambda *a:None,create=True),patch('pricing_operations.grant'),patch.object(bridge,'turn_state',return_value={'state':'completed','task_id':'feedback-task'}),patch.object(bridge,'recommendation',return_value=None):
+                result=bridge.review({'job_id':RUN,'actor':'wulv'},quoted(),wait_seconds=0)
+            self.assertEqual(result['phase'],'completed')
+            text=calls[1][1]['text']
+            for expected in ('同范围采购毛利额','promotion_usage','不同交易时刻','24–48','程序baseline'):
+                self.assertIn(expected,text)
+            self.assertEqual([path for path,body in calls],['/api/hermes/conversations','/api/hermes/conversations/feedback-conversation/turns'])
+
     def test_publisher_target_whitelist_and_new_file_boundary(self):
         path=SOURCE.parent/'deploy/release.py';spec=importlib.util.spec_from_file_location('pricing_release_contract',path)
         release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)

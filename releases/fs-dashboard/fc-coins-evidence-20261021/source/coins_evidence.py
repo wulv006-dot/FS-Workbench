@@ -87,8 +87,17 @@ class CoinsEvidence:
     def channel_data(self,period):
         from channel_cache import compose,apply_delivery_cache
         from channel_source import apply_customer_types,apply_cost_overrides
+        from channel_effects import VERSION
         data=compose(period,root=self.channel_root)
-        if data is None:return None
+        if data is None:
+            # Today is not a closed-day archive; reuse its exact canonical FS cache.
+            key=hashlib.sha256((VERSION+json.dumps(period,sort_keys=True)).encode()).hexdigest()[:24]
+            path=self.channel_root/(key+'.json')
+            if not path.exists():return None
+            data,_=read_json(path)
+            if data.get('period')!=period or any(data.get('sources',{}).get(n,{}).get('status')!='complete' for n in ('orders','coupons')):
+                raise ValueError('coins_live_cache_scope_or_coverage')
+            data=dict(data,coinsCacheBasis='canonical_exact_range_cache; generatedAt_is_source_time_not_freshness_guarantee')
         return apply_cost_overrides(apply_customer_types(apply_delivery_cache(data,root=self.channel_root)))
 
     def history(self,q):
@@ -166,13 +175,25 @@ class CoinsEvidence:
             groups[field]=[{'label':k,**stats(v)} for k,v in sorted(buckets.items())]
         coupon=[r for r in selected if r['coupons']]
         codes=[r for r in selected if r.get('codeKey') or r.get('promoterUid')]
+        valid=[r for r in selected if not r.get('testOrder') and not fraud(r) and not r['refunded']]
+        usage=defaultdict(list)
+        for row in valid:
+            usage[tuple(sorted({safe_label(c['templateId']) for c in row['coupons']}))].append(row)
+        promotion_usage=dict(population='identified_Coins_nonrefund_nonfraud_nontest_orders',orders=len(valid),
+            groups=[dict(coupon_template_ids=list(k),**stats(v)) for k,v in sorted(usage.items())],
+            eligibility_denominator='unknown_not_inferred_from_new_customer_flag',
+            historical_usage_is_not_future_probability=True,
+            no_coupon_does_not_mean_no_discount=True,
+            forecast_status='not_computed_requires_package_quantities_current_terms_and_demand_assumptions')
         summary=stats(selected)
         checks={'counts_reconcile':summary['orders']==summary['completedOrders']+summary['pendingOrders']+summary['refundedOrders'],
             'cost_coverage_reconciles':summary['completedOrders']==summary['coveredOrders']+summary['missingCostOrders'],
             'covered_profit_identity':summary['profitCny'] is None or abs(Decimal(str(summary['saleCny']))-Decimal(str(summary['costCny']))-Decimal(str(summary['profitCny'])))<=Decimal('.01')}
         if not all(checks.values()):raise ValueError('coins_accounting_identity_failed')
         return {'status':'available' if revenue_ready and coverage['complete'] and not excluded.get('missing_es_product') and not summary['missingCostOrders'] and not summary['missingRevenueOrders'] else 'partial','revenue_basis':'admin_order_cny' if revenue_ready else 'legacy_delivery','captured_at':data['generatedAt'],'source_times':{'orders_and_coupons':data['generatedAt'],'cost':data['sources']['cost'].get('generatedAt'),'es':coverage['captured_at'],'platform':paid.get('as_of')},
+          'cache_basis':data.get('coinsCacheBasis','closed_day_archive'),
           'summary':summary,'groups':groups,'coupon_orders':stats(coupon),'code_or_referrer_orders':stats(codes),'coupon_and_code_overlap':stats([r for r in coupon if r.get('codeKey') or r.get('promoterUid')]),
+          'promotion_usage':promotion_usage,
           'coverage':{'fc_project_orders':len(fc),'coins_selected':len(selected),'excluded_product_orders':dict(excluded),'es':coverage,'platform_unknown_orders':sum(r['platform']=='unknown' for r in selected),'package_quantity':'not_retained_in_channel_archive','historical_net_refund_settlement':'unverified'},
           'quality_checks':checks,'sources':data['sources'],
           'rule':'FC27 main-site ES exact Gold orders only. Admin whole-order CNY revenue is counted once against actual linked purchase cost for completed covered orders; legacy_delivery means the whole range still uses old delivery income pending migration. Fraud is excluded. USD order/discount amounts remain separate. These are not SKU net revenue, USD profit, ad-after contribution, final settlement or causal price effects. Do not deduct already-net discounts twice. Coupon and code groups overlap; do not sum them. Existing product formulas and automation remain unchanged.'}
