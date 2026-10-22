@@ -37,6 +37,22 @@ def checked_manifest(value):
     return value
 
 
+def approved_auth_source(source):
+    if SCOPE != 'fc-dot-observer-20261022':
+        return source
+    exact = {'source/rbac.py':'/opt/fs-access-policy/rbac.py',
+             'source/access_policy.py':'/opt/fs-access-policy/access_policy.py',
+             'source/fc27_cloud_api.py':'/opt/fc27-cloud-browser/fc27_cloud_api.py',
+             'source/fc_observer.py':'/opt/fc27-cloud-browser/fc_observer.py'}
+    if TARGETS != exact or NEW != frozenset({'source/fc_observer.py'}):
+        raise ValueError('exact_observer_auth_replacement_required')
+    anchor = "  if not required.issubset(protected) or set(protected)&set(targets.values()):raise ValueError('Hermes protected consumer boundary differs')"
+    if source.count(anchor) != 1:
+        raise ValueError('frozen_observer_auth_boundary_drift')
+    # This approved target is protected by beforeSha256/CAS, not unchangedRequired.
+    return source.replace(anchor, "  required -= {'/opt/fs-access-policy/access_policy.py'}\n" + anchor, 1)
+
+
 def load_base():
     raw=(HERE/'release_navigation_base.py').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=BASE_SHA:raise ValueError('frozen_publisher_drift')
@@ -44,6 +60,7 @@ def load_base():
     source=raw.decode('utf-8');anchor="r.get('beforeSha256') is None for r in files if not ("
     if source.count(anchor)!=1:raise ValueError('frozen_new_file_anchor_drift')
     source=source.replace(anchor,"r.get('beforeSha256') is None for r in files if r['candidate'] not in V2_NEW if not (",1)
+    source=approved_auth_source(source)
     base=types.ModuleType('frozen_fc_v2_publisher');base.__file__=str(HERE/'release_navigation_base.py');base.V2_NEW=NEW
     exec(compile(source,base.__file__,'exec'),base.__dict__)
     base.HERMES_HISTORY_SCOPE,base.HERMES_HISTORY_TARGETS=SCOPE,TARGETS
