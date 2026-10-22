@@ -1186,13 +1186,18 @@ def local_job_history(con, days=7, status="", kind="", q="", page=1, size=50,
         "       attempts,agent,actor,coalesce(exec_mode,'local') AS exec_mode,"
         "       coalesce(result_json,'') AS result_json,"
         "       substr(coalesce(log,''),1,600) AS log_head,"
+        "       substr(coalesce(log,''),-1600) AS log_tail,"
         "       length(coalesce(log,'')) AS log_len"
         "  FROM local_job" + w + " ORDER BY ts DESC LIMIT ? OFFSET ?",
         p + [size, (page - 1) * size]).fetchall()
     out = []
     for r in rows:
         d = dict(r)
-        d["error_hint"] = _job_error_hint(d.get("log_head")) if d.get("status") == "failed" else ""
+        # ⚠ 失败原因必须从**尾部**取：派单日志的开头是 55 个区服的清单，
+        #   Traceback 在最后。用 log_head 会把「派单（服务器执行）：Asia · Ariel…」
+        #   当成死因（2026-10-22 实测踩过）。
+        d["error_hint"] = _job_error_hint(d.pop("log_tail", "")) \
+            if d.get("status") == "failed" else ""
         out.append(d)
     # 每日汇总（同口径、不分页）—— 用 GROUP BY 而不是窗口函数（sqlite 3.7.17）
     daily = {}
