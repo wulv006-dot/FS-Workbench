@@ -1,5 +1,7 @@
 # Dot 专用只读身份
 
+最新r4（13:16）：改密页面静态修复已上线并读回；角色变更待用户核定，新身份使用/接管暂停。页面真实私密改密尚未验，原Work观察及服务器周期保持。详见[当前交付](DOT-ACCESS.md)。
+
 状态（12:27）：代码已受控上线，专用身份已创建，服务器真实HTTPS允许/拒绝及同会话权限撤销通过；Dot私密登录交付和云端接管未完成。以下r3实际回执覆盖r2旧提案中的“未创建/待授权”。
 
 授权依据：老D原任务转交2026-10-22 03:44UTC用户“允许”，消息Sentinel_367f8b7d98348191b686d6b54b2f3033，目标dot_fc_observer及精确FC状态/监控/报价和已审查的任务状态；本Work唯一实施。对端主对话在本工具未返回历史正文，保留转交的原问题、答复及消息标识，不冒称独立读到用户原页面。
@@ -53,3 +55,34 @@ API针对该专用身份投影白名单：配置状态、源时点与报价成�
 用户实做报“成员标识无效”。活动成员数据给内置账号返回裸subject，页面将其原样发给要求native:subject的改密接口；下划线符合原规则。原两次POST400，权威账号仍native:dot_fc_observer/version3/enabled1。12:37以前“可在现有页自设”的建议暂不可执行，勿反复尝试；接口级验收未覆盖该页面合同，原服务器验收不能代替页面端到端验收。
 
 最小候选为仅修改setPassword请求体：kind=native时使用native:加m.name，注册账号保留m.subject；不改成员角色标识、正则、管理员/CSRF/库存存在校验、长度、PBKDF2或会话撤销。当前仅诊断/本地记录，尚无修复代码、PR、上线或页面实测；由老D主对话协调精确实施范围。尚无已核验替代私密页面；不得索取密码、在控制台粘贴脚本或绕过产品保护。此补充未同步远端文档/Notion，最新本Work HANDOFF为接续依据。
+
+
+## r4：13:08改密页面修复已上线；新身份使用及接管暂停（2026-10-22）
+
+本节覆盖12:46“页面尚未修复”，保留原两次400及接口验收未覆盖页面的事实。PR339最终head `4dd30bbb4e34bf03ed228a583d1605166ca31263`、merge `f5f5355151aa1530dbc11b6cd44545683b5378c2`；保留PR337并行更新后，正式pr-fast `39725708600/job119648987201`成功。Node12场景及双Linux各控制台30/权限22通过。完整分发器自检在Ubuntu正式CI执行：服务器缺Git、Windows不能创建Linux换行文件名夹具，这些环境失败保留，未删除或放宽CI断言。
+
+页面setPassword仅按服务端kind=native构造native:+m.name，注册账号保持m.subject；角色绑定仍用裸用户名，后端正则/管理员/CSRF/密码长度/PBKDF2/会话撤销不改。保留活动共享导航，代码差异只有该行及末尾补换行。
+
+原publisher于13:08:13发布 `nav-20261022T050813Z`，manifest `8f56fa92b5002d5535a990bf122d69b41de2266a82983cd1ea93518d1c91688f`，stage `/opt/fs-release-stage/iam-password-contract-4dd30bbb4e34`；1目标/139保护共140SHA吻合，备份 `/var/backups/fs-navigation-20261006/nav-20261022T050813Z`，无服务重启、密码/权限/价格或周期写入。保留MapleStory原journal `workspace-native-20261006-e17a041d4294`及Nginx SHA `df08e52cde5ce98723ec0819285a27028b6d67516bb17ad877e7d1cafa8efb45`，未用旧保护清单回退他人上线。
+
+13:08:57真实页面与app.js均200，JS SHA `da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d`，no-store。全新匿名浏览器对实际脚本做仅测试用内存插桩，原生请求为native:dot_fc_observer，注册仍reg:UUID；全部POST在浏览器内截断，服务器收到0个测试POST。没有读取用户输入、代设密码或重用会话。账号仍enabled/version3；用户真实私密改密/新身份登录尚未验收，不把浏览器模拟成功称真实改密成功。
+
+### 角色变更只读审计与当前暂停
+
+12:38:36原 `POST /__auth/access/api/member/roles` 返回200，IAM generation13→14，revision `84e54e25015f20b9`；审计actor为已认证主体wulv，不能据此认定实际真人。角色由FCObserver变为Analyst、ArpgOps、Auditor、CollabEditor、Deployer、FCObserver、PricingOps、SportsOps。generation13原policy.json.bak与当前四项edit/execute/deploy/manage显式deny完全一致。本Work未改变或回退这些角色；老D已向用户核定，未答前新身份使用/接管暂停。
+
+现行实际策略离线求值480组合，额外允许读取0、写入/部署允许0；专用主体硬白名单仍限定精确GET automation、monitor、pricing/state和审查后Coins jobs。此为现行策略离线求值，不是新身份真实HTTP登录验收。额外角色不能据此视作已获授权或永久保留。
+
+13:16使用原生单FCObserver非秘密夹具，在匿名隔离浏览器执行现行openMember/saveMember：10个角色框只默认勾选FCObserver，请求只含FCObserver；所有POST截断、真实角色写入0，未复现默认全选。当前源码无成员全选动作，按m.roles逐项勾选、只提交checked；缺当时DOM及请求体，既不认定人为主动全选，也不宣称排除历史异常。
+
+私有证据 `/tmp/iam-password-contract-20261022/{release-result.json,browser-readback.json,final-readback.json,role-audit.json}`；本机同名私有目录还有role-ui-readback.json。原400、来源前缀根因、旧接口验证及失败均保留。云端protected_command_failed及私密交付/续期/调度/唯一责任仍未完成，不重试保护操作。
+
+13:12原监控140SHA无漂移、v13/rev40/on/auto/120/min10、queue0/incomplete0，公开仍521c/10:41旧观察，下一原周期14:12:49。Coins10:08收入/10:43成本/00:57Z ES仍partial，营销准确区间pending，不补零、不据此判断新价效果。原监控已原子更新合法stage引用并留旧引用；原Work观察继续、FS唯一writer，不新增采价/模型/监控任务。
+
+### 13:19 staging来源复核与仓库重建缺口（仅核证据，未扩施工）
+
+已读取PR339原评审 discussion_r4344699443。实际准备由 `/tmp/iam-password-contract-20261022/stage.py` 从head4dd30bbb4e34bf03ed228a583d1605166ca31263的 `opt/fs-access-policy/web/app.js` 读取，写入 `/opt/fs-release-stage/iam-password-contract-4dd30bbb4e34/candidate/source/app.js`。Git源、staging候选、线上文件及真实HTTPS读回均为SHA `da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d`。
+
+原意图 `/tmp/iam-password-contract-20261022/release-intent.json`，release `nav-20261022T050813Z`；原回执release-result.json及备份journal的批准SHA均与manifest `8f56fa92b5002d5535a990bf122d69b41de2266a82983cd1ea93518d1c91688f`吻合。journal仍保留原applied-awaiting-actual-http-role-acceptance，浏览器读取/隔离请求构造另有回执，不改写旧状态为真实私密改密已成功。
+
+评审指出的仓库复建缺口成立：PR339提交了固定资产 `opt/fs-access-policy/web/app.js` 和wrapper，但没有提交从该源组装candidate/source/app.js的准备脚本；本次用了已保留的私有stage.py，不能把本次上线成功称“只靠仓库即可完整重建”。本轮按协调仅核证据，不修改发布器或补工程；后续重建任务须显式保留来源映射及原锁/CAS链，不能直接拿wrapper当完整发布包。
