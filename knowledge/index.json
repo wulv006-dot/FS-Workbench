@@ -1,0 +1,418 @@
+{
+  "contract": "fs-knowledge-index-v1",
+  "release": "knowledge-layering-20261023-candidate-1",
+  "release_state": "candidate",
+  "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+  "entries": [
+    {
+      "id": "fs.data.sources",
+      "revision": "baseline-v15",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27"
+      ],
+      "effective_at": "2026-10-21",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 1. 取数原则与来源分工",
+          "end": "## 2. 订单详情与问题原因"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fs.data.currency",
+      "revision": "baseline-v15",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27"
+      ],
+      "effective_at": "2026-10-18",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "- 订单金额 USD；",
+          "end": "- 无码不等于"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fs.customer.identity",
+      "revision": "baseline-v15",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27"
+      ],
+      "effective_at": "2026-10-18",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "- UID=0 是正常游客",
+          "end": "- 新客订单数不等于"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.marketing.attribution",
+      "revision": "v15-pmax-20261022",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
+        "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 7. 折扣码、订单来源与流量归因",
+          "end": "## 8. 产品身份和查询边界"
+        }
+      },
+      "supersedes": [
+        "fc.marketing.attribution@baseline-v15"
+      ],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmation",
+          "date": "2026-10-23",
+          "decision": "knowledge/decisions/pmax-authority-20261023.md"
+        },
+        {
+          "kind": "existing_fc_source",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only",
+      "topics": [
+        "marketing"
+      ]
+    },
+    {
+      "id": "fs.finance.procurement",
+      "revision": "baseline-v15",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
+          "end": "## FC Coins受控自动决策与执行"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.pricing.constraints",
+      "revision": "v15",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md",
+        "sha256": "663c5b9613d6e58d3cd8dc227715c6fb25488c7619489b4099ea23805cb38740",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "# FC Coins 当前双红线（v15）",
+          "end": "\n当前验收："
+        }
+      },
+      "supersedes": [
+        "fc.pricing.constraints@v13",
+        "fc.pricing.constraints@v14"
+      ],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.pricing.decision-v15",
+      "revision": "2026-10-22",
+      "layer": "decision",
+      "status": "confirmed",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md",
+        "sha256": "663c5b9613d6e58d3cd8dc227715c6fb25488c7619489b4099ea23805cb38740",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "# FC Coins 当前双红线（v15）",
+          "end": "\n同一候选同时满足："
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fs.experience.archive-cycle",
+      "revision": "2026-10-22",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FS"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-daily-archive-20261021/DELIVERY.md",
+        "sha256": "50172e86b6f007b27b203270e0ba0f0afcc7e9725750f4cd51efef144c1a73f0",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-daily-archive-20261021/DELIVERY.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.history.natural-1821",
+      "revision": "2026-10-22",
+      "layer": "archive",
+      "status": "archived",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fc-pricing-v2-20261022/NATURAL-1821-REPORT.md",
+        "sha256": "122f0be96b6e1070fc8a6b4d23391091ac4a875d7c5802e6ab4ce31ac44649e0",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fc-pricing-v2-20261022/NATURAL-1821-REPORT.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fs.candidate.layering",
+      "revision": "proposal-1",
+      "layer": "candidate",
+      "status": "pending",
+      "modules": [
+        "FS"
+      ],
+      "effective_at": null,
+      "recorded_at": "2026-10-23",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/CANDIDATES.md",
+        "sha256": "37ec1e248fe7d3044d300a472242596b2d63baf20806b298f7d395632503bd81",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "local_candidate",
+          "path": "knowledge/CANDIDATES.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.marketing.attribution",
+      "revision": "baseline-v15",
+      "layer": "archive",
+      "status": "retired",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-22",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source": {
+        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 7. 折扣码、订单来源与流量归因",
+          "end": "## 8. 产品身份和查询边界"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "existing_confirmed_document",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only",
+      "topics": [
+        "marketing"
+      ]
+    },
+    {
+      "id": "fs.decision.pmax-authority-20261023",
+      "revision": "2026-10-23",
+      "layer": "decision",
+      "status": "confirmed",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-23",
+      "time_precision": "date_only",
+      "owner": "吴律；FC原模块维护者",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/decisions/pmax-authority-20261023.md",
+        "sha256": "1f82609002799891a0c7172d56e45a40af428c83b5ca4f946c88f14babe9a7bb",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmation",
+          "date": "2026-10-23",
+          "decision": "knowledge/decisions/pmax-authority-20261023.md"
+        }
+      ]
+    }
+  ]
+}
