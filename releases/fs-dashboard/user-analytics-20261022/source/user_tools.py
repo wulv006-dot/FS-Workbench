@@ -10,6 +10,7 @@ PROPERTIES = {
     'as_of': {'type': 'string'}, 'policy_version': {'type': 'string'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30]},
+    'evidence_id': {'type': 'string'},
 }
 DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval purchasers, verified first/old/unknown buyers '
                'are separate from end-date recent/silent/lost/long-lost states. Guest customers are included. '
@@ -27,8 +28,28 @@ def schema(name):
 def invoke(service, user, args):
     if not isinstance(args, dict) or set(args) - set(PROPERTIES):
         raise ValueError('user_tool_fields')
+    args = dict(args)
+    if 'evidence_id' in args:
+        evidence = args.pop('evidence_id')
+        if not isinstance(evidence, str) or len(evidence) != 35 or not evidence.startswith('ua_'):
+            raise ValueError('user_evidence_id')
+        snapshot = 'us_' + evidence[3:]
+        if args.get('snapshot_id', snapshot) != snapshot:
+            raise ValueError('user_evidence_snapshot_mismatch')
+        args['snapshot_id'] = snapshot
     value = service.query(args, user)
     aggregate_only(value)
+    return value
+
+
+def runtime_invoke(owner, args, detail=None):
+    from user_runtime import build
+    value = invoke(build(), owner, args)
+    if detail is not None:
+        from workspace_evidence import save
+        archive = save(detail, 'user_analytics', value['query'], value)
+        if archive.get('archive_id'):
+            value = dict(value, workspace_archive_id=archive['archive_id'])
     return value
 
 

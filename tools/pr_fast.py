@@ -25,6 +25,7 @@ import io,json,socket,subprocess,sys,unittest
 import unittest.mock
 from pathlib import Path
 root=Path(sys.argv[1]);sys.path[:0]=[str(root/sys.argv[2]),str(root)]
+sys.path.append(str(root/'releases/fs-dashboard/user-analytics-20261022/source'))
 real=socket.socket.connect
 def local(self,address):
     if isinstance(address,tuple) and address[0] not in ('127.0.0.1','localhost','::1'):
@@ -695,7 +696,7 @@ def main():
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
         elif group=="user-analytics":
-            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users"])
+            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")

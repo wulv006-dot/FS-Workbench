@@ -1,12 +1,369 @@
 {
-  "scope_version": "connected-sites-v1",
+  "scope_version": "connected-sites-v2",
   "identity_version": "exact-primary-email-v1",
   "full_company_coverage": false,
-  "sites": {"266": {"label": "MMOEXP", "verified_identity_group": null}},
-  "projects": {"1327": {"label": "FC27", "series": "FC"}},
-  "policies": {"common-v1": [30, 60, 90], "fc-v1": [14, 30, 90]},
+  "sites": {
+    "266": {
+      "label": "MMOEXP",
+      "verified_identity_group": null
+    }
+  },
+  "projects": {
+    "1327": {
+      "label": "FC27",
+      "series": "FC",
+      "policy": "fc-v1"
+    },
+    "1329": {
+      "label": "NBA 2K27",
+      "series": "NBA2K"
+    },
+    "456": {
+      "label": "Diablo 4",
+      "series": "Diablo"
+    },
+    "891": {
+      "label": "Aion 2",
+      "series": "Aion"
+    },
+    "552": {
+      "label": "POE2",
+      "series": "Path of Exile"
+    },
+    "925": {
+      "label": "ARC Raiders"
+    },
+    "1309": {
+      "label": "Madden NFL 27",
+      "series": "Madden"
+    },
+    "927": {
+      "label": "MLB 26",
+      "series": "MLB"
+    },
+    "1307": {
+      "label": "College Football 27",
+      "series": "College Football"
+    },
+    "641": {
+      "label": "Skull and Bones"
+    },
+    "201": {
+      "label": "Star Citizen"
+    },
+    "384": {
+      "label": "WoW Classic 20th Anniversary"
+    },
+    "157": {
+      "label": "POE"
+    },
+    "532": {
+      "label": "Elden Ring"
+    },
+    "743": {
+      "label": "Monopoly Go"
+    },
+    "589": {
+      "label": "Dark and Darker"
+    },
+    "621": {
+      "label": "Mir 4"
+    },
+    "859": {
+      "label": "CoD: Black Ops 7"
+    },
+    "530": {
+      "label": "Diablo II: Resurrected"
+    },
+    "847": {
+      "label": "Dune: Awakening"
+    },
+    "839": {
+      "label": "NBA 2K26",
+      "series": "NBA2K"
+    },
+    "1367": {
+      "label": "WoW Forever"
+    },
+    "937": {
+      "label": "WoW TBC Classic Anniversary"
+    },
+    "817": {
+      "label": "Helldivers 2"
+    },
+    "897": {
+      "label": "Arena Breakout: Infinite"
+    },
+    "913": {
+      "label": "Pokemon Legends: Z-A"
+    },
+    "1027": {
+      "label": "Octopath Traveler: Champions of the Continent"
+    },
+    "556": {
+      "label": "Torchlight: Infinite"
+    },
+    "1131": {
+      "label": "Saada"
+    },
+    "164": {
+      "label": "The Elder Scrolls Online"
+    },
+    "815": {
+      "label": "Raven 2"
+    },
+    "1331": {
+      "label": "COD Black Ops 2"
+    },
+    "322": {
+      "label": "DC Universe Online"
+    },
+    "701": {
+      "label": "Pet Simulator X"
+    },
+    "394": {
+      "label": "Escape From Tarkov"
+    },
+    "711": {
+      "label": "GTA 5"
+    },
+    "903": {
+      "label": "2XKO"
+    },
+    "548": {
+      "label": "Odin: Valhalla Rising"
+    },
+    "791": {
+      "label": "PUBG Mobile"
+    },
+    "787": {
+      "label": "Mobile Legends: Bang Bang"
+    },
+    "426": {
+      "label": "WoW Retail"
+    },
+    "524": {
+      "label": "New World"
+    },
+    "921": {
+      "label": "DonutSMP"
+    },
+    "623": {
+      "label": "WoW Classic Hardcore"
+    },
+    "1141": {
+      "label": "HiParty"
+    },
+    "765": {
+      "label": "Clash of Clans"
+    },
+    "506": {
+      "label": "RS"
+    },
+    "717": {
+      "label": "Apple"
+    },
+    "1029": {
+      "label": "Yu-Gi-Oh Master Duel"
+    },
+    "867": {
+      "label": "WoW MoP Classic"
+    },
+    "907": {
+      "label": "RF Online Next"
+    },
+    "835": {
+      "label": "Madden NFL 26",
+      "series": "Madden"
+    },
+    "747": {
+      "label": "CoD: Black Ops 6"
+    },
+    "1357": {
+      "label": "Ragnarok Online"
+    },
+    "1349": {
+      "label": "Ragnarok Zero: Global"
+    },
+    "1143": {
+      "label": "Party Star"
+    },
+    "454": {
+      "label": "Lineage 2M"
+    },
+    "923": {
+      "label": "Fish It"
+    },
+    "1363": {
+      "label": "WARDOGS"
+    },
+    "1303": {
+      "label": "Gloria Victis"
+    },
+    "637": {
+      "label": "Blade & Soul NEO Classic"
+    },
+    "1125": {
+      "label": "Xena Live"
+    },
+    "1163": {
+      "label": "TAKA Live"
+    },
+    "370": {
+      "label": "Fallout 76"
+    },
+    "709": {
+      "label": "Murder Mystery 2"
+    },
+    "1323": {
+      "label": "Umamusume: Pretty Derby"
+    },
+    "705": {
+      "label": "STEAM"
+    },
+    "1005": {
+      "label": "Pokemon Masters EX"
+    },
+    "895": {
+      "label": "Borderlands 4"
+    },
+    "823": {
+      "label": "Team Fortress 2"
+    },
+    "136": {
+      "label": "Final Fantasy XIV"
+    },
+    "324": {
+      "label": "PSN"
+    },
+    "181": {
+      "label": "Star Trek Online XBOX"
+    },
+    "1341": {
+      "label": "Google Play"
+    },
+    "1169": {
+      "label": "WOW Classic ERA"
+    },
+    "1365": {
+      "label": "Aniimo"
+    },
+    "833": {
+      "label": "FC26",
+      "series": "FC"
+    },
+    "713": {
+      "label": "Xbox"
+    },
+    "655": {
+      "label": "Last Epoch"
+    },
+    "875": {
+      "label": "NHL 26"
+    },
+    "633": {
+      "label": "Lords of the Fallen"
+    },
+    "290": {
+      "label": "FN"
+    },
+    "546": {
+      "label": "Tiny Tina's Wonderlands"
+    },
+    "1333": {
+      "label": "MapleStory Classic World"
+    },
+    "939": {
+      "label": "Forza Horizon 6"
+    },
+    "1037": {
+      "label": "Lineage Classic"
+    },
+    "957": {
+      "label": "Counter Strike 2"
+    },
+    "300": {
+      "label": "Toram Online"
+    },
+    "1045": {
+      "label": "Monsters & Memories"
+    },
+    "691": {
+      "label": "游戏ID 691（原名未提供）"
+    },
+    "342": {
+      "label": "Maplestory M"
+    },
+    "843": {
+      "label": "Marvel Rivals"
+    },
+    "981": {
+      "label": "Minecraft"
+    },
+    "813": {
+      "label": "Delta Force"
+    },
+    "1209": {
+      "label": "DeadLock"
+    }
+  },
+  "policies": {
+    "common-v1": [
+      30,
+      60,
+      90
+    ],
+    "fc-v1": [
+      14,
+      30,
+      90
+    ]
+  },
   "history_origins": {},
-  "excluded_order_statuses": [],
-  "verified_test_orders": [],
-  "activation_status": "candidate_requires_W0_status_mapping_and_live_samples"
+  "known_order_statuses": [
+    "101",
+    "11",
+    "111",
+    "112",
+    "191",
+    "21",
+    "22",
+    "31",
+    "33",
+    "34",
+    "41",
+    "42",
+    "43",
+    "51",
+    "61",
+    "62",
+    "63",
+    "71",
+    "72",
+    "75",
+    "80",
+    "81",
+    "82",
+    "83",
+    "86",
+    "91"
+  ],
+  "excluded_order_statuses": [
+    "22",
+    "111",
+    "191"
+  ],
+  "verified_test_rules": {},
+  "activation_status": "W0_verified",
+  "w0_evidence": "W0-LIVE.md",
+  "satellite_gaps": [
+    {
+      "site_id": "535",
+      "label": "fc27coin.com",
+      "status": "business_scope_and_identity_unverified",
+      "observed_30d_source_rows": 0
+    }
+  ],
+  "series_history_complete": false,
+  "refund_policy": "pay_status_1_only_status_2_excluded_including_source_partial_refund_86"
 }

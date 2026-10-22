@@ -1,0 +1,868 @@
+{
+  "observed_at": "2026-10-22T14:51:01.315178+00:00",
+  "rules": "v15_dual_floors",
+  "activity": {
+    "source": "603d147b568a6bdccf8bd58ce0ecaa3536edb715",
+    "compared": 157,
+    "drift": []
+  },
+  "baseline": {
+    "version": "business-baseline-20261021-v15",
+    "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+  },
+  "policy": {
+    "revision": 40,
+    "system_enabled": true,
+    "mode": "auto",
+    "interval_minutes": 120,
+    "minimum_gross_margin_pct": "10"
+  },
+  "cycles": [
+    {
+      "job_id": "ed19a1b3-8d60-4b43-8bdb-ff3121d71bf9",
+      "started_at": "2026-10-22T12:26:55.448238+00:00",
+      "completed_at": "2026-10-22T12:29:27.664878+00:00",
+      "status": "ready",
+      "result": "no_price_change",
+      "preview_id": "293888fa-472f-44da-afd1-548117390064",
+      "preview_created_at": "2026-10-22T12:29:25.321112+00:00",
+      "backend_usd_per_k": {
+        "PS": "0.0984",
+        "XBOX": "0.0984",
+        "PC": "0.0868"
+      },
+      "public_observation": {
+        "collection_run_id": "ed19a1b3-8d60-4b43-8bdb-ff3121d71bf9",
+        "rows": [
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T12:28:29.222809+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PS",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T12:28:29.663802+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "XBOX",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T12:28:30.154895+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.08266666666666666666666666667",
+            "freshness": "fresh",
+            "gross_usd": "8.68",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PC",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          }
+        ],
+        "sha256": "a9fa3877aedfe02197ec7484efc68b0a99dbb1c842ba4f83592abfb153a2de96",
+        "source": "MMOEXP main public product",
+        "status": "available"
+      },
+      "task": "69ab157c166ad5b67749bcb21f513ae3",
+      "run": "run_d07e8b264d9f43889a69445fc61f707f",
+      "provider_responses": 7,
+      "provider_high_forwarded_verified": true,
+      "tools": 14,
+      "knowledge_version": "learning-aa43164dfd8465e14230e801cd3ceffb66dbc29b8c19ceea1800e34f4dbdf4d0",
+      "knowledge_sha256": "6fc0b6d7c50b08f990ce87da2273eda8739b61bd64cc401294715bfdb265daf6",
+      "core": {
+        "asset_type": "core_contract",
+        "bytes": 47463,
+        "path": "runtime/business-baseline.md",
+        "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+      },
+      "experiences": 6,
+      "canonical_quote_binding_verified": true,
+      "raw_quote_preview_binding_verified": true,
+      "new_execution": false,
+      "new_cache_clear": false,
+      "rows": [
+        {
+          "platform": "PS",
+          "cost_cny": "0.430000",
+          "cost_record_id": "4564188",
+          "cost_trade_at": "26-10-22 20:25:38",
+          "target_page_usd": "9.84",
+          "proof": {
+            "public_usd": "9.84",
+            "undiscounted_net_usd": "9.84",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.86",
+            "promotional_net_usd": "6.86",
+            "promotional_gross_usd": "0.140750055807723788972393779",
+            "promotional_margin_pct": "2.051750084660696632250638178",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.719249944192276211027606221",
+            "procurement_gross_usd": "3.120750055807723788972393779",
+            "procurement_margin_pct": "31.71493959154190842451619694",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0835",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "25.47864231787878712642831850",
+              "worst_published_margin_pct": "31.71493959154190842451619693"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "9.016542576765646695257822511",
+            "estimated_procurement_gross_usd": "2.297292632573370484230216290",
+            "procurement_margin_pct": "25.47864231787878712642831851",
+            "historical_mix_sha256": "ccdfdeb8912dfd34c5418517cbce0b34e85fffedbfa0da4309214413fbac42c8",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T19:47:48.850028+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T07:24:21.532776+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        },
+        {
+          "platform": "XBOX",
+          "cost_cny": "0.430000",
+          "cost_record_id": "4564188",
+          "cost_trade_at": "26-10-22 20:25:38",
+          "target_page_usd": "9.84",
+          "proof": {
+            "public_usd": "9.84",
+            "undiscounted_net_usd": "9.84",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.86",
+            "promotional_net_usd": "6.86",
+            "promotional_gross_usd": "0.140750055807723788972393779",
+            "promotional_margin_pct": "2.051750084660696632250638178",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.719249944192276211027606221",
+            "procurement_gross_usd": "3.120750055807723788972393779",
+            "procurement_margin_pct": "31.71493959154190842451619694",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0835",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "25.47864231787878712642831850",
+              "worst_published_margin_pct": "31.71493959154190842451619693"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "9.016542576765646695257822511",
+            "estimated_procurement_gross_usd": "2.297292632573370484230216290",
+            "procurement_margin_pct": "25.47864231787878712642831851",
+            "historical_mix_sha256": "ccdfdeb8912dfd34c5418517cbce0b34e85fffedbfa0da4309214413fbac42c8",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T19:47:48.850028+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T07:24:21.532776+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        },
+        {
+          "platform": "PC",
+          "cost_cny": "0.400000",
+          "cost_record_id": "4564172",
+          "cost_trade_at": "26-10-22 20:18:50",
+          "target_page_usd": "8.68",
+          "proof": {
+            "public_usd": "8.68",
+            "undiscounted_net_usd": "8.68",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.05",
+            "promotional_net_usd": "6.05",
+            "promotional_gross_usd": "-0.200465064364908103281494159",
+            "promotional_margin_pct": "-3.313472138262943855892465438",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.250465064364908103281494159",
+            "procurement_gross_usd": "2.429534935635091896718505841",
+            "procurement_margin_pct": "27.99003382068078222025928388",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0778",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "21.41355057420718736727624628",
+              "worst_published_margin_pct": "27.99003382068078222025928386"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "7.953616825846119239312794654",
+            "estimated_procurement_gross_usd": "1.703151761481211136031300495",
+            "procurement_margin_pct": "21.41355057420718736727624629",
+            "historical_mix_sha256": "ccdfdeb8912dfd34c5418517cbce0b34e85fffedbfa0da4309214413fbac42c8",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T19:47:48.850028+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T07:24:21.532776+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        }
+      ]
+    },
+    {
+      "job_id": "bbf2a395-244f-4dd8-8c8a-8a0edcbe359a",
+      "started_at": "2026-10-22T14:29:47.717206+00:00",
+      "completed_at": "2026-10-22T14:32:55.335020+00:00",
+      "status": "ready",
+      "result": "no_price_change",
+      "preview_id": "564743bc-f8ca-447b-8bee-9c6164424287",
+      "preview_created_at": "2026-10-22T14:32:52.746792+00:00",
+      "backend_usd_per_k": {
+        "PS": "0.0984",
+        "XBOX": "0.0984",
+        "PC": "0.0868"
+      },
+      "public_observation": {
+        "collection_run_id": "bbf2a395-244f-4dd8-8c8a-8a0edcbe359a",
+        "rows": [
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T14:31:50.964138+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PS",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T14:31:51.730712+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "XBOX",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-22T14:31:52.257033+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.08266666666666666666666666667",
+            "freshness": "fresh",
+            "gross_usd": "8.68",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PC",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          }
+        ],
+        "sha256": "036c44b3f4aca8411cb83099f7a7b801e680ae5e1a79f94819413d08716900ef",
+        "source": "MMOEXP main public product",
+        "status": "available"
+      },
+      "task": "02c350f02d4386b01d05cfb24811fa70",
+      "run": "run_cf942bac98c0435eb18a9349ffea1a9c",
+      "provider_responses": 6,
+      "provider_high_forwarded_verified": true,
+      "tools": 13,
+      "knowledge_version": "learning-aa43164dfd8465e14230e801cd3ceffb66dbc29b8c19ceea1800e34f4dbdf4d0",
+      "knowledge_sha256": "6fc0b6d7c50b08f990ce87da2273eda8739b61bd64cc401294715bfdb265daf6",
+      "core": {
+        "asset_type": "core_contract",
+        "bytes": 47463,
+        "path": "runtime/business-baseline.md",
+        "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+      },
+      "experiences": 6,
+      "canonical_quote_binding_verified": true,
+      "raw_quote_preview_binding_verified": true,
+      "new_execution": false,
+      "new_cache_clear": false,
+      "rows": [
+        {
+          "platform": "PS",
+          "cost_cny": "0.420000",
+          "cost_record_id": "4564360",
+          "cost_trade_at": "26-10-22 22:21:12",
+          "target_page_usd": "9.84",
+          "proof": {
+            "public_usd": "9.84",
+            "undiscounted_net_usd": "9.84",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.86",
+            "promotional_net_usd": "6.86",
+            "promotional_gross_usd": "0.297011682416846491554431133",
+            "promotional_margin_pct": "4.329616361761610664058762872",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.562988317583153508445568867",
+            "procurement_gross_usd": "3.277011682416846491554431133",
+            "procurement_margin_pct": "33.30296425220372450766698306",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0816",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "27.21169714769555951883696226",
+              "worst_published_margin_pct": "33.30296425220372450766698306"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "9.016542576765646695257822511",
+            "estimated_procurement_gross_usd": "2.453554259182493186812253644",
+            "procurement_margin_pct": "27.21169714769555951883696227",
+            "historical_mix_sha256": "a32a186ab5f8887ad258eafc9e76c44ab6442d9bde509c6b9efafefc16a19ef3",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T21:23:15.630787+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T13:12:17.198100+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        },
+        {
+          "platform": "XBOX",
+          "cost_cny": "0.420000",
+          "cost_record_id": "4564360",
+          "cost_trade_at": "26-10-22 22:21:12",
+          "target_page_usd": "9.84",
+          "proof": {
+            "public_usd": "9.84",
+            "undiscounted_net_usd": "9.84",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.86",
+            "promotional_net_usd": "6.86",
+            "promotional_gross_usd": "0.297011682416846491554431133",
+            "promotional_margin_pct": "4.329616361761610664058762872",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.562988317583153508445568867",
+            "procurement_gross_usd": "3.277011682416846491554431133",
+            "procurement_margin_pct": "33.30296425220372450766698306",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0816",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "27.21169714769555951883696226",
+              "worst_published_margin_pct": "33.30296425220372450766698306"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "9.016542576765646695257822511",
+            "estimated_procurement_gross_usd": "2.453554259182493186812253644",
+            "procurement_margin_pct": "27.21169714769555951883696227",
+            "historical_mix_sha256": "a32a186ab5f8887ad258eafc9e76c44ab6442d9bde509c6b9efafefc16a19ef3",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T21:23:15.630787+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T13:12:17.198100+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        },
+        {
+          "platform": "PC",
+          "cost_cny": "0.400000",
+          "cost_record_id": "4564330",
+          "cost_trade_at": "26-10-22 21:57:43",
+          "target_page_usd": "8.68",
+          "proof": {
+            "public_usd": "8.68",
+            "undiscounted_net_usd": "8.68",
+            "margin_basis": "undiscounted_and_historical_average_v2",
+            "worst_net_usd": "6.05",
+            "promotional_net_usd": "6.05",
+            "promotional_gross_usd": "-0.200465064364908103281494159",
+            "promotional_margin_pct": "-3.313472138262943855892465438",
+            "promotions_exempt_from_margin_floor": true,
+            "rounding_reserve_usd": "0.02",
+            "delivered_k": "105",
+            "delivered_cost_usd": "6.250465064364908103281494159",
+            "procurement_gross_usd": "2.429534935635091896718505841",
+            "procurement_margin_pct": "27.99003382068078222025928388",
+            "minimum_margin_pct": "10",
+            "catalog": {
+              "minimum_unit_usd": "0.0778",
+              "minimum_custom_k": "10",
+              "margin_basis": "undiscounted_and_historical_average_v2",
+              "all_integer_custom_quantities_covered": true,
+              "published_packages": 15,
+              "historical_retained_ratio": "0.9163153025168340137457136698",
+              "minimum_estimated_average_margin_pct": "21.41355057420718736727624628",
+              "worst_published_margin_pct": "27.99003382068078222025928386"
+            }
+          },
+          "estimated_average_margin": {
+            "status": "partial",
+            "period": {
+              "start": "2026-10-15",
+              "end": "2026-10-21"
+            },
+            "observed_orders": 2522,
+            "eligible_orders": 2522,
+            "retained_ratio": "0.9163153025168340137457136698",
+            "estimated_net_usd": "7.953616825846119239312794654",
+            "estimated_procurement_gross_usd": "1.703151761481211136031300495",
+            "procurement_margin_pct": "21.41355057420718736727624629",
+            "historical_mix_sha256": "a32a186ab5f8887ad258eafc9e76c44ab6442d9bde509c6b9efafefc16a19ef3",
+            "source_times": {
+              "orders_and_coupons": "2026-10-22T21:23:15.630787+08:00",
+              "cost": "2026-10-22T19:59:09.492683+08:00",
+              "es": "2026-10-22T13:12:17.198100+00:00",
+              "platform": null
+            },
+            "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+            "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+          },
+          "own_bonus_k": "5"
+        }
+      ]
+    }
+  ],
+  "effect": {
+    "observed_at": "2026-10-22T14:49:45.889825+00:00",
+    "admin_observed_at": "2026-10-22T14:47:24.380578+00:00",
+    "cost_capture_at": "2026-10-22T19:59:09.492683+08:00",
+    "cohorts": [
+      {
+        "day": "2026-10-22",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 26,
+          "valid_orders": 26,
+          "completed_orders": 24,
+          "pending_orders": 2,
+          "covered_orders": 19,
+          "uncovered_completed_orders": 5,
+          "valid_usd": "1644.25",
+          "covered_income_cny": "9427.67",
+          "covered_cost_cny": "7160.90",
+          "covered_gp_cny": "2266.77",
+          "covered_margin_pct": "24.04379873287885553906744721",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 18,
+              "completed_orders": 17,
+              "covered_orders": 12,
+              "valid_usd": "1322.03",
+              "covered_income_cny": "7335.40",
+              "covered_cost_cny": "5314.80",
+              "covered_gp_cny": "2020.60",
+              "covered_margin_pct": "27.54587343566812989066717561"
+            },
+            "XBOX": {
+              "valid_orders": 2,
+              "completed_orders": 1,
+              "covered_orders": 1,
+              "valid_usd": "15.62",
+              "covered_income_cny": "40.29",
+              "covered_cost_cny": "30.1",
+              "covered_gp_cny": "10.19",
+              "covered_margin_pct": "25.29163564159841151650533631"
+            },
+            "PC": {
+              "valid_orders": 6,
+              "completed_orders": 6,
+              "covered_orders": 6,
+              "valid_usd": "306.60",
+              "covered_income_cny": "2051.98",
+              "covered_cost_cny": "1816.0",
+              "covered_gp_cny": "235.98",
+              "covered_margin_pct": "11.50011208686244505307069270"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-22",
+        "label": "longer_unchanged_price_window",
+        "start": "16:21:28",
+        "end": "20:26:54",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 60,
+          "valid_orders": 59,
+          "completed_orders": 49,
+          "pending_orders": 10,
+          "covered_orders": 29,
+          "uncovered_completed_orders": 20,
+          "valid_usd": "3328.89",
+          "covered_income_cny": "13502.11",
+          "covered_cost_cny": "10221.01",
+          "covered_gp_cny": "3281.10",
+          "covered_margin_pct": "24.30064634342336123761397293",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {
+            "已退款·其他原因 / pay=2": 1
+          },
+          "by_platform": {
+            "PS": {
+              "valid_orders": 43,
+              "completed_orders": 37,
+              "covered_orders": 19,
+              "valid_usd": "2832.55",
+              "covered_income_cny": "11175.47",
+              "covered_cost_cny": "8212.85",
+              "covered_gp_cny": "2962.62",
+              "covered_margin_pct": "26.51002597653610989068021300"
+            },
+            "XBOX": {
+              "valid_orders": 6,
+              "completed_orders": 3,
+              "covered_orders": 2,
+              "valid_usd": "114.32",
+              "covered_income_cny": "109.29",
+              "covered_cost_cny": "70.16",
+              "covered_gp_cny": "39.13",
+              "covered_margin_pct": "35.80382468661359685241101656"
+            },
+            "PC": {
+              "valid_orders": 10,
+              "completed_orders": 9,
+              "covered_orders": 8,
+              "valid_usd": "382.02",
+              "covered_income_cny": "2217.35",
+              "covered_cost_cny": "1938.0",
+              "covered_gp_cny": "279.35",
+              "covered_margin_pct": "12.59837193045752813042595891"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-21",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 23,
+          "valid_orders": 23,
+          "completed_orders": 21,
+          "pending_orders": 2,
+          "covered_orders": 21,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "1557.99",
+          "covered_income_cny": "10250.81",
+          "covered_cost_cny": "7660.42",
+          "covered_gp_cny": "2590.39",
+          "covered_margin_pct": "25.27010060668376450251248438",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 11,
+              "completed_orders": 9,
+              "covered_orders": 9,
+              "valid_usd": "609.52",
+              "covered_income_cny": "3902.99",
+              "covered_cost_cny": "2699.25",
+              "covered_gp_cny": "1203.74",
+              "covered_margin_pct": "30.84148306810932131519681065"
+            },
+            "XBOX": {
+              "valid_orders": 4,
+              "completed_orders": 4,
+              "covered_orders": 4,
+              "valid_usd": "495.55",
+              "covered_income_cny": "3316.57",
+              "covered_cost_cny": "2346.75",
+              "covered_gp_cny": "969.82",
+              "covered_margin_pct": "29.24165628947979388343981885"
+            },
+            "PC": {
+              "valid_orders": 8,
+              "completed_orders": 8,
+              "covered_orders": 8,
+              "valid_usd": "452.92",
+              "covered_income_cny": "3031.25",
+              "covered_cost_cny": "2614.42",
+              "covered_gp_cny": "416.83",
+              "covered_margin_pct": "13.75109278350515463917525773"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-21",
+        "label": "longer_unchanged_price_window",
+        "start": "16:21:28",
+        "end": "20:26:54",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 51,
+          "valid_orders": 51,
+          "completed_orders": 48,
+          "pending_orders": 3,
+          "covered_orders": 48,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "3322.59",
+          "covered_income_cny": "22031.96",
+          "covered_cost_cny": "17024.97",
+          "covered_gp_cny": "5006.99",
+          "covered_margin_pct": "22.72603072990328595367820203",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 32,
+              "completed_orders": 30,
+              "covered_orders": 30,
+              "valid_usd": "1951.44",
+              "covered_income_cny": "12884.05",
+              "covered_cost_cny": "9755.00",
+              "covered_gp_cny": "3129.05",
+              "covered_margin_pct": "24.28622987337056282768228934"
+            },
+            "XBOX": {
+              "valid_orders": 8,
+              "completed_orders": 8,
+              "covered_orders": 8,
+              "valid_usd": "706.90",
+              "covered_income_cny": "4731.07",
+              "covered_cost_cny": "3434.55",
+              "covered_gp_cny": "1296.52",
+              "covered_margin_pct": "27.40437152694844929371157053"
+            },
+            "PC": {
+              "valid_orders": 11,
+              "completed_orders": 10,
+              "covered_orders": 10,
+              "valid_usd": "664.25",
+              "covered_income_cny": "4416.84",
+              "covered_cost_cny": "3835.42",
+              "covered_gp_cny": "581.42",
+              "covered_margin_pct": "13.16370980157759846406027839"
+            }
+          }
+        }
+      }
+    ],
+    "limitations": [
+      "Exact PID rows replace stale ES identity for this bounded read only; no permanent FS source fix claimed.",
+      "Admin local paytime timezone remains unverified; same displayed clock is descriptive and not a fully proved exposure join.",
+      "Completed covered single-line single-platform order cohort only; uncompleted, uncosted and mixed rows are separate and never zero-filled.",
+      "Whole-order actual net Admin CNY minus original linked delivery cost; no repeat discount or exchange-rate reconciliation.",
+      "Fresh comparison re-freezes Admin CNY at this read; it is not a pure late-cost update to the 18:34 FX snapshot. Delivered K, current real promotion mix, refunds final settlement, same-Coins traffic and Ads allocation remain incomplete; no causal price effect or net-profit claim.",
+      "Historical and today status maturity differ. Short-window counts cannot establish demand elasticity.",
+      "Costs joined directly from existing validated global delivery index, including orders absent in stale day revenue cache. No new Order query or collector.",
+      "Matched archived delivery costs are not proof of final refund settlement or absence of later delivery costs beyond each source cutoff."
+    ],
+    "changes": {
+      "existing_1621_price_window": {
+        "valid_orders": "13.04347826086956521739130430",
+        "valid_usd": "5.536620902573187247671679500"
+      },
+      "longer_unchanged_price_window": {
+        "valid_orders": "15.68627450980392156862745100",
+        "valid_usd": "0.189611116628894928354085200"
+      }
+    }
+  },
+  "no_new_price_collection": true,
+  "no_new_model": true,
+  "no_production_change": true,
+  "evidence_files": [
+    "/tmp/fc-pricing-v2-20261022/original-evening-audit-details-20261022-private.json",
+    "/tmp/fc-pricing-v2-20261022/evening-late-cost-review-20261022T144736Z-private.json",
+    "/tmp/fc-pricing-v2-20261022/evening-delivery-join-144946-private.json",
+    "/tmp/fc-pricing-v2-20261022/monitor/2026-10-22/144459Z-private.json"
+  ]
+}

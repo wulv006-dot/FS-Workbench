@@ -1,0 +1,77 @@
+"""Bind only the existing IAM, shared accounting exclusions and private module store."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+from threading import RLock
+
+from user_store import Store, safe
+
+ROOT = Path('/var/lib/fs-user-analytics')
+CONFIG = Path(__file__).with_name('user_config.json')
+ACCOUNTING = Path('/var/lib/fs-channel-effects/accounting-overrides.json')
+_service = None
+_lock = RLock()
+
+
+def configuration(path=CONFIG, accounting=ACCOUNTING):
+    value = json.loads(Path(path).read_text('utf-8'))
+    if value.get('activation_status') != 'W0_verified':
+        raise ValueError('W0_live_contract_required')
+    accounting = Path(accounting)
+    safe(accounting)
+    if not accounting.is_file() or accounting.stat().st_uid != os.geteuid() or accounting.stat().st_mode & 0o077:
+        raise ValueError('existing_accounting_rules_required')
+    raw = accounting.read_bytes()
+    rules = json.loads(raw)
+    if rules.get('contract') != 'channel-zero-cost-v1' or not isinstance(rules.get('testOrders'), dict):
+        raise ValueError('accounting_rule_contract')
+    value['verified_test_rules'] = rules['testOrders']
+    value['accounting_rule_sha256'] = hashlib.sha256(raw).hexdigest()
+    return value
+
+
+def load_store(root=ROOT, config=None):
+    import fcntl
+    root = Path(root)
+    safe(root)
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
+        raise ValueError('private_directory_permissions')
+    key_path = root / 'identity.key'
+    safe(key_path)
+    with (root / 'init.lock').open('a+b') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not key_path.exists():
+            if (root / 'customers.sqlite3').exists():
+                raise ValueError('existing_identity_key_missing')
+            fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'wb') as output:
+                output.write(os.urandom(32)); output.flush(); os.fsync(output.fileno())
+        if key_path.stat().st_uid != os.geteuid() or key_path.stat().st_mode & 0o077 or key_path.stat().st_size != 32:
+            raise ValueError('private_identity_key_permissions')
+        key = key_path.read_bytes()
+        return Store(root, key, configuration() if config is None else config)
+
+
+def authorize(user, query, private=False):
+    if not isinstance(user, str) or not user:
+        return False
+    sys.path.insert(0, '/opt/fs-access-policy')
+    import rbac
+    if not Path(rbac.LIVE_POLICY).is_file():
+        return False
+    policy = rbac.load_policy()
+    if rbac.authorize(policy, user, 'GET', '/dashboard/users/') != 200:
+        return False
+    return rbac.is_admin(policy, user) if private else True
+
+
+def build():
+    global _service
+    from user_query import Service
+    with _lock:
+        if _service is None:
+            _service = Service(load_store(), authorize)
+        return _service

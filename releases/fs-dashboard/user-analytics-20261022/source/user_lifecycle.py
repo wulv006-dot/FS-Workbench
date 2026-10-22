@@ -1,6 +1,8 @@
 """As-of lifecycle, interval events, project migration and mature second purchases."""
 from collections import defaultdict
 from datetime import datetime, timedelta
+from bisect import bisect_left
+from decimal import Decimal
 import json
 
 from user_contract import TZ, STATES, stamp, state
@@ -34,7 +36,21 @@ def origin(query, config):
 
 
 def metric(value, status='available', **extra):
-    return dict(value=value, status=status, **extra)
+    return dict(value=value, status=status, unit='customers', **extra)
+
+
+def coverage_runs(jobs, sites):
+    result = {}
+    for site in sites:
+        merged = []
+        for job in sorted((j for j in jobs if j['site'] == site and j['state'] == 'complete'), key=lambda j: j['start']):
+            a, b = stamp(job['start']), stamp(job['end'])
+            if merged and a <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(b, merged[-1][1]))
+            else:
+                merged.append((a, b))
+        result[site] = merged
+    return result
 
 
 def analyze(orders, jobs, query, config):
@@ -42,6 +58,9 @@ def analyze(orders, jobs, query, config):
     observation = (end - timedelta(microseconds=1)).date()
     points = config['policies'][query['policy_version']]
     sites = [query['scope_id']] if query['scope'] == 'site' else list(config['sites'])
+    runs = coverage_runs(jobs, sites)
+    def covers(a, b):
+        return a >= b or all(any(lo <= a and b <= hi for lo, hi in intervals) for intervals in runs.values())
     groups = {config['sites'][s].get('verified_identity_group') for s in sites}
     identity_complete = len(sites) == 1 or len(groups) == 1 and None not in groups and '' not in groups
     pool = [r for r in orders if r['valid'] and stamp(r['paid_at']) < end and r['site'] in sites]
@@ -50,7 +69,7 @@ def analyze(orders, jobs, query, config):
     for row in selected:
         if row['customer_id']:
             people[row['customer_id']].append(row)
-    period_complete = covered(jobs, sites, start, end)
+    period_complete = covers(start, end)
     missing_identity = sum(start <= stamp(r['paid_at']) < end and not r['customer_id'] for r in selected)
     coverage_status = 'available' if period_complete and not missing_identity else 'partial'
     metrics, members, records, events = {}, defaultdict(list), {}, []
@@ -59,8 +78,8 @@ def analyze(orders, jobs, query, config):
     for cid, rows in people.items():
         rows.sort(key=lambda r: (r['paid_at'], r['order_key']))
         first, last = stamp(rows[0]['paid_at']), stamp(rows[-1]['paid_at'])
-        verified = anchor is not None and anchor <= first and covered(jobs, sites, anchor, first + timedelta(microseconds=1))
-        reliable_last = covered(jobs, sites, last, end)
+        verified = anchor is not None and anchor <= first and covers(anchor, first + timedelta(microseconds=1))
+        reliable_last = covers(last, end)
         final = state(last, observation, points) if reliable_last else 'unverified'
         bought = [r for r in rows if start <= stamp(r['paid_at']) < end]
         members[final].append(cid)
@@ -76,17 +95,22 @@ def analyze(orders, jobs, query, config):
                             last_paid_at=last.isoformat(), stage=final,
                             days_since_last=(observation - last.date()).days if reliable_last else None,
                             period_orders=len(bought), project_ids=sorted({r['gid'] for r in rows}))
+        for name, group in (('period', bought), ('covered_history', rows)):
+            amounts = [json.loads(r['body']).get('amount_usd') for r in group]
+            records[cid][name + '_sales_usd'] = str(sum((Decimal(a) for a in amounts if a is not None), Decimal(0))) if amounts else '0'
+            records[cid][name + '_amount_orders'] = sum(a is not None for a in amounts)
+            records[cid][name + '_amount_complete'] = all(a is not None for a in amounts)
         for index, row in enumerate(rows):
             paid = stamp(row['paid_at'])
             following = stamp(rows[index + 1]['paid_at']) if index + 1 < len(rows) else end
             for threshold, stage_name in zip(points, STATES[1:]):
                 event_at = datetime.combine(paid.date() + timedelta(days=threshold), datetime.min.time(), TZ)
                 # Exact-time purchase wins over a threshold; midnight at the exclusive end is excluded.
-                if start <= event_at < end and event_at < following and covered(jobs, sites, paid, event_at + timedelta(microseconds=1)):
+                if start <= event_at < end and event_at < following and covers(paid, event_at + timedelta(microseconds=1)):
                     events.append(dict(at=event_at.isoformat(), stage=stage_name, customer_id=cid, kind='enter'))
             if index and start <= paid < end:
                 previous = stamp(rows[index - 1]['paid_at'])
-                if covered(jobs, sites, previous, paid + timedelta(microseconds=1)):
+                if covers(previous, paid + timedelta(microseconds=1)):
                     days = (paid.date() - previous.date()).days
                     if paid.time() == datetime.min.time() and days in points:
                         days -= 1
@@ -104,7 +128,7 @@ def analyze(orders, jobs, query, config):
         entered = [e['customer_id'] for e in events if e['kind'] == 'enter' and e['stage'] == name]
         members['entered_' + name] = sorted(set(entered))
         metrics['entered_' + name] = metric(len(set(entered)), coverage_status, events=len(entered))
-    if not anchor or not covered(jobs, sites, anchor, end):
+    if not anchor or not covers(anchor, end):
         for name in ('first_purchasers', 'known_pool', *STATES):
             metrics[name]['status'] = 'insufficient_history' if name == 'first_purchasers' else 'partial'
             metrics[name]['reason'] = '仅已覆盖客户池；完整历史尚未核实'
@@ -112,8 +136,16 @@ def analyze(orders, jobs, query, config):
         for value in metrics.values():
             value.update(value=None, status='unavailable', reason='跨站身份语义尚未验证；请切换单站')
     cohort = second_purchase(people, jobs, sites, start, end, anchor, query['H'])
+    cohort_weeks = []
+    week = start.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=start.weekday())
+    while week < end:
+        entry_start, entry_end = max(start, week), min(end, week + timedelta(days=7))
+        cohort_weeks.append(dict(start=entry_start.isoformat(), end_exclusive=entry_end.isoformat(),
+                                 **second_purchase(people, jobs, sites, entry_start, end, anchor, query['H'], entry_end)))
+        week += timedelta(days=7)
     if not identity_complete:
         cohort = dict(status='unavailable', rate=None, reason='cross_site_identity_unverified')
+        cohort_weeks = [dict(start=w['start'], end_exclusive=w['end_exclusive'], status='unavailable', rate=None, denominator=None, numerator=None, observing=None, first_unverified=None, coverage_gap=None) for w in cohort_weeks]
     daily_buyers, daily_enters, daily_returns = defaultdict(set), defaultdict(set), defaultdict(set)
     for row in selected:
         paid = stamp(row['paid_at'])
@@ -126,26 +158,45 @@ def analyze(orders, jobs, query, config):
         if event['kind'] == 'lost_return':
             daily_returns[bucket].add(event['customer_id'])
     trend = []
+    timeline = {cid: [stamp(r['paid_at']) for r in rows] for cid, rows in people.items()}
     cursor = start.replace(hour=0, minute=0, second=0, microsecond=0)
     while cursor < end:
         finish = min(cursor + timedelta(days=1), end)
         daily, entered, returned = daily_buyers[cursor.date()], daily_enters[cursor.date()], daily_returns[cursor.date()]
+        stocks = {key: 0 for key in (*STATES, 'unverified')}
+        for cid, times in timeline.items():
+            index = bisect_left(times, finish) - 1
+            if index >= 0:
+                last = times[index]
+                stocks[state(last, (finish - timedelta(microseconds=1)).date(), points) if covers(last, finish) else 'unverified'] += 1
         trend.append(dict(day=cursor.date().isoformat(), purchasers=len(daily) if identity_complete else None,
                           entered_lost=len(entered) if identity_complete else None, lost_return=len(returned) if identity_complete else None,
-                          status='available' if identity_complete and covered(jobs, sites, max(start, cursor), finish) else 'partial'))
+                          first_purchasers=sum(rec['first_verified'] and stamp(rec['first_paid_at']).date() == cursor.date() for rec in records.values()) if anchor and identity_complete else None,
+                          stock=stocks if identity_complete else None,
+                          status='available' if identity_complete and covers(max(start, cursor), finish) else 'partial'))
         cursor += timedelta(days=1)
-    return dict(metrics=metrics, observation_date=observation.isoformat(), cohort=cohort, trend=trend,
+    amounts = sorted(Decimal(r['covered_history_sales_usd']) for r in records.values() if r['covered_history_amount_complete'] and Decimal(r['covered_history_sales_usd']) > 0)
+    threshold = amounts[int((len(amounts) - 1) * .75)] if amounts else None
+    members['high_value_entered_silent'] = sorted(cid for cid in members['entered_silent'] if threshold is not None and records[cid]['covered_history_amount_complete'] and Decimal(records[cid]['covered_history_sales_usd']) >= threshold)
+    members['first_without_repeat'] = sorted(cid for cid in members['first_purchasers'] if len(people[cid]) == 1)
+    for key in ('high_value_entered_silent', 'first_without_repeat'):
+        metrics[key] = metric(len(members[key]) if identity_complete else None, coverage_status if identity_complete else 'unavailable')
+    if not any(lo < end and start < hi for intervals in runs.values() for lo, hi in intervals):
+        for value in metrics.values():
+            value.update(value=None, status='pending', reason='该区间尚无完整采集片，等待回补')
+    return dict(metrics=metrics, observation_date=observation.isoformat(), cohort=cohort, cohort_weeks=cohort_weeks, trend=trend,
+                value_segment=dict(basis='covered_purchase_history_usd', percentile=75, threshold_usd=str(threshold) if threshold is not None else None),
                 coverage=dict(period_complete=period_complete, identity_deduplication_complete=identity_complete,
                               missing_identity_orders=missing_identity, sites=sites, historical_origin=anchor.isoformat() if anchor else None,
                               pool_scope='covered_identified_buyers', refund_correction='only_reenumerated_payment_windows',
                               failed_windows=sum(j['state'] == 'failed' for j in jobs))), dict(members=members, records=records, events=events)
 
 
-def second_purchase(people, jobs, sites, start, end, anchor, horizon):
+def second_purchase(people, jobs, sites, start, end, anchor, horizon, entry_end=None):
     mature = repeated = observing = gap = unknown = 0
     for rows in people.values():
         first = stamp(rows[0]['paid_at'])
-        if not start <= first < end:
+        if not start <= first < (entry_end or end):
             continue
         if anchor is None or not covered(jobs, sites, anchor, first + timedelta(microseconds=1)):
             unknown += 1
@@ -167,19 +218,17 @@ def project_analysis(orders, jobs, query, config, global_result, global_members)
     summaries, matrices = [], []
     end, start = stamp(query['as_of']), stamp(query['start'])
     orders = [r for r in orders if r['site'] in config['sites']]
-    by_customer = defaultdict(list)
+    by_customer, by_project = defaultdict(list), defaultdict(list)
     for row in orders:
         if row['valid'] and stamp(row['paid_at']) < end:
             by_customer[row['customer_id']].append(row)
+            by_project[row['gid']].append(row)
     gids = sorted({r['gid'] for r in orders if r['valid'] and stamp(r['paid_at']) < end and in_scope(r, query, config)})
     for gid in gids:
         q = dict(query, scope='project', scope_id=gid)
         if query['policy_mode'] == 'per_project':
-            q['policy_version'] = config['projects'].get(gid, {}).get('policy', 'fc-v1' if gid == '1327' else 'common-v1')
-        if query['scope'] == 'site':
-            subset = [r for r in orders if r['site'] == query['scope_id']]
-        else:
-            subset = orders
+            q['policy_version'] = config['projects'].get(gid, {}).get('policy', 'fc-v1' if config['projects'].get(gid, {}).get('series') == 'FC' else 'common-v1')
+        subset = by_project[gid]
         result, private = analyze(subset, jobs, q, config)
         acquired = dict(global_first=0, existing_global=0, global_unknown=0)
         for cid in private['members']['first_purchasers']:
@@ -210,5 +259,5 @@ def project_analysis(orders, jobs, query, config, global_result, global_members)
         summaries.append(dict(project_id=gid, label=config['projects'].get(gid, {}).get('label', '游戏ID ' + gid),
                               policy_version=q['policy_version'], metrics=result['metrics'], acquisition=acquired, cohort=result['cohort']))
         matrices.append(dict(project_id=gid, states=[dict(project_stage=a, global_stage=b, count=n) for (a, b), n in sorted(cross.items())],
-                             destinations=[dict(project_id=g, purchasers=len(ids)) for g, ids in sorted(destinations.items())], destinations_overlap=True))
+                             destinations=[dict(project_id=g, purchasers=len(ids), same_series=bool(config['projects'].get(gid, {}).get('series') and config['projects'].get(gid, {}).get('series') == config['projects'].get(g, {}).get('series'))) for g, ids in sorted(destinations.items())], destinations_overlap=True))
     return summaries, matrices

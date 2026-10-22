@@ -20,7 +20,7 @@ NOW = stamp('2026-10-22T12:00:00+08:00')
 
 
 def order(n, paid, email='a@example.test', gid='1327', uid=0, site='266', status=1):
-    return dict(id=n, order_no='test-' + str(n), paytime=paid, email=email, gid=gid, uid=uid, site_id=site, pay_status=status, status='paid')
+    return dict(id=n, order_no='test-' + str(n), paytime=paid, email=email, gid=gid, uid=uid, site_id=site, pay_status=status, status='11')
 
 
 class Users(unittest.TestCase):
@@ -48,6 +48,20 @@ class Users(unittest.TestCase):
         self.load([order(1, '2026-10-01 12:00:00'), order(2, '2026-10-02 12:00:00', uid=42)])
         self.assertEqual(self.values(self.query())['purchasers'], 1)
         self.assertEqual(len(self.store.read()[1]), 2)
+
+    def test_daily_transition_records_once_per_day_without_source(self):
+        from user_jobs import advance_day
+        self.load([order(1, '2026-09-22 12:00:00')], end='2026-10-24')
+        revision = self.store.revision()
+        first = advance_day(self.store, NOW)
+        advance_day(self.store, NOW + timedelta(hours=1))
+        second = advance_day(self.store, NOW + timedelta(days=1))
+        records = (self.store.root / 'daily-transitions.jsonl').read_text().splitlines()
+        self.assertEqual(len(records), 2)
+        self.assertEqual(first['stocks']['recent']['value'], 1)
+        self.assertEqual(second['stocks']['silent']['value'], 1)
+        self.assertEqual(self.store.revision(), revision)
+        self.assertFalse(second['source_collection'])
 
     def test_T02_cross_project_union(self):
         self.load([order(1, '2026-10-01'), order(2, '2026-10-02', gid='2000')])
@@ -286,6 +300,132 @@ class Users(unittest.TestCase):
         self.assertEqual(values['known_pool'], sum(values[k] for k in ('recent', 'silent', 'lost', 'long_lost', 'unverified')))
         self.load([], start='2026-10-01')
         self.assertEqual(self.values(self.query())['purchasers'], 0)
+
+    def test_live_status_projection_and_exact_test_identity(self):
+        rows = [dict(order(1, '2026-10-01'), status='22', amount_usd_format='$12.00'),
+                dict(order(2, '2026-10-02'), status='80', amount_usd_format='$0.00'),
+                dict(order(3, '2026-10-03', status=2), status='86', amount_usd_format='$15.00')]
+        self.load(rows)
+        self.assertEqual(self.values(self.query())['purchasers'], 1)
+        facts = self.store.read()[1]
+        self.assertEqual([r['valid'] for r in facts], [0, 1, 0])
+        self.assertEqual(json.loads(facts[1]['body'])['amount_usd'], '0')
+        self.config['verified_test_rules'] = {'test-2': {'gid': '1327', 'salesUsd': '0.00'}}
+        self.load(rows)
+        self.assertEqual(self.values(self.query())['purchasers'], 0)
+        self.config['verified_test_rules']['test-2']['gid'] = '1329'
+        with self.assertRaisesRegex(ValueError, 'test_order_identity_mismatch'):
+            self.load(rows)
+
+    def test_unmapped_status_does_not_publish_coverage(self):
+        with self.assertRaisesRegex(ValueError, 'unmapped_order_status'):
+            self.load([dict(order(1, '2026-10-01'), status='unverified-status')])
+        self.assertEqual(self.store.revision(), '0')
+        result = self.query()
+        self.assertIsNone(result['metrics']['purchasers']['value'])
+        self.assertEqual(result['metrics']['purchasers']['status'], 'pending')
+
+    def test_private_detail_is_frozen_and_admin_only(self):
+        self.load([dict(order(1, '2026-10-01'), amount_usd_format='$12.50')])
+        result = self.query()
+        member = self.service.members(dict(snapshot_id=result['snapshot_id'], group='purchasers'), 'admin')['rows'][0]
+        args = dict(snapshot_id=result['snapshot_id'], customer_id=member['customer_id'])
+        with self.assertRaises(PermissionError):
+            self.service.detail(args, 'reader')
+        self.load([order(1, '2026-10-01', status=2)])
+        detail = self.service.detail(args, 'admin')
+        self.assertEqual(detail['email'], 'a@example.test')
+        self.assertEqual(detail['orders'][0]['pay_status'], 1)
+        from decimal import Decimal
+        self.assertEqual(Decimal(detail['customer']['period_sales_usd']), Decimal('12.50'))
+
+    def test_cached_summary_does_not_retain_revoked_global_permission(self):
+        self.load([order(1, '2026-10-01')])
+        allowed = [True]
+        service = Service(self.store, lambda u, q, p: allowed[0] or q['scope'] == 'project', clock=lambda: NOW)
+        args = dict(start='2026-10-01', end_exclusive='2026-10-22', scope='project', scope_id='1327')
+        self.assertIn('projects', service.query(args, 'same-user'))
+        allowed[0] = False
+        self.assertNotIn('projects', service.query(args, 'same-user'))
+
+    def test_backup_retains_identity_and_snapshot(self):
+        import sqlite3
+        self.load([order(1, '2026-10-01')])
+        result = self.query()
+        destination = Path(self.tmp.name) / 'backup.sqlite3'
+        self.store.backup(destination)
+        with sqlite3.connect(destination) as db:
+            self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+            self.assertEqual(db.execute('SELECT count(*) FROM identities').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT id FROM snapshots').fetchone()[0], result['snapshot_id'])
+        with self.assertRaises(FileExistsError):
+            self.store.backup(destination)
+
+    def test_frozen_snapshot_rechecks_global_context_permission(self):
+        self.load([order(1, '2026-10-01')])
+        allowed = [True]
+        service = Service(self.store, lambda u, q, p: allowed[0] or q['scope'] == 'project', clock=lambda: NOW)
+        frozen = service.query(dict(start='2026-10-01', end_exclusive='2026-10-22', scope='project', scope_id='1327'), 'same-user')
+        allowed[0] = False
+        with self.assertRaises(PermissionError):
+            service.query(dict(snapshot_id=frozen['snapshot_id']), 'same-user')
+
+    def test_daily_planning_busy_source_and_identity_backup(self):
+        import fcntl
+        from user_jobs import day_windows, has_window, synchronize_day, backup
+        from user_runtime import load_store
+        self.assertEqual(len(list(day_windows('2026-10-01', '2026-10-03'))), 2)
+        with self.assertRaises(ValueError):
+            list(day_windows('2026-10-01T12:00:00', '2026-10-03'))
+        self.load([order(1, '2026-10-01')])
+        self.assertTrue(has_window(self.store.read()[2], '266', '2026-10-01', '2026-10-02'))
+        lock_path = Path(self.tmp.name) / 'existing-source.lock'
+        with lock_path.open('a+b') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = synchronize_day(self.store, '266', '2026-10-01', '2026-10-02', reader=lambda *_: self.fail('busy source must not be called'), lock_path=lock_path)
+            self.assertEqual(result['status'], 'deferred')
+        root = Path(self.tmp.name) / 'new-private-root'
+        store = load_store(root, self.config)
+        same = load_store(root, self.config)
+        self.assertEqual(store.key, same.key)
+        manifest = backup(store, NOW)
+        self.assertEqual(backup(store, NOW), manifest)
+        (root / 'backups' / NOW.date().isoformat() / 'identity.key').write_bytes(b'broken')
+        with self.assertRaisesRegex(ValueError, 'backup_readback_mismatch'):
+            backup(store, NOW)
+
+    def test_project_mapping_migration_preserves_customer_and_old_snapshot(self):
+        self.load([order(1, '2026-10-01')])
+        old = self.query()
+        cid = self.store.read()[1][0]['customer_id']
+        updated = copy.deepcopy(self.config)
+        updated['scope_version'] += '-next-fixture'
+        updated['projects']['2000'] = dict(label='Fixture project', series='Fixture series')
+        self.store.remap_projects(updated)
+        self.assertEqual(self.store.read()[1][0]['customer_id'], cid)
+        self.assertEqual(self.service.query(dict(snapshot_id=old['snapshot_id']), 'admin'), old)
+        self.assertEqual(Store(self.store.root, self.store.key, updated).revision(), self.store.revision())
+        denied = copy.deepcopy(updated)
+        denied['scope_version'] += '-denied'
+        denied['sites']['266']['verified_identity_group'] = 'unverified-change'
+        with self.assertRaisesRegex(ValueError, 'explicit_identity_migration_required'):
+            self.store.remap_projects(denied)
+
+    def test_weekly_cohort_uses_same_observation_cutoff(self):
+        self.origins()
+        self.load([order(1, '2026-10-01'), order(2, '2026-10-05'), order(3, '2026-10-10', email='b@example.test'), order(4, '2026-10-20', email='c@example.test')])
+        result = self.query()
+        self.assertEqual(sum(w['denominator'] for w in result['cohort_weeks']), result['cohort']['denominator'])
+        self.assertEqual(sum(w['numerator'] for w in result['cohort_weeks']), 1)
+        self.assertEqual(sum(w['observing'] for w in result['cohort_weeks']), 1)
+        self.assertEqual(checked_query(dict(start='2026-10-01', end_exclusive='2026-10-22', scope='project', scope_id='833'), self.config, NOW)['policy_version'], 'fc-v1')
+
+    def test_failed_recheck_keeps_good_watermark_and_failure_attempt(self):
+        self.load([order(1, '2026-10-01')])
+        self.store.failed_window('266', '2026-01-01', '2026-10-22', 'admin_page_failed')
+        self.assertEqual(self.store.coverage()[0]['state'], 'complete')
+        self.assertEqual(self.store.job_health()['failed_attempts'], 1)
+        self.assertEqual(self.store.job_health()['latest_attempt']['state'], 'failed')
 
 
 if __name__ == '__main__':

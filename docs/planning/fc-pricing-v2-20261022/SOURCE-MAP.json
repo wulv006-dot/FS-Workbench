@@ -442,7 +442,8 @@
         "manifest_sha256": "2613460ddcae9bc92487c69051b8a5f3fa6469fbdca025bbdf169fbc7bef4637",
         "nginx_sha256": "8a565e993ba4c4ba6586d5cb5ff9f090c987c5cae345639c5f4869fb298da426"
       }
-    ]
+    ],
+    "observed_at": "2026-10-22T14:51:01.315178+00:00"
   },
   "natural_1821": {
     "status": "failed_before_price_writer",
@@ -455,9 +456,9 @@
   "backend_preview_recovery": {
     "report": "BACKEND-PREVIEW-RECOVERY.md",
     "receipt": "BACKEND-PREVIEW-RECOVERY.json",
-    "status": "shared_probe_fixed_and_live_backend_read_passed_fresh_natural_preview_pending",
+    "status": "two_fresh_natural_previews_passed_2026_and_2229",
     "original_failure_detail": "not_retained",
-    "natural_next": "2026-10-22 20:26:04 Asia/Shanghai"
+    "natural_next": "2026-10-23 00:32:55 Asia/Shanghai"
   },
   "natural_2026": {
     "status": "ready_no_price_change_backend_preview_restored",
@@ -468,9 +469,18 @@
     "new_cache_clear": false,
     "report": "NATURAL-2026-REPORT.md",
     "receipt": "NATURAL-2026-ACCEPTANCE.json",
-    "source_sha_inventory": "last19:46_157_not_rechecked_due_to_SSH",
-    "model_audit": "recommendation_and_reply_verified_provider_high_effective_knowledge_tool_events_pending",
-    "effect": "same_window_cost_refunds_quantity_ads_update_pending",
+    "source_sha_inventory": "2026-10-22T14:44:59Z_157_no_drift",
+    "model_audit": "verified_7_high_14_tools_v15_frozen_core_6_experiences_residual_semantic_errors",
+    "effect": "updated_exact_pid_global_delivery_join_incomplete_costs_ads_refund_quantity",
     "next_original_cycle": "2026-10-22T14:29:27.664878+00:00"
+  },
+  "evening_reconciliation": {
+    "report": "EVENING-RECONCILIATION.md",
+    "receipt": "EVENING-RECONCILIATION.json",
+    "natural_2229_job": "bbf2a395-244f-4dd8-8c8a-8a0edcbe359a",
+    "natural_2229_result": "ready_no_price_change",
+    "model_audit": "6_high_13_tools_current_knowledge_verified",
+    "new_price_write": false,
+    "no_production_change": true
   }
 }

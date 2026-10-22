@@ -14,7 +14,7 @@ from pilot import digest, encoded, SHANGHAI
 
 RESEARCH_NAMES = ('fc.get_data_catalog', 'fc.query_business', 'fc.query_queue',
                   'fc.read_history', 'fc.query_reference', 'fc.get_problem_clues',
-                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics','fc.query_capability','fc.query_market_snapshot','fc.query_official_intelligence','fc.query_marketing_snapshot','fc.query_game_news','fc.query_action_history','fc.query_es_order_structure','fc.query_discount_analysis','fc.query_product_orders','fc.query_cohort_observation','fc.query_customer_tracking','fc.read_evidence','fc.check_report_html','fc.query_pricing_evidence','fc.run_pricing_workflow')
+                  'fc.calculate', 'fc.read_skill','fc.query_native_statistics','fc.query_capability','fc.query_market_snapshot','fc.query_official_intelligence','fc.query_marketing_snapshot','fc.query_game_news','fc.query_action_history','fc.query_es_order_structure','fc.query_discount_analysis','fc.query_product_orders','fc.query_cohort_observation','fc.query_customer_tracking','fc.read_evidence','fc.check_report_html','fc.query_pricing_evidence','fc.run_pricing_workflow','fc.query_user_analytics')
 DIMENSIONS = ('platform', 'product', 'country', 'device', 'payment', 'site_group', 'status', 'day', 'hour')
 QUEUE_DIMENSIONS = DIMENSIONS + ('age_band', 'progress')
 
@@ -59,7 +59,8 @@ def tool_schemas():
     html_schema={'type':'function','function':{'name':'mcp__fcro__fc_check_report_html','description':'Check your draft complete HTML for structural problems before delivery, including zero-width inline span bars. Parses text only, no scripts, files, network or writes. Fix reported issues before final HTML; this does not replace browser or data verification.','parameters':{'type':'object','properties':{'html':{'type':'string','maxLength':1000000}},'required':['html'],'additionalProperties':False}}}
     from coins_evidence import schema as coins_schema
     from pricing_workflow import schema as workflow_schema
-    return [workflow_schema(),coins_schema(),action_schema,es_schema,discount_schema,product_schema,cohort_schema(),customer_schema,evidence_schema,html_schema]+[{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
+    from user_tools import research_schema as user_schema
+    return [user_schema(),workflow_schema(),coins_schema(),action_schema,es_schema,discount_schema,product_schema,cohort_schema(),customer_schema,evidence_schema,html_schema]+[{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,
                 'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk','section','item'))],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES[:9],properties,descriptions)]+[tool_schema(), {
                 'type':'function','function':{'name':'mcp__fcro__fc_query_market_snapshot',
@@ -229,6 +230,7 @@ class ResearchBook:
         if name=='fc.query_product_orders':result.update(scope='Admin MMOEXP site266 exact game and product-ID order query',timezone='unverified')
         if name=='fc.query_cohort_observation':result.update(scope='Admin ES new-customer flag for the selected game; stable site-local identity observation; requested site/platform scope',timezone='Asia/Shanghai')
         if name=='fc.query_native_statistics':result.update(project=args['profile'],scope='per_metric_source_labels')
+        if name=='fc.query_user_analytics':result.update(project='CONNECTED_PURCHASE_CUSTOMERS',scope='verified_connected_sites_and_query',snapshot_id=data.get('snapshot_id',self.capture_id))
         result['evidence_id'] = 'ev_'+digest(result)[:24]
         with self._lock:
             self.evidence[result['evidence_id']] = deepcopy(result)
@@ -264,6 +266,10 @@ class ResearchBook:
         return self.query({'start':a.isoformat(),'end':b.isoformat(),'group_by':[args['dimension']] if name=='fc.get_breakdown' else [],'filters':{},'page':1})
 
     def research(self, name, args):
+        if name=='fc.query_user_analytics':
+            reader=getattr(self,'user_analytics',None)
+            value=reader(args) if reader else {'status':'unavailable','reason':'user_analytics_not_wired'}
+            return self.register(name,args,value,'FS购买客户事实的冻结聚合',value.get('captured_at'))
         if name=='fc.check_report_html':
             from html_check import check_html
             return check_html(args)
@@ -303,6 +309,7 @@ class ResearchBook:
                 'discount_analysis':{'tool':'fc.query_discount_analysis','status':'on_demand' if self.es_structure else 'not_wired','scope':'same ES file set; group_by=channel for versioned coupon promotion classification (not site or causal attribution); actual 折扣金额 uniformly USD, final user confirmation 2026-10-18; original states and new/old flags; exclusive campaign attribution/refund reversals/rate base unverified'},
                 'product_orders':{'tool':'fc.query_product_orders','status':'on_demand' if self.product_orders else 'not_wired','scope':'MMOEXP site266 game plus product ID order query; legacy FC27 model lookup remains compatible; whole-order USD distinct from original-currency item lines; observed paytime filter despite UI 下单时间 label'},
                 'cohort_observation':{'tool':'fc.query_cohort_observation','status':'on_demand' if self.cohort_observation else 'not_wired','scope':'Selected-game ES-new-flagged customer observation with stable anonymous identity; missing identity excluded with coverage; not verified historical first purchase or campaign attribution'},
+                'user_analytics':{'tool':'fc.query_user_analytics','status':'available' if getattr(self,'user_analytics',None) else 'not_wired','scope':'Verified connected purchasing customers; exact primary email includes guests; frozen snapshot/evidence only, history and satellite gaps explicit; no identities or collection'},
                 'marketing_snapshot':{'tool':'fc.query_marketing_snapshot','status':'on_demand' if self.marketing else 'not_wired','scope':'FC27/Coins names identify FC-project Ads and published search-term/page matches; preserve coverage. Unfiltered GA4/GSC data are whole-site background; no order join','ads_geography':'not_collected_by_existing_source','collection':'existing_exact_range_on_demand; may prepare missing periods'},
                 'game_news':{'tool':'fc.query_game_news','status':'shared_snapshot_readonly' if self.news else 'not_wired','scope':'MMOEXP News／主站SEO资讯（非游戏官方公告）','no_new_collection':True,'no_network':True,'claim_policy':'Use actual source URL and publication/event/collection times; missing or stale snapshots do not trigger collection. Publication time alone never establishes an event countdown.'},
                 'report_constraints':{'review_standard':'Useful direction first; roughly 90% verifiable coverage is a user quality target, not measured confidence. Minor gaps/rounding annotate rather than suppress the whole judgment. State confidence, next action and what would reverse it.','partitions':'Full group deltas and named residuals are strongest; partial reconciliation may support labelled directional hypotheses, not an audited complete bridge.','marginal_tables_are_not_order_joins':True,'quantity_discount_mechanism':'Requires verified order lines/definitions, not sale_total equals order_count','complete_multidimensional_groups':'May marginalize only after page/key/total/scope/time reconciliation','thresholds':'Existing approved policy or explicitly pending proposal; screening and suggested review dates are not execution authority'},

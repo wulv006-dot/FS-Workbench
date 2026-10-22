@@ -21,7 +21,7 @@ def get(service, path, params, user):
                     raise ValueError('query_integer')
                 args[key] = int(args[key])
         if path == '/users/private':
-            if action not in ('members', 'export'):
+            if action not in ('members', 'export', 'detail'):
                 raise ValueError('private_action')
             return 200, getattr(service, action)(args, user)
         if action == 'catalog' and not args:

@@ -30,14 +30,16 @@
     <p id="status" role="status" aria-live="polite">正在确认当前范围…</p>
     <div id="result" hidden>
       <section class="panel"><h2>数据范围</h2><p id="coverage"></p><p id="freshness"></p><details><summary>当前口径与历史覆盖</summary><pre id="versions"></pre></details></section>
-      <section aria-labelledby="interval-title"><h2 id="interval-title">这段时间发生了什么</h2><p>整段去重购买人数 = 已确认首购 + 已确认老客 + 首购待确认。唤醒与回流为其中的购买行为。</p><div id="interval" class="cards"></div></section>
+      <section aria-labelledby="interval-title"><h2 id="interval-title">这段时间发生了什么</h2><p>整段去重购买人数 = 已确认首购 + 已确认老客 + 首购待确认。复购、唤醒与回流为其中的购买行为。</p><div id="interval" class="cards"></div><details><summary>查看复购与阶段进入</summary><div id="interval-extra" class="cards"></div></details></section>
       <section aria-labelledby="stock-title"><h2 id="stock-title">截至期末，客户处于什么阶段</h2><p id="observation"></p><div id="stock" class="cards"></div></section>
-      <section class="panel"><h2>购买、进入流失与回流趋势</h2><p>每日去重人数不能相加为区间购买客户。未知数据单列。</p><div id="trend"></div></section>
-      <section class="panel"><h2>成熟二购</h2><p id="cohort"></p></section>
-      <section class="panel"><h2>项目经营与客户转购</h2><button type="button" id="projects">读取项目比较</button><p id="project-status" role="status"></p><div id="project-table"></div><div id="migration"></div></section>
-      <section class="panel" id="private" hidden><h2>管理员客户核对</h2><p>当前指标、当前快照的脱敏客户；成员权限由服务端核验。</p><p id="private-status" role="status"></p><div id="members"></div><button type="button" id="next" hidden>下一页</button><button type="button" id="export" hidden>导出当前分群</button></section>
-      <section class="panel"><h2>Hermes 分析</h2><p>复制当前证据指令后，在 Hermes 中粘贴。正式页面一键接线须沿现有会话入口完成。</p><button type="button" id="hermes">复制当前范围与证据</button><p id="handoff-status" role="status"></p></section>
+      <section class="panel"><h2>购买、进入流失与回流趋势</h2><p>每日去重人数不能相加为区间购买客户。未知数据单列。</p><figure><div id="trend-chart"></div><figcaption>同一快照的每日购买、确认首购与回流；缺口处断开。下方表格提供全部数字。</figcaption></figure><details><summary>查看每日数据与期末阶段</summary><div id="trend"></div></details><figure><div id="stock-chart"></div><figcaption>每日截止的阶段存量，包含状态待核；代表已覆盖客户池。</figcaption></figure></section>
+      <section class="panel"><h2>成熟二购</h2><p id="cohort"></p><div id="cohort-weeks"></div></section>
+      <section class="panel"><h2>项目经营与客户转购</h2><button type="button" id="projects">查看同版项目比较</button><p id="project-status"></p><div id="project-table"></div><div id="migration"></div><div id="destinations"></div></section>
+      <section class="panel" id="segments" hidden><h2>需要负责人核查的客户</h2><p>高价值按已覆盖历史USD消费的第75百分位分组，不代表终身价值。</p><button type="button" data-group="high_value_entered_silent">高价值且刚进入沉默</button><button type="button" data-group="first_without_repeat">已确认首购后尚未二购</button><button type="button" data-group="lost_return">本期已回流</button></section>
+      <section class="panel" id="private" hidden><h2>管理员客户核对</h2><p>当前指标、当前快照的脱敏客户；查看邮箱与原单需单独展开。</p><p id="private-status"></p><div id="members"></div><button type="button" id="next" hidden>下一页</button><button type="button" id="export" hidden>导出当前分群</button></section>
+      <section class="panel" id="hermes-panel" hidden><h2>Hermes 分析</h2><p>选择已有持续会话，一次提交当前范围、口径、覆盖与冻结证据。分析不会联系客户、发券或改价。</p><label for="hermes-conversation">提交到会话</label><select id="hermes-conversation"><option value="">正在读取可用会话…</option></select><button type="button" id="hermes">交给 Hermes 分析</button><button type="button" id="reconcile-handoff" hidden>核对原提交</button><p id="handoff-status"></p></section>
     </div>
   </main>
+  <dialog id="customer-detail" aria-labelledby="detail-title"><h2 id="detail-title">客户私有核对</h2><p id="detail-email"></p><p id="detail-note"></p><div id="detail-orders"></div><form method="dialog"><button>关闭详情</button></form></dialog>
 </body>
 </html>
