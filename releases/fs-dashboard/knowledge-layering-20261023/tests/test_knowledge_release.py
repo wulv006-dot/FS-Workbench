@@ -46,6 +46,15 @@ class Release(unittest.TestCase):
             with patch.object(scope,'HERE',stage):
                 publisher=scope.load_base()
             self.assertEqual(len(publisher.validate(manifest,stage)),len(manifest['files']))
+            from types import SimpleNamespace
+            parent=Path('/var/lib/fs-hermes-fc')
+            info=SimpleNamespace(st_uid=0,st_gid=9876,st_mode=0o40750)
+            self.assertTrue(publisher.approved_daily_group(manifest,Path('/'),parent,info))
+            self.assertFalse(publisher.approved_daily_group(manifest,Path('/'),parent/'profile',info))
+            self.assertFalse(publisher.approved_daily_group(dict(manifest,scope='other'),Path('/'),parent,info))
+            for wrong in (dict(st_uid=9876),dict(st_gid=9875),dict(st_mode=0o40775),dict(st_mode=0o42750)):
+                values=vars(info).copy();values.update(wrong)
+                self.assertFalse(publisher.approved_daily_group(manifest,Path('/'),parent,SimpleNamespace(**values)))
             docs_only=copy.deepcopy(manifest)
             for row in docs_only['files']:
                 if row['candidate'] in scope.RUNTIME:

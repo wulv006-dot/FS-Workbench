@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import stat
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -38,6 +39,16 @@ def load_base():
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, mapping
     adapter.NEW = frozenset(n for n in mapping if n not in RUNTIME or n == 'runtime/knowledge_catalog.py')
     base = adapter.load_base()
+    original_group = base.approved_daily_group
+
+    def existing_shared_parent(value, root, item, info):
+        # Reuse the deployed user-analytics parent contract without changing permissions.
+        return original_group(value, root, item, info) or (
+            value.get('scope') == SCOPE
+            and item == base.rooted(root, '/var/lib/fs-hermes-fc')
+            and (info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)) == (0, 9876, 0o750))
+
+    base.approved_daily_group = existing_shared_parent
     restart = base.restart_for
 
     def restart_changed_code(value, admission_fence=None):
