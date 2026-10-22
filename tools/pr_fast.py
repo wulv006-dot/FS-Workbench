@@ -164,6 +164,8 @@ def selfcheck():
         raise RuntimeError("coins_workflow_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
         raise RuntimeError("coins_evidence_checks_missing")
+    if select(["releases/fs-dashboard/business-procurement-20261022/source/business.js"]) != ["business-procurement"]:
+        raise RuntimeError("business_procurement_checks_missing")
     if select(["releases/fs-dashboard/channel-effects-20261021/source/channel_effects.py"]) != ["channel-effects"]:
         raise RuntimeError("channel_effects_checks_missing")
     if select(["rea_admin_contract_20261021/monthly_paid.py"]) != ["admin-monthly-paid"]:
@@ -346,6 +348,8 @@ def select(paths):
             groups.add("fc-coins-evidence");continue
         if name.startswith("releases/fs-dashboard/daily-archive-20261021/"):
             groups.add("daily-archive");continue
+        if name.startswith("releases/fs-dashboard/business-procurement-20261022/"):
+            groups.add("business-procurement");continue
         if name.startswith("releases/fs-dashboard/channel-effects-20261021/"):
             groups.add("channel-effects");continue
         if name.startswith("admin_session_continuity_20261021/"):
@@ -663,6 +667,10 @@ def main():
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
+        elif group=="business-procurement":
+            units("releases/fs-dashboard/business-procurement-20261022/tests",["test_release"])
+            node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
+            node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
