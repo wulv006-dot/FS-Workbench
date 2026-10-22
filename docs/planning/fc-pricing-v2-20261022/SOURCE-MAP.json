@@ -1,26 +1,28 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "deployed_actual_sha_verified",
-  "checked_at": "2026-10-22T08:51:16.213464+00:00",
-  "latest_source": "e5e86a1edf65662966cc4e759c6260e1449c5d71",
-  "latest_merge": "caf85ec9eab402772b84eca5fdf8442ea97fddc1",
+  "checked_at": "2026-10-22T09:23:26.252361+00:00",
+  "latest_source": "71520102e1e6755e6715098bebb13d682eaddd73",
+  "latest_merge": "f440fa128bb7983efada6a742841c884bd37c02c",
   "latest_release": {
-    "release_id": "nav-20261022T084821Z",
-    "manifest_sha256": "6cbaa5c96de86a93a1ab19af77ab1e335b4ab24c9463ab3bfa6a164dfc1045d0",
-    "source": "e5e86a1edf65662966cc4e759c6260e1449c5d71",
-    "merge": "caf85ec9eab402772b84eca5fdf8442ea97fddc1",
-    "stage": "/opt/fs-release-stage/fc-dual-margin-e5e86a1edf65",
-    "scope": "fc-pricing-v2-dual-margin-20261022",
+    "release_id": "nav-20261022T091951Z",
+    "manifest_sha256": "2785e6c04380c9ea91777763cf6bc341f334e206911251b0ddcc2deb860b4e81",
+    "source": "71520102e1e6755e6715098bebb13d682eaddd73",
+    "merge": "f440fa128bb7983efada6a742841c884bd37c02c",
+    "stage": "/opt/fs-release-stage/fc-v15-knowledge-clarity-71520102e1e6",
+    "scope": "fc-pricing-v2-knowledge-clarity-20261022",
     "original_inspect": {
       "releaseReady": false,
-      "staticFiles": 11,
+      "staticFiles": 1,
       "sourceCAS": "passed",
       "protectedCAS": "passed",
       "oldPublisher": "still retired",
       "mutations": false
     },
-    "targets_verified": 11,
-    "protected_verified": 129
+    "targets_verified": 1,
+    "protected_verified": 139,
+    "accepted_at": "2026-10-22T09:23:26.252361+00:00",
+    "price_write_performed": false
   },
   "files": [
     {
@@ -146,8 +148,8 @@
     {
       "candidate": "source/business-baseline.md",
       "target": "/opt/fs-hermes-fc/business-baseline.md",
-      "sha256": "9c0a6db19e644a6e4fc6ca74d5eb314d6f53e7788b3178a5779393f6cf0c40fb",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "sha256": "2751f1c5649a30dedc4751705e6d1e3d9ea409a49b62440235c9a4a3b6f86e4f",
+      "verified_at": "2026-10-22T09:23:26.252361+00:00"
     },
     {
       "candidate": "source/fc27-coins.html",
@@ -261,6 +263,24 @@
       "scope": "fc-dot-observer-20261022",
       "targets_verified": 4,
       "protected_verified": 134
+    },
+    {
+      "release_id": "nav-20261022T084821Z",
+      "manifest_sha256": "6cbaa5c96de86a93a1ab19af77ab1e335b4ab24c9463ab3bfa6a164dfc1045d0",
+      "source": "e5e86a1edf65662966cc4e759c6260e1449c5d71",
+      "merge": "caf85ec9eab402772b84eca5fdf8442ea97fddc1",
+      "stage": "/opt/fs-release-stage/fc-dual-margin-e5e86a1edf65",
+      "scope": "fc-pricing-v2-dual-margin-20261022",
+      "original_inspect": {
+        "releaseReady": false,
+        "staticFiles": 11,
+        "sourceCAS": "passed",
+        "protectedCAS": "passed",
+        "oldPublisher": "still retired",
+        "mutations": false
+      },
+      "targets_verified": 11,
+      "protected_verified": 129
     }
   ],
   "shared_dependency_history": [

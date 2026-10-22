@@ -125,3 +125,16 @@ PR346最新head1b3e7f06c434de08b0547ed1d968afd6798c13e6/merge921e08cc7f4c091b567
 模型首答正确区分双线、合法单笔亏损、原执行与候选和不足数据边界，撤回固定7天/倍数自动回旧价；仍把18.99相对19和20的变化比例标签说反、把减30%误称三折、用并集表达同时满足，时间也未一致标UTC/北京时间。原错误保留，不称完全通过或稳定掌握；下一自然独立验证这些字段与反证，不重复同题凑通过、不发布新经验。
 
 Notion标题及首版号/第30节已更新v15，原async task_716695d00dbe42eea9c67af764196f1a与title task_c4a2df19f31d48cd8da212c7e7e4b296 succeeded；第22/25旧利润条款与Dot旧v13检查入口正在定点标历史/替换，最终fetch另核。原fc-coins-v2提示已整体清理，ACTIVE/本Work/07:30–20:30每小时:30保持，未复用乱码对象，0替换字符。真实浏览器16:55页面显示双线标题、9.84/8.68、8.35/7.78和25.48/21.41、原18:21:27计划。UI结构/主题令牌未变、Node加载/失败/禁用与未知请求回归通过，本轮不更改全站显示主题。
+
+
+### 2026-10-22 17:23 当前文字残留清理完成
+
+原监控091157Z-private确认140SHA无漂移、v15双红线、rev40/on/auto/120/min10、队列0/未确认0；882d候选过期正常，不额外采价。原业务收入17:10、成本14:44、ES08:57仍partial，营销准确区间pending，经营增利无新结论。
+
+本轮发现README“已确认规则”、STRATEGIES当前步骤和业务基准旧v11段仍有折后单笔10%残留，已定点改为未优惠与七日结构估算平均同时≥10%，合法优惠单笔仍可亏损；历史答卷、失败和亏损账本保留并标时点。PR352/head71520102e1e6755e6715098bebb13d682eaddd73，正式pr-fast39754322319/job119742384410成功，mergef440fa128bb7983efada6a742841c884bd37c02c，6文件字节核回。价格计算与定价代码复用PR350有效检查，本次没有重复跑未改变的全套测试。
+
+原publisher nav-20261022T091951Z/manifest2785e6c04380c9ea91777763cf6bc341f334e206911251b0ddcc2deb860b4e81，stage/opt/fs-release-stage/fc-v15-knowledge-clarity-71520102e1e6。首次被正常fs-transaction-collect.service的collector锁挡住，原目标未变、无备份；核该服务自然结束且锁已释放后，沿同一发布ID重核CAS并完成1目标/139保护共140SHA，未取消任务或绕过锁。原失败、检查和resume回执保留。
+
+真实知识装配与原状态/模拟入口已核v15核心SHA2751f1c5649a30dedc4751705e6d1e3d9ea409a49b62440235c9a4a3b6f86e4f，bundle SHA46e4496f7fb7c97f563fdfcfcb3231fa150ceba1f5d993f225903eae8d2ed35d；140无漂移，双红线basis正确，原rev40/on/auto/120/10与队列0/未确认0保持。只有业务核心文本改变，FC服务未重启，无新模型、价格采集、写价或经验发布。当前定价代码仍PR350，本次知识澄清为PR352；不能把装配读回称自然模型已学会。下一原18:21:27及长期效果待验。
+
+Notion第30节沿原async task_d93851ec676c432785acb1b96653a104补充本轮清理及原ID恢复事实，succeeded；凭据、角色、Dot云端保护和唯一writer边界保持。原监控指针已切至本次合法stage，不拿旧知识SHA误报漂移。实际回执/tmp/fc-pricing-v2-20261022/v15-clarity-acceptance-private.json与v15-clarity-release-result.json。
