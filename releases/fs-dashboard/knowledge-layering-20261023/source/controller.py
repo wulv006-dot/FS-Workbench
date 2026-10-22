@@ -785,4 +785,3 @@ class HermesService:
             if task:
                 with self.lock:
                     self.tokens.pop(task['id'],None);self.gateways.pop(task['id'],None);self.books.pop(task['id'],None)
-

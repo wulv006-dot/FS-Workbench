@@ -167,13 +167,14 @@ class Knowledge(unittest.TestCase):
         selected = kc.report_selection(self.root, {'kind': 'hermes_report', 'mode': 'daily', 'request_id': 'isolated-readonly-fixture'})
         self.assertEqual(selected['entries'][0]['id'], 'fc.rule')
 
-    def test_admission_hook_is_only_change_to_live_controller_baseline(self):
+    def test_admission_hook_and_eof_restore_live_controller_baseline(self):
         import ast
         source = (Path(__file__).resolve().parents[1] / 'source/controller.py').read_text(encoding='utf-8')
         old = "knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'],owner=user,experience_manifest=experiences)"
         new = "from knowledge_catalog import report_selection\n            selection=report_selection(self.root,body)\n            " + old[:-1] + ',selection=selection)'
         self.assertEqual(source.count(new), 1)
-        original = source.replace(new, old)
+        self.assertTrue(source.endswith('\n') and not source.endswith('\n\n'))
+        original = source.replace(new, old) + '\n'
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(), '571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af')
         ast.parse(source, feature_version=(3, 9))
 
