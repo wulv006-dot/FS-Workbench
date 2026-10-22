@@ -1,0 +1,3400 @@
+{
+ "generated_at": "2026-10-22T04:42:13+00:00",
+ "game_key": "maplestory",
+ "scope": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+ "method": "以三份独立的 Classic World 数据源逐技能比对技能名与所属职业层级（两源以上一致记 verified，单源记 verified_single_source）；上限等级取自站点数据表的对应条目，仅用于内部核对，卡片不把这些数值宣称为官方数值。三转（CoT2）归属记 out_of_scope_3rd_job；三源均无的旧稿技能名记 not_found。官方公告只用于确认 4 个一转 + 10 条二转与 Lv100 上限，未用于任何技能级结论。",
+ "official_facts": [
+  {
+   "claim": "Lv10 一转四职业（Warrior / Magician / Bowman / Thief），Lv30 十条二转分支，Lv100 上限",
+   "url": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "status": "official"
+  },
+  {
+   "claim": "上线版没有三转；三转技能只存在于 Closed Online Test 2 测试数据",
+   "url": "https://mapleclassic.wiki/wiki/Jobs",
+   "status": "community_corroborated"
+  },
+  {
+   "claim": "官方职业页对无 JS 客户端只返回空壳，本轮未从官方页取得技能级数据",
+   "url": "https://www.nexon.com/maplestory/game/mscw/classes-and-jobs",
+   "status": "blocked"
+  }
+ ],
+ "sources": [
+  {
+   "id": "O1",
+   "name": "Nexon Grand Launch Release Notes (46506)",
+   "url": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "kind": "official",
+   "scope": "Classic World 上线说明",
+   "note": "官方原文确认 10/21 18:00 UTC 开服、四职业、十条二转分支、Lv100 上限；不含技能级数据。容器内该域对无头/浏览器请求只返回空壳，正文由本轮 Codex 独立复核（REVIEW-5）。",
+   "retrieved_at_utc": "2026-10-22T04:40:57+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "O2",
+   "name": "Nexon MapleStory Classic World · Classes & Jobs",
+   "url": "https://www.nexon.com/maplestory/game/mscw/classes-and-jobs",
+   "kind": "official",
+   "scope": "Classic World 职业页",
+   "note": "前端渲染页；本轮无头 GET 与浏览器均只得到空壳（无职业/技能文本），因此本轮不把任何技能级结论归因为官方页。职业名与分支以 O1 为准。",
+   "retrieved_at_utc": "2026-10-22T04:40:58+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "Q",
+   "name": "MapleStory Quest（Classic World 客户端数据）",
+   "url": "https://maplestory.quest/classes/spearman",
+   "kind": "community-datamine",
+   "scope": "Classic World Public Release 客户端数据",
+   "note": "站点声明数据来自 Public Release 客户端（页面 dateModified 2026-10-21）；逐职业页按 1st/2nd job 分节，并标注 3rd job 仅存在于 Closed Online Test 2。职业总览 /classes 本轮间歇返回 500，逐职业页均为 200，本表以逐职业页为准。",
+   "retrieved_at_utc": "2026-10-22T04:41:03+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "W",
+   "name": "MapleClassic Wiki",
+   "url": "https://mapleclassic.wiki/wiki/Skills",
+   "kind": "community-wiki",
+   "scope": "Classic World 技能总表",
+   "note": "按 Job 分组的技能总表（Skill/Job/Tier/Max level/MP/Requires），Jobs 页明确 'There is no 3rd job advancement in Classic World yet'。",
+   "retrieved_at_utc": "2026-10-22T04:41:03+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "M",
+   "name": "NiaMeowDB（MapleStory Classic 数据库）",
+   "url": "https://meowdb.com/msclassic/skills",
+   "kind": "community-datamine",
+   "scope": "Classic World 技能/职业数据",
+   "note": "技能库声明 163 技能、'Third job is not part of the initial launch'，并注明 Orbis/El Nath/三转将在 rework 后到来（引用 Nexon 报告）。",
+   "retrieved_at_utc": "2026-10-22T04:41:04+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "HTTP 403；正文以本轮 web 检索结果为准，不冒充可访问"
+  }
+ ],
+ "jobs": [
+  {
+   "job_key": "beginner",
+   "job_cn": "初学者",
+   "job_en": "Beginner",
+   "tier": 1,
+   "advancement": "Maple Island 起始职业，Lv10 可选择一转",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 3,
+   "skills": [
+    {
+     "skill": "Three Snails",
+     "job": "Beginner",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 3,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "投掷蜗牛壳，满级 40 伤害；初学者唯一主动攻击",
+     "status": "verified",
+     "in_card": false,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Recovery",
+     "job": "Beginner",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 3,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "30 秒内回复 72 HP，冷却 2 分钟",
+     "status": "verified",
+     "in_card": false,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Nimble Feet",
+     "job": "Beginner",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 3,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "30 秒内移速 +10，冷却 3 分钟",
+     "status": "verified",
+     "in_card": false,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Basic Attack",
+     "job": "Beginner",
+     "tier": 1,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "上一版初学者卡把 Basic Attack 当技能。Classic Beginner 只有 Three Snails / Recovery / Nimble Feet 三个技能（各上限 3 级）。已替换。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/beginner",
+      "https://mapleclassic.wiki/wiki/Skills"
+     ],
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "warrior",
+   "job_cn": "战士",
+   "job_en": "Warrior",
+   "tier": 1,
+   "advancement": "Perion / Dances with Balrog；Lv30 分化为 Fighter / Page / Spearman",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Power Strike",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单体 260% 伤害",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Slash Blast",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "范围 130%，最多 6 只，需 Power Strike ≥1",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Improved HP Recovery",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "每 10 秒回 HP，道具回血 +50%",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Max HP Increase",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "最大 HP +25%，需 Improved HP Recovery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Iron Body",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "武器防御 +40%，600 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Precise Strikes",
+     "job": "Warrior",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "命中 +20、暴击率 +5%",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "fighter",
+   "job_cn": "剑客",
+   "job_en": "Fighter",
+   "tier": 2,
+   "advancement": "Warrior 二转（剑/斧）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 8,
+   "skills": [
+    {
+     "skill": "Sword Mastery",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "剑熟练 + 命中（只对剑生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Axe Mastery",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "斧熟练；25% 概率造成 3 秒流血（只对斧生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Final Attack: Sword",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，对最多 3 只追加 200%，需 Sword Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Final Attack: Axe",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，对最多 3 只追加 200%，需 Axe Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Sword Booster",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "剑攻速 +2 阶段 300 秒，消耗 HP/MP，需 Sword Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Axe Booster",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "斧攻速 +2 阶段 300 秒，消耗 HP/MP，需 Axe Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Rage",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "队伍攻击 +40、武器防御 -40，300 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Rush",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "向前冲 150，80% 伤害、击退最多 6 只，2 秒冷却",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Power Guard",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "复审提出 Fighter 的 Power Guard 归属存疑。核对结果：Fighter 二转 8 技能为 Mastery/Booster/Final Attack 两套 + Rage + Rush，不含 Power Guard；Power Guard 属 White Knight（三转，仅 CoT2），MapleStory Quest 的 White Knight 页与 NiaMeowDB 均如此标注。已从 Fighter 与 Page 卡删除。",
+     "status": "out_of_scope_3rd_job",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/white-knight",
+      "https://meowdb.com/msclassic/skills/white-knight/power-guard"
+     ],
+     "in_loop": false
+    },
+    {
+     "skill": "Weapon Mastery",
+     "job": "Fighter",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "上一版 Fighter 卡写 Weapon Mastery。Classic 数据里 Fighter 的熟练类技能是 Sword Mastery 与 Axe Mastery（按武器分开），不存在通用的 Weapon Mastery。已按实际技能名替换。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/fighter",
+      "https://mapleclassic.wiki/wiki/Skills"
+     ],
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "page",
+   "job_cn": "准骑士",
+   "job_en": "Page",
+   "tier": 2,
+   "advancement": "Warrior 二转（剑/钝器）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 8,
+   "skills": [
+    {
+     "skill": "Sword Mastery",
+     "job": "Page",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "剑熟练 + 命中（只对剑生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Blunt Weapon Mastery",
+     "job": "Page",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "钝器熟练 + 暴击伤害 +20%（只对钝器生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Final Attack: Sword",
+     "job": "Page",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，追加 360%，需 Sword Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Final Attack: Blunt Weapon",
+     "job": "Page",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，追加 360%，需 Blunt Weapon Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Sword Booster",
+     "job": "Page",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "剑攻速 +2 阶段 300 秒，需 Sword Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Blunt Weapon Booster",
+     "job": "Page",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "钝器攻速 +2 阶段 300 秒，需 Blunt Weapon Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Threaten",
+     "job": "Page",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "最多 4 只怪 速度/攻击/防御 下降，30 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Rush",
+     "job": "Page",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "向前冲 150，80% 伤害、击退最多 6 只，2 秒冷却",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Shield Mastery",
+     "job": "Page",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "上一版 Page 卡写 Shield Mastery。Page 二转 8 技能为两套 Mastery/Booster/Final Attack + Threaten + Rush，三个数据源均无 Shield Mastery；盾是装备选择，不占技能位。已删除。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/page",
+      "https://mapleclassic.wiki/wiki/Skills"
+     ],
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "spearman",
+   "job_cn": "枪战士",
+   "job_en": "Spearman",
+   "tier": 2,
+   "advancement": "Warrior 二转（枪/戟）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 8,
+   "skills": [
+    {
+     "skill": "Spear Mastery",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "枪熟练 + 附加效果（数据站对附加效果描述不一致，具体以游戏内为准）",
+     "status": "verified",
+     "in_card": true,
+     "note": "三站对附加效果描述不一致（忽略敌防概率 / 回避加成），卡片只写通用定位，不写具体数值",
+     "in_loop": false
+    },
+    {
+     "skill": "Polearm Mastery",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "戟熟练 + 移速（只对戟生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Final Attack: Spear",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，追加 350% 并吸收部分伤害为 HP，需 Spear Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Final Attack: Polearm",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，追加 350% 并吸收部分伤害为 HP，需 Polearm Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Spear Booster",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "枪攻速 +2 阶段 300 秒，需 Spear Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Polearm Booster",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "戟攻速 +2 阶段 300 秒，需 Polearm Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Iron Will",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "武器防御 +50、35% 概率忽略击退，300 秒（自身增益）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Rush",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "向前冲 150，80% 伤害、击退最多 6 只，2 秒冷却",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Spear Crusher",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "上一版把 Spear Crusher 写成 Spearman 二转主力输出并放进 Boss 循环。三个 Classic 数据源都没有该技能名；枪系三转（Dragon Knight，仅 CoT2 测试）的对应技能名为 Piercing Crusher。已从技能表与循环中删除。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/dragon-knight",
+      "https://meowdb.com/msclassic/classes/dragon-knight"
+     ],
+     "in_loop": false
+    },
+    {
+     "skill": "Hyper Body",
+     "job": "Spearman",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "上一版把 Hyper Body 写成 Spearman 二转的队伍 HP/MP 增益与核心卖点。当前 Classic 上线版属 Dragon Knight（三转，仅 CoT2），NiaMeowDB 明写 'Hyper Body is a Dragon Knight skill'，MapleStory Quest 的 Dragon Knight 页确认其为 +30% 最大 HP 的队伍增益。已删除。",
+     "status": "out_of_scope_3rd_job",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/dragon-knight",
+      "https://meowdb.com/msclassic/classes/spearman"
+     ],
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "magician",
+   "job_cn": "法师",
+   "job_en": "Magician",
+   "tier": 1,
+   "advancement": "Ellinia / Grendel the Really Old；Lv30 分化为 F/P Wizard、I/L Wizard、Cleric",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Energy Bolt",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单体基础攻击 130",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Magic Claw",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单次两段，基础攻击 65×2，需 Energy Bolt Lv1",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Magic Guard",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "把 80% 的 HP 伤害转为 MP 消耗",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Magic Armor",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "武器/魔法防御 +120，600 秒，需 Magic Guard Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Improved MP Recovery",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "每 10 秒回 1% 最大 MP，道具回蓝 +25%",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Max MP Increase",
+     "job": "Magician",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "最大 MP +25%，需 Improved MP Recovery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "fp-wizard",
+   "job_cn": "火毒法师",
+   "job_en": "Wizard (Fire/Poison)",
+   "tier": 2,
+   "advancement": "Magician 二转",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Fire Arrow",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "单体基础攻击 180，并附带持续伤害",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Poison Breath",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "基础攻击 80，75% 概率附加持续毒伤",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Meditation",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "队伍魔法攻击 +25，300 秒，需 MP Eater Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Teleport",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "瞬移 150 距离",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Slow",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "降低怪物速度与回避，需 Teleport Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "MP Eater",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "每次攻击 50% 概率吸取怪物 50% 最大 MP",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Poison Brace",
+     "job": "Wizard (Fire/Poison)",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "上一版火毒卡写 Poison Brace。Classic F/P Wizard 的毒系技能是 Poison Breath。已改名并补充其定位。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/fp-wizard",
+      "https://mapleclassic.wiki/wiki/Skills"
+     ],
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "il-wizard",
+   "job_cn": "冰雷法师",
+   "job_en": "Wizard (Ice/Lightning)",
+   "tier": 2,
+   "advancement": "Magician 二转",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Cold Beam",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "单体基础攻击 170，命中后减速 3 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Thunder Bolt",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "群体基础攻击 70，25% 概率感电",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Meditation",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "队伍魔法攻击 +25，300 秒，需 MP Eater Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Teleport",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "瞬移 150 距离",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Slow",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "降低怪物速度与回避，需 Teleport Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "MP Eater",
+     "job": "Wizard (Ice/Lightning)",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "每次攻击 50% 概率吸取怪物 50% 最大 MP",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "cleric",
+   "job_cn": "牧师",
+   "job_en": "Cleric",
+   "tier": 2,
+   "advancement": "Magician 二转",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Heal",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "范围治疗队伍，周围不死系同时受到伤害",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Holy Arrow",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "远程攻击，对不死/恶魔系特效",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Invincible",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "物理伤害降低，并对接触伤害自己的怪物造成少量魔法伤害，需 Heal Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Bless",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "队伍增益：命中/回避与道具-技能回血提升（两站描述不一致，具体以游戏内为准）",
+     "status": "verified",
+     "in_card": true,
+     "note": "两站描述不一致（一处为命中/回避/回血，一处为受伤 -15% 与 Heal 回血 +10%），卡片只写“队伍增益”，不写具体数值",
+     "in_loop": true
+    },
+    {
+     "skill": "MP Eater",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "每次攻击 50% 概率吸取怪物 50% 最大 MP",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Teleport",
+     "job": "Cleric",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "瞬移 150 距离",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "archer",
+   "job_cn": "弓箭手",
+   "job_en": "Bowman / Archer",
+   "tier": 1,
+   "advancement": "Henesys / Athena Pierce；Lv30 分化为 Hunter / Crossbowman",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Arrow Blow",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单体 240% 伤害",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Double Shot",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单次两段，120%×2，需 Arrow Blow Lv1",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Power Knockback",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "180% 伤害并击退最多 4 只",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Focus",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "命中 +20、回避 +25，300 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Critical Shot",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "暴击率 +20%、暴击伤害 +15%",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "The Eye of Amazon",
+     "job": "Bowman / Archer",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "弓/弩射程 +120",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "hunter",
+   "job_cn": "猎人",
+   "job_en": "Hunter",
+   "tier": 2,
+   "advancement": "Bowman 二转（弓）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Bow Mastery",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "弓熟练 + 暴击率 +10% + 移速 +10（只对弓生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Final Attack: Bow",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，对最多 3 只追加 120%，需 Bow Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Bow Booster",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "弓攻速 +2 阶段 300 秒，需 Bow Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Soul Arrow: Bow",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "300 秒内攻击不消耗箭矢，需 Bow Booster Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Arrow Bomb: Bow",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "130% 伤害，60% 概率眩晕 2 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Amazon's Judgement",
+     "job": "Hunter",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "暴击时 100% 概率降低怪物速度 35",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "crossbowman",
+   "job_cn": "弩弓手",
+   "job_en": "Crossbowman",
+   "tier": 2,
+   "advancement": "Bowman 二转（弩）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Crossbow Mastery",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "弩熟练 + 暴击伤害 +20%（只对弩生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Final Attack: Crossbow",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "passive_trigger",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "攻击技能 25% 触发，追加 360%，需 Crossbow Mastery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Crossbow Booster",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "弩攻速 +2 阶段 300 秒，需 Crossbow Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Soul Arrow: Crossbow",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "300 秒内攻击不消耗箭矢，需 Crossbow Booster Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Iron Arrow: Crossbow",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "180% 伤害，直线穿透多目标",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Amazon's Judgement",
+     "job": "Crossbowman",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "暴击时 100% 概率降低怪物速度 35",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "thief",
+   "job_cn": "飞侠",
+   "job_en": "Thief / Rogue",
+   "tier": 1,
+   "advancement": "Kerning City / Dark Lord；Lv30 分化为 Assassin / Bandit",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Lucky Seven",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "投掷 140% 伤害（远程）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Double Stab",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "active",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "单次两段 160% 伤害（近身）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Disorder",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "降低怪物攻击与武器防御，30 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Dark Sight",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "隐身并保持正常移速，需 Disorder Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Nimble Body",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "命中 +15、回避 +15",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Keen Eyes",
+     "job": "Thief / Rogue",
+     "tier": 1,
+     "kind": "passive",
+     "max_level": 15,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "投掷武器射程 +200，需 Nimble Body Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    }
+   ]
+  },
+  {
+   "job_key": "assassin",
+   "job_cn": "刺客",
+   "job_en": "Assassin",
+   "tier": 2,
+   "advancement": "Thief 二转（拳套投掷）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Claw Mastery",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "拳套熟练 + 攻击 +20，25% 概率回收飞镖（只对拳套生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Critical Throw",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "暴击率 +15%、暴击伤害 +35%",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Claw Booster",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "拳套攻速 +2 阶段 300 秒，需 Claw Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Haste",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "移速 +30、跳跃 +10，300 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Drain",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "240% 伤害，15% 概率吸收部分伤害为 HP，需 Critical Recovery Lv3",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Critical Recovery",
+     "job": "Assassin",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "暴击命中时 100% 回复 10% HP 与 MP",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    }
+   ]
+  },
+  {
+   "job_key": "bandit",
+   "job_cn": "侠客",
+   "job_en": "Bandit",
+   "tier": 2,
+   "advancement": "Thief 二转（匕首）",
+   "official_branch_confirmed": true,
+   "official_source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "verified_skills": 6,
+   "skills": [
+    {
+     "skill": "Dagger Mastery",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "匕首熟练 + 暴击率 +20%，20% 概率忽略击退（只对匕首生效）",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Savage Blow",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "最多 6 段，满级每段 75% 伤害",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Dagger Booster",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "匕首攻速 +2 阶段 300 秒，需 Dagger Mastery Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": false
+    },
+    {
+     "skill": "Haste",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "buff",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "移速 +30、跳跃 +10，300 秒",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Steal",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "active",
+     "max_level": 30,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "90% 概率偷取并造成 180% 伤害，成功后攻击 +35 持续 60 秒，需 Haste Lv5",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "Nimble Recovery",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "passive",
+     "max_level": 20,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      }
+     ],
+     "evidence_summary": "回避时 100% 回复 10% HP 与 MP",
+     "status": "verified",
+     "in_card": true,
+     "note": null,
+     "in_loop": true
+    },
+    {
+     "skill": "涂毒类辅助",
+     "job": "Bandit",
+     "tier": 2,
+     "kind": "n/a",
+     "max_level": null,
+     "applicable_version": "Classic World 公共上线版（2026-10-21 18:00 UTC 开服；Lv10 一转 / Lv30 二转 / Lv100 上限；三转未在上线版开放）",
+     "sources": [
+      {
+       "id": "Q",
+       "name": "MapleStory Quest（Classic World 客户端数据）",
+       "url": "https://maplestory.quest/classes/spearman",
+       "kind": "community-datamine"
+      },
+      {
+       "id": "W",
+       "name": "MapleClassic Wiki",
+       "url": "https://mapleclassic.wiki/wiki/Skills",
+       "kind": "community-wiki"
+      },
+      {
+       "id": "M",
+       "name": "NiaMeowDB（MapleStory Classic 数据库）",
+       "url": "https://meowdb.com/msclassic/skills",
+       "kind": "community-datamine"
+      }
+     ],
+     "evidence_summary": "上一版侠客卡写“匕首熟练与涂毒类辅助”。Classic Bandit 二转 6 技能（Dagger Mastery/Savage Blow/Dagger Booster/Haste/Steal/Nimble Recovery）没有毒系技能。已删除该表述。",
+     "status": "not_found",
+     "in_card": false,
+     "note": "旧稿条目：已从职业卡与建议循环移除",
+     "legacy_urls": [
+      "https://maplestory.quest/classes/bandit",
+      "https://mapleclassic.wiki/wiki/Skills"
+     ],
+     "in_loop": false
+    }
+   ]
+  }
+ ],
+ "corrections": [
+  {
+   "skill": "Spear Crusher",
+   "job": "spearman",
+   "claimed_tier": 2,
+   "status": "not_found",
+   "detail": "上一版把 Spear Crusher 写成 Spearman 二转主力输出并放进 Boss 循环。三个 Classic 数据源都没有该技能名；枪系三转（Dragon Knight，仅 CoT2 测试）的对应技能名为 Piercing Crusher。已从技能表与循环中删除。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/dragon-knight",
+    "https://meowdb.com/msclassic/classes/dragon-knight"
+   ]
+  },
+  {
+   "skill": "Hyper Body",
+   "job": "spearman",
+   "claimed_tier": 2,
+   "status": "out_of_scope_3rd_job",
+   "detail": "上一版把 Hyper Body 写成 Spearman 二转的队伍 HP/MP 增益与核心卖点。当前 Classic 上线版属 Dragon Knight（三转，仅 CoT2），NiaMeowDB 明写 'Hyper Body is a Dragon Knight skill'，MapleStory Quest 的 Dragon Knight 页确认其为 +30% 最大 HP 的队伍增益。已删除。",
+   "ev": [
+    "Q",
+    "M",
+    "W"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/dragon-knight",
+    "https://meowdb.com/msclassic/classes/spearman"
+   ]
+  },
+  {
+   "skill": "Power Guard",
+   "job": "fighter",
+   "claimed_tier": 2,
+   "status": "out_of_scope_3rd_job",
+   "detail": "复审提出 Fighter 的 Power Guard 归属存疑。核对结果：Fighter 二转 8 技能为 Mastery/Booster/Final Attack 两套 + Rage + Rush，不含 Power Guard；Power Guard 属 White Knight（三转，仅 CoT2），MapleStory Quest 的 White Knight 页与 NiaMeowDB 均如此标注。已从 Fighter 与 Page 卡删除。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/white-knight",
+    "https://meowdb.com/msclassic/skills/white-knight/power-guard"
+   ]
+  },
+  {
+   "skill": "Weapon Mastery",
+   "job": "fighter",
+   "claimed_tier": 2,
+   "status": "not_found",
+   "detail": "上一版 Fighter 卡写 Weapon Mastery。Classic 数据里 Fighter 的熟练类技能是 Sword Mastery 与 Axe Mastery（按武器分开），不存在通用的 Weapon Mastery。已按实际技能名替换。",
+   "ev": [
+    "Q",
+    "W"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/fighter",
+    "https://mapleclassic.wiki/wiki/Skills"
+   ]
+  },
+  {
+   "skill": "Shield Mastery",
+   "job": "page",
+   "claimed_tier": 2,
+   "status": "not_found",
+   "detail": "上一版 Page 卡写 Shield Mastery。Page 二转 8 技能为两套 Mastery/Booster/Final Attack + Threaten + Rush，三个数据源均无 Shield Mastery；盾是装备选择，不占技能位。已删除。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/page",
+    "https://mapleclassic.wiki/wiki/Skills"
+   ]
+  },
+  {
+   "skill": "Poison Brace",
+   "job": "fp-wizard",
+   "claimed_tier": 2,
+   "status": "not_found",
+   "detail": "上一版火毒卡写 Poison Brace。Classic F/P Wizard 的毒系技能是 Poison Breath。已改名并补充其定位。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/fp-wizard",
+    "https://mapleclassic.wiki/wiki/Skills"
+   ]
+  },
+  {
+   "skill": "Basic Attack",
+   "job": "beginner",
+   "claimed_tier": 1,
+   "status": "not_found",
+   "detail": "上一版初学者卡把 Basic Attack 当技能。Classic Beginner 只有 Three Snails / Recovery / Nimble Feet 三个技能（各上限 3 级）。已替换。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/beginner",
+    "https://mapleclassic.wiki/wiki/Skills"
+   ]
+  },
+  {
+   "skill": "涂毒类辅助",
+   "job": "bandit",
+   "claimed_tier": 2,
+   "status": "not_found",
+   "detail": "上一版侠客卡写“匕首熟练与涂毒类辅助”。Classic Bandit 二转 6 技能（Dagger Mastery/Savage Blow/Dagger Booster/Haste/Steal/Nimble Recovery）没有毒系技能。已删除该表述。",
+   "ev": [
+    "Q",
+    "W",
+    "M"
+   ],
+   "urls": [
+    "https://maplestory.quest/classes/bandit",
+    "https://mapleclassic.wiki/wiki/Skills"
+   ]
+  }
+ ],
+ "forbidden_in_classic": [
+  "Spear Crusher",
+  "Hyper Body",
+  "Power Guard",
+  "Weapon Mastery",
+  "Shield Mastery",
+  "Poison Brace",
+  "Piercing Crusher",
+  "Dragon Fury",
+  "Dragon Roar",
+  "涂毒"
+ ],
+ "unverified_skills": [
+  {
+   "skill": "Spear Crusher",
+   "job": "Spearman",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Hyper Body",
+   "job": "Spearman",
+   "status": "out_of_scope_3rd_job",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Power Guard",
+   "job": "Fighter",
+   "status": "out_of_scope_3rd_job",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Weapon Mastery",
+   "job": "Fighter",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Shield Mastery",
+   "job": "Page",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Poison Brace",
+   "job": "Wizard (Fire/Poison)",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "Basic Attack",
+   "job": "Beginner",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  },
+  {
+   "skill": "涂毒类辅助",
+   "job": "Bandit",
+   "status": "not_found",
+   "handling": "不进职业卡技能表、不进建议循环；在 corrections 中留证"
+  }
+ ],
+ "limits": [
+  "技能数值（伤害倍率、触发概率、持续时间）取自社区数据站的客户端数据整理，非官方页；卡片只保留定位级描述，未核数值不写成官方数值。",
+  "Spear Mastery 附加效果、Bless 具体效果在两站描述不一致，卡片只写通用定位，具体以游戏内为准。",
+  "星级难度、优势/短板、build 与循环顺序为 Hermes 判断，非官方评级。",
+  "三转（Dragon Knight / White Knight / Crusader 等）不在上线版，未做技能级覆盖。"
+ ],
+ "counts": {
+  "jobs": 15,
+  "first_jobs": 4,
+  "beginner": 1,
+  "second_jobs": 10,
+  "skills_total": 93,
+  "verified": 93,
+  "verified_single_source": 0,
+  "corrections": 8,
+  "out_of_scope": 2,
+  "not_found": 6
+ },
+ "probe_file": "tools/url_probe.json",
+ "probe_at_utc": "2026-10-22T04:41:04+00:00",
+ "card_backfill": {
+  "source": "candidate/index.html（GAME_GUIDE.maplestory.clsDocs）",
+  "skills_in_cards": 90,
+  "loop_skills_declared": 61
+ }
+}
