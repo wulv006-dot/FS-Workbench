@@ -311,12 +311,24 @@ class Users(unittest.TestCase):
         full = self.store.save_snapshot(query, public, private)
         summary = invoke(self.service, 'admin', {'snapshot_id': full['snapshot_id'], 'view': 'summary'})
         self.assertLess(len(json.dumps(summary)), 20000)
+        self.assertEqual(summary['lifecycle_policy']['thresholds_days'], [30, 60, 90])
+        self.assertIn('does not set lifecycle', summary['interpretation']['H'])
+        self.assertEqual(summary['metric_definitions']['high_value_entered_silent']['label'], '高价值且刚进入沉默')
         for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
             self.assertEqual(summary[key], full[key])
         projects = invoke(self.service, 'admin', {'snapshot_id': full['snapshot_id'], 'section': 'projects'})
         self.assertEqual(projects['projects'], full['projects'])
         self.assertEqual(projects['snapshot_id'], summary['snapshot_id'])
         self.assertEqual(self.service.query({'snapshot_id': full['snapshot_id']}, 'admin'), full)
+
+    def test_custom_policy_is_frozen_independently_from_cohort_horizon(self):
+        self.config['policies']['fixture-v2'] = [20, 40, 80]
+        self.load([order(1, '2026-10-01')])
+        old = self.query(policy_version='fixture-v2', H=7)
+        self.config['policies']['fixture-v2'] = [21, 41, 81]
+        value = invoke(self.service, 'admin', {'snapshot_id': old['snapshot_id']})
+        self.assertEqual(value['lifecycle_policy']['thresholds_days'], [20, 40, 80])
+        self.assertEqual(value['query']['H'], 7)
 
     def test_required_count_partitions_and_tombstones(self):
         self.origins()
