@@ -315,8 +315,6 @@ def main():
         },
         "failed": [r for r in results if not r["ok"]],
     }
-    json.dump({"summary": summary, "checks": results},
-              open(os.path.join(HERE, "tools", "verify-report.json"), "w"), ensure_ascii=False, indent=1)
     print("\nsummary:", json.dumps(summary["counts"], ensure_ascii=False))
     print("failed:", summary["checks_failed"], "/", summary["checks_total"])
     return 0 if summary["checks_failed"] == 0 else 1
