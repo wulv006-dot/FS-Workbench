@@ -36,10 +36,13 @@ class ReadonlyTools(unittest.TestCase):
             with self.assertRaises(ValueError):plugin.call('fs_query_es_order_structure',{'profile':'FC27','start':'2026-10-21','end':'2026-10-21','group_by':'day'})
             read.assert_not_called()
 
-    def test_official_registry_receives_five_tools(self):
+    def test_official_registry_retains_five_and_adds_user_analytics(self):
         ctx=Mock()
         plugin.register(ctx)
-        self.assertEqual(ctx.register_tool.call_count,5)
+        self.assertEqual(ctx.register_tool.call_count,6)
+        self.assertEqual({item.kwargs['name'] for item in ctx.register_tool.call_args_list}, {
+            'fs_get_data_catalog','fs_query_native_statistics','fs_query_es_order_structure',
+            'fs_query_discount_analysis','fs_query_product_orders','fs_query_user_analytics'})
         for item in ctx.register_tool.call_args_list:
             self.assertEqual(item.kwargs['toolset'],'fs_readonly')
             self.assertFalse(item.kwargs['schema']['parameters']['additionalProperties'])
@@ -48,3 +51,4 @@ class ReadonlyTools(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+

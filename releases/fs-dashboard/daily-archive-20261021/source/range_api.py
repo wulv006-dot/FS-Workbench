@@ -215,17 +215,30 @@ if HERMES is not None:
  from channel_effects import ChannelService
  CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer)
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)
+USERS=None;USERS_ERROR=None
+try:
+ sys.path.insert(0,'/opt/fs-hermes-fc')
+ from user_runtime import build as build_user_analytics
+ from user_http import get as get_user_analytics
+ USERS=build_user_analytics()
+except (ImportError,OSError,ValueError) as error:
+ USERS_ERROR=str(error) if isinstance(error,ValueError) and re.fullmatch(r'[a-z_]{1,80}',str(error)) else type(error).__name__
 
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   uri=urlsplit(self.path)
-  if uri.path=='/health':self.reply(200,{'ok':True,'service':'fs-business-range','readonly':True,'active_customer_reports':CUSTOMER_TRACKING.active_reports() if CUSTOMER_TRACKING is not None else 0});return
+  if uri.path=='/health':self.reply(200,{'ok':True,'service':'fs-business-range','readonly':True,'active_customer_reports':CUSTOMER_TRACKING.active_reports() if CUSTOMER_TRACKING is not None else 0,'user_analytics_ready':USERS is not None,'user_analytics_error':USERS_ERROR});return
   if uri.path==CONVERSATION_PREFIX or uri.path.startswith(CONVERSATION_PREFIX+'/'):
    if CONVERSATION is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
    else:conversation_handle(self,'GET',uri,self.headers.get('X-Auth-User'),CONVERSATION,hermes_authorizer)
    return
   # Only the existing nginx auth_request identity is trusted; public headers are replaced.
   if not self.headers.get('X-Auth-User'):self.reply(401,{'error':'login_required'});return
+  if uri.path in ('/users','/users/private'):
+   if USERS is None:self.reply(503,{'error':'user_analytics_not_ready','reason':USERS_ERROR});return
+   try:status,data=get_user_analytics(USERS,uri.path,parse_qs(uri.query,keep_blank_values=True,max_num_fields=16),self.headers.get('X-Auth-User'));self.reply(status,data)
+   except Exception:self.reply(503,{'error':'users_unavailable'})
+   return
   if uri.path=='/channels':
    if CHANNELS is None:self.reply(503,{'error':'channels_not_enabled'});return
    try:status,data=CHANNELS.get(parse_qs(uri.query,keep_blank_values=True,max_num_fields=16),self.headers.get('X-Auth-User'));self.reply(status,data)

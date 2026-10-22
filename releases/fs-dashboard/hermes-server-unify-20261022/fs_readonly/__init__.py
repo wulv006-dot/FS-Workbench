@@ -1,5 +1,8 @@
 """Native Hermes tools for the existing FS loopback read interfaces."""
 import json
+import sys
+sys.path.insert(0, '/fs-source')
+from user_tools import DESCRIPTION as USER_DESCRIPTION, PROPERTIES as USER_PROPERTIES
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -9,6 +12,7 @@ OWNER = 'wulv'
 MAX_RESPONSE = 10_000_000
 PERIOD = {'profile': {'type':'string'}, 'start': {'type':'string'}, 'end': {'type':'string'}}
 TOOLS = {
+    'fs_query_user_analytics': (USER_DESCRIPTION, USER_PROPERTIES, []),
     'fs_get_data_catalog': ('Read the current FS project catalog, timezone and source policy. No source collection or model call.', {}, []),
     'fs_query_native_statistics': ('Read a fresh or valid cached exact inclusive-day FS business range through its existing Admin-first/Order-reference service. Covers approved catalog projects. Keep source, currency, capture time, estimated-profit labels and missing fields. For pending/unknown, poll identical repeat_arguments after retryAfter; do not change catalog_id or fabricate zeros.',
         {**PERIOD,'catalog_id':{'type':'string','description':'Reuse this exact catalog version when polling repeat_arguments.'}}, list(PERIOD)),
@@ -29,7 +33,7 @@ class NoRedirect(HTTPRedirectHandler):
 def read(path, params):
     # This root server profile is the existing trusted local caller for owner wulv.
     # Callers cannot supply an owner, URL, headers, credentials or a write method.
-    assert path in ('/range','/advisor')
+    assert path in ('/range','/advisor','/users')
     req=Request(BASE+path+'?'+urlencode(params),headers={'X-Auth-User':OWNER,'Accept':'application/json'},method='GET')
     try:
         response=build_opener(ProxyHandler({}),NoRedirect).open(req,timeout=30)
@@ -55,7 +59,16 @@ def call(name,args):
     if any(type(v) not in (str,int) for v in args.values()):raise ValueError('fs_tool_value')
     if any('enum' in properties[k] and v not in properties[k]['enum'] for k,v in args.items()):raise ValueError('fs_tool_enum')
     if name=='fs_get_data_catalog':
-        return read('/range',{'mode':'catalog'})
+        return {**read('/range',{'mode':'catalog'}),'user_analytics':read('/users',{'action':'catalog'})}
+    if name=='fs_query_user_analytics':
+        query=dict(args)
+        if 'evidence_id' in query:
+            evidence=query.pop('evidence_id')
+            if not isinstance(evidence,str) or len(evidence)!=35 or not evidence.startswith('ua_'):raise ValueError('user_evidence_id')
+            snapshot='us_'+evidence[3:]
+            if query.get('snapshot_id',snapshot)!=snapshot:raise ValueError('user_evidence_snapshot_mismatch')
+            query['snapshot_id']=snapshot
+        return read('/users',query)
     if name=='fs_query_native_statistics':
         catalog=args.get('catalog_id')
         if not catalog:

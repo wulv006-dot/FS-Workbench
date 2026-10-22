@@ -102,7 +102,7 @@ RESOURCES = (
     ("admin", "成员与授权", "platform", ("/admin", "/__auth/iam")),
     ("deploy", "部署工作台", "platform", ("/deploy",)),
     # ---- 数据分析 ----
-    ("unified-business", "数据看板", "analytics", ("/dashboard/analytics",)),
+    ("unified-business", "数据看板", "analytics", ("/dashboard/analytics", "/dashboard/users")),
     ("data-analysis-tools", "数据分析工具", "analytics", ("/dashboard/data-tools",)),
     ("management", "经营管理台", "analytics", ("/dashboard/management",)),
     ("game-monitor", "游戏监控台", "analytics", ("/dashboard/game-monitor",)),

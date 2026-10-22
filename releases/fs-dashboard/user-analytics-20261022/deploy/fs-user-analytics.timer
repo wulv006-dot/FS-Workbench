@@ -1,0 +1,12 @@
+[Unit]
+Description=FS user analytics bounded quarter-hour update
+
+[Timer]
+OnCalendar=*-*-* *:03,18,33,48:00
+RandomizedDelaySec=20
+AccuracySec=1s
+Persistent=false
+Unit=fs-user-analytics.service
+
+[Install]
+WantedBy=timers.target
