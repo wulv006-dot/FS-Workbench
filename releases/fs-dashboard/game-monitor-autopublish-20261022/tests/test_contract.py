@@ -105,8 +105,10 @@ class StaticFill(unittest.TestCase):
         self.assertEqual(patches[1],['items:pts.slice(),times:hasReal?realTimes:[]','items:Array.isArray(pts)?pts.slice():String(pts).split(" · "),times:hasReal?realTimes:[]'])
         for old,new in patches:self.assertEqual(current.count(old),1);current=current.replace(old,new,1)
         current=current.encode();games=[]
-        for request in json.loads((folder/'requests.json').read_text()):
-            current,proof=contract.build(current,request);games.extend(proof['games'])
+        requests=json.loads((folder/'requests.json').read_text())
+        fixture_time=max(datetime.fromisoformat(s['retrieved_at'].replace('Z','+00:00')) for r in requests for s in r['sources'])+timedelta(seconds=1)
+        for request in requests:
+            current,proof=contract.build(current,request,now=fixture_time);games.extend(proof['games'])
         self.assertEqual(len(games),29);self.assertEqual(len(set(games)),29)
         self.assertNotIn('maplestory',games)
         self.assertEqual(current,(folder/'index.html').read_bytes())
