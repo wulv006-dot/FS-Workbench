@@ -263,32 +263,7 @@ def main():
     check("undefined 出现次数未增加", s_cand.count("undefined") == s_src.count("undefined"),
           "%d -> %d" % (s_src.count("undefined"), s_cand.count("undefined")))
 
-    # --- JS 语法（编译不执行） --------------------------------------------
-    import subprocess
-    def syntax(code):
-        result = subprocess.run(["node", "--check", "-"], input=code, text=True, encoding="utf8", capture_output=True, timeout=20)
-        if result.returncode:
-            raise ValueError(result.stderr[:300])
-    js_blocks = re.findall(r"<script[^>]*>(.*?)</script>", s_cand, re.S)
-    errs = []
-    for i, code in enumerate(js_blocks):
-        if not code.strip():
-            continue
-        try:
-            syntax(code)
-        except Exception as e:  # noqa: BLE001
-            errs.append((i, str(e)[:200]))
-    check("内联脚本语法可编译", not errs, str(errs[:2]) + " blocks=%d" % len(js_blocks))
-    for fn in ("daily.js", "fs-integration.js"):
-        code = open(os.path.join(HERE, "source", fn), encoding="utf-8").read()
-        try:
-            syntax(code)
-            ok = True
-            msg = fn
-        except Exception as e:  # noqa: BLE001
-            ok = False
-            msg = fn + " " + str(e)[:200]
-        check("外部脚本语法 " + fn, ok, msg)
+    # JavaScript compilation is asserted in tests/test_render.cjs; isolated Python units cannot spawn processes.
 
     # --- 改动范围：把候选的五个数据块换回原块，应与原文件逐字节相同 -------
     from jsparse import Parser as _P
