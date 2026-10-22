@@ -8,7 +8,7 @@ import shutil
 
 TASK = Path('/var/lib/fs-hermes-fc/profile/game-monitor-sop-20261022')
 PRIOR = Path('/var/lib/fs-navigation-staging/news-weekly-unified-20261016/frontend/candidate')
-STAGE = Path('/var/lib/fs-navigation-staging/game-monitor-sop-20261022/candidate-v2')
+STAGE = Path('/var/lib/fs-navigation-staging/game-monitor-sop-20261022/candidate-final')
 OLD = 'workspace-native-20261006-c247af54280f'
 STATIC = Path('/var/lib/fs-navigation-formal-static')
 FRAGMENT = Path('/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf')
@@ -115,7 +115,7 @@ def main():
         assert sha(Path(name).read_bytes()) == expected, name
     result = dict(stage=str(STAGE), releaseId=version, manifest_sha256=sha(approved),
                   assets=len(identities), changed_assets={name: sha(raw) for name, raw in changes.items()}, protected=len(protected))
-    (STAGE.parent/'prepared-v2.json').write_text(json.dumps(result, indent=2))
+    (STAGE.parent/'prepared-final.json').write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 
 

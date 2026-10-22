@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-10-22T04:42:13+00:00",
+ "generated_at": "2026-10-22T04:50:19+00:00",
  "game_key": "maplestory",
- "fetch_window_utc": "本次会话：内容检索与核对完成后，于 2026-10-22T04:42:13Z 对全部外链做一次无头 GET 复核",
+ "fetch_window_utc": "本次会话：内容检索与核对完成后，于 2026-10-22T04:50:19Z 对全部外链做一次无头 GET 复核",
  "fetch_method": "内容检索：Hermes web_search / web_extract（只读公开页面）；时间戳：tools/probe_sources.py 于 probe_sources 记录的真实 UTC 无头 GET。403 多为站点反爬，不代表内容不存在",
  "sources": [
   {
@@ -392,7 +392,7 @@
  "judgments_not_facts": [
   {
    "id": "J1",
-   "text": "Classic 开服首月币价由摆摊成交与第三方挂单共同决定，无官方价格指数",
+   "text": "Classic 无官方价格指数；第三方挂单仅作报价观察，不能当成交价；摆摊机制及真实成交样本待游戏内验证",
    "basis": "官方无公开价格指数；G2G 类目存在"
   },
   {

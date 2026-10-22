@@ -29,3 +29,5 @@ deploy/prepare_release.py只准备现有不可变publisher的精确候选，依�
 经营建议仍是页面可见的待确认草稿，不执行调价、上架、投放或规则变更。原周六00:05情报采集保持；已启用的00:20服务器Hermes任务仅做栏目巡检与候选维护，发布状态与自然周期单独验收。原PDF、版本和实际计划见content-standard-20261022.md；源事实与技能见SOURCES.json、CLASS-SKILLS-REVIEW.json。工具截图/访问量、有效成本/竞品价、关键词量的缺口如实保留。
 
 CI隔离适配：原73项合同拆为Python70项与Node3项语法合同（实际编译5内联+2外部），全部覆盖保留。Node使用标准vm.Script，不从隔离Python测试启动子进程，不改变全局隔离规则。
+
+发布前再加1条Classic未验证摆摊回归，最终为Python71+Node3=74项合同；经营落地与来源J1的交付/成交价口径同步修正。

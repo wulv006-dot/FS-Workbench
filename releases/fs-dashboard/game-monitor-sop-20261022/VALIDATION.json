@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-22T04:42:13+00:00",
+ "generated_at": "2026-10-22T04:50:19+00:00",
  "game_key": "maplestory",
  "review_response": [
   "REVIEW-1 经营草稿可见：biz 每项 desc、dept 每行、ops 每块标题、ov 每条 tip 均带“Hermes经营草稿·待运营确认”；eff 无订单证据者标“判断/待验证”；MMOEXP 自有在售范围改为“待以当前货架核实”。",
@@ -19,7 +19,7 @@
  ],
  "baseline": {
   "source_index_sha256": "368a40026ca065f40a4133f9157f1d22d1d5325dd524d27de0fd13bce8c8d483",
-  "candidate_index_sha256": "7b74f7bf06ac5f0228bd58c1d0e3a55cc943bc30967682ef53f1544f9a43b0ae",
+  "candidate_index_sha256": "70db24939c495835e837cd36d8af011bfe08f75094728545ae06952a276a6411",
   "candidate_daily_js_sha256": "bf9ccaf980496d7f8c141b2bcc8b831e27e5ec97a25b8cee299ddc1ec3aa48f3",
   "candidate_fs_integration_js_sha256": "5551d1823a6f03fcd1fcc2f568d6a39480e3d35380743ddf0e2babd8cde871f7",
   "candidate_fs_integration_css_sha256": "f6536f9341fd3659ced63db8a897b43c4341c9fc59da75556b96beccea9729a6",
@@ -200,7 +200,7 @@
  },
  "automated_checks": {
   "script": "tools/verify.py",
-  "checks_total": 73,
+  "checks_total": 74,
   "checks_failed": 0,
   "scope_isolation": "把候选五个数据块换回原件后与 source/index.html 逐字节一致（540730 chars）",
   "js_syntax": "7 个内联 script + daily.js + fs-integration.js 全部通过 V8 编译（new Function，未执行）",

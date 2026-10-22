@@ -256,6 +256,8 @@ def main():
     insecure = [u for u in urls if u.startswith("http://")]
     check("外链均为 https", not insecure, str(insecure[:3]))
 
+    check("Classic未确认摆摊不作交付或成交依据", "Classic 走人工面交/摆摊" not in json.dumps(gd, ensure_ascii=False) and "币价由摆摊成交" not in json.dumps(brief, ensure_ascii=False))
+
     # --- HTML 结构 --------------------------------------------------------
     check("script 标签数量未变", s_src.count("<script") == s_cand.count("<script"))
     check("style 标签数量未变", s_src.count("<style") == s_cand.count("<style"))
