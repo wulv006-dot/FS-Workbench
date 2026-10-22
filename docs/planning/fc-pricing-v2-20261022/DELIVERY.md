@@ -90,3 +90,38 @@ PR333、核心v13及当天Coins准确区间读取已实际发布，原136活动/
 原自动周期75bcdde5-1fa8-4851-965d-eeebe874660f已CONFIRMED并清缓存、独立公开matched：14:16:52–53 PS/Xbox $10.95、PC $10.45/100K，另送5K。完整目录10%硬线通过，原120分钟及v13/140SHA保持，下一16:16:53；本轮没有代码部署。
 
 原自然模型8次high、两轮只读教学2+1次high；首答错误保留，纠正后新题通过。纯方法经验沿原事件审核/CAS发布，5→6条、auto_publish=false，下一自然独立迁移待验。带时点回执见[NATURAL-1416-ACCEPTANCE.json](NATURAL-1416-ACCEPTANCE.json)，优缺点及经营覆盖见[原监控](MONITOR-20261022.md)。ES仍复用08:57文件，收入/成本刷新不等于Coins身份同步；经营增利、广告后贡献、活动高峰和价格因果未验，Dot接管仍暂停。
+
+
+### 2026-10-22 16:12 v14实际代码发布
+
+PR346最新head1b3e7f06c434de08b0547ed1d968afd6798c13e6/merge921e08cc7f4c091b567dc5ca62312217158a8169，正式pr-fast39745692097/job119713450335成功；本地FC71/Coins26/工作流22及Node、双Linux同组通过。原publisher nav-20261022T081134Z，manifest20589dc3dc66839e87ce7fe1fc865184ea82d5452faba73c165045e8f446dad3，stage/opt/fs-release-stage/fc-margin-v14-0f15fdc16e7c，12目标/128保护共140SHA通过。新知识business-baseline-20261021-v14 SHA2b7fe12ecccf3144f71f7b48b5275ec4500dc6d9b5ece556fc3641240df70bd8。用户未优惠红线及全部合法优惠豁免已进入活动源码，尚待新鲜报价/原自然16:16/真实模型与公开读回，不把代码上线等同新报价执行。
+
+保留PR345原game-monitor发布workspace-native-20261006-21e164f34066，原manifest2b6d7852fda07fd4f728050f679db7519866c3db73eb38c14a80d911e43acf03，Nginx新SHAefcb720854f7f952d80b590741bc0c6a481610e65264c486478d7b95ad95c415。早前旧140清单对此出现一次active_drift；核清原成功发布回执后仅在新候选保护清单保留该合法变更，旧清单/失败不改。PR347并行controller修复已纳入main；首次合并405已核behind/未合并，更新原分支后新CI、19文件同字节验证及合并完成，原失败意图保留。
+
+隔离stage首次workflow ImportError源于未复制其原仓库测试依赖，补齐原Git依赖后双Linux119全通过，无改断言求通过。历史真实只读10/15–21已识别有效已付2522单，订单USD164244.24/实际优惠15000.00/未折扣179244.24，留存91.63153025%；一条FC商品身份缺失/平台及数量未保留，状态partial。该比例不是资格核销率或未来概率。沿原档案读取，collection_triggered=false/business_writes=false。
+
+16:12原监控081241Z-private：140无漂移、v14/rev40/on/auto/120/min10、queue0/incomplete0/timer active；原publication仍75b/14:16旧价格，quote_usable=false，不重放旧报价。原fc-coins-v2已更新本次用户覆盖口径但调度不改；Notion第30节async task_5aca4cbbcedf4dacbbeff4a6e4123b24 succeeded，真实最终fetch另验。UI真实刷新发现步骤仍残留“优惠后成本红线”文案，正在小范围修订，程序新口径已上线，不假称所有文案已完成。
+
+
+### 2026-10-22 16:51 v15双红线实际上线（后续真实采集/模型验收中）
+
+用户追加确认估算平均采购毛利也须≥10%，与未用优惠≥10%同时强制；单笔合法优惠仍可亏损。PR350最终heade5e86a1edf65662966cc4e759c6260e1449c5d71/mergecaf85ec9eab402772b84eca5fdf8442ea97fddc1，正式CI及双LinuxFC74/Coins26/工作流23、Node通过。原publisher nav-20261022T084821Z，manifest6cbaa5c96de86a93a1ab19af77ab1e335b4ab24c9463ab3bfa6a164dfc1045d0，stage/opt/fs-release-stage/fc-dual-margin-e5e86a1edf65，11目标/129保护共140SHA吻合。活动知识business-baseline-20261021-v15 SHA9c0a6db19e644a6e4fc6ca74d5eb314d6f53e7788b3178a5779393f6cf0c40fb；模拟桥精确pin已同步，新baseline真实只读通过。
+
+报价/执行/恢复共用双红线；全部套餐/整数K有证明，锁内再核当前优惠指纹及合格历史留存变化，原开关/120分钟/重试不改。已识别七日有效已付样本优惠金额须齐，源不合格不放行新价；未知FC身份/平台/数量仍披露。当前稳定规则文档MARGIN-REDLINES.md，v14文档退役、入口与AGENTS/业务基准/教学切v15，旧账本不改。原fc-coins-v2提示已整体清理为v15，调度/目标保持；Notion第30节及首版号已原定点更新，async task_716695d00dbe42eea9c67af764196f1a succeeded，最终fetch待核。
+
+新手动只读采集job882d7955-ddc0-4b4a-82ec-7163427b85ff已沿原队列accepted，目前running，不能把旧0af报价当v15新报价。原自然0af于16:21完成主机9.84/PC8.68三平台公开matched，次原计划18:21:27保持；该自然只验v14，不冒充v15自然。v14后继只读教学turn7e719115f1aa4222ade2398f11793fb1原意图保留，不重放，用户后来追加规则不能改写该题为v15已验。当前生产价格由原0af保持，未因代码发布制造写价。
+
+相关补修原PR348 headfc9edcf1e719bed48be41daece0e4a708fd359a6/merge6cc1eadc5f92358269459cd0ceb39506f5369514，单页nav-20261022T082250Z/manifest eaa7eecfa24021727d5686573d2baef4294317d0fef8f53fd2f8b5ba0b4b446b；PR349 head812f9fb6fb0f41a66ab0897442714b86ef50ab1f/merge001b4ebe2713d225a5dd3dc37cf9757927666a37，nav-20261022T082943Z/manifest9437a5635aa0d0498b9845b96204be8e643f9c6421c1d327911f0555311564b6，1/139及140SHA通过。旧模拟桥400实际复现simulation_v2_code_changed，精确pin修复不放宽校验；v15又同步新pin并保留回归。16:23浏览器旧v14页面真实显示9.84/8.68与25.48/21.41及正确未优惠标签，v15页面仍须新报价后核验。
+
+
+### 2026-10-22 16:58 v15真实新报价、拒绝用例与Hermes新场景
+
+原手动只读采集882d7955-ddc0-4b4a-82ec-7163427b85ff于16:52:10 ready，价格仍为主机9.84/PC8.68，未制造新写价；最新独立公开16:51:58–59匹配原0af执行。共同成本最新PS16:43:50记录4563926为0.43，Xbox16:25:45记录4563886同0.43，PC16:40:33记录4563920为0.40，FX6.7195。当前双红线目录最低100K主机8.35、PC7.78，均为程序充分界，不声称数学最优/建议售价。15档及所有允许整数K/赠送/舍入的未优惠和历史结构平均证明通过；平均25.4786423%/21.4135506%，历史2522/2522有优惠金额、未分类1条/平台数量和退款实结缺口仍披露。
+
+真实/pricing/evaluate当前价通过且write_performed=false；主机8.00（未优惠16.01%左右、平均不足10%）返回400 pricing_average_catalog_margin_floor，0.01返回400 pricing_hard_margin_floor。恢复/锁内历史变化路径在原真实函数回归检查，不执行真实回退或低价写入。当前v15已经代码/正式CI/合并/受控上线、140SHA、真实页面及只读核算通过；下一原18:21:27自然任务及长期效果仍待验，不把v14自然当v15通过。
+
+原v15只读教学turn35420cb17cce422182946a07ee9ff822/taska624618d5ef047bd384f4c2b3bf18054/run_6478f45442c1407787f0d69241805674 completed，7次high真实转发、10工具，knowledge learning-c44c58182519ad62c66c1611674f288c39a4009b85947f038a858c6a74bdfbe0及6条经验use（含c3636bd4）有实际回执。先capabilities/state，再两次未见虚构scenario及原证据分页：主机18成本15、R0.90时未优惠16.67%但平均7.4074%拒绝；主机19时平均12.2807%、尾价18.99仍12.2345%通过，单笔七折亏损不单独否决，PC独立。工具工作流400已消失，实际回执证明v15生效；无recommend/collect/execute/restore或经验发布。
+
+模型首答正确区分双线、合法单笔亏损、原执行与候选和不足数据边界，撤回固定7天/倍数自动回旧价；仍把18.99相对19和20的变化比例标签说反、把减30%误称三折、用并集表达同时满足，时间也未一致标UTC/北京时间。原错误保留，不称完全通过或稳定掌握；下一自然独立验证这些字段与反证，不重复同题凑通过、不发布新经验。
+
+Notion标题及首版号/第30节已更新v15，原async task_716695d00dbe42eea9c67af764196f1a与title task_c4a2df19f31d48cd8da212c7e7e4b296 succeeded；第22/25旧利润条款与Dot旧v13检查入口正在定点标历史/替换，最终fetch另核。原fc-coins-v2提示已整体清理，ACTIVE/本Work/07:30–20:30每小时:30保持，未复用乱码对象，0替换字符。真实浏览器16:55页面显示双线标题、9.84/8.68、8.35/7.78和25.48/21.41、原18:21:27计划。UI结构/主题令牌未变、Node加载/失败/禁用与未知请求回归通过，本轮不更改全站显示主题。
