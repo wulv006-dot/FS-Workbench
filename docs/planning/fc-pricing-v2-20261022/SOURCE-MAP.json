@@ -1,16 +1,16 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "deployed_actual_sha_verified",
-  "checked_at": "2026-10-22T10:46:26.151556+00:00",
-  "latest_source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
-  "latest_merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
+  "checked_at": "2026-10-22T11:35:07.157073+00:00",
+  "latest_source": "603d147b568a6bdccf8bd58ce0ecaa3536edb715",
+  "latest_merge": "7d59c3749ef4cdbf6cba96e62bceea00c12ac637",
   "latest_release": {
-    "release_id": "nav-20261022T104526Z",
-    "manifest_sha256": "617c8398d5965e10a4f2737b655fff003c0e2033fa9a6c928da97d2c03767829",
-    "source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
-    "merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
-    "stage": "/opt/fs-release-stage/fc-preview-diagnostics-601f6b19ab5d",
-    "scope": "fc-pricing-v2-preview-diagnostics-20261022",
+    "release_id": "nav-20261022T113341Z",
+    "manifest_sha256": "2e6f4f0278ea8b6bc0245acea9b26f8bcb84928e5637d29e6b0fb9db03ca23a3",
+    "source": "603d147b568a6bdccf8bd58ce0ecaa3536edb715",
+    "merge": "7d59c3749ef4cdbf6cba96e62bceea00c12ac637",
+    "stage": "/opt/fs-release-stage/fc-order-probe-recovery-603d147b568a",
+    "scope": "fc-order-probe-recovery-20261022",
     "original_inspect": {
       "releaseReady": false,
       "staticFiles": 1,
@@ -20,8 +20,8 @@
       "mutations": false
     },
     "targets_verified": 1,
-    "protected_verified": 153,
-    "accepted_at": "2026-10-22T10:46:26.151556+00:00",
+    "protected_verified": 156,
+    "accepted_at": "2026-10-22T11:35:07.157073+00:00",
     "price_write_performed": false
   },
   "files": [
@@ -204,6 +204,12 @@
       "candidate": "source/pricing_workflow.py",
       "sha256": "dc9bbcd4681652babf1f74327c5e782bede261563b8ab1ee9170363ea17140e3",
       "verified_at": "2026-10-22T10:46:26.151556+00:00"
+    },
+    {
+      "candidate": "order_global_session_20261021/service.py",
+      "target": "/opt/fs-order-session/service.py",
+      "sha256": "01512efe22f5d10396a112807292e032e70c2ce2e57631f57d68afac22997bd5",
+      "verified_at": "2026-10-22T11:35:07.157073+00:00"
     }
   ],
   "activity_and_protected_verified": 140,
@@ -381,12 +387,32 @@
       },
       "targets_verified": 12,
       "protected_verified": 128
+    },
+    {
+      "release_id": "nav-20261022T104526Z",
+      "manifest_sha256": "617c8398d5965e10a4f2737b655fff003c0e2033fa9a6c928da97d2c03767829",
+      "source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
+      "merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
+      "stage": "/opt/fs-release-stage/fc-preview-diagnostics-601f6b19ab5d",
+      "scope": "fc-pricing-v2-preview-diagnostics-20261022",
+      "original_inspect": {
+        "releaseReady": false,
+        "staticFiles": 1,
+        "sourceCAS": "passed",
+        "protectedCAS": "passed",
+        "oldPublisher": "still retired",
+        "mutations": false
+      },
+      "targets_verified": 1,
+      "protected_verified": 153,
+      "accepted_at": "2026-10-22T10:46:26.151556+00:00",
+      "price_write_performed": false
     }
   ],
   "margin_basis": "undiscounted_and_historical_average_v2",
   "current_rule": "MARGIN-REDLINES.md",
   "latest_verification": {
-    "compared": 154,
+    "compared": 157,
     "drift": [],
     "baseline_sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
     "preserved_peer_releases": [
@@ -410,6 +436,11 @@
         "source": "e303375615f4f1987979da3b5197836a626d6651",
         "scope": "fs-pmax-es-projection-20261022",
         "approved_manifest_sha256": "06b9791dd9a5ec6ada9e7dd847cb8f9cc318e14f6507a59f0d09e89be0863622"
+      },
+      {
+        "release": "workspace-native-20261006-d3be8bd7b6f0",
+        "manifest_sha256": "2613460ddcae9bc92487c69051b8a5f3fa6469fbdca025bbdf169fbc7bef4637",
+        "nginx_sha256": "8a565e993ba4c4ba6586d5cb5ff9f090c987c5cae345639c5f4869fb298da426"
       }
     ]
   },
@@ -420,5 +451,12 @@
     "report": "NATURAL-1821-REPORT.md",
     "receipt": "NATURAL-1821-ACCEPTANCE.json",
     "next_cycle_beijing": "2026-10-22 20:26:04"
+  },
+  "backend_preview_recovery": {
+    "report": "BACKEND-PREVIEW-RECOVERY.md",
+    "receipt": "BACKEND-PREVIEW-RECOVERY.json",
+    "status": "shared_probe_fixed_and_live_backend_read_passed_fresh_natural_preview_pending",
+    "original_failure_detail": "not_retained",
+    "natural_next": "2026-10-22 20:26:04 Asia/Shanghai"
   }
 }

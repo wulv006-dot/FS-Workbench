@@ -1,0 +1,64 @@
+{
+  "at": "2026-10-22T11:35:07.157073+00:00",
+  "release": {
+    "intent": {
+      "release_id": "nav-20261022T113341Z",
+      "manifest_sha256": "2e6f4f0278ea8b6bc0245acea9b26f8bcb84928e5637d29e6b0fb9db03ca23a3",
+      "source": "603d147b568a6bdccf8bd58ce0ecaa3536edb715",
+      "merge": "7d59c3749ef4cdbf6cba96e62bceea00c12ac637",
+      "stage": "/opt/fs-release-stage/fc-order-probe-recovery-603d147b568a",
+      "scope": "fc-order-probe-recovery-20261022",
+      "original_inspect": {
+        "releaseReady": false,
+        "staticFiles": 1,
+        "sourceCAS": "passed",
+        "protectedCAS": "passed",
+        "oldPublisher": "still retired",
+        "mutations": false
+      }
+    },
+    "publisher": {
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261022T113341Z",
+      "status": "applied-awaiting-actual-http-role-acceptance",
+      "staticFiles": 1,
+      "businessWorkerTimerActions": 0
+    },
+    "targets_verified": 1,
+    "protected_verified": 156,
+    "price_write_performed": false
+  },
+  "compared": 157,
+  "drift": [],
+  "actual_probe_recovery": {
+    "injection": "one transport failure in this diagnostic process only",
+    "real_second_protected_read": true,
+    "ready": true,
+    "cookie_count": 3,
+    "attempts": [
+      {
+        "url_is_protected_home": true,
+        "timeout": 12000
+      },
+      {
+        "url_is_protected_home": true,
+        "timeout": 8000
+      }
+    ],
+    "seconds": 1.818,
+    "login_attempts": 0,
+    "production_broker_failure_injected": false
+  },
+  "health": {
+    "service": "fs-order-session",
+    "ready": true,
+    "last_error": null,
+    "checking": false,
+    "verified_age_seconds": 8.0,
+    "probe_seconds": 1.966,
+    "probe_path": "/admin/index/index.html",
+    "login_attempts": 0
+  },
+  "source_sha256": "01512efe22f5d10396a112807292e032e70c2ce2e57631f57d68afac22997bd5",
+  "price_write": false,
+  "original_job_replayed": false
+}
