@@ -2,7 +2,7 @@
 
 适用范围：FS 游戏监控台 `/dashboard/game-monitor/` 的游戏详情页十栏目内容（ov / biz / dept / tool / cls / play / terms / eco / ops / intel）。
 适用对象：Hermes（内容调查、候选生成、校验）与 Codex（宿主 publisher、发布与真实页面验收）。
-本文件是 SOP（PDF 10 页，原件 SHA256 `45b1a562…f9f`）按**现行 FS 结构**适配后的长期标准；PDF 的旧路径、旧域名、旧现状判断与示例不作执行依据。
+本文件依据 SOP（PDF 10 页，PDF 原件 SHA256 `acd993fe9d2afde81d5f6deeed5a501225642444ab923c552ba1dcc9952a2bbf`；提取件原字节 SHA256 `45b1a562…f9f`）按**现行 FS 结构**适配后的长期标准；PDF 的旧路径、旧域名、旧现状判断与示例不作执行依据。
 首个落地样本：`maplestory`（见 `/profile/game-monitor-sop-20261022/`：AUDIT.md、SOURCES.json、VALIDATION.json、CHANGELOG.md、candidate/）。
 
 ---
@@ -110,3 +110,12 @@ MapleStory 同时存在多条产品线：正式服（GMS）、Classic World、Ma
 - 本文件版本：2026-10-22（首版，基于 maplestory 落地样本）。
 - 关联原件：SOP `SOP-EXTRACTED.md`（raw `45b1a562…`，LF 归一化 `4b74395…`）；基线 `source/index.html` `368a4002…`；候选 `candidate/index.html` `35d15d02…`。
 - 后续修订：新增版本条目并标注被替代版本，不就地覆盖历史；历史候选与报告保留。
+
+
+## 10. 2026-10-22 维护接入读回
+
+服务器主 Hermes 已创建原生计划 `6534331b5100`，UTC `20 16 * * 5`，即每周六北京时间00:20，下一次2026-10-24 00:20北京；已启用，continuity开启，输出留服务器本地。工作目录 `/profile/game-monitor-maintenance`，任务正文为该目录 MAINTENANCE-PROMPT.md。
+
+此计划执行栏目巡检、来源核验与更新候选生成，原00:05官方情报/News采集保持。它没有宿主静态页面发布能力；候选必须按现有发布流程处理，不把定时任务或知识保存说成页面已自动更新。尚未观察首个自然周期。
+
+PR337正式CI已通过；本时点合并请求被自动审批拒绝，等待用户明确批准合并和上线，生产尚未发布。后续发布状态以本任务DELIVERY及 `/profile/game-monitor-maintenance/published.json` 读回为准。
