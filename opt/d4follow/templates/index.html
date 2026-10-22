@@ -246,6 +246,27 @@ th{background:#fafafa}
 .logbox{background:#fafafa;border:1px solid #f2f2f5;border-top:0}
 .modal .box{box-shadow:0 30px 80px -30px rgba(16,24,40,.35),0 2px 8px rgba(16,24,40,.08)}
 .modal .box.wide{max-width:780px}
+/* 2026-10-22：详细改价日志面板（表格列多，需要更宽的容器） */
+.modal .box.huge{max-width:1200px}
+.jh-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}
+.jh-filter select,.jh-filter input{background:var(--crust);border:1px solid var(--s1);
+  color:var(--text);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit}
+.jh-filter input[type=date]{width:128px}
+.jh-filter .jh-q{width:190px}
+.jh-sum{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.jh-sum .k{display:flex;align-items:baseline;gap:5px;background:#fafafa;border:1px solid var(--s1);
+  border-radius:8px;padding:5px 10px;font-size:11.5px;color:var(--ov0);white-space:nowrap}
+.jh-sum .k b{font-size:14px;color:var(--text)}
+.jh-daily{margin:0 0 10px;max-height:132px;overflow:auto;border:1px solid var(--s1);border-radius:8px}
+.jh-daily table{width:100%;border-collapse:collapse;font-size:11.5px}
+.jh-daily th,.jh-daily td{padding:4px 8px;border-bottom:1px solid var(--s1);text-align:left;white-space:nowrap}
+.jh-daily th{background:#fafafa;font-weight:600;position:sticky;top:0}
+.jh-daily tr.cur{background:#eef6ff}
+.jh-bar{display:inline-block;height:6px;border-radius:3px;background:var(--green);vertical-align:middle}
+.jh-bar.bad{background:var(--red)}
+.jh-table td{vertical-align:top}
+.jh-err{color:var(--red);font-family:ui-monospace,Consolas,monospace;font-size:11px;word-break:break-all}
+.jh-page{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ov0)}
 
 /* ===== 2026-09-24 第十五轮：悬浮目录（快速跳转各模块）===== */
 .toc{position:fixed;right:13px;top:50%;transform:translateY(-50%);z-index:80;
@@ -647,6 +668,12 @@ th{background:#fafafa}
     <div class="pad">
       <div id="execMode"></div>
       <div class="warnbox" id="localHint" style="margin-top:8px">正在读取执行器状态…</div>
+      <!-- 2026-10-22：下表固定只拉 10 条，翻不了历史 ⇒ 另开「详细改价日志」面板（默认 7 天） -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 2px">
+        <b style="font-size:13px">最近派单</b>
+        <span class="small">下面只显示最近 10 条，要看 7 天全部改价记录请点右边</span>
+        <button class="btn" style="margin-left:auto" onclick="jobHistOpen()">📜 详细改价日志（近 7 天）</button>
+      </div>
       <div id="localJobs" style="margin-top:10px"></div>
     </div>
   </section>
@@ -659,6 +686,57 @@ th{background:#fafafa}
     <div id="histBody" style="max-height:56vh;overflow:auto"></div>
     <div class="acts" style="justify-content:flex-end">
       <button class="btn ghost" onclick="closeHist()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="jobHistModal">
+  <div class="box huge">
+    <h3>📜 详细改价日志 <span class="small" id="jhTitleSpan" style="font-weight:400"></span></h3>
+    <div class="small" id="jhSub" style="margin-bottom:9px">正在读取…</div>
+    <div class="jh-filter">
+      <label class="small">范围</label>
+      <select id="jhRange" onchange="jobHistRange(this.value)">
+        <option value="7">近 7 天</option>
+        <option value="3">近 3 天</option>
+        <option value="1">今天（24 小时）</option>
+        <option value="14">近 14 天</option>
+        <option value="custom">自定义日期…</option>
+      </select>
+      <span id="jhCustom" style="display:none;align-items:center;gap:6px">
+        <input type="date" id="jhFrom" onchange="jobHistApply()">
+        <span class="small">至</span>
+        <input type="date" id="jhTo" onchange="jobHistApply()">
+      </span>
+      <label class="small">状态</label>
+      <select id="jhStatus" onchange="jobHistApply()">
+        <option value="">全部</option>
+        <option value="failed">只看失败</option>
+        <option value="done">只看成功</option>
+        <option value="canceled">已取消</option>
+        <option value="pending,dispatched">排队/执行中</option>
+        <option value="done,failed">成功+失败</option>
+      </select>
+      <label class="small">类型</label>
+      <select id="jhKind" onchange="jobHistApply()">
+        <option value="">全部</option>
+        <option value="writegold">金币</option>
+        <option value="write">物品</option>
+      </select>
+      <input class="jh-q" id="jhQ" placeholder="搜 区服 / 单号 / 执行器" onkeydown="if(event.key==='Enter')jobHistApply()">
+      <label class="small">每页</label>
+      <select id="jhSize" onchange="jobHistApply()">
+        <option>50</option><option>100</option><option>200</option>
+      </select>
+      <button class="btn" onclick="jobHistApply()">查询</button>
+      <button class="btn ghost" onclick="jobHistCsv()">导出 CSV</button>
+    </div>
+    <div class="jh-sum" id="jhSum"></div>
+    <div class="jh-daily" id="jhDaily"></div>
+    <div id="jhBody" style="max-height:42vh;overflow:auto"></div>
+    <div class="acts" style="justify-content:space-between;align-items:center;margin-top:12px">
+      <div class="jh-page" id="jhPage"></div>
+      <button class="btn ghost" onclick="jobHistClose()">关闭</button>
     </div>
   </div>
 </div>
@@ -2672,6 +2750,222 @@ function showJobLog(id){
   $('#histModal').classList.add('show');
 }
 
+/* ---------- 详细改价日志（2026-10-22）----------
+   用户口径：「派单时间那块最多只显示 10 条，要一个能追溯 7 天的日志区」。
+   看板顶部工单表固定 api/local/jobs?limit=10（只够看最近几单），这里另走
+   api/local/jobs/history：按天汇总 + 状态/类型/关键词筛选 + 分页 + 导出。
+   后端保留期同时从「200 单」放宽到「8 天且至少 300 单」，否则翻不到 7 天。 */
+const JH = {days:7, page:1, size:50, from:'', to:'', status:'', kind:'', q:'',
+            rows:[], total:0, sum:{}};
+
+function jhFmt(ts){ return String(ts||'').slice(5,19).replace('T',' '); }
+
+function jobHistOpen(){
+  JH.page = 1;
+  $('#jobHistModal').classList.add('show');
+  jobHistLoad();
+}
+function jobHistClose(){ $('#jobHistModal').classList.remove('show'); }
+
+function jobHistRange(v){
+  const c = $('#jhCustom');
+  if(v === 'custom'){
+    c.style.display = 'inline-flex';
+    if(!$('#jhFrom').value){
+      const pad = n => String(n).padStart(2,'0');
+      const d2s = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      $('#jhFrom').value = d2s(new Date(Date.now()-6*86400000));
+      $('#jhTo').value = d2s(new Date());
+    }
+    JH.from = $('#jhFrom').value; JH.to = $('#jhTo').value;
+  }else{
+    c.style.display = 'none';
+    JH.days = parseInt(v,10)||7; JH.from=''; JH.to='';
+  }
+  JH.page = 1; jobHistLoad();
+}
+
+function jobHistApply(){
+  JH.status = $('#jhStatus').value;
+  JH.kind = $('#jhKind').value;
+  JH.q = $('#jhQ').value.trim();
+  JH.size = parseInt($('#jhSize').value,10)||50;
+  if($('#jhRange').value === 'custom'){ JH.from = $('#jhFrom').value; JH.to = $('#jhTo').value; }
+  JH.page = 1;
+  jobHistLoad();
+}
+function jobHistPage(p){ JH.page = p; jobHistLoad(); }
+
+function jobHistQs(){
+  const qs = new URLSearchParams();
+  if(JH.from && JH.to){ qs.set('date_from', JH.from); qs.set('date_to', JH.to); }
+  else { qs.set('days', JH.days||7); }
+  if(JH.status) qs.set('status', JH.status);
+  if(JH.kind) qs.set('kind', JH.kind);
+  if(JH.q) qs.set('q', JH.q);
+  return qs;
+}
+
+async function jobHistLoad(){
+  const body = $('#jhBody');
+  body.innerHTML = '<div class="small" style="padding:16px">正在读取…</div>';
+  const qs = jobHistQs(); qs.set('page', JH.page); qs.set('size', JH.size);
+  try{
+    const r = await api('api/local/jobs/history?' + qs.toString());
+    JH.rows = r.rows||[]; JH.total = r.total||0; JH.sum = r.summary||{};
+    const pages = Math.max(1, Math.ceil(JH.total / JH.size));
+    if(JH.page > pages){ JH.page = pages; return jobHistLoad(); }
+
+    const scope = (JH.from && JH.to) ? (JH.from + ' ~ ' + JH.to)
+                                     : ('近 ' + (JH.days||7) + ' 天');
+    $('#jhTitleSpan').textContent = '· ' + scope;
+    $('#jhSub').innerHTML = '共 <b>' + JH.total + '</b> 条 ｜ 第 ' + JH.page + '/' + pages
+      + ' 页（每页 ' + JH.size + '）'
+      + ' ｜ 时间以<b>派单时刻</b>为准'
+      + ' ｜ 日志保留 8 天、至少 300 单';
+
+    /* ① 汇总卡片 */
+    const s = JH.sum || {};
+    const rate = (s.done + s.failed) > 0 ? (100*s.done/(s.done+s.failed)).toFixed(1) : null;
+    $('#jhSum').innerHTML =
+        '<span class="k">合计 <b>'+JH.total+'</b></span>'
+      + '<span class="k">成功 <b style="color:var(--green)">'+(s.done||0)+'</b></span>'
+      + '<span class="k">失败 <b style="color:var(--red)">'+(s.failed||0)+'</b></span>'
+      + '<span class="k">取消 <b>'+(s.canceled||0)+'</b></span>'
+      + '<span class="k">排队/执行中 <b>'+((s.pending||0)+(s.dispatched||0))+'</b></span>'
+      + (rate!==null ? '<span class="k">成功率 <b>'+rate+'%</b></span>' : '');
+
+    /* ② 每日汇总（失败天数会标红，一眼看出哪天出事） */
+    const daily = r.daily||[];
+    if(daily.length){
+      let d = '<table><thead><tr><th>日期</th><th>合计</th><th>成功</th><th>失败</th>'
+            + '<th>取消</th><th>成功率</th><th style="width:34%">成功 / 失败占比</th></tr></thead><tbody>';
+      daily.forEach(x=>{
+        const okw = x.total ? (60*((x.done||0)/x.total)).toFixed(0) : 0;
+        const badw = x.total ? (60*((x.failed||0)/x.total)).toFixed(0) : 0;
+        d += '<tr'+(x.failed?' class="cur"':'')+'>'
+          +  '<td><b>'+esc(x.date)+'</b></td><td>'+x.total+'</td>'
+          +  '<td style="color:var(--green)">'+(x.done||0)+'</td>'
+          +  '<td style="color:'+(x.failed?'var(--red)':'var(--ov0)')+'"><b>'+(x.failed||0)+'</b></td>'
+          +  '<td>'+(x.canceled||0)+'</td>'
+          +  '<td>'+(x.ok_rate==null?'--':x.ok_rate+'%')+'</td>'
+          +  '<td><span class="jh-bar" style="width:'+okw+'px"></span>'
+          +      '<span class="jh-bar bad" style="width:'+badw+'px;margin-left:2px"></span></td>'
+          +  '</tr>';
+      });
+      $('#jhDaily').innerHTML = d + '</tbody></table>';
+    }else{
+      $('#jhDaily').innerHTML = '';
+    }
+
+    /* ③ 明细表 */
+    if(!JH.rows.length){
+      body.innerHTML = '<div class="small" style="padding:16px">这个范围内没有记录'
+        + '（若刚放宽保留期，更早的单已被旧策略删掉，无法恢复）</div>';
+      $('#jhPage').innerHTML = '';
+      return;
+    }
+    let t = '<table class="histtable jh-table"><thead><tr>'
+      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>状态</th><th>耗时</th>'
+      + '<th>标题</th><th>结果</th><th>失败原因</th><th></th></tr></thead><tbody>';
+    JH.rows.forEach(j=>{
+      const st = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+      const t0 = new Date(j.started_at||j.created_at||j.ts||0).getTime();
+      const t1 = j.finished_at ? new Date(j.finished_at).getTime() : null;
+      const dur = (t1 && t0) ? (((t1-t0)/1000).toFixed(0)+'s')
+                             : (j.status==='pending' ? '--'
+                                : (j.status==='dispatched' ? '进行中' : '--'));
+      let res = '';
+      try{ const q = JSON.parse(j.result_json||'null');
+           if(q) res = (q.ok?'成功 '+q.ok:'') + (q.fail?(' / 失败 '+q.fail):'')
+                      + ((q.mismatch&&q.mismatch.length)?(' / 复核不符 '+q.mismatch.length):'');
+      }catch(e){}
+      t += '<tr>'
+        + '<td class="small" style="white-space:nowrap">'+esc(jhFmt(j.ts||j.created_at))+'</td>'
+        + '<td>'+(j.kind==='writegold'?'金币':'物品')+'</td>'
+        + '<td class="small">'+((j.exec_mode==='server')?'服务器':'本机')
+        +   (j.agent?'<br><span style="color:var(--ov0)">'+esc(j.agent)+'</span>':'')+'</td>'
+        + '<td style="color:'+st[1]+';white-space:nowrap"><b>'+st[0]+'</b></td>'
+        + '<td class="small" style="white-space:nowrap">'+dur+'</td>'
+        + '<td class="small">'+esc(j.title||'')
+        +   '<div style="color:var(--ov0);font-family:ui-monospace,Consolas,monospace">'
+        +   esc(j.id||'')+'</div></td>'
+        + '<td class="small">'+esc(res)+'</td>'
+        + '<td class="small jh-err">'+esc(j.error_hint||'')+'</td>'
+        + '<td style="white-space:nowrap"><button class="btn ghost" onclick="jobHistDetail(\''
+        +   esc(j.id)+'\')">详情</button></td>'
+        + '</tr>';
+    });
+    body.innerHTML = t + '</tbody></table>';
+
+    /* ④ 分页 */
+    const btn = (lbl,p,dis) => '<button class="btn ghost" style="padding:3px 10px"'
+      + (dis?' disabled':'')+' onclick="jobHistPage('+p+')">'+lbl+'</button>';
+    $('#jhPage').innerHTML = btn('« 最新', 1, JH.page<=1)
+      + btn('‹ 上一页', JH.page-1, JH.page<=1)
+      + '<span>第 '+JH.page+' / '+pages+' 页</span>'
+      + btn('下一页 ›', JH.page+1, JH.page>=pages)
+      + btn('末页 »', pages, JH.page>=pages);
+  }catch(e){
+    $('#jhSub').textContent = '读取失败：'+e.message;
+    body.innerHTML = '<div class="small" style="padding:16px;color:var(--red)">'+esc(e.message)+'</div>';
+  }
+}
+
+/* 单条详情：列表接口只给前 600 字日志，全文在这里取。 */
+async function jobHistDetail(id){
+  try{
+    const r = await api('api/local/job?id='+encodeURIComponent(id));
+    const j = r.job||{};
+    const who = (j.agent==='srv-exec') ? '服务器执行器' : (j.agent||'--');
+    const st = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+    $('#histTitle').textContent = '执行日志 · '+id;
+    $('#histSub').textContent = (j.kind==='writegold'?'金币改价':'物品改价')
+      + ' ｜ '+st[0]
+      + ' ｜ 执行方 '+((j.exec_mode==='server')?'服务器':'本机')
+      + ' ｜ 执行器 '+who+' ｜ 尝试 '+(j.attempts||0)+' 次'
+      + ' ｜ 派单 '+String(j.ts||'').replace('T',' ');
+    $('#histBody').innerHTML = '<pre class="small" style="white-space:pre-wrap;margin:0">'
+      + esc(j.log||'(无日志)') + '</pre>';
+    $('#histModal').classList.add('show');
+  }catch(e){ toast('读取详情失败：'+e.message,'err'); }
+}
+
+/* 导出 CSV（当前筛选条件全部页，最多 30 页保护） */
+async function jobHistCsv(){
+  if(!JH.total){ toast('当前筛选没有记录','err'); return; }
+  const pages = Math.min(30, Math.ceil(JH.total / JH.size));
+  const all = [];
+  try{
+    for(let p=1; p<=pages; p++){
+      const qs = jobHistQs(); qs.set('page', p); qs.set('size', JH.size);
+      const r = await api('api/local/jobs/history?' + qs.toString());
+      (r.rows||[]).forEach(x=>all.push(x));
+      if(!r.rows || r.rows.length < JH.size) break;
+    }
+  }catch(e){ toast('导出失败：'+e.message,'err'); return; }
+  const cell = v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+  const head = ['派单时间','单号','类型','执行方','执行器','状态','耗时(s)','标题','结果','失败原因'];
+  const lines = [head.join(',')];
+  all.forEach(j=>{
+    const b = LJ_ST[j.status]||[j.status];
+    const t0 = new Date(j.started_at||j.created_at||j.ts||0).getTime();
+    const t1 = j.finished_at ? new Date(j.finished_at).getTime() : null;
+    lines.push([ String(j.ts||'').replace('T',' '), j.id,
+      (j.kind==='writegold'?'金币':'物品'),
+      (j.exec_mode==='server'?'服务器':'本机'), j.agent||'', b[0],
+      (t1&&t0)?((t1-t0)/1000).toFixed(0):'', j.title||'', j.result_json||'',
+      j.error_hint||'' ].map(cell).join(','));
+  });
+  const blob = new Blob(['\ufeff'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '改价日志_' + (JH.from&&JH.to ? (JH.from+'_'+JH.to) : ('近'+JH.days+'天'))
+             + '_' + all.length + '条.csv';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); }, 3000);
+  toast('已导出 '+all.length+' 条','');
+}
+
 function tocInit(){
   const links=Array.prototype.slice.call(document.querySelectorAll('.toc a'));
   if(!links.length) return;
@@ -2728,7 +3022,8 @@ async function loadState(){
 $('#confirmInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doApply(); });
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
 $('#histModal').addEventListener('click',e=>{ if(e.target.id==='histModal') closeHist(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHist(); });
+$('#jobHistModal').addEventListener('click',e=>{ if(e.target.id==='jobHistModal') jobHistClose(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeHist(); jobHistClose(); } });
 tocInit();
 setLogOpen(false); paintLogCount();
 loadState();
