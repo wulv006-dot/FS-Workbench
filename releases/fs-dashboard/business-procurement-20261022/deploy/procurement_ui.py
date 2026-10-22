@@ -1,6 +1,6 @@
 """Four exact static targets through the existing reviewed CAS publisher."""
 SCOPE='fs-business-procurement-20261022'
-VERSION='business-procurement-20261022-ae0cd4ebd309'
+VERSION='business-procurement-20261022-fb8814af4a60'
 PREFIX='releases/fs-dashboard/business-procurement-20261022/'
 SOURCES={f'ui/{name}':PREFIX+'source/'+name for name in ('business.js','home-business.js','legacy-business.js')}
 TARGETS={relative:'/var/lib/fs-navigation-formal-static/'+VERSION+'/'+relative.split('/')[-1] for relative in SOURCES}

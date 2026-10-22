@@ -191,7 +191,7 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  }
  for(const [label,k,format] of fields){const item=shown[k];cards.append(metricCard(label,phase?placeholder:fsMetricText(item,format),'来源：'+item.source+' · '+item.scope));}
  host.append(cards);
- if(procurement){const note=text('p',fsProcurementNote(procurement),'fsi-note');note.dataset.procurementCoverage='true';note.setAttribute('role','status');note.setAttribute('aria-live','polite');host.append(note);host.append(text('p','采购口径：Admin整单CNY收入一次 − 对应Order实际成本；不是净利润。原参考估算：'+fsMetricText(m.estimatedProfitUsd,money)+'，参考率 '+fsMetricText(m.profitMarginPct,pct)+'；不将覆盖单率套全盘销售。','fsi-note'));}
+ if(procurement){const note=text('div',fsProcurementNote(procurement),'fsi-note');note.dataset.procurementCoverage='true';note.setAttribute('role','status');note.setAttribute('aria-live','polite');host.append(note);host.append(text('p','采购口径：Admin整单CNY收入一次 − 对应Order实际成本；不是净利润。原参考估算：'+fsMetricText(m.estimatedProfitUsd,money)+'，参考率 '+fsMetricText(m.profitMarginPct,pct)+'；不将覆盖单率套全盘销售。','fsi-note'));}
  host.append(text('p','默认及考核范围：MMOEXP。销售额、订单数以 Admin 为准；预估利润 = 销售额 × Order 利润率。跨来源估算，不是后台实结利润。','fsi-note'));
  if(!combined&&!projected.onlyMain)host.append(text('p','新客、复购率、客单价等采用 Admin 本区间原统计范围，可能含其他站点，仅参考；没有将其冒充主站独立指标。','fsi-note'));
  host.append(text('p','Admin 取数：'+(projected.adminCapturedAt||'未提供')+'；Order 取数：'+(projected.orderCapturedAt||'未提供'),'fsi-note'));

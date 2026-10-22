@@ -6,7 +6,9 @@ const between=(a,b)=>{const start=source.indexOf(a),end=source.indexOf(b,start);
 const code=`const scope={referenceScope:'main'},fcDetailState={data:null};window.FSBusinessRange={select:v=>v};function fsEnsureProcurement(){return window.actualState;}`+
  between('function fsMainSite(', 'function fsOrderLabel(')+between('function fsMetricText(', '/* Preparation')+
  between('function fsProcurementNote(', 'function fsClearProcurement(')+
- between("(function(root){'use strict';\nconst nf",'const FSSupplementInsights=window.FSSupplementInsights;');
+ between("(function(root){'use strict';\nconst nf",'const FSSupplementInsights=window.FSSupplementInsights;')+
+ "function auditSources(){const insights=document.getElementById('metrics'),grid=insights.querySelector('.fsi-metrics');"+
+ between("if(insights&&grid&&!insights.querySelector('.metric-audit'))",'\n if(grid){')+'}';
 const metric=value=>({status:'available',value});
 const period={start:'2026-10-15 00:00',end:'2026-10-22 00:00'};
 const profile={key:'FC27',name:'FC27',period,primary:{status:'available',currency:'USD',period,metrics:{profitMarginPct:metric(25)}},
@@ -17,11 +19,11 @@ const server=http.createServer((req,res)=>{res.setHeader('Content-Type',req.url=
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true});
  try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port+'/');assert.deepEqual(errors,[]);
-  const render=async value=>page.evaluate(({profile,state})=>{window.actualState=state;window.FSSupplementInsights.render(document.getElementById('metrics'),{profiles:{FC27:profile}},'FC27');},{profile,state:value});
+  const render=async value=>page.evaluate(({profile,state})=>{window.actualState=state;window.FSSupplementInsights.render(document.getElementById('metrics'),{profiles:{FC27:profile}},'FC27');window.auditSources();},{profile,state:value});
   await render(state);
   assert.equal(await page.locator('.fsi-metric').count(),15);assert.equal(await page.locator('.fsi-metric').nth(1).locator('strong').innerText(),'$100.00');
   assert.equal(await page.locator('.fsi-metric').nth(2).locator('strong').innerText(),'¥300');assert.equal(await page.locator('.fsi-metric').nth(3).locator('strong').innerText(),'30.00%');
-  const coverage=page.locator('[data-procurement-coverage]');assert.equal(await coverage.getAttribute('role'),'status');assert.equal(await coverage.getAttribute('aria-live'),'polite');assert.match(await coverage.innerText(),/6\/8/);assert.match(await coverage.innerText(),/待补 2/);assert.match(await page.locator('#metrics').innerText(),/原参考估算：\$25\.00/);
+  const coverage=page.locator('[data-procurement-coverage]');assert.equal(await coverage.getAttribute('role'),'status');assert.equal(await coverage.getAttribute('aria-live'),'polite');assert.equal(await coverage.isVisible(),true);assert.match(await coverage.innerText(),/6\/8/);assert.match(await coverage.innerText(),/待补 2/);assert.match(await page.locator('#metrics').textContent(),/原参考估算：\$25\.00/);
   await render({phase:'reading',data:null});assert.match(await page.locator('.fsi-metric').nth(2).innerText(),/读取中/);assert.doesNotMatch(await page.locator('.fsi-metric').nth(2).innerText(),/¥0/);
   await render({phase:'denied',data:null});assert.match(await coverage.innerText(),/权限未开通/);assert.doesNotMatch(await page.locator('.fsi-metric').nth(2).innerText(),/¥300/);
   await render({phase:'failed',data:null});assert.match(await coverage.innerText(),/读取失败/);
