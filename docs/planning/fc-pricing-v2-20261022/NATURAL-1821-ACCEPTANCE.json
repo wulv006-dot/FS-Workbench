@@ -1,0 +1,658 @@
+{
+  "checked_at": "2026-10-22T10:49:47.519640+00:00",
+  "natural_acceptance": "model_used_dual_floors_but_worker_preview_failed",
+  "job": {
+    "job_id": "06b5bf95-8735-4a69-bb37-5a04f3886edc",
+    "kind": "auto_cycle",
+    "created_at": "2026-10-22T10:22:00.722339+00:00",
+    "started_at": "2026-10-22T10:22:02.487724+00:00",
+    "completed_at": "2026-10-22T10:26:04.461836+00:00",
+    "status": "failed",
+    "error": "preview_unavailable",
+    "error_detail": "RuntimeError"
+  },
+  "execution_record_exists": false,
+  "original_job_replayed": false,
+  "price_write_performed": false,
+  "model": {
+    "conversation_id": "d50616881c8a4d3b8d2d70cbc78a3419",
+    "turn_id": "517bcb84c0c347a8ba296c63777ee0c9",
+    "task_id": "afa92d255d9033347772b33394b7b876",
+    "run_id": "run_ab9214e37c7e4c19bf45b310d34b194a",
+    "high_responses": 9,
+    "high_forwarded": true,
+    "tool_calls": 16,
+    "knowledge_version": "learning-5dafec578ffdeb1ef3b8cc305e969a846932f46c597c29285043d0d23b528338",
+    "core": [
+      {
+        "asset_type": "core_contract",
+        "bytes": 47463,
+        "path": "runtime/business-baseline.md",
+        "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+      }
+    ],
+    "experiences": 6,
+    "selected": {
+      "operation_id": "2972632e5c418817b2b4736c18aaff492db18f4a0687b92ff6537cbde2373a2a",
+      "run_id": "06b5bf95-8735-4a69-bb37-5a04f3886edc",
+      "quote_sha256": "a1103121ed4121a71a91335a8806985f63ee8e75659aa4e9a58315fe7d62534b",
+      "console_usd": "9.84",
+      "pc_usd": "8.68",
+      "reason": "三种候选同价9.84，现价与Lootbar同效、仅略高于U4GM每K；未优惠毛利31.7%/28.0%，近7日折扣结构估算平均25.5%/21.4%，双红线均通过。无新可比证据支持涨或降，取baseline保持。",
+      "counterexample": "若近七个完整日优惠结构恶化使加权利润率跌破10%（当前主机25.5%、PC21.4%），或共同池最新成本上调使未优惠毛利跌破10%（当前31.7%/28.0%，回执价格下限8.35/7.78），或前台读回价与后台参数不一致，则本轮保持失效，需按新成本与优惠结构重核，不沿用9.84/8.68。",
+      "evidence_refs": [
+        "pricing:a1103121ed4121a71a91335a8806985f63ee8e75659aa4e9a58315fe7d62534b",
+        "ev_c6179daab05685dd679d61eb",
+        "ev_99d59fee9abe88c3fa255513",
+        "ev_fc51519709b57baf3491faea"
+      ],
+      "source": "program_generated_choices",
+      "write_performed": false
+    },
+    "remaining_errors": [
+      "called percentage coupon1289 a fixed coupon",
+      "joint catalog lower bound described as undiscounted-only bound",
+      "unquantified claim that future price cuts sharply raise required orders",
+      "UTC time 10:23 not labelled; full historical mix cannot explain current whole-portfolio differences alone"
+    ]
+  },
+  "quote_rows": [
+    {
+      "platform": "PS",
+      "price": "9.84",
+      "base_margin": "31.71493959154190842451619694",
+      "average": {
+        "status": "partial",
+        "period": {
+          "start": "2026-10-15",
+          "end": "2026-10-21"
+        },
+        "observed_orders": 2522,
+        "eligible_orders": 2522,
+        "retained_ratio": "0.9163153025168340137457136698",
+        "estimated_net_usd": "9.016542576765646695257822511",
+        "estimated_procurement_gross_usd": "2.297292632573370484230216290",
+        "procurement_margin_pct": "25.47864231787878712642831851",
+        "historical_mix_sha256": "880e384f5d6e1851143c728c9975c0d8b4e6ace85ca31d01305810337ff7a8d9",
+        "source_times": {
+          "orders_and_coupons": "2026-10-22T18:22:48.179657+08:00",
+          "cost": "2026-10-22T17:13:04.463944+08:00",
+          "es": "2026-10-22T07:24:21.532776+00:00",
+          "platform": null
+        },
+        "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+        "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+      },
+      "catalog": {
+        "minimum_unit_usd": "0.0835",
+        "minimum_custom_k": "10",
+        "margin_basis": "undiscounted_and_historical_average_v2",
+        "all_integer_custom_quantities_covered": true,
+        "published_packages": 15,
+        "historical_retained_ratio": "0.9163153025168340137457136698",
+        "minimum_estimated_average_margin_pct": "25.47864231787878712642831850",
+        "worst_published_margin_pct": "31.71493959154190842451619693"
+      },
+      "cost_cny": "0.430000",
+      "cost_trade_at": "26-10-22 18:13:26",
+      "bonus_k": "5"
+    },
+    {
+      "platform": "XBOX",
+      "price": "9.84",
+      "base_margin": "31.71493959154190842451619694",
+      "average": {
+        "status": "partial",
+        "period": {
+          "start": "2026-10-15",
+          "end": "2026-10-21"
+        },
+        "observed_orders": 2522,
+        "eligible_orders": 2522,
+        "retained_ratio": "0.9163153025168340137457136698",
+        "estimated_net_usd": "9.016542576765646695257822511",
+        "estimated_procurement_gross_usd": "2.297292632573370484230216290",
+        "procurement_margin_pct": "25.47864231787878712642831851",
+        "historical_mix_sha256": "880e384f5d6e1851143c728c9975c0d8b4e6ace85ca31d01305810337ff7a8d9",
+        "source_times": {
+          "orders_and_coupons": "2026-10-22T18:22:48.179657+08:00",
+          "cost": "2026-10-22T17:13:04.463944+08:00",
+          "es": "2026-10-22T07:24:21.532776+00:00",
+          "platform": null
+        },
+        "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+        "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+      },
+      "catalog": {
+        "minimum_unit_usd": "0.0835",
+        "minimum_custom_k": "10",
+        "margin_basis": "undiscounted_and_historical_average_v2",
+        "all_integer_custom_quantities_covered": true,
+        "published_packages": 15,
+        "historical_retained_ratio": "0.9163153025168340137457136698",
+        "minimum_estimated_average_margin_pct": "25.47864231787878712642831850",
+        "worst_published_margin_pct": "31.71493959154190842451619693"
+      },
+      "cost_cny": "0.430000",
+      "cost_trade_at": "26-10-22 18:13:26",
+      "bonus_k": "5"
+    },
+    {
+      "platform": "PC",
+      "price": "8.68",
+      "base_margin": "27.99003382068078222025928388",
+      "average": {
+        "status": "partial",
+        "period": {
+          "start": "2026-10-15",
+          "end": "2026-10-21"
+        },
+        "observed_orders": 2522,
+        "eligible_orders": 2522,
+        "retained_ratio": "0.9163153025168340137457136698",
+        "estimated_net_usd": "7.953616825846119239312794654",
+        "estimated_procurement_gross_usd": "1.703151761481211136031300495",
+        "procurement_margin_pct": "21.41355057420718736727624629",
+        "historical_mix_sha256": "880e384f5d6e1851143c728c9975c0d8b4e6ace85ca31d01305810337ff7a8d9",
+        "source_times": {
+          "orders_and_coupons": "2026-10-22T18:22:48.179657+08:00",
+          "cost": "2026-10-22T17:13:04.463944+08:00",
+          "es": "2026-10-22T07:24:21.532776+00:00",
+          "platform": null
+        },
+        "scope": "100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast",
+        "assumptions": "same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement"
+      },
+      "catalog": {
+        "minimum_unit_usd": "0.0778",
+        "minimum_custom_k": "10",
+        "margin_basis": "undiscounted_and_historical_average_v2",
+        "all_integer_custom_quantities_covered": true,
+        "published_packages": 15,
+        "historical_retained_ratio": "0.9163153025168340137457136698",
+        "minimum_estimated_average_margin_pct": "21.41355057420718736727624628",
+        "worst_published_margin_pct": "27.99003382068078222025928386"
+      },
+      "cost_cny": "0.400000",
+      "cost_trade_at": "26-10-22 17:53:37",
+      "bonus_k": "5"
+    }
+  ],
+  "public": {
+    "status": "matched",
+    "execution_id": "0af419f6-ef46-4af5-bf8d-8984e003c515",
+    "basis": "confirmed_write",
+    "preview_id": "33dc64d8-8b18-44e0-bbe6-ee699d452a02",
+    "backend_checked_at": "2026-10-22T08:20:57.003110+00:00",
+    "observation_preview_id": null,
+    "write_mode": "automatic",
+    "backend_written_at": "2026-10-22T08:20:57.003110+00:00",
+    "platforms": [
+      {
+        "platform": "PS",
+        "status": "matched",
+        "backend_page_usd": "9.84",
+        "public_page_usd": "9.84",
+        "public_checked_at": "2026-10-22T10:23:44.597186+00:00"
+      },
+      {
+        "platform": "XBOX",
+        "status": "matched",
+        "backend_page_usd": "9.84",
+        "public_page_usd": "9.84",
+        "public_checked_at": "2026-10-22T10:23:45.014022+00:00"
+      },
+      {
+        "platform": "PC",
+        "status": "matched",
+        "backend_page_usd": "8.68",
+        "public_page_usd": "8.68",
+        "public_checked_at": "2026-10-22T10:23:45.421190+00:00"
+      }
+    ]
+  },
+  "manual_backend": {
+    "checked_at": "2026-10-22T10:38:05.524651+00:00",
+    "status": "read_only_backend_verified",
+    "rows": [
+      {
+        "platform": "PS",
+        "b2c": "0.0984",
+        "costPrice": "0.523488",
+        "lirunlv": "0.200000"
+      },
+      {
+        "platform": "XBOX",
+        "b2c": "0.0984",
+        "costPrice": "0.523488",
+        "lirunlv": "0.200000"
+      },
+      {
+        "platform": "PC",
+        "b2c": "0.0868",
+        "costPrice": "0.461776",
+        "lirunlv": "0.200000"
+      }
+    ],
+    "separate_from_natural_acceptance": true
+  },
+  "effect": {
+    "observed_at": "2026-10-22T10:34:15.979019+00:00",
+    "source": "existing FS Admin exact PID reader and canonical channel cost archives",
+    "time_basis": "Admin paytime local strings; timezone not independently verified; public exposure recorded separately in UTC and Beijing",
+    "cohorts": [
+      {
+        "day": "2026-10-22",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "cost_source": {
+          "status": "partial",
+          "source": "Order完整分页日归档 / 原全局缓存 / 逐单补核",
+          "generatedAt": "2026-10-22T17:13:04.463944+08:00",
+          "limitation": "按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。",
+          "period": {
+            "start": "2026-10-22",
+            "end": "2026-10-22",
+            "until": "2026-10-22 17:09"
+          }
+        },
+        "cost_archive_available": true,
+        "summary": {
+          "all_paid_time_orders": 26,
+          "valid_orders": 26,
+          "completed_orders": 12,
+          "pending_orders": 14,
+          "covered_orders": 2,
+          "uncovered_completed_orders": 10,
+          "valid_usd": "1644.25",
+          "covered_income_cny": "426.73",
+          "covered_cost_cny": "305.75",
+          "covered_gp_cny": "120.98",
+          "covered_margin_pct": "28.35047922573992922925503246",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 18,
+              "completed_orders": 8,
+              "covered_orders": 1,
+              "valid_usd": "1322.03",
+              "covered_income_cny": "313.69",
+              "covered_cost_cny": "225.75",
+              "covered_gp_cny": "87.94",
+              "covered_margin_pct": "28.03404635149351270362459753"
+            },
+            "XBOX": {
+              "valid_orders": 2,
+              "completed_orders": 1,
+              "covered_orders": 0,
+              "valid_usd": "15.62",
+              "covered_income_cny": null,
+              "covered_cost_cny": null,
+              "covered_gp_cny": null,
+              "covered_margin_pct": null
+            },
+            "PC": {
+              "valid_orders": 6,
+              "completed_orders": 3,
+              "covered_orders": 1,
+              "valid_usd": "306.60",
+              "covered_income_cny": "113.04",
+              "covered_cost_cny": "80.0",
+              "covered_gp_cny": "33.04",
+              "covered_margin_pct": "29.22859164897381457891012031"
+            }
+          }
+        },
+        "source_checks": [
+          {
+            "platform": "PS",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:16.869768+00:00"
+          },
+          {
+            "platform": "XBOX",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:18.679009+00:00"
+          },
+          {
+            "platform": "PC",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:19.296355+00:00"
+          }
+        ]
+      },
+      {
+        "day": "2026-10-22",
+        "label": "post_1821_review_no_new_write",
+        "start": "18:21:27",
+        "end": "18:30:00",
+        "source_complete": true,
+        "cost_source": {
+          "status": "partial",
+          "source": "Order完整分页日归档 / 原全局缓存 / 逐单补核",
+          "generatedAt": "2026-10-22T17:13:04.463944+08:00",
+          "limitation": "按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。",
+          "period": {
+            "start": "2026-10-22",
+            "end": "2026-10-22",
+            "until": "2026-10-22 17:09"
+          }
+        },
+        "cost_archive_available": true,
+        "summary": {
+          "all_paid_time_orders": 1,
+          "valid_orders": 1,
+          "completed_orders": 0,
+          "pending_orders": 1,
+          "covered_orders": 0,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "15.47",
+          "covered_income_cny": null,
+          "covered_cost_cny": null,
+          "covered_gp_cny": null,
+          "covered_margin_pct": null,
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 1,
+              "completed_orders": 0,
+              "covered_orders": 0,
+              "valid_usd": "15.47",
+              "covered_income_cny": null,
+              "covered_cost_cny": null,
+              "covered_gp_cny": null,
+              "covered_margin_pct": null
+            },
+            "XBOX": {
+              "valid_orders": 0,
+              "completed_orders": 0,
+              "covered_orders": 0,
+              "valid_usd": "0",
+              "covered_income_cny": null,
+              "covered_cost_cny": null,
+              "covered_gp_cny": null,
+              "covered_margin_pct": null
+            },
+            "PC": {
+              "valid_orders": 0,
+              "completed_orders": 0,
+              "covered_orders": 0,
+              "valid_usd": "0",
+              "covered_income_cny": null,
+              "covered_cost_cny": null,
+              "covered_gp_cny": null,
+              "covered_margin_pct": null
+            }
+          }
+        },
+        "source_checks": [
+          {
+            "platform": "PS",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:16.869768+00:00"
+          },
+          {
+            "platform": "XBOX",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:18.679009+00:00"
+          },
+          {
+            "platform": "PC",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:19.296355+00:00"
+          }
+        ]
+      },
+      {
+        "day": "2026-10-21",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "cost_source": {
+          "status": "partial",
+          "source": "Order完整分页日归档 / 原全局缓存 / 逐单补核",
+          "generatedAt": "2026-10-22T17:13:04.463944+08:00",
+          "limitation": "按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。",
+          "period": {
+            "start": "2026-10-22",
+            "end": "2026-10-22",
+            "until": "2026-10-22 17:09"
+          }
+        },
+        "cost_archive_available": true,
+        "summary": {
+          "all_paid_time_orders": 23,
+          "valid_orders": 23,
+          "completed_orders": 21,
+          "pending_orders": 2,
+          "covered_orders": 21,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "1557.99",
+          "covered_income_cny": "10250.81",
+          "covered_cost_cny": "7676.17",
+          "covered_gp_cny": "2574.64",
+          "covered_margin_pct": "25.11645421191105873584624044",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 11,
+              "completed_orders": 9,
+              "covered_orders": 9,
+              "valid_usd": "609.52",
+              "covered_income_cny": "3902.99",
+              "covered_cost_cny": "2699.25",
+              "covered_gp_cny": "1203.74",
+              "covered_margin_pct": "30.84148306810932131519681065"
+            },
+            "XBOX": {
+              "valid_orders": 4,
+              "completed_orders": 4,
+              "covered_orders": 4,
+              "valid_usd": "495.55",
+              "covered_income_cny": "3316.57",
+              "covered_cost_cny": "2362.50",
+              "covered_gp_cny": "954.07",
+              "covered_margin_pct": "28.76676807665751062091256931"
+            },
+            "PC": {
+              "valid_orders": 8,
+              "completed_orders": 8,
+              "covered_orders": 8,
+              "valid_usd": "452.92",
+              "covered_income_cny": "3031.25",
+              "covered_cost_cny": "2614.42",
+              "covered_gp_cny": "416.83",
+              "covered_margin_pct": "13.75109278350515463917525773"
+            }
+          }
+        },
+        "source_checks": [
+          {
+            "platform": "PS",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:20.422856+00:00"
+          },
+          {
+            "platform": "XBOX",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:22.576455+00:00"
+          },
+          {
+            "platform": "PC",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:23.125833+00:00"
+          }
+        ]
+      },
+      {
+        "day": "2026-10-15",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "cost_source": {
+          "status": "partial",
+          "source": "Order完整分页日归档 / 原全局缓存 / 逐单补核",
+          "generatedAt": "2026-10-22T17:13:04.463944+08:00",
+          "limitation": "按发货记录关联，已完成未匹配保持未知；NBA2K、ARC部分订单由SCM履约，当前Order源不含其成本。",
+          "period": {
+            "start": "2026-10-22",
+            "end": "2026-10-22",
+            "until": "2026-10-22 17:09"
+          }
+        },
+        "cost_archive_available": true,
+        "summary": {
+          "all_paid_time_orders": 36,
+          "valid_orders": 35,
+          "completed_orders": 35,
+          "pending_orders": 0,
+          "covered_orders": 34,
+          "uncovered_completed_orders": 1,
+          "valid_usd": "2792.02",
+          "covered_income_cny": "18216.22",
+          "covered_cost_cny": "14699.00",
+          "covered_gp_cny": "3517.22",
+          "covered_margin_pct": "19.30817699830151370591703438",
+          "mixed_line_orders": 1,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {
+            "已退款·验证未通过 / pay=2": 1
+          },
+          "by_platform": {
+            "PS": {
+              "valid_orders": 26,
+              "completed_orders": 26,
+              "covered_orders": 25,
+              "valid_usd": "2446.64",
+              "covered_income_cny": "15904.71",
+              "covered_cost_cny": "12894.60",
+              "covered_gp_cny": "3010.11",
+              "covered_margin_pct": "18.92590308153999664250401296"
+            },
+            "XBOX": {
+              "valid_orders": 3,
+              "completed_orders": 3,
+              "covered_orders": 3,
+              "valid_usd": "84.90",
+              "covered_income_cny": "568.20",
+              "covered_cost_cny": "415.10",
+              "covered_gp_cny": "153.10",
+              "covered_margin_pct": "26.94473776839141147483280535"
+            },
+            "PC": {
+              "valid_orders": 6,
+              "completed_orders": 6,
+              "covered_orders": 6,
+              "valid_usd": "260.48",
+              "covered_income_cny": "1743.31",
+              "covered_cost_cny": "1389.3",
+              "covered_gp_cny": "354.01",
+              "covered_margin_pct": "20.30677274839242590244993719"
+            }
+          }
+        },
+        "source_checks": [
+          {
+            "platform": "PS",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:26.888056+00:00"
+          },
+          {
+            "platform": "XBOX",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:29.544280+00:00"
+          },
+          {
+            "platform": "PC",
+            "status": "available",
+            "reason": null,
+            "captured_at": "2026-10-22T10:34:30.226060+00:00"
+          }
+        ]
+      }
+    ],
+    "new_collection_schedule": false,
+    "business_write": false,
+    "limitations": [
+      "Exact PID rows replace stale ES identity for this bounded read only; no permanent FS source fix claimed.",
+      "Admin local paytime timezone remains unverified; same displayed clock is descriptive and not a fully proved exposure join.",
+      "Completed covered single-line single-platform order cohort only; uncompleted, uncosted and mixed rows are separate and never zero-filled.",
+      "Whole-order actual net Admin CNY minus original linked delivery cost; no repeat discount or exchange-rate reconciliation.",
+      "Delivered K, current real promotion mix, refunds final settlement, same-Coins traffic and Ads allocation remain incomplete; no causal price effect or net-profit claim.",
+      "Historical and today status maturity differ. Short-window counts cannot establish demand elasticity."
+    ]
+  },
+  "changes": {
+    "valid_orders_pct": "13.04347826086956521739130430",
+    "valid_usd_pct": "5.536620902573187247671679500",
+    "average_order_usd_pct": "-6.640681509262180511675052710",
+    "console_usd_pct": "21.04663053019265747871175580",
+    "pc_usd_pct": "-32.30592599134504989843681003"
+  },
+  "diagnostic_patch": {
+    "release": {
+      "intent": {
+        "release_id": "nav-20261022T104526Z",
+        "manifest_sha256": "617c8398d5965e10a4f2737b655fff003c0e2033fa9a6c928da97d2c03767829",
+        "source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
+        "merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
+        "stage": "/opt/fs-release-stage/fc-preview-diagnostics-601f6b19ab5d",
+        "scope": "fc-pricing-v2-preview-diagnostics-20261022",
+        "original_inspect": {
+          "releaseReady": false,
+          "staticFiles": 1,
+          "sourceCAS": "passed",
+          "protectedCAS": "passed",
+          "oldPublisher": "still retired",
+          "mutations": false
+        }
+      },
+      "publisher": {
+        "backup": "/var/backups/fs-navigation-20261006/nav-20261022T104526Z",
+        "status": "applied-awaiting-actual-http-role-acceptance",
+        "staticFiles": 1,
+        "businessWorkerTimerActions": 0
+      },
+      "targets_verified": 1,
+      "protected_verified": 153,
+      "price_write_performed": false
+    },
+    "compared": 154,
+    "drift": [],
+    "actual_container_loaded_source": {
+      "deployed_error_boundary": "passed",
+      "simulated_exception_only": true,
+      "session_requests": 0,
+      "price_write": false
+    },
+    "original_job_preserved": true
+  },
+  "limits": [
+    "Admin paytime timezone unverified; same displayed-clock description only",
+    "only 2 of 12 completed today have cost; 14 additional valid orders still pending",
+    "delivered K, refund final settlement and same-Coins Ads/traffic not covered",
+    "no new price exposure this cycle and no price-causal uplift identified"
+  ],
+  "next_original_cycle_beijing": "2026-10-22 20:26:04"
+}
