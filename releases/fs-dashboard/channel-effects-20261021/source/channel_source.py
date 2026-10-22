@@ -63,6 +63,7 @@ def customer_types(start, end, manifests, archive):
         selected.append(value)
         cursor = (date.fromisoformat(value['query']['end']) + timedelta(days=1)).isoformat()
     flags, hashes, captures, complete = {}, set(), [], cursor > end
+    order_sources = {}
     for value in selected:
         dataset = es.archived_dataset(value['query'], root=root)
         if not dataset: complete = False; continue
@@ -72,11 +73,12 @@ def customer_types(start, end, manifests, archive):
             paid = str(row.get('付款时间') or '').replace('/', '-')[:10]
             if start <= paid <= end and row.get('订单号'):
                 flags.setdefault(row['订单号'], set()).add(str(row.get('是否新客户') or '').strip())
+                order_sources.setdefault(row['订单号'], set()).add((row.get('订单来源'), str(row.get('游戏') or '').strip()))
     index = {key: {'是': '新客', '否': '老客'}.get(next(iter(values)), '新老客未提供') if len(values) == 1 else '待核：新老客冲突' for key, values in flags.items()}
     return index, dict(status='complete' if complete else 'partial', source='Admin ES订单：下单时是否新客户',
                        generatedAt=max((v for v in captures if v), default=None),
                        sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest(),
-                       files=len(hashes), limitation='按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。')
+                       files=len(hashes), orderSources={key:dict(sourceRaw=next(iter(values))[0], sourceGame=next(iter(values))[1], sourceStatus='available' if next(iter(values))[0] is not None else 'unavailable') if len(values)==1 else dict(sourceRaw=None, sourceGame='', sourceStatus='conflict') for key,values in order_sources.items()}, limitation='按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。')
 
 
 def apply_customer_types(data, request=False):
@@ -100,8 +102,12 @@ def apply_customer_types(data, request=False):
             index, info = read()
     except (OSError, ValueError, KeyError, TypeError, ImportError):
         index, info = {}, dict(status='unavailable', source='Admin ES订单：下单时是否新客户', limitation='ES字段暂未取得，保持未知，不按老客推断。')
+    info = dict(info)
+    sources = info.pop('orderSources', {})
     for row in data['orders']:
+        row.update(sources.get(hashlib.sha256(row['orderNo'].encode()).hexdigest(), dict(sourceRaw=None, sourceGame='', sourceStatus='unavailable')))
         row['customerType'] = index.get(hashlib.sha256(row['orderNo'].encode()).hexdigest(), '新老客未提供')
+    data['sources']['orderSource'] = dict(status=info.get('status','unavailable'), source='Admin ES订单来源与实际游戏', generatedAt=info.get('generatedAt'), sourceVersion=info.get('sourceVersion'), matchedOrders=sum(r.get('sourceStatus')=='available' for r in data['orders']), limitation='按同订单身份关联；来源缺失/冲突保持未知，不当自然。广告优先视图与码/推荐人协助视图独立。')
     data['sources']['customer'] = dict(info, matchedOrders=sum(r['customerType'] in ('新客', '老客') for r in data['orders']))
     return data
 

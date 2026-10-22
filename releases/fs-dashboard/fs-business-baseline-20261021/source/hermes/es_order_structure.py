@@ -15,7 +15,7 @@ import zipfile
 from xml.etree import ElementTree as ET
 
 from coupon_channels import retained, mapping
-RULE_VERSION='admin-es-structure-v5-coupon-channel-'+mapping()[1]
+RULE_VERSION='admin-es-structure-v6-pmax-fc-20261022-coupon-channel-'+mapping()[1]
 GAME_LABELS={'FC27':'FC 27','D4':'Diablo 4','AION2':'Aion 2','POE2':'POE2','NBA2K27':'NBA 2K27','NFL27':'Madden NFL 27','MLB26':'MLB 26','CFB27':'College Football 27','RS':'RS','ARC_RAIDERS':'ARC Raiders','MAPLESTORY_CLASSIC':'MapleStory Classic World','DARK_AND_DARKER':'Dark and Darker','WOW_FOREVER':'WoW Forever','ARENA_BREAKOUT_INFINITE':'Arena Breakout: Infinite','COD_BO7':'CoD: Black Ops 7'}
 GAME_MAPPING_VERSION='es-exact-labels-20261017-v1'
 from admin_discount_analysis import GROUPS as DISCOUNT_GROUPS, FIELDS as DISCOUNT_FIELDS
@@ -147,6 +147,23 @@ def aggregate_rows(allrows,hashes,parse_failures,args,declared_files=None,failed
         if re.fullmatch('[A-Z]{3}',currency) and paid is not None:original_paid[currency]=original_paid.get(currency,Decimal(0))+paid
     groups=sorted(grouped.values(),key=lambda row:row['order_amount_usd'],reverse=True)
     for row in groups:row['order_amount_usd']=str(row['order_amount_usd']) if row['priced_orders'] else None
+    paid = {}
+    for row in selected:
+        source = row[COLUMNS['source']].strip()
+        scope = campaign_scope(source)['campaign_scope'] if source else 'natural'
+        if scope not in ('project', 'global_brand', 'game_name_candidate'): continue
+        game = safe_label(row[COLUMNS['game']])
+        item = paid.setdefault(game, dict(game=game, orders=0, order_amount_usd=Decimal(0), priced_orders=0, pmax_orders=0, pmax_amount_usd=Decimal(0), pmax_priced_orders=0))
+        item['orders'] += 1
+        value = amount(row[COLUMNS['usd']])
+        if value is not None: item['order_amount_usd'] += value; item['priced_orders'] += 1
+        if scope == 'global_brand':
+            item['pmax_orders'] += 1
+            if value is not None: item['pmax_amount_usd'] += value; item['pmax_priced_orders'] += 1
+    for item in paid.values():
+        item['order_amount_usd'] = str(item['order_amount_usd']) if item['priced_orders'] else None
+        item['pmax_amount_usd'] = str(item['pmax_amount_usd']) if item['pmax_priced_orders'] else ('0' if not item['pmax_orders'] else None)
+    result['advertising_source_totals'] = dict(rule_version='pmax-fc-project-20261022-v1', by_game=sorted(paid.values(), key=lambda r:r['game']), basis='actual_export_game_and_source; full_selected_orders_before_top; original_status_not_financial_net', costs_allocated=False)
     top_limit=500 if args['group_by']=='game' else 20
     if len(groups)>top_limit:
         rest=groups[top_limit:];groups=groups[:top_limit]+[{'key':'__other__','label':'其他（全部已读集合残差）','records':sum(r['records'] for r in rest),'orders':sum(r['orders'] for r in rest),'priced_orders':sum(r['priced_orders'] for r in rest),'order_amount_usd':str(sum((Decimal(r['order_amount_usd'] or '0') for r in rest),Decimal(0))) if any(r['priced_orders'] for r in rest) else None}]
