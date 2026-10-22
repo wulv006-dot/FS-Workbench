@@ -440,15 +440,15 @@ def retained_bundle(previous,reason,pending=False):
 def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opener=None):
     with SERVER_LOCK:
         query=checked_query(args)
-        if query['group_by']=='discount_channel':
-            # Reuse the original private exports; the old session deliberately discards codes.
-            dataset=archived_dataset(query)
-            if dataset is None:
-                return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'coupon_period_export_unavailable','retryable':False}
+        # Reproject retained exports with the current rules; the session may still run an older parser.
+        dataset=archived_dataset(query)
+        if dataset is not None:
             value=aggregate_rows(dataset['rows'],dataset['hashes'],dataset['parse_failures'],query,dataset['declared_files'],dataset['failed_files'])
             value['quality'].update(source_origin='existing_private_export',archived_capture_time=dataset.get('captured_at'),aggregated_at=value['captured_at'])
             value['captured_at']=dataset.get('captured_at')
             return {'kind':'es_order_structure_bundle','status':'available','snapshots':[{'query':query,'value':value}]}
+        if query['group_by']=='discount_channel':
+            return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'coupon_period_export_unavailable','retryable':False}
         return _server_bundle(query,root,opener)
 
 def _server_bundle(args,root,opener):

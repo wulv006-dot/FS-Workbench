@@ -691,7 +691,7 @@ def main():
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
         elif group=="channel-effects":
-            units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui"])
+            units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
         elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
