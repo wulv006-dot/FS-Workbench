@@ -9,7 +9,12 @@
     "new_ssh_sources": false,
     "cloud_browser_used": false,
     "key_changed": false,
-    "production_user_module_deployed": false
+    "production_user_module_deployed": true,
+    "release_id": "nav-20261022T180802Z",
+    "source_merge_commit": "346cce9ac7c476b639a79d7c8071b2e7296d9aae",
+    "actual_registered_tools": "both_paths_verified_for_bounded_cases",
+    "natural_midnight": "pending_2026-10-24",
+    "record_updated_at": "2026-10-23T02:15:00+08:00"
   },
   "original_cloud_evidence": {
     "platform": "Linux cloud Work workspace",

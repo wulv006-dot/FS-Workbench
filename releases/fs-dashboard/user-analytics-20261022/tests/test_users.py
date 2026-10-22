@@ -78,6 +78,19 @@ class Users(unittest.TestCase):
         self.assertIn('ReadWriteDirectories=', unit)
         self.assertNotIn('ReadWritePaths=', unit)
 
+    def test_natural_receipt_requires_unchanged_last_purchase_and_actual_stage_change(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('users_natural_receipt_test', BASE / 'accept_natural.py')
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        before = {'a': dict(last_paid_at='2026-09-23T12:00:00+08:00', stage='recent')}
+        after = {'a': dict(last_paid_at='2026-09-23T12:00:00+08:00', stage='silent')}
+        old, new = stamp('2026-10-22').date(), stamp('2026-10-23').date()
+        self.assertEqual(len(module.transition_sample(before, after, old, new, [30, 60, 90])), 1)
+        after['a'].update(last_paid_at='2026-10-23T12:00:00+08:00', stage='recent')
+        self.assertEqual(module.transition_sample(before, after, old, new, [30, 60, 90]), [])
+        after['a'].update(last_paid_at=before['a']['last_paid_at'], stage='lost')
+        with self.assertRaises(AssertionError):module.transition_sample(before, after, old, new, [30, 60, 90])
+
     def test_T02_cross_project_union(self):
         self.load([order(1, '2026-10-01'), order(2, '2026-10-02', gid='2000')])
         self.assertEqual(self.values(self.query())['purchasers'], 1)

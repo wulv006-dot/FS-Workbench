@@ -1,0 +1,108 @@
+{
+  "patch_targets": 7,
+  "protected_hashes": 102,
+  "health": {
+    "active_customer_reports": 0,
+    "ok": true,
+    "readonly": true,
+    "service": "fs-business-range",
+    "user_analytics_error": null,
+    "user_analytics_ready": true
+  },
+  "compact_tool": {
+    "snapshot_id": "us_94d2bb621f982eb108a74bae64ce0162",
+    "purchasers": 17321,
+    "json_characters": 15754,
+    "lifecycle_policy": {
+      "day_basis": "Asia/Shanghai calendar days since last effective purchase",
+      "definition_source": "versioned_builtin_contract",
+      "thresholds_days": [
+        30,
+        60,
+        90
+      ],
+      "version": "common-v1"
+    },
+    "H": 7
+  },
+  "nonadmin_IAM_over_loopback": [
+    {
+      "aggregate": 200,
+      "private": 403
+    },
+    {
+      "aggregate": 200,
+      "private": 403
+    },
+    {
+      "aggregate": 200,
+      "private": 403
+    },
+    {
+      "aggregate": 200,
+      "private": 403
+    },
+    {
+      "aggregate": 200,
+      "private": 403
+    }
+  ],
+  "anonymous_loopback": 401,
+  "units": {
+    "fs-user-analytics.service": [
+      "Result=success",
+      "ExecMainStartTimestamp=Fri 2026-10-23 02:03:17 CST",
+      "ExecMainExitTimestamp=Fri 2026-10-23 02:04:00 CST",
+      "ExecMainStatus=0",
+      "ActiveState=inactive",
+      "SubState=dead"
+    ],
+    "fs-user-analytics.timer": [
+      "ActiveState=active",
+      "SubState=waiting"
+    ],
+    "fs-business-range.service": [
+      "Result=success",
+      "ExecMainStartTimestamp=Fri 2026-10-23 02:08:19 CST",
+      "ExecMainExitTimestamp=",
+      "ExecMainStatus=0",
+      "ActiveState=active",
+      "SubState=running"
+    ],
+    "fs-hermes-fc.service": [
+      "Result=success",
+      "ExecMainStartTimestamp=Fri 2026-10-23 02:08:15 CST",
+      "ExecMainExitTimestamp=",
+      "ExecMainStatus=0",
+      "ActiveState=active",
+      "SubState=running"
+    ],
+    "fs-hermes-desktop.service": [
+      "Result=success",
+      "ExecMainStartTimestamp=Fri 2026-10-23 02:08:24 CST",
+      "ExecMainExitTimestamp=",
+      "ExecMainStatus=0",
+      "ActiveState=active",
+      "SubState=running"
+    ],
+    "auth-portal.service": [
+      "Result=success",
+      "ExecMainStartTimestamp=Fri 2026-10-23 01:02:35 CST",
+      "ExecMainExitTimestamp=",
+      "ExecMainStatus=0",
+      "ActiveState=active",
+      "SubState=running"
+    ]
+  },
+  "data_version": "53",
+  "record_scope": "2026-10-23 02:09 post-release, before later natural ticks; no identities or source orders",
+  "ordinary_browser_session": "not_executed",
+  "public_https": {
+    "anonymous_and_forged_headers": {
+      "page": 302,
+      "aggregate": 401,
+      "private": 401
+    },
+    "certificate_verification": true
+  }
+}
