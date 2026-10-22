@@ -130,6 +130,19 @@ class EvidenceTests(unittest.TestCase):
         v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['pagination']['total_events'],2)
         self.assertEqual(v['status_counts'],{'CONFIRMED':1,'PARTIAL':1})
 
+    def test_v2_original_failed_job_and_later_reconciliation_both_retained(self):
+        self.v2_history();ident='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';(self.root/'jobs').mkdir()
+        path=self.root/'jobs'/(ident+'.json')
+        rec=dict(execution_id=ident,status='confirmed',completed_at='2026-10-20T01:46:00Z',original_job_status='failed',mmoexp_replayed=False,public_readback='verified',private='secret@example.com')
+        path.write_text(json.dumps(dict(job_id=ident,status='failed',reconciliation=rec)))
+        v=self.reader(self.q|{'kind':'price_history'});event=v['events'][0]
+        self.assertEqual(event['status'],'CONFIRMED');self.assertEqual(event['job_status'],'failed')
+        self.assertEqual(event['reconciliation']['completed_at'],'2026-10-20T01:46:00Z')
+        self.assertIs(event['reconciliation']['mmoexp_replayed'],False);self.assertNotIn('secret@',json.dumps(v))
+        rec['execution_id']='dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+        path.write_text(json.dumps(dict(job_id=ident,status='failed',reconciliation=rec)))
+        self.assertEqual(self.reader(self.q|{'kind':'price_history'})['status'],'partial')
+
     def test_v2_non_uuid_run_cannot_reach_other_paths(self):
         self.v2_history();path=next((self.root/'executions').glob('*.json'));value=json.loads(path.read_text());value['run_id']='../../private';path.write_text(json.dumps(value))
         v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['status'],'partial');self.assertEqual(v['pagination']['total_events'],0)

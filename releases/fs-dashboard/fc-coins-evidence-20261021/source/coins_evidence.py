@@ -106,7 +106,7 @@ class CoinsEvidence:
             try:
                 execution=str(uuid.UUID(v['execution_id']));run=str(uuid.UUID(v['run_id']))
                 if execution!=path.stem or v['execution_id']!=execution or v['run_id']!=run:raise ValueError('coins_execution_identity')
-                identity={'basis':'legacy_execution_and_run_same_id'}
+                identity={'basis':'legacy_execution_and_run_same_id'};job_status=None;reconciliation=None
                 if run!=execution:
                     # V2 separates a quote run from each execution; verify the original chain.
                     preview_id=str(uuid.UUID(v['preview_id']))
@@ -115,12 +115,20 @@ class CoinsEvidence:
                     quote,quote_sha=read_json(self.root/'quotes'/(run+'.json'))
                     if preview.get('preview_id')!=preview_id or preview.get('run_id')!=run or quote.get('run_id')!=run:raise ValueError('coins_quote_chain')
                     identity={'basis':'execution_preview_quote_chain','preview_id':preview_id,'preview_sha256':preview_sha,'quote_sha256':quote_sha}
+                    job_path=self.root/'jobs'/(execution+'.json')
+                    if job_path.exists():
+                        job,_=read_json(job_path)
+                        if job.get('job_id')!=execution:raise ValueError('coins_job_identity')
+                        job_status=safe_label(job.get('status'));record=job.get('reconciliation')
+                        if record:
+                            if record.get('execution_id')!=execution:raise ValueError('coins_reconciliation_identity')
+                            reconciliation={k:record.get(k) for k in ('status','completed_at','original_job_status','mmoexp_replayed','public_readback')}
             except (KeyError,ValueError,TypeError,OSError):skipped+=1;continue
             def prices(name):
                 return {r.get('expectedPlatform',r.get('platform')):numeric(r.get('b2c')) for r in (v.get(name) or {}).get('rows',[]) if r.get('expectedPlatform',r.get('platform')) in ('PS','XBOX','PC')}
             before,after=prices('before'),prices('after')
             targets=[{'platform':r['platform'],'planned_package_usd':numeric(r.get('targetPageUsd')),'own_bonus_k':numeric(r.get('ownBonusK')),'source_cost_cny_per_k':numeric(r.get('sourceCost')),'effective_cost_cny_per_k':numeric(r.get('effectiveCost')),'cost_trade_at':safe_label(r.get('recordTradeAt'))} for r in v.get('targets',[]) if r.get('platform') in ('PS','XBOX','PC')]
-            rows.append({'execution_id':v['execution_id'],'run_id':v['run_id'],'identity_check':identity,'record_sha256':sha,'created_at':v['created_at'],'updated_at':v.get('updated_at'),'status':safe_label(v.get('status')),'automatic':v.get('automatic') is True,'changed_platforms':[p for p in v.get('changed',[]) if p in ('PS','XBOX','PC')],
+            rows.append({'execution_id':v['execution_id'],'run_id':v['run_id'],'identity_check':identity,'job_status':job_status,'reconciliation':reconciliation,'record_sha256':sha,'created_at':v['created_at'],'updated_at':v.get('updated_at'),'status':safe_label(v.get('status')),'automatic':v.get('automatic') is True,'changed_platforms':[p for p in v.get('changed',[]) if p in ('PS','XBOX','PC')],
               'before_backend_usd_per_k':before,'after_backend_usd_per_k':after,'proposed_targets':targets,'sync_confirmed':v.get('sync_confirmed') is True,
               'execution_confirmed':v.get('status')=='CONFIRMED','independent_public_after_readback':'not_proven_by_this_execution_record'})
         rows.sort(key=lambda v:(v['created_at'],v['execution_id']),reverse=True)
