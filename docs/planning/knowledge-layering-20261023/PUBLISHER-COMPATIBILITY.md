@@ -7,3 +7,7 @@ PR367合并后，真实发布前inspect在`unsafe daily source boundary`停止�
 这是一处发布器兼容修复，批准的10个生产载荷、原manifest、change_id及release-id保持。原已批准源码快照和收尾账本留在隔离原工作区；小修在独立工作区提交PR/CI并记录其commit/SHA，再复用原操作发布，不把预检失败当未知生产写入。
 
 离线测试覆盖精确父目录通过、其他目录/其他scope/错误UID/GID/组写及特殊权限拒绝；同模块24项测试继续通过。实际发布必须等待用户分析正在进行的模型验收结束并协调空闲窗口，不打断其请求或接管FC策略。
+
+## 实际只读预检回执
+
+用户分析负责人已确认本轮两条模型均completed，并让出共享服务发布窗口。兼容适配器SHA256 `204d47ab316091aa97e9e766c5c7332a42f63b555500beac72734836921904af`在服务器只读inspect通过：releaseReady=true、staticFiles=10、sourceCAS=passed、protectedCAS=passed、mutations=false，原publisher仍退役。固定manifest SHA256 `9a10341094914ccf4b1c18e552bfe0a9e7456a678eb1da196c279c50f70fef95`、10载荷及原发布ID不变。该结果仅证明可发布条件，不代替apply/服务/加载/Notion读回。
