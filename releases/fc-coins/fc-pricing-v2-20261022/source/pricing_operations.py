@@ -29,7 +29,7 @@ def schema():
     text={'type':'string'}
     fields=dict(action={'enum':list(ACTIONS)},request_key={'type':'string','pattern':'^[A-Za-z0-9_-]{1,48}$'},
         run_id=text,job_id=text,preview_id=text,source_execution_id=text,restore_preview_id=text,recommendation_id=text,
-        path={'type':'string','maxLength':256},console_usd=text,pc_usd=text,console_choice={'enum':['baseline','hold','parity','evaluated']},
+        path={'type':'string','maxLength':256,'description':'JSON pointer beginning /evidence, /result or /edits. Use current_quote.run_id or historical_quote.run_id, never an execution/job id. Historical fragments remain readable when quote_evidence_ref is null.'},console_usd=text,pc_usd=text,console_choice={'enum':['baseline','hold','parity','evaluated']},
         pc_choice={'enum':['baseline','hold','parity','evaluated']},reason={'type':'string','minLength':4,'maxLength':200},
         counterexample={'type':'string','minLength':4,'maxLength':400},
         evidence_refs={'type':'array','items':text,'minItems':1,'maxItems':20})
@@ -110,7 +110,7 @@ def call(scope,owner,task,lease,args,request=native):
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         return dict(allowed_actions=allowed,mode=auth['mode'] if auth else 'read_only',hard_margin_pct='10',
                     scoped_runs=auth['runs'] if auth else [],restore_sources=auth['restore_sources'] if auth else [],lease_required=True,unknown_replay=False,
-                    action_fields={a:sorted(FIELDS[a]) for a in allowed},custom_recommendation='Both choices evaluated; add console_usd and pc_usd only for that case.')
+                    action_fields={a:sorted(FIELDS[a]) for a in allowed},quote_read_contract='read_quote uses current_quote.run_id or historical_quote.run_id; paths /evidence, /result, /edits. Null executable quote reference does not deny historical reads; use returned child paths for large fragments.',custom_recommendation='Both choices evaluated; add console_usd and pc_usd only for that case.')
     if action=='state':
         if set(args)!={'action'}:raise ValueError('pricing_tool_fields')
         data=request('/pricing/state',owner);quote=data.pop('quote',None)

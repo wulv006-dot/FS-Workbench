@@ -9,7 +9,6 @@
   }
   function money(value) {return value==null?'待核':`$${Number(value).toFixed(2)}`;}
   function time(value) {return value?new Date(value).toLocaleString('zh-CN',{hour12:false}):'待核';}
-  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit};return;}
   const $=id=>document.getElementById(id),BASE='/api/fc27/cloud';
   let policy,player,state,preview,restore,busy=false,dirty=false,playerDirty=false,refreshing=false;
   const pendingKey='fc-pricing-v2-pending';
@@ -17,6 +16,11 @@
   const endingNames={accepted:'小幅调整为.99，预算和红线均通过',already_99:'已是.99，无额外调整',no_positive_99:'金额过小，保持主策略',hard_floor:'红线限制，保持主策略',ending_budget:'让利预算限制，保持主策略',ending_margin_budget:'毛利率预算限制，保持主策略',catalog_hard_floor:'套餐红线限制，保持主策略',explicit_candidate_no_hidden_adjustment:'明确指定价，不另加尾价调整'};
   const labels={auto_cycle:'自然自动周期',collect:'价格采集',execute:'确认执行',restore:'恢复',recalculate:'候选核算',preview:'后台只读预览',hermes_review:'Hermes审核',ready:'处理完成',queued:'排队中',running:'进行中',failed:'失败',confirmed:'已确认',CONFIRMED:'已确认',verified:'已核实',pending:'待处理',no_price_change:'价格无需变化',unknown:'原请求待核',completed:'已完成',submitted:'已提交，等待模型',timeout:'本轮等待超时，不追补执行'};
   const label=value=>labels[value]||value;
+  function historyCells(item){
+    const reconciled=item.reconciliation?.status==='confirmed';
+    return [time(item.completed_at||item.created_at),label(item.kind),`${label(item.result?.status||item.status)}${reconciled?'；原ID对账已确认':''}`,label(item.reconciliation?.public_readback||item.public_page_readback?.status)||'未取得',`${item.job_id} ${item.error_detail||item.error||''}${reconciled?'；原失败保留，补核已完成':''}${reconciled&&item.reconciliation.mmoexp_replayed===false?'，Order未重放':''}`];
+  }
+  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells};return;}
   const errors={pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
   function error(value) {
     const code=value?.code||value?.message||String(value);
@@ -52,8 +56,8 @@
     box.append(node('div',money(row.target_page_usd),'amount'),node('p',`${state.quote_usable?'本轮候选':'历史候选 · 过期'} · 金币100K标价`,'muted'));
     const dl=node('dl');
     for(const [label,value] of [
-      ['当前公开100K',group.map(p=>`${p} ${money(quote.evidence.storefront.rows[p].package_usd)}`).join(' / ')],
-      ['各平台实际变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
+      ['最近公开100K',group.map(p=>`${p} ${money(state.current_storefront?.rows?.[p]?.package_usd)} · ${time(state.current_storefront?.rows?.[p]?.checked_at)}`).join(' / ')],
+      ['候选相对采集价变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
       ['有效采购成本',`¥${row.cost_cny} / K`],[`${row.minimum_gross_margin_pct}%红线最低100K`,money(Number(row.floor_usd_per_1k)*100)],
       ['最差优惠后实收',money(row.proof?.worst_net_usd)],['采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
       ['主策略标价',money(row.main_page_usd)],['尾价处理',endingNames[row.ending_reason]||row.ending_reason],
@@ -75,14 +79,14 @@
     const tbody=$('competitors');tbody.replaceChildren();
     for(const row of q?.result?.rows||[])for(const offer of row.offers||[]){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.comparable?'公开规格可比':'缺项或不可比'}`])tr.append(node('td',value));tbody.append(tr);}
     const history=$('history');history.replaceChildren();
-    for(const item of state?.recent||[]){const tr=node('tr');for(const value of [time(item.completed_at||item.created_at),label(item.kind),label(item.result?.status||item.status),label(item.public_page_readback?.status)||'未取得',`${item.job_id} ${item.error_detail||item.error||''}`])tr.append(node('td',value));history.append(tr);}
+    for(const item of state?.recent||[]){const tr=node('tr');for(const value of historyCells(item))tr.append(node('td',value));history.append(tr);}
     if(!state?.recent?.length){const tr=node('tr'),td=node('td','尚无可显示的操作记录；等待原任务账本读回。');td.colSpan=5;tr.append(td);history.append(tr);}
     renderSettings();buttons();
   }
   async function refresh(){
     if(refreshing)return;refreshing=true;
     try{const values=await Promise.all([api('/automation'),api('/pricing/state'),api('/monitor'),api('/player-sync')]);[policy,state,,player]=values;
-      const monitor=values[2];$('public-state').textContent=monitor.publication?.status||monitor.page_readback?.status||'待真实读回';
+      const monitor=values[2];state.current_storefront=monitor.storefront;$('public-state').textContent=monitor.publication?.status==='matched'?'已核实':monitor.publication?.status||monitor.page_readback?.status||'待真实读回';
       $('health').textContent=`定时器：${monitor.health?.automation_timer||'未知'}；未确认写入：${monitor.health?.incomplete_executions??'未知'}；清缓存：${monitor.cache_refresh?.status||'待核'}`;
       if(preview&&(preview.run_id!==state.quote?.run_id||preview.automation_policy_revision!==policy.revision))preview=null;
       const review=state.hermes_review;
