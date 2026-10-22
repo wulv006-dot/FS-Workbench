@@ -29,7 +29,7 @@ def money(value):
 
 def figures(price,cost,discount):
     net=price*(1-discount/100);gross=net-cost
-    return {'net_usd':str(net),'procurement_gross_usd':str(gross),'procurement_margin_pct':str(gross/net*100)}
+    return {'net_usd':str(net),'procurement_gross_usd':str(gross),'procurement_margin_pct':str(gross/net*100) if net else None}
 
 
 def current_accounting(market,floor):
@@ -47,8 +47,9 @@ def current_accounting(market,floor):
             value=figures(number(str(row['gross_usd'])),delivered,Decimal(0))
         except (KeyError,ValueError):continue
         rows.append(dict(platform=row['platform'],delivered_k=str(qty),current_package_usd=str(row['gross_usd']),delivered_cost_usd=str(delivered),**value,
-            no_additional_discount_floor_pass=Decimal(value['procurement_margin_pct'])>=Decimal(str(floor))))
-    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'console_common_cost_status':'matching_valid_observations' if common else 'source_reconciliation_required','console_cost_observations':[{k:r.get(k) for k in ('platform','status','cny_per_1k','trade_at','checked_at')} for r in console],'basis':'PS/Xbox share one supplier-cost market and base price. Different historical/latest records require time/source reconciliation, never platform cost differentiation or automatic mean/min selection. Current public package + latest verified CNY/K × delivered K / FX; zero additional discount is only a sensitivity.','historical_COGS_rewritten':False}
+            no_additional_discount_floor_pass=Decimal(value['procurement_margin_pct'])>=Decimal(str(floor)),
+            margin_basis='undiscounted_published_package_v1',promotions_exempt_from_margin_floor=True))
+    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'console_common_cost_status':'matching_valid_observations' if common else 'source_reconciliation_required','console_cost_observations':[{k:r.get(k) for k in ('platform','status','cny_per_1k','trade_at','checked_at')} for r in console],'basis':'PS/Xbox share one supplier-cost market and base price. Different historical/latest records require time/source reconciliation, never platform cost differentiation or automatic mean/min selection. Current public package + latest verified CNY/K × delivered K / FX; >=10% floor applies only before additional legal promotions, which may be loss-making.','historical_COGS_rewritten':False}
 
 
 def evaluate(case,floor):
@@ -59,7 +60,7 @@ def evaluate(case,floor):
     rows=case['platforms'];discounts=case['discounts_pct']
     if not isinstance(rows,list) or not 2<=len(rows)<=3 or not isinstance(discounts,list) or not 1<=len(discounts)<=10:raise ValueError('workflow_case_coverage')
     ds=[number(v,True) for v in discounts]
-    if len(set(ds))!=len(ds) or any(d>=100 for d in ds):raise ValueError('workflow_discount')
+    if len(set(ds))!=len(ds) or any(d>100 for d in ds):raise ValueError('workflow_discount')
     floor=number(str(floor),True)
     if floor>=100:raise ValueError('workflow_floor')
     parsed={}
@@ -77,17 +78,20 @@ def evaluate(case,floor):
     for p,(old,main,cost) in parsed.items():
         proposed=main if main%1==Decimal('.99') else main.to_integral_value(rounding='ROUND_FLOOR')-Decimal('.01')
         transactions=[]
+        undiscounted={label:figures(price,cost,Decimal(0)) for label,price in (('current',old),('main',main),('ending',candidates[p]))}
         for d in ds:
             f={label:figures(price,cost,d) for label,price in (('current',old),('main',main),('ending',candidates[p]))}
-            for value in f.values():value['floor_pass']=Decimal(value['procurement_margin_pct'])>=floor
-            net=Decimal(f['main']['net_usd']);g=Decimal(f['main']['procurement_gross_usd']);loss=(main-candidates[p])*(1-d/100)
-            ending_budget_pass=(loss<=net*Decimal('.01') and loss<=max(Decimal(0),g)*Decimal('.05') and Decimal(f['main']['procurement_margin_pct'])-Decimal(f['ending']['procurement_margin_pct'])<=1)
+            for label,value in f.items():
+                value['floor_pass']=Decimal(undiscounted[label]['procurement_margin_pct'])>=floor
+                value['margin_floor_basis']='undiscounted_published_package_v1'
+            net=Decimal(undiscounted['main']['net_usd']);g=Decimal(undiscounted['main']['procurement_gross_usd']);loss=main-candidates[p]
+            ending_budget_pass=(loss<=net*Decimal('.01') and loss<=max(Decimal(0),g)*Decimal('.05') and Decimal(undiscounted['main']['procurement_margin_pct'])-Decimal(undiscounted['ending']['procurement_margin_pct'])<=1)
             g0=Decimal(f['current']['procurement_gross_usd']);g1=Decimal(f['main']['procurement_gross_usd']);gt=Decimal(f['ending']['procurement_gross_usd'])
             transactions.append({'discount_pct':str(d),**f,'ending_budget_pass':ending_budget_pass,'main_break_even_order_multiplier':str(max(Decimal(0),g0/g1)) if g1>0 else None,'ending_vs_current_break_even_order_multiplier':str(max(Decimal(0),g0/gt)) if gt>0 else None})
         main_pass=all(r['main']['floor_pass'] for r in transactions)
         ending_pass=main_pass and all(r['ending']['floor_pass'] and r['ending_budget_pass'] for r in transactions)
         output.append({'platform':p,'current_usd':str(old),'main_usd':str(main),'main_change_pct':str((main/old-1)*100),'main_pass':main_pass,
-          'ending_preview':endings[p],'proposed_ending_usd':str(proposed),'linked_ending_usd':str(candidates[p]),'ending_pass':ending_pass,'transactions':transactions})
+          'ending_preview':endings[p],'proposed_ending_usd':str(proposed),'linked_ending_usd':str(candidates[p]),'ending_pass':ending_pass,'transactions':transactions,'undiscounted':undiscounted})
     consoles=[r for r in output if r['platform'] in ('PS','XBOX')]
     main_pass=all(r['main_pass'] for r in consoles);ending_pass=all(r['ending_pass'] for r in consoles)
     if not ending_pass:
@@ -100,7 +104,8 @@ def evaluate(case,floor):
         r['selected_change_pct']=None if selected is None else str((selected/Decimal(r['current_usd'])-1)*100)
         r['selected_direction']='blocked' if selected is None else 'hold' if selected==Decimal(r['current_usd']) else 'up' if selected>Decimal(r['current_usd']) else 'down'
     result={'basis':'declared_hypothesis','currency':'USD','rows':output,'console_main_pass':main_pass,'console_ending_pass':ending_pass,
-      'rule':'PS/Xbox share one cost market and base price; customer mix does not authorize platform base-price discrimination. P0→P1 is a main research change, not limited by ending budgets. All legal redemption cases tested separately. Floor is a procurement margin ratio; ad-after contribution is a separate amount. Feasible is not profitable or executable.'}
+      'margin_basis':'undiscounted_published_package_v1','promotions_exempt_from_margin_floor':True,
+      'rule':'PS/Xbox share one cost market and base price; customer mix does not authorize platform base-price discrimination. P0→P1 is a main research change, not limited by ending budgets. >=10% floor and ending budget use the undiscounted actual package price incl delivered gifts; legal promotion scenarios may be below 10% or loss-making. Ad-after contribution is separate. Feasible is not profitable or executable.'}
     if 'economics' in case:
         pair=case['economics']
         if not isinstance(pair,dict) or set(pair)!={'before','after'}:raise ValueError('workflow_economics_fields')

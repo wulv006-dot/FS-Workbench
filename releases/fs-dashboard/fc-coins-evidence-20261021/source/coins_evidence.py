@@ -176,6 +176,18 @@ class CoinsEvidence:
         coupon=[r for r in selected if r['coupons']]
         codes=[r for r in selected if r.get('codeKey') or r.get('promoterUid')]
         valid=[r for r in selected if not r.get('testOrder') and not fraud(r) and not r['refunded']]
+        promotion_population=[r for r in valid if str(r.get('payStatus'))=='1']
+        observed=[r for r in promotion_population if numeric(r.get('salesUsd')) is not None and numeric(r.get('es_discount_usd')) is not None
+                  and Decimal(str(r['salesUsd']))>=0 and Decimal(r['es_discount_usd'])>=0]
+        net_usd=sum((Decimal(str(r['salesUsd'])) for r in observed),Decimal(0))
+        discount_usd=sum((Decimal(r['es_discount_usd']) for r in observed),Decimal(0))
+        before_discount=net_usd+discount_usd
+        promotion_mix=dict(status='available' if len(observed)==len(promotion_population) and coverage['complete'] and not excluded.get('missing_es_product') else 'partial',
+            observed_orders=len(observed),eligible_orders=len(promotion_population),net_order_usd=str(net_usd),actual_discount_usd=str(discount_usd),
+            undiscounted_order_usd=str(before_discount),retained_ratio=str(net_usd/before_discount) if before_discount else None,
+            population='identified main-site Coins paid nonrefund nonfraud nontest orders; all platforms combined',
+            formula='sum(Admin order USD) / sum(Admin order USD + matched ES actual discount USD)',
+            limitation='revenue-weighted observed discount intensity, not eligibility redemption rate, platform mix, quantity mix or future probability')
         usage=defaultdict(list)
         for row in valid:
             usage[tuple(sorted({safe_label(c['templateId']) for c in row['coupons']}))].append(row)
@@ -193,7 +205,7 @@ class CoinsEvidence:
         return {'status':'available' if revenue_ready and coverage['complete'] and not excluded.get('missing_es_product') and not summary['missingCostOrders'] and not summary['missingRevenueOrders'] else 'partial','revenue_basis':'admin_order_cny' if revenue_ready else 'legacy_delivery','captured_at':data['generatedAt'],'source_times':{'orders_and_coupons':data['generatedAt'],'cost':data['sources']['cost'].get('generatedAt'),'es':coverage['captured_at'],'platform':paid.get('as_of')},
           'cache_basis':data.get('coinsCacheBasis','closed_day_archive'),
           'summary':summary,'groups':groups,'coupon_orders':stats(coupon),'code_or_referrer_orders':stats(codes),'coupon_and_code_overlap':stats([r for r in coupon if r.get('codeKey') or r.get('promoterUid')]),
-          'promotion_usage':promotion_usage,
+          'promotion_usage':promotion_usage,'historical_discount_mix':promotion_mix,
           'coverage':{'fc_project_orders':len(fc),'coins_selected':len(selected),'excluded_product_orders':dict(excluded),'es':coverage,'platform_unknown_orders':sum(r['platform']=='unknown' for r in selected),'package_quantity':'not_retained_in_channel_archive','historical_net_refund_settlement':'unverified'},
           'quality_checks':checks,'sources':data['sources'],
           'rule':'FC27 main-site ES exact Gold orders only. Admin whole-order CNY revenue is counted once against actual linked purchase cost for completed covered orders; legacy_delivery means the whole range still uses old delivery income pending migration. Fraud is excluded. USD order/discount amounts remain separate. These are not SKU net revenue, USD profit, ad-after contribution, final settlement or causal price effects. Do not deduct already-net discounts twice. Coupon and code groups overlap; do not sum them. Existing product formulas and automation remain unchanged.'}

@@ -36,8 +36,28 @@ class Pricing(unittest.TestCase):
         value=p.prove_price('.1112','.7','7','100','100','1','10')
         self.assertGreaterEqual(Decimal(value['procurement_margin_pct']),10)
 
-    def test_gifts_and_discount_raise_floor(self):
+    def test_gifts_raise_floor_but_legal_promotions_do_not(self):
         self.assertGreater(p.hard_floor('.7','7','1.05','.7'),p.hard_floor('.7','7','1','1'))
+        self.assertEqual(p.hard_floor('.7','7','1.05','.7'),p.hard_floor('.7','7','1.05','1'))
+
+    def test_all_legal_discounted_losses_allowed_only_after_base_floor(self):
+        value=p.prove_price('.12','.7','7','105','100','.7')
+        self.assertEqual(Decimal(value['procurement_margin_pct']),Decimal('12.5'))
+        self.assertLess(Decimal(value['promotional_gross_usd']),0)
+        self.assertEqual(value['margin_basis'],p.MARGIN_BASIS)
+        for discount in ('1','.7','.2','0'):
+            with self.subTest(discount=discount),self.assertRaisesRegex(ValueError,'hard_margin_floor'):
+                p.prove_price('.11','.7','7','105','100',discount)
+
+    def test_average_margin_is_an_explicit_history_scenario_not_a_floor(self):
+        mix=dict(status='partial',period=dict(start='2026-10-15',end='2026-10-21'),observed_orders=9,eligible_orders=10,retained_ratio='.5')
+        mix['sha256']=p.fingerprint(mix)
+        value=p.average_margin('10','6.5',mix)
+        self.assertEqual(Decimal(value['procurement_margin_pct']),Decimal('-30'))
+        self.assertEqual(value['status'],'partial')
+        self.assertIsNone(p.average_margin('10','6.5',None)['procurement_margin_pct'])
+        mix['retained_ratio']='.9'
+        with self.assertRaisesRegex(ValueError,'history.*hash|historical_mix_hash'):p.average_margin('10','6.5',mix)
 
     def test_common_pool_uses_latest_timestamp_not_lowest(self):
         e,_,_=fixture();e['costs']['PS'].update(cny_per_1k='.8',trade_at='26-10-22 02:11:00')
