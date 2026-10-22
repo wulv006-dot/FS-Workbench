@@ -27,18 +27,32 @@ def identity_ok(status, url, body):
 '''
 PROBE = IDENTITY_CHECK + r'''
 import json
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp('http://127.0.0.1:9226', timeout=8000)
     assert len(browser.contexts) == 1
     ctx = browser.contexts[0]
-    response = ctx.request.get('https://order.p2pah.cn/admin/index/index.html', timeout=12000, fail_on_status_code=False)
-    body = response.text()
-    valid = identity_ok(response.status, response.url, body)
+    valid = False
+    error = 'order_probe_transport_unavailable'
+    # Retry transport failures before caching them; 8s CDP + 20s reads fit inside 35s.
+    for budget in (12000, 8000):
+        response = None
+        try:
+            response = ctx.request.get('https://order.p2pah.cn/admin/index/index.html', timeout=budget, fail_on_status_code=False)
+            if response.status == 429 or response.status >= 500:
+                continue
+            valid = identity_ok(response.status, response.url, response.text())
+            error = None if valid else 'order_identity_unverified'
+            break
+        except Error:
+            pass
+        finally:
+            if response is not None:
+                response.dispose()
     rows = ctx.cookies(['https://order.p2pah.cn/']) if valid else []
     rows = [r for r in rows if r['domain'].lstrip('.') == 'order.p2pah.cn']
     print(json.dumps({'ready': bool(rows), 'cookies': rows,
-                      'error': None if rows else 'order_identity_unverified'}))
+                      'error': None if rows else error or 'order_identity_unverified'}))
 '''
 
 
@@ -54,7 +68,7 @@ class Session:
     @staticmethod
     def browser_probe():
         proc = subprocess.run(['docker', 'exec', 'fc27-cloud-browser', 'python3', '-c', PROBE],
-                              capture_output=True, timeout=25, text=True)
+                              capture_output=True, timeout=35, text=True)
         if proc.returncode or len(proc.stdout) > 65536:
             raise RuntimeError('order_probe_unavailable')
         result = json.loads(proc.stdout)
