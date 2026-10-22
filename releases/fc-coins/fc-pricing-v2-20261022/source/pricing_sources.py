@@ -167,6 +167,31 @@ def collect(storefront, *, persist=True):
     return value
 
 
+def historical_mix():
+    """Read existing closed-day FS archives; missing research data never stops pricing."""
+    import subprocess
+    try:
+        done=subprocess.run(['/opt/python39/bin/python3','-B',str(Path(__file__).resolve()),'history'],
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=20)
+        if done.returncode:raise ValueError('historical_discount_archive_unavailable')
+        return json.loads(done.stdout)
+    except (OSError,ValueError,subprocess.TimeoutExpired):
+        return dict(status='not_available',reason='historical_discount_archive_unavailable')
+
+
+def read_historical_mix(now=None):
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from coins_evidence import CoinsEvidence
+    today=(now or datetime.now(timezone.utc)).astimezone(timezone(timedelta(hours=8))).date()
+    period=dict(start=(today-timedelta(days=7)).isoformat(),end=(today-timedelta(days=1)).isoformat())
+    source=CoinsEvidence()(dict(profile='FC27',kind='order_costs',**period))
+    mix=source.get('historical_discount_mix')
+    if not mix:return dict(status='not_available',reason=source.get('reason','historical_discount_fields_missing'),period=period)
+    body=dict(mix,period=period,source_times=source.get('source_times'),source_coverage=source.get('coverage'),
+              historical_capture='existing FS archives only; no collection or export triggered')
+    return dict(body,sha256=fingerprint(body))
+
+
 def refresh_before_write(request,root=ROOT):
     from pricing_v2 import verify_quote,fresh
     from automation_policy import load_policy
@@ -195,7 +220,9 @@ def refresh_before_write(request,root=ROOT):
 
 if __name__=='__main__':
     try:
-        if sys.argv[1]=='collect':
+        if sys.argv[1]=='history':
+            result=read_historical_mix()
+        elif sys.argv[1]=='collect':
             data=json.load(sys.stdin)
             if set(data)!={'storefront','persist'} or type(data['persist']) is not bool:raise ValueError('pricing_source_fields')
             result=_collect_shared_admin(data['storefront'],persist=data['persist'])

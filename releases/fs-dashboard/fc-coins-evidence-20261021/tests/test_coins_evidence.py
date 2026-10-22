@@ -69,6 +69,19 @@ class EvidenceTests(unittest.TestCase):
         data,meta,cov=self.fixture([row('A')]);meta.clear()
         v=self.costs((data,meta,cov));self.assertEqual(v['summary']['orders'],0);self.assertEqual(v['status'],'partial')
         self.assertEqual(v['coverage']['excluded_product_orders']['missing_es_product'],1)
+    def test_actual_discount_mix_is_revenue_weighted_not_mean_of_order_rates(self):
+        f=self.fixture([row('A',salesUsd=900),row('B',salesUsd=10),row('refund',refunded=True)])
+        f[1][hashlib.sha256(b'A').hexdigest()]['discount_usd']='100'
+        f[1][hashlib.sha256(b'B').hexdigest()]['discount_usd']='90'
+        value=self.costs(f)['historical_discount_mix']
+        from decimal import Decimal
+        self.assertEqual(value['observed_orders'],2)
+        self.assertEqual(Decimal(value['retained_ratio']),Decimal(910)/Decimal(1100))
+        self.assertNotEqual(Decimal(value['retained_ratio']),Decimal('.5'))
+        f[1][hashlib.sha256(b'B').hexdigest()]['discount_usd']=None
+        value=self.costs(f)['historical_discount_mix']
+        self.assertEqual((value['observed_orders'],value['eligible_orders']),(1,2))
+        self.assertEqual(value['status'],'partial')
     def test_platform_only_from_existing_dataset(self):
         self.reader.dataset=lambda:{'as_of':'2026-10-21T00:00:00+08:00','orders':[{'id':'A','platform':'XBOX','site_group':'main'}]}
         v=self.costs(self.fixture([row('A'),row('B')]))

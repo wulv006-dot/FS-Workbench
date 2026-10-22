@@ -34,7 +34,7 @@ def schema():
         counterexample={'type':'string','minLength':4,'maxLength':400},
         evidence_refs={'type':'array','items':text,'minItems':1,'maxItems':20})
     return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control',
-            'description':'FC Coins real control. First capabilities/state; state is a bounded decision summary, read_quote(run_id,path JSON pointer) reads full source fragments. read_job includes the original execution audit: failed writer response does NOT prove no write. PARTIAL/UNCERTAIN/changed requires original reconciliation, never another execute key. Follow action_fields exactly. recommend baseline/hold/parity has no explicit prices; custom requires BOTH evaluated and BOTH prices. Use quote_evidence_ref verbatim. Scenario/100K-only receipts do not prove full-catalog feasibility; evaluate current run does. Automatic-review may evaluate/recommend, not enqueue. Operator may apply_recommendation→read_job→preview→read_job→execute→read_job and state public readback. Every price/restore must pass >=10% procurement margin incl promotions/gifts/packages. Stable request_key; UNKNOWN reads original, never resubmits. No order/coupon/credential/source-code writes.',
+            'description':'FC Coins real control. First capabilities/state; state is a bounded decision summary, read_quote(run_id,path JSON pointer) reads full source fragments. read_job includes the original execution audit: failed writer response does NOT prove no write. PARTIAL/UNCERTAIN/changed requires original reconciliation, never another execute key. Follow action_fields exactly. recommend baseline/hold/parity has no explicit prices; custom requires BOTH evaluated and BOTH prices. Use quote_evidence_ref verbatim. Scenario/100K-only receipts do not prove full-catalog feasibility; evaluate current run does. Automatic-review may evaluate/recommend, not enqueue. Operator may apply_recommendation→read_job→preview→read_job→execute→read_job and state public readback. Every undiscounted published price/restore must pass >=10% procurement margin incl gifts/packages/rounding; legal promotional receipts may be below 10% or loss-making. Average margin is a historical discount-mix scenario, not a guard or forecast. Stable request_key; UNKNOWN reads original, never resubmits. No order/coupon/credential/source-code writes.',
         'parameters':{'type':'object','properties':fields,'required':['action'],'additionalProperties':False}}}
 
 
@@ -74,7 +74,7 @@ def native(path,owner,body=None):
 def quote_view(quote):
     if not quote:return None
     evidence=quote.get('evidence',{});envelope=evidence.get('promotion_envelope',{})
-    fields='platform cost_cny cost_record_id cost_trade_at target_page_usd main_page_usd floor_usd_per_1k gross_margin_pct pre_change_margin_pct minimum_gross_margin_pct decision_reason ending_reason change_pct break_even_order_multiplier proof'.split()
+    fields='platform cost_cny cost_record_id cost_trade_at target_page_usd main_page_usd floor_usd_per_1k gross_margin_pct pre_change_margin_pct minimum_gross_margin_pct decision_reason ending_reason change_pct break_even_order_multiplier estimated_average_margin margin_basis proof'.split()
     result=quote.get('result',{})
     return dict(run_id=quote['run_id'],created_at=quote.get('created_at'),status=quote.get('status'),
         view='decision_summary; use read_quote for complete original fragments',

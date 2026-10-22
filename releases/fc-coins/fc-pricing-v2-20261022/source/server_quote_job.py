@@ -152,8 +152,9 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     evidence = {"game": "FC27", "product": "Game Coins", "checked_at": snapshot["created_at"],
                 "costs": costs, "offers": offers, "fx": fx,
                 "storefront": storefront}
-    from pricing_sources import collect as collect_pricing_constraints
+    from pricing_sources import collect as collect_pricing_constraints, historical_mix
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist)
+    evidence['historical_discount_mix']=historical_mix()
     result = calculate(evidence, edits)
     if [row.get("platform") for row in result["rows"]] != list(PLATFORMS):
         raise ValueError("quote_platform_invalid")

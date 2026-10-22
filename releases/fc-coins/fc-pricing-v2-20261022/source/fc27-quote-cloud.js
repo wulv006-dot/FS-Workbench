@@ -20,7 +20,11 @@
     const reconciled=item.reconciliation?.status==='confirmed';
     return [time(item.completed_at||item.created_at),label(item.kind),`${label(item.result?.status||item.status)}${reconciled?'；原ID对账已确认':''}`,label(item.reconciliation?.public_readback||item.public_page_readback?.status)||'未取得',`${item.job_id} ${item.error_detail||item.error||''}${reconciled?'；原失败保留，补核已完成':''}${reconciled&&item.reconciliation.mmoexp_replayed===false?'，Order未重放':''}`];
   }
-  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells};return;}
+  function estimatedMarginText(average){
+    const value=average?.procurement_margin_pct;
+    return value!=null&&Number.isFinite(Number(value))?`${Number(value).toFixed(2)}%`:average?.estimated_net_usd==='0'?'无正实收，预计亏损':'待历史优惠数据';
+  }
+  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells,estimatedMarginText};return;}
   const errors={pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
   function error(value) {
     const code=value?.code||value?.message||String(value);
@@ -52,20 +56,22 @@
   function card(group,title){
     const box=node('section',null,'panel');box.append(node('h2',title));
     const quote=state?.quote,rows=quote?.result?.rows||[],row=rows.find(r=>r.platform===group[0]);
-    if(!row||quote.result.strategy_version!=='fc-coins-decision-v2'){box.append(node('p','等待新流程有效报价。历史报价不会用于新执行。'));return box;}
+    if(!row||quote.result.strategy_version!=='fc-coins-decision-v2'||row.margin_basis!=='undiscounted_published_package_v1'){box.append(node('p','等待按未优惠售价红线重新核算。旧规则报价保留为历史，不用于新执行。'));return box;}
     box.append(node('div',money(row.target_page_usd),'amount'),node('p',`${state.quote_usable?'本轮候选':'历史候选 · 过期'} · 金币100K标价`,'muted'));
     const dl=node('dl');
     for(const [label,value] of [
       ['最近公开100K',group.map(p=>`${p} ${money(state.current_storefront?.rows?.[p]?.package_usd)} · ${time(state.current_storefront?.rows?.[p]?.checked_at)}`).join(' / ')],
       ['候选相对采集价变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
-      ['有效采购成本',`¥${row.cost_cny} / K`],[`${row.minimum_gross_margin_pct}%红线最低100K`,money(Number(row.floor_usd_per_1k)*100)],
-      ['红线校验用保守实收',money(row.proof?.worst_net_usd)],['最差优惠下采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
+      ['估算平均采购毛利率（100K）',estimatedMarginText(row.estimated_average_margin)],
+      ['有效采购成本',`¥${row.cost_cny} / K`],[`未用优惠 · ${row.minimum_gross_margin_pct}%最低100K`,money(Number(row.floor_usd_per_1k)*100)],
+      ['未用优惠采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
       ['主策略标价',money(row.main_page_usd)],['尾价处理',endingNames[row.ending_reason]||row.ending_reason],
       ['保采购毛利所需订单倍数',row.break_even_order_multiplier?`${Number(row.break_even_order_multiplier).toFixed(3)}倍（条件计算）`:'不适用'],
       ['套餐 / 自定义核算',`${row.proof?.catalog?.published_packages??'?'}档 · 最小${row.proof?.catalog?.minimum_custom_k??'?'}K`]]){
         dl.append(node('dt',label),node('dd',value));
     }
-    box.append(dl,node('p',names[row.decision_reason]||row.decision_reason),node('p','广告后贡献：待同范围投放数据核对','footnote'));
+    const avg=row.estimated_average_margin;
+    box.append(dl,node('p',avg?.period?`估算来源：${avg.period.start}–${avg.period.end}全Coins历史折扣结构，${avg.observed_orders}/${avg.eligible_orders}笔有折扣金额；${avg.status==='partial'?'来源部分覆盖；':''}当前100K数量与成本情景，非分平台历史或未来全盘利润。`:'估算缺项保持未知，不用最差优惠或零折扣代替平均值。','footnote'),node('p',names[row.decision_reason]||row.decision_reason),node('p','10%仅检查未用优惠的套餐实际售价（含赠送）；合法优惠后可低于10%或亏损。广告后贡献另核。','footnote'));
     return box;
   }
   function render(){
@@ -74,7 +80,7 @@
     $('decisions').replaceChildren(card(['PS','XBOX'],'PS / Xbox 共同市场'),card(['PC'],'PC 独立市场'));
     const q=state?.quote,receipt=q?.result?.decision_receipt;
     $('version').textContent=`流程 ${state?.version||'未知'} · 配置 ${policy?.revision??'未知'} · 状态读取 ${time(state?.observed_at)} · ${state?.quote_status||''} ${state?.execution_block_reason||''}`;
-    $('basis').textContent=receipt?`主机共同成本依据：${receipt.common_console_cost.selected_platform}的最近有效交货记录 ${receipt.common_console_cost.record_id}，交易 ${receipt.common_console_cost.trade_at}；保留两个原始观察。最差适用优惠留存${Number(receipt.minimum_retained_ratio)*100}%，优惠与套餐配置有独立版本。`:'等待新鲜成本、公开价格及优惠/套餐配置的核算回执。';
+    $('basis').textContent=receipt?`主机共同成本依据：${receipt.common_console_cost.selected_platform}的最近有效交货记录 ${receipt.common_console_cost.record_id}，交易 ${receipt.common_console_cost.trade_at}；保留两个原始观察。${receipt.margin_basis==='undiscounted_published_package_v1'?'10%红线按未优惠售价执行；历史实际优惠金额加权估算平均毛利，不是销量预测。':'旧规则回执，仅供历史追溯；等待新规则核算。'}`:'等待新鲜成本、公开价格及优惠/套餐配置的核算回执。';
     $('sources').textContent=q?`操作 ${q.run_id} · 采集 ${time(q.evidence.checked_at)} · 优惠/套餐核对 ${time(q.evidence.promotion_envelope?.checked_at)} · 回执 ${receipt?.sha256||'旧版无V2回执'}`:'';
     const tbody=$('competitors');tbody.replaceChildren();
     for(const row of q?.result?.rows||[])for(const offer of row.offers||[]){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.comparable?'公开规格可比':'缺项或不可比'}`])tr.append(node('td',value));tbody.append(tr);}

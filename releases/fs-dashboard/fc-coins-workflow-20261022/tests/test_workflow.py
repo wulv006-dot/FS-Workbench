@@ -21,17 +21,24 @@ def case():
 class Arithmetic(unittest.TestCase):
  def test_main_change_is_not_limited_by_ending_budget(self):
   v=evaluate(case(),'10');self.assertTrue(v['console_main_pass']);self.assertEqual(v['rows'][0]['main_change_pct'],'-8.00');self.assertEqual(v['rows'][0]['selected_usd'],'9.20')
- def test_worst_console_and_each_discount_not_average(self):
+ def test_legal_promotion_can_cross_floor_but_base_price_cannot(self):
   c=case()
   for r in c['platforms'][:2]:r['delivered_cost_usd']='8'
   v=evaluate(c,'10')
-  self.assertFalse(v['console_main_pass']);self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],[None,None]);self.assertIsNotNone(v['rows'][2]['selected_usd'])
- def test_coupon_ending_budget_rejects_even_when_floor_passes(self):
+  self.assertTrue(v['console_main_pass']);self.assertTrue(v['rows'][0]['transactions'][1]['main']['floor_pass']);self.assertLess(Decimal(v['rows'][0]['transactions'][1]['main']['procurement_margin_pct']),10)
+  for r in c['platforms'][:2]:r['main_usd']='8.80'
+  v=evaluate(c,'10');self.assertFalse(v['console_main_pass']);self.assertEqual([r['selected_usd'] for r in v['rows'][:2]],[None,None]);self.assertIsNotNone(v['rows'][2]['selected_usd'])
+ def test_coupon_does_not_expand_base_ending_budget(self):
   c=case();c['discounts_pct']=['0','10']
   for r in c['platforms']:r.update(main_usd='10.09',delivered_cost_usd='7.90')
   v=evaluate(c,'10');r=v['rows'][0]
   self.assertTrue(r['ending_preview']['reason']=='applied');self.assertTrue(r['transactions'][1]['ending']['floor_pass'])
-  self.assertFalse(r['transactions'][1]['ending_budget_pass']);self.assertEqual(r['selected_usd'],'10.09')
+  self.assertTrue(r['transactions'][1]['ending_budget_pass']);self.assertEqual(r['selected_usd'],'9.99')
+ def test_full_discount_loss_is_not_a_base_floor_failure(self):
+  c=case();c['discounts_pct']=['0','30','100']
+  v=evaluate(c,'10');r=v['rows'][0]
+  self.assertTrue(r['main_pass']);self.assertLess(Decimal(r['transactions'][1]['main']['procurement_gross_usd']),0)
+  self.assertEqual(r['transactions'][2]['main']['net_usd'],'0.00');self.assertIsNone(r['transactions'][2]['main']['procurement_margin_pct']);self.assertTrue(r['transactions'][2]['main']['floor_pass'])
  def test_one_console_ending_failure_retains_common_main(self):
   c=case()
   for r in c['platforms']:r['main_usd']='10.09'
