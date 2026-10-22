@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "run_id": "20261022T074356Z-6f2d9c1a",
+  "before_sha256": "70db24939c495835e837cd36d8af011bfe08f75094728545ae06952a276a6411",
+  "after_sha256": "2d9b5e039e163f7632dad9e6f26479f4ec9701c93d5bc77ecbfc99028ad800c7",
+  "changed": [
+    "maplestory:game"
+  ],
+  "games": [
+    "maplestory"
+  ],
+  "source_count": 1
+}
