@@ -31,7 +31,7 @@ CAMPAIGNS=campaign_mapping()
 
 def classify_campaign(name):
     key=re.sub(r'^(?:google|bing)-','',str(name or '').strip(),flags=re.I).casefold()
-    if key=='fc27-pmax-coins-us': return {'game':'GLOBAL','basis':'user_confirmed_cross_game'}
+    if key=='fc27-pmax-coins-us': return {'game':'GLOBAL','project_game':'FC27','metric_scope':'cross_game','basis':'user_confirmed_fc_project_cross_game_metrics_20261022'}
     games=CAMPAIGNS.get(key,set())
     if len(games)==1 and 'UNKNOWN' not in games:
         return {'game':next(iter(games)),'basis':'user_supplied_campaign_name_mapping'}

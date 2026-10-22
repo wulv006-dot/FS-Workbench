@@ -24,7 +24,7 @@ let generation = 0;
 let denied = false;
 let identity = null;
 let renderedQuery = '';
-const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
+const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.sources?.orderSource, value.sourceAttribution, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -175,14 +175,22 @@ function trend() {
 }
 function orders() {
   const coupon = field('mode').value === 'coupon';
-  table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '核算销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态 / 核算'], data.orders, r => [
-    r.paidAt, r.orderNo, r.game, r.customerType, coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
+  table('orders', ['付款时间', '订单号', '游戏', '新老客（ES）', '订单来源（ES）', coupon ? '优惠券渠道' : '项目 / 归属', coupon ? '关联用码 / 推荐人（独立）' : '推广人', '折扣码', '优惠券 / 批次', '国家', '支付方式', '销售额 $', '核算销售 ¥', '采购 ¥', '毛利 ¥', '利润率', '状态 / 核算'], data.orders, r => [
+    r.paidAt, r.orderNo, r.game, r.customerType, r.sourceStatus==='available'?(r.sourceRaw||'自然流量（业务默认）'):'来源未核', coupon ? '未归类' : r.project + ' · ' + r.attribution, r.promoter, r.code || '—',
     r.coupons.map(c => c.title + ' / ' + c.batch).join('；') || '—', countryLabel(r.country),r.payment,usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),pct(r.saleCny ? r.profitCny / r.saleCny : null),r.status + ' · ' + r.costStatus + (r.costBasis ? ' · ' + r.costBasis : '')
   ], '当前筛选订单明细');
   $('total').textContent = '共 ' + count(data.total) + ' 单 · 每页 50 单' + (data.summary.testOrders ? ` · 含 ${count(data.summary.testOrders)} 笔测试单，仅留明细、不计指标` : '');
   $('page').textContent = `${data.page} / ${data.pages}`;
   $('prev').disabled = data.page <= 1; $('next').disabled = data.page >= data.pages;
   page = data.page;
+}
+function sourceAttribution() {
+  const source=data.sourceAttribution;
+  $('source-attribution').replaceChildren();
+  if(!source){$('source-attribution-note').textContent='旧快照尚未提供来源去重视图，未按零解释。';return;}
+  const pmax=source.pmaxFc||{};
+  $('source-attribution-note').textContent=`${source.basis}。PMax归FC项目：本筛选已核来源内FC成交 ${count(pmax.orders||0)} 单 / ${usd(pmax.salesUsd)}；已包含在广告行，不再相加。来源未核 ${count(source.unknownSourceOrders)} 单。跨游戏Google费用/平台价值/ROAS未整条归FC。下方优惠码/推荐人及券表保留协助视角，不能与此表相加。`;
+  table('source-attribution',['去重主归属','订单数','订单金额 USD','已完成核算毛利 ¥'],source.projects,r=>[r.label,count(r.orders),usd(r.salesUsd),cny(r.profitCny)],'广告优先去重来源归属');
 }
 function render() {
   const coupon = field('mode').value === 'coupon';
@@ -198,7 +206,7 @@ function render() {
   selectOptions('code', data.codes.map(r => [JSON.stringify(r.key),r.label]), coupon ? '全部发放批次' : '全部折扣码');
   $('scope').textContent = `${data.period.start} — ${data.period.end} · ${field('gid').selectedOptions[0].text} · ${field('project').selectedOptions[0].text} · ${coupon ? '用券订单（跨模板去重）' : '实际用码 + 推荐人无码；自然流量仅作对照'} · ${field('status').selectedOptions[0].text}`;
   $('freshness').textContent = '更新 ' + new Date(data.generatedAt).toLocaleString('zh-CN',{hour12:false,timeZone:'Asia/Shanghai'});
-  kpis(); comparison(); trend(); orders();
+  sourceAttribution(); kpis(); comparison(); trend(); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
   $('results').hidden = false;
   if (data.revenueBasis === 'legacy_delivery') show('正在回补Admin单笔人民币收入，暂展示旧口径完整缓存；新旧收入字段不会混算。' + (data.sourceError ? ' 本次来源读取失败，保留原数据待重试。' : ''), 'partial');

@@ -257,6 +257,26 @@ def grouped(rows, key, labels=None):
                   key=lambda r: (-r['salesUsd'], r['key']))
 
 
+def source_attribution(rows):
+    """A second, deduplicated view; original code/referrer attribution stays intact."""
+    selected=[];pmax=[];unknown=0
+    for original in rows:
+        row=dict(original)
+        if row.get('sourceStatus') != 'available':
+            row['primaryProject']='订单来源未核'
+        else:
+            raw=str(row.get('sourceRaw') or '').strip()
+            normalized=re.sub(r'^(?:google|bing)-','',raw,flags=re.I).casefold()
+            if normalized=='fc27-pmax-coins-us' or raw.casefold().startswith(('google-','bing-')):
+                row['primaryProject']='广告来源'
+                if normalized=='fc27-pmax-coins-us' and row['gid']=='1327':pmax.append(row)
+            elif not raw:row['primaryProject']=row['project'] if row['codeKey'] or row['promoterUid'] else '自然流量（业务对照）'
+            else:row['primaryProject']='其它来源 / 待核'
+        if row['primaryProject']=='订单来源未核' and not row.get('testOrder') and not fraud(row):unknown+=1
+        selected.append(row)
+    return dict(ruleVersion='pmax-fc-project-20261022-v1', projects=grouped(selected,'primaryProject'), summary=metrics(selected), pmaxFc=metrics(pmax), unknownSourceOrders=unknown, basis='同游戏/付款日期/状态/国家/支付筛选的全站去重订单；PMax实际FC成交归广告；码/推荐人表另作协助，不相加', platformCostsAllocated=False)
+
+
 def view(data, query):
     admin_revenue = all('adminSaleCny' in r for r in data['orders'])
     rows = [accounting_row(r, data.get('costOverrides', {}), data.get('testOrders', {}), admin_revenue) for r in data['orders']]
@@ -309,7 +329,7 @@ def view(data, query):
     selected.sort(key=lambda r: (r[sort] is not None, r[sort] if r[sort] is not None else 0, r['orderNo']), reverse=reverse)
     page = min(int(query.get('page', '1')), max(1, (len(selected) + 49) // 50))
     return dict(version=VERSION, revenueBasis='admin_order_cny' if admin_revenue else 'legacy_delivery', period=data['period'], generatedAt=data['generatedAt'], sources=data['sources'],
-                mapping=data['mapping'], summary=summary, denominator=denominator, trend=trend,
+                mapping=data['mapping'], summary=summary, denominator=denominator, sourceAttribution=source_attribution(base), trend=trend,
                 projects=sorted(left, key=lambda r: -r['salesUsd']), codes=sorted(right, key=lambda r: -r['salesUsd']),
                 breakdowns={key: grouped(selected, key) for key in ('game', 'country', 'payment', 'customerType', 'status')},
                 options=dict(games=sorted({(r['gid'], r['game']) for r in rows}, key=lambda p: p[1]),

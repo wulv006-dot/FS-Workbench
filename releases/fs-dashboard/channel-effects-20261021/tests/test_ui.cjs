@@ -44,6 +44,8 @@ const server = http.createServer(async (req, res) => {
     const url = `http://127.0.0.1:${server.address().port}/dashboard/channel-effects/`;
     await page.goto(url);
     await page.locator('#results').waitFor({state:'visible'});
+    assert.match(await page.locator('#source-attribution-note').innerText(), /已核来源内FC成交/);
+    assert.equal(await page.locator('#source-attribution table').count(), 1);
     assert.match(await page.locator('#kpis').innerText(), /\$70.00/);
     assert.match(await page.locator('#projects').innerText(), /自然流量（对照）/);
     assert.match(await page.locator('#customers').innerText(), /新客/);

@@ -13,7 +13,9 @@ def campaign_scope(name):
     normalized = re.sub(r'^(?:google|bing)-', '', raw.strip(), flags=re.I).casefold()
     if normalized == GLOBAL_BRAND:
         return {'campaign_scope': 'global_brand', 'game_target': None,
-                'basis': '用户2026-10-17明确确认：主站全局品牌投放', 'rule_version': RULE_VERSION}
+                'project_game': 'FC27', 'metric_scope': 'cross_game',
+                'project_rule_version': 'pmax-fc-project-20261022-v1',
+                'basis': '用户2026-10-22确认：归FC项目；平台指标跨游戏，实际成交按游戏核算', 'rule_version': RULE_VERSION}
     if normalized.startswith('d4-sn-'):
         brand=normalized=='d4-sn-brand-global'
         return {'campaign_scope':'brand_scope_unverified' if brand else 'game_name_candidate','game_target':None if brand else 'D4','game_candidate':'D4','game_match_basis':'campaign_name_prefix','brand_scope':'unverified' if brand else 'not_claimed','basis':'用户2026-10-17允许D4-SN-*名称线索；不是已确认项目总额或订单归因','rule_version':RULE_VERSION}
