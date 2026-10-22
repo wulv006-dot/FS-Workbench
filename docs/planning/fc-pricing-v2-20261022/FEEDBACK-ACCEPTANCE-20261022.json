@@ -1,0 +1,115 @@
+{
+  "observed_at": "2026-10-22T02:47:05.286281+00:00",
+  "pr": 333,
+  "source": "8065dcfb8a95efa3b685113d55fc46d09bc40504",
+  "merge": "9a3f0aeb0c7e29ac2799249e7e91ffe68e0b589d",
+  "release": {
+    "release_id": "nav-20261022T022651Z",
+    "manifest_sha256": "40a1dcca92705ae587eac30a71239d3dee5d98ae0e6c8d526dd3923646ed1a7b",
+    "source": "8065dcfb8a95efa3b685113d55fc46d09bc40504",
+    "merge": "9a3f0aeb0c7e29ac2799249e7e91ffe68e0b589d",
+    "stage": "/opt/fs-release-stage/fc-pricing-v2-feedback-8065dcfb8a95",
+    "scope": "fc-pricing-v2-feedback-20261022",
+    "original_inspect": {
+      "releaseReady": false,
+      "staticFiles": 4,
+      "sourceCAS": "passed",
+      "protectedCAS": "passed",
+      "oldPublisher": "still retired",
+      "mutations": false
+    }
+  },
+  "targets": [
+    {
+      "target": "/opt/fs-hermes-fc/coins_evidence.py",
+      "source": "fs_coins_evidence_20261021/source/coins_evidence.py",
+      "sha256": "b56df46bafc74042f2347edd25561bd0606f347e91163b2b59f084720820b2fb"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "source": "fc_pricing_v2_20261022/source/business-baseline.md",
+      "sha256": "6c77e58095fbc4b572bad9e9b1311aec71dab85a06acc1f50ad21438dddcd58b"
+    },
+    {
+      "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
+      "source": "fc_pricing_v2_20261022/source/hermes_pricing_bridge.py",
+      "sha256": "c30799b3c984311c1a842b9a8e296d36d2d0f24d2f4eea550d06d1e38de7442a"
+    },
+    {
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "source": "fc_pricing_v2_20261022/source/fc27-quote-cloud.js",
+      "sha256": "1b6c6c0ca9e50105e374f960b688be3de30760fe746d27a34f2c16e805e0412a"
+    }
+  ],
+  "targets_verified": 4,
+  "protected_verified": 132,
+  "drift": [],
+  "tests": {
+    "coins": 25,
+    "v2": 61,
+    "linux": [
+      "/opt/python39/bin/python3",
+      "/usr/bin/python3"
+    ],
+    "node": "passed",
+    "formal_ci_run": 39710957043,
+    "formal_ci_job": 119601910755
+  },
+  "baseline": "business-baseline-20261021-v13",
+  "model": {
+    "conversation": "f7d373beb8e5448ba54d7d9e3d2215ff",
+    "turn": "56c93fa3cee749398b9a9603ea42a8d0",
+    "task": "06416402b22cb28b12d08937d3739b2b",
+    "run": "run_3a2a95c1185d4892abf4bb8b19d4da8f",
+    "high_forwarded_calls": 31,
+    "provider_internal_effort": "not_echoed",
+    "stable_mastery": false
+  },
+  "execution": {
+    "id": "521c3d63-e99e-508f-908b-da97e8dd1a70",
+    "run": "f10e868b-ae49-47ce-bc66-e97f9d4eb505",
+    "status": "CONFIRMED",
+    "sync_confirmed": true,
+    "backend_checked_at": "2026-10-22T02:39:58.023694+00:00",
+    "publication": "matched",
+    "public": [
+      {
+        "platform": "PS",
+        "price_usd": "11.20",
+        "checked_at": "2026-10-22T02:41:00.782022+00:00"
+      },
+      {
+        "platform": "XBOX",
+        "price_usd": "11.20",
+        "checked_at": "2026-10-22T02:41:01.201406+00:00"
+      },
+      {
+        "platform": "PC",
+        "price_usd": "10.45",
+        "checked_at": "2026-10-22T02:41:01.665710+00:00"
+      }
+    ]
+  },
+  "policy": {
+    "revision": 40,
+    "enabled": true,
+    "mode": "auto",
+    "interval_minutes": 120,
+    "minimum_procurement_gp_pct": "10"
+  },
+  "observation": {
+    "heat_affects_pricing": false,
+    "dot_handover": "not_performed_missing_dot_entry_and_FS_access_receipts",
+    "notion_sections": [
+      25,
+      26
+    ],
+    "notion_verified_at": "2026-10-22T02:54:19.414Z",
+    "next_natural_cycle": "2026-10-22T04:09:24.595974+00:00"
+  },
+  "limitations": [
+    "No long term uplift or price causality established.",
+    "Same-day Coins scope, package quantities, Ads attribution and refund settlement remain partial.",
+    "New arithmetic examples and corrected answers do not prove stable learning."
+  ]
+}
