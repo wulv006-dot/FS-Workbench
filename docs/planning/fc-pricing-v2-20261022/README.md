@@ -35,3 +35,7 @@ PR318–325相关正式CI、两套Linux及Node检查通过并合并，最后60�
 [学习验收](LEARNING-ACCEPTANCE.md)、[Hermes独立原答（含错误）](HERMES-independent.md)、[纠正与新场景原答](HERMES-independent-correction.md)、[Astra分析](ASTRA-REVIEW.md)。页面截图见evidence-live。
 
 04:15准备状态保留于[原README](archive/README-pre-switch.md)、[原SOURCE-MAP](archive/SOURCE-MAP-pre-switch.json)与[PRE-SWITCH](PRE-SWITCH.md)，均非当前状态。当前入口以本页、DELIVERY及带时点验收为准。
+
+## 14:57增量
+
+14:13原自然周期已实际变价，14:16:52–53公开读回PS/Xbox $10.95、PC $10.45/100K，均另送5K。这是带时点事实，不是下一轮固定报价。原模型8次high，两轮教学共3次high；新增受审方法经验已发布，稳定迁移及经营增利仍未证明。详见[本次验收](NATURAL-1416-ACCEPTANCE.json)、[原监控](MONITOR-20261022.md)。下一原计划16:16:53；Dot接管暂停保持。
