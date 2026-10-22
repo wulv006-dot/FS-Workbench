@@ -1,0 +1,12 @@
+{
+  "scope_version": "connected-sites-v1",
+  "identity_version": "exact-primary-email-v1",
+  "full_company_coverage": false,
+  "sites": {"266": {"label": "MMOEXP", "verified_identity_group": null}},
+  "projects": {"1327": {"label": "FC27", "series": "FC"}},
+  "policies": {"common-v1": [30, 60, 90], "fc-v1": [14, 30, 90]},
+  "history_origins": {},
+  "excluded_order_statuses": [],
+  "verified_test_orders": [],
+  "activation_status": "candidate_requires_W0_status_mapping_and_live_samples"
+}

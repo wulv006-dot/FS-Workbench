@@ -1,0 +1,24 @@
+{
+  "platform": "Linux cloud Work workspace",
+  "cwd": "/workspace/scratch/db264d3e5d29",
+  "windows_systemroot_present": false,
+  "windows_interop_present": false,
+  "target": "47.85.224.112:22",
+  "connected": false,
+  "ssh": {
+    "exit_code": 255,
+    "error": "Network is unreachable",
+    "stage": "before_authentication"
+  },
+  "route_selection": {
+    "errno": 101,
+    "error": "Network is unreachable",
+    "public_egress": "not_verified"
+  },
+  "proc_ipv4_route_view": "header_only",
+  "ip_netlink_query": "Operation not permitted",
+  "formal_local_execution_tool_exposed": false,
+  "user_confirmed_windows_connection": "2026-10-22 22:09 Asia/Shanghai; existing project SSH entry and original key; repeated readonly success",
+  "authorization": "single approved management egress only; no extra SSH source, key reset, authentication change or production write expansion",
+  "disposition": "handoff_to_local_conversation; no cloud browser"
+}
