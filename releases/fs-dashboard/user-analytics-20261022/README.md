@@ -1,6 +1,6 @@
 # FS 用户分析
 
-按 [原始施工说明第17节](../../../docs/planning/fs-user-analytics-20261022/IMPLEMENTATION-SPEC.md) 实施。当前为本机续作候选，W0已完成，真实30日私有账本与W2独立对账已通过；部署及自然验收见 [CURRENT_STATE](../../../docs/planning/fs-user-analytics-20261022/CURRENT_STATE.md) 及后续回执。
+按 [原始施工说明第17节](../../../docs/planning/fs-user-analytics-20261022/IMPLEMENTATION-SPEC.md) 完成W0后连续推进。主程序已部署并读回，最新PR371合并346cce9a/发布nav-20261022T180802Z；真实增量与付款状态修正已验，跨日自然推进待2026-10-24。见 [DELIVERY](../../../docs/planning/fs-user-analytics-20261022/DELIVERY.md)、[SOURCE-MAP](../../../docs/planning/fs-user-analytics-20261022/SOURCE-MAP.json) 和 [通俗使用说明](../../../docs/planning/fs-user-analytics-20261022/USER-GUIDE.md)。
 
 `source/` 提供独立客户事实库、可续跑日片、生命周期/成熟二购、冻结快照、权限查询、HTTP与两类Hermes工具。共享源复用现有Admin批量分页和8767会话，不重新登录或逐客户扫描。`user_runtime.py` 绑定当前IAM，`user_jobs.py` 使用原渠道采集锁并为前台采集让路，日推进不依赖新增订单。
 
