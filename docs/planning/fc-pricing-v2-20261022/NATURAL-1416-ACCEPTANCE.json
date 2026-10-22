@@ -1,0 +1,102 @@
+{
+  "observed_at": "2026-10-22T06:57:16+00:00",
+  "status": "natural_price_change_verified_effect_unknown",
+  "code_deployment": false,
+  "core": {
+    "version": "business-baseline-20261021-v13",
+    "sha256": "6c77e58095fbc4b572bad9e9b1311aec71dab85a06acc1f50ad21438dddcd58b",
+    "checked": 140,
+    "drift": []
+  },
+  "natural": {
+    "execution": "75bcdde5-1fa8-4851-965d-eeebe874660f",
+    "audit": "CONFIRMED",
+    "sync_confirmed": true,
+    "started_at": "2026-10-22T06:13:05.471009+00:00",
+    "completed_at": "2026-10-22T06:16:53.362522+00:00",
+    "backend_at": "2026-10-22T06:16:28.574995+00:00",
+    "cache_clear_count": 1,
+    "public": [
+      {
+        "platform": "PS",
+        "package_usd": "10.95",
+        "base_k": "100",
+        "bonus_k": "5",
+        "at": "2026-10-22T06:16:52.542704+00:00",
+        "status": "matched"
+      },
+      {
+        "platform": "XBOX",
+        "package_usd": "10.95",
+        "base_k": "100",
+        "bonus_k": "5",
+        "at": "2026-10-22T06:16:52.936912+00:00",
+        "status": "matched"
+      },
+      {
+        "platform": "PC",
+        "package_usd": "10.45",
+        "base_k": "100",
+        "bonus_k": "5",
+        "at": "2026-10-22T06:16:53.351379+00:00",
+        "status": "matched"
+      }
+    ],
+    "next_original_cycle_at": "2026-10-22T08:16:53.362522+00:00",
+    "catalog_proof_passed": true,
+    "conservative_published_100k_margin_pct": {
+      "console": "14.09701155",
+      "PC": "14.25973849"
+    },
+    "margin_is_actual_average": false,
+    "model_override_applied": false,
+    "program_write_confirmed": true
+  },
+  "model": {
+    "conversation": "934d18829e64477eba64ae6603730d38",
+    "natural_task": "def5431be92dd92de634d195cbeedf70",
+    "natural_run": "run_06402ce72d114dcdac70c739d2f24723",
+    "natural_provider_responses": 8,
+    "natural_tool_calls": 19,
+    "correction_provider_responses": [
+      2,
+      1
+    ],
+    "high_forwarded_verified": true,
+    "internal_effort_echo": false,
+    "stable_mastery": false
+  },
+  "learning": {
+    "event": "969fa011142d516a00da4b478e703cebfcf93dea69e6e5696f2f6567dc919f2c",
+    "experience": "c3636bd4998b6e34e4f2ae43670e4544d956cf1866f9639533e61b86e647e8b6",
+    "content_sha256": "395ef5af1adc7ca5f95ed51a64db13efac084286c698ebe32cb505e045892359",
+    "manifest_sha256": "ccf96e0bd119c6be01ca900bd12d407c8607cf7861d0d4afb110995ee2980f86",
+    "count": 6,
+    "old_five_preserved": true,
+    "auto_publish": false,
+    "next_natural_transfer": "not_yet_verified"
+  },
+  "effect": {
+    "income_beijing": "14:43:35",
+    "cost_beijing": "14:44:37",
+    "es_captured_at": "2026-10-22T00:57:13.420527+00:00",
+    "es_origin": "private_archive_reuse",
+    "whole_fc": 157,
+    "identified_coins": 122,
+    "missing_es_product": 25,
+    "post_exposure_cohort": "not_established",
+    "procurement_profit_uplift": "unknown",
+    "ad_after_contribution": "unknown",
+    "causal_price_effect": "not_identified"
+  },
+  "unchanged": [
+    "revision40",
+    "on_auto_120_minutes",
+    "minimum_procurement_margin_10pct",
+    "server_revision3",
+    "other_product_formulas",
+    "heat_observation_only",
+    "Dot_handover_paused"
+  ],
+  "private_evidence_root": "/tmp/fc-pricing-v2-20261022/natural-1413-*"
+}
