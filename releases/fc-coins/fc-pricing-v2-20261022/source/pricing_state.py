@@ -32,8 +32,13 @@ def evaluate(data,policy,root=ROOT):
 def owned_review(root,owner):
     if not owner:return None
     paths=sorted((root/'evidence').glob('hermes-pricing-*.json'),key=lambda p:p.stat().st_mtime,reverse=True)
-    for path in paths[:60]:
-        value=json.loads(path.read_text('utf-8'))
+    values=[json.loads(path.read_text('utf-8')) for path in paths[:60]]
+    # The API can read existing jobs, but cannot list the worker's private evidence directory.
+    for path in sorted((root/'jobs').glob('*.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:120]:
+        job=json.loads(path.read_text('utf-8'))
+        value=job.get('hermes_review') if job.get('kind')=='auto_cycle' else job.get('result') if job.get('kind')=='hermes_review' else None
+        if isinstance(value,dict) and value.get('owner')==owner:values.append(value)
+    for value in sorted(values,key=lambda v:v.get('created_at',''),reverse=True):
         if value.get('owner')!=owner:continue
         if value.get('conversation_id'):
             try:
