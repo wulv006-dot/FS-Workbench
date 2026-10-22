@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-22",
+  "pageId": "3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a",
+  "scope": "targeted addition in section 21; later V2 sections preserved",
+  "decisionSource": "user final clarification in the current Work task",
+  "readback": {
+    "finalAdminRevenueOrderActualCostDecisionPresent": true,
+    "laterSection23Preserved": true
+  },
+  "runtimeCoreChangedByThisSync": false,
+  "dashboardProfitAlgorithmChangedByThisSync": false,
+  "modelLearningVerifiedByThisSync": false
+}
