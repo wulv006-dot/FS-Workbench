@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from user_contract import TZ, aggregate_only, checked_query, stamp
@@ -63,11 +64,35 @@ class Users(unittest.TestCase):
         self.assertEqual(self.store.revision(), revision)
         self.assertFalse(second['source_collection'])
 
+    def test_daily_origin_on_systemd_without_invocation_id(self):
+        from user_jobs import advance_day
+        with patch.dict('os.environ', {}, clear=True):
+            self.assertEqual(advance_day(self.store, NOW)['trigger'], 'manual')
+        with patch.dict('os.environ', {'FS_USER_ANALYTICS_TRIGGER': 'systemd'}, clear=True):
+            result = advance_day(self.store, NOW)
+        self.assertEqual(result['trigger'], 'systemd')
+        self.assertIsNone(result['invocation_id'])
+        unit = (BASE / 'deploy/fs-user-analytics.service').read_text()
+        self.assertIn('Environment=FS_USER_ANALYTICS_TRIGGER=systemd', unit)
+        self.assertIn('ProtectSystem=full', unit)
+        self.assertIn('ReadWriteDirectories=', unit)
+        self.assertNotIn('ReadWritePaths=', unit)
+
     def test_T02_cross_project_union(self):
         self.load([order(1, '2026-10-01'), order(2, '2026-10-02', gid='2000')])
         self.assertEqual(self.values(self.query())['purchasers'], 1)
         for gid in ('1327', '2000'):
             self.assertEqual(self.values(self.query(scope='project', scope_id=gid))['purchasers'], 1)
+
+    def test_tool_project_rules_are_frozen_separately_from_summary(self):
+        self.load([order(1, '2026-10-01')])
+        frozen = self.query()
+        self.config['policies']['fc-v1'] = [1, 2, 3]
+        result = invoke(self.service, 'admin', dict(snapshot_id=frozen['snapshot_id']))
+        self.assertEqual(result['lifecycle_policy']['thresholds_days'], [30, 60, 90])
+        self.assertEqual(result['project_policy_versions']['1327'], 'fc-v1')
+        self.assertEqual(result['lifecycle_policies']['fc-v1'], [14, 30, 90])
+        self.assertIn('code', result['source_status_codes']['order_status']['86'])
 
     def test_T03_cross_site_requires_verified_semantics(self):
         self.config['sites']['777'] = dict(label='fixture satellite', verified_identity_group=None)
@@ -307,7 +332,7 @@ class Users(unittest.TestCase):
         self.load([order(1, '2026-10-01')])
         old = self.query();query, public, private = self.store.snapshot(old['snapshot_id'])
         public = {k: v for k, v in public.items() if k not in ('snapshot_id', 'evidence_id')}
-        public['projects'] = [{'label': 'fixture project ' + 'x' * 2048} for _ in range(100)]
+        public['projects'] = [{'project_id': str(i), 'policy_version': 'common-v1', 'label': 'fixture project ' + 'x' * 2048} for i in range(100)]
         full = self.store.save_snapshot(query, public, private)
         summary = invoke(self.service, 'admin', {'snapshot_id': full['snapshot_id'], 'view': 'summary'})
         self.assertLess(len(json.dumps(summary)), 20000)
