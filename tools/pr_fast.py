@@ -25,6 +25,7 @@ import io,json,socket,subprocess,sys,unittest
 import unittest.mock
 from pathlib import Path
 root=Path(sys.argv[1]);sys.path[:0]=[str(root/sys.argv[2]),str(root)]
+sys.path.append(str(root/'releases/fs-dashboard/user-analytics-20261022/source'))
 real=socket.socket.connect
 def local(self,address):
     if isinstance(address,tuple) and address[0] not in ('127.0.0.1','localhost','::1'):
@@ -156,6 +157,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/user-analytics-20261022/source/user_query.py"]) != ["user-analytics"]:
+        raise RuntimeError("user_analytics_checks_missing")
     if select(["releases/fs-dashboard/game-monitor-autopublish-20261022/source/controller.py"]) != ["game-monitor-auto"]:
         raise RuntimeError("game_monitor_auto_checks_missing")
     if select(["releases/fs-dashboard/game-monitor-sop-20261022/source/index.html"]) != ["game-monitor-sop"]:
@@ -360,6 +363,8 @@ def select(paths):
             groups.add("daily-archive");continue
         if name.startswith("releases/fs-dashboard/business-procurement-20261022/"):
             groups.add("business-procurement");continue
+        if name.startswith("releases/fs-dashboard/user-analytics-20261022/"):
+            groups.add("user-analytics");continue
         if name.startswith("releases/fs-dashboard/channel-effects-20261021/"):
             groups.add("channel-effects");continue
         if name.startswith("admin_session_continuity_20261021/"):
@@ -690,6 +695,8 @@ def main():
             units("releases/fs-dashboard/business-procurement-20261022/tests",["test_release"])
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
+        elif group=="user-analytics":
+            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
@@ -1086,4 +1093,5 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 

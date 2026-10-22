@@ -398,6 +398,8 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
         if not detail.config.get('enabled'):return {'status':'not_available','reason':'fc_detail_disabled'}
         return workflow(args)
     book.pricing_workflow=workflow_read
+    from user_tools import runtime_invoke as user_analytics_read
+    book.user_analytics=pins.wrap(lambda args:user_analytics_read(owner,args,detail=detail),'FS-purchase-customer-analytics')
     if lazy_session is not None:
         lazy_paid_capture(book,lambda:source_capture(detail,read_start,end,deadline=deadline) if deadline is not None else source_capture(detail,read_start,end),config)
     return book
