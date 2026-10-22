@@ -83,7 +83,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
             conversation=result['conversation_id'];record.update(conversation_id=conversation,phase='created');save(path,record)
             sys.path.insert(0,'/opt/fs-hermes-fc')
             from pricing_operations import grant
-            with sqlite3.connect(FS/'tasks.sqlite3',timeout=5) as db:
+            with closing(sqlite3.connect(FS/'tasks.sqlite3',timeout=5)) as db,db:
                 grant(db,owner,conversation,quote['run_id'],mode,(created+timedelta(hours=1)).isoformat(),
                       'human_authorized_fc_coins_v2_20261022_nonoverridable_10pct',restore_sources=[restore_source] if restore_source else [])
             scope=('本任务为自动周期审核，允许核实、核算并recommend程序给出的候选；FC worker正等待，不能另排采集或写价任务。'
@@ -93,6 +93,13 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                 '用fc.run_pricing_workflow取得固定分析回执；10%最低采购毛利硬红线含合法优惠、赠送、套餐和小额舍入，任何策略不能覆盖。'
                 'PS/Xbox共同成本共同基价，PC独立。不要机械花掉高毛利。先比较baseline/hold/parity；如有新方案，可evaluate并用evaluated选择提交自定console_usd/pc_usd，由程序重新核验。实际调用recommend并引用pricing:quote_sha256或本任务证据；说明采购毛利、广告后贡献、保本销量条件及反证。'
                 '不把短期相关当因果，不臆造广告归因或需求增量。终态后原队列受控学习，不用运行中snapshot作为经验来源。最后用通俗中文说明判断。')
+            text+=('经营目标是同范围采购毛利额和可归属广告后贡献，不是把利润率做高。最差优惠只用于逐组合10%执行红线；经营判断使用真实优惠核销/净收/历史成本，未来候选须重核资格、门槛、封顶和数量，历史用券占比不是未来固定概率。'
+                   '当前Coins数据优先fc.query_pricing_evidence(order_costs)，看promotion_usage和覆盖；没有资格分母就不得称合资格核销率，无码/无券不等于原价。'
+                   'PS/Xbox用共同池时间最新已核成本；不同交易时刻的0.45/0.43不是同一时点冲突，旧值只能作为明确压力情景。'
+                   '不得用全FC旧毛利、新客订单数或历史区间支持本轮Coins高价有效；新客订单不称人数，公开生效用独立读回时间，后台写入时间另列。'
+                   '不得自行设定24–48小时等强制等待期；观察期要有具体数据成熟依据。缺广告或价格弹性只能限制效果结论，不足以无期限否决已合格程序候选。'
+                   '若hold高于本轮baseline，必须分别核算保持与调整，并指出当前同范围、同口径可核实的反对调整证据；保本倍数使用清楚的优惠/数量/广告假设，不把所有订单设为最大优惠来预测销量。'
+                   '没有具体反证且当前可比竞争位置仍支持调整时，选择本轮程序baseline；这是受红线约束的执行基准，不声称利润最优或已证明需求增量。')
             if mode=='operator_workflow':
                 text+='用户这次入口明确交给你核算并受控执行本轮，授权已给，无须再次询问。若本轮合格候选与后台不同，按capabilities.action_fields准确recommend，使用state.quote_evidence_ref原文作为唯一足够引用；apply_recommendation后read_job核原重算终态，再preview、read_job取得预览、execute、read_job及state核后台与公开读回。失败响应不证明没有写入，必须看read_job.execution_audit；changed、PARTIAL、UNCERTAIN或未核原结果时，不得换request_key、预览或ID再execute，只核原操作并报告待对账。未通过任一护栏就停止该动作并报告。不要因参数错误重复collect；按expected_fields/received_fields及native_error修正。state是摘要，完整依据用read_quote逐路径读取。声明scenario或单独100K尾价通过不能替代本轮全套餐evaluate。无变化则核原预览后如实报no_price_change，不制造改价。'
             if restore_source:text+='本次另明确授权协助恢复原操作'+restore_source+'，先restore_preview，核当前成本和优惠红线后才restore；不恢复其他历史操作。'

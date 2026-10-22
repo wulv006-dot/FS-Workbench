@@ -59,7 +59,7 @@
       ['最近公开100K',group.map(p=>`${p} ${money(state.current_storefront?.rows?.[p]?.package_usd)} · ${time(state.current_storefront?.rows?.[p]?.checked_at)}`).join(' / ')],
       ['候选相对采集价变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
       ['有效采购成本',`¥${row.cost_cny} / K`],[`${row.minimum_gross_margin_pct}%红线最低100K`,money(Number(row.floor_usd_per_1k)*100)],
-      ['最差优惠后实收',money(row.proof?.worst_net_usd)],['采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
+      ['红线校验用保守实收',money(row.proof?.worst_net_usd)],['最差优惠下采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
       ['主策略标价',money(row.main_page_usd)],['尾价处理',endingNames[row.ending_reason]||row.ending_reason],
       ['保采购毛利所需订单倍数',row.break_even_order_multiplier?`${Number(row.break_even_order_multiplier).toFixed(3)}倍（条件计算）`:'不适用'],
       ['套餐 / 自定义核算',`${row.proof?.catalog?.published_packages??'?'}档 · 最小${row.proof?.catalog?.minimum_custom_k??'?'}K`]]){
