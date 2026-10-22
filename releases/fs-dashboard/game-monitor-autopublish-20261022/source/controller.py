@@ -7,7 +7,7 @@ import stat
 import subprocess
 import sys
 from datetime import datetime,timezone
-from urllib.error import HTTPError
+from urllib.error import HTTPError,URLError
 from urllib.parse import quote
 from contract import build,require,sha,snapshot,strict_json,verify_candidate
 import publication
@@ -115,7 +115,14 @@ def refresh_base(github,record,base):
 
 def step(record):
     status=record['status'];folder=STATE/'runs'/record['run_id'];candidate=folder/'candidate'
-    if status in TERMINAL:return
+    if status in TERMINAL:
+        if status=='published_file_and_route_readback_verified':
+            try:published=strict_json(profile_read('published.json'))
+            except (ValueError,OSError):published={}
+            expected=dict(run_id=record['run_id'],release=record['release'],index_sha256=record['proof']['after_sha256'],merge_sha=record['merge_commit'])
+            if any(published.get(key)!=value for key,value in expected.items()):
+                finish(record,publication.verify(Path(record['publication']['stage'])))
+        return
     if status in ('blocked','publishing_unknown'):
         if status=='publishing_unknown':
             # Only complete a previous apply if its original journal and all bytes prove success.
@@ -123,6 +130,8 @@ def step(record):
             except (ValueError,OSError):return
             finish(record,result)
         return
+    if status=='finishing':
+        finish(record,record['publication_readback']);return
     github=GitHub(TOKEN_FILE)
     if status in ('accepted','creating_pr'):
         record['pr']=open_pr(github,record);record['status']='pr_open';save(record);return
@@ -171,27 +180,61 @@ def step(record):
     raise ValueError('unsupported_pipeline_state')
 
 def finish(record,result):
-    record.update(result);record['published_at']=datetime.now(timezone.utc).isoformat();save(record)
-    old_raw=profile_read('published.json',True)
-    old=strict_json(old_raw) if old_raw else {}
-    if old_raw:atomic(STATE/'runs'/record['run_id']/'previous-published.json',old_raw)
-    old.update(published=True,status=record['status'],release=record['release'],index_sha256=record['proof']['after_sha256'],merge_sha=record['merge_commit'],pr=record['pr']['number'],
+    record['publication_readback']=result;record.update(result);record['status']='finishing'
+    record.setdefault('published_at',datetime.now(timezone.utc).isoformat());save(record)
+    backup=STATE/'runs'/record['run_id']/'previous-published.json'
+    if not backup.exists():
+        old_raw=profile_read('published.json',True)
+        atomic(backup,old_raw if old_raw else b'{}')
+    old=strict_json(backup.read_bytes())
+    old.update(published=True,status=result['status'],release=record['release'],index_sha256=record['proof']['after_sha256'],merge_sha=record['merge_commit'],pr=record['pr']['number'],
                maintenance_mode='automatic_data_pr_ci_merge_publish',run_id=record['run_id'],at=record['published_at'],browser_verification='per-run browser evidence separate from file readback')
     write(PROFILE/'published.json',old,True)
+    require(strict_json(profile_read('published.json'))==old,'published_metadata_readback_failed')
+    record['status']=result['status'];save(record)
+
+def complete_accept(record,raw):
+    folder=STATE/'runs'/record['run_id'];candidate=folder/'candidate'
+    before=publication.active().read_bytes();after,proof=build(before,strict_json(raw))
+    require(proof==record['proof'],'acceptance_baseline_or_request_drift')
+    publication.safe(folder);candidate.mkdir(parents=True,exist_ok=True,mode=0o700)
+    for name,value in [('before.html',before),('index.html',after),('request.json',raw),('proof.json',json.dumps(proof,ensure_ascii=False,indent=2).encode())]:
+        path=candidate/name;publication.safe(path)
+        if path.exists():require(path.read_bytes()==value,'partial_candidate_drift')
+        else:atomic(path,value)
+    record['status']='accepted' if proof['changed'] else 'no_content_change';save(record)
+    return record
 
 def accept(raw,record):
     request=strict_json(raw);identity=request.get('run_id')
     require(isinstance(identity,str) and re.fullmatch(r'[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}',identity),'run_id_required')
     if record and record['run_id']==identity:
-        require(record['request_sha256']==sha(raw),'request_changed_after_acceptance');return record
+        require(record['request_sha256']==sha(raw),'request_changed_after_acceptance')
+        return complete_accept(record,raw) if record['status']=='accepting' else record
     require(not record or record['status'] in TERMINAL,'previous_run_requires_reconciliation')
-    folder=STATE/'runs'/identity;require(not folder.exists(),'run_id_already_used')
+    folder=STATE/'runs'/identity
+    intent=load(STATE/'acceptance-intent.json',{})
+    if intent.get('run_id')==identity:
+        require(intent['request_sha256']==sha(raw),'original_acceptance_request_drift')
+        durable=load(folder/'state.json',{})
+        if durable.get('run_id')==identity and durable.get('status')!='accepting':
+            require(durable['request_sha256']==sha(raw),'original_run_request_drift');save(durable);return durable
+        require(intent['status']=='accepting','run_id_already_used')
+        return complete_accept(intent,raw)
+    require(not folder.exists(),'run_id_already_used')
     before=publication.active().read_bytes();after,proof=build(before,request)
-    candidate=folder/'candidate';candidate.mkdir(parents=True,mode=0o700)
-    for name,value in [('before.html',before),('index.html',after),('request.json',raw),('proof.json',json.dumps(proof,ensure_ascii=False,indent=2).encode())]:atomic(candidate/name,value)
-    record=dict(run_id=identity,request_sha256=sha(raw),request_summary=request['summary'],status='accepted' if proof['changed'] else 'no_content_change',proof=proof,
+    record=dict(run_id=identity,request_sha256=sha(raw),request_summary=request['summary'],status='accepting',proof=proof,
                 branch='codex/game-monitor-content-'+identity.lower(),accepted_at=datetime.now(timezone.utc).isoformat())
-    save(record);return record
+    write(STATE/'acceptance-intent.json',record);save(record)
+    return complete_accept(record,raw)
+
+def remember_error(record,error):
+    intents=('accepting','creating_pr','merging','rebasing','preparing','publishing','publishing_unknown','finishing')
+    transient=isinstance(error,(OSError,TimeoutError,URLError)) and not (isinstance(error,HTTPError) and 400<=error.code<500 and error.code!=429)
+    if not transient and record['status'] not in intents:record['status']='blocked'
+    record['error']=str(error)[:200] if isinstance(error,ValueError) else type(error).__name__
+    record['recovery']='reconcile_original' if record['status'] in intents else 'retry_read' if transient else 'blocked_contract'
+    save(record)
 
 def tick():
     import fcntl
@@ -207,13 +250,13 @@ def tick():
             raise
         try:
             if record:step(record)
+            if record:write(PROFILE/'auto-publish-status.json',record,True)
             export_live()
             return record or {'status':'ready','scope':'game-monitor static data only'}
         except Exception as error:
             # Preserve write-intent states so the next tick reconciles the original operation.
             if record:
-                if record['status'] not in ('creating_pr','merging','rebasing','preparing','publishing','publishing_unknown'):record['status']='blocked'
-                record['error']=str(error)[:200] if isinstance(error,ValueError) else type(error).__name__;save(record)
+                remember_error(record,error)
             else:write(PROFILE/'auto-publish-status.json',dict(status='request_rejected',error=str(error)[:200] if isinstance(error,ValueError) else type(error).__name__),True)
             raise
 
