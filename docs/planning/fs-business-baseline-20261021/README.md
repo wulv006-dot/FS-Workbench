@@ -1,6 +1,6 @@
 # 业务基准修订与工具接入
 
-当前有效业务基准为 v10，以 [BUSINESS-BASELINE.md](BUSINESS-BASELINE.md)及实际装入SHA为准。活动知识源为 `releases/fs-dashboard/fc-coins-workflow-20261022/source/business-baseline.md`，渠道核算与直接工具维护源分别为 `releases/fs-dashboard/channel-effects-20261021/source/`、`releases/fs-dashboard/fc-coins-evidence-20261021/source/`、`releases/fs-dashboard/fc-coins-workflow-20261022/source/`。Admin整单收入、实际采购毛利、缓存修复与真实模型验收见 [财务验收](../fs-channel-dashboard-20261021/FINANCIAL-ACCEPTANCE-20261022.md)；先前 [FC Coins证据接入](../fc-coins-evidence-20261021/README.md)及下文v1–v9交付、策略原文与失败按原时点保留，不据旧源码或旧“当前”覆盖活动文件。后续新版本须以其独立发布/实际装入回执接续。
+当前有效业务基准以 [BUSINESS-BASELINE.md](BUSINESS-BASELINE.md)文件头、对应版本活动映射及实际装入SHA为准，不把本页历史v10说明当最新版本。渠道核算与直接工具维护源分别为 `releases/fs-dashboard/channel-effects-20261021/source/`、`releases/fs-dashboard/fc-coins-evidence-20261021/source/`、`releases/fs-dashboard/fc-coins-workflow-20261022/source/`。Admin整单收入、实际采购毛利、缓存修复与真实模型验收见 [财务验收](../fs-channel-dashboard-20261021/FINANCIAL-ACCEPTANCE-20261022.md)，经营前端实际接入见[看板验收](../fs-business-procurement-20261022/ACCEPTANCE.md)；先前 [FC Coins证据接入](../fc-coins-evidence-20261021/README.md)及下文v1–v9交付、策略原文与失败按原时点保留，不据旧源码或旧“当前”覆盖活动文件。后续新版本须以其独立发布/实际装入回执接续。
 
 
 ## 最新继续教学交付（2026-10-21）

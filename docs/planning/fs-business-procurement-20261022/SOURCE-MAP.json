@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "scope": "fs-business-procurement-20261022",
+  "sourceHead": "0b77cf82ad25c7c3fa2df3b3ad00e2e6e7cd414e",
+  "mergeCommit": "6df4d667ca629a3058c1471e5cec60fdee37eb9e",
+  "releaseId": "nav-20261022T012809Z",
+  "manifestSha256": "7885f94f7832d4b064699b48bb63f90448453a9988cb7c7446043dac239100f6",
+  "protectedFiles": 132,
+  "verifiedFiles": 136,
+  "files": [
+    {
+      "candidate": "ui/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/business.js",
+      "sha256": "a382a9b96aee9e2aa808c74a6f32083e3538dfba548c786247f8b5015b1f4adb",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "source": "releases/fs-dashboard/business-procurement-20261022/source/business.js"
+    },
+    {
+      "candidate": "ui/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/home-business.js",
+      "sha256": "88045abeb271f1ff6ddf3dc7c650841810f2963437e4dd888d227a275cd48a42",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "source": "releases/fs-dashboard/business-procurement-20261022/source/home-business.js"
+    },
+    {
+      "candidate": "ui/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/legacy-business.js",
+      "sha256": "c188f21d4e9585d601cedad8fdc300563bb2c7573ff9a4e25d91a6059419ab31",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "source": "releases/fs-dashboard/business-procurement-20261022/source/legacy-business.js"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "ebdec26b73bc887458e5afcec17d8ed98a8c9d4b8b8638a7d96f5975e7ec6a92",
+      "beforeSha256": "77a1c29afd5b45fe7a05167ab50a0b2d7b2422ea3998eccbec695cc08ae8fc72",
+      "owner": "0:0",
+      "mode": "0o644",
+      "source": "releases/fs-dashboard/business-procurement-20261022/deploy/procurement_ui.py"
+    }
+  ],
+  "retainedAssetsAndRetargetedAliases": {
+    "/var/lib/fs-navigation-formal-static/workspace-native-20261006-8b7908ecad30/business.js": "business.js",
+    "/var/lib/fs-navigation-formal-static/workspace-native-20261006-72d7ba0dbca8/business.js": "home-business.js",
+    "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/business.js": "legacy-business.js"
+  },
+  "sourcePolicy": "Admin whole-order revenue once minus matched Order actual cost; weighted margin uses the same completed revenue/cost-covered cohort.",
+  "scopeLimits": [
+    "MMOEXP main-site daily supported views only",
+    "Unsupported hourly, satellite and FC detail filters retain labelled reference",
+    "Unknown costs remain excluded and visible; no zero fill",
+    "No new model, price, timer, permission or core changes"
+  ],
+  "acceptance": "ACCEPTANCE.md"
+}
