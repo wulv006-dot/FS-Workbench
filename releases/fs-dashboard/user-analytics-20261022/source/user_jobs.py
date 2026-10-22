@@ -59,7 +59,7 @@ def advance_day(store, now):
     value = dict(day=end.date().isoformat(), snapshot_id=result['snapshot_id'], evidence_id=result['evidence_id'],
                  data_version=result['data_version'], observation_date=result['observation_date'],
                  lifecycle_cutoff=end.isoformat(), executed_at=now.isoformat(), source_collection=False,
-                 trigger='systemd' if os.environ.get('INVOCATION_ID') else 'manual',
+                 trigger='systemd' if os.environ.get('FS_USER_ANALYTICS_TRIGGER') == 'systemd' or os.environ.get('INVOCATION_ID') else 'manual',
                  invocation_id=os.environ.get('INVOCATION_ID'),
                  stocks={key: result['metrics'][key] for key in ('known_pool', 'recent', 'silent', 'lost', 'long_lost', 'unverified')})
     previous = store.root / 'daily-state.json'

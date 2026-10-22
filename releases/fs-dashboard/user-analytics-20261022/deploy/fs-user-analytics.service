@@ -8,12 +8,13 @@ User=root
 Group=root
 UMask=0077
 WorkingDirectory=/opt/fs-hermes-fc
+Environment=FS_USER_ANALYTICS_TRIGGER=systemd
 ExecStart=/opt/python39/bin/python3 -B /opt/fs-hermes-fc/user_jobs.py tick
 TimeoutStartSec=600
 Nice=10
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/var/lib/fs-user-analytics /var/lib/fs-channel-effects/collector.lock
+ReadWriteDirectories=/var/lib/fs-user-analytics /var/lib/fs-channel-effects/collector.lock
 
