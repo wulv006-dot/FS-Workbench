@@ -308,16 +308,18 @@ function sumAdsRows(rows){
  const m={};for(const key of ['cost','clicks','impressions','conversions','conversionsValue'])m[key]=rows.every(r=>r.metrics?.[key]!=null)?rows.reduce((n,r)=>n+Number(r.metrics[key]),0):null;
  m.ctr=m.clicks!=null&&m.impressions>0?m.clicks/m.impressions:null;m.cpa=m.cost!=null&&m.conversions>0?m.cost/m.conversions:null;m.platformRoas=m.conversionsValue!=null&&m.cost>0?m.conversionsValue/m.cost:null;return m;
 }
+const isFcProjectPmax=row=>String(row.campaignName||'').replace(/^(google|bing)-/i,'').trim().toLowerCase()==='fc27-pmax-coins-us';
 function gameProjection(source,accounts){
  if(source!=='ads')return scope.activePeriod.sources?.[source]?.games;
  const groups=new Map();for(const a of accounts)for(const c of a.calculation_campaigns||a.campaigns||[]){const game=c.game_mapping?.game||'UNKNOWN';if(!groups.has(game))groups.set(game,[]);groups.get(game).push(c);}
- return {status:accounts.length&&accounts.every(a=>a.campaign_calculation_complete)?'available':'partial',rows:[...groups].map(([game,items])=>({game,label:gameLabels[game]||game,metrics:sumAdsRows(items),row_count:items.length,basis:['广告系列映射']})).sort((a,b)=>(b.metrics?.cost||0)-(a.metrics?.cost||0))};
+ return {status:accounts.length&&accounts.every(a=>a.campaign_calculation_complete)?'available':'partial',rows:[...groups].map(([game,items])=>({game,label:game==='FC27'?'FC27专属平台指标':game==='GLOBAL'&&items.some(isFcProjectPmax)?'FC项目PMax（跨游戏指标）':gameLabels[game]||game,metrics:sumAdsRows(items),row_count:items.length,basis:[game==='GLOBAL'&&items.some(isFcProjectPmax)?'项目归FC；平台跨游戏，未分摊':'广告系列映射（平台范围）']})).sort((a,b)=>(b.metrics?.cost||0)-(a.metrics?.cost||0))};
 }
 function fullDetail(title,columns,rows,note){const box=el('article',null,'breakdown');box.append(el('h3',title));if(note)box.append(el('p',note,'coverage'));box.append(table(columns,rows||[]));return box;}
 function renderSourceBody(panel,p,site,source){
  const game=scope.trafficProject||'all',accounts=(p.adsAccounts||[]).filter(a=>site==='all'||a.brand===site);
  const s=p.sources?.[source];scope.activePeriod=p;
  const note=section('数据范围',p.start+' — '+p.end+' · '+(source==='ads'?'广告账号范围':'来源原生统计窗口'));
+ if(source==='ads')note.append(el('p','PMax-Coins-US归FC项目，实际FC订单及订单USD计入FC广告（展开经营关联读取）。Google跨游戏费用、转化、价值及ROAS单列，不能整条归FC；下方FC专属指标不含这部分跨游戏平台指标。','coverage'));
  note.append(el('p',source==='ads'?'广告归因不等于Admin实收；平台ROAS与订单规则归因回报分开。':'GA4按访问行为、GSC按自然搜索统计；不与订单拼成逐人转化漏斗。','coverage'));panel.append(note);
  if(site==='all'&&source!=='ads')note.append(el('p','当前仅MMOEXP已验证接通此来源；这里不代表全部卫星站合计。','coverage'));
  if(source!=='ads'&&site==='rsorder'){panel.append(section('该站点尚未接通 '+source.toUpperCase(),'RSOrder暂无此来源数据，不使用MMOEXP数据替代，也不填0。'));return;}
@@ -333,10 +335,11 @@ function renderSourceBody(panel,p,site,source){
  const left=fullDetail('各游戏表现',[{key:'label',label:'游戏'},...keys.map(metricCol),{key:'basis',label:'口径 / 线索',get:r=>(r.basis||[]).map(v=>({explicit_game_path:'游戏目录',news_slug_hint:'资讯标题线索（待核）',site_home:'站点首页',unmapped_page:'页面待映射'}[v]||v)).join(' · ')}],rows,'点击游戏查看右侧细分。'+(projection?'当前状态 '+projection.status+'；按已返回落地页/搜索页面或广告系列归类，缺失和跨游戏另列。':'游戏数据合同尚未接通，不能从Top榜推算完整游戏总量。'));
  left.querySelectorAll('tbody tr').forEach((tr,i)=>{if(!rows[i])return;const cell=tr.firstElementChild;cell.replaceChildren();const button=el('button',rows[i].label,'fs-btn');button.type='button';button.setAttribute('aria-pressed',String(game===rows[i].game));button.onclick=()=>{scope.trafficProject=rows[i].game;render(document.getElementById('marketing'),scope.model);};cell.append(button);});
  if(game!=='all'){const reset=el('button','查看全部游戏','fs-btn');reset.type='button';reset.onclick=()=>{scope.trafficProject='all';render(document.getElementById('marketing'),scope.model);};left.prepend(reset);}
- grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',(gameLabels[game]||game)+' · 深入查看'));
+ grid.append(left);const right=el('article',null,'breakdown');right.append(el('h3',((source==='ads'?rows.find(r=>r.game===game)?.label:gameLabels[game])||game)+' · 深入查看'));
  if(game==='all')right.append(el('p','选择左侧游戏，查看它的国家、渠道或广告系列。','coverage'));
  else if(source==='ads'){
   const selected=accounts.flatMap(a=>a.calculation_campaigns||a.campaigns||[]).filter(c=>(c.game_mapping?.game||'UNKNOWN')===game);
+  if(game==='FC27')right.append(fullDetail('PMax-Coins-US · FC项目 / 跨游戏平台指标',[{key:'campaignName',label:'广告系列'},...keys.map(metricCol)],accounts.flatMap(a=>a.calculation_campaigns||a.campaigns||[]).filter(isFcProjectPmax),'此行属于FC项目，但下列Google指标跨游戏，未并入FC专属小计。FC实际来源订单与金额已计广告，见经营关联；US不是客户实际国家。'));
   const countryGroups=new Map();for(const a of accounts)for(const r of a.countries?.rows||[]){if((r.game_mapping?.game||'UNKNOWN')!==game)continue;const key=r.country||('criterion:'+r.countryCriterionId);if(!countryGroups.has(key))countryGroups.set(key,[]);countryGroups.get(key).push(r);}
   const countries=[...countryGroups].map(([country,items])=>({country,metrics:sumAdsRows(items)})).sort((a,b)=>(b.metrics.cost||0)-(a.metrics.cost||0));
   right.append(fullDetail('实际用户国家',[{key:'country',label:'国家'},...keys.map(metricCol)],countries,'Google Ads user_location_view；未知国家保留来源ID。'+accounts.map(a=>a.label+' '+(a.countries?.status?.status||'未接通')).join(' · ')),fullDetail('广告系列',[{key:'campaignName',label:'广告系列'},...keys.map(metricCol)],selected,'系列国家后缀不作为实际国家；全局品牌费用不分摊。'));
