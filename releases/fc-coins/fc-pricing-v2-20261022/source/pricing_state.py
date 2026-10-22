@@ -76,11 +76,11 @@ def state(root=ROOT,owner=None):
     for path in sorted((root/'jobs').glob('*.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:120]:
         item=json.loads(path.read_text('utf-8'))
         if item.get('kind') not in {'auto_cycle','collect','execute','restore','recalculate','preview','hermes_review'}:continue
-        recent.append({k:item.get(k) for k in ('job_id','kind','actor','status','created_at','completed_at','error','error_detail','result','public_page_readback','cache_refresh','blocked_platforms')})
+        recent.append({k:item.get(k) for k in ('job_id','kind','actor','status','created_at','completed_at','error','error_detail','result','public_page_readback','cache_refresh','blocked_platforms','reconciliation')})
         if len(recent)>=30:break
     ready=bool(valid and quote['evidence']['promotion_envelope'].get('coupon_other_benefits_contract') in {'not_applicable','verified_mutually_exclusive','verified_included_in_envelope'})
     return dict(version=VERSION,observed_at=now.isoformat(),hard_minimum_margin_pct='10',
-                execution_ready=ready,execution_block_reason=None if ready else '报价过期或优惠券与VIP/积分叠加合同尚未核定，不能执行。',
+                execution_ready=ready,execution_block_reason=None if ready else ('本轮优惠适用合同未核定，不能执行。' if valid else reason+'，须重新采集核算，不能执行。'),
                 quote=quote,quote_usable=valid,quote_status=reason,recent=recent,hermes_review=owned_review(root,owner),
                 execution_authority='original_writer_locks_CAS_UNKNOWN_and_hard_floor',
                 effect_status='observation_required_not_a_causal_profit_claim')
