@@ -1,0 +1,701 @@
+{
+  "observed_at": "2026-10-22T23:22:42.057196+00:00",
+  "requested_audit": "2026-10-23 07:00 Asia/Shanghai",
+  "rules": "v15_dual_floors",
+  "activity": {
+    "source": "346cce9ac7c476b639a79d7c8071b2e7296d9aae",
+    "compared": 185,
+    "drift": []
+  },
+  "baseline": {
+    "version": "business-baseline-20261021-v15",
+    "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+  },
+  "policy": {
+    "revision": 40,
+    "system_enabled": true,
+    "mode": "auto",
+    "interval_minutes": 120,
+    "minimum_gross_margin_pct": "10"
+  },
+  "health": {
+    "queue_depth": 0,
+    "incomplete_executions": 0,
+    "automation_timer": "active"
+  },
+  "next_cycle": "2026-10-23T00:46:33.078458+00:00",
+  "current_prices": {
+    "unit": "USD / 100K + 5K",
+    "PS": "9.84",
+    "XBOX": "9.84",
+    "PC": "8.68",
+    "new_execution": false,
+    "last_execution": "0af419f6-ef46-4af5-bf8d-8984e003c515"
+  },
+  "cycles": [
+    {
+      "job_id": "9ec78f94-ab23-4ffb-876d-98b1bd2470c2",
+      "started_at": "2026-10-22T22:43:27.553960+00:00",
+      "completed_at": "2026-10-22T22:46:33.078458+00:00",
+      "status": "ready",
+      "result": {
+        "run_id": "9ec78f94-ab23-4ffb-876d-98b1bd2470c2",
+        "quote_status": "ready_for_preview",
+        "status": "no_price_change",
+        "platforms": [],
+        "unchanged_platforms": [
+          "PS",
+          "XBOX",
+          "PC"
+        ],
+        "blocked_platforms": {}
+      },
+      "error": null,
+      "previews": [
+        {
+          "id": "1b353997-45bf-4017-9ca1-297fe93c488b",
+          "created_at": "2026-10-22T22:46:30.882731+00:00",
+          "status": "review_only",
+          "backend": {
+            "PS": "0.0984",
+            "XBOX": "0.0984",
+            "PC": "0.0868"
+          }
+        }
+      ],
+      "execution_ids": []
+    },
+    {
+      "job_id": "8044ad55-9239-4c5a-8d1b-bde0e3a5bbef",
+      "started_at": "2026-10-22T20:39:27.966733+00:00",
+      "completed_at": "2026-10-22T20:43:25.091615+00:00",
+      "status": "ready",
+      "result": {
+        "run_id": "8044ad55-9239-4c5a-8d1b-bde0e3a5bbef",
+        "quote_status": "ready_for_preview",
+        "status": "no_price_change",
+        "platforms": [],
+        "unchanged_platforms": [
+          "PS",
+          "XBOX",
+          "PC"
+        ],
+        "blocked_platforms": {}
+      },
+      "error": null,
+      "previews": [
+        {
+          "id": "f1b3756c-1c48-4fd2-bfd1-1f9a9820da2c",
+          "created_at": "2026-10-22T20:43:15.595525+00:00",
+          "status": "review_only",
+          "backend": {
+            "PS": "0.0984",
+            "XBOX": "0.0984",
+            "PC": "0.0868"
+          }
+        }
+      ],
+      "execution_ids": []
+    },
+    {
+      "job_id": "83bd81bf-faaf-461e-bdf8-cd2265e3219e",
+      "started_at": "2026-10-22T18:35:34.983373+00:00",
+      "completed_at": "2026-10-22T18:38:38.972954+00:00",
+      "status": "ready",
+      "result": {
+        "run_id": "83bd81bf-faaf-461e-bdf8-cd2265e3219e",
+        "quote_status": "ready_for_preview",
+        "status": "no_price_change",
+        "platforms": [],
+        "unchanged_platforms": [
+          "PS",
+          "XBOX",
+          "PC"
+        ],
+        "blocked_platforms": {}
+      },
+      "error": null,
+      "previews": [
+        {
+          "id": "8047e8e7-a037-4a88-b51b-3f7d51d3e1aa",
+          "created_at": "2026-10-22T18:38:36.478770+00:00",
+          "status": "review_only",
+          "backend": {
+            "PS": "0.0984",
+            "XBOX": "0.0984",
+            "PC": "0.0868"
+          }
+        }
+      ],
+      "execution_ids": []
+    },
+    {
+      "job_id": "8391d438-27cf-42d6-bf29-3ed0253de7f5",
+      "started_at": "2026-10-22T16:33:38.138855+00:00",
+      "completed_at": "2026-10-22T16:35:28.815525+00:00",
+      "status": "ready",
+      "result": {
+        "run_id": "8391d438-27cf-42d6-bf29-3ed0253de7f5",
+        "quote_status": "ready_for_preview",
+        "status": "no_price_change",
+        "platforms": [],
+        "unchanged_platforms": [
+          "PS",
+          "XBOX",
+          "PC"
+        ],
+        "blocked_platforms": {}
+      },
+      "error": null,
+      "previews": [
+        {
+          "id": "6b66e82f-56af-4ef0-b6fe-fd6b60f8e2ae",
+          "created_at": "2026-10-22T16:35:26.649938+00:00",
+          "status": "review_only",
+          "backend": {
+            "PS": "0.0984",
+            "XBOX": "0.0984",
+            "PC": "0.0868"
+          }
+        }
+      ],
+      "execution_ids": []
+    }
+  ],
+  "models": [
+    {
+      "job": "9ec78f94-ab23-4ffb-876d-98b1bd2470c2",
+      "task": "cee1ee889477196c34b82a13002ac4a8",
+      "state": "completed",
+      "error": null,
+      "provider_responses": 8,
+      "high_verified": true,
+      "tool_count": 13,
+      "knowledge": "learning-3fd98da6caffbc5589c37b5c3a206df203e179cfb29cfd419decd57f1c30d4ce"
+    },
+    {
+      "job": "8044ad55-9239-4c5a-8d1b-bde0e3a5bbef",
+      "task": "7ce3d23c9192164295fbaae5228a0017",
+      "state": "completed",
+      "error": null,
+      "provider_responses": 16,
+      "high_verified": true,
+      "tool_count": 21,
+      "knowledge": "learning-99e5e4a95a9d5b9cfcbcbe1caf2129b40200419d2b6cd05750704ce9ebecbcf9"
+    },
+    {
+      "job": "83bd81bf-faaf-461e-bdf8-cd2265e3219e",
+      "task": "9556657329a28c18e586e859df774ec5",
+      "state": "completed",
+      "error": null,
+      "provider_responses": 8,
+      "high_verified": true,
+      "tool_count": 16,
+      "knowledge": "learning-99e5e4a95a9d5b9cfcbcbe1caf2129b40200419d2b6cd05750704ce9ebecbcf9"
+    },
+    {
+      "job": "8391d438-27cf-42d6-bf29-3ed0253de7f5",
+      "task": null,
+      "state": "failed",
+      "error": null
+    }
+  ],
+  "proof": {
+    "window": [
+      "2026-10-16",
+      "2026-10-22"
+    ],
+    "recognized_eligible_paid": 2210,
+    "discount_covered": 2210,
+    "net_usd": "141396.67",
+    "discount_usd": "12460.10",
+    "retention": "0.9190149383741774898823106712",
+    "unclassified_fc": 195,
+    "scope": "recognized samples, not complete all-FC population or platform history",
+    "undiscounted_pct": {
+      "console": "31.71494",
+      "PC": "27.99003"
+    },
+    "estimated_average_pct": {
+      "console": "25.69755",
+      "PC": "21.64440"
+    },
+    "core": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb"
+  },
+  "model_failures": {
+    "failed_before_model": "8391d438-27cf-42d6-bf29-3ed0253de7f5; no task/run/events; original exception unknown; not replayed",
+    "break_even": "Latest reply used undiscounted GP and 1.37x for 9.84 -> 9.00. Under same R and current 105K cost, retained GP2.3238570494 ->1.5518845012USD; fixed total Ads conditional ratio1.4974420117. Not demand prediction.",
+    "pmax": "PMax-Coins-US belongs to FC; platform attributed value still is not reconciled Coins/order income.",
+    "other": "Unsupported fixed price counterexamples; UTC/Beijing display; old all-Coins GP is not support for current price effect."
+  },
+  "business": {
+    "admin_snapshot_at": "2026-10-22T23:08:49.061442+00:00",
+    "cost_captured_at": "2026-10-23T07:13:01.460874+08:00",
+    "cost_cutoff": "2026-10-23 07:10 Asia/Shanghai",
+    "time_basis": "Admin same displayed paytime clock; timezone not independently verified; CNY frozen at original07:08 read",
+    "cohorts": [
+      {
+        "day": "2026-10-23",
+        "label": "early_morning_same_clock",
+        "start": "00:00:00",
+        "end": "06:59:59",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 131,
+          "valid_orders": 127,
+          "completed_orders": 93,
+          "pending_orders": 34,
+          "covered_orders": 92,
+          "uncovered_completed_orders": 1,
+          "valid_usd": "8880.18",
+          "covered_income_cny": "46351.02",
+          "covered_cost_cny": "33573.21",
+          "covered_gp_cny": "12777.81",
+          "covered_margin_pct": "27.56748395180947474295064057",
+          "mixed_line_orders": 1,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {
+            "已退款·其他原因 / pay=2": 3,
+            "已退款·验证未通过 / pay=2": 1
+          },
+          "by_platform": {
+            "PS": {
+              "valid_orders": 74,
+              "completed_orders": 51,
+              "covered_orders": 50,
+              "valid_usd": "6037.58",
+              "covered_income_cny": "29073.40",
+              "covered_cost_cny": "20760.71",
+              "covered_gp_cny": "8312.69",
+              "covered_margin_pct": "28.59208073359153040236092098"
+            },
+            "XBOX": {
+              "valid_orders": 33,
+              "completed_orders": 25,
+              "covered_orders": 25,
+              "valid_usd": "1733.19",
+              "covered_income_cny": "10054.73",
+              "covered_cost_cny": "6889.70",
+              "covered_gp_cny": "3165.03",
+              "covered_margin_pct": "31.47802079220426605189796245"
+            },
+            "PC": {
+              "valid_orders": 20,
+              "completed_orders": 17,
+              "covered_orders": 17,
+              "valid_usd": "1109.41",
+              "covered_income_cny": "7222.89",
+              "covered_cost_cny": "5922.8",
+              "covered_gp_cny": "1300.09",
+              "covered_margin_pct": "17.99958188481341955920691025"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-22",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 26,
+          "valid_orders": 26,
+          "completed_orders": 25,
+          "pending_orders": 1,
+          "covered_orders": 25,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "1644.25",
+          "covered_income_cny": "10318.21",
+          "covered_cost_cny": "7752.08",
+          "covered_gp_cny": "2566.13",
+          "covered_margin_pct": "24.86991445221603359497432210",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 18,
+              "completed_orders": 17,
+              "covered_orders": 17,
+              "valid_usd": "1322.03",
+              "covered_income_cny": "8161.69",
+              "covered_cost_cny": "5865.22",
+              "covered_gp_cny": "2296.47",
+              "covered_margin_pct": "28.13718727371414498712889120"
+            },
+            "XBOX": {
+              "valid_orders": 2,
+              "completed_orders": 2,
+              "covered_orders": 2,
+              "valid_usd": "15.62",
+              "covered_income_cny": "104.54",
+              "covered_cost_cny": "70.86",
+              "covered_gp_cny": "33.68",
+              "covered_margin_pct": "32.21733307824756074229959824"
+            },
+            "PC": {
+              "valid_orders": 6,
+              "completed_orders": 6,
+              "covered_orders": 6,
+              "valid_usd": "306.60",
+              "covered_income_cny": "2051.98",
+              "covered_cost_cny": "1816.0",
+              "covered_gp_cny": "235.98",
+              "covered_margin_pct": "11.50011208686244505307069270"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-22",
+        "label": "longer_unchanged_price_window",
+        "start": "16:21:28",
+        "end": "20:26:54",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 60,
+          "valid_orders": 59,
+          "completed_orders": 53,
+          "pending_orders": 6,
+          "covered_orders": 53,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "3328.89",
+          "covered_income_cny": "20811.76",
+          "covered_cost_cny": "15317.49",
+          "covered_gp_cny": "5494.27",
+          "covered_margin_pct": "26.39983355564353999853928740",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {
+            "已退款·其他原因 / pay=2": 1
+          },
+          "by_platform": {
+            "PS": {
+              "valid_orders": 43,
+              "completed_orders": 40,
+              "covered_orders": 40,
+              "valid_usd": "2832.55",
+              "covered_income_cny": "17827.09",
+              "covered_cost_cny": "12854.78",
+              "covered_gp_cny": "4972.31",
+              "covered_margin_pct": "27.89187691316978822679416551"
+            },
+            "XBOX": {
+              "valid_orders": 6,
+              "completed_orders": 4,
+              "covered_orders": 4,
+              "valid_usd": "114.32",
+              "covered_income_cny": "490.31",
+              "covered_cost_cny": "314.71",
+              "covered_gp_cny": "175.60",
+              "covered_margin_pct": "35.81407680854969305133486978"
+            },
+            "PC": {
+              "valid_orders": 10,
+              "completed_orders": 9,
+              "covered_orders": 9,
+              "valid_usd": "382.02",
+              "covered_income_cny": "2494.36",
+              "covered_cost_cny": "2148.0",
+              "covered_gp_cny": "346.36",
+              "covered_margin_pct": "13.88572619830337240815279270"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-22",
+        "label": "early_morning_same_clock",
+        "start": "00:00:00",
+        "end": "06:59:59",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 105,
+          "valid_orders": 102,
+          "completed_orders": 90,
+          "pending_orders": 12,
+          "covered_orders": 89,
+          "uncovered_completed_orders": 1,
+          "valid_usd": "6570.44",
+          "covered_income_cny": "42067.67",
+          "covered_cost_cny": "31050.44",
+          "covered_gp_cny": "11017.23",
+          "covered_margin_pct": "26.18930404274826725606623804",
+          "mixed_line_orders": 1,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {
+            "已退款·其他原因 / pay=2": 3
+          },
+          "by_platform": {
+            "PS": {
+              "valid_orders": 62,
+              "completed_orders": 54,
+              "covered_orders": 54,
+              "valid_usd": "4251.39",
+              "covered_income_cny": "27238.66",
+              "covered_cost_cny": "19967.91",
+              "covered_gp_cny": "7270.75",
+              "covered_margin_pct": "26.69275948229465032420831274"
+            },
+            "XBOX": {
+              "valid_orders": 10,
+              "completed_orders": 9,
+              "covered_orders": 8,
+              "valid_usd": "425.85",
+              "covered_income_cny": "2491.62",
+              "covered_cost_cny": "1734.58",
+              "covered_gp_cny": "757.04",
+              "covered_margin_pct": "30.38344530867467751904383493"
+            },
+            "PC": {
+              "valid_orders": 30,
+              "completed_orders": 27,
+              "covered_orders": 27,
+              "valid_usd": "1893.20",
+              "covered_income_cny": "12337.39",
+              "covered_cost_cny": "9347.95",
+              "covered_gp_cny": "2989.44",
+              "covered_margin_pct": "24.23073275627989388355235589"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-21",
+        "label": "existing_1621_price_window",
+        "start": "16:21:28",
+        "end": "18:21:26",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 23,
+          "valid_orders": 23,
+          "completed_orders": 21,
+          "pending_orders": 2,
+          "covered_orders": 21,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "1557.99",
+          "covered_income_cny": "10250.81",
+          "covered_cost_cny": "7676.17",
+          "covered_gp_cny": "2574.64",
+          "covered_margin_pct": "25.11645421191105873584624044",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 11,
+              "completed_orders": 9,
+              "covered_orders": 9,
+              "valid_usd": "609.52",
+              "covered_income_cny": "3902.99",
+              "covered_cost_cny": "2699.25",
+              "covered_gp_cny": "1203.74",
+              "covered_margin_pct": "30.84148306810932131519681065"
+            },
+            "XBOX": {
+              "valid_orders": 4,
+              "completed_orders": 4,
+              "covered_orders": 4,
+              "valid_usd": "495.55",
+              "covered_income_cny": "3316.57",
+              "covered_cost_cny": "2362.50",
+              "covered_gp_cny": "954.07",
+              "covered_margin_pct": "28.76676807665751062091256931"
+            },
+            "PC": {
+              "valid_orders": 8,
+              "completed_orders": 8,
+              "covered_orders": 8,
+              "valid_usd": "452.92",
+              "covered_income_cny": "3031.25",
+              "covered_cost_cny": "2614.42",
+              "covered_gp_cny": "416.83",
+              "covered_margin_pct": "13.75109278350515463917525773"
+            }
+          }
+        }
+      },
+      {
+        "day": "2026-10-21",
+        "label": "longer_unchanged_price_window",
+        "start": "16:21:28",
+        "end": "20:26:54",
+        "source_complete": true,
+        "summary": {
+          "all_paid_time_orders": 51,
+          "valid_orders": 51,
+          "completed_orders": 48,
+          "pending_orders": 3,
+          "covered_orders": 48,
+          "uncovered_completed_orders": 0,
+          "valid_usd": "3322.59",
+          "covered_income_cny": "22031.96",
+          "covered_cost_cny": "17040.72",
+          "covered_gp_cny": "4991.24",
+          "covered_margin_pct": "22.65454367201102398515610958",
+          "mixed_line_orders": 0,
+          "multi_platform_orders": 0,
+          "excluded_statuses": {},
+          "by_platform": {
+            "PS": {
+              "valid_orders": 32,
+              "completed_orders": 30,
+              "covered_orders": 30,
+              "valid_usd": "1951.44",
+              "covered_income_cny": "12884.05",
+              "covered_cost_cny": "9755.00",
+              "covered_gp_cny": "3129.05",
+              "covered_margin_pct": "24.28622987337056282768228934"
+            },
+            "XBOX": {
+              "valid_orders": 8,
+              "completed_orders": 8,
+              "covered_orders": 8,
+              "valid_usd": "706.90",
+              "covered_income_cny": "4731.07",
+              "covered_cost_cny": "3450.30",
+              "covered_gp_cny": "1280.77",
+              "covered_margin_pct": "27.07146586290204964204714790"
+            },
+            "PC": {
+              "valid_orders": 11,
+              "completed_orders": 10,
+              "covered_orders": 10,
+              "valid_usd": "664.25",
+              "covered_income_cny": "4416.84",
+              "covered_cost_cny": "3835.42",
+              "covered_gp_cny": "581.42",
+              "covered_margin_pct": "13.16370980157759846406027839"
+            }
+          }
+        }
+      }
+    ],
+    "accounting_rule_check": {
+      "source": {
+        "status": "available",
+        "source": "用户确认的历史零成本商品与测试单",
+        "orders": 6,
+        "testOrders": 1,
+        "sourceVersion": "e3af7714be5155d72fa9567b19e0a1f9a983e952e5e4a241f3723709542225ec"
+      },
+      "test_overlap": 0,
+      "zero_override_overlap": 0
+    },
+    "quantity_diagnostics": [
+      {
+        "day": "2026-10-23",
+        "completed": 93,
+        "uncovered_reasons": {
+          "mixed_product_order": 1
+        },
+        "quantities": [
+          {
+            "platform": "PS",
+            "orders": 50,
+            "delivery_rows": 50,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "XBOX",
+            "orders": 25,
+            "delivery_rows": 25,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "PC",
+            "orders": 17,
+            "delivery_rows": 17,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          }
+        ]
+      },
+      {
+        "day": "2026-10-22",
+        "completed": 90,
+        "uncovered_reasons": {
+          "mixed_product_order": 1
+        },
+        "quantities": [
+          {
+            "platform": "PS",
+            "orders": 54,
+            "delivery_rows": 54,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "XBOX",
+            "orders": 8,
+            "delivery_rows": 8,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "PC",
+            "orders": 27,
+            "delivery_rows": 27,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          }
+        ]
+      }
+    ],
+    "limitations": [
+      "Exact PID rows replace stale ES identity for this bounded read only; no permanent FS source fix claimed.",
+      "Admin local paytime timezone remains unverified; same displayed clock is descriptive and not a fully proved exposure join.",
+      "Completed covered single-line single-platform order cohort only; uncompleted, uncosted and mixed rows are separate and never zero-filled.",
+      "Whole-order actual net Admin CNY minus original linked delivery cost; no repeat discount or exchange-rate reconciliation.",
+      "Fresh morning comparison re-freezes Admin CNY at this read; it is not a pure late-cost update to the prior 18:34 or 22:47 FX snapshot. Costs come directly from existing global delivery index, not stale cached order membership. Delivered K, current real promotion mix, refunds final settlement, same-Coins traffic and Ads allocation remain incomplete; no causal price effect or net-profit claim.",
+      "Historical and today status maturity differ. Short-window counts cannot establish demand elasticity.",
+      "Costs joined directly from existing validated global delivery index, including orders absent in stale day revenue cache. No new Order query or collector.",
+      "Matched archived delivery costs are not proof of final refund settlement or absence of later delivery costs beyond each source cutoff."
+    ]
+  },
+  "actions": {
+    "new_price_collection": false,
+    "price_write": false,
+    "new_model": false,
+    "cache_clear": false,
+    "production_code_deployment": false,
+    "normal_existing_fs_day_query": true,
+    "monitor_only_manifest_overlay": true,
+    "automation_restored": true
+  },
+  "evidence": {
+    "original_cycles": "/tmp/fc-pricing-v2-20261022/morning-20261023/original-cycles-230520-private.json",
+    "model_audits": "/tmp/fc-pricing-v2-20261022/morning-20261023/model-audits-230737-private.json",
+    "cost_join": "/tmp/fc-pricing-v2-20261022/morning-delivery-join-231921-private.json",
+    "monitor": "/tmp/fc-pricing-v2-20261022/monitor/2026-10-23/232242Z-private.json",
+    "source_refresh": "/tmp/fc-pricing-v2-20261022/morning-20261023/existing-channel-231421-private.json",
+    "overlay": "/tmp/fc-pricing-v2-20261022/morning-20261023/monitor-overlay-result.json"
+  }
+}
