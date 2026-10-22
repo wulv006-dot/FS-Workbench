@@ -1,112 +1,5218 @@
 {
- "schema": 1,
- "run_id": "20261022T074356Z-6f2d9c1a",
- "base_sha256": "70db24939c495835e837cd36d8af011bfe08f75094728545ae06952a276a6411",
- "updates": {
-  "maplestory": {
-   "game": {
-    "key": "maplestory",
-    "name_en": "MapleStory",
-    "name_cn": "《冒险岛》",
-    "tier": "A",
-    "owner": "刘乐",
-    "group": "综合",
-    "developer": "Nexon",
-    "publisher": "Nexon",
-    "platforms": [
-     "PC"
-    ],
-    "monetization": [
-     "免费游玩（F2P）+ 游戏内购/现金商城"
-    ],
-    "services": [
-     "金币（Meso）",
-     "账号",
-     "代练（升级/Boss/联盟）",
-     "装备道具",
-     "NX 代充"
-    ],
-    "key_services": [
-     "金币（Meso）",
-     "账号",
-     "代练"
-    ],
-    "intro": "Nexon 2D 横版卷轴 MMO，正式服（GMS）长期运营，当前 v271（芙莉莲联动），11 月 v272 主版本 PTS 于 10/29 开跑；Classic World 怀旧服 2026-10-21 18:00 UTC 全球开服，Lv100 封顶、四职业两转、六个 Boss。F2P + NX 现金商城。经营重点是 Classic 首月的 Meso/账号/代练供给，与正式服 Heroic/Interactive 分区跟价并行。",
-    "cover_url": "assets/covers/maplestory.jpg",
-    "asset_urls": [
-     "https://www.nexon.com/maplestory/news/update/3",
-     "https://maplestory.nexon.com"
-    ],
-    "official_site": "https://maplestory.nexon.com",
-    "events": [
-     {
-      "title": "Classic World 创始人通道（Founder's Access）",
-      "type": "抢先体验",
-      "date": "2026-10-06",
-      "end_date": null,
-      "version_type": "Global MapleStory Classic World（抢先体验）",
-      "platform": "PC",
-      "estimated": false,
-      "detail": "10/06 11:00 PDT 开放创始人通道；创始人包分 Snail / Orange Mushroom / Zakum 三档，10/14 23:59 PDT 停售，道具须在 11/30 23:59 UTC 前于游戏内邮箱领取。官方 FAQ：https://www.nexon.com/maplestory/news/general/45385/global-maple-story-classic-world-faq",
-      "source": "https://www.nexon.com/maplestory/news/general/45385/global-maple-story-classic-world-faq"
-     },
-     {
-      "title": "Classic World 全球开服（Grand Launch）",
-      "type": "上线",
-      "date": "2026-10-21",
-      "end_date": null,
-      "version_type": "Global MapleStory Classic World（Lv100 / 二转版本）",
-      "platform": "PC",
-      "estimated": false,
-      "detail": "10/21 11:00 PDT（18:00 UTC）全球开服，Nexon Launcher 与 Steam 双端；Lv10 一转 Warrior/Magician/Bowman/Thief，Lv30 二转十条分支，等级上限 Lv100；开放六个 Boss（Mano/Stumpy/Mushmom/Shade/Zombie Mushmom/Jr. Balrog）与 Kerning City PQ；Forgotten Hollow 11 月开放。新账号交易需角色达 Lv15 后再等 24 小时。官方公告：https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
-      "source": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes"
-     },
-     {
-      "title": "GMS v272 公开测试（PTS）",
-      "type": "测试",
-      "date": "2026-10-29",
-      "end_date": "2026-11-01",
-      "version_type": "GMS v272（11 月主版本，正式日期未公布）",
-      "platform": "PC",
-      "estimated": false,
-      "detail": "官方公告：v272 为 11 月主版本，PTS 于 10/29–11/01 开放，报名截至 10/21 16:00 PT；部分内容已在 10/17 MapleStory Fest 预告。正式上线日期官方尚未公布，不预设日期。来源：https://www.nexon.com/maplestory/news/general/45500",
-      "source": "https://www.nexon.com/maplestory/news/general/45500"
-     },
-     {
-      "title": "创始人包游戏内领取截止",
-      "type": "节点",
-      "date": "2026-11-30",
-      "end_date": null,
-      "version_type": "Classic World 创始人包",
-      "platform": "PC",
-      "estimated": false,
-      "detail": "创始人包道具须在 2026-11-30 23:59 UTC 前从游戏内邮箱领取，过期失效；领取后 30 天内开启。来源同官方 Classic World FAQ。",
-      "source": "https://www.nexon.com/maplestory/news/general/45385/global-maple-story-classic-world-faq"
-     }
-    ],
-    "cover_remote": " ",
-    "icon": "🍄",
-    "platform_pricing": {
-     "note": "F2P；现金商城用 NX，Classic World 与正式服共享 NX 余额，Classic 另有 Leaf Points，Maple Points 不跨到 Classic。Classic World 客户端（2026-10-21 Grand Launch 版）支持 Windows 与 macOS；正式服平台另行核对。正式服 Heroic 服装备不可交易、无 Auction House/Meso Market，Interactive 服可交易。",
-     "rows": [
-      {
-       "p": "PC",
-       "price": "免费"
+  "schema": 1,
+  "run_id": "20261022T101258Z-75f243d7",
+  "base_sha256": "2d9b5e039e163f7632dad9e6f26479f4ec9701c93d5bc77ecbfc99028ad800c7",
+  "updates": {
+    "ea-sports-fc": {
+      "playbook": {
+        "overview": "足球模拟与阵容收集并行；Ultimate Team、Career 与 Clubs 是不同进度线，不能把单机阵容当可交易卡。 本页按模式、地区和版本核对资料，经营需求只作判断，实际成交与可售范围仍以现有业务证据为准。",
+        "core": "选模式与平台→踢比赛或完成目标→获得奖励→在 Ultimate Team 调整球员、化学反应与战术→继续对局；Career 和 Clubs 的角色成长另算。 先认清角色、装备或阵容的用途，再看成长资源如何消耗；付费内容与玩家间交易不是同一机制，不能用商城存在推定现金交易获准。FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+        "tips": [
+          "〔Hermes经营草稿·待运营确认〕先核对 FC27主机/PC；FC26仅历史对照，Mobile分开，围绕 SBC、Objectives 与 Evolution 分类资料；旧版与新版本不能共用卡牌、技能或交付描述。",
+          "〔Hermes经营草稿·待运营确认〕把 FUT Coins / FC Points；金币与付费点数不互换概念 分开解释；只在已确认的现有服务范围内处理需求，不把攻略建议变成新业务规则。",
+          "〔Hermes经营草稿·待运营确认〕用官方公告核对 SBC、Objectives 与 Evolution 的变化；没有新事实时保留本静态基线，截图出处见玩法说明。"
+        ],
+        "gallery": [
+          "assets/ea-sports-fc/fc27_hero_wide.jpg",
+          "assets/ea-sports-fc/fc27_banner_wide.jpg",
+          "assets/ea-sports-fc/fc27_scene_war.jpg",
+          "assets/covers/ea-sports-fc.jpg"
+        ],
+        "biz": [
+          {
+            "name": "货币与材料",
+            "star": 3,
+            "type": "需求研究",
+            "focus": true,
+            "desc": "〔Hermes经营草稿·待运营确认〕EA SPORTS FC：FUT Coins / FC Points；金币与付费点数不互换概念。区分获得、消耗、绑定与流通；付费货币不等于可交付金币。",
+            "why": "判断：FUT Coins / FC Points；金币与付费点数不互换概念 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 FC27主机/PC；FC26仅历史对照，Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 SBC、Objectives 与 Evolution 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-fc/fc-27"
+              ]
+            ]
+          },
+          {
+            "name": "装备与阵容",
+            "star": 3,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕EA SPORTS FC：前锋 / 中场。先按模式、卡版或装备条件匹配用途，检查是否可交易。",
+            "why": "判断：前锋 / 中场 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 FC27主机/PC；FC26仅历史对照，Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 SBC、Objectives 与 Evolution 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-fc/fc-27"
+              ]
+            ]
+          },
+          {
+            "name": "成长与进度",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕EA SPORTS FC：SBC、Objectives 与 Evolution。将目标拆成可核验里程碑；账号共享与代练限制须查对应官方条款。",
+            "why": "判断：SBC、Objectives 与 Evolution 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 FC27主机/PC；FC26仅历史对照，Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 SBC、Objectives 与 Evolution 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-fc/fc-27"
+              ]
+            ]
+          },
+          {
+            "name": "版本与服务说明",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕EA SPORTS FC：FC27主机/PC；FC26仅历史对照，Mobile分开。先解释版本差异和售后边界，未上线与旧版不作当前可售承诺。",
+            "why": "判断：FC27主机/PC；FC26仅历史对照，Mobile分开 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 FC27主机/PC；FC26仅历史对照，Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 SBC、Objectives 与 Evolution 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-fc/fc-27"
+              ]
+            ]
+          }
+        ],
+        "dept": [
+          [
+            "产品",
+            "〔Hermes经营草稿·待运营确认〕整理 FC27主机/PC；FC26仅历史对照，Mobile分开 与 FUT Coins / FC Points；金币与付费点数不互换概念 的现有商品说明；缺少可交付证据的条目只保留需求研究。"
+          ],
+          [
+            "设计",
+            "〔Hermes经营草稿·待运营确认〕用 EA SPORTS FC 官方图库做内部说明，明确 既有官方图片资产，沿原出处保留，不用不同版本画面证明当前能力。"
+          ],
+          [
+            "引流",
+            "〔Hermes经营草稿·待运营确认〕围绕 SBC、Objectives 与 Evolution 写版本分区的入门内容，先解决术语与玩法问题，不编造搜索量。"
+          ],
+          [
+            "投放",
+            "〔Hermes经营草稿·待运营确认〕先用 Ultimate Team、FUT Coins 区分玩家意图；预算和素材须沿原审批与平台规则。"
+          ],
+          [
+            "私域",
+            "〔Hermes经营草稿·待运营确认〕按 FC27主机/PC；FC26仅历史对照，Mobile分开 记录玩家问题，将 SBC、Objectives 与 Evolution 变更做本地知识更新，不自动发送群消息。"
+          ],
+          [
+            "邮件",
+            "〔Hermes经营草稿·待运营确认〕整理 EA SPORTS FC 的版本差异与常见疑问；实际邮件发送仍按已有授权，不把本草稿当发送指令。"
+          ],
+          [
+            "广告",
+            "〔Hermes经营草稿·待运营确认〕核 FUT Coins / FC Points；金币与付费点数不互换概念 的用词和规则，移除防封、官方授权及未经证实的价格优势承诺。"
+          ],
+          [
+            "技术",
+            "〔Hermes经营草稿·待运营确认〕确保 EA SPORTS FC 的游戏key、来源日期和版本一致；沿现有CI、备份和受控发布，不新增业务writer。"
+          ],
+          [
+            "生产",
+            "〔Hermes经营草稿·待运营确认〕按 前锋、中场 及 SBC、Objectives 与 Evolution 列验收目标；交付能力、时效与成本仍须实际核定。"
+          ]
+        ]
+      },
+      "tools": {
+        "tools": [
+          {
+            "name": "futbin.com",
+            "url": "https://www.futbin.com",
+            "host": "www.futbin.com",
+            "tag": "工具",
+            "title": "futbin.com",
+            "sub": "定价与行情雷达，玩家第一聚集地",
+            "visits": null,
+            "img": "",
+            "points": [
+              "定价与行情雷达，玩家第一聚集地",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "fut.gg",
+            "url": "https://www.fut.gg",
+            "host": "www.fut.gg",
+            "tag": "工具",
+            "title": "fut.gg",
+            "sub": "后起之秀，价格走势直逼FUTBIN",
+            "visits": null,
+            "img": "",
+            "points": [
+              "后起之秀，价格走势直逼FUTBIN",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "futwiz.com",
+            "url": "https://www.futwiz.com",
+            "host": "www.futwiz.com",
+            "tag": "工具",
+            "title": "futwiz.com",
+            "sub": "传统球员库参考",
+            "visits": null,
+            "img": "",
+            "points": [
+              "传统球员库参考",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "Futhead",
+            "url": "https://www.futhead.com",
+            "host": "www.futhead.com",
+            "tag": "工具",
+            "title": "Futhead",
+            "sub": "老牌球员卡库，社区互动强",
+            "visits": null,
+            "img": "",
+            "points": [
+              "老牌球员卡库，社区互动强",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "FIFA Index",
+            "url": "https://www.fifaindex.com",
+            "host": "www.fifaindex.com",
+            "tag": "工具",
+            "title": "FIFA Index",
+            "sub": "非UT向，洗号/成品号用户重合",
+            "visits": null,
+            "img": "",
+            "points": [
+              "非UT向，洗号/成品号用户重合",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方资料入口",
+            "url": "https://www.ea.com/games/ea-sports-fc/fc-27",
+            "host": "www.ea.com",
+            "tag": "官方",
+            "title": "官方资料入口",
+            "sub": "FC27主机/PC；FC26仅历史对照，Mobile分开",
+            "visits": null,
+            "img": "",
+            "points": [
+              "FC27主机/PC；FC26仅历史对照，Mobile分开",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方商店说明",
+            "url": "https://store.steampowered.com/app/4080220/",
+            "host": "store.steampowered.com",
+            "tag": "商店",
+            "title": "官方商店说明",
+            "sub": "玩法、系统需求与开发者图库",
+            "visits": null,
+            "img": "",
+            "points": [
+              "玩法、系统需求与开发者图库",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "开发者公告",
+            "url": "https://steamcommunity.com/app/4080220/announcements/",
+            "host": "steamcommunity.com",
+            "tag": "公告",
+            "title": "开发者公告",
+            "sub": "Steam开发者公告；社区回复不等于官方事实",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam开发者公告；社区回复不等于官方事实",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "平台支持",
+            "url": "https://help.steampowered.com/en/wizard/HelpWithGame/?appid=4080220",
+            "host": "help.steampowered.com",
+            "tag": "支持",
+            "title": "平台支持",
+            "sub": "Steam对应产品支持入口",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam对应产品支持入口",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ],
+        "wikis": [
+          {
+            "name": "参考资料 1",
+            "url": "https://www.futbin.com/",
+            "host": "www.futbin.com",
+            "tag": "资料",
+            "title": "参考资料 1",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "参考资料 2",
+            "url": "https://www.futwiz.com/",
+            "host": "www.futwiz.com",
+            "tag": "资料",
+            "title": "参考资料 2",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "classes": [
+          {
+            "e": "📖",
+            "cn": "前锋",
+            "en": "Striker",
+            "diff": 3,
+            "role": "跑位与终结，围绕ST位置适配阵型",
+            "core": [
+              "跑位与终结，围绕ST位置适配阵型"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "孤立接球易丢失球权"
+          },
+          {
+            "e": "📖",
+            "cn": "中场",
+            "en": "Midfielder",
+            "diff": 3,
+            "role": "连接攻防，区分持球推进与防守覆盖",
+            "core": [
+              "连接攻防，区分持球推进与防守覆盖"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "职责过多会破坏阵型"
+          },
+          {
+            "e": "📖",
+            "cn": "后卫",
+            "en": "Defender",
+            "diff": 3,
+            "role": "控制防线与拦截线路",
+            "core": [
+              "控制防线与拦截线路"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "盲目上抢暴露纵深"
+          },
+          {
+            "e": "📖",
+            "cn": "门将",
+            "en": "Goalkeeper",
+            "diff": 3,
+            "role": "守门与出球，属于阵容位置而非RPG职业",
+            "core": [
+              "守门与出球，属于阵容位置而非RPG职业"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "不能用门将评分替代实际适配"
+          }
+        ],
+        "clsDocs": [
+          {
+            "e": "📖",
+            "cn": "前锋",
+            "en": "Striker",
+            "diff": 3,
+            "role": "跑位与终结，围绕ST位置适配阵型",
+            "intro": "EA SPORTS FC / FC27主机/PC；FC26仅历史对照，Mobile分开：跑位与终结，围绕ST位置适配阵型。本卡是位置或玩法分工，不是官方固定职业。FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+            "core": [
+              "跑位与终结，围绕ST位置适配阵型",
+              "SBC、Objectives 与 Evolution"
+            ],
+            "str": [
+              "判断：跑位与终结，围绕ST位置适配阵型 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "孤立接球易丢失球权"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 跑位与终结，围绕ST位置适配阵型 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：前锋",
+                "d": "跑位与终结，围绕ST位置适配阵型；孤立接球易丢失球权。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 前锋 的任务与队伍分工。",
+              "执行：跑位与终结，围绕ST位置适配阵型；针对 孤立接球易丢失球权 检查站位与时机。",
+              "复盘：围绕 SBC、Objectives 与 Evolution 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 跑位与终结，围绕ST位置适配阵型 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 前锋 定位与 SBC、Objectives 与 Evolution 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "中场",
+            "en": "Midfielder",
+            "diff": 3,
+            "role": "连接攻防，区分持球推进与防守覆盖",
+            "intro": "EA SPORTS FC / FC27主机/PC；FC26仅历史对照，Mobile分开：连接攻防，区分持球推进与防守覆盖。本卡是位置或玩法分工，不是官方固定职业。FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+            "core": [
+              "连接攻防，区分持球推进与防守覆盖",
+              "SBC、Objectives 与 Evolution"
+            ],
+            "str": [
+              "判断：连接攻防，区分持球推进与防守覆盖 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "职责过多会破坏阵型"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 连接攻防，区分持球推进与防守覆盖 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：中场",
+                "d": "连接攻防，区分持球推进与防守覆盖；职责过多会破坏阵型。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 中场 的任务与队伍分工。",
+              "执行：连接攻防，区分持球推进与防守覆盖；针对 职责过多会破坏阵型 检查站位与时机。",
+              "复盘：围绕 SBC、Objectives 与 Evolution 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 连接攻防，区分持球推进与防守覆盖 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 中场 定位与 SBC、Objectives 与 Evolution 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "后卫",
+            "en": "Defender",
+            "diff": 3,
+            "role": "控制防线与拦截线路",
+            "intro": "EA SPORTS FC / FC27主机/PC；FC26仅历史对照，Mobile分开：控制防线与拦截线路。本卡是位置或玩法分工，不是官方固定职业。FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+            "core": [
+              "控制防线与拦截线路",
+              "SBC、Objectives 与 Evolution"
+            ],
+            "str": [
+              "判断：控制防线与拦截线路 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "盲目上抢暴露纵深"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 控制防线与拦截线路 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：后卫",
+                "d": "控制防线与拦截线路；盲目上抢暴露纵深。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 后卫 的任务与队伍分工。",
+              "执行：控制防线与拦截线路；针对 盲目上抢暴露纵深 检查站位与时机。",
+              "复盘：围绕 SBC、Objectives 与 Evolution 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 控制防线与拦截线路 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 后卫 定位与 SBC、Objectives 与 Evolution 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "门将",
+            "en": "Goalkeeper",
+            "diff": 3,
+            "role": "守门与出球，属于阵容位置而非RPG职业",
+            "intro": "EA SPORTS FC / FC27主机/PC；FC26仅历史对照，Mobile分开：守门与出球，属于阵容位置而非RPG职业。本卡是位置或玩法分工，不是官方固定职业。FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+            "core": [
+              "守门与出球，属于阵容位置而非RPG职业",
+              "SBC、Objectives 与 Evolution"
+            ],
+            "str": [
+              "判断：守门与出球，属于阵容位置而非RPG职业 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "不能用门将评分替代实际适配"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 守门与出球，属于阵容位置而非RPG职业 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：门将",
+                "d": "守门与出球，属于阵容位置而非RPG职业；不能用门将评分替代实际适配。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 门将 的任务与队伍分工。",
+              "执行：守门与出球，属于阵容位置而非RPG职业；针对 不能用门将评分替代实际适配 检查站位与时机。",
+              "复盘：围绕 SBC、Objectives 与 Evolution 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 守门与出球，属于阵容位置而非RPG职业 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 门将 定位与 SBC、Objectives 与 Evolution 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          }
+        ],
+        "play": [
+          [
+            "它是什么与版本范围",
+            [
+              "足球模拟与阵容收集并行；Ultimate Team、Career 与 Clubs 是不同进度线，不能把单机阵容当可交易卡。",
+              "FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。",
+              "资料基线：2026-10-22；FC27主机/PC；FC26仅历史对照，Mobile分开"
+            ]
+          ],
+          [
+            "怎么玩",
+            [
+              "选模式与平台→踢比赛或完成目标→获得奖励→在 Ultimate Team 调整球员、化学反应与战术→继续对局；Career 和 Clubs 的角色成长另算。",
+              "SBC、Objectives 与 Evolution 是理解进度的入口；具体开放状态看官方公告。"
+            ]
+          ],
+          [
+            "成长与目标",
+            [
+              "SBC、Objectives 与 Evolution",
+              "FUT Coins / FC Points；金币与付费点数不互换概念 分开记账；不把收藏、绑定或付费点数当可交易物。"
+            ]
+          ],
+          [
+            "适合谁与社交",
+            [
+              "先按 前锋 / 中场 的定位选择学习方向。",
+              "职业/分工范围：卡片只讲定位与入门操作，不代表最强构筑。"
+            ]
+          ],
+          [
+            "付费、资料与图库",
+            [
+              "商业化与玩家间交易分开；FUT Coins / FC Points；金币与付费点数不互换概念",
+              "图库来源：https://www.ea.com/games/ea-sports-fc/fc-27",
+              "图库说明：既有官方图片资产，沿原出处保留",
+              "事实来源：https://www.ea.com/games/ea-sports-fc/fc-27"
+            ]
+          ]
+        ],
+        "terms": [
+          [
+            "Ultimate Team",
+            "卡牌组队模式",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Ultimate Team 指 卡牌组队模式。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "卡牌组队模式；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Ultimate Team guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 卡牌组队模式 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "FUT Coins",
+            "模式内金币",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 FUT Coins 指 模式内金币。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "模式内金币；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC FUT Coins guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 模式内金币 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "FC Points",
+            "官方付费点数",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 FC Points 指 官方付费点数。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "官方付费点数；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC FC Points guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 官方付费点数 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "SBC",
+            "阵容挑战",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 SBC 指 阵容挑战。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "阵容挑战；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC SBC guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 阵容挑战 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Objectives",
+            "目标任务",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Objectives 指 目标任务。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "目标任务；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Objectives guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 目标任务 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Evolution",
+            "进化养成",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Evolution 指 进化养成。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "进化养成；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Evolution guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 进化养成 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Chemistry",
+            "化学反应",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Chemistry 指 化学反应。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "化学反应；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Chemistry guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 化学反应 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Rivals",
+            "排位对战",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Rivals 指 排位对战。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "排位对战；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Rivals guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 排位对战 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Champions",
+            "竞技赛事模式",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Champions 指 竞技赛事模式。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "竞技赛事模式；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Champions guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 竞技赛事模式 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Transfer Market",
+            "转会市场",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Transfer Market 指 转会市场。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "转会市场；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Transfer Market guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 转会市场 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Untradeable",
+            "不可交易卡",
+            {
+              "k": [
+                "FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "基础术语"
+              ],
+              "intro": "EA SPORTS FC 中的 Untradeable 指 不可交易卡。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "不可交易卡；适用范围：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "与 FUT Coins / FC Points；金币与付费点数不互换概念 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕EA SPORTS FC Untradeable guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 不可交易卡 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：FC27主机/PC；FC26仅历史对照，Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ]
+        ],
+        "eco": [
+          [
+            "资源与经济范围",
+            [
+              "FUT Coins / FC Points；金币与付费点数不互换概念",
+              "FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。"
+            ]
+          ],
+          [
+            "官方规则与现金交易",
+            [
+              "官方商城、游戏内交易与第三方现金交易是三回事。官方是否允许须查对应地区最新条款；本轮未逐条完成所有服务的条款核验，不能写成官方允许或安全。",
+              "不承诺账号共享、代练或金币交易无风险；不把现有需求研究改成新售卖授权。"
+            ]
+          ],
+          [
+            "供需与价格的观察方法",
+            [
+              "判断：SBC、Objectives 与 Evolution 可能改变资源消耗和玩家目标，需真实成交验证；不写精确热度、流水或利润排序。",
+              "价格仅给方法：用有效到货成本、实际扣减、费用与同口径竞品报价核算；缺输入不推荐具体售价、折扣和面额。"
+            ]
+          ],
+          [
+            "现有业务落点与验收",
+            [
+              "〔Hermes经营草稿·待运营确认〕围绕 SBC、Objectives 与 Evolution 归类已有需求；只消费现有货架、订单与交付证据。",
+              "本页更新不会触发调价、上架、投放、订单或账号动作。"
+            ]
+          ]
+        ],
+        "ops": [
+          [
+            "〔Hermes经营草稿·待运营确认〕 SEO",
+            [
+              "EA SPORTS FC Ultimate Team guide：先解释 SBC、Objectives 与 Evolution 与 FC27主机/PC；FC26仅历史对照，Mobile分开",
+              "将 FUT Coins 与 FC Points 分词说明，未取搜索量不排序。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 投放",
+            [
+              "素材围绕 SBC、Objectives 与 Evolution 的真实内容和官方素材来源。",
+              "先确认目标市场、版本与平台规则；预算、价格及投放发送均不由本页决定。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 运营",
+            [
+              "按 FC27主机/PC；FC26仅历史对照，Mobile分开 整理FAQ，静态内容只随事实变化纠错。",
+              "周更记录官方补丁、活动和停服状态；无变化保留本基线。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 客服",
+            [
+              "先问 FC27主机/PC；FC26仅历史对照，Mobile分开 与 SBC、Objectives 与 Evolution 对应目标，再查现有服务能否承接。",
+              "不保证封禁豁免、解封、交易安全或未公布内容；新问题保留版本、时间和来源。"
+            ]
+          ]
+        ]
+      },
+      "intel": {
+        "updated": "2026-10-22 静态基线",
+        "mode": "manual",
+        "note": "本轮补齐资料基线；不冒充本周动态采集。实际新公告/活动由原周更任务核实；未核经营数字保持缺失。",
+        "cats": [
+          {
+            "code": "version",
+            "name": "版本动态",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "FC27主机/PC；FC26仅历史对照，Mobile分开",
+              "FC26/FC27、主机/PC/移动版均分开；不因同名球员就认定同一张卡或同一交易池。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "market",
+            "name": "经济与交易",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "FUT Coins / FC Points；金币与付费点数不互换概念",
+              "无本轮完整成交/供给样本；价格与GMV留待核，不据挂牌或讨论量推断经营结果。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "kol_social",
+            "name": "社区与创作者",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "观察 SBC、Objectives 与 Evolution 的创作者内容；未核名单、观看量与情绪比例。",
+              "作者意见标社区观点，与官方公告及实际成交分开。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "seo",
+            "name": "搜索与选题",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "EA SPORTS FC Ultimate Team guide 是内容选题草稿，不是已验证高流量词。",
+              "搜索量与竞品排名待同一时间、地区、设备口径的真实来源。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "content",
+            "name": "内容资料",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "足球模拟与阵容收集并行；Ultimate Team、Career 与 Clubs 是不同进度线，不能把单机阵容当可交易卡。",
+              "静态入门：选模式与平台→踢比赛或完成目标→获得奖励→在 Ultimate Team 调整球员、化学反应与战术→继续对局；Career 和 Clubs 的角色成长另算。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "esports",
+            "name": "赛事与替代观察",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "本轮未核实适用的官方电竞赛程，不把普通排位、公会战或社区竞速写成官方电竞。",
+              "替代观察：SBC、Objectives 与 Evolution 的官方活动与玩家参与；不编奖金、观看量或赛事日期。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "exploit",
+            "name": "风险与修复",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "只记录官方修复、异常封禁与条款变更，不提供漏洞操作或规避处罚方法。",
+              "异常只作风险提示，未经官方确认的传播不当事实，不推导自动停止或修改正常业务。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          }
+        ]
       }
-     ]
+    },
+    "mlb-the-show-26": {
+      "playbook": {
+        "overview": "棒球模拟包含 Diamond Dynasty 卡牌阵容、Road to the Show 生涯和 Franchise 球队经营；同名球员不同卡版不能混同。 本页按模式、地区和版本核对资料，经营需求只作判断，实际成交与可售范围仍以现有业务证据为准。",
+        "core": "选择模式→完成投打与守备对局→获取节目和目标奖励→补强 Diamond Dynasty 阵容或推进生涯；社区市场的买卖报价与实际成交分开看。 先认清角色、装备或阵容的用途，再看成长资源如何消耗；付费内容与玩家间交易不是同一机制，不能用商城存在推定现金交易获准。26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+        "tips": [
+          "〔Hermes经营草稿·待运营确认〕先核对 MLB The Show 26；DD/RTTS/Franchise分别说明，围绕 Diamond Dynasty Programs 与 Collections 分类资料；旧版与新版本不能共用卡牌、技能或交付描述。",
+          "〔Hermes经营草稿·待运营确认〕把 Stubs；不把卡牌、XP与购买货币视为同一资产 分开解释；只在已确认的现有服务范围内处理需求，不把攻略建议变成新业务规则。",
+          "〔Hermes经营草稿·待运营确认〕用官方公告核对 Diamond Dynasty Programs 与 Collections 的变化；没有新事实时保留本静态基线，截图出处见玩法说明。"
+        ],
+        "gallery": [
+          "https://blog.playstation.com/tachyon/2026/02/1754b1ce345443c95159ace9a2e2e57a82a6c0f8.jpg",
+          "https://media.theshow.com/wp-content/uploads/2026/01/27081033/MLBTS26_ANNOUNCE-PINSTRIPES-1024x1024.png",
+          "https://media.theshow.com/wp-content/uploads/2026/03/12205858/MLB26-Judge-Walk-Off-16x9-001-BN-1-1024x576.png",
+          "https://media.theshow.com/wp-content/uploads/2026/03/12170220/MLBTS26_16x9_PS_XB_NS_4UP_DDE_STE_BEAUTY_SHOT_SOCIAL-21-1024x575.png"
+        ],
+        "biz": [
+          {
+            "name": "货币与材料",
+            "star": 3,
+            "type": "需求研究",
+            "focus": true,
+            "desc": "〔Hermes经营草稿·待运营确认〕MLB The Show 26：Stubs；不把卡牌、XP与购买货币视为同一资产。区分获得、消耗、绑定与流通；付费货币不等于可交付金币。",
+            "why": "判断：Stubs；不把卡牌、XP与购买货币视为同一资产 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 MLB The Show 26；DD/RTTS/Franchise分别说明 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 Diamond Dynasty Programs 与 Collections 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/"
+              ]
+            ]
+          },
+          {
+            "name": "装备与阵容",
+            "star": 3,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕MLB The Show 26：先发投手 / 后援投手。先按模式、卡版或装备条件匹配用途，检查是否可交易。",
+            "why": "判断：先发投手 / 后援投手 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 MLB The Show 26；DD/RTTS/Franchise分别说明 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 Diamond Dynasty Programs 与 Collections 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/"
+              ]
+            ]
+          },
+          {
+            "name": "成长与进度",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕MLB The Show 26：Diamond Dynasty Programs 与 Collections。将目标拆成可核验里程碑；账号共享与代练限制须查对应官方条款。",
+            "why": "判断：Diamond Dynasty Programs 与 Collections 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 MLB The Show 26；DD/RTTS/Franchise分别说明 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 Diamond Dynasty Programs 与 Collections 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/"
+              ]
+            ]
+          },
+          {
+            "name": "版本与服务说明",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕MLB The Show 26：MLB The Show 26；DD/RTTS/Franchise分别说明。先解释版本差异和售后边界，未上线与旧版不作当前可售承诺。",
+            "why": "判断：MLB The Show 26；DD/RTTS/Franchise分别说明 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 MLB The Show 26；DD/RTTS/Franchise分别说明 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 Diamond Dynasty Programs 与 Collections 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/"
+              ]
+            ]
+          }
+        ],
+        "dept": [
+          [
+            "产品",
+            "〔Hermes经营草稿·待运营确认〕整理 MLB The Show 26；DD/RTTS/Franchise分别说明 与 Stubs；不把卡牌、XP与购买货币视为同一资产 的现有商品说明；缺少可交付证据的条目只保留需求研究。"
+          ],
+          [
+            "设计",
+            "〔Hermes经营草稿·待运营确认〕用 MLB The Show 26 官方图库做内部说明，明确 MLB26官方宣传图；不是交付截图，不用不同版本画面证明当前能力。"
+          ],
+          [
+            "引流",
+            "〔Hermes经营草稿·待运营确认〕围绕 Diamond Dynasty Programs 与 Collections 写版本分区的入门内容，先解决术语与玩法问题，不编造搜索量。"
+          ],
+          [
+            "投放",
+            "〔Hermes经营草稿·待运营确认〕先用 Diamond Dynasty、Stubs 区分玩家意图；预算和素材须沿原审批与平台规则。"
+          ],
+          [
+            "私域",
+            "〔Hermes经营草稿·待运营确认〕按 MLB The Show 26；DD/RTTS/Franchise分别说明 记录玩家问题，将 Diamond Dynasty Programs 与 Collections 变更做本地知识更新，不自动发送群消息。"
+          ],
+          [
+            "邮件",
+            "〔Hermes经营草稿·待运营确认〕整理 MLB The Show 26 的版本差异与常见疑问；实际邮件发送仍按已有授权，不把本草稿当发送指令。"
+          ],
+          [
+            "广告",
+            "〔Hermes经营草稿·待运营确认〕核 Stubs；不把卡牌、XP与购买货币视为同一资产 的用词和规则，移除防封、官方授权及未经证实的价格优势承诺。"
+          ],
+          [
+            "技术",
+            "〔Hermes经营草稿·待运营确认〕确保 MLB The Show 26 的游戏key、来源日期和版本一致；沿现有CI、备份和受控发布，不新增业务writer。"
+          ],
+          [
+            "生产",
+            "〔Hermes经营草稿·待运营确认〕按 先发投手、后援投手 及 Diamond Dynasty Programs 与 Collections 列验收目标；交付能力、时效与成本仍须实际核定。"
+          ]
+        ]
+      },
+      "tools": {
+        "tools": [
+          {
+            "name": "TheShowNation",
+            "url": "https://www.theshownation.com",
+            "host": "www.theshownation.com",
+            "tag": "工具",
+            "title": "TheShowNation",
+            "sub": "官方球员卡/DD生态入口",
+            "visits": null,
+            "img": "",
+            "points": [
+              "官方球员卡/DD生态入口",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "ShowZone.io",
+            "url": "https://showzone.io",
+            "host": "showzone.io",
+            "tag": "工具",
+            "title": "ShowZone.io",
+            "sub": "Diamond Dynasty价格数据站",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Diamond Dynasty价格数据站",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "daddyleagues.com",
+            "url": "https://www.daddyleagues.com",
+            "host": "www.daddyleagues.com",
+            "tag": "工具",
+            "title": "daddyleagues.com",
+            "sub": "联赛/模拟管理工具",
+            "visits": null,
+            "img": "",
+            "points": [
+              "联赛/模拟管理工具",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方资料入口",
+            "url": "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/",
+            "host": "blog.playstation.com",
+            "tag": "官方",
+            "title": "官方资料入口",
+            "sub": "MLB The Show 26；DD/RTTS/Franchise分别说明",
+            "visits": null,
+            "img": "",
+            "points": [
+              "MLB The Show 26；DD/RTTS/Franchise分别说明",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ],
+        "wikis": [
+          {
+            "name": "参考资料 1",
+            "url": "https://showzone.io/",
+            "host": "showzone.io",
+            "tag": "资料",
+            "title": "参考资料 1",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "参考资料 2",
+            "url": "https://en.wikipedia.org/wiki/MLB_The_Show_26",
+            "host": "en.wikipedia.org",
+            "tag": "资料",
+            "title": "参考资料 2",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "classes": [
+          {
+            "e": "📖",
+            "cn": "先发投手",
+            "en": "Starting Pitcher",
+            "diff": 3,
+            "role": "安排先发轮值与投球策略",
+            "core": [
+              "安排先发轮值与投球策略"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "体力与球种搭配影响出场"
+          },
+          {
+            "e": "📖",
+            "cn": "后援投手",
+            "en": "Relief Pitcher",
+            "diff": 3,
+            "role": "接手后段局数与关键出局",
+            "core": [
+              "接手后段局数与关键出局"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "需看可出场状态"
+          },
+          {
+            "e": "📖",
+            "cn": "捕手",
+            "en": "Catcher",
+            "diff": 3,
+            "role": "负责本垒防守与配球协作",
+            "core": [
+              "负责本垒防守与配球协作"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "不能只看打击面板"
+          },
+          {
+            "e": "📖",
+            "cn": "野手",
+            "en": "Position Player",
+            "diff": 3,
+            "role": "按内外野守位安排打线与防守",
+            "core": [
+              "按内外野守位安排打线与防守"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "副守位与属性不能视为完全相同"
+          }
+        ],
+        "clsDocs": [
+          {
+            "e": "📖",
+            "cn": "先发投手",
+            "en": "Starting Pitcher",
+            "diff": 3,
+            "role": "安排先发轮值与投球策略",
+            "intro": "MLB The Show 26 / MLB The Show 26；DD/RTTS/Franchise分别说明：安排先发轮值与投球策略。本卡是位置或玩法分工，不是官方固定职业。26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+            "core": [
+              "安排先发轮值与投球策略",
+              "Diamond Dynasty Programs 与 Collections"
+            ],
+            "str": [
+              "判断：安排先发轮值与投球策略 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "体力与球种搭配影响出场"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 安排先发轮值与投球策略 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：先发投手",
+                "d": "安排先发轮值与投球策略；体力与球种搭配影响出场。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 先发投手 的任务与队伍分工。",
+              "执行：安排先发轮值与投球策略；针对 体力与球种搭配影响出场 检查站位与时机。",
+              "复盘：围绕 Diamond Dynasty Programs 与 Collections 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 安排先发轮值与投球策略 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 先发投手 定位与 Diamond Dynasty Programs 与 Collections 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "后援投手",
+            "en": "Relief Pitcher",
+            "diff": 3,
+            "role": "接手后段局数与关键出局",
+            "intro": "MLB The Show 26 / MLB The Show 26；DD/RTTS/Franchise分别说明：接手后段局数与关键出局。本卡是位置或玩法分工，不是官方固定职业。26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+            "core": [
+              "接手后段局数与关键出局",
+              "Diamond Dynasty Programs 与 Collections"
+            ],
+            "str": [
+              "判断：接手后段局数与关键出局 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "需看可出场状态"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 接手后段局数与关键出局 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：后援投手",
+                "d": "接手后段局数与关键出局；需看可出场状态。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 后援投手 的任务与队伍分工。",
+              "执行：接手后段局数与关键出局；针对 需看可出场状态 检查站位与时机。",
+              "复盘：围绕 Diamond Dynasty Programs 与 Collections 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 接手后段局数与关键出局 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 后援投手 定位与 Diamond Dynasty Programs 与 Collections 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "捕手",
+            "en": "Catcher",
+            "diff": 3,
+            "role": "负责本垒防守与配球协作",
+            "intro": "MLB The Show 26 / MLB The Show 26；DD/RTTS/Franchise分别说明：负责本垒防守与配球协作。本卡是位置或玩法分工，不是官方固定职业。26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+            "core": [
+              "负责本垒防守与配球协作",
+              "Diamond Dynasty Programs 与 Collections"
+            ],
+            "str": [
+              "判断：负责本垒防守与配球协作 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "不能只看打击面板"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 负责本垒防守与配球协作 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：捕手",
+                "d": "负责本垒防守与配球协作；不能只看打击面板。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 捕手 的任务与队伍分工。",
+              "执行：负责本垒防守与配球协作；针对 不能只看打击面板 检查站位与时机。",
+              "复盘：围绕 Diamond Dynasty Programs 与 Collections 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 负责本垒防守与配球协作 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 捕手 定位与 Diamond Dynasty Programs 与 Collections 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "野手",
+            "en": "Position Player",
+            "diff": 3,
+            "role": "按内外野守位安排打线与防守",
+            "intro": "MLB The Show 26 / MLB The Show 26；DD/RTTS/Franchise分别说明：按内外野守位安排打线与防守。本卡是位置或玩法分工，不是官方固定职业。26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+            "core": [
+              "按内外野守位安排打线与防守",
+              "Diamond Dynasty Programs 与 Collections"
+            ],
+            "str": [
+              "判断：按内外野守位安排打线与防守 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "副守位与属性不能视为完全相同"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 按内外野守位安排打线与防守 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：野手",
+                "d": "按内外野守位安排打线与防守；副守位与属性不能视为完全相同。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 野手 的任务与队伍分工。",
+              "执行：按内外野守位安排打线与防守；针对 副守位与属性不能视为完全相同 检查站位与时机。",
+              "复盘：围绕 Diamond Dynasty Programs 与 Collections 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 按内外野守位安排打线与防守 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 野手 定位与 Diamond Dynasty Programs 与 Collections 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          }
+        ],
+        "play": [
+          [
+            "它是什么与版本范围",
+            [
+              "棒球模拟包含 Diamond Dynasty 卡牌阵容、Road to the Show 生涯和 Franchise 球队经营；同名球员不同卡版不能混同。",
+              "26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。",
+              "资料基线：2026-10-22；MLB The Show 26；DD/RTTS/Franchise分别说明"
+            ]
+          ],
+          [
+            "怎么玩",
+            [
+              "选择模式→完成投打与守备对局→获取节目和目标奖励→补强 Diamond Dynasty 阵容或推进生涯；社区市场的买卖报价与实际成交分开看。",
+              "Diamond Dynasty Programs 与 Collections 是理解进度的入口；具体开放状态看官方公告。"
+            ]
+          ],
+          [
+            "成长与目标",
+            [
+              "Diamond Dynasty Programs 与 Collections",
+              "Stubs；不把卡牌、XP与购买货币视为同一资产 分开记账；不把收藏、绑定或付费点数当可交易物。"
+            ]
+          ],
+          [
+            "适合谁与社交",
+            [
+              "先按 先发投手 / 后援投手 的定位选择学习方向。",
+              "职业/分工范围：卡片只讲定位与入门操作，不代表最强构筑。"
+            ]
+          ],
+          [
+            "付费、资料与图库",
+            [
+              "商业化与玩家间交易分开；Stubs；不把卡牌、XP与购买货币视为同一资产",
+              "图库来源：https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/",
+              "图库说明：MLB26官方宣传图；不是交付截图",
+              "事实来源：https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/"
+            ]
+          ]
+        ],
+        "terms": [
+          [
+            "Diamond Dynasty",
+            "卡牌阵容模式",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Diamond Dynasty 指 卡牌阵容模式。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "卡牌阵容模式；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Diamond Dynasty guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 卡牌阵容模式 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Stubs",
+            "游戏内货币",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Stubs 指 游戏内货币。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "游戏内货币；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Stubs guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 游戏内货币 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Community Market",
+            "社区市场",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Community Market 指 社区市场。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "社区市场；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Community Market guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 社区市场 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Buy Order",
+            "买单",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Buy Order 指 买单。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "买单；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Buy Order guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 买单 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Sell Order",
+            "卖单",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Sell Order 指 卖单。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "卖单；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Sell Order guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 卖单 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Programs",
+            "节目进度",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Programs 指 节目进度。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "节目进度；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Programs guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 节目进度 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Collections",
+            "收藏任务",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Collections 指 收藏任务。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "收藏任务；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Collections guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 收藏任务 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Parallel XP",
+            "卡片使用经验",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Parallel XP 指 卡片使用经验。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "卡片使用经验；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Parallel XP guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 卡片使用经验 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Road to the Show",
+            "个人生涯",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Road to the Show 指 个人生涯。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "个人生涯；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Road to the Show guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 个人生涯 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Franchise",
+            "球队经营",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 Franchise 指 球队经营。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "球队经营；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 Franchise guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 球队经营 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "WBC",
+            "世界棒球经典赛内容",
+            {
+              "k": [
+                "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "基础术语"
+              ],
+              "intro": "MLB The Show 26 中的 WBC 指 世界棒球经典赛内容。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "世界棒球经典赛内容；适用范围：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "与 Stubs；不把卡牌、XP与购买货币视为同一资产 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕MLB The Show 26 WBC guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 世界棒球经典赛内容 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ]
+        ],
+        "eco": [
+          [
+            "资源与经济范围",
+            [
+              "Stubs；不把卡牌、XP与购买货币视为同一资产",
+              "26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。"
+            ]
+          ],
+          [
+            "官方规则与现金交易",
+            [
+              "官方商城、游戏内交易与第三方现金交易是三回事。官方是否允许须查对应地区最新条款；本轮未逐条完成所有服务的条款核验，不能写成官方允许或安全。",
+              "不承诺账号共享、代练或金币交易无风险；不把现有需求研究改成新售卖授权。"
+            ]
+          ],
+          [
+            "供需与价格的观察方法",
+            [
+              "判断：Diamond Dynasty Programs 与 Collections 可能改变资源消耗和玩家目标，需真实成交验证；不写精确热度、流水或利润排序。",
+              "价格仅给方法：用有效到货成本、实际扣减、费用与同口径竞品报价核算；缺输入不推荐具体售价、折扣和面额。"
+            ]
+          ],
+          [
+            "现有业务落点与验收",
+            [
+              "〔Hermes经营草稿·待运营确认〕围绕 Diamond Dynasty Programs 与 Collections 归类已有需求；只消费现有货架、订单与交付证据。",
+              "本页更新不会触发调价、上架、投放、订单或账号动作。"
+            ]
+          ]
+        ],
+        "ops": [
+          [
+            "〔Hermes经营草稿·待运营确认〕 SEO",
+            [
+              "MLB The Show 26 Diamond Dynasty guide：先解释 Diamond Dynasty Programs 与 Collections 与 MLB The Show 26；DD/RTTS/Franchise分别说明",
+              "将 Stubs 与 Community Market 分词说明，未取搜索量不排序。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 投放",
+            [
+              "素材围绕 Diamond Dynasty Programs 与 Collections 的真实内容和官方素材来源。",
+              "先确认目标市场、版本与平台规则；预算、价格及投放发送均不由本页决定。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 运营",
+            [
+              "按 MLB The Show 26；DD/RTTS/Franchise分别说明 整理FAQ，静态内容只随事实变化纠错。",
+              "周更记录官方补丁、活动和停服状态；无变化保留本基线。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 客服",
+            [
+              "先问 MLB The Show 26；DD/RTTS/Franchise分别说明 与 Diamond Dynasty Programs 与 Collections 对应目标，再查现有服务能否承接。",
+              "不保证封禁豁免、解封、交易安全或未公布内容；新问题保留版本、时间和来源。"
+            ]
+          ]
+        ]
+      },
+      "intel": {
+        "updated": "2026-10-22 静态基线",
+        "mode": "manual",
+        "note": "本轮补齐资料基线；不冒充本周动态采集。实际新公告/活动由原周更任务核实；未核经营数字保持缺失。",
+        "cats": [
+          {
+            "code": "version",
+            "name": "版本动态",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "MLB The Show 26；DD/RTTS/Franchise分别说明",
+              "26与25分开；官方文章确认26有WBC内容、Mini-seasons更新，未核活动奖励不写为当前开放。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "market",
+            "name": "经济与交易",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "Stubs；不把卡牌、XP与购买货币视为同一资产",
+              "无本轮完整成交/供给样本；价格与GMV留待核，不据挂牌或讨论量推断经营结果。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "kol_social",
+            "name": "社区与创作者",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "观察 Diamond Dynasty Programs 与 Collections 的创作者内容；未核名单、观看量与情绪比例。",
+              "作者意见标社区观点，与官方公告及实际成交分开。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "seo",
+            "name": "搜索与选题",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "MLB The Show 26 Diamond Dynasty guide 是内容选题草稿，不是已验证高流量词。",
+              "搜索量与竞品排名待同一时间、地区、设备口径的真实来源。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "content",
+            "name": "内容资料",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "棒球模拟包含 Diamond Dynasty 卡牌阵容、Road to the Show 生涯和 Franchise 球队经营；同名球员不同卡版不能混同。",
+              "静态入门：选择模式→完成投打与守备对局→获取节目和目标奖励→补强 Diamond Dynasty 阵容或推进生涯；社区市场的买卖报价与实际成交分开看。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "esports",
+            "name": "赛事与替代观察",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "本轮未核实适用的官方电竞赛程，不把普通排位、公会战或社区竞速写成官方电竞。",
+              "替代观察：Diamond Dynasty Programs 与 Collections 的官方活动与玩家参与；不编奖金、观看量或赛事日期。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "exploit",
+            "name": "风险与修复",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "只记录官方修复、异常封禁与条款变更，不提供漏洞操作或规避处罚方法。",
+              "异常只作风险提示，未经官方确认的传播不当事实，不推导自动停止或修改正常业务。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          }
+        ]
+      }
+    },
+    "college-football-27": {
+      "playbook": {
+        "overview": "大学橄榄球模拟围绕学校阵容、战术与赛事展开；College Ultimate Team、Dynasty 与个人生涯不能共用一套交易口径。 本页按模式、地区和版本核对资料，经营需求只作判断，实际成交与可售范围仍以现有业务证据为准。",
+        "core": "选学校或模式→熟悉进攻防守战术→打比赛完成目标→积累模式奖励或推进 Dynasty 招募与赛季；CUT卡牌养成与学校真实球员评分分开记录。 先认清角色、装备或阵容的用途，再看成长资源如何消耗；付费内容与玩家间交易不是同一机制，不能用商城存在推定现金交易获准。只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+        "tips": [
+          "〔Hermes经营草稿·待运营确认〕先核对 CFB27主机/PC资料；College Football Mobile独立，围绕 College Ultimate Team、Dynasty与Road to Glory 分类资料；旧版与新版本不能共用卡牌、技能或交付描述。",
+          "〔Hermes经营草稿·待运营确认〕把 CUT Coins / College Football Points；移动版货币另核 分开解释；只在已确认的现有服务范围内处理需求，不把攻略建议变成新业务规则。",
+          "〔Hermes经营草稿·待运营确认〕用官方公告核对 College Ultimate Team、Dynasty与Road to Glory 的变化；没有新事实时保留本静态基线，截图出处见玩法说明。"
+        ],
+        "gallery": [
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4032350/c31f57ca043f04e2cdd987cef6773f01675455b7/ss_c31f57ca043f04e2cdd987cef6773f01675455b7.1920x1080.jpg?t=1790875781",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4032350/e873d4faa1ed67d41d9e212e7e4f20d3ed581e7c/ss_e873d4faa1ed67d41d9e212e7e4f20d3ed581e7c.1920x1080.jpg?t=1790875781",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4032350/23049cf2d6ed29b1351528e0b243458b363abf35/ss_23049cf2d6ed29b1351528e0b243458b363abf35.1920x1080.jpg?t=1790875781",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4032350/86b646415b0fa16e6c14b846cf26f2a70e876418/ss_86b646415b0fa16e6c14b846cf26f2a70e876418.1920x1080.jpg?t=1790875781"
+        ],
+        "biz": [
+          {
+            "name": "货币与材料",
+            "star": 3,
+            "type": "需求研究",
+            "focus": true,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 27：CUT Coins / College Football Points；移动版货币另核。区分获得、消耗、绑定与流通；付费货币不等于可交付金币。",
+            "why": "判断：CUT Coins / College Football Points；移动版货币另核 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB27主机/PC资料；College Football Mobile独立 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 College Ultimate Team、Dynasty与Road to Glory 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football"
+              ]
+            ]
+          },
+          {
+            "name": "装备与阵容",
+            "star": 3,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 27：四分卫 / 接球手。先按模式、卡版或装备条件匹配用途，检查是否可交易。",
+            "why": "判断：四分卫 / 接球手 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB27主机/PC资料；College Football Mobile独立 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 College Ultimate Team、Dynasty与Road to Glory 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football"
+              ]
+            ]
+          },
+          {
+            "name": "成长与进度",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 27：College Ultimate Team、Dynasty与Road to Glory。将目标拆成可核验里程碑；账号共享与代练限制须查对应官方条款。",
+            "why": "判断：College Ultimate Team、Dynasty与Road to Glory 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB27主机/PC资料；College Football Mobile独立 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 College Ultimate Team、Dynasty与Road to Glory 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football"
+              ]
+            ]
+          },
+          {
+            "name": "版本与服务说明",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 27：CFB27主机/PC资料；College Football Mobile独立。先解释版本差异和售后边界，未上线与旧版不作当前可售承诺。",
+            "why": "判断：CFB27主机/PC资料；College Football Mobile独立 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB27主机/PC资料；College Football Mobile独立 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 College Ultimate Team、Dynasty与Road to Glory 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football"
+              ]
+            ]
+          }
+        ],
+        "dept": [
+          [
+            "产品",
+            "〔Hermes经营草稿·待运营确认〕整理 CFB27主机/PC资料；College Football Mobile独立 与 CUT Coins / College Football Points；移动版货币另核 的现有商品说明；缺少可交付证据的条目只保留需求研究。"
+          ],
+          [
+            "设计",
+            "〔Hermes经营草稿·待运营确认〕用 College Football 27 官方图库做内部说明，明确 开发者在Steam商店公开的截图；具体平台与版本见商店，不用不同版本画面证明当前能力。"
+          ],
+          [
+            "引流",
+            "〔Hermes经营草稿·待运营确认〕围绕 College Ultimate Team、Dynasty与Road to Glory 写版本分区的入门内容，先解决术语与玩法问题，不编造搜索量。"
+          ],
+          [
+            "投放",
+            "〔Hermes经营草稿·待运营确认〕先用 CUT、Coins 区分玩家意图；预算和素材须沿原审批与平台规则。"
+          ],
+          [
+            "私域",
+            "〔Hermes经营草稿·待运营确认〕按 CFB27主机/PC资料；College Football Mobile独立 记录玩家问题，将 College Ultimate Team、Dynasty与Road to Glory 变更做本地知识更新，不自动发送群消息。"
+          ],
+          [
+            "邮件",
+            "〔Hermes经营草稿·待运营确认〕整理 College Football 27 的版本差异与常见疑问；实际邮件发送仍按已有授权，不把本草稿当发送指令。"
+          ],
+          [
+            "广告",
+            "〔Hermes经营草稿·待运营确认〕核 CUT Coins / College Football Points；移动版货币另核 的用词和规则，移除防封、官方授权及未经证实的价格优势承诺。"
+          ],
+          [
+            "技术",
+            "〔Hermes经营草稿·待运营确认〕确保 College Football 27 的游戏key、来源日期和版本一致；沿现有CI、备份和受控发布，不新增业务writer。"
+          ],
+          [
+            "生产",
+            "〔Hermes经营草稿·待运营确认〕按 四分卫、接球手 及 College Ultimate Team、Dynasty与Road to Glory 列验收目标；交付能力、时效与成本仍须实际核定。"
+          ]
+        ]
+      },
+      "tools": {
+        "tools": [
+          {
+            "name": "CFF Ultimate Team",
+            "url": "https://www.cffut.com",
+            "host": "www.cffut.com",
+            "tag": "工具",
+            "title": "CFF Ultimate Tea",
+            "sub": "大学橄榄球UT数据",
+            "visits": null,
+            "img": "",
+            "points": [
+              "大学橄榄球UT数据",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "MUT.GG CFB",
+            "url": "https://www.mut.gg",
+            "host": "www.mut.gg",
+            "tag": "工具",
+            "title": "MUT.GG CFB",
+            "sub": "MUT分支工具",
+            "visits": null,
+            "img": "",
+            "points": [
+              "MUT分支工具",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方资料入口",
+            "url": "https://www.ea.com/games/ea-sports-college-football",
+            "host": "www.ea.com",
+            "tag": "官方",
+            "title": "官方资料入口",
+            "sub": "CFB27主机/PC资料；College Football Mobile独立",
+            "visits": null,
+            "img": "",
+            "points": [
+              "CFB27主机/PC资料；College Football Mobile独立",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方商店说明",
+            "url": "https://store.steampowered.com/app/4032350/",
+            "host": "store.steampowered.com",
+            "tag": "商店",
+            "title": "官方商店说明",
+            "sub": "玩法、系统需求与开发者图库",
+            "visits": null,
+            "img": "",
+            "points": [
+              "玩法、系统需求与开发者图库",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "开发者公告",
+            "url": "https://steamcommunity.com/app/4032350/announcements/",
+            "host": "steamcommunity.com",
+            "tag": "公告",
+            "title": "开发者公告",
+            "sub": "Steam开发者公告；社区回复不等于官方事实",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam开发者公告；社区回复不等于官方事实",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "平台支持",
+            "url": "https://help.steampowered.com/en/wizard/HelpWithGame/?appid=4032350",
+            "host": "help.steampowered.com",
+            "tag": "支持",
+            "title": "平台支持",
+            "sub": "Steam对应产品支持入口",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam对应产品支持入口",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ],
+        "wikis": [
+          {
+            "name": "参考资料 1",
+            "url": "https://cfb.fan/",
+            "host": "cfb.fan",
+            "tag": "资料",
+            "title": "参考资料 1",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "参考资料 2",
+            "url": "https://en.wikipedia.org/wiki/EA_Sports_College_Football_27",
+            "host": "en.wikipedia.org",
+            "tag": "资料",
+            "title": "参考资料 2",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "classes": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "读防守、传球与组织进攻",
+            "core": [
+              "读防守、传球与组织进攻"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "持球过久容易被擒杀"
+          },
+          {
+            "e": "📖",
+            "cn": "接球手",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "跑路线并创造接球空间",
+            "core": [
+              "跑路线并创造接球空间"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "路线与传球时机需要配合"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "利用掩护推进并参与接球",
+            "core": [
+              "利用掩护推进并参与接球"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "不能只追求直线速度"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defender",
+            "diff": 3,
+            "role": "按前线、线卫与后场职责协防",
+            "core": [
+              "按前线、线卫与后场职责协防"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "错误补位会留下空档"
+          }
+        ],
+        "clsDocs": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "读防守、传球与组织进攻",
+            "intro": "College Football 27 / CFB27主机/PC资料；College Football Mobile独立：读防守、传球与组织进攻。本卡是位置或玩法分工，不是官方固定职业。只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+            "core": [
+              "读防守、传球与组织进攻",
+              "College Ultimate Team、Dynasty与Road to Glory"
+            ],
+            "str": [
+              "判断：读防守、传球与组织进攻 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "持球过久容易被擒杀"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 读防守、传球与组织进攻 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：四分卫",
+                "d": "读防守、传球与组织进攻；持球过久容易被擒杀。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 四分卫 的任务与队伍分工。",
+              "执行：读防守、传球与组织进攻；针对 持球过久容易被擒杀 检查站位与时机。",
+              "复盘：围绕 College Ultimate Team、Dynasty与Road to Glory 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 读防守、传球与组织进攻 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 四分卫 定位与 College Ultimate Team、Dynasty与Road to Glory 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "接球手",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "跑路线并创造接球空间",
+            "intro": "College Football 27 / CFB27主机/PC资料；College Football Mobile独立：跑路线并创造接球空间。本卡是位置或玩法分工，不是官方固定职业。只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+            "core": [
+              "跑路线并创造接球空间",
+              "College Ultimate Team、Dynasty与Road to Glory"
+            ],
+            "str": [
+              "判断：跑路线并创造接球空间 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "路线与传球时机需要配合"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 跑路线并创造接球空间 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：接球手",
+                "d": "跑路线并创造接球空间；路线与传球时机需要配合。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 接球手 的任务与队伍分工。",
+              "执行：跑路线并创造接球空间；针对 路线与传球时机需要配合 检查站位与时机。",
+              "复盘：围绕 College Ultimate Team、Dynasty与Road to Glory 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 跑路线并创造接球空间 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 接球手 定位与 College Ultimate Team、Dynasty与Road to Glory 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "利用掩护推进并参与接球",
+            "intro": "College Football 27 / CFB27主机/PC资料；College Football Mobile独立：利用掩护推进并参与接球。本卡是位置或玩法分工，不是官方固定职业。只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+            "core": [
+              "利用掩护推进并参与接球",
+              "College Ultimate Team、Dynasty与Road to Glory"
+            ],
+            "str": [
+              "判断：利用掩护推进并参与接球 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "不能只追求直线速度"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 利用掩护推进并参与接球 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：跑卫",
+                "d": "利用掩护推进并参与接球；不能只追求直线速度。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 跑卫 的任务与队伍分工。",
+              "执行：利用掩护推进并参与接球；针对 不能只追求直线速度 检查站位与时机。",
+              "复盘：围绕 College Ultimate Team、Dynasty与Road to Glory 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 利用掩护推进并参与接球 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 跑卫 定位与 College Ultimate Team、Dynasty与Road to Glory 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defender",
+            "diff": 3,
+            "role": "按前线、线卫与后场职责协防",
+            "intro": "College Football 27 / CFB27主机/PC资料；College Football Mobile独立：按前线、线卫与后场职责协防。本卡是位置或玩法分工，不是官方固定职业。只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+            "core": [
+              "按前线、线卫与后场职责协防",
+              "College Ultimate Team、Dynasty与Road to Glory"
+            ],
+            "str": [
+              "判断：按前线、线卫与后场职责协防 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "错误补位会留下空档"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 按前线、线卫与后场职责协防 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：防守组",
+                "d": "按前线、线卫与后场职责协防；错误补位会留下空档。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 防守组 的任务与队伍分工。",
+              "执行：按前线、线卫与后场职责协防；针对 错误补位会留下空档 检查站位与时机。",
+              "复盘：围绕 College Ultimate Team、Dynasty与Road to Glory 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 按前线、线卫与后场职责协防 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 防守组 定位与 College Ultimate Team、Dynasty与Road to Glory 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          }
+        ],
+        "play": [
+          [
+            "它是什么与版本范围",
+            [
+              "大学橄榄球模拟围绕学校阵容、战术与赛事展开；College Ultimate Team、Dynasty 与个人生涯不能共用一套交易口径。",
+              "只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。",
+              "资料基线：2026-10-22；CFB27主机/PC资料；College Football Mobile独立"
+            ]
+          ],
+          [
+            "怎么玩",
+            [
+              "选学校或模式→熟悉进攻防守战术→打比赛完成目标→积累模式奖励或推进 Dynasty 招募与赛季；CUT卡牌养成与学校真实球员评分分开记录。",
+              "College Ultimate Team、Dynasty与Road to Glory 是理解进度的入口；具体开放状态看官方公告。"
+            ]
+          ],
+          [
+            "成长与目标",
+            [
+              "College Ultimate Team、Dynasty与Road to Glory",
+              "CUT Coins / College Football Points；移动版货币另核 分开记账；不把收藏、绑定或付费点数当可交易物。"
+            ]
+          ],
+          [
+            "适合谁与社交",
+            [
+              "先按 四分卫 / 接球手 的定位选择学习方向。",
+              "职业/分工范围：卡片只讲定位与入门操作，不代表最强构筑。"
+            ]
+          ],
+          [
+            "付费、资料与图库",
+            [
+              "商业化与玩家间交易分开；CUT Coins / College Football Points；移动版货币另核",
+              "图库来源：https://store.steampowered.com/app/4032350/",
+              "图库说明：开发者在Steam商店公开的截图；具体平台与版本见商店",
+              "事实来源：https://www.ea.com/games/ea-sports-college-football"
+            ]
+          ]
+        ],
+        "terms": [
+          [
+            "CUT",
+            "大学终极球队模式",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 CUT 指 大学终极球队模式。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "大学终极球队模式；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 CUT guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 大学终极球队模式 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Coins",
+            "模式内金币",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Coins 指 模式内金币。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "模式内金币；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Coins guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 模式内金币 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Points",
+            "付费点数",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Points 指 付费点数。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "付费点数；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Points guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 付费点数 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Dynasty",
+            "学校王朝经营",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Dynasty 指 学校王朝经营。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "学校王朝经营；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Dynasty guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 学校王朝经营 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Recruiting",
+            "球员招募",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Recruiting 指 球员招募。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "球员招募；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Recruiting guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 球员招募 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Road to Glory",
+            "个人生涯",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Road to Glory 指 个人生涯。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "个人生涯；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Road to Glory guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 个人生涯 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Playbook",
+            "战术手册",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Playbook 指 战术手册。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "战术手册；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Playbook guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 战术手册 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Quarterback",
+            "四分卫",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Quarterback 指 四分卫。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "四分卫；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Quarterback guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 四分卫 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Roster",
+            "名单",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Roster 指 名单。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "名单；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Roster guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 名单 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Program",
+            "活动节目",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 Program 指 活动节目。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "活动节目；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 Program guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 活动节目 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "OVR",
+            "综合评分",
+            {
+              "k": [
+                "CFB27主机/PC资料；College Football Mobile独立",
+                "基础术语"
+              ],
+              "intro": "College Football 27 中的 OVR 指 综合评分。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "综合评分；适用范围：CFB27主机/PC资料；College Football Mobile独立",
+                "与 CUT Coins / College Football Points；移动版货币另核 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 27 OVR guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 综合评分 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB27主机/PC资料；College Football Mobile独立",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ]
+        ],
+        "eco": [
+          [
+            "资源与经济范围",
+            [
+              "CUT Coins / College Football Points；移动版货币另核",
+              "只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。"
+            ]
+          ],
+          [
+            "官方规则与现金交易",
+            [
+              "官方商城、游戏内交易与第三方现金交易是三回事。官方是否允许须查对应地区最新条款；本轮未逐条完成所有服务的条款核验，不能写成官方允许或安全。",
+              "不承诺账号共享、代练或金币交易无风险；不把现有需求研究改成新售卖授权。"
+            ]
+          ],
+          [
+            "供需与价格的观察方法",
+            [
+              "判断：College Ultimate Team、Dynasty与Road to Glory 可能改变资源消耗和玩家目标，需真实成交验证；不写精确热度、流水或利润排序。",
+              "价格仅给方法：用有效到货成本、实际扣减、费用与同口径竞品报价核算；缺输入不推荐具体售价、折扣和面额。"
+            ]
+          ],
+          [
+            "现有业务落点与验收",
+            [
+              "〔Hermes经营草稿·待运营确认〕围绕 College Ultimate Team、Dynasty与Road to Glory 归类已有需求；只消费现有货架、订单与交付证据。",
+              "本页更新不会触发调价、上架、投放、订单或账号动作。"
+            ]
+          ]
+        ],
+        "ops": [
+          [
+            "〔Hermes经营草稿·待运营确认〕 SEO",
+            [
+              "College Football 27 CUT guide：先解释 College Ultimate Team、Dynasty与Road to Glory 与 CFB27主机/PC资料；College Football Mobile独立",
+              "将 Coins 与 Points 分词说明，未取搜索量不排序。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 投放",
+            [
+              "素材围绕 College Ultimate Team、Dynasty与Road to Glory 的真实内容和官方素材来源。",
+              "先确认目标市场、版本与平台规则；预算、价格及投放发送均不由本页决定。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 运营",
+            [
+              "按 CFB27主机/PC资料；College Football Mobile独立 整理FAQ，静态内容只随事实变化纠错。",
+              "周更记录官方补丁、活动和停服状态；无变化保留本基线。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 客服",
+            [
+              "先问 CFB27主机/PC资料；College Football Mobile独立 与 College Ultimate Team、Dynasty与Road to Glory 对应目标，再查现有服务能否承接。",
+              "不保证封禁豁免、解封、交易安全或未公布内容；新问题保留版本、时间和来源。"
+            ]
+          ]
+        ]
+      },
+      "intel": {
+        "updated": "2026-10-22 静态基线",
+        "mode": "manual",
+        "note": "本轮补齐资料基线；不冒充本周动态采集。实际新公告/活动由原周更任务核实；未核经营数字保持缺失。",
+        "cats": [
+          {
+            "code": "version",
+            "name": "版本动态",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "CFB27主机/PC资料；College Football Mobile独立",
+              "只使用27对应公告；不把Mobile活动、26卡牌或现实球队排名当成27主机卡牌能力。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "market",
+            "name": "经济与交易",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "CUT Coins / College Football Points；移动版货币另核",
+              "无本轮完整成交/供给样本；价格与GMV留待核，不据挂牌或讨论量推断经营结果。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "kol_social",
+            "name": "社区与创作者",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "观察 College Ultimate Team、Dynasty与Road to Glory 的创作者内容；未核名单、观看量与情绪比例。",
+              "作者意见标社区观点，与官方公告及实际成交分开。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "seo",
+            "name": "搜索与选题",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "College Football 27 CUT guide 是内容选题草稿，不是已验证高流量词。",
+              "搜索量与竞品排名待同一时间、地区、设备口径的真实来源。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "content",
+            "name": "内容资料",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "大学橄榄球模拟围绕学校阵容、战术与赛事展开；College Ultimate Team、Dynasty 与个人生涯不能共用一套交易口径。",
+              "静态入门：选学校或模式→熟悉进攻防守战术→打比赛完成目标→积累模式奖励或推进 Dynasty 招募与赛季；CUT卡牌养成与学校真实球员评分分开记录。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "esports",
+            "name": "赛事与替代观察",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "本轮未核实适用的官方电竞赛程，不把普通排位、公会战或社区竞速写成官方电竞。",
+              "替代观察：College Ultimate Team、Dynasty与Road to Glory 的官方活动与玩家参与；不编奖金、观看量或赛事日期。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "exploit",
+            "name": "风险与修复",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "只记录官方修复、异常封禁与条款变更，不提供漏洞操作或规避处罚方法。",
+              "异常只作风险提示，未经官方确认的传播不当事实，不推导自动停止或修改正常业务。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          }
+        ]
+      }
+    },
+    "college-football-26": {
+      "playbook": {
+        "overview": "保留26代的大学橄榄球玩法与术语资料，供旧订单和历史内容对照；不把27或Mobile的新机制倒写为26的能力。 本页按模式、地区和版本核对资料，经营需求只作判断，实际成交与可售范围仍以现有业务证据为准。",
+        "core": "先确认玩家使用26→区分 CUT、Dynasty 与 Road to Glory→按对应模式查奖励与阵容→处理旧版问题；历史版本资料不能作为27商品或现价依据。 先认清角色、装备或阵容的用途，再看成长资源如何消耗；付费内容与玩家间交易不是同一机制，不能用商城存在推定现金交易获准。此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+        "tips": [
+          "〔Hermes经营草稿·待运营确认〕先核对 CFB26历史资料条目；不代表当前主推商品，围绕 26版CUT与Dynasty历史资料 分类资料；旧版与新版本不能共用卡牌、技能或交付描述。",
+          "〔Hermes经营草稿·待运营确认〕把 CFB26 CUT Coins / Points；不与27混池 分开解释；只在已确认的现有服务范围内处理需求，不把攻略建议变成新业务规则。",
+          "〔Hermes经营草稿·待运营确认〕用官方公告核对 26版CUT与Dynasty历史资料 的变化；没有新事实时保留本静态基线，截图出处见玩法说明。"
+        ],
+        "gallery": [
+          "https://drop-assets.ea.com/images/7lzfTo0q4cnusitIWc0dld/3b1bf7827b1198317ece7828a2726b0a/EA_CFB26_Standard_KeyArt_16-9.jpg",
+          "https://drop-assets.ea.com/images/kE5PxYzN3CSpXohORKqeP/138e622067369116404e2a2007a1f514/EAS_CFB26_LOGO_PRIMARY_WHT.png",
+          "https://drop-assets.ea.com/images/LzTMQLWJ0pwlWNFRT1y6M/b4dda8b81130dd86dface8a80ab6655f/CFB26_WEB0-DLX-KeyArt_Image_2048x1536.jpg",
+          "https://drop-assets.ea.com/images/49urZu0WbVtPItt1ZQTSEY/2e455f46cd0dec868d8c556c8bc3d9ec/CFB26_WEB0-DLX-KeyArt_Image_1536x2048.jpg"
+        ],
+        "biz": [
+          {
+            "name": "货币与材料",
+            "star": 3,
+            "type": "需求研究",
+            "focus": true,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 26：CFB26 CUT Coins / Points；不与27混池。区分获得、消耗、绑定与流通；付费货币不等于可交付金币。",
+            "why": "判断：CFB26 CUT Coins / Points；不与27混池 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB26历史资料条目；不代表当前主推商品 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 26版CUT与Dynasty历史资料 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football/college-football-26"
+              ]
+            ]
+          },
+          {
+            "name": "装备与阵容",
+            "star": 3,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 26：四分卫 / 接球手。先按模式、卡版或装备条件匹配用途，检查是否可交易。",
+            "why": "判断：四分卫 / 接球手 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB26历史资料条目；不代表当前主推商品 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 26版CUT与Dynasty历史资料 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football/college-football-26"
+              ]
+            ]
+          },
+          {
+            "name": "成长与进度",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 26：26版CUT与Dynasty历史资料。将目标拆成可核验里程碑；账号共享与代练限制须查对应官方条款。",
+            "why": "判断：26版CUT与Dynasty历史资料 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB26历史资料条目；不代表当前主推商品 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 26版CUT与Dynasty历史资料 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football/college-football-26"
+              ]
+            ]
+          },
+          {
+            "name": "版本与服务说明",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕College Football 26：CFB26历史资料条目；不代表当前主推商品。先解释版本差异和售后边界，未上线与旧版不作当前可售承诺。",
+            "why": "判断：CFB26历史资料条目；不代表当前主推商品 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 CFB26历史资料条目；不代表当前主推商品 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 26版CUT与Dynasty历史资料 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/ea-sports-college-football/college-football-26"
+              ]
+            ]
+          }
+        ],
+        "dept": [
+          [
+            "产品",
+            "〔Hermes经营草稿·待运营确认〕整理 CFB26历史资料条目；不代表当前主推商品 与 CFB26 CUT Coins / Points；不与27混池 的现有商品说明；缺少可交付证据的条目只保留需求研究。"
+          ],
+          [
+            "设计",
+            "〔Hermes经营草稿·待运营确认〕用 College Football 26 官方图库做内部说明，明确 26代官方宣传素材；不代表27代玩法，不用不同版本画面证明当前能力。"
+          ],
+          [
+            "引流",
+            "〔Hermes经营草稿·待运营确认〕围绕 26版CUT与Dynasty历史资料 写版本分区的入门内容，先解决术语与玩法问题，不编造搜索量。"
+          ],
+          [
+            "投放",
+            "〔Hermes经营草稿·待运营确认〕先用 CUT、Coins 区分玩家意图；预算和素材须沿原审批与平台规则。"
+          ],
+          [
+            "私域",
+            "〔Hermes经营草稿·待运营确认〕按 CFB26历史资料条目；不代表当前主推商品 记录玩家问题，将 26版CUT与Dynasty历史资料 变更做本地知识更新，不自动发送群消息。"
+          ],
+          [
+            "邮件",
+            "〔Hermes经营草稿·待运营确认〕整理 College Football 26 的版本差异与常见疑问；实际邮件发送仍按已有授权，不把本草稿当发送指令。"
+          ],
+          [
+            "广告",
+            "〔Hermes经营草稿·待运营确认〕核 CFB26 CUT Coins / Points；不与27混池 的用词和规则，移除防封、官方授权及未经证实的价格优势承诺。"
+          ],
+          [
+            "技术",
+            "〔Hermes经营草稿·待运营确认〕确保 College Football 26 的游戏key、来源日期和版本一致；沿现有CI、备份和受控发布，不新增业务writer。"
+          ],
+          [
+            "生产",
+            "〔Hermes经营草稿·待运营确认〕按 四分卫、接球手 及 26版CUT与Dynasty历史资料 列验收目标；交付能力、时效与成本仍须实际核定。"
+          ]
+        ]
+      },
+      "tools": {
+        "tools": [
+          {
+            "name": "CFF Ultimate Team",
+            "url": "https://www.cffut.com",
+            "host": "www.cffut.com",
+            "tag": "工具",
+            "title": "CFF Ultimate Tea",
+            "sub": "大学橄榄球UT数据",
+            "visits": null,
+            "img": "",
+            "points": [
+              "大学橄榄球UT数据",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "MUT.GG CFB",
+            "url": "https://www.mut.gg",
+            "host": "www.mut.gg",
+            "tag": "工具",
+            "title": "MUT.GG CFB",
+            "sub": "MUT分支工具",
+            "visits": null,
+            "img": "",
+            "points": [
+              "MUT分支工具",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方资料入口",
+            "url": "https://www.ea.com/games/ea-sports-college-football/college-football-26",
+            "host": "www.ea.com",
+            "tag": "官方",
+            "title": "官方资料入口",
+            "sub": "CFB26历史资料条目；不代表当前主推商品",
+            "visits": null,
+            "img": "",
+            "points": [
+              "CFB26历史资料条目；不代表当前主推商品",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "EA帮助",
+            "url": "https://help.ea.com/",
+            "host": "help.ea.com",
+            "tag": "资料",
+            "title": "EA帮助",
+            "sub": "账号与平台支持；先确认26代",
+            "visits": null,
+            "img": "",
+            "points": [
+              "账号与平台支持；先确认26代",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "系列公告",
+            "url": "https://www.ea.com/games/ea-sports-college-football",
+            "host": "www.ea.com",
+            "tag": "资料",
+            "title": "系列公告",
+            "sub": "系列当前公告，不倒写26机制",
+            "visits": null,
+            "img": "",
+            "points": [
+              "系列当前公告，不倒写26机制",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "CUT资料库",
+            "url": "https://cfb.fan/",
+            "host": "cfb.fan",
+            "tag": "资料",
+            "title": "CUT资料库",
+            "sub": "社区卡牌数据库；先选26代",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区卡牌数据库；先选26代",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ],
+        "wikis": [
+          {
+            "name": "参考资料 1",
+            "url": "https://cfb.fan/",
+            "host": "cfb.fan",
+            "tag": "资料",
+            "title": "参考资料 1",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "参考资料 2",
+            "url": "https://en.wikipedia.org/wiki/EA_Sports_College_Football_26",
+            "host": "en.wikipedia.org",
+            "tag": "资料",
+            "title": "参考资料 2",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "classes": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "历史26版传球与战术组织位置",
+            "core": [
+              "历史26版传球与战术组织位置"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "27新机制不能直接套用"
+          },
+          {
+            "e": "📖",
+            "cn": "接球手",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "26版接球与跑路线分工",
+            "core": [
+              "26版接球与跑路线分工"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "确认实际卡版和位置"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "26版跑球与接球位置",
+            "core": [
+              "26版跑球与接球位置"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "不推定与27数值相同"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defender",
+            "diff": 3,
+            "role": "26版前线、线卫、后场防守分工",
+            "core": [
+              "26版前线、线卫、后场防守分工"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "先确认旧模式仍可进入"
+          }
+        ],
+        "clsDocs": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "历史26版传球与战术组织位置",
+            "intro": "College Football 26 / CFB26历史资料条目；不代表当前主推商品：历史26版传球与战术组织位置。本卡是位置或玩法分工，不是官方固定职业。此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+            "core": [
+              "历史26版传球与战术组织位置",
+              "26版CUT与Dynasty历史资料"
+            ],
+            "str": [
+              "判断：历史26版传球与战术组织位置 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "27新机制不能直接套用"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 历史26版传球与战术组织位置 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：四分卫",
+                "d": "历史26版传球与战术组织位置；27新机制不能直接套用。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 四分卫 的任务与队伍分工。",
+              "执行：历史26版传球与战术组织位置；针对 27新机制不能直接套用 检查站位与时机。",
+              "复盘：围绕 26版CUT与Dynasty历史资料 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 历史26版传球与战术组织位置 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 四分卫 定位与 26版CUT与Dynasty历史资料 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "接球手",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "26版接球与跑路线分工",
+            "intro": "College Football 26 / CFB26历史资料条目；不代表当前主推商品：26版接球与跑路线分工。本卡是位置或玩法分工，不是官方固定职业。此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+            "core": [
+              "26版接球与跑路线分工",
+              "26版CUT与Dynasty历史资料"
+            ],
+            "str": [
+              "判断：26版接球与跑路线分工 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "确认实际卡版和位置"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 26版接球与跑路线分工 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：接球手",
+                "d": "26版接球与跑路线分工；确认实际卡版和位置。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 接球手 的任务与队伍分工。",
+              "执行：26版接球与跑路线分工；针对 确认实际卡版和位置 检查站位与时机。",
+              "复盘：围绕 26版CUT与Dynasty历史资料 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 26版接球与跑路线分工 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 接球手 定位与 26版CUT与Dynasty历史资料 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "26版跑球与接球位置",
+            "intro": "College Football 26 / CFB26历史资料条目；不代表当前主推商品：26版跑球与接球位置。本卡是位置或玩法分工，不是官方固定职业。此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+            "core": [
+              "26版跑球与接球位置",
+              "26版CUT与Dynasty历史资料"
+            ],
+            "str": [
+              "判断：26版跑球与接球位置 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "不推定与27数值相同"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 26版跑球与接球位置 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：跑卫",
+                "d": "26版跑球与接球位置；不推定与27数值相同。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 跑卫 的任务与队伍分工。",
+              "执行：26版跑球与接球位置；针对 不推定与27数值相同 检查站位与时机。",
+              "复盘：围绕 26版CUT与Dynasty历史资料 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 26版跑球与接球位置 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 跑卫 定位与 26版CUT与Dynasty历史资料 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defender",
+            "diff": 3,
+            "role": "26版前线、线卫、后场防守分工",
+            "intro": "College Football 26 / CFB26历史资料条目；不代表当前主推商品：26版前线、线卫、后场防守分工。本卡是位置或玩法分工，不是官方固定职业。此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+            "core": [
+              "26版前线、线卫、后场防守分工",
+              "26版CUT与Dynasty历史资料"
+            ],
+            "str": [
+              "判断：26版前线、线卫、后场防守分工 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "先确认旧模式仍可进入"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 26版前线、线卫、后场防守分工 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：防守组",
+                "d": "26版前线、线卫、后场防守分工；先确认旧模式仍可进入。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 防守组 的任务与队伍分工。",
+              "执行：26版前线、线卫、后场防守分工；针对 先确认旧模式仍可进入 检查站位与时机。",
+              "复盘：围绕 26版CUT与Dynasty历史资料 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 26版前线、线卫、后场防守分工 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 防守组 定位与 26版CUT与Dynasty历史资料 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          }
+        ],
+        "play": [
+          [
+            "它是什么与版本范围",
+            [
+              "保留26代的大学橄榄球玩法与术语资料，供旧订单和历史内容对照；不把27或Mobile的新机制倒写为26的能力。",
+              "此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。",
+              "资料基线：2026-10-22；CFB26历史资料条目；不代表当前主推商品"
+            ]
+          ],
+          [
+            "怎么玩",
+            [
+              "先确认玩家使用26→区分 CUT、Dynasty 与 Road to Glory→按对应模式查奖励与阵容→处理旧版问题；历史版本资料不能作为27商品或现价依据。",
+              "26版CUT与Dynasty历史资料 是理解进度的入口；具体开放状态看官方公告。"
+            ]
+          ],
+          [
+            "成长与目标",
+            [
+              "26版CUT与Dynasty历史资料",
+              "CFB26 CUT Coins / Points；不与27混池 分开记账；不把收藏、绑定或付费点数当可交易物。"
+            ]
+          ],
+          [
+            "适合谁与社交",
+            [
+              "先按 四分卫 / 接球手 的定位选择学习方向。",
+              "职业/分工范围：卡片只讲定位与入门操作，不代表最强构筑。"
+            ]
+          ],
+          [
+            "付费、资料与图库",
+            [
+              "商业化与玩家间交易分开；CFB26 CUT Coins / Points；不与27混池",
+              "图库来源：https://www.ea.com/games/ea-sports-college-football/college-football-26",
+              "图库说明：26代官方宣传素材；不代表27代玩法",
+              "事实来源：https://www.ea.com/games/ea-sports-college-football/college-football-26"
+            ]
+          ]
+        ],
+        "terms": [
+          [
+            "CUT",
+            "26代大学终极球队",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 CUT 指 26代大学终极球队。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "26代大学终极球队；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 CUT guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 26代大学终极球队 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Coins",
+            "26代模式金币",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Coins 指 26代模式金币。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "26代模式金币；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Coins guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 26代模式金币 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Points",
+            "26代付费点数",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Points 指 26代付费点数。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "26代付费点数；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Points guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 26代付费点数 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Dynasty",
+            "王朝模式",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Dynasty 指 王朝模式。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "王朝模式；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Dynasty guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 王朝模式 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Recruiting",
+            "招募",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Recruiting 指 招募。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "招募；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Recruiting guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 招募 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Road to Glory",
+            "个人生涯",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Road to Glory 指 个人生涯。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "个人生涯；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Road to Glory guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 个人生涯 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Playbook",
+            "战术手册",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Playbook 指 战术手册。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "战术手册；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Playbook guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 战术手册 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Roster",
+            "阵容名单",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Roster 指 阵容名单。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "阵容名单；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Roster guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 阵容名单 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "OVR",
+            "综合评分",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 OVR 指 综合评分。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "综合评分；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 OVR guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 综合评分 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Legacy Version",
+            "历史版本",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Legacy Version 指 历史版本。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "历史版本；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Legacy Version guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 历史版本 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Server Status",
+            "在线服务状态",
+            {
+              "k": [
+                "CFB26历史资料条目；不代表当前主推商品",
+                "基础术语"
+              ],
+              "intro": "College Football 26 中的 Server Status 指 在线服务状态。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "在线服务状态；适用范围：CFB26历史资料条目；不代表当前主推商品",
+                "与 CFB26 CUT Coins / Points；不与27混池 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕College Football 26 Server Status guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 在线服务状态 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：CFB26历史资料条目；不代表当前主推商品",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ]
+        ],
+        "eco": [
+          [
+            "资源与经济范围",
+            [
+              "CFB26 CUT Coins / Points；不与27混池",
+              "此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。"
+            ]
+          ],
+          [
+            "官方规则与现金交易",
+            [
+              "官方商城、游戏内交易与第三方现金交易是三回事。官方是否允许须查对应地区最新条款；本轮未逐条完成所有服务的条款核验，不能写成官方允许或安全。",
+              "不承诺账号共享、代练或金币交易无风险；不把现有需求研究改成新售卖授权。"
+            ]
+          ],
+          [
+            "供需与价格的观察方法",
+            [
+              "判断：26版CUT与Dynasty历史资料 可能改变资源消耗和玩家目标，需真实成交验证；不写精确热度、流水或利润排序。",
+              "价格仅给方法：用有效到货成本、实际扣减、费用与同口径竞品报价核算；缺输入不推荐具体售价、折扣和面额。"
+            ]
+          ],
+          [
+            "现有业务落点与验收",
+            [
+              "〔Hermes经营草稿·待运营确认〕围绕 26版CUT与Dynasty历史资料 归类已有需求；只消费现有货架、订单与交付证据。",
+              "本页更新不会触发调价、上架、投放、订单或账号动作。"
+            ]
+          ]
+        ],
+        "ops": [
+          [
+            "〔Hermes经营草稿·待运营确认〕 SEO",
+            [
+              "College Football 26 CUT guide：先解释 26版CUT与Dynasty历史资料 与 CFB26历史资料条目；不代表当前主推商品",
+              "将 Coins 与 Points 分词说明，未取搜索量不排序。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 投放",
+            [
+              "素材围绕 26版CUT与Dynasty历史资料 的真实内容和官方素材来源。",
+              "先确认目标市场、版本与平台规则；预算、价格及投放发送均不由本页决定。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 运营",
+            [
+              "按 CFB26历史资料条目；不代表当前主推商品 整理FAQ，静态内容只随事实变化纠错。",
+              "周更记录官方补丁、活动和停服状态；无变化保留本基线。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 客服",
+            [
+              "先问 CFB26历史资料条目；不代表当前主推商品 与 26版CUT与Dynasty历史资料 对应目标，再查现有服务能否承接。",
+              "不保证封禁豁免、解封、交易安全或未公布内容；新问题保留版本、时间和来源。"
+            ]
+          ]
+        ]
+      },
+      "intel": {
+        "updated": "2026-10-22 静态基线",
+        "mode": "manual",
+        "note": "本轮补齐资料基线；不冒充本周动态采集。实际新公告/活动由原周更任务核实；未核经营数字保持缺失。",
+        "cats": [
+          {
+            "code": "version",
+            "name": "版本动态",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "CFB26历史资料条目；不代表当前主推商品",
+              "此条只作旧版知识与售后定位；是否仍有在线模式、货源与可售服务须核当前官方状态和原业务配置。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "market",
+            "name": "经济与交易",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "CFB26 CUT Coins / Points；不与27混池",
+              "无本轮完整成交/供给样本；价格与GMV留待核，不据挂牌或讨论量推断经营结果。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "kol_social",
+            "name": "社区与创作者",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "观察 26版CUT与Dynasty历史资料 的创作者内容；未核名单、观看量与情绪比例。",
+              "作者意见标社区观点，与官方公告及实际成交分开。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "seo",
+            "name": "搜索与选题",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "College Football 26 CUT guide 是内容选题草稿，不是已验证高流量词。",
+              "搜索量与竞品排名待同一时间、地区、设备口径的真实来源。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "content",
+            "name": "内容资料",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "保留26代的大学橄榄球玩法与术语资料，供旧订单和历史内容对照；不把27或Mobile的新机制倒写为26的能力。",
+              "静态入门：先确认玩家使用26→区分 CUT、Dynasty 与 Road to Glory→按对应模式查奖励与阵容→处理旧版问题；历史版本资料不能作为27商品或现价依据。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "esports",
+            "name": "赛事与替代观察",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "本轮未核实适用的官方电竞赛程，不把普通排位、公会战或社区竞速写成官方电竞。",
+              "替代观察：26版CUT与Dynasty历史资料 的官方活动与玩家参与；不编奖金、观看量或赛事日期。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "exploit",
+            "name": "风险与修复",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "只记录官方修复、异常封禁与条款变更，不提供漏洞操作或规避处罚方法。",
+              "异常只作风险提示，未经官方确认的传播不当事实，不推导自动停止或修改正常业务。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          }
+        ]
+      }
+    },
+    "madden-nfl": {
+      "playbook": {
+        "overview": "NFL橄榄球模拟以战术执行和阵容建设为核心；MUT、Franchise与个人生涯服务不同目标，金币不能被写成全模式通货。 本页按模式、地区和版本核对资料，经营需求只作判断，实际成交与可售范围仍以现有业务证据为准。",
+        "core": "选择MUT或生涯模式→练习进攻防守战术→比赛与目标奖励→补强球员卡、阵型或球队名单→继续赛季；MUT市场与Franchise交易不是同一系统。 先认清角色、装备或阵容的用途，再看成长资源如何消耗；付费内容与玩家间交易不是同一机制，不能用商城存在推定现金交易获准。26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+        "tips": [
+          "〔Hermes经营草稿·待运营确认〕先核对 Madden27为当前资料；Madden26与Mobile分开，围绕 MUT Programs、Challenges与Franchise 分类资料；旧版与新版本不能共用卡牌、技能或交付描述。",
+          "〔Hermes经营草稿·待运营确认〕把 MUT Coins / Madden Points；训练资源不等于金币 分开解释；只在已确认的现有服务范围内处理需求，不把攻略建议变成新业务规则。",
+          "〔Hermes经营草稿·待运营确认〕用官方公告核对 MUT Programs、Challenges与Franchise 的变化；没有新事实时保留本静态基线，截图出处见玩法说明。"
+        ],
+        "gallery": [
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3940610/38d51293b4c35649078b98fcfb400136edf1975a/ss_38d51293b4c35649078b98fcfb400136edf1975a.1920x1080.jpg?t=1792087154",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3940610/89514e0259f1e8a7b068158180fec811b9ab87c4/ss_89514e0259f1e8a7b068158180fec811b9ab87c4.1920x1080.jpg?t=1792087154",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3940610/d25b9426498e06f19e9cfe85462627d3cabe3b31/ss_d25b9426498e06f19e9cfe85462627d3cabe3b31.1920x1080.jpg?t=1792087154",
+          "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3940610/34588453e785e37518c3e448c91563c25ea0de95/ss_34588453e785e37518c3e448c91563c25ea0de95.1920x1080.jpg?t=1792087154"
+        ],
+        "biz": [
+          {
+            "name": "货币与材料",
+            "star": 3,
+            "type": "需求研究",
+            "focus": true,
+            "desc": "〔Hermes经营草稿·待运营确认〕Madden NFL：MUT Coins / Madden Points；训练资源不等于金币。区分获得、消耗、绑定与流通；付费货币不等于可交付金币。",
+            "why": "判断：MUT Coins / Madden Points；训练资源不等于金币 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 Madden27为当前资料；Madden26与Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 MUT Programs、Challenges与Franchise 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/madden-nfl"
+              ]
+            ]
+          },
+          {
+            "name": "装备与阵容",
+            "star": 3,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕Madden NFL：四分卫 / 跑卫。先按模式、卡版或装备条件匹配用途，检查是否可交易。",
+            "why": "判断：四分卫 / 跑卫 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 Madden27为当前资料；Madden26与Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 MUT Programs、Challenges与Franchise 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/madden-nfl"
+              ]
+            ]
+          },
+          {
+            "name": "成长与进度",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕Madden NFL：MUT Programs、Challenges与Franchise。将目标拆成可核验里程碑；账号共享与代练限制须查对应官方条款。",
+            "why": "判断：MUT Programs、Challenges与Franchise 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 Madden27为当前资料；Madden26与Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 MUT Programs、Challenges与Franchise 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/madden-nfl"
+              ]
+            ]
+          },
+          {
+            "name": "版本与服务说明",
+            "star": 2,
+            "type": "需求研究",
+            "focus": false,
+            "desc": "〔Hermes经营草稿·待运营确认〕Madden NFL：Madden27为当前资料；Madden26与Mobile分开。先解释版本差异和售后边界，未上线与旧版不作当前可售承诺。",
+            "why": "判断：Madden27为当前资料；Madden26与Mobile分开 会影响玩家选择；尚无本轮订单与供给证据证明需求规模。",
+            "how": "记录玩家的 Madden27为当前资料；Madden26与Mobile分开 与明确目标，核官方规则和原有货架，再评估是否有已获准服务承接。",
+            "eff": "判断/待验证：未取本游戏有效成本、实际成交及同口径竞品，不给销量、毛利、价格或流水排序。",
+            "opt": "有真实样本后复盘 MUT Programs、Challenges与Franchise 对需求的影响；不因热度或本草稿自动调价、上架。",
+            "cmp": [
+              [
+                "官方入口",
+                "规则与内容事实源；商城价不等于本站成本",
+                "事实核验"
+              ]
+            ],
+            "refs": [
+              [
+                "官方原文",
+                "资料来源",
+                "https://www.ea.com/games/madden-nfl"
+              ]
+            ]
+          }
+        ],
+        "dept": [
+          [
+            "产品",
+            "〔Hermes经营草稿·待运营确认〕整理 Madden27为当前资料；Madden26与Mobile分开 与 MUT Coins / Madden Points；训练资源不等于金币 的现有商品说明；缺少可交付证据的条目只保留需求研究。"
+          ],
+          [
+            "设计",
+            "〔Hermes经营草稿·待运营确认〕用 Madden NFL 官方图库做内部说明，明确 开发者在Steam商店公开的截图；具体平台与版本见商店，不用不同版本画面证明当前能力。"
+          ],
+          [
+            "引流",
+            "〔Hermes经营草稿·待运营确认〕围绕 MUT Programs、Challenges与Franchise 写版本分区的入门内容，先解决术语与玩法问题，不编造搜索量。"
+          ],
+          [
+            "投放",
+            "〔Hermes经营草稿·待运营确认〕先用 MUT、Coins 区分玩家意图；预算和素材须沿原审批与平台规则。"
+          ],
+          [
+            "私域",
+            "〔Hermes经营草稿·待运营确认〕按 Madden27为当前资料；Madden26与Mobile分开 记录玩家问题，将 MUT Programs、Challenges与Franchise 变更做本地知识更新，不自动发送群消息。"
+          ],
+          [
+            "邮件",
+            "〔Hermes经营草稿·待运营确认〕整理 Madden NFL 的版本差异与常见疑问；实际邮件发送仍按已有授权，不把本草稿当发送指令。"
+          ],
+          [
+            "广告",
+            "〔Hermes经营草稿·待运营确认〕核 MUT Coins / Madden Points；训练资源不等于金币 的用词和规则，移除防封、官方授权及未经证实的价格优势承诺。"
+          ],
+          [
+            "技术",
+            "〔Hermes经营草稿·待运营确认〕确保 Madden NFL 的游戏key、来源日期和版本一致；沿现有CI、备份和受控发布，不新增业务writer。"
+          ],
+          [
+            "生产",
+            "〔Hermes经营草稿·待运营确认〕按 四分卫、跑卫 及 MUT Programs、Challenges与Franchise 列验收目标；交付能力、时效与成本仍须实际核定。"
+          ]
+        ]
+      },
+      "tools": {
+        "tools": [
+          {
+            "name": "MUT.GG",
+            "url": "https://www.mut.gg",
+            "host": "www.mut.gg",
+            "tag": "工具",
+            "title": "MUT.GG",
+            "sub": "美区橄榄球UT之王",
+            "visits": null,
+            "img": "",
+            "points": [
+              "美区橄榄球UT之王",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "Madden Tools",
+            "url": "https://www.madtools.com",
+            "host": "www.madtools.com",
+            "tag": "工具",
+            "title": "Madden Tools",
+            "sub": "高阶数据分析",
+            "visits": null,
+            "img": "",
+            "points": [
+              "高阶数据分析",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "Madden School",
+            "url": "https://www.maddenschool.com",
+            "host": "www.maddenschool.com",
+            "tag": "工具",
+            "title": "Madden School",
+            "sub": "MUT竞技教学",
+            "visits": null,
+            "img": "",
+            "points": [
+              "MUT竞技教学",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方资料入口",
+            "url": "https://www.ea.com/games/madden-nfl",
+            "host": "www.ea.com",
+            "tag": "官方",
+            "title": "官方资料入口",
+            "sub": "Madden27为当前资料；Madden26与Mobile分开",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Madden27为当前资料；Madden26与Mobile分开",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "官方商店说明",
+            "url": "https://store.steampowered.com/app/3940610/",
+            "host": "store.steampowered.com",
+            "tag": "商店",
+            "title": "官方商店说明",
+            "sub": "玩法、系统需求与开发者图库",
+            "visits": null,
+            "img": "",
+            "points": [
+              "玩法、系统需求与开发者图库",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "开发者公告",
+            "url": "https://steamcommunity.com/app/3940610/announcements/",
+            "host": "steamcommunity.com",
+            "tag": "公告",
+            "title": "开发者公告",
+            "sub": "Steam开发者公告；社区回复不等于官方事实",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam开发者公告；社区回复不等于官方事实",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "平台支持",
+            "url": "https://help.steampowered.com/en/wizard/HelpWithGame/?appid=3940610",
+            "host": "help.steampowered.com",
+            "tag": "支持",
+            "title": "平台支持",
+            "sub": "Steam对应产品支持入口",
+            "visits": null,
+            "img": "",
+            "points": [
+              "Steam对应产品支持入口",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ],
+        "wikis": [
+          {
+            "name": "参考资料 1",
+            "url": "https://www.mut.gg/",
+            "host": "www.mut.gg",
+            "tag": "资料",
+            "title": "参考资料 1",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          },
+          {
+            "name": "参考资料 2",
+            "url": "https://en.wikipedia.org/wiki/Madden_NFL_27",
+            "host": "en.wikipedia.org",
+            "tag": "资料",
+            "title": "参考资料 2",
+            "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+            "visits": null,
+            "img": "",
+            "points": [
+              "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "版本适用性见说明；不提供未经核实的访问量"
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "classes": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "读防守与组织传球进攻",
+            "core": [
+              "读防守与组织传球进攻"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "传球选择比单纯面板更重要"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "跑球推进和接球保护",
+            "core": [
+              "跑球推进和接球保护"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "需要看掩护与路线"
+          },
+          {
+            "e": "📖",
+            "cn": "接球组",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "WR/TE按路线与对位接球",
+            "core": [
+              "WR/TE按路线与对位接球"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "不能忽略位置与阵型适配"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defense",
+            "diff": 3,
+            "role": "前线、线卫与后场各守职责",
+            "core": [
+              "前线、线卫与后场各守职责"
+            ],
+            "skills": [],
+            "passive": [],
+            "loop": [],
+            "build": [],
+            "aud": [],
+            "tip": "错误换防会形成空档"
+          }
+        ],
+        "clsDocs": [
+          {
+            "e": "📖",
+            "cn": "四分卫",
+            "en": "Quarterback",
+            "diff": 3,
+            "role": "读防守与组织传球进攻",
+            "intro": "Madden NFL / Madden27为当前资料；Madden26与Mobile分开：读防守与组织传球进攻。本卡是位置或玩法分工，不是官方固定职业。26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+            "core": [
+              "读防守与组织传球进攻",
+              "MUT Programs、Challenges与Franchise"
+            ],
+            "str": [
+              "判断：读防守与组织传球进攻 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "传球选择比单纯面板更重要"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 读防守与组织传球进攻 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：四分卫",
+                "d": "读防守与组织传球进攻；传球选择比单纯面板更重要。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 四分卫 的任务与队伍分工。",
+              "执行：读防守与组织传球进攻；针对 传球选择比单纯面板更重要 检查站位与时机。",
+              "复盘：围绕 MUT Programs、Challenges与Franchise 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 读防守与组织传球进攻 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 四分卫 定位与 MUT Programs、Challenges与Franchise 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "跑卫",
+            "en": "Running Back",
+            "diff": 3,
+            "role": "跑球推进和接球保护",
+            "intro": "Madden NFL / Madden27为当前资料；Madden26与Mobile分开：跑球推进和接球保护。本卡是位置或玩法分工，不是官方固定职业。26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+            "core": [
+              "跑球推进和接球保护",
+              "MUT Programs、Challenges与Franchise"
+            ],
+            "str": [
+              "判断：跑球推进和接球保护 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "需要看掩护与路线"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 跑球推进和接球保护 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：跑卫",
+                "d": "跑球推进和接球保护；需要看掩护与路线。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 跑卫 的任务与队伍分工。",
+              "执行：跑球推进和接球保护；针对 需要看掩护与路线 检查站位与时机。",
+              "复盘：围绕 MUT Programs、Challenges与Franchise 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 跑球推进和接球保护 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 跑卫 定位与 MUT Programs、Challenges与Franchise 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "接球组",
+            "en": "Receiver",
+            "diff": 3,
+            "role": "WR/TE按路线与对位接球",
+            "intro": "Madden NFL / Madden27为当前资料；Madden26与Mobile分开：WR/TE按路线与对位接球。本卡是位置或玩法分工，不是官方固定职业。26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+            "core": [
+              "WR/TE按路线与对位接球",
+              "MUT Programs、Challenges与Franchise"
+            ],
+            "str": [
+              "判断：WR/TE按路线与对位接球 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "不能忽略位置与阵型适配"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 WR/TE按路线与对位接球 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：接球组",
+                "d": "WR/TE按路线与对位接球；不能忽略位置与阵型适配。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 接球组 的任务与队伍分工。",
+              "执行：WR/TE按路线与对位接球；针对 不能忽略位置与阵型适配 检查站位与时机。",
+              "复盘：围绕 MUT Programs、Challenges与Franchise 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 WR/TE按路线与对位接球 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 接球组 定位与 MUT Programs、Challenges与Franchise 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          },
+          {
+            "e": "📖",
+            "cn": "防守组",
+            "en": "Defense",
+            "diff": 3,
+            "role": "前线、线卫与后场各守职责",
+            "intro": "Madden NFL / Madden27为当前资料；Madden26与Mobile分开：前线、线卫与后场各守职责。本卡是位置或玩法分工，不是官方固定职业。26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+            "core": [
+              "前线、线卫与后场各守职责",
+              "MUT Programs、Challenges与Franchise"
+            ],
+            "str": [
+              "判断：前线、线卫与后场各守职责 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+            ],
+            "weak": [
+              "错误换防会形成空档"
+            ],
+            "stat": [
+              "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+            ],
+            "gear": {
+              "配置": [
+                "围绕 前线、线卫与后场各守职责 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+              ]
+            },
+            "skills": [
+              {
+                "n": "核心操作：防守组",
+                "d": "前线、线卫与后场各守职责；错误换防会形成空档。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                "lv": "入门定位"
+              }
+            ],
+            "loop": [
+              "准备：明确 防守组 的任务与队伍分工。",
+              "执行：前线、线卫与后场各守职责；针对 错误换防会形成空档 检查站位与时机。",
+              "复盘：围绕 MUT Programs、Challenges与Franchise 记录成功与失败原因，调整与此职责相关的配置。"
+            ],
+            "build": [
+              "〔Hermes经营草稿·待运营确认〕按 前线、线卫与后场各守职责 建入门说明；数值和强度须有对应补丁实测才能另写。"
+            ],
+            "aud": [
+              "希望了解 防守组 定位与 MUT Programs、Challenges与Franchise 的同事或玩家"
+            ],
+            "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+          }
+        ],
+        "play": [
+          [
+            "它是什么与版本范围",
+            [
+              "NFL橄榄球模拟以战术执行和阵容建设为核心；MUT、Franchise与个人生涯服务不同目标，金币不能被写成全模式通货。",
+              "26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。",
+              "资料基线：2026-10-22；Madden27为当前资料；Madden26与Mobile分开"
+            ]
+          ],
+          [
+            "怎么玩",
+            [
+              "选择MUT或生涯模式→练习进攻防守战术→比赛与目标奖励→补强球员卡、阵型或球队名单→继续赛季；MUT市场与Franchise交易不是同一系统。",
+              "MUT Programs、Challenges与Franchise 是理解进度的入口；具体开放状态看官方公告。"
+            ]
+          ],
+          [
+            "成长与目标",
+            [
+              "MUT Programs、Challenges与Franchise",
+              "MUT Coins / Madden Points；训练资源不等于金币 分开记账；不把收藏、绑定或付费点数当可交易物。"
+            ]
+          ],
+          [
+            "适合谁与社交",
+            [
+              "先按 四分卫 / 跑卫 的定位选择学习方向。",
+              "职业/分工范围：卡片只讲定位与入门操作，不代表最强构筑。"
+            ]
+          ],
+          [
+            "付费、资料与图库",
+            [
+              "商业化与玩家间交易分开；MUT Coins / Madden Points；训练资源不等于金币",
+              "图库来源：https://store.steampowered.com/app/3940610/",
+              "图库说明：开发者在Steam商店公开的截图；具体平台与版本见商店",
+              "事实来源：https://www.ea.com/games/madden-nfl"
+            ]
+          ]
+        ],
+        "terms": [
+          [
+            "MUT",
+            "Madden Ultimate Team",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 MUT 指 Madden Ultimate Team。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "Madden Ultimate Team；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL MUT guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 Madden Ultimate Team 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Coins",
+            "MUT金币",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Coins 指 MUT金币。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "MUT金币；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Coins guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 MUT金币 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Madden Points",
+            "官方点数",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Madden Points 指 官方点数。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "官方点数；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Madden Points guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 官方点数 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Training",
+            "训练资源",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Training 指 训练资源。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "训练资源；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Training guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 训练资源 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Playbook",
+            "战术手册",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Playbook 指 战术手册。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "战术手册；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Playbook guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 战术手册 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Chemistry",
+            "阵容体系加成",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Chemistry 指 阵容体系加成。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "阵容体系加成；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Chemistry guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 阵容体系加成 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Franchise",
+            "球队经营",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Franchise 指 球队经营。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "球队经营；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Franchise guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 球队经营 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Challenges",
+            "挑战",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Challenges 指 挑战。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "挑战；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Challenges guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 挑战 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Programs",
+            "节目活动",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Programs 指 节目活动。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "节目活动；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Programs guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 节目活动 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "OVR",
+            "综合评分",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 OVR 指 综合评分。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "综合评分；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL OVR guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 综合评分 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ],
+          [
+            "Auction House",
+            "模式内拍卖市场",
+            {
+              "k": [
+                "Madden27为当前资料；Madden26与Mobile分开",
+                "基础术语"
+              ],
+              "intro": "Madden NFL 中的 Auction House 指 模式内拍卖市场。先核它属于哪个模式、版本或平台，再引用到攻略与服务说明；不要用同名词推定跨版本互通。",
+              "pts": [
+                "模式内拍卖市场；适用范围：Madden27为当前资料；Madden26与Mobile分开",
+                "与 MUT Coins / Madden Points；训练资源不等于金币 的关系按官方当前说明核对，不自行推导可交易性。"
+              ],
+              "seo": [
+                "〔Hermes经营草稿·待运营确认〕Madden NFL Auction House guide（关键词建议，无搜索量数据）"
+              ],
+              "ads": [
+                "〔Hermes经营草稿·待运营确认〕以 模式内拍卖市场 的真实玩法说明为素材，不承诺防封、收益或官方背书。"
+              ],
+              "faq": [
+                "Q：这是哪个版本？ A：Madden27为当前资料；Madden26与Mobile分开",
+                "Q：可作为交付承诺吗？ A：需核现有业务范围和实际可交付证据。"
+              ]
+            }
+          ]
+        ],
+        "eco": [
+          [
+            "资源与经济范围",
+            [
+              "MUT Coins / Madden Points；训练资源不等于金币",
+              "26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。"
+            ]
+          ],
+          [
+            "官方规则与现金交易",
+            [
+              "官方商城、游戏内交易与第三方现金交易是三回事。官方是否允许须查对应地区最新条款；本轮未逐条完成所有服务的条款核验，不能写成官方允许或安全。",
+              "不承诺账号共享、代练或金币交易无风险；不把现有需求研究改成新售卖授权。"
+            ]
+          ],
+          [
+            "供需与价格的观察方法",
+            [
+              "判断：MUT Programs、Challenges与Franchise 可能改变资源消耗和玩家目标，需真实成交验证；不写精确热度、流水或利润排序。",
+              "价格仅给方法：用有效到货成本、实际扣减、费用与同口径竞品报价核算；缺输入不推荐具体售价、折扣和面额。"
+            ]
+          ],
+          [
+            "现有业务落点与验收",
+            [
+              "〔Hermes经营草稿·待运营确认〕围绕 MUT Programs、Challenges与Franchise 归类已有需求；只消费现有货架、订单与交付证据。",
+              "本页更新不会触发调价、上架、投放、订单或账号动作。"
+            ]
+          ]
+        ],
+        "ops": [
+          [
+            "〔Hermes经营草稿·待运营确认〕 SEO",
+            [
+              "Madden NFL MUT guide：先解释 MUT Programs、Challenges与Franchise 与 Madden27为当前资料；Madden26与Mobile分开",
+              "将 Coins 与 Madden Points 分词说明，未取搜索量不排序。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 投放",
+            [
+              "素材围绕 MUT Programs、Challenges与Franchise 的真实内容和官方素材来源。",
+              "先确认目标市场、版本与平台规则；预算、价格及投放发送均不由本页决定。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 运营",
+            [
+              "按 Madden27为当前资料；Madden26与Mobile分开 整理FAQ，静态内容只随事实变化纠错。",
+              "周更记录官方补丁、活动和停服状态；无变化保留本基线。"
+            ]
+          ],
+          [
+            "〔Hermes经营草稿·待运营确认〕 客服",
+            [
+              "先问 Madden27为当前资料；Madden26与Mobile分开 与 MUT Programs、Challenges与Franchise 对应目标，再查现有服务能否承接。",
+              "不保证封禁豁免、解封、交易安全或未公布内容；新问题保留版本、时间和来源。"
+            ]
+          ]
+        ]
+      },
+      "intel": {
+        "updated": "2026-10-22 静态基线",
+        "mode": "manual",
+        "note": "本轮补齐资料基线；不冒充本周动态采集。实际新公告/活动由原周更任务核实；未核经营数字保持缺失。",
+        "cats": [
+          {
+            "code": "version",
+            "name": "版本动态",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "Madden27为当前资料；Madden26与Mobile分开",
+              "26/27和Mobile分区；官方当前27信息包含Franchise Persona Engine，不能把Mobile促销映射成主机MUT促销。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "market",
+            "name": "经济与交易",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "MUT Coins / Madden Points；训练资源不等于金币",
+              "无本轮完整成交/供给样本；价格与GMV留待核，不据挂牌或讨论量推断经营结果。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "kol_social",
+            "name": "社区与创作者",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "观察 MUT Programs、Challenges与Franchise 的创作者内容；未核名单、观看量与情绪比例。",
+              "作者意见标社区观点，与官方公告及实际成交分开。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "seo",
+            "name": "搜索与选题",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "Madden NFL MUT guide 是内容选题草稿，不是已验证高流量词。",
+              "搜索量与竞品排名待同一时间、地区、设备口径的真实来源。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "content",
+            "name": "内容资料",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "NFL橄榄球模拟以战术执行和阵容建设为核心；MUT、Franchise与个人生涯服务不同目标，金币不能被写成全模式通货。",
+              "静态入门：选择MUT或生涯模式→练习进攻防守战术→比赛与目标奖励→补强球员卡、阵型或球队名单→继续赛季；MUT市场与Franchise交易不是同一系统。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "esports",
+            "name": "赛事与替代观察",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "本轮未核实适用的官方电竞赛程，不把普通排位、公会战或社区竞速写成官方电竞。",
+              "替代观察：MUT Programs、Challenges与Franchise 的官方活动与玩家参与；不编奖金、观看量或赛事日期。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          },
+          {
+            "code": "exploit",
+            "name": "风险与修复",
+            "ic": "📌",
+            "tag": [
+              "资料基线"
+            ],
+            "tagT": "gray",
+            "items": [
+              "只记录官方修复、异常封禁与条款变更，不提供漏洞操作或规避处罚方法。",
+              "异常只作风险提示，未经官方确认的传播不当事实，不推导自动停止或修改正常业务。"
+            ],
+            "tm": [
+              "10-22 基线",
+              "10-22 待周更"
+            ]
+          }
+        ]
+      }
     }
-   }
-  }
- },
- "sources": [
-  {
-   "game": "maplestory",
-   "url": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
-   "retrieved_at": "2026-10-22T07:51:06+00:00",
-   "version": "Global MapleStory Classic World — Grand Launch（2026-10-21 18:00 UTC 上线版本）",
-   "claim": "官方 Grand Launch Release Notes「General Key Details」明列 The game can be played on both Windows and macOS；同页确认 10/21 18:00 UTC 全球上线、Lv15 后 24 小时才开放交易",
-   "kind": "official"
-  }
- ],
- "summary": "maplestory 主档 platform_pricing.note 补入已核实的 Classic World 客户端平台支持：Grand Launch（2026-10-21 18:00 UTC）版支持 Windows 与 macOS，正式服平台另行核对；保留原 NX/Leaf Points 与 Heroic/Interactive 说明，未改价格、身份、events、其他游戏或经营参数。"
+  },
+  "sources": [
+    {
+      "game": "ea-sports-fc",
+      "url": "https://www.ea.com/games/ea-sports-fc/fc-27",
+      "retrieved_at": "2026-10-22T10:12:47.633488+00:00",
+      "version": "FC27主机/PC；FC26仅历史对照，Mobile分开",
+      "claim": "足球模拟与阵容收集并行；Ultimate Team、Career 与 Clubs 是不同进度线，不能把单机阵容当可交易卡。 内容方法与经营判断为Codex草稿；未核数值不写为当前事实。",
+      "kind": "official"
+    },
+    {
+      "game": "mlb-the-show-26",
+      "url": "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/",
+      "retrieved_at": "2026-10-22T10:12:50.510540+00:00",
+      "version": "MLB The Show 26；DD/RTTS/Franchise分别说明",
+      "claim": "棒球模拟包含 Diamond Dynasty 卡牌阵容、Road to the Show 生涯和 Franchise 球队经营；同名球员不同卡版不能混同。 内容方法与经营判断为Codex草稿；未核数值不写为当前事实。",
+      "kind": "official"
+    },
+    {
+      "game": "college-football-27",
+      "url": "https://www.ea.com/games/ea-sports-college-football",
+      "retrieved_at": "2026-10-22T10:12:52.545134+00:00",
+      "version": "CFB27主机/PC资料；College Football Mobile独立",
+      "claim": "大学橄榄球模拟围绕学校阵容、战术与赛事展开；College Ultimate Team、Dynasty 与个人生涯不能共用一套交易口径。 内容方法与经营判断为Codex草稿；未核数值不写为当前事实。",
+      "kind": "official"
+    },
+    {
+      "game": "college-football-26",
+      "url": "https://www.ea.com/games/ea-sports-college-football/college-football-26",
+      "retrieved_at": "2026-10-22T10:12:53.999143+00:00",
+      "version": "CFB26历史资料条目；不代表当前主推商品",
+      "claim": "保留26代的大学橄榄球玩法与术语资料，供旧订单和历史内容对照；不把27或Mobile的新机制倒写为26的能力。 内容方法与经营判断为Codex草稿；未核数值不写为当前事实。",
+      "kind": "official"
+    },
+    {
+      "game": "madden-nfl",
+      "url": "https://www.ea.com/games/madden-nfl",
+      "retrieved_at": "2026-10-22T10:12:56.741881+00:00",
+      "version": "Madden27为当前资料；Madden26与Mobile分开",
+      "claim": "NFL橄榄球模拟以战术执行和阵容建设为核心；MUT、Franchise与个人生涯服务不同目标，金币不能被写成全模式通货。 内容方法与经营判断为Codex草稿；未核数值不写为当前事实。",
+      "kind": "official"
+    }
+  ],
+  "summary": "Codex按用户授权补齐静态基线第1批：EA SPORTS FC、MLB The Show 26、College Football 27、College Football 26、Madden NFL。区分版本、位置/职业和事实/经营草稿，去除无依据流量与经营数字；原游戏身份/events及其他游戏不变。"
 }

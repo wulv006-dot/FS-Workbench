@@ -1,13 +1,36 @@
 {
   "schema": 1,
-  "run_id": "20261022T074356Z-6f2d9c1a",
-  "before_sha256": "70db24939c495835e837cd36d8af011bfe08f75094728545ae06952a276a6411",
-  "after_sha256": "2d9b5e039e163f7632dad9e6f26479f4ec9701c93d5bc77ecbfc99028ad800c7",
+  "run_id": "20261022T101258Z-75f243d7",
+  "before_sha256": "2d9b5e039e163f7632dad9e6f26479f4ec9701c93d5bc77ecbfc99028ad800c7",
+  "after_sha256": "91eb6f07a8367ab2081b8450bf90648fde2d95a82695c366e983315480b92162",
   "changed": [
-    "maplestory:game"
+    "ea-sports-fc:playbook",
+    "ea-sports-fc:tools",
+    "ea-sports-fc:guide",
+    "ea-sports-fc:intel",
+    "mlb-the-show-26:playbook",
+    "mlb-the-show-26:tools",
+    "mlb-the-show-26:guide",
+    "mlb-the-show-26:intel",
+    "college-football-27:playbook",
+    "college-football-27:tools",
+    "college-football-27:guide",
+    "college-football-27:intel",
+    "college-football-26:playbook",
+    "college-football-26:tools",
+    "college-football-26:guide",
+    "college-football-26:intel",
+    "madden-nfl:playbook",
+    "madden-nfl:tools",
+    "madden-nfl:guide",
+    "madden-nfl:intel"
   ],
   "games": [
-    "maplestory"
+    "ea-sports-fc",
+    "mlb-the-show-26",
+    "college-football-27",
+    "college-football-26",
+    "madden-nfl"
   ],
-  "source_count": 1
+  "source_count": 5
 }
