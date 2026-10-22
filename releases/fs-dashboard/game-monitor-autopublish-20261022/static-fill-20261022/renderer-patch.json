@@ -1,0 +1,10 @@
+[
+  [
+    "  if(!isSA)return null;",
+    "  if(!isSA && !SA_INTEL[g.key])return null;"
+  ],
+  [
+    "items:pts.slice(),times:hasReal?realTimes:[]",
+    "items:Array.isArray(pts)?pts.slice():String(pts).split(\" · \"),times:hasReal?realTimes:[]"
+  ]
+]
