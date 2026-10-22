@@ -602,6 +602,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts = [x for x in parsed.path.strip("/").split("/") if x]
+        if actor == "dot_fc_observer":
+            from fc_observer import read_observation
+            code, payload = read_observation(sys.modules[__name__], parsed)
+            self.respond(code, payload)
+            return
         try:
             if parts == ["collection-mode"]:
                 self.respond(200, local_collection.view())
@@ -659,6 +664,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         actor = self.actor()
+        if actor == "dot_fc_observer":
+            self.respond(403, {"error": "observer_read_only"})
+            return
         if not actor:
             self.respond(401, {"error": "authentication_required"})
             return
