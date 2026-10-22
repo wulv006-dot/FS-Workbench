@@ -214,5 +214,10 @@ def main():
             record = read(STATE/'repair.json', {})
             write(STATE/'repair.json', dict(record, status='blocked_no_retry', error=type(error).__name__ + ':' + str(error)[:120] if isinstance(error, ValueError) else type(error).__name__, checked_at=now.isoformat()))
         write(PROFILE/'snapshot.json', collect(now))
+        try:
+            result = subprocess.run(['/opt/python39/bin/python3', '-B', str(HERE/'game_monitor/controller.py')], capture_output=True, text=True, timeout=100)
+            if result.returncode: print('game-monitor auto-publication needs attention; inspect its preserved status', flush=True)
+        except subprocess.TimeoutExpired:
+            print('game-monitor step timed out; reconcile its original journal on the next tick', flush=True)
 
 if __name__ == '__main__': main()

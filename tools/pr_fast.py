@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/game-monitor-autopublish-20261022/source/controller.py"]) != ["game-monitor-auto"]:
+        raise RuntimeError("game_monitor_auto_checks_missing")
     if select(["releases/fs-dashboard/game-monitor-sop-20261022/source/index.html"]) != ["game-monitor-sop"]:
         raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
@@ -342,6 +344,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
+            groups.add("game-monitor-auto");continue
         if name.startswith("releases/fs-dashboard/game-monitor-sop-20261022/"):
             groups.add("game-monitor-sop");continue
         if name.startswith("rea_admin_contract_20261021/"):
@@ -660,6 +664,10 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
+        if group=="game-monitor-auto":
+            units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller"])
+            node("releases/fs-dashboard/game-monitor-autopublish-20261022/tests/render.cjs")
+            continue
         if group=="game-monitor-sop":
             units("releases/fs-dashboard/game-monitor-sop-20261022/tests",["test_content","test_prepare_release"])
             node("releases/fs-dashboard/game-monitor-sop-20261022/tests/test_render.cjs")
