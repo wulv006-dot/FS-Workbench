@@ -15,7 +15,9 @@ class ESV3Publisher(unittest.TestCase):
   live=RELEASE/'source/es_order_structure.py';original_sha=prepare.sha;original_copy=prepare.shutil.copyfile
   detail=Path(__file__).parent/'fixtures/es_v3_dfc/detail_model.py'
   self.assertEqual(sha(detail.read_bytes()),'b70662400ea7a298c55148d16771b53699977e076a543fbe6f4c29de05723dbd')
-  frozen_sources={live:frozen,ROOT/'mmoexp_google_data/details/detail_model.py':detail}
+  contract=Path(__file__).parent/'fixtures/es_v3_dfc/traffic_contract.py'
+  self.assertEqual(sha(contract.read_bytes()),'8e2ace1134c601c08cf7c8b7ab3d1ca0bde1d0dac3cedc176721281909695d62')
+  frozen_sources={live:frozen,ROOT/'mmoexp_google_data/details/detail_model.py':detail,ROOT/'mmoexp_google_data/details/traffic_contract.py':contract}
   mapped=lambda value:frozen_sources.get(Path(value),value)
   sha_patch=patch.object(prepare,'sha',side_effect=lambda value:original_sha(mapped(value)))
   copy_patch=patch.object(prepare.shutil,'copyfile',side_effect=lambda source,dest,*a,**kw:original_copy(mapped(source),dest,*a,**kw))
