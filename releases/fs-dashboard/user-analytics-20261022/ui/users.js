@@ -4,6 +4,7 @@ const labels={purchasers:'区间购买客户',first_purchasers:'已确认首次�
 Object.assign(labels,{high_value_entered_silent:'高价值且刚进入沉默',first_without_repeat:'已确认首购后尚未二购'});
 let catalog,snapshot,controller,serial=0,group='',cursor='',privateRequest=0;
 const value=v=>v===null||v===undefined?'待读取':Number(v).toLocaleString('zh-CN');
+const time=s=>s?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'short',timeStyle:'short'}).format(new Date(s)):'待读取';
 const text=(id,t)=>{el(id).textContent=t;};
 const localDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const addDay=(s,n)=>{const d=new Date(s+'T00:00:00+08:00');d.setUTCDate(d.getUTCDate()+n);return localDay(d);};
@@ -52,8 +53,9 @@ function render(){
   cards('interval',['purchasers','first_purchasers','old_purchasers','first_unverified','silent_wakeup','lost_return']);
   cards('interval-extra',['repeat_purchasers','entered_silent','entered_lost','entered_long_lost']);
   cards('stock',['recent','silent','lost','long_lost','unverified']);
-  text('coverage',`${snapshot.full_company_coverage?'公司经营范围':'当前已接入范围'} · 站点 ${snapshot.coverage.sites.join(' / ')} · ${snapshot.coverage.period_complete?'区间订单已覆盖':'区间仍有覆盖缺口'} · 无法识别身份的订单 ${snapshot.coverage.missing_identity_orders} 笔。`);
-  text('freshness',`统计截至 ${snapshot.query.as_of} · 最近来源读取 ${snapshot.captured_at||'待读取'}`);
+  const q=snapshot.query,scope=q.scope==='project'?catalog.projects[q.scope_id]?.label||q.scope_id:q.scope==='site'?catalog.sites.find(s=>s.id===q.scope_id)?.label||q.scope_id:q.scope==='series'?q.scope_id:'已接入整体';
+  text('coverage',`当前结果：${scope} · ${snapshot.full_company_coverage?'公司经营范围':'已接入范围'} · 站点 ${snapshot.coverage.sites.join(' / ')} · ${snapshot.coverage.period_complete?'区间订单已覆盖':'区间仍有覆盖缺口'} · 无法识别身份的订单 ${snapshot.coverage.missing_identity_orders} 笔。`);
+  text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
   text('observation',`观察日 ${snapshot.observation_date}，已覆盖购买客户池 ${value(snapshot.metrics.known_pool.value)} 人；仅包含截止前的有效购买，不代表全部历史。`);
   text('versions',JSON.stringify({snapshot_id:snapshot.snapshot_id,evidence_id:snapshot.evidence_id,query:snapshot.query,coverage:snapshot.coverage,data_version:snapshot.data_version},null,2));
   table('trend',[['日期',r=>r.day],['购买客户',r=>value(r.purchasers)],['确认首购',r=>value(r.first_purchasers)],['进入流失',r=>value(r.entered_lost)],['流失回流',r=>value(r.lost_return)],...['recent','silent','lost','long_lost','unverified'].map(key=>[labels[key],r=>value(r.stock?.[key])]),['覆盖',r=>statuses[r.status]]],snapshot.trend);charts();
