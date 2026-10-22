@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "before_sha256": "2d9b5e039e163f7632dad9e6f26479f4ec9701c93d5bc77ecbfc99028ad800c7",
-  "after_sha256": "fce50c2e84abc0111a0f90450c09fc5aa47ab5a40a379134fcfed8611a2276f0",
+  "after_sha256": "bbc5e18dbee322364155e3e4718bd2ba85f7a9de5f08066399d5a6affa0ee7a0",
   "games": [
     "ea-sports-fc",
     "mlb-the-show-26",
@@ -38,7 +38,7 @@
       "schema": 1,
       "run_id": "20261022T102902Z-87c0c405",
       "before_sha256": "2b0e5954fa332d5fbaf52b2227beb11c01cec3fa31faf22d8b214eb44ad7ac73",
-      "after_sha256": "4168037304e5a844de6f10af0a80afd785b68b5763afa13801947dd8cb8b63c2",
+      "after_sha256": "10d18834a0d7a953ffca21cc5617fe41ebf58846bc8abe63a67c3872c6b3fc89",
       "changed": [
         "ea-sports-fc:game",
         "ea-sports-fc:playbook",
@@ -76,8 +76,8 @@
     {
       "schema": 1,
       "run_id": "20261022T102902Z-055aacaf",
-      "before_sha256": "4168037304e5a844de6f10af0a80afd785b68b5763afa13801947dd8cb8b63c2",
-      "after_sha256": "e58c3e0191e3f509fcaedcbc12e005a2d2b4f5d8dc9f8ca487e5068c52732274",
+      "before_sha256": "10d18834a0d7a953ffca21cc5617fe41ebf58846bc8abe63a67c3872c6b3fc89",
+      "after_sha256": "e6bc3523f40b1e64965f624240d283aa4b94f46e84d0fb28e42a4dce0f0cc21b",
       "changed": [
         "nba-2k:game",
         "nba-2k:playbook",
@@ -115,8 +115,8 @@
     {
       "schema": 1,
       "run_id": "20261022T102903Z-830a3d05",
-      "before_sha256": "e58c3e0191e3f509fcaedcbc12e005a2d2b4f5d8dc9f8ca487e5068c52732274",
-      "after_sha256": "493a66586a318f944124fb959feac1af234467a9ff11fa98b825b57fee6509d2",
+      "before_sha256": "e6bc3523f40b1e64965f624240d283aa4b94f46e84d0fb28e42a4dce0f0cc21b",
+      "after_sha256": "81c17c1bb1e39b3063b1fe63a3b2ef1d367f1232ba8717a9872a0f14045518ff",
       "changed": [
         "poe1:game",
         "poe1:playbook",
@@ -155,8 +155,8 @@
     {
       "schema": 1,
       "run_id": "20261022T102903Z-38a96290",
-      "before_sha256": "493a66586a318f944124fb959feac1af234467a9ff11fa98b825b57fee6509d2",
-      "after_sha256": "f61ff09f00fa369b9bdb491c60f0a932b7b7c2b0b52da0d1b289205553f7a87c",
+      "before_sha256": "81c17c1bb1e39b3063b1fe63a3b2ef1d367f1232ba8717a9872a0f14045518ff",
+      "after_sha256": "daf5d302e7d48288add248cceadc58c45cd91ca6e61b2686c4a0d59c6194b94f",
       "changed": [
         "gta6:game",
         "gta6:playbook",
@@ -194,8 +194,8 @@
     {
       "schema": 1,
       "run_id": "20261022T102904Z-994b3527",
-      "before_sha256": "f61ff09f00fa369b9bdb491c60f0a932b7b7c2b0b52da0d1b289205553f7a87c",
-      "after_sha256": "a8142b83c4663f09c85bb813c3c36a76bba2307e7d2d3bc465aefafa5befcfbb",
+      "before_sha256": "daf5d302e7d48288add248cceadc58c45cd91ca6e61b2686c4a0d59c6194b94f",
+      "after_sha256": "f20df716aa69f4d4dbd431f86816ef691078243a24b15a73d2223ddb68b174c3",
       "changed": [
         "black-ops-7:game",
         "black-ops-7:playbook",
@@ -235,8 +235,8 @@
     {
       "schema": 1,
       "run_id": "20261022T102904Z-5a44fed2",
-      "before_sha256": "a8142b83c4663f09c85bb813c3c36a76bba2307e7d2d3bc465aefafa5befcfbb",
-      "after_sha256": "fce50c2e84abc0111a0f90450c09fc5aa47ab5a40a379134fcfed8611a2276f0",
+      "before_sha256": "f20df716aa69f4d4dbd431f86816ef691078243a24b15a73d2223ddb68b174c3",
+      "after_sha256": "bbc5e18dbee322364155e3e4718bd2ba85f7a9de5f08066399d5a6affa0ee7a0",
       "changed": [
         "legend-of-ymir:game",
         "legend-of-ymir:playbook",

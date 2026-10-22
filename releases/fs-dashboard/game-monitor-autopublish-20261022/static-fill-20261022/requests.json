@@ -536,11 +536,11 @@
               "host": "www.futbin.com",
               "tag": "工具",
               "title": "futbin.com",
-              "sub": "定价与行情雷达，玩家第一聚集地",
+              "sub": "EA SPORTS FC既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "定价与行情雷达，玩家第一聚集地",
+                "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -550,11 +550,11 @@
               "host": "www.fut.gg",
               "tag": "工具",
               "title": "fut.gg",
-              "sub": "后起之秀，价格走势直逼FUTBIN",
+              "sub": "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "后起之秀，价格走势直逼FUTBIN",
+                "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -564,11 +564,11 @@
               "host": "www.futwiz.com",
               "tag": "工具",
               "title": "futwiz.com",
-              "sub": "传统球员库参考",
+              "sub": "EA SPORTS FC既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "传统球员库参考",
+                "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -578,11 +578,11 @@
               "host": "www.futhead.com",
               "tag": "工具",
               "title": "Futhead",
-              "sub": "老牌球员卡库，社区互动强",
+              "sub": "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "老牌球员卡库，社区互动强",
+                "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -592,11 +592,11 @@
               "host": "www.fifaindex.com",
               "tag": "工具",
               "title": "FIFA Index",
-              "sub": "非UT向，洗号/成品号用户重合",
+              "sub": "EA SPORTS FC既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "非UT向，洗号/成品号用户重合",
+                "EA SPORTS FC既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -657,16 +657,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/4080220/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/4080220/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -678,7 +678,7 @@
               "host": "www.futbin.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -692,7 +692,7 @@
               "host": "www.futwiz.com",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -1783,30 +1783,16 @@
         "tools": {
           "tools": [
             {
-              "name": "TheShowNation",
-              "url": "https://www.theshownation.com",
-              "host": "www.theshownation.com",
-              "tag": "工具",
-              "title": "TheShowNation",
-              "sub": "官方球员卡/DD生态入口",
-              "visits": null,
-              "img": "",
-              "points": [
-                "官方球员卡/DD生态入口",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "ShowZone.io",
               "url": "https://showzone.io",
               "host": "showzone.io",
               "tag": "工具",
               "title": "ShowZone.io",
-              "sub": "Diamond Dynasty价格数据站",
+              "sub": "MLB The Show 26既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "Diamond Dynasty价格数据站",
+                "MLB The Show 26既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -1816,11 +1802,11 @@
               "host": "www.daddyleagues.com",
               "tag": "工具",
               "title": "daddyleagues.com",
-              "sub": "联赛/模拟管理工具",
+              "sub": "MLB The Show 26既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "联赛/模拟管理工具",
+                "MLB The Show 26既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -1835,6 +1821,20 @@
               "img": "",
               "points": [
                 "MLB The Show 26；DD/RTTS/Franchise分别说明",
+                "版本适用性见说明；不提供未经核实的访问量"
+              ]
+            },
+            {
+              "name": "MLB官方入口",
+              "url": "https://theshow.com/",
+              "host": "theshow.com",
+              "tag": "资料",
+              "title": "MLB官方入口",
+              "sub": "官方游戏主页；本轮自动读取403，保留正确入口而非旧失效域名",
+              "visits": null,
+              "img": "",
+              "points": [
+                "官方游戏主页；本轮自动读取403，保留正确入口而非旧失效域名",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -2773,30 +2773,16 @@
         "tools": {
           "tools": [
             {
-              "name": "CFF Ultimate Team",
-              "url": "https://www.cffut.com",
-              "host": "www.cffut.com",
-              "tag": "工具",
-              "title": "CFF Ultimate Tea",
-              "sub": "大学橄榄球UT数据",
-              "visits": null,
-              "img": "",
-              "points": [
-                "大学橄榄球UT数据",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "MUT.GG CFB",
               "url": "https://www.mut.gg",
               "host": "www.mut.gg",
               "tag": "工具",
               "title": "MUT.GG CFB",
-              "sub": "MUT分支工具",
+              "sub": "College Football 27既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "MUT分支工具",
+                "College Football 27既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -2857,16 +2843,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/4032350/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/4032350/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -2878,7 +2864,7 @@
               "host": "cfb.fan",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -3753,30 +3739,16 @@
         "tools": {
           "tools": [
             {
-              "name": "CFF Ultimate Team",
-              "url": "https://www.cffut.com",
-              "host": "www.cffut.com",
-              "tag": "工具",
-              "title": "CFF Ultimate Tea",
-              "sub": "大学橄榄球UT数据",
-              "visits": null,
-              "img": "",
-              "points": [
-                "大学橄榄球UT数据",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "MUT.GG CFB",
               "url": "https://www.mut.gg",
               "host": "www.mut.gg",
               "tag": "工具",
               "title": "MUT.GG CFB",
-              "sub": "MUT分支工具",
+              "sub": "College Football 26既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "MUT分支工具",
+                "College Football 26既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -3828,7 +3800,7 @@
               "host": "cfb.fan",
               "tag": "资料",
               "title": "CUT资料库",
-              "sub": "社区卡牌数据库；先选26代",
+              "sub": "社区卡牌数据库；先选26代；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -3844,7 +3816,7 @@
               "host": "cfb.fan",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -4870,25 +4842,11 @@
               "host": "www.mut.gg",
               "tag": "工具",
               "title": "MUT.GG",
-              "sub": "美区橄榄球UT之王",
+              "sub": "Madden NFL既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "美区橄榄球UT之王",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "Madden Tools",
-              "url": "https://www.madtools.com",
-              "host": "www.madtools.com",
-              "tag": "工具",
-              "title": "Madden Tools",
-              "sub": "高阶数据分析",
-              "visits": null,
-              "img": "",
-              "points": [
-                "高阶数据分析",
+                "Madden NFL既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -4898,11 +4856,11 @@
               "host": "www.maddenschool.com",
               "tag": "工具",
               "title": "Madden School",
-              "sub": "MUT竞技教学",
+              "sub": "Madden NFL既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "MUT竞技教学",
+                "Madden NFL既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -4963,16 +4921,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/3940610/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/3940610/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -5747,7 +5705,7 @@
   {
     "schema": 1,
     "run_id": "20261022T102902Z-055aacaf",
-    "base_sha256": "4168037304e5a844de6f10af0a80afd785b68b5763afa13801947dd8cb8b63c2",
+    "base_sha256": "10d18834a0d7a953ffca21cc5617fe41ebf58846bc8abe63a67c3872c6b3fc89",
     "updates": {
       "nba-2k": {
         "game": {
@@ -6055,7 +6013,7 @@
               "host": "support.nba2k.com",
               "tag": "官方",
               "title": "官方资料入口",
-              "sub": "NBA 2K27；2K26与Mobile独立",
+              "sub": "NBA 2K27；2K26与Mobile独立；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -6106,16 +6064,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/4356430/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/4356430/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -6127,7 +6085,7 @@
               "host": "2kdb.net",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -7099,11 +7057,11 @@
               "host": "steamdb.info",
               "tag": "工具",
               "title": "SteamDB · AION 2",
-              "sub": "跨区代充/倒爷价格雷达",
+              "sub": "AION 2既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "跨区代充/倒爷价格雷达",
+                "AION 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -7113,11 +7071,11 @@
               "host": "aion2.app",
               "tag": "工具",
               "title": "aion2.app 数据库",
-              "sub": "工作室利润测算必用",
+              "sub": "AION 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "工作室利润测算必用",
+                "AION 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -7127,11 +7085,11 @@
               "host": "store.steampowered.com",
               "tag": "工具",
               "title": "Steam 商店",
-              "sub": "官方上架信息",
+              "sub": "AION 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "官方上架信息",
+                "AION 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -7141,11 +7099,11 @@
               "host": "purple.plaync.com",
               "tag": "工具",
               "title": "NC PURPLE Launch",
-              "sub": "NC官方统一启动入口",
+              "sub": "AION 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "NC官方统一启动入口",
+                "AION 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -7206,16 +7164,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/3393110/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/3393110/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -9688,11 +9646,11 @@
               "host": "maxroll.gg",
               "tag": "工具",
               "title": "maxroll.gg/d4",
-              "sub": "ARPG综合权威",
+              "sub": "Diablo IV既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "ARPG综合权威",
+                "Diablo IV既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -9702,11 +9660,11 @@
               "host": "helltides.com",
               "tag": "工具",
               "title": "helltides.com",
-              "sub": "刷金节奏工具",
+              "sub": "Diablo IV既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "刷金节奏工具",
+                "Diablo IV既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -9716,11 +9674,11 @@
               "host": "d4armory.io",
               "tag": "工具",
               "title": "D4Armory",
-              "sub": "战网离线查装",
+              "sub": "Diablo IV既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "战网离线查装",
+                "Diablo IV既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -9730,11 +9688,11 @@
               "host": "diablo.trade",
               "tag": "工具",
               "title": "diablo.trade",
-              "sub": "参考成交价",
+              "sub": "Diablo IV既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "参考成交价",
+                "Diablo IV既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -9744,25 +9702,11 @@
               "host": "d4builds.com",
               "tag": "工具",
               "title": "d4builds.com",
-              "sub": "build规划",
+              "sub": "Diablo IV既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "build规划",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "Diablo Fans",
-              "url": "https://www.diablo-fans.com",
-              "host": "www.diablo-fans.com",
-              "tag": "工具",
-              "title": "Diablo Fans",
-              "sub": "老牌社区长尾",
-              "visits": null,
-              "img": "",
-              "points": [
-                "老牌社区长尾",
+                "Diablo IV既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -9823,16 +9767,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2344520/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2344520/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -9844,7 +9788,7 @@
               "host": "www.icy-veins.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -11136,11 +11080,11 @@
               "host": "poe.ninja",
               "tag": "工具",
               "title": "poe.ninja",
-              "sub": "定价基准与行情雷达",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "定价基准与行情雷达",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11150,11 +11094,11 @@
               "host": "www.filterblade.xyz",
               "tag": "工具",
               "title": "FilterBlade",
-              "sub": "玩家必装过滤器，流量入口",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "玩家必装过滤器，流量入口",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11164,25 +11108,11 @@
               "host": "poedb.tw",
               "tag": "工具",
               "title": "poedb.tw",
-              "sub": "造装与定价基石",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "造装与定价基石",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "Pobb.in",
-              "url": "https://pobb.in",
-              "host": "pobb.in",
-              "tag": "工具",
-              "title": "Pobb.in",
-              "sub": "攻略Build链接分发",
-              "visits": null,
-              "img": "",
-              "points": [
-                "攻略Build链接分发",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11192,11 +11122,11 @@
               "host": "www.craftofexile.com",
               "tag": "工具",
               "title": "Craft of Exile",
-              "sub": "高端造装计算",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "高端造装计算",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11206,11 +11136,11 @@
               "host": "poe2db.tw",
               "tag": "工具",
               "title": "poe2db",
-              "sub": "2代前沿数据",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "2代前沿数据",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11220,11 +11150,11 @@
               "host": "poe.re",
               "tag": "工具",
               "title": "PoE Regex",
-              "sub": "硬核刷图工具",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "硬核刷图工具",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11234,11 +11164,11 @@
               "host": "poeplanner.com",
               "tag": "工具",
               "title": "PoE Planner",
-              "sub": "网页天赋模拟",
+              "sub": "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "网页天赋模拟",
+                "Path of Exile 2既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -11248,7 +11178,7 @@
               "host": "www.pathofexile.com",
               "tag": "官方",
               "title": "官方资料入口",
-              "sub": "PoE2 Early Access当前；1.0 12/11为已公告未来节点",
+              "sub": "PoE2 Early Access当前；1.0 12/11为已公告未来节点；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -11299,16 +11229,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2694490/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2694490/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -12559,25 +12489,11 @@
               "host": "mapgenie.io",
               "tag": "工具",
               "title": "MapGenie Dark an",
-              "sub": "撤离地图素材",
+              "sub": "Dark and Darker既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "撤离地图素材",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "DnD Market",
-              "url": "https://dndmarket.gg",
-              "host": "dndmarket.gg",
-              "tag": "工具",
-              "title": "DnD Market",
-              "sub": "装备市价参考",
-              "visits": null,
-              "img": "",
-              "points": [
-                "装备市价参考",
+                "Dark and Darker既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -12624,16 +12540,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2016590/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2016590/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -12659,7 +12575,7 @@
               "host": "darkanddarker.gameslantern.com",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -13850,7 +13766,7 @@
   {
     "schema": 1,
     "run_id": "20261022T102903Z-830a3d05",
-    "base_sha256": "e58c3e0191e3f509fcaedcbc12e005a2d2b4f5d8dc9f8ca487e5068c52732274",
+    "base_sha256": "e6bc3523f40b1e64965f624240d283aa4b94f46e84d0fb28e42a4dce0f0cc21b",
     "updates": {
       "poe1": {
         "game": {
@@ -14129,11 +14045,11 @@
               "host": "poe.ninja",
               "tag": "工具",
               "title": "poe.ninja",
-              "sub": "定价基准",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "定价基准",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14143,11 +14059,11 @@
               "host": "www.filterblade.xyz",
               "tag": "工具",
               "title": "FilterBlade",
-              "sub": "玩家必装",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "玩家必装",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14157,25 +14073,11 @@
               "host": "poedb.tw",
               "tag": "工具",
               "title": "poedb.tw",
-              "sub": "造装基石",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "造装基石",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "Pobb.in",
-              "url": "https://pobb.in",
-              "host": "pobb.in",
-              "tag": "工具",
-              "title": "Pobb.in",
-              "sub": "攻略分发",
-              "visits": null,
-              "img": "",
-              "points": [
-                "攻略分发",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14185,11 +14087,11 @@
               "host": "www.craftofexile.com",
               "tag": "工具",
               "title": "Craft of Exile",
-              "sub": "高端造装",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "高端造装",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14199,11 +14101,11 @@
               "host": "poe.re",
               "tag": "工具",
               "title": "PoE Regex",
-              "sub": "刷图工具",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "刷图工具",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14213,11 +14115,11 @@
               "host": "poeplanner.com",
               "tag": "工具",
               "title": "PoE Planner",
-              "sub": "网页模拟",
+              "sub": "Path of Exile既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "网页模拟",
+                "Path of Exile既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -14227,7 +14129,7 @@
               "host": "www.pathofexile.com",
               "tag": "官方",
               "title": "官方资料入口",
-              "sub": "PoE1当前联盟/永久；不与PoE2合并",
+              "sub": "PoE1当前联盟/永久；不与PoE2合并；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -14278,16 +14180,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/238960/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/238960/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -15541,25 +15443,11 @@
               "host": "mapgenie.io",
               "tag": "工具",
               "title": "MapGenie Skull a",
-              "sub": "跑商地图",
+              "sub": "Skull and Bones既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "跑商地图",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "SnB Ship Planner",
-              "url": "https://sbshipbuilder.com",
-              "host": "sbshipbuilder.com",
-              "tag": "工具",
-              "title": "SnB Ship Planner",
-              "sub": "船件/图纸规划",
-              "visits": null,
-              "img": "",
-              "points": [
-                "船件/图纸规划",
+                "Skull and Bones既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -15620,16 +15508,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2853730/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2853730/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -15641,7 +15529,7 @@
               "host": "skullandbones.fandom.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -16600,7 +16488,7 @@
               "host": "support.blizzard.com",
               "tag": "资料",
               "title": "官方支持",
-              "sub": "账号、游戏时间和版本支持",
+              "sub": "账号、游戏时间和版本支持；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -16630,7 +16518,7 @@
               "host": "warcraft.wiki.gg",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -18044,7 +17932,7 @@
               "host": "support.blizzard.com",
               "tag": "资料",
               "title": "官方支持",
-              "sub": "账号、游戏时间和版本支持",
+              "sub": "账号、游戏时间和版本支持；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -18074,7 +17962,7 @@
               "host": "warcraft.wiki.gg",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -19510,7 +19398,7 @@
               "host": "support.blizzard.com",
               "tag": "资料",
               "title": "官方支持",
-              "sub": "账号、订阅与版本支持",
+              "sub": "账号、订阅与版本支持；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -19526,7 +19414,7 @@
               "host": "warcraft.wiki.gg",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -20630,7 +20518,7 @@
   {
     "schema": 1,
     "run_id": "20261022T102903Z-38a96290",
-    "base_sha256": "493a66586a318f944124fb959feac1af234467a9ff11fa98b825b57fee6509d2",
+    "base_sha256": "81c17c1bb1e39b3063b1fe63a3b2ef1d367f1232ba8717a9872a0f14045518ff",
     "updates": {
       "gta6": {
         "game": {
@@ -20874,62 +20762,6 @@
               ]
             },
             {
-              "name": "官方商店说明",
-              "url": "https://store.steampowered.com/app/1546990/",
-              "host": "store.steampowered.com",
-              "tag": "商店",
-              "title": "官方商店说明",
-              "sub": "玩法、系统需求与开发者图库",
-              "visits": null,
-              "img": "",
-              "points": [
-                "玩法、系统需求与开发者图库",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "开发者公告",
-              "url": "https://steamcommunity.com/app/1546990/announcements/",
-              "host": "steamcommunity.com",
-              "tag": "公告",
-              "title": "开发者公告",
-              "sub": "Steam开发者公告；社区回复不等于官方事实",
-              "visits": null,
-              "img": "",
-              "points": [
-                "Steam开发者公告；社区回复不等于官方事实",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "平台支持",
-              "url": "https://help.steampowered.com/en/wizard/HelpWithGame/?appid=1546990",
-              "host": "help.steampowered.com",
-              "tag": "支持",
-              "title": "平台支持",
-              "sub": "Steam对应产品支持入口",
-              "visits": null,
-              "img": "",
-              "points": [
-                "Steam对应产品支持入口",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1546990/guides/",
-              "host": "steamcommunity.com",
-              "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
-              "visits": null,
-              "img": "",
-              "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "Rockstar公告",
               "url": "https://www.rockstargames.com/newswire",
               "host": "www.rockstargames.com",
@@ -20949,7 +20781,7 @@
               "host": "support.rockstargames.com",
               "tag": "资料",
               "title": "Rockstar支持",
-              "sub": "购买和平台支持",
+              "sub": "购买和平台支持；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -20963,7 +20795,7 @@
               "host": "gta.fandom.com",
               "tag": "资料",
               "title": "社区百科",
-              "sub": "只作已公布资料索引，传闻不当事实",
+              "sub": "只作已公布资料索引，传闻不当事实；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -20979,7 +20811,7 @@
               "host": "gta.fandom.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -21887,48 +21719,6 @@
         "tools": {
           "tools": [
             {
-              "name": "暗区突围官网",
-              "url": "https://aqtw.qq.com",
-              "host": "aqtw.qq.com",
-              "tag": "工具",
-              "title": "暗区突围官网",
-              "sub": "腾讯暗区突围国服权威入口",
-              "visits": null,
-              "img": "",
-              "points": [
-                "腾讯暗区突围国服权威入口",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "AB Infinite 官网",
-              "url": "https://www.ab-infinite.com",
-              "host": "www.ab-infinite.com",
-              "tag": "工具",
-              "title": "AB Infinite 官网",
-              "sub": "暗区突围无限国际服入口与客户端下载",
-              "visits": null,
-              "img": "",
-              "points": [
-                "暗区突围无限国际服入口与客户端下载",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "B站 暗区突围",
-              "url": "https://search.bilibili.com/all?keyword=%E6%9A%97%E5%8C%BA%E7%AA%81%E5%9B%B4%E6%97%A0%E9%99%90",
-              "host": "search.bilibili.com",
-              "tag": "社区",
-              "title": "B站 暗区突围",
-              "sub": "实操打法与版本动态聚集地",
-              "visits": null,
-              "img": "",
-              "points": [
-                "实操打法与版本动态聚集地",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "官方资料入口",
               "url": "https://store.steampowered.com/app/2073620/",
               "host": "store.steampowered.com",
@@ -21971,16 +21761,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2073620/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2073620/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -21992,7 +21782,7 @@
               "host": "arenabreakout.fandom.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -22966,16 +22756,16 @@
               ]
             },
             {
-              "name": "游戏百科",
-              "url": "https://en.wikipedia.org/wiki/Odin:_Valhalla_Rising",
-              "host": "en.wikipedia.org",
+              "name": "发行商资料",
+              "url": "https://www.kakaogames.com/",
+              "host": "www.kakaogames.com",
               "tag": "资料",
-              "title": "游戏百科",
-              "sub": "社区百科，非官方政策源",
+              "title": "发行商资料",
+              "sub": "Kakao Games发布方身份与产品资料；非攻略工具",
               "visits": null,
               "img": "",
               "points": [
-                "社区百科，非官方政策源",
+                "Kakao Games发布方身份与产品资料；非攻略工具",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -22983,8 +22773,8 @@
           "wikis": [
             {
               "name": "参考资料 1",
-              "url": "https://en.wikipedia.org/wiki/Odin:_Valhalla_Rising",
-              "host": "en.wikipedia.org",
+              "url": "https://odinvalhallarising.kakaogames.com/",
+              "host": "odinvalhallarising.kakaogames.com",
               "tag": "资料",
               "title": "参考资料 1",
               "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
@@ -22997,8 +22787,8 @@
             },
             {
               "name": "参考资料 2",
-              "url": "https://odinvalhallarising.kakaogames.com/",
-              "host": "odinvalhallarising.kakaogames.com",
+              "url": "https://apps.apple.com/no/iphone/story/id1806563203",
+              "host": "apps.apple.com",
               "tag": "资料",
               "title": "参考资料 2",
               "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
@@ -23916,30 +23706,16 @@
         "tools": {
           "tools": [
             {
-              "name": "SteamDB · ARC Raiders",
-              "url": "https://steamdb.info/app/6668600/",
-              "host": "steamdb.info",
-              "tag": "工具",
-              "title": "SteamDB · ARC Ra",
-              "sub": "发行监测",
-              "visits": null,
-              "img": "",
-              "points": [
-                "发行监测",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
               "name": "MapGenie ARC Raiders",
               "url": "https://mapgenie.io/arc-raiders",
               "host": "mapgenie.io",
               "tag": "工具",
               "title": "MapGenie ARC Rai",
-              "sub": "撤离物资地图",
+              "sub": "ARC Raiders既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "撤离物资地图",
+                "ARC Raiders既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -23949,11 +23725,11 @@
               "host": "embedded.gg",
               "tag": "工具",
               "title": "Embedded Arsenal",
-              "sub": "类塔科夫工具站",
+              "sub": "ARC Raiders既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "类塔科夫工具站",
+                "ARC Raiders既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -24014,16 +23790,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1808500/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/1808500/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -25129,11 +24905,11 @@
               "host": "www.ge-tracker.com",
               "tag": "工具",
               "title": "OSRS GE Tracker",
-              "sub": "GP定价与行情",
+              "sub": "RuneScape既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "GP定价与行情",
+                "RuneScape既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -25143,11 +24919,11 @@
               "host": "runelite.net",
               "tag": "工具",
               "title": "RuneLite",
-              "sub": "玩家必装第二客户端",
+              "sub": "RuneScape既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "玩家必装第二客户端",
+                "RuneScape既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -25157,11 +24933,11 @@
               "host": "oldschool.runescape.wiki",
               "tag": "工具",
               "title": "OSRS Wiki 计算器",
-              "sub": "权威数据",
+              "sub": "RuneScape既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "权威数据",
+                "RuneScape既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -25171,11 +24947,11 @@
               "host": "runeapps.org",
               "tag": "工具",
               "title": "RuneApps",
-              "sub": "深度玩家工具",
+              "sub": "RuneScape既有资料入口；具体版本与可访问性见说明",
               "visits": null,
               "img": "",
               "points": [
-                "深度玩家工具",
+                "RuneScape既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -25236,16 +25012,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1343400/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/1343400/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -25257,7 +25033,7 @@
               "host": "runescape.wiki",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -25271,7 +25047,7 @@
               "host": "oldschool.runescape.wiki",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -25346,6 +25122,22 @@
               "build": [],
               "aud": [],
               "tip": "这不是第四个官方职业"
+            },
+            {
+              "e": "📖",
+              "cn": "RS3通灵战斗",
+              "en": "Necromancy Style",
+              "diff": 3,
+              "role": "RS3独立通灵战斗风格",
+              "core": [
+                "RS3独立通灵战斗风格"
+              ],
+              "skills": [],
+              "passive": [],
+              "loop": [],
+              "build": [],
+              "aud": [],
+              "tip": "OSRS不套用RS3通灵系统"
             }
           ],
           "clsDocs": [
@@ -25526,6 +25318,51 @@
               ],
               "aud": [
                 "希望了解 技能与生产方向 定位与 技能、任务、Grand Exchange与Boss 的同事或玩家"
+              ],
+              "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
+            },
+            {
+              "e": "📖",
+              "cn": "RS3通灵战斗",
+              "en": "Necromancy Style",
+              "diff": 3,
+              "role": "RS3独立通灵战斗风格",
+              "intro": "RuneScape / RS3与Old School RuneScape两条线；不含Dragonwilds：RS3独立通灵战斗风格。本卡是位置或玩法分工，不是官方固定职业。排除同名Dragonwilds误匹配；Ironman等自力限制与普通账号分开。Jagex规则明确处罚RWT。",
+              "core": [
+                "RS3独立通灵战斗风格",
+                "技能、任务、Grand Exchange与Boss"
+              ],
+              "str": [
+                "判断：RS3独立通灵战斗风格 可作为学习目标；效果须结合当前模式与玩家操作复核。"
+              ],
+              "weak": [
+                "OSRS不套用RS3通灵系统"
+              ],
+              "stat": [
+                "先满足当前客户端的技能、位置与装备要求；本轮不发布未经逐项核验的数值阈值或属性权重。"
+              ],
+              "gear": {
+                "配置": [
+                  "围绕 RS3独立通灵战斗风格 选择与当前版本匹配的装备或阵容，绑定和交易条件另核。"
+                ]
+              },
+              "skills": [
+                {
+                  "n": "核心操作：RS3通灵战斗",
+                  "d": "RS3独立通灵战斗风格；OSRS不套用RS3通灵系统。这是操作定位，不冒充未核实的技能名、倍率或点数表。",
+                  "lv": "入门定位"
+                }
+              ],
+              "loop": [
+                "准备：明确 RS3通灵战斗 的任务与队伍分工。",
+                "执行：RS3独立通灵战斗风格；针对 OSRS不套用RS3通灵系统 检查站位与时机。",
+                "复盘：围绕 技能、任务、Grand Exchange与Boss 记录成功与失败原因，调整与此职责相关的配置。"
+              ],
+              "build": [
+                "〔Hermes经营草稿·待运营确认〕按 RS3独立通灵战斗风格 建入门说明；数值和强度须有对应补丁实测才能另写。"
+              ],
+              "aud": [
+                "希望了解 RS3通灵战斗 定位与 技能、任务、Grand Exchange与Boss 的同事或玩家"
               ],
               "tip": "范围说明：覆盖下列已核职业/分工的基础定位，不是完整技能树或本周强度榜。 资料基线2026-10-22；新补丁涉及本定位时再修订。"
             }
@@ -25973,7 +25810,7 @@
   {
     "schema": 1,
     "run_id": "20261022T102904Z-994b3527",
-    "base_sha256": "f61ff09f00fa369b9bdb491c60f0a932b7b7c2b0b52da0d1b289205553f7a87c",
+    "base_sha256": "daf5d302e7d48288add248cceadc58c45cd91ca6e61b2686c4a0d59c6194b94f",
     "updates": {
       "black-ops-7": {
         "game": {
@@ -26209,25 +26046,11 @@
               "host": "cod.tracker.gg",
               "tag": "工具",
               "title": "CoD Tracker",
-              "sub": "战绩代练引流",
+              "sub": "Black Ops 7既有资料入口；具体版本与可访问性见说明；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
-                "战绩代练引流",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "MapGenie COD Zombies",
-              "url": "https://mapgenie.io/call-of-duty-black-ops-7",
-              "host": "mapgenie.io",
-              "tag": "工具",
-              "title": "MapGenie COD Zom",
-              "sub": "僵尸模式地图",
-              "visits": null,
-              "img": "",
-              "points": [
-                "僵尸模式地图",
+                "Black Ops 7既有资料入口；具体版本与可访问性见说明",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -26288,16 +26111,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/3606480/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/3606480/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -26309,7 +26132,7 @@
               "host": "callofduty.fandom.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -27258,7 +27081,7 @@
               "host": "store.steampowered.com",
               "tag": "商店",
               "title": "官方商店说明",
-              "sub": "玩法、系统需求与开发者图库",
+              "sub": "玩法、系统需求与开发者图库；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -27295,16 +27118,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/2536520/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/2536520/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -27316,7 +27139,7 @@
               "host": "www.icy-veins.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -28627,16 +28450,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1172710/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/1172710/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -28648,7 +28471,7 @@
               "host": "duneawakening.wiki.gg",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -28662,7 +28485,7 @@
               "host": "duneawakening.fandom.com",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -29721,16 +29544,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1245620/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/1245620/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -29742,7 +29565,7 @@
               "host": "eldenring.wiki.fextralife.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：连接或方法受限，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -29756,7 +29579,7 @@
               "host": "eldenring.wiki.gg",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -31216,16 +31039,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/553850/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/553850/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -31237,7 +31060,7 @@
               "host": "helldivers.wiki.gg",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -31251,7 +31074,7 @@
               "host": "helldivers.fandom.com",
               "tag": "资料",
               "title": "参考资料 2",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -32027,7 +31850,7 @@
   {
     "schema": 1,
     "run_id": "20261022T102904Z-5a44fed2",
-    "base_sha256": "a8142b83c4663f09c85bb813c3c36a76bba2307e7d2d3bc465aefafa5befcfbb",
+    "base_sha256": "f20df716aa69f4d4dbd431f86816ef691078243a24b15a73d2223ddb68b174c3",
     "updates": {
       "legend-of-ymir": {
         "game": {
@@ -32326,16 +32149,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/4172530/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/4172530/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -32343,8 +32166,8 @@
           "wikis": [
             {
               "name": "参考资料 1",
-              "url": "https://en.wikipedia.org/wiki/Legend_of_Ymir",
-              "host": "en.wikipedia.org",
+              "url": "https://store.steampowered.com/app/4172530/",
+              "host": "store.steampowered.com",
               "tag": "资料",
               "title": "参考资料 1",
               "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
@@ -33449,16 +33272,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/3282300/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/3282300/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -33466,8 +33289,8 @@
           "wikis": [
             {
               "name": "参考资料 1",
-              "url": "https://en.wikipedia.org/wiki/Mistfall_Hunter",
-              "host": "en.wikipedia.org",
+              "url": "https://store.steampowered.com/app/3282300/",
+              "host": "store.steampowered.com",
               "tag": "资料",
               "title": "参考资料 1",
               "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
@@ -33480,7 +33303,7 @@
             },
             {
               "name": "参考资料 2",
-              "url": "https://steamcommunity.com/app/3282300/guides/",
+              "url": "https://steamcommunity.com/app/3282300/",
               "host": "steamcommunity.com",
               "tag": "资料",
               "title": "参考资料 2",
@@ -34407,62 +34230,6 @@
               "img": "",
               "points": [
                 "Global RAVEN2；地区与新增职业分开",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "官方商店说明",
-              "url": "https://store.steampowered.com/app/1900690/",
-              "host": "store.steampowered.com",
-              "tag": "商店",
-              "title": "官方商店说明",
-              "sub": "玩法、系统需求与开发者图库",
-              "visits": null,
-              "img": "",
-              "points": [
-                "玩法、系统需求与开发者图库",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "开发者公告",
-              "url": "https://steamcommunity.com/app/1900690/announcements/",
-              "host": "steamcommunity.com",
-              "tag": "公告",
-              "title": "开发者公告",
-              "sub": "Steam开发者公告；社区回复不等于官方事实",
-              "visits": null,
-              "img": "",
-              "points": [
-                "Steam开发者公告；社区回复不等于官方事实",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "平台支持",
-              "url": "https://help.steampowered.com/en/wizard/HelpWithGame/?appid=1900690",
-              "host": "help.steampowered.com",
-              "tag": "支持",
-              "title": "平台支持",
-              "sub": "Steam对应产品支持入口",
-              "visits": null,
-              "img": "",
-              "points": [
-                "Steam对应产品支持入口",
-                "版本适用性见说明；不提供未经核实的访问量"
-              ]
-            },
-            {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/1900690/guides/",
-              "host": "steamcommunity.com",
-              "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
-              "visits": null,
-              "img": "",
-              "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             },
@@ -35792,7 +35559,7 @@
               "host": "dreadmyst.com",
               "tag": "官方",
               "title": "官方资料入口",
-              "sub": "Dreadmyst官网版；Steam当前标注停售",
+              "sub": "Dreadmyst官网版；Steam当前标注停售；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -35843,16 +35610,16 @@
               ]
             },
             {
-              "name": "社区指南",
-              "url": "https://steamcommunity.com/app/4241850/guides/",
+              "name": "社区讨论",
+              "url": "https://steamcommunity.com/app/4241850/discussions/",
               "host": "steamcommunity.com",
               "tag": "社区",
-              "title": "社区指南",
-              "sub": "玩家撰写的指南；须核作者、日期与版本",
+              "title": "社区讨论",
+              "sub": "玩家讨论；须核作者、日期与版本",
               "visits": null,
               "img": "",
               "points": [
-                "玩家撰写的指南；须核作者、日期与版本",
+                "玩家讨论；须核作者、日期与版本",
                 "版本适用性见说明；不提供未经核实的访问量"
               ]
             }
@@ -35864,7 +35631,7 @@
               "host": "dreadmyst.com",
               "tag": "资料",
               "title": "参考资料 1",
-              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准",
+              "sub": "社区数据库或百科参考；不将其视为官方政策源，是否为Wiki以站点实际类型为准；本轮自动访问受限：403，未据此提取新事实",
               "visits": null,
               "img": "",
               "points": [
@@ -35874,7 +35641,7 @@
             },
             {
               "name": "参考资料 2",
-              "url": "https://steamcommunity.com/app/4241850/guides/",
+              "url": "https://steamcommunity.com/app/4241850/",
               "host": "steamcommunity.com",
               "tag": "资料",
               "title": "参考资料 2",
