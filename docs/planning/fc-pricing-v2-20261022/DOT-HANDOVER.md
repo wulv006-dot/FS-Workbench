@@ -1,5 +1,7 @@
 # 老D／ChatGPT云端Dot观察交接包
 
+最新r4（13:16）：改密页面静态修复已上线并读回；角色变更待用户核定，新身份使用/接管暂停。页面真实私密改密尚未验，原Work观察及服务器周期保持。详见[当前交付](DOT-ACCESS.md)。
+
 整理于北京时间2026-10-22 11:15，版本 `dot-observation-handover-20261022-r1`。本次仅根据已有回执整理，生产状态证据截止11:06:25；没有为交接刷新生产、采集行情、重跑模型或切换调度。本文不是实时状态接口，也不代表责任已移交。
 
 最新增量为`dot-observation-handover-20261022-r3`：专用身份已上线并通过服务器只读/拒绝/同会话权限撤销验收，凭据交付与Dot新身份登录因云端浏览器保护受阻，尚未接管。末尾r3及DOT-ACCESS.md覆盖r2未授权/未创建的旧提案状态。11:19–11:20旧云端wulv实读仍为当时事实，不能当新专用身份验收；r1/r2历史表和原失败保留。
@@ -183,3 +185,26 @@ publication仍关联原执行`521c3d63-e99e-508f-908b-da97e8dd1a70`、matched，
 老D转交12:10云端protected_command_failed，随后人工接管也失败并要求停止；不再重试或绕过。因此服务器身份已就绪不等于Dot新身份登录，私密凭据交付、持续调度、续期及正式接管均未完成。没有现成FS vault交付工具；由用户/身份管理员在现有账号权限页私密设置该主体密码，再在Dot产品安全登录框恢复后直接输入，不能转到聊天/Notion/Git/文件。原Work观察与服务器唯一writer继续。
 
 原自然job a5914831-e264-4b34-b755-fa5bdba27c36于12:10:11创建、12:12:49 ready/no_price_change；原Hermes turn be064bbb755b460c8c4c743546fa9314、task f5b04372ee5064c056e8be30cf8e61ae已完成。下一计划14:12:49。这是服务器原周期，Dot本轮云端尚未独立读回。12:27原监控138SHA无漂移/队列0/未确认0，matched仍是521c/10:41旧公开观察，不能算新自然变价。
+
+
+## r4：13:08改密页面修复已上线；新身份使用及接管暂停（2026-10-22）
+
+本节覆盖12:46“页面尚未修复”，保留原两次400及接口验收未覆盖页面的事实。PR339最终head `4dd30bbb4e34bf03ed228a583d1605166ca31263`、merge `f5f5355151aa1530dbc11b6cd44545683b5378c2`；保留PR337并行更新后，正式pr-fast `39725708600/job119648987201`成功。Node12场景及双Linux各控制台30/权限22通过。完整分发器自检在Ubuntu正式CI执行：服务器缺Git、Windows不能创建Linux换行文件名夹具，这些环境失败保留，未删除或放宽CI断言。
+
+页面setPassword仅按服务端kind=native构造native:+m.name，注册账号保持m.subject；角色绑定仍用裸用户名，后端正则/管理员/CSRF/密码长度/PBKDF2/会话撤销不改。保留活动共享导航，代码差异只有该行及末尾补换行。
+
+原publisher于13:08:13发布 `nav-20261022T050813Z`，manifest `8f56fa92b5002d5535a990bf122d69b41de2266a82983cd1ea93518d1c91688f`，stage `/opt/fs-release-stage/iam-password-contract-4dd30bbb4e34`；1目标/139保护共140SHA吻合，备份 `/var/backups/fs-navigation-20261006/nav-20261022T050813Z`，无服务重启、密码/权限/价格或周期写入。保留MapleStory原journal `workspace-native-20261006-e17a041d4294`及Nginx SHA `df08e52cde5ce98723ec0819285a27028b6d67516bb17ad877e7d1cafa8efb45`，未用旧保护清单回退他人上线。
+
+13:08:57真实页面与app.js均200，JS SHA `da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d`，no-store。全新匿名浏览器对实际脚本做仅测试用内存插桩，原生请求为native:dot_fc_observer，注册仍reg:UUID；全部POST在浏览器内截断，服务器收到0个测试POST。没有读取用户输入、代设密码或重用会话。账号仍enabled/version3；用户真实私密改密/新身份登录尚未验收，不把浏览器模拟成功称真实改密成功。
+
+### 角色变更只读审计与当前暂停
+
+12:38:36原 `POST /__auth/access/api/member/roles` 返回200，IAM generation13→14，revision `84e54e25015f20b9`；审计actor为已认证主体wulv，不能据此认定实际真人。角色由FCObserver变为Analyst、ArpgOps、Auditor、CollabEditor、Deployer、FCObserver、PricingOps、SportsOps。generation13原policy.json.bak与当前四项edit/execute/deploy/manage显式deny完全一致。本Work未改变或回退这些角色；老D已向用户核定，未答前新身份使用/接管暂停。
+
+现行实际策略离线求值480组合，额外允许读取0、写入/部署允许0；专用主体硬白名单仍限定精确GET automation、monitor、pricing/state和审查后Coins jobs。此为现行策略离线求值，不是新身份真实HTTP登录验收。额外角色不能据此视作已获授权或永久保留。
+
+13:16使用原生单FCObserver非秘密夹具，在匿名隔离浏览器执行现行openMember/saveMember：10个角色框只默认勾选FCObserver，请求只含FCObserver；所有POST截断、真实角色写入0，未复现默认全选。当前源码无成员全选动作，按m.roles逐项勾选、只提交checked；缺当时DOM及请求体，既不认定人为主动全选，也不宣称排除历史异常。
+
+私有证据 `/tmp/iam-password-contract-20261022/{release-result.json,browser-readback.json,final-readback.json,role-audit.json}`；本机同名私有目录还有role-ui-readback.json。原400、来源前缀根因、旧接口验证及失败均保留。云端protected_command_failed及私密交付/续期/调度/唯一责任仍未完成，不重试保护操作。
+
+13:12原监控140SHA无漂移、v13/rev40/on/auto/120/min10、queue0/incomplete0，公开仍521c/10:41旧观察，下一原周期14:12:49。Coins10:08收入/10:43成本/00:57Z ES仍partial，营销准确区间pending，不补零、不据此判断新价效果。原监控已原子更新合法stage引用并留旧引用；原Work观察继续、FS唯一writer，不新增采价/模型/监控任务。

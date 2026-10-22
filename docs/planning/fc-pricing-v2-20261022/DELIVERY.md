@@ -46,23 +46,41 @@ Hermes工具实际读取核心business-baseline-20261021-v12/SHA ff1d09b3a93ddf5
 
 方法经验042e4e…通过原审核/CAS发布→撤销恢复原四条→重新发布，并进入新独立任务；auto_publish=false，未把当前售价、客户或成本写成方法记忆。此次证明受控闭环和本批迁移，不称稳定经营能力。
 
-## 未完成与持续跟进
-
-- 未证明长期增利、价格因果、最佳降幅或稳定泛化。后续自然变价、晚到成本、退款、成熟销量及可比投放仍需观察。
-- Coins逐套餐/平台同范围Ads、完整补发/退款费用不足时，广告后贡献或净利保持未知；不能把采购10%称净利保证，不能外推完成覆盖单到全站。
-- 补偿模板当前领取/使用0，无实际核销可做真实损失对账；以后按订单实际优惠USD/核销记录核验，面值与次数分列。
-- 首次每周Astra自然复核计划10月26日10:00，尚未发生。每日本机跟进继续；一次06:30切换跟进处理完已暂停。服务器原价格周期独立运行。
-- 当前没有需用户补的访问/发布权限缺口。现存收入商品分摊、Order参考率分母另由财务任务核验，不据此更改定价参数或猜支付费。
-
-截图：[工作台](evidence-live/workbench.jpg)、[人工干预](evidence-live/hermes-controls.jpg)。预切换的旧准备资料保留归档，不再作为当前指针。
-
 ## 10:47反馈修正与实际变价
 
 PR333、核心v13及当天Coins准确区间读取已实际发布，原136活动/保护SHA吻合；真实Hermes31次high多工具后沿原执行521c3d63完成变价，10:41公开主机$11.20、PC$10.45/100K标价。细节见[反馈验收](FEEDBACK-20261022.md)，截图[evidence-live/feedback-20261022-1045.jpg](evidence-live/feedback-20261022-1045.jpg)。原08:27验收保留，不改写为本次结果。
 
 用户最新只要求活动前后观察测试：热度不进入改价，优缺点及反证同记，后续数据支持再迭代；[标准](DEMAND-OBSERVATION.md)已加入原每日监控。Dot云端尚未接管，缺Dot可调用入口、其FS登录与实际独立运行回执；当前FS发布权限无缺口。当前模型操作证明本批纠正可执行，仍有时区/反证等错误，继续教学，不称稳定掌握。
 
+## 未完成与持续跟进
 
-## 12:27 Dot专用只读身份增量
+- 未证明长期增利、价格因果、最佳降幅或稳定泛化。后续自然变价、晚到成本、退款、成熟销量及可比投放仍需观察。
+- Coins逐套餐/平台同范围Ads、完整补发/退款费用不足时，广告后贡献或净利保持未知；不能把采购10%称净利保证，不能外推完成覆盖单到全站。
+- 补偿模板当前领取/使用0，无实际核销可做真实损失对账；以后按订单实际优惠USD/核销记录核验，面值与次数分列。
+- 首次每周Astra自然复核计划10月26日10:00，尚未发生。每日本机跟进继续；一次06:30切换跟进处理完已暂停。服务器原价格周期独立运行。
+- 当前FS维护没有新增访问/发布权限缺口；Dot云端观察移交缺项见上文。现存收入商品分摊、Order参考率分母另由财务任务核验，不据此更改定价参数或猜支付费。
 
-PR335/336及原publisher nav-20261022T041407Z已实际发布，4目标/134保护=138SHA吻合；只重载门户/FC API，价格和周期不变。主体已创建，服务器四GET200/八越权403/同会话权限撤销403通过；私密凭据交付和Dot新身份登录因产品浏览器保护阻塞，未接管。密码版本撤销公共302与原未捕获verify401的限制保留。详细授权/失败/真实回执/安全登录见[DOT-ACCESS.md](DOT-ACCESS.md)。
+截图：[工作台](evidence-live/workbench.jpg)、[人工干预](evidence-live/hermes-controls.jpg)。预切换的旧准备资料保留归档，不再作为当前指针。
+
+
+## r4：13:08改密页面修复已上线；新身份使用及接管暂停（2026-10-22）
+
+本节覆盖12:46“页面尚未修复”，保留原两次400及接口验收未覆盖页面的事实。PR339最终head `4dd30bbb4e34bf03ed228a583d1605166ca31263`、merge `f5f5355151aa1530dbc11b6cd44545683b5378c2`；保留PR337并行更新后，正式pr-fast `39725708600/job119648987201`成功。Node12场景及双Linux各控制台30/权限22通过。完整分发器自检在Ubuntu正式CI执行：服务器缺Git、Windows不能创建Linux换行文件名夹具，这些环境失败保留，未删除或放宽CI断言。
+
+页面setPassword仅按服务端kind=native构造native:+m.name，注册账号保持m.subject；角色绑定仍用裸用户名，后端正则/管理员/CSRF/密码长度/PBKDF2/会话撤销不改。保留活动共享导航，代码差异只有该行及末尾补换行。
+
+原publisher于13:08:13发布 `nav-20261022T050813Z`，manifest `8f56fa92b5002d5535a990bf122d69b41de2266a82983cd1ea93518d1c91688f`，stage `/opt/fs-release-stage/iam-password-contract-4dd30bbb4e34`；1目标/139保护共140SHA吻合，备份 `/var/backups/fs-navigation-20261006/nav-20261022T050813Z`，无服务重启、密码/权限/价格或周期写入。保留MapleStory原journal `workspace-native-20261006-e17a041d4294`及Nginx SHA `df08e52cde5ce98723ec0819285a27028b6d67516bb17ad877e7d1cafa8efb45`，未用旧保护清单回退他人上线。
+
+13:08:57真实页面与app.js均200，JS SHA `da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d`，no-store。全新匿名浏览器对实际脚本做仅测试用内存插桩，原生请求为native:dot_fc_observer，注册仍reg:UUID；全部POST在浏览器内截断，服务器收到0个测试POST。没有读取用户输入、代设密码或重用会话。账号仍enabled/version3；用户真实私密改密/新身份登录尚未验收，不把浏览器模拟成功称真实改密成功。
+
+### 角色变更只读审计与当前暂停
+
+12:38:36原 `POST /__auth/access/api/member/roles` 返回200，IAM generation13→14，revision `84e54e25015f20b9`；审计actor为已认证主体wulv，不能据此认定实际真人。角色由FCObserver变为Analyst、ArpgOps、Auditor、CollabEditor、Deployer、FCObserver、PricingOps、SportsOps。generation13原policy.json.bak与当前四项edit/execute/deploy/manage显式deny完全一致。本Work未改变或回退这些角色；老D已向用户核定，未答前新身份使用/接管暂停。
+
+现行实际策略离线求值480组合，额外允许读取0、写入/部署允许0；专用主体硬白名单仍限定精确GET automation、monitor、pricing/state和审查后Coins jobs。此为现行策略离线求值，不是新身份真实HTTP登录验收。额外角色不能据此视作已获授权或永久保留。
+
+13:16使用原生单FCObserver非秘密夹具，在匿名隔离浏览器执行现行openMember/saveMember：10个角色框只默认勾选FCObserver，请求只含FCObserver；所有POST截断、真实角色写入0，未复现默认全选。当前源码无成员全选动作，按m.roles逐项勾选、只提交checked；缺当时DOM及请求体，既不认定人为主动全选，也不宣称排除历史异常。
+
+私有证据 `/tmp/iam-password-contract-20261022/{release-result.json,browser-readback.json,final-readback.json,role-audit.json}`；本机同名私有目录还有role-ui-readback.json。原400、来源前缀根因、旧接口验证及失败均保留。云端protected_command_failed及私密交付/续期/调度/唯一责任仍未完成，不重试保护操作。
+
+13:12原监控140SHA无漂移、v13/rev40/on/auto/120/min10、queue0/incomplete0，公开仍521c/10:41旧观察，下一原周期14:12:49。Coins10:08收入/10:43成本/00:57Z ES仍partial，营销准确区间pending，不补零、不据此判断新价效果。原监控已原子更新合法stage引用并留旧引用；原Work观察继续、FS唯一writer，不新增采价/模型/监控任务。

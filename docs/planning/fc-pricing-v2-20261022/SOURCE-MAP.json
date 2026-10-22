@@ -1,18 +1,18 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "deployed_actual_sha_verified",
-  "checked_at": "2026-10-22T04:27:31.828372+00:00",
-  "latest_source": "81730879e4d0a5d134c0f976c9457accd7ced8cc",
-  "latest_merge": "3a240f86efae5ff167a2c075e0076f642e598aa3",
+  "checked_at": "2026-10-22T05:12:42.569164+00:00",
+  "latest_source": "4dd30bbb4e34bf03ed228a583d1605166ca31263",
+  "latest_merge": "f5f5355151aa1530dbc11b6cd44545683b5378c2",
   "latest_release": {
-    "release_id": "nav-20261022T041407Z",
-    "manifest_sha256": "a2eadf3b76501b30c2f1e018f8d72e24424c756aa65613f24c10902eb1486673",
-    "source": "81730879e4d0a5d134c0f976c9457accd7ced8cc",
-    "merge": "3a240f86efae5ff167a2c075e0076f642e598aa3",
-    "stage": "/opt/fs-release-stage/fc-dot-observer-81730879e4d0",
-    "scope": "fc-dot-observer-20261022",
-    "targets_verified": 4,
-    "protected_verified": 134
+    "release_id": "nav-20261022T050813Z",
+    "manifest_sha256": "8f56fa92b5002d5535a990bf122d69b41de2266a82983cd1ea93518d1c91688f",
+    "source": "4dd30bbb4e34bf03ed228a583d1605166ca31263",
+    "merge": "f5f5355151aa1530dbc11b6cd44545683b5378c2",
+    "stage": "/opt/fs-release-stage/iam-password-contract-4dd30bbb4e34",
+    "scope": "fs-iam-password-contract-20261022",
+    "targets_verified": 1,
+    "protected_verified": 139
   },
   "files": [
     {
@@ -174,9 +174,17 @@
       "verified_at": "2026-10-22T04:27:31.828372+00:00",
       "repository_source": "opt/fs-access-policy/access_policy.py",
       "local_source": "fc_dot_observer_20261022/source/access_policy.py"
+    },
+    {
+      "candidate": "iam/source/app.js",
+      "maintenance_source": "fc_dot_observer_20261022/source/app.js",
+      "repository_source": "opt/fs-access-policy/web/app.js",
+      "target": "/opt/fs-access-policy/web/app.js",
+      "sha256": "da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d",
+      "verified_at": "2026-10-22T05:08:57.760Z"
     }
   ],
-  "activity_and_protected_verified": 136,
+  "activity_and_protected_verified": 140,
   "pre_switch_map": "archive/SOURCE-MAP-pre-switch.json",
   "latest_shared_dependency_patch": {
     "pr": 333,
@@ -223,6 +231,16 @@
         "oldPublisher": "still retired",
         "mutations": false
       }
+    },
+    {
+      "release_id": "nav-20261022T041407Z",
+      "manifest_sha256": "a2eadf3b76501b30c2f1e018f8d72e24424c756aa65613f24c10902eb1486673",
+      "source": "81730879e4d0a5d134c0f976c9457accd7ced8cc",
+      "merge": "3a240f86efae5ff167a2c075e0076f642e598aa3",
+      "stage": "/opt/fs-release-stage/fc-dot-observer-81730879e4d0",
+      "scope": "fc-dot-observer-20261022",
+      "targets_verified": 4,
+      "protected_verified": 134
     }
   ],
   "shared_dependency_history": [
@@ -261,6 +279,18 @@
     "permission_revoke_same_session": 403,
     "cloud_handover": false,
     "credential_delivery": "blocked_product_private_login_and_vault_channel",
-    "details": "DOT-ACCESS.md"
+    "details": "DOT-ACCESS.md",
+    "password_form": "deployed_real_page_readback_synthetic_request_intercepted",
+    "actual_private_password_reset": "not_verified",
+    "account_version": 3,
+    "iam_generation": 14,
+    "external_role_change": "pending_human_confirmation",
+    "new_identity_use": "paused_pending_role_confirmation",
+    "effective_extra_reads_offline": 0
+  },
+  "preserved_peer_release": {
+    "release": "workspace-native-20261006-e17a041d4294",
+    "manifest_sha256": "6930217a959159e5a6739f3f671f82441ab75178efdeecb0fd6ac1cf929f0aad",
+    "nginx_sha256": "df08e52cde5ce98723ec0819285a27028b6d67516bb17ad877e7d1cafa8efb45"
   }
 }
