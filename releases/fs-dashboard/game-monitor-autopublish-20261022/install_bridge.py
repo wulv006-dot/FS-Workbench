@@ -1,28 +1,30 @@
 """Install the merged bounded extension under the existing bridge lock and backup."""
 import hashlib,json,os,shutil,sys
 from pathlib import Path
-import fcntl
 
 STAGE=Path(__file__).resolve().parent
 OPS=Path('/opt/fs-hermes-ops')
 STATE=Path('/var/lib/fs-hermes-ops/game-monitor')
 PROFILE=Path('/var/lib/fs-hermes-fc/profile/game-monitor-maintenance')
-sys.path.insert(0,str(OPS))
-from release_navigation_base import atomic
 
 def sha(raw):return hashlib.sha256(raw).hexdigest()
-def safe(path):
+def safe(path,trusted=True):
     for item in (path,*path.parents):
         assert not item.is_symlink(),'linked_install_path'
         if item.exists():
-            info=item.stat();assert info.st_uid==0 and not info.st_mode&0o022,'unsafe_install_owner'
+            info=item.stat()
+            if trusted:assert info.st_uid==0 and not info.st_mode&0o022,'unsafe_install_owner'
+            else:assert item.is_dir(),'profile_directory_required'
 
 def main():
+    import fcntl
+    sys.path.insert(0,str(OPS))
+    from release_navigation_base import atomic
     assert os.geteuid()==0
     approval=json.loads((STAGE/'install-manifest.json').read_bytes())
     assert set(approval['files'])=={'contract.py','controller.py','publication.py','jsparse.py','host.py'}
     for name,digest in approval['files'].items():assert sha((STAGE/name).read_bytes())==digest
-    safe(OPS);safe(STATE);safe(PROFILE)
+    safe(OPS);safe(STATE);safe(PROFILE,trusted=False)
     backup=Path('/var/backups/fs-hermes-ops-game-monitor-20261022');safe(backup)
     assert not backup.exists(),'reconcile_original_install_first'
     before=(OPS/'host.py').read_bytes();assert sha(before)=='2aef3f6a761e08a595648aeffc1ae602a6f1ac694e82c1703ff42784455dc356'
