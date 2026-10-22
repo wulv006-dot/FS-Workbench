@@ -1,5 +1,6 @@
 import ast
 import copy
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -9,10 +10,11 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
+SOURCE = Path(__file__).resolve().parents[1] / 'source'
+sys.path.insert(0, str(SOURCE))
 import fc_observer as observer
 
 RUN = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-SOURCE = Path(__file__).resolve().parents[1] / 'source'
 
 
 class ObserverRead(unittest.TestCase):
@@ -110,6 +112,30 @@ class ObserverRead(unittest.TestCase):
             respond=lambda code, data: responses.append((code, data)))
         namespace['do_POST'](handler)
         self.assertEqual(responses, [(403, {'error': 'observer_read_only'})])
+
+    def test_publisher_auth_replacement_keeps_all_other_consumer_protection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'fc_v2_release_adapter.py').write_bytes((SOURCE.parent / 'deploy/release.py').read_bytes())
+            (root / 'observer.py').write_bytes((SOURCE.parent / 'deploy/observer.py').read_bytes())
+            spec = importlib.util.spec_from_file_location('observer_release_check', root / 'observer.py')
+            wrapper = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(wrapper)
+            adapter = wrapper.adapter
+            anchor = "  if not required.issubset(protected) or set(protected)&set(targets.values()):raise ValueError('Hermes protected consumer boundary differs')"
+            source = "def check(required, protected, targets):\n" + anchor + "\n"
+            namespace = {}
+            exec(adapter.approved_auth_source(source), namespace)
+            required = {'/opt/fs-access-policy/access_policy.py', '/protected/other-consumer'}
+            targets = adapter.TARGETS
+            namespace['check'](set(required), {'/protected/other-consumer'}, targets)
+            with self.assertRaisesRegex(ValueError, 'protected consumer'):
+                namespace['check'](set(required), set(), targets)
+            with self.assertRaisesRegex(ValueError, 'protected consumer'):
+                namespace['check'](set(required), required, targets)
+            adapter.TARGETS = dict(targets, extra='/opt/unapproved.py')
+            with self.assertRaisesRegex(ValueError, 'exact_observer_auth'):
+                adapter.approved_auth_source(source)
 
 
 if __name__ == '__main__':
