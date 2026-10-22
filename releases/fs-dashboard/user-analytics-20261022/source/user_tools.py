@@ -4,6 +4,7 @@ import json
 from user_contract import VIEWS, aggregate_only
 
 PROPERTIES = {
+    'section': {'type': 'string', 'enum': [*VIEWS, 'coverage']},
     'view': {'type': 'string', 'enum': list(VIEWS)},
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
@@ -17,6 +18,7 @@ DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval 
                'Preserve coverage, partial historical pool, refund-revision limits, mature cohort denominators and versions. '
                'No customer identifiers, SQL, URLs, collection, outreach, coupon or price changes. '
                'Use the same snapshot_id to compare dashboard evidence. Return changes, supported and alternative explanations, '
+               'The default compact summary omits large project/trend tables; section reads those from the same frozen snapshot without recollecting. '
                'data gaps, an owner action, review metric and review date. Never estimate missing measured counts.')
 
 
@@ -29,6 +31,9 @@ def invoke(service, user, args):
     if not isinstance(args, dict) or set(args) - set(PROPERTIES):
         raise ValueError('user_tool_fields')
     args = dict(args)
+    section = args.pop('section', None)
+    if section is not None and section not in (*VIEWS, 'coverage'):
+        raise ValueError('user_tool_section')
     if 'evidence_id' in args:
         evidence = args.pop('evidence_id')
         if not isinstance(evidence, str) or len(evidence) != 35 or not evidence.startswith('ua_'):
@@ -39,7 +44,18 @@ def invoke(service, user, args):
         args['snapshot_id'] = snapshot
     value = service.query(args, user)
     aggregate_only(value)
-    return value
+    section = section or value['query']['view']
+    heavy = {'projects', 'migration', 'trend', 'cohort_weeks'}
+    result = {key: part for key, part in value.items() if key not in heavy}
+    fields = {'summary': (), 'projects': ('projects',), 'transitions': ('migration',),
+              'migration': ('migration',), 'trend': ('trend',), 'cohort': ('cohort_weeks',), 'coverage': ()}[section]
+    if any(key not in value for key in fields):
+        raise ValueError('section_not_in_frozen_snapshot')
+    result.update({key: value[key] for key in fields})
+    result.update(result_section=section, available_sections=[name for name, keys in (
+        ('summary', ()), ('projects', ('projects',)), ('migration', ('migration',)),
+        ('trend', ('trend',)), ('cohort', ('cohort_weeks',)), ('coverage', ())) if all(key in value for key in keys)])
+    return result
 
 
 def runtime_invoke(owner, args, detail=None):

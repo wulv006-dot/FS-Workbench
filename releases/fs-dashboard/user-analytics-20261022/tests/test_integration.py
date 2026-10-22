@@ -36,7 +36,12 @@ class Integration(TestCase):
         native = importlib.util.module_from_spec(spec); spec.loader.exec_module(native)
         original = {'fs_get_data_catalog', 'fs_query_native_statistics', 'fs_query_es_order_structure', 'fs_query_discount_analysis', 'fs_query_product_orders'}
         self.assertTrue(original.issubset(native.TOOLS))
-        with patch.object(native, 'read', lambda path, query: invoke(self.service, 'admin', query)):
+        from user_http import get
+        def through_http(path, query):
+            status, value = get(self.service, path, {k: [str(v)] for k, v in query.items()}, 'admin')
+            self.assertEqual(status, 200)
+            return value
+        with patch.object(native, 'read', through_http):
             normal = native.call('fs_query_user_analytics', args)
         research_path = source('releases/fs-dashboard/fc-coins-workflow-20261022/source/research.py', 'research.py')
         tree = ast.parse(research_path.read_text('utf-8'))

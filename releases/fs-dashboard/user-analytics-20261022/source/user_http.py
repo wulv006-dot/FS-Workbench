@@ -26,6 +26,9 @@ def get(service, path, params, user):
             return 200, getattr(service, action)(args, user)
         if action == 'catalog' and not args:
             return 200, service.catalog(user)
+        if action == 'tool':
+            from user_tools import invoke
+            return 200, invoke(service, user, args)
         if action != 'summary':
             raise ValueError('public_action')
         return 200, service.query(args, user)
