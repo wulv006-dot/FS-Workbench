@@ -18,6 +18,19 @@ SOURCE=Path(__file__).resolve().parents[1]/'source'
 
 
 class FinalGuards(unittest.TestCase):
+    def test_simulation_bridge_accepts_exact_current_core_and_rejects_drift(self):
+        import sys,types,shutil
+        spec=importlib.util.spec_from_file_location('v14_simulation_bridge_test',SOURCE/'pricing_simulation.py')
+        module=importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules,{'pilot':types.SimpleNamespace(digest=p.fingerprint)}):spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as folder:
+            code=Path(folder)
+            for name in ('pricing_v2.py','fc27_quote_engine.py','automation_policy.py'):shutil.copy2(SOURCE/name,code/name)
+            bridge=module.SimulationBridge(code=code)
+            engine,policy=bridge.modules();self.assertTrue(callable(engine.calculate));self.assertTrue(callable(policy.normalize_policy))
+            with (code/'pricing_v2.py').open('a') as f:f.write('\n# unapproved drift\n')
+            with self.assertRaisesRegex(ValueError,'simulation_v2_code_changed'):bridge.modules()
+
     def test_shared_admin_uses_existing_full_runtime_from_stdlib_caller(self):
         from types import SimpleNamespace
         import subprocess
