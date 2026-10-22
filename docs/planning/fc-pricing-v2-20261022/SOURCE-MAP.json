@@ -160,5 +160,33 @@
     }
   ],
   "activity_and_protected_verified": 130,
-  "pre_switch_map": "archive/SOURCE-MAP-pre-switch.json"
+  "pre_switch_map": "archive/SOURCE-MAP-pre-switch.json",
+  "latest_shared_dependency_patch": {
+    "checked_at": "2026-10-22T01:00:57.654968+00:00",
+    "pr": 327,
+    "source_commit": "281149ddf86bfc5a40cab9917740fe24408f3f38",
+    "merge_commit": "c6524e207aebb294fa8448ed0cc1fa62c8c19c23",
+    "release": {
+      "release_id": "nav-20261022T005438Z",
+      "manifest_sha256": "f976f324103a1d0a0f91159f49896d19e23ef663e96448284d7521db127e0a41",
+      "source": "281149ddf86bfc5a40cab9917740fe24408f3f38",
+      "stage": "/opt/fs-release-stage/fc-pricing-v2-history-281149ddf86b",
+      "scope": "fc-pricing-v2-history-receipt-20261022",
+      "original_inspect": {
+        "releaseReady": false,
+        "staticFiles": 1,
+        "sourceCAS": "passed",
+        "protectedCAS": "passed",
+        "oldPublisher": "still retired",
+        "mutations": false
+      }
+    },
+    "maintenance_source": "fs_coins_evidence_20261021/source/coins_evidence.py",
+    "repository_source": "releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py",
+    "target": "/opt/fs-hermes-fc/coins_evidence.py",
+    "before_sha256": "0eacc9b753cf979144bfdd349362a7e58853ccd9f4959c006ea52438c21aaf09",
+    "sha256": "c0ff06d49d8d4f8b56e62738a6b5360071202c8df5477a06da3d94939a178336",
+    "activity_and_protected_verified": 130,
+    "receipt": "HISTORY-ACCEPTANCE-20261022.json"
+  }
 }

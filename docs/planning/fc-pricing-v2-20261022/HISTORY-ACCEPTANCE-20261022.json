@@ -1,0 +1,143 @@
+{
+  "observed_at": "2026-10-22T01:00:57.654968+00:00",
+  "pr": 327,
+  "head": "281149ddf86bfc5a40cab9917740fe24408f3f38",
+  "merge": "c6524e207aebb294fa8448ed0cc1fa62c8c19c23",
+  "release": {
+    "release_id": "nav-20261022T005438Z",
+    "manifest_sha256": "f976f324103a1d0a0f91159f49896d19e23ef663e96448284d7521db127e0a41",
+    "source": "281149ddf86bfc5a40cab9917740fe24408f3f38",
+    "stage": "/opt/fs-release-stage/fc-pricing-v2-history-281149ddf86b",
+    "scope": "fc-pricing-v2-history-receipt-20261022",
+    "original_inspect": {
+      "releaseReady": false,
+      "staticFiles": 1,
+      "sourceCAS": "passed",
+      "protectedCAS": "passed",
+      "oldPublisher": "still retired",
+      "mutations": false
+    }
+  },
+  "targets_verified": 1,
+  "protected_verified": 129,
+  "baseline": {
+    "version": "business-baseline-20261021-v12",
+    "sha256": "ff1d09b3a93ddf5c33b8377f3e5125fae88629fefef2b3b970d449155699ff5e"
+  },
+  "source": {
+    "path": "/opt/fs-hermes-fc/coins_evidence.py",
+    "before_sha256": "0eacc9b753cf979144bfdd349362a7e58853ccd9f4959c006ea52438c21aaf09",
+    "sha256": "c0ff06d49d8d4f8b56e62738a6b5360071202c8df5477a06da3d94939a178336"
+  },
+  "local_checks": {
+    "coins": 22,
+    "workflow": 21,
+    "v2": 60
+  },
+  "linux_checks": [
+    {
+      "python": "/opt/python39/bin/python3",
+      "code": 0,
+      "output": "----------------------------------------------------------------------\nRan 22 tests in 0.051s\n\nOK\n"
+    },
+    {
+      "python": "/usr/bin/python3",
+      "code": 0,
+      "output": "----------------------------------------------------------------------\nRan 22 tests in 0.054s\n\nOK\n"
+    }
+  ],
+  "real_history": {
+    "status": "available",
+    "total_events": 3,
+    "coverage": {
+      "ledger_files": 242,
+      "invalid_identity_or_time": 0
+    },
+    "execution_id": "d91adb32-a3ac-5d1e-9d1c-0d23e1a0173a",
+    "quote_run": "e0427e4f-4289-48b1-a80d-349a7a7aa92c",
+    "identity_check": {
+      "basis": "execution_preview_quote_chain",
+      "preview_id": "8a91f5e2-f5e2-4323-bca4-94782e369476",
+      "preview_sha256": "e88a4f9d8f96def4ac5e27f54e4227cd1b946e5c33651f147e041d206ddfb86c",
+      "quote_sha256": "6d0bb408d87edc4b72eaa313967de37eaba968fcd50eecc0bb6e9ac235937a1f"
+    },
+    "audit_status": "CONFIRMED",
+    "job_status": "failed",
+    "reconciliation": {
+      "status": "confirmed",
+      "completed_at": "2026-10-21T23:46:30.831345+00:00",
+      "original_job_status": "failed",
+      "mmoexp_replayed": false,
+      "public_readback": "verified"
+    },
+    "independent_public_after_readback": "not_proven_by_this_execution_record"
+  },
+  "model": {
+    "conversation_id": "9a1db9aee2414258af42a5b2e632fa90",
+    "turn_id": "b69ba5f0169c414ba4ab684f4c88223f",
+    "task_id": "e8a12cba9ee2f482798ed639d9b6357b",
+    "run_id": "run_2c35cc6247c54567898741863895d335",
+    "state": "completed",
+    "provider_responses": 2,
+    "high_forwarded": true,
+    "registered_tool_evidence_verified": true,
+    "provider_internal_effort_echo": false
+  },
+  "current_runtime": {
+    "policy": {
+      "revision": 40,
+      "system_enabled": true,
+      "mode": "auto",
+      "interval_minutes": 120,
+      "minimum_gross_margin_pct": "10"
+    },
+    "health": {
+      "queue_depth": 0,
+      "incomplete_executions": 0,
+      "automation_timer": "active"
+    },
+    "publication_status": "matched",
+    "public_observation_times": [
+      "2026-10-22T00:02:07.870762+00:00",
+      "2026-10-22T00:02:08.554538+00:00",
+      "2026-10-22T00:02:09.068799+00:00"
+    ],
+    "next_cycle": "2026-10-22T02:04:42.957766+00:00"
+  },
+  "data_readiness": {
+    "channels": {
+      "status": "available",
+      "period": {
+        "end": "2026-10-22",
+        "start": "2026-10-22"
+      },
+      "generatedAt": "2026-10-22T08:57:12.894695+08:00",
+      "stale": false,
+      "refreshing": false,
+      "costRefreshing": false,
+      "sourceError": false,
+      "costError": false
+    },
+    "coins": {
+      "status": "not_available",
+      "reason": "existing_channel_day_cache_missing",
+      "captured_at": null,
+      "source_times": null,
+      "coverage": null
+    },
+    "marketing": {
+      "status": "partial",
+      "reason": "source_coverage_and_country_top_rows_require_review; ads_geography_unavailable",
+      "captured_at": "2026-10-22T00:44:22.177973+00:00"
+    },
+    "effect": "Not evaluated: day aggregates cannot isolate post-exposure Coins; incomplete costs/classification/Ads attribution are not zero"
+  },
+  "changes": {
+    "price_write": false,
+    "price_collection": false,
+    "policy_changed": false,
+    "ledger_changed": false,
+    "fc_services_restart_requested": false,
+    "source": "one existing shared readonly reader"
+  }
+}

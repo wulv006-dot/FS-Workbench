@@ -2,6 +2,8 @@
 
 **已上线，并完成真实价格生效读回及首个V2自然周期。** 2026-10-22 08:27验收；实际经营增利与长期学习仍未证明。本Work直接实施，Astra只作策略分析复核。
 
+09:01增量监控已修复旧Coins历史接口漏记V2原执行的问题，PR327已实际发布并由真实Hermes工具读回。当前同日经营效果仍待Coins归档与归因覆盖，详见[今日跟进](MONITOR-20261022.md)。
+
 入口：[FS自动定价工作台](https://47.85.224.112/dashboard/fc27-coins.html)。[通俗使用、监控和干预](USAGE.md) · [Astra与Hermes两套策略](STRATEGIES.md) · [实际验收](DELIVERY.md) · [脱敏回执](ACCEPTANCE.json) · [活动源码映射](SOURCE-MAP.json)。
 
 ## 已确认规则
