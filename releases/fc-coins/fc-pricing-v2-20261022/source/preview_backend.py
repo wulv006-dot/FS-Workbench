@@ -23,6 +23,13 @@ from playwright.sync_api import sync_playwright
 PRICE_URL = "https://order.p2pah.cn/game/admin_game_price/index.html?gid=1322"
 
 
+def failure_reason(exc):
+    if isinstance(exc, RuntimeError) and str(exc).startswith('global_order_unavailable:'):
+        # Keep the actionable category without exposing the session broker's details.
+        return 'global_order_session_unavailable'
+    return str(exc)[:100] if isinstance(exc, ValueError) else type(exc).__name__
+
+
 def preview(run_id: str):
     quote_file = Path("/run/quotes") / f"{run_id}.json"
     quote_bytes = quote_file.read_bytes()
@@ -100,6 +107,6 @@ if __name__ == "__main__":
     try:
         print(json.dumps(preview(sys.argv[1])))
     except Exception as exc:
-        reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+        reason = failure_reason(exc)
         print(json.dumps({"status": "NO_PREVIEW", "reason": reason[:100]}))
         raise SystemExit(1)
