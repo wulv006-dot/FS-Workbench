@@ -1,0 +1,74 @@
+{
+  "contract": "fs-knowledge-release-receipt-v1",
+  "change_id": "KL-da8aceb9b3da63529d7b5393",
+  "observed_at": "2026-10-22T18:19:43Z",
+  "plan_sha256": "bddb22a74755bfcaf1796d2ce0b76b4eb859a9a87cb2979036c7a7a099b01b19",
+  "source_commit": "aae8e7549e3eb8ca2d420a2f15019522c6b1ae64",
+  "git": {
+    "implementation_pr": 367,
+    "implementation_merge": "ba05ef552a78fd5b9a3d513bc7cc5a559a6fd11e",
+    "publisher_compatibility_pr": 370,
+    "publisher_compatibility_merge": "eafd47c7b7b25080a09cfa2404340ce59f8b820a",
+    "required_ci_runs": [
+      39824735055,
+      39827327307
+    ],
+    "required_ci_conclusion": "success"
+  },
+  "server": {
+    "release": "knowledge-layering-20261023-1",
+    "catalog_sha256": "ba2a0ad4b38028cf08a0b73e6d1529a2ba255a29bd5cbc483b5f8f8c9ee095ba",
+    "publisher_release_id": "nav-20261022T174000Z",
+    "manifest_sha256": "9a10341094914ccf4b1c18e552bfe0a9e7456a678eb1da196c279c50f70fef95",
+    "backup": "/var/backups/fs-navigation-20261006/nav-20261022T174000Z",
+    "files_verified": 10,
+    "protected_files_verified": 50,
+    "service_health": "original worker and business-range active/running",
+    "readback_at": "2026-10-22T18:04:40.776979+00:00",
+    "runtime_sha256": {
+      "business_context.py": "3b691e163f03d16e715435a028f2405d999bade8ebc8a1213ad33d1c3569fe69",
+      "controller.py": "935f176486dd6d0129a14c9a2da3a7255e0b53a1ff0d7a005e03bddf051c8fb7",
+      "knowledge_catalog.py": "835bbfbbd1e7e66dc70cd4cb3aa228e852fafdf1e7df2b784427ea7281d980e4"
+    }
+  },
+  "load": {
+    "scope": "deployed code isolated assembly, not a model invocation",
+    "snapshot": "learning-55ea6cbff51e6f7c66c42be3f880a6a2dfb98d797634fce33a6d709bfb386d66",
+    "entries_verified": 6,
+    "prior_snapshot_preserved": true,
+    "original_pricing_path_preserved": true,
+    "ordinary_routes_changed": false,
+    "model_calls": 0,
+    "business_writes": 0
+  },
+  "notion": {
+    "readback_verified": true,
+    "project_page": "3fc9a8a79c4e81578ed1c5fa218837ea",
+    "knowledge_page": "3ff9a8a79c4e81bc8a4feb15aab87a5a",
+    "daily_page": "4019a8a79c4e81b187f2fdf09806fa9e",
+    "original_bodies_preserved": true,
+    "original_links_preserved": 84,
+    "sharing_changes": false,
+    "old_blocks_moved": false,
+    "readback_at": "2026-10-22 18:16:08 UTC"
+  },
+  "closeout": {
+    "steps": [
+      "git_version",
+      "server_publish",
+      "load_readback",
+      "notion_sync"
+    ],
+    "state": "completed",
+    "repeat_next_state": "completed",
+    "repeat_mutation_allowed": false
+  },
+  "remaining": [
+    "ordinary FS/Feishu routing not connected to new index",
+    "actual model application and long-term outcome not verified",
+    "OldD precise job and natural template adoption not verified",
+    "lossless historical Notion block movement not verified",
+    "production rollback not rehearsed"
+  ],
+  "authority_note": "This is a point-in-time deployment receipt, not a second writable business rule. Read active module owner/source and live hashes before future changes."
+}
