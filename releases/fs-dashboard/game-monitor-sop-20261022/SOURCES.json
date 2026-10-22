@@ -1,0 +1,394 @@
+{
+ "generated_at": "2026-10-22T04:15:57+00:00",
+ "game_key": "maplestory",
+ "fetch_window_utc": "本次会话：内容检索与核对完成后，于 2026-10-22T04:15:57Z 对全部外链做一次无头 GET 复核",
+ "fetch_method": "内容检索：Hermes web_search / web_extract（只读公开页面）；时间戳：tools/probe_sources.py 于 probe_sources 记录的真实 UTC 无头 GET。403 多为站点反爬，不代表内容不存在",
+ "sources": [
+  {
+   "id": "S01",
+   "claim": "Classic World 创始人通道 10/06 11:00 PDT；Grand Launch 10/21 11:00 PDT；创始人包三档；道具 11/30 23:59 UTC 领取截止；NX 与 GMS 共享；Maple Points 不跨；Leaf Points 为 Classic 现金货币；IGN 不共享；Classic 无 MVP",
+   "url": "https://www.nexon.com/maplestory/news/general/45385/global-maple-story-classic-world-faq",
+   "publisher": "Nexon",
+   "scope": "Classic World 上线期",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 FAQ，逐条问答",
+   "retrieved_at_utc": "2026-10-22T04:13:45+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S02",
+   "claim": "Classic 上线内容：Lv10 一转 Warrior/Magician/Bowman/Thief；Lv30 二转 Fighter/Page/Spearman、Wizard(Fire-Poison / Ice-Lightning)/Cleric、Hunter/Crossbowman、Assassin/Bandit；Lv100 上限；六 Boss（Mano/Stumpy/Mushmom/Shade/Zombie Mushmom/Jr. Balrog）；新账号 Lv15 后 24 小时交易解锁；Crafting/Citizenship/Housing/Kerning PQ；Lie Detector；Forgotten Hollow 11 月",
+   "url": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+   "publisher": "Nexon",
+   "scope": "Classic World Grand Launch",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方上线公告全文",
+   "retrieved_at_utc": "2026-10-22T04:13:45+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S03",
+   "claim": "Classic World 可选职业为 Beginner/Warrior/Magician/Bowman/Thief；开服日期 2026-10-21",
+   "url": "https://www.nexon.com/maplestory/game/mscw/classes-and-jobs",
+   "publisher": "Nexon",
+   "scope": "Classic World",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方职业页（页面为前端渲染，导航与职业列表可读）",
+   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S04",
+   "claim": "Classic World 的职业路径（Warrior→Fighter/Page/Spearman 等）、Citizenship 与 Party Quest 为特色",
+   "url": "https://www.nexon.com/maplestory/game/mscw/explore-maplestory",
+   "publisher": "Nexon",
+   "scope": "Classic World",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 Explore 页",
+   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S05",
+   "claim": "Classic World 现金商城以 NX 计价；送礼需角色 Lv12+；外观箱 3,500 NX/7 天",
+   "url": "https://www.nexon.com/maplestory/news/sale/45819/founder-s-access-cash-shop",
+   "publisher": "Nexon",
+   "scope": "Classic World Founder's Access",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方商城公告",
+   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S06",
+   "claim": "GMS 当前更新为 v.271（MapleStory x Frieren: Beyond Journey's End，9/8 发布，9/29 更新）；上一版本 v.270（7/21）",
+   "url": "https://www.nexon.com/maplestory/news/update",
+   "publisher": "Nexon",
+   "scope": "GMS 正式服",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方更新列表",
+   "retrieved_at_utc": "2026-10-22T04:13:47+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S07",
+   "claim": "v272 为 11 月主版本，PTS 10/29–11/01；正式上线日期未公布；10/17 MapleStory Fest 预告",
+   "url": "https://www.nexon.com/maplestory/news/general/45500",
+   "publisher": "Nexon",
+   "scope": "GMS 正式服",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 PTS 报名公告（10/07）",
+   "retrieved_at_utc": "2026-10-22T04:13:47+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S08",
+   "claim": "Star Force 是消耗 Meso 的装备强化系统（官方帮助页）；上限与失败规则可能随版本变化，本轮不作固定断言",
+   "url": "https://support-maplestory.nexon.com/hc/en-us/articles/204088639-How-do-I-enhance-equips-with-Star-Force",
+   "publisher": "Nexon Support",
+   "scope": "GMS 正式服",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方支持文档",
+   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S09",
+   "claim": "正式服世界分 Heroic（装备不可交易、无 Auction House/Meso Market、道具可用 Meso 购买）与 Interactive（可交易、有 Auction House 与 Meso Market）",
+   "url": "https://support-maplestory.nexon.com/hc/en-us/articles/22984919392788-What-are-Heroic-Interactive-and-Seasonal-Worlds",
+   "publisher": "Nexon Support",
+   "scope": "GMS 正式服",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方支持文档",
+   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S10",
+   "claim": "可处罚行为含账号买卖、NX 买卖、账号共享；Ad Promoting（金币站/外挂站）可立即永久封禁",
+   "url": "https://support-maplestory.nexon.com/hc/en-us/articles/204506489-Banning-Guidelines",
+   "publisher": "Nexon Support",
+   "scope": "GMS + Classic",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方封禁准则",
+   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S11",
+   "claim": "GMS 与 Classic 为同一账号、同一处罚标准，一封两服；违规不能靠换游戏规避",
+   "url": "https://www.nexon.com/maplestory/news/general/45230/maple-memo-notice-regarding-account-sanctions-across-global-maple-story-and-global-maple-story-classic-world",
+   "publisher": "Nexon",
+   "scope": "GMS + Classic",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 Maple Memo",
+   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S12",
+   "claim": "服务仅授权个人、非商业、娱乐用途；不得出售、出租、转授权或转让服务",
+   "url": "https://www.nexon.com/main/legal/tou",
+   "publisher": "Nexon",
+   "scope": "GMS + Classic",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 ToS 全文（节选核对）",
+   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S13",
+   "claim": "自由市场（Free Market）已在正式服 v.193 更新中移除，商店许可证下架",
+   "url": "https://support-maplestory.nexon.com/hc/en-us/articles/204909745-Why-can-I-not-purchase-a-store-permit",
+   "publisher": "Nexon Support",
+   "scope": "GMS 正式服",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方支持文档",
+   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S14",
+   "claim": "GMS 线上版本 271；KMS 1.2.419；Overdrive 为 KMS 2026 年 6 月更新（新职业 Lethe、HEXA 第三技能节点、Boss Bellona）",
+   "url": "https://maplestorywiki.net/w/MapleStory_Wiki",
+   "publisher": "MapleStory Wiki（社区）",
+   "scope": "跨区版本对照",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方站导航外链的社区百科；用于交叉核对版本号",
+   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S15",
+   "claim": "KMS ver. 1.2.419（2026-10-02）：全职业平衡与新强化系统；站点持续更新（10-15 有更新）",
+   "url": "https://orangemushroom.net/",
+   "publisher": "Orange Mushroom's Blog（社区）",
+   "scope": "KMS 前瞻",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "社区补丁翻译站，按 KMS 公告转述",
+   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
+  },
+  {
+   "id": "S16",
+   "claim": "G2G 设有 MapleStory Classic World Mesos 独立类目（第三方 C2C 报价已形成）",
+   "url": "https://www.g2g.com/categories/maplestory-classic-world-mesos",
+   "publisher": "G2G",
+   "scope": "Classic World 第三方市场",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "仅核类目存在，未取价",
+   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S17",
+   "claim": "Eldorado 设有 MapleStory Mesos 与 Accounts 类目",
+   "url": "https://www.eldorado.gg/maplestory-mesos/g/120-0-0",
+   "publisher": "Eldorado.gg",
+   "scope": "GMS 第三方市场",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "仅核类目存在，未取价",
+   "retrieved_at_utc": "2026-10-22T04:13:50+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S18",
+   "claim": "PlayerAuctions 设有 MapleStory Mesos 类目",
+   "url": "https://www.playerauctions.com/maple-story-mesos",
+   "publisher": "PlayerAuctions",
+   "scope": "GMS 第三方市场",
+   "status": "partially_verified",
+   "fetched_at": "2026-10-22",
+   "note": "站点对无头请求 403，仅有搜索索引结果",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 403,
+   "probe_ok": false
+  },
+  {
+   "id": "S19",
+   "claim": "IGGM 连续发布 Classic World 经济/物价解读内容（Meso inflation、NX prices、scroll investment）",
+   "url": "https://www.iggm.com/news/maplestory-classic-world-economy-guide-mesos-inflation-nx-prices-scroll-in",
+   "publisher": "IGGM",
+   "scope": "Classic World 竞品内容",
+   "status": "partially_verified",
+   "fetched_at": "2026-10-22",
+   "note": "搜索索引可读，站点 403；仅作内容竞争信号",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 403,
+   "probe_ok": false
+  },
+  {
+   "id": "S20",
+   "claim": "U7BUY 有 MapleStory（Reboot/Hyperion/Kronos）代练类目",
+   "url": "https://u7buy.com/maple-story/reboot-2k-legion-services-hyperion-kronos-vpn-100-sure-i936358-6",
+   "publisher": "U7BUY",
+   "scope": "GMS 代练竞品",
+   "status": "partially_verified",
+   "fetched_at": "2026-10-22",
+   "note": "搜索索引可读，仅作类目存在证据",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 403,
+   "probe_ok": false
+  },
+  {
+   "id": "S21",
+   "claim": "maplestory.io 提供素材/精灵图数据接口",
+   "url": "https://maplestory.io/",
+   "publisher": "maplestory.io（社区工具）",
+   "scope": "内容制作",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "HTTP 200",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S22",
+   "claim": "Grandis Library 为 GMS 新手/回归玩家的资源库",
+   "url": "https://www.grandislibrary.com/",
+   "publisher": "Grandis Library（社区）",
+   "scope": "GMS 配装/回归",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "HTTP 200，站点自述",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S23",
+   "claim": "MapleStory Classic 独立粉丝站提供数据库与计算器（EXP/Meso/卷轴/Boss 计时），非官方",
+   "url": "https://maplestory-classic.com/",
+   "publisher": "社区粉丝站",
+   "scope": "Classic World 工具",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "HTTP 200；页面自述 independent fan site，已在卡片标注非官方",
+   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S24",
+   "claim": "MapleStory Fest 2026 于 10/17 在洛杉矶 The Hill 举办",
+   "url": "https://www.nexon.com/maplestoryfest/",
+   "publisher": "Nexon",
+   "scope": "GMS 社区活动",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方活动 FAQ",
+   "retrieved_at_utc": "2026-10-22T04:13:52+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S25",
+   "claim": "Classic 官方纪念/职业立绘与 key art 素材（4 张，用于 gallery）",
+   "url": "https://g.nexonstatic.com/mscw/assets/hero-scroll-hzQyC0Kr.webp",
+   "publisher": "Nexon CDN",
+   "scope": "Classic World 官方素材",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "另有 illust_warrior/bowman/thief 三张，均已下载并记录大小/哈希",
+   "retrieved_at_utc": "2026-10-22T04:13:52+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  }
+ ],
+ "judgments_not_facts": [
+  {
+   "id": "J1",
+   "text": "Classic 开服首月币价由摆摊成交与第三方挂单共同决定，无官方价格指数",
+   "basis": "官方无公开价格指数；G2G 类目存在"
+  },
+  {
+   "id": "J2",
+   "text": "第三方市场成熟度：正式服 ★★★★、Classic ★★★☆",
+   "basis": "类目与卖家数量观察，未取价"
+  },
+  {
+   "id": "J3",
+   "text": "Classic 无 Star Force/潜能/Legion/Link/Arcane（按公告范围推断）",
+   "basis": "官方上线公告只列二转与 Lv100，未列后续系统"
+  },
+  {
+   "id": "J4",
+   "text": "电竞维度不适用",
+   "basis": "官方站未见电竞联赛板块"
+  },
+  {
+   "id": "J5",
+   "text": "Classic 自由市场是否开放",
+   "basis": "官方公告未列，标待核"
+  },
+  {
+   "id": "J6",
+   "text": "社区通报的 RMT 永久封禁数量（3,121 等）",
+   "basis": "来自社区转述，未见官方公告列数字，标待核"
+  }
+ ],
+ "unavailable": [
+  {
+   "item": "工具站月访问量（visits）",
+   "reason": "无 SimilarWeb 等可信回执",
+   "handling": "留空，不编数字、不按流量排序"
+  },
+  {
+   "item": "工具站截图",
+   "reason": "无可合法使用的截图；容器浏览器不可用",
+   "handling": "不填 img，不造空文件"
+  },
+  {
+   "item": "竞品成交价 / 有效货源成本",
+   "reason": "未取价，无授权数据",
+   "handling": "只给定价公式与待补项"
+  },
+  {
+   "item": "关键词量级",
+   "reason": "无关键词工具回执",
+   "handling": "只按意图分组，不排优先级"
+  }
+ ],
+ "probe_file": "tools/url_probe.json"
+}
