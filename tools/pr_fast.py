@@ -156,6 +156,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/game-monitor-sop-20261022/source/index.html"]) != ["game-monitor-sop"]:
+        raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
         raise RuntimeError("fc_pricing_v2_checks_missing")
     if select(["releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py"]) != ["hermes-server-unify"]:
@@ -340,6 +342,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/game-monitor-sop-20261022/"):
+            groups.add("game-monitor-sop");continue
         if name.startswith("rea_admin_contract_20261021/"):
             groups.add("admin-monthly-paid");continue
         if name.startswith("releases/fc-coins/fc-pricing-v2-20261022/"):
@@ -656,7 +660,10 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
-        if group=="admin-monthly-paid":
+        if group=="game-monitor-sop":
+            units("releases/fs-dashboard/game-monitor-sop-20261022/tests",["test_content","test_prepare_release"])
+            node("releases/fs-dashboard/game-monitor-sop-20261022/tests/test_render.cjs")
+        elif group=="admin-monthly-paid":
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
         elif group=="fc-pricing-v2":
@@ -1071,3 +1078,4 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+

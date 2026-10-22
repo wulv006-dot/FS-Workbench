@@ -1,0 +1,328 @@
+{
+ "generated_at": "2026-10-22T04:50:19+00:00",
+ "game_key": "maplestory",
+ "review_response": [
+  "REVIEW-1 经营草稿可见：biz 每项 desc、dept 每行、ops 每块标题、ov 每条 tip 均带“Hermes经营草稿·待运营确认”；eff 无订单证据者标“判断/待验证”；MMOEXP 自有在售范围改为“待以当前货架核实”。",
+  "REVIEW-2 固定面额/阈值：删除 1 亿/5 亿/10 亿面额、5 亿单笔阈值与“Meso 5 亿”组合；改为“面额与单笔上限待实际供给与成交核定”，保留分层与计算法。",
+  "REVIEW-3 Star Force：删除“最高 25 星/失败掉星”固定断言，改为“上限与失败规则以当前版本官方说明为准”；Classic 无该系统边界保留。",
+  "REVIEW-4 时点：MAPLESTORYBRIEF.updated 改为构建时的真实 UTC；SOURCES/VALIDATION 的 generated_at 与每条外链 retrieved_at_utc 均来自本轮真实探测。",
+  "REVIEW-5 事实：保留 10/21 18:00 UTC、四职业、十条二转、Lv100、Lv15+24h 交易锁；补充 Classic 客户端支持 Windows/macOS。",
+  "REVIEW-6 检查：由 52 项扩到 63 项，新增“草稿标记在数据层可见”4 项、禁用固定断言 5 项、eff 标注与 macOS 各 1 项；渲染检查新增 draft_marker>=19。未放宽原有断言。",
+  "REVIEW-7 长期标准：/profile/knowledge/game-monitor/content-standard-20261022.md 第 4 节新增“经营草稿”类别与可见标注规则，第 3/8 节同步；已写入并读回。未新建 cron，宿主采集计划保持每周六 00:05。",
+  "SKILL-1 Spear Crusher 纠正：三个 Classic 数据源均无该技能名，枪系三转（Dragon Knight，仅 CoT2）对应技能为 Piercing Crusher；已从 Spearman 技能表与 Boss 循环中删除。",
+  "SKILL-2 Hyper Body 纠正：属三转 Dragon Knight（NiaMeowDB 明写，MapleStory Quest 的 Dragon Knight 页确认 +30% 最大 HP 队伍增益），不是 Spearman 二转技能；已删除并以 Iron Will（武器防御 +50、35% 忽略击退）+ 距离定位替代。",
+  "SKILL-3 Power Guard 核实：Fighter 二转 8 技能为 Sword/Axe Mastery、Final Attack×2、Booster×2、Rage、Rush，不含 Power Guard；Power Guard 属三转 White Knight（MapleStory Quest White Knight 页与 NiaMeowDB 一致）。Fighter 与 Page 卡均已删除，未照搬复审结论，而是按数据源自行核对。",
+  "SKILL-4 其余错误：Weapon Mastery（应为 Sword/Axe Mastery）、Shield Mastery（Page 无此技能）、Poison Brace（应为 Poison Breath）、Basic Attack（Beginner 实为 Three Snails/Recovery/Nimble Feet）、侠客“涂毒类辅助”（Bandit 无毒系技能）全部纠正。",
+  "SKILL-5 覆盖：14 张职业卡（4 个一转 + 10 条二转）+ 5 张快速卡技能/被动/循环全部按 Classic 上线版技能表重写；90 条卡片技能、61 条循环技能全部命中证据映射；三转技能不进入技能表与建议循环（仅作为纠正说明出现在 tip）。",
+  "SKILL-6 新增 CHECK：由 63 项扩到 73 项，新增 10 项（技能表/循环无三转或未核技能、三转提及必须带纠正说明、三转边界已写明、技能名与被动均在证据映射、循环只用已核技能、每条循环绑定已核技能、证据映射覆盖 15 个职业且字段完整、旧稿错误技能未回流、强度判断已标注）；渲染检查新增 4 个探针（技能证据说明可见、无 Spear Crusher/Hyper Body/Power Guard 旧断言）与技能/循环行数下限。未放宽任何原断言。",
+  "SKILL-7 证据边界：官方 10/21 上线说明只用于确认 4 个一转 + 10 条二转与 Lv100；官方职业页对无 JS 客户端只返回空壳（3766 bytes），本轮未从官方页取得技能级数据，故技能级证据来自三份独立 Classic 数据源，未冒充官方数值。"
+ ],
+ "baseline": {
+  "source_index_sha256": "368a40026ca065f40a4133f9157f1d22d1d5325dd524d27de0fd13bce8c8d483",
+  "candidate_index_sha256": "70db24939c495835e837cd36d8af011bfe08f75094728545ae06952a276a6411",
+  "candidate_daily_js_sha256": "bf9ccaf980496d7f8c141b2bcc8b831e27e5ec97a25b8cee299ddc1ec3aa48f3",
+  "candidate_fs_integration_js_sha256": "5551d1823a6f03fcd1fcc2f568d6a39480e3d35380743ddf0e2babd8cde871f7",
+  "candidate_fs_integration_css_sha256": "f6536f9341fd3659ced63db8a897b43c4341c9fc59da75556b96beccea9729a6",
+  "live_files_match_source": true,
+  "live_file_source": "baseline.json（index.html 与线上 workspace-native-20261006-abc565540ced 一致）"
+ },
+ "columns": [
+  {
+   "n": 1,
+   "id": "ov",
+   "name": "运营概览",
+   "source": "PLAYBOOK.maplestory.overview/core/tips/gallery + 主档 events",
+   "before": "PLAYBOOK 缺 key → 通用模板；events 含未核实 OVERDRIVE 两章",
+   "after": "overview 143 字 / core 180 字 / tips 5 条 / gallery 4 张；events 4 个节点全部带官方来源",
+   "count": {
+    "overview": 143,
+    "core": 180,
+    "tips": 5,
+    "gallery": 4,
+    "events": 4
+   },
+   "standard": {
+    "overview": "80-150",
+    "core": "100-200",
+    "tips": "3-5",
+    "gallery": "4"
+   },
+   "status": "pass"
+  },
+  {
+   "n": 2,
+   "id": "biz",
+   "name": "经营打法",
+   "source": "PLAYBOOK.maplestory.biz",
+   "before": "缺 key → 通用模板",
+   "after": "6 项：金币 Meso 5★ / 账号 5★ / 代练 4★ / 装备道具 4★ / NX 代充 3★ / 账号租赁 1★（明确不建议主推）",
+   "count": 6,
+   "standard": "4-7",
+   "status": "pass_with_note",
+   "notes": [
+    "每项 desc 均带“Hermes经营草稿·待运营确认”；eff 无订单证据者标“判断/待验证”；MMOEXP 在售范围未核实，未写成事实"
+   ]
+  },
+  {
+   "n": 3,
+   "id": "dept",
+   "name": "部门覆盖",
+   "source": "PLAYBOOK.maplestory.dept",
+   "before": "缺 key → 通用模板",
+   "after": "9 行：产品/设计/引流/投放/私域/邮件/广告/技术/生产，每条含本游戏专有词（Classic/二转/Heroic/Auction House/NX）",
+   "count": 9,
+   "standard": "9",
+   "status": "pass_with_note",
+   "notes": [
+    "每行末尾带“Hermes经营草稿·待运营确认”；未实施任何后台动作"
+   ]
+  },
+  {
+   "n": 4,
+   "id": "tool",
+   "name": "工具 & Wiki",
+   "source": "GAME_TOOLS_MAP.maplestory",
+   "before": "GAME_TOOLS_MAP 无 maplestory → 工具/Wiki 区为空",
+   "after": "4 工具（Grandis Library / Orange Mushroom / maplestory.io / MapleStory Classic DB）+ 2 Wiki（官方站 / The MapleStory Wiki）；全部 HTTPS 且本轮可访问",
+   "count": {
+    "tools": 4,
+    "wikis": 2
+   },
+   "standard": {
+    "tools": ">=4",
+    "wikis": "2"
+   },
+   "gaps": [
+    "visits 留空（无流量回执）",
+    "6 张卡片均无截图 img（无合法截图）"
+   ],
+   "status": "partial"
+  },
+  {
+   "n": 5,
+   "id": "cls",
+   "name": "职业介绍",
+   "source": "GAME_GUIDE.maplestory.classes / clsDocs + CLASS-SKILLS-REVIEW.json",
+   "before": "仅 5 张正式服职业群卡（含 Pirate），无 classes；与 Classic 版本不符",
+   "after": "classes 5 张快速卡（Beginner/Warrior/Magician/Bowman/Thief）；clsDocs 14 张覆盖 Classic 全职业树（4 个一转 + 10 个二转分支），技能/被动/循环按 Classic 上线版技能表重写并经证据映射校验（90 条卡片技能、61 条循环技能绑定，全部来自已核证据）",
+   "count": {
+    "classes": 5,
+    "clsDocs": 14,
+    "deep": 14,
+    "card_skills": 90,
+    "loop_skills": 61
+   },
+   "standard": {
+    "classes": "当前版本全覆盖",
+    "clsDocs": "热门 4-6 深卡"
+   },
+   "notes": [
+    "Classic 二转只有 10 条分支，全部给足实质内容，深卡数量高于“4-6”的下限口径；未覆盖正式服的 50+ 职业，已在 play 第 1/3 块注明属正式服范围，不冒充全覆盖",
+    "8 条旧稿技能错误已纠正（Spear Crusher / Hyper Body / Power Guard / Weapon Mastery / Shield Mastery / Poison Brace / Basic Attack / 涂毒），证据见 CLASS-SKILLS-REVIEW.json corrections",
+    "技能强度、星级难度、build 与循环顺序均为 Hermes 判断，卡片内已标注“判断”；Spear Mastery、Bless 两处站点描述冲突只写通用定位"
+   ],
+   "status": "pass_with_note"
+  },
+  {
+   "n": 6,
+   "id": "play",
+   "name": "玩法攻略",
+   "source": "GAME_GUIDE.maplestory.play",
+   "before": "5 块，Classic 与正式服机制混写",
+   "after": "5 块：两条线是什么 / Classic 1-100 怎么玩 / 正式服成长与终局 / 付费与货币 / 适合谁与交易",
+   "count": 5,
+   "standard": "4-5",
+   "status": "pass"
+  },
+  {
+   "n": 7,
+   "id": "terms",
+   "name": "术语速记",
+   "source": "GAME_GUIDE.maplestory.terms",
+   "before": "13 条；缺 NX/Leaf/Maple Points/HEXA/Heroic；Reboot 命名过期",
+   "after": "17 条，全部带标签 + 展开 + 运营/投放/客服三段；覆盖 Meso/NX/Leaf Points/Maple Points/Job Advancement/Star Force/Potential/Legion/Link Skill/Arcane/Sacred/Auction House/Meso Market/Heroic-Interactive/Free Market/Kerning PQ/Crafting/HEXA",
+   "count": 17,
+   "standard": ">=10",
+   "status": "pass"
+  },
+  {
+   "n": 8,
+   "id": "eco",
+   "name": "经济体系",
+   "source": "GAME_GUIDE.maplestory.eco",
+   "before": "3 块，含未核实 OVERDRIVE 窗口",
+   "after": "4 块：货币与官方态度 / 交易机制与市场成熟度 / MMOEXP 落点 / 价格规律与跟价公式（含待补项）",
+   "count": 4,
+   "standard": "3-5",
+   "gaps": [
+    "未取有效成本、竞品成交价与官方 Meso Market 汇率 → 不给具体售价/折扣"
+   ],
+   "status": "pass_with_gap"
+  },
+  {
+   "n": 9,
+   "id": "ops",
+   "name": "运营落地",
+   "source": "GAME_GUIDE.maplestory.ops",
+   "before": "4 块，围绕未核实 11/11、12/16 排期",
+   "after": "4 块：SEO（双词簇）/ 投放（素材·受众·负词·Ad Promoting 红线）/ 运营（上架节奏·组合包·补货）/ 客服（交易锁·世界区分·封号口径）",
+   "count": 4,
+   "standard": "4",
+   "status": "pass_with_note",
+   "notes": [
+    "每块标题带“Hermes经营草稿·待运营确认”；未投放过、未改价"
+   ]
+  },
+  {
+   "n": 10,
+   "id": "intel",
+   "name": "实时情报",
+   "source": "MAPLESTORYBRIEF（GAMEBRIEFS）",
+   "before": "7 维存在，updated 2026-10-05；含 OVERDRIVE 冬季、MSEA Malicia、KMS 11/19 联动等未核项",
+   "after": "7 维重写为 10-22 时点，24 条，全部带日期；esports 明确“不适用”并给替代观察（Boss 首杀/竞速）",
+   "count": {
+    "dims": 7,
+    "items": 24
+   },
+   "standard": "7 维",
+   "gaps": [
+    "静态简报，非周采结果；需人工/巡检更新（见维护方案）"
+   ],
+   "status": "pass"
+  }
+ ],
+ "column_summary": {
+  "total": 10,
+  "pass": 4,
+  "pass_with_note_or_gap": 5,
+  "partial": 1,
+  "failed": 0
+ },
+ "automated_checks": {
+  "script": "tools/verify.py",
+  "checks_total": 74,
+  "checks_failed": 0,
+  "scope_isolation": "把候选五个数据块换回原件后与 source/index.html 逐字节一致（540730 chars）",
+  "js_syntax": "7 个内联 script + daily.js + fs-integration.js 全部通过 V8 编译（new Function，未执行）",
+  "unique_keys": "30 个游戏 key 唯一；clsDocs en 唯一；tool 名称唯一",
+  "assets": "4 张 maplestory 图片路径存在且非 0 字节",
+  "external_links": "maplestory 数据内全部 https",
+  "skill_evidence_regression": "10 项：技能表/循环无三转或未核技能、三转提及须带纠正说明、三转边界已写明、技能名与被动均在证据映射、循环只用已核技能、每条循环绑定已核技能、证据映射覆盖 15 个职业且字段完整、旧稿错误技能未回流、强度判断已标注",
+  "counts": {
+   "overview_chars": 143,
+   "core_chars": 179,
+   "tips": 5,
+   "gallery": 4,
+   "biz": 6,
+   "dept": 9,
+   "tools": 4,
+   "wikis": 2,
+   "classes": 5,
+   "clsDocs": 14,
+   "clsDeep": 14,
+   "play": 5,
+   "terms": 17,
+   "eco": 4,
+   "ops": 4,
+   "intel_dims": 7,
+   "intel_items": 24
+  }
+ },
+ "class_skills_review": {
+  "file": "CLASS-SKILLS-REVIEW.json",
+  "generator": "tools/make_class_review.py（数据源 tools/class_skills.py，与职业卡同源）",
+  "scope": "Classic World 公共上线版（2026-10-21；Lv10 一转 / Lv30 二转 / Lv100；三转未开放）",
+  "counts": {
+   "jobs": 15,
+   "first_jobs": 4,
+   "beginner": 1,
+   "second_jobs": 10,
+   "skills_total": 93,
+   "verified": 93,
+   "verified_single_source": 0,
+   "corrections": 8,
+   "out_of_scope": 2,
+   "not_found": 6
+  },
+  "card_backfill": {
+   "source": "candidate/index.html（GAME_GUIDE.maplestory.clsDocs）",
+   "skills_in_cards": 90,
+   "loop_skills_declared": 61
+  },
+  "corrections": [
+   {
+    "skill": "Spear Crusher",
+    "claimed_as": "spearman 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版把 Spear Crusher 写成 Spearman 二转主力输出并放进 Boss 循环。三个 Classic 数据源都没有该技能名；枪系三转（Dragon Knight，仅 CoT2 测试）的对应技能名为 Piercing Crusher。已从技能表与循环中删除。"
+   },
+   {
+    "skill": "Hyper Body",
+    "claimed_as": "spearman 二转/一转技能",
+    "status": "out_of_scope_3rd_job",
+    "handling": "上一版把 Hyper Body 写成 Spearman 二转的队伍 HP/MP 增益与核心卖点。当前 Classic 上线版属 Dragon Knight（三转，仅 CoT2），NiaMeowDB 明写 'Hyper Body is a Dragon Knight skill'，MapleStory Quest 的 Dragon Knight 页确认其为 +30% 最大 HP 的队伍增益。已删除。"
+   },
+   {
+    "skill": "Power Guard",
+    "claimed_as": "fighter 二转/一转技能",
+    "status": "out_of_scope_3rd_job",
+    "handling": "复审提出 Fighter 的 Power Guard 归属存疑。核对结果：Fighter 二转 8 技能为 Mastery/Booster/Final Attack 两套 + Rage + Rush，不含 Power Guard；Power Guard 属 White Knight（三转，仅 CoT2），MapleStory Quest 的 White Knight 页与 NiaMeowDB 均如此标注。已从 Fighter 与 Page 卡删除。"
+   },
+   {
+    "skill": "Weapon Mastery",
+    "claimed_as": "fighter 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版 Fighter 卡写 Weapon Mastery。Classic 数据里 Fighter 的熟练类技能是 Sword Mastery 与 Axe Mastery（按武器分开），不存在通用的 Weapon Mastery。已按实际技能名替换。"
+   },
+   {
+    "skill": "Shield Mastery",
+    "claimed_as": "page 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版 Page 卡写 Shield Mastery。Page 二转 8 技能为两套 Mastery/Booster/Final Attack + Threaten + Rush，三个数据源均无 Shield Mastery；盾是装备选择，不占技能位。已删除。"
+   },
+   {
+    "skill": "Poison Brace",
+    "claimed_as": "fp-wizard 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版火毒卡写 Poison Brace。Classic F/P Wizard 的毒系技能是 Poison Breath。已改名并补充其定位。"
+   },
+   {
+    "skill": "Basic Attack",
+    "claimed_as": "beginner 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版初学者卡把 Basic Attack 当技能。Classic Beginner 只有 Three Snails / Recovery / Nimble Feet 三个技能（各上限 3 级）。已替换。"
+   },
+   {
+    "skill": "涂毒类辅助",
+    "claimed_as": "bandit 二转/一转技能",
+    "status": "not_found",
+    "handling": "上一版侠客卡写“匕首熟练与涂毒类辅助”。Classic Bandit 二转 6 技能（Dagger Mastery/Savage Blow/Dagger Booster/Haste/Steal/Nimble Recovery）没有毒系技能。已删除该表述。"
+   }
+  ],
+  "evidence_class": "官方公告仅确认 4 个一转 + 10 条二转与 Lv100；技能级证据来自三份独立 Classic 数据源（MapleStory Quest / MapleClassic Wiki / NiaMeowDB），未标成官方数值"
+ },
+ "render_check": {
+  "script": "tools/render_check.py",
+  "method": "V8（py-mini-racer）+ 最小 DOM 桩，执行页面自身脚本与 gvRender(game) 真实渲染函数",
+  "result": "maplestory 十栏 pane 全部产出非空内容；biz 6 / tools 6 / cls 14 / terms 17 / dept 9 / intel 7 / gallery 4；cls 栏技能行 105、循环步骤 55；渲染结果无 [object Object]、无 undefined",
+  "skill_probes": "技能证据说明可见；旧断言（Spear Crusher 多段刺击 / Hyper Body 团队生命增益 / Power Guard 类减伤）在渲染结果中均不存在",
+  "not_a_visual_check": "未在真实浏览器渲染，未截图，未做交互/响应式/浅暗主题验收"
+ },
+ "unverified": [
+  "工具站月访问量（visits 留空）",
+  "工具站截图（img 未填）",
+  "Classic 自由市场/拍卖行机制（官方未列，标待核）",
+  "Classic 三转与新区域具体日期（官方仅“11 月 Forgotten Hollow”；当前上线版无三转）",
+  "技能级官方数据：官方职业页对无 JS 客户端只返回空壳，技能表来自三份社区客户端数据源，非官方数值",
+  "Spear Mastery 附加效果、Bless 具体效果（两站描述不一致，卡片只写通用定位）",
+  "竞品成交价、有效货源成本、关键词量级",
+  "社区通报的 RMT 封禁数量（未见官方数字）",
+  "正式服 50+ 职业的逐职业覆盖（本轮只覆盖 Classic 职业树）"
+ ],
+ "deployment_notes": [
+  "本轮不发布、不 PR、不部署；候选目录待 Codex 用宿主现有 publisher 验收发布。",
+  "candidate/assets/maplestory/ 为新增资产（4 张官方立绘/key art），publisher 需把该目录一并纳入不可变资产清单，否则 gallery 图片会 404。",
+  "candidate 中 daily.js / fs-integration.js / fs-integration.css 与 source 完全一致（哈希相同），仅作目录完整性用途。",
+  "上线后需在真实页面逐 tab 复核：十栏有内容、图片加载、intel 7 维切换、cls 14 个职业标签换行与窄屏表现。"
+ ]
+}
