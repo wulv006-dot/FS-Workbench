@@ -1,7 +1,7 @@
 """Both Hermes paths delegate to Service; registration is a separate live integration step."""
 import json
 
-from user_contract import VIEWS, aggregate_only
+from user_contract import VIEWS, aggregate_only, POLICIES, METRIC_DEFINITIONS
 
 PROPERTIES = {
     'section': {'type': 'string', 'enum': [*VIEWS, 'coverage']},
@@ -10,7 +10,7 @@ PROPERTIES = {
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
     'as_of': {'type': 'string'}, 'policy_version': {'type': 'string'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
-    'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30]},
+    'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
     'evidence_id': {'type': 'string'},
 }
 DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval purchasers, verified first/old/unknown buyers '
@@ -19,6 +19,7 @@ DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval 
                'No customer identifiers, SQL, URLs, collection, outreach, coupon or price changes. '
                'Use the same snapshot_id to compare dashboard evidence. Return changes, supported and alternative explanations, '
                'The default compact summary omits large project/trend tables; section reads those from the same frozen snapshot without recollecting. '
+               'Use the returned lifecycle_policy and metric_definitions. H is cohort observation only. Zero in a partial historical pool never proves no company-wide loss. '
                'data gaps, an owner action, review metric and review date. Never estimate missing measured counts.')
 
 
@@ -52,6 +53,16 @@ def invoke(service, user, args):
     if any(key not in value for key in fields):
         raise ValueError('section_not_in_frozen_snapshot')
     result.update({key: value[key] for key in fields})
+    policy = value.get('lifecycle_policy')
+    if policy is None and value['policy_version'] in POLICIES:
+        # These built-in v1 names retain their originally shipped definitions for old snapshots.
+        policy = dict(version=value['policy_version'], thresholds_days=list(POLICIES[value['policy_version']]),
+                      day_basis='Asia/Shanghai calendar days since last effective purchase', definition_source='versioned_builtin_contract')
+    result.update(lifecycle_policy=policy, metric_definitions=METRIC_DEFINITIONS,
+                  interpretation=dict(H='verified first purchase + H*24h second-purchase horizon; does not set lifecycle thresholds',
+                                      stock='end-date covered pool; partial history and observed zero do not prove no real churn',
+                                      trend='each day recalculated from facts before its cutoff; early zero can follow short source history',
+                                      high_value_entered_silent='interval entry event group; not current high-value silent stock'))
     result.update(result_section=section, available_sections=[name for name, keys in (
         ('summary', ()), ('projects', ('projects',)), ('migration', ('migration',)),
         ('trend', ('trend',)), ('cohort', ('cohort_weeks',)), ('coverage', ())) if all(key in value for key in keys)])

@@ -57,6 +57,7 @@ class Service:
         result.update(contract_version='fs-users-v1', query=query, timezone='Asia/Shanghai',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=query['policy_version'], data_version=version,
+                      lifecycle_policy=dict(version=query['policy_version'], thresholds_days=list(config['policies'][query['policy_version']]), day_basis='Asia/Shanghai calendar days since last effective purchase'),
                       captured_at=max((json.loads(j['body']).get('captured_at', '') for j in jobs), default=None),
                       source_watermark=[dict(site=j['site'], start=j['start'], end_exclusive=j['end'], state=j['state']) for j in jobs],
                       refresh_health=self.store.job_health(),
