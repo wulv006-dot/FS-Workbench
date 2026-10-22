@@ -665,7 +665,7 @@ def main():
         print("affected group:",group,flush=True)
         if group in ("self","frontend"):continue
         if group=="game-monitor-auto":
-            units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller"])
+            units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller","test_install"])
             node("releases/fs-dashboard/game-monitor-autopublish-20261022/tests/render.cjs")
             continue
         if group=="game-monitor-sop":
