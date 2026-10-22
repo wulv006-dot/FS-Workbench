@@ -1,0 +1,67 @@
+{
+  "contract": "fs-knowledge-source-map-v1",
+  "status": "candidate_not_deployed",
+  "source_baseline": "4722f20e231ffe306095a211009d25770c478d24",
+  "runtime": [
+    {
+      "source": "releases/fs-dashboard/knowledge-layering-20261023/source/business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "base_sha256": "52e8314ed9109770926ec89b12a908ac5b196247281ddc839e0271346b33f9f2"
+    },
+    {
+      "source": "releases/fs-dashboard/knowledge-layering-20261023/source/controller.py",
+      "target": "/opt/fs-hermes-fc/controller.py",
+      "base_sha256": "571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af"
+    },
+    {
+      "source": "releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py",
+      "target": "/opt/fs-hermes-fc/knowledge_catalog.py",
+      "base_sha256": null
+    }
+  ],
+  "knowledge": {
+    "authority": "Git original files listed in knowledge/index.json",
+    "artifact_root": "/var/lib/fs-hermes-fc/fs/knowledge-releases/knowledge-layering-20261023-1",
+    "content_hash_basis": "utf8_lf",
+    "publisher_cas_hash_basis": "raw_bytes"
+  },
+  "notion": {
+    "project": "3fc9a8a79c4e81578ed1c5fa218837ea",
+    "knowledge": "3ff9a8a79c4e81bc8a4feb15aab87a5a",
+    "writes": "none"
+  },
+  "protected": [
+    "FC pricing source/formulas/margin/parameters/teaching",
+    "original switches and schedules",
+    "original tasks/DB/knowledge snapshots/experience manifests",
+    "Notion manual/history/links/sharing"
+  ],
+  "files": [
+    "docs/planning/knowledge-layering-20261023/ACCEPTANCE.md",
+    "docs/planning/knowledge-layering-20261023/APPROVAL-CHECKLIST.md",
+    "docs/planning/knowledge-layering-20261023/BASELINE-HASHES.json",
+    "docs/planning/knowledge-layering-20261023/CLOSEOUT.md",
+    "docs/planning/knowledge-layering-20261023/DEPLOYMENT.md",
+    "docs/planning/knowledge-layering-20261023/MAINTENANCE.md",
+    "docs/planning/knowledge-layering-20261023/NOTION-MAPPING.md",
+    "docs/planning/knowledge-layering-20261023/README.md",
+    "docs/planning/knowledge-layering-20261023/SOURCE-MAP.json",
+    "docs/planning/knowledge-layering-20261023/W0.md",
+    "knowledge/CANDIDATES.md",
+    "knowledge/README.md",
+    "knowledge/decisions/pmax-authority-20261023.md",
+    "knowledge/index.json",
+    "releases/fs-dashboard/knowledge-layering-20261023/deploy/release.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/source/business_context.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/source/controller.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_closeout.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_knowledge.py",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_knowledge_release.py",
+    "AGENTS.md",
+    "docs/ops/HOTFIX.md",
+    "tools/knowledge_closeout.py",
+    "tools/prepare_knowledge_release.py",
+    "tools/pr_fast.py"
+  ]
+}

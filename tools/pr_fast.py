@@ -347,6 +347,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py'):
+            groups.add('knowledge-layering');continue
         if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
             groups.add("game-monitor-auto");continue
         if name.startswith("releases/fs-dashboard/game-monitor-sop-20261022/"):
@@ -668,6 +670,9 @@ def main():
     selfcheck()
     for group in groups:
         print("affected group:",group,flush=True)
+        if group=='knowledge-layering':
+            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release'])
+            continue
         if group in ("self","frontend"):continue
         if group=="game-monitor-auto":
             units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller","test_install"])

@@ -1,0 +1,57 @@
+"""Scope adapter only: all writes, locks, CAS, backups and rollback use the existing publisher."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SCOPE = 'knowledge-layering-20261023'
+RELEASE = 'knowledge-layering-20261023-1'
+RUNTIME = {'runtime/' + n: '/opt/fs-hermes-fc/' + n for n in
+           ('business_context.py', 'controller.py', 'knowledge_catalog.py')}
+PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
+
+
+def targets(manifest):
+    result = {r['candidate']: r['target'] for r in manifest['files']}
+    if len(result) != len(manifest['files']) or not RUNTIME.items() <= result.items():
+        raise ValueError('knowledge_exact_runtime_targets')
+    for name, target in result.items():
+        if name in RUNTIME:
+            continue
+        if not name.startswith('artifact/') or '..' in Path(name).parts or '\\' in name or target != PREFIX + name[len('artifact/'):]:
+            raise ValueError('knowledge_immutable_release_boundary')
+    if result.get('artifact/index.json') != PREFIX + 'index.json':
+        raise ValueError('knowledge_release_index_required')
+    return result
+
+
+def load_base():
+    raw = (HERE / 'release_adapter_base.py').read_bytes()
+    if hashlib.sha256(raw).hexdigest() != '65794d515f78826e5a23c4c88966c603e1a46dd3c977c3dd0956bc770a581344':
+        raise ValueError('existing_adapter_drift')
+    spec = importlib.util.spec_from_file_location('existing_knowledge_scope_adapter', HERE / 'release_adapter_base.py')
+    adapter = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(adapter)
+    manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
+    mapping = targets(manifest)
+    adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, mapping
+    adapter.NEW = frozenset(n for n in mapping if n not in RUNTIME or n == 'runtime/knowledge_catalog.py')
+    base = adapter.load_base()
+    restart = base.restart_for
+
+    def restart_changed_code(value, admission_fence=None):
+        if not any(r['candidate'] in RUNTIME and r['sha256'] != r['beforeSha256'] for r in value['files']):
+            return
+        if admission_fence is None:
+            raise ValueError('knowledge_existing_admission_fence_required')
+        admission_fence.stop_then_unlock_database()
+        restart(dict(value, scope=base.HERMES_WORKER_SCOPE), admission_fence)
+        restart(dict(value, scope=base.DEEP_SCOPE), admission_fence)
+
+    base.restart_for = restart_changed_code
+    return base
+
+
+if __name__ == '__main__':
+    load_base().main()
