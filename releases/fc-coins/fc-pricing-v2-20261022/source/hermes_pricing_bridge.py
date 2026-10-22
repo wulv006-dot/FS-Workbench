@@ -90,7 +90,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                    if mode=='automatic_review' else '用户已授权本次FC金币操作流程；先核capabilities，只能在本任务授予范围内取数、核算、预览和执行。执行后用read_job核后台CONFIRMED，再state核monitor.publication.execution_id为本次操作、写后时间和三平台matched；缺任一项都只能报告未证，不据accepted或会话完成宣称真实生效。')
             text=('FC Coins本轮真实决策，运行编号'+quote['run_id']+'。'+scope+
                 '先读取当前业务知识及fs.pricing.control的capabilities/state，再按需核对经营、成本与营销证据。'
-                '用fc.run_pricing_workflow取得固定分析回执；用户最新确认10%采购毛利硬线只检查未使用优惠的前台套餐实际售价，含赠送、阶梯数量及舍入；所有合法VIP/积分/码/券折后允许低于10%或亏损，仍须记录实际让利与损失。不能恢复旧最差优惠红线，也不能把未优惠底线降到10%以下。'
+                '用fc.run_pricing_workflow取得固定分析回执；当前v15双红线同时强制：未优惠实际套餐采购毛利≥10%，最近七个完整日真实优惠金额结构下估算平均采购毛利≥10%，均含全部交付/赠送、阶梯/整数K及舍入。单笔合法VIP/积分/码/券可亏损，但整体估算不能破线；缺合格历史不放行新价，原周期/开关保持。旧v14平均仅展示规则已退役。'
                 'PS/Xbox共同成本共同基价，PC独立。不要机械花掉高毛利。先比较baseline/hold/parity；如有新方案，可evaluate并用evaluated选择提交自定console_usd/pc_usd，由程序重新核验。实际调用recommend并引用pricing:quote_sha256或本任务证据；说明采购毛利、广告后贡献、保本销量条件及反证。'
                 '不把短期相关当因果，不臆造广告归因或需求增量。终态后原队列受控学习，不用运行中snapshot作为经验来源。最后用通俗中文说明判断。')
             text+=('经营目标是同范围采购毛利额和可归属广告后贡献，不是把利润率做高。平均毛利使用本轮historical_discount_mix/estimated_average_margin的近7日实际折扣总额加权情景，分清100K当前成本估算与历史实绩、平台/套餐缺口；不平均单率，不用每单七折替代平均值。历史结构不是未来固定概率；优惠后亏损可合法，不代表获客成功，获客贡献与后续回收仍须验证。经营判断使用真实优惠核销/净收/历史成本，未来候选须重核资格、门槛、封顶和数量。'

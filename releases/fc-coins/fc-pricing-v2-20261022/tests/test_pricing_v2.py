@@ -21,6 +21,8 @@ def fixture():
     evidence=dict(game='FC27',product='Game Coins',checked_at=AT,fx=dict(cny_per_usd='7',checked_at=AT),storefront=public,promotion_envelope=envelope,
         costs={platform:dict(platform=platform,game='FC27',product='Game Coins',record_id=str(i+1),trade_at='26-10-22 02:10:00',checked_at=AT,cny_per_1k='.7') for i,platform in enumerate(('PS','XBOX','PC'))},
         offers={platform:{'Lootbar':dict(usd_price='20',base_k='100',bonus_k='5',checked_at=AT,conditional=False,comparable=True)} for platform in ('PS','XBOX','PC')})
+    mix=dict(status='available',period=dict(start='2026-10-15',end='2026-10-21'),observed_orders=10,eligible_orders=10,net_order_usd='90',actual_discount_usd='10',undiscounted_order_usd='100',retained_ratio='.9')
+    evidence['historical_discount_mix']=dict(mix,sha256=p.fingerprint(mix))
     rows=[dict(platform=platform,cost_cny='.7') for platform in ('PS','XBOX','PC')]
     return evidence,rows,goods
 
@@ -58,6 +60,23 @@ class Pricing(unittest.TestCase):
         self.assertIsNone(p.average_margin('10','6.5',None)['procurement_margin_pct'])
         mix['retained_ratio']='.9'
         with self.assertRaisesRegex(ValueError,'history.*hash|historical_mix_hash'):p.average_margin('10','6.5',mix)
+
+    def test_average_floor_covers_all_packages_and_rejects_missing_history(self):
+        e,rows,_=fixture()
+        with self.assertRaisesRegex(ValueError,'average_catalog_margin_floor'):
+            p.apply_decision(rows,e,dict(quotes={'PS':'.12','XBOX':'.12','PC':'.12'}),now=NOW)
+        receipt=p.apply_decision(rows,e,{},now=NOW)
+        self.assertEqual(receipt['historical_average_minimum_margin_pct'],'10')
+        for r in rows:
+            self.assertGreaterEqual(Decimal(r['estimated_average_margin']['procurement_margin_pct']),10)
+            self.assertGreaterEqual(Decimal(r['proof']['catalog']['minimum_estimated_average_margin_pct']),10)
+        del e['historical_discount_mix']
+        with self.assertRaisesRegex(ValueError,'average_history_required'):p.apply_decision(rows,e,{},now=NOW)
+
+    def test_history_guard_rejects_wrong_window_missing_amounts_and_tamper(self):
+        for field,value,error in [('period',dict(start='2026-10-14',end='2026-10-20'),'average_history_period'),('observed_orders',9,'average_history_coverage'),('retained_ratio','.99','historical_mix_ratio_invalid')]:
+            e,rows,_=fixture();mix=e['historical_discount_mix'];mix[field]=value;mix['sha256']=p.fingerprint({k:v for k,v in mix.items() if k!='sha256'})
+            with self.subTest(field=field),self.assertRaisesRegex(ValueError,error):p.apply_decision(rows,e,{},now=NOW)
 
     def test_common_pool_uses_latest_timestamp_not_lowest(self):
         e,_,_=fixture();e['costs']['PS'].update(cny_per_1k='.8',trade_at='26-10-22 02:11:00')

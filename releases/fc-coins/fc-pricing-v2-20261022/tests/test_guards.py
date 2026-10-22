@@ -89,6 +89,8 @@ class FinalGuards(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'console_restore'):scope['restore_safety'](rows,['PS','XBOX'])
                     rows[0]['restore_b2c']=rows[1]['restore_b2c']='.01'
                     with self.assertRaisesRegex(ValueError,'catalog_hard_margin_floor'):scope['restore_safety'](rows,['PS','XBOX'])
+                    rows[0]['restore_b2c']=rows[1]['restore_b2c']='.12'
+                    with self.assertRaisesRegex(ValueError,'average_catalog_margin_floor'):scope['restore_safety'](rows,['PS','XBOX'])
 
     def test_policy_and_original_manual_exception_cannot_waive_floor(self):
         quote=quoted();quote['automation_policy_revision']=40

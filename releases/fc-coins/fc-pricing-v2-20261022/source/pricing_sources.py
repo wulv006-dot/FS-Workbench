@@ -168,7 +168,7 @@ def collect(storefront, *, persist=True):
 
 
 def historical_mix():
-    """Read existing closed-day FS archives; missing research data never stops pricing."""
+    """Read existing closed-day FS archives; missing data is explicit and the dual-margin execution guard decides eligibility."""
     import subprocess
     try:
         done=subprocess.run(['/opt/python39/bin/python3','-B',str(Path(__file__).resolve()),'history'],

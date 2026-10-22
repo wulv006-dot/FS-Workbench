@@ -48,14 +48,14 @@ def current_accounting(market,floor):
         except (KeyError,ValueError):continue
         rows.append(dict(platform=row['platform'],delivered_k=str(qty),current_package_usd=str(row['gross_usd']),delivered_cost_usd=str(delivered),**value,
             no_additional_discount_floor_pass=Decimal(value['procurement_margin_pct'])>=Decimal(str(floor)),
-            margin_basis='undiscounted_published_package_v1',promotions_exempt_from_margin_floor=True))
-    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'console_common_cost_status':'matching_valid_observations' if common else 'source_reconciliation_required','console_cost_observations':[{k:r.get(k) for k in ('platform','status','cny_per_1k','trade_at','checked_at')} for r in console],'basis':'PS/Xbox share one supplier-cost market and base price. Different historical/latest records require time/source reconciliation, never platform cost differentiation or automatic mean/min selection. Current public package + latest verified CNY/K × delivered K / FX; >=10% floor applies only before additional legal promotions, which may be loss-making.','historical_COGS_rewritten':False}
+            margin_basis='undiscounted_and_historical_average_v2',promotions_exempt_from_margin_floor=True))
+    return {'status':'available' if len(rows)==3 else 'partial','rows':rows,'console_common_cost_status':'matching_valid_observations' if common else 'source_reconciliation_required','console_cost_observations':[{k:r.get(k) for k in ('platform','status','cny_per_1k','trade_at','checked_at')} for r in console],'basis':'PS/Xbox share one supplier-cost market and base price. Different historical/latest records require time/source reconciliation, never platform cost differentiation or automatic mean/min selection. Current public package + latest verified CNY/K × delivered K / FX; This current-package view checks the undiscounted floor only; the executable v15 receipt additionally requires last-seven-closed-day estimated average >=10%. Individual legal promotions may be loss-making.','historical_COGS_rewritten':False}
 
 
 def evaluate(case,floor):
     """Declared scenarios never become observations, demand forecasts or execution authority."""
     from price_ending import package_ending
-    if not isinstance(case,dict) or set(case)-{'currency','delivered_cost_includes_gifts','platforms','discounts_pct','economics'} or not {'currency','delivered_cost_includes_gifts','platforms','discounts_pct'}<=set(case):raise ValueError('workflow_case_fields')
+    if not isinstance(case,dict) or set(case)-{'currency','delivered_cost_includes_gifts','platforms','discounts_pct','economics','historical_retained_ratio'} or not {'currency','delivered_cost_includes_gifts','platforms','discounts_pct','historical_retained_ratio'}<=set(case):raise ValueError('workflow_case_fields')
     if case['currency']!='USD' or case['delivered_cost_includes_gifts'] is not True:raise ValueError('workflow_case_units')
     rows=case['platforms'];discounts=case['discounts_pct']
     if not isinstance(rows,list) or not 2<=len(rows)<=3 or not isinstance(discounts,list) or not 1<=len(discounts)<=10:raise ValueError('workflow_case_coverage')
@@ -63,6 +63,8 @@ def evaluate(case,floor):
     if len(set(ds))!=len(ds) or any(d>100 for d in ds):raise ValueError('workflow_discount')
     floor=number(str(floor),True)
     if floor>=100:raise ValueError('workflow_floor')
+    historical=number(case['historical_retained_ratio'])
+    if historical>1:raise ValueError('workflow_historical_ratio')
     parsed={}
     for row in rows:
         if not isinstance(row,dict) or set(row)!={'platform','current_usd','main_usd','delivered_cost_usd'} or row['platform'] not in PLATFORMS or row['platform'] in parsed:raise ValueError('workflow_platform')
@@ -79,11 +81,12 @@ def evaluate(case,floor):
         proposed=main if main%1==Decimal('.99') else main.to_integral_value(rounding='ROUND_FLOOR')-Decimal('.01')
         transactions=[]
         undiscounted={label:figures(price,cost,Decimal(0)) for label,price in (('current',old),('main',main),('ending',candidates[p]))}
+        average={label:figures(price*historical,cost,Decimal(0)) for label,price in (('current',old),('main',main),('ending',candidates[p]))}
         for d in ds:
             f={label:figures(price,cost,d) for label,price in (('current',old),('main',main),('ending',candidates[p]))}
             for label,value in f.items():
-                value['floor_pass']=Decimal(undiscounted[label]['procurement_margin_pct'])>=floor
-                value['margin_floor_basis']='undiscounted_published_package_v1'
+                value['floor_pass']=Decimal(undiscounted[label]['procurement_margin_pct'])>=floor and Decimal(average[label]['procurement_margin_pct'])>=floor
+                value['margin_floor_basis']='undiscounted_and_historical_average_v2'
             net=Decimal(undiscounted['main']['net_usd']);g=Decimal(undiscounted['main']['procurement_gross_usd']);loss=main-candidates[p]
             ending_budget_pass=(loss<=net*Decimal('.01') and loss<=max(Decimal(0),g)*Decimal('.05') and Decimal(undiscounted['main']['procurement_margin_pct'])-Decimal(undiscounted['ending']['procurement_margin_pct'])<=1)
             g0=Decimal(f['current']['procurement_gross_usd']);g1=Decimal(f['main']['procurement_gross_usd']);gt=Decimal(f['ending']['procurement_gross_usd'])
@@ -91,7 +94,7 @@ def evaluate(case,floor):
         main_pass=all(r['main']['floor_pass'] for r in transactions)
         ending_pass=main_pass and all(r['ending']['floor_pass'] and r['ending_budget_pass'] for r in transactions)
         output.append({'platform':p,'current_usd':str(old),'main_usd':str(main),'main_change_pct':str((main/old-1)*100),'main_pass':main_pass,
-          'ending_preview':endings[p],'proposed_ending_usd':str(proposed),'linked_ending_usd':str(candidates[p]),'ending_pass':ending_pass,'transactions':transactions,'undiscounted':undiscounted})
+          'ending_preview':endings[p],'proposed_ending_usd':str(proposed),'linked_ending_usd':str(candidates[p]),'ending_pass':ending_pass,'transactions':transactions,'undiscounted':undiscounted,'estimated_average':average})
     consoles=[r for r in output if r['platform'] in ('PS','XBOX')]
     main_pass=all(r['main_pass'] for r in consoles);ending_pass=all(r['ending_pass'] for r in consoles)
     if not ending_pass:
@@ -104,8 +107,8 @@ def evaluate(case,floor):
         r['selected_change_pct']=None if selected is None else str((selected/Decimal(r['current_usd'])-1)*100)
         r['selected_direction']='blocked' if selected is None else 'hold' if selected==Decimal(r['current_usd']) else 'up' if selected>Decimal(r['current_usd']) else 'down'
     result={'basis':'declared_hypothesis','currency':'USD','rows':output,'console_main_pass':main_pass,'console_ending_pass':ending_pass,
-      'margin_basis':'undiscounted_published_package_v1','promotions_exempt_from_margin_floor':True,
-      'rule':'PS/Xbox share one cost market and base price; customer mix does not authorize platform base-price discrimination. P0→P1 is a main research change, not limited by ending budgets. >=10% floor and ending budget use the undiscounted actual package price incl delivered gifts; legal promotion scenarios may be below 10% or loss-making. Ad-after contribution is separate. Feasible is not profitable or executable.'}
+      'margin_basis':'undiscounted_and_historical_average_v2','historical_retained_ratio':str(historical),'promotions_exempt_from_margin_floor':True,
+      'rule':'PS/Xbox share one cost market and base price. Both undiscounted actual package margin and estimated average under the declared historical mix must be >=10%, incl all gifts. Individual legal promotions may lose money. P0→P1 is not limited by ending budgets; tail changes still obey them. Scenario is not execution authority or a future demand prediction.'}
     if 'economics' in case:
         pair=case['economics']
         if not isinstance(pair,dict) or set(pair)!={'before','after'}:raise ValueError('workflow_economics_fields')
@@ -127,7 +130,7 @@ def schema():
     decimal={'type':'string','pattern':r'^[0-9]+(?:\.[0-9]+)?$'}
     platform={'type':'object','properties':{'platform':{'enum':list(PLATFORMS)},**{k:decimal for k in ('current_usd','main_usd','delivered_cost_usd')}},'required':['platform','current_usd','main_usd','delivered_cost_usd'],'additionalProperties':False}
     economics={'type':'object','properties':{'orders':{'type':'integer','minimum':0},'net_unit_usd':decimal,'delivered_cost_unit_usd':decimal,'ads_usd':{'anyOf':[decimal,{'type':'null'}]}},'required':['orders','net_unit_usd','delivered_cost_unit_usd','ads_usd'],'additionalProperties':False}
-    case={'type':'object','properties':{'currency':{'const':'USD'},'delivered_cost_includes_gifts':{'const':True},'platforms':{'type':'array','items':platform,'minItems':2,'maxItems':3},'discounts_pct':{'type':'array','items':decimal,'minItems':1,'maxItems':10},'economics':{'type':'object','properties':{'before':economics,'after':economics},'required':['before','after'],'additionalProperties':False}},'required':['currency','delivered_cost_includes_gifts','platforms','discounts_pct'],'additionalProperties':False}
+    case={'type':'object','properties':{'currency':{'const':'USD'},'delivered_cost_includes_gifts':{'const':True},'historical_retained_ratio':dict(decimal,description='Declared historical revenue retention, >0 and <=1; source/window must be stated. Fictional scenarios are not production evidence.'),'platforms':{'type':'array','items':platform,'minItems':2,'maxItems':3},'discounts_pct':{'type':'array','items':decimal,'minItems':1,'maxItems':10},'economics':{'type':'object','properties':{'before':economics,'after':economics},'required':['before','after'],'additionalProperties':False}},'required':['currency','delivered_cost_includes_gifts','historical_retained_ratio','platforms','discounts_pct'],'additionalProperties':False}
     return {'type':'function','function':{'name':'mcp__fcro__fc_run_pricing_workflow','description':'Mandatory Astra FC Coins fixed decision receipt. review reads existing task-bound execution, completed Gold cost/coupon, exact marketing and current market; source gaps never stop existing automation. scenario requires common PS/Xbox cost and base price in their shared market; different source records need reconciliation, not platform base-price differentiation. scenario performs deterministic joint PS/Xbox and separate PC net-discount, margin, independent ending budgets and break-even accounting. Scenario values are declared hypotheses, never observed prices or execution permission. Read receipt values instead of recalculating in prose. Propose evidence-backed exceptions and falsifiers separately; changes enter existing reviewed learning, never auto-modify the workflow or business rules.',
       'parameters':{'type':'object','properties':{'profile':{'const':'FC27'},'action':{'enum':['review','scenario']},'start':{'type':'string'},'end':{'type':'string'},'case':case},'required':['profile','action','start','end'],'additionalProperties':False}}}
 
@@ -145,7 +148,7 @@ class Workflow:
         if ('case' in args)!=(args['action']=='scenario'):raise ValueError('workflow_case_boundary')
         engine,policy,identity=self.bridge.baseline();floor=policy['minimum_gross_margin_pct']
         result={'workflow_version':VERSION,'workflow_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'captured_at':datetime.now(timezone.utc).isoformat(),'steps':list(STEPS),'scope':{k:args[k] for k in ('profile','start','end')},'baseline_policy':identity,'business_baseline':baseline_identity(),
-          'minimum_procurement_margin_pct':str(floor),'write_performed':False,'execution_authorized':False,'existing_automation_changed':False}
+          'minimum_procurement_margin_pct':str(floor),'minimum_estimated_average_margin_pct':str(floor),'margin_basis':'undiscounted_and_historical_average_v2','write_performed':False,'execution_authorized':False,'existing_automation_changed':False}
         if args['action']=='scenario':result.update(status='available',scenario=evaluate(args['case'],floor),source_kind='declared_hypothesis')
         else:
             key=digest(dict(args,policy=identity))

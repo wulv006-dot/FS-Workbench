@@ -15,7 +15,7 @@ assert(reconciled[2].includes('失败')&&reconciled[2].includes('对账已确认
 for(const [page,unit] of [['9.99','0.0999'],['10','0.1000'],['0.01','0.0001'],['9999999999.99','99999999.9999']])assert.equal(pageToUnit(page),unit);
 for(const invalid of ['0','NaN','Infinity','1e2','9.999','-1','1,000'])assert.throws(()=>pageToUnit(invalid));
 const html=fs.readFileSync(path.join(root,'fc27-coins.html'),'utf8');
-assert(html.includes('未用优惠硬红线')&&html.includes('2 未用优惠成本红线'));
+assert(html.includes('未优惠与估算平均双红线')&&html.includes('2 未优惠与平均毛利红线'));
 assert(!html.includes('优惠后成本红线'));
 const source=fs.readFileSync(path.join(root,'fc27-quote-cloud.js'),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
