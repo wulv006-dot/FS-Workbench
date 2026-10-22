@@ -90,6 +90,16 @@ class Control(unittest.TestCase):
         self.assertEqual(result['quote_evidence_ref'],'pricing:'+p.fingerprint(self.quote))
         self.assertTrue(all(body is None for _,_,body in self.calls))
 
+    def test_owned_review_reuses_existing_job_receipt_without_evidence_access(self):
+        (self.root/'jobs').mkdir()
+        old=dict(owner='DY',created_at='2026-10-22T00:00:00Z',phase='completed',task_id='other')
+        current=dict(owner='wulv',created_at='2026-10-22T00:04:00Z',phase='completed',task_id='actual')
+        (self.root/'jobs/old.json').write_text(json.dumps(dict(kind='hermes_review',result=old)))
+        (self.root/'jobs/natural.json').write_text(json.dumps(dict(kind='auto_cycle',hermes_review=current)))
+        self.assertEqual(pricing_state.owned_review(self.root,'wulv')['task_id'],'actual')
+        self.assertEqual(pricing_state.owned_review(self.root,'DY')['task_id'],'other')
+        self.assertIsNone(pricing_state.owned_review(self.root,'unknown'))
+
     def test_auto_review_cannot_deadlock_worker_with_another_queue(self):
         self.grant('automatic_review')
         self.assertIn('recommend',self.call({'action':'capabilities'})['allowed_actions'])
