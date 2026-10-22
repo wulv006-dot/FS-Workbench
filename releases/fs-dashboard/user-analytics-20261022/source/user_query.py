@@ -35,8 +35,11 @@ class Service:
             old, public, members = self.store.snapshot(args['snapshot_id'])
             # Query retrieval never silently switches to the newest version or a different scope.
             requested = {k: v for k, v in args.items() if k != 'snapshot_id'}
-            if requested:
-                if checked_query(requested, config, self.clock()) != old:
+            for key, value in requested.items():
+                if key not in old or type(value) not in (str, int):
+                    raise ValueError('snapshot_query_fields')
+                normalized = stamp(value).isoformat() if key in ('start', 'end_exclusive', 'as_of') else str(value) if key == 'scope_id' else value
+                if normalized != old[key]:
                     raise ValueError('snapshot_query_mismatch')
             self.permit_snapshot(user, old, public)
             return public
