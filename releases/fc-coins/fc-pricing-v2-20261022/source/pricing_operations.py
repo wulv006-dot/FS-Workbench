@@ -168,7 +168,7 @@ def call(scope,owner,task,lease,args,request=native):
         old=db.execute('SELECT * FROM pricing_operations WHERE id=?',(ident,)).fetchone()
         if old:
             if old['payload_hash']!=payload_hash:raise ValueError('pricing_request_key_payload_conflict')
-            return dict(operation_id=ident,job_id=old['request_id'],state=old['state'],result=json.loads(old['result']) if old['result'] else None,reused=True,do_not_replay=old['state'] in {'reserved','unknown'})
+            return dict(operation_id=ident,intent_id=old['request_id'],job_id=None if action=='recommend' else old['request_id'],recommendation_id=ident if action=='recommend' and old['state']=='accepted' else None,state=old['state'],result=json.loads(old['result']) if old['result'] else None,reused=True,do_not_replay=old['state'] in {'reserved','unknown'})
         db.execute('INSERT INTO pricing_operations VALUES(?,?,?,?,?,?,?,?,?)',(ident,owner,task,action,payload_hash,request_id,'reserved',None,now.isoformat()))
     scope.context(owner,task,lease)
     try:
@@ -253,7 +253,7 @@ def call(scope,owner,task,lease,args,request=native):
     except (ValueError,PermissionError,HTTPError) as exc:
         state='unknown' if isinstance(exc,HTTPError) and exc.code>=500 else 'rejected'
         result={'error':str(exc) if isinstance(exc,(ValueError,PermissionError)) else 'native_http_'+str(exc.code),
-                'original_job_id':request_id,'do_not_replay':state=='unknown'}
+                'original_intent_id':request_id,'original_job_id':None if action=='recommend' else request_id,'do_not_replay':state=='unknown'}
         if isinstance(exc,HTTPError):
             try:code=json.loads(exc.read(4096)).get('error')
             except (OSError,ValueError,AttributeError):code=None
@@ -263,11 +263,11 @@ def call(scope,owner,task,lease,args,request=native):
         if isinstance(exc,ValueError) and str(exc)=='pricing_recommendation_evidence_required':
             result['expected_evidence_ref']='pricing:'+canonical
     except Exception as exc:
-        state='unknown';result={'error':type(exc).__name__,'original_job_id':request_id,'do_not_replay':True}
+        state='unknown';result={'error':type(exc).__name__,'original_intent_id':request_id,'original_job_id':None if action=='recommend' else request_id,'do_not_replay':True}
     with scope.tasks.db() as db:
         db.execute('UPDATE pricing_operations SET state=?,result=? WHERE id=?',(state,json.dumps(result,ensure_ascii=False),ident))
     scope.context(owner,task,lease)
-    return dict(operation_id=ident,job_id=request_id,state=state,result=result,
+    return dict(operation_id=ident,intent_id=request_id,job_id=None if action=='recommend' else request_id,recommendation_id=ident if action=='recommend' and state=='accepted' else None,state=state,result=result,
                 queue_write_performed=state=='accepted' and action!='recommend',price_write_confirmed=False,
                 execution_status='not_dispatched' if action=='recommend' else 'read_original_job_for_terminal_state',
                 do_not_replay=state=='unknown')
