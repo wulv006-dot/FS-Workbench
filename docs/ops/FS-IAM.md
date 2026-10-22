@@ -130,3 +130,12 @@ python3 tests/test_fs_iam_console.py  # 13 项：控制台全链路接线
 
 `test_matrix_equals_legacy` 会拿 5 个真实账号 × 30 条 URI × 5 种方法 × 2 条通道
 逐格比对新旧判定，**任何一格不一致就红**。这是改这套系统的唯一安全绳。
+
+
+## Dot FC 专用观察身份（2026-10-22）
+
+用户明确批准的dot_fc_observer是现有默认Viewer行为的具体例外：只接受精确GET automation/monitor/pricing/state与审查后的Coins jobs，由该主体白名单映射既有coins:view；删除绑定或IAM故障回落均拒绝，不能以默认Viewer恢复宽泛读取。FCObserver角色及主体显式deny阻止edit/execute/deploy/manage，其他身份与资源目录不变。
+
+FC API对该身份投影白名单，仅返回状态、报价来源数值及原任务/模型回执ID，不给原request、客户订单、模型正文或未审新增字段；POST在body之前拒绝。原publisher四目标/134保护已实际发布，服务器四GET200/八越权403/同会话权限撤销403通过。密码重置后旧会话公共302登录跳转，未单独捕获verify401，原失败保留。详[实际交付](../planning/fc-pricing-v2-20261022/DOT-ACCESS.md)。
+
+Dot产品浏览器保护阻塞，私密凭据交付/新身份登录、续期和正式接管尚未完成。验收密码/cookie未保存或发送；由用户或身份管理员在原私密密码框自行设置后交产品安全登录框。不增加端口、协议或全局TTL，服务器原周期和唯一writer保持。
