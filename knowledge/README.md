@@ -1,6 +1,6 @@
 # 知识读取入口
 
-本索引和消费代码当前为**候选，未发布到Hermes生产**。正式业务文件本身的既有状态不因索引施工改变。FC策略、利润程序、教学和调度由原会话负责，本次只引用其原文件与版本，不修改或接管。
+知识消费代码与不可变版本`knowledge-layering-20261023-1`已按批准清单发布，实际部署代码的隔离装配及Notion写后读回通过，见[发布回执](RELEASED.json)与[交付验收](../docs/planning/knowledge-layering-20261023/DELIVERY.md)。普通FS／飞书新路由、真实模型运用及长期效果尚未验收。FC策略、利润程序、教学和调度仍由原会话维护，本次只引用其原文件与版本。
 
 先读本页与[index.json](index.json)的条目标识、模块、状态、版本和来源，再按任务读取对应原文件；不要全读Notion、日报或历史经验。五层是逻辑分类，不要求搬迁目录：
 
@@ -16,6 +16,6 @@ Notion项目页负责当前状态、决策摘要、关键待办和每日复盘�
 
 索引条目至少含稳定id、revision、layer、status、modules、effective_at、owner、authority、provenance、source_commit、source与supersedes。source为原文路径和内容哈希，可选唯一段落边界；不复制规则全文。日期精度不足时不推定具体小时。两个有效版本冲突、文件缺失、哈希漂移或范围不符时返回冲突/缺项，不能按mtime猜版本。
 
-索引source.sha256采用UTF-8原文、CRLF规范为LF的内容哈希，hash_basis明确写utf8_lf；服务器发布CAS和原发布器仍核原始文件字节，两者不混比较。release_state=candidate只能显式preview；生产加载要求published及确切索引哈希。任务固定自己的选择与内容，不在执行中重新读“最新”。
+索引source.sha256采用UTF-8原文、CRLF规范为LF的内容哈希，hash_basis明确写utf8_lf；服务器发布CAS和原发布器仍核原始文件字节，两者不混比较。本仓`index.json`是可审查的发布输入，release_state=candidate只能显式preview；发布工具派生不可变published索引，生产加载要求该确切索引哈希。是否已部署须核发布回执，不能仅改源索引状态冒充上线。任务固定自己的选择与内容，不在执行中重新读“最新”。
 
 [完整施工与验收](../docs/planning/knowledge-layering-20261023/README.md) · [自动收尾入口](../docs/planning/knowledge-layering-20261023/CLOSEOUT.md) · [候选区](CANDIDATES.md)
