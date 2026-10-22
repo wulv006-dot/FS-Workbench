@@ -284,8 +284,8 @@
     "actual_private_password_reset": "not_verified",
     "account_version": 3,
     "iam_generation": 14,
-    "external_role_change": "pending_human_confirmation",
-    "new_identity_use": "paused_pending_role_confirmation",
+    "external_role_change": "user_confirmed_intentional_via_oldD_Sentinel_c57488b1fa38819186c6f00ab1352786",
+    "new_identity_use": "not_handed_over_private_login_and_scheduling_unverified",
     "effective_extra_reads_offline": 0
   },
   "preserved_peer_release": {
