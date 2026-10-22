@@ -1,16 +1,16 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "deployed_actual_sha_verified",
-  "checked_at": "2026-10-22T09:23:26.252361+00:00",
-  "latest_source": "71520102e1e6755e6715098bebb13d682eaddd73",
-  "latest_merge": "f440fa128bb7983efada6a742841c884bd37c02c",
+  "checked_at": "2026-10-22T10:46:26.151556+00:00",
+  "latest_source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
+  "latest_merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
   "latest_release": {
-    "release_id": "nav-20261022T091951Z",
-    "manifest_sha256": "2785e6c04380c9ea91777763cf6bc341f334e206911251b0ddcc2deb860b4e81",
-    "source": "71520102e1e6755e6715098bebb13d682eaddd73",
-    "merge": "f440fa128bb7983efada6a742841c884bd37c02c",
-    "stage": "/opt/fs-release-stage/fc-v15-knowledge-clarity-71520102e1e6",
-    "scope": "fc-pricing-v2-knowledge-clarity-20261022",
+    "release_id": "nav-20261022T104526Z",
+    "manifest_sha256": "617c8398d5965e10a4f2737b655fff003c0e2033fa9a6c928da97d2c03767829",
+    "source": "601f6b19ab5d109b63bee05d50a73fbb3295a3d3",
+    "merge": "3213858a75d5ee53b9623d0fb50ba7cc0bb33b2b",
+    "stage": "/opt/fs-release-stage/fc-preview-diagnostics-601f6b19ab5d",
+    "scope": "fc-pricing-v2-preview-diagnostics-20261022",
     "original_inspect": {
       "releaseReady": false,
       "staticFiles": 1,
@@ -20,8 +20,8 @@
       "mutations": false
     },
     "targets_verified": 1,
-    "protected_verified": 139,
-    "accepted_at": "2026-10-22T09:23:26.252361+00:00",
+    "protected_verified": 153,
+    "accepted_at": "2026-10-22T10:46:26.151556+00:00",
     "price_write_performed": false
   },
   "files": [
@@ -29,151 +29,151 @@
       "candidate": "source/automation_policy.py",
       "target": "/opt/fc27-cloud-browser/automation_policy.py",
       "sha256": "317b657817701965147068629d7a3c97605e537ecd969c7f6f8e13ef1995b9d2",
-      "verified_at": "2026-10-22T00:26:45.505230+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc27_cloud_api.py",
       "target": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
       "sha256": "b673190728e04d671d41fdc570738e14f3e9f2de11921f9a68834c2ec13d751e",
-      "verified_at": "2026-10-22T04:27:31.828372+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc27_cloud_worker.py",
       "target": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
       "sha256": "366eab9f8d1c588f637d428a7e0fcac6a522f0a927a9d5ae1a19703ffb1d6efd",
-      "verified_at": "2026-10-22T00:26:45.505585+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc27_quote_engine.py",
       "target": "/opt/fc27-cloud-browser/fc27_quote_engine.py",
       "sha256": "7c8980894a16b3a539d30ac0cc221df4d629a02edec00bdb4a00166544db36cb",
-      "verified_at": "2026-10-22T00:26:45.505678+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/server_quote_job.py",
       "target": "/opt/fc27-cloud-browser/server_quote_job.py",
       "sha256": "3f2b0523ef0e3213c4976af5cf6854a47199fca48ec8597361741dafa2a9c0ad",
-      "verified_at": "2026-10-22T08:12:41.929086+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/preview_backend.py",
       "target": "/opt/fc27-cloud-browser/preview_backend.py",
-      "sha256": "555f09557473044056de6c04dbe08e034afc1c340225eb257053a9cc5c0f148a",
-      "verified_at": "2026-10-22T00:26:45.505762+00:00"
+      "sha256": "42a302a1e0dfd74ffaec4e2308b6f8cea8ccecf391fcb732a29f3fad3a424986",
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/price_writer.py",
       "target": "/opt/fc27-cloud-browser/price_writer.py",
       "sha256": "db45ea5ebf51a469983543b61c78383ce55071c069803c068c04ebd6a287c644",
-      "verified_at": "2026-10-22T00:26:45.505841+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/restore_price.py",
       "target": "/opt/fc27-cloud-browser/restore_price.py",
       "sha256": "5ced0d190afb3c4182e90d45b6c3afd7624dd52389709e993f727418317cb9a9",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/execute_price.sh",
       "target": "/opt/fc27-cloud-browser/execute_price.sh",
       "sha256": "cade852b5da35a768ec4aaad423dae7f381eabb43546abf8af56c418e2533ebc",
-      "verified_at": "2026-10-22T00:26:45.505928+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/restore_price.sh",
       "target": "/opt/fc27-cloud-browser/restore_price.sh",
       "sha256": "35993f7f850bdb87885739db9f89565c06368a88791d856db85955678e16349b",
-      "verified_at": "2026-10-22T00:26:45.505953+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/repricing_logic.js",
       "target": "/opt/fc27-cloud-browser/repricing_logic.js",
       "sha256": "5728170ee1fe0d86a4f4dd437565b42509c50a8b0038e273201cddcbcac29a57",
-      "verified_at": "2026-10-22T00:26:45.506093+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/pricing_v2.py",
       "target": "/opt/fc27-cloud-browser/pricing_v2.py",
       "sha256": "68806b0f23d69c3cc0470ef0ed14cb5e16155011928820f59a7731977d18a9b3",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/pricing_sources.py",
       "target": "/opt/fc27-cloud-browser/pricing_sources.py",
       "sha256": "d3d2eae51be76309054b514a400a55742be2c81194c98e3b1c3a0b6327e926ff",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/pricing_state.py",
       "target": "/opt/fc27-cloud-browser/pricing_state.py",
       "sha256": "63572be3b09af4b3d1fb90fcf19f85528bc3834971129b29f2d8d8b83565d74c",
-      "verified_at": "2026-10-22T08:12:41.929086+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/hermes_pricing_bridge.py",
       "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
       "sha256": "ec91e5ea814f8910c8cd91ee00f17cf90e23706f3cd5fdb8fb04df089b3a4343",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/strategy_tools.py",
       "target": "/opt/fs-hermes-fc/strategy_tools.py",
       "sha256": "a874e90ba5f527ddaed7a1ab85b72248ed4fc8f11ace56f2cab5a977b4eb58df",
-      "verified_at": "2026-10-22T00:26:45.506375+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/conversation_service.py",
       "target": "/opt/fs-hermes-fc/conversation_service.py",
       "sha256": "c15df558590bb931da03d8230b1ba8f17e48a3f4efa02ed49ee24068b3ae48c2",
-      "verified_at": "2026-10-22T00:26:45.506484+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/runs_contract.py",
       "target": "/opt/fs-hermes-fc/runs_contract.py",
       "sha256": "e02e94b83325f7aa1ec1b598cf25f11d26e77ec481d25bdd6fab9ffd9765c70c",
-      "verified_at": "2026-10-22T00:26:45.506510+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/pricing_simulation.py",
       "target": "/opt/fs-hermes-fc/pricing_simulation.py",
       "sha256": "9f78774955a4f18948f8f3c6ea5703a4384147a797a1be4570359f10ae498f80",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/pricing_operations.py",
       "target": "/opt/fs-hermes-fc/pricing_operations.py",
       "sha256": "6bae4b02f233e4465ba2ca9d4522b3eb313c103985c968c19effc00f312597e3",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/business-baseline.md",
       "target": "/opt/fs-hermes-fc/business-baseline.md",
-      "sha256": "2751f1c5649a30dedc4751705e6d1e3d9ea409a49b62440235c9a4a3b6f86e4f",
-      "verified_at": "2026-10-22T09:23:26.252361+00:00"
+      "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc27-coins.html",
       "target": "/var/www/dashboard/fc27-coins.html",
       "sha256": "c7b7a5b568b40d0c9563334c4867644ccb97a6c7cb137bb5d4b689aca3deb1ba",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc27-quote-cloud.js",
       "target": "/var/www/dashboard/fc27-quote-cloud.js",
       "sha256": "22a8bd25adce0a5dbbfc8f728a969952abcd5c1e3aa6a3f95c542cde0e220dc0",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "source/fc_observer.py",
       "target": "/opt/fc27-cloud-browser/fc_observer.py",
       "sha256": "5ca45abd949915df9a9a7990aaeaa3c865c42dd70a8188797c63f05098b5e2bc",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "candidate": "../fc_dot_observer_20261022/source/rbac.py",
       "target": "/opt/fs-access-policy/rbac.py",
       "sha256": "d3dc4fe2788a405641511fa1b37d6c98c2071f4ba3777ac6a6b1417723dbd37b",
-      "verified_at": "2026-10-22T04:27:31.828372+00:00",
+      "verified_at": "2026-10-22T10:46:26.151556+00:00",
       "repository_source": "opt/fs-access-policy/rbac.py",
       "local_source": "fc_dot_observer_20261022/source/rbac.py"
     },
@@ -181,7 +181,7 @@
       "candidate": "../fc_dot_observer_20261022/source/access_policy.py",
       "target": "/opt/fs-access-policy/access_policy.py",
       "sha256": "84e7a2f50868eb5764412d7b56e3a4ef2fc81681d0a07a478ad62819add7a95d",
-      "verified_at": "2026-10-22T04:27:31.828372+00:00",
+      "verified_at": "2026-10-22T10:46:26.151556+00:00",
       "repository_source": "opt/fs-access-policy/access_policy.py",
       "local_source": "fc_dot_observer_20261022/source/access_policy.py"
     },
@@ -191,19 +191,19 @@
       "repository_source": "opt/fs-access-policy/web/app.js",
       "target": "/opt/fs-access-policy/web/app.js",
       "sha256": "da2d93c8b7ebed63526b80ade74246d0cf267383e5854115297b5cb8f7b9a75d",
-      "verified_at": "2026-10-22T05:08:57.760Z"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "target": "/opt/fs-hermes-fc/coins_evidence.py",
       "candidate": "source/coins_evidence.py",
       "sha256": "949bf35c463a7b6f6870e74e1ec17f74c8a9c9f7ceff4ca81f7f674b887c5d3d",
-      "verified_at": "2026-10-22T08:12:41.929086+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     },
     {
       "target": "/opt/fs-hermes-fc/pricing_workflow.py",
       "candidate": "source/pricing_workflow.py",
       "sha256": "dc9bbcd4681652babf1f74327c5e782bede261563b8ab1ee9170363ea17140e3",
-      "verified_at": "2026-10-22T08:51:16.213464+00:00"
+      "verified_at": "2026-10-22T10:46:26.151556+00:00"
     }
   ],
   "activity_and_protected_verified": 140,
@@ -281,6 +281,26 @@
       },
       "targets_verified": 11,
       "protected_verified": 129
+    },
+    {
+      "release_id": "nav-20261022T091951Z",
+      "manifest_sha256": "2785e6c04380c9ea91777763cf6bc341f334e206911251b0ddcc2deb860b4e81",
+      "source": "71520102e1e6755e6715098bebb13d682eaddd73",
+      "merge": "f440fa128bb7983efada6a742841c884bd37c02c",
+      "stage": "/opt/fs-release-stage/fc-v15-knowledge-clarity-71520102e1e6",
+      "scope": "fc-pricing-v2-knowledge-clarity-20261022",
+      "original_inspect": {
+        "releaseReady": false,
+        "staticFiles": 1,
+        "sourceCAS": "passed",
+        "protectedCAS": "passed",
+        "oldPublisher": "still retired",
+        "mutations": false
+      },
+      "targets_verified": 1,
+      "protected_verified": 139,
+      "accepted_at": "2026-10-22T09:23:26.252361+00:00",
+      "price_write_performed": false
     }
   ],
   "shared_dependency_history": [
@@ -364,5 +384,41 @@
     }
   ],
   "margin_basis": "undiscounted_and_historical_average_v2",
-  "current_rule": "MARGIN-REDLINES.md"
+  "current_rule": "MARGIN-REDLINES.md",
+  "latest_verification": {
+    "compared": 154,
+    "drift": [],
+    "baseline_sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
+    "preserved_peer_releases": [
+      {
+        "journal": "/var/backups/fs-navigation-20261006/nav-20261022T100820Z/journal.json",
+        "release": "nav-20261022T100820Z",
+        "source": "8ff3694e543bfb9fec32915b6f4b151be5d724c4",
+        "scope": "fs-pmax-fc-scope-20261022",
+        "approved_manifest_sha256": "cf4c94a18b77bf0489bfa28400b9536e810a8484ef266e07df83240617c777f6"
+      },
+      {
+        "journal": "/var/backups/fs-navigation-20261006/nav-20261022T101942Z/journal.json",
+        "release": "nav-20261022T101942Z",
+        "source": "099189cf97ad13ef1a96cc36eefa035607676b67",
+        "scope": "fs-pmax-traffic-ui-20261022",
+        "approved_manifest_sha256": "8aee2d10870d9f4d64f708c52279b120d307a1ad29b1e1819b631f3579ce6d39"
+      },
+      {
+        "journal": "/var/backups/fs-navigation-20261006/nav-20261022T102911Z/journal.json",
+        "release": "nav-20261022T102911Z",
+        "source": "e303375615f4f1987979da3b5197836a626d6651",
+        "scope": "fs-pmax-es-projection-20261022",
+        "approved_manifest_sha256": "06b9791dd9a5ec6ada9e7dd847cb8f9cc318e14f6507a59f0d09e89be0863622"
+      }
+    ]
+  },
+  "natural_1821": {
+    "status": "failed_before_price_writer",
+    "model_dual_floors": "used_with_remaining_errors",
+    "job": "06b5bf95-8735-4a69-bb37-5a04f3886edc",
+    "report": "NATURAL-1821-REPORT.md",
+    "receipt": "NATURAL-1821-ACCEPTANCE.json",
+    "next_cycle_beijing": "2026-10-22 20:26:04"
+  }
 }
