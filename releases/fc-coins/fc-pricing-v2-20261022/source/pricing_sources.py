@@ -193,7 +193,7 @@ def read_historical_mix(now=None):
 
 
 def refresh_before_write(request,root=ROOT):
-    from pricing_v2 import verify_quote,fresh
+    from pricing_v2 import verify_quote,fresh,required_history_ratio
     from automation_policy import load_policy
     import uuid
     if request.get('source_execution_id'):
@@ -215,7 +215,10 @@ def refresh_before_write(request,root=ROOT):
     current=collect(public,persist=True)
     if current['sha256']!=quote['evidence']['promotion_envelope']['sha256']:
         raise ValueError('pricing_promotions_changed_since_quote')
-    return dict(status='current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],price_write_performed=False)
+    history=historical_mix();now=datetime.now(timezone.utc)
+    if required_history_ratio(dict(historical_discount_mix=history),now)!=required_history_ratio(quote['evidence'],now):
+        raise ValueError('pricing_average_history_changed_since_quote')
+    return dict(status='current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],historical_mix_sha256=history['sha256'],price_write_performed=False)
 
 
 if __name__=='__main__':
