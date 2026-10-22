@@ -159,6 +159,8 @@ class Control(unittest.TestCase):
     def test_recommendation_is_generated_and_has_counterexample_and_evidence(self):
         self.grant();result=self.recommend()
         self.assertEqual(result['state'],'accepted')
+        self.assertIsNone(result['job_id']);self.assertEqual(result['recommendation_id'],result['operation_id'])
+        self.assertEqual(self.recommend()['recommendation_id'],result['recommendation_id'])
         self.assertFalse(result['queue_write_performed']);self.assertFalse(result['price_write_confirmed'])
         self.assertEqual(result['result']['console_usd'],self.quote['result']['decision_receipt']['decisions'][0]['candidates']['baseline'])
         self.assertTrue(all(body is None for _,_,body in self.calls))
