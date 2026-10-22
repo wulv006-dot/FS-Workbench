@@ -1,0 +1,405 @@
+[
+  {
+    "game": "ea-sports-fc",
+    "version": "FC27主机/PC；FC26仅历史对照，Mobile分开",
+    "sources": [
+      {
+        "url": "https://www.ea.com/games/ea-sports-fc/fc-27",
+        "retrieved_at": "2026-10-22T10:26:47.575865+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/4080220/",
+        "retrieved_at": "2026-10-22T09:58:14.944717+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "mlb-the-show-26",
+    "version": "MLB The Show 26；DD/RTTS/Franchise分别说明",
+    "sources": [
+      {
+        "url": "https://blog.playstation.com/2026/02/03/mlb-the-show-26-gameplay-revealed/",
+        "retrieved_at": "2026-10-22T10:26:47.575865+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "college-football-27",
+    "version": "CFB27主机/PC资料；College Football Mobile独立",
+    "sources": [
+      {
+        "url": "https://www.ea.com/games/ea-sports-college-football",
+        "retrieved_at": "2026-10-22T10:26:47.575865+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/4032350/",
+        "retrieved_at": "2026-10-22T09:58:17.918718+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "college-football-26",
+    "version": "CFB26历史资料条目；不代表当前主推商品",
+    "sources": [
+      {
+        "url": "https://www.ea.com/games/ea-sports-college-football/college-football-26",
+        "retrieved_at": "2026-10-22T10:26:47.576865+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "madden-nfl",
+    "version": "Madden27为当前资料；Madden26与Mobile分开",
+    "sources": [
+      {
+        "url": "https://www.ea.com/games/madden-nfl",
+        "retrieved_at": "2026-10-22T10:26:47.576865+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/3940610/",
+        "retrieved_at": "2026-10-22T09:58:20.761801+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "nba-2k",
+    "version": "NBA 2K27；2K26与Mobile独立",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/4356430/",
+        "retrieved_at": "2026-10-22T09:58:22.562896+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "aion2",
+    "version": "AION2 Global；韩服/台服与旧AION分区",
+    "sources": [
+      {
+        "url": "https://aion2.plaync.com/en-us/",
+        "retrieved_at": "2026-10-22T10:26:48.950874+00:00"
+      },
+      {
+        "url": "https://about.ncsoft.com/en/news/article/aion2_update_260325",
+        "retrieved_at": "2026-10-22T10:26:49.186874+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/3393110/",
+        "retrieved_at": "2026-10-22T09:58:24.561178+00:00"
+      }
+    ],
+    "gaps": "官网八职业：Gladiator、Templar、Assassin、Ranger、Sorcerer、Spiritmaster、Cleric、Chanter；Elementalist仅旧译对照，不是新增职业。"
+  },
+  {
+    "game": "diablo4",
+    "version": "D4本体与资料片；赛季/永恒/专家模式分区",
+    "sources": [
+      {
+        "url": "https://diablo4.blizzard.com/en-us/lord-of-hatred",
+        "retrieved_at": "2026-10-22T10:26:49.247874+00:00"
+      },
+      {
+        "url": "https://news.blizzard.com/en-us/diablo4",
+        "retrieved_at": "2026-10-22T10:26:49.597875+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/2344520/",
+        "retrieved_at": "2026-10-22T09:58:26.414178+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "poe2",
+    "version": "PoE2 Early Access当前；1.0 12/11为已公告未来节点",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/2694490/",
+        "retrieved_at": "2026-10-22T09:58:28.410821+00:00"
+      }
+    ],
+    "gaps": "列出已核职业基础方向，当前细项以客户端为准；未把1.0未来Duelist或商店完整规划全部写成当前开放。"
+  },
+  {
+    "game": "dark-and-darker",
+    "version": "当前PC版；Normal与High-Roller分别说明",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/2016590/",
+        "retrieved_at": "2026-10-22T09:58:30.422540+00:00"
+      },
+      {
+        "url": "https://www.darkanddarker.com/news/168",
+        "retrieved_at": "2026-10-22T10:26:51.518875+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "poe1",
+    "version": "PoE1当前联盟/永久；不与PoE2合并",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/238960/",
+        "retrieved_at": "2026-10-22T09:59:58.109137+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "skull-and-bones",
+    "version": "当前Ubisoft海战版；船型与赛季分开",
+    "sources": [
+      {
+        "url": "https://www.ubisoft.com/en-us/game/skull-and-bones",
+        "retrieved_at": "2026-10-22T10:26:52.404212+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/2853730/",
+        "retrieved_at": "2026-10-22T09:58:34.223726+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "wow-classic-20",
+    "version": "20周年初始经典阶段历史资料；TBC周年服另条目",
+    "sources": [
+      {
+        "url": "https://worldofwarcraft.blizzard.com/en-us/classic",
+        "retrieved_at": "2026-10-22T10:26:52.503212+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "wow-tbc-classic-anniversary",
+    "version": "Burning Crusade Classic Anniversary；其他TBC服独立",
+    "sources": [
+      {
+        "url": "https://worldofwarcraft.blizzard.com/en-us/classic",
+        "retrieved_at": "2026-10-22T10:26:52.503212+00:00"
+      },
+      {
+        "url": "https://worldofwarcraft.blizzard.com/en-us/news/24242435",
+        "retrieved_at": "2026-10-22T10:26:52.649939+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "wow-forever",
+    "version": "Forever上线前资料；官方宣布2026-11-04上线",
+    "sources": [
+      {
+        "url": "https://worldofwarcraft.blizzard.com/en-us/forever/",
+        "retrieved_at": "2026-10-22T10:26:52.685939+00:00"
+      },
+      {
+        "url": "https://worldofwarcraft.blizzard.com/en-us/news/24304075/",
+        "retrieved_at": "2026-10-22T10:26:53.130545+00:00"
+      }
+    ],
+    "gaps": "官方九职业基础定位；旧1.12专精、倍率与天赋不得冒充Forever当前最终方案，正式上线再核。"
+  },
+  {
+    "game": "gta6",
+    "version": "GTA VI上线前；官网当前列2026-11-19与PS5/Xbox Series",
+    "sources": [
+      {
+        "url": "https://www.rockstargames.com/VI",
+        "retrieved_at": "2026-10-22T10:26:53.197545+00:00"
+      }
+    ],
+    "gaps": "此游戏没有本轮可核的固定职业；原职业栏目适配为四张已公布内容卡，不伪造职业/技能表。"
+  },
+  {
+    "game": "arena-breakout-infinite",
+    "version": "PC Infinite；移动版Arena Breakout独立",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/2073620/",
+        "retrieved_at": "2026-10-22T09:58:36.148727+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "odin-valhalla-rising",
+    "version": "Global与各地区独立；本轮基础四职业范围",
+    "sources": [
+      {
+        "url": "https://apps.apple.com/no/iphone/story/id1806563203",
+        "retrieved_at": "2026-10-22T10:26:54.182330+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "arc-raiders",
+    "version": "ARC Raiders当前版本；Raider构筑不等于固定职业",
+    "sources": [
+      {
+        "url": "https://arcraiders.com/",
+        "retrieved_at": "2026-10-22T10:26:54.489330+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/1808500/",
+        "retrieved_at": "2026-10-22T09:58:39.175287+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "runescape",
+    "version": "RS3与Old School RuneScape两条线；不含Dragonwilds",
+    "sources": [
+      {
+        "url": "https://legal.jagex.com/docs/rules/rules-of-runescape",
+        "retrieved_at": "2026-10-22T10:26:54.602330+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/1343400/",
+        "retrieved_at": "2026-10-22T09:59:59.140138+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "black-ops-7",
+    "version": "BO7；Campaign/Multiplayer/Zombies与Warzone分开",
+    "sources": [
+      {
+        "url": "https://www.callofduty.com/blackops7",
+        "retrieved_at": "2026-10-22T10:26:55.745332+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/3606480/",
+        "retrieved_at": "2026-10-22T09:58:42.972889+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "diablo-2-resurrected",
+    "version": "D2R本体/LoD/Reign of the Warlock；天梯与非天梯分开",
+    "sources": [
+      {
+        "url": "https://news.blizzard.com/en-us/article/24243863/rain-annihilation-in-reign-of-the-warlock",
+        "retrieved_at": "2026-10-22T10:26:55.924331+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/2536520/",
+        "retrieved_at": "2026-10-22T09:58:44.828186+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "dune-awakening",
+    "version": "当前Dune Awakening；学派可混合，不是锁定职业",
+    "sources": [
+      {
+        "url": "https://duneawakening.com/universe-of-dune/",
+        "retrieved_at": "2026-10-22T10:26:56.183331+00:00"
+      },
+      {
+        "url": "https://duneawakening.com/news/skills-schools-of-the-imperium-planetologist/",
+        "retrieved_at": "2026-10-22T10:26:56.720331+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/1172710/",
+        "retrieved_at": "2026-10-22T09:58:46.733186+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "elden-ring",
+    "version": "本体/DLC/Tarnished Edition与Nightreign分区",
+    "sources": [
+      {
+        "url": "https://www.bandainamcoent.com/news/elden-ring-tarnished-edition-now-available-on-nintendo-switch-2",
+        "retrieved_at": "2026-10-22T10:26:56.979331+00:00"
+      },
+      {
+        "url": "https://en.bandainamcoent.eu/elden-ring/elden-ring",
+        "retrieved_at": "2026-10-22T10:26:57.021331+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/1245620/",
+        "retrieved_at": "2026-10-22T09:58:48.822187+00:00"
+      }
+    ],
+    "gaps": "按本体原十出身及已公布Tarnished新增两出身分区；Nightreign角色另核，不作本体可选职业。"
+  },
+  {
+    "game": "helldivers-2",
+    "version": "当前HD2；Warbond与平台权限按官方分别核对",
+    "sources": [
+      {
+        "url": "https://www.playstation.com/en-us/games/helldivers-2/",
+        "retrieved_at": "2026-10-22T10:26:57.238331+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/553850/",
+        "retrieved_at": "2026-10-22T09:58:50.828023+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "legend-of-ymir",
+    "version": "Global YMIR；地区、职业与区块链功能分别核对",
+    "sources": [
+      {
+        "url": "https://www.legendofymir.com/en/",
+        "retrieved_at": "2026-10-22T10:26:57.592331+00:00"
+      },
+      {
+        "url": "https://store.steampowered.com/app/4172530/",
+        "retrieved_at": "2026-10-22T09:58:52.804027+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "mistfall-hunter",
+    "version": "当前正式商店版；六职业细项按客户端核对",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/3282300/",
+        "retrieved_at": "2026-10-22T09:58:54.816014+00:00"
+      }
+    ],
+    "gaps": "完整职业英文名、具体技能表仍待官方客户端/说明补证；不以虚构职业或技能填数。"
+  },
+  {
+    "game": "raven-2",
+    "version": "Global RAVEN2；地区与新增职业分开",
+    "sources": [
+      {
+        "url": "https://raven2w.netmarble.com/en/game/class",
+        "retrieved_at": "2026-10-22T10:26:59.135333+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  },
+  {
+    "game": "dreadmyst",
+    "version": "Dreadmyst官网版；Steam当前标注停售",
+    "sources": [
+      {
+        "url": "https://store.steampowered.com/app/4241850/",
+        "retrieved_at": "2026-10-22T09:59:59.956139+00:00"
+      }
+    ],
+    "gaps": "只有基础定位；具体补丁的数值/技能细节未逐项全量复核。"
+  }
+]

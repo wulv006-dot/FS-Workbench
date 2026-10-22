@@ -21,3 +21,5 @@ for(const game of Object.keys(request.updates)){
   assert.ok((rendered.match(/Hermes经营草稿·待运营确认/g)||[]).length>=19);
   console.log(JSON.stringify({game,rendered_columns:10,script_compilation:'pass',draft_markers:'visible'}));
 }
+
+require('./render_static.cjs');

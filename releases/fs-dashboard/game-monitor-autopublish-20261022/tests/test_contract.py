@@ -6,7 +6,7 @@ sys.path.insert(0,str(ROOT/'source'))
 import contract
 
 def fixture():
-    paths=[ROOT.parent/'game-monitor-sop-20261022/source/index.html',ROOT.parent/'docs/planning/game-monitor-sop-20261022/evidence/repo/releases/fs-dashboard/game-monitor-sop-20261022/source/index.html']
+    paths=[ROOT.parent/'evidence/live-index.html',ROOT.parent/'game-monitor-sop-20261022/source/index.html',ROOT.parent/'docs/planning/game-monitor-sop-20261022/evidence/repo/releases/fs-dashboard/game-monitor-sop-20261022/source/index.html']
     return next(p for p in paths if p.is_file()).read_bytes()
 
 def request(before=None):
@@ -66,5 +66,53 @@ class Contract(unittest.TestCase):
         if folder.exists():
             proof=contract.verify_candidate(folder);self.assertTrue(proof['games'])
         else:self.assertEqual(len(contract.snapshot(self.before)),30)
+
+
+class StaticFill(unittest.TestCase):
+    def test_github_large_file_reads_the_same_verified_blob(self):
+        import importlib.util,base64
+        from unittest.mock import Mock
+        files=[ROOT.parent/'hermes-ops-20261020/source/github_api.py',ROOT/'source/github_api.py']
+        path=next(p for p in files if p.is_file())
+        spec=importlib.util.spec_from_file_location('large_file_github',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        client=object.__new__(module.GitHub)
+        raw=b'large fixture content';identity='a'*40
+        client.request=Mock(side_effect=[{'encoding':'none','sha':identity,'size':2000000},{'encoding':'base64','content':base64.b64encode(raw).decode()}])
+        self.assertEqual(client.file('candidate/index.html','fixed-ref'),raw)
+        self.assertEqual(client.request.call_args_list[1].args,('GET','/git/blobs/'+identity))
+        client.request=Mock(return_value={'content':base64.b64encode(raw).decode()+'\n'})
+        self.assertEqual(client.file('candidate/index.html','fixed-ref'),raw)
+        client.request=Mock(return_value={'encoding':'none','sha':'../../outside'})
+        with self.assertRaisesRegex(ValueError,'blob_identity'):client.file('candidate/index.html','fixed-ref')
+    def test_fc_aion_intelligence_uses_actual_rendered_literals(self):
+        rows=contract.slots(fixture().decode())
+        self.assertIn('cats',rows['ea-sports-fc']['intel'][2])
+        self.assertIn('cats',rows['aion2']['intel'][2])
+    def test_legacy_intelligence_rejects_string_items(self):
+        data=contract.snapshot(fixture())['maplestory']
+        data['intel']={'items':{key:['one','two'] for key in contract.DIMS}}
+        contract.sop(data)
+        data['intel']['items']['version']='wrong shape'
+        with self.assertRaisesRegex(ValueError,'intelligence_items'):contract.sop(data)
+    def test_all_29_static_edits_rebuild_with_exact_two_renderer_fixes(self):
+        folder=ROOT/'static-fill-20261022'
+        if not folder.exists():folder=ROOT.parent/'static-fill'
+        self.assertTrue(folder.is_dir(),'static fill fixture missing')
+        before=(folder/'before.html').read_bytes();current=before.decode()
+        patches=json.loads((folder/'renderer-patch.json').read_text())
+        self.assertEqual(len(patches),2)
+        self.assertEqual(patches[0],['  if(!isSA)return null;','  if(!isSA && !SA_INTEL[g.key])return null;'])
+        self.assertEqual(patches[1],['items:pts.slice(),times:hasReal?realTimes:[]','items:Array.isArray(pts)?pts.slice():String(pts).split(" · "),times:hasReal?realTimes:[]'])
+        for old,new in patches:self.assertEqual(current.count(old),1);current=current.replace(old,new,1)
+        current=current.encode();games=[]
+        for request in json.loads((folder/'requests.json').read_text()):
+            current,proof=contract.build(current,request);games.extend(proof['games'])
+        self.assertEqual(len(games),29);self.assertEqual(len(set(games)),29)
+        self.assertNotIn('maplestory',games)
+        self.assertEqual(current,(folder/'index.html').read_bytes())
+        old,new=contract.snapshot(before),contract.snapshot(current)
+        self.assertEqual(old['maplestory'],new['maplestory'])
+        for key in old:
+            for field in set(old[key]['game'])-{'intro','official_site'}:self.assertEqual(old[key]['game'][field],new[key]['game'][field])
 
 if __name__=='__main__':unittest.main()

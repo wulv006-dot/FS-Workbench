@@ -27,7 +27,10 @@ class GitHub:
     def file(self, path, ref):
         from urllib.parse import quote
         result = self.request('GET', '/contents/' + quote(path, safe='/') + '?ref=' + quote(ref, safe=''))
-        return base64.b64decode(result['content'])
+        if result.get('encoding') == 'none':
+            if not re.fullmatch(r'[a-f0-9]{40}',result.get('sha','')):raise ValueError('invalid_github_blob_identity')
+            result = self.request('GET','/git/blobs/' + result['sha'])
+        return base64.b64decode(''.join(result['content'].split()),validate=True)
 
     def create_pr(self, branch, title, body, files, expected_base=None):
         # A failed/unknown write is reconciled by its fixed branch/PR, never repeated here.

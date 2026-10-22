@@ -62,6 +62,8 @@ def slots(text):
     require(mapping is not None,'brief_mapping_missing')
     for key,var in re.findall(r'"([a-z0-9-]+)"\s*:\s*([A-Z][A-Z0-9_]+)',mapping[1]):
         if key in result:result[key]['intel']=literal(text,'const '+var+'=')
+    for key,marker in [('ea-sports-fc','window.FCBRIEF ='),('aion2','const AION2BRIEF=')]:
+        if key in result:result[key]['intel']=literal(text,marker)
     return result
 
 def snapshot(raw):
@@ -106,7 +108,9 @@ def sop(data):
     if 'cats' in intel:
         require([x['code'] for x in intel['cats']]==DIMS,'intelligence_dimensions')
         require(all(len(x['items'])>=2 for x in intel['cats']),'intelligence_items')
-    else:require(set(DIMS)<=set(intel.get('items',{})),'intelligence_dimensions')
+    else:
+        require(set(DIMS)<=set(intel.get('items',{})),'intelligence_dimensions')
+        require(all(isinstance(intel['items'][key],list) and len(intel['items'][key])>=2 for key in DIMS),'intelligence_items')
 
 def build(before,request,now=None):
     require(set(request)=={'schema','run_id','base_sha256','updates','sources','summary'},'request_schema')
