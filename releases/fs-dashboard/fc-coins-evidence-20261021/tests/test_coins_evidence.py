@@ -98,6 +98,54 @@ class EvidenceTests(unittest.TestCase):
         a='a'*8+'-'+'a'*4+'-'+'a'*4+'-'+'a'*4+'-'+'a'*12
         self.history_record(a,execution_id='different')
         v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['status'],'partial');self.assertEqual(v['coverage']['invalid_identity_or_time'],1)
+
+    def v2_history(self,execution='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',**changes):
+        run='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';preview='cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+        for folder in ('quotes','previews'):(self.root/folder).mkdir(exist_ok=True)
+        (self.root/'quotes'/(run+'.json')).write_text(json.dumps({'run_id':run}))
+        (self.root/'previews'/(preview+'.json')).write_text(json.dumps({'preview_id':preview,'run_id':run}))
+        self.history_record(execution,run_id=run,preview_id=preview,**changes)
+        return run,preview
+
+    def test_v2_quote_and_execution_keep_distinct_verified_identities(self):
+        run,preview=self.v2_history()
+        v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['status'],'available')
+        self.assertEqual(v['pagination']['total_events'],1);event=v['events'][0]
+        self.assertNotEqual(event['execution_id'],event['run_id']);self.assertEqual(event['run_id'],run)
+        self.assertEqual(event['identity_check']['basis'],'execution_preview_quote_chain')
+        self.assertEqual(event['identity_check']['preview_id'],preview)
+        self.assertEqual(len(event['identity_check']['quote_sha256']),64)
+
+    def test_v2_missing_or_wrong_quote_chain_stays_a_coverage_gap(self):
+        run,preview=self.v2_history()
+        for folder,ident,field in (('previews',preview,'run_id'),('quotes',run,'run_id')):
+            path=self.root/folder/(ident+'.json');original=path.read_bytes();value=json.loads(original);value[field]='dddddddd-dddd-4ddd-8ddd-dddddddddddd';path.write_text(json.dumps(value))
+            v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['status'],'partial');self.assertEqual(v['pagination']['total_events'],0)
+            path.write_bytes(original);path.unlink()
+            self.assertEqual(self.reader(self.q|{'kind':'price_history'})['status'],'partial')
+            path.write_bytes(original)
+
+    def test_v2_same_quote_does_not_merge_distinct_execution_statuses(self):
+        self.v2_history();self.v2_history('dddddddd-dddd-4ddd-8ddd-dddddddddddd',status='PARTIAL')
+        v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['pagination']['total_events'],2)
+        self.assertEqual(v['status_counts'],{'CONFIRMED':1,'PARTIAL':1})
+
+    def test_v2_original_failed_job_and_later_reconciliation_both_retained(self):
+        self.v2_history();ident='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';(self.root/'jobs').mkdir()
+        path=self.root/'jobs'/(ident+'.json')
+        rec=dict(execution_id=ident,status='confirmed',completed_at='2026-10-20T01:46:00Z',original_job_status='failed',mmoexp_replayed=False,public_readback='verified',private='secret@example.com')
+        path.write_text(json.dumps(dict(job_id=ident,status='failed',reconciliation=rec)))
+        v=self.reader(self.q|{'kind':'price_history'});event=v['events'][0]
+        self.assertEqual(event['status'],'CONFIRMED');self.assertEqual(event['job_status'],'failed')
+        self.assertEqual(event['reconciliation']['completed_at'],'2026-10-20T01:46:00Z')
+        self.assertIs(event['reconciliation']['mmoexp_replayed'],False);self.assertNotIn('secret@',json.dumps(v))
+        rec['execution_id']='dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+        path.write_text(json.dumps(dict(job_id=ident,status='failed',reconciliation=rec)))
+        self.assertEqual(self.reader(self.q|{'kind':'price_history'})['status'],'partial')
+
+    def test_v2_non_uuid_run_cannot_reach_other_paths(self):
+        self.v2_history();path=next((self.root/'executions').glob('*.json'));value=json.loads(path.read_text());value['run_id']='../../private';path.write_text(json.dumps(value))
+        v=self.reader(self.q|{'kind':'price_history'});self.assertEqual(v['status'],'partial');self.assertEqual(v['pagination']['total_events'],0)
     def test_registry_wiring_and_current_baseline(self):
         v=(HERE/'source/research.py').read_text(encoding='utf8');tree=ast.parse(v)
         names=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id=='RESEARCH_NAMES' for x in n.targets))

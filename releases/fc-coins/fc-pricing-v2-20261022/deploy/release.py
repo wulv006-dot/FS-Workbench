@@ -13,6 +13,7 @@ BASE_SHA='1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
 FC_PUBLISHER=Path('/var/lib/fc27-cloud/maintenance/local-collection-20261017/publish.py')
 FC_SHA='b811b3adc8d4fd13e53f252b61292f79d30a7e73e0fdac4df83fc8d183ba2f8e'
 SCOPE='fc-pricing-v2-20261022'
+RESTART_FC=True
 FC_NAMES=('automation_policy.py','fc27_cloud_api.py','fc27_cloud_worker.py','fc27_quote_engine.py',
     'server_quote_job.py','preview_backend.py','price_writer.py','restore_price.py',
     'execute_price.sh','restore_price.sh','repricing_logic.js','pricing_v2.py','pricing_sources.py',
@@ -104,7 +105,7 @@ def load_base():
     original_restart=base.restart_for
     def restart(manifest,admission_fence=None):
         original_restart(manifest,admission_fence)
-        if manifest.get('scope')==SCOPE:
+        if manifest.get('scope')==SCOPE and RESTART_FC:
             for name in ('fc27-cloud-api.service','fc27-cloud-worker.service'):
                 subprocess.run(['systemctl','restart',name],check=True,timeout=30)
                 subprocess.run(['systemctl','is-active','--quiet',name],check=True,timeout=10)
