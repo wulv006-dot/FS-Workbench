@@ -219,13 +219,16 @@ class Users(unittest.TestCase):
         exported = self.service.export(args, 'admin')
         self.assertEqual(detail['total'], self.values(result)['purchasers'])
         self.assertEqual(detail['rows'], exported['rows'])
-        self.assertEqual(research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']}), result)
+        projected = research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
+        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage', 'source_watermark'):
+            self.assertEqual(projected[key], result[key])
+        self.assertNotIn('projects', projected)
         class Context:
             def register_tool(context, **kwargs):
                 context.handler = kwargs['handler']
         ctx = Context()
         register_native(ctx, self.service, 'admin')
-        self.assertEqual(json.loads(ctx.handler({'snapshot_id': result['snapshot_id']})), result)
+        self.assertEqual(json.loads(ctx.handler({'snapshot_id': result['snapshot_id']})), projected)
         with self.assertRaises(LookupError):
             self.service.query({'snapshot_id': 'us_' + '0' * 32}, 'admin')
 
@@ -290,6 +293,30 @@ class Users(unittest.TestCase):
         old = self.query()
         with self.assertRaises(ValueError):
             self.service.query(dict(old['query'], scope='site', scope_id='266', snapshot_id=old['snapshot_id']), 'admin')
+
+    def test_partial_frozen_query_checks_only_supplied_conditions(self):
+        self.load([order(1, '2026-10-01')])
+        old = self.query()
+        for args in ({'view': 'summary'}, {'start': '2026-10-01'}, {'H': 7}):
+            self.assertEqual(self.service.query(dict(snapshot_id=old['snapshot_id'], **args), 'admin'), old)
+        for args in ({'scope': 'site'}, {'start': '2026-10-02'}, {'H': True}, {'view': 'trend'}, {'extra': 'x'}):
+            with self.assertRaises(ValueError):
+                self.service.query(dict(snapshot_id=old['snapshot_id'], **args), 'admin')
+
+    def test_compact_tool_retains_large_sections_under_same_snapshot(self):
+        self.load([order(1, '2026-10-01')])
+        old = self.query();query, public, private = self.store.snapshot(old['snapshot_id'])
+        public = {k: v for k, v in public.items() if k not in ('snapshot_id', 'evidence_id')}
+        public['projects'] = [{'label': 'fixture project ' + 'x' * 2048} for _ in range(100)]
+        full = self.store.save_snapshot(query, public, private)
+        summary = invoke(self.service, 'admin', {'snapshot_id': full['snapshot_id'], 'view': 'summary'})
+        self.assertLess(len(json.dumps(summary)), 20000)
+        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
+            self.assertEqual(summary[key], full[key])
+        projects = invoke(self.service, 'admin', {'snapshot_id': full['snapshot_id'], 'section': 'projects'})
+        self.assertEqual(projects['projects'], full['projects'])
+        self.assertEqual(projects['snapshot_id'], summary['snapshot_id'])
+        self.assertEqual(self.service.query({'snapshot_id': full['snapshot_id']}, 'admin'), full)
 
     def test_required_count_partitions_and_tombstones(self):
         self.origins()

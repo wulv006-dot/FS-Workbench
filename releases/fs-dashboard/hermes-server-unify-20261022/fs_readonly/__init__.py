@@ -68,7 +68,7 @@ def call(name,args):
             snapshot='us_'+evidence[3:]
             if query.get('snapshot_id',snapshot)!=snapshot:raise ValueError('user_evidence_snapshot_mismatch')
             query['snapshot_id']=snapshot
-        return read('/users',query)
+        return read('/users',dict(query,action='tool'))
     if name=='fs_query_native_statistics':
         catalog=args.get('catalog_id')
         if not catalog:
