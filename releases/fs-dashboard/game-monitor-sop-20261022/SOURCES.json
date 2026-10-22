@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-10-22T04:15:57+00:00",
+ "generated_at": "2026-10-22T04:42:13+00:00",
  "game_key": "maplestory",
- "fetch_window_utc": "本次会话：内容检索与核对完成后，于 2026-10-22T04:15:57Z 对全部外链做一次无头 GET 复核",
+ "fetch_window_utc": "本次会话：内容检索与核对完成后，于 2026-10-22T04:42:13Z 对全部外链做一次无头 GET 复核",
  "fetch_method": "内容检索：Hermes web_search / web_extract（只读公开页面）；时间戳：tools/probe_sources.py 于 probe_sources 记录的真实 UTC 无头 GET。403 多为站点反爬，不代表内容不存在",
  "sources": [
   {
@@ -13,7 +13,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方 FAQ，逐条问答",
-   "retrieved_at_utc": "2026-10-22T04:13:45+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:57+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -26,7 +26,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方上线公告全文",
-   "retrieved_at_utc": "2026-10-22T04:13:45+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:57+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -39,7 +39,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方职业页（页面为前端渲染，导航与职业列表可读）",
-   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:58+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -52,7 +52,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方 Explore 页",
-   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:58+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -65,7 +65,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方商城公告",
-   "retrieved_at_utc": "2026-10-22T04:13:46+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:58+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -78,7 +78,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方更新列表",
-   "retrieved_at_utc": "2026-10-22T04:13:47+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:59+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -91,7 +91,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方 PTS 报名公告（10/07）",
-   "retrieved_at_utc": "2026-10-22T04:13:47+00:00",
+   "retrieved_at_utc": "2026-10-22T04:40:59+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -104,7 +104,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方支持文档",
-   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:00+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -118,7 +118,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方支持文档",
-   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:00+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -132,7 +132,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方封禁准则",
-   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:00+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -146,7 +146,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方 Maple Memo",
-   "retrieved_at_utc": "2026-10-22T04:13:48+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:00+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -159,7 +159,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方 ToS 全文（节选核对）",
-   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:00+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -172,7 +172,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方支持文档",
-   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:01+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -186,7 +186,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方站导航外链的社区百科；用于交叉核对版本号",
-   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:01+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -200,7 +200,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "社区补丁翻译站，按 KMS 公告转述",
-   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:01+00:00",
    "http_status": 403,
    "probe_ok": false,
    "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
@@ -214,7 +214,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "仅核类目存在，未取价",
-   "retrieved_at_utc": "2026-10-22T04:13:49+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:01+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -227,7 +227,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "仅核类目存在，未取价",
-   "retrieved_at_utc": "2026-10-22T04:13:50+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -240,7 +240,7 @@
    "status": "partially_verified",
    "fetched_at": "2026-10-22",
    "note": "站点对无头请求 403，仅有搜索索引结果",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 403,
    "probe_ok": false
   },
@@ -253,7 +253,7 @@
    "status": "partially_verified",
    "fetched_at": "2026-10-22",
    "note": "搜索索引可读，站点 403；仅作内容竞争信号",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 403,
    "probe_ok": false
   },
@@ -266,7 +266,7 @@
    "status": "partially_verified",
    "fetched_at": "2026-10-22",
    "note": "搜索索引可读，仅作类目存在证据",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 403,
    "probe_ok": false
   },
@@ -279,7 +279,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "HTTP 200",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -292,7 +292,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "HTTP 200，站点自述",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -305,7 +305,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "HTTP 200；页面自述 independent fan site，已在卡片标注非官方",
-   "retrieved_at_utc": "2026-10-22T04:13:51+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -318,7 +318,7 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "官方活动 FAQ",
-   "retrieved_at_utc": "2026-10-22T04:13:52+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:02+00:00",
    "http_status": 200,
    "probe_ok": true
   },
@@ -331,9 +331,62 @@
    "status": "verified",
    "fetched_at": "2026-10-22",
    "note": "另有 illust_warrior/bowman/thief 三张，均已下载并记录大小/哈希",
-   "retrieved_at_utc": "2026-10-22T04:13:52+00:00",
+   "retrieved_at_utc": "2026-10-22T04:41:03+00:00",
    "http_status": 200,
    "probe_ok": true
+  },
+  {
+   "id": "S26",
+   "claim": "Classic 上线版二转技能表（以 Spearman 页为直接证据：8 技能，无 Hyper Body / Spear Crusher；Fighter 页 8 技能含 Rage/Rush、无 Power Guard；Page 页 8 技能含 Threaten/Rush、无 Shield Mastery）；三转技能标注 CoT2 测试",
+   "url": "https://maplestory.quest/classes/spearman",
+   "publisher": "MapleStory Quest（社区·客户端数据）",
+   "scope": "Classic World Public Release",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "站点声明数据来自 Public Release 客户端（dateModified 2026-10-21）；职业总览 /classes 本轮间歇 500，逐职业页均为 200，故以逐职业页取证",
+   "retrieved_at_utc": "2026-10-22T04:41:03+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S27",
+   "claim": "Classic 技能总表按 Job 分组：Warrior/Fighter/Page/Spearman、Magician/Cleric/两系 Wizard、Bowman/Hunter/Crossbowman、Thief/Assassin/Bandit 的技能名、层级与上限等级",
+   "url": "https://mapleclassic.wiki/wiki/Skills",
+   "publisher": "MapleClassic Wiki（社区）",
+   "scope": "Classic World",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "与 S26 逐技能比对一致；Spear Mastery 附加效果、Bless 效果的描述两站不一致，页面只写通用定位",
+   "retrieved_at_utc": "2026-10-22T04:41:03+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S28",
+   "claim": "Classic World 当前没有三转（no 3rd job advancement yet）；上线为 4 个一转 + 10 条二转分支",
+   "url": "https://mapleclassic.wiki/wiki/Jobs",
+   "publisher": "MapleClassic Wiki（社区）",
+   "scope": "Classic World",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "官方 10/21 上线说明的职业/分支清单的独立交叉核对",
+   "retrieved_at_utc": "2026-10-22T04:41:04+00:00",
+   "http_status": 200,
+   "probe_ok": true
+  },
+  {
+   "id": "S29",
+   "claim": "Classic 技能库 163 技能；Third job is not part of the initial launch；Hyper Body 属 Dragon Knight，Power Guard 属 White Knight（三转）",
+   "url": "https://meowdb.com/msclassic/skills",
+   "publisher": "NiaMeowDB（社区·客户端数据）",
+   "scope": "Classic World",
+   "status": "verified",
+   "fetched_at": "2026-10-22",
+   "note": "站点对无头 GET 返回 403（反爬），正文经检索/渲染读取；三转归属与 S26 一致",
+   "retrieved_at_utc": "2026-10-22T04:41:04+00:00",
+   "http_status": 403,
+   "probe_ok": false,
+   "probe_note": "无头 GET 返回 403（站点反爬）；正文已在本次会话用 web_extract 读取核对"
   }
  ],
  "judgments_not_facts": [
@@ -366,6 +419,16 @@
    "id": "J6",
    "text": "社区通报的 RMT 永久封禁数量（3,121 等）",
    "basis": "来自社区转述，未见官方公告列数字，标待核"
+  },
+  {
+   "id": "J7",
+   "text": "各职业星级难度、优势/短板、build 与循环顺序（如 Spearman 距离最长、Page 输出最低、Cleric 单人 Boss 弱）",
+   "basis": "Hermes 判断：依据已核技能组合与装备需求推演，非官方评级、非实测 DPS；卡片内均标注“判断”"
+  },
+  {
+   "id": "J8",
+   "text": "枪/戟普攻为挥 60% / 刺 40% 混合、Mastery 附加效果的具体数值",
+   "basis": "社区数据站单侧数据，未双源核对，卡片只写通用定位"
   }
  ],
  "unavailable": [

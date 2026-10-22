@@ -1,24 +1,18 @@
 {
   "scope": "fc-pricing-v2-20261022",
   "state": "deployed_actual_sha_verified",
-  "checked_at": "2026-10-22T02:47:05.286281+00:00",
-  "latest_source": "8065dcfb8a95efa3b685113d55fc46d09bc40504",
-  "latest_merge": "9a3f0aeb0c7e29ac2799249e7e91ffe68e0b589d",
+  "checked_at": "2026-10-22T04:27:31.828372+00:00",
+  "latest_source": "81730879e4d0a5d134c0f976c9457accd7ced8cc",
+  "latest_merge": "3a240f86efae5ff167a2c075e0076f642e598aa3",
   "latest_release": {
-    "release_id": "nav-20261022T022651Z",
-    "manifest_sha256": "40a1dcca92705ae587eac30a71239d3dee5d98ae0e6c8d526dd3923646ed1a7b",
-    "source": "8065dcfb8a95efa3b685113d55fc46d09bc40504",
-    "merge": "9a3f0aeb0c7e29ac2799249e7e91ffe68e0b589d",
-    "stage": "/opt/fs-release-stage/fc-pricing-v2-feedback-8065dcfb8a95",
-    "scope": "fc-pricing-v2-feedback-20261022",
-    "original_inspect": {
-      "releaseReady": false,
-      "staticFiles": 4,
-      "sourceCAS": "passed",
-      "protectedCAS": "passed",
-      "oldPublisher": "still retired",
-      "mutations": false
-    }
+    "release_id": "nav-20261022T041407Z",
+    "manifest_sha256": "a2eadf3b76501b30c2f1e018f8d72e24424c756aa65613f24c10902eb1486673",
+    "source": "81730879e4d0a5d134c0f976c9457accd7ced8cc",
+    "merge": "3a240f86efae5ff167a2c075e0076f642e598aa3",
+    "stage": "/opt/fs-release-stage/fc-dot-observer-81730879e4d0",
+    "scope": "fc-dot-observer-20261022",
+    "targets_verified": 4,
+    "protected_verified": 134
   },
   "files": [
     {
@@ -30,8 +24,8 @@
     {
       "candidate": "source/fc27_cloud_api.py",
       "target": "/opt/fc27-cloud-browser/fc27_cloud_api.py",
-      "sha256": "2983ec37e14243589f4c400d790653dae453185d8e28636125e2943fe17cf0ab",
-      "verified_at": "2026-10-22T00:26:45.505415+00:00"
+      "sha256": "b673190728e04d671d41fdc570738e14f3e9f2de11921f9a68834c2ec13d751e",
+      "verified_at": "2026-10-22T04:27:31.828372+00:00"
     },
     {
       "candidate": "source/fc27_cloud_worker.py",
@@ -158,6 +152,28 @@
       "target": "/var/www/dashboard/fc27-quote-cloud.js",
       "sha256": "1b6c6c0ca9e50105e374f960b688be3de30760fe746d27a34f2c16e805e0412a",
       "verified_at": "2026-10-22T02:47:05.286281+00:00"
+    },
+    {
+      "candidate": "source/fc_observer.py",
+      "target": "/opt/fc27-cloud-browser/fc_observer.py",
+      "sha256": "714083ff67f2506667f2a34d72a0e03ebfae5f03661e5857b4ad3e6b53ecb824",
+      "verified_at": "2026-10-22T04:27:31.828372+00:00"
+    },
+    {
+      "candidate": "../fc_dot_observer_20261022/source/rbac.py",
+      "target": "/opt/fs-access-policy/rbac.py",
+      "sha256": "d3dc4fe2788a405641511fa1b37d6c98c2071f4ba3777ac6a6b1417723dbd37b",
+      "verified_at": "2026-10-22T04:27:31.828372+00:00",
+      "repository_source": "opt/fs-access-policy/rbac.py",
+      "local_source": "fc_dot_observer_20261022/source/rbac.py"
+    },
+    {
+      "candidate": "../fc_dot_observer_20261022/source/access_policy.py",
+      "target": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "84e7a2f50868eb5764412d7b56e3a4ef2fc81681d0a07a478ad62819add7a95d",
+      "verified_at": "2026-10-22T04:27:31.828372+00:00",
+      "repository_source": "opt/fs-access-policy/access_policy.py",
+      "local_source": "fc_dot_observer_20261022/source/access_policy.py"
     }
   ],
   "activity_and_protected_verified": 136,
@@ -238,5 +254,13 @@
       "activity_and_protected_verified": 130,
       "receipt": "HISTORY-ACCEPTANCE-20261022.json"
     }
-  ]
+  ],
+  "dot_access": {
+    "subject": "dot_fc_observer",
+    "server_https_read_validation": "passed",
+    "permission_revoke_same_session": 403,
+    "cloud_handover": false,
+    "credential_delivery": "blocked_product_private_login_and_vault_channel",
+    "details": "DOT-ACCESS.md"
+  }
 }
