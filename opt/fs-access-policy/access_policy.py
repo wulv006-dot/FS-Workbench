@@ -155,6 +155,9 @@ def legacy_authorize(user, method, uri, group=""):
 
     if not user:
         return 401
+    # Observer access is fail-closed when the IAM engine/policy is unavailable.
+    if user == "dot_fc_observer":
+        return 403
     if user in LEGACY_ADMINS:
         return 200
     parsed = urlsplit(uri or "/")

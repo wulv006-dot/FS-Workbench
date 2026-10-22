@@ -244,5 +244,50 @@ class SeedTest(unittest.TestCase):
         self.assertEqual(sorted(rbac.default_policy()["roles"]), sorted(seed["roles"]))
 
 
+
+class FCObserverTest(unittest.TestCase):
+    def setUp(self):
+        self.policy = rbac.default_policy()
+        self.policy["roles"]["FCObserver"] = {"rules": [
+            {"resources": ["coins"], "actions": ["view"]}]}
+        self.policy["bindings"]["dot_fc_observer"] = {"roles": ["FCObserver"], "deny": [
+            {"resources": ["*"], "actions": ["edit", "execute", "deploy", "manage"]}]}
+        rbac.validate(self.policy)
+        self.routes = ["/api/fc27/cloud/" + path for path in
+                       ("automation", "monitor", "pricing/state",
+                        "jobs/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")]
+
+    def test_exact_reads_only_and_writes_before_compat(self):
+        for uri in self.routes:
+            self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", "GET", uri), 200)
+            for method in ("HEAD", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"):
+                self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", method, uri), 403)
+        for uri in ("/dashboard/", "/__auth/access/", "/d4/", "/deploy/", "/api/fc27/cloud/health",
+                    "/api/fc27/cloud/activity", "/api/fc27/cloud/quotes/a", "/api/fc27/cloud/jobs/invalid",
+                    "/dashboard/tasks/api/green-plan/tasks/G123"):
+            for method in ("GET", "POST", "PATCH"):
+                self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", method, uri), 403)
+        for uri in self.routes:
+            for suffix in ("/", "?refresh=true", "?action=apply", "?x=1", "#fragment"):
+                self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", "GET", uri + suffix), 403)
+
+    def test_missing_binding_denied_without_viewer_fallback(self):
+        self.policy["bindings"].pop("dot_fc_observer")
+        for uri in self.routes + ["/dashboard/", "/d4/"]:
+            self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", "GET", uri), 403)
+
+    def test_explicit_revoke_denies_existing_observer(self):
+        self.policy["bindings"]["dot_fc_observer"]["deny"].append(
+            {"resources": ["coins"], "actions": ["view"]})
+        for uri in self.routes:
+            self.assertEqual(rbac.authorize(self.policy, "dot_fc_observer", "GET", uri), 403)
+
+    def test_legacy_failure_mode_denies_observer_only(self):
+        for uri in self.routes + ["/dashboard/", "/d4/"]:
+            self.assertEqual(access_policy.legacy_authorize("dot_fc_observer", "GET", uri), 403)
+        self.assertEqual(access_policy.legacy_authorize("wulv", "GET", "/dashboard/"), 200)
+        self.assertEqual(access_policy.legacy_authorize("mmoexp", "GET", "/dashboard/"), 200)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

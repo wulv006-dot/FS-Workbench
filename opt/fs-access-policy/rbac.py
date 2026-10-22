@@ -720,6 +720,23 @@ def evaluate(policy, subject, method, uri, group=""):
     if not subject:
         return Decision(False, 401, "", resource, action, reason="未登录")
 
+    # A missing binding must revoke this dedicated identity, never fall back to Viewer.
+    if subject == "dot_fc_observer":
+        bound = binding_of(policy, subject) or {}
+        parsed = urlsplit(uri or "/")
+        allowed = parsed.path in (
+            "/api/fc27/cloud/automation", "/api/fc27/cloud/monitor",
+            "/api/fc27/cloud/pricing/state")
+        allowed = allowed or bool(re.fullmatch(
+            r"/api/fc27/cloud/jobs/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+            parsed.path))
+        if ((method or "GET").upper() != "GET" or group == "deploy"
+                or parsed.query or parsed.fragment or not allowed
+                or "FCObserver" not in (bound.get("roles") or [])):
+            return Decision(False, 403, subject, resource, action,
+                            reason="FC observer exact read scope required")
+        resource, action = "coins", VIEW
+
     # 身份自举：已登录成员永远能访问门户自身，避免改错策略把所有人锁在门外。
     if resource == "identity" and (method or "GET").upper() in ("GET", "HEAD", "OPTIONS"):
         return Decision(True, 200, subject, resource, action,
