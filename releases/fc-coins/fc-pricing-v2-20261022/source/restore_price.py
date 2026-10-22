@@ -31,7 +31,7 @@ PLATFORMS = writer.PLATFORMS
 
 
 def restore_safety(rows, selected, expected=None):
-    from pricing_v2 import verify_quote, envelope_ratio, prove_catalog, fingerprint
+    from pricing_v2 import verify_quote, envelope_ratio, prove_catalog, fingerprint,required_history_ratio
     from automation_policy import POLICY_FILE
     policy=load_policy()
     restored={r['platform']:r['restore_b2c'] for r in rows}
@@ -53,7 +53,8 @@ def restore_safety(rows, selected, expected=None):
         p=row['platform']
         if p not in selected:continue
         prove_catalog(row['restore_b2c'],by[p]['cost_cny'],quote['evidence']['fx']['cny_per_usd'],
-                      ratio,policy['minimum_gross_margin_pct'],current['packages'][p])
+                      ratio,policy['minimum_gross_margin_pct'],current['packages'][p],
+                      average_ratio=required_history_ratio(quote['evidence'],datetime.now(timezone.utc)))
     return basis
 
 

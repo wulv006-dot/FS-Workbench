@@ -6,7 +6,7 @@ import hashlib
 import json
 
 VERSION = 'fc-coins-decision-v2'
-MARGIN_BASIS = 'undiscounted_published_package_v1'
+MARGIN_BASIS = 'undiscounted_and_historical_average_v2'
 HARD_MARGIN = Decimal('10')
 CENT = Decimal('.01')
 STEP = Decimal('.0001')
@@ -121,7 +121,7 @@ def prove_price(unit, cost_cny, fx, delivered_k, base_k, ratio, minimum='10'):
                 procurement_margin_pct=str((gross-cost)/gross*100), minimum_margin_pct=str(minimum))
 
 
-def catalog_floor(cost, fx, ratio, minimum, rules):
+def catalog_floor(cost, fx, ratio, minimum, rules, *, average_ratio=None):
     margin=number(minimum,zero=True)
     hard_floor(cost,fx,1,ratio,minimum)
     qty=number(rules['min_custom_k'])
@@ -131,24 +131,31 @@ def catalog_floor(cost, fx, ratio, minimum, rules):
         raise ValueError('pricing_catalog_bounds_invalid')
     # At any q >= minimum, two downward cent roundings cost less than this bound.
     settlement=2*CENT/qty
-    unit=(number(cost)/number(fx)*delivered/(1-margin/100)+settlement)/retained
+    historical=number(average_ratio) if average_ratio is not None else Decimal(1)
+    if historical>1:raise ValueError('pricing_historical_mix_ratio_invalid')
+    unit=(number(cost)/number(fx)*delivered/(historical*(1-margin/100))+settlement)/retained
     return unit.quantize(STEP,rounding=ROUND_CEILING)
 
 
-def prove_catalog(unit,cost,fx,ratio,minimum,rules):
-    floor=catalog_floor(cost,fx,ratio,minimum,rules)
+def prove_catalog(unit,cost,fx,ratio,minimum,rules, *, average_ratio=None):
+    if number(unit)<catalog_floor(cost,fx,ratio,minimum,rules):raise ValueError('pricing_catalog_hard_margin_floor')
+    floor=catalog_floor(cost,fx,ratio,minimum,rules,average_ratio=average_ratio)
     if number(unit)<floor:
-        raise ValueError('pricing_catalog_hard_margin_floor')
+        raise ValueError('pricing_average_catalog_margin_floor' if average_ratio is not None else 'pricing_catalog_hard_margin_floor')
     tiers=[prove_price(number(unit)*number(t['retained_ratio']),cost,fx,
                        number(t['base_k'])+number(t['bonus_k'],zero=True),
                        t['base_k'],ratio,minimum) for t in rules['tiers']]
+    average_margins=[(number(t['public_usd'])*number(average_ratio)-number(t['delivered_cost_usd']))/(number(t['public_usd'])*number(average_ratio))*100 for t in tiers] if average_ratio is not None else []
+    if average_margins and min(average_margins)<number(minimum):raise ValueError('pricing_average_margin_floor')
     return dict(minimum_unit_usd=str(floor),minimum_custom_k=rules['min_custom_k'],margin_basis=MARGIN_BASIS,
                 all_integer_custom_quantities_covered=True,published_packages=len(tiers),
+                historical_retained_ratio=str(average_ratio) if average_ratio is not None else None,
+                minimum_estimated_average_margin_pct=str(min(average_margins)) if average_margins else None,
                 worst_published_margin_pct=str(min(number(t['procurement_margin_pct']) for t in tiers)))
 
 
 def average_margin(public_usd, delivered_cost_usd, mix):
-    """A 100K scenario under observed revenue-weighted discounts, never a guard or forecast."""
+    """Historical discount scenario; execution separately validates its source and minimum."""
     if not isinstance(mix,dict) or mix.get('status') not in ('available','partial') or mix.get('retained_ratio') is None:
         return dict(status='not_available',reason=mix.get('reason','historical_discount_mix_missing') if isinstance(mix,dict) else 'historical_discount_mix_missing',procurement_margin_pct=None)
     if mix.get('sha256') != fingerprint({k:v for k,v in mix.items() if k!='sha256'}):
@@ -163,6 +170,23 @@ def average_margin(public_usd, delivered_cost_usd, mix):
                 historical_mix_sha256=mix['sha256'],source_times=mix.get('source_times'),
                 scope='100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast',
                 assumptions='same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement')
+
+
+def required_history_ratio(evidence,now):
+    mix=evidence.get('historical_discount_mix')
+    if not isinstance(mix,dict) or mix.get('status') not in ('available','partial'):
+        raise ValueError('pricing_average_history_required')
+    if mix.get('sha256')!=fingerprint({k:v for k,v in mix.items() if k!='sha256'}):raise ValueError('pricing_historical_mix_hash_changed')
+    today=now.astimezone(timezone(timedelta(hours=8))).date()
+    if mix.get('period')!={'start':(today-timedelta(days=7)).isoformat(),'end':(today-timedelta(days=1)).isoformat()}:
+        raise ValueError('pricing_average_history_period')
+    observed,eligible=mix.get('observed_orders'),mix.get('eligible_orders')
+    if type(observed) is not int or type(eligible) is not int or observed<=0 or observed!=eligible:
+        raise ValueError('pricing_average_history_coverage')
+    net=number(mix.get('net_order_usd'));discount=number(mix.get('actual_discount_usd'),zero=True)
+    if number(mix.get('undiscounted_order_usd'))!=net+discount or number(mix.get('retained_ratio'))!=net/(net+discount):
+        raise ValueError('pricing_historical_mix_ratio_invalid')
+    return net/(net+discount)
 
 
 def ending(main, checks):
@@ -191,6 +215,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
     fresh(evidence['checked_at'], now)
     fresh(evidence['fx']['checked_at'], now)
     ratio = envelope_ratio(evidence.get('promotion_envelope'), now)
+    average_ratio=required_history_ratio(evidence,now)
     package_rules=evidence['promotion_envelope'].get('packages') or {}
     if set(package_rules)!={'PS','XBOX','PC'}:
         raise ValueError('pricing_catalog_coverage_missing')
@@ -228,7 +253,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
             anchors.append(number(loot['usd_price']) / (number(loot['base_k'])+number(loot.get('bonus_k',0),zero=True))*delivered)
             checks.append((base,delivered,cost,fx,ratio,margin))
         floor = max(hard_floor(c,rate,d/base,r,m)*base for base,d,c,rate,r,m in checks).quantize(CENT,rounding=ROUND_CEILING)
-        floor=max(floor,max(catalog_floor(cost,fx,ratio,margin,package_rules[p])*100 for p in group)).quantize(CENT,rounding=ROUND_CEILING)
+        floor=max(floor,max(catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio)*100 for p in group)).quantize(CENT,rounding=ROUND_CEILING)
         anchor = min(anchors).quantize(CENT,rounding=ROUND_CEILING)
         # Parity takes the smallest needed move; high margin alone never buys an extra cut.
         hold = max(current)
@@ -249,14 +274,14 @@ def apply_decision(rows, evidence, edits, *, now=None):
                     raise
                 main += CENT
         target, tail = ending(main, checks)
-        if any(target/100<catalog_floor(cost,fx,ratio,margin,package_rules[p]) for p in group):
+        if any(target/100<catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
             target,tail=main,'catalog_hard_floor'
         if group[0] in quotes:
             target, tail = main, 'explicit_candidate_no_hidden_adjustment'
         for p, (base, delivered, c, rate, r, m), old in zip(group, checks, current):
             row = by[p]
             proof = prove_price(target/base,c,rate,delivered,base,r,m)
-            proof['catalog']=prove_catalog(target/base,c,rate,r,m,package_rules[p])
+            proof['catalog']=prove_catalog(target/base,c,rate,r,m,package_rules[p],average_ratio=average_ratio)
             average=average_margin(proof['public_usd'],proof['delivered_cost_usd'],evidence.get('historical_discount_mix'))
             old_average=average_margin(old,proof['delivered_cost_usd'],evidence.get('historical_discount_mix'))
             old_net = old.quantize(CENT,rounding=ROUND_DOWN)
@@ -288,7 +313,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
                 change_pct=str((target/old-1)*100), break_even_order_multiplier=str(multiplier) if multiplier is not None else None,
                 proof=proof, cost_basis=basis if p in CONSOLE else {'basis':'latest_verified_pc_delivery'},
                 break_even_order_basis='same historical discount mix and fixed delivered cost; conditional, not demand forecast',
-                warning='10%仅约束未用优惠的前台套餐价，含赠送与数量公式；合法优惠允许低于10%或亏损。平均毛利为历史折扣情景估算，广告后贡献另核。',
+                warning='未用优惠及近七日优惠结构估算平均采购毛利均须≥10%，含全部交付与数量公式；单笔合法优惠可亏损。广告后贡献另核。',
                 status='10%硬红线核算通过 · 待执行', benchmark_site='Lootbar public display',
                 lootbar_reduction_pct=str((1-target/anchors[group.index(p)])*100))
         candidates={'baseline':str(target)}
@@ -296,7 +321,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
             candidates['hold']=str(hold)
         parity=max(floor,anchor)
         parity_tail,_=ending(parity,checks)
-        if all(parity_tail/100>=catalog_floor(cost,fx,ratio,margin,package_rules[p]) for p in group):
+        if all(parity_tail/100>=catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
             parity=parity_tail
         candidates['parity']=str(parity)
         decisions.append(dict(platforms=list(group),reason=reason,current_public_usd=[str(v) for v in current],
@@ -304,6 +329,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
                               candidates=candidates))
     receipt=dict(strategy_version=VERSION, hard_minimum_margin_pct=str(HARD_MARGIN),margin_basis=MARGIN_BASIS,
         promotions_exempt_from_margin_floor=True,
+        historical_average_minimum_margin_pct=str(margin),
         historical_discount_mix_sha256=(evidence.get('historical_discount_mix') or {}).get('sha256'),
         minimum_retained_ratio=str(ratio), promotion_envelope_sha256=evidence['promotion_envelope']['sha256'],
         common_console_cost=basis, decisions=decisions, ad_after_profit='unknown_until_same_scope_ads',

@@ -16,9 +16,15 @@ import learning_service as learning
 import learning_registry as registry
 
 def case():
- return dict(currency='USD',delivered_cost_includes_gifts=True,platforms=[dict(platform=p,current_usd='10.00',main_usd='9.20',delivered_cost_usd=c) for p,c in [('PS','7'),('XBOX','7'),('PC','5')]],discounts_pct=['0','5'])
+ return dict(currency='USD',delivered_cost_includes_gifts=True,historical_retained_ratio='1',platforms=[dict(platform=p,current_usd='10.00',main_usd='9.20',delivered_cost_usd=c) for p,c in [('PS','7'),('XBOX','7'),('PC','5')]],discounts_pct=['0','5'])
 
 class Arithmetic(unittest.TestCase):
+ def test_estimated_average_is_a_second_floor_even_with_safe_base(self):
+  c=case();c['historical_retained_ratio']='0.8';v=evaluate(c,'10')
+  self.assertGreater(Decimal(v['rows'][0]['undiscounted']['main']['procurement_margin_pct']),10)
+  self.assertFalse(v['console_main_pass']);self.assertIsNone(v['rows'][0]['selected_usd'])
+  del c['historical_retained_ratio']
+  with self.assertRaisesRegex(ValueError,'case_fields'):evaluate(c,'10')
  def test_main_change_is_not_limited_by_ending_budget(self):
   v=evaluate(case(),'10');self.assertTrue(v['console_main_pass']);self.assertEqual(v['rows'][0]['main_change_pct'],'-8.00');self.assertEqual(v['rows'][0]['selected_usd'],'9.20')
  def test_legal_promotion_can_cross_floor_but_base_price_cannot(self):

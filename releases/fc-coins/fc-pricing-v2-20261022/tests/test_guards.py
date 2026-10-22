@@ -53,7 +53,7 @@ class FinalGuards(unittest.TestCase):
             public=quote['evidence']['storefront'];public.update(status='ok',source='https://www.mmoexp.com/Fc-27/Coins.html',currency='USD')
             (root/'monitor/storefront.json').write_text(json.dumps(public))
             request=dict(preview_id=RUN,platforms=['PS','XBOX','PC'])
-            with patch.object(automation_policy,'load_policy',lambda:{'minimum_gross_margin_pct':'10'}),patch.object(p,'datetime',wraps=datetime) as pc,patch.object(sources,'datetime',wraps=datetime) as sc,patch.object(sources,'collect') as collect:
+            with patch.object(automation_policy,'load_policy',lambda:{'minimum_gross_margin_pct':'10'}),patch.object(p,'datetime',wraps=datetime) as pc,patch.object(sources,'datetime',wraps=datetime) as sc,patch.object(sources,'collect') as collect,patch.object(sources,'historical_mix',return_value=quote['evidence']['historical_discount_mix']) as history:
                 pc.now.return_value=sc.now.return_value=NOW
                 collect.return_value=quote['evidence']['promotion_envelope']
                 self.assertEqual(sources.refresh_before_write(request,root)['status'],'current_promotions_rechecked')
@@ -63,6 +63,9 @@ class FinalGuards(unittest.TestCase):
                 public['rows']['PS']['package_usd']='19.99';(root/'monitor/storefront.json').write_text(json.dumps(public))
                 collect.return_value=quote['evidence']['promotion_envelope']
                 self.assertEqual(sources.refresh_before_write(dict(source_execution_id=RUN,platforms=['PS','XBOX']),root)['status'],'current_promotions_rechecked')
+                changed=dict(quote['evidence']['historical_discount_mix'],net_order_usd='80',actual_discount_usd='20',retained_ratio='.8');changed['sha256']=p.fingerprint({k:v for k,v in changed.items() if k!='sha256'});history.return_value=changed
+                for request_body in (request,dict(source_execution_id=RUN,platforms=['PS','XBOX'])):
+                    with self.assertRaisesRegex(ValueError,'average_history_changed_since_quote'):sources.refresh_before_write(request_body,root)
 
     def test_unverified_legal_coupon_combination_is_analysis_only(self):
         quote=quoted();envelope=quote['evidence']['promotion_envelope']
@@ -89,6 +92,8 @@ class FinalGuards(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'console_restore'):scope['restore_safety'](rows,['PS','XBOX'])
                     rows[0]['restore_b2c']=rows[1]['restore_b2c']='.01'
                     with self.assertRaisesRegex(ValueError,'catalog_hard_margin_floor'):scope['restore_safety'](rows,['PS','XBOX'])
+                    rows[0]['restore_b2c']=rows[1]['restore_b2c']='.12'
+                    with self.assertRaisesRegex(ValueError,'average_catalog_margin_floor'):scope['restore_safety'](rows,['PS','XBOX'])
 
     def test_policy_and_original_manual_exception_cannot_waive_floor(self):
         quote=quoted();quote['automation_policy_revision']=40
