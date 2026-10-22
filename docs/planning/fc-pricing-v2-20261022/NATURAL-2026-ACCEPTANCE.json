@@ -78,5 +78,14 @@
     "ssh": "two_closed_connections_exit255_no_business_write",
     "browser_event_route": "net_ERR_BLOCKED_BY_CLIENT_stopped"
   },
-  "source_sha_inventory": "last_verified19:46_157_not_rechecked_this_round"
+  "source_sha_inventory": "last_verified19:46_157_not_rechecked_this_round",
+  "ssh_restored_followup": {
+    "report": "EVENING-RECONCILIATION.md",
+    "receipt": "EVENING-RECONCILIATION.json",
+    "provider_high": 7,
+    "tools": 14,
+    "knowledge_verified": true,
+    "core_sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
+    "experiences": 6
+  }
 }
