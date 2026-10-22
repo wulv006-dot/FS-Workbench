@@ -2,6 +2,7 @@
 """SQLite 存储层：IGGM 竞品价 / 我方前端价 / 千岛成本 / 跟价决策台账"""
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -916,6 +917,19 @@ def _now():
     return datetime.now().isoformat(timespec="seconds")
 
 
+# ---------------------------------------------------------------------------
+# 工单日志保留（2026-10-22 用户口径：「日志区要能追溯 7 天的改价情况」）
+#
+# 原来只留最近 **200 单** ⇒ 按每天 50~90 单算只够 2~3 天，10-19 之前的单已被
+# 真删掉（不可恢复）。现在改成「按时间留 8 天（JOB_KEEP_DAYS，比 7 天多一天做
+# 缓冲）+ 兜底至少留 300 单（防长时间停跑后被清空）」。
+# 体积估算：平均 log 6KB、7 天约 500~600 单 ⇒ 3~4MB，对 790MB 的库无感。
+# ⚠ 服务器 sqlite 是 3.7.17：只用了 DELETE / 子查询 / LIMIT，没碰窗口函数与 UPSERT。
+# ---------------------------------------------------------------------------
+JOB_KEEP_DAYS = 8
+JOB_KEEP_MIN = 300
+
+
 def local_job_add(con, kind, title, plan_path, plan, summary="", actor="",
                   exec_mode="server"):
     """把工单派出去。exec_mode='server' → 服务器执行（默认）；'local' → 本机执行器。"""
@@ -934,9 +948,11 @@ def local_job_add(con, kind, title, plan_path, plan, summary="", actor="",
          json.dumps(plan, ensure_ascii=False), now, actor or "", _mode,
          "%s 派单（%s）：%s" % (now, "服务器执行" if _mode == "server" else "本机执行",
                              summary or title)))
-    # 只留最近 200 单
+    # 保留期（2026-10-22）：按时间留 8 天，再兜底至少 300 单。
+    _cut = (datetime.now() - timedelta(days=JOB_KEEP_DAYS)).isoformat(timespec="seconds")
+    con.execute("DELETE FROM local_job WHERE ts < ?", (_cut,))
     con.execute("DELETE FROM local_job WHERE id NOT IN "
-                "(SELECT id FROM local_job ORDER BY ts DESC LIMIT 200)")
+                "(SELECT id FROM local_job ORDER BY ts DESC LIMIT %d)" % JOB_KEEP_MIN)
     con.commit()
     return jid
 
@@ -1082,6 +1098,123 @@ def local_job_list(con, limit=12):
 def local_agent_get(con):
     r = con.execute("SELECT * FROM local_agent ORDER BY last_seen DESC LIMIT 1").fetchone()
     return dict(r) if r else None
+
+
+# ---------------------------------------------------------------------------
+# 详细改价日志（2026-10-22）
+#
+# 背景：看板「④ 执行器」里那张工单表固定只拉 10 条（api/local/jobs?limit=10），
+#       用户要看「近 7 天到底改过什么、哪天失败了」必须能翻页 + 按天汇总。
+#
+# 口径：
+#   · 时间一律用 local_job.ts（派单时刻，ISO 'YYYY-MM-DDTHH:MM:SS'，字典序可比）；
+#   · date_from / date_to 是页面上的自定义区间（含首含尾），不给就按 days 倒退；
+#   · 列表页**不返回全文 log**，只给前 600 字 + 长度 —— 单条详情再取全文，
+#     否则一页 50 条 × 6KB 会把页面拖死。
+# ---------------------------------------------------------------------------
+def _job_error_hint(log):
+    """从执行日志里抠一句最有用的失败原因（列表页「失败原因」列）。
+
+    日志尾部才是真死因（Traceback 在最末），所以从后往前找：
+    ① 最后一条 Python 异常 `XxxError: msg`；② returncode / 复核不符；
+    ③ 都没有就取末行。截到 180 字，避免撑破表格。
+    """
+    if not log:
+        return ""
+    lines = [x.strip() for x in str(log).splitlines() if x.strip()]
+    if not lines:
+        return ""
+    tail = lines[-60:]
+    for ln in reversed(tail):
+        m = re.search(r"^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception)):\s*(.+)$", ln)
+        if m:
+            return ("%s: %s" % (m.group(1), m.group(2)))[:180]
+    for ln in reversed(tail):
+        if "复核不符" in ln or "returncode" in ln:
+            return ln[:180]
+    return tail[-1][:180]
+
+
+def _job_where(days=7, status="", kind="", q="", date_from="", date_to=""):
+    """拼 WHERE（参数化）+ 返回参数列表。所有时间比较都是字符串比较。"""
+    w, p = [], []
+    if date_from:
+        w.append("ts >= ?")
+        p.append(str(date_from)[:10])
+    if date_to:
+        # 'YYYY-MM-DD' 直接比会把当天 00:00 之后的判成 > ；用次日零点做开区间上界
+        try:
+            _d = datetime.strptime(str(date_to)[:10], "%Y-%m-%d") + timedelta(days=1)
+            w.append("ts < ?")
+            p.append(_d.isoformat(timespec="seconds")[:10])
+        except ValueError:
+            pass
+    if not date_from and not date_to:
+        cut = (datetime.now() - timedelta(days=max(1, int(days)))).isoformat(timespec="seconds")
+        w.append("ts >= ?")
+        p.append(cut)
+    sts = [x for x in str(status or "").split(",") if x in
+           ("pending", "dispatched", "done", "failed", "canceled")]
+    if sts:
+        w.append("status IN (%s)" % ",".join("?" * len(sts)))
+        p.extend(sts)
+    if kind in ("write", "writegold"):
+        w.append("kind = ?")
+        p.append(kind)
+    if q:
+        like = "%" + str(q).strip()[:60] + "%"
+        w.append("(title LIKE ? OR id LIKE ? OR coalesce(agent,'') LIKE ?)")
+        p.extend([like, like, like])
+    return (" WHERE " + " AND ".join(w)) if w else "", p
+
+
+def local_job_history(con, days=7, status="", kind="", q="", page=1, size=50,
+                      date_from="", date_to=""):
+    """分页 + 筛选 + 按天汇总的改价日志。返回 dict，全部字段 JSON 可序列化。"""
+    w, p = _job_where(days, status, kind, q, date_from, date_to)
+    try:
+        size = max(10, min(200, int(size)))
+    except (TypeError, ValueError):
+        size = 50
+    try:
+        page = max(1, int(page))
+    except (TypeError, ValueError):
+        page = 1
+    total = con.execute("SELECT COUNT(*) FROM local_job" + w, p).fetchone()[0]
+    rows = con.execute(
+        "SELECT id,ts,kind,title,status,created_at,claimed_at,started_at,finished_at,"
+        "       attempts,agent,actor,coalesce(exec_mode,'local') AS exec_mode,"
+        "       coalesce(result_json,'') AS result_json,"
+        "       substr(coalesce(log,''),1,600) AS log_head,"
+        "       length(coalesce(log,'')) AS log_len"
+        "  FROM local_job" + w + " ORDER BY ts DESC LIMIT ? OFFSET ?",
+        p + [size, (page - 1) * size]).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["error_hint"] = _job_error_hint(d.get("log_head")) if d.get("status") == "failed" else ""
+        out.append(d)
+    # 每日汇总（同口径、不分页）—— 用 GROUP BY 而不是窗口函数（sqlite 3.7.17）
+    daily = {}
+    for d, st, c in con.execute(
+            "SELECT substr(ts,1,10) AS d, status, COUNT(*) FROM local_job" + w +
+            " GROUP BY d, status ORDER BY d DESC", p).fetchall():
+        row = daily.setdefault(d, {"date": d, "total": 0, "done": 0, "failed": 0,
+                                   "canceled": 0, "pending": 0, "dispatched": 0})
+        if st in row:
+            row[st] = c
+        row["total"] += c
+    days_list = sorted(daily.values(), key=lambda x: x["date"], reverse=True)
+    for r in days_list:
+        ok, fin = r["done"], r["done"] + r["failed"]
+        r["ok_rate"] = round(100.0 * ok / fin, 1) if fin else None
+    sm = {"total": total, "pages": (total + size - 1) // size}
+    for st in ("done", "failed", "canceled", "pending", "dispatched"):
+        sm[st] = sum(d.get(st, 0) for d in days_list)
+    return {"ok": True, "page": page, "size": size, "days": days,
+            "date_from": date_from, "date_to": date_to,
+            "total": total, "summary": sm, "daily": days_list, "rows": out}
+
 
 
 # ─────────────────────────────────────────────────────────────

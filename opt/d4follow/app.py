@@ -1768,6 +1768,38 @@ def _iggm_alert_need(cfg):
         return 3
 
 
+def _iggm_local_recent(max_age_s=4200):
+    """本机代抓最近推送过 IGGM 行情？返回 {age_s, saved, games, ts} 或 None。
+
+    2026-10-20：服务器出口被 IGGM 的 Cloudflare **整站**拦（17 条路径全 403，
+    只有 robots/sitemap 放行），服务器侧 scrape_all 恒 0 条。改由本机抓，
+    经 /api/iggm_push 落库并写 data/iggm_local_push.json 留痕。
+
+    本机推过 ⇒ task_collect 跳过服务器自抓，不再空打 CF（既拿不到数据，
+    又加深 IP 信誉损伤）。文件不存在 / 过期 ⇒ 返回 None，**退回原行为**
+    （服务器自抓），改动前语义不变。
+
+    为什么是 70 分钟（4200s）而不是 20 分钟：
+      · IGGM 只在「按游戏周期到期」时才真抓（`task_collect` 的 due 过滤）；
+      · 最快周期是 MSCW / AION2 = **1 小时**，本机全量一轮约 6.5 分钟；
+      · 70 分钟 = 1 小时周期 + 6.5 分钟抓取 + 余量 ⇒ 本机每小时推一次即可无缝覆盖。
+      · 本机停跑时，服务器最多 70 分钟后才回退自抓（那本来也是失败），
+        不影响正确性，只影响「空打一次 CF」的次数。
+    """
+    try:
+        p = os.path.join(ROOT, "data", "iggm_local_push.json")
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f) or {}
+        t = dt.datetime.strptime(str(d.get("pushed_at") or ""), "%Y-%m-%dT%H:%M:%S")
+        age = (dt.datetime.now() - t).total_seconds()
+        if age < 0 or age > max_age_s:
+            return None
+        d["age_s"] = age
+        return d
+    except Exception:
+        return None
+
+
 def _pick_exec_mode(cfg, con, log=None):
     """这张单派给谁：config 说了算，但**服务器执行器不在线时自动改派本机**。
 
@@ -1841,10 +1873,18 @@ def task_collect(t, opts):
 
     # ---- 1) IGGM ----
     ig_rows = []
-    try:
-        ig_rows = core_iggm.scrape_all(cfg, log=lambda *a: None, games=due)  # 只抓到期的
-    except Exception:
-        t.log("  [IGGM] 整轮失败：%s" % traceback.format_exc()[-500:])
+    # 2026-10-20：服务器 IP 被 IGGM 的 CF 整站拦，改由本机代抓 → /api/iggm_push。
+    # 本机 20 分钟内推过就跳过服务器自抓（否则每 15 分钟空打一次 CF，白费还加深封禁）。
+    _local_ig = _iggm_local_recent()
+    if _local_ig:
+        t.log("  [IGGM] 本机代抓 %.0f 分钟前推送 %d 条（%s）→ 本轮跳过服务器自抓"
+              % (_local_ig["age_s"] / 60.0, int(_local_ig.get("saved") or 0),
+                 "、".join(_local_ig.get("games") or []) or "—"))
+    else:
+        try:
+            ig_rows = core_iggm.scrape_all(cfg, log=lambda *a: None, games=due)  # 只抓到期的
+        except Exception:
+            t.log("  [IGGM] 整轮失败：%s" % traceback.format_exc()[-500:])
     # 未到期的游戏不重复抓，但把它们的最近一份行情「沿用」到本轮快照 ——
     # 否则本轮快照只剩到期游戏，看板会缺行、下一轮的比价基线也会断。
     # 🔴 顺序：先搬上一份全量（旧值），再用下面 save_iggm 覆盖本轮真抓到的（新值）。
@@ -1874,10 +1914,11 @@ def task_collect(t, opts):
         #      它们的竞品价走 core_gold 那条线，不经过 scrape_all ⇒ 0 条**正常**，
         #      不能兜底、不能告警、不能动计数器（否则一晚上几十条误报）。
         _meta = core_iggm.last_run() or {}
-        if not _meta.get("blocked"):
+        if _local_ig or not _meta.get("blocked"):
             ig_ts = store.prev_ts(con, "iggm_price", ts)
             t.log("  ⓘ IGGM 本轮 0 条（%s）→ 沿用上一份快照 %s（正常，不告警）"
-                  % (_meta.get("reason") or "本轮无到期 IGGM 目标", ig_ts))
+                  % ("本机代抓已推送，沿用本机那份" if _local_ig
+                     else (_meta.get("reason") or "本轮无到期 IGGM 目标"), ig_ts))
         else:
             # ① 被 CF 拦：先试金币侧独立通道（十几个区，量小、往往还通）。
             #    抓到的 G: 行覆盖进快照，其余行由 carryover 沿用上一份。
@@ -3831,6 +3872,44 @@ def api_dd373_cost():
         con.close()
 
 
+@app.route("/api/iggm_push", methods=["POST"])
+def api_iggm_push():
+    """本机推送 IGGM 竞品行情（**本机代抓**，2026-10-20）。
+
+    为什么走本机：服务器出口 IP 被 IGGM 的 Cloudflare **整站**挑战
+    （2026-10-20 实测 17 条路径全 403 / 1.459MB 挑战页，只有 /robots.txt 与
+    /sitemap.xml 放行且不含价格），服务器侧 scrape_all 恒 0 条
+    ⇒ 暗黑4 / ARC Raiders / 冒险岛（MSCW）三条跟价线全部停摆。
+    本机住宅 IP 同一时刻：品类页 200 / 260KB、goods_ajax 200 / 30 条真数据、
+    `__cf_bm` 正常下发 ⇒ 与 DD373 那次（/api/dd373_cost）完全同一种处境、同一种解法。
+
+    ⛔ 与 task_collect 走**同一条落库路径**（store.save_iggm）：
+       只写 iggm_price（竞品行），**绝不写** our_price / gold_price / plan / 目标价。
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    rows = body.get("rows") or []
+    if not rows:
+        return jsonify({"ok": False, "error": "rows 为空"}), 400
+    ts = str(body.get("ts") or dt.datetime.now().isoformat(timespec="seconds"))
+    con = open_db()
+    try:
+        n = store.save_iggm(con, ts, rows)
+        _games = sorted({str(r.get("游戏") or "") for r in rows if r.get("游戏")})
+        # 留痕：给 task_collect 判断「本机刚推过、本轮不必再自抓」用
+        try:
+            _p = os.path.join(ROOT, "data", "iggm_local_push.json")
+            with open(_p, "w", encoding="utf-8") as f:
+                json.dump({"ts": ts, "saved": n,
+                           "pushed_at": dt.datetime.now().isoformat(timespec="seconds"),
+                           "games": _games, "src": str(body.get("src") or "local")},
+                          f, ensure_ascii=False)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "saved": n, "ts": ts, "games": _games})
+    finally:
+        con.close()
+
+
 @app.route("/api/cost/status")
 def api_cost_status():
     cfg = load_cfg()
@@ -4006,6 +4085,65 @@ def api_local_jobs():
         # 兼容旧字段（前端已改，留着免得缓存里的老 JS 读到 undefined）
         "serverCould": True, "whyServerCannot": "",
     })
+
+
+@app.route("/api/local/jobs/history")
+def api_local_jobs_history():
+    """详细改价日志（2026-10-22）：可追溯近 N 天（默认 7），支持筛选 + 分页。
+
+    和 /api/local/jobs 的区别：那个是给看板顶部「最近几单」用的（limit≤50、
+    只有最近几条），这个专供「详细日志」面板翻历史。
+
+    参数（都可省）：
+      days=7            回溯天数（给了 date_from/date_to 时忽略）
+      date_from/date_to 自定义区间 YYYY-MM-DD（含首含尾）
+      status=           done / failed / canceled / pending / dispatched，逗号分隔可多选
+      kind=             write（物品）/ writegold（金币）
+      q=                标题 / 单号 / 执行器 模糊搜
+      page=1 size=50    分页（size 上限 200）
+    """
+    con = open_db()
+    try:
+        def _i(name, dft):
+            try:
+                return int(request.args.get(name) or dft)
+            except (TypeError, ValueError):
+                return dft
+        res = store.local_job_history(
+            con,
+            days=_i("days", 7),
+            status=(request.args.get("status") or "").strip(),
+            kind=(request.args.get("kind") or "").strip(),
+            q=(request.args.get("q") or "").strip(),
+            page=_i("page", 1),
+            size=_i("size", 50),
+            date_from=(request.args.get("date_from") or "").strip(),
+            date_to=(request.args.get("date_to") or "").strip(),
+        )
+        return jsonify(res)
+    finally:
+        con.close()
+
+
+@app.route("/api/local/job")
+def api_local_job_one():
+    """单条工单全文（详细日志面板点「详情」时用；列表接口只给前 600 字）。"""
+    jid = (request.args.get("id") or "").strip()
+    if not jid:
+        return jsonify({"ok": False, "error": "缺 id"}), 400
+    con = open_db()
+    try:
+        j = store.local_job_get(con, jid)
+        if not j:
+            return jsonify({"ok": False, "error": "单号不存在（可能已超出保留期）"}), 404
+        try:
+            j["plan_obj"] = json.loads(j.get("plan_json") or "null")
+        except Exception:
+            j["plan_obj"] = None
+        j.pop("plan_json", None)      # 可能是几十 KB，摘要里用 plan_obj 就够
+        return jsonify({"ok": True, "job": j})
+    finally:
+        con.close()
 
 
 @app.route("/api/exec/mode", methods=["POST"])
