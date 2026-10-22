@@ -1,0 +1,82 @@
+{
+  "receipt_type": "sanitized_projection_of_authenticated_browser_JSON_not_raw_server_file",
+  "observed_at_beijing": "2026-10-22 20:35-20:40",
+  "job": {
+    "id": "ed19a1b3-8d60-4b43-8bdb-ff3121d71bf9",
+    "status": "ready",
+    "result": "no_price_change",
+    "started_at": "2026-10-22T12:26:55.448238+00:00",
+    "completed_at": "2026-10-22T12:29:27.664878+00:00"
+  },
+  "preview": {
+    "id": "293888fa-472f-44da-afd1-548117390064",
+    "run_id": "ed19a1b3-8d60-4b43-8bdb-ff3121d71bf9",
+    "status": "review_only",
+    "created_at": "2026-10-22T12:29:25.321112+00:00",
+    "quote_sha256_as_returned": "7a231d2d5ff57d36b78093d676d9318135136c4418adc818210ffc8b347e9a76"
+  },
+  "prices_usd_per100k": {
+    "PS": "9.84",
+    "XBOX": "9.84",
+    "PC": "8.68"
+  },
+  "bonus_k": "5",
+  "public_readback": {
+    "PS": "2026-10-22T12:28:29.222809+00:00",
+    "XBOX": "2026-10-22T12:28:29.663802+00:00",
+    "PC": "2026-10-22T12:28:30.154895+00:00"
+  },
+  "new_price_write": false,
+  "new_cache_clear": false,
+  "original_confirmed_execution": "0af419f6-ef46-4af5-bf8d-8984e003c515",
+  "margin_basis": "undiscounted_and_historical_average_v2",
+  "rows": [
+    {
+      "platform": "PS/XBOX",
+      "base_pct": "31.71493959154190842451619694",
+      "average_pct": "25.47864231787878712642831851",
+      "catalog_average_minimum_pct": "25.47864231787878712642831850"
+    },
+    {
+      "platform": "PC",
+      "base_pct": "27.99003382068078222025928388",
+      "average_pct": "21.41355057420718736727624629",
+      "catalog_average_minimum_pct": "21.41355057420718736727624628"
+    }
+  ],
+  "history": {
+    "start": "2026-10-15",
+    "end": "2026-10-21",
+    "samples": 2522,
+    "covered": 2522,
+    "net_usd": "164244.24",
+    "discount_usd": "15000.00",
+    "gross_usd": "179244.24",
+    "retained": "0.9163153025168340137457136698",
+    "sha256": "ccdfdeb8912dfd34c5418517cbce0b34e85fffedbfa0da4309214413fbac42c8"
+  },
+  "model": {
+    "conversation": "ee03362cb46f43b38a15edb07c167f9a",
+    "turn": "702b8658d24b4c13b9093cb9e09d9744",
+    "task": "69ab157c166ad5b67749bcb21f513ae3",
+    "run": "run_d07e8b264d9f43889a69445fc61f707f",
+    "recommendation": "6c779dad36ec174f16b98963c8a830f39968b8d40b75cf7115c8144994989b1a",
+    "recommendation_quote_digest_as_returned": "01dcd1eb5ca5c5ff5454855269e60ac4ab0142b3866cf8cf8def0499ead7a2f8",
+    "state": "completed",
+    "provider_high_audit": "not_independently_rechecked_due_to_access",
+    "effective_knowledge_audit": "pending",
+    "stable_learning": "not_proven"
+  },
+  "next_cycle": "2026-10-22T14:29:27.664878+00:00",
+  "health": {
+    "queue": 0,
+    "incomplete_executions": 0,
+    "timer": "active"
+  },
+  "business_effect_update": "pending_same_window_cost_refund_quantity_and_ads",
+  "access": {
+    "ssh": "two_closed_connections_exit255_no_business_write",
+    "browser_event_route": "net_ERR_BLOCKED_BY_CLIENT_stopped"
+  },
+  "source_sha_inventory": "last_verified19:46_157_not_rechecked_this_round"
+}

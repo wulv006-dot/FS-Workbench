@@ -458,5 +458,19 @@
     "status": "shared_probe_fixed_and_live_backend_read_passed_fresh_natural_preview_pending",
     "original_failure_detail": "not_retained",
     "natural_next": "2026-10-22 20:26:04 Asia/Shanghai"
+  },
+  "natural_2026": {
+    "status": "ready_no_price_change_backend_preview_restored",
+    "job": "ed19a1b3-8d60-4b43-8bdb-ff3121d71bf9",
+    "preview": "293888fa-472f-44da-afd1-548117390064",
+    "completed_at": "2026-10-22T12:29:27.664878+00:00",
+    "new_price_write": false,
+    "new_cache_clear": false,
+    "report": "NATURAL-2026-REPORT.md",
+    "receipt": "NATURAL-2026-ACCEPTANCE.json",
+    "source_sha_inventory": "last19:46_157_not_rechecked_due_to_SSH",
+    "model_audit": "recommendation_and_reply_verified_provider_high_effective_knowledge_tool_events_pending",
+    "effect": "same_window_cost_refunds_quantity_ads_update_pending",
+    "next_original_cycle": "2026-10-22T14:29:27.664878+00:00"
   }
 }
