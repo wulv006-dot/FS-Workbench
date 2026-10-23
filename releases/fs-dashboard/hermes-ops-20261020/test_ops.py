@@ -324,9 +324,7 @@ class WatchChecks(unittest.TestCase):
         self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py')
         timer = (ROOT/'deploy/fs-hermes-ops-bridge.timer').read_text()
         self.assertIn('Persistent=false', timer)
-        self.assertIn('OnCalendar=*-*-* 03,07,08,13,18,23:00:00', timer)
-        self.assertIn('OnBootSec=2min', timer)
-        self.assertNotIn('OnUnitActiveSec=', timer)
+        self.assertIn('OnUnitActiveSec=5min', timer)
 
 class ConnectionChecks(unittest.TestCase):
     def test_current_process_event_and_disconnect(self):
@@ -359,5 +357,19 @@ class GitChecks(unittest.TestCase):
             with self.assertRaises(ValueError): self.client(changed=field).ready(pr)
         for conclusion in ('failure', 'skipped', 'cancelled'):
             with self.assertRaises(ValueError): self.client(conclusion=conclusion).ready(pr)
+
+class WatchdogScheduleChecks(unittest.TestCase):
+    def test_native_schedule_converts_to_requested_beijing_windows(self):
+        plan = json.loads((ROOT/'deploy/watchdog-schedule.json').read_text())
+        minute, hours, day, month, weekday = plan['updates']['schedule'].split()
+        self.assertEqual((minute, day, month, weekday), ('0', '*', '*', '*'))
+        local_hours = sorted((int(hour)+8) % 24 for hour in hours.split(','))
+        self.assertEqual(local_hours, [3, 7, 8, 13, 18, 23])
+        self.assertEqual([(b-a) % 24 for a,b in zip(local_hours, local_hours[1:]+local_hours[:1])],
+                         [4, 1, 5, 5, 5, 4])
+        self.assertEqual(plan['timezone'], 'UTC')
+        self.assertEqual(plan['job_id'], '0018aa8c8439')
+        self.assertTrue(plan['expected']['no_agent'])
+        self.assertEqual(set(plan['updates']), {'name', 'schedule'})
 
 if __name__ == '__main__': unittest.main(verbosity=2)
