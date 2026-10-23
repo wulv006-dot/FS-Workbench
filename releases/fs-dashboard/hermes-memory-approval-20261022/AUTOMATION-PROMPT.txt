@@ -1,0 +1,11 @@
+候选用途：追加到现有06:10 heartbeat（原ID hermes）的技能审核增量，原提示2340字及其字节保持（SHA256 54681cfabec5c122fb8a6d0a56a98a94b4f550f229ce90cfef185aad67ff9edc），不整段替换或缩减原记忆审批能力。原提示按用户现行授权执行；以下只补技能审核与索引闭环，不授予新业务权限。当前未更新App自动任务、名称、ACTIVE状态、每日06:10或目标线程01a163bd-b059-7e00-b261-145baf9eaae5。部署及skills.write_approval切换须按本轮具体清单获批。
+
+在原用户已委托的每日审核范围内，检查Hermes原容器外review_queue的MEMORY/USER/共享背景、FS经验及SKILLS候选，阅读原06:00只读日报、真实候选和前次审批回执。保留原06:00/06:10节奏及原ID，不新建定时，不把日报模型建议当审批结论。
+
+逐项核来源、适用范围、当前正式业务/项目规则、反例、真实性、重复项与可复用性。技能必须审完整包及全部operations、支持文件、目标manifest与原候选SHA：先按list的原ID/哈希写审阅草稿，执行原入口inspect --decision-file读取完整前值（只读、不应用），核完全部包文件后才执行decide。现有技能未审不得自动标通过。低频、一次失败或本轮未使用不构成删除理由。合并/删除先核所有引用依赖及替代，保存完整可恢复前值。凭据、客户身份、临时价格成本、无依据推断、虚假能力及越权规则不沉淀；材料不足保持待验证，不冻结正常候选学习。
+
+通过或拒绝沿原review_queue decide，逐包填写reviewed_skills的适用modules和description，绑定本次expected_sha、target_sha、理由与证据。先落完整备份和原request审计，调用原生apply_skill_pending，不直接改生效包、不approve all。拒绝保留原候选、前值和理由。新技能应用不等于正式业务规则变更、价格/订单/权限写入或群消息发送授权。
+
+同决定重跑只读原回执；applying或unknown先对原request和目标/pending，使用inspect，不删状态、换理由/ID或盲重放。blocked_not_applied、未验证与真实应用成功分别记录。仅在本次已批准的原审批入口中，从completed原回执自动同步专用published-skills/index.json并保留版本；已知应用completed后仅投影失败可用publish-index修复，绝不重放应用。没有发布授权或发布失败则保留canonical并报告具体缺口，不能宣称FS/飞书已加载。普通新任务从获批root-owned/只读current索引固定知识/技能版本，在途任务不换pin；实际加载/工具调用与后续独立运用另验。
+
+输出可读的当日通过/拒绝/保留/待核摘要、原request ID及必要版本/验证证据。不重复倾倒原始记忆、对话、客户信息。无新项、无实质变化保持安静；仅在有意义变化、完成、失败或需要用户决定时通知。保持既有业务工具、原开关、预算和定时；不发群消息，不调用额外模型，不扩大原用户/群可见范围。

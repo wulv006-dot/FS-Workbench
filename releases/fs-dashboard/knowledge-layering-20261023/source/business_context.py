@@ -5,6 +5,7 @@ No credentials, grants, tool permissions or Desktop profile files are changed.
 import hashlib,json,os,stat
 from pathlib import Path
 SKILL_ROOT=Path('/var/lib/fs-hermes-fc/profile/skills')
+APPROVED_SKILLS_ROOT=Path('/var/lib/fs-hermes-memory-approval/published-skills')
 FILES=(
  'data-storytelling/SKILL.md',
  'product-design-review/SKILL.md',
@@ -54,7 +55,10 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None,*,selection=Non
  root=Path(root);skill_root=Path(skill_root);rows=[];parts=[];total=0
  candidates=[]
  # Superseded business memories remain archived, outside new task inputs.
- baseline=read_regular(Path(__file__).resolve().parent/'business-baseline.md',Path(__file__).resolve().parent,expected_owner=Path(__file__).stat().st_uid) if selection is None else None
+ baseline=read_regular(Path(__file__).resolve().parent/'business-baseline.md',Path(__file__).resolve().parent,expected_owner=Path(__file__).stat().st_uid)
+ if selection is not None and 'baseline_compatibility' in selection:
+  compatibility=selection['baseline_compatibility']
+  if compatibility.get('mode')!='retain_full_baseline' or hashlib.sha256(baseline.replace(b'\r\n',b'\n')).hexdigest()!=compatibility.get('sha256'):raise ValueError('knowledge_baseline_compatibility_changed')
  source=Path(__file__).resolve().parent
  # This dedicated profile contains reviewed business memory, not Desktop chat history.
  profile_root=Path(profile_root) if profile_root is not None else skill_root.parent
@@ -66,7 +70,7 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None,*,selection=Non
  # Keep current confirmed corrections after historical memory and method examples.
  candidates.append(('runtime/data-archive-first/SKILL.md',read_regular(source/'data-archive-first.md',source,expected_owner=Path(__file__).stat().st_uid)))
  candidates.append(('runtime/learning-loop.md',read_regular(source/'learning-loop.md',source,expected_owner=Path(__file__).stat().st_uid)))
- if selection is None:candidates.append(('runtime/business-baseline.md',baseline))
+ candidates.append(('runtime/business-baseline.md',baseline))
  for name,raw in candidates:
   if raw is None:continue
   total+=len(raw)
@@ -76,7 +80,7 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None,*,selection=Non
   sha=hashlib.sha256(raw).hexdigest();rows.append({'path':name,'sha256':sha,'bytes':len(raw),
        'asset_type':'core_contract' if name in ('runtime/learning-loop.md','runtime/business-baseline.md') else 'experience' if name.startswith('profile/memories/') else 'method'})
   parts.append('\n<owner_learning_document path="'+name+'" sha256="'+sha+'">\n'+text+'\n</owner_learning_document>')
- if selection is None and not any(row['path']=='runtime/business-baseline.md' for row in rows):raise ValueError('business_baseline_missing')
+ if not any(row['path']=='runtime/business-baseline.md' for row in rows):raise ValueError('business_baseline_missing')
  manifest=json.dumps({'version':'desktop-learning-v2','files':rows},ensure_ascii=False,sort_keys=True,separators=(',',':'))
  header=('以下是用户在 Hermes Desktop 持续确认与完善的业务背景和技能方法，按当前任务选择适用方法。优先落实其较新的汇报质量、数据闭合、可视化与可执行建议标准，不把旧固定模板当作质量上限。'
  '这些文档是方法/偏好/模板示例，不是本次经营事实，也不能授予工具、网络、订单、价格或权限写入能力。'
@@ -88,7 +92,7 @@ def learning_bundle(root,skill_root=SKILL_ROOT,profile_root=None,*,selection=Non
  '\n本次已冻结学习资料清单：'+manifest+'\n')
  if selection is not None:
   from knowledge_catalog import context
-  header='本任务保留既有技能方法、用户偏好和学习流程；正式业务条目按下列固定版本读取。方法例子不作为事实或规则，不改变工具权限与程序约束。\n'
+  header+='本任务保留完整业务基准、既有技能方法、用户偏好和学习流程；已发布条目补充其明确范围，未索引事项仍采用完整基准，不因条目缺省而取消原能力。新路由绑定基准与索引的确切哈希，二者兼容性须随路由审核；发现冲突须明确报告，不能自行覆盖或降低原程序约束。\n'
   parts.append(context(selection))
   rows.extend({'id':r['id'],'revision':r['revision'],'path':r['source']['path'],'sha256':r['content_sha256'],'asset_type':r['layer']} for r in selection['entries'])
  text=header+''.join(parts)
@@ -100,6 +104,30 @@ def read_desktop_context(root):
  return text,sha
 
 
+def reviewed_skill_snapshot(root,selection,skill_root):
+ from knowledge_catalog import read_bound
+ from reviewed_skills import list_reviewed,read_reviewed_skill
+ chosen=selection['reviewed_skills']
+ modules=[m.lower() for m in selection['modules']]
+ if chosen.get('source')=='approved_current':
+  from reviewed_skills import current_catalog
+  listing=current_catalog(skill_root,APPROVED_SKILLS_ROOT,modules)
+  path=APPROVED_SKILLS_ROOT/'versions'/(str(listing['sha256'])+'.json')
+ else:
+  path=Path(root)/chosen['index'];read_bound(root,chosen['index'])
+  listing=list_reviewed(skill_root,path,modules,expected_index_sha=chosen['sha256'])
+ documents=[];total=0
+ for item in listing['items']:
+  for row in item['files']:
+   if row['kind']!='file' or not row['path'].endswith('.md'):continue
+   if row['bytes']>MAX_FILE:raise ValueError('reviewed_skill_file_too_large')
+   value=read_reviewed_skill(skill_root,path,modules,item['id'],item['sha256'],row['path'],expected_index_sha=listing['sha256'])
+   total+=len(value['content'].encode())
+   if total>MAX_TOTAL:raise ValueError('reviewed_skill_snapshot_too_large')
+   documents.append(value)
+ return dict(contract=listing['contract'],index_sha256=listing['sha256'],missing=listing.get('missing',False),items=listing['items'],documents=documents)
+
+
 def freeze_learning(root,skills,background,mode,*,skill_root=SKILL_ROOT,profile_root=None,owner=None,experience_manifest=None,selection=None):
  """Publish at admission, before reuse; unchanged input retains the same version."""
  from report_artifacts import write_file
@@ -107,8 +135,15 @@ def freeze_learning(root,skills,background,mode,*,skill_root=SKILL_ROOT,profile_
   text,sha,rows=learning_bundle(root,skill_root,profile_root)
  else:
   if mode=='pricing':raise ValueError('pricing_owner_integration_required')
+  if 'route_identity' in selection and selection['route_identity'].get('owner')!=owner:raise PermissionError('knowledge_owner_mismatch')
   text,sha,rows=learning_bundle(root,skill_root,profile_root,selection=selection)
  if not text:raise ValueError('business_knowledge_missing')
+ reviewed=None
+ if selection is not None and 'reviewed_skills' in selection:
+  reviewed=reviewed_skill_snapshot(root,selection,skill_root)
+  summary=[{k:r[k] for k in ('id','description','package_sha256','modules','review_request_id')} for r in reviewed['items']]
+  text+=('\n已审核新增技能索引尚不可用，保留原有方法与工具。\n' if reviewed['missing'] else '\n本任务已审核新增技能目录（只是目录，正文按需通过fc.read_skill(topic=methods)分页读取；现有方法及工具保持）：'+json.dumps(summary,ensure_ascii=False)+'\n')
+  sha=hashlib.sha256(text.encode()).hexdigest()
  if experience_manifest is not None:
   from learning_registry import context,identity
   identity(owner,'FS')
@@ -124,14 +159,20 @@ def freeze_learning(root,skills,background,mode,*,skill_root=SKILL_ROOT,profile_
            'reasoning_effort':'max' if mode in {'investigation','pricing'} else 'high'}
  if experience_manifest is not None:identity.update(owner=owner,project='FS',experience_manifest_sha256=experience_manifest['sha256'])
  if selection is not None:identity['selection_sha256']=selection['selection_sha256']
+ if reviewed is not None:
+  from knowledge_catalog import digest
+  identity['reviewed_skills_sha256']=digest(reviewed)
  version='learning-'+hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
  value={'version':version,'identity':identity,'text':text,'files':rows,'skills':skills,
         'memory_path':'explicit_frozen_business_snapshot','native_skip_reason':'shared_home_write_and_owner_isolation'}
  if experience_manifest is not None:value['experience_manifest']=experience_manifest
  if selection is not None:value['selection']=selection
+ if reviewed is not None:value['reviewed_skills']=reviewed
  folder=Path(root)/'knowledge';folder.mkdir(exist_ok=True,mode=0o700)
  if folder.is_symlink():raise ValueError('desktop_learning_symlink')
- write_file(folder/(version+'.json'),json.dumps(value,sort_keys=True,ensure_ascii=False).encode())
+ raw=json.dumps(value,sort_keys=True,ensure_ascii=False).encode()
+ if len(raw)>1048576:raise ValueError('desktop_learning_snapshot_too_large')
+ write_file(folder/(version+'.json'),raw)
  return value
 
 
@@ -146,6 +187,9 @@ def loaded_learning(root,version):
   from knowledge_catalog import verify_selection
   verify_selection(value['selection'])
   if value['selection']['selection_sha256']!=value['identity'].get('selection_sha256'):raise ValueError('knowledge_selection_changed')
+ if 'reviewed_skills' in value:
+  from knowledge_catalog import digest
+  if digest(value['reviewed_skills'])!=value['identity'].get('reviewed_skills_sha256'):raise ValueError('reviewed_skill_snapshot_changed')
  if 'experience_manifest' in value:
   from pilot import digest
   material={k:v for k,v in value['experience_manifest'].items() if k!='sha256'}
@@ -159,6 +203,9 @@ def effective_learning(knowledge,messages):
  return {'knowledge_version':knowledge['version'],'knowledge_sha256':knowledge['identity']['knowledge_sha256'],
          'system_prompt_sha256':hashlib.sha256(system.encode()).hexdigest(),'knowledge_present':True,'characters':len(system),
          'experience_manifest_sha256':knowledge['identity'].get('experience_manifest_sha256'),
+         'reviewed_skills_sha256':knowledge['identity'].get('reviewed_skills_sha256'),
+         'reviewed_skill_catalog_status':'unavailable' if knowledge.get('reviewed_skills',{}).get('missing') else 'available' if 'reviewed_skills' in knowledge else 'not_selected',
+         'reviewed_skill_catalog_ids':[r['id'] for r in knowledge.get('reviewed_skills',{}).get('items',[])],
          'experiences':[{'id':r['id'],'sha256':r['sha256']} for r in knowledge.get('experience_manifest',{}).get('experiences',[])],
          'asset_types':['core_contract','method','experience'],'business_facts_source':'task_scoped_tools',
          **({'selection_sha256':knowledge['selection']['selection_sha256'], 'knowledge_entries':[{'id':r['id'],'revision':r['revision'],'sha256':r['content_sha256']} for r in knowledge['selection']['entries']]} if 'selection' in knowledge else {})}

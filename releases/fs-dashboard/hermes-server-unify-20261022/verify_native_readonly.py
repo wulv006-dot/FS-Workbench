@@ -62,19 +62,52 @@ def verify(payloads):
         module.register(context)
         checked.append('actual_PluginContext_registers_two_knowledge_tools')
         names = module.READ_TOOLS
-        for platform in ('feishu', 'api_server', 'cli'):
+        for platform in ('api_server', 'cli'):
             denied = toolsets.session_disabled_toolsets([], platform)
             assert not names & model_tools._select_tool_names(['fs_knowledge'], denied, True)
         assert not names & model_tools._select_tool_names(None, [], True)
-        checked.append('actual_native_defaults_and_non_FS_platforms_exclude_knowledge')
+        checked.append('actual_native_defaults_and_api_cli_exclude_knowledge')
         defs = model_tools.get_tool_definitions(enabled_toolsets=['fs_knowledge'], disabled_toolsets=[], quiet_mode=True)
         assert {d['function']['name'] for d in defs} == names
         feishu_defs = model_tools.get_tool_definitions(enabled_toolsets=['fs_knowledge'],
             disabled_toolsets=toolsets.session_disabled_toolsets([], 'feishu'), quiet_mode=True)
-        assert not names & {d['function']['name'] for d in feishu_defs}
+        assert {d['function']['name'] for d in feishu_defs} == names
         assert {d['function']['name'] for d in model_tools.get_tool_definitions(
             enabled_toolsets=['fs_knowledge'], disabled_toolsets=[], quiet_mode=True)} == names
-        checked.append('actual_schema_cache_FS_Feishu_FS_isolation')
+        checked.append('actual_schema_cache_preserves_FS_Feishu_FS_definitions_without_granting_access')
+        feishu_info = dict(session_id='KL2-isolated-feishu-check', platform='feishu',
+                           owner='isolated-approved-user', profile_name=info['profile_name'],
+                           chat_id='isolated-approved-chat', thread_id='isolated-approved-thread')
+        assert knowledge.pin(feishu_info) is None
+        assert knowledge.pin_task(feishu_info, 'isolated-message', 'isolated-feishu-task') is None
+        try:
+            knowledge.call('fs_read_knowledge', {'modules': ['FS']},
+                           session_id=feishu_info['session_id'], task_id='isolated-feishu-task')
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError('unapproved_feishu_read_allowed')
+        task_route = dict(owner=feishu_info['owner'], project='FS', channel='feishu', task_types=['conversation'],
+                          profile_name=feishu_info['profile_name'], chat_id=feishu_info['chat_id'],
+                          thread_id=feishu_info['thread_id'], catalog=pointer,
+                          sha256=hashlib.sha256(raw).hexdigest(), modules=['FS', 'FC27'])
+        policy['task_routes'] = dict(enabled=True, routes=[task_route])
+        (root / 'knowledge-load-policy.json').write_text(json.dumps(policy))
+        for field in ('owner', 'profile_name', 'chat_id', 'thread_id'):
+            assert knowledge.task_selection(dict(feishu_info, **{field: 'unapproved'})) is None
+        with knowledge.activate_task(feishu_info, 'isolated-message', 'isolated-feishu-task') as task_pin:
+            assert task_pin['contract'] == 'fs-native-knowledge-task-v1'
+            feishu_read = knowledge.call('fs_read_knowledge', {'modules': ['FS', 'FC27'], 'entry_ids': ids},
+                                        session_id=feishu_info['session_id'], task_id='isolated-feishu-task')
+            assert feishu_read['status'] == 'available' and {r['id'] for r in feishu_read['entries']} == set(ids)
+            try:
+                knowledge.call('fs_read_knowledge', {'modules': ['FS'], 'owner': 'unapproved'},
+                               session_id=feishu_info['session_id'], task_id='isolated-feishu-task')
+            except ValueError as error:
+                assert str(error) == 'native_knowledge_tool_fields'
+            else:
+                raise AssertionError('feishu_model_argument_granted_identity')
+        checked.append('actual_Feishu_registration_requires_exact_trusted_owner_profile_chat_thread_task_route')
         entry = types.ModuleType('isolated_fs_native_entry')
         exec(compile(payloads['fs_native_entry.py'], '<isolated_fs_native_entry>', 'exec'), entry.__dict__)
         entry.adapter = lambda: knowledge
@@ -91,6 +124,14 @@ def verify(payloads):
                 session_db=database, enabled_toolsets=['terminal'], disabled_toolsets=[])
         assert all(agent.options[n] for n in ('skip_memory', 'skip_background_review', 'skip_context_files'))
         assert agent.options['enabled_toolsets'] == ['fs_knowledge']
+        assert agent.valid_tool_names == names and {d['function']['name'] for d in agent.tools} == names
+        try:
+            knowledge.call('fs_read_knowledge', {'modules': ['FS'], 'skill_id': 'unapproved-skill'},
+                           session_id=info['session_id'], task_id='isolated-readonly-task')
+        except ValueError as error:
+            assert str(error) == 'native_knowledge_skill_scope'
+        else:
+            raise AssertionError('isolated_readonly_test_read_skill_allowed')
         checked.append('actual_native_subclass_construction_has_only_read_grants_no_provider_init')
         with patch('hermes_cli.plugins._dispatch_pre_tool_call_hooks', side_effect=RuntimeError('isolated_fault')):
             agent._current_turn_id = None; agent._current_api_request_id = None
@@ -110,8 +151,14 @@ def verify(payloads):
                            user_task=None, enabled_tools=sorted(names), skip_tool_execution_middleware=False))
         assert result['status'] == 'available' and {r['id'] for r in result['entries']} == set(ids)
         receipts = list((root / 'knowledge/native').glob('use-*.json'))
-        assert len(receipts) == 1
-        assert json.loads(receipts[0].read_bytes())['result']['selection_sha256'] == result['selection_sha256']
+        assert len(receipts) == 2
+        assert {(json.loads(path.read_bytes())['identity']['session_id'],
+                 json.loads(path.read_bytes())['identity']['tool']) for path in receipts} == {
+                    (info['session_id'], 'fs_read_knowledge'), (feishu_info['session_id'], 'fs_read_knowledge')}
+        matching = [json.loads(path.read_bytes()) for path in receipts]
+        matching = [receipt for receipt in matching if receipt['identity']['session_id'] == info['session_id']]
+        assert len(matching) == 1
+        assert matching[0]['result']['selection_sha256'] == result['selection_sha256']
         checked.append('actual_native_dispatch_and_middleware_read_published_version_and_receipt')
         import fcntl
         gate = root / 'admission.lock'; gate.write_bytes(b'')

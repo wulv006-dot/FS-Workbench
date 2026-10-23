@@ -44,7 +44,10 @@ def read_bound(root, relative):
 def validate(index):
     if index.get('contract') != CONTRACT or index.get('release_state') not in ('candidate', 'published'):
         raise ValueError('knowledge_index_contract')
-    if not re.fullmatch('[a-f0-9]{40}', index.get('source_commit', '')) or not index.get('release'):
+    source_commit = index.get('source_commit')
+    candidate_base = (index['release_state'] == 'candidate' and source_commit is None
+                      and isinstance(index.get('base_commit'), str) and re.fullmatch('[a-f0-9]{40}', index['base_commit']))
+    if not (isinstance(source_commit, str) and re.fullmatch('[a-f0-9]{40}', source_commit) or candidate_base) or not index.get('release'):
         raise ValueError('knowledge_source_version')
     seen = set()
     for row in index['entries']:
@@ -148,10 +151,7 @@ def context(value):
         + r['content'] + '\n</knowledge-entry>' for r in value['entries'])
 
 
-def report_selection(root, body):
-    """Opt in exact report requests only; no conversation/pricing or implicit routing."""
-    if body.get('kind') != 'hermes_report' or body.get('mode') == 'pricing':
-        return None
+def load_policy(root):
     policy = Path(root) / 'knowledge-load-policy.json'
     if not policy.exists():
         return None
@@ -163,15 +163,80 @@ def report_selection(root, body):
     value = json.loads(read_bound(root, 'knowledge-load-policy.json'))
     if value.get('contract') != 'fs-knowledge-load-policy-v1':
         raise ValueError('knowledge_policy_contract')
-    chosen = value['requests'].get(body.get('request_id'))
-    if chosen is None:
-        return None
+    return value
+
+
+def selected_route(root, chosen):
     if not chosen['catalog'].startswith('knowledge-releases/'):
         raise ValueError('knowledge_release_boundary')
     result = select(root, chosen['catalog'], chosen['sha256'], chosen['modules'], chosen.get('entry_ids'))
     if result['status'] != 'available':
         raise ValueError('knowledge_not_available:' + result['status'])
     return result
+
+
+def task_selection(root, *, owner, project, channel, task_type, profile_name=None, chat_id=None, thread_id=None):
+    """Select only a caller-authenticated task route; questions never grant modules."""
+    identity = dict(owner=owner, project=project, channel=channel, task_type=task_type)
+    optional = dict(profile_name=profile_name, chat_id=chat_id, thread_id=thread_id)
+    if (not all(isinstance(v, str) and v and len(v) <= 200 for v in identity.values())
+            or any(v is not None and (not isinstance(v, str) or not v or len(v) > 200) for v in optional.values())):
+        raise ValueError('knowledge_task_identity')
+    value = load_policy(root)
+    routes = value.get('task_routes', {}) if value is not None else {}
+    if routes.get('enabled') is not True:
+        return None
+    matches = []
+    for row in routes.get('routes', []):
+        if (all(row.get(k) == identity[k] for k in ('owner', 'project', 'channel'))
+                and task_type in row.get('task_types', [])
+                and all(k not in row or row[k] == v for k, v in optional.items())):
+            matches.append(row)
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError('knowledge_task_route_conflict')
+    chosen = matches[0]
+    if channel in {'desktop', 'tui', 'feishu'} and not chosen.get('profile_name'):
+        raise ValueError('knowledge_native_profile_scope_required')
+    if channel == 'feishu' and (not chosen.get('chat_id') or 'thread_id' not in chosen):
+        raise ValueError('knowledge_feishu_chat_thread_scope_required')
+    if task_type not in {'report', 'data', 'conversation'}:
+        raise ValueError('knowledge_task_type_not_supported')
+    compatibility = chosen.get('baseline_compatibility')
+    if channel == 'fs' and (not isinstance(compatibility, dict)
+            or compatibility.get('mode') != 'retain_full_baseline'
+            or not re.fullmatch('[a-f0-9]{64}', compatibility.get('sha256', ''))):
+        raise ValueError('knowledge_baseline_compatibility_required')
+    result = selected_route(root, chosen)
+    result.update(catalog=chosen['catalog'], entry_ids=chosen.get('entry_ids'),
+                  route_identity=dict(identity, **{k: v for k, v in optional.items() if v is not None or k in chosen}))
+    if compatibility is not None:
+        result['baseline_compatibility'] = compatibility
+    reviewed = chosen.get('reviewed_skills')
+    if reviewed is not None:
+        current = reviewed == {'source': 'approved_current'}
+        if not current and (not isinstance(reviewed, dict) or set(reviewed) != {'index', 'sha256'}
+                or reviewed.get('index') != 'knowledge/reviewed-skills.json'
+                or not re.fullmatch('[a-f0-9]{64}', reviewed.get('sha256', ''))):
+            raise ValueError('knowledge_reviewed_skills_policy')
+        result['reviewed_skills'] = reviewed
+    result['selection_sha256'] = digest({k: v for k, v in result.items() if k != 'selection_sha256'})
+    return result
+
+
+def report_selection(root, body, owner=None):
+    """Keep exact request trials; ordinary task routes require the authenticated owner."""
+    if body.get('kind') != 'hermes_report' or body.get('mode') == 'pricing':
+        return None
+    value = load_policy(root)
+    chosen = value.get('requests', {}).get(body.get('request_id')) if value is not None else None
+    if chosen is not None:
+        return selected_route(root, chosen)
+    if owner is None:
+        return None
+    return task_selection(root, owner=owner, project='FS', channel='fs',
+                          task_type='data' if 'data_request' in body else 'report')
 
 
 def main():

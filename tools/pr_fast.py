@@ -186,8 +186,18 @@ def selfcheck():
         raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
         raise RuntimeError("fc_pricing_v2_checks_missing")
+    if select(['releases/fc-coins/fc-pricing-v2-20261022/source/conversation_service.py']) != ['fc-pricing-v2','hermes-conversation']:
+        raise RuntimeError('fc_conversation_consumers_missing')
     if select(["releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py"]) != ["hermes-server-unify"]:
         raise RuntimeError("hermes_server_unify_checks_missing")
+    if select(['releases/fs-dashboard/hermes-memory-approval-20261022/review_queue.py']) != ['hermes-memory-approval']:
+        raise RuntimeError('hermes_skill_approval_checks_missing')
+    if select(['releases/fs-dashboard/hermes-memory-approval-20261022/reviewed_skills.py']) != ['hermes-memory-approval','hermes-server-unify','knowledge-layering']:
+        raise RuntimeError('hermes_reviewed_skill_consumers_missing')
+    if select(['tools/prepare_learning_native_release.py']) != ['hermes-learning-closure']:
+        raise RuntimeError('hermes_learning_native_producer_checks_missing')
+    if select(['tools/prepare_learning_release.py']) != ['hermes-learning-closure']:
+        raise RuntimeError('hermes_learning_fs_producer_checks_missing')
     if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
         raise RuntimeError("coins_workflow_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
@@ -368,6 +378,12 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fs-dashboard/hermes-memory-approval-20261022/'):
+            groups.add('hermes-memory-approval')
+            if name.endswith('/reviewed_skills.py'):groups.update(('knowledge-layering','hermes-server-unify'))
+            continue
+        if name.startswith('releases/fs-dashboard/hermes-learning-closure-20261023/') or name in ('tools/prepare_learning_native_release.py','tools/prepare_learning_release.py'):
+            groups.add('hermes-learning-closure');continue
         if name.startswith("releases/ops/fc-reference-observer-ui-20261023/"):
             groups.add("fc-reference-observer-ui");continue
         if name.startswith("releases/ops/fc-itemd2r-shadow-20261023/"):
@@ -387,7 +403,9 @@ def select(paths):
         if name.startswith("rea_admin_contract_20261021/"):
             groups.add("admin-monthly-paid");continue
         if name.startswith("releases/fc-coins/fc-pricing-v2-20261022/"):
-            groups.add("fc-pricing-v2");continue
+            groups.add("fc-pricing-v2")
+            if name=='releases/fc-coins/fc-pricing-v2-20261022/source/conversation_service.py':groups.add('hermes-conversation')
+            continue
         if name.startswith("releases/fs-dashboard/fc-coins-workflow-20261022/"):
             groups.add("fc-coins-workflow");continue
         if name.startswith("releases/fs-dashboard/fc-coins-evidence-20261021/"):
@@ -729,7 +747,14 @@ def main():
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
             continue
         if group=='knowledge-layering':
-            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare'])
+            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare','test_task_selection','test_learning_catalog'])
+            continue
+        if group=='hermes-memory-approval':
+            units('releases/fs-dashboard/hermes-memory-approval-20261022',['test_review_queue','test_reviewed_skills','test_daily_review'])
+            continue
+        if group=='hermes-learning-closure':
+            units('releases/fs-dashboard/hermes-learning-closure-20261023',['test_prepare'])
+            units('releases/fs-dashboard/hermes-learning-closure-20261023/tests',['test_learning_native_release'])
             continue
         if group in ("self","frontend"):continue
         if group=="game-monitor-auto":
@@ -1079,7 +1104,7 @@ def main():
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-server-unify":
-            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry","test_knowledge_audit"])
+            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry","test_knowledge_audit","test_native_task_learning"])
         elif group=="hermes-ops":
             units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
         elif group=="fs-business-baseline":
