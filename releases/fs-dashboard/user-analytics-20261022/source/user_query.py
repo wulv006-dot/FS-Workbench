@@ -155,6 +155,25 @@ class Service:
                     metric_definitions=METRIC_DEFINITIONS, history_backfill_start=self.store.config.get('history_backfill_start'),
                     can_read_private=self.authorizer(user, {'scope': 'global', 'scope_id': ''}, True) is True)
 
+    def search(self, args, user):
+        if not isinstance(args, dict) or set(args) != {'snapshot_id', 'email'}:
+            raise ValueError('private_search_fields')
+        query, public, private = self.store.snapshot(args['snapshot_id'])
+        self.permit_snapshot(user, query, public, True)
+        if query.get('state_basis') != 'period_cohort':
+            raise ValueError('period_cohort_required')
+        email = args['email']
+        if not isinstance(email, str) or not 3 <= len(email.strip()) <= 320 or '@' not in email or any(ord(c) < 32 for c in email):
+            raise ValueError('invalid_email')
+        if not public['coverage']['identity_deduplication_complete']:
+            raise ValueError('cross_site_identity_unverified')
+        ids = self.store.find_email(email.strip(), public['coverage']['sites']) & private['records'].keys()
+        if len(ids) > 1:
+            raise ValueError('cross_site_identity_unverified')
+        if not ids:
+            return dict(snapshot_id=public['snapshot_id'], found=False, period_complete=public['coverage']['period_complete'])
+        return dict(self.detail(dict(snapshot_id=args['snapshot_id'], customer_id=next(iter(ids))), user), found=True)
+
     def detail(self, args, user):
         if set(args) != {'snapshot_id', 'customer_id'}:
             raise ValueError('private_detail_fields')
@@ -166,7 +185,7 @@ class Service:
         orders = [dict(site=r['site'], project_id=r['gid'], paid_at=r['paid_at'], valid=bool(r['valid']), **json.loads(r['body']))
                   for r in self.store.orders_at(public['data_version'], cid)
                   if stamp(r['paid_at']) < stamp(query['as_of']) and (query.get('state_basis') != 'period_cohort' or stamp(r['paid_at']) >= stamp(query['start'])) and r['site'] in self.store.config['sites']
-                  and (query['scope'] != 'site' or r['site'] == query['scope_id']) and (public.get('requires_global_scope') or in_scope(r, query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects']))))]
+                  and (query['scope'] != 'site' or r['site'] == query['scope_id']) and ((query.get('state_basis') != 'period_cohort' and public.get('requires_global_scope')) or in_scope(r, query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects']))))]
         scoped = [r for r in orders if r['valid'] and in_scope(dict(r, gid=r['project_id']), query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects'])))]
         if query.get('state_basis') == 'period_cohort':
             scoped.sort(key=lambda r:(r['paid_at'],int(r.get('id') or 0),r['order_no']))

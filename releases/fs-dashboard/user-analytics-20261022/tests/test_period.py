@@ -53,6 +53,40 @@ class Period(unittest.TestCase):
         facts=self.store.read(analytics=True,start='2026-10-01',end='2026-10-23')[1]
         self.assertEqual(len(facts),1)
 
+    def test_email_search_is_exact_private_and_frozen(self):
+        from user_http import search
+        email='Case+tag@example.test'
+        self.load([order(1,'2026-09-01',email=email),order(2,'2026-10-02',email=email),order(3,'2026-10-04',email=email),order(4,'2026-10-23',email=email)])
+        snapshot=self.query('2026-10-01');args=dict(snapshot_id=snapshot['snapshot_id'],email=' '+email+' ')
+        result=self.service.search(args,'admin')
+        self.assertTrue(result['found']);self.assertEqual(len(result['orders']),2)
+        self.assertEqual(result['timeline'][0]['days_from_observed_first'],0)
+        self.assertEqual(search(self.service,args,'reader')[0],403)
+        self.assertEqual(search(self.service,args,None)[0],401)
+        self.assertFalse(self.service.search(dict(args,email=email.lower()),'admin')['found'])
+        self.assertFalse(self.service.search(dict(args,email='Case@example.test'),'admin')['found'])
+        with self.store.db() as db:before=db.execute('SELECT count(*) FROM identities').fetchone()[0]
+        self.assertFalse(self.service.search(dict(args,email='absent@example.test'),'admin')['found'])
+        with self.store.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM identities').fetchone()[0],before)
+        self.load([order(9,'2026-10-05',email=email)])
+        self.assertEqual(self.service.search(args,'admin')['orders'],result['orders'])
+        for invalid in ('x','a@b\n','a'*321+'@b',None):
+            self.assertEqual(search(self.service,dict(args,email=invalid),'admin')[0],422)
+
+    def test_email_search_respects_project_and_long_email(self):
+        email='a'*170+'@example.test'
+        self.load([order(1,'2026-10-02',email=email),dict(order(2,'2026-10-03',email=email),gid='999')])
+        snapshot=self.query(scope='project',scope_id='1327')
+        result=self.service.search(dict(snapshot_id=snapshot['snapshot_id'],email=email),'admin')
+        self.assertTrue(result['found']);self.assertEqual(len(result['orders']),1)
+        self.assertEqual(result['orders'][0]['project_id'],'1327')
+
+    def test_search_miss_does_not_claim_missing_identity_or_complete_data(self):
+        self.load([order(1,'2026-09-01',email='before@example.test')])
+        snapshot=self.query('2026-10-01')
+        result=self.service.search(dict(snapshot_id=snapshot['snapshot_id'],email='before@example.test'),'admin')
+        self.assertFalse(result['found']);self.assertTrue(result['period_complete'])
+
     def test_entry_flag_and_repeat_are_period_specific(self):
         self.load([dict(order(1,'2026-07-01'),isNew=True),dict(order(2,'2026-10-10'),isNew=True),order(3,'2026-10-11',email='b@example.test'),order(4,'2026-10-12',email='b@example.test')])
         self.flag(2,'old');self.flag(3,'new');self.flag(4,'old')
