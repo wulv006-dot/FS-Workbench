@@ -214,7 +214,7 @@ def install_native_scope(base, approved):
         stop_native(admission_fence)
         subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=20)
         raw = base.rooted(admission_fence.root, TARGETS['native/desktop.service']).read_bytes()
-        expected = [manifest[k] for k in ('nativeImageBefore', 'nativeImageAfter') if manifest[k].encode() in raw]
+        expected = sorted({manifest[k] for k in ('nativeImageBefore', 'nativeImageAfter') if manifest[k].encode() in raw})
         if len(expected) != 1:
             raise ValueError('native_unit_pinned_image_missing')
         subprocess.run(['systemctl', 'start', UNITS[0]], check=True, timeout=60)
@@ -246,7 +246,7 @@ def install_native_scope(base, approved):
 
 def load_base():
     raw = (HERE / 'release_adapter_base.py').read_bytes()
-    if hashlib.sha256(raw).hexdigest() != 'd2ab05e0d3efa8003cebb43d75f44c51cd58f1b624c09388322de36e5ce78d58':
+    if hashlib.sha256(raw).hexdigest() != '1ce25dae41a5bac8317d0ab2b9b719964085b3a1d1481708692ec099111775dc':
         raise ValueError('existing_adapter_drift')
     approved = checked(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')), HERE)
     spec = importlib.util.spec_from_file_location('existing_native_scope', HERE / 'release_adapter_base.py')
