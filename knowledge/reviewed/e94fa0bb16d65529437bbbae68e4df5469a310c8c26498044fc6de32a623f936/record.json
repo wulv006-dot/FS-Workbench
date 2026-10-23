@@ -1,0 +1,19 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:3c5570d3",
+  "candidate_sha256": "4cf29d3fefcbc69792699675a59455ab8cedf56250c79656dffc9f657a47d61c",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Original user message and confirmed context were checked against the complete prior profile and original native completed-application receipt. Private identities and source text are not exported.",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "collaboration"
+  ],
+  "receipt_sha256": "71e57ff64852b9385c10e12c222956957dfa86f0de2a8dc5d3bc24b87f475b29",
+  "request_id": "e94fa0bb16d65529437bbbae68e4df5469a310c8c26498044fc6de32a623f936",
+  "runtime_activation": false,
+  "summary": "Confirmed collaboration-authority boundaries were added without removing existing responsibilities. Human identity details remain in private memory; this record grants no new tool or business permission."
+}
