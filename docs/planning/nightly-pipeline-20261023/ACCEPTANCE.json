@@ -1,0 +1,113 @@
+{
+  "release_id": "nav-20261023T131500Z",
+  "source_commit": "79fed1bb41327b1e16b2a50e33ab7e9facaeaad9",
+  "manifest_sha256": "616f0352f2a3a48fa064bf38559a5573561f665a421e61e2487a4c75511182a2",
+  "live": {
+    "at": "2026-10-23T21:01:51.841993+08:00",
+    "source_checks": {
+      "/opt/fs-hermes-fc/nightly.py": true,
+      "/opt/fs-hermes-fc/source_snapshots.py": true,
+      "/opt/fs-hermes-fc/nightly_data.py": true,
+      "/opt/fs-hermes-fc/nightly_recovery_job.py": true,
+      "/opt/fs-hermes-ops/nightly_ops.py": true,
+      "/opt/fs-hermes-ops/host.py": true,
+      "/opt/fs-exact-range-20261001/archive_jobs.py": true,
+      "/opt/fs-hermes-fc/data-archive-first.md": true,
+      "/etc/systemd/system/fs-boss-management.timer": true,
+      "/etc/systemd/system/fs-boss-game-monitor.timer": true,
+      "/etc/systemd/system/fs-channel-cache.timer": true,
+      "/etc/systemd/system/fs-data-archive.timer": true,
+      "/etc/systemd/system/fs-maintenance-cleanup.timer": true
+    },
+    "management_archive": {
+      "status": "ready",
+      "sha256": "df636c9fba55cccbef42a30973fcc3a7f9e0555361eff7c3b19266e817965c86",
+      "gaps": []
+    },
+    "starts": {
+      "management": "02:00:00",
+      "daily": "02:20:00",
+      "weekly": "03:00:00",
+      "management_weekly": "03:45:00",
+      "monthly": "04:30:00"
+    },
+    "cutoff": "07:49:00"
+  },
+  "protected_count": 115,
+  "protected_drift": [],
+  "timers": [
+    {
+      "unit": "fs-boss-management.timer",
+      "NextElapseUSecRealtime": "56y 9month 3w 18h 5min",
+      "ActiveState": "active"
+    },
+    {
+      "unit": "fs-boss-game-monitor.timer",
+      "NextElapseUSecRealtime": "56y 9month 3w 17h 45min",
+      "ActiveState": "active"
+    },
+    {
+      "unit": "fs-channel-cache.timer",
+      "NextElapseUSecRealtime": "56y 9month 3w 17h 50min",
+      "ActiveState": "active"
+    },
+    {
+      "unit": "fs-data-archive.timer",
+      "NextElapseUSecRealtime": "56y 9month 3w 18h",
+      "ActiveState": "active"
+    },
+    {
+      "unit": "fs-maintenance-cleanup.timer",
+      "NextElapseUSecRealtime": "56y 9month 3w 1d 1h 10min",
+      "ActiveState": "active"
+    }
+  ],
+  "native_cron": {
+    "state": "verified",
+    "id": "6534331b5100",
+    "schedule": {
+      "kind": "cron",
+      "expr": "20 17 * * 5",
+      "display": "20 17 * * 5"
+    },
+    "next_run_at": "2026-10-23T17:20:00+00:00",
+    "prompt_sha256": "3e089534a662485a65921900185ce4e0e4f373fdaa6b094f6f68822464eb216a"
+  },
+  "feishu": {
+    "state": "sent",
+    "message_id": "om_x100b6281ff2b20a0c1c01b49d558a4a",
+    "operation_id": "nightly-pipeline-20261023-feishu-acceptance"
+  },
+  "merge_commit": "476d325073b82b469f92996a3ffef6a3bfb8b611",
+  "pr": 409,
+  "ci": {
+    "run": 39956796815,
+    "conclusion": "success",
+    "head": "79fed1bb41327b1e16b2a50e33ab7e9facaeaad9"
+  },
+  "local_tests": 13,
+  "server_tests": 13,
+  "native_archive_read": true,
+  "isolated_routing_deduplication": true,
+  "natural_cycle": "not_observed",
+  "codex_incident_claim": "not_tested_nonincident_message_only",
+  "notion": {
+    "pages": [
+      "3fc9a8a79c4e81578ed1c5fa218837ea",
+      "3ff9a8a79c4e81bc8a4feb15aab87a5a"
+    ],
+    "marker": "nightly-pipeline-20261023",
+    "status": "both_readback_verified",
+    "scope": "explicitly_approved_redacted_summary_only"
+  },
+  "limitations": [
+    "native_recovery_wall_clock_only_prompt_constraint",
+    "new_daily_weekly_monthly_natural_cycles_pending",
+    "permanent_provider_failure_cannot_guarantee_finished_report"
+  ],
+  "coordination": {
+    "thread": "01a1683d-bdec-7040-8587-31432a98521e",
+    "title": "梳理FS与Hermes待办及优化",
+    "status": "message_sent_awaiting_schedule_review"
+  }
+}
