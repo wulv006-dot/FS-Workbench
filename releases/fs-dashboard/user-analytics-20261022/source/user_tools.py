@@ -9,12 +9,13 @@ PROPERTIES = {
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
     'as_of': {'type': 'string'}, 'policy_version': {'type': 'string'},
+    'state_basis': {'type': 'string', 'enum': ['current', 'period_end'], 'description': 'Default current: all covered history, last purchase measured against today; start/end only select interval behavior. period_end explicitly reconstructs a historical end-date state.'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
     'evidence_id': {'type': 'string'},
 }
 DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval purchasers, verified first/old/unknown buyers '
-               'are separate from end-date recent/silent/lost/long-lost states. Guest customers are included. '
+               'are separate from lifecycle states. Default current states use all covered orders and today, independent of interval dates. Explicit period_end reconstructs the historical state. Guest customers are included. '
                'Preserve coverage, partial historical pool, refund-revision limits, mature cohort denominators and versions. '
                'No customer identifiers, SQL, URLs, collection, outreach, coupon or price changes. '
                'Use the same snapshot_id to compare dashboard evidence. Return changes, supported and alternative explanations, '
@@ -47,10 +48,10 @@ def invoke(service, user, args):
     value = service.query(args, user)
     aggregate_only(value)
     section = section or value['query']['view']
-    heavy = {'projects', 'migration', 'trend', 'cohort_weeks'}
+    heavy = {'projects', 'migration', 'trend', 'cohort_weeks', 'trajectories'}
     result = {key: part for key, part in value.items() if key not in heavy}
     fields = {'summary': (), 'projects': ('projects',), 'transitions': ('migration',),
-              'migration': ('migration',), 'trend': ('trend',), 'cohort': ('cohort_weeks',), 'coverage': ()}[section]
+              'migration': ('migration',), 'trend': ('trend',), 'cohort': ('cohort_weeks',), 'trajectories': ('trajectories',), 'coverage': ()}[section]
     if any(key not in value for key in fields):
         raise ValueError('section_not_in_frozen_snapshot')
     result.update({key: value[key] for key in fields})
@@ -65,14 +66,14 @@ def invoke(service, user, args):
                   source_status_codes=dict(pay_status={'1': 'included by the confirmed effective-payment projection', '2': 'excluded'},
                                            order_status={'86': 'source partial-refund status code; not a number of orders'}),
                   interpretation=dict(H='verified first purchase + H*24h second-purchase horizon; does not set lifecycle thresholds',
-                                      stock='end-date covered pool; partial history and observed zero do not prove no real churn',
+                                      stock='state_basis=current uses today and all covered history; period_end uses historical cutoff. Interval dates never restrict the current customer pool. Partial history and observed zero do not prove no real churn',
                                       trend='each day recalculated from facts before its cutoff; early zero can follow short source history',
                                       high_value_entered_silent='interval entry event group; not current high-value silent stock',
                                       project_rules='project_policy_versions applies to project summaries and migration rows; top lifecycle_policy applies only to the selected summary',
                                       future_comparison='reuse one snapshot for its cards/tools; a later date or new data needs a new snapshot, preserving the old snapshot as baseline'))
     result.update(result_section=section, available_sections=[name for name, keys in (
         ('summary', ()), ('projects', ('projects',)), ('migration', ('migration',)),
-        ('trend', ('trend',)), ('cohort', ('cohort_weeks',)), ('coverage', ())) if all(key in value for key in keys)])
+        ('trend', ('trend',)), ('cohort', ('cohort_weeks',)), ('trajectories', ('trajectories',)), ('coverage', ())) if all(key in value for key in keys)])
     return result
 
 

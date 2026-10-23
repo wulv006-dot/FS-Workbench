@@ -1,12 +1,12 @@
 """Permission-injected query layer shared by UI and both Hermes readers."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict
 from copy import deepcopy
 from threading import RLock
 import json
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS
-from user_lifecycle import analyze, project_analysis, in_scope
+from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
 class Service:
@@ -47,14 +47,27 @@ class Service:
         self.permit(user, query)
         global_query = dict(query, scope='global', scope_id='', policy_version=config.get('global_policy_version', 'common-v1'))
         global_allowed = self.authorizer(user, global_query, False) is True
-        cache_key = digest([query, config, self.store.revision(), self.store.job_health(), user, global_allowed])
+        proof_path = self.store.root/'history-origin.json'
+        cache_key = digest([query, config, self.store.revision(), self.store.job_health(), user, global_allowed,
+                            proof_path.read_text('utf-8') if proof_path.is_file() else None])
         with self.cache_lock:
             if cache_key in self.cache:
                 self.cache.move_to_end(cache_key)
                 return deepcopy(self.cache[cache_key])
-        version, orders, jobs = self.store.read()
+        version, orders, jobs = self.store.read(analytics=True)
+        if proof_path.is_file():
+            from user_store import safe
+            safe(proof_path)
+            proof = json.loads(proof_path.read_text('utf-8'))
+            inventory = self.store.root/'history-full-inventory.json'
+            safe(inventory)
+            if (proof.get('contract') != 'fs-users-available-source-history-v1' or proof.get('sites') != sorted(config['sites'])
+                    or proof.get('inventory_sha256') != digest(json.loads(inventory.read_text('utf-8')))
+                    or not covered(jobs,list(config['sites']),stamp(proof['start']),stamp(proof['end_exclusive']))):
+                raise ValueError('history_completion_proof_mismatch')
+            config = dict(config,available_history_origin=proof['start'])
         result, private = analyze(orders, jobs, query, config)
-        result.update(contract_version='fs-users-v1', query=query, timezone='Asia/Shanghai',
+        result.update(contract_version='fs-users-v2', query=query, timezone='Asia/Shanghai',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=query['policy_version'], data_version=version,
                       lifecycle_policy=dict(version=query['policy_version'], thresholds_days=list(config['policies'][query['policy_version']]), day_basis='Asia/Shanghai calendar days since last effective purchase'),
@@ -90,6 +103,11 @@ class Service:
         result['requires_global_scope'] = global_allowed
         private['scope_projects'] = config['projects']
         result['coverage'].update(series_history_complete=config.get('series_history_complete', False), satellite_gaps=config.get('satellite_gaps', []), refund_policy=config.get('refund_policy'))
+        progress = self.store.root / 'history-backfill.json'
+        if progress.is_file():
+            # Purpose-specific aggregate receipt only; never expose raw source diagnostics.
+            receipt = json.loads(progress.read_text('utf-8'))
+            result['coverage']['backfill'] = {key: receipt[key] for key in ('status', 'start', 'end_exclusive', 'completed_windows', 'source_rows', 'at') if key in receipt}
         aggregate_only(result)
         frozen = self.store.save_snapshot(query, result, private)
         with self.cache_lock:
@@ -122,7 +140,24 @@ class Service:
                   for r in self.store.orders_at(public['data_version'], cid)
                   if stamp(r['paid_at']) < stamp(query['as_of']) and r['site'] in self.store.config['sites']
                   and (query['scope'] != 'site' or r['site'] == query['scope_id']) and (public.get('requires_global_scope') or in_scope(r, query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects']))))]
-        return dict(snapshot_id=public['snapshot_id'], customer=private['records'][cid],
+        scoped = [r for r in orders if r['valid'] and in_scope(dict(r, gid=r['project_id']), query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects'])))]
+        points = public.get('lifecycle_policy', {}).get('thresholds_days', self.store.config['policies'][query['policy_version']])
+        jobs = [dict(site=j['site'], start=j['start'], end=j['end_exclusive'], state=j['state']) for j in public['source_watermark']]
+        timeline = []
+        first = private['records'][cid]['first_paid_at']
+        for index, row in enumerate(scoped):
+            paid = stamp(row['paid_at'])
+            following = stamp(scoped[index+1]['paid_at']) if index+1 < len(scoped) else stamp(query['as_of'])
+            previous = stamp(scoped[index-1]['paid_at']) if index else None
+            gap = (paid.date()-previous.date()).days if previous else None
+            kind = 'first_purchase' if not index else 'lost_return' if gap >= points[1] else 'silent_wakeup' if gap >= points[0] else 'repeat_purchase'
+            timeline.append(dict(at=paid.isoformat(), kind=kind, stage='recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None))
+            for threshold, stage_name in zip(points, ('silent','lost','long_lost')):
+                at = datetime.combine(paid.date()+timedelta(days=threshold), datetime.min.time(), TZ)
+                through = min(at, stamp(public['coverage'].get('state_data_through',query['as_of'])))
+                if at < following and at < stamp(query['as_of']) and covered(jobs, public['coverage']['sites'], paid, through):
+                    timeline.append(dict(at=at.isoformat(),kind='enter',stage=stage_name,days_from_d0=(at.date()-stamp(first).date()).days if first else None))
+        return dict(snapshot_id=public['snapshot_id'], customer=private['records'][cid], timeline=timeline,
                     email=self.store.email(cid), orders=orders,
                     note='按当前已知状态冻结的历史；金额为整单关联金额，不跨项目分摊。')
 

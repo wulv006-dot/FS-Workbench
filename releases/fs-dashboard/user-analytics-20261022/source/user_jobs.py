@@ -55,7 +55,7 @@ def advance_day(store, now):
     from user_query import Service
     end = now.replace(hour=0, minute=0, second=0, microsecond=0)
     result = Service(store, lambda *_: True, clock=lambda: now).query(
-        dict(start=(end - timedelta(days=30)).isoformat(), end_exclusive=end.isoformat()), 'internal_daily_calculation')
+        dict(start=(end - timedelta(days=30)).isoformat(), end_exclusive=end.isoformat(), state_basis='period_end'), 'internal_daily_calculation')
     value = dict(day=end.date().isoformat(), snapshot_id=result['snapshot_id'], evidence_id=result['evidence_id'],
                  data_version=result['data_version'], observation_date=result['observation_date'],
                  lifecycle_cutoff=end.isoformat(), executed_at=now.isoformat(), source_collection=False,
