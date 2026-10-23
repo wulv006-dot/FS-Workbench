@@ -1,0 +1,96 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#webpage",
+      "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html",
+      "name": "FC 27 Star Performer Players & Trio Builder | MMOEXP",
+      "description": "Build your FC 27 Star Performer trio. Get 10% off activity-page items and stack eligible coupons, codes or member points. Check versions and platforms.",
+      "inLanguage": "en",
+      "dateModified": "2026-10-22T13:08:02.101028+00:00",
+      "image": "https://www.mmoexp.com/Fc-27/assets/scream-hero.webp",
+      "mainEntity": {
+        "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#featured-players"
+      },
+      "breadcrumb": {
+        "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#breadcrumb"
+      },
+      "isPartOf": {
+        "@type": "WebSite",
+        "@id": "https://www.mmoexp.com/#website",
+        "url": "https://www.mmoexp.com/",
+        "name": "MMOEXP"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://www.mmoexp.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "FC 27",
+          "item": "https://www.mmoexp.com/Fc-27.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Star Performer Trio",
+          "item": "https://www.mmoexp.com/Fc-27/Player-Trio.html"
+        }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#featured-players",
+      "name": "Featured players and services",
+      "numberOfItems": 3,
+      "itemListOrder": "https://schema.org/ItemListUnordered",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "Thing",
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916899",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916899",
+            "name": "Bradley Barcola/86/LW++/Star Performer",
+            "description": "86 · LW++ · Star Performer",
+            "image": "https://assets.mmoexp.com/images/202610/d85706bc2ab0f85b22560c0da86d1bfd423076de.png"
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "item": {
+            "@type": "Thing",
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916875",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916875",
+            "name": "Alphadjo Cissè/85/CAM++/Star Performer",
+            "description": "85 · CAM++ · Star Performer",
+            "image": "https://assets.mmoexp.com/images/202610/b9c507278fb3ce52545c42be1384e5ed2539ee5b.png"
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "item": {
+            "@type": "Thing",
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916851",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916851",
+            "name": "Noah Sadiki/85/CDM++/Star Performer",
+            "description": "85 · CDM++ · Star Performer",
+            "image": "https://assets.mmoexp.com/images/202610/5dfa8a103caafa652ce28b69545b267f68dd3989.png"
+          }
+        }
+      ]
+    }
+  ]
+}
