@@ -20,8 +20,12 @@ class Deployment(unittest.TestCase):
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
             self.assertEqual(len(release.TARGETS),8)
             self.assertFalse(release.NEW or release.AUTHORIZED_TIMERS)
-            previous=Mock();base=SimpleNamespace(restart_for=previous,DEEP_SCOPE='reader')
+            previous=Mock();inspect=Mock();base=SimpleNamespace(restart_for=previous,DEEP_SCOPE='reader',inspect=inspect)
             with mock_patch.object(module.tools,'load_base',return_value=base):base=module.load_base()
+            with mock_patch.object(module.subprocess,'check_output',return_value='sha256:current\n'):
+                base.inspect({'imageId':'sha256:current'},'stage')
+                inspect.assert_called_once_with({'imageId':'sha256:current'},'stage')
+                with self.assertRaisesRegex(ValueError,'image_changed'):base.inspect({'imageId':'sha256:old'},'stage')
             with mock_patch.object(module.subprocess,'run') as run:
                 with self.assertRaises(ValueError):base.restart_for({'scope':release.SCOPE})
                 fence=Mock();base.restart_for({'scope':release.SCOPE},fence)

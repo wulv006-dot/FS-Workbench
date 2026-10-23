@@ -16,6 +16,13 @@ adapter.AUTHORIZED_TIMERS = frozenset()
 
 def load_base():
     base = tools.load_base()
+    inspect = base.inspect
+    def preserved_image(manifest, stage, root=None):
+        current = subprocess.check_output(['docker','inspect','-f','{{.Image}}','fs-hermes-desktop'],text=True,timeout=10).strip()
+        if current != manifest['imageId']:
+            raise ValueError('search_native_image_changed')
+        return inspect(manifest, stage) if root is None else inspect(manifest, stage, root)
+    base.inspect = preserved_image
     base.TARGETS_CHANGED_NAV = {'/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'}
     restart = base.restart_for
 
