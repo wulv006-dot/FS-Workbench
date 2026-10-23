@@ -58,11 +58,18 @@ def attach_current_learning(book, root, knowledge=None):
             current = method["methods_text"] if topic == "methods" else method["governance_text"]
             pattern = r'\n<owner_learning_document path="([^"]+)" sha256="([a-f0-9]{64})">\n([\s\S]*?)\n</owner_learning_document>'
             matches = list(re.finditer(pattern, owner_text))
-            if len(matches) != len(files) or {match.group(1) for match in matches} != {row["path"] for row in files}:
+            owner_files = [row for row in files if 'id' not in row]
+            if len(matches) != len(owner_files) or {match.group(1) for match in matches} != {row["path"] for row in owner_files}:
                 raise ValueError("owner_learning_manifest_changed")
             documents = [("current/report-html-authoring/" + topic, method["sha256"], current)]
             documents += [(match.group(1), match.group(2), match.group(3)) for match in matches]
             if knowledge is not None:
+                if 'selection' in knowledge:
+                    from knowledge_catalog import verify_selection
+                    for row in verify_selection(knowledge['selection'])['entries']:
+                        documents.append(('knowledge/'+row['id']+'@'+row['revision'],row['content_sha256'],row['content']))
+                for row in knowledge.get('reviewed_skills',{}).get('documents',[]):
+                    documents.append(('reviewed-skills/'+row['id']+'/'+row['path'],row['sha256'],row['content']))
                 from learning_registry import context
                 for row in knowledge.get('experience_manifest',{}).get('experiences',[]):
                     documents.append(('experience/'+row['id'],row['sha256'],context({'experiences':[row]})))
@@ -207,11 +214,13 @@ class ConversationService:
                               self.hermes.diagnostics, day_text, day_text, self.hermes.source_root, user,
                               recent_days=14, lazy_session=turn_id)
             from business_context import freeze_learning
+            from knowledge_catalog import task_selection
             from skill_bundle import load_bundle
             from learning_registry import manifest,record_use
             with self.hermes.tasks.db() as db:
                 experiences=manifest(db,user,'FS',self.hermes.clock())
-            knowledge=freeze_learning(self.hermes.root,load_bundle(self.hermes.source_root,question=text),self.hermes.proxy.background,'daily',owner=user,experience_manifest=experiences)
+            selection=task_selection(self.hermes.root,owner=user,project='FS',channel='fs',task_type='conversation')
+            knowledge=freeze_learning(self.hermes.root,load_bundle(self.hermes.source_root,question=text),self.hermes.proxy.background,'daily',owner=user,experience_manifest=experiences,selection=selection)
             attach_current_learning(book, self.hermes.root,knowledge)
             attach_customer_tracking(book,self.customer_tracking,user)
             spec = {"period": {"start": day_text, "end_exclusive": (day + timedelta(days=1)).isoformat(),

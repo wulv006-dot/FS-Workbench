@@ -486,7 +486,7 @@ class HermesService:
             from learning_registry import manifest
             experiences=manifest(db,user,'FS',self.clock())
             from knowledge_catalog import report_selection
-            selection=report_selection(self.root,body)
+            selection=report_selection(self.root,body,owner=user)
             knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'],owner=user,experience_manifest=experiences,selection=selection)
             reused=self.matching_report(db,body,user,knowledge['version'])
             if reused:return 200,reused
@@ -631,6 +631,9 @@ class HermesService:
             if frozen is None:raise ValueError('knowledge_snapshot_missing')
             knowledge=loaded_learning(self.root,frozen['version'])
             book.skills=knowledge['skills']
+            if 'selection' in knowledge:
+                from conversation_service import attach_current_learning
+                attach_current_learning(book,self.root,knowledge)
             from learning_registry import record_use
             with self.tasks.db() as db:record_use(db,key,owner,'FS',knowledge['version'],knowledge.get('experience_manifest',{'experiences':[]}))
             book.background=self.proxy.background

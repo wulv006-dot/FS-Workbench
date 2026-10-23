@@ -26,6 +26,7 @@ class Factory:
     def __init__(self, **options):
         self.options = options
         self.session_id = options['session_id']
+        self.ephemeral_system_prompt = options.get('ephemeral_system_prompt')
         names = READ_TOOLS if options.get('enabled_toolsets') == ['fs_knowledge'] else READ_TOOLS | {'terminal'}
         self.valid_tool_names = set(names)
         self.tools = [{'function': {'name': name}} for name in names]
@@ -88,7 +89,7 @@ class Entry(unittest.TestCase):
         self.policy['native']['enabled'] = False; self.save_policy()
         self.assertIs(type(self.construct()), Factory)
         with patch.object(entry, 'adapter', side_effect=AssertionError('must not inspect unrelated profile')):
-            self.assertIs(type(entry.construct_fs_agent(Factory, session_id='other', platform='feishu')), Factory)
+            self.assertIs(type(entry.construct_fs_agent(Factory, session_id='other', platform='slack')), Factory)
         self.policy['native']['enabled'] = True; self.save_policy()
         agent = self.construct(enabled_toolsets=[])
         self.assertEqual(agent.options['enabled_toolsets'], [])
@@ -121,9 +122,10 @@ class Entry(unittest.TestCase):
                      'TOOLSET_SESSION_PLATFORMS': toolsets.TOOLSET_SESSION_PLATFORMS}
         exec(symbol['code'], namespace)
         fn = namespace['session_disabled_toolsets']
-        for platform in ['feishu', 'api_server', 'cli', None]:
+        for platform in ['api_server', 'cli', None]:
             self.assertIn('fs_knowledge', fn([], platform))
         self.assertEqual(fn([], 'desktop'), [])
+        self.assertEqual(fn([], 'feishu'), [])
 
     def test_desktop_task_binding_precedes_native_turn_and_rejects_spoofed_ids(self):
         self.policy['native']['readonly_sessions'] = {self.info['session_id']: {'task_ids': ['actual-task']}}

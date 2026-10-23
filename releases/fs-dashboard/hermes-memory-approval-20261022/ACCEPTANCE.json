@@ -1,0 +1,128 @@
+{
+  "status": "offline_candidate",
+  "tests_run": 32,
+  "passed": 31,
+  "skipped": 1,
+  "failed": 0,
+  "runtime": "existing bundled Python Windows",
+  "skipped_reason": "real symlink creation denied WinError1314; independent mocked nonregular-entry branch passed",
+  "not_executed": [
+    "formal CI",
+    "production deploy",
+    "Linux real symlink and uid/mode/current mount verification",
+    "real native apply_skill_pending integration",
+    "native cross-process lock contention",
+    "skills.write_approval switch",
+    "06:00/06:10 prompt update",
+    "real model/group messages",
+    "FS/Feishu next task and natural daily approval"
+  ],
+  "new_native_helpers_are_fixtures_only": true,
+  "original_memory_tests_preserved": true,
+  "read_only_full_package_inspect": "inspect --decision-file tested: backup read without apply or receipt",
+  "local_environment": {
+    "python": "3.12.14",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "bits": 64
+  },
+  "affected_groups": {
+    "hermes-memory-approval": {
+      "run": 32,
+      "passed": 31,
+      "skipped": 1
+    },
+    "knowledge-layering": {
+      "run": 85,
+      "passed": 85
+    },
+    "hermes-server-unify": {
+      "run": 61,
+      "passed": 61
+    },
+    "hermes-conversation": {
+      "run": 26,
+      "passed": 26
+    },
+    "learning-fs-producer": {
+      "run": 5,
+      "passed": 5
+    },
+    "learning-native-producer": {
+      "run": 11,
+      "passed": 11
+    },
+    "fc-pricing-v2": {
+      "run": 64,
+      "passed": 64
+    },
+    "coins-workflow-consumer": {
+      "run": 23,
+      "passed": 23
+    },
+    "coins-evidence-consumer": {
+      "run": 26,
+      "passed": 26
+    }
+  },
+  "affected_unit_total": {
+    "run": 333,
+    "passed": 332,
+    "skipped": 1,
+    "failed_final": 0,
+    "formal_ci": false
+  },
+  "other_checks": [
+    "original pr-fast selfcheck including fail/error/skip/zero propagation passed",
+    "FC V2 Node UI checks passed",
+    "pr_fast and verify_native_readonly syntax passed",
+    "native verify real runtime not executed"
+  ],
+  "initial_failure_preserved": {
+    "group": "hermes-conversation/deploy",
+    "tests_failed_initially": [
+      "test_exact_stage_and_manifest",
+      "test_followup_release_accepts_precise_existing_new_target",
+      "test_worker_profile_knowledge_isolated_without_hiding_session_state"
+    ],
+    "reason": "unchanged worker-install-state-isolation.conf was CRLF-transformed by Windows checkout",
+    "working_before_sha256": "cabd8d44912995eb7390fc624a251b5357159eb7589cc1693ae708d99850c57f",
+    "head_exact_sha256": "2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a",
+    "resolution": "restored exact HEAD bytes only; git logical diff0; original SHA and validator unchanged; only three failures rerun and passed"
+  },
+  "independent_review": [
+    "native uppercase module wrong rejection fixed by owning agent and affected cases passed",
+    "ordinary FS and native use shared profile; complete package metadata checks retained",
+    "unapproved Feishu identity mappings remain disabled candidates",
+    "actual skills pending directory and operations enter daily model input; script still read-only",
+    "same root receipt publishes only reviewed index; future tasks read current and in-flight tasks keep frozen content",
+    "unknown native application and known completed projection failure stay distinct"
+  ],
+  "python_executable": "C:\\Users\\Administrator\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "commands_by_candidate_relative_cwd": {
+    ".": "python -c \"import tools.pr_fast as p; p.selfcheck()\"",
+    "releases/fs-dashboard/hermes-memory-approval-20261022": "python -m unittest -v test_review_queue test_reviewed_skills test_daily_review",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests": "python -m unittest -v test_knowledge test_closeout test_knowledge_release test_native_plan test_native_release test_native_prepare test_task_selection test_learning_catalog",
+    "releases/fs-dashboard/hermes-server-unify-20261022": "python -m unittest -v test_migrate test_fs_readonly test_native_knowledge test_native_entry test_knowledge_audit test_native_task_learning",
+    "releases/fs-dashboard/hermes-conversation-20261018/tests": "python -m unittest -v test_conversation_store test_conversation_service test_worker_admission test_lazy_evidence",
+    "releases/fs-dashboard/hermes-conversation-20261018/deploy": "python -m unittest -v test_http test_release",
+    "releases/fs-dashboard/hermes-learning-closure-20261023": "python -m unittest -v test_prepare",
+    "releases/fs-dashboard/hermes-learning-closure-20261023/tests": "python -m unittest -v test_learning_native_release",
+    "releases/fc-coins/fc-pricing-v2-20261022/tests": [
+      "python -m unittest -q test_pricing_v2 test_control test_guards",
+      "node test_ui.js"
+    ],
+    "releases/fs-dashboard/fc-coins-workflow-20261022/tests": "python -m unittest -q test_workflow",
+    "releases/fs-dashboard/fc-coins-evidence-20261021/tests": "python -m unittest -q test_coins_evidence"
+  },
+  "heartbeat_prompt": {
+    "candidate_only": true,
+    "mode": "append_increment",
+    "original_prompt_bytes_preserved": true,
+    "original_sha256": "54681cfabec5c122fb8a6d0a56a98a94b4f550f229ce90cfef185aad67ff9edc",
+    "original_memory_review_ability_preserved": true,
+    "adds_business_authority": false,
+    "automation_update_calls": 0,
+    "combined_prompt": "root ignored review-packet"
+  },
+  "last_update_validation": "documentation/config-candidate text and hashes only; code unchanged; prior tests reused"
+}
