@@ -94,6 +94,45 @@ class Native(unittest.TestCase):
         self.assertTrue(v['history']);self.assertEqual(v['entries'][0]['effective_at'],'2026-10-21')
         with self.assertRaisesRegex(ValueError,'explicit_history'):self.read(revision='v1')
 
+    def test_default_index_hides_retired_metadata_and_explicit_history_preserves_it(self):
+        self.index['entries'].append(dict(self.row,revision='v1',layer='archive',status='retired'))
+        self.index['entries'].append(dict(self.row,id='fc.idea',revision='draft',layer='candidate',status='pending'))
+        self.save_index();self.save_policy();self.prompt(self.info)
+        kwargs=dict(session_id=self.info['session_id'],task_id='original-task-1')
+        current=self.adapter.call('fs_get_knowledge_index',{},**kwargs)
+        self.assertEqual([(r['id'],r['revision']) for r in current['entries']],[('fc.rule','v2')])
+        self.assertFalse(current['history']);self.assertTrue(current['history_available'])
+        history=self.adapter.call('fs_get_knowledge_index',{'history':True},**kwargs)
+        self.assertTrue(history['history'])
+        self.assertEqual({r['revision'] for r in history['entries']},{'v1','v2'})
+        self.assertEqual(self.adapter.call('fs_get_knowledge_index',{},**kwargs),current)
+        self.assertNotIn('fc.idea',json.dumps(history))
+        with self.assertRaisesRegex(ValueError,'history_type'):
+            self.adapter.call('fs_get_knowledge_index',{'history':'false'},**kwargs)
+
+    def test_index_keeps_conflicts_visible_and_schema_explains_history(self):
+        self.index['entries'].append(dict(self.row,id='fc.disputed',status='conflict'))
+        self.save_index();self.save_policy();self.prompt(self.info)
+        index=self.adapter.call('fs_get_knowledge_index',{},session_id=self.info['session_id'],task_id='original-task-1')
+        self.assertIn('fc.disputed',[r['id'] for r in index['entries']])
+        ctx=Mock();register(ctx)
+        schemas={c.kwargs['name']:c.kwargs['schema'] for c in ctx.register_tool.call_args_list}
+        self.assertIn('history',schemas['fs_get_knowledge_index']['parameters']['properties'])
+        self.assertIn('revision',schemas['fs_read_knowledge']['description'])
+        self.assertIn('不要自报调用次数',self.adapter.prompt(self.info))
+        self.assertIn('路径日期不代表文件修订或生效时间',self.adapter.prompt(self.info))
+
+    def test_previous_unfiltered_index_receipt_is_preserved_but_not_reused(self):
+        self.index['entries'].append(dict(self.row,revision='v1',layer='archive',status='retired'))
+        self.save_index();self.save_policy();pin=self.adapter.pin(self.info)
+        key=dict(session_id=self.info['session_id'],task_id='original-task-1',tool='fs_get_knowledge_index',args={})
+        old_path=self.adapter._name('use',key)
+        self.adapter._save(old_path,dict(identity=key,pin_sha256=pin['receipt_sha256'],result={'entries':pin['entries']}))
+        before=(self.root/old_path).read_bytes()
+        current=self.adapter.call('fs_get_knowledge_index',{},session_id=self.info['session_id'],task_id='original-task-1')
+        self.assertEqual(len(current['entries']),1)
+        self.assertEqual((self.root/old_path).read_bytes(),before)
+
     def test_conflicting_effective_rules_return_conflict(self):
         self.index['entries'].append(dict(self.row,revision='v3'));self.save_index();self.save_policy()
         self.prompt(self.info);self.assertEqual(self.read()['status'],'conflict')

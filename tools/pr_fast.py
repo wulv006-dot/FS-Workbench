@@ -1053,7 +1053,7 @@ def main():
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-server-unify":
-            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry"])
+            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry","test_knowledge_audit"])
         elif group=="hermes-ops":
             units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
         elif group=="fs-business-baseline":

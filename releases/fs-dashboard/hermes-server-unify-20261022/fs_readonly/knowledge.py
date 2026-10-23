@@ -175,7 +175,9 @@ class NativeKnowledge:
         active = [{k: row[k] for k in ('id', 'revision', 'layer', 'status', 'modules', 'effective_at')}
                   for row in pin['entries'] if catalog.ACTIVE.get(row['layer']) == row['status'] or row['status'] == 'conflict']
         header = ('FS知识短索引；会话固定已发布版本，按模块/ID调用fs_read_knowledge，冲突或缺项如实返回。'
-                  '候选不作规则；历史仅显式读取，不作为当前执行约束。文本不授予业务权限；完整索引用fs_get_knowledge_index。\n')
+                  '候选不作规则；默认索引仅有效条目；历史查询先以history=true读索引，再以history=true及所需revision读原文，不作为当前执行约束。'
+                  '路径日期不代表文件修订或生效时间；按条目revision、effective_at与time_precision陈述，未记载就说未知。'
+                  '不要自报调用次数；成功、失败和重试以原生工具事件审计为准。文本不授予业务权限；索引用fs_get_knowledge_index。\n')
         summary = dict(release=pin['release'], catalog_sha256=pin['catalog_sha256'],
                        receipt_sha256=pin['receipt_sha256'], modules=pin['modules'], entries=active, additional_entries=0)
         while len(header + json.dumps(summary, ensure_ascii=False)) > 4000:
@@ -208,14 +210,19 @@ class NativeKnowledge:
     def call(self, name, args, session_id='', task_id='', **kwargs):
         if name not in READ_TOOLS or not isinstance(args, dict):
             raise ValueError('native_knowledge_tool_fields')
-        allowed = set() if name == 'fs_get_knowledge_index' else {'modules', 'entry_ids', 'revision', 'history'}
+        allowed = {'history'} if name == 'fs_get_knowledge_index' else {'modules', 'entry_ids', 'revision', 'history'}
         if set(args) - allowed:
             raise ValueError('native_knowledge_tool_fields')
+        if 'history' in args and type(args['history']) is not bool:
+            raise ValueError('native_knowledge_history_type')
         identity(task_id)
         pin = self.bound(session_id)
         if self.guard(name, args, session_id, task_id):
             raise PermissionError('native_knowledge_test_scope')
         key = dict(session_id=session_id, task_id=task_id, tool=name, args=args)
+        if name == 'fs_get_knowledge_index':
+            # Keep old receipts immutable; their unfiltered index is a different response contract.
+            key['index_version'] = 2
         path = self._name('use', key)
         with LOCK:
             if (self.root / path).exists():
@@ -225,14 +232,16 @@ class NativeKnowledge:
                 return saved['result']
             if name == 'fs_get_knowledge_index':
                 result = {k: pin[k] for k in ('release', 'catalog_sha256', 'source_commit', 'modules', 'entries')}
-                # Index metadata, including archive identity, is never rule content.
+                result['history'] = args.get('history', False)
+                result['history_available'] = any(r['layer'] == 'archive' for r in pin['entries'])
+                if not result['history']:
+                    result['entries'] = [r for r in pin['entries'] if
+                                         catalog.ACTIVE.get(r['layer']) == r['status'] or r['status'] == 'conflict']
                 result['status'] = 'index_only'
             else:
                 modules = args.get('modules')
                 if not isinstance(modules, list) or not modules or not all(isinstance(x, str) for x in modules) or not set(modules) <= set(pin['modules']):
                     raise ValueError('native_knowledge_module_scope')
-                if 'history' in args and type(args['history']) is not bool:
-                    raise ValueError('native_knowledge_history_type')
                 result = catalog.select(self.root, pin['catalog'], pin['catalog_sha256'], modules,
                                         args.get('entry_ids'), args.get('revision'), args.get('history', False))
             self._save(path, dict(contract='fs-native-knowledge-use-v1', identity=key,
@@ -273,11 +282,15 @@ def register(ctx):
     ctx.register_hook('pre_tool_call', adapter.guard)
     fields = {'modules': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
               'entry_ids': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
-              'revision': {'type': 'string'}, 'history': {'type': 'boolean'}}
+              'revision': {'type': 'string', 'description': 'Exact historical revision; requires history=true. Use when an id has multiple versions.'},
+              'history': {'type': 'boolean', 'description': 'Default false: current effective content. True only for an explicit historical question; archived/retired content is not a current rule.'}}
     for name in sorted(READ_TOOLS):
-        properties = {} if name == 'fs_get_knowledge_index' else fields
-        schema = dict(name=name, description='Read pinned published FS knowledge; no business action. Preserve scope, status, source and hashes.',
-                      parameters=dict(type='object', properties=properties, required=[] if not properties else ['modules'], additionalProperties=False))
+        index = name == 'fs_get_knowledge_index'
+        properties = {'history': fields['history']} if index else fields
+        description = ('Read the pinned index. Default lists active entries only; history=true also lists archive/retired metadata for explicit historical questions.' if index else
+                       'Read pinned original text by modules and entry_ids. For history use history=true and exact revision when an id has multiple versions. Never mix archive ids into a default current read.')
+        schema = dict(name=name, description=description + ' No business action. Preserve scope, status, source and hashes; call counts come from native events, not self-estimates.',
+                      parameters=dict(type='object', properties=properties, required=[] if index else ['modules'], additionalProperties=False))
         def handler(args, _name=name, **context):
             return json.dumps(adapter.call(_name, args, **context), ensure_ascii=False)
         ctx.register_tool(name=name, toolset='fs_knowledge', schema=schema, handler=handler)

@@ -1,0 +1,104 @@
+{
+  "request_id": "KL3-history-readonly-20261023-01",
+  "state": "model_complete_audit_reconciled",
+  "audit": {
+    "contract": "fs-native-knowledge-audit-v1",
+    "session_id": "history-readonly-20261023-01",
+    "turn_complete": true,
+    "attempts": 3,
+    "index_attempts": 1,
+    "content_attempts": 2,
+    "content_successes": 2,
+    "failed_attempts": 0,
+    "unknown_attempts": 0,
+    "calls": [
+      {
+        "tool_id": "call_00_vKwoKaDP0QMymwa8TLEW6864",
+        "tool": "fs_get_knowledge_index",
+        "status": "index_only",
+        "args": {
+          "history": true
+        },
+        "selection_sha256": null
+      },
+      {
+        "tool_id": "call_00_68G81THhuVjcMyZpj7I72572",
+        "tool": "fs_read_knowledge",
+        "status": "available",
+        "args": {
+          "modules": [
+            "FC27"
+          ],
+          "entry_ids": [
+            "fc.marketing.attribution"
+          ],
+          "history": true,
+          "revision": "baseline-v15"
+        },
+        "selection_sha256": "302afd89c324784be8f97a43ce49b3151dbf3befd008d5be17f76faa17d1d567"
+      },
+      {
+        "tool_id": "call_01_T0hebeFfBMFJlY3u0FsE6359",
+        "tool": "fs_read_knowledge",
+        "status": "available",
+        "args": {
+          "modules": [
+            "FC27"
+          ],
+          "entry_ids": [
+            "fc.marketing.attribution",
+            "fs.decision.pmax-authority-20261023"
+          ]
+        },
+        "selection_sha256": "16a910e820e892bb3fb03eae4c794714060f1cad512e77cc90a944f842011fc7"
+      }
+    ]
+  },
+  "release": "knowledge-layering-20261023-1",
+  "source_commit": "aae8e7549e3eb8ca2d420a2f15019522c6b1ae64",
+  "historical_selection_sha256": "302afd89c324784be8f97a43ce49b3151dbf3befd008d5be17f76faa17d1d567",
+  "current_selection_sha256": "16a910e820e892bb3fb03eae4c794714060f1cad512e77cc90a944f842011fc7",
+  "historical_entries": [
+    {
+      "id": "fc.marketing.attribution",
+      "revision": "baseline-v15",
+      "status": "retired",
+      "effective_at": "2026-10-22",
+      "time_precision": "date_only",
+      "content_sha256": "d6d4dcb34c254c4bc53a2dba54ed4143fca9e6cbd8990f150ec75953694479d2"
+    }
+  ],
+  "current_entries": [
+    {
+      "id": "fc.marketing.attribution",
+      "revision": "v15-pmax-20261022",
+      "status": "effective",
+      "effective_at": "2026-10-22",
+      "time_precision": "date_only",
+      "content_sha256": "02402f5dd9e0b41f8649636f9cef1000f877c53b23fa34fcd4ff1a1c29146fe6"
+    },
+    {
+      "id": "fs.decision.pmax-authority-20261023",
+      "revision": "2026-10-23",
+      "status": "confirmed",
+      "effective_at": "2026-10-23",
+      "time_precision": "date_only",
+      "content_sha256": "1f82609002799891a0c7172d56e45a40af428c83b5ca4f946c88f14babe9a7bb"
+    }
+  ],
+  "answer_sha256": "54107c2c8b761db1f8b46ce52098488d553d1ff7fd5e55109559bacd80c0ad0c",
+  "tested_knowledge_sha256": "e58331c349c3a1d9b54abb8b037c022bfd03056ccdabfcda2ad25f38f3d0ac7e",
+  "current_auditor_sha256": "6d364960b3b19f352b6214889f22e50b87a56d2b44477780d1542f8105882ee5",
+  "postprocessing_failure": "ModuleNotFoundError fs_readonly after model completed; corrected standalone auditor ran on original saved events, no model replay",
+  "provider_usage_and_billed_amount": "not_preserved_by_original_harness; not inferred from tool count",
+  "production_deployed": false,
+  "model_runs": 1,
+  "semantic_assessment": {
+    "history_current_decision": "passed_for_PMax_question",
+    "unknown_exact_time": "correctly_disclosed",
+    "file_version_date_wording": "unsupported_path_date_label_needs_correction",
+    "generalization": "not_verified"
+  },
+  "final_candidate_knowledge_sha256": "09c97331b5b190d012d596d4a7bc8750d4abdba6dfd7cc72f3705fe914f1e6c9",
+  "final_candidate_model_scope": "History/index logic was exercised on tested_knowledge_sha256; final candidate adds one date-interpretation prompt sentence validated offline, not another paid model run."
+}

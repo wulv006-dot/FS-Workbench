@@ -1,0 +1,60 @@
+{
+  "status": "candidate_not_deployed",
+  "base": "b9848360d8f29f2a3f064d13065adb67bf707bd7",
+  "branch": "codex/knowledge-history-and-channel-parity-20261023",
+  "source_files": {
+    "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py": "09c97331b5b190d012d596d4a7bc8750d4abdba6dfd7cc72f3705fe914f1e6c9",
+    "releases/fs-dashboard/hermes-server-unify-20261022/knowledge_audit.py": "6d364960b3b19f352b6214889f22e50b87a56d2b44477780d1542f8105882ee5",
+    "releases/fs-dashboard/hermes-server-unify-20261022/verify_history_model.py": "44c24d0ed529c1ab5cfc14655d24396e183015d39a67ee7ae57e98a06d1a5daf",
+    "releases/fs-dashboard/hermes-server-unify-20261022/test_knowledge_audit.py": "2d06f1e6dd6e64e68f4b426187fcef4b2b8855e49e6f2f62736afca06daa4c3a",
+    "releases/fs-dashboard/hermes-server-unify-20261022/test_native_knowledge.py": "53b5c5ace62581ef99274e1c2ad8f4022b00ff4778dc3fd772ce6f30f773a461",
+    "releases/fs-dashboard/knowledge-layering-20261023/deploy/native_release.py": "93a21ffb8c499fce42ed18e414f67192ebf8131deca4c105e47888e81a2a00ec",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_native_release.py": "eb2628dc3460cc373ac89a58964e813bbaaf8ae230e6b3aa8a34c9616cb81c13",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_native_prepare.py": "e0065146edcdc7777049790beb40595cbb792d1a5507a9ffc6d55b6c69cfa02f",
+    "tools/prepare_native_knowledge_release.py": "d8f5ba95a8e9ff2b52f0d44efddadf2c56b82f0ef50cf5f243c256c57b38b365",
+    "tools/pr_fast.py": "ae1395795ce50d9d41622b5fc016a9cd6d42ebb83fb69c276b24ea0ae5c7672b"
+  },
+  "real_history_request": "KL3-history-readonly-20261023-01",
+  "real_model_read_scopes": [
+    "old PMax formal rule",
+    "current PMax formal rule",
+    "confirmed source decision"
+  ],
+  "actual_production_targets": {
+    "plugin": "/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/knowledge.py",
+    "image": "sha256:d51507514f3f52fdcc3cb6bc0d36e2b12863517aa590ae1338dd462ffe1636a4",
+    "unchanged_policy": "only dedicated Desktop session 20261023_033049_63d62f; report opt-in requests=0"
+  },
+  "live_sources": {
+    "/opt/fs-hermes-fc/conversation_service.py": "c15df558590bb931da03d8230b1ba8f17e48a3f4efa02ed49ee24068b3ae48c2",
+    "/opt/fs-hermes-fc/hermes_worker.py": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00",
+    "/opt/fs-hermes-fc/business_context.py": "3b691e163f03d16e715435a028f2405d999bade8ebc8a1213ad33d1c3569fe69",
+    "/opt/fs-hermes-fc/controller.py": "935f176486dd6d0129a14c9a2da3a7255e0b53a1ff0d7a005e03bddf051c8fb7",
+    "/opt/hermes/gateway/run_turn_runner.py": "6ec879a91aa09765515a69368c886d1ce4d3174b159868c966e8740e9cf1b347"
+  },
+  "skill_review": {
+    "memory_gate": true,
+    "native_skills_gate": false,
+    "skill_md_count": 77,
+    "review_queue_skills_support": false,
+    "production_extension_not_enabled": true
+  },
+  "post_test_protection": {
+    "four_payloads_unchanged": true,
+    "metadata_check": "859 passed before static hash check",
+    "static_files": 615,
+    "static_matches": 614,
+    "changed_file": "/profile/skills/.usage.json",
+    "interpretation": "usage telemetry drift observed; cause not attributed; no rule/skill-body drift found; never reset to old hash",
+    "services": "all five active; no stop/restart by this task"
+  },
+  "checks": {
+    "native_local": 34,
+    "knowledge_local": 55,
+    "formal_ci": "not_yet_run",
+    "production_release": false
+  },
+  "integrated_base": "2156bf4a3d5bf9d0217731aa6a618982ac2575b9",
+  "source_hash_basis": "utf8_lf",
+  "existing_publisher_adapter_sha256": "d2ab05e0d3efa8003cebb43d75f44c51cd58f1b624c09388322de36e5ce78d58"
+}

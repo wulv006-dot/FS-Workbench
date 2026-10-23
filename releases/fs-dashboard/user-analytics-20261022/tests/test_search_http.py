@@ -45,3 +45,11 @@ class SearchHTTP(unittest.TestCase):
         self.assertIn(b'if ($request_method != POST)',ROUTE)
         self.assertIn(b'auth_request /__auth_verify',ROUTE)
         with self.assertRaises(ValueError):patch(patch(before))
+
+    def test_cold_query_timeout_changes_only_aggregate_route(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'deploy'))
+        from patch_search import patch_query_timeout
+        before=b'other 25s;\nlocation = /dashboard/users/data.json {\n    auth_request /__auth_verify;\n    proxy_read_timeout 25s;\n}\nprivate 25s;'
+        after=patch_query_timeout(before)
+        self.assertEqual(after,before.replace(b'proxy_read_timeout 25s;',b'proxy_read_timeout 60s;'))
+        with self.assertRaises(ValueError):patch_query_timeout(after)
