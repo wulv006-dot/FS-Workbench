@@ -1,0 +1,18 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:91299862",
+  "candidate_sha256": "09fb269d33b0cfd0a392756a8592828331e32e8b4ca0f6bdd71d0c82f2830880",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "已核对原审批决定、原候选哈希及completed实际应用回执；本次只归档，不重放应用。",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS"
+  ],
+  "receipt_sha256": "c835f73d9cd3d458d5431fbfce666d787dbc8c265ec6895d0831ce507abe6ec9",
+  "request_id": "e0aa1637704841255ca967611e02c102764e5101ee392869450bbb511bad1c32",
+  "runtime_activation": false,
+  "summary": "共享上下文已补充当前权威入口、历史状态和候选审核说明，原完整方法输入保留；具体规则继续引用项目现行合同。"
+}
