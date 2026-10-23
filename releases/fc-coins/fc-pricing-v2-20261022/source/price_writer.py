@@ -1,5 +1,6 @@
 """FC27 browser writer with preview, source, before-value and readback guards."""
 from __future__ import annotations
+from isolated_backend import open_backend, close_backend
 
 import sys as _order_sys
 from pathlib import Path as _OrderPath
@@ -213,6 +214,35 @@ def mirror_after_order_confirmation(record):
         return result
 
 
+def confirm_sync_recipient(record):
+    """A lost DOM receipt may be reconciled by two stable recipient GETs, never replayed."""
+    import time
+    from p2pah_session_service import SessionManager, read_private_config, allowed_admin_usernames
+    from coin_all_sync_job import api, read_row, PRODUCTS
+    manager = SessionManager(read_private_config())
+    if not manager.ensure():
+        raise ValueError('sync_recipient_session_unavailable')
+    identity = api(manager, '/admin/index/index')
+    if not isinstance(identity, dict) or identity.get('adminInfo', {}).get('username') not in allowed_admin_usernames():
+        raise ValueError('sync_recipient_identity_invalid')
+    previous = None
+    rounds = []
+    for attempt in range(2):
+        current_cycle_quote(record['preview_id'], record['selected'], record['automation_policy_revision'])
+        rows = {p: read_row(manager, p, 266) for p in PRODUCTS}
+        if any(not same_money(rows[t['platform']]['unit_price'], t['quote']) for t in record['targets']):
+            raise ValueError('sync_recipient_price_unconfirmed')
+        current = {p: {'unit_price': str(r['unit_price']), 'tier_prices': r['more']['price']} for p, r in rows.items()}
+        if previous is not None and current != previous:
+            raise ValueError('sync_recipient_unstable')
+        rounds.append(current)
+        previous = current
+        if attempt == 0:
+            time.sleep(1)
+    return {'basis': 'two_stable_original_admin_recipient_reads', 'rounds': rounds,
+            'checked_at': datetime.now(timezone.utc).isoformat(), 'sync_replayed': False}
+
+
 def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, check_only=False,
             margin_reason="", policy_revision=None, automatic=False):
     preview_id = parse_uuid(preview_id)
@@ -253,9 +283,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
     record['hermes_decision']=quote.get('hermes_decision')
     record['pricing_basis']={'evidence':quote['evidence'],'edits':quote.get('edits') or {},'result':quote['result']}
     with sync_playwright() as playwright:
-        browser = playwright.chromium.connect_over_cdp(
-            os.environ.get("FC27_CDP_ENDPOINT", "http://127.0.0.1:9225"),
-            timeout=8000, no_defaults=True)
+        browser = open_backend(playwright)
         if len(browser.contexts) != 1:
             raise ValueError("browser_context_ambiguous")
         _global_order.apply(browser.contexts[0])
@@ -302,11 +330,18 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
             hooks_before_write(load_policy(), selected, automatic,
                                current_quote=lambda: current_cycle_quote(preview_id, selected, policy_revision))
             stage(record, "syncing")
-            feedback = page.evaluate("async () => FC27RepricingDOM.clickSync('mmoexp.com')")
-            if not feedback or not feedback.get("success") or not feedback.get("message"):
-                raise ValueError("sync_feedback_unconfirmed")
-            stage(record, "sync_feedback", sync_confirmed=True,
-                  sync_message=str(feedback["message"])[:120])
+            try:
+                feedback = page.evaluate("async () => FC27RepricingDOM.clickSync('mmoexp.com')")
+                if not feedback or not feedback.get("success") or not feedback.get("message"):
+                    raise ValueError("sync_feedback_unconfirmed")
+            except Exception as exc:
+                stage(record, 'sync_recipient_check', sync_feedback_error=type(exc).__name__)
+                receipt = confirm_sync_recipient(record)
+                stage(record, 'sync_recipient_confirmed', sync_confirmed=True,
+                      sync_recipient_readback=receipt)
+            else:
+                stage(record, "sync_feedback", sync_confirmed=True,
+                      sync_message=str(feedback["message"])[:120])
             page.reload(wait_until="domcontentloaded", timeout=35000)
             after = read_backend(page, preview["targets"], prepare=True)
             for platform in PLATFORMS:
@@ -327,7 +362,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
             if not check_only and (ROOT / "executions" / f"{execution_id}.json").exists():
                 reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
                 attempted_stage = record["stage"]
-                uncertain = attempted_stage in {"syncing", "sync_feedback"}
+                uncertain = attempted_stage in {"syncing", "sync_feedback", "sync_recipient_check", "sync_recipient_confirmed"}
                 try:
                     observed = read_backend(page, preview["targets"])
                     for target in preview["targets"]:
@@ -341,7 +376,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
                 stage(record, "stopped", status=status, error=reason[:100])
             raise
         finally:
-            page.close()
+            close_backend(page)
 
 
 if __name__ == "__main__":

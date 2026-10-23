@@ -1,0 +1,33 @@
+{
+  "scope": "fc-pricing-completion-20261024",
+  "state": "tested_candidate",
+  "base": "79f07ec5f20033baacd8dc56f204909018613cf0",
+  "files": [
+    {
+      "candidate": "source/fc27-quote-cloud.js",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc27-quote-cloud.js",
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "before_sha256": "22a8bd25adce0a5dbbfc8f728a969952abcd5c1e3aa6a3f95c542cde0e220dc0",
+      "after_sha256": "7c4b9972b2c671e68dce766ff84678317a822bd6b5ff02f34e506d91a38ac80f"
+    },
+    {
+      "candidate": "source/fc27-coins.html",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc27-coins.html",
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "before_sha256": "2cea30bee098ef9f923603241eae8abd95cbabe5e7b36b4fe638c22851c50b5e",
+      "after_sha256": "e6e7728f1d431a8d5688a8139287205b6dd9109486348a610eb9ae9e72e33d71"
+    },
+    {
+      "candidate": "source/price_writer.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/price_writer.py",
+      "target": "/opt/fc27-cloud-browser/price_writer.py",
+      "before_sha256": "c3e463cc1921e3b16595fa8c4e947d57fffde7b84aa3997d2112228034cfcc4f",
+      "after_sha256": "02a87746c97a52a8f453979ce7562b7aebcf470eeaede7c872874a7f506b9690"
+    }
+  ],
+  "price_operation": "eb381b08-673a-5cbe-a488-00870eed4277",
+  "real_price_public_readback": "verified_2026-10-24_01:58_Asia_Shanghai",
+  "policy_unchanged": true,
+  "tracking": "PAUSED_user_manual_natural_acceptance",
+  "unknown_history_preserved": true
+}

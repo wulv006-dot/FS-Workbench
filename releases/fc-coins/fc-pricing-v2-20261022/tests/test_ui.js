@@ -3,7 +3,21 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const root=path.join(__dirname,'../source');
-const {pageToUnit,historyCells,estimatedMarginText}=require(path.join(root,'fc27-quote-cloud.js'));
+const {pageToUnit,historyCells,estimatedMarginText,marketOffers}=require(path.join(root,'fc27-quote-cloud.js'));
+const now=Date.now(),run='same-run';
+for(const platform of ['PS','XBOX','PC']){
+  const row={platform,offers:[{site:'Lootbar'},{site:'U7Buy'},{site:'IGGM'},{site:'U4GM'}]};
+  const offer={source:'ItemD2R',platform,run_id:run,status:'valid',currency:'USD',gross_usd:'9.85',purchase_k:'100',bonus_k:'0',effective_usd_per_k:'0.0985',captured_at:new Date(now-1000).toISOString(),comparable:true,conditional:false};
+  const quote={run_id:run,evidence:{reference_market:{run_id:run,status:'available',offers:[offer]}}};
+  const actual=marketOffers(quote,row,now);assert.equal(actual.length,5);assert.equal(actual[4].usd_price,'9.85');assert(actual[4].comparable);
+  assert.equal(row.offers.length,4,'render must not mutate pricing sources');
+  assert.equal(marketOffers({...quote,run_id:'other'},row,now)[4].usd_price,undefined,'never borrow another run');
+  assert.equal(marketOffers(quote,row,now+900001)[4].comparable,false,'old capture remains visibly historical');
+  assert.equal(marketOffers({run_id:run},row,now).length,5,'missing reference keeps an explicit slot');
+  assert.equal(marketOffers({run_id:run},row,now)[4].usd_price,undefined);
+  const conditional=structuredClone(quote);conditional.evidence.reference_market.offers[0].conditional=true;
+  assert.equal(marketOffers(conditional,row,now)[4].comparable,false);
+}
 assert.equal(estimatedMarginText({procurement_margin_pct:'-20.555'}),'-20.55%');
 assert.equal(estimatedMarginText({procurement_margin_pct:'0'}),'0.00%');
 assert.equal(estimatedMarginText(null),'待历史优惠数据');
