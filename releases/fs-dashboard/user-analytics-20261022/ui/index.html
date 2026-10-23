@@ -12,7 +12,7 @@
   <script defer src="/__hub/hubnav.js"></script>
   <script type="module" src="./users.js"></script>
 </head>
-<body class="fs-ui-page">
+<body class="fs-ui-page" data-fs-module="users">
   <a href="#main">跳到主内容</a>
   <header><div><a href="/dashboard/">FS / MMOEXP</a><h1>用户分析</h1><p>从购买客户的进入、复购和流失，查看经营变化。</p></div><label>显示主题<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label></header>
   <main id="main" tabindex="-1">
@@ -29,12 +29,14 @@
       <button type="button" id="refresh">刷新快照</button>
     </form>
     <p id="period-hint">只选开始日期，结束固定为北京时间昨天。只分析这段期间买过的邮箱；D0是期间第一笔有效购买，新老客取该单后台标记，后续购买和阶段也只算到昨天。</p>
+    <p id="filter-pending" role="status" hidden>筛选条件已修改，点击“查询”后生效。下面仍是上次查询的结果。</p>
     <p id="status" role="status" aria-live="polite">正在确认当前范围…</p>
     <div id="result" hidden>
+      <section class="panel" id="email-lookup" hidden aria-labelledby="email-title"><h2 id="email-title">按邮箱查购买记录</h2><p id="email-hint">输入完整客户邮箱，查看当前已查询期间、站点或项目内的购买记录。跨项目查看请先选“已接入整体”并查询。</p><form id="email-search"><label for="customer-email">客户邮箱<input id="customer-email" name="email" type="text" inputmode="email" autocomplete="off" spellcheck="false" maxlength="320" required aria-describedby="email-hint"></label><button type="submit">查这个客户</button></form><p id="email-status" role="status" aria-live="polite"></p></section>
       <section class="panel"><h2>数据范围</h2><p id="coverage"></p><p id="freshness"></p><details><summary>当前口径与历史覆盖</summary><pre id="versions"></pre></details></section>
-      <section aria-labelledby="interval-title"><h2 id="interval-title">这段期间买过的客户</h2><p id="entry-hint">一个确认邮箱算一人；新老客看该邮箱期间第一笔有效订单的后台标记，缺失或冲突单列。</p><div id="interval" class="cards"></div><p id="repeat-rate"></p><details><summary>查看唤醒、回流与阶段进入</summary><div id="interval-extra" class="cards"></div></details></section>
-      <section aria-labelledby="stock-title"><h2 id="stock-title">截至昨日，这批客户处于什么阶段</h2><p id="observation"></p><div id="stock" class="cards"></div><p id="period-state-hint">待观察：期间只买过一笔，且未到沉默天数。复购过也可能再次沉睡或流失，可在下面细分查看。</p><div id="repeat-states"></div><details><summary>查看期间的唤醒、回流等经历</summary><div id="trajectories"></div></details></section>
-      <section class="panel"><h2>购买、进入流失与回流趋势</h2><p>每日去重人数不能相加为区间购买客户。未知数据单列。</p><figure><div id="trend-chart"></div><figcaption>同一快照的每日购买、确认首购与回流；缺口处断开。下方表格提供全部数字。</figcaption></figure><details><summary>查看每日数据与期末阶段</summary><div id="trend"></div></details><figure><div id="stock-chart"></div><figcaption>每日截止的阶段存量，包含状态待核；代表已覆盖客户池。</figcaption></figure></section>
+      <section class="panel" aria-labelledby="interval-title"><h2 id="interval-title">这段期间买过的客户</h2><p id="entry-hint">一个确认邮箱算一人；新老客看该邮箱期间第一笔有效订单的后台标记，缺失或冲突单列。</p><div id="interval" class="cards"></div><p id="repeat-rate"></p><details><summary>查看唤醒、回流与阶段进入</summary><div id="interval-extra" class="cards"></div></details></section>
+      <section class="panel" aria-labelledby="stock-title"><h2 id="stock-title">截至昨日，这批客户处于什么阶段</h2><p id="observation"></p><div id="stock" class="cards"></div><p id="period-state-hint">待观察：期间只买过一笔，且未到沉默天数。复购过也可能再次沉睡或流失，可在下面细分查看。</p><div id="repeat-states"></div><details><summary>查看期间的唤醒、回流等经历</summary><div id="trajectories"></div></details></section>
+      <section class="panel"><h2 id="trend-title">每日购买与回流趋势</h2><p>每日去重人数不能相加为区间购买客户。未知数据单列。</p><figure><div id="trend-chart"></div><figcaption><span id="trend-note">同一快照的每日购买、期间首次购买与回流；缺口处断开。下方表格提供全部数字。</span></figcaption></figure><details><summary>查看每日数据与期末阶段</summary><div id="trend"></div></details><figure><div id="stock-chart"></div><figcaption><span id="stock-note">每日截止时，这批期间购买客户所处的阶段；包含状态待核。</span></figcaption></figure></section>
       <section class="panel"><h2 id="cohort-title">期间首次下单后的固定天数复购</h2><p id="cohort"></p><div id="cohort-weeks"></div></section>
       <section class="panel"><h2>项目经营与客户转购</h2><button type="button" id="projects">查看同版项目比较</button><p id="project-status"></p><div id="project-table"></div><div id="migration"></div><div id="destinations"></div></section>
       <section class="panel" id="segments" hidden><h2>需要负责人核查的客户</h2><p id="segment-hint">高价值按所选期间USD消费的第75百分位分组。</p><button type="button" data-group="high_value_entered_silent">高价值且刚进入沉默</button><button type="button" id="without-repeat" data-group="first_without_repeat">期间首次下单后未再购买</button><button type="button" data-group="lost_return">本期已回流</button></section>
@@ -42,6 +44,6 @@
       <section class="panel" id="hermes-panel" hidden><h2>Hermes 分析</h2><p>选择已有持续会话，一次提交当前范围、口径、覆盖与冻结证据。分析不会联系客户、发券或改价。</p><label for="hermes-conversation">提交到会话</label><select id="hermes-conversation"><option value="">正在读取可用会话…</option></select><button type="button" id="hermes">交给 Hermes 分析</button><button type="button" id="reconcile-handoff" hidden>核对原提交</button><p id="handoff-status"></p></section>
     </div>
   </main>
-  <dialog id="customer-detail" aria-labelledby="detail-title"><h2 id="detail-title">客户私有核对</h2><p id="detail-email"></p><p id="detail-note"></p><h3>从首次购买开始的时间线</h3><div id="detail-timeline"></div><h3>原始订单核对</h3><div id="detail-orders"></div><form method="dialog"><button>关闭详情</button></form></dialog>
+  <dialog id="customer-detail" aria-labelledby="detail-title"><h2 id="detail-title">客户私有核对</h2><p id="detail-email"></p><p id="detail-note"></p><p id="detail-summary"></p><h3 id="timeline-title">从期间首单开始的时间线</h3><div id="detail-timeline"></div><h3 id="detail-orders-title">所选范围内的订单记录</h3><div id="detail-orders"></div><form method="dialog"><button>关闭详情</button></form></dialog>
 </body>
 </html>

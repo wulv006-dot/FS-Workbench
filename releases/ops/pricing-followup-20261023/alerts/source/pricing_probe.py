@@ -99,14 +99,21 @@ def browser_memory():
     return value
 
 
-def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, lifecycle=None):
+def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, lifecycle=None, extra_issues=()):
     issues = []
+    legacy_codes = set(previous.get('legacy_issue_codes', []))
     for issue in raw.get('issues', []):
         if issue.get('level') != 'critical':
             continue
         code = issue['code']
+        legacy_codes.add(code)
         prefix = 'rpg_pricing_' if code.startswith(('rpg_', 'd4_', 'poe2_', 'aion2_')) else 'fc_pricing_'
         issues.append(prefix+code)
+    for code in extra_issues:
+        if not code.startswith('coin_') and code != 'business_write_unresolved':
+            raise ValueError('pricing_extra_code_required')
+        legacy_codes.add(code)
+        issues.append('fc_pricing_'+code)
     if raw.get('status') == 'unverified':
         issues.append('pricing_monitor_fc_probe_unverified')
     for operation in raw.get('unknown_operations') or []:
@@ -140,6 +147,7 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
     if recovery_event and not recovery_event.get('planned_startup_acceptance_verified') and (now-datetime.fromisoformat(recovery_event['observed_at'])).total_seconds() < 600:
         issues.append('fc_pricing_browser_restarted:'+recovery_event['started_at'])
     return dict(exported_at=now.isoformat(), issues=sorted(set(issues)),
+                legacy_issue_codes=sorted(legacy_codes),
                 rpg_unresolved=unresolved, legacy_unclassified=legacy,
                 memory=memory, browser_restart_event=recovery_event,
                 fc_job=raw.get('coin', {}).get('job', {}),
@@ -150,6 +158,8 @@ def main():
     import fcntl
     sys.path.insert(0, '/opt/fc-ops-readonly-monitor')
     from collector import atomic, probe
+    sys.path.insert(0, '/opt/fs-hermes-ops')
+    from common import assess
     STATE.mkdir(mode=0o700, exist_ok=True)
     with (STATE/'lock').open('a') as lock:
         try:
@@ -162,8 +172,12 @@ def main():
         if baseline is None:
             raise ValueError('reviewed_legacy_baseline_required')
         try:
-            value = collect(now, previous, baseline['job_ids'], probe(), rpg_rows(), browser_memory(), read(CACHE_RECOVERY, {}),
-                            read(Path('/var/lib/fc27-cloud/state/browser-lifecycle.json'), {}))
+            raw = probe()
+            raw_codes = {item['code'] for item in raw.get('issues', [])}
+            extras = [code for code in assess(raw, now) if code not in raw_codes
+                      and (code.startswith('coin_') or code == 'business_write_unresolved')]
+            value = collect(now, previous, baseline['job_ids'], raw, rpg_rows(), browser_memory(), read(CACHE_RECOVERY, {}),
+                            read(Path('/var/lib/fc27-cloud/state/browser-lifecycle.json'), {}), extras)
         except Exception as error:
             value = dict(previous, exported_at=now.isoformat(),
                          issues=sorted(set(previous.get('issues', []) + ['pricing_monitor_read_failed:'+type(error).__name__])))

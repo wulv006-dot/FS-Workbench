@@ -274,6 +274,21 @@ class Handler(BaseHTTPRequestHandler):
   except Exception:self.reply(503,{'error':'query_unavailable'})
  def do_POST(self):
   uri=urlsplit(self.path)
+  if uri.path=='/users/private/search':
+   from user_http import search as search_users
+   user=self.headers.get('X-Auth-User')
+   if not user:self.reply(401,{'error':'login_required'});return
+   if uri.query or self.headers.get('Sec-Fetch-Site')!='same-origin':self.reply(403,{'error':'same_origin_required'});return
+   if self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type','').split(';')[0].strip()!='application/json':self.reply(415,{'error':'json_required'});return
+   length=self.headers.get('Content-Length','')
+   if not re.fullmatch(r'[0-9]{1,4}',length) or not 1<=int(length)<=4096:self.reply(413,{'error':'body_too_large'});return
+   try:
+    self.connection.settimeout(15)
+    body=json.loads(self.rfile.read(int(length)))
+    status,data=search_users(USERS,body,user);self.reply(status,data)
+   except (ValueError,TypeError,UnicodeError):self.reply(422,{'error':'invalid_user_query'})
+   except Exception:self.reply(503,{'error':'users_unavailable'})
+   return
   if uri.path==CONVERSATION_PREFIX or uri.path.startswith(CONVERSATION_PREFIX+'/'):
    if CONVERSATION is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
    else:conversation_handle(self,'POST',uri,self.headers.get('X-Auth-User'),CONVERSATION,hermes_authorizer)

@@ -1,4 +1,6 @@
-# FC 浏览器显示服务启动恢复候选（2026-10-23）
+# FC 浏览器显示服务启动恢复（2026-10-23）
+
+后续实际交付：主任务已于14:29:09在原空闲/写锁及Order隔离证明下发布并重启同一容器一次。宿主与容器启动SHA均为d646762e…fc28f98，DISPLAY=:0，实际CDP正常、原13 cookie名称/域指纹保持、登录判据通过；受控idle页全局Worker0，noVNC HTTP200，Order ready/login0。14:30:24原事件只读对账完成，初始因关闭后立即断言Worker数导致的unknown另存保留，没有重复重启；当前显示服务已恢复，长期及下一自然FC周期另验。以下候选阶段记录保留当时时点。
 
 状态：独立本地候选，未由本子任务发布或重启生产；根 Agent 统一发布并真实验收。维护源为 `fc_browser_start_recovery_20261023/source/start.sh`，原活动基线 SHA `aaf1bd6e6103c000242e8986402808915d743655724dbe822b458cbc07f831fa`。宿主 `/opt/fc27-cloud-browser/start.sh` 和容器 `/usr/local/bin/fc27-browser-start` 原字节一致，容器脚本 mtime 为 9 月 27 日，未见 13:44 已修改脚本的证据。
 

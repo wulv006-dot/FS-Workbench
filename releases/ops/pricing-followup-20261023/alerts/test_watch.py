@@ -142,6 +142,29 @@ class WatchTests(unittest.TestCase):
         self.run_watch()
         self.assertEqual(watch.read(self.home/'watch-state.json')['issues'], ['general_problem', 'rpg_pricing_unknown:current'])
 
+    def test_fresh_legacy_codes_deduplicate_full_and_pricing_modes(self):
+        self.snapshot(['latest_coin_job_failed', 'rpg_task_failed', 'brain_ui_dependencies_missing'])
+        watch.write(self.home/'pricing-snapshot.json', {'exported_at': self.now.isoformat(), 'issues': ['fc_pricing_latest_coin_job_failed', 'rpg_pricing_rpg_task_failed'], 'legacy_issue_codes': ['latest_coin_job_failed', 'rpg_task_failed']})
+        self.run_watch()
+        self.assertEqual(watch.read(self.home/'watch-state.json')['issues'], ['brain_ui_dependencies_missing', 'fc_pricing_latest_coin_job_failed', 'rpg_pricing_rpg_task_failed'])
+        self.assertEqual(self.run_watch(True)['state'], 'unchanged_quiet')
+        self.assertEqual(self.run_watch()['state'], 'unchanged_quiet')
+        self.assertEqual(len(self.messages), 1)
+
+    def test_fresh_recovery_overrides_old_critical_but_stale_or_invalid_does_not(self):
+        legacy = ['latest_coin_job_failed']
+        self.snapshot(legacy + ['brain_ui_dependencies_missing'])
+        self.run_watch()
+        watch.write(self.home/'pricing-snapshot.json', {'exported_at': self.now.isoformat(), 'issues': [], 'legacy_issue_codes': legacy})
+        self.run_watch()
+        self.assertEqual(watch.read(self.home/'watch-state.json')['issues'], ['brain_ui_dependencies_missing'])
+        for stamp, codes in ((self.now-timedelta(seconds=601), legacy), (self.now, [123]), (self.now, ['x']*1001), (self.now, ['x'*513])):
+            watch.write(self.home/'pricing-snapshot.json', {'exported_at': stamp.isoformat(), 'issues': [], 'legacy_issue_codes': codes})
+            self.run_watch()
+            state = watch.read(self.home/'watch-state.json')
+            self.assertIn('latest_coin_job_failed', state['issues'])
+            self.assertIn('brain_ui_dependencies_missing', state['issues'])
+
     def test_missing_after_install_retains_unresolved_price_and_marks_missing(self):
         self.supplement(['rpg_pricing_unknown:J-a'])
         self.run_watch(True)

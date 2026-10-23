@@ -20,23 +20,26 @@ def pricing_issues(home, previous, now, pricing_only):
     installed = previous.get('pricing_installed', False) or path.exists() or pricing_only
     retained = [code for code in previous.get('issues', []) if isinstance(code, str) and code.startswith(('fc_pricing_', 'rpg_pricing_'))]
     if not installed:
-        return None, False, None
+        return None, False, None, []
     try:
         supplement = read(path)
         if supplement is None:
-            return sorted(set(retained + ['pricing_monitor_snapshot_missing'])), True, previous.get('pricing_exported_at')
+            return sorted(set(retained + ['pricing_monitor_snapshot_missing'])), True, previous.get('pricing_exported_at'), []
         stamp = supplement['exported_at']
         if not -60 <= age(stamp, now) <= 600:
-            return sorted(set(retained + ['pricing_monitor_snapshot_stale'])), True, previous.get('pricing_exported_at')
+            return sorted(set(retained + ['pricing_monitor_snapshot_stale'])), True, previous.get('pricing_exported_at'), []
         codes = supplement['issues']
         if not isinstance(codes, list) or not all(pricing_owned(code) for code in codes):
             raise ValueError('owned_codes_required')
+        legacy = supplement.get('legacy_issue_codes', [])
+        if not isinstance(legacy, list) or len(legacy) > 1000 or not all(isinstance(code, str) and 0 < len(code) <= 512 for code in legacy):
+            raise ValueError('bounded_legacy_codes_required')
         old_stamp = previous.get('pricing_exported_at')
         if old_stamp and age(stamp, now) > age(old_stamp, now):
-            return sorted(set(retained + ['pricing_monitor_snapshot_regressed'])), True, old_stamp
-        return sorted(set(codes)), True, stamp
+            return sorted(set(retained + ['pricing_monitor_snapshot_regressed'])), True, old_stamp, []
+        return sorted(set(codes)), True, stamp, sorted(set(legacy))
     except (KeyError, TypeError, ValueError, AttributeError, OSError):
-        return sorted(set(retained + ['pricing_monitor_snapshot_invalid'])), True, previous.get('pricing_exported_at')
+        return sorted(set(retained + ['pricing_monitor_snapshot_invalid'])), True, previous.get('pricing_exported_at'), []
 
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,9 +125,9 @@ def _run_locked(home, transport, now, pricing_only):
                 issues.append('watchdog_export_stale')
         except (KeyError, TypeError, ValueError): issues.append('watchdog_export_missing')
         repair = snapshot.get('repair') or {}
-    supplement, installed, pricing_stamp = pricing_issues(home, previous, now, pricing_only)
+    supplement, installed, pricing_stamp, legacy_codes = pricing_issues(home, previous, now, pricing_only)
     if supplement is not None:
-        issues = [code for code in issues if not pricing_owned(code)] + supplement
+        issues = [code for code in issues if not pricing_owned(code) and code not in legacy_codes] + supplement
     repair_summary = {key: repair.get(key) for key in ('incident', 'status', 'error', 'url')} if repair else {}
     issues = sorted(set(issues))
     signature = sha(json.dumps({'issues': issues, 'repair': {k: repair.get(k) for k in ('incident', 'status', 'error')}}, sort_keys=True).encode())

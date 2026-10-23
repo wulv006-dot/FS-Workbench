@@ -1,5 +1,5 @@
 {
-  "status": "local_candidate_not_published",
+  "status": "deployed_same_container_restart_readonly_reconciled",
   "maintained_source": "fc_browser_start_recovery_20261023/source/start.sh",
   "baseline_sha256": "aaf1bd6e6103c000242e8986402808915d743655724dbe822b458cbc07f831fa",
   "candidate_sha256": "d646762e232c3dd161e4270967956368c4850bdb646bbf631924ddb86fc28f98",
@@ -11,8 +11,12 @@
   "tests": {
     "command": "python -m unittest discover -s fc_browser_start_recovery_20261023/tests -v",
     "passed": 15,
-    "linux_shell_syntax": "not_run",
-    "real_restart": "not_run_by_child"
+    "linux_shell_syntax": "passed",
+    "real_restart": "verified_same_original_container_no_replay",
+    "linux_tests": 15,
+    "global_workers": 0,
+    "novnc_http": 200,
+    "order_ready": true
   },
   "files": {
     "source/start.sh": "d646762e232c3dd161e4270967956368c4850bdb646bbf631924ddb86fc28f98",
@@ -26,5 +30,7 @@
     "x_lock_or_socket_deleted": false,
     "startup_wait_max_seconds": 10
   },
-  "deployment_owner": "root_agent"
+  "deployment_owner": "root_agent",
+  "original_event_id": "f40a5ef3-c5a9-41d9-b41b-d24777e5bd25",
+  "receipt": "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023.json"
 }

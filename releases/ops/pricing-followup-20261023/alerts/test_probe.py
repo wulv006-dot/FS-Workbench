@@ -77,5 +77,15 @@ class Receipts(unittest.TestCase):
         self.assertTrue(value['browser_restart_event']['planned_startup_acceptance_verified'])
         life.update(state='unknown',event_id='original-recovery')
         self.assertIn('fc_pricing_browser_recovery_unknown:original-recovery',P.collect(now,value,[],{},[],mem,lifecycle=life)['issues'])
+    def test_old_report_codes_retained_for_cross_mode_dedup(self):
+        now=datetime.now(timezone.utc)
+        mem=dict(running=True,usage_bytes=500000000,restart_count=0,started_at='old',oom_killed=False)
+        raw=dict(issues=[dict(level='critical',code='latest_coin_job_failed'),dict(level='warning',code='historical_prewrite_failure')])
+        value=P.collect(now,{},[],raw,[],mem,extra_issues=['coin_schedule_failed'])
+        self.assertEqual(value['legacy_issue_codes'],['coin_schedule_failed','latest_coin_job_failed'])
+        self.assertEqual(value['issues'],['fc_pricing_coin_schedule_failed','fc_pricing_latest_coin_job_failed'])
+        recovered=P.collect(now,value,[],{},[],mem)
+        self.assertEqual(recovered['issues'],[])
+        self.assertEqual(recovered['legacy_issue_codes'],value['legacy_issue_codes'])
 
 if __name__=='__main__':unittest.main()
