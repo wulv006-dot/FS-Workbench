@@ -94,13 +94,15 @@ class FollowupSources(unittest.TestCase):
             self.assertEqual(node(old),node(new))
 
     def test_publisher_changes_one_source_and_reloads_only_reader(self):
-        import io,json,tempfile,shutil
+        import io,json,tempfile
         deploy=SOURCE.parent/'deploy'
         spec=importlib.util.spec_from_file_location('followup_release',deploy/'release_followup.py')
         release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
         with tempfile.TemporaryDirectory() as directory:
             stage=Path(directory);release.HERE=stage
-            shutil.copyfile(deploy/'release_navigation_base.py',stage/'release_navigation_base.py')
+            # Recreate the released CRLF artifact from Git's normalized text before hash checks.
+            raw=(deploy/'release_navigation_base.py').read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
+            (stage/'release_navigation_base.py').write_bytes(raw)
             manifest={'scope':release.SCOPE,'files':[{'candidate':'source/continuation.py','target':'/opt/fs-hermes-fc/continuation.py','beforeSha256':'a'*64,'mode':'0o644','owner':'0:0'}],'businessWrites':False,'timersChanged':False}
             (stage/'approved-manifest.json').write_text(json.dumps(manifest),encoding='utf-8')
             base=release.load_base()
