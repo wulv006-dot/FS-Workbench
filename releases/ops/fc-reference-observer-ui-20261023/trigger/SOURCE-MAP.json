@@ -1,0 +1,43 @@
+{
+  "module": "fc-itemd2r-observer-trigger-recovery-20261023",
+  "status": "deployed_by_coordinated_ui_release_natural_pending",
+  "baseline": {
+    "runtime": "/opt/fc27-price-observer/observe.py",
+    "sha256": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f"
+  },
+  "candidate": {
+    "source": "source/observe.py",
+    "sha256": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216",
+    "original_main_source_sha256": "93370ac11c2bc41fc5e87cabd2f1e1157f39558d87be762f8078e5865fe8271d",
+    "test": "test_trigger.py",
+    "test_sha256": "87794eb3e1ec09f02acad5fce1e6091310cc9845403828872f1a11cb326902f7"
+  },
+  "validation": {
+    "local_tests_passed": 11,
+    "linux_tests_passed": 11,
+    "linux_validation_method": "isolated TemporaryDirectory; no production modification",
+    "production_deployment": "fc-reference-observer-ui-20261023-v1_2026-10-23T09:31:20Z",
+    "natural_cycle_acceptance": "pending_original_2026-10-23T19:02:26+08:00"
+  },
+  "integration": {
+    "dependency": "/opt/fc27-cloud-browser/reference_observer_view.py:publish_view",
+    "coalescing_wait_seconds": 300,
+    "poll_seconds": 2,
+    "wait_holds_business_locks": false,
+    "export_failure_exit_status": 2,
+    "existing_restart_prevent_exit_status": [1, 2],
+    "business_busy_exit_status": 75,
+    "unit_or_schedule_changes": false,
+    "production_pricing_policy_changes": false
+  },
+  "read_only_evidence": {
+    "correct_natural_job_id": "90b1662b-3ce1-4d3d-a535-d344fb01a58b",
+    "natural_job_created_beijing": "2026-10-23T16:59:36.930060+08:00",
+    "natural_job_completed_beijing": "2026-10-23T17:02:26.236655+08:00",
+    "natural_result": "no_price_change",
+    "existing_observer_sample_count": 1,
+    "existing_sample_run_id": "efa86d1a-dd67-410d-807e-6840f069594b",
+    "comparable_sample_count": 0,
+    "valid_experimental_scenario_count": 0
+  }
+}
