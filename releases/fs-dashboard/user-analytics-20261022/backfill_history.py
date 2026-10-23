@@ -58,8 +58,10 @@ def run():
     if floor.time() != datetime.min.time() or floor >= today:
         raise ValueError('closed_day_history_start_required')
     progress = store.root/'history-backfill.json'
-    inventory_path = store.root/'history-full-inventory.json'
-    inventory = json.loads(inventory_path.read_text('utf-8')) if inventory_path.exists() else {}
+    # Grow a separate work ledger so the last complete proof stays valid during extension.
+    inventory_path = store.root/('history-backfill-inventory-'+floor.date().isoformat()+'.json')
+    prior_inventory = store.root/'history-full-inventory.json'
+    inventory = json.loads((inventory_path if inventory_path.exists() else prior_inventory).read_text('utf-8')) if inventory_path.exists() or prior_inventory.exists() else {}
     completed = source_rows = 0
     def save(status, **extra):
         atomic(progress,dict(status=status,target_start=floor.isoformat(),target_end_exclusive=today.isoformat(),completed_windows=completed,source_rows=source_rows,at=datetime.now(TZ).isoformat(),**extra))
@@ -99,7 +101,15 @@ def run():
     first = floor.isoformat()
     if not covered(store.coverage(),list(store.config['sites']),stamp(first),today):
         raise ValueError('bounded_history_coverage_gap')
-    atomic(store.root/'history-coverage.json',dict(contract='fs-users-bounded-history-v1',start=first,end_exclusive=today.isoformat(),sites=sorted(store.config['sites']),inventory_sha256=digest(inventory),data_version=store.revision()))
+    inventory_hash = digest(inventory)
+    inventory_file = 'history-inventory-'+inventory_hash+'.json'
+    frozen_inventory = store.root/inventory_file
+    if frozen_inventory.exists():
+        if digest(json.loads(frozen_inventory.read_text('utf-8'))) != inventory_hash:
+            raise ValueError('history_inventory_readback_mismatch')
+    else:
+        atomic(frozen_inventory,inventory)
+    atomic(store.root/'history-coverage.json',dict(contract='fs-users-bounded-history-v1',start=first,end_exclusive=today.isoformat(),sites=sorted(store.config['sites']),inventory_sha256=inventory_hash,inventory_file=inventory_file,data_version=store.revision()))
     save('complete',start=first,end_exclusive=today.isoformat())
 
 

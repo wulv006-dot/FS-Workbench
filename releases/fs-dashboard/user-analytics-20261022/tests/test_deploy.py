@@ -13,6 +13,18 @@ from patch_navigation import patch
 
 
 class Deployment(unittest.TestCase):
+    def test_january_extension_cannot_change_other_runtime_or_schedule(self):
+        import release
+        with mock_patch.dict(sys.modules),mock_patch.multiple(release,SCOPE=release.SCOPE,TARGETS=release.TARGETS,NEW=release.NEW,AUTHORIZED_TIMERS=release.AUTHORIZED_TIMERS):
+            spec=importlib.util.spec_from_file_location('users_january_release_test',ROOT/'deploy/release_january.py')
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            self.assertEqual(set(release.TARGETS),{'runtime/user_config.json','runtime/user_query.py','runtime/backfill_history.py','ui/index.html','ui/users.js'})
+            self.assertFalse(release.NEW or release.AUTHORIZED_TIMERS)
+            value=dict(scope=release.SCOPE,businessWrites=False,timersChanged=False,files=[dict(candidate=k,target=v,beforeSha256='a'*64,owner='0:0',mode='0o644') for k,v in release.TARGETS.items()])
+            self.assertEqual(release.checked_manifest(value),value)
+            value['files'][0]['target']='/opt/fs-order-session/service.py'
+            with self.assertRaises(ValueError):release.checked_manifest(value)
+
     def test_search_release_only_restarts_reader_and_reloads_routes(self):
         import release
         with mock_patch.multiple(release,SCOPE=release.SCOPE,TARGETS=release.TARGETS,NEW=release.NEW,AUTHORIZED_TIMERS=release.AUTHORIZED_TIMERS):

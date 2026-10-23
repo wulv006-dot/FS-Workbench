@@ -116,6 +116,7 @@ class Users(unittest.TestCase):
 
     def test_backfill_stops_at_user_bound_and_keeps_original_daily_work(self):
         from user_jobs import tick_windows
+        self.config['history_backfill_start']='2026-07-01T00:00:00+08:00'
         self.load([order(1,'2026-07-01')],start='2026-07-01')
         reasons=[reason for _,_,_,reason in tick_windows(self.store,NOW)]
         self.assertNotIn('historical_backfill',reasons)
@@ -135,6 +136,42 @@ class Users(unittest.TestCase):
         detail=self.service.detail(dict(snapshot_id=result['snapshot_id'],customer_id=row['customer_id']),'admin')
         self.assertEqual(detail['timeline'][0]['days_from_observed_first'],0)
         self.assertIsNone(detail['timeline'][0]['days_from_d0'])
+
+    def test_extending_target_preserves_previous_complete_coverage(self):
+        from user_contract import digest
+        self.config['history_backfill_start']='2026-01-01T00:00:00+08:00'
+        self.load([order(1,'2026-07-01')],start='2026-07-01')
+        inventory={'july':1};(self.store.root/'history-full-inventory.json').write_text(json.dumps(inventory))
+        proof=dict(contract='fs-users-bounded-history-v1',start='2026-07-01T00:00:00+08:00',end_exclusive='2026-10-22T00:00:00+08:00',sites=['266'],inventory_sha256=digest(inventory))
+        (self.store.root/'history-coverage.json').write_text(json.dumps(proof))
+        (self.store.root/'history-backfill-inventory-2026-01-01.json').write_text(json.dumps({'january':5,'july':1}))
+        result=self.query(start='2026-07-01')
+        self.assertTrue(result['coverage']['period_complete'])
+        self.assertEqual(result['coverage']['history_window']['start'],proof['start'])
+        self.assertFalse(self.query(start='2026-01-01')['coverage']['period_complete'])
+
+    def test_completed_extension_freezes_inventory_and_keeps_previous_proof_input(self):
+        import importlib.util
+        from user_contract import digest
+        spec=importlib.util.spec_from_file_location('users_extend_fixture',BASE/'backfill_history.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.load([order(1,'2026-01-02')])
+        old=json.dumps({'july':1});(self.store.root/'history-full-inventory.json').write_text(old)
+        with patch.object(module,'load_store',return_value=self.store),patch.object(module,'source_count',return_value=0),patch.object(module,'datetime',wraps=datetime) as clock,patch.object(module.subprocess,'run',return_value=type('Result',(),{'returncode':1})()):
+            clock.now.return_value=NOW
+            module.run()
+        proof=json.loads((self.store.root/'history-coverage.json').read_text())
+        self.assertEqual(proof['start'],'2026-01-01T00:00:00+08:00')
+        self.assertEqual((self.store.root/'history-full-inventory.json').read_text(),old)
+        frozen=self.store.root/proof['inventory_file']
+        self.assertEqual(digest(json.loads(frozen.read_text())),proof['inventory_sha256'])
+        self.assertTrue(self.query(start='2026-01-01')['coverage']['period_complete'])
+        frozen.write_text('{}');self.service.cache.clear()
+        with self.assertRaisesRegex(ValueError,'bounded_history_proof_mismatch'):
+            self.query(start='2026-01-01')
+        proof['inventory_file']='../unrelated.json';(self.store.root/'history-coverage.json').write_text(json.dumps(proof))
+        with self.assertRaisesRegex(ValueError,'bounded_history_inventory_path'):
+            self.query(start='2026-01-01')
 
     def test_detail_midnight_purchase_wins_over_same_time_threshold(self):
         self.load([order(1,'2026-07-01T12:00:00'),order(2,'2026-07-31T00:00:00')],start='2026-07-01')
