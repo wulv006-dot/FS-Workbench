@@ -255,10 +255,10 @@ def apply_decision(rows, evidence, edits, *, now=None):
         floor = max(hard_floor(c,rate,d/base,r,m)*base for base,d,c,rate,r,m in checks).quantize(CENT,rounding=ROUND_CEILING)
         floor=max(floor,max(catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio)*100 for p in group)).quantize(CENT,rounding=ROUND_CEILING)
         anchor = min(anchors).quantize(CENT,rounding=ROUND_CEILING)
-        # Parity takes the smallest needed move; high margin alone never buys an extra cut.
+        # Current price is a choice, not an upper bound on a fresh market candidate.
         hold = max(current)
-        main = max(floor, min(hold, anchor))
-        reason = 'cost_or_promotion_floor' if floor > hold else 'public_anchor_parity' if main < hold else 'already_competitive_hold'
+        main = max(floor, anchor)
+        reason = 'cost_or_promotion_floor' if floor > anchor else 'public_anchor_parity' if main != hold else 'already_competitive_hold'
         if reason=='already_competitive_hold' and len(set(current))>1:reason='unify_common_console_base'
         if group[0] in quotes:
             main = number(quotes[group[0]])*100
@@ -324,8 +324,14 @@ def apply_decision(rows, evidence, edits, *, now=None):
         if all(parity_tail/100>=catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
             parity=parity_tail
         candidates['parity']=str(parity)
+        fallback_main=max(floor,min(hold,anchor))
+        fallback,_=ending(fallback_main,checks)
+        if any(fallback/100<catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
+            fallback=fallback_main
         decisions.append(dict(platforms=list(group),reason=reason,current_public_usd=[str(v) for v in current],
                               main_usd=str(main),selected_usd=str(target),floor_usd=str(floor),ending=tail,
+                              direction='up' if target>hold else 'down' if target<hold else 'hold',
+                              model_unavailable_fallback_usd=str(fallback),
                               candidates=candidates))
     receipt=dict(strategy_version=VERSION, hard_minimum_margin_pct=str(HARD_MARGIN),margin_basis=MARGIN_BASIS,
         promotions_exempt_from_margin_floor=True,

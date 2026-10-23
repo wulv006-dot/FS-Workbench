@@ -93,11 +93,11 @@ class Pricing(unittest.TestCase):
         self.assertEqual(receipt['decisions'][0]['reason'],'already_competitive_hold')
         self.assertGreaterEqual(Decimal(rows[0]['proof']['catalog']['worst_published_margin_pct']),10)
 
-    def test_old_high_margin_is_not_a_reason_to_cut_again(self):
+    def test_higher_anchor_can_raise_without_cost_increase(self):
         e,rows,_=fixture()
         for offers in e['offers'].values():offers['Lootbar']['usd_price']='25'
         p.apply_decision(rows,e,{},now=NOW)
-        self.assertEqual(rows[0]['main_page_usd'],'20.00')
+        self.assertEqual(rows[0]['main_page_usd'],'25.00')
 
     def test_unifying_different_console_prices_is_not_labelled_hold(self):
         e,rows,_=fixture();e['storefront']['rows']['PS']['package_usd']='18.00'

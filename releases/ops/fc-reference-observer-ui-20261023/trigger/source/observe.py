@@ -98,7 +98,13 @@ def main():
                     source_policy='Lootbar core; U7Buy and ItemD2R tier2; IGGM and U4GM tier3; shadow only')
         with sample.open('x',encoding='utf-8') as stream:json.dump(record,stream)
         try:
-            rows=public_read()
+            reference=snapshot.get('reference_competitors')
+            if reference is None:
+                rows=public_read()
+            elif reference.get('status')=='captured' and reference.get('run_id')==jid:
+                rows=reference['offers']
+            else:
+                raise ValueError('original_cycle_itemd2r_unavailable_no_refetch')
             combined=snapshot['competitors']+[{**r,'run_id':jid} for r in rows]
             now=datetime.now(timezone.utc)
             simulation=(experimental_scenarios(combined,now=now,storefront=snapshot.get('storefront'))
