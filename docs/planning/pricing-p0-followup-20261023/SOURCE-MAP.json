@@ -48,8 +48,18 @@
     "notification": "two_drill_messages_sent_official_get_code0",
     "item_query_live": "2_of_2_original_ids_verified",
     "natural_item_query": "pending",
+    "fc_post_startup_natural": {
+      "job_id": "efa86d1a-dd67-410d-807e-6840f069594b",
+      "completed_at": "2026-10-23T06:59:08.272102+00:00",
+      "result": "no_price_change",
+      "hermes_review": "completed",
+      "iggm": "http_blocked_unresolved",
+      "receipt": "FC-POST-STARTUP-NATURAL.json",
+      "post_cycle_readback": "LIVE-POST-NATURAL.json"
+    },
     "long_term_memory": "open_at_least_12_original_cycles",
-    "linux_total": 68
+    "linux_total": 68,
+    "formal_ci": "pr-fast success on final checked head"
   },
   "receipts": [
     "/var/lib/fs-pricing-alerts/deployment.json",
@@ -60,6 +70,24 @@
     "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023-initial-unknown.json"
   ],
   "pull_request": "https://github.com/wulv006-dot/FS-Workbench/pull/389",
-  "merge": "not_authorized_not_performed",
-  "secrets_exported": false
+  "merge": "merged_readback_verified",
+  "secrets_exported": false,
+  "merge_sha": "c40442bda523b1396f3458c91f85e52e61381dda",
+  "checked_head": "f77ce4658ce46e5d0f03a3a9308befdec0b531fb",
+  "merged_tree": "b4548d7a8761c7bbc94fcf7129791b5ace64f0f5",
+  "restart_zero_recovery": {
+    "status": "deployed_original_natural_acceptance_pending",
+    "fc_source": "fc_restart_release_recovery_20261023/source/browser_lifecycle.py",
+    "fc_sha256": "9cf301e25a87d5cf19b4c58931a865cd24b8f929e0a487fe1df4280981f10dc2",
+    "rpg_generator": "rpg_zero_write_recovery_20261023/prepare_candidate.py",
+    "rpg_before": "3ade09f1caefbe0deb0d69cdac8f6c5c98e705370bc1ed17cee3de0d595a5be3",
+    "rpg_after": "1992ef596c26da63973a786200c45733ea66fdc98b45d99256184fd0d1c8958e",
+    "probe_source": "rpg_zero_write_recovery_20261023/source/pricing_probe.py",
+    "probe_sha256": "ea612dd87b141b29f8f7c9a2725e3a5b602eddec9ae379f5fc43b1833b2dea06",
+    "fc_event": "0e74258c-4d9e-405d-b543-5fcf24fcdb84",
+    "fc_idle_verified_at": "2026-10-23T10:50:07.922539+00:00",
+    "natural_due": "2026-10-23 19:02:26 Asia/Shanghai",
+    "price_requests_by_release": 0,
+    "ongoing": "Order503 and primary-reader residual FC container dependency investigation"
+  }
 }

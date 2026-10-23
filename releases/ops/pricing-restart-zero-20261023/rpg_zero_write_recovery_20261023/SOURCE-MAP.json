@@ -1,0 +1,34 @@
+{
+  "module": "rpg-zero-write-recovery-20261023",
+  "status": "candidate_tested_not_deployed",
+  "files": {
+    "source/pricing_probe.py": "ea612dd87b141b29f8f7c9a2725e3a5b602eddec9ae379f5fc43b1833b2dea06",
+    "prepare_candidate.py": "bfc9d9a6b6e8cbdb13560bd9a985e55bb877573b481e26cbb061c416194325cd",
+    "test_zero_write.py": "a0d7fcf1ef44274a3954c23e74a2ffe173a99d2c57bac3607b1519a0f2133ae0",
+    "test_probe_legacy.py": "f265018047e0043df4b191ba0bf57de2dc872731d5506200f0b8345e4218314b",
+    "tests/fixtures/item_write_baseline.py": "ec327b8195e8b9c260ebbb04bd7d8b772156db44c71b8751787957381ec5fe74"
+  },
+  "baselines": {
+    "/opt/fs-pricing-alerts/pricing_probe.py": "006aabd2275f43b28e2cf7c24a98d6983e1b2a202cc7d8d3d9ad89f7d7bb2a24",
+    "/opt/d4follow/_p2pah_srv/p2pah_local.py": "3ade09f1caefbe0deb0d69cdac8f6c5c98e705370bc1ed17cee3de0d595a5be3",
+    "/opt/d4follow/_p2pah_srv/srv_run.py": "52a3ccee95131e3bc80e4ba4d970ef33a60173516e6a004d80fbe26e1e5b05a1"
+  },
+  "generated_item_candidate_sha256": "1992ef596c26da63973a786200c45733ea66fdc98b45d99256184fd0d1c8958e",
+  "validation": {
+    "local_tests_passed": 40,
+    "linux_tests_passed": 40,
+    "original_id_readonly_classification_removed": [
+      "J20261023163848",
+      "J20261023173949"
+    ],
+    "other_unresolved_unchanged": true,
+    "production_modified": false,
+    "natural_acceptance": "pending"
+  },
+  "notes": [
+    "3ade preserves separate cmd_writegold and newly added readgold/main changes; publisher serializes and CAS checks current baseline; authorship not yet proven",
+    "Full p2pah source remains server-private; generator changes only cmd_write metadata and verifies unrelated AST unchanged",
+    "fixture contains only credential-free cmd_write; all execution inputs and sessions in tests are synthetic"
+  ],
+  "prior_candidate": "archive/SOURCE-MAP-12d99.json"
+}

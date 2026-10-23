@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/ops/pricing-restart-zero-20261023/fc_restart_release_recovery_20261023/source/browser_lifecycle.py"]) != ["pricing-restart-zero"]:
+        raise RuntimeError("pricing_restart_zero_mapping_missing")
     if select(["releases/ops/fc-reference-observer-ui-20261023/ui/source/fc27_cloud_api.py","releases/ops/fc-reference-observer-ui-20261023/trigger/source/observe.py"]) != ["fc-reference-observer-ui"]:
         raise RuntimeError("fc_reference_observer_ui_mapping_missing")
     if select(["releases/ops/fc-itemd2r-shadow-20261023/observer/source/observe.py","releases/ops/fc-itemd2r-shadow-20261023/shadow/source/reference_shadow.py"]) != ["fc-price-shadow"]:
@@ -368,6 +370,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/ops/pricing-restart-zero-20261023/"):
+            groups.add("pricing-restart-zero");continue
         if name.startswith("releases/ops/fc-reference-observer-ui-20261023/"):
             groups.add("fc-reference-observer-ui");continue
         if name.startswith("releases/ops/fc-itemd2r-shadow-20261023/"):
@@ -708,6 +712,10 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
             continue
         print("affected group:",group,flush=True)
+        if group=="pricing-restart-zero":
+            units("releases/ops/pricing-restart-zero-20261023/fc_restart_release_recovery_20261023/tests",["test_restart_release"])
+            units("releases/ops/pricing-restart-zero-20261023/rpg_zero_write_recovery_20261023",["test_probe_legacy","test_zero_write"])
+            continue
         if group=="fc-reference-observer-ui":
             units("releases/ops/fc-reference-observer-ui-20261023/ui/tests",["test_reference_observer_view"])
             units("releases/ops/fc-reference-observer-ui-20261023/trigger",["test_trigger"])
@@ -1156,6 +1164,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
 
 
