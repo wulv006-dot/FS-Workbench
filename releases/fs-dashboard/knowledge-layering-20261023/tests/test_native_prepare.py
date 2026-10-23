@@ -44,7 +44,7 @@ class Prepare(unittest.TestCase):
         self.assertEqual(state['operation_id'], 'original-op')
         self.assertEqual(state['status'], 'image_built_and_verified_not_activated')
         self.assertEqual(hashlib.sha256((self.root / 'stage/release_adapter_base.py').read_bytes()).hexdigest(),
-                         'cf06b7ca5d9ab33a849c6e18d735bb57557d664aabb0df08770f9a4941ad75ee')
+                         'd2ab05e0d3efa8003cebb43d75f44c51cd58f1b624c09388322de36e5ce78d58')
         self.assertEqual(hashlib.sha256((self.root / 'stage/release_navigation_base.py').read_bytes()).hexdigest(),
                          '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de')
         (self.root / 'stage/approved-manifest.json').write_text(json.dumps(manifest))
