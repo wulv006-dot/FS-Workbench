@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "at": "2026-10-23T14:50:32.765023+08:00",
+  "release": "nav-20261023T065100Z",
+  "targets": 8,
+  "guards": 105,
+  "exact_email_search": [
+    {
+      "snapshot_id": "us_e359459ad356493a81dab4eb0381ef39",
+      "data_version": "227",
+      "scope": "global",
+      "project": "",
+      "orders": 9,
+      "valid_orders": 9,
+      "timeline": 10,
+      "matched_raw_orders": true
+    },
+    {
+      "snapshot_id": "us_2460db58106444b68ab873116c2562d2",
+      "data_version": "227",
+      "scope": "project",
+      "project": "1327",
+      "orders": 3,
+      "valid_orders": 2,
+      "timeline": 2,
+      "matched_raw_orders": true
+    }
+  ],
+  "ordinary": 403,
+  "anonymous": 401,
+  "cross_origin": 403,
+  "get_email_rejected": true,
+  "january_started": false,
+  "browser": {
+    "browser": "existing local Chrome / wulv",
+    "period": "2026-07-01 through 2026-10-22",
+    "snapshot_id": "us_e0c22ec53ca6e05c9ee338753b98688a",
+    "data_version": "263",
+    "exact_email_matches_original_detail": true,
+    "orders": 9,
+    "timeline": 10,
+    "cold_query_after_restart": "completed in real UI before observation at 54 seconds; not an exact latency measurement",
+    "light_desktop_width": 1920,
+    "dark_mobile_width": 390,
+    "mobile_document_width": 375,
+    "nested_buttons": 0,
+    "help_keyboard_escape": true,
+    "filter_pending_and_applied_scope": true,
+    "screenshots": [
+      "evidence-live/users-field-help-20261023.png",
+      "evidence-live/users-search-mobile-dark-20261023.png",
+      "evidence-live/users-email-search-20261023.png"
+    ]
+  },
+  "checks": {
+    "isolated_linux_tests": 91,
+    "qa_sha256": "aa71f9ac89fef3e66e435fb6d9363ebaa9c366df7018eb1f5647194cad1e3071",
+    "later_http_route_tests": 3,
+    "ci": [
+      39911876339,
+      39912356138,
+      39913696469
+    ],
+    "astra_review": "initial and follow-up; findings implemented",
+    "original_spec_unchanged": true
+  },
+  "limitations": [
+    "user acceptance OK still pending",
+    "no January backfill",
+    "real midnight progression still unobserved",
+    "ordinary account independent browser not tested; actual server IAM tested",
+    "cold long-range query may take tens of seconds; existing ES parser cache retained"
+  ]
+}
