@@ -9,6 +9,7 @@ import re
 import sqlite3
 import stat
 import subprocess
+import time
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'knowledge-native-fs-20261023'
@@ -18,6 +19,23 @@ TARGETS = {'plugin/__init__.py': PLUGIN + '__init__.py', 'plugin/knowledge.py': 
            'native/desktop.service': '/etc/systemd/system/fs-hermes-desktop.service'}
 UNITS = ('fs-hermes-desktop.service', 'hermes-dingtalk.service')
 IMAGE = re.compile(r'sha256:[a-f0-9]{64}')
+
+
+def wait_for_native_container(expected):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            state = subprocess.check_output(['docker', 'inspect', '-f', '{{.State.Running}} {{.Image}}',
+                                             'fs-hermes-desktop'], text=True, stderr=subprocess.DEVNULL).strip().split()
+        except subprocess.CalledProcessError:
+            state = []  # systemd Type=simple can return before Docker creates the container.
+        if state:
+            if len(state) != 2 or state[1] != expected:
+                raise ValueError('native_startup_container_image_differs')
+            if state[0] == 'true':
+                return
+        time.sleep(0.25)
+    raise TimeoutError('native_container_not_running_before_gateway_start')
 
 
 def original_plugin_sha(raw):
@@ -183,11 +201,15 @@ def install_native_scope(base, approved):
         # Files and image-only unit are all verified before admitting the new native process.
         stop_native(admission_fence)
         subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=20)
-        subprocess.run(['systemctl', 'start', *UNITS], check=True, timeout=60)
-        for unit in UNITS:
-            subprocess.run(['systemctl', 'is-active', '--quiet', unit], check=True, timeout=10)
         raw = base.rooted(admission_fence.root, TARGETS['native/desktop.service']).read_bytes()
         expected = [manifest[k] for k in ('nativeImageBefore', 'nativeImageAfter') if manifest[k].encode() in raw]
+        if len(expected) != 1:
+            raise ValueError('native_unit_pinned_image_missing')
+        subprocess.run(['systemctl', 'start', UNITS[0]], check=True, timeout=60)
+        wait_for_native_container(expected[0])
+        subprocess.run(['systemctl', 'start', UNITS[1]], check=True, timeout=60)
+        for unit in UNITS:
+            subprocess.run(['systemctl', 'is-active', '--quiet', unit], check=True, timeout=10)
         actual = subprocess.check_output(['docker', 'inspect', '-f', '{{.Image}}', 'fs-hermes-desktop'], text=True).strip()
         if len(expected) != 1 or actual != expected[0]:
             raise ValueError('native_running_image_readback_differs')

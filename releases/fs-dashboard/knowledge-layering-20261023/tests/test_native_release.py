@@ -6,6 +6,7 @@ import multiprocessing
 from pathlib import Path
 import sqlite3
 import stat
+import subprocess
 import tempfile
 import types
 import unittest
@@ -183,13 +184,36 @@ class NativeRelease(unittest.TestCase):
         base = self.fake_base(); native.install_native_scope(base, self.manifest)
         unit = self.root / native.TARGETS['native/desktop.service'].lstrip('/'); unit.parent.mkdir(parents=True)
         unit.write_bytes(self.unit_before.replace(self.before.encode(), self.after.encode()))
-        with patch.object(native.subprocess, 'run') as run, patch.object(native.subprocess, 'check_output', side_effect=['ActiveState=inactive\n', 'ActiveState=inactive\n', self.after]):
+        events = []
+        def command(args, **kwargs):
+            events.append(args)
+        replies = iter(['ActiveState=inactive\n', 'ActiveState=inactive\n', 'true ' + self.after, self.after])
+        def read(args, **kwargs):
+            events.append(args)
+            return next(replies)
+        with patch.object(native.subprocess, 'run', side_effect=command) as run, patch.object(native.subprocess, 'check_output', side_effect=read) as output:
             with base.hermes_admission_fence(self.manifest, self.root) as fence:
                 fence.modified = True
                 base.restart_for(self.manifest, fence)
         commands = [c.args[0] for c in run.call_args_list]
         self.assertTrue(any(c[:2] == ['systemctl', 'start'] for c in commands))
         self.assertFalse(any('fs-business-range.service' in c or 'fs-hermes-fc.service' in c or 'nginx' in c for c in commands))
+        starts = [c for c in commands if c[:2] == ['systemctl', 'start']]
+        self.assertEqual(starts, [['systemctl', 'start', 'fs-hermes-desktop.service'], ['systemctl', 'start', 'hermes-dingtalk.service']])
+        self.assertEqual(output.call_args_list[2].args[0][3], '{{.State.Running}} {{.Image}}')
+        self.assertLess(events.index(output.call_args_list[2].args[0]), events.index(starts[1]))
+
+    def test_gateway_waits_for_actual_container_and_pinned_image(self):
+        missing = subprocess.CalledProcessError(1, ['docker', 'inspect'])
+        with patch.object(native.subprocess, 'check_output', side_effect=[missing, 'false ' + self.after, 'true ' + self.after]) as read, patch.object(native.time, 'sleep') as sleep:
+            native.wait_for_native_container(self.after)
+        self.assertEqual(read.call_count, 3); self.assertEqual(sleep.call_count, 2)
+        with patch.object(native.subprocess, 'check_output', return_value='true ' + self.before):
+            with self.assertRaisesRegex(ValueError, 'image_differs'): native.wait_for_native_container(self.after)
+
+    def test_container_wait_is_bounded_and_does_not_start_a_gateway_on_timeout(self):
+        with patch.object(native.time, 'monotonic', side_effect=[0, 0, 31]), patch.object(native.time, 'sleep'), patch.object(native.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, ['docker'])):
+            with self.assertRaisesRegex(TimeoutError, 'before_gateway_start'): native.wait_for_native_container(self.after)
 
     def test_unknown_restart_and_concurrent_lease_prevents_blind_restore(self):
         base = self.fake_base(); restore = base.rollback_journal
@@ -278,7 +302,8 @@ class NativeRelease(unittest.TestCase):
             if command[0] == 'systemctl': return 'ActiveState=inactive\n'
             if command[:2] == ['docker', 'inspect']:
                 unit = (self.root / native.TARGETS['native/desktop.service'].lstrip('/')).read_bytes()
-                return self.after if self.after.encode() in unit else self.before
+                image = self.after if self.after.encode() in unit else self.before
+                return 'true ' + image if command[3] == '{{.State.Running}} {{.Image}}' else image
             return ''.join(sha + '  ' + path + '\n' for path, sha in self.manifest['nativeImageSources'].items())
         release_id = 'nav-20261023T000000Z'
         with patch.object(native.subprocess, 'run') as calls, patch.object(native.subprocess, 'check_output', side_effect=output):
