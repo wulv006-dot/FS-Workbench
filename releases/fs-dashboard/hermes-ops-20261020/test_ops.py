@@ -324,7 +324,9 @@ class WatchChecks(unittest.TestCase):
         self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py')
         timer = (ROOT/'deploy/fs-hermes-ops-bridge.timer').read_text()
         self.assertIn('Persistent=false', timer)
-        self.assertIn('OnUnitActiveSec=5min', timer)
+        self.assertIn('OnCalendar=*-*-* 03,07,08,13,18,23:00:00', timer)
+        self.assertIn('OnBootSec=2min', timer)
+        self.assertNotIn('OnUnitActiveSec=', timer)
 
 class ConnectionChecks(unittest.TestCase):
     def test_current_process_event_and_disconnect(self):
