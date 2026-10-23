@@ -49,6 +49,12 @@ def plan(root, base, paths=None):
         for row in index['entries']:
             if name == row['source']['path']:
                 affected.add(row['id'])
+    rule_paths = {
+        'releases/fs-dashboard/channel-effects-20261021/source/channel_mapping.json',
+        'releases/fs-dashboard/channel-effects-20261021/source/channel_source.py',
+        'releases/fs-dashboard/fs-business-baseline-20261021/source/coupon_channels.json',
+    }
+    unmapped_rule_paths = sorted((set(files) & rule_paths) - {row['source']['path'] for row in index['entries']})
     native_prefix = 'releases/fs-dashboard/hermes-server-unify-20261022/'
     native_runtime = any(x.startswith(native_prefix + 'fs_readonly/') or x in
                          {native_prefix + 'fs_native_entry.py', native_prefix + 'patch_factory.py', native_prefix + 'Dockerfile.native',
@@ -66,6 +72,7 @@ def plan(root, base, paths=None):
     known_conflicts = [r['id'] for r in index['entries'] if r['status'] == 'conflict']
     result = dict(contract='fs-knowledge-closeout-v1', base=base, head=head, files=files,
                   affected_ids=sorted(affected), catalog_sha256=hashlib.sha256(catalog_raw).hexdigest(),
+                  unmapped_rule_paths=unmapped_rule_paths, semantic_review_required=bool(unmapped_rule_paths),
                   known_conflicts=known_conflicts, blocking_conflicts=sorted(set(known_conflicts) & affected),
                   business_rule_confirmation_required=business, production_confirmation_required=delivery,
                   steps=steps, requires_restart=runtime,

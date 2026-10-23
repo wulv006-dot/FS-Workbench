@@ -110,6 +110,41 @@ class Closeout(unittest.TestCase):
         self.assertEqual(value['restart_scope'],'native_hermes_only_after_approval')
         self.assertEqual(value['notion_candidate']['status'],'candidate_not_effective')
 
+    def test_unmapped_channel_rules_report_semantic_review_without_new_steps(self):
+        names = ['releases/fs-dashboard/channel-effects-20261021/source/channel_mapping.json',
+                 'releases/fs-dashboard/channel-effects-20261021/source/channel_source.py',
+                 'releases/fs-dashboard/fs-business-baseline-20261021/source/coupon_channels.json']
+        for name in names:
+            with self.subTest(path=name), patch.object(co.subprocess, 'check_output', return_value='a'*40):
+                value = co.plan(self.root, 'b'*40, [name])
+                self.assertEqual(value['unmapped_rule_paths'], [name])
+                self.assertTrue(value['semantic_review_required'])
+                self.assertEqual(value['affected_ids'], [])
+                self.assertEqual(value['steps'], [])
+                self.assertFalse(value['business_rule_confirmation_required'])
+                self.assertFalse(value['production_confirmation_required'])
+                self.assertFalse(value['requires_restart'])
+
+    def test_registered_channel_rule_has_no_unmapped_warning(self):
+        name = 'releases/fs-dashboard/channel-effects-20261021/source/channel_mapping.json'
+        (self.root / 'knowledge/index.json').write_text(json.dumps({'entries': [dict(
+            id='channel.mapping', revision='test', layer='current', status='effective', source={'path': name})]}), encoding='utf-8')
+        with patch.object(co.subprocess, 'check_output', return_value='a'*40):
+            value = co.plan(self.root, 'b'*40, [name])
+        self.assertEqual(value['unmapped_rule_paths'], [])
+        self.assertFalse(value['semantic_review_required'])
+        self.assertEqual(value['affected_ids'], ['channel.mapping'])
+        self.assertEqual(value['steps'], ['git_version', 'server_publish', 'load_readback', 'notion_sync'])
+
+    def test_unrelated_file_in_channel_module_has_no_semantic_warning(self):
+        name = 'releases/fs-dashboard/channel-effects-20261021/source/README.md'
+        with patch.object(co.subprocess, 'check_output', return_value='a'*40):
+            value = co.plan(self.root, 'b'*40, [name])
+        self.assertEqual(value['unmapped_rule_paths'], [])
+        self.assertFalse(value['semantic_review_required'])
+        self.assertEqual(value['affected_ids'], [])
+        self.assertEqual(value['steps'], [])
+
     def test_notion_preserves_manual_links_and_rejects_conflicting_same_marker(self):
         original = '人工段落\n[关键链接](https://example.invalid/reference)'
         once = co.notion_candidate(original, 'approved summary', self.id)['content']
