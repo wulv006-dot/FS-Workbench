@@ -132,7 +132,8 @@ class RecoveryTests(unittest.TestCase):
     def test_original_business_functions_unchanged(self):
         prior=json.loads((ROOT/'protected-functions.json').read_text())
         self.assertEqual(len(prior),7)
-        current={n.name:hashlib.sha256(ast.dump(n,include_attributes=False).encode()).hexdigest() for n in tree.body if isinstance(n,ast.FunctionDef)}
+        source=(ROOT/'source/dashboard/server.py').read_text(encoding='utf-8-sig')
+        current={n.name:hashlib.sha256(ast.get_source_segment(source,n).encode()).hexdigest() for n in tree.body if isinstance(n,ast.FunctionDef)}
         for name,expected in prior.items():
             with self.subTest(name=name): self.assertEqual(expected,current[name])
 
