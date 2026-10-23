@@ -21,3 +21,13 @@ def patch(current):
     if b'/dashboard/users/search.json' in current or current.count(b'location = /dashboard/users/private.json') != 1:
         raise ValueError('search_route_baseline_changed')
     return current + b'\n' + ROUTE
+
+
+def patch_query_timeout(current):
+    # Cold multi-month ES parsing can exceed 25s; keep this bound on aggregate reads only.
+    start = current.index(b'location = /dashboard/users/data.json {')
+    end = current.index(b'\n}', start) + 2
+    block = current[start:end]
+    if block.count(b'proxy_read_timeout 25s;') != 1:
+        raise ValueError('users_query_timeout_baseline_changed')
+    return current[:start] + block.replace(b'proxy_read_timeout 25s;', b'proxy_read_timeout 60s;') + current[end:]
