@@ -21,8 +21,8 @@ SOURCES.update({'runtime/conversation_service.py': Path('releases/fc-coins/fc-pr
                 'approval/reviewed_skills.py': SKILLS / 'reviewed_skills.py',
                 'daily/daily_review.py': SKILLS / 'daily_review.py'})
 PUBLISHERS = {
-    'release_adapter_base.py': (Path('releases/fs-dashboard/fs-business-baseline-20261021/deploy/release.py'),
-                                '65794d515f78826e5a23c4c88966c603e1a46dd3c977c3dd0956bc770a581344'),
+    'release_adapter_base.py': (Path('releases/fs-dashboard/user-analytics-20261022/deploy/release.py'),
+                                '1ce25dae41a5bac8317d0ab2b9b719964085b3a1d1481708692ec099111775dc'),
     'release_navigation_base.py': (Path('releases/fs-dashboard/channel-effects-20261021/deploy/release_navigation_base.py'),
                                    '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de')}
 

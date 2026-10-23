@@ -41,13 +41,14 @@ def targets(manifest):
 
 def load_base():
     raw = (HERE / 'release_adapter_base.py').read_bytes()
-    if hashlib.sha256(raw).hexdigest() != '65794d515f78826e5a23c4c88966c603e1a46dd3c977c3dd0956bc770a581344':
+    if hashlib.sha256(raw).hexdigest() != '1ce25dae41a5bac8317d0ab2b9b719964085b3a1d1481708692ec099111775dc':
         raise ValueError('existing_adapter_drift')
     spec = importlib.util.spec_from_file_location('existing_learning_scope', HERE / 'release_adapter_base.py')
     adapter = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(adapter)
     manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, targets(manifest)
+    adapter.AUTHORIZED_TIMERS = frozenset()
     adapter.NEW = frozenset(set(adapter.TARGETS) - set(RUNTIME) | NEW_RUNTIME)
     base = adapter.load_base()
     original_group = base.approved_daily_group
