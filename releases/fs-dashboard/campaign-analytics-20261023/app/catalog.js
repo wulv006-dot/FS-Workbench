@@ -1,0 +1,1668 @@
+window.FC_ACTIVITY_CONFIG = {
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-22T13:08:02.101028+00:00",
+  "currency": "USD",
+  "siteId": 266,
+  "gameId": 1327,
+  "topCid": 2,
+  "mode": "preview",
+  "defaultLanguage": "zh",
+  "defaultView": "weekly",
+  "platforms": {
+    "ps": {
+      "aid": 21587,
+      "label": "PlayStation 4|5"
+    },
+    "xbox": {
+      "aid": 21585,
+      "label": "Xbox Series X|S"
+    },
+    "pc": {
+      "aid": 21589,
+      "label": "PC"
+    }
+  },
+  "products": {
+    "186254399": {
+      "key": "186254399",
+      "title": "Luis Díaz/89/LM++/Team of the Week",
+      "name": "Luis Díaz",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Team of the Week",
+      "rating": "89",
+      "position": "LM++",
+      "league": "Bundesliga",
+      "club": "FC Bayern München",
+      "nation": "Colombia",
+      "image": "assets/product-186254399.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/786cfbb20a243fa9ab4fe4b40c1d8fe0983abb93.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Luis Díaz",
+      "platforms": {
+        "ps": {
+          "id": 186254399,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "33.55",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 186254407,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "33.55",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 186254403,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "28.55",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "186254279": {
+      "key": "186254279",
+      "title": "Mikel Oyarzabal Ugarte/85/ST++/Team of the Week",
+      "name": "Mikel Oyarzabal Ugarte",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Team of the Week",
+      "rating": "85",
+      "position": "ST++",
+      "league": "LALIGA EA SPORTS",
+      "club": "Real Sociedad",
+      "nation": "Spain",
+      "image": "assets/product-186254279.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/bba4b1e017c94b20d49791c02ba0942f75082bc0.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Mikel Oyarzabal Ugarte",
+      "platforms": {
+        "ps": {
+          "id": 186254279,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.38",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 186254287,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.38",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 186254283,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.19",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "186254291": {
+      "key": "186254291",
+      "title": "Pedro Lomba Neto/83/RM++/Team of the Week",
+      "name": "Pedro Lomba Neto",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Team of the Week",
+      "rating": "83",
+      "position": "RM++",
+      "league": "Premier League",
+      "club": "Chelsea",
+      "nation": "Portugal",
+      "image": "assets/product-186254291.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/56629294988ea04c38aee3352160de7496cef69b.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Pedro Lomba Neto",
+      "platforms": {
+        "ps": {
+          "id": 186254291,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "10.28",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 186254299,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "10.28",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 186254295,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "8.88",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "185070945": {
+      "key": "185070945",
+      "title": "Jacobo Ramón Naveros/87/CB++/Future Stars",
+      "name": "Jacobo Ramón Naveros",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Future Stars",
+      "rating": "87",
+      "position": "CB++",
+      "league": "Serie A Enilive",
+      "club": "Como",
+      "nation": "Spain",
+      "image": "assets/product-185070945.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/46b4e2f798aa06deb35d42a133193ea44febb968.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Jacobo Ramón Naveros",
+      "platforms": {
+        "ps": {
+          "id": 185070945,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "27.28",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 185070953,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "27.28",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 185070949,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "22.44",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "185916875": {
+      "key": "185916875",
+      "title": "Alphadjo Cissè/85/CAM++/Star Performer",
+      "name": "Alphadjo Cissè",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Star Performer",
+      "rating": "85",
+      "position": "CAM++",
+      "league": "Serie A Enilive",
+      "club": "Milano FC",
+      "nation": "Italy",
+      "image": "assets/product-185916875.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/b9c507278fb3ce52545c42be1384e5ed2539ee5b.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Alphadjo Cissè",
+      "platforms": {
+        "ps": {
+          "id": 185916875,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "8.01",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 185916883,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "8.01",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 185916879,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "8.12",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "185070993": {
+      "key": "185070993",
+      "title": "Yoan Bonny/87/ST++/Future Stars",
+      "name": "Yoan Bonny",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Future Stars",
+      "rating": "87",
+      "position": "ST++",
+      "league": "Serie A Enilive",
+      "club": "Lombardia FC",
+      "nation": "Côte d'Ivoire",
+      "image": "assets/product-185070993.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/2e5e0d7b7f4dcf34690cc5ff2477c432a9107e90.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Yoan Bonny",
+      "platforms": {
+        "ps": {
+          "id": 185070993,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "16.24",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 185071001,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "16.24",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 185070997,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "11.36",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "170014917": {
+      "key": "170014917",
+      "title": "Erling Haaland/91/ST++/Gold Non Rare",
+      "name": "Erling Haaland",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Gold Non Rare",
+      "rating": "91",
+      "position": "ST++",
+      "league": "Premier League",
+      "club": "Manchester City",
+      "nation": "Norway",
+      "image": "assets/product-170014917.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/1.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Erling Haaland",
+      "platforms": {
+        "ps": {
+          "id": 170014917,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "5.74",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170026873,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "5.74",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170014921,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "3.91",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "170017889": {
+      "key": "170017889",
+      "title": "William Saliba/88/CB++/Gold Non Rare",
+      "name": "William Saliba",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Gold Non Rare",
+      "rating": "88",
+      "position": "CB++",
+      "league": "Premier League",
+      "club": "Arsenal",
+      "nation": "France",
+      "image": "assets/product-170017889.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/92.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "William Saliba",
+      "platforms": {
+        "ps": {
+          "id": 170017889,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.92",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170025649,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.92",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170017893,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "3.34",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "170017881": {
+      "key": "170017881",
+      "title": "Declan Rice/88/CDM++/Gold Non Rare",
+      "name": "Declan Rice",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Gold Non Rare",
+      "rating": "88",
+      "position": "CDM++",
+      "league": "Premier League",
+      "club": "Arsenal",
+      "nation": "England",
+      "image": "assets/product-170017881.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/91.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Declan Rice",
+      "platforms": {
+        "ps": {
+          "id": 170017881,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.22",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170025645,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.22",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170017885,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.10",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "170018993": {
+      "key": "170018993",
+      "title": "Pernille Harder/87/CAM++/Gold Non Rare",
+      "name": "Pernille Harder",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Gold Non Rare",
+      "rating": "87",
+      "position": "CAM++",
+      "league": "GPFBL",
+      "club": "FC Bayern München",
+      "nation": "Denmark",
+      "image": "assets/product-170018993.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/73.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Pernille Harder",
+      "platforms": {
+        "ps": {
+          "id": 170018993,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.68",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170024773,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.68",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170018997,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "186254267": {
+      "key": "186254267",
+      "title": "Pauline Bremer/82/ST++/Team of the Week",
+      "name": "Pauline Bremer",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Team of the Week",
+      "rating": "82",
+      "position": "ST++",
+      "league": "GPFBL",
+      "club": "1. FC Köln",
+      "nation": "Germany",
+      "image": "assets/product-186254267.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/c7808d5cb601053908d0245b338b020d646ade5d.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Pauline Bremer",
+      "platforms": {
+        "ps": {
+          "id": 186254267,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.16",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 186254275,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.16",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 186254271,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "1.00",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "185916899": {
+      "key": "185916899",
+      "title": "Bradley Barcola/86/LW++/Star Performer",
+      "name": "Bradley Barcola",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Star Performer",
+      "rating": "86",
+      "position": "LW++",
+      "league": "Premier League",
+      "club": "Liverpool",
+      "nation": "France",
+      "image": "assets/product-185916899.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/d85706bc2ab0f85b22560c0da86d1bfd423076de.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Bradley Barcola",
+      "platforms": {
+        "ps": {
+          "id": 185916899,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "71.76",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 185916907,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "71.76",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 185916903,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "89.66",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "185916851": {
+      "key": "185916851",
+      "title": "Noah Sadiki/85/CDM++/Star Performer",
+      "name": "Noah Sadiki",
+      "kind": "player",
+      "cid": 9627,
+      "version": "Star Performer",
+      "rating": "85",
+      "position": "CDM++",
+      "league": "Premier League",
+      "club": "Sunderland",
+      "nation": "Congo DR",
+      "image": "assets/product-185916851.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/5dfa8a103caafa652ce28b69545b267f68dd3989.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Noah Sadiki",
+      "platforms": {
+        "ps": {
+          "id": 185916851,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "19.92",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 185916859,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "19.92",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 185916855,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "18.71",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      }
+    },
+    "186021743": {
+      "key": "186021743",
+      "title": "Assane Diao",
+      "name": "Assane Diao",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "84",
+      "position": "RM",
+      "league": "Serie A",
+      "club": "Como",
+      "nation": "Senegal",
+      "image": "assets/product-186021743.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/f7e437ba5305a727d5c0e65f1e1d69bf36f352f9.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Assane Diao",
+      "platforms": {
+        "ps": {
+          "id": 186021743,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "6.24",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 186021779,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "6.24",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 186021815,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "5.81",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "185833159": {
+      "key": "185833159",
+      "title": "Johan Manzambi",
+      "name": "Johan Manzambi",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "85",
+      "position": "CM",
+      "league": "Premier League",
+      "club": "Aston Villa",
+      "nation": "Switzerland",
+      "image": "assets/product-185833159.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/8cf5c14882ea8d1b5667c3498305c4deb68c2d59.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Johan Manzambi",
+      "platforms": {
+        "ps": {
+          "id": 185833159,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "7.57",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185833195,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "7.57",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185833231,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "7.05",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "185718875": {
+      "key": "185718875",
+      "title": "Cora Zicai",
+      "name": "Cora Zicai",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "85",
+      "position": "LW",
+      "league": "GP Frauen Bundesliga",
+      "club": "VfL Wolfsburg",
+      "nation": "Germany",
+      "image": "assets/product-185718875.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/3c54465a1c358f1a977c5690d84082c2c0b04d17.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Cora Zicai",
+      "platforms": {
+        "ps": {
+          "id": 185718875,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.66",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185718911,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.66",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185718947,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.34",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "185493031": {
+      "key": "185493031",
+      "title": "Ligue 1 POTM September",
+      "name": "Ligue 1 POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185493031.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/5d3679fb26508dc66d15d3585a79c490cb875790.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Ligue 1 POTM September",
+      "platforms": {
+        "ps": {
+          "id": 185493031,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "18.27",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185493067,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "18.27",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185493103,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "16.97",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "184101943": {
+      "key": "184101943",
+      "title": "LALIGA POTM September",
+      "name": "LALIGA POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-184101943.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/6d6118ed693d7906afa0092eea1c8a956ca506e9.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "LALIGA POTM September",
+      "platforms": {
+        "ps": {
+          "id": 184101943,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "190.59",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 184101979,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "190.59",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 184102015,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "176.99",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "184102051": {
+      "key": "184102051",
+      "title": "Bundesliga POTM September",
+      "name": "Bundesliga POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-184102051.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/25fc7449c416e2933643e95a9f055b7131c8c0df.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Bundesliga POTM September",
+      "platforms": {
+        "ps": {
+          "id": 184102051,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "102.73",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 184102087,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "102.73",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 184102123,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "95.40",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "184557601": {
+      "key": "184557601",
+      "title": "Liga F POTM September",
+      "name": "Liga F POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-184557601.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/bb811a8a25cf7ef7276b2b51c63ed9e4454f768c.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Liga F POTM September",
+      "platforms": {
+        "ps": {
+          "id": 184557601,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "164.95",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 184557637,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "164.95",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 184557673,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "153.19",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "185681151": {
+      "key": "185681151",
+      "title": "Serie A POTM September",
+      "name": "Serie A POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185681151.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/d56f34f6ed8dd0088c41c762c5e92204026d698d.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Serie A POTM September",
+      "platforms": {
+        "ps": {
+          "id": 185681151,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "13.41",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185681187,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "13.41",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185681223,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "12.48",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "184102267": {
+      "key": "184102267",
+      "title": "Premier League POTM September",
+      "name": "Premier League POTM September",
+      "kind": "sbc",
+      "cid": 10203,
+      "version": "SBC Player",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-184102267.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/9b4ca2915d447c24a7d5a41467824c74e6be8276.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Sbc.html",
+      "search": "Premier League POTM September",
+      "platforms": {
+        "ps": {
+          "id": 184102267,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "3.00",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 184102303,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "3.00",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 184102339,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "2.80",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      }
+    },
+    "185752943": {
+      "key": "185752943",
+      "title": "Lyon Women Player Bundle",
+      "name": "Lyon Women Player Bundle",
+      "kind": "bundle",
+      "cid": 10255,
+      "version": "Player Bundle",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185752943.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/80d723bee30b9b8e6c7664965a4bdb1b4f224273.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Packs.html",
+      "search": "Lyon Women Player Bundle",
+      "platforms": {
+        "ps": {
+          "id": 185752943,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "163.16",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185752979,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "163.16",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185753015,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "159.17",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      },
+      "included": [
+        {
+          "name": "Salma Celeste",
+          "rating": "87",
+          "position": "LW++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Melchie Dumornay",
+          "rating": "88",
+          "position": "ST++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Tabitha Chawinga",
+          "rating": "87",
+          "position": "LW++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Sakina Karchaoui",
+          "rating": "87",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        }
+      ]
+    },
+    "185752835": {
+      "key": "185752835",
+      "title": "LALIGA EA SPORTS Player Bundle",
+      "name": "LALIGA EA SPORTS Player Bundle",
+      "kind": "bundle",
+      "cid": 10255,
+      "version": "Player Bundle",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185752835.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/cf3c3a19ffa893ebb60b4f82aefaab56223f329d.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Packs.html",
+      "search": "LALIGA EA SPORTS Player Bundle",
+      "platforms": {
+        "ps": {
+          "id": 185752835,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "83.36",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185752871,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "83.36",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185752907,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "69.78",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      },
+      "included": [
+        {
+          "name": "Julián Álvarez",
+          "rating": "86",
+          "position": "ST++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Lamine Yamal",
+          "rating": "90",
+          "position": "RW++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Jude Bellingham",
+          "rating": "90",
+          "position": "",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Pedri",
+          "rating": "90",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Joan García",
+          "rating": "86",
+          "position": "GK++",
+          "version": "Gold Non Rare"
+        }
+      ]
+    },
+    "185753051": {
+      "key": "185753051",
+      "title": "Barcelona Player Bundle",
+      "name": "Barcelona Player Bundle",
+      "kind": "bundle",
+      "cid": 10255,
+      "version": "Player Bundle",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185753051.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/22450b8e5e935e9f5820d858b66e70ec9e8dc1b5.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Packs.html",
+      "search": "Barcelona Player Bundle",
+      "platforms": {
+        "ps": {
+          "id": 185753051,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "125.97",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185753087,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "125.97",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185753123,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "128.03",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      },
+      "included": [
+        {
+          "name": "Ewa Pajor",
+          "rating": "89",
+          "position": "ST++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Kika Nazareth",
+          "rating": "83",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Aitana Bonmatí",
+          "rating": "90",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Pedri",
+          "rating": "90",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Patricia Guijarro",
+          "rating": "88",
+          "position": "CDM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Eric García",
+          "rating": "85",
+          "position": "CB++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Joan García",
+          "rating": "86",
+          "position": "GK++",
+          "version": "Gold Non Rare"
+        }
+      ]
+    },
+    "185753159": {
+      "key": "185753159",
+      "title": "Premier League Player Bundle",
+      "name": "Premier League Player Bundle",
+      "kind": "bundle",
+      "cid": 10255,
+      "version": "Player Bundle",
+      "rating": "",
+      "position": "",
+      "league": "",
+      "club": "",
+      "nation": "",
+      "image": "assets/product-185753159.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/154dda2acd4bee0b9b19eb8af0286096b06e2f01.png",
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Packs.html",
+      "search": "Premier League Player Bundle",
+      "platforms": {
+        "ps": {
+          "id": 185753159,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "30.89",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "xbox": {
+          "id": 185753195,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "30.89",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        },
+        "pc": {
+          "id": 185753231,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "27.24",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": false
+        }
+      },
+      "included": [
+        {
+          "name": "Marcus Rashford",
+          "rating": "82",
+          "position": "LW+",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Erling Haaland",
+          "rating": "91",
+          "position": "ST++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Yui Hasegawa",
+          "rating": "88",
+          "position": "CDM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "María Francesca",
+          "rating": "89",
+          "position": "CM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Georgia Stanway",
+          "rating": "86",
+          "position": "CDM++",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "Abdukodir Khusanov",
+          "rating": "82",
+          "position": "CB",
+          "version": "Gold Non Rare"
+        },
+        {
+          "name": "William Saliba",
+          "rating": "88",
+          "position": "CB++",
+          "version": "Gold Non Rare"
+        }
+      ]
+    }
+  },
+  "weekly": {
+    "ids": [
+      "186254399",
+      "186254279",
+      "186254291"
+    ],
+    "edition": {
+      "zh": "本周 TOTW 精选",
+      "en": "TOTW PICKS THIS WEEK"
+    }
+  },
+  "trio": {
+    "series": "Star Performer",
+    "ids": [
+      "185916899",
+      "185916875",
+      "185916851"
+    ],
+    "roles": [
+      {
+        "zh": "边路推进",
+        "en": "THE ATTACKER"
+      },
+      {
+        "zh": "中路创造",
+        "en": "THE CREATOR"
+      },
+      {
+        "zh": "身后保护",
+        "en": "THE ANCHOR"
+      }
+    ],
+    "hero": "assets/scream-hero.webp",
+    "heroMobile": "assets/scream-hero-mobile.webp"
+  },
+  "sbc": {
+    "ids": [
+      "186021743",
+      "185833159",
+      "185718875"
+    ],
+    "defaultId": "186021743",
+    "routes": {
+      "186021743": {
+        "picks": [
+          "185916875",
+          "185070945"
+        ],
+        "alternatives": [
+          "185070993"
+        ],
+        "label": {
+          "zh": "意甲搭配方向",
+          "en": "Serie A pairing ideas"
+        }
+      },
+      "185833159": {
+        "picks": [
+          "170014917",
+          "170017889"
+        ],
+        "alternatives": [
+          "170017881"
+        ],
+        "label": {
+          "zh": "英超搭配方向",
+          "en": "Premier League pairing ideas"
+        }
+      },
+      "185718875": {
+        "picks": [
+          "170018993",
+          "186254267"
+        ],
+        "alternatives": [],
+        "label": {
+          "zh": "女足德甲搭配方向",
+          "en": "GPFBL pairing ideas"
+        }
+      }
+    },
+    "fallbackPicks": [
+      "185916875",
+      "185070945"
+    ],
+    "allListedIds": [
+      "186021743",
+      "185833159",
+      "185718875",
+      "185493031",
+      "184101943",
+      "184102051",
+      "184557601",
+      "185681151",
+      "184102267"
+    ]
+  },
+  "bundles": {
+    "ids": [
+      "185752943",
+      "185752835",
+      "185753051",
+      "185753159"
+    ]
+  },
+  "api": {
+    "catalog": "/ajax/goods",
+    "cartAdd": "/Cart/add.html",
+    "cart": "/Cart.html"
+  },
+  "seo": {
+    "origin": "https://www.mmoexp.com",
+    "assetPath": "/Fc-27/",
+    "pages": {
+      "weekly": {
+        "path": "/Fc-27/Weekly-Scout.html"
+      },
+      "trio": {
+        "path": "/Fc-27/Player-Trio.html"
+      },
+      "sbc": {
+        "path": "/Fc-27/Sbc-Companions.html"
+      }
+    }
+  },
+  "pageOrder": [
+    "weekly",
+    "sbc",
+    "trio"
+  ],
+  "activityPricing": {
+    "enabled": true,
+    "discountPercent": 10,
+    "baseline": "current_selling_price",
+    "eligibility": "activity_sourced_cart_lines",
+    "stackWith": [
+      "coupon",
+      "code",
+      "points"
+    ],
+    "marginCheck": "after_all_discounts",
+    "backendStatus": "not_integrated"
+  }
+};

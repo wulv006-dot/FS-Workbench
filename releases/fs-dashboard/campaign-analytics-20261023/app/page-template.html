@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从 FC 27 已上架球员中挑选本周补强，组合 Star Performer 三人组，或围绕 SBC 核心搭配阵容。">
+  <title>FC 27 · 每周阵容补强 | MMOEXP</title>
+  <link rel="stylesheet" href="activity.css">
+</head>
+<body class="fca-demo-body">
+  <a class="fca-skip" href="#fc-activity" data-i18n="skip">跳到活动内容</a>
+  <header class="fca-demo-header">
+    <div class="fca-demo-header-inner">
+      <a class="fca-brand" href="https://www.mmoexp.com/" aria-label="MMOEXP"><img src="assets/mmoexp-logo.png" alt="MMOEXP" width="164" height="45"></a>
+      <nav class="fca-store-nav" aria-label="FC 27 商店" data-i18n-aria="storeNav">
+        <a href="https://www.mmoexp.com/Fc-27.html">FC 27</a>
+        <a href="https://www.mmoexp.com/Fc-27/Players.html">Players</a>
+        <a href="https://www.mmoexp.com/Fc-27/Sbc.html">SBC</a>
+        <a href="https://www.mmoexp.com/Fc-27/Packs.html">Packs</a>
+      </nav>
+      <div class="fca-language" role="group" aria-label="语言 / Language">
+        <button id="lang-zh" type="button" lang="zh-CN" aria-pressed="true">中文</button>
+        <button id="lang-en" type="button" lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="fc-activity" class="fc-activity" data-view="sbc" tabindex="-1">
+    <nav class="fca-view-nav" aria-label="活动" data-i18n-aria="campaignNav">
+      <div class="fca-container fca-view-nav-inner">
+        <button type="button" data-view="weekly" aria-pressed="false" data-i18n="navWeekly">每周好卡</button>
+        <button type="button" data-view="trio" aria-pressed="false" data-i18n="navTrio">Star Performer 三人组</button>
+        <button type="button" data-view="sbc" aria-pressed="true" data-i18n="navSbc">SBC 核心搭档</button>
+      </div>
+    </nav>
+
+    <p id="activity-offer" class="fca-offer-banner"></p>
+    <section id="hero" class="fca-hero" aria-labelledby="hero-title">
+      <div class="fca-container fca-hero-content">
+        <p id="hero-kicker" class="fca-hero-kicker">WEEKLY SCOUT · FC 27</p>
+        <h1 id="hero-title">你的下一次补强。<strong>从适合你的好卡开始。</strong></h1>
+        <p id="hero-body" class="fca-hero-body">从已上架球员中挑选本周好卡，补强关键位置，保留你喜欢的阵容。</p>
+        <a id="hero-cta" class="fca-primary fca-hero-cta" href="#build">找到我的补强</a>
+      </div>
+      <picture class="fca-hero-art">
+        <img id="hero-image" src="assets/reward-hero.webp" alt="" width="1600" height="700" fetchpriority="high">
+      </picture>
+    </section>
+
+    <div class="fca-container">
+      <nav id="activity-breadcrumb" class="fca-breadcrumb" aria-label="Breadcrumb"></nav>
+      <fieldset class="fca-platforms">
+        <legend data-i18n="choosePlatform">选择你的平台</legend>
+        <div class="fca-platform-choices">
+          <label class="fca-platform"><input type="radio" name="platform" value="ps" checked><span><img src="assets/playstation.svg" alt="" width="22" height="22"><span>PlayStation <small>4|5</small></span></span></label>
+          <label class="fca-platform"><input type="radio" name="platform" value="xbox"><span><img src="assets/xbox.svg" alt="" width="22" height="22"><span>Xbox <small>Series X|S</small></span></span></label>
+          <label class="fca-platform"><input type="radio" name="platform" value="pc"><span><img src="assets/windows.svg" alt="" width="22" height="22"><span>PC <small>Platform</small></span></span></label>
+        </div>
+      </fieldset>
+
+      <section id="build" class="fca-build" aria-labelledby="view-heading">
+        <div class="fca-section-heading">
+          <p class="fca-eyebrow" data-i18n="curatedTitle">适合你阵容的真实选择</p>
+          <h2 id="view-heading">本周好卡，认真挑选。</h2>
+          <p id="view-intro">先选平台，再挑选你想补强的位置。球员版本与商品内容在购买前清楚列出。</p>
+        </div>
+
+        <div id="sbc-controls" class="fca-sbc-controls" hidden>
+          <div class="fca-core-picker">
+            <label for="core-select" data-i18n="chooseCore">选择你的 SBC 核心</label>
+            <select id="core-select" name="core"><option value="" data-i18n="coreLoading">正在读取 SBC Players…</option></select>
+          </div>
+          <fieldset class="fca-core-modes">
+            <legend data-i18n="coreService">需要我们代做 SBC 吗？</legend>
+            <div class="fca-core-mode-options">
+            <label class="fca-check"><input type="radio" name="core-mode" value="owned" checked><span><strong data-i18n="coreOwned">我已有核心</strong><small data-i18n="coreOwnedHelp">保留你的球员，只选搭档。</small></span></label>
+            <label class="fca-check"><input type="radio" name="core-mode" value="service"><span><strong data-i18n="coreWithService">需要 SBC 代做，一起打包</strong><small data-i18n="coreWithServiceHelp">将所选 SBC Players 服务加入方案。</small></span></label>
+            </div>
+          </fieldset>
+          <p id="core-mode-help" class="fca-inline-note">选择“我已有核心”时，核心球员不加入购买清单，也不计入金额。</p>
+        </div>
+
+        <div id="sbc-lineup" class="fca-grid fca-lineup" hidden></div>
+        <div id="sbc-options" class="fca-grid fca-companion-options" hidden></div>
+        <div id="product-grid" class="fca-grid fca-product-grid"></div>
+
+        <noscript>
+          <div class="fca-noscript"><p>请启用 JavaScript 体验活动，或直接前往商店选购。</p><a href="https://www.mmoexp.com/Fc-27/Players.html">FC 27 Players</a><a href="https://www.mmoexp.com/Fc-27/Sbc.html">FC 27 SBC</a></div>
+        </noscript>
+      </section>
+
+      <section id="selection-summary" class="fca-selection-summary" aria-labelledby="selection-heading">
+        <div class="fca-summary-copy"><p class="fca-eyebrow" data-i18n="yourSelection">你的补强方案</p><h2 id="selection-heading"><span id="summary-count">0</span> <span data-i18n="selectedItems">项已选择</span></h2><p id="summary-note">挑选球员后，在这里核对你的方案。</p><p id="summary-savings" class="fca-summary-savings"></p></div>
+        <div class="fca-summary-checkout"><span class="fca-summary-total-label" data-i18n="selectionTotal">所选商品金额</span><strong id="summary-total">—</strong><button id="review-selection" class="fca-primary" type="button" data-i18n="reviewSelection">查看完整方案</button></div>
+      </section>
+      <p id="activity-message" class="fca-feedback" role="status" hidden></p>
+
+
+      <section id="bundle-section" class="fca-bundles" aria-labelledby="bundle-heading">
+        <div class="fca-section-heading fca-section-heading-small"><p class="fca-eyebrow" data-i18n="bundleKicker">更简单的选择</p><h2 id="bundle-heading">也可以从现有组合开始。</h2><p data-i18n="bundleIntro">直接使用商店已上架的组合，快速找到合适的补强方向。</p></div>
+        <div id="bundle-grid" class="fca-grid fca-bundle-grid"></div>
+      </section>
+
+      <section id="activity-guide" class="fca-guide"></section>
+
+      <section class="fca-faq" aria-labelledby="faq-heading">
+        <h2 id="faq-heading" data-i18n="faqTitle">购买前，你可能想知道</h2>
+        <details name="fca-faq"><summary data-i18n="faqSbcQuestion">SBC 代做可以和搭档一起选择吗？</summary><p data-i18n="faqSbcAnswer">可以。在 SBC 核心搭档中选择已上架的 SBC Players，再选择“需要 SBC 代做，一起打包”。确认清单会分别列出 SBC 服务与搭档球员。</p></details>
+        <details name="fca-faq"><summary data-i18n="faqVersionQuestion">我会收到哪个球员版本？</summary><p data-i18n="faqVersionAnswer">请核对商品卡中的球员名、版本与平台。最终购买内容以商店商品详情及结算时的信息为准。</p></details>
+        <details name="fca-faq"><summary data-i18n="faqOwnedQuestion">我已经有 SBC 核心，还会收费吗？</summary><p data-i18n="faqOwnedAnswer">选择“我已有核心”即可。核心只用于搭配展示，不加入购买清单、不计费；你只需选择想补强的搭档。</p></details>
+      </section>
+    </div>
+
+    <div class="fca-mobile-summary" aria-label="补强方案 / Upgrade list"><strong id="mobile-summary-total">—</strong><button id="mobile-review" class="fca-primary" type="button">核对方案</button></div>
+
+    <dialog id="review-dialog" class="fca-dialog" aria-labelledby="review-title">
+      <div class="fca-dialog-header"><p class="fca-eyebrow">MMOEXP · FC 27</p><button class="fca-dialog-close" type="button" data-close-dialog aria-label="关闭 / Close">×</button></div>
+      <h2 id="review-title" data-i18n="reviewTitle">核对你的补强方案</h2>
+      <div id="review-items" class="fca-review-items"></div>
+      <div class="fca-review-total"><span data-i18n="selectionTotal">所选商品金额</span><strong id="review-total">—</strong></div>
+      <p id="review-savings" class="fca-inline-note"></p>
+      <p id="review-status" class="fca-inline-note">本地预览不会创建真实订单。</p>
+      <button id="submit-selection" type="button" class="fca-primary" data-i18n="previewSelection">预览确认方案</button>
+      <a id="continue-cart" class="fca-secondary" href="https://www.mmoexp.com/Cart.html" hidden data-i18n="continueCart">前往购物车</a>
+    </dialog>
+    <script defer src="catalog.js"></script>
+    <script defer src="activity-content.js"></script>
+    <script defer src="activity-core.js"></script>
+    <script defer src="host-adapter.js"></script>
+    <script defer src="analytics-config.js"></script>
+    <script defer src="activity-analytics.js"></script>
+    <script defer src="activity.js"></script>
+  </main>
+
+  <footer class="fca-demo-footer"><div class="fca-container"><a href="https://www.mmoexp.com/" aria-label="MMOEXP"><img src="assets/mmoexp-logo.png" alt="MMOEXP" width="138" height="38" loading="lazy"></a><small data-i18n="demoFooter">本地体验 · 不会创建真实订单</small></div></footer>
+</body>
+</html>

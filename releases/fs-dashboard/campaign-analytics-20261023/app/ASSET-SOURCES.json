@@ -1,0 +1,262 @@
+[
+  {
+    "key": "186254399",
+    "source": "https://assets.mmoexp.com/images/202610/786cfbb20a243fa9ab4fe4b40c1d8fe0983abb93.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\186254399.png",
+    "sourceSHA256": "e9022df9d3dd1d5dbba4cfbafa62582ba0857b4b5d8aa38f41a006ffa52609dc",
+    "bytes": 912228,
+    "output": "fc27_season2_live_20261022/assets/product-186254399.webp",
+    "outputBytes": 72578,
+    "outputSHA256": "3da6b5b93ebca202b340e6d7e57ac63f6292a56a24f8aeeacb6abbea4e2dc1b3"
+  },
+  {
+    "key": "186254279",
+    "source": "https://assets.mmoexp.com/images/202610/bba4b1e017c94b20d49791c02ba0942f75082bc0.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\186254279.png",
+    "sourceSHA256": "1f26667b92b65c2eb1526fda98f4c2fd534369515cbeaa30a1fc6bd8c6800826",
+    "bytes": 891171,
+    "output": "fc27_season2_live_20261022/assets/product-186254279.webp",
+    "outputBytes": 66388,
+    "outputSHA256": "9363768c3613943b29a7c4463b91bd686c19bd37418a3cf1c7890b7fa3417ad8"
+  },
+  {
+    "key": "186254291",
+    "source": "https://assets.mmoexp.com/images/202610/56629294988ea04c38aee3352160de7496cef69b.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\186254291.png",
+    "sourceSHA256": "92f29bf7ffa5c73ce595df434017446b76b8041c28fe3e93c33bd4f8358b3665",
+    "bytes": 851345,
+    "output": "fc27_season2_live_20261022/assets/product-186254291.webp",
+    "outputBytes": 66558,
+    "outputSHA256": "f88fa500bebb6581f266ac7a7d856bbb4b093cb73b00b981ddea7f75e5e87885"
+  },
+  {
+    "key": "185070945",
+    "source": "https://assets.mmoexp.com/images/202610/46b4e2f798aa06deb35d42a133193ea44febb968.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185070945.png",
+    "sourceSHA256": "f57403f90676ac3dc76659d066b2e55939903ae170a2c6acb865c46671858bcc",
+    "bytes": 141674,
+    "output": "fc27_season2_live_20261022/assets/product-185070945.webp",
+    "outputBytes": 109932,
+    "outputSHA256": "97364659e1b277c6523fab1b929f01d030cd58eec9be7641e64dcdb226b1984b"
+  },
+  {
+    "key": "185916875",
+    "source": "https://assets.mmoexp.com/images/202610/b9c507278fb3ce52545c42be1384e5ed2539ee5b.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185916875.png",
+    "sourceSHA256": "3ec4f687269729bf2a1b11a5a5e0fc28a021ac218ae99fd7a46c0aec040ac576",
+    "bytes": 133097,
+    "output": "fc27_season2_live_20261022/assets/product-185916875.webp",
+    "outputBytes": 110220,
+    "outputSHA256": "5c208851fe821c6c3440de45af93eab4ffc51ca80803344a1f2506bcff0ebb11"
+  },
+  {
+    "key": "185070993",
+    "source": "https://assets.mmoexp.com/images/202610/2e5e0d7b7f4dcf34690cc5ff2477c432a9107e90.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185070993.png",
+    "sourceSHA256": "86e6e4fcf73b56a2243d4aa17d088fc87d49aafeae612123c26f8991f98b3a60",
+    "bytes": 141297,
+    "output": "fc27_season2_live_20261022/assets/product-185070993.webp",
+    "outputBytes": 106842,
+    "outputSHA256": "c3e2b0d355e4bff0512f4207b9c4b317684603389a7d5a5a326d2416bde1dbc0"
+  },
+  {
+    "key": "170014917",
+    "source": "https://assets.mmoexp.com/player/fc27/1.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\170014917.png",
+    "sourceSHA256": "cccf47b796dd85a64a4cb8ef9e18d6ae9fc7ac963fd9779c6470f9b7c77badb2",
+    "bytes": 128814,
+    "output": "fc27_season2_live_20261022/assets/product-170014917.webp",
+    "outputBytes": 81730,
+    "outputSHA256": "2d0b9d769dadbac5edffd7e74fa25add576d680a784e6998093c05e1a7073abb"
+  },
+  {
+    "key": "170017889",
+    "source": "https://assets.mmoexp.com/player/fc27/92.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\170017889.png",
+    "sourceSHA256": "74f356f9189a098400488a7bb818013e291bd130901f115d93266c9a3b24e7f2",
+    "bytes": 133087,
+    "output": "fc27_season2_live_20261022/assets/product-170017889.webp",
+    "outputBytes": 85204,
+    "outputSHA256": "4508724ef49e034d3e3590c72952df5c6d57e4333722f9df16f0f8a8596d01e4"
+  },
+  {
+    "key": "170017881",
+    "source": "https://assets.mmoexp.com/player/fc27/91.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\170017881.png",
+    "sourceSHA256": "87fdc94cb9f02e42b192d7c2216273db21d5c4738df7c8f2b9d6ff957aeec7ae",
+    "bytes": 133364,
+    "output": "fc27_season2_live_20261022/assets/product-170017881.webp",
+    "outputBytes": 84924,
+    "outputSHA256": "b17044b7cc5462f0f44a253297d6fb7ab429dfc69a88b89a7def4bd19be52f05"
+  },
+  {
+    "key": "170018993",
+    "source": "https://assets.mmoexp.com/player/fc27/73.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\170018993.png",
+    "sourceSHA256": "deacd8ac25943b932a9070185ed16fd9ba6b8da3e9fa0fbea4f793a9a862ec67",
+    "bytes": 126256,
+    "output": "fc27_season2_live_20261022/assets/product-170018993.webp",
+    "outputBytes": 80008,
+    "outputSHA256": "515f254ffd47d74da0df8e4923f31cca083c19a9c1f6ab65522bcf02296c0519"
+  },
+  {
+    "key": "186254267",
+    "source": "https://assets.mmoexp.com/images/202610/c7808d5cb601053908d0245b338b020d646ade5d.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\186254267.png",
+    "sourceSHA256": "8ab4675cae3607856f39a9b3473d655bbb8a03a5850dfa4864130c913c4e2abd",
+    "bytes": 905148,
+    "output": "fc27_season2_live_20261022/assets/product-186254267.webp",
+    "outputBytes": 69626,
+    "outputSHA256": "b1e67f45d6df25b1041132e30b04ee169cd71c741dceb25c0072e7b97c4ea5ae"
+  },
+  {
+    "key": "185916899",
+    "source": "https://assets.mmoexp.com/images/202610/d85706bc2ab0f85b22560c0da86d1bfd423076de.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185916899.png",
+    "sourceSHA256": "d31994cc194dcec150953d7ca5d86ad17e60985106697d5acb54dd04bcba6887",
+    "bytes": 141888,
+    "output": "fc27_season2_live_20261022/assets/product-185916899.webp",
+    "outputBytes": 116944,
+    "outputSHA256": "a19b8bbc109b0b5a219efb773c98300b3ddf5f6533cdd1a6e9b5a352014a27ec"
+  },
+  {
+    "key": "185916851",
+    "source": "https://assets.mmoexp.com/images/202610/5dfa8a103caafa652ce28b69545b267f68dd3989.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185916851.png",
+    "sourceSHA256": "1067923f8d6b9518a34b5fd8a2ebeb8f056f8b6a867ff855f8ead019c5e1b284",
+    "bytes": 141720,
+    "output": "fc27_season2_live_20261022/assets/product-185916851.webp",
+    "outputBytes": 119384,
+    "outputSHA256": "5a2585731a44b1c74383a9ed8a3c51f908689090dfca32323b923ea2a721bbec"
+  },
+  {
+    "key": "186021743",
+    "source": "https://assets.mmoexp.com/images/202610/f7e437ba5305a727d5c0e65f1e1d69bf36f352f9.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\186021743.png",
+    "sourceSHA256": "f4f5ffd2c8f915069e547c2be6a8e72cff6e063eaee1aaeef9982043a8322d9e",
+    "bytes": 197413,
+    "output": "fc27_season2_live_20261022/assets/product-186021743.webp",
+    "outputBytes": 51202,
+    "outputSHA256": "b34a5de9c83160382d90488e451b05545922cab2507c718e02366787a6d1077f"
+  },
+  {
+    "key": "185833159",
+    "source": "https://assets.mmoexp.com/images/202610/8cf5c14882ea8d1b5667c3498305c4deb68c2d59.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185833159.png",
+    "sourceSHA256": "2a84ffd3b057043179f35a465ffda9d5c2189c344b10256ed5159e51ed95e40a",
+    "bytes": 180982,
+    "output": "fc27_season2_live_20261022/assets/product-185833159.webp",
+    "outputBytes": 44564,
+    "outputSHA256": "1d0a1f908021bcd8c27034929b434f50ecbed61b9e1183a9b4a42aab2aa65b37"
+  },
+  {
+    "key": "185718875",
+    "source": "https://assets.mmoexp.com/images/202610/3c54465a1c358f1a977c5690d84082c2c0b04d17.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185718875.png",
+    "sourceSHA256": "500ed6dd029557476f554aa1fb8c77b79ba9c0d5d26781119c947bc0b3a029c4",
+    "bytes": 196517,
+    "output": "fc27_season2_live_20261022/assets/product-185718875.webp",
+    "outputBytes": 50356,
+    "outputSHA256": "e7a8b102832e18c234d4381f94c513de980dfa40b67dadbf2455d3c2b75c20cb"
+  },
+  {
+    "key": "185493031",
+    "source": "https://assets.mmoexp.com/images/202610/5d3679fb26508dc66d15d3585a79c490cb875790.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185493031.png",
+    "sourceSHA256": "d1937df0d6d9944b6fbe780151bd69862ef953854a4310909c941a7683e885be",
+    "bytes": 134678,
+    "output": "fc27_season2_live_20261022/assets/product-185493031.webp",
+    "outputBytes": 29676,
+    "outputSHA256": "c106a5a4b6a264a33e655d0143346c03077126dedebf2dc9eda1e34ec6bab58f"
+  },
+  {
+    "key": "184101943",
+    "source": "https://assets.mmoexp.com/images/202610/6d6118ed693d7906afa0092eea1c8a956ca506e9.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\184101943.png",
+    "sourceSHA256": "eabf1c2f9d4f3d45a0c8bbd938b144c63e503646bd89e8c2be82ddaee839daf3",
+    "bytes": 137491,
+    "output": "fc27_season2_live_20261022/assets/product-184101943.webp",
+    "outputBytes": 30942,
+    "outputSHA256": "467a63abad2a9634299679a3295c33d7adedd38a18dd34d3939d71c11c2c1d18"
+  },
+  {
+    "key": "184102051",
+    "source": "https://assets.mmoexp.com/images/202610/25fc7449c416e2933643e95a9f055b7131c8c0df.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\184102051.png",
+    "sourceSHA256": "e213231f8c7151106a35f52f06f1a57df646eac5644b55132ddbe16b58a6450e",
+    "bytes": 140618,
+    "output": "fc27_season2_live_20261022/assets/product-184102051.webp",
+    "outputBytes": 28430,
+    "outputSHA256": "98b87d372702baae042644081c532b658b6786f95721ca23631b7232cffc89f8"
+  },
+  {
+    "key": "184557601",
+    "source": "https://assets.mmoexp.com/images/202610/bb811a8a25cf7ef7276b2b51c63ed9e4454f768c.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\184557601.png",
+    "sourceSHA256": "8d7b1263b4753cead3b8f04e838e19aab9f62f9c568145fa22b06bfb7ae5abb2",
+    "bytes": 155587,
+    "output": "fc27_season2_live_20261022/assets/product-184557601.webp",
+    "outputBytes": 33620,
+    "outputSHA256": "83e9322af22e71ae6647546be321ccb44b43ef58b0eadb262f9518541bf288b6"
+  },
+  {
+    "key": "185681151",
+    "source": "https://assets.mmoexp.com/images/202610/d56f34f6ed8dd0088c41c762c5e92204026d698d.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185681151.png",
+    "sourceSHA256": "e3fbdb30ca5a497f3fb08076b500e3450f975648a7109cfb90f3588b400a07c9",
+    "bytes": 136189,
+    "output": "fc27_season2_live_20261022/assets/product-185681151.webp",
+    "outputBytes": 35774,
+    "outputSHA256": "5889ed2b85e61ed74874711853ca9ec9a18199173d213a4f6df81e5a7cc3cb2e"
+  },
+  {
+    "key": "184102267",
+    "source": "https://assets.mmoexp.com/images/202610/9b4ca2915d447c24a7d5a41467824c74e6be8276.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\184102267.png",
+    "sourceSHA256": "c488fd2fb3a1bde0338b15dbae77b0f38958f2869840f63b14f7065b69f5e31b",
+    "bytes": 126111,
+    "output": "fc27_season2_live_20261022/assets/product-184102267.webp",
+    "outputBytes": 26552,
+    "outputSHA256": "11cd88857446e5e0e9d09530fb8ec7ed7eb5bd8891972f8ea98cc194ec115ddc"
+  },
+  {
+    "key": "185752943",
+    "source": "https://assets.mmoexp.com/images/202610/80d723bee30b9b8e6c7664965a4bdb1b4f224273.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185752943.png",
+    "sourceSHA256": "be474ac825904ae98b6e693beecedd010b944ccf629bb22a105803b3225d2807",
+    "bytes": 451954,
+    "output": "fc27_season2_live_20261022/assets/product-185752943.webp",
+    "outputBytes": 100968,
+    "outputSHA256": "de92474f07b099a3a3b87af27ef77b489f4f4f849da7e025e34a66cdeb422fee"
+  },
+  {
+    "key": "185752835",
+    "source": "https://assets.mmoexp.com/images/202610/cf3c3a19ffa893ebb60b4f82aefaab56223f329d.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185752835.png",
+    "sourceSHA256": "d09f00ac76b2a6869ed7221e647b33964cdbd92ec61735795fca6f5de171a36f",
+    "bytes": 461810,
+    "output": "fc27_season2_live_20261022/assets/product-185752835.webp",
+    "outputBytes": 101128,
+    "outputSHA256": "36080ce3dcf964f6cecdbfa42d4d06dffb5c0343f07c332aced2a9e269534807"
+  },
+  {
+    "key": "185753051",
+    "source": "https://assets.mmoexp.com/images/202610/22450b8e5e935e9f5820d858b66e70ec9e8dc1b5.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185753051.png",
+    "sourceSHA256": "fb59203070292fea1795cde34b94a5d72bf2d630ec0b2e3a9783861eeeec65a6",
+    "bytes": 451517,
+    "output": "fc27_season2_live_20261022/assets/product-185753051.webp",
+    "outputBytes": 92146,
+    "outputSHA256": "bf710caa60cf32a0b2479e118f67b39711096374f63dd482a83c152eb321a9d3"
+  },
+  {
+    "key": "185753159",
+    "source": "https://assets.mmoexp.com/images/202610/154dda2acd4bee0b9b19eb8af0286096b06e2f01.png",
+    "sourceFile": "docs\\planning\\fc27-season2-live-catalog-20261022\\research\\original-product-assets\\185753159.png",
+    "sourceSHA256": "247ba2f94ab608c0720d1e27a2adac93495fc83f86792a2b2d7606c680ac71dc",
+    "bytes": 444843,
+    "output": "fc27_season2_live_20261022/assets/product-185753159.webp",
+    "outputBytes": 91766,
+    "outputSHA256": "a13a3ed8926e58d5e0be48df7974931fc28a68e82c97000f576e2fa780e72cd6"
+  }
+]

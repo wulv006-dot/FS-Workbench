@@ -1,0 +1,19 @@
+/* FS UI 1.0 — single semantic token source; explicit theme resolved by fs-theme.js. */
+:root,[data-fs-theme="light"]{
+ color-scheme:light;--fs-bg:#e9edf2;--fs-surface:#ffffff;--fs-surface-2:#f7f9fb;--fs-surface-3:#eef2f6;
+ --fs-text:#1b2632;--fs-muted:#596980;--fs-faint:#596980;--fs-line:#dce3eb;--fs-line-soft:#e8edf3;
+ --fs-brand:#1f6f73;--fs-brand-hover:#16575b;--fs-brand-soft:#e3f0ef;--fs-brand-on:#ffffff;
+ --fs-ok:#1f7d61;--fs-ok-soft:#e2f3ec;--fs-ok-on:#ffffff;--fs-danger:#a8412c;--fs-danger-soft:#fbeae5;--fs-danger-on:#ffffff;
+ --fs-warn:#825a13;--fs-warn-soft:#faf0dd;--fs-warn-on:#ffffff;--fs-info:#2f5a86;--fs-info-soft:#e7eef7;--fs-info-on:#ffffff;
+ --fs-up:#b42f24;--fs-down:#177647;--fs-violet:#65509b;--fs-shadow:0 1px 3px #14283c08,0 14px 34px -25px #14283c55;
+ --fs-radius:16px;--fs-input-radius:9px;--fs-modal-radius:18px;--fs-nav-width:236px;--fs-focus:#147a80;
+ --fs-font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+:root[data-fs-theme="dark"],[data-fs-theme="dark"]{
+ color-scheme:dark;--fs-bg:#0a1424;--fs-surface:#121d31;--fs-surface-2:#182641;--fs-surface-3:#22314c;
+ --fs-text:#e8eef6;--fs-muted:#b6c4d7;--fs-faint:#b6c4d7;--fs-line:#35465f;--fs-line-soft:#293a51;
+ --fs-brand:#4db8b0;--fs-brand-hover:#7fd0c9;--fs-brand-soft:#183a40;--fs-brand-on:#07191d;
+ --fs-ok:#70cfa7;--fs-ok-soft:#17392e;--fs-ok-on:#08251b;--fs-danger:#ffad99;--fs-danger-soft:#402b2c;--fs-danger-on:#35120c;
+ --fs-warn:#f0c478;--fs-warn-soft:#3b3020;--fs-warn-on:#302006;--fs-info:#9bc5f3;--fs-info-soft:#22344e;--fs-info-on:#10233d;
+ --fs-up:#ffad99;--fs-down:#70cfa7;--fs-violet:#c5b4f3;--fs-shadow:0 12px 28px -24px #000b;--fs-focus:#7fd0c9;
+}

@@ -364,6 +364,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fs-dashboard/campaign-analytics-20261023/"):
+            groups.add("campaign-analytics");continue
         if name.startswith('releases/ops/pricing-followup-20261023/'):
             groups.add('pricing-followup');continue
         if name.startswith('releases/ops/pricing-recovery-20261023/'):
@@ -690,6 +692,13 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="campaign-analytics":
+            folder=ROOT/"releases/fs-dashboard/campaign-analytics-20261023/app"
+            tests=sorted(str(p) for p in (folder/"tests").glob("*.test.*"))
+            if not tests:raise RuntimeError("campaign tests missing")
+            subprocess.run(["node","--test"]+tests,cwd=folder,check=True,timeout=90)
+            units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
+            continue
         print("affected group:",group,flush=True)
         if group=='pricing-followup':
             units('releases/ops/pricing-followup-20261023/alerts',['test_probe','test_watch'])

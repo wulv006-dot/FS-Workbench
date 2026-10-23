@@ -1,0 +1,321 @@
+{
+  "activityId": "fc27-season2",
+  "status": "requires_backend_and_approved_cost_validation",
+  "enabled": true,
+  "discountPercent": 10,
+  "baseline": "current_selling_price",
+  "eligibility": "activity_sourced_cart_lines",
+  "stackWith": [
+    "coupon",
+    "code",
+    "points"
+  ],
+  "marginCheck": "after_all_discounts",
+  "backendStatus": "not_integrated",
+  "respectExistingMutualExclusion": true,
+  "eligible": [
+    {
+      "id": 186254399,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 186254407,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 186254403,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 186254279,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 186254287,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 186254283,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 186254291,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 186254299,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 186254295,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185916899,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185916907,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185916903,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185916875,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185916883,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185916879,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185916851,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185916859,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185916855,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 186021743,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 186021779,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 186021815,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185833159,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185833195,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185833231,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185718875,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185718911,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185718947,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 170018993,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 170024773,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 170018997,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 186254267,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 186254275,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 186254271,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 170014917,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 170026873,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 170014921,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 170017889,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 170025649,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 170017893,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 170017881,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 170025645,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 170017885,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185070945,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185070953,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185070949,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185070993,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185071001,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185070997,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185752943,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185752979,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185753015,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185752835,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185752871,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185752907,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185753051,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185753087,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185753123,
+      "aid": 21589,
+      "quantity": 1
+    },
+    {
+      "id": 185753159,
+      "aid": 21587,
+      "quantity": 1
+    },
+    {
+      "id": 185753195,
+      "aid": 21585,
+      "quantity": 1
+    },
+    {
+      "id": 185753231,
+      "aid": 21589,
+      "quantity": 1
+    }
+  ],
+  "sourceProof": "server_persisted_cart_line_promotion_context",
+  "rounding": "existing_display_currency_scale_half_up_per_line",
+  "profitPolicy": "approved_policy_for_each_eligible_item_category_no_inherited_Coins_floor"
+}
