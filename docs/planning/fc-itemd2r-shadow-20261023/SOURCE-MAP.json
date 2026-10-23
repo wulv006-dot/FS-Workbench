@@ -1,0 +1,33 @@
+{
+  "status": "deployed_observation_only_production_pricing_unchanged",
+  "files": {
+    "itemd2r.py": "f6bff9e8350ccc713e3b657e07bcd80eea1d7f4b1e6f2004892b79290b946acb",
+    "observe.py": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f",
+    "reference_shadow.py": "4e1763c6d83c0d127fa1f21cfe82d19820c2d0987dec04d81038f7995d09b7a1",
+    "fc27-price-observer.service": "f851e5849da107e189318a2e0dc0a5e16b07daf7ca1eecb4378e10eb931643d5",
+    "fc27-price-observer.path": "e8807872bf3e8fc5248b16fe493902707af370d9d2a949a3deabb7bb37973763"
+  },
+  "runtime_source": "/opt/fc27-price-observer/",
+  "state": "/var/lib/fc27-price-observer/",
+  "systemd_units": "/etc/systemd/system/fc27-price-observer.{service,path}",
+  "protected": {
+    "/opt/fc27-cloud-browser/collect_competitor.sh": "6d024dd2270a53c45e302a826b3a24b5df897cd2568d5305c3f94f8123bacbc2",
+    "/opt/fc27-cloud-browser/snapshot_layer.py": "1d8a40c2bd0489f36444e74abc6e8ff3bc8543522cb5c58dfe305e052b36f4fd",
+    "/opt/fc27-cloud-browser/fc27_cloud_worker.py": "366eab9f8d1c588f637d428a7e0fcac6a522f0a927a9d5ae1a19703ffb1d6efd",
+    "/opt/fc27-cloud-browser/server_quote_job.py": "3f2b0523ef0e3213c4976af5cf6854a47199fca48ec8597361741dafa2a9c0ad",
+    "/opt/fc27-cloud-browser/fc27_quote_engine.py": "7c8980894a16b3a539d30ac0cc221df4d629a02edec00bdb4a00166544db36cb",
+    "/opt/fc27-cloud-browser/pricing_v2.py": "68806b0f23d69c3cc0470ef0ed14cb5e16155011928820f59a7731977d18a9b3",
+    "/opt/fc27-cloud-browser/automation_policy.py": "317b657817701965147068629d7a3c97605e537ecd969c7f6f8e13ef1995b9d2",
+    "/opt/fc27-cloud-browser/browser_lifecycle.py": "915e64b3a54bc0cd2914e869793abaf0b9d92c0f3ba78eea9e9df4586702c1a1",
+    "/opt/fc27-cloud-browser/collector/collect_competitor_browser.py": "790c5adc0abae4bb46c9975c60517e8457517af4700c6b21bd481d95027ebcc6",
+    "/opt/fc27-cloud-browser/collector/lootbar_server_collector.py": "4d19dcf18bf6705bbf6aa6590ca660a974f8e1d006b7b9bbd4bb0673f4f52103"
+  },
+  "latest_authority": "shadow_simulation_only",
+  "trend_automation": {
+    "id": "fc",
+    "status": "ACTIVE",
+    "interval_hours": 2
+  },
+  "production_tier_or_weight_applied": false,
+  "git_status": "candidate_not_yet_created"
+}
