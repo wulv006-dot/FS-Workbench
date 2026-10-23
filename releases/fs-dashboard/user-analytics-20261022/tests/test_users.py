@@ -136,6 +136,16 @@ class Users(unittest.TestCase):
         self.assertEqual(detail['timeline'][0]['days_from_observed_first'],0)
         self.assertIsNone(detail['timeline'][0]['days_from_d0'])
 
+    def test_detail_midnight_purchase_wins_over_same_time_threshold(self):
+        self.load([order(1,'2026-07-01T12:00:00'),order(2,'2026-07-31T00:00:00')],start='2026-07-01')
+        result=self.query(start='2026-07-01')
+        self.assertEqual(result['metrics']['silent_wakeup']['value'],0)
+        row=self.service.members(dict(snapshot_id=result['snapshot_id'],group='known_pool'),'admin')['rows'][0]
+        detail=self.service.detail(dict(snapshot_id=result['snapshot_id'],customer_id=row['customer_id']),'admin')
+        purchases=[r for r in detail['timeline'] if r['kind']!='enter']
+        self.assertEqual(purchases[1]['kind'],'repeat_purchase')
+        self.assertFalse(any(r['kind']=='enter' and r['at']=='2026-07-31T00:00:00+08:00' for r in detail['timeline']))
+
     def test_verified_legacy_complaint_status_keeps_payment_projection(self):
         paid=order(1,'2026-09-12');paid['status']='53'
         refunded=order(2,'2026-09-12',status=2);refunded['status']='53'
