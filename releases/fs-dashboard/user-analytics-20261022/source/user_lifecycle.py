@@ -59,7 +59,7 @@ PATH_LABELS = {'no_purchase': '期间一直未再购买', 'purchased_then_inacti
                'purchased_active': '期间买过，目前仍近期购买', 'observed_after_period': '期间无购买，之后才观察到购买', 'unverified': '变化待核'}
 
 
-def daily_stocks(people, runs, start, end, points):
+def daily_stocks(people, runs, start, end, points, period_cohort=False):
     """Sweep purchase/threshold boundaries instead of rescanning the full pool for every day."""
     days = []
     cursor = start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -68,6 +68,8 @@ def daily_stocks(people, runs, start, end, points):
         cursor += timedelta(days=1)
     finishes = [b for _, b in days]
     changes = {key: [0] * (len(days) + 1) for key in (*STATES, 'unverified')}
+    if period_cohort:
+        changes['waiting'] = [0] * (len(days) + 1)
     def add(key, lo, hi):
         if lo < hi:
             changes[key][lo] += 1; changes[key][hi] -= 1
@@ -83,7 +85,7 @@ def daily_stocks(people, runs, start, end, points):
             reliable = min(hi, bisect_right(finishes, coverage_end))
             boundaries = [lo, *[max(lo, min(reliable, bisect_right(finishes, datetime.combine(last.date() + timedelta(days=p), datetime.min.time(), TZ)))) for p in points], reliable]
             for key, a, b in zip(STATES, boundaries, boundaries[1:]):
-                add(key, a, b)
+                add('waiting' if period_cohort and not index and key == 'recent' else key, a, b)
             add('unverified', max(lo, reliable), hi)
     stock, result = {key: 0 for key in changes}, {}
     for index, (day, _) in enumerate(days):
@@ -97,6 +99,7 @@ def analyze(orders, jobs, query, config, details=True):
     start, cutoff = stamp(query['start']), stamp(query['as_of'])
     end = min(stamp(query['end_exclusive']), cutoff)
     current = query.get('state_basis') == 'current'
+    period_cohort = query.get('state_basis') == 'period_cohort'
     observation = (cutoff if current else cutoff - timedelta(microseconds=1)).date()
     points = config['policies'][query['policy_version']]
     sites = [query['scope_id']] if query['scope'] == 'site' else list(config['sites'])
@@ -107,7 +110,7 @@ def analyze(orders, jobs, query, config, details=True):
     identity_complete = len(sites) == 1 or len(groups) == 1 and None not in groups and '' not in groups
     data_through = min((max((b for a, b in intervals), default=cutoff) for intervals in runs.values()), default=cutoff)
     state_through = min(cutoff, data_through) if current else cutoff
-    pool = [r for r in orders if r['valid'] and stamp(r['paid_at']) < cutoff and r['site'] in sites]
+    pool = [r for r in orders if r['valid'] and stamp(r['paid_at']) < cutoff and (not period_cohort or stamp(r['paid_at']) >= start) and r['site'] in sites]
     selected = [r for r in pool if in_scope(r, query, config)]
     people = defaultdict(list)
     for row in selected:
@@ -117,10 +120,10 @@ def analyze(orders, jobs, query, config, details=True):
     missing_identity = sum(start <= stamp(r['paid_at']) < end and not r['customer_id'] for r in selected)
     coverage_status = 'available' if period_complete and not missing_identity else 'partial'
     metrics, members, records, events = {}, defaultdict(list), {}, []
-    anchor = origin(query, config)
+    anchor = None if period_cohort else origin(query, config)
     anchor = stamp(anchor) if anchor else None
     for cid, rows in people.items():
-        rows.sort(key=lambda r: (r['paid_at'], r['order_key']))
+        rows.sort(key=lambda r: (r['paid_at'], int(r.get('source_id') or 0) if period_cohort else 0, r['order_key']))
         times = [stamp(r['paid_at']) for r in rows]
         first, last = times[0], times[-1]
         verified = anchor is not None and anchor <= first and covers(anchor, first + timedelta(microseconds=1))
@@ -128,13 +131,16 @@ def analyze(orders, jobs, query, config, details=True):
         final = state(last, observation, points) if reliable_last else 'unverified'
         left, right = bisect_left(times,start), bisect_left(times,end)
         bought = rows[left:right]
+        if period_cohort and final == 'recent' and len(bought) == 1:
+            final = 'waiting'
         members[final].append(cid)
         members['known_pool'].append(cid)
         if bought:
             members['purchasers'].append(cid)
             category = 'old_purchasers' if first < start else 'first_purchasers' if verified else 'first_unverified'
             members[category].append(cid)
-            if right > max(1,left):
+            repeated = len(bought) >= 2 if period_cohort else right > max(1,left)
+            if repeated:
                 members['repeat_purchasers'].append(cid)
         records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat() if verified else None,
                             earliest_observed_at=first.isoformat(), first_verified=verified,
@@ -143,6 +149,14 @@ def analyze(orders, jobs, query, config, details=True):
                             period_orders=len(bought), covered_history_orders=len(rows), project_ids=sorted({r['gid'] for r in rows}))
         records[cid].update(period_start_stage=state(times[left-1], start.date(), points) if left and covers(times[left-1], start) else 'unverified',
                             period_end_stage=state(times[right-1], (end-timedelta(microseconds=1)).date(), points) if right and covers(times[right-1], end) else 'unverified')
+        if period_cohort:
+            flag = config.get('period_customer_types', {}).get(json.loads(rows[0]['body']).get('order_no_hash'), 'unknown')
+            if flag not in ('new','old','unknown','conflict'):
+                raise ValueError('invalid_order_time_customer_type')
+            records[cid].update(period_first_paid_at=first.isoformat(), period_entry_customer_type=flag, period_repeated=len(bought)>=2)
+            members['new_purchasers' if flag == 'new' else 'old_flag_purchasers' if flag == 'old' else 'customer_type_unknown'].append(cid)
+            if len(bought) == 1:
+                members['period_without_repeat'].append(cid)
         for name, group in (('period', bought), ('covered_history', rows)):
             amounts = [json.loads(r['body']).get('amount_usd') for r in group]
             records[cid][name + '_sales_usd'] = str(sum((Decimal(a) for a in amounts if a is not None), Decimal(0))) if amounts else '0'
@@ -177,12 +191,14 @@ def analyze(orders, jobs, query, config, details=True):
         elif not record['period_orders']:
             path = 'no_purchase'
         else:
-            path = ('returned' if cid in returns else 'purchased') + ('_active' if record['stage'] == 'recent' else '_then_inactive')
+            path = ('returned' if cid in returns else 'purchased') + ('_active' if record['stage'] in ('recent','waiting') else '_then_inactive')
         record.update(period_path=path, period_path_label=PATH_LABELS[path])
         group = record['stage'] + '__' + path
         members[group].append(cid); paths[(record['stage'], path)] += 1
     names = ('purchasers', 'first_purchasers', 'old_purchasers', 'first_unverified', 'repeat_purchasers',
              'silent_wakeup', 'lost_return', 'known_pool', *STATES, 'unverified')
+    if period_cohort:
+        names += ('waiting','new_purchasers','old_flag_purchasers','customer_type_unknown','period_without_repeat')
     for name in names:
         members[name] = sorted(set(members[name]))
         metrics[name] = metric(len(members[name]), coverage_status, observed_population='covered_identified_buyers')
@@ -190,14 +206,16 @@ def analyze(orders, jobs, query, config, details=True):
         entered = [e['customer_id'] for e in events if e['kind'] == 'enter' and e['stage'] == name]
         members['entered_' + name] = sorted(set(entered))
         metrics['entered_' + name] = metric(len(set(entered)), coverage_status, events=len(entered))
-    if not anchor or not covers(anchor, state_through):
+    if not period_cohort and (not anchor or not covers(anchor, state_through)):
         for name in ('first_purchasers', 'known_pool', *STATES):
             metrics[name]['status'] = 'insufficient_history' if name == 'first_purchasers' else 'partial'
             metrics[name]['reason'] = '仅已覆盖客户池；完整历史尚未核实'
     if not identity_complete:
         for value in metrics.values():
             value.update(value=None, status='unavailable', reason='跨站身份语义尚未验证；请切换单站')
-    cohort = second_purchase(people, jobs, sites, start, end, anchor, query['H'], covers=covers)
+    cohort = second_purchase(people, jobs, sites, start, end, start if period_cohort else anchor, query['H'], covers=covers)
+    if period_cohort:
+        cohort['basis'] = 'first_valid_purchase_in_selected_period; includes ES-new and ES-old customers'
     cohort_weeks = []
     entries = defaultdict(dict)
     if details:
@@ -209,15 +227,17 @@ def analyze(orders, jobs, query, config, details=True):
     while details and week < end:
         entry_start, entry_end = max(start, week), min(end, week + timedelta(days=7))
         cohort_weeks.append(dict(start=entry_start.isoformat(), end_exclusive=entry_end.isoformat(),
-                                 **second_purchase(entries[week.date()], jobs, sites, entry_start, end, anchor, query['H'], entry_end, covers)))
+                                 **second_purchase(entries[week.date()], jobs, sites, entry_start, end, start if period_cohort else anchor, query['H'], entry_end, covers)))
         week += timedelta(days=7)
     if not identity_complete:
         cohort = dict(status='unavailable', rate=None, reason='cross_site_identity_unverified')
         cohort_weeks = [dict(start=w['start'], end_exclusive=w['end_exclusive'], status='unavailable', rate=None, denominator=None, numerator=None, observing=None, first_unverified=None, coverage_gap=None) for w in cohort_weeks]
-    daily_buyers, daily_enters, daily_returns, daily_first = defaultdict(set), defaultdict(set), defaultdict(set), defaultdict(int)
+    daily_buyers, daily_enters, daily_returns, daily_first, daily_entries = defaultdict(set), defaultdict(set), defaultdict(set), defaultdict(int), defaultdict(int)
     for rec in records.values():
         if rec['first_verified']:
             daily_first[stamp(rec['first_paid_at']).date()] += 1
+        if period_cohort:
+            daily_entries[stamp(rec['period_first_paid_at']).date()] += 1
     for row in selected:
         paid = stamp(row['paid_at'])
         if row['customer_id'] and start <= paid < end:
@@ -229,7 +249,7 @@ def analyze(orders, jobs, query, config, details=True):
         if event['kind'] == 'lost_return':
             daily_returns[bucket].add(event['customer_id'])
     trend = []
-    stocks_by_day = daily_stocks(people, runs, start, end, points) if details else {}
+    stocks_by_day = daily_stocks(people, runs, start, end, points, period_cohort) if details else {}
     cursor = start.replace(hour=0, minute=0, second=0, microsecond=0)
     while details and cursor < end:
         finish = min(cursor + timedelta(days=1), end)
@@ -240,6 +260,8 @@ def analyze(orders, jobs, query, config, details=True):
                           first_purchasers=daily_first[cursor.date()] if anchor and identity_complete else None,
                           stock=stocks if identity_complete else None,
                           status='available' if identity_complete and covers(max(start, cursor), finish) else 'partial'))
+        if period_cohort:
+            trend[-1]['period_entries'] = daily_entries[cursor.date()] if identity_complete else None
         cursor += timedelta(days=1)
     amounts = sorted(Decimal(r['covered_history_sales_usd']) for r in records.values() if r['covered_history_amount_complete'] and Decimal(r['covered_history_sales_usd']) > 0)
     threshold = amounts[int((len(amounts) - 1) * .75)] if amounts else None
@@ -251,15 +273,33 @@ def analyze(orders, jobs, query, config, details=True):
         for key, value in metrics.items():
             if key not in ('known_pool', *STATES, 'unverified'):
                 value.update(value=None, status='pending', reason='该区间尚无完整采集片，等待回补')
-    return dict(metrics=metrics, observation_date=observation.isoformat(), cohort=cohort, cohort_weeks=cohort_weeks, trend=trend,
+    result = dict(metrics=metrics, observation_date=observation.isoformat(), cohort=cohort, cohort_weeks=cohort_weeks, trend=trend,
                 trajectories=[dict(stage=stage, pattern=path, label=PATH_LABELS[path], count=count, group=stage+'__'+path) for (stage,path),count in sorted(paths.items())],
                 value_segment=dict(basis='covered_purchase_history_usd', percentile=75, threshold_usd=str(threshold) if threshold is not None else None),
                 coverage=dict(period_complete=period_complete, identity_deduplication_complete=identity_complete,
                               missing_identity_orders=missing_identity, sites=sites, historical_origin=anchor.isoformat() if anchor else None,
-                              pool_scope='all_covered_history_identified_buyers', state_data_through=state_through.isoformat(), state_basis=query.get('state_basis','period_end'),
+                              pool_scope='selected_period_identified_buyers' if period_cohort else 'all_covered_history_identified_buyers', state_data_through=state_through.isoformat(), state_basis=query.get('state_basis','period_end'),
                               covered_history_start=min((a for intervals in runs.values() for a,b in intervals),default=start).isoformat(),
                               refund_correction='only_reenumerated_payment_windows',
-                              failed_windows=sum(j['state'] == 'failed' for j in jobs))), dict(members=members, records=records, events=events)
+                              failed_windows=sum(j['state'] == 'failed' for j in jobs)))
+    if period_cohort:
+        if identity_complete:
+            metrics['first_purchasers'].update(status='insufficient_history',reason='后台订单标记另列；本视图不证明终身真实首购')
+        count = len(members['purchasers']); repeated = len(members['repeat_purchasers'])
+        result['repeat_rate'] = dict(numerator=repeated,denominator=count,rate=repeated/count if count else None,
+                                     status=coverage_status if count else 'not_mature',basis='at_least_two_distinct_valid_orders_within_selected_period')
+        result['repeat_states'] = [dict(stage=stage,repeated=sum(rec['stage']==stage and rec['period_repeated'] for rec in records.values()),
+                                        not_repeated=sum(rec['stage']==stage and not rec['period_repeated'] for rec in records.values())) for stage in ('waiting',*STATES,'unverified')]
+        result['value_segment']['basis'] = 'selected_period_purchase_usd'
+        if not identity_complete:
+            result['repeat_rate'].update(numerator=None,denominator=None,rate=None,status='unavailable')
+            result['repeat_states'] = []
+        elif metrics['purchasers']['value'] is None:
+            for key in ('known_pool','waiting',*STATES,'unverified'):
+                metrics[key].update(value=None,status='pending',reason='所选期间尚无完整订单片')
+            result['repeat_rate'].update(numerator=None,denominator=None,rate=None,status='pending')
+            result['repeat_states'] = []
+    return result, dict(members=members, records=records, events=events)
 
 
 def second_purchase(people, jobs, sites, start, end, anchor, horizon, entry_end=None, covers=None):

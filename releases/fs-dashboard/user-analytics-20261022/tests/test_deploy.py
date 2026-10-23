@@ -13,6 +13,18 @@ from patch_navigation import patch
 
 
 class Deployment(unittest.TestCase):
+    def test_period_release_keeps_original_cas_and_cannot_touch_prices(self):
+        import release
+        with mock_patch.multiple(release,SCOPE=release.SCOPE,TARGETS=release.TARGETS,NEW=release.NEW,AUTHORIZED_TIMERS=release.AUTHORIZED_TIMERS):
+            spec=importlib.util.spec_from_file_location('users_period_release_test',ROOT/'deploy/release_period.py')
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            value=dict(scope=release.SCOPE,businessWrites=False,timersChanged=False,files=[dict(candidate=k,target=v,beforeSha256=None if k in release.NEW else 'a'*64,owner='0:0',mode='0o644') for k,v in release.TARGETS.items()])
+            self.assertEqual(len(value['files']),10)
+            self.assertEqual(release.NEW,frozenset(['runtime/user_customer_types.py']))
+            self.assertEqual(release.checked_manifest(value),value)
+            value['files'][0]['target']='/opt/fc27-cloud-browser/price_writer.py'
+            with self.assertRaises(ValueError):release.checked_manifest(value)
+
     def test_manifest_rejects_extra_target_and_existing_source_without_cas(self):
         def manifest():
             return dict(scope=SCOPE,businessWrites=False,timersChanged=True,files=[dict(candidate=k,target=v,beforeSha256=None if k in NEW else 'a'*64,owner='0:0',mode='0o644') for k,v in TARGETS.items()])

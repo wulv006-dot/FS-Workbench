@@ -1,5 +1,6 @@
 """Private durable purchase facts and frozen snapshots, independent of short-lived caches."""
 import hmac
+import hashlib
 import json
 import os
 import sqlite3
@@ -161,15 +162,22 @@ class Store:
                        (job, str(site), stamp(start).isoformat(), stamp(end).isoformat(), 'failed', canonical({'error': error}), None))
         return job
 
-    def read(self, analytics=False):
+    def read(self, analytics=False, start=None, end=None):
+        if (start is None) != (end is None) or start is not None and (not analytics or not stamp(start) < stamp(end)):
+            raise ValueError('analytics_period_required')
         with self.db() as db:
             db.execute('BEGIN')
             revision = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
             orders = []
-            for row in db.execute('SELECT * FROM orders' + (' WHERE valid=1' if analytics else '') + ' ORDER BY paid_at,order_key'):
+            where = ' WHERE valid=1' if analytics else ''
+            if start is not None:
+                where += ' AND paid_at>=? AND paid_at<?'
+            for row in db.execute('SELECT * FROM orders' + where + ' ORDER BY paid_at,order_key', (stamp(start).isoformat(),stamp(end).isoformat()) if start is not None else ()):
                 row = dict(row)
                 if analytics:
-                    row['body'] = canonical({'amount_usd': json.loads(row['body']).get('amount_usd')})
+                    body = json.loads(row['body'])
+                    row['source_id'] = str(body.get('id') or '')
+                    row['body'] = canonical({'amount_usd': body.get('amount_usd'), 'order_no_hash': hashlib.sha256(str(body.get('order_no') or '').encode()).hexdigest()})
                 orders.append(row)
             jobs = [dict(r) for r in db.execute('SELECT * FROM jobs')]
         return revision, orders, jobs
