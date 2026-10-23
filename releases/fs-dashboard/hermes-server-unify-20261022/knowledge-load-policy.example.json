@@ -1,0 +1,22 @@
+{
+  "contract": "fs-knowledge-load-policy-v1",
+  "requests": {},
+  "native": {
+    "enabled": false,
+    "routes": [
+      {
+        "platform": "desktop",
+        "profile_name": "CONFIRM_FS_NATIVE_PROFILE",
+        "session_ids": ["CONFIRM_NEW_EMPTY_FS_SESSION"],
+        "catalog": "knowledge-releases/knowledge-layering-20261023-1/index.json",
+        "sha256": "ba2a0ad4b38028cf08a0b73e6d1529a2ba255a29bd5cbc483b5f8f8c9ee095ba",
+        "modules": ["FS", "FC27", "marketing"]
+      }
+    ],
+    "readonly_sessions": {
+      "CONFIRM_NEW_EMPTY_FS_SESSION": {
+        "task_ids": ["KL2-20261023-FS-RO-001"]
+      }
+    }
+  }
+}

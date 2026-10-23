@@ -100,6 +100,16 @@ class Closeout(unittest.TestCase):
         self.assertEqual(doc['steps'], ['git_version', 'notion_sync'])
         self.assertEqual(unrelated['steps'], [])
 
+    def test_native_plugin_change_requires_production_confirmation_and_isolated_restart_plan(self):
+        name='releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py'
+        p=self.root/name;p.parent.mkdir(parents=True);p.write_text('offline adapter')
+        with patch.object(co.subprocess,'check_output',return_value='a'*40):
+            value=co.plan(self.root,'b'*40,[name])
+        self.assertTrue(value['production_confirmation_required'])
+        self.assertFalse(value['business_rule_confirmation_required'])
+        self.assertEqual(value['restart_scope'],'native_hermes_only_after_approval')
+        self.assertEqual(value['notion_candidate']['status'],'candidate_not_effective')
+
     def test_notion_preserves_manual_links_and_rejects_conflicting_same_marker(self):
         original = '人工段落\n[关键链接](https://example.invalid/reference)'
         once = co.notion_candidate(original, 'approved summary', self.id)['content']

@@ -120,23 +120,33 @@ def rename_source_selfcheck():
            ("ui/old\npage.html","ui/new\npage.html")]
     with tempfile.TemporaryDirectory(prefix="pr-fast-rename-") as directory:
         root=Path(directory)
-        def git(*args):
+        def git(*args,data=None):
             return subprocess.check_output(["git","-c","user.name=Offline QA",
                 "-c","user.email=qa@example.invalid","-c","commit.gpgsign=false",
-                "-c","core.hooksPath=/dev/null",*args],cwd=root,stderr=subprocess.STDOUT)
+                "-c","core.hooksPath=/dev/null",*args],cwd=root,stderr=subprocess.STDOUT,input=data)
         git("init","-q")
-        for index,(old,new) in enumerate(pairs):
-            path=root/old;path.parent.mkdir(parents=True,exist_ok=True)
-            path.write_text("unique fixture "+str(index)+"\n",encoding="utf-8")
-        regular=root/"fc27_quote_engine.py";regular.write_text("VALUE=1\n")
-        git("add",".");git("commit","-qm","synthetic base")
-        base=git("rev-parse","HEAD").decode().strip()
-        for old,new in pairs:
-            target=root/new;target.parent.mkdir(parents=True,exist_ok=True)
-            (root/old).rename(target)
-        regular.write_text("VALUE=2\n")
-        git("add","-A");git("commit","-qm","synthetic moves and modification")
-        head=git("rev-parse","HEAD").decode().strip()
+        def snapshot(files,parent=None):
+            # Git paths admit newline bytes that Windows working-tree filenames cannot represent.
+            tree={}
+            for name,content in files.items():
+                node=tree
+                parts=name.split('/')
+                for part in parts[:-1]:node=node.setdefault(part,{})
+                node[parts[-1]]=content.encode()
+            def emit(node):
+                rows=[]
+                for name,value in sorted(node.items()):
+                    kind,mode,sha=('tree','040000',emit(value)) if isinstance(value,dict) else (
+                        'blob','100644',git('hash-object','-w','--stdin',data=value).decode().strip())
+                    rows.append((mode+' '+kind+' '+sha+'\t').encode()+name.encode()+b'\0')
+                return git('mktree','-z',data=b''.join(rows)).decode().strip()
+            args=['commit-tree',emit(tree),'-m','synthetic workflow input']
+            if parent:args+=['-p',parent]
+            return git(*args).decode().strip()
+        before={old:'unique fixture '+str(i)+'\n' for i,(old,new) in enumerate(pairs)}
+        after={new:before[old] for old,new in pairs}
+        before['fc27_quote_engine.py']='VALUE=1\n';after['fc27_quote_engine.py']='VALUE=2\n'
+        base=snapshot(before);head=snapshot(after,base)
         command=[base if token=="$PR_BASE" else head if token=="$PR_HEAD" else token for token in command]
         paths=subprocess.check_output(command,cwd=root).decode("utf-8").rstrip("\0").split("\0")
         expected={name for pair in pairs for name in pair}|{"fc27_quote_engine.py"}
@@ -347,7 +357,7 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
-        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py'):
+        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py'):
             groups.add('knowledge-layering');continue
         if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
             groups.add("game-monitor-auto");continue
@@ -671,7 +681,7 @@ def main():
     for group in groups:
         print("affected group:",group,flush=True)
         if group=='knowledge-layering':
-            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release'])
+            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare'])
             continue
         if group in ("self","frontend"):continue
         if group=="game-monitor-auto":
@@ -1021,7 +1031,7 @@ def main():
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-server-unify":
-            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly"])
+            units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry"])
         elif group=="hermes-ops":
             units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
         elif group=="fs-business-baseline":
@@ -1098,5 +1108,3 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
-
-

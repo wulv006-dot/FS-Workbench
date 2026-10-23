@@ -93,3 +93,5 @@ def register(ctx):
         def handler(args,_name=name,**context):
             return json.dumps(call(_name,args),ensure_ascii=False,allow_nan=False)
         ctx.register_tool(name=name,toolset='fs_readonly',schema=schema,handler=handler)
+    from .knowledge import register as register_knowledge
+    register_knowledge(ctx)

@@ -1,0 +1,221 @@
+import copy
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tempfile
+import types
+import unittest
+from unittest.mock import Mock, patch
+
+ROOT=Path(__file__).resolve().parents[3]
+sys.path[:0]=[str(ROOT/'releases/fs-dashboard/knowledge-layering-20261023/source'),
+              str(ROOT/'releases/fs-dashboard/user-analytics-20261022/source'),
+              str(ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013')]
+from fs_readonly.knowledge import NativeKnowledge, register
+
+
+class Native(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.adapter=NativeKnowledge(self.root)
+        self.info=dict(session_id='FS-new-1',platform='desktop',profile_name='fixture')
+        self.row=dict(id='fc.rule',revision='v2',layer='current',status='effective',modules=['FC27'],
+                      effective_at='2026-10-22',owner='fixture',authority='git',supersedes=['fc.rule@v1'],
+                      provenance=['offline_fixture'],source=dict(path='rule.md',sha256=hashlib.sha256(b'current rule').hexdigest()))
+        self.folder=self.root/'knowledge-releases/fixed';self.folder.mkdir(parents=True)
+        (self.folder/'rule.md').write_bytes(b'current rule')
+        self.index=dict(contract='fs-knowledge-index-v1',release='offline-fixed',release_state='published',
+                        source_commit='a'*40,source_root='knowledge-releases/fixed',entries=[self.row])
+        self.route=dict(platform='desktop',profile_name='fixture',catalog='knowledge-releases/fixed/index.json',
+                        modules=['FC27'],sha256='')
+        self.policy=dict(contract='fs-knowledge-load-policy-v1',requests={},native=dict(enabled=True,routes=[self.route],readonly_sessions={}))
+        self.save_index();self.save_policy()
+        toolsets=types.ModuleType('toolsets');toolsets.TOOLSET_SESSION_PLATFORMS={}
+        self.patcher=patch.dict(sys.modules,{'toolsets':toolsets});self.patcher.start();self.addCleanup(self.patcher.stop)
+
+    def prompt(self, info):
+        self.adapter.pin(info)
+        return self.adapter.prompt(info)
+
+    def save_index(self):
+        raw=json.dumps(self.index).encode();(self.folder/'index.json').write_bytes(raw)
+        self.route['sha256']=hashlib.sha256(raw).hexdigest()
+
+    def save_policy(self):
+        (self.root/'knowledge-load-policy.json').write_bytes(json.dumps(self.policy).encode())
+
+    def read(self,**args):
+        return self.adapter.call('fs_read_knowledge',dict(modules=['FC27'],**args),session_id=self.info['session_id'],task_id='original-task-1')
+
+    def test_new_session_short_index_and_on_demand_hashed_content(self):
+        prompt=self.prompt(self.info)
+        self.assertIn('fc.rule',prompt);self.assertNotIn('current rule',prompt)
+        self.assertLess(len(prompt),12000)
+        selected=self.read(entry_ids=['fc.rule'])
+        self.assertEqual(selected['entries'][0]['content'],'current rule')
+        self.assertEqual(selected['entries'][0]['content_sha256'],hashlib.sha256(b'current rule').hexdigest())
+
+    def test_same_session_and_request_remain_pinned_after_publication_change(self):
+        first=self.prompt(self.info);selected=self.read()
+        self.index['release']='later';self.row['revision']='v3';self.save_index();self.save_policy()
+        self.assertEqual(self.prompt(self.info),first)
+        self.assertEqual(self.read(),selected)
+        next_info=dict(self.info,session_id='FS-new-2')
+        self.assertIn('later',self.prompt(next_info))
+        with self.assertRaisesRegex(ValueError,'catalog_changed'):
+            self.adapter.call('fs_read_knowledge',{'modules':['FC27']},session_id=self.info['session_id'],task_id='other-original-task')
+
+    def test_old_unpinned_session_does_not_silently_adopt_new_rule(self):
+        with self.assertRaises(FileNotFoundError):self.read()
+
+    def test_other_platform_profile_and_disabled_routes_are_untouched(self):
+        for info in [dict(self.info,platform='feishu'),dict(self.info,profile_name='other')]:
+            self.assertEqual(self.prompt(info),'')
+            self.assertIsNone(self.adapter.guard('terminal',{},session_id=info['session_id'],task_id='normal'))
+        self.policy['native']['enabled']=False;self.save_policy()
+        self.assertEqual(self.prompt(self.info),'')
+
+    def test_candidate_conflict_and_other_module_not_misused(self):
+        self.index['entries'].append(dict(self.row,revision='idea',layer='candidate',status='pending'))
+        self.save_index();self.save_policy();self.prompt(self.info)
+        self.assertEqual(self.read()['entries'][0]['revision'],'v2')
+        self.assertEqual(self.read(entry_ids=['not.formal'])['status'],'missing_or_out_of_scope')
+        with self.assertRaisesRegex(ValueError,'module_scope'):
+            self.adapter.call('fs_read_knowledge',{'modules':['D4']},session_id=self.info['session_id'],task_id='same-task')
+
+    def test_explicit_history_and_date_are_not_current_rule(self):
+        (self.folder/'old.md').write_bytes(b'why the old decision')
+        old=dict(self.row,revision='v1',layer='archive',status='archived',effective_at='2026-10-21',
+                 source=dict(path='old.md',sha256=hashlib.sha256(b'why the old decision').hexdigest()))
+        self.index['entries'].append(old);self.save_index();self.save_policy();self.prompt(self.info)
+        self.assertEqual(self.read()['entries'][0]['revision'],'v2')
+        v=self.read(entry_ids=['fc.rule'],revision='v1',history=True)
+        self.assertTrue(v['history']);self.assertEqual(v['entries'][0]['effective_at'],'2026-10-21')
+        with self.assertRaisesRegex(ValueError,'explicit_history'):self.read(revision='v1')
+
+    def test_conflicting_effective_rules_return_conflict(self):
+        self.index['entries'].append(dict(self.row,revision='v3'));self.save_index();self.save_policy()
+        self.prompt(self.info);self.assertEqual(self.read()['status'],'conflict')
+
+    def test_source_missing_and_failed_release_keep_loaded_receipt(self):
+        self.prompt(self.info);first=self.read()
+        (self.folder/'rule.md').unlink()
+        self.assertEqual(self.read(),first)
+        with self.assertRaises(FileNotFoundError):self.read(entry_ids=['fc.rule'])
+        self.index['release_state']='candidate';self.save_index();self.save_policy()
+        with self.assertRaisesRegex(ValueError,'not_published'):self.adapter.pin(dict(self.info,session_id='next-session'))
+        self.assertEqual(self.read(),first)
+
+    def test_approved_test_ids_block_all_other_tools_and_task_spoofing(self):
+        self.policy['native']['readonly_sessions']={'FS-new-1':{'task_ids':['readonly-task']}}
+        self.save_policy()
+        self.assertEqual(self.adapter.guard('terminal',{},session_id='FS-new-1',task_id='readonly-task')['action'],'block')
+        kwargs=self.adapter.test_admission(self.info,'readonly-task')
+        self.assertEqual(kwargs,dict(enabled_toolsets=['fs_knowledge'],skip_memory=True,skip_background_review=True))
+        for tool in ['terminal','write_file','memory','skill_manage','execute_code','delegate_task','tool_call','fs_query_native_statistics','fs_reprice','unknown']:
+            self.assertEqual(self.adapter.guard(tool,{},session_id='FS-new-1',task_id='readonly-task')['action'],'block')
+        self.assertIsNone(self.adapter.guard('fs_read_knowledge',{},session_id='FS-new-1',task_id='readonly-task'))
+        self.assertEqual(self.adapter.guard('fs_read_knowledge',{'task_id':'readonly-task'},session_id='FS-new-1',task_id='other')['action'],'block')
+        with self.assertRaisesRegex(ValueError,'tool_fields'):
+            self.adapter.call('fs_read_knowledge',{'modules':['FC27'],'session_id':'another'},session_id='FS-new-1',task_id='readonly-task')
+        self.policy['native']['readonly_sessions']={};self.save_policy()
+        self.assertEqual(self.adapter.guard('terminal',{},session_id='FS-new-1',task_id='readonly-task')['action'],'block')
+
+    def test_normal_chats_keep_tools_even_when_policy_unavailable(self):
+        self.prompt(self.info)
+        self.assertIsNone(self.adapter.guard('terminal',{},session_id='FS-new-1',task_id='normal'))
+        (self.root/'knowledge-load-policy.json').write_bytes(b'broken')
+        self.assertIsNone(self.adapter.guard('terminal',{},session_id='unrelated',task_id='normal'))
+        with self.assertRaises((ValueError,PermissionError)):
+            self.adapter.test_admission(dict(self.info,session_id='new-test'),'test')
+
+    def test_tampering_and_paths_do_not_fall_back_to_new_version(self):
+        self.prompt(self.info);path=self.root/self.adapter._name('session','FS-new-1')
+        v=json.loads(path.read_bytes());v['release']='injected';path.write_bytes(json.dumps(v).encode())
+        with self.assertRaisesRegex(ValueError,'receipt_changed'):self.read()
+        with self.assertRaisesRegex(ValueError,'identity'):self.adapter.bound('../other')
+
+    def test_receipts_reconstruct_request_release_entries_and_hashes_without_business_db(self):
+        self.prompt(self.info);v=self.read(entry_ids=['fc.rule'])
+        uses=list((self.root/'knowledge/native').glob('use-*.json'));self.assertEqual(len(uses),1)
+        r=json.loads(uses[0].read_bytes());self.assertEqual(r['identity']['task_id'],'original-task-1')
+        self.assertEqual(r['result']['selection_sha256'],v['selection_sha256'])
+        self.read(entry_ids=['fc.rule']);self.assertEqual(len(list((self.root/'knowledge/native').glob('use-*.json'))),1)
+        self.assertFalse((self.root/'tasks.sqlite3').exists())
+
+    def test_registration_has_official_hook_and_distinct_read_toolset(self):
+        ctx=Mock();register(ctx)
+        self.assertEqual(ctx.register_system_prompt_section.call_args.args[0],'fs.knowledge')
+        self.assertEqual(ctx.register_system_prompt_section.call_args.kwargs['max_chars'],4000)
+        self.assertEqual(ctx.register_hook.call_args.args[0],'pre_tool_call')
+        self.assertEqual(ctx.register_tool.call_count,2)
+        for c in ctx.register_tool.call_args_list:self.assertEqual(c.kwargs['toolset'],'fs_knowledge')
+
+    def test_test_grants_are_typed_and_only_actual_fs_platforms_can_route(self):
+        self.policy['native']['readonly_sessions']={'FS-new-1':{'task_ids':'substring-is-not-a-grant'}}
+        self.save_policy()
+        with self.assertRaisesRegex(ValueError,'test_tasks'):self.adapter.test_admission(self.info,'s')
+        self.policy['native']['readonly_sessions']={};self.route['platform']='api_server';self.save_policy()
+        info=dict(self.info,platform='api_server')
+        self.assertEqual(self.prompt(info),'')
+        self.route['platform']='tui';self.route['session_ids']=['other'];self.save_policy()
+        info=dict(self.info,platform='tui');self.assertEqual(self.prompt(info),'')
+        self.route['session_ids']=['FS-new-1'];self.save_policy();self.assertIn('offline-fixed',self.prompt(info))
+
+    def test_actual_native_forwarding_symbol_binds_real_session_and_task(self):
+        fixture=json.loads((Path(__file__).parent/'native-hook-fixture.json').read_bytes())
+        namespace={};exec(fixture['symbol']['code'],namespace)
+        self.policy['native']['readonly_sessions']={'FS-new-1':{'task_ids':['readonly-task']}}
+        self.save_policy();self.adapter.test_admission(self.info,'readonly-task')
+        module=types.ModuleType('hermes_cli.plugins')
+        def dispatch(name,args,**ids):
+            result=self.adapter.guard(name,args,**ids)
+            return (result['message'] if result else None,None)
+        module._dispatch_pre_tool_call_hooks=dispatch
+        agent=types.SimpleNamespace(session_id='FS-new-1',_current_turn_id='turn',_current_api_request_id='api')
+        with patch.dict(sys.modules,{'hermes_cli':types.ModuleType('hermes_cli'),'hermes_cli.plugins':module}):
+            fn=namespace['_pre_tool_block_message']
+            blocked,_=fn(agent,'terminal',{'session_id':'other'},'readonly-task','call',[])
+            self.assertIn('只读',blocked)
+            self.assertIsNone(fn(agent,'fs_read_knowledge',{},'readonly-task','call',[])[0])
+            self.assertIsNotNone(fn(agent,'fs_read_knowledge',{},'different-task','call',[])[0])
+            # Preserve evidence of the upstream outer fail-open; a prompt is not a permission boundary.
+            module._dispatch_pre_tool_call_hooks=Mock(side_effect=RuntimeError('offline upstream failure'))
+            self.assertIsNone(fn(agent,'terminal',{},'readonly-task','call',[])[0])
+
+    def test_test_agent_has_only_read_tools_and_is_checked_before_model(self):
+        self.policy['native']['readonly_sessions']={'FS-new-1':{'task_ids':['readonly-task']}}
+        self.save_policy();record=[]
+        def factory(**kw):
+            record.append(kw)
+            names={'fs_get_knowledge_index','fs_read_knowledge'}
+            return types.SimpleNamespace(session_id=kw['session_id'],valid_tool_names=names,
+                tools=[{'function':{'name':n}} for n in names])
+        agent=self.adapter.test_agent(factory,self.info,'readonly-task',model='offline-fixture')
+        self.assertEqual(record[0]['enabled_toolsets'],['fs_knowledge'])
+        self.assertTrue(record[0]['skip_memory']);self.assertTrue(record[0]['skip_background_review'])
+        agent.valid_tool_names.add('terminal')
+        with self.assertRaisesRegex(PermissionError,'grants_changed'):
+            self.adapter.verify_test_agent(agent,'FS-new-1','readonly-task')
+        with self.assertRaises(PermissionError):self.adapter.test_agent(factory,self.info,'different-task')
+        self.assertEqual(len(record),1)
+
+    def test_concurrent_same_process_prompt_pin_is_idempotent(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            prompts=list(pool.map(lambda _:self.prompt(self.info),range(12)))
+        self.assertEqual(len(set(prompts)),1)
+        self.assertEqual(len(list((self.root/'knowledge/native').glob('session-*.json'))),1)
+
+    def test_short_index_remains_valid_json_with_actual_native_limit(self):
+        self.index['entries']=[dict(self.row,id='fc.rule'+str(i)) for i in range(100)]
+        self.save_index();self.save_policy()
+        prompt=self.prompt(self.info)
+        self.assertLessEqual(len(prompt),4000)
+        summary=json.loads(prompt.split('\n',1)[1])
+        self.assertGreater(summary['additional_entries'],0)
+        self.assertEqual(len(self.adapter.bound(self.info['session_id'])['entries']),100)
+
+
+if __name__=='__main__':unittest.main()

@@ -1,9 +1,29 @@
 import unittest
 from unittest.mock import Mock,patch
+import types
+import sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[3]
+sys.path[:0]=[str(ROOT/'releases/fs-dashboard/knowledge-layering-20261023/source'),
+              str(ROOT/'releases/fs-dashboard/user-analytics-20261022/source'),
+              str(ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013')]
 import fs_readonly as plugin
 
 
 class ReadonlyTools(unittest.TestCase):
+    def test_latest_user_period_contract_is_registered_and_forwarded_unchanged(self):
+        import user_tools
+        ctx = Mock()
+        toolsets = types.ModuleType('toolsets'); toolsets.TOOLSET_SESSION_PLATFORMS = {}
+        with patch.dict(sys.modules, {'toolsets': toolsets}): plugin.register(ctx)
+        registered = next(c.kwargs for c in ctx.register_tool.call_args_list if c.kwargs['name'] == 'fs_query_user_analytics')
+        self.assertEqual(registered['schema']['parameters']['properties'], user_tools.PROPERTIES)
+        self.assertEqual(user_tools.PROPERTIES['state_basis']['enum'], ['period_cohort', 'current', 'period_end'])
+        args = {'scope': 'project', 'scope_id': 'FC27', 'start': '2026-10-01', 'state_basis': 'period_cohort'}
+        with patch.object(plugin, 'read', return_value={'status': 'available'}) as read:
+            plugin.call('fs_query_user_analytics', args)
+            read.assert_called_once_with('/users', dict(args, action='tool'))
+
     def test_owner_url_and_extra_fields_cannot_be_overridden(self):
         for bad in [{'owner':'other'},{'url':'https://example.test'},{'headers':{}},{'force':True}]:
             with patch.object(plugin,'read') as read:
@@ -38,12 +58,18 @@ class ReadonlyTools(unittest.TestCase):
 
     def test_official_registry_retains_five_and_adds_user_analytics(self):
         ctx=Mock()
-        plugin.register(ctx)
-        self.assertEqual(ctx.register_tool.call_count,6)
+        toolsets=types.ModuleType('toolsets');toolsets.TOOLSET_SESSION_PLATFORMS={}
+        with patch.dict(sys.modules,{'toolsets':toolsets}):plugin.register(ctx)
+        self.assertEqual(ctx.register_tool.call_count,8)
         self.assertEqual({item.kwargs['name'] for item in ctx.register_tool.call_args_list}, {
             'fs_get_data_catalog','fs_query_native_statistics','fs_query_es_order_structure',
-            'fs_query_discount_analysis','fs_query_product_orders','fs_query_user_analytics'})
+            'fs_query_discount_analysis','fs_query_product_orders','fs_query_user_analytics',
+            'fs_get_knowledge_index','fs_read_knowledge'})
         for item in ctx.register_tool.call_args_list:
+            if item.kwargs['name'] not in plugin.TOOLS:
+                self.assertEqual(item.kwargs['toolset'],'fs_knowledge')
+                self.assertFalse(item.kwargs['schema']['parameters']['additionalProperties'])
+                continue
             self.assertEqual(item.kwargs['toolset'],'fs_readonly')
             self.assertFalse(item.kwargs['schema']['parameters']['additionalProperties'])
             with patch.object(plugin,'read',return_value={'status':'available'}):
@@ -51,4 +77,3 @@ class ReadonlyTools(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
-

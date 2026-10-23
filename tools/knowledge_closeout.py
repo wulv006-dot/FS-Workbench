@@ -49,7 +49,11 @@ def plan(root, base, paths=None):
         for row in index['entries']:
             if name == row['source']['path']:
                 affected.add(row['id'])
-    runtime = any(x.startswith('releases/') and Path(x).name in
+    native_prefix = 'releases/fs-dashboard/hermes-server-unify-20261022/'
+    native_runtime = any(x.startswith(native_prefix + 'fs_readonly/') or x in
+                         {native_prefix + 'fs_native_entry.py', native_prefix + 'patch_factory.py', native_prefix + 'Dockerfile.native',
+                          'releases/fs-dashboard/knowledge-layering-20261023/deploy/native_release.py'} for x in files)
+    runtime = native_runtime or any(x.startswith('releases/') and Path(x).name in
                   ('business_context.py','controller.py','knowledge_catalog.py','learning_registry.py','learning_service.py','report_method.py') for x in files)
     relevant = runtime or bool(affected) or any(x.startswith(('knowledge/', 'docs/planning/knowledge-layering-20261023/', 'tools/knowledge_closeout')) for x in files)
     business = any(row['id'] in affected and row['layer'] == 'current' for row in index['entries'])
@@ -65,6 +69,7 @@ def plan(root, base, paths=None):
                   known_conflicts=known_conflicts, blocking_conflicts=sorted(set(known_conflicts) & affected),
                   business_rule_confirmation_required=business, production_confirmation_required=delivery,
                   steps=steps, requires_restart=runtime,
+                  restart_scope='native_hermes_only_after_approval' if native_runtime else 'existing_scope' if runtime else 'none',
                   notion_pages=['3fc9a8a79c4e81578ed1c5fa218837ea', '3ff9a8a79c4e81bc8a4feb15aab87a5a'],
                   rollback='沿既有publisher原发布ID和前值回滚；保留DB/原任务/账本。Notion只按本变更标识修订自己管理的摘要。',
                   extra_authorities=[], maintenance='老D原凌晨任务不变，使用同一change_id去重；不覆盖人工正文。')

@@ -1,0 +1,11 @@
+{
+  "source": "/opt/hermes/agent/agent_runtime_helpers.py",
+  "source_sha256": "295bd0adcb698ddeb87966f77a79ef1c8016702641db401bfe692ffb63e0dd49",
+  "license": "Hermes MIT; see releases/fs-dashboard/hermes-fc-pilot-20261013/skills/upstream/hermes/LICENSE when present; upstream https://github.com/NousResearch/hermes-agent",
+  "scope": "one actual native forwarding symbol; dependency-injected offline projection, not full native runtime",
+  "symbol": {
+    "name": "_pre_tool_block_message",
+    "line": 2531,
+    "code": "def _pre_tool_block_message(agent, function_name, function_args, effective_task_id, tool_call_id, middleware_trace):\n    \"\"\"Plugin pre-tool-call hook verdict: ``(block_message, function_args)``; failures never block.\"\"\"\n    try:\n        from hermes_cli.plugins import _dispatch_pre_tool_call_hooks\n        block_message, modified_args = _dispatch_pre_tool_call_hooks(\n            function_name, function_args, task_id=effective_task_id or \"\",\n            session_id=getattr(agent, \"session_id\", \"\") or \"\", tool_call_id=tool_call_id or \"\",\n            turn_id=getattr(agent, \"_current_turn_id\", \"\") or \"\",\n            api_request_id=getattr(agent, \"_current_api_request_id\", \"\") or \"\",\n            middleware_trace=list(middleware_trace),\n        )\n        return block_message, (modified_args if modified_args is not None else function_args)\n    except Exception:\n        return None, function_args"
+  }
+}

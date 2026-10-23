@@ -26,3 +26,8 @@
 | 本批实际发布、加载与Notion读回 | [DELIVERY](DELIVERY.md)；[RELEASED](../../../knowledge/RELEASED.json) |
 
 本次不引入Obsidian、全文/语义检索、向量库或付费平台。没有修改FC维护源、公式、利润底线、参数、教学、原开关或调度；没有新建定时任务。已有技能及持续学习能力不因单任务固定知识版本而被冻结。
+## 二期候选入口与隔离实测
+
+**最新增量见[发布环境SQLite兼容修复](PHASE2-SQLITE-COMPAT.md)**：复用服务器已有私有库，新增精确运行时固定和schema/并发/异常回归。下列PHASE2-RESULT/APPROVAL/NATIVE-RUNTIME是09:14旧冻结快照，不能据其旧哈希或批准状态执行新候选。用户已批准原分支PR/正式CI和隔离镜像准备；生产切换与模型仍未获批。最终进度以对应实际Git/CI/构建回执为准。
+
+[FS新会话接线、只读边界及native-only发布scope](PHASE2-OFFLINE.md)已完成离线补齐，并有真实原生容器9项隔离只读实测；[后续集中确认清单](PHASE2-APPROVAL.md)、[精确源映射](PHASE2-SOURCE-MAP.json)与[结果](PHASE2-RESULT.json)分别列范围和证据。仍未提交/合并或部署二期，未切换真实用户会话、触发模型、接飞书或改Notion/凌晨维护；上文一期已发布记录保留，不把二期隔离实测称为生产验收。

@@ -1,0 +1,4 @@
+ARG NATIVE_BASE
+FROM ${NATIVE_BASE}
+COPY fs_native_entry.py /opt/hermes/fs_native_entry.py
+COPY native_factory.py /opt/hermes/tui_gateway/server.py

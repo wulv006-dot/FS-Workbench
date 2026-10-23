@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "checks": [
+    "actual_native_factory_exact_patch_and_parse",
+    "actual_PluginContext_registers_two_knowledge_tools",
+    "actual_native_defaults_and_non_FS_platforms_exclude_knowledge",
+    "actual_schema_cache_FS_Feishu_FS_isolation",
+    "actual_native_subclass_construction_has_only_read_grants_no_provider_init",
+    "actual_native_fail_open_fault_cannot_reach_tool_dispatch",
+    "actual_native_dispatch_and_middleware_read_published_version_and_receipt",
+    "actual_POSIX_admission_gate_blocks_before_provider",
+    "actual_SessionDB_turn_admission_blocked_by_native_SQLite_fence"
+  ],
+  "actual_runtime": "3.14.7",
+  "live_catalog_sha256": "ba2a0ad4b38028cf08a0b73e6d1529a2ba255a29bd5cbc483b5f8f8c9ee095ba",
+  "selection_sha256": "169a631b019407b22ccab880ffe96367b9467d517f3544da9c32c84d5f4a8e13",
+  "entry_ids": [
+    "fs.data.sources",
+    "fs.data.currency",
+    "fs.customer.identity",
+    "fc.marketing.attribution",
+    "fs.finance.procurement",
+    "fc.pricing.constraints"
+  ],
+  "candidate_sha256": {
+    "knowledge.py": "3c587f2cbf5f8925b94d05fceec842d81c6e0005ae755f5bad1f63cd45e79be5",
+    "fs_native_entry.py": "aa8a179935aea8074e23c76534eaa315cb014a964fb17df25ebb3619a49b33f8",
+    "patch_factory.py": "f0886b7a77ed33eeae7480a2fb7c8128c086b535dd431af047ba1863c16f8be6",
+    "native_release.py": "26cc8293c575107e91915c84fd3af52ed732a4506c494a46dc3e004bd5f56981"
+  },
+  "provider_calls": 0,
+  "external_connections": 0,
+  "production_writes": 0,
+  "service_operations": 0,
+  "limits": [
+    "no_real_AIAgent_provider_constructor",
+    "no_user_UI_session",
+    "no_image_build_or_live_switch",
+    "no_paid_model_quality_or_cost_acceptance"
+  ]
+}
