@@ -1,0 +1,126 @@
+{
+  "status": "deployed_readback_verified",
+  "source_commit": "79fed1bb41327b1e16b2a50e33ab7e9facaeaad9",
+  "merge_commit": "476d325073b82b469f92996a3ffef6a3bfb8b611",
+  "release_id": "nav-20261023T131500Z",
+  "manifest_sha256": "616f0352f2a3a48fa064bf38559a5573561f665a421e61e2487a4c75511182a2",
+  "files": [
+    {
+      "candidate": "source/nightly.py",
+      "target": "/opt/fs-hermes-fc/nightly.py",
+      "beforeSha256": "3a4c58353d02f40a67488e26c0087be2632415c3e7c776b17c93360c494b0ab4",
+      "sha256": "32ac8f62693c797adc58c346005d94df68333225d73ac59b190a10d2a4a1e730",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/source_snapshots.py",
+      "target": "/opt/fs-hermes-fc/source_snapshots.py",
+      "beforeSha256": "5df948885e9cc769e02efc0b8e0098bcda2fd935766bb953a4d724a0889849a4",
+      "sha256": "4b5b6063e360a6dd60bf5faca1b7f05d8277879b97bbe9314fab896ac5fb8852",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/nightly_data.py",
+      "target": "/opt/fs-hermes-fc/nightly_data.py",
+      "beforeSha256": null,
+      "sha256": "41dca7708c21b94b35574cebe9109510d2252ee038b5a6a5e9fc626aec86ed87",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/nightly_recovery_job.py",
+      "target": "/opt/fs-hermes-fc/nightly_recovery_job.py",
+      "beforeSha256": null,
+      "sha256": "e3577ac9b86d076eaacb5f2635fe740e86bb000f07bb80bbbfbd1c556024bb79",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/nightly_ops.py",
+      "target": "/opt/fs-hermes-ops/nightly_ops.py",
+      "beforeSha256": null,
+      "sha256": "982a7126449546033230e16f3688c0004b9d21dc0ad383c894407aa2e12ca2db",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/host.py",
+      "target": "/opt/fs-hermes-ops/host.py",
+      "beforeSha256": "d634de541868987d16126f6b74c7f61fdb8c4a6a34306593a3959f406b204a4f",
+      "sha256": "60b9ebe936d1807fe60c87ffed2e0d86774498df9d2557c482313ead2e5dc266",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/archive_jobs.py",
+      "target": "/opt/fs-exact-range-20261001/archive_jobs.py",
+      "beforeSha256": "439c1f5c49674c5746442fd5f3f99a7ab307273d50b885eddfc4bfae48ec6552",
+      "sha256": "cd2ba7d6cc7cb4f7da58773cf99ce9c2279b605d6b33abf05b11ce0839dd877e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/data-archive-first.md",
+      "target": "/opt/fs-hermes-fc/data-archive-first.md",
+      "beforeSha256": "fad0c6ff61d08c81042ffbbac55430df0c0d76cbc796cb93f411a547798d97f0",
+      "sha256": "7d7bfb34fb73e1683d9d8ee9fe2ff486504607dce9f70345ea5044ff62e946fa",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "units/fs-boss-management.timer",
+      "target": "/etc/systemd/system/fs-boss-management.timer",
+      "beforeSha256": "acc10079b5c2915d2bcb3286310845adfae14d3e616c3bb171f7affd98a8353c",
+      "sha256": "6e67aa8385edfbaba1c5384872dd412956c48d4d5d813b08850a95e95c957ec0",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "units/fs-boss-game-monitor.timer",
+      "target": "/etc/systemd/system/fs-boss-game-monitor.timer",
+      "beforeSha256": "949fe556be9560779f2831a4cdc1304f1007cfb70710980fea956de085168b71",
+      "sha256": "b6be38fa37f78f2b14a43e1a30c5a55ed6e229093f5281d2c063682ee327f152",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "units/fs-channel-cache.timer",
+      "target": "/etc/systemd/system/fs-channel-cache.timer",
+      "beforeSha256": "f0ff11c991e37d1854484e7bbb903ff8d6ff6033873c06f226dadd3b2d67f498",
+      "sha256": "a4752f63808da79788bc076fc4eec1001bc9ee26c497253c23dd36b690a34b69",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "units/fs-data-archive.timer",
+      "target": "/etc/systemd/system/fs-data-archive.timer",
+      "beforeSha256": "6d14ac6b85e2d3e5f9e7d18ca6be12af1cb024ca4655181cd1d644082379cac3",
+      "sha256": "b8cd36d4e513954d129e9d8ca1849d4937d6f5dca794d5804eaf909087cb7d75",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "units/fs-maintenance-cleanup.timer",
+      "target": "/etc/systemd/system/fs-maintenance-cleanup.timer",
+      "beforeSha256": "22f2e6e5a46116b27fe7bdbb2f1a0005488be508cc4edd84b79dd32330074a2b",
+      "sha256": "eb17a686a05caa27502b335c65dcfab74692d44cc824ee458c08be2c5ba9afba",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "protected_count": 115,
+  "protected_drift": [],
+  "native_cron": {
+    "state": "verified",
+    "id": "6534331b5100",
+    "schedule": {
+      "kind": "cron",
+      "expr": "20 17 * * 5",
+      "display": "20 17 * * 5"
+    },
+    "next_run_at": "2026-10-23T17:20:00+00:00",
+    "prompt_sha256": "3e089534a662485a65921900185ce4e0e4f373fdaa6b094f6f68822464eb216a"
+  }
+}

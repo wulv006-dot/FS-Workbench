@@ -1,6 +1,6 @@
 # 服务器夜间采集、归档与Hermes报告
 
-2026-10-23；时区Asia/Shanghai；负责人吴律，本任务单一发布者。用户已明确授权服务器实施、失败补查与飞书联系Codex、多端同步。本文件描述目标合同；实际发布及真实验证以ACCEPTANCE.json为准，未发布前不可视为已生效。
+2026-10-23；时区Asia/Shanghai；负责人吴律，本任务单一发布者。用户已明确授权服务器实施、失败补查与飞书联系Codex、多端同步。本次已发布，13个载荷及115保护项读回通过；实际验证见[ACCEPTANCE.json](ACCEPTANCE.json)，活动源映射见[SOURCE-MAP.json](SOURCE-MAP.json)。首次新自然周期尚待验收。
 
 ## 已核现场问题
 
