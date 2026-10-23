@@ -111,3 +111,22 @@ PR384已合并，源c64f781d9e789f9ff629c8b38db57bfc9016bec4，树0c65f9f4e667b7
 - 使用说明已补问号操作、完整邮箱查询与场景。证据：[SEARCH-ACCEPTANCE](SEARCH-ACCEPTANCE.json)、[SOURCE-MAP](SOURCE-MAP.json)、[USER-GUIDE](USER-GUIDE.md)。仍待用户验收OK；1月回补未启动，真正跨午夜自然推进及其他原有缺口继续保留。
 
 收尾检查：本轮文档影响识别 KL-b5783fb127ecffbefe60b8b5，affected_ids=[]、steps=[]，无知识发布、Notion同步或重启步骤。Windows原生检查因换行、宿主旧SQLite未通过，已用私库原字节在现有镜像的无网络/无宿主挂载临时容器内运行同一55项检查，全通过；无业务容器切换。隔离输入SHA 0f596d298d30d33d36c331bd3f6b9c6d044da25a58530fda6827a35e8d069561。
+
+
+## 2026-10-23 用户验收OK后：范围简化与1月补数已启动
+
+用户直接确认“其他验收OK。可以开始补数据了”。因此原等待用户OK条件已满足，本轮范围名称、相关显示及邮箱提示统一为“全部”，目标下限扩展至2026-01-01，结束仍固定为北京时间昨天。
+
+PR395源71cf70b692050a0165322dfa20d94dbf354fd18e，mergeb83850b68aef97f9aa5cba947fb76e9463ff2e02，正式CI39917167749通过；95项相关隔离检查及JS语法通过。第一次CI39916862206暴露新增测试锁未放临时目录，已修复，未放宽断言；主程序行为未因此改变。GitHub一度显示排队/进行中而日志已完结，等待原始check-run回执success后才合并，无绕过。
+
+已沿原SSH/原密钥、原publisher发布nav-20261023T072552Z，5目标/108保护SHA一致，businessWorkerTimerActions=0。发布前原私有库、身份密钥、配置、旧覆盖证明和清单备份在/var/lib/fs-user-analytics/backups/january-extension-20261023-v1，未导出身份或订单载荷。FC/原生工具/镜像/原调度保持。
+
+扩展过程使用独立工作清单history-backfill-inventory-2026-01-01.json，原history-full-inventory.json和7月完整覆盖证明继续有效；新完整清单先写为按哈希命名的不可变文件，再原子切换证明。不得删旧证明、重置库或把目标下限当已完成覆盖。
+
+唯一订单操作history-january-20261023-v1、pid14554，原backfill_history.py已启动，原receipt在/var/lib/fs-user-analytics/history-january-launch-20261023-v1.json，日志history-january-20261023-v1.log。15:28:23读回：进程存活，完成7片、累计新入10,377条7月以前订单，连续最早完成片为6月24日，正在6月23日。它从近月向前补到1月，并为原03/18/33/48任务让路；不是1月全齐证明。下次先核原pid、进度/原失败片和回执，不创建第二进程或换操作ID盲重放。
+
+1—6月ES新老客标签已按原持久导出/轮询流程完成，回执january-es-enrichment-20261023-v1.json；六个月原行数59,060/36,849/43,772/34,228/61,669/54,224，合计289,802。该范围含更广ES订单，只用于按原订单号关联标签，不是本模块客户数或主站有效订单数。原7—10月资料保留。
+
+正式已有Chrome两个选项均为“全部”，日期下限1月1日；默认期间查询正常，仍明确显示7月起完整覆盖。截图和进度见JANUARY-ACCEPTANCE.json。用户验收已收到，订单补数未完成；真实跨午夜自然验收仍未发生，普通账号独立浏览器、535身份、终身起点、可靠退款游标及异机灾备原限制保持。
+
+收尾影响识别 KL-eed9e8146b82645b1c5e97cc：affected_ids=[]、steps=[]，无知识/Notion发布或重启步骤；现行57项知识收尾检查在隔离容器通过，输入SHA c90d76106dfa2dc78501473a2e366fcbb6acede1aa62347527ea3874ef60873c。补数中FC系列6月起真实查询us_5434e971eb7fd72470a1f89b0ce1dc71、版本277明确partial/period_complete=false，目标1月与已完成July范围分开；41.63秒返回，未把缺口填0。

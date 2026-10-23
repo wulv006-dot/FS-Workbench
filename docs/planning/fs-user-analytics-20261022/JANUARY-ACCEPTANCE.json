@@ -1,0 +1,64 @@
+{
+  "at": "2026-10-23T15:28:23.290076+08:00",
+  "operation_id": "history-january-20261023-v1",
+  "process_active": true,
+  "progress": {
+    "at": "2026-10-23T15:28:19.303277+08:00",
+    "completed_windows": 7,
+    "end_exclusive": "2026-06-24T00:00:00+08:00",
+    "source_rows": 10377,
+    "start": "2026-06-23T00:00:00+08:00",
+    "status": "running",
+    "target_end_exclusive": "2026-10-23T00:00:00+08:00",
+    "target_start": "2026-01-01T00:00:00+08:00"
+  },
+  "complete_coverage": {
+    "contract": "fs-users-bounded-history-v1",
+    "data_version": "212",
+    "end_exclusive": "2026-10-23T00:00:00+08:00",
+    "inventory_sha256": "4df58683a5a0d1ca769ee8bf6ee8f08e012e765497734c7d320ff35270b83b41",
+    "sites": [
+      "266"
+    ],
+    "start": "2026-07-01T00:00:00+08:00"
+  },
+  "target_start": "2026-01-01T00:00:00+08:00",
+  "data_version": "276",
+  "pre_july_orders": 10377,
+  "earliest_complete_slice": "2026-06-24T00:00:00+08:00",
+  "es_status": "complete",
+  "es_months": 6,
+  "es_source_rows": 289802,
+  "targets": 5,
+  "guards": 108,
+  "release_id": "nav-20261023T072552Z",
+  "source_commit": "71cf70b692050a0165322dfa20d94dbf354fd18e",
+  "merge_commit": "b83850b68aef97f9aa5cba947fb76e9463ff2e02",
+  "formal_ci_run": 39917167749,
+  "user_acceptance": {
+    "date": "2026-10-23",
+    "message": "其他验收OK。可以开始补数据了"
+  },
+  "isolated_tests": 95,
+  "qa_sha256": "b2e8e2b611d404fa71abce2002853a9d803c6cc7bcf02a7c2bfb90b7c94ab7b5",
+  "ui": {
+    "scope": "全部",
+    "scope_id": "全部",
+    "start_min": "2026-01-01",
+    "current_query": "available; previous July coverage retained",
+    "screenshot": "evidence-live/users-all-scope-20261023.png"
+  },
+  "backfill_complete": false,
+  "partial_query_check": {
+    "status": "passed",
+    "scope": "FC series from 2026-06-01",
+    "query_status": "partial",
+    "period_complete": false,
+    "complete_start": "2026-07-01T00:00:00+08:00",
+    "target_start": "2026-01-01T00:00:00+08:00",
+    "snapshot_id": "us_5434e971eb7fd72470a1f89b0ce1dc71",
+    "data_version": "277",
+    "seconds": 41.62735446635634
+  },
+  "actual_midnight_still_unobserved": true
+}
