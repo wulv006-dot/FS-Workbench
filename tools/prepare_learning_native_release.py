@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = Path('releases/fs-dashboard/hermes-learning-closure-20261023/deploy')
 NATIVE = Path('releases/fs-dashboard/hermes-server-unify-20261022')
 SKILLS = Path('releases/fs-dashboard/hermes-memory-approval-20261022/reviewed_skills.py')
+BASE_TAG = 'fs-hermes-native:knowledge-f7b752cc73cb4955b2d8befa'
 OLD_DEPLOY = Path('releases/fs-dashboard/knowledge-layering-20261023/deploy')
 COMMIT_INPUTS = (NATIVE / 'fs_native_entry.py', NATIVE / 'patch_factory.py', SKILLS,
     DEPLOY / 'Dockerfile.native', DEPLOY / 'native_release.py', Path('tools/prepare_learning_native_release.py'),
@@ -114,6 +115,8 @@ def build_image(root, context, before, operation_id, *, source_commit):
     release = load(root / DEPLOY / 'native_release.py', 'learning_native_build_scope')
     if before != release.CURRENT_IMAGE:
         raise ValueError('learning_native_base_image_drift')
+    if subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{.Id}}', BASE_TAG], text=True).strip() != before:
+        raise ValueError('learning_native_base_tag_drift')
     expected_files = {'Dockerfile.native', *release.IMAGE_PAYLOADS}
     if {p.name for p in context.iterdir()} != expected_files:
         raise ValueError('learning_native_exact_context_required')
@@ -131,7 +134,7 @@ def build_image(root, context, before, operation_id, *, source_commit):
     expected = {target: sha((context / name).read_bytes()) for name, target in release.IMAGE_PAYLOADS.items()}
     expected['/opt/hermes/tui_gateway/server.py'] = release.BEFORE_SOURCES['/opt/hermes/tui_gateway/server.py']
     tag = 'fs-hermes-native:learning-' + sha(operation_id.encode())[:24]
-    subprocess.run(['docker', 'build', '--network', 'none', '--pull=false', '--build-arg', 'NATIVE_BASE=' + before,
+    subprocess.run(['docker', 'build', '--network', 'none', '--pull=false', '--build-arg', 'NATIVE_BASE=' + BASE_TAG,
         '-f', str(context / 'Dockerfile.native'), '-t', tag, str(context)], check=True,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     after = subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{.Id}}', tag], text=True).strip()
@@ -144,7 +147,9 @@ def build_image(root, context, before, operation_id, *, source_commit):
         '--entrypoint', 'sha256sum', after, *sorted(expected)], text=True)
     if {line.split()[1]: line.split()[0] for line in result.splitlines()} != expected:
         raise ValueError('learning_native_built_sources_differ')
-    return dict(image=after, tag=tag, sources=expected, base_layers=layers, child_layers=child, runtime_user=user)
+    if subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{.Id}}', BASE_TAG], text=True).strip() != before:
+        raise ValueError('learning_native_base_tag_drift')
+    return dict(image=after, tag=tag, sources=expected, base_tag=BASE_TAG, base_layers=layers, child_layers=child, runtime_user=user)
 
 
 def prepare_context(root, output, gateway_before, operation_id):
@@ -241,6 +246,9 @@ def build_prepared(root, output, preflight, operation_id, builder=build_image):
         path.write_text(json.dumps(state, indent=2), encoding='utf-8')
     except Exception as error:
         state.update(status='unknown-needs-reconcile', failure=str(error))
+        if isinstance(error, subprocess.CalledProcessError):
+            for name, data in (('stdout', error.stdout), ('stderr', error.stderr)):
+                (output / ('build-failure.' + name)).write_bytes(data or b'')
         path.write_text(json.dumps(state, indent=2), encoding='utf-8')
         raise
     return finish_candidate(root, output, preflight)
