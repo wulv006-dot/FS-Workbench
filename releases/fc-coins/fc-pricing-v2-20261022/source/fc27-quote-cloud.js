@@ -24,7 +24,18 @@
     const value=average?.procurement_margin_pct;
     return value!=null&&Number.isFinite(Number(value))?`${Number(value).toFixed(2)}%`:average?.estimated_net_usd==='0'?'无正实收，预计亏损':'待历史优惠数据';
   }
-  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells,estimatedMarginText};return;}
+  function marketOffers(quote,row,now=Date.now()){
+    const offers=(row.offers||[]).filter(o=>o.site!=='ItemD2R');
+    const reference=quote.evidence?.reference_market;
+    const offer=reference?.status==='available'&&reference.run_id===quote.run_id
+      ? reference.offers?.find(o=>o.platform===row.platform&&o.run_id===quote.run_id&&o.source==='ItemD2R'&&o.status==='valid'&&o.currency==='USD'):null;
+    const age=offer?now-Date.parse(offer.captured_at):NaN;
+    const comparable=Boolean(offer&&offer.comparable===true&&offer.conditional===false&&Number.isFinite(age)&&age>=0&&age<=900000);
+    offers.push({site:'ItemD2R',usd_price:offer?.gross_usd,base_k:offer?.purchase_k,bonus_k:offer?.bonus_k,usd_per_1k:offer?.effective_usd_per_k,checked_at:offer?.captured_at,comparable,
+      evidence_status:offer?(comparable?'公开规格可比':'历史采价或条件不可比'):`缺项 · ${reference?.reason||'本轮未取得'}`});
+    return offers;
+  }
+  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells,estimatedMarginText,marketOffers};return;}
   const errors={pricing_average_history_required:'缺少完整七日优惠金额样本，不能放行新价；原自动化继续核验。',pricing_average_history_coverage:'已识别Coins历史样本有优惠金额缺失，不能放行新价。',pricing_average_history_period:'优惠历史窗口不符最近七个完整日，请更新来源。',pricing_average_catalog_margin_floor:'候选套餐或自定义量的估算平均毛利低于红线，未写入。',pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
   function error(value) {
     const code=value?.code||value?.message||String(value);
@@ -83,7 +94,7 @@
     $('basis').textContent=receipt?`主机共同成本依据：${receipt.common_console_cost.selected_platform}的最近有效交货记录 ${receipt.common_console_cost.record_id}，交易 ${receipt.common_console_cost.trade_at}；保留两个原始观察。${receipt.margin_basis==='undiscounted_and_historical_average_v2'?'双红线：未用优惠及七日历史优惠结构估算平均毛利均≥10%；单笔优惠可亏损，不是销量预测。':'旧规则回执，仅供历史追溯；等待新规则核算。'}`:'等待新鲜成本、公开价格及优惠/套餐配置的核算回执。';
     $('sources').textContent=q?`操作 ${q.run_id} · 采集 ${time(q.evidence.checked_at)} · 优惠/套餐核对 ${time(q.evidence.promotion_envelope?.checked_at)} · 回执 ${receipt?.sha256||'旧版无V2回执'}`:'';
     const tbody=$('competitors');tbody.replaceChildren();
-    for(const row of q?.result?.rows||[])for(const offer of row.offers||[]){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.comparable?'公开规格可比':'缺项或不可比'}`])tr.append(node('td',value));tbody.append(tr);}
+    for(const row of q?.result?.rows||[])for(const offer of marketOffers(q,row)){const tr=node('tr');for(const value of [row.platform,offer.site,money(offer.usd_price),offer.base_k?`${offer.base_k} / ${offer.bonus_k}`:'待核',offer.usd_per_1k?`$${offer.usd_per_1k}`:'待核',`${time(offer.checked_at)} · ${offer.evidence_status||(offer.comparable?'公开规格可比':'缺项或不可比')}`])tr.append(node('td',value));tbody.append(tr);}
     const history=$('history');history.replaceChildren();
     for(const item of state?.recent||[]){const tr=node('tr');for(const value of historyCells(item))tr.append(node('td',value));history.append(tr);}
     if(!state?.recent?.length){const tr=node('tr'),td=node('td','尚无可显示的操作记录；等待原任务账本读回。');td.colSpan=5;tr.append(td);history.append(tr);}
