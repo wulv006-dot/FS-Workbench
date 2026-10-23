@@ -43,6 +43,14 @@ class Prepare(unittest.TestCase):
         state = json.loads((self.root / 'stage/native-image-state.json').read_bytes())
         self.assertEqual(state['operation_id'], 'original-op')
         self.assertEqual(state['status'], 'image_built_and_verified_not_activated')
+        self.assertEqual(hashlib.sha256((self.root / 'stage/release_adapter_base.py').read_bytes()).hexdigest(),
+                         'cf06b7ca5d9ab33a849c6e18d735bb57557d664aabb0df08770f9a4941ad75ee')
+        self.assertEqual(hashlib.sha256((self.root / 'stage/release_navigation_base.py').read_bytes()).hexdigest(),
+                         '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de')
+        (self.root / 'stage/approved-manifest.json').write_text(json.dumps(manifest))
+        release = prepare.load(ROOT / prepare.DEPLOY / 'native_release.py', 'native_staged_load')
+        with patch.object(release, 'HERE', self.root / 'stage'):
+            self.assertEqual(release.load_base().apply.__module__, 'frozen_hermes_v2_publisher')
 
     def test_repeat_and_unknown_build_do_not_run_builder_again(self):
         output = self.root / 'stage'; builder = Mock(side_effect=TimeoutError('outcome unknown'))

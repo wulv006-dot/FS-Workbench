@@ -19,6 +19,8 @@ inspect使用mode=ro/query_only检查实际原生表的四列。生效仍须在�
 
 同时将native-only停止状态读回改为既有兼容格式`systemctl show ... -p ActiveState`解析，避免旧systemctl不支持`--value`。仍只拟操作Desktop与原关联飞书网关；本阶段不实际操作服务。
 
+首个正式CI（run39889518679，head8112be5）发现两个`existing_adapter_drift`错误：旧候选固定了Windows检出CRLF哈希，而暂存工具还会把冻结底座改成LF。现适配器固定Git规范LF字节SHA`cf06b7ca5d9ab33a849c6e18d735bb57557d664aabb0df08770f9a4941ad75ee`；冻结底座继续原样复制并严格核`1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de`，不改底座或兼容接受任意哈希。新增暂存实际输出→原publisher装配检查，旧失败保留，不沿首次CI结果发布。
+
 ## 验证与限制
 
 - 本机Python3.12.14/SQLite3.53.1：知识/收尾/发布46项通过，含真实格式WITHOUT ROWID、四列租约、跨进程准入互斥、先读0后并发租约拒绝、schema异常不修复/不进入发布、连接释放和原发布器精确回滚/原ID拒重。旧3.7.17拒绝用显式版本测试；不假称本机实际运行了旧SQLite。

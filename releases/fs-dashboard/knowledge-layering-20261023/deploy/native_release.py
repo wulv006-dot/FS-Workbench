@@ -186,7 +186,7 @@ def install_native_scope(base, approved):
 
 def load_base():
     raw = (HERE / 'release_adapter_base.py').read_bytes()
-    if hashlib.sha256(raw).hexdigest() != '6ed1c826b8b4464fc81e29e236ea9f81fedf82e65f3e80aab6cb385abcd1c141':
+    if hashlib.sha256(raw).hexdigest() != 'cf06b7ca5d9ab33a849c6e18d735bb57557d664aabb0df08770f9a4941ad75ee':
         raise ValueError('existing_adapter_drift')
     approved = checked(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')), HERE)
     spec = importlib.util.spec_from_file_location('existing_native_scope', HERE / 'release_adapter_base.py')

@@ -105,7 +105,9 @@ def prepare(root, output, preflight, operation_id, builder=build_image):
     for name, source in {'release.py': DEPLOY / 'native_release.py',
                          'release_adapter_base.py': Path('releases/fs-dashboard/user-analytics-20261022/deploy/release.py'),
                          'release_navigation_base.py': Path('releases/fs-dashboard/channel-effects-20261021/deploy/release_navigation_base.py')}.items():
-        (output / name).write_bytes(source_bytes(root / source))
+        # The frozen publisher hash binds original CRLF bytes; only the adapter uses Git LF.
+        data = (root / source).read_bytes() if name == 'release_navigation_base.py' else source_bytes(root / source)
+        (output / name).write_bytes(data)
     (output / 'candidate-manifest.json').write_text(json.dumps(manifest, indent=2), 'utf-8')
     return manifest
 

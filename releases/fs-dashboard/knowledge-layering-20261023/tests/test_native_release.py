@@ -199,7 +199,7 @@ class NativeRelease(unittest.TestCase):
     def test_load_uses_frozen_existing_publisher_and_keeps_its_cas(self):
         # Exact existing adapters are loaded, not a replacement implementation of apply/rollback.
         root = Path(__file__).resolve().parents[4]
-        (self.root / 'release_adapter_base.py').write_bytes((root / 'releases/fs-dashboard/user-analytics-20261022/deploy/release.py').read_bytes())
+        (self.root / 'release_adapter_base.py').write_bytes((root / 'releases/fs-dashboard/user-analytics-20261022/deploy/release.py').read_bytes().replace(b'\r\n', b'\n'))
         (self.root / 'release_navigation_base.py').write_bytes((root / 'releases/fs-dashboard/channel-effects-20261021/deploy/release_navigation_base.py').read_bytes())
         (self.root / 'approved-manifest.json').write_text(json.dumps(self.manifest))
         with patch.object(native, 'HERE', self.root): base = native.load_base()
@@ -212,7 +212,8 @@ class NativeRelease(unittest.TestCase):
         root = Path(__file__).resolve().parents[4]
         for name, source in [('release_adapter_base.py', 'user-analytics-20261022/deploy/release.py'),
                              ('release_navigation_base.py', 'channel-effects-20261021/deploy/release_navigation_base.py')]:
-            (self.root / name).write_bytes((root / 'releases/fs-dashboard' / source).read_bytes())
+            data = (root / 'releases/fs-dashboard' / source).read_bytes()
+            (self.root / name).write_bytes(data.replace(b'\r\n', b'\n') if name == 'release_adapter_base.py' else data)
         previous = {}
         for row in self.manifest['files']:
             if row['candidate'] == 'plugin/knowledge.py': continue
