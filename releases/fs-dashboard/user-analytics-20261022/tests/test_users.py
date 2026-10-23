@@ -70,12 +70,12 @@ class Users(unittest.TestCase):
         self.assertIn('lost_return',{r['kind'] for r in private['timeline']})
         self.assertEqual(invoke(self.service,'reader',dict(snapshot_id=a['snapshot_id'],section='trajectories'))['trajectories'],a['trajectories'])
 
-    def test_default_current_and_explicit_historical_are_distinct(self):
+    def test_default_period_cohort_and_explicit_historical_are_distinct(self):
         self.load([order(1,'2026-01-03'),order(2,'2026-10-20')])
-        current=self.service.query(dict(start='2026-02-01',end_exclusive='2026-03-01'),'admin')
+        current=self.service.query(dict(start='2026-02-01'),'admin')
         old=self.query(start='2026-02-01',end='2026-03-01')
-        self.assertEqual(current['query']['state_basis'],'current')
-        self.assertEqual(current['metrics']['recent']['value'],1)
+        self.assertEqual(current['query']['state_basis'],'period_cohort')
+        self.assertEqual(current['metrics']['waiting']['value'],1)
         self.assertEqual(old['metrics']['silent']['value'],1)
         self.assertEqual(old['observation_date'],'2026-02-28')
 
@@ -445,7 +445,7 @@ class Users(unittest.TestCase):
 
     def test_window_splits_and_today_as_of(self):
         self.assertEqual(len(list(windows('2026-09-01', '2026-10-22'))), 2)
-        query = checked_query(dict(start='2026-10-22', end_exclusive='2026-10-23'), self.config, NOW)
+        query = checked_query(dict(start='2026-10-22', end_exclusive='2026-10-23',state_basis='current'), self.config, NOW)
         self.assertEqual(query['as_of'], NOW.isoformat())
         with self.assertRaises(ValueError):
             checked_query(dict(start='2026-10-01', end_exclusive='2026-10-20', as_of='2026-10-19'), self.config, NOW)

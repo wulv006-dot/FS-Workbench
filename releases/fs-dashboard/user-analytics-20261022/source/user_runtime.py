@@ -91,5 +91,6 @@ def build():
     from user_query import Service
     with _lock:
         if _service is None:
-            _service = Service(load_store(), authorize)
+            from user_customer_types import read_flags
+            _service = Service(load_store(), authorize, customer_type_reader=read_flags)
         return _service
