@@ -1,0 +1,61 @@
+{
+  "scope": "fc-bidirectional-pricing-20261024",
+  "state": "candidate_not_deployed",
+  "base": "0798f964af48fc48bcd1098f7ec4325e76b41dd1",
+  "files": [
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/pricing_v2.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py",
+      "target": "/opt/fc27-cloud-browser/pricing_v2.py",
+      "before_sha256": "68806b0f23d69c3cc0470ef0ed14cb5e16155011928820f59a7731977d18a9b3",
+      "after_sha256": "cc3a92526c66f05479d5691d314280147a0dbf3e539b85b66767b64f75e2fcbb"
+    },
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/hermes_pricing_bridge.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/hermes_pricing_bridge.py",
+      "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
+      "before_sha256": "ec91e5ea814f8910c8cd91ee00f17cf90e23706f3cd5fdb8fb04df089b3a4343",
+      "after_sha256": "e8b4f4b5c5833c6367f79c3b1bae3bed8e071380e04e7049f54b66c6ddcaeced"
+    },
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/server_quote_job.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/server_quote_job.py",
+      "target": "/opt/fc27-cloud-browser/server_quote_job.py",
+      "before_sha256": "3f2b0523ef0e3213c4976af5cf6854a47199fca48ec8597361741dafa2a9c0ad",
+      "after_sha256": "d98dffc9561fc33a29780b1b91890f5c9b4b97075384279b1fa9710bc3080257"
+    },
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/fc27_cloud_worker.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc27_cloud_worker.py",
+      "target": "/opt/fc27-cloud-browser/fc27_cloud_worker.py",
+      "before_sha256": "366eab9f8d1c588f637d428a7e0fcac6a522f0a927a9d5ae1a19703ffb1d6efd",
+      "after_sha256": "7ca78a65665b0308d81d5060345e999f8ba6ee85e900419e28ad0ee1c835aa2d"
+    },
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/pricing_simulation.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/pricing_simulation.py",
+      "target": "/opt/fs-hermes-fc/pricing_simulation.py",
+      "before_sha256": "9f78774955a4f18948f8f3c6ea5703a4384147a797a1be4570359f10ae498f80",
+      "after_sha256": "bfb1f09a71c32f7ad56ef4a4e78e038d2eefaa50b0e6241b3d43b5847eadb0cd"
+    },
+    {
+      "candidate": "fc_bidirectional_pricing_20261024/source/observe.py",
+      "github": "releases/ops/fc-reference-observer-ui-20261023/trigger/source/observe.py",
+      "target": "/opt/fc27-price-observer/observe.py",
+      "before_sha256": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216",
+      "after_sha256": "fb03640079b5977f23b26952aec38c0cde39bcf58d2b2f19f557cc5d2272dde4"
+    }
+  ],
+  "local_core_and_callers_tests": {
+    "run": 80,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "policy_changed": false,
+  "experimental_weights_applied": false,
+  "scheduled_tracking": "paused_user_manual_acceptance",
+  "business_price_writes": 0,
+  "new_collect_jobs": 1,
+  "production_release": false
+}

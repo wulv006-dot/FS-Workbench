@@ -784,7 +784,7 @@ def main():
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
         elif group=="fc-pricing-v2":
-            units("releases/fc-coins/fc-pricing-v2-20261022/tests",["test_pricing_v2","test_control","test_guards"])
+            units("releases/fc-coins/fc-pricing-v2-20261022/tests",["test_pricing_v2","test_control","test_guards","test_bidirectional"])
             node("releases/fc-coins/fc-pricing-v2-20261022/tests/test_ui.js")
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
@@ -1199,7 +1199,3 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
-
-
-
-

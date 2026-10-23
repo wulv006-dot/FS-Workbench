@@ -58,6 +58,40 @@ def run_writer_request(job, script, request, timeout):
         request_path.unlink(missing_ok=True)
 
 
+def apply_program_fallback(job, quote):
+    """A missing/rejected model keeps the original verified automation behavior."""
+    from server_quote_job import _quote_for_run
+    desired={p:str(Decimal(d['model_unavailable_fallback_usd'])/100)
+             for d in quote['result']['decision_receipt']['decisions'] for p in d['platforms']}
+    current={r['platform']:Decimal(r['proposal']) for r in quote['result']['rows']}
+    job['hermes_fallback']=dict(source='original_program_without_model',
+                                review_phase=job.get('hermes_review',{}).get('phase'),
+                                reason=job.get('hermes_candidate_rejected') or 'no_valid_model_recommendation',
+                                quotes=desired)
+    if any(current[p]!=Decimal(value) for p,value in desired.items()):
+        _quote_for_run(job['job_id'],dict(quotes=desired,reason='original_program_without_model',
+                                         minimum_gross_margin_pct=load_policy()['minimum_gross_margin_pct']),
+                       hermes_decision=job['hermes_fallback'])
+        return json.loads((ROOT/'quotes'/(job['job_id']+'.json')).read_text('utf-8'))
+    return quote
+
+
+def collect_reference_market(run_id):
+    """Reuse the existing ItemD2R reader once, before this run's model decision."""
+    import importlib.util
+    try:
+        spec = importlib.util.spec_from_file_location('fc_reference_reader', '/opt/fc27-price-observer/observe.py')
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        offers = reader.public_read()
+        if [r.get('platform') for r in offers] != ['PS','XBOX','PC']:
+            raise ValueError('reference_platform_coverage_invalid')
+        return dict(status='captured',run_id=run_id,offers=[dict(r,run_id=run_id) for r in offers])
+    except Exception as exc:
+        # Optional reference failure remains visible; it cannot disable the original source chain.
+        return dict(status='unavailable',run_id=run_id,offers=[],reason=type(exc).__name__)
+
+
 def collect_quote(job):
     run_id = job["job_id"]
     cfg = local_collection.pin(job)
@@ -118,6 +152,8 @@ def collect_quote(job):
         raise ValueError("snapshot_changed_before_quote")
     run_snapshot["storefront"] = state
     run_snapshot["collection_mode"] = cfg
+    if cfg['mode'] == 'server':
+        run_snapshot['reference_competitors'] = collect_reference_market(run_id)
     atomic_json(run_path, run_snapshot)
     os.chown(run_path, -1, 11028)
     os.chmod(run_path, 0o640)
@@ -595,8 +631,11 @@ def handle(job):
                 except ValueError as exc:
                     # A rejected model choice never evades the latest deterministic recheck.
                     job['hermes_candidate_rejected']=str(exc)
-                    _quote_for_run(job['job_id'])
+                    recommended=None
                 quote=json.loads((ROOT/'quotes'/(job['job_id']+'.json')).read_text('utf-8'))
+        if not recommended:
+            quote=apply_program_fallback(job,quote)
+            save_job(job)
         gate = player_sync_gate()
         if gate != "ready" and not (gate == "needs_reconcile" and probe_player_recovery(job)):
             return {**collected, "status": "deferred_player_sync", "reason": gate,

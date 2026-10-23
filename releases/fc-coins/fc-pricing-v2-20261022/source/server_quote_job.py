@@ -65,6 +65,38 @@ def validate_edits(edits):
     return clean
 
 
+def reference_context(snapshot, now):
+    """Optional same-run ItemD2R evidence; no stale or mixed-cycle price fallback."""
+    from pricing_v2 import fresh, instant, number
+    raw = snapshot.get('reference_competitors') or {}
+    missing = dict(status='unavailable',offers=[],reason='itemd2r_not_captured_before_decision')
+    if not isinstance(raw,dict):
+        return dict(missing,reason='itemd2r_reference_invalid')
+    if raw.get('status') != 'captured':
+        return dict(missing,reason=raw.get('reason') or missing['reason'])
+    try:
+        offers = raw['offers']
+        if raw.get('run_id') != snapshot['run_id'] or [r.get('platform') for r in offers] != list(PLATFORMS):
+            raise ValueError('itemd2r_reference_run_or_coverage')
+        for row in offers:
+            if (row.get('source')!='ItemD2R' or row.get('run_id')!=snapshot['run_id']
+                    or row.get('url')!='https://www.itemd2r.com/ea-sports-fc/fc-27-coins'
+                    or row.get('status')!='valid' or row.get('currency')!='USD'
+                    or row.get('conditional') is not False or row.get('comparable') is not True
+                    or number(row.get('purchase_k'))!=100 or number(row.get('bonus_k'),zero=True)>100):
+                raise ValueError('itemd2r_reference_contract')
+            number(row.get('gross_usd'))
+            fresh(row['captured_at'],now,900)
+        stamps=[instant(r['captured_at']) for r in snapshot['competitors']+offers if r.get('status')=='valid']
+        if (max(stamps)-min(stamps)).total_seconds()>300:
+            raise ValueError('itemd2r_reference_capture_span_over_300_seconds')
+        return dict(status='available',run_id=snapshot['run_id'],offers=offers,
+                    capture_span_seconds=(max(stamps)-min(stamps)).total_seconds(),
+                    authority='qualitative_reference_only_no_experimental_weights')
+    except (KeyError,TypeError,ValueError,AttributeError) as exc:
+        return dict(missing,reason=str(exc) if isinstance(exc,ValueError) else 'itemd2r_reference_invalid')
+
+
 def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, expected_revision=None, hermes_decision=None) -> dict:
     requested_edits = edits or {}
     edits = validate_edits(requested_edits)
@@ -124,6 +156,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
         }
     if set(costs) != set(PLATFORMS) or not coverage["ready"]:
         raise ValueError("coverage_incomplete")
+    reference_market = reference_context(snapshot, now)
     fx = snapshot.get("fx") or {}
     if fx.get("status") != "valid" or not age_ok(fx["checked_at"], now):
         raise ValueError("fx_missing_or_stale")
@@ -151,7 +184,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
             raise ValueError("storefront_unit_mismatch:" + platform)
     evidence = {"game": "FC27", "product": "Game Coins", "checked_at": snapshot["created_at"],
                 "costs": costs, "offers": offers, "fx": fx,
-                "storefront": storefront}
+                "storefront": storefront, "reference_market": reference_market}
     from pricing_sources import collect as collect_pricing_constraints, historical_mix
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist)
     evidence['historical_discount_mix']=historical_mix()
