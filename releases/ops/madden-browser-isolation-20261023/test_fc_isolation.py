@@ -9,6 +9,8 @@ class FCIsolationTests(unittest.TestCase):
         pw=Mock();browser=pw.chromium.launch.return_value;auth=types.SimpleNamespace(apply=Mock())
         with patch.dict(sys.modules,fs_order_client=auth):self.assertIs(backend.open_backend(pw),browser)
         pw.chromium.connect_over_cdp.assert_not_called();auth.apply.assert_called_once_with(browser.new_context.return_value)
+        self.assertEqual(pw.chromium.launch.call_args.kwargs['env']['HOME'],'/tmp')
+        self.assertEqual(pw.chromium.launch.call_args.kwargs['env']['XDG_CONFIG_HOME'],'/tmp/.config')
         page=Mock();page.context.browser=browser;page.close.side_effect=RuntimeError('page_close')
         with self.assertRaises(RuntimeError):backend.close_backend(page)
         browser.close.assert_called_once()
