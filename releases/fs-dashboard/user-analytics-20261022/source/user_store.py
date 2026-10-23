@@ -160,11 +160,16 @@ class Store:
                        (job, str(site), stamp(start).isoformat(), stamp(end).isoformat(), 'failed', canonical({'error': error}), None))
         return job
 
-    def read(self):
+    def read(self, analytics=False):
         with self.db() as db:
             db.execute('BEGIN')
             revision = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
-            orders = [dict(r) for r in db.execute('SELECT * FROM orders ORDER BY paid_at,order_key')]
+            orders = []
+            for row in db.execute('SELECT * FROM orders' + (' WHERE valid=1' if analytics else '') + ' ORDER BY paid_at,order_key'):
+                row = dict(row)
+                if analytics:
+                    row['body'] = canonical({'amount_usd': json.loads(row['body']).get('amount_usd')})
+                orders.append(row)
             jobs = [dict(r) for r in db.execute('SELECT * FROM jobs')]
         return revision, orders, jobs
 

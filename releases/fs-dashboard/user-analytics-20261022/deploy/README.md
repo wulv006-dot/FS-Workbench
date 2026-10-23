@@ -1,5 +1,7 @@
 # 用户分析最小发布
 
+2026-10-23客户口径更正使用`release_current.py`，仅11个精确目标，保留其余目标及同期FC/知识保护；无新timer或调度变更。`backfill_history.py`是原通道一次性全历史回补程序，保留窗口回执/私有进度、忙时退让、遇未知状态停下核实，不能把进度running当已完成。使用说明与更正见本任务`USER-GUIDE.md`及`CORRECTION-20261023.md`。
+
 `prepare_stage.py` 从当前FS源码checkout、原SSH生成的23目标/74保护文件SHA回执及三份当前导航原字节生成独立stage。若目标、原字节或新增/已有边界不同则拒绝；不能据旧交付整包回盖。导航只增加用户分析入口和精确路由，现有内容按字节保留。
 
 `release.py` 是现有渠道publisher的本任务适配，冻结底座仍为 `fs_channel_dashboard_20261021/deploy/release_navigation_base.py`，SHA256 `1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de`。沿用原发布锁、活动源CAS、74文件保护、Hermes admission fence、持久备份及回退。既有profile的9876:9876/0700与父目录0:9876/0750必须精确相符，不改目录权限。
