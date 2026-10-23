@@ -1,0 +1,83 @@
+{
+  "observed_at": "2026-10-23T05:00:06.520808+00:00",
+  "job_id": "d5fe7597-73f2-4912-92aa-d91f19c69a9e",
+  "kind": "auto_cycle",
+  "actor": "system-automation",
+  "started_at": "2026-10-23T04:53:15.757358+00:00",
+  "completed_at": "2026-10-23T04:55:58.970947+00:00",
+  "status": "ready",
+  "result": "no_price_change",
+  "unchanged_platforms": [
+    "PS",
+    "XBOX",
+    "PC"
+  ],
+  "blocked_platforms": {},
+  "snapshot": {
+    "run_id": "d5fe7597-73f2-4912-92aa-d91f19c69a9e",
+    "status": "ready_for_quote",
+    "reason": null,
+    "valid_competitors": 9,
+    "valid_costs": 3,
+    "fx_status": "valid",
+    "quote_status": "PENDING",
+    "source_coverage": {
+      "ready": true,
+      "unavailable_sources": [
+        "IGGM"
+      ],
+      "reference_sources": {
+        "PS": [
+          "U4GM"
+        ],
+        "XBOX": [
+          "U4GM"
+        ],
+        "PC": [
+          "U4GM"
+        ]
+      }
+    },
+    "source_warnings": [
+      "IGGM:http_blocked"
+    ]
+  },
+  "storefront": {
+    "status": "ok",
+    "last_attempt_at": "2026-10-23T04:54:42.540949+00:00",
+    "refreshed_platforms": [
+      "PS",
+      "XBOX",
+      "PC"
+    ]
+  },
+  "hermes_review": {
+    "phase": "completed",
+    "created_at": "2026-10-23T04:54:56.248893+00:00",
+    "completed_at": "2026-10-23T04:55:56.354521+00:00",
+    "task_id": "9b5ac0e0997ef56718f895ecc728ffb3",
+    "turn_id": "cf344abdaf1049b68065968ce4edaf60"
+  },
+  "parked": {
+    "at": "2026-10-23T04:53:21.803+00:00",
+    "stage": "product_page_parked",
+    "old_target": "E771FAC84FF5C4DE5A4D570539536471",
+    "idle_target": "62C7F7816DA72FA0B42D45597D11EDDA",
+    "document_replaced": true,
+    "http_lootbar_workers_after": 0,
+    "global_workers_verified": false
+  },
+  "browser": {
+    "url": "about:blank#fc27-idle",
+    "workers": [],
+    "cookie_count": 13,
+    "page_target": "62C7F7816DA72FA0B42D45597D11EDDA",
+    "idle_dom": true
+  },
+  "source_sha256": "4d19dcf18bf6705bbf6aa6590ca660a974f8e1d006b7b9bbd4bb0673f4f52103",
+  "job_sha256": "16fc1c1f1c2e8438445c2ba2dfb181b51f215c7ce3092fabe37cccf543750f70",
+  "trace_sha256": "3de9652bddae0c73124632ba5b8eac59840ae96b692cc9d1283a5049dae7b645",
+  "price_writes": 0,
+  "core_policy_changed": false,
+  "secrets_exported": false
+}
