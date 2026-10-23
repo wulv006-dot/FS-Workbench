@@ -162,6 +162,8 @@ class Service:
             following = stamp(scoped[index+1]['paid_at']) if index+1 < len(scoped) else stamp(query['as_of'])
             previous = stamp(scoped[index-1]['paid_at']) if index else None
             gap = (paid.date()-previous.date()).days if previous else None
+            if previous and paid.time() == datetime.min.time() and gap in points:
+                gap -= 1
             kind = 'first_purchase' if not index else 'lost_return' if gap >= points[1] else 'silent_wakeup' if gap >= points[0] else 'repeat_purchase'
             observed = stamp(private['records'][cid]['earliest_observed_at']).date()
             timeline.append(dict(at=paid.isoformat(), kind=kind, stage='recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None,days_from_observed_first=(paid.date()-observed).days))
