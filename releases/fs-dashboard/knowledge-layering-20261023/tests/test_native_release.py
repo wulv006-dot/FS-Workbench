@@ -275,6 +275,28 @@ class NativeRelease(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'releaseReady=false'):
             base.apply(self.manifest, self.root, '0' * 64, b'', 'nav-20261023T000000Z', self.root)
 
+    def test_plugin_only_manifest_passes_original_fixed_image_validation(self):
+        image = 'sha256:d51507514f3f52fdcc3cb6bc0d36e2b12863517aa590ae1338dd462ffe1636a4'
+        self.manifest.update(imageId=image, nativeImageBefore=image, nativeImageAfter=image,
+                             nativePluginOnly=True, nativeImageSources=native.PATCHED_NATIVE_SOURCES,
+                             runtimeRequired={u: {'ActiveState': 'active'} for u in ('fs-business-range.service', 'fs-hermes-fc.service')},
+                             unchangedRequired=[])
+        unit = self.root / 'candidate/native/desktop.service'
+        unit.write_bytes(self.unit_before.replace(self.before.encode(), image.encode()))
+        for row in self.manifest['files']:
+            row['beforeSha256'] = row['sha256'] = hashlib.sha256((self.root / 'candidate' / row['candidate']).read_bytes()).hexdigest()
+        self.test_load_uses_frozen_existing_publisher_and_keeps_its_cas()
+        with patch.object(native, 'HERE', self.root): base = native.load_base()
+        required = set(base.HERMES_TARGETS.values()) | {'/opt/fs-exact-range-20261001/' + name for name in
+            ('boss_insights.py', 'fc_deep_model.py', 'fc_daily.py', 'fc_daily_model.py', 'fc_detail.py', 'fc_detail_model.py',
+             'fc_detail_reader.py', 'fc_detail_config.json', 'fc_deep_sources.py', 'summary_bridge.py')}
+        required |= {'/var/www/dashboard/index.html', '/var/www/dashboard/fs-home/index.html',
+                     '/var/www/dashboard/fs-home/navigation.js', '/opt/fs-access-policy/access_policy.py'}
+        self.manifest['unchangedRequired'] = [dict(path=p, sha256='a' * 64) for p in sorted(required - set(native.TARGETS.values()))]
+        (self.root / 'approved-manifest.json').write_text(json.dumps(self.manifest))
+        with patch.object(native, 'HERE', self.root): base = native.load_base()
+        self.assertEqual(len(base.validate(self.manifest, self.root)), 4)
+
     def test_existing_publisher_midwrite_failure_restores_exact_prevalues_and_keeps_original_id(self):
         root = Path(__file__).resolve().parents[4]
         for name, source in [('release_adapter_base.py', 'user-analytics-20261022/deploy/release.py'),

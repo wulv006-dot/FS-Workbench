@@ -33,7 +33,7 @@ def load_base():
     if hashlib.sha256(raw).hexdigest()!=BASE_SHA:raise ValueError('frozen_publisher_drift')
     approved=checked_manifest(json.loads((HERE/'approved-manifest.json').read_text('utf-8')))
     source=raw.decode('utf-8')
-    if SCOPE == 'fs-user-analytics-search-help-20261023':
+    if SCOPE == 'fs-user-analytics-search-help-20261023' or (SCOPE == 'knowledge-native-fs-20261023' and approved.get('nativePluginOnly') is True):
         # Preserve the concurrently deployed native image; never roll it back for a UI release.
         old_image='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544'
         new_image='sha256:d51507514f3f52fdcc3cb6bc0d36e2b12863517aa590ae1338dd462ffe1636a4'
