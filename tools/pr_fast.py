@@ -983,7 +983,7 @@ def main():
             units(release+"/deploy",["test_http","test_release"])
         elif group=="hermes-report-repair":
             release="releases/fs-dashboard/hermes-report-repair-20261019"
-            units(release+"/tests",["test_report_repair","test_management_cadence"])
+            units(release+"/tests",["test_report_repair","test_management_cadence","test_followup_sources"])
             browser_python(release+"/tests/test_bulk_browser.py")
         elif group=="fc-publish-entry":
             # 宿主发布入口与调用端：策略/白名单/批准绑定/回退，全部注入假 git、systemd、monitor。
