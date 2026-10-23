@@ -9,7 +9,7 @@ import subprocess
 HERE=Path(__file__).resolve().parent
 SCOPE='hermes-learning-routes-20261023'
 TARGETS={'policy/knowledge-load-policy.json':'/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
-NATIVE_SCOPE_SHA='d6b00e5c5119fcf236d0bac44b31f3ec92e030df318b0c75a77655e033676a7f'
+NATIVE_SCOPE_SHA='964bcb5e990caa660f0bb3e5713504f8556ca5e17a4aebcde5d73d343ec650ee'
 
 
 def digest(value):
