@@ -173,6 +173,22 @@ class Archive(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'delivery_filter_not_honored'):collect(session,'2026-10-13','2026-10-13')
         with self.assertRaisesRegex(ValueError,'invalid_delivery_window'):collect(session,'2026-10-13','2026-10-13',until='2026-10-14 00:00')
 
+    def test_delivery_quantities_survive_archive_without_changing_cost_accounting(self):
+        from channel_cost_source import collect
+        for qty, gift in [('100', '5'), ('', '')]:
+            with self.subTest(qty=qty), tempfile.TemporaryDirectory() as folder:
+                cells=['','42','订单发货','www.mmoexp.com','A','26-10-13 23:59:35','FC27 PS',qty,gift,'0.43','45.15','70','50','private supplier','private payee','private operator','private note','','']
+                page='<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead><tbody><tr>'+''.join('<td>'+v+'</td>' for v in cells)+'</tr></tbody></table>'
+                rows=collect(SimpleNamespace(get_order=Mock(return_value=(200,page))),'2026-10-13','2026-10-13')
+                self.assertEqual({k:rows[0][k] for k in ('game','qty','gift','cost_unit')},dict(game='FC27 PS',qty=qty,gift=gift,cost_unit='0.43'))
+                self.assertEqual(set(rows[0]),{'delivery_id','source','sn','trade_at','genre','game','qty','gift','cost_unit','cost_total','sale_total'})
+                path=Path(folder)/'day.json'
+                cache.atomic(path,dict(contract='channel-order-deliveries-v1',complete=True,generatedAt='2026-10-14T00:00:00+08:00',period=dict(start='2026-10-13',end='2026-10-13'),rows=rows))
+                self.assertEqual(json.loads(path.read_text())['rows'],rows)
+                stat=path.stat();index,_,_=cache.cost_index(((str(path),stat.st_mtime_ns,stat.st_size,stat.st_ino),))
+                self.assertEqual(index['A']['costCny'],45.15)
+                self.assertEqual(index['A']['deliveryRows'],1)
+
     def test_nightly_defaults_to_shanghai_yesterday_and_idle_window_does_no_daytime_read(self):
         current=datetime(2026,10,21,20,0,tzinfo=TZ)
         with tempfile.TemporaryDirectory() as folder,patch.dict(sys.modules,{'fcntl':FCNTL}),patch.object(cache,'ROOT',Path(folder)),patch.object(cache,'datetime') as clock,patch.object(cache,'cache_day',return_value={'status':'complete'}) as collect:

@@ -61,7 +61,7 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
             if record['source'] != 'www.mmoexp.com' or not begin <= record['trade_at'] <= stop:
                 raise ValueError('delivery_filter_not_honored')
             seen.add(did)
-            result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'cost_total', 'sale_total')} | {'genre': 1})
+            result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift', 'cost_unit', 'cost_total', 'sale_total')} | {'genre': 1})
         progress(page, page_count)
         if page == page_count: return result
         if not rows or page >= 2000: raise ValueError('delivery_incomplete_pages')
