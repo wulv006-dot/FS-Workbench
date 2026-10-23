@@ -1,0 +1,87 @@
+{
+  "operation": "fc-reference-observer-ui-20261023-v1",
+  "api_roles": [
+    {
+      "role": "anonymous",
+      "code": 401
+    },
+    {
+      "role": "wulv",
+      "code": 200
+    },
+    {
+      "role": "dot_fc_observer",
+      "code": 403
+    }
+  ],
+  "view": {
+    "observed_count": 1,
+    "comparable_count": 0,
+    "service": {
+      "Result": "success",
+      "ActiveState": "inactive",
+      "SubState": "dead"
+    }
+  },
+  "targets_readback": 5,
+  "protected_readback": 17,
+  "no_collection_triggered": true,
+  "natural_observer_acceptance": "pending_next_original_cycle_2026-10-23_19:02:26_Asia_Shanghai",
+  "deployment": {
+    "operation": "fc-reference-observer-ui-20261023-v1",
+    "status": "deployed",
+    "backup": "/var/lib/fc27-price-observer/ui-backup-20261023T093120Z",
+    "before": {
+      "fc27_cloud_api.py": "b673190728e04d671d41fdc570738e14f3e9f2de11921f9a68834c2ec13d751e",
+      "reference_observer_view.py": null,
+      "fc27-coins.html": "c7b7a5b568b40d0c9563334c4867644ccb97a6c7cb137bb5d4b689aca3deb1ba",
+      "fc27-reference-observer.js": null,
+      "observe.py": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f"
+    },
+    "after": {
+      "fc27_cloud_api.py": "718117ac7ae485e16758449df8871af8d6099ce6fbb3100831555ee1c32c9e12",
+      "reference_observer_view.py": "7e1cbf373628ddb5170d014a055a49009f4e42ef33779c2f61087a9c078dfc16",
+      "fc27-coins.html": "63656232c9e10c92717cfc30952cf8ba9d775a60037b171cd266a86d7beaa347",
+      "fc27-reference-observer.js": "608ffeab9a34b9fba9663df456e6a5807b72e302cf98d2ac5bc741e058ed551a",
+      "observe.py": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216"
+    },
+    "price_requests": 0,
+    "model_requests": 0,
+    "original_schedule_changed": false,
+    "exported_samples": 1,
+    "observed_samples": 1,
+    "original_sources_unchanged": true,
+    "observer_manually_started": false,
+    "completed_at": "2026-10-23T09:31:20.214739+00:00"
+  },
+  "final_deployment": {
+    "operation": "fc-reference-observer-ui-20261023-v2",
+    "status": "deployed",
+    "backup": "/var/lib/fc27-price-observer/ui-backup-20261023T093654Z",
+    "before": {
+      "reference_observer_view.py": "7e99cf02f4a027f0dbd4951670ff4b1c38392e0b8aa690ab770f779b4322970d",
+      "fc27-coins.html": "63656232c9e10c92717cfc30952cf8ba9d775a60037b171cd266a86d7beaa347",
+      "fc27-reference-observer.js": "608ffeab9a34b9fba9663df456e6a5807b72e302cf98d2ac5bc741e058ed551a"
+    },
+    "after": {
+      "reference_observer_view.py": "96950e7b581df71543b3a65bc7902457564ad35e46d86f7cb93a650aa6ec54b8",
+      "fc27-coins.html": "2cea30bee098ef9f923603241eae8abd95cbabe5e7b36b4fe638c22851c50b5e",
+      "fc27-reference-observer.js": "6984083f638b33d032a981b9b92e9082b8a90cb37711b7d19bec06eb35406d7b"
+    },
+    "price_requests": 0,
+    "model_requests": 0,
+    "original_schedule_changed": false,
+    "exported_samples": 1,
+    "observed_samples": 1,
+    "original_sources_unchanged": true,
+    "observer_manually_started": false,
+    "completed_at": "2026-10-23T09:36:54.299478+00:00"
+  },
+  "final_files": {
+    "fc27_cloud_api.py": "718117ac7ae485e16758449df8871af8d6099ce6fbb3100831555ee1c32c9e12",
+    "reference_observer_view.py": "96950e7b581df71543b3a65bc7902457564ad35e46d86f7cb93a650aa6ec54b8",
+    "fc27-coins.html": "2cea30bee098ef9f923603241eae8abd95cbabe5e7b36b4fe638c22851c50b5e",
+    "fc27-reference-observer.js": "6984083f638b33d032a981b9b92e9082b8a90cb37711b7d19bec06eb35406d7b",
+    "observe.py": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216"
+  }
+}
