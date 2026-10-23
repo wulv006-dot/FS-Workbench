@@ -2,6 +2,7 @@
 import json
 
 from user_contract import VIEWS, aggregate_only, POLICIES, METRIC_DEFINITIONS
+from user_lifecycle import coverage_runs
 
 PROPERTIES = {
     'section': {'type': 'string', 'enum': [*VIEWS, 'coverage']},
@@ -48,8 +49,12 @@ def invoke(service, user, args):
     value = service.query(args, user)
     aggregate_only(value)
     section = section or value['query']['view']
-    heavy = {'projects', 'migration', 'trend', 'cohort_weeks', 'trajectories'}
+    heavy = {'projects', 'migration', 'trend', 'cohort_weeks', 'trajectories', 'source_watermark'}
     result = {key: part for key, part in value.items() if key not in heavy}
+    windows = value.get('source_watermark', [])
+    runs = coverage_runs([dict(site=w['site'], start=w['start'], end=w['end_exclusive'], state=w['state']) for w in windows], sorted({w['site'] for w in windows}))
+    result.update(source_coverage=[dict(site=site,start=a.isoformat(),end_exclusive=b.isoformat()) for site, intervals in runs.items() for a,b in intervals],
+                  source_window_counts={state: sum(w['state']==state for w in windows) for state in ('complete','failed')})
     fields = {'summary': (), 'projects': ('projects',), 'transitions': ('migration',),
               'migration': ('migration',), 'trend': ('trend',), 'cohort': ('cohort_weeks',), 'trajectories': ('trajectories',), 'coverage': ()}[section]
     if any(key not in value for key in fields):

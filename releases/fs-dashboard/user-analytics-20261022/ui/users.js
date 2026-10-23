@@ -72,7 +72,7 @@ async function query(event){
   event?.preventDefault();controller?.abort();controller=new AbortController();const version=++serial;const f=el('filters');
   const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,state_basis:f.elements.state_basis.value,start:f.elements.start.value,end_exclusive:addDay(f.elements.end.value,1),policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
   text('status','正在读取同一范围的快照…');
-  try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${statuses[data.status]}`);}
+  try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${data.coverage.historical_origin?statuses[data.status]:'历史回补中 · 部分客户池'}`);}
   catch(error){if(error.name==='AbortError'||version!==serial)return;text('status',error.message+(snapshot?'；保留上次完整快照及其原范围。':''));}
 }
 async function members(key,next=false){

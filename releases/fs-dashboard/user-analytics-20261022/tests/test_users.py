@@ -337,8 +337,10 @@ class Users(unittest.TestCase):
         self.assertEqual(detail['total'], self.values(result)['purchasers'])
         self.assertEqual(detail['rows'], exported['rows'])
         projected = research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
-        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage', 'source_watermark'):
+        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
             self.assertEqual(projected[key], result[key])
+        self.assertEqual(projected['source_window_counts'],dict(complete=1,failed=0))
+        self.assertEqual(projected['source_coverage'],[dict(site='266',start=result['source_watermark'][0]['start'],end_exclusive=result['source_watermark'][0]['end_exclusive'])])
         self.assertNotIn('projects', projected)
         class Context:
             def register_tool(context, **kwargs):
@@ -437,6 +439,20 @@ class Users(unittest.TestCase):
         self.assertEqual(projects['projects'], full['projects'])
         self.assertEqual(projects['snapshot_id'], summary['snapshot_id'])
         self.assertEqual(self.service.query({'snapshot_id': full['snapshot_id']}, 'admin'), full)
+
+    def test_tool_compacts_many_source_windows_without_filling_gaps(self):
+        self.load([order(1,'2026-10-01')])
+        frozen=self.query();query,public,private=self.store.snapshot(frozen['snapshot_id'])
+        public={k:v for k,v in public.items() if k not in ('snapshot_id','evidence_id')}
+        start=stamp('2000-01-01')
+        public['source_watermark']=[dict(site='266',start=(start+timedelta(days=i)).isoformat(),end_exclusive=(start+timedelta(days=i+1)).isoformat(),state='complete') for i in range(3000) if i!=1500]
+        public['source_watermark'].append(dict(site='266',start=(start+timedelta(days=1500)).isoformat(),end_exclusive=(start+timedelta(days=1501)).isoformat(),state='failed'))
+        frozen=self.store.save_snapshot(query,public,private)
+        result=invoke(self.service,'admin',dict(snapshot_id=frozen['snapshot_id']))
+        self.assertLess(len(json.dumps(result)),20000)
+        self.assertEqual(len(result['source_coverage']),2)
+        self.assertEqual(result['source_window_counts'],dict(complete=2999,failed=1))
+        self.assertEqual(result['source_coverage'][0]['end_exclusive'],(start+timedelta(days=1500)).isoformat())
 
     def test_custom_policy_is_frozen_independently_from_cohort_horizon(self):
         self.config['policies']['fixture-v2'] = [20, 40, 80]
