@@ -1,8 +1,8 @@
 {
-  "status": "deployed_observation_only_production_pricing_unchanged",
+  "status": "deployed_observation_ui_visible_natural_trigger_pending",
   "files": {
     "itemd2r.py": "f6bff9e8350ccc713e3b657e07bcd80eea1d7f4b1e6f2004892b79290b946acb",
-    "observe.py": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f",
+    "observe.py": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216",
     "reference_shadow.py": "4e1763c6d83c0d127fa1f21cfe82d19820c2d0987dec04d81038f7995d09b7a1",
     "fc27-price-observer.service": "f851e5849da107e189318a2e0dc0a5e16b07daf7ca1eecb4378e10eb931643d5",
     "fc27-price-observer.path": "e8807872bf3e8fc5248b16fe493902707af370d9d2a949a3deabb7bb37973763"
@@ -29,5 +29,29 @@
     "interval_hours": 2
   },
   "production_tier_or_weight_applied": false,
-  "git_status": "candidate_not_yet_created"
+  "git_status": "merged_actual_tree_verified",
+  "pr_url": "https://github.com/wulv006-dot/FS-Workbench/pull/399",
+  "merge_sha": "6505b2fe9e358fcb9776d6b7ca3a7d7e9ff53a8e",
+  "checked_head": "a2c714f1f11e55d776db3f4c9a323d6dd2c47f13",
+  "merged_tree": "521c3084bac08f9aeb5728b35879e338a6074d50",
+  "ci_run": 39920517529,
+  "ci_conclusion": "success",
+  "previous_observe_sha": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f",
+  "current_observe_source": "fc_itemd2r_observer_trigger_recovery_20261023/source/observe.py",
+  "ui": {
+    "maintenance_source": "fc_reference_observer_ui_20261023/",
+    "files": {
+      "fc27_cloud_api.py": "718117ac7ae485e16758449df8871af8d6099ce6fbb3100831555ee1c32c9e12",
+      "reference_observer_view.py": "96950e7b581df71543b3a65bc7902457564ad35e46d86f7cb93a650aa6ec54b8",
+      "fc27-coins.html": "2cea30bee098ef9f923603241eae8abd95cbabe5e7b36b4fe638c22851c50b5e",
+      "fc27-reference-observer.js": "6984083f638b33d032a981b9b92e9082b8a90cb37711b7d19bec06eb35406d7b",
+      "observe.py": "2d5f9f35e66c35de8ace22dfdb88d7eb15bbff6f99fcb9076ffd399c0f50d216"
+    },
+    "public_entry": "https://47.85.224.112/dashboard/fc27-coins.html",
+    "api": "/api/fc27/cloud/reference-observer",
+    "projection": "/var/lib/fc27-cloud/monitor/reference-observer.json",
+    "operation": "fc-reference-observer-ui-20261023-v2",
+    "state": "visible_authenticated_entry_verified",
+    "natural_trigger_acceptance": "pending_2026-10-23_19:02:26_Asia_Shanghai"
+  }
 }
