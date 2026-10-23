@@ -1,0 +1,24 @@
+{
+  "status": "deployed_live_read_verified_natural_item_job_pending",
+  "deployed_at": "2026-10-23T14:17:46+08:00",
+  "deployment_receipt": "/var/lib/fs-order-session/order-query-recovery-20261023.json",
+  "live_read_acceptance": {
+    "observed_at": "2026-10-23T14:18:52+08:00",
+    "source_sha_asserted": true,
+    "candidate_injection": false,
+    "seconds": 18.749,
+    "expected_ids": 2,
+    "found_expected_ids": 2,
+    "category_reads": 2,
+    "keyword_reads": 0,
+    "business_writes": 0
+  },
+  "target": "/opt/d4follow/_p2pah_srv/p2pah_local.py",
+  "baseline_sha256": "120045f794f78bef4c4aaeb8dbc27d0049a30a2546ebb24a73193370f2c20593",
+  "candidate_sha256": "a5662d2814277b4a72cc47820f9730359b6727b29cf2fc1892c9ac862bc6d176",
+  "change": "fetch_all_needed only; known category IDs first; missing IDs retain original search and full-list fallback",
+  "unchanged_ast": "all module nodes other than fetch_all_needed verified by generator",
+  "private_baseline": "explicit SHA-bound input; never publish full original file",
+  "business_writes": 0,
+  "evidence": "docs/planning/pricing-p0-followup-20261023/ORDER-QUERY.md"
+}
