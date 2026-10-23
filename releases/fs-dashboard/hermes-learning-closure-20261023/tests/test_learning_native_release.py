@@ -7,12 +7,64 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+import zlib
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[4]
 spec = importlib.util.spec_from_file_location('learning_prepare', ROOT / 'tools/prepare_learning_native_release.py')
 prepare = importlib.util.module_from_spec(spec); spec.loader.exec_module(prepare)
 release = prepare.load(ROOT / prepare.DEPLOY / 'native_release.py', 'learning_native_scope_fixture')
+
+
+class GitlessBinding(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name); self.path = Path('nested/entry.py')
+        (self.root / 'nested').mkdir(); (self.root / self.path).write_bytes(b'approved source\n')
+        self.blob = self.object('blob', b'approved source\n')
+        tree = self.object('tree', b'100644 entry.py\0' + bytes.fromhex(self.blob))
+        root_tree = self.object('tree', b'40000 nested\0' + bytes.fromhex(tree))
+        self.commit = self.object('commit', ('tree ' + root_tree + '\n\nSynthetic QA commit\n').encode())
+
+    def object(self, kind, content):
+        raw = (kind + ' ' + str(len(content))).encode() + b'\0' + content
+        sha = hashlib.sha1(raw).hexdigest(); path = self.root / '.git/objects' / sha[:2] / sha[2:]
+        path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(zlib.compress(raw))
+        return sha
+
+    def verify(self):
+        with patch.object(prepare, 'COMMIT_INPUTS', (self.path,)), \
+                patch.object(prepare.subprocess, 'check_output', side_effect=FileNotFoundError('git')):
+            prepare.verify_commit(self.root, self.commit)
+
+    def test_original_commit_tree_and_blob_chain_works_without_git(self):
+        self.verify()
+
+    def test_working_bytes_must_still_match_original_commit(self):
+        (self.root / self.path).write_bytes(b'different working source')
+        with self.assertRaisesRegex(ValueError, 'commit_source_differs'): self.verify()
+
+    def test_corrupt_object_and_missing_object_are_never_accepted(self):
+        path = self.root / '.git/objects' / self.blob[:2] / self.blob[2:]
+        path.write_bytes(zlib.compress(b'blob 7\0changed'))
+        with self.assertRaisesRegex(ValueError, 'git_object_changed'): self.verify()
+        path.unlink()
+        with self.assertRaises(FileNotFoundError): self.verify()
+
+    def test_git_symlink_entry_and_object_link_are_refused(self):
+        tree = self.object('tree', b'120000 entry.py\0' + bytes.fromhex(self.blob))
+        root = self.object('tree', b'40000 nested\0' + bytes.fromhex(tree))
+        self.commit = self.object('commit', ('tree ' + root + '\n\nSymlink fixture\n').encode())
+        with self.assertRaisesRegex(ValueError, 'git_source_mode'): self.verify()
+        with patch.object(Path, 'is_symlink', return_value=True), self.assertRaisesRegex(ValueError, 'git_object_link'):
+            self.verify()
+
+    def test_git_errors_do_not_fall_back_to_unrelated_loose_objects(self):
+        with patch.object(prepare, 'COMMIT_INPUTS', (self.path,)), \
+                patch.object(prepare.subprocess, 'check_output', side_effect=prepare.subprocess.CalledProcessError(1, 'git')), \
+                patch.object(prepare, 'loose_source') as fallback, self.assertRaisesRegex(ValueError, 'source_unavailable'):
+            prepare.verify_commit(self.root, self.commit)
+        fallback.assert_not_called()
 
 
 class NativeRelease(unittest.TestCase):
