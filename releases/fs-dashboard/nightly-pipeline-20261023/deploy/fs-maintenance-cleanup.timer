@@ -1,0 +1,12 @@
+[Unit]
+Description=FS cleanup daily at 07:40 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 07:40:00
+Persistent=false
+AccuracySec=1min
+RandomizedDelaySec=0
+Unit=fs-maintenance-cleanup.service
+
+[Install]
+WantedBy=timers.target

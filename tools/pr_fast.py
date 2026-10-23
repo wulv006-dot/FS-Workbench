@@ -608,6 +608,8 @@ def select(paths):
             groups.add("fs-business-live");continue
         if name.startswith("releases/fc-coins/prewrite-recovery-20261012/"):
             groups.add("fc-prewrite");continue
+        if name.startswith("releases/fs-dashboard/nightly-pipeline-20261023/"):
+            groups.add("nightly-pipeline");continue
         if name.startswith("releases/fc-coins/noncore-emergency-20261009/"):
             groups.add("fc-noncore");continue
         if name.startswith("releases/fc-coins/public-readback-retry-20261009/"):
@@ -1147,6 +1149,8 @@ def main():
             units("releases/fs-dashboard/traffic-hermes-20261017/tests",["test_traffic","test_controller_actions","test_supplements","test_es_structure","test_prepare_ui","test_prepare_ui_followup","test_publisher","test_report_inputs_patch","test_es_v3_publisher","test_prepare_ui_v3"])
             units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
             node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
+        elif group=="nightly-pipeline":
+            units("releases/fs-dashboard/nightly-pipeline-20261023/tests",["test_pipeline"])
         elif group=="hermes-learning-loop":
             units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])
         elif group=="desktop-learning":
