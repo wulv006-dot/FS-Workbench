@@ -1,0 +1,56 @@
+{
+  "status": "candidate_not_deployed",
+  "host_payloads": [
+    {
+      "source": "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py",
+      "target": "/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/__init__.py",
+      "before_sha256": "233b4dd08f1554e1438fdcf98037d7d0f2be6370798dcd1e1f4117be2df0cd2f",
+      "sha256": "1faa15a624a7f43c7eabaa844f14e8cafb7dcb2ac74b9d7c4af792c1badc2087"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py",
+      "target": "/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/knowledge.py",
+      "before_sha256": null,
+      "sha256": "3c587f2cbf5f8925b94d05fceec842d81c6e0005ae755f5bad1f63cd45e79be5"
+    }
+  ],
+  "generated_payloads": [
+    {
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "source": "knowledge-load-policy.example.json (disabled); native only merged with current non-native fields",
+      "before_sha256": "read current or missing during approved preflight"
+    },
+    {
+      "target": "/etc/systemd/system/fs-hermes-desktop.service",
+      "source": "exact current unit, immutable image literal substitution only",
+      "before_sha256": "not yet captured; required before publication"
+    }
+  ],
+  "native_image": {
+    "before": "sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544",
+    "factory": "/opt/hermes/tui_gateway/server.py",
+    "factory_before_sha256": "5e51f2b4ad33af95044be68a001d0ae66948d8c116fe8ff28a8e70b378ca3be1",
+    "context": {
+      "Dockerfile.native": "65deb1923e6822d383edcb2652f027fcc5cadea338c6189cfafcaa198ce03049",
+      "fs_native_entry.py": "aa8a179935aea8074e23c76534eaa315cb014a964fb17df25ebb3619a49b33f8",
+      "patch_factory.py": "f0886b7a77ed33eeae7480a2fb7c8128c086b535dd431af047ba1863c16f8be6"
+    },
+    "built_image": null,
+    "activated": false
+  },
+  "publisher": {
+    "scope": "knowledge-native-fs-20261023",
+    "adapter": "releases/fs-dashboard/knowledge-layering-20261023/deploy/native_release.py",
+    "existing_adapter_sha256": "6ed1c826b8b4464fc81e29e236ea9f81fedf82e65f3e80aab6cb385abcd1c141",
+    "frozen_base_sha256": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
+    "units": [
+      "fs-hermes-desktop.service",
+      "hermes-dingtalk.service"
+    ],
+    "forbidden_units": [
+      "fs-hermes-fc.service",
+      "fs-business-range.service",
+      "nginx.service"
+    ]
+  }
+}

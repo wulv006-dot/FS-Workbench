@@ -1,0 +1,130 @@
+{
+  "status": "offline_code_and_isolated_native_runtime_verified_not_deployed",
+  "checked_at": "2026-10-23T01:14:38.443460+00:00",
+  "branch": "codex/knowledge-native-fs-20261023",
+  "base_commit": "26aab959c467ac78661f906d52f744e46265b9c7",
+  "committed": false,
+  "github_pr_created": false,
+  "merged": false,
+  "deployed": false,
+  "online_session_switched": false,
+  "paid_model_calls": 0,
+  "feishu_connected": false,
+  "business_rules_changed": false,
+  "global_memory_changed": false,
+  "notion_writes": 0,
+  "automation_changes": 0,
+  "tests": {
+    "native_and_original_plugin": 38,
+    "knowledge_closeout_scope_and_publisher": 41,
+    "total_offline": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "full_pr_fast": "passed_locally_in_windows",
+    "github_CI": "not_executed",
+    "actual_native_isolated_checks": 9,
+    "publisher_failure_injection": "original engine, temporary filesystem/SQLite; service/OS boundaries injected; exact prevalues and operation ID verified",
+    "syntax": "changed Python parsed as 3.9; changed JSON decoded; local document links checked"
+  },
+  "actual_runtime_evidence": {
+    "status": "passed",
+    "checks": [
+      "actual_native_factory_exact_patch_and_parse",
+      "actual_PluginContext_registers_two_knowledge_tools",
+      "actual_native_defaults_and_non_FS_platforms_exclude_knowledge",
+      "actual_schema_cache_FS_Feishu_FS_isolation",
+      "actual_native_subclass_construction_has_only_read_grants_no_provider_init",
+      "actual_native_fail_open_fault_cannot_reach_tool_dispatch",
+      "actual_native_dispatch_and_middleware_read_published_version_and_receipt",
+      "actual_POSIX_admission_gate_blocks_before_provider",
+      "actual_SessionDB_turn_admission_blocked_by_native_SQLite_fence"
+    ],
+    "actual_runtime": "3.14.7",
+    "live_catalog_sha256": "ba2a0ad4b38028cf08a0b73e6d1529a2ba255a29bd5cbc483b5f8f8c9ee095ba",
+    "selection_sha256": "169a631b019407b22ccab880ffe96367b9467d517f3544da9c32c84d5f4a8e13",
+    "entry_ids": [
+      "fs.data.sources",
+      "fs.data.currency",
+      "fs.customer.identity",
+      "fc.marketing.attribution",
+      "fs.finance.procurement",
+      "fc.pricing.constraints"
+    ],
+    "candidate_sha256": {
+      "knowledge.py": "3c587f2cbf5f8925b94d05fceec842d81c6e0005ae755f5bad1f63cd45e79be5",
+      "fs_native_entry.py": "aa8a179935aea8074e23c76534eaa315cb014a964fb17df25ebb3619a49b33f8",
+      "patch_factory.py": "f0886b7a77ed33eeae7480a2fb7c8128c086b535dd431af047ba1863c16f8be6",
+      "native_release.py": "26cc8293c575107e91915c84fd3af52ed732a4506c494a46dc3e004bd5f56981"
+    },
+    "provider_calls": 0,
+    "external_connections": 0,
+    "production_writes": 0,
+    "service_operations": 0,
+    "limits": [
+      "no_real_AIAgent_provider_constructor",
+      "no_user_UI_session",
+      "no_image_build_or_live_switch",
+      "no_paid_model_quality_or_cost_acceptance"
+    ]
+  },
+  "implemented": [
+    "native actual _make_agent build-time seam",
+    "platform-gated two-read toolset and native cache isolation",
+    "old-context detection and published session/task pins",
+    "cross-process receipt CAS using existing write_file",
+    "readonly-only subclass pre-dispatch boundary; no global skill freeze",
+    "native-only scope over existing frozen publisher",
+    "original queue/collector/provider gates plus native turn lease DB fence",
+    "isolated image/stage preparation and no blind repeat",
+    "unit image literal only; policy non-native preservation; original plugin delta enforced",
+    "Windows filename selfcheck via real Git object history"
+  ],
+  "remaining": [
+    "final main composition CI/merge not authorized this round",
+    "Linux Docker image build/readback and native service publishing not executed or approved",
+    "actual new FS user UI session/profile selection and full AIAgent/provider construction readback not executed",
+    "paid-model request/cost limits and authorization not established; no model acceptance",
+    "Feishu message integration and Notion/old-D maintenance excluded from this scope"
+  ],
+  "preserved_evidence": [
+    "phase2-prior-57-tests/",
+    "phase2-pr-fast-local.txt",
+    "phase2-real-native-check-1.txt (native 4000-character registration failure)",
+    "phase2-native-release-tests.txt (Windows unclosed test SQLite handles; fixed without weakening assertions)"
+  ],
+  "coordination": {
+    "user_allows_results_only": true,
+    "shared_profile_skill_writes": false,
+    "skill_freeze": false,
+    "fc_report_learning_owner": "existing FC decline analysis task; no instruction or takeover in this batch"
+  },
+  "files": {
+    "docs/planning/knowledge-layering-20261023/PHASE2-APPROVAL.md": "d5bf5fd16302ff95ca82207f400dbd3ea55fcfd3c053dddf5f411e3a1cfe142d",
+    "docs/planning/knowledge-layering-20261023/PHASE2-NATIVE-RUNTIME.json": "73e8637f9174669da6d253cbff17f8961c489d0557edaf825e6ffe94c401383c",
+    "docs/planning/knowledge-layering-20261023/PHASE2-OFFLINE.md": "b9aa46f0e476df80d34b82a0cb594c835dc7af68900d5a90ba95dbf914c1939b",
+    "docs/planning/knowledge-layering-20261023/PHASE2-SOURCE-MAP.json": "395a4120099412ec23fc67cea719418b9951f18ce9141d37d6f66aadf81934a2",
+    "docs/planning/knowledge-layering-20261023/README.md": "5d160aafdedb29f9349c2c05f14927e743a5bfee17b81e0db758fad563dfbcca",
+    "releases/fs-dashboard/hermes-server-unify-20261022/Dockerfile.native": "65deb1923e6822d383edcb2652f027fcc5cadea338c6189cfafcaa198ce03049",
+    "releases/fs-dashboard/hermes-server-unify-20261022/fs_native_entry.py": "aa8a179935aea8074e23c76534eaa315cb014a964fb17df25ebb3619a49b33f8",
+    "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py": "1faa15a624a7f43c7eabaa844f14e8cafb7dcb2ac74b9d7c4af792c1badc2087",
+    "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py": "3c587f2cbf5f8925b94d05fceec842d81c6e0005ae755f5bad1f63cd45e79be5",
+    "releases/fs-dashboard/hermes-server-unify-20261022/knowledge-load-policy.example.json": "f6787f5e140080225685ff92aa877a10f3ae8433bcb362a5666c70fe60d563a3",
+    "releases/fs-dashboard/hermes-server-unify-20261022/native-entry-fixture.json": "4df73aeee2f07af1b172411b2d08368027e357d60f27fd09ad3bafc318c504c6",
+    "releases/fs-dashboard/hermes-server-unify-20261022/native-hook-fixture.json": "cde3766c81a88b44683ad7960a14b5348040f8f3ed12cf0a93e60a53f3f29e83",
+    "releases/fs-dashboard/hermes-server-unify-20261022/patch_factory.py": "f0886b7a77ed33eeae7480a2fb7c8128c086b535dd431af047ba1863c16f8be6",
+    "releases/fs-dashboard/hermes-server-unify-20261022/test_fs_readonly.py": "a5b437013246eb808af4424047542b9fabf366b721ce5017960c1e764bf09229",
+    "releases/fs-dashboard/hermes-server-unify-20261022/test_native_entry.py": "bd2b70706c8cd2003b1f92b2a2c567fe219c902e9f0c72aa1cbd15349b7b4ce6",
+    "releases/fs-dashboard/hermes-server-unify-20261022/test_native_knowledge.py": "4673e7c0d4a57fc12e7bc9bea61cacf3ad1f0f693820287a8d5432ee701cbc29",
+    "releases/fs-dashboard/hermes-server-unify-20261022/verify_native_readonly.py": "e74a38f53947a4629815b46edba4f475d2c527d141f17cdaf988aef1442b742e",
+    "releases/fs-dashboard/knowledge-layering-20261023/deploy/native_plan.py": "233f8b8c24190b617c52b68dbed4d8e5b0acbbefbefeb342a248045b730da8ee",
+    "releases/fs-dashboard/knowledge-layering-20261023/deploy/native_release.py": "26cc8293c575107e91915c84fd3af52ed732a4506c494a46dc3e004bd5f56981",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_closeout.py": "d5c7277d08ded9da813818d54367bf8d4dfb5d50b658790abe4e182c54ef4fbf",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_native_plan.py": "d63e4add846df5abc7513a8ea27d545b21bf1a683943ea5b313f52a7bbf0d88a",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_native_prepare.py": "04eb57ce4f3d3cce94bda7e4f8f502f52a403169a425206ec6057d8ff1a48aab",
+    "releases/fs-dashboard/knowledge-layering-20261023/tests/test_native_release.py": "07a36f77b8323da08359c0523f11d52d2fbd029472d76fdc6e2766ac77a333c0",
+    "tools/knowledge_closeout.py": "2563a6ed01e397f3eed10eee55ecf1208e76c075542efb57ff69a22507f56855",
+    "tools/pr_fast.py": "ca1975fcb3298d7af23894e3cdcd312d25191a400826bd3a374f8d24fd43b9f9",
+    "tools/prepare_native_knowledge_release.py": "fa61f0ab32c6d59639c0e1c7b9ab0f7ee611ce04119c5a0c9e0c68e1a955411a"
+  }
+}
