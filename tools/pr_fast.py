@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/ops/madden-browser-isolation-20261023/source/browser_runtime.py"]) != ["madden-browser-isolation"]:
+        raise RuntimeError("madden_browser_isolation_mapping_missing")
     if select(["releases/ops/fc-reference-observer-ui-20261023/ui/source/fc27_cloud_api.py","releases/ops/fc-reference-observer-ui-20261023/trigger/source/observe.py"]) != ["fc-reference-observer-ui"]:
         raise RuntimeError("fc_reference_observer_ui_mapping_missing")
     if select(["releases/ops/fc-itemd2r-shadow-20261023/observer/source/observe.py","releases/ops/fc-itemd2r-shadow-20261023/shadow/source/reference_shadow.py"]) != ["fc-price-shadow"]:
@@ -378,6 +380,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/ops/madden-browser-isolation-20261023/"):
+            groups.add("madden-browser-isolation");continue
         if name.startswith('releases/fs-dashboard/hermes-memory-approval-20261022/'):
             groups.add('hermes-memory-approval')
             if name.endswith('/reviewed_skills.py'):groups.update(('knowledge-layering','hermes-server-unify'))
@@ -720,6 +724,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="madden-browser-isolation":
+            units("releases/ops/madden-browser-isolation-20261023",["test_recovery","test_linux_runtime","test_publish","test_resource_boundaries","test_fc_isolation"])
+            continue
         if group=="campaign-analytics":
             folder=ROOT/"releases/fs-dashboard/campaign-analytics-20261023/app"
             tests=sorted(str(p) for p in (folder/"tests").glob("*.test.*"))

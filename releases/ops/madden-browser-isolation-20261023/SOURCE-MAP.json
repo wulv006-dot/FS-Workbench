@@ -1,0 +1,482 @@
+{
+  "status": "deployed_readonly_passed_original_natural_cycle_pending_manual",
+  "source_commit": "5e660cdf85a676eacdb172e09400d46cfc3fb437",
+  "pr": 413,
+  "ci_run": 39965910783,
+  "ci_tests": 18,
+  "ci_failed": 0,
+  "ci_skipped": 0,
+  "merged": false,
+  "files": {
+    "dashboard/server.py": {
+      "before": "c33481923d3e9420bfe7b7d932e8d57b8fb73f9b0acfe9548f694044fa5d8503",
+      "after": "cce5d8848a344a025e4d521631cf787c2a321ffa2e8a9978abf2da08b8809855"
+    },
+    "madden_nfl_27/browser.py": {
+      "before": "544c6834f29a9a8188dbdd9e8633d65acedacf6ab72e18853bdc9b9ba0b5c886",
+      "after": "4f958541c91bfad1ccf9b3f96a36992617f97acf52248adc14e8a9f979caa354"
+    },
+    "browser_runtime.py": {
+      "before": null,
+      "after": "3a16a444481619f9fc9688e50babb0b95c9d6da2bf7ee67753938399b09ba9ae"
+    },
+    "run_in_container.sh": {
+      "before": "61341c883cc0ae1745993ff99b285b8ef5d88623bddc997a0c680b1fe4796a1f",
+      "after": "b10f8d0ee1bd78761a8910f288f09eff394fd0939f04f1ced937486899f89d35"
+    }
+  },
+  "startup_restored_sha256": "12fca545ea0e65ae3d6df8102f6bc43753f6338aa646284d7d0398069f679341",
+  "next_natural_at": "2026-10-24T00:47:45+08:00",
+  "interval_minutes": 360,
+  "pricing_revision": 7,
+  "no_new_collection_model_write": true,
+  "readonly_snapshot_rows": [
+    "21590",
+    "21592",
+    "21594",
+    "21596"
+  ],
+  "madden_original_parent_zombies_after": 0,
+  "competitor_stopped": true,
+  "remaining_workers": 0,
+  "heartbeat": "paused_user_confirmed",
+  "evidence": {
+    ".agent_runtime\\madden-isolation-20261023\\deployment-receipt.txt": {
+      "sha256": "3f2775a1381b2e9eb4037735836bf5cf33b499549d003aefb4fe1b1236a515d8"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\read-only-acceptance.json": {
+      "sha256": "c495a366bb2bf65585e5cce21f9c1848d52a926e73b67c6f4c29554c1aa094d0"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\config-after-403-read.json": {
+      "sha256": "2ad29d80a80e65d6578ac7c06a56eceb258fad955e8afb004e4cc052b3f8977a"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\six-hour-change-receipt.json": {
+      "sha256": "16413c043fa68afb89af20830159d353516fab0224b28df12fdc90641cc2d57f"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\resource-boundaries-before.json": {
+      "sha256": "d8257564ae216b7cc7f332032f79390999cbd07bfa08fdf7d9a969681693e13f"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\resource-boundaries-after.json": {
+      "sha256": "a61a3844061905fe25c7d623ca5f9586e31aa18961b4609f05b9efaec5a4e5f5"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\final-limits-readback.json": {
+      "sha256": "6921e58d1557874dc80746e7b19e58e03cedbaaa55753303337f97c09454e6a8"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\fc-publish-receipt.json": {
+      "sha256": "a93ee9c02c876c147f8884ecd2a060367bd2e65202d24d7985e5bb9a806ade86"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\fc-tmp-home-receipt.json": {
+      "sha256": "863b380d4da2be3282eba657b10286b1e32a53d8f9acaf1111da7287450218a1"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\fc-readonly-snapshot-first-failure.json": {
+      "sha256": "6692cefb996dc4cf57614aabcdcb96988c99249a086590ffe30818e9e3fb7578"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\fc-readonly-snapshot.json": {
+      "sha256": "494b9cb7e1d8efa53036f235ad0d2ab186e80544e49aac175f16690f62b62458"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\final-browser-read.json": {
+      "sha256": "806ce62db847b0f6a8de03fafe9e427039d0d6443f807a40c909036f05d3333c"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\final-original-jobs-read.json": {
+      "sha256": "72c8d3fbc3c0f4e8dc47d3a6f23e9691bea3590caafc3baf7857a14ba00e08da"
+    },
+    ".agent_runtime\\madden-isolation-20261023\\transaction-final.json": {
+      "sha256": "833de2ba680ca40c58c63ae63697a00d522ab68787353260a69a65a79ef4547e"
+    }
+  },
+  "resource_boundaries": {
+    "operation": "service-resource-boundaries-20261023",
+    "status": "published_readback_verified",
+    "containers": {
+      "fs-hermes-desktop": {
+        "id": "0af516b16a46dd770072325aa6e8638a4086cedb8ecce774f27a9b1ace93735b",
+        "started_at": "2026-10-23T13:41:34.034820077Z",
+        "gib": 7
+      },
+      "fc27-p2pah-session": {
+        "id": "1f13f2fdea4ad6d881b61b4014a07be90ee4183325735a5031704a9d8cec36ff",
+        "started_at": "2026-10-21T09:56:43.093248671Z",
+        "gib": 3
+      }
+    },
+    "files": {
+      "/etc/systemd/system/fs-hermes-desktop.service": {
+        "before": "829857986b22b27779e8fb800260d2d008757a40b1468cf7a5550c8bd6c94d54",
+        "after": "0b113167665287e94317315b910f61cab672d99f474b7ba1fc8d375734d5f7c6"
+      },
+      "/etc/systemd/system/fc27-p2pah-session.service": {
+        "before": "b3441da437c9f625eeeb96ce66584d0143fe66bd05b7fe114c263ad11f357643",
+        "after": "f75a5e92dfdc06a8974ffd36799107ddbace073b6a6a2578ebcd8b9d2638b981"
+      },
+      "/opt/d4follow/srv_exec.py": {
+        "before": "7dc1b55cb7e840ec6cfe2c94258cdd5f2a5dcc6e178457e4b8b05a8f2a5a49ae",
+        "after": "d76bd13d3d17d7c6466788468a7ff81f188173e5f99264670f0d26f29aa7fda0"
+      }
+    },
+    "models": 0,
+    "price_writes": 0,
+    "native_range_memory_bytes": 2147483648,
+    "rpg_worker_memory_bytes": 2147483648,
+    "shared_containers_restarted": false,
+    "verified_at": 1792765210.3029277
+  },
+  "fc_backend_isolation": {
+    "operation": "fc-backend-isolation-20261023",
+    "status": "published_sha_verified",
+    "files": {
+      "/opt/fc27-cloud-browser/collect_p2pah_cost.py": {
+        "before": "312f47f8305308558d69401a92d170aed1726e4f67f1944ac246b1d66c1ef812",
+        "after": "d3cb307efce484abaeb0c9cb2ee8f50e6b50e91e95f0a1988dc53cee1e123e57"
+      },
+      "/opt/fc27-cloud-browser/preview_backend.py": {
+        "before": "42a302a1e0dfd74ffaec4e2308b6f8cea8ccecf391fcb732a29f3fad3a424986",
+        "after": "05c9d764c731eaf0211e9584a25da07fe3e358ddf26ef8cccf968a403708ba42"
+      },
+      "/opt/fc27-cloud-browser/price_writer.py": {
+        "before": "db45ea5ebf51a469983543b61c78383ce55071c069803c068c04ebd6a287c644",
+        "after": "c3e463cc1921e3b16595fa8c4e947d57fffde7b84aa3997d2112228034cfcc4f"
+      },
+      "/opt/fc27-cloud-browser/restore_price.py": {
+        "before": "5ced0d190afb3c4182e90d45b6c3afd7624dd52389709e993f727418317cb9a9",
+        "after": "bd06cf95db17ca41b10cab90446436c73e53ec77bcd53153cb11dfd6e7a11ed7"
+      },
+      "/opt/fc27-cloud-browser/collect_p2pah_cost.sh": {
+        "before": "f7bf7534f14e79e6eb19c82370c3dbd5b6d40e48eeb9a66b4871ccfde86f3124",
+        "after": "ed3f64e750b194e90bb24eb15ff69e3255df32836ece7c26e440aaf98fb8f976"
+      },
+      "/opt/fc27-cloud-browser/preview_backend.sh": {
+        "before": "316c6241c17ca86d0856344ed650a080d1fd75a59552a5c5e9e4f1f9a89c9ddc",
+        "after": "5c3aa40075a17816d3e2a83fe8946222476a308fe0fada61035763ca94fae5f1"
+      },
+      "/opt/fc27-cloud-browser/execute_price.sh": {
+        "before": "cade852b5da35a768ec4aaad423dae7f381eabb43546abf8af56c418e2533ebc",
+        "after": "952ddbade411e6c445767c81212dce22f40c4ec3f0b2a7a119154bf471822676"
+      },
+      "/opt/fc27-cloud-browser/restore_price.sh": {
+        "before": "35993f7f850bdb87885739db9f89565c06368a88791d856db85955678e16349b",
+        "after": "b58c9dcda8481b35657588034ef9b9bc96358aafb31bfb4ca801fdc90475eaad"
+      },
+      "/opt/fc27-cloud-browser/isolated_backend.py": {
+        "before": null,
+        "after": "ee649da5c09cf74bb27fb10c074804e87d6818550de912e9416af1ea1083e4fb",
+        "initial_after": "ef518a7883cd9aa81ffb215428c8c9c6d9f291bf52abc08a1f8e340d9508311e"
+      }
+    },
+    "price_writes": 0,
+    "collections": 0,
+    "model_requests": 0,
+    "worker_memory_bytes": 2147483648,
+    "verified_at": 1792765566.5181606,
+    "service_restarts": 0,
+    "helper_readonly_home_fix": {
+      "operation": "fc-backend-tmp-home-20261023",
+      "status": "published_sha_verified",
+      "before": "ef518a7883cd9aa81ffb215428c8c9c6d9f291bf52abc08a1f8e340d9508311e",
+      "after": "ee649da5c09cf74bb27fb10c074804e87d6818550de912e9416af1ea1083e4fb",
+      "price_writes": 0,
+      "collection_requests": 0
+    }
+  },
+  "fc_readonly_snapshot": {
+    "observed_at": "2026-10-23T14:30:41.081786+00:00",
+    "cost_collection_requests": 0,
+    "competitor_collections": 0,
+    "models": 0,
+    "price_writes": 0,
+    "worker": {
+      "id": "f82acffe2dff7ff32445a4c1337005a72f749ca4f4e5524c92a02ee2603cb863",
+      "memory": 2147483648,
+      "init": true
+    },
+    "returncode": 0,
+    "snapshot": {
+      "login": false,
+      "row_ids": [
+        "21942",
+        "21944",
+        "21946"
+      ],
+      "owned_contexts": 1
+    },
+    "worker_removed": true,
+    "order": {
+      "ready": true,
+      "status": null,
+      "login_attempts": 0
+    },
+    "admin": {
+      "ready": true,
+      "status": "ready",
+      "login_attempts": 2
+    }
+  },
+  "final_resource_readback": {
+    "observed_at": "2026-10-23T14:36:13.930226+00:00",
+    "containers": [
+      {
+        "name": "fs-hermes-desktop",
+        "id": "0af516b16a46dd770072325aa6e8638a4086cedb8ecce774f27a9b1ace93735b",
+        "started_at": "2026-10-23T13:41:34.034820077Z",
+        "running": true,
+        "limit": 7516192768,
+        "oom_killed": false,
+        "cgroup": {
+          "memory.usage_in_bytes": 793894912,
+          "memory.limit_in_bytes": 7516192768,
+          "memory.failcnt": 0
+        }
+      },
+      {
+        "name": "fc27-p2pah-session",
+        "id": "1f13f2fdea4ad6d881b61b4014a07be90ee4183325735a5031704a9d8cec36ff",
+        "started_at": "2026-10-21T09:56:43.093248671Z",
+        "running": true,
+        "limit": 3221225472,
+        "oom_killed": false,
+        "cgroup": {
+          "memory.usage_in_bytes": 1091555328,
+          "memory.limit_in_bytes": 3221225472,
+          "memory.failcnt": 0
+        }
+      },
+      {
+        "name": "madden-cloud-browser",
+        "id": "b90caf864d8cbc4520b95aac06bfdce6f94806a44dc80458f5b06bcda51c03f3",
+        "started_at": "2026-10-23T14:03:53.093795393Z",
+        "running": false,
+        "limit": 3221225472,
+        "oom_killed": false,
+        "cgroup": {}
+      }
+    ],
+    "range_memory": {
+      "memory.usage_in_bytes": 25837568,
+      "memory.limit_in_bytes": 2147483648,
+      "memory.failcnt": 0
+    },
+    "host_memory": {
+      "MemTotal": 16374140928,
+      "MemAvailable": 10979528704,
+      "SwapTotal": 0
+    },
+    "order": {
+      "ready": true,
+      "status": null,
+      "login_attempts": 0
+    },
+    "admin": {
+      "ready": true,
+      "status": "ready",
+      "login_attempts": 2
+    }
+  },
+  "transaction_original_2114": {
+    "snapshot_id": "20261023T132301Z-4a523080d8bd6d48",
+    "sha256": "52e64c51385a8494d5609dbf0ac288a38a4e770550664d4970392b6097162000",
+    "manifest_sha256": "52e64c51385a8494d5609dbf0ac288a38a4e770550664d4970392b6097162000",
+    "top_keys": [
+      "currency",
+      "dashboard",
+      "date",
+      "fc27Analytics",
+      "fc27ProductRankings",
+      "fcOps",
+      "fieldAvailability",
+      "generatedAt",
+      "generatedAtShanghai",
+      "noCustomerConversionRate",
+      "profiles",
+      "profitHistory",
+      "rangeMeta",
+      "requiredProfiles",
+      "schemaVersion",
+      "scope",
+      "scopeApproved",
+      "scopeContractId",
+      "snapshotId",
+      "supplementContractVersion",
+      "timezone"
+    ],
+    "readers": [],
+    "requiredProfiles": [
+      "MMOEXP",
+      "POE2",
+      "D4",
+      "AION2",
+      "FC27",
+      "NBA2K27",
+      "NFL27",
+      "MLB26",
+      "CFB27",
+      "FC26",
+      "RS",
+      "MAPLESTORY_CLASSIC",
+      "ARC_RAIDERS",
+      "DARK_AND_DARKER",
+      "WOW_FOREVER",
+      "ARENA_BREAKOUT_INFINITE",
+      "COD_BO7"
+    ],
+    "scope": "all-websites",
+    "profiles_type": "dict",
+    "profiles": [
+      {
+        "name": "AION2",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "ARC_RAIDERS",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "ARENA_BREAKOUT_INFINITE",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "CFB27",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "COD_BO7",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "D4",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "DARK_AND_DARKER",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "FC26",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "FC27",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "MAPLESTORY_CLASSIC",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "MLB26",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "MMOEXP",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "NBA2K27",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "NFL27",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "POE2",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "RS",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      },
+      {
+        "name": "WOW_FOREVER",
+        "primary_status": "available",
+        "labels_verified": true,
+        "metric_statuses": [
+          "available"
+        ]
+      }
+    ],
+    "required_primary_complete": true
+  },
+  "ci_code": {
+    "head": "dbfc0faeddc66d49320ab9aa195cbab8982b5704",
+    "tree": "da65e939473318d0a75e1bb5ba7cc036eea8f569",
+    "run": 39970061028,
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "manual_gates": [
+    "FC natural cost collection/preview/write/no-change/cache",
+    "RPG next original job with memory2GiB/init",
+    "Madden original00:47:45 cycle",
+    "12 original cycles day/night and aggregate peak memory"
+  ],
+  "approval_rejections": {
+    "source_export": "full six production sources and pointed fragments rejected, neither exported; current work uses server-side byte-preserving patch and metadata only",
+    "new_cost_collection_smoke": "rejected and not executed; only allowed backend row-ID snapshot validated"
+  },
+  "published_source_model": "server-side bounded patch generators; no full original FC/RPG source newly exported"
+}
