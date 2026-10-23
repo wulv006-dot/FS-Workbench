@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = Path('releases/fs-dashboard/hermes-learning-closure-20261023/deploy')
@@ -36,12 +37,68 @@ def sha(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def loose_source(root, source_commit, relative):
+    """Read original content-addressed Git objects when the build host has no Git binary."""
+    root = Path(root).absolute()
+
+    def object_bytes(oid, kind):
+        if not re.fullmatch('[a-f0-9]{40}', oid):
+            raise ValueError('learning_native_git_object_identity')
+        path = root / '.git/objects' / oid[:2] / oid[2:]
+        for parent in (path, *path.parents):
+            if parent.is_symlink():
+                raise ValueError('learning_native_git_object_link')
+            if parent == root:
+                break
+        # shortcut: packed objects require Git; isolated builds carry only exact original loose objects.
+        if path.stat().st_size > 2_000_000:
+            raise ValueError('learning_native_git_object_size')
+        decoder = zlib.decompressobj()
+        raw = decoder.decompress(path.read_bytes(), 2_000_000)
+        if not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise ValueError('learning_native_git_object_size')
+        if hashlib.sha1(raw).hexdigest() != oid:
+            raise ValueError('learning_native_git_object_changed')
+        header, content = raw.split(b'\0', 1)
+        if header != (kind + ' ' + str(len(content))).encode():
+            raise ValueError('learning_native_git_object_type')
+        return content
+
+    commit = object_bytes(source_commit, 'commit')
+    match = re.match(rb'tree ([a-f0-9]{40})\n', commit)
+    if not match:
+        raise ValueError('learning_native_git_commit_tree')
+    oid = match[1].decode()
+    parts = Path(relative).parts
+    if not parts or Path(relative).is_absolute() or '..' in parts:
+        raise ValueError('learning_native_git_source_path')
+    for n, name in enumerate(parts):
+        tree = object_bytes(oid, 'tree')
+        matches, pos = [], 0
+        while pos < len(tree):
+            space = tree.index(b' ', pos); end = tree.index(b'\0', space + 1)
+            child = tree[end + 1:end + 21]
+            if len(child) != 20:
+                raise ValueError('learning_native_git_tree_entry')
+            if tree[space + 1:end] == name.encode():
+                matches.append((tree[pos:space], child.hex()))
+            pos = end + 21
+        if len(matches) != 1:
+            raise ValueError('learning_native_git_source_missing')
+        mode, oid = matches[0]
+        if mode not in ((b'100644', b'100755') if n == len(parts) - 1 else (b'40000',)):
+            raise ValueError('learning_native_git_source_mode')
+    return object_bytes(oid, 'blob')
+
+
 def verify_commit(root, source_commit):
     if not isinstance(source_commit, str) or not re.fullmatch('[a-f0-9]{40}', source_commit):
         raise ValueError('learning_native_committed_source_required')
     for path in COMMIT_INPUTS:
         try:
             raw = subprocess.check_output(['git', '-C', str(root), 'show', source_commit + ':' + path.as_posix()], stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            raw = loose_source(root, source_commit, path)
         except subprocess.CalledProcessError as error:
             raise ValueError('learning_native_commit_source_unavailable:' + path.as_posix()) from error
         if raw.replace(b'\r\n', b'\n') != source_bytes(root / path):
