@@ -22,7 +22,7 @@
       "github": "releases/fc-coins/fc-pricing-v2-20261022/source/price_writer.py",
       "target": "/opt/fc27-cloud-browser/price_writer.py",
       "before_sha256": "c3e463cc1921e3b16595fa8c4e947d57fffde7b84aa3997d2112228034cfcc4f",
-      "after_sha256": "02a87746c97a52a8f453979ce7562b7aebcf470eeaede7c872874a7f506b9690"
+      "after_sha256": "260833f071c3a413f7cdad4b9e1654d6fcef3c3326f5fa0899e0e2e19bab3eec"
     }
   ],
   "price_operation": "eb381b08-673a-5cbe-a488-00870eed4277",
@@ -31,3 +31,4 @@
   "tracking": "PAUSED_user_manual_natural_acceptance",
   "unknown_history_preserved": true
 }
+
