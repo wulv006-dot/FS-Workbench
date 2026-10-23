@@ -5,6 +5,7 @@ import sys
 import tempfile
 import types
 import unittest
+import importlib.util
 from datetime import datetime, timedelta, time
 from unittest.mock import patch
 
@@ -81,6 +82,23 @@ class Pipeline(unittest.TestCase):
     def test_all_sources_compile(self):
         for p in (Path(__file__).resolve().parents[1]/'source').glob('*.py'):
             compile(p.read_bytes(),str(p),'exec')
+
+    def test_publisher_exact_new_and_existing_targets(self):
+        deploy=Path(__file__).resolve().parents[1]/'deploy'
+        spec=importlib.util.spec_from_file_location('nightly_release_test',deploy/'release.py')
+        release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);release.HERE=root
+            (root/'release_navigation_base.py').write_bytes((deploy/'release_navigation_base.py').read_bytes())
+            rows=[{'candidate':k,'target':v,'beforeSha256':None if k in release.NEW else 'a'*64,
+                   'sha256':'b'*64,'owner':'0:0','mode':'0o644'} for k,v in release.TARGETS.items()]
+            value={'scope':release.SCOPE,'files':rows,'businessWrites':False,'timersChanged':True}
+            path=root/'approved-manifest.json';path.write_text(json.dumps(value))
+            base=release.load_base()
+            self.assertEqual(base.NIGHTLY_NEW,release.NEW)
+            rows[0]['beforeSha256']=None;path.write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError,'existing_sources'):
+                release.load_base()
 
 
 if __name__=='__main__':unittest.main()

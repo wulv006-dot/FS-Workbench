@@ -33,10 +33,15 @@ def load_base():
         raise ValueError('frozen_protection_anchor_drift')
     # The single changed source is checked by target CAS.
     source = source.replace(anchor, "  if manifest.get('scope')==HERMES_HISTORY_SCOPE:required-=set(targets.values())\n" + anchor)
+    anchor = "if any(r.get('beforeSha256') is None for r in files if not ("
+    if source.count(anchor) != 1:
+        raise ValueError('frozen_new_file_anchor_drift')
+    source = source.replace(anchor, anchor + "(manifest.get('scope')==HERMES_HISTORY_SCOPE and r['candidate'] in NIGHTLY_NEW) or ")
     base = types.ModuleType('frozen_admin_recovery_publisher')
     base.__file__ = str(HERE / 'release_navigation_base.py')
     exec(compile(source, base.__file__, 'exec'), base.__dict__)
     base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = SCOPE, TARGETS
+    base.NIGHTLY_NEW = NEW
     base.expected_files = lambda manifest: set(TARGETS) if manifest.get('scope') == SCOPE else set()
     base.target_for = lambda relative: TARGETS[relative]
     validate = base.validate
