@@ -725,7 +725,7 @@ def main():
     selfcheck()
     for group in groups:
         if group=="madden-browser-isolation":
-            units("releases/ops/madden-browser-isolation-20261023",["test_recovery","test_linux_runtime","test_publish"])
+            units("releases/ops/madden-browser-isolation-20261023",["test_recovery","test_linux_runtime","test_publish","test_resource_boundaries"])
             continue
         if group=="campaign-analytics":
             folder=ROOT/"releases/fs-dashboard/campaign-analytics-20261023/app"
