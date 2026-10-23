@@ -37,6 +37,10 @@ def load_base():
     if source.count(anchor) != 1:
         raise ValueError('frozen_new_file_anchor_drift')
     source = source.replace(anchor, anchor + "(manifest.get('scope')==HERMES_HISTORY_SCOPE and r['candidate'] in NIGHTLY_NEW) or ")
+    anchor = "manifest.get('timersChanged') is not False:raise ValueError('Hermes readonly/schedule boundary')"
+    if source.count(anchor) != 2:
+        raise ValueError('frozen_schedule_anchor_drift')
+    source = source.replace(anchor, "manifest.get('timersChanged') is not (manifest.get('scope')==HERMES_HISTORY_SCOPE):raise ValueError('Hermes readonly/schedule boundary')")
     base = types.ModuleType('frozen_admin_recovery_publisher')
     base.__file__ = str(HERE / 'release_navigation_base.py')
     exec(compile(source, base.__file__, 'exec'), base.__dict__)

@@ -89,7 +89,8 @@ class Pipeline(unittest.TestCase):
         release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);release.HERE=root
-            (root/'release_navigation_base.py').write_bytes((deploy/'release_navigation_base.py').read_bytes())
+            raw=(deploy/'release_navigation_base.py').read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
+            (root/'release_navigation_base.py').write_bytes(raw)
             rows=[{'candidate':k,'target':v,'beforeSha256':None if k in release.NEW else 'a'*64,
                    'sha256':'b'*64,'owner':'0:0','mode':'0o644'} for k,v in release.TARGETS.items()]
             value={'scope':release.SCOPE,'files':rows,'businessWrites':False,'timersChanged':True}
