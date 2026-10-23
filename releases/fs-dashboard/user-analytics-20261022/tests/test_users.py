@@ -157,7 +157,7 @@ class Users(unittest.TestCase):
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         self.load([order(1,'2026-01-02')])
         old=json.dumps({'july':1});(self.store.root/'history-full-inventory.json').write_text(old)
-        with patch.object(module,'load_store',return_value=self.store),patch.object(module,'source_count',return_value=0),patch.object(module,'datetime',wraps=datetime) as clock,patch.object(module.subprocess,'run',return_value=type('Result',(),{'returncode':1})()):
+        with patch.object(module,'load_store',return_value=self.store),patch.object(module,'SOURCE_LOCK',self.store.root/'fixture-source.lock'),patch.object(module,'source_count',return_value=0),patch.object(module,'datetime',wraps=datetime) as clock,patch.object(module.subprocess,'run',return_value=type('Result',(),{'returncode':1})()):
             clock.now.return_value=NOW
             module.run()
         proof=json.loads((self.store.root/'history-coverage.json').read_text())
