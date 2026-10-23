@@ -46,7 +46,8 @@ def shared_sync(store, site, start, end):
     import p2pah_auth as auth
     from channel_source import pages
     def ordered_pages(session, path, filters, limit):
-        rows = pages(session, path, filters, limit)
+        # Verified 2026-10-23: original Admin returns 1000 rows; retain every paging/sort guard.
+        rows = pages(session, path, filters, 1000)
         ids = [str(r.get('id') or '') for r in rows]
         if any(not i.isdigit() or int(i) <= 0 for i in ids) or len(set(ids)) != len(ids) or [int(i) for i in ids] != sorted((int(i) for i in ids), reverse=True):
             raise ValueError('source_order_sort_or_identity')

@@ -37,7 +37,7 @@ class Users(unittest.TestCase):
         return self.store.replace_window(site, start, end, rows, NOW.isoformat())
 
     def query(self, start='2026-10-01', end='2026-10-22', **more):
-        return self.service.query(dict(start=start, end_exclusive=end, **more), 'admin')
+        return self.service.query(dict(start=start, end_exclusive=end, **dict({'state_basis': 'period_end'}, **more)), 'admin')
 
     def values(self, value):
         return {k: v['value'] for k, v in value['metrics'].items()}
@@ -49,6 +49,85 @@ class Users(unittest.TestCase):
         self.load([order(1, '2026-10-01 12:00:00'), order(2, '2026-10-02 12:00:00', uid=42)])
         self.assertEqual(self.values(self.query())['purchasers'], 1)
         self.assertEqual(len(self.store.read()[1]), 2)
+
+    def test_current_pool_and_d0_do_not_move_with_interval(self):
+        self.origins()
+        self.load([order(1,'2026-01-03',email='old@example.test'),order(2,'2026-09-01',email='old@example.test'),
+                   order(3,'2026-10-20',email='new@example.test'),order(4,'2026-03-01',email='sleep@example.test')])
+        a=self.query(start='2026-08-01',state_basis='current')
+        b=self.query(start='2026-10-01',state_basis='current')
+        for key in ('known_pool','recent','silent','lost','long_lost'):
+            self.assertEqual(a['metrics'][key],b['metrics'][key])
+        self.assertEqual(a['observation_date'],'2026-10-22')
+        old=self.service.query({'snapshot_id':a['snapshot_id']},'admin')
+        self.assertEqual(old,a)
+        rows=self.service.members(dict(snapshot_id=a['snapshot_id'],group='silent'),'admin')['rows']
+        self.assertEqual(rows[0]['first_paid_at'],'2026-01-03T00:00:00+08:00')
+        self.assertEqual(rows[0]['period_path'],'returned_then_inactive')
+        self.assertEqual(self.service.members(dict(snapshot_id=b['snapshot_id'],group='silent__no_purchase'),'admin')['total'],1)
+        private=self.service.detail(dict(snapshot_id=a['snapshot_id'],customer_id=rows[0]['customer_id']),'admin')
+        self.assertEqual(private['timeline'][0]['days_from_d0'],0)
+        self.assertIn('lost_return',{r['kind'] for r in private['timeline']})
+        self.assertEqual(invoke(self.service,'reader',dict(snapshot_id=a['snapshot_id'],section='trajectories'))['trajectories'],a['trajectories'])
+
+    def test_default_current_and_explicit_historical_are_distinct(self):
+        self.load([order(1,'2026-01-03'),order(2,'2026-10-20')])
+        current=self.service.query(dict(start='2026-02-01',end_exclusive='2026-03-01'),'admin')
+        old=self.query(start='2026-02-01',end='2026-03-01')
+        self.assertEqual(current['query']['state_basis'],'current')
+        self.assertEqual(current['metrics']['recent']['value'],1)
+        self.assertEqual(old['metrics']['silent']['value'],1)
+        self.assertEqual(old['observation_date'],'2026-02-28')
+
+    def test_history_completion_requires_inventory_and_contiguous_coverage(self):
+        from user_contract import digest
+        self.load([order(1,'2026-01-03')])
+        inventory={'fixture-month':1}
+        (self.store.root/'history-full-inventory.json').write_text(json.dumps(inventory))
+        proof=dict(contract='fs-users-available-source-history-v1',sites=['266'],start='2026-01-01',end_exclusive='2026-10-22',inventory_sha256=digest(inventory))
+        path=self.store.root/'history-origin.json';path.write_text(json.dumps(proof))
+        result=self.query(start='2026-01-01')
+        self.assertEqual(result['metrics']['first_purchasers']['value'],1)
+        proof['start']='2025-01-01';path.write_text(json.dumps(proof))
+        self.service.cache.clear()
+        with self.assertRaisesRegex(ValueError,'history_completion_proof'):
+            self.query(start='2026-01-01')
+
+    def test_history_months_are_bounded_and_finite(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('users_backfill_fixture',BASE/'backfill_history.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        windows=list(module.months(stamp('1970-03-14T12:00:00')))
+        self.assertEqual(len(windows),3)
+        self.assertEqual(windows[-1][0],stamp('1970-01-01'))
+        self.assertTrue(all((b-a).days<=31 and a<b for a,b in windows))
+        self.assertEqual(list(module.months(stamp('1970-01-01'))),[])
+
+    def test_verified_legacy_complaint_status_keeps_payment_projection(self):
+        paid=order(1,'2026-09-12');paid['status']='53'
+        refunded=order(2,'2026-09-12',status=2);refunded['status']='53'
+        self.load([paid,refunded])
+        self.assertEqual(self.query(start='2026-09-01')['metrics']['purchasers']['value'],1)
+        self.assertEqual([r['valid'] for r in self.store.read()[1]],[1,0])
+
+    def test_sweep_matches_daily_reference_at_boundaries_and_gaps(self):
+        from user_lifecycle import daily_stocks
+        from user_contract import state,STATES
+        people={'a':[dict(paid_at=t) for t in ('2026-01-01','2026-01-31','2026-03-01T12:00:00')],
+                'b':[dict(paid_at=t) for t in ('2026-01-01T12:00:00','2026-02-10T12:00:00')]}
+        runs={'266':[(stamp('2026-01-01'),stamp('2026-02-15')),(stamp('2026-03-01'),stamp('2026-05-01'))]}
+        start,end=stamp('2026-01-01'),stamp('2026-04-02T12:00:00')
+        stocks=daily_stocks(people,runs,start,end,(30,60,90))
+        for day,actual in stocks.items():
+            finish=min(datetime.combine(day+timedelta(days=1),datetime.min.time(),TZ),end)
+            expected={key:0 for key in (*STATES,'unverified')}
+            for rows in people.values():
+                times=[stamp(r['paid_at']) for r in rows if stamp(r['paid_at'])<finish]
+                if times:
+                    last=max(times)
+                    key=state(last,(finish-timedelta(microseconds=1)).date(),(30,60,90)) if any(a<=last and finish<=b for a,b in runs['266']) else 'unverified'
+                    expected[key]+=1
+            self.assertEqual(actual,expected,day)
 
     def test_daily_transition_records_once_per_day_without_source(self):
         from user_jobs import advance_day
