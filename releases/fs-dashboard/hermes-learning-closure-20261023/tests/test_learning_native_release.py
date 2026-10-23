@@ -143,27 +143,38 @@ class NativeRelease(unittest.TestCase):
         self.prepare(); context = self.output / 'native-image-context'
         expected = self.builder(ROOT, context, release.CURRENT_IMAGE, 'original-learning-op')['sources']
         lines = lambda rows: ''.join(sha + '  ' + path + '\n' for path, sha in rows.items())
-        replies = [json.dumps(['base']), '"hermes"', lines(release.BEFORE_SOURCES), self.gateway.read_bytes(), self.after,
-            json.dumps(['base', 'copy-entry', 'copy-gateway', 'copy-helper']), '"hermes"', lines(expected)]
+        replies = [release.CURRENT_IMAGE, json.dumps(['base']), '"hermes"', lines(release.BEFORE_SOURCES), self.gateway.read_bytes(), self.after,
+            json.dumps(['base', 'copy-entry', 'copy-gateway', 'copy-helper']), '"hermes"', lines(expected), release.CURRENT_IMAGE]
         with patch.object(prepare, 'verify_commit') as commit, patch.object(prepare.subprocess, 'check_output', side_effect=replies), patch.object(prepare.subprocess, 'run') as run:
             result = prepare.build_image(ROOT, context, release.CURRENT_IMAGE, 'original-learning-op', source_commit='a' * 40)
         commit.assert_called_once_with(ROOT, 'a' * 40)
         self.assertEqual(result['sources'], expected)
         command = run.call_args.args[0]
         self.assertEqual(command[:4], ['docker', 'build', '--network', 'none'])
-        self.assertIn('NATIVE_BASE=' + release.CURRENT_IMAGE, command); self.assertIn('--pull=false', command)
+        self.assertIn('NATIVE_BASE=' + prepare.BASE_TAG, command); self.assertIn('--pull=false', command)
+        self.assertEqual(result['base_tag'], prepare.BASE_TAG)
         self.assertNotIn('systemctl', command)
-        bad = list(replies); bad[2] = lines(dict(release.BEFORE_SOURCES, **{'/opt/hermes/fs_native_entry.py': 'f' * 64}))
+        bad = list(replies); bad[3] = lines(dict(release.BEFORE_SOURCES, **{'/opt/hermes/fs_native_entry.py': 'f' * 64}))
         with patch.object(prepare, 'verify_commit'), patch.object(prepare.subprocess, 'check_output', side_effect=bad), patch.object(prepare.subprocess, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'existing_image_source_drift'):
                 prepare.build_image(ROOT, context, release.CURRENT_IMAGE, 'original-learning-op', source_commit='a' * 40)
             run.assert_not_called()
-        for index, value, error in ((5, json.dumps(['wrong-base', 'copy-entry', 'copy-gateway', 'copy-helper']), 'layers_differ'),
-                                    (6, '"root"', 'runtime_user_changed'), (7, lines({**expected, '/unexpected.py': 'f' * 64}), 'built_sources_differ')):
+        for index, value, error in ((0, 'sha256:'+'f'*64, 'base_tag_drift'),
+                                    (6, json.dumps(['wrong-base', 'copy-entry', 'copy-gateway', 'copy-helper']), 'layers_differ'),
+                                    (7, '"root"', 'runtime_user_changed'), (8, lines({**expected, '/unexpected.py': 'f' * 64}), 'built_sources_differ'),
+                                    (9, 'sha256:'+'f'*64, 'base_tag_drift')):
             wrong = list(replies); wrong[index] = value
             with self.subTest(error=error), patch.object(prepare, 'verify_commit'), patch.object(prepare.subprocess, 'check_output', side_effect=wrong), \
                     patch.object(prepare.subprocess, 'run'), self.assertRaisesRegex(ValueError, error):
                 prepare.build_image(ROOT, context, release.CURRENT_IMAGE, 'original-learning-op', source_commit='a' * 40)
+
+    def test_failed_docker_output_is_preserved_without_changing_unknown_state(self):
+        error = prepare.subprocess.CalledProcessError(1, ['docker', 'build'], output=b'build-out', stderr=b'build-error')
+        with self.assertRaises(prepare.subprocess.CalledProcessError):
+            self.prepare(Mock(side_effect=error))
+        self.assertEqual((self.output/'build-failure.stdout').read_bytes(), b'build-out')
+        self.assertEqual((self.output/'build-failure.stderr').read_bytes(), b'build-error')
+        self.assertEqual(json.loads((self.output/'native-image-state.json').read_bytes())['status'], 'unknown-needs-reconcile')
 
     def test_real_builder_rejects_unbound_commit_before_any_docker_action(self):
         self.prepare(); context = self.output / 'native-image-context'
