@@ -756,7 +756,7 @@ def main():
             continue
         if group=='hermes-learning-closure':
             units('releases/fs-dashboard/hermes-learning-closure-20261023',['test_prepare'])
-            units('releases/fs-dashboard/hermes-learning-closure-20261023/tests',['test_learning_native_release'])
+            units('releases/fs-dashboard/hermes-learning-closure-20261023/tests',['test_learning_native_release','test_routes_release'])
             continue
         if group in ("self","frontend"):continue
         if group=="game-monitor-auto":
