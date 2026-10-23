@@ -1,0 +1,58 @@
+{
+  "status": "deployed_real_group_fault_recovery_and_dedup_verified",
+  "observed_at": "2026-10-23T14:29:17+08:00",
+  "active_watch_sha256": "b1851faa087108b249d38591442ffe7a2ca638986c775d4bc8ba42eba4e218c4",
+  "scope": "explicit_notification_drill_in_original_group_no_business_writes",
+  "group_identity_exported": false,
+  "fault": {
+    "message_id": "om_x100b629b81a3313cde62ed55d4659ef",
+    "provider_readback_code": 0,
+    "same_original_chat": true,
+    "message_type": "text",
+    "create_time_unix_ms": "1792736503048",
+    "drill_marker": true,
+    "fc_problem_code": true,
+    "rpg_problem_code": true,
+    "no_business_writes_notice": true,
+    "local_result": "sent"
+  },
+  "recovery": {
+    "message_id": "om_x100b629bab84d0b0c1db6c6a3df98d4",
+    "provider_readback_code": 0,
+    "same_original_chat": true,
+    "message_type": "text",
+    "create_time_unix_ms": "1792736852687",
+    "drill_marker": true,
+    "recovery_text": true,
+    "fc_problem_code": true,
+    "rpg_problem_code": true,
+    "no_business_writes_notice": true,
+    "local_result": "sent"
+  },
+  "deduplication": {
+    "duplicate_pricing_check": "unchanged_quiet",
+    "full_check": "unchanged_quiet",
+    "check_results_evidence": "main_agent_original_accept_recovery.py_execution_output",
+    "current_outbox_independently_read": true,
+    "outbox_count": 2,
+    "both_outbox_records_state": "sent",
+    "both_message_ids_match_provider_readback": true
+  },
+  "legacy_unknown": {
+    "event": "ecc824cd838da232ee8c5e5326f3efc99ab06582245fb7266da94bd914363159",
+    "state": "unknown",
+    "checked_at": "2026-10-22T00:00:40.459863+00:00",
+    "mtime": "2026-10-22T08:00:43+08:00",
+    "message_id": null,
+    "business_body_delivery": "unresolved",
+    "failure_notice_is_not_business_body_proof": true,
+    "history_query_previously_rejected_code": 230027,
+    "history_query_repeated_in_final_acceptance": false,
+    "replayed": false,
+    "blocks_independent_new_scope": false
+  },
+  "business_writes": 0,
+  "readback_observer_message_sends": 0,
+  "readback_observer_production_modifications": 0,
+  "actual_business_failure_recovery_notification": "not_fault_injected"
+}
