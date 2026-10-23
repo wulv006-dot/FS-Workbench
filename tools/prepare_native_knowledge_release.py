@@ -136,6 +136,8 @@ def finish_candidate(root, output, preflight):
                     nativeImageSources=built['sources'], imageId=before, sourceCommit=preflight['source_commit'],
                     policyPreservedSha256=hashlib.sha256(json.dumps(preserved, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
                     files=rows, unchangedRequired=preflight['unchangedRequired'], runtimeRequired=preflight['runtimeRequired'])
+    if 'nativeProtection' in preflight:
+        manifest['nativeProtection'] = preflight['nativeProtection']
     release.checked(manifest, output)
     for name, source in {'release.py': DEPLOY / 'native_release.py',
                          'release_adapter_base.py': Path('releases/fs-dashboard/user-analytics-20261022/deploy/release.py'),

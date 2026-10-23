@@ -33,6 +33,9 @@ class Factory:
     def _execute_tool_calls(self, message, messages, task, api_call_count=0):
         self.dispatched.extend(call.function.name for call in message.tool_calls)
 
+    def run_conversation(self, user_message, system_message=None, conversation_history=None, task_id=None):
+        return task_id
+
 
 class Entry(unittest.TestCase):
     setUp = fixtures.Native.setUp
@@ -121,6 +124,22 @@ class Entry(unittest.TestCase):
         for platform in ['feishu', 'api_server', 'cli', None]:
             self.assertIn('fs_knowledge', fn([], platform))
         self.assertEqual(fn([], 'desktop'), [])
+
+    def test_desktop_task_binding_precedes_native_turn_and_rejects_spoofed_ids(self):
+        self.policy['native']['readonly_sessions'] = {self.info['session_id']: {'task_ids': ['actual-task']}}
+        self.save_policy(); agent = self.construct()
+        import inspect
+        self.assertEqual(inspect.signature(agent.run_conversation), inspect.signature(Factory.run_conversation).replace(
+            parameters=list(inspect.signature(Factory.run_conversation).parameters.values())[1:]))
+        (self.root / 'admission.lock').touch()
+        import contextlib
+        lock = types.SimpleNamespace(flock=lambda *a: None, LOCK_SH=1, LOCK_NB=4)
+        # Windows checks call binding; formal Linux CI additionally uses actual flock.
+        with patch.dict(sys.modules, {'fcntl': lock}) if sys.platform == 'win32' else contextlib.nullcontext():
+            self.assertEqual(agent.run_conversation('question'), 'actual-task')
+            self.assertEqual(agent.run_conversation('question', None, [], 'actual-task'), 'actual-task')
+            with self.assertRaises(PermissionError): agent.run_conversation('question', task_id='spoofed-task')
+            with self.assertRaises(PermissionError): agent.run_conversation('question', None, [], 'spoofed-task')
 
     def test_distinct_process_first_pin_never_overwrites(self):
         import multiprocessing

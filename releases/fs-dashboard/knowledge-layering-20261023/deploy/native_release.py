@@ -3,9 +3,11 @@ from contextlib import closing, contextmanager
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import subprocess
 
 HERE = Path(__file__).resolve().parent
@@ -32,6 +34,8 @@ def checked(manifest, stage=None):
             or manifest.get('nativeUnits') != list(UNITS)):
         raise ValueError('native_exact_scope_required')
     checked_sqlite_version(manifest.get('nativeSQLiteVersion'))
+    if manifest.get('releaseReady') is True and not all(manifest.get('nativeProtection', {}).get(k) for k in ('metadata', 'trees')):
+        raise ValueError('native_complete_protection_required')
     for key in ('nativeImageBefore', 'nativeImageAfter'):
         if not IMAGE.fullmatch(manifest.get(key, '')):
             raise ValueError('native_pinned_image_required')
@@ -55,6 +59,28 @@ def checked(manifest, stage=None):
         if hashlib.sha256(json.dumps(preserved, sort_keys=True, separators=(',', ':')).encode()).hexdigest() != manifest.get('policyPreservedSha256'):
             raise ValueError('native_policy_existing_requests_changed')
     return manifest
+
+
+def verify_protection(manifest, root):
+    """A release-time comparison, never a persistent freeze on skills or learning."""
+    protection = manifest.get('nativeProtection', {})
+    for name, expected in protection.get('metadata', {}).items():
+        info = (Path(root) / name.lstrip('/')).lstat()
+        kind = 'directory' if stat.S_ISDIR(info.st_mode) else 'file' if stat.S_ISREG(info.st_mode) else 'symlink' if stat.S_ISLNK(info.st_mode) else 'other'
+        actual = dict(kind=kind, uid=info.st_uid, gid=info.st_gid, mode=oct(stat.S_IMODE(info.st_mode)))
+        if kind == 'file': actual['nlink'] = info.st_nlink
+        if actual != expected:
+            raise ValueError('native_protected_metadata_drift:' + name)
+    for name, expected in protection.get('trees', {}).items():
+        directory = Path(root) / name.lstrip('/')
+        actual = []
+        for parent, dirs, files in os.walk(directory, followlinks=False):
+            dirs[:] = sorted(d for d in dirs if d != '__pycache__')
+            for entry in dirs + sorted(f for f in files if not f.endswith(('.pyc', '.pyo'))):
+                relative = '/' + (Path(parent) / entry).relative_to(root).as_posix()
+                if relative not in TARGETS.values(): actual.append(relative)
+        if sorted(actual) != expected:
+            raise ValueError('native_protected_tree_drift:' + name)
 
 
 def native_database(root):
@@ -205,6 +231,13 @@ def load_base():
         return validate(manifest, stage)
 
     base.validate = validate_native
+    guards = base.guards
+
+    def guards_native(manifest, root, reader_stopped=False):
+        verify_protection(manifest, root)
+        return guards(manifest, root, reader_stopped)
+
+    base.guards = guards_native
     inspect = base.inspect
 
     def inspect_native(manifest, stage, root=Path('/')):

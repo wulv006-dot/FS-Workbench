@@ -1,5 +1,6 @@
 """Constructor seam for the pinned native FS gateway, never a model-facing tool."""
 import importlib.util
+from functools import wraps
 from pathlib import Path
 
 
@@ -63,12 +64,19 @@ def construct_fs_agent(factory, **options):
             enabled = [n for n in get_all_toolsets() if n not in TOOLSET_SESSION_PLATFORMS]
         options['enabled_toolsets'] = list(dict.fromkeys([*enabled, 'fs_knowledge']))
     class BoundFSAgent(factory):
+        @wraps(factory.run_conversation)
         def run_conversation(self, *args, **kwargs):
             import fcntl
             with (knowledge.root / 'admission.lock').open('rb') as gate:
                 fcntl.flock(gate.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
                 if test:
-                    verify(self)
+                    import inspect
+                    call = inspect.signature(super().run_conversation).bind(*args, **kwargs)
+                    task = call.arguments.get('task_id') or pin['readonly']['task_ids'][0]
+                    verify(self, task)
+                    # Desktop otherwise mints a UUID after this boundary, losing the approved task identity.
+                    call.arguments['task_id'] = task
+                    return super().run_conversation(*call.args, **call.kwargs)
                 return super().run_conversation(*args, **kwargs)
 
         def _execute_tool_calls(self, assistant_message, messages, effective_task_id, api_call_count=0):

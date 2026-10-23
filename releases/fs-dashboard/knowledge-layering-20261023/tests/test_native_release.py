@@ -5,6 +5,7 @@ import json
 import multiprocessing
 from pathlib import Path
 import sqlite3
+import stat
 import tempfile
 import types
 import unittest
@@ -42,6 +43,10 @@ class NativeRelease(unittest.TestCase):
                              nativeImageSources={'/opt/hermes/tui_gateway/server.py': 'c' * 64, '/opt/hermes/fs_native_entry.py': 'd' * 64},
                              policyPreservedSha256=hashlib.sha256(json.dumps(preserved, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
                              files=[])
+        protected = self.root / 'protected-static'; protected.mkdir()
+        info = protected.stat()
+        self.manifest['nativeProtection'] = dict(metadata={'/protected-static': dict(kind='directory',
+            uid=info.st_uid, gid=info.st_gid, mode=oct(stat.S_IMODE(info.st_mode)))}, trees={'/protected-static': []})
         for name, target in native.TARGETS.items():
             data = (self.unit_before.replace(self.before.encode(), self.after.encode()) if name.startswith('native/') else
                     json.dumps(self.policy).encode() if name.startswith('policy/') else
@@ -62,6 +67,20 @@ class NativeRelease(unittest.TestCase):
         return types.SimpleNamespace(HermesAdmissionFence=Fence, no_target_link=lambda p: None,
             restart_for=Mock(side_effect=AssertionError('business restart must never be used')),
             rollback_journal=Mock(), journal_write=Mock(), rooted=lambda root, target: root / target.lstrip('/'))
+
+    def test_new_or_deleted_skill_paths_cannot_pass_a_release_snapshot(self):
+        native.verify_protection(self.manifest, self.root)
+        skill = self.root / 'protected-static' / 'new-skill'; skill.mkdir()
+        with self.assertRaisesRegex(ValueError, 'tree_drift'): native.verify_protection(self.manifest, self.root)
+        skill.rmdir(); native.verify_protection(self.manifest, self.root)
+        self.manifest['nativeProtection']['trees']['/protected-static'] = ['/protected-static/missing']
+        with self.assertRaisesRegex(ValueError, 'tree_drift'): native.verify_protection(self.manifest, self.root)
+
+    def test_metadata_or_missing_production_snapshot_denies_release(self):
+        self.manifest['nativeProtection']['metadata']['/protected-static']['uid'] += 1
+        with self.assertRaisesRegex(ValueError, 'metadata_drift'): native.verify_protection(self.manifest, self.root)
+        self.manifest.update(releaseReady=True, nativeProtection={})
+        with self.assertRaisesRegex(ValueError, 'complete_protection'): native.checked(self.manifest)
 
     def test_exact_native_scope_and_only_unit_image_substitution(self):
         native.checked(self.manifest, self.root)
