@@ -1,0 +1,14 @@
+{
+  "job_id": "0018aa8c8439",
+  "timezone": "UTC",
+  "display_timezone": "Asia/Shanghai",
+  "expected": {
+    "schedule_expr": "0 0,15,18,21 * * *",
+    "no_agent": true,
+    "script": "/profile/scripts/fs-ops-watchdog/watch.py"
+  },
+  "updates": {
+    "name": "FS业务巡检（北京时间08/13/18/23/03/07）",
+    "schedule": "0 0,5,10,15,19,23 * * *"
+  }
+}
