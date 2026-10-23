@@ -108,7 +108,9 @@ def tick_windows(store, now):
             old = min(complete, key=lambda j: json.loads(j['body']).get('captured_at', ''))
             yield site, old['start'], old['end'], 'historical_refund_reconciliation'
             first = min(stamp(j['start']) for j in complete)
-            yield site, (first - timedelta(days=1)).isoformat(), first.isoformat(), 'historical_backfill'
+            floor = stamp(store.config.get('history_backfill_start','1970-01-01'))
+            if first > floor:
+                yield site, max(floor,first-timedelta(days=1)).isoformat(), first.isoformat(), 'historical_backfill'
 
 
 def main():

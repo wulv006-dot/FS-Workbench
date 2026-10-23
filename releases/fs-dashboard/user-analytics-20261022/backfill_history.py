@@ -15,14 +15,14 @@ from user_runtime import load_store
 from user_source import shared_sync
 
 
-def months(now):
+def months(now, floor):
+    floor = stamp(floor)
     end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    while end.year >= 1970:
+    while end > floor:
         start = end.replace(day=1)
         if start == end:
             start = (start-timedelta(days=1)).replace(day=1)
-        if start.year < 1970:
-            break
+        start = max(start,floor)
         yield start, end
         end = start
 
@@ -54,14 +54,17 @@ def source_count(site, start, end):
 
 def run():
     store = load_store(); today = datetime.now(TZ).replace(hour=0,minute=0,second=0,microsecond=0)
+    floor = stamp(store.config['history_backfill_start'])
+    if floor.time() != datetime.min.time() or floor >= today:
+        raise ValueError('closed_day_history_start_required')
     progress = store.root/'history-backfill.json'
     inventory_path = store.root/'history-full-inventory.json'
     inventory = json.loads(inventory_path.read_text('utf-8')) if inventory_path.exists() else {}
     completed = source_rows = 0
     def save(status, **extra):
-        atomic(progress,dict(status=status,completed_windows=completed,source_rows=source_rows,at=datetime.now(TZ).isoformat(),**extra))
+        atomic(progress,dict(status=status,target_start=floor.isoformat(),target_end_exclusive=today.isoformat(),completed_windows=completed,source_rows=source_rows,at=datetime.now(TZ).isoformat(),**extra))
     for site in store.config['sites']:
-        for start,end in months(today):
+        for start,end in months(today,floor.isoformat()):
             key = site+':'+start.isoformat()+':'+end.isoformat()
             while key not in inventory:
                 # Give the existing 03/18/33/48 job its original opportunity to run.
@@ -93,10 +96,10 @@ def run():
                 save('running',start=begin.isoformat(),end_exclusive=stop.isoformat())
                 print(json.dumps(dict(site=site,start=begin.isoformat(),end_exclusive=stop.isoformat(),data_version=store.revision(),source_rows=sum(r['source_rows'] for r in receipts))),flush=True)
                 stop=begin;time.sleep(.5)
-    first = '1970-01-01T00:00:00+08:00'
+    first = floor.isoformat()
     if not covered(store.coverage(),list(store.config['sites']),stamp(first),today):
-        raise ValueError('full_history_coverage_gap')
-    atomic(store.root/'history-origin.json',dict(contract='fs-users-available-source-history-v1',start=first,end_exclusive=today.isoformat(),sites=sorted(store.config['sites']),inventory_sha256=digest(inventory),data_version=store.revision()))
+        raise ValueError('bounded_history_coverage_gap')
+    atomic(store.root/'history-coverage.json',dict(contract='fs-users-bounded-history-v1',start=first,end_exclusive=today.isoformat(),sites=sorted(store.config['sites']),inventory_sha256=digest(inventory),data_version=store.revision()))
     save('complete',start=first,end_exclusive=today.isoformat())
 
 

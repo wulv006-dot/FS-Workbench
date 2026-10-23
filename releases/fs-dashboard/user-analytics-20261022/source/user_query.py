@@ -48,8 +48,10 @@ class Service:
         global_query = dict(query, scope='global', scope_id='', policy_version=config.get('global_policy_version', 'common-v1'))
         global_allowed = self.authorizer(user, global_query, False) is True
         proof_path = self.store.root/'history-origin.json'
+        bounded_path = self.store.root/'history-coverage.json'
         cache_key = digest([query, config, self.store.revision(), self.store.job_health(), user, global_allowed,
-                            proof_path.read_text('utf-8') if proof_path.is_file() else None])
+                            proof_path.read_text('utf-8') if proof_path.is_file() else None,
+                            bounded_path.read_text('utf-8') if bounded_path.is_file() else None])
         with self.cache_lock:
             if cache_key in self.cache:
                 self.cache.move_to_end(cache_key)
@@ -108,7 +110,16 @@ class Service:
         if progress.is_file():
             # Purpose-specific aggregate receipt only; never expose raw source diagnostics.
             receipt = json.loads(progress.read_text('utf-8'))
-            result['coverage']['backfill'] = {key: receipt[key] for key in ('status', 'start', 'end_exclusive', 'completed_windows', 'source_rows', 'at') if key in receipt}
+            result['coverage']['backfill'] = {key: receipt[key] for key in ('status', 'start', 'end_exclusive', 'target_start','target_end_exclusive','completed_windows', 'source_rows', 'at') if key in receipt}
+        result['coverage']['backfill_target_start'] = config.get('history_backfill_start')
+        if bounded_path.is_file():
+            bounded = json.loads(bounded_path.read_text('utf-8'))
+            if (bounded.get('contract') != 'fs-users-bounded-history-v1' or bounded.get('sites') != sorted(config['sites'])
+                    or bounded.get('start') != config.get('history_backfill_start')
+                    or bounded.get('inventory_sha256') != digest(json.loads((self.store.root/'history-full-inventory.json').read_text('utf-8')))
+                    or not covered(jobs,list(config['sites']),stamp(bounded['start']),stamp(bounded['end_exclusive']))):
+                raise ValueError('bounded_history_proof_mismatch')
+            result['coverage']['history_window'] = dict(start=bounded['start'],end_exclusive=bounded['end_exclusive'],complete=True,earlier_history_included=False)
         aggregate_only(result)
         frozen = self.store.save_snapshot(query, result, private)
         with self.cache_lock:
@@ -152,15 +163,16 @@ class Service:
             previous = stamp(scoped[index-1]['paid_at']) if index else None
             gap = (paid.date()-previous.date()).days if previous else None
             kind = 'first_purchase' if not index else 'lost_return' if gap >= points[1] else 'silent_wakeup' if gap >= points[0] else 'repeat_purchase'
-            timeline.append(dict(at=paid.isoformat(), kind=kind, stage='recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None))
+            observed = stamp(private['records'][cid]['earliest_observed_at']).date()
+            timeline.append(dict(at=paid.isoformat(), kind=kind, stage='recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None,days_from_observed_first=(paid.date()-observed).days))
             for threshold, stage_name in zip(points, ('silent','lost','long_lost')):
                 at = datetime.combine(paid.date()+timedelta(days=threshold), datetime.min.time(), TZ)
                 through = min(at, stamp(public['coverage'].get('state_data_through',query['as_of'])))
                 if at < following and at < stamp(query['as_of']) and covered(jobs, public['coverage']['sites'], paid, through):
-                    timeline.append(dict(at=at.isoformat(),kind='enter',stage=stage_name,days_from_d0=(at.date()-stamp(first).date()).days if first else None))
+                    timeline.append(dict(at=at.isoformat(),kind='enter',stage=stage_name,days_from_d0=(at.date()-stamp(first).date()).days if first else None,days_from_observed_first=(at.date()-observed).days))
         return dict(snapshot_id=public['snapshot_id'], customer=private['records'][cid], timeline=timeline,
                     email=self.store.email(cid), orders=orders,
-                    note='按当前已知状态冻结的历史；金额为整单关联金额，不跨项目分摊。')
+                    note='时间线从已覆盖最早购买记为观察D0；更早历史未齐时不代表真实首购。按当前已知状态冻结，金额为整单关联金额，不跨项目分摊。')
 
     def members(self, args, user):
         if set(args) - {'snapshot_id', 'group', 'cursor', 'limit'} or not {'snapshot_id', 'group'} <= set(args):
