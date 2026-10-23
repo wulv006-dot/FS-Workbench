@@ -1,0 +1,368 @@
+{
+  "status": "passed",
+  "at": "2026-10-23T10:49:05.880187+08:00",
+  "targets": 10,
+  "guards": 103,
+  "independent_raw_email": [
+    {
+      "snapshot_id": "us_e359459ad356493a81dab4eb0381ef39",
+      "data_version": "227",
+      "query": {
+        "H": 7,
+        "as_of": "2026-10-23T00:00:00+08:00",
+        "end_exclusive": "2026-10-23T00:00:00+08:00",
+        "policy_mode": "per_project",
+        "policy_version": "common-v1",
+        "scope": "global",
+        "scope_id": "",
+        "start": "2026-07-01T00:00:00+08:00",
+        "state_basis": "period_cohort",
+        "view": "summary"
+      },
+      "customers": 43036,
+      "stages": {
+        "waiting": 7923,
+        "recent": 9394,
+        "silent": 6869,
+        "lost": 10302,
+        "long_lost": 8548,
+        "unverified": 0
+      },
+      "customer_types": {
+        "new": 24490,
+        "old": 18462,
+        "unknown": 84
+      },
+      "repeat_customers": 21631,
+      "repeat_rate": {
+        "basis": "at_least_two_distinct_valid_orders_within_selected_period",
+        "denominator": 43036,
+        "numerator": 21631,
+        "rate": 0.5026257087089878,
+        "status": "available"
+      },
+      "mature_cohort": {
+        "H": 7,
+        "basis": "first_valid_purchase_in_selected_period; includes ES-new and ES-old customers",
+        "coverage_gap": 0,
+        "denominator": 40891,
+        "first_unverified": 0,
+        "numerator": 14797,
+        "observing": 2145,
+        "rate": 0.36186446895404856,
+        "status": "available"
+      },
+      "source_version": "afcadf0b9c8effe5bcde2ead9002b429b04c4dba8858c78301fba547756637f9"
+    },
+    {
+      "snapshot_id": "us_d1eb6fa2c8f344e0d3f5ebc4dfb6557e",
+      "data_version": "227",
+      "query": {
+        "H": 7,
+        "as_of": "2026-10-23T00:00:00+08:00",
+        "end_exclusive": "2026-10-23T00:00:00+08:00",
+        "policy_mode": "per_project",
+        "policy_version": "common-v1",
+        "scope": "global",
+        "scope_id": "",
+        "start": "2026-10-01T00:00:00+08:00",
+        "state_basis": "period_cohort",
+        "view": "summary"
+      },
+      "customers": 13508,
+      "stages": {
+        "waiting": 8124,
+        "recent": 5384,
+        "silent": 0,
+        "lost": 0,
+        "long_lost": 0,
+        "unverified": 0
+      },
+      "customer_types": {
+        "new": 6464,
+        "old": 7036,
+        "unknown": 8
+      },
+      "repeat_customers": 5384,
+      "repeat_rate": {
+        "basis": "at_least_two_distinct_valid_orders_within_selected_period",
+        "denominator": 13508,
+        "numerator": 5384,
+        "rate": 0.3985786200769914,
+        "status": "available"
+      },
+      "mature_cohort": {
+        "H": 7,
+        "basis": "first_valid_purchase_in_selected_period; includes ES-new and ES-old customers",
+        "coverage_gap": 0,
+        "denominator": 10779,
+        "first_unverified": 0,
+        "numerator": 3876,
+        "observing": 2729,
+        "rate": 0.3595880879487893,
+        "status": "available"
+      },
+      "source_version": "baa611cc392a89858dc68d684d71240a00346127f59e131e29d9fa07744c8641"
+    },
+    {
+      "snapshot_id": "us_2460db58106444b68ab873116c2562d2",
+      "data_version": "227",
+      "query": {
+        "H": 7,
+        "as_of": "2026-10-23T00:00:00+08:00",
+        "end_exclusive": "2026-10-23T00:00:00+08:00",
+        "policy_mode": "per_project",
+        "policy_version": "fc-v1",
+        "scope": "project",
+        "scope_id": "1327",
+        "start": "2026-07-01T00:00:00+08:00",
+        "state_basis": "period_cohort",
+        "view": "summary"
+      },
+      "customers": 9888,
+      "stages": {
+        "waiting": 2409,
+        "recent": 1952,
+        "silent": 4479,
+        "lost": 1048,
+        "long_lost": 0,
+        "unverified": 0
+      },
+      "customer_types": {
+        "new": 6801,
+        "old": 3054,
+        "unknown": 33
+      },
+      "repeat_customers": 3248,
+      "repeat_rate": {
+        "basis": "at_least_two_distinct_valid_orders_within_selected_period",
+        "denominator": 9888,
+        "numerator": 3248,
+        "rate": 0.3284789644012945,
+        "status": "available"
+      },
+      "mature_cohort": {
+        "H": 7,
+        "basis": "first_valid_purchase_in_selected_period; includes ES-new and ES-old customers",
+        "coverage_gap": 0,
+        "denominator": 8592,
+        "first_unverified": 0,
+        "numerator": 2140,
+        "observing": 1296,
+        "rate": 0.24906890130353818,
+        "status": "available"
+      },
+      "source_version": "afcadf0b9c8effe5bcde2ead9002b429b04c4dba8858c78301fba547756637f9"
+    },
+    {
+      "snapshot_id": "us_abf23d490781573733b22908c2a3f11d",
+      "data_version": "227",
+      "query": {
+        "H": 7,
+        "as_of": "2026-10-23T00:00:00+08:00",
+        "end_exclusive": "2026-10-23T00:00:00+08:00",
+        "policy_mode": "per_project",
+        "policy_version": "common-v1",
+        "scope": "project",
+        "scope_id": "1329",
+        "start": "2026-07-01T00:00:00+08:00",
+        "state_basis": "period_cohort",
+        "view": "summary"
+      },
+      "customers": 712,
+      "stages": {
+        "waiting": 154,
+        "recent": 49,
+        "silent": 509,
+        "lost": 0,
+        "long_lost": 0,
+        "unverified": 0
+      },
+      "customer_types": {
+        "new": 452,
+        "old": 260,
+        "unknown": 0
+      },
+      "repeat_customers": 92,
+      "repeat_rate": {
+        "basis": "at_least_two_distinct_valid_orders_within_selected_period",
+        "denominator": 712,
+        "numerator": 92,
+        "rate": 0.12921348314606743,
+        "status": "available"
+      },
+      "mature_cohort": {
+        "H": 7,
+        "basis": "first_valid_purchase_in_selected_period; includes ES-new and ES-old customers",
+        "coverage_gap": 0,
+        "denominator": 666,
+        "first_unverified": 0,
+        "numerator": 48,
+        "observing": 46,
+        "rate": 0.07207207207207207,
+        "status": "available"
+      },
+      "source_version": "afcadf0b9c8effe5bcde2ead9002b429b04c4dba8858c78301fba547756637f9"
+    }
+  ],
+  "filtered_export_count": 1826,
+  "detail_events": 10,
+  "tool_characters": 17355,
+  "ordinary": [
+    200,
+    403
+  ],
+  "anonymous": 401,
+  "january_backfill": "awaiting_explicit_user_acceptance_not_started",
+  "es_enrichment": {
+    "operation_id": "period-es-enrichment-20261023-v1",
+    "started_at": "2026-10-23T10:08:59.594458+08:00",
+    "status": "complete",
+    "completed": [
+      {
+        "query": {
+          "profile": "ALL",
+          "start": "2026-07-01",
+          "end": "2026-07-31",
+          "group_by": "new_customer",
+          "status": "all"
+        },
+        "rows": 55145,
+        "hashes": [
+          "348856415afd08205a98695a317802e3fa5e221ce4ba3931ca682abf47ddbb68"
+        ],
+        "captured_at": "2026-10-23T02:09:06.464608+00:00"
+      },
+      {
+        "query": {
+          "profile": "ALL",
+          "start": "2026-08-01",
+          "end": "2026-08-31",
+          "group_by": "new_customer",
+          "status": "all"
+        },
+        "rows": 30564,
+        "hashes": [
+          "b03282cbdd70406457a5646dbfd5fc4a84a5eaaaddc0894691c92f3b356215f3"
+        ],
+        "captured_at": "2026-10-23T02:09:25.164952+00:00"
+      },
+      {
+        "query": {
+          "profile": "ALL",
+          "start": "2026-09-01",
+          "end": "2026-09-30",
+          "group_by": "new_customer",
+          "status": "all"
+        },
+        "rows": 33284,
+        "hashes": [
+          "a8cc8b0611541e4acc9218eea09dbd3884fe33a4052afcdddfaef236a733320c"
+        ],
+        "captured_at": "2026-10-23T02:09:39.051885+00:00"
+      },
+      {
+        "query": {
+          "profile": "ALL",
+          "start": "2026-10-01",
+          "end": "2026-10-22",
+          "group_by": "new_customer",
+          "status": "all"
+        },
+        "rows": 30024,
+        "hashes": [
+          "b7a5e4561131586bb0dd91d2f6b48c876da726410121b5b721043110179daf48"
+        ],
+        "captured_at": "2026-10-23T02:09:52.806272+00:00"
+      }
+    ],
+    "query": {
+      "profile": "ALL",
+      "start": "2026-10-01",
+      "end": "2026-10-22",
+      "group_by": "new_customer",
+      "status": "all"
+    },
+    "phase": "original_export_or_poll",
+    "last_status": "available",
+    "reason": null,
+    "finished_at": "2026-10-23T10:10:02.117984+08:00"
+  },
+  "code_publication": {
+    "pr": 384,
+    "source_commit": "c64f781d9e789f9ff629c8b38db57bfc9016bec4",
+    "source_tree": "0c65f9f4e667b78ea695fafdefbcd6e527b1f563",
+    "merge_commit": "a4580dd27d99dd03652a08ffb5740e9209a6de64",
+    "formal_ci_run": 39890773896,
+    "release_id": "nav-20261023T024225Z",
+    "manifest_sha256": "920a3a209053ad5ec954788d5cde276c451ed57959301e88d534f4c3b91f753e",
+    "package_sha256": "16629d041f622aca2df47a441b8db56ebcd2af67b06599b7d779d97c3fbfe61f",
+    "targets": 10,
+    "protected": 103
+  },
+  "isolated_linux_tests": 85,
+  "qa_sha256": "488b337d1fbdfe661e8e91299a80c923256bc3a2cba7b8d507b7387c266cbe28",
+  "native_session": {
+    "snapshot_id": "us_e359459ad356493a81dab4eb0381ef39",
+    "phase": "completed",
+    "started_at": 1792723895.9932923,
+    "runtime_session_id": "e9fb99f3",
+    "stored_session_id": "20261023_025135_55d886",
+    "accepted_status": "streaming",
+    "native_tool_acceptance": "passed",
+    "purchasers": 43036,
+    "completed_at": 1792723917.4003575
+  },
+  "research": {
+    "turn_id": "bf3e9a0abb954d098bf194a3f72adca1",
+    "run_id": "run_3135fa4c76b0441aa18d5c6e988ee7bd",
+    "state": "completed",
+    "artifacts": [
+      {
+        "artifact_id": "971c6dbaa3f14726a2e1b2ffe0a88fdc",
+        "filename": "hermes-original.txt",
+        "mime": "text/plain",
+        "sha256": "4b04afcc3577516b7e7392510c724902ed41071469e00289930cb931edeb6300",
+        "size": 4600
+      }
+    ]
+  },
+  "clarity_correction": {
+    "turn_id": "6ed2eca118004969bdaf7daf67109632",
+    "run_id": "run_f905c9ed6181459497ca7fb10b3c7acd",
+    "state": "completed",
+    "artifacts": [
+      {
+        "artifact_id": "c462a37f0f73478e8e1a5218e8b9f74d",
+        "filename": "hermes-original.txt",
+        "mime": "text/plain",
+        "sha256": "e7ba0e9e3826a405f00e138d4d6852b722a420db489ee9ffbb089942723a3026",
+        "size": 892
+      }
+    ]
+  },
+  "original_timer": {
+    "unit": "Result=success\nExecMainStartTimestamp=Fri 2026-10-23 10:48:20 CST\nExecMainExitTimestamp=Fri 2026-10-23 10:49:11 CST\nExecMainStatus=0\n",
+    "customer_type_status": {
+      "end": "2026-10-22",
+      "sourceVersion": "baa611cc392a89858dc68d684d71240a00346127f59e131e29d9fa07744c8641",
+      "start": "2026-10-01",
+      "status": "reused"
+    },
+    "jobs_before_floor": 0
+  },
+  "browser": {
+    "date_inputs": [
+      "start"
+    ],
+    "end_readonly": "2026-10-22",
+    "selected_start": "2026-07-01",
+    "filtered_group": "silent + repeated + ES old",
+    "filtered_count": 1826,
+    "detail_period_d0": true,
+    "screenshots_local_only": [
+      "evidence-live/users-period-start-20261023.png",
+      "evidence-live/users-period-repeat-stages-20261023.png"
+    ]
+  }
+}
