@@ -1,6 +1,7 @@
 {
   "scope_version": "connected-sites-v2",
   "identity_version": "exact-primary-email-v1",
+  "history_backfill_start": "2026-07-01T00:00:00+08:00",
   "full_company_coverage": false,
   "sites": {
     "266": {

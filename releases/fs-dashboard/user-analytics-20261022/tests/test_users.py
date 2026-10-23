@@ -105,11 +105,36 @@ class Users(unittest.TestCase):
         import importlib.util
         spec=importlib.util.spec_from_file_location('users_backfill_fixture',BASE/'backfill_history.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-        windows=list(module.months(stamp('1970-03-14T12:00:00')))
+        windows=list(module.months(stamp('1970-03-14T12:00:00'),'1970-01-01'))
         self.assertEqual(len(windows),3)
         self.assertEqual(windows[-1][0],stamp('1970-01-01'))
         self.assertTrue(all((b-a).days<=31 and a<b for a,b in windows))
-        self.assertEqual(list(module.months(stamp('1970-01-01'))),[])
+        self.assertEqual(list(module.months(stamp('1970-01-01'),'1970-01-01')),[])
+        windows=list(module.months(NOW,'2026-07-01'))
+        self.assertEqual(windows[-1][0],stamp('2026-07-01'))
+        self.assertEqual(len(windows),4)
+
+    def test_backfill_stops_at_user_bound_and_keeps_original_daily_work(self):
+        from user_jobs import tick_windows
+        self.load([order(1,'2026-07-01')],start='2026-07-01')
+        reasons=[reason for _,_,_,reason in tick_windows(self.store,NOW)]
+        self.assertNotIn('historical_backfill',reasons)
+        self.assertEqual(reasons,['today_overlap','yesterday_reconciliation','historical_refund_reconciliation'])
+
+    def test_bounded_coverage_is_not_proof_of_real_d0(self):
+        from user_contract import digest
+        self.load([order(1,'2026-07-01')],start='2026-07-01')
+        inventory={'fixture':1};(self.store.root/'history-full-inventory.json').write_text(json.dumps(inventory))
+        proof=dict(contract='fs-users-bounded-history-v1',start='2026-07-01T00:00:00+08:00',end_exclusive='2026-10-22T00:00:00+08:00',sites=['266'],inventory_sha256=digest(inventory))
+        (self.store.root/'history-coverage.json').write_text(json.dumps(proof))
+        result=self.query(start='2026-07-01')
+        self.assertTrue(result['coverage']['history_window']['complete'])
+        self.assertIsNone(result['coverage']['historical_origin'])
+        self.assertEqual(result['metrics']['first_purchasers']['status'],'insufficient_history')
+        row=self.service.members(dict(snapshot_id=result['snapshot_id'],group='known_pool'),'admin')['rows'][0]
+        detail=self.service.detail(dict(snapshot_id=result['snapshot_id'],customer_id=row['customer_id']),'admin')
+        self.assertEqual(detail['timeline'][0]['days_from_observed_first'],0)
+        self.assertIsNone(detail['timeline'][0]['days_from_d0'])
 
     def test_verified_legacy_complaint_status_keeps_payment_projection(self):
         paid=order(1,'2026-09-12');paid['status']='53'
