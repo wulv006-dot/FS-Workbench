@@ -1,0 +1,181 @@
+{
+  "observed_at": "2026-10-23T12:48:22+0800",
+  "source_task_id": "3b3f3b338ab5",
+  "source_task_started_at": "2026-10-23T12:15:57+08:00",
+  "collection_status": "done",
+  "jobs": [
+    {
+      "id": "J20261023123249",
+      "title": "物品改价 11 件",
+      "status": "done",
+      "kind": "write",
+      "ts": "2026-10-23T12:32:49",
+      "started_at": "2026-10-23T12:32:54",
+      "finished_at": "2026-10-23T12:42:03",
+      "attempts": 1,
+      "result_sha256": "918bfa4c7201613a3b6dae833f5d3f99d643e8d32ecb381fea25ea272c19c27f",
+      "result": {
+        "operation_id": "J20261023123249",
+        "original_job_id": "J20261023123249",
+        "ok": 11,
+        "fail": 0,
+        "noop": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true,
+        "write_state": "confirmed",
+        "write_attempts": 11,
+        "publication_status": "backend_complete",
+        "mismatch_count": 0,
+        "target_count": 11,
+        "sync_price": {
+          "ok": null,
+          "getweb": null,
+          "allserver": null
+        },
+        "log_price": {
+          "ok": null,
+          "getweb": null,
+          "allserver": null
+        }
+      },
+      "phase": {
+        "job_id": "J20261023123249",
+        "write_attempts": 11,
+        "finished": true
+      }
+    },
+    {
+      "id": "J20261023123249-1",
+      "title": "金币改价 AION2 · 56 个服务区",
+      "status": "done",
+      "kind": "writegold",
+      "ts": "2026-10-23T12:32:49",
+      "started_at": "2026-10-23T12:42:04",
+      "finished_at": "2026-10-23T12:46:19",
+      "attempts": 1,
+      "result_sha256": "e5b11eef710de5553d7746636394200765633eed85c936ae8ac40a22085e77e6",
+      "result": {
+        "operation_id": "J20261023123249-1",
+        "original_job_id": "J20261023123249-1",
+        "ok": 56,
+        "fail": 0,
+        "noop": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true,
+        "write_state": "confirmed",
+        "write_attempts": 56,
+        "publication_status": "backend_complete",
+        "mismatch_count": 0,
+        "target_count": 56,
+        "sync_price": {
+          "ok": true,
+          "getweb": "1",
+          "allserver": false
+        },
+        "log_price": {
+          "ok": true,
+          "getweb": "0",
+          "allserver": false
+        }
+      },
+      "phase": {
+        "job_id": "J20261023123249-1",
+        "write_attempts": 56,
+        "finished": true
+      }
+    },
+    {
+      "id": "J20261023123249-2",
+      "title": "金币改价 ARC Raiders · 3 个服务区",
+      "status": "done",
+      "kind": "writegold",
+      "ts": "2026-10-23T12:32:49",
+      "started_at": "2026-10-23T12:46:20",
+      "finished_at": "2026-10-23T12:46:30",
+      "attempts": 1,
+      "result_sha256": "143d01ae630fdf6d6347de37518a6fdd01d1b09b88cc47ef3247bf4d0b5627f0",
+      "result": {
+        "operation_id": "J20261023123249-2",
+        "original_job_id": "J20261023123249-2",
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_wanted": false,
+        "clearcache_ok": null,
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "publication_status": "backend_complete",
+        "mismatch_count": 0,
+        "target_count": 3,
+        "sync_price": {
+          "ok": null,
+          "getweb": null,
+          "allserver": null
+        },
+        "log_price": {
+          "ok": null,
+          "getweb": null,
+          "allserver": null
+        }
+      },
+      "phase": {
+        "job_id": "J20261023123249-2",
+        "write_attempts": 0,
+        "finished": true
+      }
+    },
+    {
+      "id": "J20261023123249-3",
+      "title": "金币改价 暗黑破坏神4 · 4 个服务区",
+      "status": "done",
+      "kind": "writegold",
+      "ts": "2026-10-23T12:32:49",
+      "started_at": "2026-10-23T12:46:31",
+      "finished_at": "2026-10-23T12:47:17",
+      "attempts": 1,
+      "result_sha256": "9e69c115bddca33e55a27c1f5ce7fbf89e8538adebdf0b7d59816a068661fbc5",
+      "result": {
+        "operation_id": "J20261023123249-3",
+        "original_job_id": "J20261023123249-3",
+        "ok": 1,
+        "fail": 0,
+        "noop": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true,
+        "write_state": "confirmed",
+        "write_attempts": 1,
+        "publication_status": "backend_complete",
+        "mismatch_count": 0,
+        "target_count": 1,
+        "sync_price": {
+          "ok": true,
+          "getweb": "1",
+          "allserver": false
+        },
+        "log_price": {
+          "ok": true,
+          "getweb": "0",
+          "allserver": false
+        }
+      },
+      "phase": {
+        "job_id": "J20261023123249-3",
+        "write_attempts": 1,
+        "finished": true
+      }
+    }
+  ],
+  "global_sessions": {
+    "8767": {
+      "ready": true,
+      "last_error": null,
+      "login_attempts": 2
+    },
+    "8768": {
+      "ready": true,
+      "last_error": null,
+      "login_attempts": 0
+    }
+  },
+  "observer_business_writes": 0
+}

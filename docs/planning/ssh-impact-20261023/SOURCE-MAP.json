@@ -1,0 +1,48 @@
+{
+  "status": "deployed_fc_natural_pending_rpg_natural_verified",
+  "files": [
+    {
+      "source": "fc_browser_residency_20261023/source/lootbar_server_collector.py",
+      "runtime": "/opt/fc27-cloud-browser/collector/lootbar_server_collector.py",
+      "sha256": "4d19dcf18bf6705bbf6aa6590ca660a974f8e1d006b7b9bbd4bb0673f4f52103"
+    },
+    {
+      "source": "fc_browser_recovery_20261023/source/browser_lifecycle.py",
+      "runtime": "/opt/fc27-cloud-browser/browser_lifecycle.py",
+      "sha256": "915e64b3a54bc0cd2914e869793abaf0b9d92c0f3ba78eea9e9df4586702c1a1"
+    },
+    {
+      "source": "fc_browser_recovery_20261023/source/automation_tick.py",
+      "runtime": "/opt/fc27-cloud-browser/automation_tick.py",
+      "sha256": "574928b440d70963ad280b2ea497c998e55a02c341b2d2ba2b9682d8afe77f38"
+    },
+    {
+      "source": "rpg_global_admin_recovery_20261023/public_order/service.py",
+      "runtime": "/opt/fs-order-session/service.py",
+      "sha256": "e94f54cebe50cbede113ce4205ad2fe337b176438e0e864c1caa73ae90d3c88a"
+    }
+  ],
+  "checks": {
+    "fc_linux": 91,
+    "rpg_order_public": 18,
+    "formal_ci": "pending",
+    "fc_natural": "pending",
+    "rpg_natural": "verified",
+    "long_term": "not_yet_observed"
+  },
+  "rpg_source_map": "rpg_global_admin_recovery_20261023/SOURCE-MAP.json",
+  "rollback_receipts": [
+    "/opt/fs-release-stage/fc-browser-document-release-20261023/deployment.json",
+    "/var/lib/fs-order-session/browser-isolation-20261023.json"
+  ],
+  "guard_preserved": [
+    "original_120_minute_schedule",
+    "original_switches",
+    "v15_two_margin_redlines",
+    "original_writer_and_engine",
+    "original_failed_jobs",
+    "original_price_and_unknown_ledgers"
+  ],
+  "secrets_exported": false,
+  "hermes_realtime_alerts": "planned_not_enabled"
+}
