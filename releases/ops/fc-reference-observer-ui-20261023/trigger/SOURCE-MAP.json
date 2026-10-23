@@ -1,6 +1,6 @@
 {
   "module": "fc-itemd2r-observer-trigger-recovery-20261023",
-  "status": "candidate_tested_not_deployed",
+  "status": "deployed_by_coordinated_ui_release_natural_pending",
   "baseline": {
     "runtime": "/opt/fc27-price-observer/observe.py",
     "sha256": "46b75e8874ad2e5a9ce39aadc74726f96374fb8836211cc2889beb29b16a301f"
@@ -16,8 +16,8 @@
     "local_tests_passed": 11,
     "linux_tests_passed": 11,
     "linux_validation_method": "isolated TemporaryDirectory; no production modification",
-    "production_deployment": "not_executed_by_this_module",
-    "natural_cycle_acceptance": "pending_after_coordinated_release"
+    "production_deployment": "fc-reference-observer-ui-20261023-v1_2026-10-23T09:31:20Z",
+    "natural_cycle_acceptance": "pending_original_2026-10-23T19:02:26+08:00"
   },
   "integration": {
     "dependency": "/opt/fc27-cloud-browser/reference_observer_view.py:publish_view",

@@ -52,6 +52,8 @@
     "projection": "/var/lib/fc27-cloud/monitor/reference-observer.json",
     "operation": "fc-reference-observer-ui-20261023-v2",
     "state": "visible_authenticated_entry_verified",
-    "natural_trigger_acceptance": "pending_2026-10-23_19:02:26_Asia_Shanghai"
+    "natural_trigger_acceptance": "pending_2026-10-23_19:02:26_Asia_Shanghai",
+    "git_status": "PR403_open_CI_pending_merge_not_authorized",
+    "pr_url": "https://github.com/wulv006-dot/FS-Workbench/pull/403"
   }
 }
