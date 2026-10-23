@@ -92,6 +92,25 @@ class NativeRelease(unittest.TestCase):
         plugin = self.root / 'candidate/plugin/__init__.py'; plugin.write_bytes(plugin.read_bytes() + b'EXTRA=True\n')
         with self.assertRaisesRegex(ValueError, 'original_tools_source_drift'): native.checked(self.manifest, self.root)
 
+    def test_plugin_update_reuses_only_verified_constructor_and_preserves_other_three_targets(self):
+        self.manifest.update(nativePluginOnly=True,nativeImageAfter=self.before,nativeImageSources=native.PATCHED_NATIVE_SOURCES)
+        unit=self.root/'candidate/native/desktop.service';unit.write_bytes(self.unit_before)
+        for row in self.manifest['files']:
+            if row['candidate']!='plugin/knowledge.py':
+                row['sha256']=row['beforeSha256']=hashlib.sha256((self.root/'candidate'/row['candidate']).read_bytes()).hexdigest()
+            else:row['beforeSha256']='f'*64
+        native.checked(self.manifest,self.root)
+        self.manifest['nativeImageSources']=dict(native.PATCHED_NATIVE_SOURCES,**{'/opt/hermes/fs_native_entry.py':'f'*64})
+        with self.assertRaisesRegex(ValueError,'exact_existing_runtime'):native.checked(self.manifest,self.root)
+        self.manifest['nativeImageSources']=native.PATCHED_NATIVE_SOURCES
+        policy=next(r for r in self.manifest['files'] if r['candidate'].startswith('policy/'))
+        policy['beforeSha256']='f'*64
+        with self.assertRaisesRegex(ValueError,'exact_existing_runtime'):native.checked(self.manifest,self.root)
+
+    def test_unchanged_image_without_plugin_only_proof_still_refused(self):
+        self.manifest['nativeImageAfter']=self.before
+        with self.assertRaisesRegex(ValueError,'must_include_constructor_patch'):native.checked(self.manifest)
+
     def test_fc_or_additional_service_cannot_enter_scope(self):
         for field, value in [('nativeUnits', ['fs-hermes-fc.service']), ('businessWrites', True), ('timersChanged', True)]:
             changed = dict(self.manifest, **{field: value})
