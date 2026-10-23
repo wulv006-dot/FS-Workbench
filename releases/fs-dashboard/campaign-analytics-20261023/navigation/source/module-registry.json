@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "analytics",
+      "title": "全站经营看板",
+      "english": "BUSINESS OVERVIEW",
+      "description": "全局 / 球类 / ARPG · 完整图表与明细",
+      "path": "/dashboard/index.html",
+      "image": "fs-mmoexp-data-statistics.png"
+    },
+    {
+      "id": "marketing",
+      "title": "Google 运营数据",
+      "english": "GOOGLE OPERATIONS",
+      "description": "MMOEXP / RSOrder · 自然流量与广告",
+      "path": "/dashboard/marketing/",
+      "image": "fs-mmoexp-automation-workspace.png"
+    },
+    {
+      "id": "tasks",
+      "title": "项目工作任务台",
+      "english": "PROJECT TASKS",
+      "description": "项目 × 部门任务矩阵 · 接手确认与自检闸门",
+      "path": "/dashboard/tasks/",
+      "image": "fs-mmoexp-taskboard.png"
+    },
+    {
+      "id": "weekly",
+      "title": "本周周报概览",
+      "english": "WEEKLY REPORT",
+      "description": "已上线 · 查看最新发布的自然周周报",
+      "path": "/dashboard/marketing/weekly/",
+      "image": "fs-mmoexp-members-permissions.png",
+      "availability": "published-report"
+    }
+  ],
+  "tools": [
+    {
+      "id": "campaign-analytics",
+      "label": "活动转化分析",
+      "path": "/dashboard/analytics/campaigns/analytics/",
+      "icon": "◫",
+      "short": "活动漏斗、赛事追踪与商品草稿",
+      "ownerId": null,
+      "requiredGroup": "dashboard",
+      "section": "activities"
+    },
+    {
+      "id": "analytics",
+      "label": "全站经营看板",
+      "path": "/dashboard/index.html",
+      "icon": "▥",
+      "short": "保留完整统计与历史功能",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "marketing",
+      "label": "Google 运营数据",
+      "path": "/dashboard/marketing/",
+      "icon": "◎",
+      "short": "MMOEXP / RSOrder · Google 运营数据",
+      "ownerId": null,
+      "serverGuard": "existing marketing auth_request; owned by Google task",
+      "availability": "verify-published-page",
+      "probeJson": "/dashboard/marketing/data.json"
+    },
+    {
+      "id": "tasks",
+      "label": "项目工作任务台",
+      "path": "/dashboard/tasks/",
+      "icon": "☑",
+      "short": "任务下发、接手确认、自检放行",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "coins",
+      "label": "FC27 金币控制台",
+      "path": "/dashboard/fc27-coins.html",
+      "icon": "◎",
+      "short": "竞品、报价与自动化",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "ops",
+      "label": "FC27 运营看板",
+      "path": "/s/wulv/fc27-ops/",
+      "icon": "▥",
+      "short": "运营统计与分析 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify"
+    },
+    {
+      "id": "players",
+      "label": "FC27 球员维护",
+      "path": "/tools/fc27-players/",
+      "icon": "▣",
+      "short": "同步、校验与维护 · 独立门禁",
+      "ownerId": null,
+      "serverGuard": "/__fc27_verify"
+    },
+    {
+      "id": "gallery",
+      "label": "FC27 图片图库",
+      "path": "/tools/fc27-gallery/",
+      "icon": "▧",
+      "short": "检索与管理球员素材",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "mlb",
+      "label": "MLB 新卡工作台",
+      "path": "/mlb/",
+      "icon": "◇",
+      "short": "新卡上架业务工具",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "nba",
+      "label": "NBA2K 业务工具",
+      "path": "/nba2k27/",
+      "icon": "◉",
+      "short": "现有 NBA2K 工作台",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "d4",
+      "label": "RPG 游戏改价系统",
+      "path": "/d4/",
+      "icon": "♜",
+      "short": "D4 / PoE2 / Aion2 · 现有 ARPG 业务工作台",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "docs",
+      "label": "部门手册",
+      "path": "/docs/",
+      "icon": "▤",
+      "short": "现有团队文档入口",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "sites",
+      "label": "团队工具目录",
+      "path": "/s/",
+      "icon": "▦",
+      "short": "现有共享业务站点",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "deploy",
+      "label": "现有部署工作台",
+      "path": "/deploy/",
+      "icon": "↥",
+      "short": "现有发布入口 · deploy组",
+      "ownerId": null,
+      "requiredGroup": "deploy",
+      "serverGuard": "/__auth_verify_deploy"
+    },
+    {
+      "id": "release-radar",
+      "label": "游戏发布监控台",
+      "path": "/dashboard/release-radar/",
+      "icon": "📡",
+      "short": "27游戏 · 静态历史情报 · 采集待接入",
+      "ownerId": null,
+      "serverGuard": "/__auth_verify"
+    },
+    {
+      "id": "campaign-products",
+      "label": "商品编辑与预览",
+      "path": "/dashboard/analytics/campaigns/analytics/products.html",
+      "icon": "▣",
+      "short": "维护活动商品组合、保存服务器草稿并预览",
+      "requiredGroup": "dashboard",
+      "section": "activities"
+    }
+  ],
+  "pendingEntries": []
+}

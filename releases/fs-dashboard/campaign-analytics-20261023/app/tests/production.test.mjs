@@ -5,6 +5,7 @@ test('FS authenticated persistence and secret boundary',async()=>{
  const {server}=await import('../analytics/production-server.mjs');await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port+'/dashboard/analytics/campaigns/analytics/';
  try{
   const get=(route,cookie)=>original(url+route,{headers:{Cookie:cookie||''}});assert.equal((await get('api/config')).status,401);const state=await(await get('api/config','fixture-admin')).json();
+  const page=await(await get('','fixture-admin')).text();assert.doesNotMatch(page,/<option value="(?:demo|local)">|src="demo-data.js"/);assert.match(page,/<option value="live">/);assert.match(page,/<option value="test">/);
   const post=(route,body,cookie='fixture-admin',origin='http://127.0.0.1')=>original(url+route,{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)});
   assert.equal((await post('api/config',{},'fixture-viewer')).status,403);assert.equal((await post('api/config',{},'fixture-admin','https://evil.example')).status,403);
   const body={revision:state.revision,operationId:randomUUID(),registry:state.registry,layout:state.layout};assert.equal((await post('api/config',body)).status,200);assert.equal((await post('api/config',{...body,operationId:randomUUID()})).status,409);

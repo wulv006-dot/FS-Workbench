@@ -51,6 +51,7 @@ export const server=http.createServer(async(req,res)=>{
    const file=path.join(base,name);if(!fs.existsSync(file))return json(res,404,{message:'Not found'});
    type=({'.html':'text/html; charset=utf-8','.js':'text/javascript','.cjs':'text/javascript','.css':'text/css','.md':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml'})[path.extname(file)];body=fs.readFileSync(file);
    if(name.startsWith('analytics/')&&name.endsWith('.html'))body=body.toString().replace(/href="(fs-tokens|fs-ui)\.css"/g,'href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/$1.css"');
+   if(name==='analytics/index.html')body=body.replace(/<option value="(?:demo|local)">[^<]*<\/option>/g,'').replace('<script src="demo-data.js"></script>','');
   }
   res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);
  }catch(error){json(res,error.status||502,{status:'error',message:error.name==='SyntaxError'?'配置格式无效':error.message});}
