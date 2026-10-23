@@ -23,8 +23,10 @@ def identity(value):
 
 
 class NativeKnowledge:
-    def __init__(self, root='/fs'):
+    def __init__(self, root='/fs', profile_root='/profile', approved_skills_root='/approved-skills'):
         self.root = Path(root)
+        self.profile_root = Path(profile_root)
+        self.approved_skills_root = Path(approved_skills_root)
 
     def _name(self, kind, key):
         return 'knowledge/native/' + kind + '-' + catalog.digest(key) + '.json'
@@ -158,6 +160,134 @@ class NativeKnowledge:
             raise ValueError('native_knowledge_session_mismatch')
         return value
 
+    def task_selection(self, info):
+        if info.get('platform') not in ('desktop', 'tui', 'feishu'):
+            return None
+        if not info.get('owner') or not info.get('profile_name'):
+            return None
+        if info['platform'] == 'feishu' and not info.get('chat_id'):
+            return None
+        return catalog.task_selection(self.root, owner=info['owner'], project='FS',
+            channel=info['platform'], task_type='conversation', profile_name=info['profile_name'],
+            chat_id=info.get('chat_id'), thread_id=info.get('thread_id'))
+
+    def pin_task(self, info, task_key, native_task_id):
+        session = identity(info.get('session_id'))
+        identity(task_key); identity(native_task_id)
+        key = dict(session_id=session, task_key=task_key)
+        name = self._name('task', key)
+        scope = {k: info.get(k) for k in ('owner', 'platform', 'profile_name', 'chat_id', 'thread_id')}
+        with LOCK:
+            if (self.root / name).exists():
+                pin = self._read(name)
+                if pin['identity'] != key or pin['scope'] != scope or pin['native_task_id'] != native_task_id:
+                    raise ValueError('native_knowledge_task_identity_changed')
+                return pin
+            selected = self.task_selection(info)
+            if selected is None:
+                return None
+            catalog.verify_selection(selected)
+            if selected['status'] != 'available' or selected['history']:
+                raise ValueError('native_knowledge_task_selection_not_current')
+            raw = catalog.read_bound(self.root, selected['catalog'])
+            if hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() != selected['catalog_sha256']:
+                raise ValueError('native_knowledge_catalog_changed')
+            index = catalog.validate(json.loads(raw))
+            allowed_ids = selected.get('entry_ids')
+            entries = [{k: row[k] for k in ('id', 'revision', 'layer', 'status', 'modules', 'effective_at', 'source', 'supersedes')}
+                       for row in index['entries'] if row['layer'] != 'candidate'
+                       and set(row['modules']) & set(selected['modules'])
+                       and (allowed_ids is None or row['id'] in allowed_ids)]
+            skills = dict(status='not_configured', items=[], documents=[])
+            reviewed = selected.get('reviewed_skills')
+            if reviewed is not None:
+                from reviewed_skills import current_catalog, list_reviewed, read_reviewed_skill
+                if reviewed == {'source': 'approved_current'}:
+                    listing = current_catalog(self.profile_root / 'skills', self.approved_skills_root,
+                                              [m.lower() for m in selected['modules']])
+                    index_path = self.approved_skills_root / 'versions' / (str(listing['sha256']) + '.json')
+                else:
+                    if reviewed['index'] != 'knowledge/reviewed-skills.json':
+                        raise ValueError('native_reviewed_skill_index_boundary')
+                    try:
+                        catalog.read_bound(self.root, reviewed['index'])
+                    except FileNotFoundError:
+                        listing = dict(missing=True, items=[], sha256=None)
+                    else:
+                        listing = list_reviewed(self.profile_root / 'skills', self.root / reviewed['index'],
+                            [m.lower() for m in selected['modules']], expected_index_sha=reviewed['sha256'])
+                    index_path = self.root / reviewed['index']
+                skills = dict(status='unavailable' if listing.get('missing') else 'indexed', index_sha256=listing['sha256'],
+                    items=[{k: row[k] for k in ('id', 'package_sha256', 'modules', 'description', 'review_request_id')}
+                           for row in listing['items']],
+                    documents=[read_reviewed_skill(self.profile_root / 'skills', index_path,
+                        [m.lower() for m in selected['modules']], row['id'], row['package_sha256'],
+                        expected_index_sha=listing['sha256']) for row in listing['items']])
+            return self._save(name, dict(contract='fs-native-knowledge-task-v1', identity=key, scope=scope,
+                native_task_id=native_task_id, session_id=session, platform=info['platform'],
+                profile_name=info['profile_name'], catalog=selected['catalog'],
+                catalog_sha256=selected['catalog_sha256'], release=selected['release'],
+                source_commit=selected['source_commit'], modules=selected['modules'],
+                entries=entries, entry_ids=allowed_ids, selection_sha256=selected['selection_sha256'],
+                reviewed_skills=skills, readonly=None))
+
+    def active_task(self, session, native_task_id):
+        name = self._name('active', identity(session))
+        try:
+            active = self._read(name)
+        except FileNotFoundError:
+            return None
+        if (active['session_id'] != session or active['native_task_id'] != native_task_id
+                or active.get('pid') != os.getpid()):
+            raise ValueError('native_knowledge_active_task_mismatch')
+        pin = self._read(active['pin'])
+        if pin['receipt_sha256'] != active['pin_sha256'] or pin['native_task_id'] != native_task_id:
+            raise ValueError('native_knowledge_active_pin_changed')
+        return pin
+
+    def link_task_session(self, pin, session, native_task_id):
+        """Called by the native subclass after its own compaction rotates the stored session id."""
+        identity(session)
+        if native_task_id != pin['native_task_id']:
+            raise ValueError('native_knowledge_link_task_mismatch')
+        name = self._name('active', session)
+        self._save(name, dict(session_id=session, native_task_id=native_task_id, pid=os.getpid(),
+            pin=self._name('task', pin['identity']), pin_sha256=pin['receipt_sha256']))
+        return name
+
+    def unlink_task_session(self, name, pin):
+        if self._read(name)['pin_sha256'] != pin['receipt_sha256']:
+            raise ValueError('native_knowledge_active_pin_changed')
+        (self.root / name).unlink()
+
+    @contextmanager
+    def activate_task(self, info, task_key, native_task_id):
+        # The gateway reuses native task_id=session_id; this lease prevents a later turn rebinding an in-flight read.
+        parent = self.root / 'knowledge/native' / ('turn-' + catalog.digest(info['session_id']))
+        if any(p.is_symlink() for p in (parent, *parent.parents)):
+            raise ValueError('native_knowledge_path_link')
+        parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with self._receipt_lock(parent):
+            name = self._name('active', info['session_id'])
+            if (self.root / name).exists():
+                stale = self._read(name)
+                previous = self._read(stale['pin'])
+                if stale['session_id'] != info['session_id'] or previous['receipt_sha256'] != stale['pin_sha256']:
+                    raise ValueError('native_knowledge_active_pin_changed')
+                # Holding the turn lease proves this transient alias has no active reader; immutable task/use receipts stay intact.
+                self._save(self._name('retired-active', stale['receipt_sha256']), dict(previous_active=stale))
+                (self.root / name).unlink()
+            pin = self.pin_task(info, task_key, native_task_id)
+            if pin is None:
+                yield None
+                return
+            self._save(name, dict(session_id=info['session_id'], native_task_id=native_task_id, pid=os.getpid(),
+                pin=self._name('task', pin['identity']), pin_sha256=pin['receipt_sha256']))
+            try:
+                yield pin
+            finally:
+                (self.root / name).unlink()
+
     def prompt(self, info):
         # A missing/malformed session identity must not restrict ordinary unrelated chats.
         if not info.get('session_id'):
@@ -172,20 +302,36 @@ class NativeKnowledge:
             return 'FS知识加载不可用；不可声称已加载现行正式知识，保留原会话能力，勿猜版本。'
         if pin is None:
             return ''
+        return self.pin_prompt(pin)
+
+    def pin_prompt(self, pin):
         active = [{k: row[k] for k in ('id', 'revision', 'layer', 'status', 'modules', 'effective_at')}
                   for row in pin['entries'] if catalog.ACTIVE.get(row['layer']) == row['status'] or row['status'] == 'conflict']
-        header = ('FS知识短索引；会话固定已发布版本，按模块/ID调用fs_read_knowledge，冲突或缺项如实返回。'
+        scope = '本任务' if pin.get('contract') == 'fs-native-knowledge-task-v1' else '会话'
+        header = ('FS知识短索引；' + scope + '固定已发布版本，按模块/ID调用fs_read_knowledge，冲突或缺项如实返回。'
                   '候选不作规则；默认索引仅有效条目；历史查询先以history=true读索引，再以history=true及所需revision读原文，不作为当前执行约束。'
                   '路径日期不代表文件修订或生效时间；按条目revision、effective_at与time_precision陈述，未记载就说未知。'
                   '不要自报调用次数；成功、失败和重试以原生工具事件审计为准。文本不授予业务权限；索引用fs_get_knowledge_index。\n')
+        if scope == '本任务':
+            header = '本轮知识版本以此任务receipt为准，旧会话索引只代表原时点；未列出的原有能力及权限保持。' + header
         summary = dict(release=pin['release'], catalog_sha256=pin['catalog_sha256'],
                        receipt_sha256=pin['receipt_sha256'], modules=pin['modules'], entries=active, additional_entries=0)
-        while len(header + json.dumps(summary, ensure_ascii=False)) > 4000:
-            if not summary['entries']:
+        if pin.get('reviewed_skills') is not None:
+            summary['reviewed_skills'] = {k: v for k, v in pin['reviewed_skills'].items() if k != 'documents'}
+            summary['reviewed_skills'].update(items=list(pin['reviewed_skills']['items']), additional_items=0)
+            header = header.rstrip('\n') + ('已审技能目录及SKILL.md按本任务模块及包哈希冻结；'
+                       '用fs_read_knowledge传modules及skill_id按需读固定正文，原skill_view能力保持。'
+                       '目录存在不代表本轮已读正文或已成功运用；缺失目录不取消原技能能力。\n')
+        while len(header + json.dumps(summary, ensure_ascii=False, sort_keys=True)) > 4000:
+            if summary['entries']:
+                summary['entries'].pop()
+                summary['additional_entries'] += 1
+            elif summary.get('reviewed_skills', {}).get('items'):
+                summary['reviewed_skills']['items'].pop()
+                summary['reviewed_skills']['additional_items'] += 1
+            else:
                 return 'FS知识索引超过原生提示限额；使用fs_get_knowledge_index读取固定版本，不猜规则。'
-            summary['entries'].pop()
-            summary['additional_entries'] += 1
-        return header + json.dumps(summary, ensure_ascii=False)
+        return header + json.dumps(summary, ensure_ascii=False, sort_keys=True)
 
     def guard(self, tool_name='', args=None, session_id='', task_id='', **kwargs):
         if not session_id:
@@ -210,16 +356,19 @@ class NativeKnowledge:
     def call(self, name, args, session_id='', task_id='', **kwargs):
         if name not in READ_TOOLS or not isinstance(args, dict):
             raise ValueError('native_knowledge_tool_fields')
-        allowed = {'history'} if name == 'fs_get_knowledge_index' else {'modules', 'entry_ids', 'revision', 'history'}
+        allowed = {'history'} if name == 'fs_get_knowledge_index' else {'modules', 'entry_ids', 'revision', 'history', 'skill_id'}
         if set(args) - allowed:
             raise ValueError('native_knowledge_tool_fields')
         if 'history' in args and type(args['history']) is not bool:
             raise ValueError('native_knowledge_history_type')
         identity(task_id)
-        pin = self.bound(session_id)
+        pin = self.active_task(session_id, task_id) or self.bound(session_id)
         if self.guard(name, args, session_id, task_id):
             raise PermissionError('native_knowledge_test_scope')
         key = dict(session_id=session_id, task_id=task_id, tool=name, args=args)
+        if pin['contract'] == 'fs-native-knowledge-task-v1':
+            key['task_key'] = pin['identity']['task_key']
+            key['pin_sha256'] = pin['receipt_sha256']
         if name == 'fs_get_knowledge_index':
             # Keep old receipts immutable; their unfiltered index is a different response contract.
             key['index_version'] = 2
@@ -232,18 +381,46 @@ class NativeKnowledge:
                 return saved['result']
             if name == 'fs_get_knowledge_index':
                 result = {k: pin[k] for k in ('release', 'catalog_sha256', 'source_commit', 'modules', 'entries')}
+                if pin['contract'] == 'fs-native-knowledge-task-v1':
+                    result['entries'] = [{k: v for k, v in row.items() if k not in ('content', 'artifact_path')}
+                                         for row in result['entries']]
+                    result['reviewed_skills'] = {k: v for k, v in pin['reviewed_skills'].items() if k != 'documents'}
                 result['history'] = args.get('history', False)
                 result['history_available'] = any(r['layer'] == 'archive' for r in pin['entries'])
                 if not result['history']:
-                    result['entries'] = [r for r in pin['entries'] if
+                    result['entries'] = [r for r in result['entries'] if
                                          catalog.ACTIVE.get(r['layer']) == r['status'] or r['status'] == 'conflict']
                 result['status'] = 'index_only'
             else:
                 modules = args.get('modules')
                 if not isinstance(modules, list) or not modules or not all(isinstance(x, str) for x in modules) or not set(modules) <= set(pin['modules']):
                     raise ValueError('native_knowledge_module_scope')
+                if 'skill_id' in args:
+                    if (pin['contract'] != 'fs-native-knowledge-task-v1' or set(args) != {'modules', 'skill_id'}
+                            or not isinstance(args['skill_id'], str)):
+                        raise ValueError('native_knowledge_skill_scope')
+                    skills = pin['reviewed_skills']
+                    item = next((row for row in skills['items'] if row['id'] == args['skill_id']
+                                 and {m.casefold() for m in row['modules']} & {m.casefold() for m in modules}), None)
+                    if item is None:
+                        raise ValueError('native_knowledge_skill_scope')
+                    doc = next(row for row in skills['documents'] if row['id'] == item['id'])
+                    if hashlib.sha256(doc['content'].encode()).hexdigest() != doc['sha256']:
+                        raise ValueError('native_knowledge_skill_content_changed')
+                    result = dict(contract='fs-native-reviewed-skill-read-v1', status='available',
+                        modules=modules, index_sha256=skills['index_sha256'], **doc)
+                    self._save(path, dict(contract='fs-native-knowledge-use-v1', identity=key,
+                        pin_sha256=pin['receipt_sha256'], result=result))
+                    return result
+                ids = args.get('entry_ids')
+                if pin['contract'] == 'fs-native-knowledge-task-v1':
+                    permitted = {row['id'] for row in pin['entries']}
+                    if ids is not None and not set(ids) <= permitted:
+                        raise ValueError('native_knowledge_entry_scope')
+                    if ids is None:
+                        ids = pin['entry_ids']
                 result = catalog.select(self.root, pin['catalog'], pin['catalog_sha256'], modules,
-                                        args.get('entry_ids'), args.get('revision'), args.get('history', False))
+                                        ids, args.get('revision'), args.get('history', False))
             self._save(path, dict(contract='fs-native-knowledge-use-v1', identity=key,
                                  pin_sha256=pin['receipt_sha256'], result=result))
             return result
@@ -273,14 +450,16 @@ class NativeKnowledge:
 def register(ctx):
     from toolsets import TOOLSET_SESSION_PLATFORMS
     previous = TOOLSET_SESSION_PLATFORMS.get('fs_knowledge')
-    if previous is not None and set(previous) != {'desktop', 'tui'}:
+    platforms = {'desktop', 'tui', 'feishu'}
+    if previous is not None and set(previous) not in ({'desktop', 'tui'}, platforms):
         raise ValueError('native_knowledge_toolset_platform_conflict')
     # Native defaults exclude gated toolsets; other platforms also subtract them explicitly.
-    TOOLSET_SESSION_PLATFORMS['fs_knowledge'] = {'desktop', 'tui'}
+    TOOLSET_SESSION_PLATFORMS['fs_knowledge'] = platforms
     adapter = NativeKnowledge()
     ctx.register_system_prompt_section('fs.knowledge', adapter.prompt, max_chars=4000)
     ctx.register_hook('pre_tool_call', adapter.guard)
     fields = {'modules': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
+              'skill_id': {'type': 'string', 'description': 'Ordinary approved task only: read a selected reviewed skill SKILL.md frozen for this task. Combine only with modules; never available in isolated readonly tests.'},
               'entry_ids': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
               'revision': {'type': 'string', 'description': 'Exact historical revision; requires history=true. Use when an id has multiple versions.'},
               'history': {'type': 'boolean', 'description': 'Default false: current effective content. True only for an explicit historical question; archived/retired content is not a current rule.'}}

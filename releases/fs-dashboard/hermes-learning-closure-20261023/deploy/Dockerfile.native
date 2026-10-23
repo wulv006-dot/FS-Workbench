@@ -1,0 +1,5 @@
+ARG NATIVE_BASE
+FROM ${NATIVE_BASE}
+COPY fs_native_entry.py /opt/hermes/fs_native_entry.py
+COPY native_gateway_factory.py /opt/hermes/gateway/run_turn_runner.py
+COPY reviewed_skills.py /opt/hermes/reviewed_skills.py

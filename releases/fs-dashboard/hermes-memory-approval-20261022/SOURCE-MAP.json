@@ -1,0 +1,78 @@
+{
+  "at": "2026-10-23T19:11:09.207528+08:00",
+  "status": "candidate_only",
+  "production_changed": false,
+  "source_contract": "installed-contract.json fresh read-only 2026-10-23; daily before hashes confirmed prompt-daily-contract.json",
+  "files": [
+    {
+      "local": "apply_review_batch.py",
+      "sha256": "a85590d6c29143a4cc0f7d6d193479ea38c70fa4c508b728562da5504ef5e26a",
+      "source": "hermes_memory_approval_20261022/apply_review_batch.py",
+      "before_sha256": "a85590d6c29143a4cc0f7d6d193479ea38c70fa4c508b728562da5504ef5e26a"
+    },
+    {
+      "local": "AUTOMATION-PROMPT.txt",
+      "sha256": "44510c5116dfe497e98a66c732c418ecc0c6f0430e9934da6bef47762fe3b19b"
+    },
+    {
+      "local": "daily_review.py",
+      "sha256": "33c77c007b97061e13e7f530d4e550b25151b6ed11b3fcdf1c878da0bbe56c0d",
+      "source": "hermes_memory_review_20261022/daily_review.py",
+      "before_sha256": "3b9f323a67707ae540eefbe236753972f0df3a33c78a67bc5ec68e4326e62107"
+    },
+    {
+      "local": "inspect_runtime.py",
+      "sha256": "f7f207fa8f5c8ef2799142e2763c6a0fea74208c85fdf730666e7c1cb897076a",
+      "source": "hermes_memory_review_20261022/inspect_runtime.py",
+      "before_sha256": "f7f207fa8f5c8ef2799142e2763c6a0fea74208c85fdf730666e7c1cb897076a"
+    },
+    {
+      "local": "README.md",
+      "sha256": "78ee745b147bd252ad711212696fd0086ee15ace28c68886a3b8c310d2fcafd2"
+    },
+    {
+      "local": "review_queue.py",
+      "sha256": "05ee9dc2e7c936504284bdbdf91343230594365741997a4f3fbdf6c65167387c",
+      "source": "hermes_memory_approval_20261022/review_queue.py",
+      "before_sha256": "e03ced726a48added8558e153b68115b7ef2bc3a833d791b778675d27c23b2fb"
+    },
+    {
+      "local": "reviewed_skills.py",
+      "sha256": "a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660"
+    },
+    {
+      "local": "test_daily_review.py",
+      "sha256": "ebbdee6d6fb0949abde4bc6dc3d38f73e37acf96e8b944ce56c28a75481f8bc0",
+      "source": "hermes_memory_review_20261022/test_daily_review.py",
+      "before_sha256": "ee152e9c58b8ebecdb8c7d41bb95950423ece906a6459c486fb28337e3560a18"
+    },
+    {
+      "local": "test_review_queue.py",
+      "sha256": "81880a55e13320820141dc6b0fd60e557778a339322077043dcfb3875bebb92b",
+      "source": "hermes_memory_approval_20261022/test_review_queue.py",
+      "before_sha256": "a290fdea3cea88087fd4bf39b806a867e52c58143f2236b2b2960bf8686f8c3c"
+    },
+    {
+      "local": "test_reviewed_skills.py",
+      "sha256": "edc91b1d61e5ab3946d2ce506af5c698e3dfbed7b58ce74775210969f7c93ebd"
+    }
+  ],
+  "review_entry": "/opt/fs-hermes-memory-approval/review_queue.py",
+  "canonical": "/var/lib/fs-hermes-memory-approval/approved-skills.json",
+  "published_root": "/var/lib/fs-hermes-memory-approval/published-skills",
+  "native_readonly_mount": "/approved-skills",
+  "model_calls": 0,
+  "group_messages": 0,
+  "git_writes": false,
+  "profile_same_source_verified": "host /var/lib/fs-hermes-fc/profile -> native /profile RW, fresh parent readback",
+  "heartbeat_prompt": {
+    "mode": "append_skill_review_increment_preserving_original_bytes",
+    "id": "hermes",
+    "status": "ACTIVE",
+    "time": "daily06:10",
+    "target_thread": "01a163bd-b059-7e00-b261-145baf9eaae5",
+    "original_characters": 2340,
+    "original_sha256": "54681cfabec5c122fb8a6d0a56a98a94b4f550f229ce90cfef185aad67ff9edc",
+    "automation_update_calls": 0
+  }
+}

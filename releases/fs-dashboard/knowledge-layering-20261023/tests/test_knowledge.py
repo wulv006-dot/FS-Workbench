@@ -23,7 +23,7 @@ class Knowledge(unittest.TestCase):
         (self.root / 'old.md').write_text('旧日报，只解释当时。', encoding='utf-8')
         runtime = self.root / 'runtime'
         runtime.mkdir()
-        for name in ('business_context.py', 'data-archive-first.md', 'learning-loop.md'):
+        for name in ('business_context.py', 'business-baseline.md', 'data-archive-first.md', 'learning-loop.md'):
             (runtime / name).write_text('existing method retained', encoding='utf-8')
         runtime_patch = patch.object(bc, '__file__', str(runtime / 'business_context.py'))
         runtime_patch.start()
@@ -171,10 +171,12 @@ class Knowledge(unittest.TestCase):
         import ast
         source = (Path(__file__).resolve().parents[1] / 'source/controller.py').read_text(encoding='utf-8')
         old = "knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'],owner=user,experience_manifest=experiences)"
-        new = "from knowledge_catalog import report_selection\n            selection=report_selection(self.root,body)\n            " + old[:-1] + ',selection=selection)'
+        new = "from knowledge_catalog import report_selection\n            selection=report_selection(self.root,body,owner=user)\n            " + old[:-1] + ',selection=selection)'
         self.assertEqual(source.count(new), 1)
         self.assertTrue(source.endswith('\n') and not source.endswith('\n\n'))
-        original = source.replace(new, old) + '\n'
+        hook = "            if 'selection' in knowledge:\n                from conversation_service import attach_current_learning\n                attach_current_learning(book,self.root,knowledge)\n"
+        self.assertEqual(source.count(hook), 1)
+        original = source.replace(new, old).replace(hook, '') + '\n'
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(), '571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af')
         ast.parse(source, feature_version=(3, 9))
 
