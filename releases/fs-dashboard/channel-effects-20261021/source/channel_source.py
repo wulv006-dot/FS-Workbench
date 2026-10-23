@@ -81,6 +81,21 @@ def customer_types(start, end, manifests, archive):
                        files=len(hashes), orderSources={key:dict(sourceRaw=next(iter(values))[0], sourceGame=next(iter(values))[1], sourceStatus='available' if next(iter(values))[0] is not None else 'unavailable') if len(values)==1 else dict(sourceRaw=None, sourceGame='', sourceStatus='conflict') for key,values in order_sources.items()}, limitation='按该笔订单的ES字段判断；缺失、未匹配和冲突不按老客推断，不使用当前会员状态或Admin isNew。')
 
 
+def apply_current_mapping(data):
+    raw = Path(__file__).with_name('channel_mapping.json').read_bytes()
+    attribution = Attribution(json.loads(raw), [], {})
+    def project(key, previous):
+        channels = attribution.channels.get(str(key).strip().casefold(), set())
+        return next(iter(channels)) if len(channels) == 1 else previous
+    data['orders'] = [dict(row, project=project(row.get('codeKey'), row['project'])
+                           if row.get('codeKey') and not row.get('conflict') else row['project']) for row in data['orders']]
+    data['codeCatalog'] = [dict(row, project=project(row['key'], row['project'])) for row in data.get('codeCatalog', [])]
+    data['sources']['attribution'] = dict(data['sources'].get('attribution', {}),
+        mappingVersion=hashlib.sha256(raw).hexdigest(),
+        projection='当前渠道映射回溯应用于有码订单；保留原采集时间、推广人、冲突和订单站点。')
+    return data
+
+
 def apply_customer_types(data, request=False):
     """Correct old normalized caches too; never retain the mistaken Admin flag."""
     sys.path.insert(0, '/opt/fs-hermes-fc')
@@ -109,7 +124,7 @@ def apply_customer_types(data, request=False):
         row['customerType'] = index.get(hashlib.sha256(row['orderNo'].encode()).hexdigest(), '新老客未提供')
     data['sources']['orderSource'] = dict(status=info.get('status','unavailable'), source='Admin ES订单来源与实际游戏', generatedAt=info.get('generatedAt'), sourceVersion=info.get('sourceVersion'), matchedOrders=sum(r.get('sourceStatus')=='available' for r in data['orders']), limitation='按同订单身份关联；来源缺失/冲突保持未知，不当自然。广告优先视图与码/推荐人协助视图独立。')
     data['sources']['customer'] = dict(info, matchedOrders=sum(r['customerType'] in ('新客', '老客') for r in data['orders']))
-    return data
+    return apply_current_mapping(data)
 
 
 def search(filters):
