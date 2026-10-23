@@ -115,12 +115,12 @@ def reconcile_cache(unresolved, receipt):
     return unresolved
 
 
-def browser_memory():
+def browser_memory(container='fc27-cloud-browser'):
     template = ('{"id":{{json .Id}},"restart_count":{{.RestartCount}},'
                 '"started_at":{{json .State.StartedAt}},"running":{{.State.Running}},'
                 '"oom_killed":{{.State.OOMKilled}},"limit":{{.HostConfig.Memory}}}')
     value = json.loads(subprocess.check_output(
-        ['docker','inspect','--format',template,'fc27-cloud-browser'], text=True, timeout=5))
+        ['docker','inspect','--format',template,container], text=True, timeout=5))
     cid = value['id']
     if not re.fullmatch('[a-f0-9]{64}', cid):
         raise ValueError('container_identity')
@@ -128,6 +128,21 @@ def browser_memory():
     stat = dict(line.split() for line in (root/'memory.stat').read_text().splitlines())
     value.update(usage_bytes=int((root/'memory.usage_in_bytes').read_text()),
                  rss_bytes=int(stat['total_rss']), cache_bytes=int(stat['total_cache']))
+    return value
+
+
+def add_order_memory(value, memory):
+    """Track the isolated browser in the original samples; alert before its next peak."""
+    value['order_memory'] = memory
+    issues = set(value['issues'])
+    if not memory['running']:
+        issues.add('fc_pricing_order_browser_stopped')
+    if memory['oom_killed']:
+        issues.add('fc_pricing_order_browser_oom')
+    # RSS excludes reclaimable cache; reserve headroom for the measured probe/Node peak.
+    if memory['limit'] > 0 and memory['rss_bytes'] * 10 >= memory['limit'] * 7:
+        issues.add('fc_pricing_order_browser_memory_high')
+    value['issues'] = sorted(issues)
     return value
 
 
@@ -261,6 +276,11 @@ def main():
                       and (code.startswith('coin_') or code == 'business_write_unresolved')]
             value = collect(now, previous, baseline['job_ids'], raw, rpg_rows(), browser_memory(), read(CACHE_RECOVERY, {}),
                             read(Path('/var/lib/fc27-cloud/state/browser-lifecycle.json'), {}), extras)
+            try:
+                add_order_memory(value, browser_memory('fs-order-browser'))
+            except Exception as error:
+                value['order_memory'] = {'status': 'unverified', 'reason': type(error).__name__}
+                value['issues'] = sorted(set(value['issues'] + ['pricing_monitor_order_memory_unverified']))
         except Exception as error:
             value = dict(previous, exported_at=now.isoformat(),
                          issues=sorted(set(previous.get('issues', []) + ['pricing_monitor_read_failed:'+type(error).__name__])))

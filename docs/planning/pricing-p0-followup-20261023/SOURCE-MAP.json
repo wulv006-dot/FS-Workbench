@@ -76,18 +76,87 @@
   "checked_head": "f77ce4658ce46e5d0f03a3a9308befdec0b531fb",
   "merged_tree": "b4548d7a8761c7bbc94fcf7129791b5ace64f0f5",
   "restart_zero_recovery": {
-    "status": "deployed_original_natural_acceptance_pending",
+    "status": "all_authorized_repairs_deployed_fc_natural_verified_remaining_original_acceptance_open",
     "fc_source": "fc_restart_release_recovery_20261023/source/browser_lifecycle.py",
-    "fc_sha256": "9cf301e25a87d5cf19b4c58931a865cd24b8f929e0a487fe1df4280981f10dc2",
+    "fc_sha256": "71466a3169bf5448b68fea5dadaab4d8e683983544e42bc7c899b468a02dfb74",
     "rpg_generator": "rpg_zero_write_recovery_20261023/prepare_candidate.py",
     "rpg_before": "3ade09f1caefbe0deb0d69cdac8f6c5c98e705370bc1ed17cee3de0d595a5be3",
     "rpg_after": "1992ef596c26da63973a786200c45733ea66fdc98b45d99256184fd0d1c8958e",
     "probe_source": "rpg_zero_write_recovery_20261023/source/pricing_probe.py",
-    "probe_sha256": "ea612dd87b141b29f8f7c9a2725e3a5b602eddec9ae379f5fc43b1833b2dea06",
+    "probe_sha256": "06eb02254af3f8864feec788e8d7efb23ae0f76547caf911a3ba5990699e9f1d",
     "fc_event": "0e74258c-4d9e-405d-b543-5fcf24fcdb84",
     "fc_idle_verified_at": "2026-10-23T10:50:07.922539+00:00",
-    "natural_due": "2026-10-23 19:02:26 Asia/Shanghai",
+    "natural_due": {
+      "transaction": "2026-10-23T21:14:00+08:00",
+      "rpg_item": "original_schedule_pending_not_triggered"
+    },
     "price_requests_by_release": 0,
-    "ongoing": "Order503 and primary-reader residual FC container dependency investigation"
+    "ongoing": "next changed RPG item snapshot; original21:14 transaction;12 original cycles day-night memory",
+    "fc_helper_source": "fc_restart_release_recovery_20261023/source/browser_probe.js",
+    "fc_helper_sha256": "95e84ed02ad894d187e8777bccc32352f952c4e7ce7a1a23386ecbbcd767221f",
+    "fc_natural": {
+      "job_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+      "completed_at_beijing": "2026-10-23T19:06:43+08:00",
+      "result": "no_price_change",
+      "platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "hermes": "completed",
+      "new_price_write": false
+    },
+    "fc_worldless_check": "FC-WORLD-V5-READONLY.json",
+    "order_probe": "../../../order_worldless_probe_20261023/SOURCE-MAP.json",
+    "transaction": "../../../transaction_browser_isolation_20261023/SOURCE-MAP.json",
+    "order_native_ready": {
+      "verified_beijing": "2026-10-23T19:53:29+08:00",
+      "login_attempts": 0,
+      "container_restarted": false,
+      "profile_preserved": true,
+      "probe_seconds": 1.481
+    },
+    "order_same_document_readonly": "ORDER-WORLDLESS-POSTCHECK.json",
+    "order_parent_domain_recovery": "ORDER-WORLDLESS-PARENT-DEPLOYMENT.json",
+    "order_final_postcheck": "ORDER-WORLDLESS-PARENT-POSTCHECK.json"
+  },
+  "latest_runtime_sources": {
+    "/opt/fc27-cloud-browser/browser_lifecycle.py": {
+      "source": "fc_restart_release_recovery_20261023/source/browser_lifecycle.py",
+      "sha256": "71466a3169bf5448b68fea5dadaab4d8e683983544e42bc7c899b468a02dfb74"
+    },
+    "/opt/fc27-cloud-browser/browser_probe.js": {
+      "source": "fc_restart_release_recovery_20261023/source/browser_probe.js",
+      "sha256": "95e84ed02ad894d187e8777bccc32352f952c4e7ce7a1a23386ecbbcd767221f"
+    },
+    "/opt/fs-pricing-alerts/pricing_probe.py": {
+      "source": "rpg_zero_write_recovery_20261023/source/pricing_probe.py",
+      "sha256": "06eb02254af3f8864feec788e8d7efb23ae0f76547caf911a3ba5990699e9f1d"
+    },
+    "/opt/d4follow/_p2pah_srv/p2pah_local.py": {
+      "generator": "rpg_zero_write_recovery_20261023/prepare_candidate.py",
+      "sha256": "1992ef596c26da63973a786200c45733ea66fdc98b45d99256184fd0d1c8958e"
+    },
+    "/opt/fs-transaction-snapshot/collector.py": {
+      "source": "transaction_browser_isolation_20261023/prepare_candidate.py",
+      "sha256": "891990d1dd6a21d15eea6bfae619192205e5f689651c6b37a1bca3eca57d9e8e"
+    },
+    "/opt/fs-transaction-snapshot/order_reader_runner.py": {
+      "source": "transaction_browser_isolation_20261023/source/order_reader_runner.py",
+      "sha256": "4f6942ca59fb89e5d7a735bc598ffe11965d892b7dcede65c2a9c43780ec89c6"
+    },
+    "/opt/fs-order-session/service.py": {
+      "source": "order_worldless_probe_20261023/source/service.py",
+      "sha256": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0"
+    },
+    "/opt/fs-order-session/raw_node_helper.js": {
+      "source": "order_worldless_probe_20261023/source/raw_node_helper.js",
+      "sha256": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+    }
+  },
+  "current_followup_pr": {
+    "url": "https://github.com/wulv006-dot/FS-Workbench/pull/405",
+    "status": "open_updated_final_ci_pending",
+    "merge_authorized": false
   }
 }

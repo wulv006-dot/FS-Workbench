@@ -1,0 +1,44 @@
+{
+  "service_sha": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+  "helper_exists": true,
+  "receipt": {
+    "operation": "order-worldless-probe-20261023-v1",
+    "status": "verified",
+    "started_at": "2026-10-23T11:49:02.412693+00:00",
+    "service_before": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+    "service_after": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "helper_after": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+    "container_restarted": false,
+    "profile_preserved": true,
+    "price_requests": 0,
+    "login_attempts": 0,
+    "original_isolation_sha256": "13d2cba3cefac3c2ce75da6d70d2c3cd6e831481784f3f497d9149218aa193e3",
+    "initial_failure": {
+      "operation": "order-worldless-probe-20261023-v1",
+      "status": "unknown",
+      "started_at": "2026-10-23T11:49:02.412693+00:00",
+      "service_before": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+      "service_after": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+      "helper_after": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+      "container_restarted": false,
+      "profile_preserved": true,
+      "price_requests": 0,
+      "login_attempts": 0,
+      "original_isolation_sha256": "13d2cba3cefac3c2ce75da6d70d2c3cd6e831481784f3f497d9149218aa193e3",
+      "error": "FileNotFoundError"
+    },
+    "resumed_at": "2026-10-23T11:53:21.808346+00:00",
+    "health": {
+      "ready": true,
+      "last_error": null,
+      "login_attempts": 0,
+      "probe_seconds": 1.481
+    },
+    "broker_pid_changed": true,
+    "natural_world_count": "pending",
+    "finished_at": "2026-10-23T11:53:29.018075+00:00"
+  },
+  "isolation_sha": "6835bfd26c31eaf173e153603f03558af66d4916e9f45cabcfe4a58624884e06",
+  "isolation_service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+  "executor": "active"
+}

@@ -1,0 +1,35 @@
+{
+  "module": "transaction-order-reader-process-isolation",
+  "files": {
+    "source/collector.py": "8ed4baad4d3a1ce90d46bc120b089ea59e529875000d4eae4dc67bc079b6ed27",
+    "source/order_reader_runner.py": "4f6942ca59fb89e5d7a735bc598ffe11965d892b7dcede65c2a9c43780ec89c6",
+    "prepare_candidate.py": "85e7a9053f429ae1bc69e3d2e25b03ece7027f27efda25d3d3c082c3fa6d476b",
+    "test_runner.py": "9e15c7a5d0bbb242f738e3c6f85e38e3d4f4ff3fd4d453f4415583f7f77cda97"
+  },
+  "baselines": {
+    "/opt/fs-transaction-snapshot/collector.py": "08b4ca6029c5f81eedc390f918936e1c1295f9669fd523822e952f7c392a9e31"
+  },
+  "validation": {
+    "local_tests_passed": 15,
+    "linux_tests_passed": 15,
+    "actual_ephemeral_environment_smoke": "passed",
+    "browser_connected": false,
+    "cookies_requested": false,
+    "business_collection": false,
+    "cleanup_failure_not_swallowed": true,
+    "original_timeout_context_preserved": true
+  },
+  "runtime_collector_sha256": "891990d1dd6a21d15eea6bfae619192205e5f689651c6b37a1bca3eca57d9e8e",
+  "normalized_review_collector_sha256": "8ed4baad4d3a1ce90d46bc120b089ea59e529875000d4eae4dc67bc079b6ed27",
+  "new_runtime_file": "/opt/fs-transaction-snapshot/order_reader_runner.py",
+  "status": "parent_reported_deployed_2026-10-23T19:16:52+08:00",
+  "natural_cycle_acceptance": "pending_original_2026-10-23T21:14+08:00",
+  "original_timer_minutes": 120,
+  "predeployment_natural_failure": {
+    "original_start_beijing": "2026-10-23T19:14:04+08:00",
+    "finished_beijing": "2026-10-23T19:15:21+08:00",
+    "error": "container_reader_failed_137",
+    "active_collector": "previous_shared_fc_browser",
+    "preserved_no_replay": true
+  }
+}

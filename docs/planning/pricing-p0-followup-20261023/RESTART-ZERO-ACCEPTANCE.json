@@ -1,0 +1,378 @@
+{
+  "observed_at": "2026-10-23T12:16:15.223090+00:00",
+  "monitor": {
+    "exported_at": "2026-10-23T12:16:11.714951+00:00",
+    "issues": [],
+    "rpg_unresolved": {},
+    "memory": {
+      "id": "b506f447b891aae0d4b2c5a07ae3f05a9472abce3c714e1ef8098b62ac097407",
+      "restart_count": 0,
+      "started_at": "2026-10-23T11:15:21.542198102Z",
+      "running": true,
+      "oom_killed": false,
+      "limit": 3221225472,
+      "usage_bytes": 301903872,
+      "rss_bytes": 250261504,
+      "cache_bytes": 51642368
+    },
+    "order_memory": {
+      "id": "19407709f0dbf35e140df40d7bc3f9b8de9e92ab68553c39ca049f5fa2eeb735",
+      "restart_count": 0,
+      "started_at": "2026-10-23T11:00:46.269976722Z",
+      "running": true,
+      "oom_killed": false,
+      "limit": 1073741824,
+      "usage_bytes": 455864320,
+      "rss_bytes": 401018880,
+      "cache_bytes": 54845440
+    }
+  },
+  "health_8767": {
+    "ready": true,
+    "login_attempts": 2,
+    "last_error": null,
+    "probe_seconds": null
+  },
+  "health_8768": {
+    "ready": true,
+    "login_attempts": 0,
+    "last_error": null,
+    "probe_seconds": 2.047
+  },
+  "rpg_recent": [
+    {
+      "id": "J20261023194426-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T19:46:27",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023194426",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T19:46:20",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 47,
+        "ok": 47,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023183956-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:43:09",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 37,
+        "ok": 37,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023183956",
+      "kind": "write",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:40:33",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 1,
+        "ok": 1,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-3",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:21",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-2",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:14",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:07",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:10:59",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 39,
+        "ok": 39,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-4",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:38",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-3",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:31",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-2",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:23",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:16",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 47,
+        "ok": 47,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    }
+  ],
+  "fc_job_sha256": "786e015a53ec9203dfab7c6d88d4334313e4aacbec3d4b50485c70b100bdc9aa",
+  "hermes": {
+    "phase": "completed",
+    "task_id": "1d477e83404f9a3a34c88a20973bb0e3",
+    "created_at": "2026-10-23T11:05:00.380502+00:00",
+    "completed_at": "2026-10-23T11:06:40.541685+00:00",
+    "price_write_performed": false
+  },
+  "fc": {
+    "job_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+    "kind": "auto_cycle",
+    "actor": "system-automation",
+    "created_at": "2026-10-23T11:03:15.710045+00:00",
+    "started_at": "2026-10-23T11:03:17.344747+00:00",
+    "completed_at": "2026-10-23T11:06:43.165310+00:00",
+    "status": "ready",
+    "result": {
+      "run_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+      "quote_status": "ready_for_preview",
+      "status": "no_price_change",
+      "platforms": [],
+      "unchanged_platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "blocked_platforms": {}
+    }
+  },
+  "deployment": {
+    "service_sha": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "helper_exists": true,
+    "receipt": {
+      "operation": "order-worldless-probe-20261023-v1",
+      "status": "verified",
+      "started_at": "2026-10-23T11:49:02.412693+00:00",
+      "service_before": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+      "service_after": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+      "helper_after": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+      "container_restarted": false,
+      "profile_preserved": true,
+      "price_requests": 0,
+      "login_attempts": 0,
+      "original_isolation_sha256": "13d2cba3cefac3c2ce75da6d70d2c3cd6e831481784f3f497d9149218aa193e3",
+      "initial_failure": {
+        "operation": "order-worldless-probe-20261023-v1",
+        "status": "unknown",
+        "started_at": "2026-10-23T11:49:02.412693+00:00",
+        "service_before": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+        "service_after": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+        "helper_after": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+        "container_restarted": false,
+        "profile_preserved": true,
+        "price_requests": 0,
+        "login_attempts": 0,
+        "original_isolation_sha256": "13d2cba3cefac3c2ce75da6d70d2c3cd6e831481784f3f497d9149218aa193e3",
+        "error": "FileNotFoundError"
+      },
+      "resumed_at": "2026-10-23T11:53:21.808346+00:00",
+      "health": {
+        "ready": true,
+        "last_error": null,
+        "login_attempts": 0,
+        "probe_seconds": 1.481
+      },
+      "broker_pid_changed": true,
+      "natural_world_count": "pending",
+      "finished_at": "2026-10-23T11:53:29.018075+00:00"
+    },
+    "isolation_sha": "6835bfd26c31eaf173e153603f03558af66d4916e9f45cabcfe4a58624884e06",
+    "isolation_service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "executor": "active"
+  },
+  "fc_same_document_world_evidence": "FC-WORLD-V5-READONLY.json",
+  "order_same_document_world_evidence": "ORDER-WORLDLESS-POSTCHECK.json (previous53ee revision)",
+  "acceptance_boundaries": {
+    "fc_original_1903_cycle": "verified_no_price_change_not_new_write",
+    "fc_v5_original_minute_checks": "healthy_zero_added_worlds_observed",
+    "rpg_original_false_positive_ids": "verified_recovered_without_replay",
+    "rpg_new_item_zero_write": "pending_original_changed_decision_snapshot",
+    "rpg_original_gold_1944": "confirmed_47_writes_cache_true_and_second_noop",
+    "transaction_original_2114": "pending_not_triggered",
+    "memory_12_cycles_daynight": "open",
+    "whole_1gib_oom_unique_allocation_cause": "not_proven"
+  },
+  "replay_requests": 0,
+  "manual_collection_or_model_or_price_jobs": 0,
+  "parent_domain_patch": {
+    "operation": "order-worldless-parent-domain-20261023-v1",
+    "status": "verified",
+    "started_at": "2026-10-23T12:12:00.586357+00:00",
+    "helper_before": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+    "helper_after": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee",
+    "service_unchanged": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "container_restarted": false,
+    "profile_preserved": true,
+    "price_requests": 0,
+    "finished_at": "2026-10-23T12:12:11.043801+00:00",
+    "health": {
+      "ready": true,
+      "login_attempts": 0,
+      "last_error": null,
+      "probe_seconds": 1.571
+    }
+  },
+  "order_final_same_document_evidence": "ORDER-WORLDLESS-PARENT-POSTCHECK.json"
+}

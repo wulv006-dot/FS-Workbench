@@ -1,0 +1,157 @@
+{
+  "status": "final_parent_domain_revision_deployed_native_same_document_verified_longterm_open",
+  "baseline_service_sha256": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+  "files": {
+    "source/service.py": {
+      "sha256": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0"
+    },
+    "source/raw_node_helper.js": {
+      "sha256": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+    },
+    "test_service.py": {
+      "sha256": "97efb94a0cfb77a102df294b635930b60a3956a937eafd7058f5d23a43f05a4e"
+    },
+    "test_worldless.js": {
+      "sha256": "8d7649a89f5696fcbeea41b76dc14d2156650649ee8f8ee94858b030ee41aade"
+    },
+    "deploy.py": {
+      "sha256": "700f23e9db2fd74b7d4a690cba527a8f926d36fa023b06c5071aee93b41801eb"
+    },
+    "test_deploy.py": {
+      "sha256": "1ac91cd20117cf50fd35ce89673898ad85067993a8c9931eb00b6843a7eb5ff3"
+    },
+    "deploy_parent_domain.py": {
+      "sha256": "60191ed9b31a4bdad667cb010474263771be570143be72fb180e2c22880c849d"
+    },
+    "test_parent_deploy.py": {
+      "sha256": "48714870babc8c78a454c1667a2ad547b80bc5cf538c12946eeb147d6a4da3f4"
+    },
+    "parent-domain-manifest.json": {
+      "sha256": "eba66f36ee211b7385580bfa9049902be2e148f30725ec4522accdf76b2345ca"
+    }
+  },
+  "runtime_targets": {
+    "source/service.py": "/opt/fs-order-session/service.py",
+    "source/raw_node_helper.js": "/opt/fs-order-session/raw_node_helper.js"
+  },
+  "tests": {
+    "linux_python": 14,
+    "linux_node": 30,
+    "linux_skipped": 0,
+    "local_python": 11,
+    "real_library": "Playwright1.63.0 Node24.21.0 in isolated original-image container, network none",
+    "original_new_file_publisher_real_temp_contract": true
+  },
+  "live_readonly_cookie_shape": {
+    "order_count": 3,
+    "fields": [
+      "domain",
+      "expires",
+      "httpOnly",
+      "name",
+      "path",
+      "priority",
+      "sameSite",
+      "secure",
+      "session",
+      "size",
+      "sourcePort",
+      "sourceScheme",
+      "value"
+    ],
+    "partitioned_count": 0,
+    "shape_accepted": true,
+    "values_exported": false,
+    "page_attachment": false
+  },
+  "unchanged": [
+    "20s TTL",
+    "single-flight lock",
+    "UID allowlist",
+    "HTTP health contract",
+    "33s process-group deadline + 1s KILL; 35s host",
+    "original identity status/HTTPS/host/path/logout/password guard",
+    "12s + 8s transport budgets, 20 redirects",
+    "existing profile and login state",
+    "business timers/pricing/writer/UNKNOWN"
+  ],
+  "pending": [
+    "next original changed-decision RPG item zero-write branch",
+    "original21:14 transaction cycle",
+    "at least12 original cycles day-night memory"
+  ],
+  "deployment": {
+    "operation": "order-worldless-probe-20261023-v1",
+    "verified_at_shanghai": "2026-10-23T19:53:29+08:00",
+    "receipt": "/var/lib/fs-order-session/worldless-probe-recovery-20261023.json",
+    "publisher": "parent coordinated original publisher",
+    "initial_failure": "FileNotFoundError in old dictionary publisher before helper existed; service/helper/proof unchanged; original same-ID failure preserved under initial_failure",
+    "resume": "explicit --resume-verified-prewrite-failure after exact prewrite state/proof reconciliation; original operation and start time retained",
+    "helper_publisher_sha256": "b811b3adc8d4fd13e53f252b61292f79d30a7e73e0fdac4df83fc8d183ba2f8e",
+    "native_health": {
+      "ready": true,
+      "login_attempts": 0,
+      "probe_seconds": 1.481
+    },
+    "container_restarted": false,
+    "profile_preserved": true,
+    "price_requests": 0,
+    "isolation_proof_updated_after_ready": true,
+    "source": "parent publisher readback; no additional identity request by this subagent"
+  },
+  "initial_helper_postcheck": {
+    "beijing": [
+      "2026-10-23T19:57:09.539+08:00",
+      "2026-10-23T20:00:59.144+08:00"
+    ],
+    "span_seconds": 229.605,
+    "same_original_pages": 4,
+    "utility_worlds_each_before_after": [
+      144,
+      144
+    ],
+    "names_and_unique_ids_identical": true,
+    "added": 0,
+    "removed": 0,
+    "original_upkeep_resets_observed": 2,
+    "ready": true,
+    "login_attempts": 0,
+    "container_restarted": false,
+    "evidence": "../docs/planning/pricing-p0-followup-20261023/ORDER-WORLDLESS-POSTCHECK.json",
+    "helper_sha256": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425"
+  },
+  "parent_domain_recovery": {
+    "operation": "order-worldless-parent-domain-20261023-v1",
+    "status": "verified",
+    "started_at": "2026-10-23T12:12:00.586357+00:00",
+    "helper_before": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+    "helper_after": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee",
+    "service_unchanged": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "container_restarted": false,
+    "profile_preserved": true,
+    "price_requests": 0,
+    "finished_at": "2026-10-23T12:12:11.043801+00:00",
+    "health": {
+      "ready": true,
+      "login_attempts": 0,
+      "last_error": null,
+      "probe_seconds": 1.571
+    }
+  },
+  "final_postcheck": {
+    "evidence": "../docs/planning/pricing-p0-followup-20261023/ORDER-WORLDLESS-PARENT-POSTCHECK.json",
+    "span_seconds": 110.082,
+    "upkeep_resets": 2,
+    "same_pages": 4,
+    "worlds_per_page": [
+      144,
+      144
+    ],
+    "added": 0,
+    "removed": 0,
+    "source_sha256": {
+      "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+      "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+    }
+  }
+}

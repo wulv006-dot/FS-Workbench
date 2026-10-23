@@ -1,0 +1,41 @@
+{
+  "module": "order-browser-probe-process-boundary",
+  "files": {
+    "source/service.py": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353",
+    "recover_original.py": "412b463cefa7ec3f1629bd752d6dfc6a87501b0caaa73bca52cafc8f69f8b7b7",
+    "test_probe.py": "2e3ab2ef8593d1a9cde218ad8c7c97dba7e246538c88cbfa6d4f07bd446e14a3"
+  },
+  "baselines": {
+    "/opt/fs-order-session/service.py": "e94f54cebe50cbede113ce4205ad2fe337b176438e0e864c1caa73ae90d3c88a"
+  },
+  "validation": {
+    "local_tests_passed": 6,
+    "linux_tests_passed": 6,
+    "actual_container_timeout_version": "GNU coreutils 8.32",
+    "synthetic_parent_child_killed_rc": 137,
+    "both_test_pids_gone": true
+  },
+  "deployment": "parent_reported_2026-10-23T19:07:21+08:00",
+  "recovery": {
+    "receipt": "/var/lib/fs-order-session/order-browser-oom-recovery-20261023-v1.json",
+    "parent_reported_status": "verified",
+    "restart_started_beijing": "2026-10-23T19:00:46.269976722+08:00",
+    "ready_verified_beijing": "2026-10-23T19:01:08+08:00",
+    "login_attempts": 0,
+    "cookies_read": false
+  },
+  "rootcause_evidence": {
+    "raw_cdp_observation_beijing": [
+      "2026-10-23T19:21:20+08:00",
+      "2026-10-23T19:21:42+08:00"
+    ],
+    "same_blank_targets": 4,
+    "utility_worlds_per_target_before": 57,
+    "utility_worlds_per_target_after": 58,
+    "existing_worlds_preserved": true,
+    "observer_created_worlds": false,
+    "core_bundle_sha256": "549070af3acabb3efcc4f55bfe6210f9f7c2fcf633cf7eaa59bfe60719969171",
+    "conclusion": "original_periodic_driver_attach_accumulates_random_utility_worlds_in_long_lived_documents",
+    "not_proven": "exclusive_allocation_cause_for_entire_1GiB_OOM"
+  }
+}

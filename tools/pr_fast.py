@@ -714,7 +714,13 @@ def main():
         print("affected group:",group,flush=True)
         if group=="pricing-restart-zero":
             units("releases/ops/pricing-restart-zero-20261023/fc_restart_release_recovery_20261023/tests",["test_restart_release"])
-            units("releases/ops/pricing-restart-zero-20261023/rpg_zero_write_recovery_20261023",["test_probe_legacy","test_zero_write"])
+            units("releases/ops/pricing-restart-zero-20261023/rpg_zero_write_recovery_20261023",["test_probe_legacy","test_zero_write","test_order_memory"])
+            node("releases/ops/pricing-restart-zero-20261023/fc_restart_release_recovery_20261023/tests/test_browser_probe.cjs")
+            units("releases/ops/pricing-restart-zero-20261023/order_browser_probe_recovery_20261023",["test_probe"])
+            units("releases/ops/pricing-restart-zero-20261023/order_worldless_probe_20261023",["test_service","test_deploy","test_parent_deploy"])
+            units("releases/ops/pricing-restart-zero-20261023/transaction_browser_isolation_20261023",["test_runner"])
+            # Actual CookieJar/parser cases run on loopback in the existing isolated CI namespace.
+            subprocess.run(["node",str(ROOT/"releases/ops/pricing-restart-zero-20261023/order_worldless_probe_20261023/test_worldless.js")],check=True,timeout=30,env=dict(os.environ,WORLDLESS_ISOLATED_CLI="1"))
             continue
         if group=="fc-reference-observer-ui":
             units("releases/ops/fc-reference-observer-ui-20261023/ui/tests",["test_reference_observer_view"])

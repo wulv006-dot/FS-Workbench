@@ -1,0 +1,18 @@
+{
+  "operation": "order-worldless-parent-domain-20261023-v1",
+  "status": "verified",
+  "started_at": "2026-10-23T12:12:00.586357+00:00",
+  "helper_before": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+  "helper_after": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee",
+  "service_unchanged": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+  "container_restarted": false,
+  "profile_preserved": true,
+  "price_requests": 0,
+  "finished_at": "2026-10-23T12:12:11.043801+00:00",
+  "health": {
+    "ready": true,
+    "login_attempts": 0,
+    "last_error": null,
+    "probe_seconds": 1.571
+  }
+}

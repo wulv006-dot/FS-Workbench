@@ -1,0 +1,150 @@
+{
+  "status": "verified_native_healthy_tick_and_no_new_utility_worlds_during_observed_window",
+  "label": "FC v5",
+  "date": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "source_sha256": {
+    "browser_lifecycle.py": "71466a3169bf5448b68fea5dadaab4d8e683983544e42bc7c899b468a02dfb74",
+    "browser_probe.js": "95e84ed02ad894d187e8777bccc32352f952c4e7ce7a1a23386ecbbcd767221f"
+  },
+  "source_unchanged_between_samples": true,
+  "container_started_at_utc": "2026-10-23T11:15:21.542198102Z",
+  "page_identity_sha256": "61b6b586a2617c10c84f60b23983efbf6e7eee23b65711d2c31f04fa56636820",
+  "window_seconds": 102.901,
+  "observations": [
+    {
+      "at_utc": "2026-10-23T11:36:39.391Z",
+      "page_count": 1,
+      "context_count": 17,
+      "utility_world_count": 16,
+      "memory_before": {
+        "at": "2026-10-23T11:36:39.093537+00:00",
+        "usage": 300326912,
+        "limit": 3221225472,
+        "restart_count": 0
+      },
+      "memory_after": {
+        "at": "2026-10-23T11:36:39.414007+00:00",
+        "usage": 301146112,
+        "limit": 3221225472,
+        "restart_count": 0
+      },
+      "runtime": {
+        "node": "v24.21.0",
+        "builtin_websocket": "function",
+        "installed_ws": "function"
+      }
+    },
+    {
+      "at_utc": "2026-10-23T11:38:22.292Z",
+      "page_count": 1,
+      "context_count": 17,
+      "utility_world_count": 16,
+      "memory_before": {
+        "at": "2026-10-23T11:38:22.000891+00:00",
+        "usage": 300380160,
+        "limit": 3221225472,
+        "restart_count": 0
+      },
+      "memory_after": {
+        "at": "2026-10-23T11:38:22.315084+00:00",
+        "usage": 301195264,
+        "limit": 3221225472,
+        "restart_count": 0
+      },
+      "runtime": {
+        "node": "v24.21.0",
+        "builtin_websocket": "function",
+        "installed_ws": "function"
+      }
+    }
+  ],
+  "world_set_comparison": {
+    "before": 16,
+    "after": 16,
+    "added": 0,
+    "removed": 0,
+    "retained_names": 16,
+    "retained_unique_contexts": 16,
+    "names_and_unique_ids_identical": true,
+    "before_name_set_sha256": "a9ea4336649d639bd8df2313999677ee6fd4367d4b57b1d1aa84506899af4314",
+    "after_name_set_sha256": "a9ea4336649d639bd8df2313999677ee6fd4367d4b57b1d1aa84506899af4314"
+  },
+  "native_tick_reports": [
+    {
+      "status": "healthy",
+      "checked_at": "2026-10-23T11:35:22.389736+00:00",
+      "container_usage_bytes": 301092864,
+      "transport": "ok"
+    },
+    {
+      "status": "healthy",
+      "checked_at": "2026-10-23T11:36:23.141988+00:00",
+      "container_usage_bytes": 301121536,
+      "transport": "ok"
+    },
+    {
+      "status": "healthy",
+      "checked_at": "2026-10-23T11:37:23.407518+00:00",
+      "container_usage_bytes": 301166592,
+      "transport": "ok"
+    }
+  ],
+  "native_tick_between_samples": true,
+  "latest_recorded_systemd": {
+    "Result": "success",
+    "ExecMainStatus": 0,
+    "start_beijing": "2026-10-23 19:37:23",
+    "exit_beijing": "2026-10-23 19:37:23"
+  },
+  "observer": {
+    "playwright_driver_starts": 0,
+    "world_creates": 0,
+    "page_creates": 0,
+    "page_closes": 0,
+    "navigation_requests": 0,
+    "cookie_reads": 0,
+    "runtime_evaluations": 0,
+    "protocol_allowlist": [
+      "Runtime.disable",
+      "Runtime.enable",
+      "Target.attachToTarget",
+      "Target.detachFromTarget",
+      "Target.getTargets"
+    ],
+    "headroom_guard_bytes": 268435456,
+    "container_start_guard": true,
+    "source_sha_guard": true
+  },
+  "script_whitelist_sha256": {
+    "raw_fc_worlds.js": "d661a75630171cb5f45c8f325a99851ad0648d2d85ffd7464d75c32ab0369a5e",
+    "run_v5_once.ps1": "338777e7741d005f6c665ac6a7d9fbe587185fb7947fd75c5570c304e08d96c1"
+  },
+  "private_raw_sha256": {
+    "v5-sample-1.json": "f6248719bb958fd57ff7c1a53a80c84d5590a60099b14d34dbd0d898ee8309fc",
+    "v5-sample-2.json": "4cbbaf66dff796651937e62bc7ae8937fc65eabf7c4805a07fe4e9dc1c089ddf",
+    "v5-native-ticks.txt": "1343fcae9cef5afaa76f3361a6ac0c4db1694744061b2713a1b30ab48beb8d30"
+  },
+  "excluded_evidence": [
+    {
+      "file": "sample-1.json",
+      "reason": "v4 old stage before corrected entry; not healthy acceptance"
+    },
+    {
+      "file": "v5-first-attempt-failed.txt",
+      "reason": "outer heredoc CRLF error; no valid saved baseline, excluded"
+    }
+  ],
+  "checks": {
+    "raw_js_syntax": "passed",
+    "observed_protocol_allowlist": "passed",
+    "same_page_and_world_name_unique_id_assertions": "passed",
+    "native_healthy_transport_evidence": "passed",
+    "formal_ci": "not_run_independent_readonly_acceptance"
+  },
+  "remaining_boundaries": [
+    "One observed minute window, not long-term stability.",
+    "Old worlds retained, not cleared; original page not replaced.",
+    "No production changes, recovery action, cookie access or Order post-deployment probe."
+  ]
+}

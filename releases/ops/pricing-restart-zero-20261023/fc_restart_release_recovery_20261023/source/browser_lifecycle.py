@@ -35,8 +35,9 @@ try:
             import time
             from lootbar_server_collector import _release_product_document
             _release_product_document(page,deadline=time.monotonic()+6)
-            pages=[x for x in b.contexts[0].pages if _is_product_page(x) or x.url==IDLE_URL]
-            if len(pages)!=1 or pages[0].url!=IDLE_URL:raise ValueError('idle_release_identity_unverified')
+            # HTTP release already proved the old target gone; its Playwright close event may lag.
+            pages=[x for x in b.contexts[0].pages if x.url==IDLE_URL]
+            if len(pages)!=1:raise ValueError('idle_release_identity_unverified')
             page=pages[0]
             idle=True
         stage='document_readback'
@@ -47,7 +48,10 @@ try:
             owned=page.evaluate('url => location.href === "about:blank#fc27-idle" && document.readyState !== "loading" && document.querySelectorAll("a").length === 1 && document.querySelector("a").href === url',BASE_URL)
             session=b.new_browser_cdp_session()
             try:
-                workers=[x for x in session.send('Target.getTargets')['targetInfos'] if x.get('type')=='worker' and x.get('url','').startswith('blob:https://www.lootbar.com/')]
+                targets=session.send('Target.getTargets')['targetInfos']
+                workers=[x for x in targets if x.get('type')=='worker' and x.get('url','').startswith('blob:https://www.lootbar.com/')]
+                if sys.argv[1] in ('reload','release') and any(x.get('type')=='page' and x.get('url','').split('?')[0].rstrip('/')==BASE_URL for x in targets):
+                    raise ValueError('product_target_release_unverified')
             finally:session.detach()
             if not owned or workers:raise ValueError('owned_idle_not_verified')
         result={'status':'ok'}
@@ -60,11 +64,18 @@ print(json.dumps(result))
 
 def probe(action='check'):
     try:
+        check = action == 'check'
+        program = Path(__file__).with_name('browser_probe.js').read_text('utf-8') if check else PROBE
+        command = (['/usr/local/lib/python3.10/dist-packages/playwright/driver/node', '-', '--fc-health'] if check else
+                   ['python3', '-', action])
         p = subprocess.run(['docker', 'exec', '-i', '-u', 'fc27chrome', CONTAINER,
-                            'python3', '-', action], input=PROBE, text=True,
+                            'timeout', '--kill-after=1s', '6s' if check else '13s'] + command,
+                           input=program, text=True,
                            capture_output=True, timeout=16 if action in ('reload', 'release') else 8)
         if p.returncode:
             return {'status': 'failed', 'reason': 'browser_transport_or_page_unavailable'}
+        if not p.stdout.splitlines():
+            return {'status': 'failed', 'reason': 'browser_probe_empty_reply'}
         value = json.loads(p.stdout.splitlines()[-1])
         if (not isinstance(value, dict) or value.get('status') not in ('ok', 'invalid', 'failed')
                 or set(value) != ({'status'} if value['status'] == 'ok' else {'status', 'reason'})):

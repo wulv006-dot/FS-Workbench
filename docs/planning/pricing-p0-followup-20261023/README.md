@@ -1,8 +1,15 @@
 # FC/RPG P0防范与恢复落地
 
+<!-- restart-zero-current-20261023 -->
+当前增量（20:17）：两处缺口及关联根因修复已上线，活动源以[重启释放与零改动恢复](RESTART-ZERO-RECOVERY.md)、本目录SOURCE-MAP.latest_runtime_sources为准。下方PR389与早期SHA是阶段归档。FC原19:03轮19:06完成三平台no_price_change；V5原分钟检查正常，同页102.901秒world新增0/Worker0。RPG严格零写分类已上线、原两单恢复群回执已核；原决策快照未变化时不重复派单，新物品零改动仍待原业务产生。事务残留共用FC浏览器19:16:52已隔离，第一新自然21:14待验。Order周期探针残留机制已取证，worldless19:53:29上线/native ready/login0/原浏览器未重启，首版同四页229.605秒144→144 world/新增0；20:12最终0368父域兼容补丁再跨110.082秒/两轮原upkeep同页新增0，长期观察继续。PR405最终CI更新中，未合并。
+
+最终归档：用户明确批准后，[PR389](https://github.com/wulv006-dot/FS-Workbench/pull/389)于14:52:38合并，merge/main `c40442bda523b1396f3458c91f85e52e61381dda`。最终检查head `f77ce4658ce46e5d0f03a3a9308befdec0b531fb` 的正式pr-fast通过，合并树与该head完全一致，已保留同期main并行改动。首次合并因main继续推进被仓库门禁拒绝，随后官方update-branch及已批准本PR的auto-merge待新CI后完成，没有绕过。合并只归档，未再次发布服务或写价。见[合并验收](MERGE-ACCEPTANCE.json)。
+
 2026-10-23，单一发布负责人为本任务主Agent；端口/安全组排查由独立任务负责。本次授权包括即时故障通知、Order慢读取修复、内存按原周期观察及恢复机制落实，不改变价格公式、利润红线、原自动周期或开关。
 
 ## 已确认
+
+- 启动修复后的原120分钟FC自然周期`efa86d1a-dd67-410d-807e-6840f069594b`于14:56:04自行创建、14:59:08完成。9有效竞品、3平台有效成本、汇率、3平台公开售价和Hermes决策completed，三平台`no_price_change`、无blocked平台；IGGM仍`http_blocked`，本轮按原来源覆盖合同完成，不能称IGGM恢复。15:00实际CDP正常、唯一idle、全局Lootbar Worker0、Order ready/login0，容器无新增自动重启；用量377622528字节、RSS280465408、cache97157120，32个重启后分钟样本中用量峰值530038784。只证明本轮及短时恢复，12轮昼夜观察继续。见[原自然周期](FC-POST-STARTUP-NATURAL.json)和[周期后只读验收](LIVE-POST-NATURAL.json)。
 
 - Order按名称搜索在主文档响应前变慢；原程序本已使用domcontentloaded，改等待条件不能解决。已于14:17:46按原备份/CAS/空闲锁发布类目优先读取，SHA `a5662d2814277b4a72cc47820f9730359b6727b29cf2fc1892c9ac862bc6d176`。真实上线入口18.749秒找齐两个原商品ID，未走关键词、未写价、未重新登录。下一自然物品单另验，具体上游SQL尚缺后端日志。详[ORDER-QUERY](ORDER-QUERY.md)。
 - RPG的IGGM主要使用外部机器推送：物品有效窗70分钟，金币3小时；接收时间不是本次重新访问来源的证明。FC在187直采，主文档HTTP403、Cloudflare challenge，失败发生在平台/价格解析前。不能把两条路径直接比较成FC解析坏了，也不能把RPG商品单位套到FC。
@@ -24,7 +31,7 @@
 
 ## 检查与回退
 
-Order读取12项Linux通过、启动15项Linux及sh语法通过、最终告警41项Linux通过，合计68项相关检查。14:44补齐原一分钟实际CDP失联标记即时告警，probe最终SHA `006aabd2…bb2a24`；HTTP信息正常不能掩盖实际连接失败。正式[PR389](https://github.com/wulv006-dot/FS-Workbench/pull/389)已创建，首head afa95039与合并最新base后的9b01a5a9均pr-fast通过；最终交付head/CI按PR实际读回，未获本PR合并授权。实际群消息ID/读回、启动重启及自然周期分别记录，不相互替代。各项检查见[CHECKS](CHECKS.json)。
+Order读取12项Linux通过、启动15项Linux及sh语法通过、最终告警41项Linux通过，合计68项相关检查。14:44补齐原一分钟实际CDP失联标记即时告警，probe最终SHA `006aabd2…bb2a24`；HTTP信息正常不能掩盖实际连接失败。正式[PR389](https://github.com/wulv006-dot/FS-Workbench/pull/389)及最终交付head/CI/用户合并授权见顶部与合并验收。实际群消息ID/读回、启动重启及自然周期分别记录，不相互替代。各项检查见[CHECKS](CHECKS.json)。
 
 14:46只读验收：原fc27-automation-tick.timer、原5分钟监控/bridge及新path均active，最近oneshot检查exit0；FC开关ON/auto/rev40/120分钟/10%保持，实际CDP和Order正常、Worker0。当前容器usage357314560字节、RSS272146432、cache85168128，18个重启后分钟样本RSS基本平稳；重启计数0未再增加。详[LIVE-READBACK](LIVE-READBACK.json)。这仍不是完整12轮验收。
 

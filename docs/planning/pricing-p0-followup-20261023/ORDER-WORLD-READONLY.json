@@ -1,0 +1,160 @@
+{
+  "status": "verified_retained_random_utility_worlds_grow_across_native_probe_window",
+  "date": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "scope": "Order browser only; no production source or browser setting changes",
+  "observations": [
+    {
+      "at_utc": "2026-10-23T11:21:20.178Z",
+      "page_count": 4,
+      "total_utility_worlds": 228,
+      "observer_node_rss_bytes": 79732736,
+      "memory_before": {
+        "at": "2026-10-23T11:21:19.798901+00:00",
+        "usage": 287621120,
+        "limit": 1073741824
+      },
+      "memory_after": {
+        "at": "2026-10-23T11:21:20.208683+00:00",
+        "usage": 299438080,
+        "limit": 1073741824
+      }
+    },
+    {
+      "at_utc": "2026-10-23T11:21:42.579Z",
+      "page_count": 4,
+      "total_utility_worlds": 232,
+      "observer_node_rss_bytes": 78946304,
+      "memory_before": {
+        "at": "2026-10-23T11:21:42.242070+00:00",
+        "usage": 300113920,
+        "limit": 1073741824
+      },
+      "memory_after": {
+        "at": "2026-10-23T11:21:42.603779+00:00",
+        "usage": 300429312,
+        "limit": 1073741824
+      }
+    }
+  ],
+  "page_world_set_comparison": [
+    {
+      "page_identity_sha256": "01c898e9ba1057c86ba6b30048e4f6abbabafe4da71ba7f6689406c49e2e72d3",
+      "before_count": 57,
+      "after_count": 58,
+      "retained_name_count": 57,
+      "retained_unique_context_count": 57,
+      "added_count": 1,
+      "removed_count": 0,
+      "old_names_subset_of_after": true,
+      "old_unique_contexts_subset_of_after": true,
+      "before_world_name_set_sha256": "d8d025d14015be49f218b1dda4817f578ab0dec4d83ec6ea8c5bb22f4811006f",
+      "after_world_name_set_sha256": "fe9c35961f5eac2a8114b62948c51d21410e91f56ca5d2811bc060a0f28be417",
+      "before_execution_context_count": 58,
+      "after_execution_context_count": 59
+    },
+    {
+      "page_identity_sha256": "e7d16a890b998316bbbea0909f013b8922a65fafeec921c5cb3e8e11d64bd00a",
+      "before_count": 57,
+      "after_count": 58,
+      "retained_name_count": 57,
+      "retained_unique_context_count": 57,
+      "added_count": 1,
+      "removed_count": 0,
+      "old_names_subset_of_after": true,
+      "old_unique_contexts_subset_of_after": true,
+      "before_world_name_set_sha256": "33ff123d3875e730bd8834cccae5be9e9a2c587d4cb5386c9e2ae3eadd15c046",
+      "after_world_name_set_sha256": "8a85d83bd0ccd980492ceda6652e95b31af10cdfaf1537e83c148f36cef8084f",
+      "before_execution_context_count": 58,
+      "after_execution_context_count": 59
+    },
+    {
+      "page_identity_sha256": "3c5c1d2c1c3e780f891d3ff19ad0edd69205cbab5d02b920256c7984be3b596b",
+      "before_count": 57,
+      "after_count": 58,
+      "retained_name_count": 57,
+      "retained_unique_context_count": 57,
+      "added_count": 1,
+      "removed_count": 0,
+      "old_names_subset_of_after": true,
+      "old_unique_contexts_subset_of_after": true,
+      "before_world_name_set_sha256": "18195abb50f761cd832141d7aa6a177b0479e2bb9d4e6dac487c195b3d066f3c",
+      "after_world_name_set_sha256": "28e792ebc2ac7a3cd8eb91b8baf414e9c5027de83c03285842373400904e5fcb",
+      "before_execution_context_count": 58,
+      "after_execution_context_count": 59
+    },
+    {
+      "page_identity_sha256": "0cf4cb5c457bca6aa6bc6766b6c124223084cb15e911e028ea85ae29e809382b",
+      "before_count": 57,
+      "after_count": 58,
+      "retained_name_count": 57,
+      "retained_unique_context_count": 57,
+      "added_count": 1,
+      "removed_count": 0,
+      "old_names_subset_of_after": true,
+      "old_unique_contexts_subset_of_after": true,
+      "before_world_name_set_sha256": "d353691b39a2e7daa33304ae3082242280ed421e9ff6f49a6685c4d6813f5205",
+      "after_world_name_set_sha256": "6a005ba0b33813ddecfab3ff21148fa1d689ada577fe1b9f6ff1ae8babd931b8",
+      "before_execution_context_count": 58,
+      "after_execution_context_count": 59
+    }
+  ],
+  "versions": {
+    "python": "3.10.12",
+    "playwright": "1.63.0",
+    "node": "v24.21.0",
+    "builtin_websocket_type": "function",
+    "utils_bundle_ws_type": "function",
+    "python_websocket_client_available": false,
+    "python_websockets_available": false,
+    "node_request_export_type": "object",
+    "node_request_newContext_type": "function",
+    "request_entry": "/usr/local/lib/python3.10/dist-packages/playwright/driver/package/index.js",
+    "core_bundle_sha256": "549070af3acabb3efcc4f55bfe6210f9f7c2fcf633cf7eaa59bfe60719969171",
+    "utils_bundle_sha256": "2d1ccc01d21b7d54ca99a6305991d7fb6e072ea4e725d7fec5eb6184188c52c9",
+    "order_service_observed_sha256": "89e8b6bba49397499c39c697f54d44a8ab892aed23fefafe34df0824058c0353"
+  },
+  "observer_contract": {
+    "protocol_allowlist": [
+      "Runtime.disable",
+      "Runtime.enable",
+      "Target.attachToTarget",
+      "Target.detachFromTarget",
+      "Target.getTargets"
+    ],
+    "playwright_driver_starts": 0,
+    "world_creates": 0,
+    "page_creates": 0,
+    "page_closes": 0,
+    "navigation_requests": 0,
+    "runtime_evaluations": 0,
+    "cookie_value_reads": 0,
+    "login_attempts": 0,
+    "headroom_guard_bytes": 268435456,
+    "same_container_start_guard": true,
+    "inner_timeout_seconds": 10,
+    "kill_grace_seconds": 1,
+    "outer_timeout_seconds": 13,
+    "native_probe_window_seconds": 22
+  },
+  "scripts_whitelist_sha256": {
+    "raw_worlds.js": "cf19eff3a352af9ab823927d7bfe4057eb7a8ea15428f18a9e1f290284e38e85",
+    "run_worlds.ps1": "1c42e6c14a9998ce828a3fe809458312675575467c965d4fee5aa3b6416f59bd"
+  },
+  "checks": {
+    "node_syntax_check": "passed",
+    "powershell_parser": "passed",
+    "observed_protocol_allowlist": "passed",
+    "four_page_world_name_and_unique_id_subset_assertions": "passed",
+    "real_raw_observations": 2,
+    "formal_ci": "not_run_readonly_diagnostic",
+    "production_publish": "not_performed"
+  },
+  "boundaries": [
+    "Retention and per-window growth are directly observed; share of the18:43 OOM has not been measured.",
+    "No navigation, setting changes, world deletion, authentication changes or manually-triggered native probe.",
+    "No long-term stability, garbage collection or recovery acceptance was performed.",
+    "Raw originals remain private; this artifact excludes cookie values, raw business URLs, targetIDs and original world names."
+  ],
+  "private_raw_evidence_sha256": "5b07ff66bfc544408d96d95e0db56f14d21d97f7ca7fe498a7f2b7ce76753cec"
+}

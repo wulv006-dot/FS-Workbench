@@ -1,0 +1,301 @@
+{
+  "status": "final_parent_domain_revision_original_upkeep_same_document_verified",
+  "operation": "order-worldless-parent-domain-20261023-v1",
+  "samples_utc": [
+    "2026-10-23T12:12:38.308Z",
+    "2026-10-23T12:14:28.390Z"
+  ],
+  "elapsed_seconds": 110.082,
+  "source_sha256": {
+    "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+    "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+  },
+  "same_original_pages": [
+    {
+      "target_sha256": "7a32c5f38a8fc99730febad1e5e446a7864d3021a28599b8d3297d3bb2566c0f",
+      "utility_worlds_before": 144,
+      "utility_worlds_after": 144,
+      "contexts_before": 145,
+      "contexts_after": 145,
+      "context_set_sha256": "364747fe6572eabd8cd5f02bc2e6ffaaea2b8f9190824bdb80e0c3b9a63b1080",
+      "added": 0,
+      "removed": 0
+    },
+    {
+      "target_sha256": "5bbc95a2511cdbb3fc8fba429bed2a673f9fb55e3e508ca027da2b8c38b6c295",
+      "utility_worlds_before": 144,
+      "utility_worlds_after": 144,
+      "contexts_before": 145,
+      "contexts_after": 145,
+      "context_set_sha256": "9706979776843dd44e145e818980429f99b16734dea1c2bedec2628f2512b60e",
+      "added": 0,
+      "removed": 0
+    },
+    {
+      "target_sha256": "3d5527c670447725468d50028b94932ef9741261ba329b3aae4f296e22f95258",
+      "utility_worlds_before": 144,
+      "utility_worlds_after": 144,
+      "contexts_before": 145,
+      "contexts_after": 145,
+      "context_set_sha256": "4374a2c564ec6959d5a77825ea36366bb0fd00324a538a7e70b5e5cf4f8f1c62",
+      "added": 0,
+      "removed": 0
+    },
+    {
+      "target_sha256": "d6812f43a7bd6ba91b4a3f861ac26f907a42540c678a5f7fa1befd8912c8e715",
+      "utility_worlds_before": 144,
+      "utility_worlds_after": 144,
+      "contexts_before": 145,
+      "contexts_after": 145,
+      "context_set_sha256": "29f0e8d66a25200bed12f41bed6dfa24d3fcb4110dc8b6c8242868c59f6f8eb1",
+      "added": 0,
+      "removed": 0
+    }
+  ],
+  "same_as_pre_patch_page_and_context_sets": true,
+  "health_points": [
+    {
+      "host": {
+        "at": "2026-10-23T12:12:56.054919+00:00",
+        "usage": 371011584,
+        "limit": 1073741824,
+        "rss": 316166144,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 0.1,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.472,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:04.073621+00:00",
+        "usage": 370769920,
+        "limit": 1073741824,
+        "rss": 315924480,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 8.1,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.472,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:12.090571+00:00",
+        "usage": 370769920,
+        "limit": 1073741824,
+        "rss": 315924480,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 16.2,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.472,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:20.110774+00:00",
+        "usage": 370733056,
+        "limit": 1073741824,
+        "rss": 315887616,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 2.7,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.491,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:28.128842+00:00",
+        "usage": 370733056,
+        "limit": 1073741824,
+        "rss": 315887616,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 10.7,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.491,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:36.146149+00:00",
+        "usage": 370733056,
+        "limit": 1073741824,
+        "rss": 315887616,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 18.7,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 1.491,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:44.162979+00:00",
+        "usage": 370720768,
+        "limit": 1073741824,
+        "rss": 315875328,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 4.1,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 2.599,
+        "login_attempts": 0
+      }
+    },
+    {
+      "host": {
+        "at": "2026-10-23T12:13:52.183896+00:00",
+        "usage": 370733056,
+        "limit": 1073741824,
+        "rss": 315887616,
+        "cache": 54845440,
+        "failcnt": 0,
+        "restart_count": 0,
+        "source_sha256": {
+          "service": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+          "helper": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee"
+        }
+      },
+      "health": {
+        "ready": true,
+        "verified_age_seconds": 12.1,
+        "checking": false,
+        "last_error": null,
+        "probe_seconds": 2.599,
+        "login_attempts": 0
+      }
+    }
+  ],
+  "upkeep_age_resets": [
+    {
+      "at": "2026-10-23T12:13:20.110774+00:00",
+      "before_age": 16.2,
+      "after_age": 2.7
+    },
+    {
+      "at": "2026-10-23T12:13:44.162979+00:00",
+      "before_age": 18.7,
+      "after_age": 4.1
+    }
+  ],
+  "memory": [
+    {
+      "at": "2026-10-23T12:12:37.941731+00:00",
+      "usage": 370794496,
+      "rss": 315949056,
+      "cache": 54845440,
+      "limit": 1073741824,
+      "restart_count": 0,
+      "failcnt": 0
+    },
+    {
+      "at": "2026-10-23T12:12:38.334366+00:00",
+      "usage": 371130368,
+      "rss": 316284928,
+      "cache": 54845440,
+      "limit": 1073741824,
+      "restart_count": 0,
+      "failcnt": 0
+    },
+    {
+      "at": "2026-10-23T12:14:28.023425+00:00",
+      "usage": 370724864,
+      "rss": 315879424,
+      "cache": 54845440,
+      "limit": 1073741824,
+      "restart_count": 0,
+      "failcnt": 0
+    },
+    {
+      "at": "2026-10-23T12:14:28.416724+00:00",
+      "usage": 371290112,
+      "rss": 316444672,
+      "cache": 54845440,
+      "limit": 1073741824,
+      "restart_count": 0,
+      "failcnt": 0
+    }
+  ],
+  "source_artifact_sha256": {
+    "parent-sample-1.json": "6a623268ae74979f04b8d67f44aa78217b10e64e842864c346967a02a70d404c",
+    "parent-sample-2.json": "b53f5a6fe8bd284d0e21ef4f4d4e06ca5ce695be8d9ce8852f2c24a7e307b51f",
+    "parent-health-upkeep.json": "4b68b4e74945f82f9b43744ae30d2664dd9da14592083a4868dc8c812fc4a7c9"
+  },
+  "manual_probe_or_browser_attach_or_collection_or_price_jobs": 0,
+  "browser_restarted": false,
+  "old_worlds_released": false,
+  "long_term_memory_acceptance": "open_12_original_cycles_daynight"
+}

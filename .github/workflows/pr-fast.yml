@@ -50,6 +50,16 @@ jobs:
             python -m pip install --disable-pip-version-check playwright==1.60.0
             PLAYWRIGHT_SKIP_BROWSER_GC=1 PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/fs-browser/browsers" python -m playwright install chromium
           fi
+      - name: Prepare affected Order CookieJar parser
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^releases/ops/pricing-restart-zero-20261023/order_worldless_probe_20261023/'; then
+            npm install --prefix "$RUNNER_TEMP/fs-browser" --no-audit --no-fund playwright@1.63.0
+          fi
       - name: Prepare existing channel parser dependency
         shell: bash
         env:

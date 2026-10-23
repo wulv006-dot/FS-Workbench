@@ -1,0 +1,365 @@
+{
+  "observed_at": "2026-10-23T11:41:26.614173+00:00",
+  "fc": {
+    "job_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+    "kind": "auto_cycle",
+    "actor": "system-automation",
+    "created_at": "2026-10-23T11:03:15.710045+00:00",
+    "started_at": "2026-10-23T11:03:17.344747+00:00",
+    "completed_at": "2026-10-23T11:06:43.165310+00:00",
+    "status": "ready",
+    "result": {
+      "run_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+      "quote_status": "ready_for_preview",
+      "status": "no_price_change",
+      "platforms": [],
+      "unchanged_platforms": [
+        "PS",
+        "XBOX",
+        "PC"
+      ],
+      "blocked_platforms": {}
+    }
+  },
+  "fc_job_sha256": "786e015a53ec9203dfab7c6d88d4334313e4aacbec3d4b50485c70b100bdc9aa",
+  "hermes": {
+    "phase": "completed",
+    "task_id": "1d477e83404f9a3a34c88a20973bb0e3",
+    "created_at": "2026-10-23T11:05:00.380502+00:00",
+    "completed_at": "2026-10-23T11:06:40.541685+00:00",
+    "price_write_performed": false
+  },
+  "monitor": {
+    "exported_at": "2026-10-23T11:41:16.655864+00:00",
+    "issues": [],
+    "rpg_unresolved": {},
+    "memory": {
+      "id": "b506f447b891aae0d4b2c5a07ae3f05a9472abce3c714e1ef8098b62ac097407",
+      "restart_count": 0,
+      "started_at": "2026-10-23T11:15:21.542198102Z",
+      "running": true,
+      "oom_killed": false,
+      "limit": 3221225472,
+      "usage_bytes": 300441600,
+      "rss_bytes": 249188352,
+      "cache_bytes": 51253248
+    },
+    "order_memory": {
+      "id": "19407709f0dbf35e140df40d7bc3f9b8de9e92ab68553c39ca049f5fa2eeb735",
+      "restart_count": 0,
+      "started_at": "2026-10-23T11:00:46.269976722Z",
+      "running": true,
+      "oom_killed": false,
+      "limit": 1073741824,
+      "usage_bytes": 340074496,
+      "rss_bytes": 285618176,
+      "cache_bytes": 54456320
+    }
+  },
+  "observer": {
+    "run_id": "d789b510-bdd3-4f80-89bc-fe38a57c9772",
+    "status": "observed",
+    "completed_at": "2026-10-23T11:06:49.183674+00:00",
+    "itemd2r": [
+      {
+        "source": "ItemD2R",
+        "platform": "PS",
+        "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins",
+        "captured_at": "2026-10-23T11:06:47.951098+00:00",
+        "currency": "USD",
+        "purchase_k": "100",
+        "bonus_k": "0",
+        "gross_usd": "9.85",
+        "effective_usd_per_k": "0.0985",
+        "coupon_excluded": true,
+        "auth_state": "public",
+        "conditional": false,
+        "comparable": true,
+        "status": "valid",
+        "reason": null,
+        "delivery_method": "AI 4.0 Automated Delivery",
+        "price_basis": "visible_public_sale_price"
+      },
+      {
+        "source": "ItemD2R",
+        "platform": "XBOX",
+        "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins",
+        "captured_at": "2026-10-23T11:06:48.551128+00:00",
+        "currency": "USD",
+        "purchase_k": "100",
+        "bonus_k": "0",
+        "gross_usd": "9.85",
+        "effective_usd_per_k": "0.0985",
+        "coupon_excluded": true,
+        "auth_state": "public",
+        "conditional": false,
+        "comparable": true,
+        "status": "valid",
+        "reason": null,
+        "delivery_method": "AI 4.0 Automated Delivery",
+        "price_basis": "visible_public_sale_price"
+      },
+      {
+        "source": "ItemD2R",
+        "platform": "PC",
+        "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins",
+        "captured_at": "2026-10-23T11:06:49.119953+00:00",
+        "currency": "USD",
+        "purchase_k": "100",
+        "bonus_k": "0",
+        "gross_usd": "8.15",
+        "effective_usd_per_k": "0.0815",
+        "coupon_excluded": true,
+        "auth_state": "public",
+        "conditional": false,
+        "comparable": true,
+        "status": "valid",
+        "reason": null,
+        "delivery_method": "AI 4.0 Automated Delivery",
+        "price_basis": "visible_public_sale_price"
+      }
+    ]
+  },
+  "rpg_recent": [
+    {
+      "id": "J20261023183956-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:43:09",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 37,
+        "ok": 37,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023183956",
+      "kind": "write",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:40:33",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 1,
+        "ok": 1,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-3",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:21",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-2",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:14",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:11:07",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023180922",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T18:10:59",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 39,
+        "ok": 39,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-4",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:38",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-3",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:31",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-2",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:23",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949-1",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:42:16",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 47,
+        "ok": 47,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": true
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023173949",
+      "kind": "write",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T17:40:04",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": null,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": true,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    },
+    {
+      "id": "J20261023163848-4",
+      "kind": "writegold",
+      "status": "done",
+      "attempts": 1,
+      "finished_at": "2026-10-23T16:42:52",
+      "result": {
+        "write_state": "confirmed",
+        "write_attempts": 0,
+        "ok": 0,
+        "fail": 0,
+        "noop": true,
+        "clearcache_required": null,
+        "clearcache_reason": null,
+        "clearcache_wanted": false,
+        "clearcache_ok": null
+      },
+      "mismatch_count": 0
+    }
+  ],
+  "health_8767": {
+    "ready": true,
+    "login_attempts": 2,
+    "last_error": null,
+    "probe_seconds": null
+  },
+  "health_8768": {
+    "ready": true,
+    "login_attempts": 0,
+    "last_error": null,
+    "probe_seconds": 1.741
+  }
+}

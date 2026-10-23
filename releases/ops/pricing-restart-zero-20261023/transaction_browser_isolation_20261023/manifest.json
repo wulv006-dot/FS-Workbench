@@ -1,0 +1,14 @@
+{
+  "runner_sha256": "4f6942ca59fb89e5d7a735bc598ffe11965d892b7dcede65c2a9c43780ec89c6",
+  "protected": {
+    "/opt/fs-transaction-snapshot/primary_reader.py": "b008ab89502b31ed817e3d03575298a4d9c5b6cf824d506bc5e6dbad63de9333",
+    "/opt/fs-transaction-snapshot/fc_category_reader.py": "7e01d568687a825b2843307af29d097f7dbd84ade52edd4d0b5a609bb95ab5d1",
+    "/opt/fs-transaction-snapshot/profit_daily_reader.py": "06a4ae8502579ad439d99db0ac30115a95956b361f4ddd1919f69822ad163c62",
+    "/opt/fs-transaction-snapshot/primary_fields.py": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b",
+    "/opt/fs-transaction-snapshot/supplement_reader.py": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38",
+    "/opt/fs-transaction-snapshot/fc_product_reader.py": "86356f8f940626925177aea582a441562e8e21c9a28ef353c16374bc283bfc57",
+    "/opt/fs-transaction-snapshot/atomic_snapshot.py": "7ba36c66a24e735241469440d9a9e634357fc06cb554d8184ef6aaaeb6936a54",
+    "/etc/systemd/system/fs-transaction-collect.service": "8f494ab323f17c7a9534b24eee125a1c895c8f079bf4e596c1c7c84360d83852",
+    "/etc/systemd/system/fs-transaction-collect.timer": "48cb510cb7b5270942d53271f1e6e452c9adc56f39f32c07a33ef77447efd72f"
+  }
+}

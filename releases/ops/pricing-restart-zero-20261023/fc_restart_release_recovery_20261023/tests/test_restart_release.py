@@ -12,6 +12,7 @@ def load(name,path):
 legacy=load('original_lifecycle_tests',ROOT/'fc_browser_recovery_20261023/tests/test_lifecycle.py')
 m=load('new_lifecycle',ROOT/'fc_restart_release_recovery_20261023/source/browser_lifecycle.py')
 legacy.m=m
+PROBE_FUNCTION=m.probe
 LifecycleTests=legacy.LifecycleTests
 MaintenanceBoundaries=legacy.MaintenanceBoundaries
 
@@ -69,6 +70,23 @@ class RestartRelease(MaintenanceBoundaries):
         self.assertIn('_release_product_document(page,deadline=',m.PROBE)
         self.assertIn("session.send('Target.getTargets')",m.PROBE)
         self.assertNotIn('page.reload(',m.PROBE)
+        self.assertIn("pages=[x for x in b.contexts[0].pages if x.url==IDLE_URL]",m.PROBE)
+        self.assertIn("raise ValueError('product_target_release_unverified')",m.PROBE)
         compile(m.PROBE,'probe','exec')
+
+    def test_probe_deadline_covers_container_children(self):
+        import subprocess
+        for action,seconds,outer in [('check','6s',8),('release','13s',16)]:
+            with patch.object(m.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'{"status":"ok"}\n','')) as run:
+                self.assertEqual(PROBE_FUNCTION(action),{'status':'ok'})
+            args=run.call_args.args[0]
+            self.assertIn('timeout',args);self.assertIn(seconds,args)
+            self.assertEqual(run.call_args.kwargs['timeout'],outer)
+            if action=='check':self.assertIn('--fc-health',args)
+
+    def test_empty_successful_process_is_not_browser_evidence(self):
+        import subprocess
+        with patch.object(m.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'','')):
+            self.assertEqual(PROBE_FUNCTION()['status'],'failed')
 
 if __name__=='__main__':unittest.main()

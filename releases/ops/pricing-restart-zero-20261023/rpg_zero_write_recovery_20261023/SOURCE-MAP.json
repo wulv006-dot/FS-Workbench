@@ -1,12 +1,13 @@
 {
   "module": "rpg-zero-write-recovery-20261023",
-  "status": "candidate_tested_not_deployed",
+  "status": "deployed_original_ids_recovery_verified_new_item_zero_branch_pending",
   "files": {
-    "source/pricing_probe.py": "ea612dd87b141b29f8f7c9a2725e3a5b602eddec9ae379f5fc43b1833b2dea06",
+    "source/pricing_probe.py": "06eb02254af3f8864feec788e8d7efb23ae0f76547caf911a3ba5990699e9f1d",
     "prepare_candidate.py": "bfc9d9a6b6e8cbdb13560bd9a985e55bb877573b481e26cbb061c416194325cd",
     "test_zero_write.py": "a0d7fcf1ef44274a3954c23e74a2ffe173a99d2c57bac3607b1519a0f2133ae0",
     "test_probe_legacy.py": "f265018047e0043df4b191ba0bf57de2dc872731d5506200f0b8345e4218314b",
-    "tests/fixtures/item_write_baseline.py": "ec327b8195e8b9c260ebbb04bd7d8b772156db44c71b8751787957381ec5fe74"
+    "tests/fixtures/item_write_baseline.py": "ec327b8195e8b9c260ebbb04bd7d8b772156db44c71b8751787957381ec5fe74",
+    "test_order_memory.py": "fe469f4f9a5d6d544243301ae3808d60065471754136a18c8a7a0e95ee5ca2a6"
   },
   "baselines": {
     "/opt/fs-pricing-alerts/pricing_probe.py": "006aabd2275f43b28e2cf7c24a98d6983e1b2a202cc7d8d3d9ad89f7d7bb2a24",
@@ -22,13 +23,24 @@
       "J20261023173949"
     ],
     "other_unresolved_unchanged": true,
-    "production_modified": false,
-    "natural_acceptance": "pending"
+    "production_modified": true,
+    "natural_acceptance": "pending",
+    "production_modified_scope": "only explicitly authorized producer metadata and original monitor classification/memory fields"
   },
   "notes": [
     "3ade preserves separate cmd_writegold and newly added readgold/main changes; publisher serializes and CAS checks current baseline; authorship not yet proven",
     "Full p2pah source remains server-private; generator changes only cmd_write metadata and verifies unrelated AST unchanged",
     "fixture contains only credential-free cmd_write; all execution inputs and sessions in tests are synthetic"
   ],
-  "prior_candidate": "archive/SOURCE-MAP-12d99.json"
+  "prior_candidate": "archive/SOURCE-MAP-12d99.json",
+  "initial_candidate_status": "candidate_tested_not_deployed",
+  "deployment": {
+    "item_beijing": "2026-10-23T18:52:14+08:00",
+    "probe_beijing": "2026-10-23T19:09:56+08:00",
+    "current_linux_tests_passed": 44,
+    "recovery_message_id": "om_x100b628788befca0c09e57cc3a38c58",
+    "official_readback_code": 0,
+    "original_db_outbox_unchanged": true,
+    "no_replay": true
+  }
 }

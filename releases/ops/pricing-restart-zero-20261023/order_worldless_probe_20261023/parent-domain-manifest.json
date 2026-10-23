@@ -1,0 +1,8 @@
+{
+  "helper_after": "0368c0104fc9d71635b823d52eb3532d47a22b00ba2d1e096ab613238d861dee",
+  "helper_before": "53ee945adbafde58140f2d2705b488ad83d99b7dab30d138d1c6082997713425",
+  "service_unchanged": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+  "linux_python": 14,
+  "linux_node": 30,
+  "skipped": 0
+}
