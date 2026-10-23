@@ -74,6 +74,7 @@ class Service:
                       lifecycle_policies={name: list(points) for name, points in config['policies'].items()},
                       captured_at=max((json.loads(j['body']).get('captured_at', '') for j in jobs), default=None),
                       source_watermark=[dict(site=j['site'], start=j['start'], end_exclusive=j['end'], state=j['state']) for j in jobs],
+                      source_status_rule_versions=sorted({json.loads(j['body'])['source_status_rule_sha256'] for j in jobs if json.loads(j['body']).get('source_status_rule_sha256')}),
                       refresh_health=self.store.job_health(),
                       scope_label='已接入站点的购买客户', full_company_coverage=config.get('full_company_coverage', False),
                       status='available' if result['coverage']['period_complete'] and result['coverage']['identity_deduplication_complete'] and not result['coverage']['missing_identity_orders'] else 'partial')

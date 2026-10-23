@@ -79,6 +79,14 @@ class Users(unittest.TestCase):
         self.assertEqual(old['metrics']['silent']['value'],1)
         self.assertEqual(old['observation_date'],'2026-02-28')
 
+    def test_after_period_observation_does_not_claim_true_first_purchase(self):
+        self.load([order(1,'2026-10-20')])
+        result=self.query(start='2026-02-01',end='2026-03-01',state_basis='current')
+        rows=self.service.members(dict(snapshot_id=result['snapshot_id'],group='recent__observed_after_period'),'admin')['rows']
+        self.assertEqual(len(rows),1)
+        self.assertFalse(rows[0]['first_verified'])
+        self.assertIsNone(rows[0]['first_paid_at'])
+
     def test_history_completion_requires_inventory_and_contiguous_coverage(self):
         from user_contract import digest
         self.load([order(1,'2026-01-03')])
@@ -109,6 +117,38 @@ class Users(unittest.TestCase):
         self.load([paid,refunded])
         self.assertEqual(self.query(start='2026-09-01')['metrics']['purchasers']['value'],1)
         self.assertEqual([r['valid'] for r in self.store.read()[1]],[1,0])
+
+    def test_reviewed_source_status_dictionary_cannot_change_exclusions(self):
+        from user_runtime import configuration
+        accounting=Path(self.tmp.name)/'accounting.json'
+        accounting.write_text(json.dumps(dict(contract='channel-zero-cost-v1',testOrders={})));accounting.chmod(0o600)
+        statuses=Path(self.tmp.name)/'statuses.json'
+        proof=dict(contract='fs-users-reviewed-order-status-v1',statuses={'32':dict(label='fixture source status',classification='existing_payment_projection_unchanged',observed_rows=1,source_sha256='a'*64)})
+        statuses.write_text(json.dumps(proof));statuses.chmod(0o600)
+        config=configuration(BASE/'source/user_config.json',accounting,statuses)
+        self.assertIn('32',config['known_order_statuses'])
+        self.assertEqual(config['excluded_order_statuses'],self.config['excluded_order_statuses'])
+        self.assertEqual(len(config['source_status_rule_sha256']),64)
+        proof['statuses']['32']['classification']='include_refunds';statuses.write_text(json.dumps(proof))
+        with self.assertRaisesRegex(ValueError,'status_evidence'):
+            configuration(BASE/'source/user_config.json',accounting,statuses)
+
+    def test_unknown_source_status_stops_and_preserves_minimal_private_capture(self):
+        from user_source import shared_sync
+        from types import SimpleNamespace
+        raw=order(1,'2026-09-01');raw.update(status='999',status_format='fixture unknown',address='must not persist')
+        session=SimpleNamespace(bind_admin_token=lambda _:None,close=lambda:None)
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',None))
+        channel=SimpleNamespace(pages=lambda *args:[raw])
+        with patch.dict('sys.modules',{'p2pah_auth':auth,'channel_source':channel}):
+            with self.assertRaisesRegex(RuntimeError,'unmapped_order_status'):
+                shared_sync(self.store,'266','2026-09-01','2026-09-02')
+        saved=list(self.store.root.glob('source-review-*.json'));self.assertEqual(len(saved),1)
+        capture=json.loads(saved[0].read_text())
+        self.assertEqual(capture['rows'][0]['status'],'999')
+        self.assertNotIn('address',capture['rows'][0])
+        self.assertEqual(saved[0].stat().st_mode&0o077,0)
+        self.assertEqual(self.store.read()[1],[])
 
     def test_sweep_matches_daily_reference_at_boundaries_and_gaps(self):
         from user_lifecycle import daily_stocks
@@ -337,8 +377,10 @@ class Users(unittest.TestCase):
         self.assertEqual(detail['total'], self.values(result)['purchasers'])
         self.assertEqual(detail['rows'], exported['rows'])
         projected = research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
-        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage', 'source_watermark'):
+        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
             self.assertEqual(projected[key], result[key])
+        self.assertEqual(projected['source_window_counts'],dict(complete=1,failed=0))
+        self.assertEqual(projected['source_coverage'],[dict(site='266',start=result['source_watermark'][0]['start'],end_exclusive=result['source_watermark'][0]['end_exclusive'])])
         self.assertNotIn('projects', projected)
         class Context:
             def register_tool(context, **kwargs):
@@ -437,6 +479,20 @@ class Users(unittest.TestCase):
         self.assertEqual(projects['projects'], full['projects'])
         self.assertEqual(projects['snapshot_id'], summary['snapshot_id'])
         self.assertEqual(self.service.query({'snapshot_id': full['snapshot_id']}, 'admin'), full)
+
+    def test_tool_compacts_many_source_windows_without_filling_gaps(self):
+        self.load([order(1,'2026-10-01')])
+        frozen=self.query();query,public,private=self.store.snapshot(frozen['snapshot_id'])
+        public={k:v for k,v in public.items() if k not in ('snapshot_id','evidence_id')}
+        start=stamp('2000-01-01')
+        public['source_watermark']=[dict(site='266',start=(start+timedelta(days=i)).isoformat(),end_exclusive=(start+timedelta(days=i+1)).isoformat(),state='complete') for i in range(3000) if i!=1500]
+        public['source_watermark'].append(dict(site='266',start=(start+timedelta(days=1500)).isoformat(),end_exclusive=(start+timedelta(days=1501)).isoformat(),state='failed'))
+        frozen=self.store.save_snapshot(query,public,private)
+        result=invoke(self.service,'admin',dict(snapshot_id=frozen['snapshot_id']))
+        self.assertLess(len(json.dumps(result)),20000)
+        self.assertEqual(len(result['source_coverage']),2)
+        self.assertEqual(result['source_window_counts'],dict(complete=2999,failed=1))
+        self.assertEqual(result['source_coverage'][0]['end_exclusive'],(start+timedelta(days=1500)).isoformat())
 
     def test_custom_policy_is_frozen_independently_from_cohort_horizon(self):
         self.config['policies']['fixture-v2'] = [20, 40, 80]

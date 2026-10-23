@@ -139,6 +139,7 @@ class Store:
                     db.execute('UPDATE orders SET valid=0,revision=? WHERE order_key=?', (rev + 1, key))
             # Coverage itself is versioned even when membership is unchanged.
             payload = dict(captured_at=capture, source_rows=len(rows), identified_rows=sum(bool(self.identity(db, site, r[4].get('email'))) for r in normalized),
+                           source_status_rule_sha256=self.config.get('source_status_rule_sha256'),
                            effective_rows=sum(r[3] for r in normalized), excluded_test_rows=sum(bool(r[4]['test_order']) for r in normalized),
                            status_counts={s: sum(str(r[4]['pay_status']) == s for r in normalized) for s in ('0', '1', '2')},
                            correction_coverage='complete_reenumeration_of_payment_window_only')

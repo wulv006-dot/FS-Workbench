@@ -11,11 +11,12 @@ from user_store import Store, safe
 ROOT = Path('/var/lib/fs-user-analytics')
 CONFIG = Path(__file__).with_name('user_config.json')
 ACCOUNTING = Path('/var/lib/fs-channel-effects/accounting-overrides.json')
+STATUSES = ROOT / 'reviewed-source-statuses.json'
 _service = None
 _lock = RLock()
 
 
-def configuration(path=CONFIG, accounting=ACCOUNTING):
+def configuration(path=CONFIG, accounting=ACCOUNTING, statuses=STATUSES):
     value = json.loads(Path(path).read_text('utf-8'))
     if value.get('activation_status') != 'W0_verified':
         raise ValueError('W0_live_contract_required')
@@ -29,6 +30,23 @@ def configuration(path=CONFIG, accounting=ACCOUNTING):
         raise ValueError('accounting_rule_contract')
     value['verified_test_rules'] = rules['testOrders']
     value['accounting_rule_sha256'] = hashlib.sha256(raw).hexdigest()
+    statuses = Path(statuses)
+    safe(statuses)
+    if statuses.exists():
+        if statuses.stat().st_uid != os.geteuid() or statuses.stat().st_mode & 0o077:
+            raise ValueError('private_source_status_permissions')
+        raw = statuses.read_bytes(); reviewed = json.loads(raw)
+        if reviewed.get('contract') != 'fs-users-reviewed-order-status-v1' or not isinstance(reviewed.get('statuses'),dict):
+            raise ValueError('reviewed_status_contract')
+        for code, proof in reviewed['statuses'].items():
+            if (not code.isdigit() or not 0 < int(code) < 10000 or not isinstance(proof,dict)
+                    or proof.get('classification') != 'existing_payment_projection_unchanged'
+                    or not isinstance(proof.get('label'),str) or not proof['label'] or len(proof['label']) > 120
+                    or type(proof.get('observed_rows')) is not int or proof['observed_rows'] <= 0
+                    or len(proof.get('source_sha256','')) != 64):
+                raise ValueError('reviewed_status_evidence_required')
+        value['known_order_statuses'] = sorted(set(value['known_order_statuses']) | set(reviewed['statuses']))
+        value['source_status_rule_sha256'] = hashlib.sha256(raw).hexdigest()
     return value
 
 
