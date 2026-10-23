@@ -13,6 +13,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = Path('releases/fs-dashboard/hermes-server-unify-20261022')
 DEPLOY = Path('releases/fs-dashboard/knowledge-layering-20261023/deploy')
+BASE_TAG = 'fs-hermes-fc:71d34bad-precheck'
 
 
 def load(path, name):
@@ -28,22 +29,26 @@ def source_bytes(path):
 def build_image(root, context, before, operation_id):
     patcher = load(root / NATIVE / 'patch_factory.py', 'native_exact_factory_patch')
     lifecycle = load(root / 'releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/capability_image_lifecycle.py', 'existing_image_identity')
-    if lifecycle.image_id(before) != before:
+    if lifecycle.image_id(before) != before or lifecycle.image_id(BASE_TAG) != before:
         raise ValueError('native_base_image_drift')
+    layers = json.loads(subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .RootFS.Layers}}', before], text=True))
     original = subprocess.check_output(['docker', 'run', '--rm', '--read-only', '--network', 'none',
                                        '--entrypoint', 'cat', before, '/opt/hermes/tui_gateway/server.py'])
     expected = {'/opt/hermes/tui_gateway/server.py': hashlib.sha256(patcher.patch_source(original)).hexdigest(),
                 '/opt/hermes/fs_native_entry.py': hashlib.sha256((context / 'fs_native_entry.py').read_bytes()).hexdigest()}
     tag = 'fs-hermes-native:knowledge-' + hashlib.sha256(operation_id.encode()).hexdigest()[:24]
-    subprocess.run(['docker', 'build', '--network', 'none', '--pull=false', '--build-arg', 'NATIVE_BASE=' + before,
+    subprocess.run(['docker', 'build', '--network', 'none', '--pull=false', '--build-arg', 'NATIVE_BASE=' + BASE_TAG,
                     '-f', str(context / 'Dockerfile.native'), '-t', tag, str(context)], check=True,
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     after = lifecycle.image_id(tag)
+    child_layers = json.loads(subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .RootFS.Layers}}', after], text=True))
+    if lifecycle.image_id(BASE_TAG) != before or child_layers[:len(layers)] != layers or len(child_layers) != len(layers) + 3:
+        raise ValueError('native_built_image_base_layers_differ')
     out = subprocess.check_output(['docker', 'run', '--rm', '--read-only', '--network', 'none',
                                    '--entrypoint', 'sha256sum', after, *sorted(expected)], text=True)
     if {line.split()[1]: line.split()[0] for line in out.splitlines()} != expected:
         raise ValueError('native_image_build_readback_differs')
-    return dict(image=after, tag=tag, sources=expected)
+    return dict(image=after, tag=tag, sources=expected, base_tag=BASE_TAG, base_layers=layers, child_layers=child_layers)
 
 
 def prepare(root, output, preflight, operation_id, builder=build_image):
@@ -83,6 +88,27 @@ def prepare(root, output, preflight, operation_id, builder=build_image):
         state.update(status='unknown-needs-reconcile', failure=str(error))
         state_path.write_text(json.dumps(state, indent=2), 'utf-8')
         raise
+    return finish_candidate(root, output, preflight)
+
+
+def finish_candidate(root, output, preflight):
+    """Complete a verified build's preview; never rebuild or activate an image."""
+    root, output = Path(root), Path(output)
+    built = json.loads((output / 'native-image-state.json').read_text('utf-8'))
+    if built.get('status') != 'image_built_and_verified_not_activated':
+        raise ValueError('native_verified_build_receipt_required')
+    release = load(root / DEPLOY / 'native_release.py', 'native_exact_scope_finish')
+    sqlite_version = preflight.get('native_sqlite_version'); release.verify_sqlite_runtime(sqlite_version)
+    before = preflight['current_image']
+    if built['current_image'] != before: raise ValueError('native_build_base_changed')
+    unit = Path(preflight['unit_before_path']).read_bytes()
+    candidate_init = source_bytes(root / NATIVE / 'fs_readonly/__init__.py')
+    policy_path = preflight.get('policy_before_path')
+    prior = json.loads(Path(policy_path).read_bytes()) if policy_path else {'contract': 'fs-knowledge-load-policy-v1', 'requests': {}}
+    if prior.get('contract') != 'fs-knowledge-load-policy-v1' or not isinstance(prior.get('requests'), dict):
+        raise ValueError('native_existing_policy_contract')
+    policy = dict(prior, native=preflight['native'])
+    preserved = {k: v for k, v in prior.items() if k != 'native'}
     payloads = {'plugin/__init__.py': candidate_init,
                 'plugin/knowledge.py': source_bytes(root / NATIVE / 'fs_readonly/knowledge.py'),
                 'policy/knowledge-load-policy.json': (json.dumps(policy, ensure_ascii=False, indent=2) + '\n').encode(),

@@ -23,7 +23,7 @@ inspect使用mode=ro/query_only检查实际原生表的四列。生效仍须在�
 
 ## 验证与限制
 
-- 本机Python3.12.14/SQLite3.53.1：知识/收尾/发布46项通过，含真实格式WITHOUT ROWID、四列租约、跨进程准入互斥、先读0后并发租约拒绝、schema异常不修复/不进入发布、连接释放和原发布器精确回滚/原ID拒重。旧3.7.17拒绝用显式版本测试；不假称本机实际运行了旧SQLite。
+- 本机Python3.12.14/SQLite3.53.1：知识/收尾/发布47项通过，含真实格式WITHOUT ROWID、四列租约、跨进程准入互斥、先读0后并发租约拒绝、schema异常不修复/不进入发布、连接释放和原发布器精确回滚/原ID拒重，以及已有本地基础镜像标签/ID/层及源码读回检查。旧3.7.17拒绝用显式版本测试；不假称本机实际运行了旧SQLite。
 - 服务器Python3.9.18：仅设置单次进程的LD_LIBRARY_PATH，实际SQLite3.53.4只读读取现有Hermes库成功，未BEGIN/写库/取生产发布锁。真实生产发布fence和恢复尚未执行。
 - 原生插件/接线原38项按受影响范围复验；旧9项真实容器检查只覆盖其记录的文件哈希。用户UI、完整provider初始化、模型效果仍未验，当前0模型调用。
 - 正式CI和隔离构建已获准备授权，待实际回执更新；合并、生产四载荷替换、服务切换尚未获批，不能把本文件当上线回执。
@@ -33,6 +33,8 @@ inspect使用mode=ro/query_only检查实际原生表的四列。生效仍须在�
 新候选完成后整合当前main，推送原分支`codex/knowledge-native-fs-20261023`并创建一个PR运行既有pr-fast，暂不合并。
 
 获批的隔离构建operation为`KL-9156f40571ce279f40f60698:preflight-build-1`，只标识构建意图；标签`fs-hermes-native:knowledge-3339d3e17ca53ec1c0536f7c`，暂存`/var/tmp/fs-knowledge-native-preflight-KL-9156f40571ce279f40f60698-1`。记录它与新候选的映射，不能据旧ID执行生产。已有目录/标签或未知回执先对账，不盲重建。只复用原镜像8251bc53…，三文件上下文、network=none、pull=false，临时校验容器只读无网络且不挂载生产。镜像源SHA与最终image ID通过后仍不启用。
+
+首次实际构建在FROM解析阶段失败：裸`sha256:8251…`被BuildKit当作仓库名，原子镜像标签仍不存在。保留原日志和未知状态，先对原ID核实无子镜像再续办；不登录仓库或申请新权限。现使用已经存在的`fs-hermes-fc:71d34bad-precheck`，前后严格核对其完整ID等于原镜像，并核子镜像层以原层为前缀且仅增加Dockerfile三层。标签只是定位，不能替代完整ID/层和源码读回。`finish_candidate`仅在原状态已有已核验构建回执时完成releaseReady=false预览，不重建或发布；未知状态不能直接完成候选。[Docker构建参数说明](https://docs.docker.com/reference/cli/docker/buildx/build/)。
 
 未来上线清单须固定四主机载荷前后SHA、策略native段的具体新FS会话、当前非native字段保留哈希、旧/新不可变镜像、Desktop及关联飞书网关自然排空与短暂影响、原ID/CAS/前值回滚。保护worker/range/Nginx、所有DB/消息/队列/技能/学习和既有调度。仅文档或本轮构建不重启服务。
 
