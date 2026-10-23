@@ -19,6 +19,9 @@ TARGETS = {'plugin/__init__.py': PLUGIN + '__init__.py', 'plugin/knowledge.py': 
            'native/desktop.service': '/etc/systemd/system/fs-hermes-desktop.service'}
 UNITS = ('fs-hermes-desktop.service', 'hermes-dingtalk.service')
 IMAGE = re.compile(r'sha256:[a-f0-9]{64}')
+PATCHED_NATIVE_SOURCES = {
+    '/opt/hermes/tui_gateway/server.py': '5e69b1d2290d5cca7ea9fd8be543585ad393d65fd9a8d9d1d9645437dc853252',
+    '/opt/hermes/fs_native_entry.py': '3ec3401b894bd576260b87a6e29f2b406bbc06b3e3f1cb0ad63aea2499e1e278'}
 
 
 def wait_for_native_container(expected):
@@ -57,14 +60,23 @@ def checked(manifest, stage=None):
     for key in ('nativeImageBefore', 'nativeImageAfter'):
         if not IMAGE.fullmatch(manifest.get(key, '')):
             raise ValueError('native_pinned_image_required')
-    if manifest['nativeImageBefore'] == manifest['nativeImageAfter']:
+    plugin_only = manifest.get('nativePluginOnly') is True
+    if plugin_only:
+        if (manifest['nativeImageBefore'] != manifest['nativeImageAfter'] or
+                manifest.get('nativeImageSources') != PATCHED_NATIVE_SOURCES or
+                any(r['beforeSha256'] != r['sha256'] for r in manifest['files'] if r['candidate'] != 'plugin/knowledge.py') or
+                not next(r['beforeSha256'] for r in manifest['files'] if r['candidate'] == 'plugin/knowledge.py')):
+            raise ValueError('native_plugin_update_exact_existing_runtime_required')
+    elif manifest['nativeImageBefore'] == manifest['nativeImageAfter']:
         raise ValueError('native_image_must_include_constructor_patch')
     if set(manifest.get('nativeImageSources', {})) != {'/opt/hermes/tui_gateway/server.py', '/opt/hermes/fs_native_entry.py'} or any(
             not re.fullmatch('[a-f0-9]{64}', sha) for sha in manifest['nativeImageSources'].values()):
         raise ValueError('native_image_exact_sources_required')
     if stage is not None:
         plugin = next(r for r in manifest['files'] if r['candidate'] == 'plugin/__init__.py')
-        if original_plugin_sha((Path(stage) / 'candidate/plugin/__init__.py').read_bytes()) != plugin['beforeSha256']:
+        raw_plugin = (Path(stage) / 'candidate/plugin/__init__.py').read_bytes()
+        expected_plugin = hashlib.sha256(raw_plugin).hexdigest() if plugin_only else original_plugin_sha(raw_plugin)
+        if expected_plugin != plugin['beforeSha256']:
             raise ValueError('native_original_tools_source_drift')
         row = next(r for r in manifest['files'] if r['candidate'] == 'native/desktop.service')
         raw = (Path(stage) / 'candidate/native/desktop.service').read_bytes()

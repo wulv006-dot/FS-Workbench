@@ -100,11 +100,38 @@ def prepare(root, output, preflight, operation_id, builder=build_image):
     return finish_candidate(root, output, preflight)
 
 
+def prepare_plugin_update(root, output, preflight, operation_id):
+    """Reuse the already verified constructor image; only knowledge.py may change."""
+    root, output = Path(root), Path(output)
+    if output.exists():
+        raise ValueError('native_stage_exists_reconcile_original_operation')
+    release = load(root / DEPLOY / 'native_release.py', 'native_plugin_update_scope')
+    release.verify_sqlite_runtime(preflight.get('native_sqlite_version'))
+    image = preflight['current_image']
+    if not release.IMAGE.fullmatch(image):
+        raise ValueError('native_preflight_image_required')
+    actual = subprocess.check_output(['docker', 'inspect', '-f', '{{.Image}}', 'fs-hermes-desktop'], text=True).strip()
+    if actual != image:
+        raise ValueError('native_running_image_baseline_drift')
+    result = subprocess.check_output(['docker', 'run', '--rm', '--read-only', '--network', 'none',
+                                     '--entrypoint', 'sha256sum', image, *sorted(release.PATCHED_NATIVE_SOURCES)], text=True)
+    if {line.split()[1]: line.split()[0] for line in result.splitlines()} != release.PATCHED_NATIVE_SOURCES:
+        raise ValueError('native_plugin_update_constructor_drift')
+    prior = json.loads(Path(preflight['policy_before_path']).read_bytes())
+    if prior.get('native') != preflight['native']:
+        raise ValueError('native_plugin_update_policy_changed')
+    output.mkdir(parents=True)
+    state = dict(operation_id=operation_id, status='image_reused_and_verified_not_activated', current_image=image,
+                 image=image, sources=release.PATCHED_NATIVE_SOURCES, plugin_only=True)
+    (output / 'native-image-state.json').write_text(json.dumps(state, indent=2), 'utf-8')
+    return finish_candidate(root, output, preflight)
+
+
 def finish_candidate(root, output, preflight):
     """Complete a verified build's preview; never rebuild or activate an image."""
     root, output = Path(root), Path(output)
     built = json.loads((output / 'native-image-state.json').read_text('utf-8'))
-    if built.get('status') != 'image_built_and_verified_not_activated':
+    if built.get('status') not in ('image_built_and_verified_not_activated', 'image_reused_and_verified_not_activated'):
         raise ValueError('native_verified_build_receipt_required')
     release = load(root / DEPLOY / 'native_release.py', 'native_exact_scope_finish')
     sqlite_version = preflight.get('native_sqlite_version'); release.verify_sqlite_runtime(sqlite_version)
@@ -122,6 +149,10 @@ def finish_candidate(root, output, preflight):
                 'plugin/knowledge.py': source_bytes(root / NATIVE / 'fs_readonly/knowledge.py'),
                 'policy/knowledge-load-policy.json': (json.dumps(policy, ensure_ascii=False, indent=2) + '\n').encode(),
                 'native/desktop.service': unit.replace(before.encode(), built['image'].encode())}
+    if built.get('plugin_only') is True:
+        if built['status'] != 'image_reused_and_verified_not_activated' or prior.get('native') != preflight['native']:
+            raise ValueError('native_plugin_update_state_changed')
+        payloads['policy/knowledge-load-policy.json'] = Path(policy_path).read_bytes()
     rows = []
     for name, target in release.TARGETS.items():
         path = output / 'candidate' / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(payloads[name])
@@ -136,6 +167,8 @@ def finish_candidate(root, output, preflight):
                     nativeImageSources=built['sources'], imageId=before, sourceCommit=preflight['source_commit'],
                     policyPreservedSha256=hashlib.sha256(json.dumps(preserved, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
                     files=rows, unchangedRequired=preflight['unchangedRequired'], runtimeRequired=preflight['runtimeRequired'])
+    if built.get('plugin_only') is True:
+        manifest['nativePluginOnly'] = True
     if 'nativeProtection' in preflight:
         manifest['nativeProtection'] = preflight['nativeProtection']
     release.checked(manifest, output)
@@ -153,5 +186,7 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--preflight', type=Path, required=True); p.add_argument('--output', type=Path, required=True)
     p.add_argument('--operation-id', required=True)
+    p.add_argument('--plugin-only', action='store_true')
     args = p.parse_args()
-    print(json.dumps(prepare(ROOT, args.output, json.loads(args.preflight.read_text('utf-8')), args.operation_id)))
+    action = prepare_plugin_update if args.plugin_only else prepare
+    print(json.dumps(action(ROOT, args.output, json.loads(args.preflight.read_text('utf-8')), args.operation_id)))

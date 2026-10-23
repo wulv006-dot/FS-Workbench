@@ -62,6 +62,30 @@ class Prepare(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'verified_build_receipt_required'):
             prepare.finish_candidate(ROOT, output, self.preflight)
 
+    def test_plugin_update_reads_existing_image_and_preserves_exact_policy_unit_and_registration(self):
+        release=prepare.load(ROOT/prepare.DEPLOY/'native_release.py','plugin_update_fixture')
+        original=json.loads(self.policy.read_bytes());original['native']=self.preflight['native']
+        self.policy.write_text(json.dumps(original,separators=(',',':')))
+        self.preflight['before_hashes'][release.TARGETS['plugin/__init__.py']]=hashlib.sha256(prepare.source_bytes(ROOT/prepare.NATIVE/'fs_readonly/__init__.py')).hexdigest()
+        self.preflight['before_hashes'][release.TARGETS['plugin/knowledge.py']]='f'*64
+        rows=''.join(v+'  '+k+'\n' for k,v in release.PATCHED_NATIVE_SOURCES.items())
+        with patch.object(prepare.subprocess,'check_output',side_effect=[self.before,rows]),patch.object(prepare.subprocess,'run',side_effect=AssertionError('no build or service operations')):
+            result=prepare.prepare_plugin_update(ROOT,self.root/'plugin-stage',self.preflight,'plugin-op')
+        self.assertTrue(result['nativePluginOnly'])
+        self.assertEqual(result['nativeImageBefore'],result['nativeImageAfter'])
+        self.assertEqual((self.root/'plugin-stage/candidate/policy/knowledge-load-policy.json').read_bytes(),self.policy.read_bytes())
+        self.assertEqual((self.root/'plugin-stage/candidate/native/desktop.service').read_bytes(),self.unit.read_bytes())
+        changed=[r['candidate'] for r in result['files'] if r['sha256']!=r['beforeSha256']]
+        self.assertEqual(changed,['plugin/knowledge.py'])
+        with self.assertRaisesRegex(ValueError,'reconcile_original_operation'):
+            prepare.prepare_plugin_update(ROOT,self.root/'plugin-stage',self.preflight,'plugin-op')
+
+    def test_plugin_update_wrong_runtime_denied_before_staging(self):
+        with patch.object(prepare.subprocess,'check_output',return_value='sha256:'+'f'*64):
+            with self.assertRaisesRegex(ValueError,'baseline_drift'):
+                prepare.prepare_plugin_update(ROOT,self.root/'plugin-stage',self.preflight,'plugin-op')
+        self.assertFalse((self.root/'plugin-stage').exists())
+
     def test_builder_uses_checked_existing_tag_and_verifies_base_layers_and_sources(self):
         context = self.root / 'context'; context.mkdir(); (context / 'fs_native_entry.py').write_bytes(b'entry')
         (context / 'Dockerfile.native').write_bytes(prepare.source_bytes(ROOT / prepare.NATIVE / 'Dockerfile.native'))
