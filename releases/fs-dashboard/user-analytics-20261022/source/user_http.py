@@ -1,6 +1,21 @@
 """Thin dispatch for the existing authenticated host. Does not start a new web server."""
 
 
+def search(service, body, user):
+    if not user:
+        return 401, {'error': 'login_required'}
+    if service is None:
+        return 503, {'error': 'users_not_enabled'}
+    try:
+        return 200, service.search(body, user)
+    except PermissionError:
+        return 403, {'error': 'scope_or_admin_required'}
+    except LookupError:
+        return 404, {'error': 'snapshot_not_found'}
+    except (ValueError, TypeError):
+        return 422, {'error': 'invalid_user_query'}
+
+
 def get(service, path, params, user):
     if not user:
         return 401, {'error': 'login_required'}
