@@ -56,7 +56,7 @@ def coverage_runs(jobs, sites):
 PATH_LABELS = {'no_purchase': '期间一直未再购买', 'purchased_then_inactive': '期间买过，随后沉睡或流失',
                'returned_then_inactive': '期间唤醒或回流过，随后再次沉睡或流失',
                'returned_active': '期间唤醒或回流，目前仍近期购买',
-               'purchased_active': '期间买过，目前仍近期购买', 'not_yet_customer': '期间尚未开始购买', 'unverified': '变化待核'}
+               'purchased_active': '期间买过，目前仍近期购买', 'observed_after_period': '期间无购买，之后才观察到购买', 'unverified': '变化待核'}
 
 
 def daily_stocks(people, runs, start, end, points):
@@ -173,7 +173,7 @@ def analyze(orders, jobs, query, config, details=True):
         if not period_complete or record['stage'] == 'unverified':
             path = 'unverified'
         elif stamp(record['earliest_observed_at']) >= end:
-            path = 'not_yet_customer'
+            path = 'observed_after_period'
         elif not record['period_orders']:
             path = 'no_purchase'
         else:

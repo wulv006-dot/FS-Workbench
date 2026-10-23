@@ -79,6 +79,14 @@ class Users(unittest.TestCase):
         self.assertEqual(old['metrics']['silent']['value'],1)
         self.assertEqual(old['observation_date'],'2026-02-28')
 
+    def test_after_period_observation_does_not_claim_true_first_purchase(self):
+        self.load([order(1,'2026-10-20')])
+        result=self.query(start='2026-02-01',end='2026-03-01',state_basis='current')
+        rows=self.service.members(dict(snapshot_id=result['snapshot_id'],group='recent__observed_after_period'),'admin')['rows']
+        self.assertEqual(len(rows),1)
+        self.assertFalse(rows[0]['first_verified'])
+        self.assertIsNone(rows[0]['first_paid_at'])
+
     def test_history_completion_requires_inventory_and_contiguous_coverage(self):
         from user_contract import digest
         self.load([order(1,'2026-01-03')])
