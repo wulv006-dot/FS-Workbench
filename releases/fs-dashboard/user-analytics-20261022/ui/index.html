@@ -18,7 +18,7 @@
   <main id="main" tabindex="-1">
     <form id="filters" class="panel">
       <label for="state-basis">分析方式<select id="state-basis" name="state_basis" aria-describedby="period-hint"><option value="period_cohort">所选期间购买客户（截至昨日）</option><option value="current">辅助：全部已覆盖客户今天的状态</option><option value="period_end">辅助：全部已覆盖客户截至昨日状态</option></select></label>
-      <label>分析范围<select name="scope"><option value="global">已接入整体</option><option value="site">单站</option><option value="series">游戏系列</option><option value="project">具体项目</option></select></label>
+      <label>分析范围<select name="scope"><option value="global">全部</option><option value="site">单站</option><option value="series">游戏系列</option><option value="project">具体项目</option></select></label>
       <label>站点或项目<select name="scope_id" disabled><option value="">全部已接入</option></select></label>
       <label for="period-start">期间开始<input id="period-start" type="date" name="start" required aria-describedby="period-hint"></label>
       <label for="period-end">统计至（每日自动）<output id="period-end" aria-describedby="period-hint">昨日</output></label>
@@ -32,7 +32,7 @@
     <p id="filter-pending" role="status" hidden>筛选条件已修改，点击“查询”后生效。下面仍是上次查询的结果。</p>
     <p id="status" role="status" aria-live="polite">正在确认当前范围…</p>
     <div id="result" hidden>
-      <section class="panel" id="email-lookup" hidden aria-labelledby="email-title"><h2 id="email-title">按邮箱查购买记录</h2><p id="email-hint">输入完整客户邮箱，查看当前已查询期间、站点或项目内的购买记录。跨项目查看请先选“已接入整体”并查询。</p><form id="email-search"><label for="customer-email">客户邮箱<input id="customer-email" name="email" type="text" inputmode="email" autocomplete="off" spellcheck="false" maxlength="320" required aria-describedby="email-hint"></label><button type="submit">查这个客户</button></form><p id="email-status" role="status" aria-live="polite"></p></section>
+      <section class="panel" id="email-lookup" hidden aria-labelledby="email-title"><h2 id="email-title">按邮箱查购买记录</h2><p id="email-hint">输入完整客户邮箱，查看当前已查询期间、站点或项目内的购买记录。跨项目查看请先选“全部”并查询。</p><form id="email-search"><label for="customer-email">客户邮箱<input id="customer-email" name="email" type="text" inputmode="email" autocomplete="off" spellcheck="false" maxlength="320" required aria-describedby="email-hint"></label><button type="submit">查这个客户</button></form><p id="email-status" role="status" aria-live="polite"></p></section>
       <section class="panel"><h2>数据范围</h2><p id="coverage"></p><p id="freshness"></p><details><summary>当前口径与历史覆盖</summary><pre id="versions"></pre></details></section>
       <section class="panel" aria-labelledby="interval-title"><h2 id="interval-title">这段期间买过的客户</h2><p id="entry-hint">一个确认邮箱算一人；新老客看该邮箱期间第一笔有效订单的后台标记，缺失或冲突单列。</p><div id="interval" class="cards"></div><p id="repeat-rate"></p><details><summary>查看唤醒、回流与阶段进入</summary><div id="interval-extra" class="cards"></div></details></section>
       <section class="panel" aria-labelledby="stock-title"><h2 id="stock-title">截至昨日，这批客户处于什么阶段</h2><p id="observation"></p><div id="stock" class="cards"></div><p id="period-state-hint">待观察：期间只买过一笔，且未到沉默天数。复购过也可能再次沉睡或流失，可在下面细分查看。</p><div id="repeat-states"></div><details><summary>查看期间的唤醒、回流等经历</summary><div id="trajectories"></div></details></section>

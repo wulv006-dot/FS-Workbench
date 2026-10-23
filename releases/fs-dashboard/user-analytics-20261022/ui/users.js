@@ -77,7 +77,7 @@ function charts(){
 }
 function scopeOptions(){
   const f=el('filters'),kind=f.elements.scope.value,select=f.elements.scope_id;select.replaceChildren();select.disabled=kind==='global';
-  let options=kind==='global'?[['','全部已接入']]:kind==='site'?catalog.sites.map(s=>[s.id,s.label]):kind==='project'?Object.entries(catalog.projects).map(([id,p])=>[id,p.label]):[...new Set(Object.values(catalog.projects).map(p=>p.series).filter(Boolean))].map(s=>[s,s]);
+  let options=kind==='global'?[['','全部']]:kind==='site'?catalog.sites.map(s=>[s.id,s.label]):kind==='project'?Object.entries(catalog.projects).map(([id,p])=>[id,p.label]):[...new Set(Object.values(catalog.projects).map(p=>p.series).filter(Boolean))].map(s=>[s,s]);
   options.forEach(([id,label])=>select.add(new Option(label,id)));
   f.elements.policy_version.value=kind==='project'&&catalog.projects[select.value]?.series==='FC'||kind==='series'&&select.value==='FC'?'fc-v1':'common-v1';
 }
@@ -90,7 +90,7 @@ function render(){
   cards('interval',period?['purchasers','new_purchasers','old_flag_purchasers','customer_type_unknown','repeat_purchasers','period_without_repeat']:['purchasers','first_purchasers','old_purchasers','first_unverified','silent_wakeup','lost_return']);
   cards('interval-extra',period?['silent_wakeup','lost_return','entered_silent','entered_lost','entered_long_lost']:['repeat_purchasers','entered_silent','entered_lost','entered_long_lost']);
   cards('stock',[...(period?['waiting']:[]),'recent','silent','lost','long_lost','unverified']);
-  const q=snapshot.query,scope=q.scope==='project'?catalog.projects[q.scope_id]?.label||q.scope_id:q.scope==='site'?catalog.sites.find(s=>s.id===q.scope_id)?.label||q.scope_id:q.scope==='series'?q.scope_id:'已接入整体';
+  const q=snapshot.query,scope=q.scope==='project'?catalog.projects[q.scope_id]?.label||q.scope_id:q.scope==='site'?catalog.sites.find(s=>s.id===q.scope_id)?.label||q.scope_id:q.scope==='series'?q.scope_id:'全部';
   text('coverage',`已应用：${q.start.slice(0,10)} 至 ${addDay(q.end_exclusive.slice(0,10),-1)} · ${scope} · 阶段规则 ${snapshot.lifecycle_policy?.thresholds_days?.join(' / ')||q.policy_version} 天 · ${snapshot.full_company_coverage?'公司经营范围':'已接入范围'} · 站点 ${snapshot.coverage.sites.join(' / ')} · ${snapshot.coverage.period_complete?'区间订单已覆盖':'区间仍有覆盖缺口'} · 无法识别身份的订单 ${snapshot.coverage.missing_identity_orders} 笔。`);
   text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
   text('period-end',addDay(q.end_exclusive.slice(0,10),-1));

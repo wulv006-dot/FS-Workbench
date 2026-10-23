@@ -4,6 +4,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from threading import RLock
 import json
+import re
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS
 from user_lifecycle import analyze, project_analysis, in_scope, covered
@@ -129,9 +130,14 @@ class Service:
         result['coverage']['backfill_target_start'] = config.get('history_backfill_start')
         if bounded_path.is_file():
             bounded = json.loads(bounded_path.read_text('utf-8'))
+            inventory_file = bounded.get('inventory_file', 'history-full-inventory.json')
+            if inventory_file != 'history-full-inventory.json' and not re.fullmatch(r'history-inventory-[a-f0-9]{64}\.json', inventory_file):
+                raise ValueError('bounded_history_inventory_path')
+            from user_store import safe
+            safe(self.store.root/inventory_file)
             if (bounded.get('contract') != 'fs-users-bounded-history-v1' or bounded.get('sites') != sorted(config['sites'])
-                    or bounded.get('start') != config.get('history_backfill_start')
-                    or bounded.get('inventory_sha256') != digest(json.loads((self.store.root/'history-full-inventory.json').read_text('utf-8')))
+                    or stamp(bounded['start']) < stamp(config['history_backfill_start'])
+                    or bounded.get('inventory_sha256') != digest(json.loads((self.store.root/inventory_file).read_text('utf-8')))
                     or not covered(jobs,list(config['sites']),stamp(bounded['start']),stamp(bounded['end_exclusive']))):
                 raise ValueError('bounded_history_proof_mismatch')
             result['coverage']['history_window'] = dict(start=bounded['start'],end_exclusive=bounded['end_exclusive'],complete=True,earlier_history_included=False)
