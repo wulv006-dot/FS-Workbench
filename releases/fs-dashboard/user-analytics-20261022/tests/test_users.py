@@ -125,6 +125,23 @@ class Users(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'status_evidence'):
             configuration(BASE/'source/user_config.json',accounting,statuses)
 
+    def test_unknown_source_status_stops_and_preserves_minimal_private_capture(self):
+        from user_source import shared_sync
+        from types import SimpleNamespace
+        raw=order(1,'2026-09-01');raw.update(status='999',status_format='fixture unknown',address='must not persist')
+        session=SimpleNamespace(bind_admin_token=lambda _:None,close=lambda:None)
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',None))
+        channel=SimpleNamespace(pages=lambda *args:[raw])
+        with patch.dict('sys.modules',{'p2pah_auth':auth,'channel_source':channel}):
+            with self.assertRaisesRegex(RuntimeError,'unmapped_order_status'):
+                shared_sync(self.store,'266','2026-09-01','2026-09-02')
+        saved=list(self.store.root.glob('source-review-*.json'));self.assertEqual(len(saved),1)
+        capture=json.loads(saved[0].read_text())
+        self.assertEqual(capture['rows'][0]['status'],'999')
+        self.assertNotIn('address',capture['rows'][0])
+        self.assertEqual(saved[0].stat().st_mode&0o077,0)
+        self.assertEqual(self.store.read()[1],[])
+
     def test_sweep_matches_daily_reference_at_boundaries_and_gaps(self):
         from user_lifecycle import daily_stocks
         from user_contract import state,STATES

@@ -7,6 +7,7 @@ adapter.TARGETS={
     'runtime/user_runtime.py':'/opt/fs-hermes-fc/user_runtime.py',
     'runtime/user_store.py':'/opt/fs-hermes-fc/user_store.py',
     'runtime/user_query.py':'/opt/fs-hermes-fc/user_query.py',
+    'runtime/user_source.py':'/opt/fs-hermes-fc/user_source.py',
     'ui/users.js':'/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.js',
 }
 adapter.NEW=frozenset()

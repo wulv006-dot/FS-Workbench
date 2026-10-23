@@ -51,6 +51,15 @@ def shared_sync(store, site, start, end):
         ids = [str(r.get('id') or '') for r in rows]
         if any(not i.isdigit() or int(i) <= 0 for i in ids) or len(set(ids)) != len(ids) or [int(i) for i in ids] != sorted((int(i) for i in ids), reverse=True):
             raise ValueError('source_order_sort_or_identity')
+        if any(str(row.get('status')) not in store.config['known_order_statuses'] for row in rows):
+            from user_contract import digest
+            from user_jobs import atomic
+            fields = ('id','order_no','email','uid','site_id','gid','paytime','pay_status','status','status_format',
+                      'currency_code','payback','return_money','amount_usd_format','amount_rmb_format')
+            atomic(store.root/('source-review-'+digest(filters)[:24]+'.json'),
+                   dict(contract='fs-users-source-window-review-v1',filters=filters,captured_at=datetime.now(TZ).isoformat(),
+                        source_rows=len(rows),rows=[{key:row.get(key) for key in fields} for row in rows]))
+            raise ValueError('unmapped_order_status')
         return rows
     session = auth.Session()
     try:
