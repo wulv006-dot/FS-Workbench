@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["ops/hooks/fc-ops-readonly-monitor.timer"]) != ["hooks"]:
+        raise RuntimeError("ops_timer_mapping_missing")
     if select(['releases/ops/pricing-followup-20261023/alerts/source/watch.py','releases/ops/pricing-followup-20261023/order/query_read.py','releases/ops/pricing-followup-20261023/browser/source/start.sh']) != ['pricing-followup']:
         raise RuntimeError('pricing_followup_mapping_missing')
     if select(['releases/ops/pricing-recovery-20261023/fc_lifecycle/source/browser_lifecycle.py',
@@ -647,6 +649,7 @@ def select(paths):
             groups.add("customer-lifecycle");continue
         if name.startswith("releases/fs-dashboard/hermes-navigation-range-20261019/") and suffix in (".py",".js",".cjs"):
             groups.add("hermes-navigation-range");continue
+        if name.startswith("ops/hooks/") and suffix==".timer":groups.add("hooks");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
         if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
