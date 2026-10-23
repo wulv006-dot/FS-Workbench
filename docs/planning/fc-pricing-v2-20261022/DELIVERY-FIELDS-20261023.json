@@ -1,0 +1,297 @@
+{
+  "rule_version": "v15_unchanged",
+  "scope": "retain four already-parsed raw delivery fields",
+  "source": "8e9f465075082f459f9e32d0907559ed185fa8f9",
+  "merge": "bcbb4f91abcc36eec84ece5cd239dd4204ce9ce0",
+  "pr": 375,
+  "ci": {
+    "run": 39879190321,
+    "job": 120172161221,
+    "result": "success"
+  },
+  "before_sha256": "7f3de5bc4dce1c1c048e56bb12f7fc0ac5a133e79f2f857e31686cae7b8ad015",
+  "after_sha256": "91403f8295ddc32762fded53bea551a1660d4b258bf6c2bfc3b2429f2d45b0ec",
+  "release": {
+    "id": "nav-20261023T004250Z",
+    "manifest_sha256": "7043be2ac7d06cacb510bc5cbf483a3a80473e0f58635be64240ebeea4eb4020",
+    "stage": "/opt/fs-release-stage/fc-delivery-fields-8a29aea06ab9",
+    "targets": 1,
+    "protected": 185,
+    "backup": "/var/backups/fs-navigation-20261006/nav-20261023T004250Z"
+  },
+  "qa": {
+    "production_python": "/opt/python39/bin/python3",
+    "archive_tests": 19,
+    "accounting_tests": 39,
+    "result": "passed",
+    "unavailable_not_passed": [
+      "Windows default Python lacks lxml",
+      "server /usr/bin/python3 lacks lxml and SSL"
+    ]
+  },
+  "readback": {
+    "evidence": "/tmp/fc-pricing-v2-20261022/delivery-fields-readback-20261023T004723Z-private.json",
+    "coverage_diagnostics": [
+      {
+        "day": "2026-10-23",
+        "completed": 93,
+        "uncovered_reasons": {
+          "mixed_product_order": 1
+        },
+        "quantities": [
+          {
+            "platform": "PS",
+            "orders": 50,
+            "delivery_rows": 50,
+            "qty": "48673",
+            "gift": "0",
+            "game_labels": [
+              "FC 27 ▶PS"
+            ],
+            "quantity_nonnegative": true
+          },
+          {
+            "platform": "XBOX",
+            "orders": 25,
+            "delivery_rows": 25,
+            "qty": "16460",
+            "gift": "0",
+            "game_labels": [
+              "FC 27 ▶XBOX"
+            ],
+            "quantity_nonnegative": true
+          },
+          {
+            "platform": "PC",
+            "orders": 17,
+            "delivery_rows": 17,
+            "qty": "14807",
+            "gift": "0",
+            "game_labels": [
+              "FC 27 ▶PC"
+            ],
+            "quantity_nonnegative": true
+          }
+        ]
+      },
+      {
+        "day": "2026-10-22",
+        "completed": 90,
+        "uncovered_reasons": {
+          "mixed_product_order": 1
+        },
+        "quantities": [
+          {
+            "platform": "PS",
+            "orders": 54,
+            "delivery_rows": 54,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "FC 27 ▶PS",
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "XBOX",
+            "orders": 8,
+            "delivery_rows": 8,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "None"
+            ],
+            "quantity_nonnegative": false
+          },
+          {
+            "platform": "PC",
+            "orders": 27,
+            "delivery_rows": 27,
+            "qty": null,
+            "gift": null,
+            "game_labels": [
+              "FC 27 ▶PC",
+              "FC 27 ▶PS",
+              "None"
+            ],
+            "quantity_nonnegative": false
+          }
+        ]
+      }
+    ],
+    "delivery_record_fields": [
+      "cost_total",
+      "cost_unit",
+      "delivery_id",
+      "game",
+      "genre",
+      "gift",
+      "margin",
+      "qty",
+      "sale_total",
+      "sn",
+      "source",
+      "trade_at"
+    ],
+    "cost_capture": "2026-10-23T08:44:20.080771+08:00"
+  },
+  "monitor": {
+    "evidence": "/tmp/fc-pricing-v2-20261022/monitor/2026-10-23/004514Z-private.json",
+    "at": "2026-10-23T00:45:14.605881+00:00",
+    "activity": {
+      "source": "8e9f465075082f459f9e32d0907559ed185fa8f9",
+      "compared": 186,
+      "drift": []
+    },
+    "policy": {
+      "revision": 40,
+      "system_enabled": true,
+      "mode": "auto",
+      "interval_minutes": 120,
+      "minimum_gross_margin_pct": "10"
+    },
+    "health": {
+      "queue_depth": 0,
+      "incomplete_executions": 0,
+      "automation_timer": "active"
+    },
+    "publication": "matched",
+    "next_original_cycle": "2026-10-23T00:46:33.078458+00:00"
+  },
+  "evidence": {
+    "release": "/tmp/fc-pricing-v2-20261022/delivery-fields-release-result.json",
+    "peer376": "/tmp/fc-pricing-v2-20261022/delivery-fields-peer-376-reconciliation.json",
+    "normal_get": "/tmp/fc-pricing-v2-20261022/morning-20261023/existing-channel-004449-private.json"
+  },
+  "limits": [
+    "raw delivery quantities are not ordered SKU quantities",
+    "gift column0 is not evidence of no storefront gift",
+    "only frozen92 pure completed orders, not full127 population",
+    "yesterday missing raw quantity remains unknown",
+    "FC order identity/platform, ad-after contribution and refund settlement are still incomplete"
+  ],
+  "actions": {
+    "new_collection_schedule": false,
+    "new_collector": false,
+    "price_write": false,
+    "new_model": false,
+    "formula_or_policy_change": false
+  },
+  "natural_acceptance": {
+    "job_id": "dfcafcc0-9aef-4da0-8f6b-228a52df8b59",
+    "started_at": "2026-10-23T00:47:23.637612+00:00",
+    "completed_at": "2026-10-23T00:50:40.975602+00:00",
+    "status": "ready/no_price_change",
+    "preview_id": "8d9c1344-a298-4526-8bdb-ef12fcd1c0b8",
+    "preview_at": "2026-10-23T00:50:36.419197+00:00",
+    "executions": [],
+    "task_id": "c4078db7e9c1c9819cc28e3bdf1775a1",
+    "run_id": "run_e7ab3af6a440443685b506019e5890b4",
+    "provider_high": 7,
+    "tool_count": 11,
+    "knowledge": "learning-3fd98da6caffbc5589c37b5c3a206df203e179cfb29cfd419decd57f1c30d4ce",
+    "core": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
+    "public_observation": [
+      {
+        "collection_run_id": "dfcafcc0-9aef-4da0-8f6b-228a52df8b59",
+        "rows": [
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-23T00:48:54.135462+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PS",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-23T00:48:54.660293+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.09371428571428571428571428571",
+            "freshness": "fresh",
+            "gross_usd": "9.84",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "XBOX",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          },
+          {
+            "auth_state": "public",
+            "base_k": "100",
+            "bonus_k": "5",
+            "captured_at": "2026-10-23T00:48:55.178446+00:00",
+            "complete_comparable_offer": false,
+            "conditional": null,
+            "coupon_code": null,
+            "coupon_eligibility": null,
+            "coupon_excluded": null,
+            "currency": "USD",
+            "delivery_method": null,
+            "effective_usd_per_k": "0.08266666666666666666666666667",
+            "freshness": "fresh",
+            "gross_usd": "8.68",
+            "mandatory_fees_usd": null,
+            "missing_fields": [
+              "delivery_method",
+              "coupon_code",
+              "coupon_eligibility",
+              "mandatory_fees_usd",
+              "offer_expires_at"
+            ],
+            "offer_expires_at": null,
+            "platform": "PC",
+            "status": "available",
+            "url": "https://www.mmoexp.com/Fc-27/Coins.html"
+          }
+        ],
+        "sha256": "ee1cc85352c7c1551c9750d4ce5c4bd45c156775d7dd5dd259797625386b1f46",
+        "source": "MMOEXP main public product",
+        "status": "available"
+      }
+    ],
+    "limits": "model still mixes undiscounted break-even with retained income, misses timezone labels and dismisses single-day evidence categorically; not stable learning"
+  },
+  "monitor_frequency": "Asia/Shanghai daily07:30 by latest user instruction; server120minutes and weeklyAstra unchanged",
+  "notion": {
+    "detailed_audit": "rejected_by_auto_review_no_write",
+    "general_rules_task": "task_54e6a8e740864def9201c91655bdb029",
+    "general_rules_status": "succeeded"
+  }
+}
