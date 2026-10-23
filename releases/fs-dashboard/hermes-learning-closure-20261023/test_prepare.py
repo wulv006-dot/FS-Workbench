@@ -143,6 +143,12 @@ class Candidate(unittest.TestCase):
             with patch.object(scope, 'HERE', stage):
                 publisher = scope.load_base()
             self.assertEqual(len(publisher.validate(value, stage)), len(value['files']))
+            from types import SimpleNamespace
+            profile = Path(tmp)/'host/var/lib/fs-hermes-fc/profile'
+            for uid, gid, mode, allowed in ((9876,9876,0o40700,True), (0,0,0o40700,False),
+                                          (9876,9876,0o40750,False), (9876,0,0o40700,False)):
+                info = SimpleNamespace(st_uid=uid, st_gid=gid, st_mode=mode)
+                self.assertEqual(publisher.USERS_SAFE_PARENT(Path(tmp)/'host',profile,info),allowed)
             with self.assertRaisesRegex(ValueError, 'existing_admission_fence'):
                 publisher.restart_for(value)
             unchanged = copy.deepcopy(value)
