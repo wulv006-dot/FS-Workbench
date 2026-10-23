@@ -1,3 +1,6 @@
+<!-- learning-production-delivery-20261023 -->
+**当前：D/E已获批准并完成生产切换、技能审批门、唯一拒绝测试及原06:10任务更新。** 真实用户任务、自然日审和长期效果仍待验。见[当前生产交付](../../../docs/planning/hermes-learning-closure-20261023/DELIVERY.md)与[机器验收](../../../docs/planning/hermes-learning-closure-20261023/ACCEPTANCE.json)。下面保留初始候选时点及生成器默认边界，不能据旧“未构建/未上线”判断当前。
+
 # Hermes 原生学习：构建与发布候选
 
 状态：2026-10-23，候选。默认 `releaseReady=false`，普通路由禁用。本轮未执行 Docker、生产发布、服务操作或模型调用。

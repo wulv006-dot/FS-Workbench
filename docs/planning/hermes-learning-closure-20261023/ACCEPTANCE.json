@@ -1,0 +1,86 @@
+{
+  "status": "D_deployed_E_gate_test_and_heartbeat_updated",
+  "verified_at": "2026-10-23T13:51:17.222685+00:00",
+  "runtime_source_commit": "6cb1d97625cf780344569449c7dbc37f0ab061ad",
+  "route_source_commit": "be4670cae3afbafd72732770fca829e0162f9b18",
+  "publisher_compat_commit": "c87813ea0d9411fec2edbfaea33559d4026e8118",
+  "active_image": "sha256:0a6b8e71c8b88db2d008024306c87a7feaeec105b8232598d91df5854374bc3c",
+  "protected_and_target_hashes": 644,
+  "all_hashes_match": true,
+  "releases": {
+    "fs": "nav-20261023T133000Z",
+    "native": "nav-20261023T133001Z",
+    "routes": "nav-20261023T133002Z"
+  },
+  "ordinary_knowledge_routes": 7,
+  "fs_pure_loader_task_types": 3,
+  "feishu_pure_loader_routes": 6,
+  "current_entries": 12,
+  "full_baseline_and_current_archive_method_retained": true,
+  "readonly_published_skills": true,
+  "current_approved_skills": 0,
+  "memory_gate": true,
+  "skills_gate": true,
+  "one_pending_reject_test_passed": true,
+  "existing_skills_unchanged": true,
+  "original_daily_server_cron_unchanged": true,
+  "original_heartbeat_id": "hermes",
+  "original_heartbeat_schedule_unchanged": true,
+  "heartbeat_prompt_sha256": "c4cf3b7a10e2b27233f9a31acdbe582fcdb4563a18d10310e7c93572dfa1ae95",
+  "original_2340_chars_preserved": true,
+  "ci410": {
+    "pr": 410,
+    "url": "https://github.com/wulv006-dot/FS-Workbench/pull/410",
+    "base": "476d325073b82b469f92996a3ffef6a3bfb8b611",
+    "head": "32b3ae6b02f5afa53e495338a165976edc785116",
+    "merge": "be4670cae3afbafd72732770fca829e0162f9b18",
+    "tested_tree": "03c58f88db5b4338b6006656cf99900ce6543355",
+    "run_id": 39960985510,
+    "job_id": 120438619849,
+    "tests": 32,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "changed_files": [
+      "releases/fs-dashboard/hermes-learning-closure-20261023/deploy/routes_release.py",
+      "releases/fs-dashboard/hermes-learning-closure-20261023/tests/test_routes_release.py",
+      "tools/pr_fast.py"
+    ],
+    "committed_sha256": {
+      "releases/fs-dashboard/hermes-learning-closure-20261023/deploy/routes_release.py": "59270a61c24cec8f95b7fd0f6d0a93f05a1422ec06b20665a2df0f6fc9e18f1a",
+      "releases/fs-dashboard/hermes-learning-closure-20261023/tests/test_routes_release.py": "df6b9aeb4ca12d3a2c95c5af113de867eadea34efff489db2b61f0c35a6556a2",
+      "tools/pr_fast.py": "64845a9d49a4a46b215556af10fb5ca8b0538049119934d5a1d8c048954e3e24"
+    },
+    "retained_first_failure": {
+      "run_id": 39960596492,
+      "job_id": 120437316572,
+      "reason": "local CRLF native scope hash; restored exact committed LF bytes; no hash normalization in validator"
+    }
+  },
+  "ci412": {
+    "pr": 412,
+    "base": "3ea0e913fdb9913bcce7bca99679a02e95d28eb0",
+    "head": "7a60f390e738c0331c035ed890eea306e0d359f8",
+    "merge": "c87813ea0d9411fec2edbfaea33559d4026e8118",
+    "tested_tree": "089266fdf944088748cace6d3b429484ea06f79d",
+    "run_id": 39962583815,
+    "job_id": 120444044836,
+    "tests": 32,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "files": [
+      "releases/fs-dashboard/hermes-learning-closure-20261023/deploy/release.py",
+      "releases/fs-dashboard/hermes-learning-closure-20261023/test_prepare.py",
+      "tools/prepare_learning_release.py"
+    ],
+    "scope": "Existing native UID9876/GID9876/0700 parent contract reused; no permissions or runtime payload changes"
+  },
+  "models_called": 0,
+  "messages_sent": 0,
+  "business_writes": 0,
+  "actual_user_task_and_natural_cycle": "not_yet_observed",
+  "hard_model_priority_mutex_or_quota_isolation": "not_proven_or_added",
+  "closeout_change_id": "KL-dc84ff6cb4680697ab47fd08",
+  "notion_sync": "candidate_only_not_performed"
+}
