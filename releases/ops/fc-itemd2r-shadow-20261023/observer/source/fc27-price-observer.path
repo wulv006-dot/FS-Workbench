@@ -1,0 +1,9 @@
+[Unit]
+Description=Observe original FC completed cycles without changing their schedule
+
+[Path]
+PathChanged=/var/lib/fc27-cloud/jobs
+Unit=fc27-price-observer.service
+
+[Install]
+WantedBy=multi-user.target

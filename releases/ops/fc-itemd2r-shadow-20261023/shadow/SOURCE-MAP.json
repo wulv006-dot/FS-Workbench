@@ -1,0 +1,24 @@
+{
+  "status": "isolated_shadow_research_tested_not_production_pricing",
+  "source": "source/reference_shadow.py",
+  "source_sha256": "4e1763c6d83c0d127fa1f21cfe82d19820c2d0987dec04d81038f7995d09b7a1",
+  "simulation_only": true,
+  "production_engine_changed": false,
+  "production_policy_changed": false,
+  "business_price_recommendations": false,
+  "production_source_readback": {
+    "fc27_quote_engine.py": "7c8980894a16b3a539d30ac0cc221df4d629a02edec00bdb4a00166544db36cb",
+    "automation_policy.py": "317b657817701965147068629d7a3c97605e537ecd969c7f6f8e13ef1995b9d2",
+    "matches_initial_baseline": true
+  },
+  "tests": {"local": 22, "linux": 22, "formal_ci_by_this_subtask": false},
+  "experimental_parameters": {
+    "anchor_weights": ["0.6", "0.7", "0.8"],
+    "reference_quality_scores": {"second": "2", "third": "1"},
+    "authority": "illustrative_research_parameters_not_user_selected_or_production_rules"
+  },
+  "profit_margin_redlines": "not_evaluated_requires_original_prove_catalog",
+  "network_requests": 0,
+  "business_writes": 0,
+  "model_calls": 0
+}
