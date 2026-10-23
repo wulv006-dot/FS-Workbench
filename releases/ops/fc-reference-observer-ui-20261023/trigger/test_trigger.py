@@ -33,7 +33,18 @@ class Trigger(unittest.TestCase):
     def test_original_main_business_locks_and_id_handling_unchanged(self):
         text=SOURCE.read_text(encoding='utf-8')
         main=next(n for n in ast.parse(text).body if isinstance(n,ast.FunctionDef) and n.name=='main')
-        self.assertEqual(hashlib.sha256(ast.get_source_segment(text,main).encode()).hexdigest(),
+        # Only this reviewed read-reuse branch may differ; retain the original locks/IDs checksum.
+        reuse="""            reference=snapshot.get('reference_competitors')
+            if reference is None:
+                rows=public_read()
+            elif reference.get('status')=='captured' and reference.get('run_id')==jid:
+                rows=reference['offers']
+            else:
+                raise ValueError('original_cycle_itemd2r_unavailable_no_refetch')"""
+        source=ast.get_source_segment(text,main)
+        self.assertEqual(source.count(reuse),1)
+        source=source.replace(reuse,'            rows=public_read()',1)
+        self.assertEqual(hashlib.sha256(source.encode()).hexdigest(),
                          '93370ac11c2bc41fc5e87cabd2f1e1157f39558d87be762f8078e5865fe8271d')
 
     def test_progress_updates_wait_in_same_process_until_ready(self):
