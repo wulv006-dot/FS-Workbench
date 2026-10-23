@@ -167,6 +167,11 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/ops/pricing-recovery-20261023/fc_lifecycle/source/browser_lifecycle.py',
+               'releases/ops/pricing-recovery-20261023/fc_residency/source/lootbar_server_collector.py',
+               'releases/ops/pricing-recovery-20261023/rpg/prepare_candidate.py',
+               'releases/ops/pricing-recovery-20261023/order/service.py']) != ['pricing-recovery']:
+        raise RuntimeError('pricing_recovery_mapping_missing')
     if select(["releases/fs-dashboard/user-analytics-20261022/source/user_query.py"]) != ["user-analytics"]:
         raise RuntimeError("user_analytics_checks_missing")
     if select(["releases/fs-dashboard/game-monitor-autopublish-20261022/source/controller.py"]) != ["game-monitor-auto"]:
@@ -357,6 +362,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/ops/pricing-recovery-20261023/'):
+            groups.add('pricing-recovery');continue
         if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py'):
             groups.add('knowledge-layering');continue
         if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
@@ -680,6 +687,12 @@ def main():
     selfcheck()
     for group in groups:
         print("affected group:",group,flush=True)
+        if group=='pricing-recovery':
+            units('releases/ops/pricing-recovery-20261023/fc_lifecycle/tests',['test_lifecycle'])
+            units('releases/ops/pricing-recovery-20261023/fc_residency/tests',['test_lootbar_server_collector','test_preserved_contract','test_residency','test_event_contract','test_document_release'])
+            units('releases/ops/pricing-recovery-20261023/rpg',['test_public_contracts'])
+            units('releases/ops/pricing-recovery-20261023/order',['test_service'])
+            continue
         if group=='knowledge-layering':
             units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare'])
             continue
@@ -1108,3 +1121,4 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+

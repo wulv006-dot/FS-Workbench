@@ -1,0 +1,49 @@
+{
+  "status": "deployed_related_checks_passed_natural_cycle_verified",
+  "natural_acceptance": {
+    "observed_at": "2026-10-23T12:48:22+08:00",
+    "evidence": "docs/planning/ssh-impact-20261023/RPG-NATURAL-ACCEPTANCE.json",
+    "original_job_ids": [
+      "J20261023123249",
+      "J20261023123249-1",
+      "J20261023123249-2",
+      "J20261023123249-3"
+    ],
+    "confirmed_write_counts": [11, 56, 0, 1],
+    "unchanged_price_job": "J20261023123249-2",
+    "observer_business_writes": 0,
+    "unknown_write_fault_injection": "not_performed",
+    "upstream_item_query_slowness": "still_observed",
+    "hermes_job_outcome_alerting": "plan_only"
+  },
+  "rpg": {
+    "srv_exec.py": {
+      "before": "7b4ceeb1dd9a087060de9aa883ed42dc58d161ca31503d3d08f12d97c7507420",
+      "after": "44cea8c6f743ebfe7bfbd251383d9a9038c7dd7391cf1128e0973781c25c175e"
+    },
+    "srv_run.py": {
+      "before": "6c0dfd5d12076aac8565a4476b16bf57d57342f516a047b4ccf7040eb0c6e8e5",
+      "after": "52a3ccee95131e3bc80e4ba4d970ef33a60173516e6a004d80fbe26e1e5b05a1"
+    },
+    "p2pah_local.py": {
+      "before": "1e0688eee7f5459b18a3b7c68f7cacc321ad0b2eae3d034914c75352c4527485",
+      "after": "120045f794f78bef4c4aaeb8dbc27d0049a30a2546ebb24a73193370f2c20593"
+    },
+    "admin_cache_local.py": {
+      "before": "6287da0b53dfd823bdcb0af29e8384d231de333c96164a5ab10d501558243806",
+      "after": "857b9dcad7378903476e00e5406bb3bc6df774306148658ba5105d0864c8150d"
+    },
+    "index.html": {
+      "before": "9ff319e13f899ea7a340bdd5f16ace497420242921a651a97093c32427da571e",
+      "after": "20e45860aadc8ffc4e5d600e4878f111b01b2b39c686aa776bd20d5bc265824a"
+    }
+  },
+  "order_service": {
+    "runtime": "/opt/fs-order-session/service.py",
+    "before": "01512efe22f5d10396a112807292e032e70c2ce2e57631f57d68afac22997bd5",
+    "after": "e94f54cebe50cbede113ce4205ad2fe337b176438e0e864c1caa73ae90d3c88a"
+  },
+  "private_baselines": "not_for_github",
+  "order_profiles_and_cookies": "never_export",
+  "price_requests_in_recovery": 0
+}
