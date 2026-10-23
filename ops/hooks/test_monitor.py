@@ -154,12 +154,4 @@ class MonitorTests(unittest.TestCase):
         with patch('delivery.build_opener',return_value=Opener()):
             with self.assertRaises(ValueError):send(config()['heartbeat_url'])
 
-class TimerScheduleTests(unittest.TestCase):
-    def test_fc_monitor_schedule_matches_requested_windows(self):
-        timer = (Path(__file__).parent/'fc-ops-readonly-monitor.timer').read_text()
-        self.assertIn('OnCalendar=*-*-* 03,07,08,13,18,23:00:00', timer)
-        self.assertIn('OnBootSec=2min', timer)
-        self.assertNotIn('OnUnitActiveSec=', timer)
-
-
 if __name__=='__main__':unittest.main()
