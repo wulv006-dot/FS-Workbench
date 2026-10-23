@@ -358,4 +358,18 @@ class GitChecks(unittest.TestCase):
         for conclusion in ('failure', 'skipped', 'cancelled'):
             with self.assertRaises(ValueError): self.client(conclusion=conclusion).ready(pr)
 
+class WatchdogScheduleChecks(unittest.TestCase):
+    def test_native_schedule_converts_to_requested_beijing_windows(self):
+        plan = json.loads((ROOT/'deploy/watchdog-schedule.json').read_text())
+        minute, hours, day, month, weekday = plan['updates']['schedule'].split()
+        self.assertEqual((minute, day, month, weekday), ('0', '*', '*', '*'))
+        local_hours = sorted((int(hour)+8) % 24 for hour in hours.split(','))
+        self.assertEqual(local_hours, [3, 7, 8, 13, 18, 23])
+        self.assertEqual([(b-a) % 24 for a,b in zip(local_hours, local_hours[1:]+local_hours[:1])],
+                         [4, 1, 5, 5, 5, 4])
+        self.assertEqual(plan['timezone'], 'UTC')
+        self.assertEqual(plan['job_id'], '0018aa8c8439')
+        self.assertTrue(plan['expected']['no_agent'])
+        self.assertEqual(set(plan['updates']), {'name', 'schedule'})
+
 if __name__ == '__main__': unittest.main(verbosity=2)
