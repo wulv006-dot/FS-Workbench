@@ -129,6 +129,8 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
     if memory['usage_bytes'] >= 1536*1024*1024:
         issues.append('fc_pricing_browser_memory_high')
     lifecycle = lifecycle or {}
+    if lifecycle.get('transport_failed_at') is not None:
+        issues.append('fc_pricing_actual_browser_connection_failed')
     if lifecycle.get('state') == 'unknown':
         issues.append('fc_pricing_browser_recovery_unknown:'+str(lifecycle.get('event_id')))
     planned_verified = (lifecycle.get('startup_source_sha256') is not None

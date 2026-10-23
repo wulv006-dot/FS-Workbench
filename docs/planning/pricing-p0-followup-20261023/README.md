@@ -24,7 +24,9 @@
 
 ## 检查与回退
 
-Order读取12项Linux通过、启动15项Linux及sh语法通过、最终告警40项Linux通过，合计67项相关检查。正式[PR389](https://github.com/wulv006-dot/FS-Workbench/pull/389)已创建，首head afa95039的pr-fast通过；后续更新保留并行main检查，最终head/CI另读回，未获本PR合并授权。实际群消息ID/读回、启动重启及自然周期分别记录，不相互替代。
+Order读取12项Linux通过、启动15项Linux及sh语法通过、最终告警41项Linux通过，合计68项相关检查。14:44补齐原一分钟实际CDP失联标记即时告警，probe最终SHA `006aabd2…bb2a24`；HTTP信息正常不能掩盖实际连接失败。正式[PR389](https://github.com/wulv006-dot/FS-Workbench/pull/389)已创建，首head afa95039与合并最新base后的9b01a5a9均pr-fast通过；最终交付head/CI按PR实际读回，未获本PR合并授权。实际群消息ID/读回、启动重启及自然周期分别记录，不相互替代。各项检查见[CHECKS](CHECKS.json)。
+
+14:46只读验收：原fc27-automation-tick.timer、原5分钟监控/bridge及新path均active，最近oneshot检查exit0；FC开关ON/auto/rev40/120分钟/10%保持，实际CDP和Order正常、Worker0。当前容器usage357314560字节、RSS272146432、cache85168128，18个重启后分钟样本RSS基本平稳；重启计数0未再增加。详[LIVE-READBACK](LIVE-READBACK.json)。这仍不是完整12轮验收。
 
 14:24原RPG自然三单J20261023142443及-1/-2均单次done/confirmed：38/0/1行，两变价单缓存成功、无fail/mismatch。均为金币单，不能当作本次类目物品读取修复的自然验收。物品入口真实只读通过，物品自然单继续观察。
 

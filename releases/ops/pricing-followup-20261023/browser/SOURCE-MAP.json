@@ -32,5 +32,39 @@
   },
   "deployment_owner": "root_agent",
   "original_event_id": "f40a5ef3-c5a9-41d9-b41b-d24777e5bd25",
-  "receipt": "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023.json"
+  "receipt": "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023.json",
+  "linux_check_provenance": {
+    "source": "root_execution_output",
+    "chunk": "c08185",
+    "unit_tests": "15 passed",
+    "shell_syntax": "sh -n passed",
+    "scope_note": "Later history-count assertion in the same command blocked before production changes; the whole command is not claimed all-green. Subsequent publish and real restart are separately receipted."
+  },
+  "receipt_readonly_verification": {
+    "state": "verified_after_readonly_reconciliation",
+    "reconciled_at": "2026-10-23T06:30:24.535425+00:00",
+    "restart_replayed": false,
+    "sha256": "4d7c6fcd1ddbdd278364a05901accb8857eb3aeddec7949ec16b8df88571aed2"
+  },
+  "independent_readonly_observations": [
+    {
+      "at_utc": "2026-10-23T06:38:25.158721+00:00",
+      "container_id": "b506f447b891aae0d4b2c5a07ae3f05a9472abce3c714e1ef8098b62ac097407",
+      "restart_count": 0,
+      "started_at": "2026-10-23T06:29:09.272102793Z",
+      "running": true,
+      "restarting": false,
+      "oom_killed": false,
+      "host_and_container_start_sha256": "d646762e232c3dd161e4270967956368c4850bdb646bbf631924ddb86fc28f98"
+    },
+    {
+      "at_utc": "2026-10-23T06:40:02.203967+00:00",
+      "container_id": "b506f447b891aae0d4b2c5a07ae3f05a9472abce3c714e1ef8098b62ac097407",
+      "restart_count": 0,
+      "started_at": "2026-10-23T06:29:09.272102793Z",
+      "running": true,
+      "restarting": false,
+      "oom_killed": false
+    }
+  ]
 }

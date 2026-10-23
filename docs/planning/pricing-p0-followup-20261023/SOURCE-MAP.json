@@ -7,7 +7,7 @@
     },
     "pricing_alert_recovery_20261023/source/pricing_probe.py": {
       "runtime": "/opt/fs-pricing-alerts/pricing_probe.py",
-      "sha256": "48df411cd9fe32138f4674de591b10a77423ffee8b1eac3d34a7a883f181c0b7"
+      "sha256": "006aabd2275f43b28e2cf7c24a98d6983e1b2a202cc7d8d3d9ad89f7d7bb2a24"
     },
     "pricing_alert_recovery_20261023/source/fs-pricing-alerts.service": {
       "runtime": "/etc/systemd/system/fs-pricing-alerts.service",
@@ -41,14 +41,15 @@
     "profile_deleted": false
   },
   "checks": {
-    "linux_alerts": 40,
+    "linux_alerts": 41,
     "linux_order": 12,
     "linux_startup": 15,
     "shell_syntax": "passed",
     "notification": "two_drill_messages_sent_official_get_code0",
     "item_query_live": "2_of_2_original_ids_verified",
     "natural_item_query": "pending",
-    "long_term_memory": "open_at_least_12_original_cycles"
+    "long_term_memory": "open_at_least_12_original_cycles",
+    "linux_total": 68
   },
   "receipts": [
     "/var/lib/fs-pricing-alerts/deployment.json",

@@ -87,5 +87,10 @@ class Receipts(unittest.TestCase):
         recovered=P.collect(now,value,[],{},[],mem)
         self.assertEqual(recovered['issues'],[])
         self.assertEqual(recovered['legacy_issue_codes'],value['legacy_issue_codes'])
+    def test_actual_connection_failure_not_hidden_by_http_healthy(self):
+        now=datetime.now(timezone.utc)
+        mem=dict(running=True,usage_bytes=500000000,restart_count=0,started_at='old',oom_killed=False)
+        value=P.collect(now,{},[],dict(status='healthy'),[],mem,lifecycle=dict(transport_failed_at=now.timestamp()))
+        self.assertEqual(value['issues'],['fc_pricing_actual_browser_connection_failed'])
 
 if __name__=='__main__':unittest.main()
