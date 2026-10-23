@@ -230,6 +230,11 @@ class NativeRelease(unittest.TestCase):
         with patch.object(native.subprocess, 'check_output', return_value='true ' + self.before):
             with self.assertRaisesRegex(ValueError, 'image_differs'): native.wait_for_native_container(self.after)
 
+    def test_plugin_only_restart_and_restore_accept_the_same_pinned_image(self):
+        self.manifest.update(nativePluginOnly=True, nativeImageAfter=self.before)
+        self.after = self.before
+        self.test_only_native_units_and_no_business_stop_on_failure_cleanup()
+
     def test_container_wait_is_bounded_and_does_not_start_a_gateway_on_timeout(self):
         with patch.object(native.time, 'monotonic', side_effect=[0, 0, 31]), patch.object(native.time, 'sleep'), patch.object(native.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, ['docker'])):
             with self.assertRaisesRegex(TimeoutError, 'before_gateway_start'): native.wait_for_native_container(self.after)

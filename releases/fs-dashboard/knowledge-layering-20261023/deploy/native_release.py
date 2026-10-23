@@ -214,7 +214,7 @@ def install_native_scope(base, approved):
         stop_native(admission_fence)
         subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=20)
         raw = base.rooted(admission_fence.root, TARGETS['native/desktop.service']).read_bytes()
-        expected = [manifest[k] for k in ('nativeImageBefore', 'nativeImageAfter') if manifest[k].encode() in raw]
+        expected = sorted({manifest[k] for k in ('nativeImageBefore', 'nativeImageAfter') if manifest[k].encode() in raw})
         if len(expected) != 1:
             raise ValueError('native_unit_pinned_image_missing')
         subprocess.run(['systemctl', 'start', UNITS[0]], check=True, timeout=60)
