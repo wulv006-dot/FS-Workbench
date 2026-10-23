@@ -1,0 +1,18 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:4e79b302",
+  "candidate_sha256": "009d72b0661e731ac38cb7241264eb4ef426b2b91de5267cb7d231e831c045a8",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "已核对原审批决定、原候选哈希及completed实际应用回执；本次只归档，不重放应用。",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS"
+  ],
+  "receipt_sha256": "841c57071d4a96cbd3937f0d9a61f4469b65a9a989f40cc59dd697bf71722a4b",
+  "request_id": "2bc84a987f5be6f7247d1b25bf4300230f7572a6e9b56c7f4eede3f5ce6e5f75",
+  "runtime_activation": false,
+  "summary": "用户画像已完成去重与容量整理；身份、个人偏好和原文只保留在受控原档，本条仅记录审批及应用事实。"
+}

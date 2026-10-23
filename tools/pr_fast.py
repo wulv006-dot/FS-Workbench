@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['tools/hermes_review_archive.py', 'knowledge/reviewed/fixture/record.json']) != ['hermes-review-archive']:
+        raise RuntimeError('review_archive_mapping_missing')
     if select(["releases/ops/madden-browser-isolation-20261023/source/browser_runtime.py"]) != ["madden-browser-isolation"]:
         raise RuntimeError("madden_browser_isolation_mapping_missing")
     if select(["releases/ops/fc-reference-observer-ui-20261023/ui/source/fc27_cloud_api.py","releases/ops/fc-reference-observer-ui-20261023/trigger/source/observe.py"]) != ["fc-reference-observer-ui"]:
@@ -380,6 +382,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name == 'tools/hermes_review_archive.py' or name.startswith(('releases/fs-dashboard/hermes-review-archive-20261024/', 'knowledge/reviewed/')):
+            groups.add('hermes-review-archive');continue
         if name.startswith("releases/ops/madden-browser-isolation-20261023/"):
             groups.add("madden-browser-isolation");continue
         if name.startswith('releases/fs-dashboard/hermes-memory-approval-20261022/'):
@@ -735,6 +739,9 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
             continue
         print("affected group:",group,flush=True)
+        if group == 'hermes-review-archive':
+            units('releases/fs-dashboard/hermes-review-archive-20261024', ['test_archive'])
+            continue
         if group=="fc-reference-observer-ui":
             units("releases/ops/fc-reference-observer-ui-20261023/ui/tests",["test_reference_observer_view"])
             units("releases/ops/fc-reference-observer-ui-20261023/trigger",["test_trigger"])

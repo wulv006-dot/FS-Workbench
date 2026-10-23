@@ -1,0 +1,18 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:a2aafba7",
+  "candidate_sha256": "b734ce2f500f9d9daf327cee051dcafa7c85afabc6522f08a1389948410b466f",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "已核对原审批决定、原候选哈希及completed实际应用回执；本次只归档，不重放应用。",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS"
+  ],
+  "receipt_sha256": "b39eca44fdd1b4f4e4ffec137c9a4fe37cb2186d5ee8a1b03f69949106b2e405",
+  "request_id": "c3c72daed234324dd884d31221c2b2a5802d586b6c18f6d4d15cd097f97a3890",
+  "runtime_activation": false,
+  "summary": "长期记忆已完成去重与容量整理；保留动态权威入口和历史导航。本条不复制私人记忆，不重新发布其中的业务规则。"
+}

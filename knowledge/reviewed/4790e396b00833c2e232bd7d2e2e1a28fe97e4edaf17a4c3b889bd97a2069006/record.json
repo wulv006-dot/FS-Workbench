@@ -1,0 +1,20 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "experience:98033e9a40e342ddc9a65dfe631e253610b3e607e49cd8e38dc1ee51f5a81031",
+  "candidate_sha256": "381a51e139d02c8b04470935f5898ae940291c2d6e038b4392c26fdad5ac563a",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "已核对原审批决定、原候选哈希及completed实际应用回执；本次只归档，不重放应用。",
+  "expires_at": "2027-04-20T00:00:00+00:00",
+  "formal_rule_change": false,
+  "kind": "experience",
+  "modules": [
+    "FS"
+  ],
+  "original_content_sha256": "62e7dd6e4271023a3b53922dcc542ea400ea0105938cca4f8ea6db6c2ac8f794",
+  "receipt_sha256": "beda3a855b330906320ee24e95a8ec97311f7d85c6c36909277d036736fbab4f",
+  "request_id": "4790e396b00833c2e232bd7d2e2e1a28fe97e4edaf17a4c3b889bd97a2069006",
+  "runtime_activation": false,
+  "summary": "同源完整明细可作限定范围结构比较；跨源绝对归因、持续性及因果须分别补证据，保留反例和撤回条件。"
+}

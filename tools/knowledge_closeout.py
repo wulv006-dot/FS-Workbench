@@ -208,8 +208,9 @@ def main():
     p.add_argument('--change-id')
     p.add_argument('--step', choices=STEPS)
     p.add_argument('--file')
+    p.add_argument('--ledger', type=Path, default=DB)
     a = p.parse_args()
-    with connect() as db:
+    with connect(a.ledger) as db:
         if a.action == 'plan':
             base = a.base or subprocess.check_output(['git', 'merge-base', 'HEAD', 'origin/main'], cwd=ROOT, text=True).strip()
             result = plan(ROOT, base)
