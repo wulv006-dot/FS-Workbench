@@ -56,7 +56,12 @@ function render(){
   const q=snapshot.query,scope=q.scope==='project'?catalog.projects[q.scope_id]?.label||q.scope_id:q.scope==='site'?catalog.sites.find(s=>s.id===q.scope_id)?.label||q.scope_id:q.scope==='series'?q.scope_id:'已接入整体';
   text('coverage',`当前结果：${scope} · ${snapshot.full_company_coverage?'公司经营范围':'已接入范围'} · 站点 ${snapshot.coverage.sites.join(' / ')} · ${snapshot.coverage.period_complete?'区间订单已覆盖':'区间仍有覆盖缺口'} · 无法识别身份的订单 ${snapshot.coverage.missing_identity_orders} 笔。`);
   text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
-  text('observation',`观察日 ${snapshot.observation_date}，已覆盖购买客户池 ${value(snapshot.metrics.known_pool.value)} 人；仅包含截止前的有效购买，不代表全部历史。`);
+  text('stock-title',q.state_basis==='current'?'今天，全部已覆盖客户处于什么阶段':'历史回看：截至期末的客户阶段');
+  const coverage=snapshot.coverage;
+  const window=coverage.history_window,target=coverage.backfill_target_start;
+  const historyNote=window?`已补齐 ${window.start.slice(0,10)} 起至 ${window.end_exclusive.slice(0,10)} 的完整日订单；更早未纳入，真实首购仍可能待确认。`:`${target?'本轮只补到 '+target.slice(0,10)+'；':''}回补尚未完成，人数仍是部分客户池。`;
+  text('observation',`观察日 ${snapshot.observation_date} · 按已确认邮箱一人一档，共 ${value(snapshot.metrics.known_pool.value)} 人。实际覆盖起点 ${time(coverage.covered_history_start)}，订单读至 ${time(coverage.state_data_through)}。${historyNote}${coverage.backfill?` 回补：${coverage.backfill.status==='complete'?'本轮范围完成':coverage.backfill.status==='running'?'进行中':coverage.backfill.status==='failed'?'失败待核对':'等待核对'}。`:''}`);
+  table('trajectories',[['当前阶段',r=>labels[r.stage]],['所选期间的经历',r=>r.label],['人数',r=>{if(!catalog.can_read_private)return value(r.count);const b=document.createElement('button');b.type='button';b.textContent=value(r.count)+' 人 · '+labels[r.stage]+' / '+r.label;b.addEventListener('click',()=>members(r.group));return b;}]],snapshot.trajectories||[]);
   text('versions',JSON.stringify({snapshot_id:snapshot.snapshot_id,evidence_id:snapshot.evidence_id,query:snapshot.query,coverage:snapshot.coverage,data_version:snapshot.data_version},null,2));
   table('trend',[['日期',r=>r.day],['购买客户',r=>value(r.purchasers)],['确认首购',r=>value(r.first_purchasers)],['进入流失',r=>value(r.entered_lost)],['流失回流',r=>value(r.lost_return)],...['recent','silent','lost','long_lost','unverified'].map(key=>[labels[key],r=>value(r.stock?.[key])]),['覆盖',r=>statuses[r.status]]],snapshot.trend);charts();
   const c=snapshot.cohort;text('cohort',`${c.H||snapshot.query.H} 天内二购：${c.rate==null?statuses[c.status]:(c.rate*100).toFixed(1)+'%'} · 成熟分母 ${value(c.denominator)} · 已二购 ${value(c.numerator)} · 观察中 ${value(c.observing)} · 首购待核 ${value(c.first_unverified)}`);
@@ -67,26 +72,29 @@ function render(){
 }
 async function query(event){
   event?.preventDefault();controller?.abort();controller=new AbortController();const version=++serial;const f=el('filters');
-  const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,start:f.elements.start.value,end_exclusive:addDay(f.elements.end.value,1),policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
+  const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,state_basis:f.elements.state_basis.value,start:f.elements.start.value,end_exclusive:addDay(f.elements.end.value,1),policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
   text('status','正在读取同一范围的快照…');
-  try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${statuses[data.status]}`);}
+  try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${data.coverage.history_window?data.coverage.history_window.start.slice(0,10)+'起已覆盖 · '+statuses[data.status]:data.coverage.historical_origin?statuses[data.status]:'回补中 · 部分客户池'}`);}
   catch(error){if(error.name==='AbortError'||version!==serial)return;text('status',error.message+(snapshot?'；保留上次完整快照及其原范围。':''));}
 }
 async function members(key,next=false){
   if(!snapshot)return;const current=snapshot.snapshot_id;const request=++privateRequest;group=key;el('private').hidden=false;text('private-status','正在核验管理员权限…');
+  const base=key.split('__')[0],paths=(snapshot.trajectories||[]).filter(r=>r.stage===base),select=el('path-filter');
+  if(!next){select.replaceChildren(new Option('全部 '+(labels[base]||base),base));paths.forEach(r=>select.add(new Option(r.label+' · '+value(r.count)+' 人',r.group)));select.value=key;select.disabled=!paths.length;}
   try{const data=await read({snapshot_id:current,group:key,...(next?{cursor}: {})},'private.json');if(snapshot.snapshot_id!==current||request!==privateRequest)return;
-    cursor=data.next_cursor||'';text('private-status',`${labels[key]||key} · 同版总人数 ${data.total}`);table('members',[['脱敏客户',r=>r.customer_id.slice(-12)],['真实首购',r=>r.first_paid_at||'待确认'],['已观察最早购买',r=>r.earliest_observed_at],['末购',r=>r.last_paid_at],['整体末购',r=>r.global_last_paid_at],['阶段',r=>labels[r.stage]],['距末购天数',r=>r.days_since_last],['区间订单',r=>r.period_orders],['区间整单USD',r=>'$'+r.period_sales_usd+(r.period_amount_complete?'':'（部分覆盖）')],['私有核对',r=>{const b=document.createElement('button');b.type='button';b.textContent='查看邮箱与原单';b.addEventListener('click',()=>detail(r.customer_id,current));return b;}]],data.rows);el('next').hidden=!cursor;el('export').hidden=false;
+    cursor=data.next_cursor||'';text('private-status',`${labels[base]||base}${paths.find(r=>r.group===key)?" / "+paths.find(r=>r.group===key).label:""} · 同版总人数 ${data.total}`);table('members',[['脱敏客户',r=>r.customer_id.slice(-12)],['首次购买 D0',r=>r.first_paid_at||'历史未齐，待确认'],['已观察最早购买',r=>r.earliest_observed_at],['末购',r=>r.last_paid_at],['整体末购',r=>r.global_last_paid_at],['阶段',r=>labels[r.stage]],['距末购天数',r=>r.days_since_last],['期间经历',r=>r.period_path_label],['区间订单',r=>r.period_orders],['已覆盖历史订单',r=>r.covered_history_orders],['区间整单USD',r=>'$'+r.period_sales_usd+(r.period_amount_complete?'':'（部分覆盖）')],['私有核对',r=>{const b=document.createElement('button');b.type='button';b.textContent='查看购买与沉睡时间线';b.addEventListener('click',()=>detail(r.customer_id,current));return b;}]],data.rows);el('next').hidden=!cursor;el('export').hidden=false;
   }catch(error){if(request!==privateRequest)return;text('private-status',error.message);el('members').replaceChildren();el('next').hidden=true;el('export').hidden=true;}
 }
 async function detail(customer,current){
-  try{const data=await read({action:'detail',snapshot_id:current,customer_id:customer},'private.json');if(snapshot.snapshot_id!==current)return;text('detail-email',data.email);text('detail-note',data.note);table('detail-orders',[['原单',r=>r.order_no],['站点',r=>r.site],['项目',r=>catalog.projects[r.project_id]?.label||r.project_id],['付款时间',r=>r.paid_at],['原状态',r=>r.status_format||r.status],['有效购买',r=>r.valid?'是':'否'],['整单USD',r=>r.amount_usd==null?'待读取':'$'+r.amount_usd]],data.orders);el('customer-detail').showModal();}
+  try{const data=await read({action:'detail',snapshot_id:current,customer_id:customer},'private.json');if(snapshot.snapshot_id!==current)return;text('detail-email',data.email);text('detail-note',data.note);const kinds={first_purchase:'首次观察到购买',repeat_purchase:'再次购买',silent_wakeup:'沉默后唤醒',lost_return:'流失后回流',enter:'进入阶段'};table('detail-timeline',[['时间',r=>time(r.at)],['经历',r=>kinds[r.kind]],['阶段',r=>labels[r.stage]],['第几天（从最早已覆盖购买起算）',r=>r.days_from_observed_first==null?'待核对':r.days_from_observed_first+' 天']],data.timeline||[]);table('detail-orders',[['原单',r=>r.order_no],['站点',r=>r.site],['项目',r=>catalog.projects[r.project_id]?.label||r.project_id],['付款时间',r=>r.paid_at],['原状态',r=>r.status_format||r.status],['有效购买',r=>r.valid?'是':'否'],['整单USD',r=>r.amount_usd==null?'待读取':'$'+r.amount_usd]],data.orders);el('customer-detail').showModal();}
   catch(error){text('private-status',error.message);}
 }
-el('customer-detail').addEventListener('close',()=>{text('detail-email','');el('detail-orders').replaceChildren();});
+el('customer-detail').addEventListener('close',()=>{text('detail-email','');el('detail-orders').replaceChildren();el('detail-timeline').replaceChildren();});
 document.querySelectorAll('[data-group]').forEach(button=>button.addEventListener('click',()=>members(button.dataset.group)));
 el('filters').addEventListener('submit',query);el('refresh').addEventListener('click',query);
 el('filters').elements.scope.addEventListener('change',scopeOptions);
 el('filters').elements.scope_id.addEventListener('change',()=>{const f=el('filters');f.elements.policy_version.value=f.elements.scope.value==='project'&&catalog.projects[f.elements.scope_id.value]?.series==='FC'||f.elements.scope.value==='series'&&f.elements.scope_id.value==='FC'?'fc-v1':'common-v1';});
+el('path-filter').addEventListener('change',event=>members(event.target.value));
 el('next').addEventListener('click',()=>members(group,true));
 el('projects').addEventListener('click',()=>{if(!snapshot)return;const data=snapshot;if(!data.projects){text('project-status','当前账号或该快照未包含整体比较权限。');return;}
     const metricText=data=>`${value(data.value)}${data.status==='available'?'':` · ${statuses[data.status]||data.status}`}`;

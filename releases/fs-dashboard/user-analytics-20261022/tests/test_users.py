@@ -37,7 +37,7 @@ class Users(unittest.TestCase):
         return self.store.replace_window(site, start, end, rows, NOW.isoformat())
 
     def query(self, start='2026-10-01', end='2026-10-22', **more):
-        return self.service.query(dict(start=start, end_exclusive=end, **more), 'admin')
+        return self.service.query(dict(start=start, end_exclusive=end, **dict({'state_basis': 'period_end'}, **more)), 'admin')
 
     def values(self, value):
         return {k: v['value'] for k, v in value['metrics'].items()}
@@ -49,6 +49,160 @@ class Users(unittest.TestCase):
         self.load([order(1, '2026-10-01 12:00:00'), order(2, '2026-10-02 12:00:00', uid=42)])
         self.assertEqual(self.values(self.query())['purchasers'], 1)
         self.assertEqual(len(self.store.read()[1]), 2)
+
+    def test_current_pool_and_d0_do_not_move_with_interval(self):
+        self.origins()
+        self.load([order(1,'2026-01-03',email='old@example.test'),order(2,'2026-09-01',email='old@example.test'),
+                   order(3,'2026-10-20',email='new@example.test'),order(4,'2026-03-01',email='sleep@example.test')])
+        a=self.query(start='2026-08-01',state_basis='current')
+        b=self.query(start='2026-10-01',state_basis='current')
+        for key in ('known_pool','recent','silent','lost','long_lost'):
+            self.assertEqual(a['metrics'][key],b['metrics'][key])
+        self.assertEqual(a['observation_date'],'2026-10-22')
+        old=self.service.query({'snapshot_id':a['snapshot_id']},'admin')
+        self.assertEqual(old,a)
+        rows=self.service.members(dict(snapshot_id=a['snapshot_id'],group='silent'),'admin')['rows']
+        self.assertEqual(rows[0]['first_paid_at'],'2026-01-03T00:00:00+08:00')
+        self.assertEqual(rows[0]['period_path'],'returned_then_inactive')
+        self.assertEqual(self.service.members(dict(snapshot_id=b['snapshot_id'],group='silent__no_purchase'),'admin')['total'],1)
+        private=self.service.detail(dict(snapshot_id=a['snapshot_id'],customer_id=rows[0]['customer_id']),'admin')
+        self.assertEqual(private['timeline'][0]['days_from_d0'],0)
+        self.assertIn('lost_return',{r['kind'] for r in private['timeline']})
+        self.assertEqual(invoke(self.service,'reader',dict(snapshot_id=a['snapshot_id'],section='trajectories'))['trajectories'],a['trajectories'])
+
+    def test_default_current_and_explicit_historical_are_distinct(self):
+        self.load([order(1,'2026-01-03'),order(2,'2026-10-20')])
+        current=self.service.query(dict(start='2026-02-01',end_exclusive='2026-03-01'),'admin')
+        old=self.query(start='2026-02-01',end='2026-03-01')
+        self.assertEqual(current['query']['state_basis'],'current')
+        self.assertEqual(current['metrics']['recent']['value'],1)
+        self.assertEqual(old['metrics']['silent']['value'],1)
+        self.assertEqual(old['observation_date'],'2026-02-28')
+
+    def test_after_period_observation_does_not_claim_true_first_purchase(self):
+        self.load([order(1,'2026-10-20')])
+        result=self.query(start='2026-02-01',end='2026-03-01',state_basis='current')
+        rows=self.service.members(dict(snapshot_id=result['snapshot_id'],group='recent__observed_after_period'),'admin')['rows']
+        self.assertEqual(len(rows),1)
+        self.assertFalse(rows[0]['first_verified'])
+        self.assertIsNone(rows[0]['first_paid_at'])
+
+    def test_history_completion_requires_inventory_and_contiguous_coverage(self):
+        from user_contract import digest
+        self.load([order(1,'2026-01-03')])
+        inventory={'fixture-month':1}
+        (self.store.root/'history-full-inventory.json').write_text(json.dumps(inventory))
+        proof=dict(contract='fs-users-available-source-history-v1',sites=['266'],start='2026-01-01',end_exclusive='2026-10-22',inventory_sha256=digest(inventory))
+        path=self.store.root/'history-origin.json';path.write_text(json.dumps(proof))
+        result=self.query(start='2026-01-01')
+        self.assertEqual(result['metrics']['first_purchasers']['value'],1)
+        proof['start']='2025-01-01';path.write_text(json.dumps(proof))
+        self.service.cache.clear()
+        with self.assertRaisesRegex(ValueError,'history_completion_proof'):
+            self.query(start='2026-01-01')
+
+    def test_history_months_are_bounded_and_finite(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('users_backfill_fixture',BASE/'backfill_history.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        windows=list(module.months(stamp('1970-03-14T12:00:00'),'1970-01-01'))
+        self.assertEqual(len(windows),3)
+        self.assertEqual(windows[-1][0],stamp('1970-01-01'))
+        self.assertTrue(all((b-a).days<=31 and a<b for a,b in windows))
+        self.assertEqual(list(module.months(stamp('1970-01-01'),'1970-01-01')),[])
+        windows=list(module.months(NOW,'2026-07-01'))
+        self.assertEqual(windows[-1][0],stamp('2026-07-01'))
+        self.assertEqual(len(windows),4)
+
+    def test_backfill_stops_at_user_bound_and_keeps_original_daily_work(self):
+        from user_jobs import tick_windows
+        self.load([order(1,'2026-07-01')],start='2026-07-01')
+        reasons=[reason for _,_,_,reason in tick_windows(self.store,NOW)]
+        self.assertNotIn('historical_backfill',reasons)
+        self.assertEqual(reasons,['today_overlap','yesterday_reconciliation','historical_refund_reconciliation'])
+
+    def test_bounded_coverage_is_not_proof_of_real_d0(self):
+        from user_contract import digest
+        self.load([order(1,'2026-07-01')],start='2026-07-01')
+        inventory={'fixture':1};(self.store.root/'history-full-inventory.json').write_text(json.dumps(inventory))
+        proof=dict(contract='fs-users-bounded-history-v1',start='2026-07-01T00:00:00+08:00',end_exclusive='2026-10-22T00:00:00+08:00',sites=['266'],inventory_sha256=digest(inventory))
+        (self.store.root/'history-coverage.json').write_text(json.dumps(proof))
+        result=self.query(start='2026-07-01')
+        self.assertTrue(result['coverage']['history_window']['complete'])
+        self.assertIsNone(result['coverage']['historical_origin'])
+        self.assertEqual(result['metrics']['first_purchasers']['status'],'insufficient_history')
+        row=self.service.members(dict(snapshot_id=result['snapshot_id'],group='known_pool'),'admin')['rows'][0]
+        detail=self.service.detail(dict(snapshot_id=result['snapshot_id'],customer_id=row['customer_id']),'admin')
+        self.assertEqual(detail['timeline'][0]['days_from_observed_first'],0)
+        self.assertIsNone(detail['timeline'][0]['days_from_d0'])
+
+    def test_detail_midnight_purchase_wins_over_same_time_threshold(self):
+        self.load([order(1,'2026-07-01T12:00:00'),order(2,'2026-07-31T00:00:00')],start='2026-07-01')
+        result=self.query(start='2026-07-01')
+        self.assertEqual(result['metrics']['silent_wakeup']['value'],0)
+        row=self.service.members(dict(snapshot_id=result['snapshot_id'],group='known_pool'),'admin')['rows'][0]
+        detail=self.service.detail(dict(snapshot_id=result['snapshot_id'],customer_id=row['customer_id']),'admin')
+        purchases=[r for r in detail['timeline'] if r['kind']!='enter']
+        self.assertEqual(purchases[1]['kind'],'repeat_purchase')
+        self.assertFalse(any(r['kind']=='enter' and r['at']=='2026-07-31T00:00:00+08:00' for r in detail['timeline']))
+
+    def test_verified_legacy_complaint_status_keeps_payment_projection(self):
+        paid=order(1,'2026-09-12');paid['status']='53'
+        refunded=order(2,'2026-09-12',status=2);refunded['status']='53'
+        self.load([paid,refunded])
+        self.assertEqual(self.query(start='2026-09-01')['metrics']['purchasers']['value'],1)
+        self.assertEqual([r['valid'] for r in self.store.read()[1]],[1,0])
+
+    def test_reviewed_source_status_dictionary_cannot_change_exclusions(self):
+        from user_runtime import configuration
+        accounting=Path(self.tmp.name)/'accounting.json'
+        accounting.write_text(json.dumps(dict(contract='channel-zero-cost-v1',testOrders={})));accounting.chmod(0o600)
+        statuses=Path(self.tmp.name)/'statuses.json'
+        proof=dict(contract='fs-users-reviewed-order-status-v1',statuses={'32':dict(label='fixture source status',classification='existing_payment_projection_unchanged',observed_rows=1,source_sha256='a'*64)})
+        statuses.write_text(json.dumps(proof));statuses.chmod(0o600)
+        config=configuration(BASE/'source/user_config.json',accounting,statuses)
+        self.assertIn('32',config['known_order_statuses'])
+        self.assertEqual(config['excluded_order_statuses'],self.config['excluded_order_statuses'])
+        self.assertEqual(len(config['source_status_rule_sha256']),64)
+        proof['statuses']['32']['classification']='include_refunds';statuses.write_text(json.dumps(proof))
+        with self.assertRaisesRegex(ValueError,'status_evidence'):
+            configuration(BASE/'source/user_config.json',accounting,statuses)
+
+    def test_unknown_source_status_stops_and_preserves_minimal_private_capture(self):
+        from user_source import shared_sync
+        from types import SimpleNamespace
+        raw=order(1,'2026-09-01');raw.update(status='999',status_format='fixture unknown',address='must not persist')
+        session=SimpleNamespace(bind_admin_token=lambda _:None,close=lambda:None)
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture',None))
+        channel=SimpleNamespace(pages=lambda *args:[raw])
+        with patch.dict('sys.modules',{'p2pah_auth':auth,'channel_source':channel}):
+            with self.assertRaisesRegex(RuntimeError,'unmapped_order_status'):
+                shared_sync(self.store,'266','2026-09-01','2026-09-02')
+        saved=list(self.store.root.glob('source-review-*.json'));self.assertEqual(len(saved),1)
+        capture=json.loads(saved[0].read_text())
+        self.assertEqual(capture['rows'][0]['status'],'999')
+        self.assertNotIn('address',capture['rows'][0])
+        self.assertEqual(saved[0].stat().st_mode&0o077,0)
+        self.assertEqual(self.store.read()[1],[])
+
+    def test_sweep_matches_daily_reference_at_boundaries_and_gaps(self):
+        from user_lifecycle import daily_stocks
+        from user_contract import state,STATES
+        people={'a':[dict(paid_at=t) for t in ('2026-01-01','2026-01-31','2026-03-01T12:00:00')],
+                'b':[dict(paid_at=t) for t in ('2026-01-01T12:00:00','2026-02-10T12:00:00')]}
+        runs={'266':[(stamp('2026-01-01'),stamp('2026-02-15')),(stamp('2026-03-01'),stamp('2026-05-01'))]}
+        start,end=stamp('2026-01-01'),stamp('2026-04-02T12:00:00')
+        stocks=daily_stocks(people,runs,start,end,(30,60,90))
+        for day,actual in stocks.items():
+            finish=min(datetime.combine(day+timedelta(days=1),datetime.min.time(),TZ),end)
+            expected={key:0 for key in (*STATES,'unverified')}
+            for rows in people.values():
+                times=[stamp(r['paid_at']) for r in rows if stamp(r['paid_at'])<finish]
+                if times:
+                    last=max(times)
+                    key=state(last,(finish-timedelta(microseconds=1)).date(),(30,60,90)) if any(a<=last and finish<=b for a,b in runs['266']) else 'unverified'
+                    expected[key]+=1
+            self.assertEqual(actual,expected,day)
 
     def test_daily_transition_records_once_per_day_without_source(self):
         from user_jobs import advance_day
@@ -258,8 +412,10 @@ class Users(unittest.TestCase):
         self.assertEqual(detail['total'], self.values(result)['purchasers'])
         self.assertEqual(detail['rows'], exported['rows'])
         projected = research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
-        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage', 'source_watermark'):
+        for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
             self.assertEqual(projected[key], result[key])
+        self.assertEqual(projected['source_window_counts'],dict(complete=1,failed=0))
+        self.assertEqual(projected['source_coverage'],[dict(site='266',start=result['source_watermark'][0]['start'],end_exclusive=result['source_watermark'][0]['end_exclusive'])])
         self.assertNotIn('projects', projected)
         class Context:
             def register_tool(context, **kwargs):
@@ -358,6 +514,20 @@ class Users(unittest.TestCase):
         self.assertEqual(projects['projects'], full['projects'])
         self.assertEqual(projects['snapshot_id'], summary['snapshot_id'])
         self.assertEqual(self.service.query({'snapshot_id': full['snapshot_id']}, 'admin'), full)
+
+    def test_tool_compacts_many_source_windows_without_filling_gaps(self):
+        self.load([order(1,'2026-10-01')])
+        frozen=self.query();query,public,private=self.store.snapshot(frozen['snapshot_id'])
+        public={k:v for k,v in public.items() if k not in ('snapshot_id','evidence_id')}
+        start=stamp('2000-01-01')
+        public['source_watermark']=[dict(site='266',start=(start+timedelta(days=i)).isoformat(),end_exclusive=(start+timedelta(days=i+1)).isoformat(),state='complete') for i in range(3000) if i!=1500]
+        public['source_watermark'].append(dict(site='266',start=(start+timedelta(days=1500)).isoformat(),end_exclusive=(start+timedelta(days=1501)).isoformat(),state='failed'))
+        frozen=self.store.save_snapshot(query,public,private)
+        result=invoke(self.service,'admin',dict(snapshot_id=frozen['snapshot_id']))
+        self.assertLess(len(json.dumps(result)),20000)
+        self.assertEqual(len(result['source_coverage']),2)
+        self.assertEqual(result['source_window_counts'],dict(complete=2999,failed=1))
+        self.assertEqual(result['source_coverage'][0]['end_exclusive'],(start+timedelta(days=1500)).isoformat())
 
     def test_custom_policy_is_frozen_independently_from_cohort_horizon(self):
         self.config['policies']['fixture-v2'] = [20, 40, 80]

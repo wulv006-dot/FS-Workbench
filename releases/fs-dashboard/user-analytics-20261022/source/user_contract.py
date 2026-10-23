@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 TZ = ZoneInfo('Asia/Shanghai')
 STATES = ('recent', 'silent', 'lost', 'long_lost')
 POLICIES = {'common-v1': (30, 60, 90), 'fc-v1': (14, 30, 90)}
-VIEWS = ('summary', 'trend', 'projects', 'transitions', 'cohort', 'migration')
+VIEWS = ('summary', 'trend', 'projects', 'transitions', 'cohort', 'migration', 'trajectories')
 METRIC_DEFINITIONS = {key: dict(label=label, unit='customers', definition=definition) for key, label, definition in (
     ('purchasers', '区间购买客户', '有效区间内至少一次有效购买，按已核主邮箱去重'),
     ('first_purchasers', '已确认首次购买', '首付已由完整历史证实且发生在区间内；历史缺口不填成新客'),
@@ -73,7 +73,7 @@ def state(last, observation, points):
 
 
 def checked_query(args, config, now=None):
-    fields = {'view', 'scope', 'scope_id', 'start', 'end_exclusive', 'as_of', 'policy_version', 'policy_mode', 'snapshot_id', 'H'}
+    fields = {'view', 'scope', 'scope_id', 'start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'snapshot_id', 'H'}
     if not isinstance(args, dict) or set(args) - fields or any(type(v) not in (str, int) for v in args.values()):
         raise ValueError('query_fields')
     if not {'start', 'end_exclusive'} <= set(args):
@@ -84,11 +84,16 @@ def checked_query(args, config, now=None):
         raise ValueError('invalid_period')
     if end > (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0):
         raise ValueError('future_period')
-    actual = stamp(args['as_of']) if 'as_of' in args else min(end, now)
-    if not start < actual <= min(end, now):
+    basis = args.get('state_basis', 'period_end' if 'as_of' in args else 'current')
+    if basis not in ('current', 'period_end'):
+        raise ValueError('invalid_state_basis')
+    actual = stamp(args['as_of']) if 'as_of' in args else now if basis == 'current' else min(end, now)
+    if not start < actual <= now or basis == 'period_end' and actual > end:
         raise ValueError('invalid_as_of')
-    if end <= now and actual != end:
+    if basis == 'period_end' and end <= now and actual != end:
         raise ValueError('historical_as_of_must_equal_end')
+    if basis == 'current' and 'as_of' in args:
+        raise ValueError('current_uses_server_clock')
     view, scope = args.get('view', 'summary'), args.get('scope', 'global')
     sid = str(args.get('scope_id', ''))
     if view not in VIEWS or scope not in ('global', 'site', 'project', 'series'):
@@ -113,7 +118,7 @@ def checked_query(args, config, now=None):
     if type(horizon) is not int or horizon not in (7, 30):
         raise ValueError('invalid_horizon')
     return dict(view=view, scope=scope, scope_id=sid, start=start.isoformat(), end_exclusive=end.isoformat(),
-                as_of=actual.isoformat(), policy_version=pv, policy_mode=mode, H=horizon)
+                as_of=actual.isoformat(), state_basis=basis, policy_version=pv, policy_mode=mode, H=horizon)
 
 
 def aggregate_only(value):

@@ -482,5 +482,22 @@
     "model_audit": "6_high_13_tools_current_knowledge_verified",
     "new_price_write": false,
     "no_production_change": true
+  },
+  "delivery_fields_20261023": {
+    "report": "DELIVERY-FIELDS-20261023.md",
+    "receipt": "DELIVERY-FIELDS-20261023.json",
+    "pr": 375,
+    "source": "8e9f465075082f459f9e32d0907559ed185fa8f9",
+    "merge": "bcbb4f91abcc36eec84ece5cd239dd4204ce9ce0",
+    "stage": "/opt/fs-release-stage/fc-delivery-fields-8a29aea06ab9",
+    "release": "nav-20261023T004250Z",
+    "manifest_sha256": "7043be2ac7d06cacb510bc5cbf483a3a80473e0f58635be64240ebeea4eb4020",
+    "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+    "sha256": "91403f8295ddc32762fded53bea551a1660d4b258bf6c2bfc3b2429f2d45b0ec",
+    "protected": 185,
+    "total": 186,
+    "new_price_write": false,
+    "notion_detailed_audit": "blocked_by_auto_review; only_general_rules_synced",
+    "monitor_schedule": "Asia/Shanghai daily07:30; original120minute server and weeklyAstra unchanged"
   }
 }
