@@ -13,9 +13,11 @@
 
 生产仍用旧镜像，未合并、切换或建立新会话；本次模型请求为零。用户选择“一个专用的新 Desktop 空会话”，不等于创建授权。
 
-官方 session.create 的 runtime ID、stored ID 均现场生成，idempotency_key 是 TTL 内存缓存，不能充当永久去重账本。创建后会自动预热 agent，空草稿又不立即落 sessions 行；当前不能事先固定该会话最终策略 SHA，也不能宣称随便创建后写策略就会重建已预热 agent。session.save 只是导出，不解决空草稿持久化。此依赖须在批准的隔离真实会话试验中验证官方初始化/恢复次序；不能伪造会话、盲重建、放开所有会话或把占位策略发布为 ready。
+官方 session.create 的 runtime ID、stored ID 均现场生成，idempotency_key 是 TTL 内存缓存，不能充当永久去重账本。创建后会自动预热 agent，空草稿又不立即落 sessions 行；不能宣称随便从该 RPC 创建后写策略就会重建已预热 agent。session.save 只是导出，不解决空草稿持久化。
 
-具体上线卡允许集中批准受控会话试验和其通过后的确切发布范围；若官方绑定机制未通过，停在候选，保留既有服务。正式包必须带实际 session/profile/task、最终策略及清单哈希，任何未知操作先查原回执。完整 provider/费用硬限制及真实模型质量仍未验，不能把 89 项离线或镜像源读回称实际模型通过。
+后续已实测另一条现有原生能力：在实际修正版镜像、关闭网络及生产 profile 只读条件下，调用原生 SessionDB.create_session，在临时数据库建立指定 ID 的 desktop/default 空记录；get_session 与 list_sessions_rich 均读回同一行，消息及 system prompt 为空。因此可先固定一个计划 ID 与策略哈希，批准后仅用该原生 API 创建一条空记录，再通过正常 Desktop resume 打开。测试数据库已随临时容器销毁，生产会话没有创建；不得把该记录当作已存在的生产会话。此 API 是 upsert，执行前必须拒绝已有同 ID，重复/未知先核原操作和真实记录，不盲重放。真实 UI resume 与完整 provider 初始化仍待批准后验收。
+
+具体上线卡集中列出预选 ID、四载荷、原生空会话创建、服务切换及只读验收范围；若真实恢复或绑定机制未通过，按原发布日志回退本批载荷，保留消息与原会话，不扩大到其他会话。正式包必须带确定的 session/profile/task、策略及清单哈希，任何未知操作先查原回执。完整 provider/费用硬限制及真实模型质量仍未验，不能把 89 项离线或镜像源读回称实际模型通过。
 
 ## 影响与保护
 
