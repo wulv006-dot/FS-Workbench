@@ -29,6 +29,11 @@ METRIC_DEFINITIONS = {key: dict(label=label, unit='customers', definition=defini
     ('entered_long_lost', '新进入长期流失', '区间内发生长期流失进入事件的去重客户'),
     ('high_value_entered_silent', '高价值且刚进入沉默', '已覆盖历史USD消费达到客户池第75百分位且本期进入沉默'),
     ('first_without_repeat', '已确认首购后尚未二购', '已确认本期首次购买，截止前未见另一笔有效订单；不等于成熟未留存'),
+    ('new_purchasers', '后台标记新客', '所选期间第一笔有效订单的ES是否新客户为是；不冒充全历史独立证明'),
+    ('old_flag_purchasers', '后台标记老客', '所选期间第一笔有效订单的ES是否新客户为否'),
+    ('customer_type_unknown', '新老客标记待核', '期间第一笔有效订单的ES标记缺失、未匹配或冲突，不默认老客'),
+    ('waiting', '待观察', '期间只买一笔且距末购尚未达到沉默阈值'),
+    ('period_without_repeat', '期间首次下单后未再购买', '所选期间只有一笔有效订单；新老客均可，不等于已流失'),
 )}
 
 
@@ -76,17 +81,25 @@ def checked_query(args, config, now=None):
     fields = {'view', 'scope', 'scope_id', 'start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'snapshot_id', 'H'}
     if not isinstance(args, dict) or set(args) - fields or any(type(v) not in (str, int) for v in args.values()):
         raise ValueError('query_fields')
-    if not {'start', 'end_exclusive'} <= set(args):
+    if 'start' not in args:
         raise ValueError('query_period_required')
     now = now or datetime.now(TZ)
-    start, end = stamp(args['start']), stamp(args['end_exclusive'])
+    basis = args.get('state_basis', 'period_end' if 'as_of' in args else 'period_cohort')
+    if basis not in ('current', 'period_end', 'period_cohort'):
+        raise ValueError('invalid_state_basis')
+    if basis == 'period_cohort':
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if 'as_of' in args or 'end_exclusive' in args and stamp(args['end_exclusive']) != end:
+            raise ValueError('period_cohort_ends_yesterday')
+    elif 'end_exclusive' not in args:
+        raise ValueError('query_period_required')
+    else:
+        end = stamp(args['end_exclusive'])
+    start = stamp(args['start'])
     if not start < end or end - start > timedelta(days=366):
         raise ValueError('invalid_period')
     if end > (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0):
         raise ValueError('future_period')
-    basis = args.get('state_basis', 'period_end' if 'as_of' in args else 'current')
-    if basis not in ('current', 'period_end'):
-        raise ValueError('invalid_state_basis')
     actual = stamp(args['as_of']) if 'as_of' in args else now if basis == 'current' else min(end, now)
     if not start < actual <= now or basis == 'period_end' and actual > end:
         raise ValueError('invalid_as_of')

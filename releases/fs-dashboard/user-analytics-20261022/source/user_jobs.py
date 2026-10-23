@@ -151,6 +151,14 @@ def main():
             if result['status'] == 'deferred':
                 return
         advance_day(store, datetime.now(TZ)); backup(store, now)
+        if args.action == 'tick':
+            from user_customer_types import ensure_closed_month
+            try:
+                customer_types = ensure_closed_month(now)
+            except (OSError,ValueError,RuntimeError,KeyError,TypeError,ImportError) as error:
+                customer_types = dict(status='failed',error_type=type(error).__name__)
+            atomic(store.root/'customer-type-status.json', customer_types)
+            print(canonical(dict(customer_types=customer_types)),flush=True)
 
 
 if __name__ == '__main__':

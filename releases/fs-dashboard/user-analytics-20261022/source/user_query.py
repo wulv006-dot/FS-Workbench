@@ -10,11 +10,12 @@ from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
 class Service:
-    def __init__(self, store, authorizer, clock=None):
+    def __init__(self, store, authorizer, clock=None, customer_type_reader=None):
         if not callable(authorizer):
             raise ValueError('existing_authorizer_required')
         self.store, self.authorizer = store, authorizer
         self.clock = clock or (lambda: datetime.now(TZ))
+        self.customer_type_reader = customer_type_reader
         self.cache = OrderedDict()
         self.cache_lock = RLock()
 
@@ -45,18 +46,27 @@ class Service:
             return public
         query = checked_query(args, config, self.clock())
         self.permit(user, query)
+        period_cohort = query['state_basis'] == 'period_cohort'
+        flags, flag_source = ({}, dict(status='unavailable',source='Admin ES order-time new-customer flag'))
+        if period_cohort and self.customer_type_reader:
+            try:
+                flags, flag_source = self.customer_type_reader(query)
+            except (OSError,ValueError,KeyError,TypeError,ImportError) as error:
+                flag_source = dict(status='unavailable',source='Admin ES order-time new-customer flag',reason='source_contract_unavailable',error_type=type(error).__name__)
         global_query = dict(query, scope='global', scope_id='', policy_version=config.get('global_policy_version', 'common-v1'))
         global_allowed = self.authorizer(user, global_query, False) is True
         proof_path = self.store.root/'history-origin.json'
         bounded_path = self.store.root/'history-coverage.json'
-        cache_key = digest([query, config, self.store.revision(), self.store.job_health(), user, global_allowed,
+        cache_key = digest([query, config, flag_source, self.store.revision(), self.store.job_health(), user, global_allowed,
                             proof_path.read_text('utf-8') if proof_path.is_file() else None,
                             bounded_path.read_text('utf-8') if bounded_path.is_file() else None])
         with self.cache_lock:
             if cache_key in self.cache:
                 self.cache.move_to_end(cache_key)
                 return deepcopy(self.cache[cache_key])
-        version, orders, jobs = self.store.read(analytics=True)
+        version, orders, jobs = self.store.read(analytics=True, **dict(start=query['start'],end=query['end_exclusive']) if period_cohort else {})
+        if period_cohort:
+            config = dict(config, period_customer_types=flags)
         if proof_path.is_file():
             from user_store import safe
             safe(proof_path)
@@ -69,7 +79,7 @@ class Service:
                 raise ValueError('history_completion_proof_mismatch')
             config = dict(config,available_history_origin=proof['start'])
         result, private = analyze(orders, jobs, query, config)
-        result.update(contract_version='fs-users-v2', query=query, timezone='Asia/Shanghai',
+        result.update(contract_version='fs-users-v3-period-cohort' if period_cohort else 'fs-users-v2', query=query, timezone='Asia/Shanghai',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=query['policy_version'], data_version=version,
                       lifecycle_policy=dict(version=query['policy_version'], thresholds_days=list(config['policies'][query['policy_version']]), day_basis='Asia/Shanghai calendar days since last effective purchase'),
@@ -80,6 +90,11 @@ class Service:
                       refresh_health=self.store.job_health(),
                       scope_label='已接入站点的购买客户', full_company_coverage=config.get('full_company_coverage', False),
                       status='available' if result['coverage']['period_complete'] and result['coverage']['identity_deduplication_complete'] and not result['coverage']['missing_identity_orders'] else 'partial')
+        if period_cohort:
+            result['customer_type_source'] = flag_source
+            result['metric_definitions'] = {**METRIC_DEFINITIONS,
+                'recent': dict(METRIC_DEFINITIONS['recent'],label='已复购且近期购买',definition='期间至少两笔有效订单，距期末末购尚未达到沉默阈值'),
+                'known_pool': dict(METRIC_DEFINITIONS['known_pool'],label='所选期间购买邮箱',definition='只取所选开始日至昨日内至少一次有效购买的已核邮箱')}
         # Project matrix always compares with whole connected-company activity at the same as_of.
         global_config = config
         if query['scope'] == 'site':
@@ -137,7 +152,7 @@ class Service:
             raise PermissionError('user_scope_denied')
         return dict(contract_version='fs-users-v1', sites=allowed, projects=self.store.config['projects'],
                     policies=self.store.config['policies'], full_company_coverage=self.store.config.get('full_company_coverage', False),
-                    metric_definitions=METRIC_DEFINITIONS,
+                    metric_definitions=METRIC_DEFINITIONS, history_backfill_start=self.store.config.get('history_backfill_start'),
                     can_read_private=self.authorizer(user, {'scope': 'global', 'scope_id': ''}, True) is True)
 
     def detail(self, args, user):
@@ -150,9 +165,11 @@ class Service:
             raise LookupError('customer_not_in_snapshot')
         orders = [dict(site=r['site'], project_id=r['gid'], paid_at=r['paid_at'], valid=bool(r['valid']), **json.loads(r['body']))
                   for r in self.store.orders_at(public['data_version'], cid)
-                  if stamp(r['paid_at']) < stamp(query['as_of']) and r['site'] in self.store.config['sites']
+                  if stamp(r['paid_at']) < stamp(query['as_of']) and (query.get('state_basis') != 'period_cohort' or stamp(r['paid_at']) >= stamp(query['start'])) and r['site'] in self.store.config['sites']
                   and (query['scope'] != 'site' or r['site'] == query['scope_id']) and (public.get('requires_global_scope') or in_scope(r, query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects']))))]
         scoped = [r for r in orders if r['valid'] and in_scope(dict(r, gid=r['project_id']), query, dict(self.store.config, projects=private.get('scope_projects', self.store.config['projects'])))]
+        if query.get('state_basis') == 'period_cohort':
+            scoped.sort(key=lambda r:(r['paid_at'],int(r.get('id') or 0),r['order_no']))
         points = public.get('lifecycle_policy', {}).get('thresholds_days', self.store.config['policies'][query['policy_version']])
         jobs = [dict(site=j['site'], start=j['start'], end=j['end_exclusive'], state=j['state']) for j in public['source_watermark']]
         timeline = []
@@ -166,7 +183,7 @@ class Service:
                 gap -= 1
             kind = 'first_purchase' if not index else 'lost_return' if gap >= points[1] else 'silent_wakeup' if gap >= points[0] else 'repeat_purchase'
             observed = stamp(private['records'][cid]['earliest_observed_at']).date()
-            timeline.append(dict(at=paid.isoformat(), kind=kind, stage='recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None,days_from_observed_first=(paid.date()-observed).days))
+            timeline.append(dict(at=paid.isoformat(), kind=kind, stage='waiting' if query.get('state_basis') == 'period_cohort' and not index else 'recent', days_from_d0=(paid.date()-stamp(first).date()).days if first else None,days_from_observed_first=(paid.date()-observed).days))
             for threshold, stage_name in zip(points, ('silent','lost','long_lost')):
                 at = datetime.combine(paid.date()+timedelta(days=threshold), datetime.min.time(), TZ)
                 through = min(at, stamp(public['coverage'].get('state_data_through',query['as_of'])))
@@ -174,19 +191,35 @@ class Service:
                     timeline.append(dict(at=at.isoformat(),kind='enter',stage=stage_name,days_from_d0=(at.date()-stamp(first).date()).days if first else None,days_from_observed_first=(at.date()-observed).days))
         return dict(snapshot_id=public['snapshot_id'], customer=private['records'][cid], timeline=timeline,
                     email=self.store.email(cid), orders=orders,
-                    note='时间线从已覆盖最早购买记为观察D0；更早历史未齐时不代表真实首购。按当前已知状态冻结，金额为整单关联金额，不跨项目分摊。')
+                    note=('D0为所选期间第一笔有效购买；新老客取该单的ES原标记，状态只算到昨日，不代表终身首次购买。' if query.get('state_basis') == 'period_cohort' else '时间线从已覆盖最早购买记为观察D0；更早历史未齐时不代表真实首购。')+'按当前已知状态冻结，金额为整单关联金额，不跨项目分摊。')
+
+    def filtered_members(self, query, private, args):
+        repeat, customer_type = args.get('repeat_status','all'), args.get('customer_type','all')
+        if repeat not in ('all','repeated','not_repeated') or customer_type not in ('all','new','old','unknown'):
+            raise ValueError('private_period_filter')
+        if query.get('state_basis') != 'period_cohort' and (repeat != 'all' or customer_type != 'all'):
+            raise ValueError('period_cohort_filter_required')
+        group = args['group']
+        if group not in private['members']:
+            raise ValueError('private_group_or_limit')
+        ids = private['members'][group]
+        if repeat != 'all':
+            ids = [cid for cid in ids if private['records'][cid].get('period_repeated') is (repeat == 'repeated')]
+        if customer_type != 'all':
+            ids = [cid for cid in ids if private['records'][cid].get('period_entry_customer_type') in (('unknown','conflict') if customer_type == 'unknown' else (customer_type,))]
+        return ids
 
     def members(self, args, user):
-        if set(args) - {'snapshot_id', 'group', 'cursor', 'limit'} or not {'snapshot_id', 'group'} <= set(args):
+        if set(args) - {'snapshot_id', 'group', 'cursor', 'limit','repeat_status','customer_type'} or not {'snapshot_id', 'group'} <= set(args):
             raise ValueError('private_query_fields')
         query, public, private = self.store.snapshot(args['snapshot_id'])
         self.permit_snapshot(user, query, public, True)
         if not public['coverage']['identity_deduplication_complete']:
             raise ValueError('cross_site_identity_unverified')
         group, cursor, limit = args['group'], args.get('cursor', ''), args.get('limit', 50)
-        if group not in private['members'] or type(limit) is not int or not 1 <= limit <= 200:
+        if type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError('private_group_or_limit')
-        ids = private['members'][group]
+        ids = self.filtered_members(query, private, args)
         if cursor and cursor not in ids:
             raise ValueError('private_cursor_mismatch')
         offset = ids.index(cursor) + 1 if cursor else 0
@@ -199,10 +232,10 @@ class Service:
         # JSON export is frozen and contains the same administrator-only masked rows.
         query, public, private = self.store.snapshot(args.get('snapshot_id'))
         self.permit_snapshot(user, query, public, True)
-        if set(args) != {'snapshot_id', 'group'} or args['group'] not in private['members']:
+        if set(args) - {'snapshot_id', 'group','repeat_status','customer_type'} or not {'snapshot_id','group'} <= set(args):
             raise ValueError('private_export_fields')
         if not public['coverage']['identity_deduplication_complete']:
             raise ValueError('cross_site_identity_unverified')
-        ids = private['members'][args['group']]
+        ids = self.filtered_members(query, private, args)
         return dict(snapshot_id=public['snapshot_id'], total=len(ids), group=args['group'],
                     rows=[private['records'][cid] for cid in ids])

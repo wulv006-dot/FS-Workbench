@@ -10,19 +10,21 @@ PROPERTIES = {
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
     'as_of': {'type': 'string'}, 'policy_version': {'type': 'string'},
-    'state_basis': {'type': 'string', 'enum': ['current', 'period_end'], 'description': 'Default current: all covered history, last purchase measured against today; start/end only select interval behavior. period_end explicitly reconstructs a historical end-date state.'},
+    'state_basis': {'type': 'string', 'enum': ['period_cohort','current', 'period_end'], 'description': 'Default period_cohort: only emails purchasing from start through yesterday; end is fixed by server to today 00:00 Beijing, as_of forbidden. Period first-order ES flag supplies new/old; second order and stages use that period only. current and period_end retain legacy all-history views.'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
     'evidence_id': {'type': 'string'},
 }
-DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Interval purchasers, verified first/old/unknown buyers '
-               'are separate from lifecycle states. Default current states use all covered orders and today, independent of interval dates. Explicit period_end reconstructs the historical state. Guest customers are included. '
+DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Default period_cohort accepts a start date, automatically ends yesterday, and includes only emails with an effective order in that period. '
+               'new_purchasers/old_flag_purchasers/customer_type_unknown use the first period order ES flag, not lifetime first-purchase proof. Repeat means at least two distinct valid period orders. Waiting means one order and not yet silent; repeat buyers may later be silent/lost. '
+               'Legacy current and period_end still use all covered history. Guest customers are included. '
                'Preserve coverage, partial historical pool, refund-revision limits, mature cohort denominators and versions. '
                'No customer identifiers, SQL, URLs, collection, outreach, coupon or price changes. '
                'Use the same snapshot_id to compare dashboard evidence. Return changes, supported and alternative explanations, '
                'The default compact summary omits large project/trend tables; section reads those from the same frozen snapshot without recollecting. '
                'Use the returned lifecycle_policy and metric_definitions. H is cohort observation only. Zero in a partial historical pool never proves no company-wide loss. '
                'Project tables and migration use their own project_policy_versions, not the top summary policy. Source status 86 is a code, never a refund count. '
+               'A return only proves a later purchase; it cannot prove a marketing response or its cause. '
                'data gaps, an owner action, review metric and review date. Never estimate missing measured counts.')
 
 
@@ -65,13 +67,14 @@ def invoke(service, user, args):
         # These built-in v1 names retain their originally shipped definitions for old snapshots.
         policy = dict(version=value['policy_version'], thresholds_days=list(POLICIES[value['policy_version']]),
                       day_basis='Asia/Shanghai calendar days since last effective purchase', definition_source='versioned_builtin_contract')
-    result.update(lifecycle_policy=policy, metric_definitions=METRIC_DEFINITIONS,
+    period_cohort = value['query'].get('state_basis') == 'period_cohort'
+    result.update(lifecycle_policy=policy, metric_definitions=value.get('metric_definitions',METRIC_DEFINITIONS),
                   lifecycle_policies=value.get('lifecycle_policies', {name: list(points) for name, points in POLICIES.items()}),
                   project_policy_versions={row['project_id']: row['policy_version'] for row in value.get('projects', [])},
                   source_status_codes=dict(pay_status={'1': 'included by the confirmed effective-payment projection', '2': 'excluded'},
                                            order_status={'86': 'source partial-refund status code; not a number of orders'}),
-                  interpretation=dict(H='verified first purchase + H*24h second-purchase horizon; does not set lifecycle thresholds',
-                                      stock='state_basis=current uses today and all covered history; period_end uses historical cutoff. Interval dates never restrict the current customer pool. Partial history and observed zero do not prove no real churn',
+                  interpretation=dict(H=('period first valid order + H*24h second-purchase horizon; includes ES-new and ES-old' if period_cohort else 'verified first purchase + H*24h second-purchase horizon')+'; does not set lifecycle thresholds',
+                                      stock='Only purchasing emails in the selected period, ending yesterday; waiting is no repeat yet and below silence threshold. Other stages use last valid period order; previous/today orders do not enter. ES labels and lifetime first purchase are separate.' if period_cohort else 'state_basis=current uses today and all covered history; period_end uses historical cutoff. Interval dates never restrict the current customer pool. Partial history and observed zero do not prove no real churn',
                                       trend='each day recalculated from facts before its cutoff; early zero can follow short source history',
                                       high_value_entered_silent='interval entry event group; not current high-value silent stock',
                                       project_rules='project_policy_versions applies to project summaries and migration rows; top lifecycle_policy applies only to the selected summary',
