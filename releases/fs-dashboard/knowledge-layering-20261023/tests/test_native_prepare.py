@@ -64,13 +64,14 @@ class Prepare(unittest.TestCase):
 
     def test_builder_uses_checked_existing_tag_and_verifies_base_layers_and_sources(self):
         context = self.root / 'context'; context.mkdir(); (context / 'fs_native_entry.py').write_bytes(b'entry')
+        (context / 'Dockerfile.native').write_bytes(prepare.source_bytes(ROOT / prepare.NATIVE / 'Dockerfile.native'))
         patcher = Mock(); patcher.patch_source.return_value = b'patched'
         lifecycle = Mock(); lifecycle.image_id.side_effect = [self.before, self.before, self.after, self.before]
         layers = ['layer-a', 'layer-b']
-        child_layers = layers + ['copy-entry', 'copy-patcher', 'run-patch']
+        child_layers = layers + ['copy-entry', 'copy-patched-factory']
         expected = {'/opt/hermes/tui_gateway/server.py': hashlib.sha256(b'patched').hexdigest(),
                     '/opt/hermes/fs_native_entry.py': hashlib.sha256(b'entry').hexdigest()}
-        replies = [json.dumps(layers), b'original', json.dumps(child_layers), ''.join(v + '  ' + k + '\n' for k, v in expected.items())]
+        replies = [json.dumps(layers), '"hermes"', b'original', json.dumps(child_layers), '"hermes"', ''.join(v + '  ' + k + '\n' for k, v in expected.items())]
         with patch.object(prepare, 'load', side_effect=[patcher, lifecycle]), patch.object(prepare.subprocess, 'check_output', side_effect=replies), patch.object(prepare.subprocess, 'run') as run:
             result = prepare.build_image(ROOT, context, self.before, 'original-op')
         self.assertEqual(result['sources'], expected)
@@ -78,8 +79,12 @@ class Prepare(unittest.TestCase):
         self.assertIn('NATIVE_BASE=' + prepare.BASE_TAG, command)
         self.assertIn('--pull=false', command); self.assertEqual(command[command.index('--network') + 1], 'none')
         lifecycle.image_id.side_effect = [self.before, self.before, self.after, self.before]
-        with patch.object(prepare, 'load', side_effect=[patcher, lifecycle]), patch.object(prepare.subprocess, 'check_output', side_effect=[json.dumps(layers), b'original', json.dumps(['wrong-base'] + child_layers[1:])]), patch.object(prepare.subprocess, 'run'):
+        with patch.object(prepare, 'load', side_effect=[patcher, lifecycle]), patch.object(prepare.subprocess, 'check_output', side_effect=[json.dumps(layers), '"hermes"', b'original', json.dumps(['wrong-base'] + child_layers[1:])]), patch.object(prepare.subprocess, 'run'):
             with self.assertRaisesRegex(ValueError, 'base_layers_differ'):
+                prepare.build_image(ROOT, context, self.before, 'original-op')
+        lifecycle.image_id.side_effect = [self.before, self.before, self.after, self.before]
+        with patch.object(prepare, 'load', side_effect=[patcher, lifecycle]), patch.object(prepare.subprocess, 'check_output', side_effect=[json.dumps(layers), '"hermes"', b'original', json.dumps(child_layers), '"root"']), patch.object(prepare.subprocess, 'run'):
+            with self.assertRaisesRegex(ValueError, 'runtime_user_changed'):
                 prepare.build_image(ROOT, context, self.before, 'original-op')
 
     def test_incompatible_or_missing_runtime_refused_before_stage_or_build(self):

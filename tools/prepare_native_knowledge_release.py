@@ -32,9 +32,16 @@ def build_image(root, context, before, operation_id):
     if lifecycle.image_id(before) != before or lifecycle.image_id(BASE_TAG) != before:
         raise ValueError('native_base_image_drift')
     layers = json.loads(subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .RootFS.Layers}}', before], text=True))
+    base_user = subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .Config.User}}', before], text=True).strip()
     original = subprocess.check_output(['docker', 'run', '--rm', '--read-only', '--network', 'none',
                                        '--entrypoint', 'cat', before, '/opt/hermes/tui_gateway/server.py'])
-    expected = {'/opt/hermes/tui_gateway/server.py': hashlib.sha256(patcher.patch_source(original)).hexdigest(),
+    patched = patcher.patch_source(original)
+    factory = context / 'native_factory.py'
+    if factory.exists() and factory.read_bytes() != patched: raise ValueError('native_generated_factory_drift')
+    factory.write_bytes(patched)
+    if {p.name for p in context.iterdir()} != {'Dockerfile.native', 'fs_native_entry.py', 'native_factory.py'}:
+        raise ValueError('native_exact_three_file_context_required')
+    expected = {'/opt/hermes/tui_gateway/server.py': hashlib.sha256(patched).hexdigest(),
                 '/opt/hermes/fs_native_entry.py': hashlib.sha256((context / 'fs_native_entry.py').read_bytes()).hexdigest()}
     tag = 'fs-hermes-native:knowledge-' + hashlib.sha256(operation_id.encode()).hexdigest()[:24]
     subprocess.run(['docker', 'build', '--network', 'none', '--pull=false', '--build-arg', 'NATIVE_BASE=' + BASE_TAG,
@@ -42,13 +49,15 @@ def build_image(root, context, before, operation_id):
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     after = lifecycle.image_id(tag)
     child_layers = json.loads(subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .RootFS.Layers}}', after], text=True))
-    if lifecycle.image_id(BASE_TAG) != before or child_layers[:len(layers)] != layers or len(child_layers) != len(layers) + 3:
+    if lifecycle.image_id(BASE_TAG) != before or child_layers[:len(layers)] != layers or len(child_layers) != len(layers) + 2:
         raise ValueError('native_built_image_base_layers_differ')
+    if subprocess.check_output(['docker', 'image', 'inspect', '-f', '{{json .Config.User}}', after], text=True).strip() != base_user:
+        raise ValueError('native_built_image_runtime_user_changed')
     out = subprocess.check_output(['docker', 'run', '--rm', '--read-only', '--network', 'none',
                                    '--entrypoint', 'sha256sum', after, *sorted(expected)], text=True)
     if {line.split()[1]: line.split()[0] for line in out.splitlines()} != expected:
         raise ValueError('native_image_build_readback_differs')
-    return dict(image=after, tag=tag, sources=expected, base_tag=BASE_TAG, base_layers=layers, child_layers=child_layers)
+    return dict(image=after, tag=tag, sources=expected, base_tag=BASE_TAG, base_layers=layers, child_layers=child_layers, runtime_user=base_user)
 
 
 def prepare(root, output, preflight, operation_id, builder=build_image):
@@ -78,7 +87,7 @@ def prepare(root, output, preflight, operation_id, builder=build_image):
     state_path = output / 'native-image-state.json'
     state_path.write_text(json.dumps(state, indent=2), 'utf-8')
     context = output / 'native-image-context'; context.mkdir()
-    for name in ('Dockerfile.native', 'fs_native_entry.py', 'patch_factory.py'):
+    for name in ('Dockerfile.native', 'fs_native_entry.py'):
         (context / name).write_bytes(source_bytes(root / NATIVE / name))
     try:
         built = builder(root, context, before, operation_id)

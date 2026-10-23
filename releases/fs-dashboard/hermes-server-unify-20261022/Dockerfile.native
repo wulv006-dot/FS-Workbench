@@ -1,5 +1,4 @@
 ARG NATIVE_BASE
 FROM ${NATIVE_BASE}
 COPY fs_native_entry.py /opt/hermes/fs_native_entry.py
-COPY patch_factory.py /tmp/fs-patch-factory.py
-RUN /opt/hermes/.venv/bin/python -I -B /tmp/fs-patch-factory.py && rm /tmp/fs-patch-factory.py
+COPY native_factory.py /opt/hermes/tui_gateway/server.py

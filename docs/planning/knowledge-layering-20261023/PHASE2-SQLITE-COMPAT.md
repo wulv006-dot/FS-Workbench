@@ -34,7 +34,9 @@ inspect使用mode=ro/query_only检查实际原生表的四列。生效仍须在�
 
 获批的隔离构建operation为`KL-9156f40571ce279f40f60698:preflight-build-1`，只标识构建意图；标签`fs-hermes-native:knowledge-3339d3e17ca53ec1c0536f7c`，暂存`/var/tmp/fs-knowledge-native-preflight-KL-9156f40571ce279f40f60698-1`。记录它与新候选的映射，不能据旧ID执行生产。已有目录/标签或未知回执先对账，不盲重建。只复用原镜像8251bc53…，三文件上下文、network=none、pull=false，临时校验容器只读无网络且不挂载生产。镜像源SHA与最终image ID通过后仍不启用。
 
-首次实际构建在FROM解析阶段失败：裸`sha256:8251…`被BuildKit当作仓库名，原子镜像标签仍不存在。保留原日志和未知状态，先对原ID核实无子镜像再续办；不登录仓库或申请新权限。现使用已经存在的`fs-hermes-fc:71d34bad-precheck`，前后严格核对其完整ID等于原镜像，并核子镜像层以原层为前缀且仅增加Dockerfile三层。标签只是定位，不能替代完整ID/层和源码读回。`finish_candidate`仅在原状态已有已核验构建回执时完成releaseReady=false预览，不重建或发布；未知状态不能直接完成候选。[Docker构建参数说明](https://docs.docker.com/reference/cli/docker/buildx/build/)。
+首次实际构建在FROM解析阶段失败：裸`sha256:8251…`被BuildKit当作仓库名，原子镜像标签仍不存在。第二次同ID对账续办已正确找到本地基础镜像，但RUN按基础镜像非root用户执行，无法写root所有的工厂文件；仍无子镜像。原日志和状态均保留，不登录仓库、申请权限或改运行用户。
+
+现使用已经存在的`fs-hermes-fc:71d34bad-precheck`，前后严格核其完整ID等于原镜像；在宿主暂存内用精确SHA补丁生成factory，Dockerfile只COPY构造器及已补丁工厂两文件，不运行写工厂程序。三文件构建上下文改为Dockerfile、构造器和派生factory，补丁器源码及输入/输出SHA另记。子层必须以原层为前缀且只增加两层，最终运行User必须与原镜像一致。标签只是定位，不能替代完整ID/层和源码读回。`finish_candidate`仅在原状态已有已核验构建回执时完成releaseReady=false预览，不重建或发布；未知状态不能直接完成候选。[Docker构建参数说明](https://docs.docker.com/reference/cli/docker/buildx/build/)。
 
 未来上线清单须固定四主机载荷前后SHA、策略native段的具体新FS会话、当前非native字段保留哈希、旧/新不可变镜像、Desktop及关联飞书网关自然排空与短暂影响、原ID/CAS/前值回滚。保护worker/range/Nginx、所有DB/消息/队列/技能/学习和既有调度。仅文档或本轮构建不重启服务。
 
