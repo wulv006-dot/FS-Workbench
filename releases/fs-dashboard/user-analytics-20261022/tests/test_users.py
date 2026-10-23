@@ -110,6 +110,21 @@ class Users(unittest.TestCase):
         self.assertEqual(self.query(start='2026-09-01')['metrics']['purchasers']['value'],1)
         self.assertEqual([r['valid'] for r in self.store.read()[1]],[1,0])
 
+    def test_reviewed_source_status_dictionary_cannot_change_exclusions(self):
+        from user_runtime import configuration
+        accounting=Path(self.tmp.name)/'accounting.json'
+        accounting.write_text(json.dumps(dict(contract='channel-zero-cost-v1',testOrders={})));accounting.chmod(0o600)
+        statuses=Path(self.tmp.name)/'statuses.json'
+        proof=dict(contract='fs-users-reviewed-order-status-v1',statuses={'32':dict(label='fixture source status',classification='existing_payment_projection_unchanged',observed_rows=1,source_sha256='a'*64)})
+        statuses.write_text(json.dumps(proof));statuses.chmod(0o600)
+        config=configuration(BASE/'source/user_config.json',accounting,statuses)
+        self.assertIn('32',config['known_order_statuses'])
+        self.assertEqual(config['excluded_order_statuses'],self.config['excluded_order_statuses'])
+        self.assertEqual(len(config['source_status_rule_sha256']),64)
+        proof['statuses']['32']['classification']='include_refunds';statuses.write_text(json.dumps(proof))
+        with self.assertRaisesRegex(ValueError,'status_evidence'):
+            configuration(BASE/'source/user_config.json',accounting,statuses)
+
     def test_sweep_matches_daily_reference_at_boundaries_and_gaps(self):
         from user_lifecycle import daily_stocks
         from user_contract import state,STATES
