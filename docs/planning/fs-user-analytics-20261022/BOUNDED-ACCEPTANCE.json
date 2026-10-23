@@ -1,0 +1,117 @@
+{
+  "status": "passed",
+  "at": "2026-10-23T09:32:19.498900+08:00",
+  "targets": 1,
+  "guards": 110,
+  "independent_raw_email_projection": {
+    "customers": 43174,
+    "states": {
+      "recent": 17019,
+      "silent": 7072,
+      "lost": 9982,
+      "long_lost": 9101
+    }
+  },
+  "source_inventory": {
+    "266:2026-07-01T00:00:00+08:00:2026-08-01T00:00:00+08:00": 52179,
+    "266:2026-08-01T00:00:00+08:00:2026-09-01T00:00:00+08:00": 27566,
+    "266:2026-09-01T00:00:00+08:00:2026-10-01T00:00:00+08:00": 30818,
+    "266:2026-10-01T00:00:00+08:00:2026-10-23T00:00:00+08:00": 28496
+  },
+  "bounded_proof": {
+    "contract": "fs-users-bounded-history-v1",
+    "data_version": "212",
+    "end_exclusive": "2026-10-23T00:00:00+08:00",
+    "inventory_sha256": "4df58683a5a0d1ca769ee8bf6ee8f08e012e765497734c7d320ff35270b83b41",
+    "sites": [
+      "266"
+    ],
+    "start": "2026-07-01T00:00:00+08:00"
+  },
+  "stored_closed_order_rows": 139059,
+  "total_order_rows": 139573,
+  "trajectories_total": 43174,
+  "phase_groups": 8,
+  "private_group_total": 324,
+  "timeline_events": 5,
+  "observed_d0": true,
+  "true_d0_unproven": true,
+  "tool_characters": 14585,
+  "ordinary": [
+    200,
+    403
+  ],
+  "anonymous": 401,
+  "queries": [
+    {
+      "snapshot_id": "us_e2c967e65a9c19141729985c641edbf5",
+      "data_version": "212",
+      "start": "2026-07-01T00:00:00+08:00",
+      "end_exclusive": "2026-10-23T00:00:00+08:00",
+      "state_basis": "current",
+      "observation_date": "2026-10-23",
+      "states": {
+        "known_pool": 43174,
+        "recent": 17019,
+        "silent": 7072,
+        "lost": 9982,
+        "long_lost": 9101,
+        "unverified": 0
+      }
+    },
+    {
+      "snapshot_id": "us_5a8b12b689f2e59363f541cff3604a15",
+      "data_version": "212",
+      "start": "2025-10-23T00:00:00+08:00",
+      "end_exclusive": "2026-10-23T00:00:00+08:00",
+      "state_basis": "current",
+      "observation_date": "2026-10-23",
+      "states": {
+        "known_pool": 43174,
+        "recent": 17019,
+        "silent": 7072,
+        "lost": 9982,
+        "long_lost": 9101,
+        "unverified": 0
+      }
+    },
+    {
+      "snapshot_id": "us_a3cb94ab310a985b6ffef64bbcb4c146",
+      "data_version": "212",
+      "start": "2026-10-01T00:00:00+08:00",
+      "end_exclusive": "2026-10-23T00:00:00+08:00",
+      "state_basis": "current",
+      "observation_date": "2026-10-23",
+      "states": {
+        "known_pool": 43174,
+        "recent": 17019,
+        "silent": 7072,
+        "lost": 9982,
+        "long_lost": 9101,
+        "unverified": 0
+      }
+    },
+    {
+      "snapshot_id": "us_15db0b0970c0b9eafdccd50a0bf72b0f",
+      "data_version": "212",
+      "start": "2026-10-01T00:00:00+08:00",
+      "end_exclusive": "2026-10-20T00:00:00+08:00",
+      "state_basis": "period_end",
+      "observation_date": "2026-10-19",
+      "states": {
+        "known_pool": 42178,
+        "recent": 17723,
+        "silent": 6543,
+        "lost": 10436,
+        "long_lost": 7476,
+        "unverified": 0
+      }
+    }
+  ],
+  "real_native_session": "20261023_013418_07b31c",
+  "real_research_run": "run_9647b7ddf44b4b4ea58ad614a9b99d8a",
+  "scope": "main site 266 only; July 1 and later; earlier history excluded",
+  "isolated_linux_tests": 73,
+  "natural_midnight": "pending_actual_2026-10-24",
+  "source_rule_sha256": "71bb37b5ee799b43db45ee15f1133771332f9d880531ecb5c673881d9449d262"
+}

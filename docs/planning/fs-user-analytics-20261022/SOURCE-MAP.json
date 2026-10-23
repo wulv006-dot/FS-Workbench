@@ -1,36 +1,36 @@
 {
   "contract": "fs-user-analytics-source-runtime-v1",
-  "as_of": "2026-10-23T02:20:00+08:00",
+  "as_of": "2026-10-23T09:32:19.498900+08:00",
   "repository": "wulv006-dot/FS-Workbench",
-  "source_commit": "095b59b2825f1c4a1fb13bffbeadb68c4e87b2bd",
-  "source_tree": "431e7176cffc01a6ad1a06214c4adaef490f7fbd",
-  "merge_commit": "346cce9ac7c476b639a79d7c8071b2e7296d9aae",
-  "formal_ci_run": 39828075349,
+  "source_commit": "8111eae0bbf34f35aa29dc86f90a2c39a50eb82c",
+  "source_tree": "41138b9ba9dd002b756dfbcceb57db93a213a60c",
+  "merge_commit": "8217d84915725fd4c3f8ba61296ff5e3b3329a4c",
+  "formal_ci_run": 39882885718,
   "deployment": {
-    "release_id": "nav-20261022T180802Z",
-    "stage": "/opt/fs-release-stage/fs-user-analytics-final-20261023-v1",
-    "manifest_sha256": "bb89f09f8a142f1e2c1c0c0daf489149421563842a9bad904a9feb6b1f81d0fa",
-    "package_sha256": "e7a1f1d0e294594044159ef1b34f096527e33cb48573162a5fcd7677013df8a2",
-    "backup": "/var/backups/fs-navigation-20261006/nav-20261022T180802Z",
-    "latest_targets": 7,
-    "protected_paths": 102,
-    "guard_manifest": "/opt/fs-release-stage/fs-user-analytics-final-20261023-v1/approved-manifest.json",
-    "readback": "7 targets and 102 protected hashes matched; actual HTTP role and registered tool calls verified"
+    "release_id": "nav-20261023T011936Z",
+    "stage": "/opt/fs-release-stage/fs-user-analytics-timeline-20261023-v1",
+    "manifest_sha256": "44bee4ccd8d1db1a1797a8127f221043890ea997b896c32c24b73c02fb5df8f6",
+    "package_sha256": "d61e4ff708cca58f0289ce4a97f73245475b5844283e9da2b9b79fe190c07817",
+    "backup": "/var/backups/fs-navigation-20261006/nav-20261023T011936Z",
+    "latest_targets": 1,
+    "protected_paths": 110,
+    "guard_manifest": "/opt/fs-release-stage/fs-user-analytics-timeline-20261023-v1/approved-manifest.json",
+    "readback": "1 target and 110 protected hashes matched; final bounded raw-email/API/tool readback passed"
   },
   "active_files": [
     {
       "target": "/opt/fs-hermes-fc/user_config.json",
-      "sha256": "8c791336d13efe28cb2a7b52db890f5e17758896b7f87f5613d20ff56108e9b5",
+      "sha256": "525f4662addbf62e39166865155ae7c2f3f187852a11cc768257ac3b75f406e1",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_config.json",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T010946Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_contract.py",
-      "sha256": "75ed5d3764fe62d4383d377fb72f48298bc301bed9be86d52d258273b173b4ec",
+      "sha256": "fc1a0a2ad48db7b5c46f4c2e40a1e49d80e8cf41f0a893949e003b01b265dfa6",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_contract.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T003639Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_http.py",
@@ -41,52 +41,52 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_jobs.py",
-      "sha256": "0fab64260906f91e076d8a84fa0778d1171b05160eb9e2b07f5ae54944ef96b9",
+      "sha256": "040b661abb8934c70b7cb188b594ca4f62836a4a5d5a9ae78d3fb6596d724fe3",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_jobs.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T180802Z"
+      "release_id": "nav-20261023T010946Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_lifecycle.py",
-      "sha256": "ebfa7ec0c5cf1d75ad746c895d2d1450e2978ab7a680d1e24ab2ad7c4a2f2f81",
+      "sha256": "01386aeda98914aa928125b26e7844aa52ca0c44458a0f2963a8c40d0e4d34be",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_lifecycle.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T005425Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_query.py",
-      "sha256": "5e24d28ff727089ff0fa0834a457543a5cc60343ff7de62e99eb9804ea240895",
+      "sha256": "8e5258935fc0675e6bc3f07151f2b36db7d2ad00bd18bee188a1830ed464a5a0",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T180802Z"
+      "release_id": "nav-20261023T011936Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_runtime.py",
-      "sha256": "f8b6f4343436953b4cc90833d1cebc0702a57de6a31165bae2516859c4d5c8e6",
+      "sha256": "34c81a963524435637f6c7b290439f4f713f22ab223ce56843b6e09619b0ce3d",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_runtime.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T005425Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_source.py",
-      "sha256": "8a478ce9ce207f398d696b2ba6555c6960e5e5b0834a1eb641752a23cde19849",
+      "sha256": "218e2e6425a0ed6aeafdf761441fcec8b6a12f7f36931feeed45529ba20352cb",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_source.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T005425Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_store.py",
-      "sha256": "dbad83b78f00304433ccabb8b5e8663b30652f653da185899c2f7f8449f03c81",
+      "sha256": "8b7366bd1c82a963a227751ad38b17b8285695a475dda12f2ee586244f388048",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_store.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T005425Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_tools.py",
-      "sha256": "dfe494b832b60efbeb3cb73e1085f76bd4a90322e5817d796f261f11287e212d",
+      "sha256": "ac6fc2af5d4f7dbdde6e4565eb8c498ccc3b15965435f5e07678011c11a4ec9f",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_tools.py",
       "kind": "exact_source",
-      "release_id": "nav-20261022T180802Z"
+      "release_id": "nav-20261023T005425Z"
     },
     {
       "target": "/opt/fs-exact-range-20261001/range_api.py",
@@ -146,17 +146,17 @@
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/index.html",
-      "sha256": "fd0910b2af4549ad663a72e5051866984a49f53ea27c1d7e3a1edef4892a82c7",
+      "sha256": "207731ed057da343f3c52f230b98b61360a49dc5938c62ad89c02486848c8172",
       "source": "releases/fs-dashboard/user-analytics-20261022/ui/index.html",
       "kind": "exact_source",
-      "release_id": "nav-20261022T170215Z"
+      "release_id": "nav-20261023T003639Z"
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.js",
-      "sha256": "3e37815eb18587e2aed06e855bbba64929be41b13f7cb28f2c429859417cada8",
+      "sha256": "f96e9ef889f5708ee3b5f064eaa92c9fffc235b1084752f14c49665e0bc1b0d6",
       "source": "releases/fs-dashboard/user-analytics-20261022/ui/users.js",
       "kind": "exact_source",
-      "release_id": "nav-20261022T180802Z"
+      "release_id": "nav-20261023T010946Z"
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.css",
@@ -178,6 +178,13 @@
       "source": "releases/fs-dashboard/user-analytics-20261022/deploy/fs-user-analytics.timer",
       "kind": "exact_source",
       "release_id": "nav-20261022T170215Z"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/backfill_history.py",
+      "source": "releases/fs-dashboard/user-analytics-20261022/backfill_history.py",
+      "kind": "exact_source",
+      "sha256": "24ee350d0ce550c6d3ce0357fd320614270cfafd596c4364f9d42b7166fdcea9",
+      "release_id": "nav-20261023T010946Z"
     }
   ],
   "private_store": {
@@ -187,7 +194,12 @@
     "database_mode": "0600",
     "key": "identity.key",
     "key_mode": "0600",
-    "backup": "same_host_recovery_copy; isolated restore verified; offsite_not_verified"
+    "backup": "same_host_recovery_copy; isolated restore verified; offsite_not_verified",
+    "history_start": "2026-07-01T00:00:00+08:00",
+    "bounded_proof": "history-coverage.json",
+    "true_history_origin_proven": false,
+    "backfill_operation_id": "history-full-20261023-v1",
+    "backfill_status": "complete"
   },
   "related_knowledge_release": {
     "release_id": "nav-20261022T174000Z",
@@ -198,7 +210,7 @@
   "natural_acceptance": {
     "state": "pending_actual_midnight_2026-10-24",
     "incremental_and_historical_revision": "actual_systemd_runs_verified",
-    "natural_failure_recovery": "not_observed",
+    "natural_failure_recovery": "same July25 failed window 09:14 -> reviewed source status -> original 09:18 timer complete; not autonomous repair",
     "followup_automation": "rejected_not_created"
   },
   "original_spec_sha256": "c941730288832857da580340cfeb5a710545ff300808500490954c6d2673a390",
@@ -210,5 +222,100 @@
     "baseline_trigger": "systemd",
     "baseline_file": "/var/lib/fs-user-analytics/acceptance-w6/baseline-20261023.json",
     "actual_pre_midnight_result": "pending_actual_midnight"
+  },
+  "prior_deployment": {
+    "release_id": "nav-20261022T180802Z",
+    "stage": "/opt/fs-release-stage/fs-user-analytics-final-20261023-v1",
+    "manifest_sha256": "bb89f09f8a142f1e2c1c0c0daf489149421563842a9bad904a9feb6b1f81d0fa",
+    "package_sha256": "e7a1f1d0e294594044159ef1b34f096527e33cb48573162a5fcd7677013df8a2",
+    "backup": "/var/backups/fs-navigation-20261006/nav-20261022T180802Z",
+    "latest_targets": 7,
+    "protected_paths": 102,
+    "guard_manifest": "/opt/fs-release-stage/fs-user-analytics-final-20261023-v1/approved-manifest.json",
+    "readback": "7 targets and 102 protected hashes matched; actual HTTP role and registered tool calls verified"
+  },
+  "correction_publications": [
+    {
+      "pr": 376,
+      "source_commit": "b82d2faf01c3f3f47f29871e7e54833a637bd2d4",
+      "source_tree": "7292887b81e3de4192993c35e96d351812f7c3ea",
+      "merge_commit": "e51a4d72a4a4fbf7c4a5844de1e9958011ff0ca2",
+      "formal_ci_run": 39878954397,
+      "release_id": "nav-20261023T003639Z",
+      "manifest_sha256": "f62e65be831e0abc863b8fd314fc18a648ac47dd0560a145ad3a26ff0b249e65",
+      "package_sha256": "25f4266cf49f905bf37f5f2b14da70a96853009d347a3b4493ea41fd8c10f741",
+      "targets": 11,
+      "protected": 99
+    },
+    {
+      "pr": 377,
+      "source_commit": "f7e90019de6ee0a8348f1d17f1d2cf868ca60a85",
+      "source_tree": "5e525843d0e7e1264f78c218266f14eee2cd6305",
+      "merge_commit": "d18c49cd44de63b0119d7576d1d20b26a55985b3",
+      "formal_ci_run": 39880615222,
+      "release_id": "nav-20261023T005425Z",
+      "manifest_sha256": "134fd3b23048844c4cd49f81d4bd73a9e6f6778a76a2b2684c426fd7de2e3177",
+      "package_sha256": "dcab2298398f48bc75c7a9566b5784374f68bdb6476e18471bf6c8932a2aa70d",
+      "targets": 7,
+      "protected": 104
+    },
+    {
+      "pr": 379,
+      "source_commit": "5fef93ea88b3530f8047904f4af7794a58945d13",
+      "source_tree": "cdeedc8a895d84f07ae600c0c840903fc5922e10",
+      "merge_commit": "433335210631914e003bbd44e5c191bc91ed261d",
+      "formal_ci_run": 39882155340,
+      "release_id": "nav-20261023T010946Z",
+      "manifest_sha256": "31b091e8fcdb7514f594ba3263ad73096abfe1ba1005fc9ab134cbb0954969ac",
+      "package_sha256": "21cc3017ceb4d769c9cd6017a2859a68b7bcf420d26ea0401ccb06f81d42da69",
+      "targets": 5,
+      "protected": 106
+    },
+    {
+      "pr": 380,
+      "source_commit": "8111eae0bbf34f35aa29dc86f90a2c39a50eb82c",
+      "source_tree": "41138b9ba9dd002b756dfbcceb57db93a213a60c",
+      "merge_commit": "8217d84915725fd4c3f8ba61296ff5e3b3329a4c",
+      "formal_ci_run": 39882885718,
+      "release_id": "nav-20261023T011936Z",
+      "manifest_sha256": "44bee4ccd8d1db1a1797a8127f221043890ea997b896c32c24b73c02fb5df8f6",
+      "package_sha256": "d61e4ff708cca58f0289ce4a97f73245475b5844283e9da2b9b79fe190c07817",
+      "targets": 1,
+      "protected": 110
+    }
+  ],
+  "related_fc_release": {
+    "release_id": "nav-20261023T004250Z",
+    "manifest_sha256": "7043be2ac7d06cacb510bc5cbf483a3a80473e0f58635be64240ebeea4eb4020",
+    "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+    "sha256": "91403f8295ddc32762fded53bea551a1660d4b258bf6c2bfc3b2429f2d45b0ec",
+    "pr": 375,
+    "subsequent_docs_pr": 378,
+    "protected": true
+  },
+  "bounded_verification": {
+    "snapshot_id": "us_e2c967e65a9c19141729985c641edbf5",
+    "data_version": "212",
+    "at": "2026-10-23T09:32:19.498900+08:00",
+    "coverage": {
+      "contract": "fs-users-bounded-history-v1",
+      "data_version": "212",
+      "end_exclusive": "2026-10-23T00:00:00+08:00",
+      "inventory_sha256": "4df58683a5a0d1ca769ee8bf6ee8f08e012e765497734c7d320ff35270b83b41",
+      "sites": [
+        "266"
+      ],
+      "start": "2026-07-01T00:00:00+08:00"
+    },
+    "raw_orders_closed": 139059,
+    "customers": 43174,
+    "stages": {
+      "recent": 17019,
+      "silent": 7072,
+      "lost": 9982,
+      "long_lost": 9101
+    },
+    "tool_characters": 14585,
+    "acceptance": "BOUNDED-ACCEPTANCE.json"
   }
 }
