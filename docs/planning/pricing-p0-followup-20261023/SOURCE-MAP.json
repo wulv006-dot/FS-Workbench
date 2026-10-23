@@ -1,0 +1,65 @@
+{
+  "status": "deployed_actual_notification_and_restart_verified_long_term_open",
+  "files": {
+    "pricing_alert_recovery_20261023/source/watch.py": {
+      "runtime": "/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py",
+      "sha256": "4aad8c2187374dc540ff07ee1b16c58612c0d0e04b536ccbd8de6bbffc423d30"
+    },
+    "pricing_alert_recovery_20261023/source/pricing_probe.py": {
+      "runtime": "/opt/fs-pricing-alerts/pricing_probe.py",
+      "sha256": "006aabd2275f43b28e2cf7c24a98d6983e1b2a202cc7d8d3d9ad89f7d7bb2a24"
+    },
+    "pricing_alert_recovery_20261023/source/fs-pricing-alerts.service": {
+      "runtime": "/etc/systemd/system/fs-pricing-alerts.service",
+      "sha256": "135643f2601cfb2b95dc3927c19a87a5b45f6774e5a0446baf7e834caa6718fa"
+    },
+    "pricing_alert_recovery_20261023/source/fs-pricing-alerts.path": {
+      "runtime": "/etc/systemd/system/fs-pricing-alerts.path",
+      "sha256": "1c409d6c74a8eb0ec85fe1b6f4aaa1e6fc81e0f0900f244c781034afcc96ac5d"
+    },
+    "pricing_alert_recovery_20261023/source/pricing-alerts-bridge.conf": {
+      "runtime": "/etc/systemd/system/fs-hermes-ops-bridge.service.d/pricing-alerts.conf",
+      "sha256": "faae5cdbae9bbe4cf59d325521d83adfeead3c1cb4abfc322c3eaad177f5098d"
+    },
+    "fc_browser_start_recovery_20261023/source/start.sh": {
+      "runtime": "/opt/fc27-cloud-browser/start.sh",
+      "sha256": "d646762e232c3dd161e4270967956368c4850bdb646bbf631924ddb86fc28f98"
+    },
+    "order_query_recovery_20261023/query_read.py": {
+      "runtime": "/opt/d4follow/_p2pah_srv/p2pah_local.py",
+      "generation": "exact_live_baseline_generator",
+      "runtime_sha256": "a5662d2814277b4a72cc47820f9730359b6727b29cf2fc1892c9ac862bc6d176",
+      "source_sha256": "7830c29b46c0661700d1d2c80b8e05aaa613342837b21492c303663d01e47b11"
+    }
+  },
+  "protected_business": {
+    "fc_interval_minutes": 120,
+    "margin_policy": "v15_two_redlines",
+    "source_mode": "server_revision3",
+    "price_requests_by_release": 0,
+    "price_replay": false,
+    "profile_deleted": false
+  },
+  "checks": {
+    "linux_alerts": 41,
+    "linux_order": 12,
+    "linux_startup": 15,
+    "shell_syntax": "passed",
+    "notification": "two_drill_messages_sent_official_get_code0",
+    "item_query_live": "2_of_2_original_ids_verified",
+    "natural_item_query": "pending",
+    "long_term_memory": "open_at_least_12_original_cycles",
+    "linux_total": 68
+  },
+  "receipts": [
+    "/var/lib/fs-pricing-alerts/deployment.json",
+    "/var/lib/fs-pricing-alerts/installation-repair1.json",
+    "/var/lib/fs-pricing-alerts/final-consumer-release.json",
+    "/var/lib/fs-order-session/order-query-recovery-20261023.json",
+    "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023.json",
+    "/var/lib/fc27-cloud/recovery-receipts/browser-startup-release-20261023-initial-unknown.json"
+  ],
+  "pull_request": "https://github.com/wulv006-dot/FS-Workbench/pull/389",
+  "merge": "not_authorized_not_performed",
+  "secrets_exported": false
+}

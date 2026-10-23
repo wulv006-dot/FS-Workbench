@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes original FC/RPG receipt alerts
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-pricing-alerts/pricing_probe.py
+TimeoutStartSec=100
+StartLimitInterval=0
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=full

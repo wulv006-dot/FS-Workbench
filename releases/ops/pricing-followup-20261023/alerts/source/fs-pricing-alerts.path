@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch original pricing receipts without changing pricing schedules
+
+[Path]
+PathChanged=/var/lib/fc27-cloud/jobs
+PathChanged=/opt/d4follow/data/iggm_follow.db
+PathChanged=/var/lib/fc27-cloud/state/browser-lifecycle.json
+PathChanged=/var/lib/fc-ops-readonly-monitor/latest.json
+Unit=fs-pricing-alerts.service
+
+[Install]
+WantedBy=multi-user.target

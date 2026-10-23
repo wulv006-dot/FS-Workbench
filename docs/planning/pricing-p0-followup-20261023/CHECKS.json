@@ -1,0 +1,17 @@
+{
+  "status": "affected_linux_and_real_entry_checks_passed",
+  "linux": {
+    "alerts": {"tests": 41, "skipped": 0, "tool_chunk": "3134d7", "watch_sha256": "4aad8c2187374dc540ff07ee1b16c58612c0d0e04b536ccbd8de6bbffc423d30", "probe_sha256": "006aabd2275f43b28e2cf7c24a98d6983e1b2a202cc7d8d3d9ad89f7d7bb2a24"},
+    "order": {"tests": 12, "skipped": 0, "live_generated_sha256": "a5662d2814277b4a72cc47820f9730359b6727b29cf2fc1892c9ac862bc6d176"},
+    "startup": {"tests": 15, "skipped": 0, "shell_syntax": "passed", "tool_chunk": "c08185", "scope": "tests and sh passed; following historical-baseline deployment assertion failed separately and was corrected after readback", "source_sha256": "d646762e232c3dd161e4270967956368c4850bdb646bbf631924ddb86fc28f98"},
+    "affected_total": 68
+  },
+  "real_entries": {
+    "notification": "two original-group drill message IDs, official GET code0 and unchanged duplicate/full checks; see NOTIFICATION-ACCEPTANCE.json",
+    "order": "active source read two original IDs in 18.749 seconds, category twice and no keyword/write/login",
+    "startup": "one original-container restart, original event read-only reconciled, DISPLAY :0, real CDP, cookie names/domains, owned idle/Worker0, noVNC200 and Order ready",
+    "latest_state": "LIVE-READBACK.json"
+  },
+  "not_verified": ["specific Order backend SQL cause", "new natural item query cycle", "12-cycle day-night memory stability", "production fault injection"],
+  "formal_ci": "Check PR389 current head; previous source heads afa95039 and 9b01a5a9 passed. Final delivery does not infer a new head passed."
+}

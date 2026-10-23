@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/ops/pricing-followup-20261023/alerts/source/watch.py','releases/ops/pricing-followup-20261023/order/query_read.py','releases/ops/pricing-followup-20261023/browser/source/start.sh']) != ['pricing-followup']:
+        raise RuntimeError('pricing_followup_mapping_missing')
     if select(['releases/ops/pricing-recovery-20261023/fc_lifecycle/source/browser_lifecycle.py',
                'releases/ops/pricing-recovery-20261023/fc_residency/source/lootbar_server_collector.py',
                'releases/ops/pricing-recovery-20261023/rpg/prepare_candidate.py',
@@ -362,6 +364,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/ops/pricing-followup-20261023/'):
+            groups.add('pricing-followup');continue
         if name.startswith('releases/ops/pricing-recovery-20261023/'):
             groups.add('pricing-recovery');continue
         if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py'):
@@ -687,6 +691,11 @@ def main():
     selfcheck()
     for group in groups:
         print("affected group:",group,flush=True)
+        if group=='pricing-followup':
+            units('releases/ops/pricing-followup-20261023/alerts',['test_probe','test_watch'])
+            units('releases/ops/pricing-followup-20261023/order',['test_query_read'])
+            units('releases/ops/pricing-followup-20261023/browser/tests',['test_start'])
+            continue
         if group=='pricing-recovery':
             units('releases/ops/pricing-recovery-20261023/fc_lifecycle/tests',['test_lifecycle'])
             units('releases/ops/pricing-recovery-20261023/fc_residency/tests',['test_lootbar_server_collector','test_preserved_contract','test_residency','test_event_contract','test_document_release'])
@@ -1121,4 +1130,5 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)
     print(json.dumps({"result":"PASS","affected_groups":groups,"syntax_scope":"changed files only","live_not_tested":True}))
 if __name__=="__main__":main()
+
 
