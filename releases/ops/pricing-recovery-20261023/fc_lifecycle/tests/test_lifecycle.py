@@ -26,6 +26,11 @@ class LifecycleTests(unittest.TestCase):
         original.body=[n for n in original.body if isinstance(n,(ast.FunctionDef,ast.ClassDef)) and n.name!='tick']
         tree=ast.parse((SOURCE.parent/'automation_tick.py').read_text(encoding='utf-8'))
         tree.body=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef)) and n.name!='tick']
+        expected=ast.parse("job.get('writer_result') not in ({'status':'FAILED','reason':'hook_scope_paused'}, {'status':'FAILED','reason':'hook_scope_paused','missing_module':None})").body[0].value
+        matches=[n for n in ast.walk(tree) if isinstance(n,ast.Compare) and ast.dump(n)==ast.dump(expected)]
+        self.assertEqual(len(matches),1)
+        matches[0].ops=[ast.NotEq()]
+        matches[0].comparators=[ast.parse("{'status':'FAILED','reason':'hook_scope_paused'}").body[0].value]
         self.assertEqual(ast.dump(tree),ast.dump(original))
 
     def test_browser_is_checked_before_due_cycle_is_enqueued(self):

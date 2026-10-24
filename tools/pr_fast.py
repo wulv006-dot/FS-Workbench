@@ -757,7 +757,7 @@ def main():
             units('releases/ops/pricing-followup-20261023/browser/tests',['test_start'])
             continue
         if group=='pricing-recovery':
-            units('releases/ops/pricing-recovery-20261023/fc_lifecycle/tests',['test_lifecycle'])
+            units('releases/ops/pricing-recovery-20261023/fc_lifecycle/tests',['test_lifecycle','test_prewrite_rejection'])
             units('releases/ops/pricing-recovery-20261023/fc_residency/tests',['test_lootbar_server_collector','test_preserved_contract','test_residency','test_event_contract','test_document_release'])
             units('releases/ops/pricing-recovery-20261023/rpg',['test_public_contracts'])
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
@@ -784,7 +784,7 @@ def main():
             units("rea_admin_contract_20261021",["test_monthly_paid"])
             units("admin_session_continuity_20261021",["test_continuity"])
         elif group=="fc-pricing-v2":
-            units("releases/fc-coins/fc-pricing-v2-20261022/tests",["test_pricing_v2","test_control","test_guards","test_bidirectional","test_sync_recipient"])
+            units("releases/fc-coins/fc-pricing-v2-20261022/tests",["test_pricing_v2","test_control","test_guards","test_bidirectional","test_sync_recipient","test_prewrite_diagnostics"])
             node("releases/fc-coins/fc-pricing-v2-20261022/tests/test_ui.js")
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])

@@ -392,6 +392,8 @@ if __name__ == "__main__":
         print(json.dumps(result))
     except Exception as exc:
         reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
-        print(json.dumps({"status": "FAILED", "reason": reason[:100],
-                          "missing_module": exc.name if isinstance(exc, ModuleNotFoundError) else None}))
+        result = {"status": "FAILED", "reason": reason[:100]}
+        if isinstance(exc, ModuleNotFoundError):
+            result["missing_module"] = exc.name
+        print(json.dumps(result))
         raise SystemExit(1)
