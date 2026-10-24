@@ -1,0 +1,1180 @@
+[
+  {
+    "name": "fc-v6",
+    "archive": "E:\\WorkBuddy\\大超服务器\\docs\\planning\\fc27-season2-live-catalog-20261022\\FC27-Season2-Live-Catalog-Developer.zip",
+    "sha256": "6dd453ae486bd6888df47020a6adf8eaf1cd08617380a8a891552badbe82fe7b",
+    "bytes": 8492065,
+    "crc": "passed",
+    "files": [
+      {
+        "path": "fc27_season2_live_20261022/activity-analytics.js",
+        "bytes": 7770,
+        "sha256": "796d7aea6b4a29a1b181fdfe120dd6de384ffd10985c000e190e607474e3ee73"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity-content.js",
+        "bytes": 17887,
+        "sha256": "45b1bd96f71ee5d687cd2159f0cf07493fcf21953079b90f05b5683aac39be1f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity-core.js",
+        "bytes": 5417,
+        "sha256": "54101a25efcf21d28048b6f4bed11871914752f7456bb4c1f10f3646ba82d1a4"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity-fragment-sbc.html",
+        "bytes": 17317,
+        "sha256": "1652bd54283b0f179b09b1b8ff15209856e6f3d9b895d000b58b7f32dc1bfeb1"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity-fragment-trio.html",
+        "bytes": 16432,
+        "sha256": "20e197e707155368edc974487c3148f434543c3013669cbefac215a27e2e9561"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity-fragment-weekly.html",
+        "bytes": 16716,
+        "sha256": "164181da1dc25476bd700f48d1d0e0a5b5913b8f4cb2a16cc6f8d543a62acd38"
+      },
+      {
+        "path": "fc27_season2_live_20261022/ACTIVITY-PRICING-CONTRACT.md",
+        "bytes": 6229,
+        "sha256": "9cf83ede7906a7cb9d07ba1c3c8a9e1bdf9e737761d8e06278f201ab4810383c"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity.css",
+        "bytes": 28621,
+        "sha256": "e84cc40cf22f4ae03d855b6da3e4785e4cad7d1899926741c0652638a88de530"
+      },
+      {
+        "path": "fc27_season2_live_20261022/activity.js",
+        "bytes": 19716,
+        "sha256": "7bea12909f4a5f2637b260d73276d2bf35c23344cb76681e98818453f819d5bd"
+      },
+      {
+        "path": "fc27_season2_live_20261022/AGENTS.md",
+        "bytes": 2732,
+        "sha256": "c2b542e3e7f82cdcb6462e20daf97c486bf8746008a541cfe1f8ab4e06b3f201"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/activity-registry.json",
+        "bytes": 973,
+        "sha256": "311ca145407f5308f26a4492c7e9a43616299bc13f90667f733ead38181332af"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/connect.html",
+        "bytes": 2482,
+        "sha256": "c86531dc9253df9523e286beb38a4d4b2db3cb3134e74d777662b2ceef4bfc00"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/connect.js",
+        "bytes": 3215,
+        "sha256": "d6419e75bec4102b3cfc50722b05156fdadc9e2116fb8c3d024a8dc9587bc74b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/connection.mjs",
+        "bytes": 3772,
+        "sha256": "f0fe0a79b9ecc3b2283303936f8a4449fb1f73ad39793c259757a44f46ee851e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/dashboard.css",
+        "bytes": 6937,
+        "sha256": "9f26771bf33a7bf94dbbc826de6fea914fe92e17b40d1610f0d5adb2dc36ce8c"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/dashboard.js",
+        "bytes": 14473,
+        "sha256": "1f071fda0d7272e5d57f5bdfc59055059ab5523728347b916bdf9e843b4af748"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/demo-data.js",
+        "bytes": 1401,
+        "sha256": "530cd0f3cb01c1628184c1a886402c052582b145b0d25b2207ca9ab2c1412f6b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/fs-tokens.css",
+        "bytes": 1691,
+        "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/fs-ui.css",
+        "bytes": 2722,
+        "sha256": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/funnel-core.cjs",
+        "bytes": 7660,
+        "sha256": "a26dcb6605492d777c919cd31248471a0ae9a21647c84f5a0c365fee6e8e99d8"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/index.html",
+        "bytes": 9865,
+        "sha256": "ed11bd371947052c4201ac3bf4667d44bcffd4b10152b98b2f1d9c0729cbc9ee"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/matchday-adapter.js",
+        "bytes": 1029,
+        "sha256": "47482bc58bb9b0ed7e58711db3bc6bc766a64007a12344f6232bcf4b5f8b3fc6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/production-server.mjs",
+        "bytes": 7035,
+        "sha256": "b409ba7e5f286b2f760b6010fbee49216bfe3634be8a526fd5a2d716499332e5"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/products.html",
+        "bytes": 2369,
+        "sha256": "bbebc0c076fb01544fcbac77063f3fe2f7a0a89dbd7395c0eddc2f93967964e6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/products.js",
+        "bytes": 3790,
+        "sha256": "1e66094102b7e891707745ef4d0c6201a85a70c4f85a8cfe8a8cc6c7b7edafed"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/server-client.js",
+        "bytes": 2150,
+        "sha256": "05117f9540ab1df642a899289b50bc2260cf4fbf2da6460dd30d325df9f6186d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/server.mjs",
+        "bytes": 6557,
+        "sha256": "afe77fa081b80494271aec460c760ebd18f86903e99348610dcb8bd7499383d1"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics/store.mjs",
+        "bytes": 3817,
+        "sha256": "de96683c677da2347d19571c26af86dd201592f52d7e38cd8fc199ba3e973f0d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/analytics-config.js",
+        "bytes": 1055,
+        "sha256": "b6cc7e73632020bc24f2cc51a94d8f6d68578946475d514825e2f506466cc652"
+      },
+      {
+        "path": "fc27_season2_live_20261022/ANALYTICS-INTEGRATION.md",
+        "bytes": 16455,
+        "sha256": "591d06dbca8ef7a2e2545a1a1aa2ac01fc184466ee95e18522bf54960ee0f819"
+      },
+      {
+        "path": "fc27_season2_live_20261022/ASSET-SOURCES.json",
+        "bytes": 14227,
+        "sha256": "cde6d7302d7c00c6f99088aa35162b67b954f85992b4ad066dff24b8bb76b001"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/mmoexp-logo.png",
+        "bytes": 15705,
+        "sha256": "5ef3ee0e3b0b04f7e8cdee8f76811592eae0bf8ac236bf1cf4644e2f19d8ab92"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/playstation.svg",
+        "bytes": 787,
+        "sha256": "e395b352cdca0eb8d28c4f5f0a3fbb51cd425f84475540b666e99b40f0a3fa1a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-170014917.webp",
+        "bytes": 81730,
+        "sha256": "2d0b9d769dadbac5edffd7e74fa25add576d680a784e6998093c05e1a7073abb"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-170017881.webp",
+        "bytes": 84924,
+        "sha256": "b17044b7cc5462f0f44a253297d6fb7ab429dfc69a88b89a7def4bd19be52f05"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-170017889.webp",
+        "bytes": 85204,
+        "sha256": "4508724ef49e034d3e3590c72952df5c6d57e4333722f9df16f0f8a8596d01e4"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-170018993.webp",
+        "bytes": 80008,
+        "sha256": "515f254ffd47d74da0df8e4923f31cca083c19a9c1f6ab65522bcf02296c0519"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-184101943.webp",
+        "bytes": 30942,
+        "sha256": "467a63abad2a9634299679a3295c33d7adedd38a18dd34d3939d71c11c2c1d18"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-184102051.webp",
+        "bytes": 28430,
+        "sha256": "98b87d372702baae042644081c532b658b6786f95721ca23631b7232cffc89f8"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-184102267.webp",
+        "bytes": 26552,
+        "sha256": "11cd88857446e5e0e9d09530fb8ec7ed7eb5bd8891972f8ea98cc194ec115ddc"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-184557601.webp",
+        "bytes": 33620,
+        "sha256": "83e9322af22e71ae6647546be321ccb44b43ef58b0eadb262f9518541bf288b6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185070945.webp",
+        "bytes": 109932,
+        "sha256": "97364659e1b277c6523fab1b929f01d030cd58eec9be7641e64dcdb226b1984b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185070993.webp",
+        "bytes": 106842,
+        "sha256": "c3e2b0d355e4bff0512f4207b9c4b317684603389a7d5a5a326d2416bde1dbc0"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185493031.webp",
+        "bytes": 29676,
+        "sha256": "c106a5a4b6a264a33e655d0143346c03077126dedebf2dc9eda1e34ec6bab58f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185681151.webp",
+        "bytes": 35774,
+        "sha256": "5889ed2b85e61ed74874711853ca9ec9a18199173d213a4f6df81e5a7cc3cb2e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185718875.webp",
+        "bytes": 50356,
+        "sha256": "e7a8b102832e18c234d4381f94c513de980dfa40b67dadbf2455d3c2b75c20cb"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185752835.webp",
+        "bytes": 101128,
+        "sha256": "36080ce3dcf964f6cecdbfa42d4d06dffb5c0343f07c332aced2a9e269534807"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185752943.webp",
+        "bytes": 100968,
+        "sha256": "de92474f07b099a3a3b87af27ef77b489f4f4f849da7e025e34a66cdeb422fee"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185753051.webp",
+        "bytes": 92146,
+        "sha256": "bf710caa60cf32a0b2479e118f67b39711096374f63dd482a83c152eb321a9d3"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185753159.webp",
+        "bytes": 91766,
+        "sha256": "a13a3ed8926e58d5e0be48df7974931fc28a68e82c97000f576e2fa780e72cd6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185833159.webp",
+        "bytes": 44564,
+        "sha256": "1d0a1f908021bcd8c27034929b434f50ecbed61b9e1183a9b4a42aab2aa65b37"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185916851.webp",
+        "bytes": 119384,
+        "sha256": "5a2585731a44b1c74383a9ed8a3c51f908689090dfca32323b923ea2a721bbec"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185916875.webp",
+        "bytes": 110220,
+        "sha256": "5c208851fe821c6c3440de45af93eab4ffc51ca80803344a1f2506bcff0ebb11"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-185916899.webp",
+        "bytes": 116944,
+        "sha256": "a19b8bbc109b0b5a219efb773c98300b3ddf5f6533cdd1a6e9b5a352014a27ec"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-186021743.webp",
+        "bytes": 51202,
+        "sha256": "b34a5de9c83160382d90488e451b05545922cab2507c718e02366787a6d1077f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-186254267.webp",
+        "bytes": 69626,
+        "sha256": "b1e67f45d6df25b1041132e30b04ee169cd71c741dceb25c0072e7b97c4ea5ae"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-186254279.webp",
+        "bytes": 66388,
+        "sha256": "9363768c3613943b29a7c4463b91bd686c19bd37418a3cf1c7890b7fa3417ad8"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-186254291.webp",
+        "bytes": 66558,
+        "sha256": "f88fa500bebb6581f266ac7a7d856bbb4b093cb73b00b981ddea7f75e5e87885"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/product-186254399.webp",
+        "bytes": 72578,
+        "sha256": "3da6b5b93ebca202b340e6d7e57ac63f6292a56a24f8aeeacb6abbea4e2dc1b3"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/reward-hero-mobile.webp",
+        "bytes": 47206,
+        "sha256": "a0dcf6525856b6e1d2593bb5a50b093037df12a25ec0b9866ab63a936c6a4d31"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/reward-hero.webp",
+        "bytes": 137012,
+        "sha256": "5a72ff4ad8fcc17a79188c719b482839cbb334f4abc18685a6d9ce06a416779f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/scream-hero-mobile.webp",
+        "bytes": 64762,
+        "sha256": "77e83afd0ebd6eaf9b33ca3befcbe7cc13436f258258146ce2d22e6231b4ea72"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/scream-hero.webp",
+        "bytes": 184328,
+        "sha256": "c424bbb6a9f2b3aba6b4986ccde3c6faea9abf5283259dcbb9f8d58fad5e4e9b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/weekly-hero-mobile.webp",
+        "bytes": 50772,
+        "sha256": "34530a6d66a2f56cb62a7daa4962942fcf871009e1b0daa227f11ae5ca53f0e2"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/weekly-hero.webp",
+        "bytes": 149480,
+        "sha256": "4c3119eabc565cd9f82f7c8461c8e56886429c69c38fe035b5006222af1153cd"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/windows.svg",
+        "bytes": 266,
+        "sha256": "c4cf2603cd6da6aec247a7be848c4bba04e786fa8a6f7ff88127149679e8612b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/assets/xbox.svg",
+        "bytes": 1252,
+        "sha256": "e73c5df7997cfec0f6deed44c8a160bb649af865789cafd688db9bedaaf42e1a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/build-seo.mjs",
+        "bytes": 13089,
+        "sha256": "7b1f0753862720bd221fab263a710552c77be350af463107e25670a6db243c75"
+      },
+      {
+        "path": "fc27_season2_live_20261022/catalog.js",
+        "bytes": 42596,
+        "sha256": "73778edf1597c033d854d8ab8151af62b742b9343ffd3cd78834117d29debc38"
+      },
+      {
+        "path": "fc27_season2_live_20261022/catalog.json",
+        "bytes": 42567,
+        "sha256": "70baa0a6179f057a7b16afb0e77085da4fd09bc648efbc913ce416f8cbcb728d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/design-qa.md",
+        "bytes": 4602,
+        "sha256": "ccabac9f79c2cac70355b08365e02d284b73ab34d8d4cca76f2547911ee319d6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/DEVELOPER-HANDOFF.md",
+        "bytes": 8552,
+        "sha256": "0b910c1299084cf2bd1f9555ab728454ac7dc9aad0cf48fe29f0a37e0fcfb487"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/analytics-1440-light.png",
+        "bytes": 393154,
+        "sha256": "a13d04196127f71738291e983ed1796bb0a796ae94406ce0d57bd1ba133d184f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/analytics-390-dark.png",
+        "bytes": 316081,
+        "sha256": "c63b88af15756f5079a528ac6b7fb7b3064bee1a870b42d7f6890397f8248275"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/analytics-browser.json",
+        "bytes": 478,
+        "sha256": "bdaee4d791b059efbb3e136d56e1932be70a0a25e4a517b1952ca43f4cffad63"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/browser-checks.json",
+        "bytes": 7270,
+        "sha256": "5e5f70a96f3387fc7579491948072ec00b8f6895037d169c6283f641574161c4"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/bundle-alignment-before.png",
+        "bytes": 306778,
+        "sha256": "9f94f2b2899732d3dd9f92921d9704c8284b3c0d7fb9843cd066d9c2baae6f8a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/bundle-alignment-checks.json",
+        "bytes": 126105,
+        "sha256": "c58f6fe94085393ab7c4ef70614953f184854ee328470acfc1fd4eaf5ecd215b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/bundle-alignment-desktop.png",
+        "bytes": 291565,
+        "sha256": "9352d687951505fd6daea244ecc0da6da64bce019b4ba956811c2b1aec42e31c"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/bundle-alignment-phone.png",
+        "bytes": 120040,
+        "sha256": "75b3c05c948aff1d7cafd233df0a303cb5284b777bcbe95809a69a2a5647766e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/connection-browser.json",
+        "bytes": 219,
+        "sha256": "e9601a7f6d2bb3f1de276cb11667cd594a97f8509f757a9d50c21ecbfcf0ebab"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/connection-verified.png",
+        "bytes": 69106,
+        "sha256": "90673f5401696c0c31149d65e68a8f98e7086f93ecb9ac437c31f9097108dd21"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/desktop-sbc-discount-v2.png",
+        "bytes": 284580,
+        "sha256": "6a98ab9f66e010adb6921179a1769709a0eca510952c7f796c8d2716e4b8b73f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/desktop-sbc-layout-fixed.png",
+        "bytes": 79921,
+        "sha256": "24e3731f8f8c58b2727ef835bf269ad48820de85b32558b10dfd86a74a9a15b4"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/desktop-trio-en.png",
+        "bytes": 1538973,
+        "sha256": "aadc5f65b5dce0059101b9fc13d18a96125c2785c65da537d1181abb618f2cbc"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/external-schema-validation-v2.json",
+        "bytes": 1204,
+        "sha256": "d3ed81e9d36a4acabe76c206c59a443249c0ac9ff2a10ac453f6685f82f5c091"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/final-browser-v2.json",
+        "bytes": 771,
+        "sha256": "6938012a74a18a1ce186b8cef1a5f0fa7b63242271533be25b1e5422e3255f38"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/final-review-checks.json",
+        "bytes": 1051,
+        "sha256": "11c8641d24b2f0cbfcdb3f3c33c589673164238195b371a90e19757f84ec8f1b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/google-rich-sbc-service-error-v2.png",
+        "bytes": 64710,
+        "sha256": "7867f61aa8dbc9411ad86454c088772dbfb9acf1e0e000b18da9d190f12c4348"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/google-rich-trio-final.png",
+        "bytes": 122437,
+        "sha256": "bd89f18880998b709fef654644510614669c568cc4ec1cd211a028196c4cc470"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/google-rich-weekly-final.png",
+        "bytes": 124670,
+        "sha256": "d8d17c5a2fb370f7ed48d6f8fbf92830005b3b561dd99a42934866c73283d064"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/google-rich-weekly-v2.png",
+        "bytes": 125597,
+        "sha256": "36930d57330d2f77f418413be8177a4732e1c6846ee8a4953036379530445b8e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/google-rich-weekly.png",
+        "bytes": 124203,
+        "sha256": "84fc659da388fc2ff3da578f03fc5206c659c9638f207a3e074e291c559a0136"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/local-checks-v2.json",
+        "bytes": 4057,
+        "sha256": "37b5ec4117c788991e7499e3004de8c537b3e2714f0f705a1619d377177e8c6f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/local-checks.json",
+        "bytes": 2458,
+        "sha256": "593ce73e7f79bf55309099d49371c801e13078c07cd19b5879384dfbd9b59b0f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/phone-sbc-discount-v2.png",
+        "bytes": 115550,
+        "sha256": "1267936c41a146b13712494d1fb6d5d366f0b9a6aa1a9c16b43803acac2998f8"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/phone-sbc-full-zh.png",
+        "bytes": 523617,
+        "sha256": "206f8a76ebc499d6c554d1395965ccd3823299332bced2fe5e9dc730e538f660"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/phone-sbc-service-zh.png",
+        "bytes": 44591,
+        "sha256": "ede00d8e06928d37c1b51cb87d29023a75dc7c526ee173f967facc581144caca"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/posthog-dashboard-verified.png",
+        "bytes": 366829,
+        "sha256": "1148c5ad38a1ccd508f1255a87cc4b576e3304d5f838feb7b55ad11216837a07"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/posthog-initial-unknown.json",
+        "bytes": 1662,
+        "sha256": "b49d513c34d3f157d56c663e72663604433939db52956eaf1f07e9332604cf55"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/posthog-live-acceptance.json",
+        "bytes": 10125,
+        "sha256": "2a94d376b7fa36155af92f40b9a6e5cc658dd3478968167cf6db6ea99983346f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/pricing-ui-v2.json",
+        "bytes": 571,
+        "sha256": "c89f4a4e6da8de6e88783e47e1eecf13df62693c1c8d839fc60275f468c8be8f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/responsive-v2.json",
+        "bytes": 17408,
+        "sha256": "8f52bb6ac88dc6cbc524fad4ca958934319dcbaf00526fea9772fceaf0e83cc9"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/schema-sbc-v2.png",
+        "bytes": 223347,
+        "sha256": "84678c894e5d8ee6ebacf2fffbb3f00b3ade6868a5e84a7f4d7294eaf4ed0874"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/schema-trio-v2.png",
+        "bytes": 222606,
+        "sha256": "615f359c63ee5ddc861775865072f9265e3b71169acdb5d7467916c101f471ec"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/schema-trio.png",
+        "bytes": 178309,
+        "sha256": "7b81a212edd88279fe8bf57b61501ae68b3e09ab28dbd6c1995a99ef4fc35950"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/schema-weekly-v2.png",
+        "bytes": 181349,
+        "sha256": "a415bb5180faa24264cf926af7565348dd082ee2eb585bb7321fe915cdab2f7d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/schema-weekly.png",
+        "bytes": 181273,
+        "sha256": "4f337707493aa5615777028ff58d3aa103d347f4e0e3fb8a990b9913021fc5ba"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/seo-pre-discount-validation.json",
+        "bytes": 980,
+        "sha256": "81594719b67a8135caf867233bb0f9239ed40ed5dd84bf27ecc54e63b65bdf45"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/standalone-pages-v2.json",
+        "bytes": 7790,
+        "sha256": "def8ed45ccde8580b0551836521c17843b550366b6ab5af9e8aa874afde88a5d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/verification-v2.1.json",
+        "bytes": 18539,
+        "sha256": "c49de0d30d4a9595940638dbb140c70831b8808f2f4e2fc5f52351114b2b6f23"
+      },
+      {
+        "path": "fc27_season2_live_20261022/evidence/verification-v3.json",
+        "bytes": 20797,
+        "sha256": "c712fec92c6696fbcf25b7db765dd2b4e3eb21dc90616bddbf6c60e177fe7bb6"
+      },
+      {
+        "path": "fc27_season2_live_20261022/FS-SERVER-OPERATIONS.md",
+        "bytes": 3675,
+        "sha256": "a6a87412b3b40c81c70cb5d90a6bd4a881854705cc388470a228b0c982f87049"
+      },
+      {
+        "path": "fc27_season2_live_20261022/host-adapter.js",
+        "bytes": 2086,
+        "sha256": "37e47dcb2a4cea191e9d18df8b41ef5e953e6b7b47636fcb203032840c60e651"
+      },
+      {
+        "path": "fc27_season2_live_20261022/index.html",
+        "bytes": 23184,
+        "sha256": "619891e1080c548f6f2e0af6a286b3c56dd6312502892506caef08c8dafa4fa4"
+      },
+      {
+        "path": "fc27_season2_live_20261022/locale-controls.html",
+        "bytes": 261,
+        "sha256": "d9bf0a92a7ac8fc824f4d5eb90590af6342f6946a3c49e6263b7b5ec2d541df0"
+      },
+      {
+        "path": "fc27_season2_live_20261022/MATCHDAY-ANALYTICS-PLAN.md",
+        "bytes": 4783,
+        "sha256": "d8b24243d7534027222b1ebcd2fe790373d028991f36418ee40d44ee92f76d86"
+      },
+      {
+        "path": "fc27_season2_live_20261022/MMOEXP-FS-AUTO-PUBLISH-HANDOFF.md",
+        "bytes": 21713,
+        "sha256": "5d5712794661f7edc8def76a1b2a02b959dd8dccdc0f3f5e474f9175b97cbcef"
+      },
+      {
+        "path": "fc27_season2_live_20261022/package_delivery.py",
+        "bytes": 2329,
+        "sha256": "d6ac184838cfd8e618cbd524a3dfcc6125f11af7786ce11c1136c8ab8b9c8f0a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/page-template.html",
+        "bytes": 10351,
+        "sha256": "dcb22449156746ce6c163e2cf91cb3a7e78ec71734c50f7d322fe91052098b58"
+      },
+      {
+        "path": "fc27_season2_live_20261022/Player-Trio.html",
+        "bytes": 22963,
+        "sha256": "f33407c956221304a300ae10ff0d88d48b8125b7907c6f712f0f41b373e3c19d"
+      },
+      {
+        "path": "fc27_season2_live_20261022/promotion-policy.json",
+        "bytes": 5212,
+        "sha256": "1e1ec6e4b3b0b091791a58f6b57e2055306f374089f753a3fd68dca2336a871a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/REA-FINDINGS.md",
+        "bytes": 5132,
+        "sha256": "39dd704ae8dadf34cab2d6bb317a0bb70d8923d3904a3b543edda50bb3b69168"
+      },
+      {
+        "path": "fc27_season2_live_20261022/README.md",
+        "bytes": 3583,
+        "sha256": "12df911d73362cc726666422c5ec219c95ac3eb56761630a7c6da670301c71a7"
+      },
+      {
+        "path": "fc27_season2_live_20261022/Sbc-Companions.html",
+        "bytes": 23850,
+        "sha256": "6525d34f92bad9f96da9efd3918de43efc4fb06cdee1829b2fa6858c26aff2fe"
+      },
+      {
+        "path": "fc27_season2_live_20261022/seo-head-sbc.html",
+        "bytes": 5140,
+        "sha256": "c138212daad387436f3c4ae20158d5cec191061ada675d04997d954d8b64374a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/seo-head-trio.html",
+        "bytes": 5138,
+        "sha256": "14906c54054381fd1d7edfb3891946bd20338c938622030ed9e3dccfb529cfda"
+      },
+      {
+        "path": "fc27_season2_live_20261022/seo-head-weekly.html",
+        "bytes": 5156,
+        "sha256": "a94a6a93ec4a835a696a47e9d962851c8cba0748977e25c5bddde2b4afc19151"
+      },
+      {
+        "path": "fc27_season2_live_20261022/SEO-IMPLEMENTATION.md",
+        "bytes": 4876,
+        "sha256": "ffa767606e0cd4e671d62f2f0750822b62bcea2e7ef2a72659d5abf3184f0368"
+      },
+      {
+        "path": "fc27_season2_live_20261022/sitemap.xml",
+        "bytes": 443,
+        "sha256": "f1805d912dd4c6f2db6465c86f7dda8f5b46c615f103a75763ee90319b98e18b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/structured-data-sbc.json",
+        "bytes": 3580,
+        "sha256": "bdba8c8e965f171e5e2290a2c1dba4d200e7547c164c9e8f2c6fbee32d3ddd84"
+      },
+      {
+        "path": "fc27_season2_live_20261022/structured-data-trio.json",
+        "bytes": 3576,
+        "sha256": "dcf3938e0c8821d5dedeb63c895d36d46b04efb46ea83ed70247684044ececa7"
+      },
+      {
+        "path": "fc27_season2_live_20261022/structured-data-weekly.json",
+        "bytes": 3601,
+        "sha256": "25bbfeabda04cb8310e6506c94d46621baead9f73d7187bf063e868fbae88db3"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/activity-core.test.cjs",
+        "bytes": 6283,
+        "sha256": "0f758385c96ab40471eed56ac916b94843648bfd39fdc4a7c5458ec3660a9e4a"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/activity-pricing.test.cjs",
+        "bytes": 1567,
+        "sha256": "6428f76ba09a721657ac82b0beda7b43fd6e9e5b4ac8d0b6d7253eab8de6a7fa"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/analytics-browser.cjs",
+        "bytes": 7854,
+        "sha256": "4147b92fd8cb9c8a6cb700f5b3f8ed1ec83d4dfb7baec1a033c9a331672b9baa"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/analytics-server.test.mjs",
+        "bytes": 2317,
+        "sha256": "3fb92a436711a5b50d0c014aee46492a64023073468f0c7fa6423ee8564fa241"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/analytics.test.cjs",
+        "bytes": 2362,
+        "sha256": "ff32b0ad98bf8256c7aa08b7aa66aa99c262ecef99840a2fc53c5b5feb5ba623"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/connection-browser.cjs",
+        "bytes": 2023,
+        "sha256": "0d95755d8a6b4c17887132b50bb61a2e6bc7780e7ed513c72e39a45e16917bdf"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/connection.test.mjs",
+        "bytes": 2020,
+        "sha256": "9aa264b466dfddd5ddf72d51f76d4f242936fbe3f07feb0fdd0d9e7a58ab7add"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/fixtures/catalog-baseline.json",
+        "bytes": 41877,
+        "sha256": "57f59a192789565a8cee05b421caab3d5096aed09dcf4b00cebe82234b239ded"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/fixtures/cisse-live-catalog.json",
+        "bytes": 10300,
+        "sha256": "77b76893813aa613e83bb5a6063851affe2e46816b13447b406a23788f573de3"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/host-adapter.test.cjs",
+        "bytes": 2179,
+        "sha256": "264688ec586271fcaa14eb76dad421c122f075f69e3476e4ff18be302ee05c7c"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/matchday-adapter.test.cjs",
+        "bytes": 897,
+        "sha256": "aadc8836bf2d583e712cfe443bf4abc8d8be5f0afd125de1b540d0a1790c468c"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/prediction-analytics.test.cjs",
+        "bytes": 2022,
+        "sha256": "d46704badf5ce44a5d4ad347037528b1199130a2a1ed35113a0c6fadf7365a5b"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/production-browser.cjs",
+        "bytes": 2716,
+        "sha256": "d6d477630ab4eb416db9c77b7a358698f8c483238da29e200ea603e13be01776"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/production.test.mjs",
+        "bytes": 2723,
+        "sha256": "ff7c541b276633779e8893db2038b5df69153854995d6088df8356ef844dc60f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/seo.test.mjs",
+        "bytes": 4792,
+        "sha256": "4f9b1a1cbebba1bb4ea036fdb2a08750ca219fdc52da6ad8ac45657787c008fc"
+      },
+      {
+        "path": "fc27_season2_live_20261022/tests/store.test.mjs",
+        "bytes": 1904,
+        "sha256": "799da10e3888a4080257a2ed62a93a57677196659d6b193a1ae94f0067bdd379"
+      },
+      {
+        "path": "fc27_season2_live_20261022/validation/sbc.html",
+        "bytes": 22200,
+        "sha256": "9716bb19d08e885a19d6f5463a92293f5a568e37f63bce78ed9ea77db439a74e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/validation/trio.html",
+        "bytes": 21313,
+        "sha256": "90d2137016a4de5b6cc781539a650e8033627b682a0903250961dc69b793cccb"
+      },
+      {
+        "path": "fc27_season2_live_20261022/validation/weekly.html",
+        "bytes": 21615,
+        "sha256": "a486d6aeab7f23efd5cc24d323dffac3dc9b0a32bafb5082b456543cc76c8c8e"
+      },
+      {
+        "path": "fc27_season2_live_20261022/VERIFICATION.json",
+        "bytes": 18047,
+        "sha256": "839afbe51eb95ebffe162be8da623247ee36c331649d7da84e01901b864458f8"
+      },
+      {
+        "path": "fc27_season2_live_20261022/verify_delivery.py",
+        "bytes": 2597,
+        "sha256": "74debb8386afff65cc61259783e5f2f4ef2fb7ad8f532fca8f65da09f309f35f"
+      },
+      {
+        "path": "fc27_season2_live_20261022/Weekly-Scout.html",
+        "bytes": 23265,
+        "sha256": "327925217f858b8f288728ea589f91194fbdf1ce14b97b5238a0d010d2281a17"
+      }
+    ]
+  },
+  {
+    "name": "seasonal-v3",
+    "archive": "E:\\WorkBuddy\\大超服务器\\docs\\planning\\mmoexp-seasonal-events-20261024\\MMOEXP-Seasonal-Vault-V3-20261024.zip",
+    "sha256": "b0d8fa9f1fb03cd354d5046c120c1810dbdac808976955bb738d4baed00a9564",
+    "bytes": 30799939,
+    "crc": "passed",
+    "files": [
+      {
+        "path": "site/dist/activity-analytics.js",
+        "bytes": 7925,
+        "sha256": "723b92b7940bf982b38580b3855d714b0612215af4319c0a2abc5a7a9f6401c4"
+      },
+      {
+        "path": "site/dist/analytics-config.js",
+        "bytes": 1215,
+        "sha256": "c68345d01fe236c4d53747362f4ac434954436a24751e3c27099d85d06249088"
+      },
+      {
+        "path": "site/dist/assets/art-aion.webp",
+        "bytes": 343082,
+        "sha256": "302a7e6f5befc46d356452c8eac0147dc11bbf89821a3ee7a4a5858300e61151"
+      },
+      {
+        "path": "site/dist/assets/art-diablo.webp",
+        "bytes": 325734,
+        "sha256": "c5805511d9f0e52a127f67cc143f4a3f6177c2c7d3c0d54d7cc2337e12f4fba2"
+      },
+      {
+        "path": "site/dist/assets/art-fc.webp",
+        "bytes": 337756,
+        "sha256": "683c0b365c5d261b5f4fc8d7e31938b2cbd101d0d5d61d1384a341bb8be0fb3a"
+      },
+      {
+        "path": "site/dist/assets/art-madden.webp",
+        "bytes": 299460,
+        "sha256": "a2d589688aeaee517a7ad921afe359c703bc5d606d5e18666e12db66adc46fad"
+      },
+      {
+        "path": "site/dist/assets/art-nba.webp",
+        "bytes": 301472,
+        "sha256": "1f2ece30d68e316d885f7a338d6f4b98ac75459b0c53d0e058b9923f1dee2761"
+      },
+      {
+        "path": "site/dist/assets/art-poe.webp",
+        "bytes": 368846,
+        "sha256": "418216fb02bf771d7f431eadfd7f35451dfc0513a812d10954c736bf8d89c66c"
+      },
+      {
+        "path": "site/dist/assets/hero-black-friday.webp",
+        "bytes": 247656,
+        "sha256": "f35557fc3bec63b165660087453fff5f5996bf055b729730ef1a81491af12488"
+      },
+      {
+        "path": "site/dist/assets/hero-christmas.webp",
+        "bytes": 306434,
+        "sha256": "5093a4afb6322521d99c6fdb4c4db83b4a6f49a8db25f98d8ac5b79ca1be97d3"
+      },
+      {
+        "path": "site/dist/assets/hero-halloween.webp",
+        "bytes": 286452,
+        "sha256": "9e9d9a707e0bb3789ca7465e3c517e6e66e67b6d66effb9e922cc5865e2e02e8"
+      },
+      {
+        "path": "site/dist/assets/hero-thanksgiving.webp",
+        "bytes": 308952,
+        "sha256": "2c10b4a7309dcafc7672f181a713f44735eb3e96e91101ea8b2acd650d1af154"
+      },
+      {
+        "path": "site/dist/assets/mmoexp-logo.png",
+        "bytes": 15705,
+        "sha256": "5ef3ee0e3b0b04f7e8cdee8f76811592eae0bf8ac236bf1cf4644e2f19d8ab92"
+      },
+      {
+        "path": "site/dist/campaign-data.js",
+        "bytes": 17458,
+        "sha256": "4e418b77a5bccf9f767a6b272a0baad586772f264619dd312fef35ed168f72e8"
+      },
+      {
+        "path": "site/dist/creative-kit.html",
+        "bytes": 3443,
+        "sha256": "e3b81fae2ac60a0a712c86dd9c1a26dc9e8e539984e2077751646d31336cb375"
+      },
+      {
+        "path": "site/dist/event.css",
+        "bytes": 30382,
+        "sha256": "c3884de0d180cf7784ef832b7dce94330df37c7d89d08fb2d981d357aec26a62"
+      },
+      {
+        "path": "site/dist/event.js",
+        "bytes": 23518,
+        "sha256": "7b8b650471fa5ae78417cd153b0239f07f522f1a4428199aa2a2b736f5848ea0"
+      },
+      {
+        "path": "site/dist/index.html",
+        "bytes": 15368,
+        "sha256": "9017006e955675422fa2ea2dd12a1327cab5d2de074d6694525552ffd059653b"
+      },
+      {
+        "path": "site/dist/kit.css",
+        "bytes": 4721,
+        "sha256": "dc72f71d94a7f121a45fd313e4b1acf5bd24e64f791857e797e9568291e5b9f7"
+      },
+      {
+        "path": "site/dist/kit.js",
+        "bytes": 2462,
+        "sha256": "2fd1a34e4b82aff6bd48db2e56a13440ec519cd99818334a6d4bc4057d10f8df"
+      },
+      {
+        "path": "site/dist/vault-analytics.js",
+        "bytes": 2681,
+        "sha256": "2be33be283f51d34f98f53ddb4adce7afd1a2b471269fee42a0e83854508d99b"
+      },
+      {
+        "path": "site/dist/vault-core.js",
+        "bytes": 3148,
+        "sha256": "6b096d7dc646177ebcdb185bb72362c76306324136848857384c606675121a2e"
+      },
+      {
+        "path": "site/tests/analytics-bridge.test.cjs",
+        "bytes": 3096,
+        "sha256": "ad7b307a312a3fc36982b8707710588e730a92329ee0a3096bc367a889604486"
+      },
+      {
+        "path": "site/tests/catalog.test.cjs",
+        "bytes": 2463,
+        "sha256": "0cf8d183f49be74388e9c9874d8520e3ab35a83e38fb7da96643d4056f291a70"
+      },
+      {
+        "path": "site/tests/check.cjs",
+        "bytes": 3118,
+        "sha256": "9d72a0554ac9dbebe1e50598b038dfd6041c9bbf76393301ce485f578a507ce2"
+      },
+      {
+        "path": "site/tests/vault-core.test.cjs",
+        "bytes": 2802,
+        "sha256": "df8512ec8c8f12492128cb581f64ce9c90a026c7863321b2dd2ef15f4fb5fede"
+      },
+      {
+        "path": "site/build-seo.cjs",
+        "bytes": 3692,
+        "sha256": "f649003c435709981273caedd0b367a5273cb98eea78b3728e8b33b2234653e1"
+      },
+      {
+        "path": "site/.openai/hosting.json",
+        "bytes": 106,
+        "sha256": "c7e8493eb11d75fb99ea48224d0217d5432ba02da96d22e4cace6cb2b04b8ab7"
+      },
+      {
+        "path": "docs/README.md",
+        "bytes": 4900,
+        "sha256": "a9b0e3c3c776e53569f912525202efe105be58b16b1c13f9c4401cc0f1211835"
+      },
+      {
+        "path": "docs/CATALOG-MAPPING-V3.json",
+        "bytes": 13808,
+        "sha256": "5cc657ba14a64ff53e1c823b7866ef8b0621c6f8a1839dfec31ba257364c67d3"
+      },
+      {
+        "path": "docs/V2-DELIVERY.md",
+        "bytes": 8879,
+        "sha256": "e6b9b0699f73991e6fca514f27adc497e6b1b9490547c31c90a21313c758c45c"
+      },
+      {
+        "path": "docs/V2-ACCEPTANCE.json",
+        "bytes": 1114,
+        "sha256": "41646dbddf92120119c298f78f59fb73631802ae1f4dda3e81e549f3cb8e58db"
+      },
+      {
+        "path": "docs/V3-DELIVERY.md",
+        "bytes": 5422,
+        "sha256": "565ab9767a8ea348be0fc981e5e0da8ac6bd0372cb0e5f6049a001dd1c66dd77"
+      },
+      {
+        "path": "docs/V3-ACCEPTANCE.json",
+        "bytes": 1772,
+        "sha256": "5bc405981cbb4f7358a4e01ad9a897f2c8a567b3c67ae6bd6ec69645f1de498d"
+      },
+      {
+        "path": "docs/DELIVERY.md",
+        "bytes": 2376,
+        "sha256": "7854e3fae68452b818723543f4611b5a4a25e09b90d6a11492827dd715fb969c"
+      },
+      {
+        "path": "docs/IMAGEGEN-PROMPTS.json",
+        "bytes": 13443,
+        "sha256": "cdc06ed76661081b85aead64dc1476a226a0843e9f22cbb544d4ab07effe8063"
+      },
+      {
+        "path": "docs/ASSET-MANIFEST.json",
+        "bytes": 3402,
+        "sha256": "ea0ff9bacc58d0ae27de2666f4353541e8b12c03ab26ed8d9c7da971bb8a22b8"
+      },
+      {
+        "path": "docs/PUBLISH-RECEIPT-V3.json",
+        "bytes": 710,
+        "sha256": "cc9a1b58e0d0dae82a6220acf8e7d3ae4fa7ad0678f5c1e434d1bfaa4e81f006"
+      },
+      {
+        "path": "docs/research/COMMERCE-REUSE-20261024.md",
+        "bytes": 13533,
+        "sha256": "87698c68a6089352fc11ef11655f1093d43a99b871361db4452ed8252f66bb63"
+      },
+      {
+        "path": "docs/research/RESEARCH.md",
+        "bytes": 8757,
+        "sha256": "c3ff9d3fe5b651c297660c2760d862f07aac8565d25c1df419c1f49941b700d5"
+      },
+      {
+        "path": "docs/research/SOURCES.json",
+        "bytes": 9590,
+        "sha256": "544056311c995e48a0035f30b0d095726d77ec6ab35ef4a12c4ec6a87b53b1b5"
+      },
+      {
+        "path": "docs/research/REA-static-summary.json",
+        "bytes": 12748,
+        "sha256": "82dd8e541c2240dd730c4ab73c08e3e16fab4ca8f182f25843c1c036afa6c17b"
+      },
+      {
+        "path": "docs/creative-originals/art-aion.png",
+        "bytes": 2716365,
+        "sha256": "f4fc436557b2e581c0e948239175ae2d7bed9d5779942b5c1e5a92457aa23636"
+      },
+      {
+        "path": "docs/creative-originals/art-diablo.png",
+        "bytes": 2541068,
+        "sha256": "67b710ceaf508ae2458b6adaef4d9971719c3eb5e8c8579a92dbd4f5fa74db94"
+      },
+      {
+        "path": "docs/creative-originals/art-fc.png",
+        "bytes": 2668350,
+        "sha256": "a188d99ff6b92750199eda1430279a52e687239427ec6bbf776dcb289d70966a"
+      },
+      {
+        "path": "docs/creative-originals/art-madden.png",
+        "bytes": 2487338,
+        "sha256": "c295fe0aee48aa049e62284ebef7d95c05a19b25ac8e388474b9c12635ef47a6"
+      },
+      {
+        "path": "docs/creative-originals/art-nba.png",
+        "bytes": 2523418,
+        "sha256": "c805e38594e5bb104d2fdc1af62781fa9d50edfd20da27d4bc574c712178353f"
+      },
+      {
+        "path": "docs/creative-originals/art-poe.png",
+        "bytes": 2852062,
+        "sha256": "c7a4cf9a817ed4202b470b43e3da2bd9042dcd66ed11f5a7b14c2dae5e6fd812"
+      },
+      {
+        "path": "docs/creative-originals/hero-black-friday.png",
+        "bytes": 2342612,
+        "sha256": "72f3c6b9f66b41b08b0c94193d9f6cd03f39d03d8bbc88eb3706ab7c2180fc52"
+      },
+      {
+        "path": "docs/creative-originals/hero-christmas.png",
+        "bytes": 2675266,
+        "sha256": "d7a2fa49e044fa1991b445882f41000ff242f365ce68af141a966a1fb6abe40e"
+      },
+      {
+        "path": "docs/creative-originals/hero-halloween.png",
+        "bytes": 2453755,
+        "sha256": "2ef998ba724ca080aa73bf83d2f6a2bba851206b8c7d2604993904eb51940e41"
+      },
+      {
+        "path": "docs/creative-originals/hero-thanksgiving.png",
+        "bytes": 2551126,
+        "sha256": "0c23af5374922b177a925a9c817d3cba281f181ae1e02c3cf1445f79cb4608fd"
+      },
+      {
+        "path": "docs/evidence/browser-acceptance.json",
+        "bytes": 2239,
+        "sha256": "b5704dbb4e8891ad01e11572585adb612ac37722af7a5b98df5d8724e93bad52"
+      },
+      {
+        "path": "docs/evidence/creative-kit.png",
+        "bytes": 898268,
+        "sha256": "699cefd9ab22ae40d3af06d13d9e93df75c7736f4eeb880779ac476e49da8a13"
+      },
+      {
+        "path": "docs/evidence/desktop-halloween.png",
+        "bytes": 435465,
+        "sha256": "d046e2c1a6d24aabfcfccb0f84f1fcda641012458bb35d3015cb2a259fdd3e0f"
+      },
+      {
+        "path": "docs/evidence/desktop-products.png",
+        "bytes": 143566,
+        "sha256": "3fed25f60eb9690b7edeb7472fa29901a29823bbd77e341b2e0ffbfbcdba3ff4"
+      },
+      {
+        "path": "docs/evidence/mobile-halloween.png",
+        "bytes": 198090,
+        "sha256": "0c601c9e4a93132ed339ed93e14ea4707403a42d47bf6b913e1dc2d3289641a5"
+      },
+      {
+        "path": "docs/evidence/v2-analytics.png",
+        "bytes": 40357,
+        "sha256": "ab570ac296406a2d2260c57413ee0e275b0349110c654f2a4dddd1659bf5c03d"
+      },
+      {
+        "path": "docs/evidence/v2-analytics.txt",
+        "bytes": 438,
+        "sha256": "8ca4324cfe47c63323c25da1036ace4b80c082dd2b3b65812e87343339ed461b"
+      },
+      {
+        "path": "docs/evidence/v2-fs-registry.png",
+        "bytes": 71751,
+        "sha256": "14e68953a1d1ca60eeb02ffaa5148ade64b465f9bd5ed7025c530318d237d552"
+      },
+      {
+        "path": "docs/evidence/v2-fs-registry.txt",
+        "bytes": 1797,
+        "sha256": "47965ff6766e9cf85369fcc3ab456beac3deb1f052ac8905240e7752dd2fce1e"
+      },
+      {
+        "path": "docs/evidence/v2-invite-mobile.png",
+        "bytes": 6858,
+        "sha256": "ebcb29d78d33fdb76aa0c246591dcbc58c2fce8e46555c02514b11fd0ca9a30b"
+      },
+      {
+        "path": "docs/evidence/v2-mobile.png",
+        "bytes": 369868,
+        "sha256": "54a7c8730e8fd5462214bf7a636d66fae48d058d8cbc68cddeadc3ea7c31e023"
+      },
+      {
+        "path": "docs/evidence/v2-revealed-desktop.png",
+        "bytes": 106277,
+        "sha256": "704e532c0ac6578cc66e0ede319d5d7daf1652deab97a0659f703e87f3344a7a"
+      },
+      {
+        "path": "docs/evidence/v2-sealed-desktop.png",
+        "bytes": 80108,
+        "sha256": "ef6cf77b428595afe7a91d1f990bb0abc1bf2cb9148a9760fecf48db1f24c325"
+      },
+      {
+        "path": "docs/evidence/v3-fixed-games.json",
+        "bytes": 586,
+        "sha256": "7f6a73561f0fbc101449e1a4e2cd12cbef2c4cccf036b528f7f36ba2b31abce6"
+      },
+      {
+        "path": "docs/evidence/v3-flip-start.json",
+        "bytes": 603,
+        "sha256": "ad357c5dfc104020d46ec19100f225700539f2e341803f1ea02cb952d4ef882a"
+      },
+      {
+        "path": "docs/evidence/v3-flip-start.png",
+        "bytes": 37686,
+        "sha256": "cf37a73d176fb966787a45ce3ced1e754dacee34727e72d6c911354bf42dac5d"
+      },
+      {
+        "path": "docs/evidence/v3-mobile-real-sku.png",
+        "bytes": 24644,
+        "sha256": "fabdfa1872891cb0a30d9d00bb44147e2a0575248614fd2002049e89a38f879b"
+      },
+      {
+        "path": "docs/evidence/v3-mobile.png",
+        "bytes": 24685,
+        "sha256": "e31dfb1b430ff24ccd588bcc1cd906ab06e74af2fdbc4dc803b520512e343629"
+      },
+      {
+        "path": "docs/evidence/v3-real-sku-detail.png",
+        "bytes": 43307,
+        "sha256": "f0a70409818c2fb3ba846c0ad972bcd17d2513ed971ebbc950efc7b65a158ad1"
+      },
+      {
+        "path": "docs/evidence/v3-revealed-desktop.png",
+        "bytes": 53323,
+        "sha256": "160d6ac2ff8f0688ff1f7e7162faae3d86a521c727fa18635dd0078bd59ae688"
+      },
+      {
+        "path": "docs/evidence/v3-sealed-desktop.png",
+        "bytes": 44997,
+        "sha256": "2ade0831a1bff310197c072fe8ecd19edc74262171a3536fe1150ecfe2affed3"
+      },
+      {
+        "path": "docs/evidence/v3-single-flip.json",
+        "bytes": 48,
+        "sha256": "e0ae955845014a0dcbca1150fb8efcf90ff0cff6509a9e96366e0e69342c1aec"
+      },
+      {
+        "path": "docs/evidence/v3-themes.json",
+        "bytes": 376,
+        "sha256": "3fe783f9612f9206bad9fabcb700886597ae9d0fd5143ad275fbe5b0fb2b9072"
+      },
+      {
+        "path": "MANIFEST.json",
+        "bytes": 11714,
+        "sha256": "e9ec0f45d8d3aba0fe9f1d4a74e132859ceb1c141e8f501a91c6c3ed720225db"
+      },
+      {
+        "path": "交付说明.txt",
+        "bytes": 705,
+        "sha256": "a439173da5b93e5c4f53f3fa09a759d51eaccc6c23bc74238925b75b99e06501"
+      }
+    ]
+  }
+]
