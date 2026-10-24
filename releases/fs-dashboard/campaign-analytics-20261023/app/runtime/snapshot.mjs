@@ -16,6 +16,17 @@ export function id(value) {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(value || '')) fail('INVALID_REQUEST');
   return value;
 }
+export const presentationOptions=Object.freeze({
+ 'Weekly-Scout.html':{languages:['original','en','zh'],images:['original','assets/weekly-hero.webp','assets/weekly-hero-mobile.webp']},
+ 'Sbc-Companions.html':{languages:['original','en','zh'],images:['original','assets/reward-hero.webp','assets/reward-hero-mobile.webp']},
+ 'Player-Trio.html':{languages:['original','en','zh'],images:['original','assets/scream-hero.webp','assets/scream-hero-mobile.webp']},
+ 'seasonal/index.html':{languages:['original','en'],images:['original',...['halloween','thanksgiving','christmas','black-friday'].map(theme=>'seasonal/assets/hero-'+theme+'.webp')]}
+});
+export function presentationFields(page){
+ const options=presentationOptions[page.path],language=page.default_language??'original',image=page.social_image??'original';
+ if((language!=='original'||image!=='original')&&(!options||!options.languages.includes(language)||!options.images.includes(image)))fail('INVALID_PRESENTATION_CONFIG');
+ return {default_language:language,social_image:image};
+}
 const ref = value => Object.fromEntries(['site_id','game_id','model_id','goods_id','sku_id'].filter(k => value?.[k] != null).map(k => [k,id(value[k])]));
 const localPath = value => {
   text(value, 300);
@@ -43,6 +54,7 @@ export function projectRelease(input) {
     pages:input.pages.map(p => ({activity_id:id(p.activity_id), page_id:id(p.page_id), rule_version:id(p.rule_version), benefit_binding_version:id(p.benefit_binding_version),
       path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),
       ...(p.description ? {description:text(p.description,320)} : {}),
+      ...((p.default_language!=null||p.social_image!=null)?presentationFields(p):{}),
       ...(p.starts_at ? {starts_at:new Date(p.starts_at).toISOString()} : {}),
       ...(p.ends_at ? {ends_at:new Date(p.ends_at).toISOString()} : {}), active:p.active === true})),
     products:input.products.map(product)};
