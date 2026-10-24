@@ -92,7 +92,7 @@ def reference_context(snapshot, now):
             raise ValueError('itemd2r_reference_capture_span_over_300_seconds')
         return dict(status='available',run_id=snapshot['run_id'],offers=offers,
                     capture_span_seconds=(max(stamps)-min(stamps)).total_seconds(),
-                    authority='qualitative_reference_only_no_experimental_weights')
+                    authority='fc-reference-weighting-20261024-v2')
     except (KeyError,TypeError,ValueError,AttributeError) as exc:
         return dict(missing,reason=str(exc) if isinstance(exc,ValueError) else 'itemd2r_reference_invalid')
 
@@ -182,7 +182,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
             Decimal("0.000001"), rounding=ROUND_HALF_UP)
         if Decimal(str(row.get("usd_per_k"))) != expected_unit:
             raise ValueError("storefront_unit_mismatch:" + platform)
-    evidence = {"game": "FC27", "product": "Game Coins", "checked_at": snapshot["created_at"],
+    evidence = {"game": "FC27", "product": "Game Coins", "run_id": run_id, "checked_at": snapshot["created_at"],
                 "costs": costs, "offers": offers, "fx": fx,
                 "storefront": storefront, "reference_market": reference_market}
     from pricing_sources import collect as collect_pricing_constraints, historical_mix

@@ -101,7 +101,7 @@ class Bidirectional(unittest.TestCase):
                 result=bridge.review(dict(job_id=RUN,actor='wulv'),quote,wait_seconds=0)
         self.assertEqual(result['phase'],'completed')
         text=calls[1][1]['text']
-        for required in ('不论上涨还是下跌','当前价不再是上调上限','每实际交付K','第二梯队','实验权重仍只模拟','itemd2r.com'):
+        for required in ('不论上涨还是下跌','当前价不再是上调上限','每实际交付K','第二梯队','实验权重仍只模拟','itemd2r.com','80/15/5','ItemD2R第二梯队15%','U7Buy第二梯队5%','不额外给多站一致奖励'):
             self.assertIn(required,text)
         self.assertEqual(len(calls),2)
 
@@ -155,7 +155,7 @@ class ReferenceInputs(unittest.TestCase):
         value=self.context(snapshot(),NOW)
         self.assertEqual(value['status'],'available')
         self.assertEqual(value['offers'][0]['bonus_k'],'0')
-        self.assertEqual(value['authority'],'qualitative_reference_only_no_experimental_weights')
+        self.assertEqual(value['authority'],'fc-reference-weighting-20261024-v2')
 
     def test_missing_or_failed_reference_never_reuses_old_sample(self):
         for raw in (None,{},'invalid',dict(status='unavailable',reason='reader_failed',offers=[])):
@@ -215,6 +215,101 @@ class ReferenceInputs(unittest.TestCase):
                     self.assertEqual(reader.call_count,1 if state=='legacy' else 0)
                     observer.main();self.assertEqual(reader.call_count,1 if state=='legacy' else 0)
                 self.assertEqual(path.read_bytes(),before)
+
+
+class ReferenceWeights(unittest.TestCase):
+    def prepared(self):
+        evidence,rows,_=fixture();evidence['run_id']='original'
+        offers=snapshot()['reference_competitors']['offers']
+        for r in offers:r.update(gross_usd='20',bonus_k='5')
+        evidence['reference_market']=dict(status='available',run_id='original',offers=offers)
+        for p in ('PS','XBOX','PC'):
+            evidence['offers'][p]['U7Buy']=dict(usd_price='20',base_k='100',bonus_k='5',
+                checked_at=NOW.isoformat(),conditional=False,comparable=True,url='https://www.u7buy.com/fc27/coins')
+        return evidence,rows
+
+    def reference(self,evidence,rows):
+        receipt=pricing.apply_decision(rows,evidence,{},now=NOW)
+        return receipt,rows[0]['reference_adjustment']
+
+    def test_same_target_formula_supports_both_directions_and_caps_outliers(self):
+        from decimal import Decimal
+        for value,expected in [('1','-.01'),('19','-.01'),('20','0'),('21','.01'),('200','.01')]:
+            e,rows=self.prepared()
+            for r in e['reference_market']['offers']:r['gross_usd']=value
+            for offers in e['offers'].values():offers['U7Buy']['usd_price']=value
+            receipt,ref=self.reference(e,rows)
+            self.assertEqual(Decimal(ref['raw_offset']),Decimal(expected))
+            self.assertEqual(Decimal(receipt['decisions'][0]['raw_weighted_usd']),Decimal(20)*(1+Decimal(expected)))
+            self.assertGreaterEqual(Decimal(rows[0]['proof']['catalog']['minimum_estimated_average_margin_pct']),10)
+
+    def test_unequal_weights_do_not_count_sources_as_equal_votes(self):
+        from decimal import Decimal
+        e,rows=self.prepared()
+        for r in e['reference_market']['offers']:r['gross_usd']='19'
+        for offers in e['offers'].values():offers['U7Buy']['usd_price']='21'
+        _,ref=self.reference(e,rows)
+        self.assertEqual(Decimal(ref['raw_offset']),Decimal('-.005'))
+        self.assertEqual(ref['sources']['ItemD2R']['weight'],'0.15')
+        self.assertEqual(ref['sources']['U7Buy']['weight'],'0.05')
+
+    def test_missing_references_do_not_redistribute_or_borrow_another_run(self):
+        from decimal import Decimal
+        for missing,expected in [('ItemD2R','.0025'),('U7Buy','.0075'),('both','0')]:
+            e,rows=self.prepared()
+            for r in e['reference_market']['offers']:r['gross_usd']='21'
+            for offers in e['offers'].values():offers['U7Buy']['usd_price']='21'
+            if missing in ('ItemD2R','both'):e['reference_market']['run_id']='other'
+            if missing in ('U7Buy','both'):
+                for offers in e['offers'].values():del offers['U7Buy']
+            _,ref=self.reference(e,rows)
+            self.assertEqual(Decimal(ref['raw_offset']),Decimal(expected))
+            self.assertFalse(ref['missing_weight_reallocated'])
+
+    def test_optional_invalid_reference_cannot_change_baseline(self):
+        for fault in ('conditional','stale','future','coverage','currency','url','quantity','span'):
+            e,rows=self.prepared();item=e['reference_market']['offers'][0]
+            item['gross_usd']='1'
+            if fault=='conditional':item['conditional']=True
+            elif fault=='stale':item['captured_at']=(NOW-timedelta(minutes=16)).isoformat()
+            elif fault=='future':item['captured_at']=(NOW+timedelta(minutes=1)).isoformat()
+            elif fault=='coverage':e['reference_market']['offers'].pop()
+            elif fault=='currency':item['currency']='EUR'
+            elif fault=='url':item['url']='https://other.example/coins'
+            elif fault=='quantity':item['purchase_k']='50'
+            else:item['captured_at']=(NOW-timedelta(minutes=6)).isoformat()
+            with self.subTest(fault=fault):
+                _,ref=self.reference(e,rows)
+                self.assertEqual(ref['sources']['ItemD2R']['status'],'unavailable')
+                self.assertEqual(pricing.number(ref['raw_weighted_usd']),20)
+
+    def test_console_uses_lower_adjusted_market_and_pc_is_independent(self):
+        from decimal import Decimal
+        e,rows=self.prepared();e['reference_market']['offers'][0]['gross_usd']='19'
+        e['reference_market']['offers'][1]['gross_usd']='21'
+        receipt,_=self.reference(e,rows)
+        self.assertEqual(Decimal(receipt['decisions'][0]['raw_weighted_usd']),Decimal('19.85'))
+        self.assertEqual(rows[0]['proposal'],rows[1]['proposal'])
+        self.assertEqual(Decimal(receipt['decisions'][1]['raw_weighted_usd']),20)
+
+    def test_cost_floor_and_original_missing_model_fallback_are_preserved(self):
+        e,rows=self.prepared()
+        for r in e['reference_market']['offers']:r['gross_usd']='21'
+        receipt,_=self.reference(e,rows)
+        self.assertEqual(pricing.number(receipt['decisions'][0]['model_unavailable_fallback_usd']),pricing.number('19.99'))
+        self.assertGreater(pricing.number(receipt['decisions'][0]['raw_weighted_usd']),20)
+        for cost in e['costs'].values():cost['cny_per_1k']='2'
+        receipt,_=self.reference(e,rows)
+        self.assertEqual(receipt['decisions'][0]['reason'],'cost_or_promotion_floor')
+        self.assertGreater(pricing.number(receipt['decisions'][0]['model_unavailable_fallback_usd']),20)
+
+    def test_reference_receipt_and_row_cannot_be_tampered_after_preview(self):
+        e,rows=self.prepared();receipt,_=self.reference(e,rows)
+        quote=dict(evidence=e,edits={'minimum_gross_margin_pct':'10'},result=dict(rows=rows,decision_receipt=receipt))
+        policy={'minimum_gross_margin_pct':'10'}
+        pricing.verify_quote(quote,policy,['PS','XBOX'],now=NOW)
+        rows[0]['reference_adjustment']['raw_offset']='.9'
+        with self.assertRaises(ValueError):pricing.verify_quote(quote,policy,['PS','XBOX'],now=NOW)
 
 
 if __name__=='__main__':unittest.main()

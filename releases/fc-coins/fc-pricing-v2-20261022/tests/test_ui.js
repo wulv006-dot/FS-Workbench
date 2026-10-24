@@ -3,7 +3,12 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const root=path.join(__dirname,'../source');
-const {pageToUnit,historyCells,estimatedMarginText,marketOffers}=require(path.join(root,'fc27-quote-cloud.js'));
+const {pageToUnit,historyCells,estimatedMarginText,marketOffers,referenceLines}=require(path.join(root,'fc27-quote-cloud.js'));
+assert(referenceLines({},null)[0][1].includes('旧回执'));
+const lines=referenceLines({reference_adjustment:{anchor_usd:'10',raw_offset:'-.005',raw_weighted_usd:'9.95',sources:{ItemD2R:{status:'available',contribution:'-.0075',normalized_usd:'9.5'},U7Buy:{status:'unavailable',reason:'source_missing'}}}}, {raw_weighted_usd:'9.95',after_floor_usd:'10.5',after_cent_usd:'10.5',selected_usd:'10.5'});
+assert(lines.some(([label,value])=>label==='竞价权重'&&value.includes('15%')&&value.includes('5%')));
+assert(lines.some(([label,value])=>label==='ItemD2R本轮贡献'&&value.includes('-0.750%')));
+assert(lines.some(([label,value])=>label==='U7Buy本轮贡献'&&value.includes('权重不转移')));
 const now=Date.now(),run='same-run';
 for(const platform of ['PS','XBOX','PC']){
   const row={platform,offers:[{site:'Lootbar'},{site:'U7Buy'},{site:'IGGM'},{site:'U4GM'}]};

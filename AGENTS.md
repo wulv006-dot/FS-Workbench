@@ -1,3 +1,7 @@
+<!-- fc-reference-weighting-approved-20261024 -->
+## FC Coins 80/15/5 本轮实施规则
+用户已确认fc-reference-weighting-20261024-v2并授权Sol施工。正式合同见docs/planning/fc-competitor-weighting-20261024/CONTRACT.md：Lootbar80/ItemD2R15/U7Buy5、各价差截断±5%、缺项不分摊、第三梯队直接0但保留分析；原模型失联兜底/v15/共同池/PC独立/120分钟/原ID与UNKNOWN保持。仅该获批版本覆盖原纯定性/实验不生产限制，其他实验及旧80/10/10仍不生产。代码、正式CI、部署、实际模型与自然周期分别按交付读回；PR421/422/423事故修复不得旧包覆盖。
+
 # AI 执行入口
 
 先读 [全仓唯一执行规则](docs/ops/HOTFIX.md)，据用户当前任务连续完成已授权工作。不要从其它快照重建逐SHA审批、双人Approve或全套QA前置。

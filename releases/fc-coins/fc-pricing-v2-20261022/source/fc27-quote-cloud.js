@@ -12,7 +12,7 @@
   const $=id=>document.getElementById(id),BASE='/api/fc27/cloud';
   let policy,player,state,preview,restore,busy=false,dirty=false,playerDirty=false,refreshing=false;
   const pendingKey='fc-pricing-v2-pending';
-  const names={cost_or_promotion_floor:'成本或优惠挤压利润，先修复红线',public_anchor_parity:'只调整到本轮公开可比位置',already_competitive_hold:'已在竞争位置，主策略保持',unify_common_console_base:'旧价不同，统一PS / Xbox共同基价',operator_or_hermes_candidate:'人工或Hermes明确候选'};
+  const names={weighted_market_reference:'按80/15/5同量竞价形成双向候选',cost_or_promotion_floor:'成本或优惠挤压利润，先修复红线',public_anchor_parity:'只调整到本轮公开可比位置',already_competitive_hold:'已在竞争位置，主策略保持',unify_common_console_base:'旧价不同，统一PS / Xbox共同基价',operator_or_hermes_candidate:'人工或Hermes明确候选'};
   const endingNames={accepted:'小幅调整为.99，预算和红线均通过',already_99:'已是.99，无额外调整',no_positive_99:'金额过小，保持主策略',hard_floor:'红线限制，保持主策略',ending_budget:'让利预算限制，保持主策略',ending_margin_budget:'毛利率预算限制，保持主策略',catalog_hard_floor:'套餐红线限制，保持主策略',explicit_candidate_no_hidden_adjustment:'明确指定价，不另加尾价调整'};
   const labels={auto_cycle:'自然自动周期',collect:'价格采集',execute:'确认执行',restore:'恢复',recalculate:'候选核算',preview:'后台只读预览',hermes_review:'Hermes审核',ready:'处理完成',queued:'排队中',running:'进行中',failed:'失败',confirmed:'已确认',CONFIRMED:'已确认',verified:'已核实',pending:'待处理',no_price_change:'价格无需变化',unknown:'原请求待核',completed:'已完成',submitted:'已提交，等待模型',timeout:'本轮等待超时，不追补执行'};
   const label=value=>labels[value]||value;
@@ -35,7 +35,21 @@
       evidence_status:offer?(comparable?'公开规格可比':'历史采价或条件不可比'):`缺项 · ${reference?.reason||'本轮未取得'}`});
     return offers;
   }
-  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells,estimatedMarginText,marketOffers};return;}
+  function referenceLines(row,decision){
+    const reference=row.reference_adjustment;
+    if(!reference)return [['竞价依据','旧回执 · 未使用80/15/5权重']];
+    const percent=value=>`${Number(value)>=0?'+':''}${(Number(value)*100).toFixed(3)}%`;
+    return [
+      ['竞价权重','Lootbar 80% · ItemD2R 15% · U7Buy 5%'],
+      ['同量Lootbar锚',money(reference.anchor_usd)],
+      ...Object.entries(reference.sources).map(([site,source])=>[`${site}本轮贡献`,source.status==='available'?`${percent(source.contribution)} · 同量指数${money(source.normalized_usd)} · 采价${time(source.checked_at)}`:`0% · 缺项或不合格（${source.reason}）；权重不转移`]),
+      ['本平台锚价修正',`${percent(reference.raw_offset)} · 原始同量指数${money(reference.raw_weighted_usd)}`],
+      ['共同市场候选 / 红线后',`${money(decision?.raw_weighted_usd)} / ${money(decision?.after_floor_usd)}`],
+      ['分币 / 尾价或明确候选',`${money(decision?.after_cent_usd)} / ${money(decision?.selected_usd)}${decision?.explicit_candidate?' · 人工或Hermes明确候选':''}`],
+      ['第三梯队','IGGM / U4GM直接权重0，保留趋势与反证分析']
+    ];
+  }
+  if(typeof module!=='undefined'&&module.exports){module.exports={pageToUnit,historyCells,estimatedMarginText,marketOffers,referenceLines};return;}
   const errors={pricing_average_history_required:'缺少完整七日优惠金额样本，不能放行新价；原自动化继续核验。',pricing_average_history_coverage:'已识别Coins历史样本有优惠金额缺失，不能放行新价。',pricing_average_history_period:'优惠历史窗口不符最近七个完整日，请更新来源。',pricing_average_catalog_margin_floor:'候选套餐或自定义量的估算平均毛利低于红线，未写入。',pricing_hard_margin_floor:'候选价低于10%采购毛利硬红线，未写入。',pricing_catalog_hard_margin_floor:'套餐或小额自定义订单未达到硬红线，未写入。',pricing_hard_margin_minimum_10:'最低采购毛利率不能低于10%。',pricing_promotions_changed_since_quote:'优惠配置已变化，请重新采集核算。',pricing_source_stale:'来源已过期，请重新采集。',pricing_custom_formula_changed:'公开数量公式已更新，正在等待核实新边界。',pricing_legacy_quote_requires_recollection:'这是旧版报价，请采集新的V2报价。',pricing_common_console_scope_required:'PS与Xbox必须共同选择。',automation_revision_changed:'运行设置已被其他人更新，草稿保留，请先更新状态。',queue_mutation_busy:'原任务队列正忙，未接受本次请求。',authentication_required:'请重新登录FS。'};
   function error(value) {
     const code=value?.code||value?.message||String(value);
@@ -69,11 +83,12 @@
     const quote=state?.quote,rows=quote?.result?.rows||[],row=rows.find(r=>r.platform===group[0]);
     if(!row||quote.result.strategy_version!=='fc-coins-decision-v2'||row.margin_basis!=='undiscounted_and_historical_average_v2'){box.append(node('p','等待按未优惠售价红线重新核算。旧规则报价保留为历史，不用于新执行。'));return box;}
     box.append(node('div',money(row.target_page_usd),'amount'),node('p',`${state.quote_usable?'本轮候选':'历史候选 · 过期'} · 金币100K标价`,'muted'));
-    const dl=node('dl');
+    const dl=node('dl'),decision=quote.result.decision_receipt?.decisions?.find(d=>d.platforms.includes(group[0]));
     for(const [label,value] of [
       ['最近公开100K',group.map(p=>`${p} ${money(state.current_storefront?.rows?.[p]?.package_usd)} · ${time(state.current_storefront?.rows?.[p]?.checked_at)}`).join(' / ')],
       ['候选相对采集价变化',group.map(p=>{const r=rows.find(v=>v.platform===p);return `${p} ${Number(r.change_pct)>=0?'+':''}${Number(r.change_pct).toFixed(2)}%`;}).join(' / ')],
       ['估算平均采购毛利率（100K）',estimatedMarginText(row.estimated_average_margin)],
+      ...referenceLines(row,decision),
       ['有效采购成本',`¥${row.cost_cny} / K`],[`双红线 · ${row.minimum_gross_margin_pct}%最低100K`,money(Number(row.floor_usd_per_1k)*100)],
       ['未用优惠采购毛利率',row.proof?`${Number(row.proof.procurement_margin_pct).toFixed(2)}%`:'待核'],
       ['主策略标价',money(row.main_page_usd)],['尾价处理',endingNames[row.ending_reason]||row.ending_reason],
