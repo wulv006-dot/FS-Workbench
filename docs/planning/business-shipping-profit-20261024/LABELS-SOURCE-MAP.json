@@ -1,0 +1,46 @@
+{
+  "scope": "business-shipping-profit-labels-20261024",
+  "version": "shipping-profit-labels-20261024-b6acfb909888",
+  "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-b6acfb909888/business.js",
+      "sha256": "366d692d99432b2b33e83c8870d1df9b9dec28b3255c71da4f5811b0bd7c6a5f",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-b6acfb909888/home-business.js",
+      "sha256": "4a276bb4f3485933b413d5af541dd1f62d94dd3d7ddbc84fcfe23d9671ca9f72",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-b6acfb909888/legacy-business.js",
+      "sha256": "9e625018fe3151c1c927eead4f5e1442eab779364dd293dfc40a8cd6c8874463",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-b6acfb909888/shell.js",
+      "sha256": "a4b1f5075ca5e84ebecd4b8e3591ee6f8d3ac34c1a546e4a44a0ea31ed06db92",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "a21b6f0deedcf17b14855c33c8a46b68eba25b423cdec8fd8bf6520ec0f0243f",
+      "beforeSha256": "d62021f865fd06f023424269b2d1f3eb459e20565d0e8599726a388d0f6e1bae",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}

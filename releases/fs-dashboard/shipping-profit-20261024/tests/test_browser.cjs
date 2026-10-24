@@ -56,8 +56,9 @@ if(require.main===module)(async()=>{
   const category=page.locator('#shipping-category'),core=page.locator('#supplement-insights > .fsi-metrics > .fsi-metric'),separate=page.locator('[data-procurement-independent]');
   await category.waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥250.00');
   assert.match(await core.nth(1).innerText(),/1,000.00/);assert.match(await core.nth(2).innerText(),/Order发货统计/);assert.match(await core.nth(3).innerText(),/25.00/);
+  assert.equal(await core.nth(2).locator('span').first().innerText(),'发货利润（¥）');assert.equal(await core.nth(3).locator('span').first().innerText(),'发货利润率');
   await separate.waitFor();assert.match(await separate.innerText(),/¥30/);assert.match(await separate.innerText(),/覆盖/);assert.equal(await core.count(),15);
-  await page.locator('[data-profit-day]').waitFor();assert.match(await page.locator('#lblProfit').innerText(),/Order发货统计/);
+  await page.locator('[data-profit-day]').waitFor();assert.match(await page.locator('#lblProfit').innerText(),/Order发货统计/);assert.match(await page.locator('#lblProfit').innerText(),/^发货利润率/);assert.doesNotMatch(await page.locator('#supplement-insights').innerText(),/预估利润|预计利润/);
   await category.selectOption('2');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥-100.00');
   assert.match(await core.nth(3).innerText(),/-10.00/);assert.match(await core.nth(1).innerText(),/1,000.00/);assert.match(await separate.innerText(),/¥30/);
   await page.getByRole('combobox',{name:'参考展示范围'}).selectOption('all');await category.selectOption('-1');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥500.00');
@@ -66,6 +67,7 @@ if(require.main===module)(async()=>{
   for(const key of ['D4','AION2','FC27']){
    await page.evaluate(k=>window.api.apply({b_profile:k,b_group:k==='FC27'?'sports':'rpg',b_grain:'day',b_range:'yesterday',b_profit_category:'-1',b_profit_site:'main'}),key);
    await page.waitForFunction(k=>window.lastState?.b_profile===k&&window.lastState?.phase==='available',key);await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥250.00');
+   assert.equal(await core.nth(2).locator('span').first().innerText(),'发货利润（¥）');assert.equal(await core.nth(3).locator('span').first().innerText(),'发货利润率');assert.doesNotMatch(await page.locator('#supplement-insights').innerText(),/预估利润|预计利润/);
    if(key==='FC27'){await page.locator('[data-profit-day]').waitFor({state:'visible'});assert.equal(await separate.locator('.fsi-metric').first().isVisible(),true);}
   }
   assert.ok(queries.some(q=>q.mode==='profit-history'&&q.profile==='FC27'&&q.profit_site==='main'));assert.ok(queries.filter(q=>q.mode==='fc-detail').every(q=>!('profit_site'in q)));

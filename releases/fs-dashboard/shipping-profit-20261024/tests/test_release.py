@@ -4,6 +4,12 @@ from unittest.mock import patch
 R=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('profit_release',R/'deploy/profit_release.py');release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
 class Release(unittest.TestCase):
+ def test_label_followup_only_delegates_five_static_targets(self):
+  spec=importlib.util.spec_from_file_location('label_fix',R/'deploy/label_fix.py');labels=importlib.util.module_from_spec(spec);spec.loader.exec_module(labels)
+  self.assertEqual((len(labels.TARGETS),len(labels.NEW)),(5,4));self.assertEqual(set(labels.TARGETS),{'source/business.js','source/home-business.js','source/legacy-business.js','source/shell.js','generated/navigation.conf'})
+  sentinel=object();ui=types.SimpleNamespace(load_base=lambda:sentinel)
+  with patch.dict(sys.modules,{'ui_fix':ui}):self.assertIs(labels.load_base(),sentinel)
+  self.assertEqual((ui.SCOPE,ui.TARGETS,ui.NEW),(labels.SCOPE,labels.TARGETS,labels.NEW))
  def test_static_followup_never_restarts_business_service(self):
   spec=importlib.util.spec_from_file_location('ui_fix',R/'deploy/ui_fix.py');ui=importlib.util.module_from_spec(spec);spec.loader.exec_module(ui)
   self.assertEqual((len(ui.TARGETS),len(ui.NEW)),(4,3));calls=[];base=types.SimpleNamespace(restart_for=lambda m,f:calls.append((m,f)))
