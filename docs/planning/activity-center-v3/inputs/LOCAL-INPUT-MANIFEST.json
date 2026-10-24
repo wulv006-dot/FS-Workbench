@@ -1,0 +1,64 @@
+{
+  "source": "C:\\Users\\Administrator\\Downloads\\FS_双活动上线_Dot与本地Codex开工包_V3_20261024.zip",
+  "zip_bytes": 58267,
+  "zip_sha256": "11fa0eb5dbb79cc74baa5020bba42a87f6098a1b43add99e03e7a492598760fa",
+  "source_kind": "user-explicit-local-downloads-path",
+  "library_materialization_success": false,
+  "crc": "passed",
+  "members": [
+    {
+      "path": "00_从这里开始.md",
+      "bytes": 3548,
+      "sha256": "8baed10fd88f8d83d4833ed6a591f60fcb9e89178ded9b7be76077eaba22b248",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "01_完整执行方案_V3.md",
+      "bytes": 38441,
+      "sha256": "886b96d76c7195318d59a76a9d11c1d506a5a9e01268c0c223e12a7097e005f2",
+      "matches_parent_original_hash": null
+    },
+    {
+      "path": "02_给老D的监工与开工指令.md",
+      "bytes": 2844,
+      "sha256": "c8e8c40fc3442f2e8643d3bdbc274c6fd0dfb3a13382fee07188c889fc3b9d05",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "03_给Codex的工程主控指令.md",
+      "bytes": 2522,
+      "sha256": "a5facda7f9d55edd11a1099917b2fe2b2e7d8a4795c8ce4a29156ba00c8eccab",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "04_工程首份开工回执模板.md",
+      "bytes": 885,
+      "sha256": "b622d3891f6f3225bb7804cacf93cd1b65b1e787372c9fd06465fbe7624a4583",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "05_阶段交接与监工记录模板.md",
+      "bytes": 948,
+      "sha256": "35ba15ff8555e9d82abc05b970b38942dd4015afaf8d84715e58601176c8ac49",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "06_主站技术交接与最终验收清单.md",
+      "bytes": 4786,
+      "sha256": "547595b1864aedad80aeab280a545f0589e42bbd7536f6f8c87ff704cf78c3f4",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "references/业务施工方案_执行参考副本.md",
+      "bytes": 54290,
+      "sha256": "60cc677bdf4014712e3bbb64c17b1988c31fb31f09a2c4b80b9dfd449c49ad1e",
+      "matches_parent_original_hash": true
+    },
+    {
+      "path": "references/主站技术接入合同_执行参考副本.md",
+      "bytes": 21630,
+      "sha256": "cb4d33bacb4dfd0707992ead50a4c99c69bf4a6d770deac831eee342dcd10a0f",
+      "matches_parent_original_hash": true
+    }
+  ]
+}

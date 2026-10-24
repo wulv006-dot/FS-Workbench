@@ -74,7 +74,7 @@ export function renderPage(config,view,lang='en',{hub=false}={}){
  if(!zh)html=html.replace('请启用 JavaScript 体验活动，或直接前往商店选购。','Enable JavaScript to build your lineup, or browse the original shop.');
  const fragment=html.match(/<main\b[\s\S]*?<\/main>/)[0];
  const local=html.replace(/(<a\b[^>]*\bdata-view="[^"]+"[^>]*\bhref=")([^"]+)(")/g,(_,open,url,close)=>open+path.posix.basename(new URL(url).pathname)+close);
- return {info,html:local,fragment,head:seoHead(info,true),validation:'<!DOCTYPE html><html lang="en"><head>'+seoHead(info,true)+'</head><body>'+fragment.replace(/<script defer[^>]*><\/script>/g,'')+'</body></html>'};
+ return {info,html:local.replace('<script defer src="host-adapter.js"></script>','<script defer src="host-adapter.js"></script>\n    <script defer src="standalone-adapter.js"></script>'),fragment,head:seoHead(info,true),validation:'<!DOCTYPE html><html lang="en"><head>'+seoHead(info,true)+'</head><body>'+fragment.replace(/<script defer[^>]*><\/script>/g,'')+'</body></html>'};
 }
 export function buildOutputs(config){
  assert(new URL(config.seo.origin).origin==='https://www.mmoexp.com','Unexpected site origin');

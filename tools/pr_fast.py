@@ -740,10 +740,15 @@ def main():
             continue
         if group=="campaign-analytics":
             folder=ROOT/"releases/fs-dashboard/campaign-analytics-20261023/app"
-            tests=sorted(str(p) for p in (folder/"tests").glob("*.test.*"))
+            directories=[folder/"tests",folder/"runtime/tests",folder/"analytics/tests",folder.parent/"seasonal-source/tests"]
+            tests=sorted(str(p) for d in directories for p in d.glob("*.test.*"))
             if not tests:raise RuntimeError("campaign tests missing")
             subprocess.run(["node","--test"]+tests,cwd=folder,check=True,timeout=90)
-            units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
+            units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release"])
+            units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue
         print("affected group:",group,flush=True)
         if group == 'hermes-review-archive':
