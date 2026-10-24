@@ -67,7 +67,7 @@ if(require.main===module)(async()=>{
   assert.equal(await page.locator('[data-procurement-independent]').count(),0);assert.equal(await page.locator('#shipping-category').count(),0);assert.match(await coverage.textContent(),/2\/3.*待补 1.*未完成 1/);assert.equal(await coverage.isVisible(),false);
   for(const k of ['coveredOrders','missingCostOrders','pendingOrders'])assert.equal(await page.locator('[data-metric="'+k+'"]').isVisible(),false);
   const primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageCustomerUsd'];
-  assert.deepEqual(await core.evaluateAll(cards=>cards.filter(c=>!c.hidden).sort((a,b)=>+a.style.order-+b.style.order).map(c=>c.dataset.metric)),primary);
+  assert.deepEqual(await core.evaluateAll(cards=>cards.filter(c=>!c.hidden).map(c=>c.dataset.metric)),primary);
   assert.doesNotMatch(await gross.innerText(),/已过期/);
   const revenue=page.locator('[data-metric="revenueUsd"] strong');await revenue.getByText('$1,000.00',{exact:true}).waitFor();
   refreshRevision=1;await page.evaluate(()=>window.api.update());
@@ -84,13 +84,13 @@ if(require.main===module)(async()=>{
   await page.evaluate(()=>window.api.apply({b_profile:'RS',b_group:'general',b_grain:'day',b_range:'yesterday',b_rs_site:'rsorders',b_rs_category:'all'}));await waitGross('¥60.00');
   assert.match(await coverage.textContent(),/2\/3/);
   await page.getByText('当前积压 · 问题单 3 · 待支付 7',{exact:true}).waitFor();
-  const more=page.locator('#rs-filters details');assert.equal(await more.getAttribute('open'),null);await more.locator('summary').press('Enter');assert.equal(await page.locator('#rs_server').isVisible(),true);await more.locator('summary').press('Escape');assert.equal(await page.locator('#rs_server').isVisible(),false);
+  const more=page.locator('#rs-filters details');assert.equal(await more.getAttribute('open'),null);await more.locator('summary').press('Enter');assert.equal(await page.locator('#rs_server').isVisible(),true);assert.equal(await page.locator('#rs_server').evaluate(e=>{const range=document.createRange();range.selectNode(e.parentElement.firstChild);return range.getClientRects().length;}),1);await more.locator('summary').press('Escape');assert.equal(await page.locator('#rs_server').isVisible(),false);
   await page.getByRole('combobox',{name:'2 · 商品类目'}).selectOption('items');await waitGross('¥6.00');
   await page.getByRole('combobox',{name:'1 · 网站来源'}).selectOption('rsmalls');await waitGross('¥9.00');
   await page.getByRole('combobox',{name:'1 · 网站来源'}).selectOption('mmoexp');await waitGross('¥0.00');assert.match(await margin.innerText(),/不适用/);
   assert.ok(queries.some(q=>q.mode==='actual-profit'&&q.profile==='RS'&&q.rs_category==='items'));assert.ok(queries.filter(q=>q.mode==='summary').every(q=>q.profit_basis==='actual'));assert.ok(!queries.some(q=>q.mode==='profit-history'));assert.ok(queries.filter(q=>q.mode==='fc-detail').every(q=>!('profit_site'in q)));
   for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.ownerDocument.documentElement.dataset.theme=t;},theme);assert.equal(await gross.isVisible(),true);}
-  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await page.setViewportSize({width:390,height:844});await page.locator('#rs-filters summary').click();assert.ok(await page.locator('#rs-filters .fc-more').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=11&&r.right<=innerWidth-11;}));await page.locator('#rs-filters summary').press('Escape');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   deny=true;await page.evaluate(()=>window.api.update());await page.waitForFunction(()=>!document.querySelector('#app').shadowRoot.querySelector('[data-metric="profitCny"] strong')?.textContent.includes('¥0.00'));assert.doesNotMatch(await page.locator('#rs-current-backlog summary').innerText(),/问题单 3|待支付 7/);assert.deepEqual(errors,[]);
   console.log('Actual profit UI: cards/coverage/daily, global/games/All/RS filters, zero/loss, denial, themes and mobile passed');
  }finally{await browser.close();server.close();}

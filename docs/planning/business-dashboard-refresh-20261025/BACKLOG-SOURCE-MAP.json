@@ -1,7 +1,39 @@
 {
   "scope": "business-dashboard-backlog-20261025",
-  "version": "dashboard-backlog-20261025-7cd9e6ab6c33",
+  "version": "dashboard-rs-ui-20261025-4907be5bf596",
   "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-rs-ui-20261025-4907be5bf596/business.js",
+      "sha256": "22f40109bdf38dc38db4a9d8d789a77285f91de7cf8832419a4cf4fd6b7b3f5e",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-rs-ui-20261025-4907be5bf596/home-business.js",
+      "sha256": "468effca61914408d03e8c858b91133a0dd23d6e536a21412b4838604799746d",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-rs-ui-20261025-4907be5bf596/legacy-business.js",
+      "sha256": "e37bbfc6a5e485703ec49ec47a3035adb567d6a87bc5c4b579677037ab0e6d03",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-rs-ui-20261025-4907be5bf596/shell.js",
+      "sha256": "c1019d18ba33a783ef5b59481024d0497da1896093f19a737d1d4c2efc22fc11",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
     {
       "candidate": "source/rs_backlog.py",
       "target": "/opt/fs-exact-range-20261001/rs_backlog.py",
@@ -9,10 +41,18 @@
       "beforeSha256": "2fea28df26641203fbf808fc2b4e26eb8a3589b09955579540896db4ab9e252f",
       "owner": "0:0",
       "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "c1741c7bd5540aea74b5560859f5045f09628d4ff32c93ba413c2e6f1be3161a",
+      "beforeSha256": "19612b83e0df358034bab7dbe4aab9e24b7d15e5ed7a54f62403d3ba72fd6612",
+      "owner": "0:0",
+      "mode": "0o644"
     }
   ],
-  "protectedFiles": 103,
+  "protectedFiles": 102,
   "status": "candidate_not_deployed",
-  "manifestSha": "2517ca35a9dbc9e1137a7b116fba50484cb2c38aa2d4aeee1e2a36a38df8a0fa",
-  "zipSha": "d0b0d4b31fb11630c3ffa4be0d10b59c2e783a7eda00bef568edbb727a9273c8"
+  "manifestSha": "f4032d5f66c795eec7b6652379893cf61225d4c8b99c623e57d112070418ba59",
+  "zipSha": "758cc13b9e69f7e81c60a9cacaebb1c7dca6e2258ff5f32254721ebca034af34"
 }
