@@ -22,7 +22,7 @@ import knowledge_catalog as kc
 import business_context as bc
 
 BASE = '6a0f424ac020694e67f8ae5d825ce871d1a7faf1'
-BASELINE = 'releases/fs-dashboard/actual-profit-20261024/source/business-baseline.md'
+BASELINE = 'releases/fs-dashboard/dashboard-refresh-20261025/source/business-baseline.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
 CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
@@ -245,11 +245,11 @@ class LearningCatalog(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source_version'):
             kc.validate(value)
 
-    def test_fourteen_current_entries_cover_rules_and_twenty_three_preserve_history(self):
+    def test_fourteen_current_entries_cover_rules_and_twenty_four_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 23)
+        self.assertEqual(len(entries), 24)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 23)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 24)
 
     def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
         entries = catalog()['entries']
@@ -268,10 +268,10 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(result['status'], 'available_preview')
         rows = {r['id']: r for r in result['entries']}
         rule = rows['fs.dashboard.shipping-profit']
-        self.assertEqual(rule['revision'], 'same-order-actual-profit-20261024-v2')
-        self.assertEqual(rule['source_commit'], 'abc492146f15525cd4f5124637f114f9afaad363')
-        for required in ('逐单实际成本毛利', '北京时间付款区间', '不平均订单/游戏/每日比例', '未知成本不当0',
-                         'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留'):
+        self.assertEqual(rule['revision'], 'dashboard-refresh-20261025-v3')
+        self.assertEqual(rule['source_commit'], '34ebc6903b705ebd2418b879e40364e1b50b9a33')
+        for required in ('逐单实际成本毛利', '付款时间', '不平均订单/游戏/每日比例', '缺成本',
+                         'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留', '八张大卡', '权限拒绝', '2 小时', '独立5分钟缓存'):
             self.assertIn(required, rule['content'])
         self.assertIn('逐单实际成本毛利', rows['fs.data.sources']['content'])
         historical = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
