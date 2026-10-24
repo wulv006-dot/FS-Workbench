@@ -244,6 +244,7 @@ def busy(root):
     fs=Path(root).parent
     for path,query in (
         (fs/'tasks.sqlite3',"SELECT count(*) FROM tasks WHERE state IN ('QUEUED','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE')"),
+        (fs/'tasks.sqlite3',"SELECT count(*) FROM requests WHERE state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE')"),
         (fs/'conversations/conversations.db',"SELECT count(*) FROM turns WHERE state NOT IN ('completed','failed','cancelled','interrupted')")):
         reference_file(path)
         with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=5)) as db:
@@ -271,6 +272,6 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--apply',action='store_true');args=parser.parse_args()
     root=Path('/var/lib/fs-hermes-fc/fs/source-snapshots')
     try:print(json.dumps(run(root,args.apply)))
-    except (OSError,ValueError,sqlite3.Error) as error:
+    except (OSError,ValueError,KeyError,TypeError,sqlite3.Error) as error:
         if args.apply:atomic(root/'.retention-status.json',dict(at=datetime.now(timezone.utc).isoformat(),status='failed',error=type(error).__name__+':'+str(error)[:160]))
         raise
