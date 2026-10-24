@@ -1,0 +1,11 @@
+# 已上线导航修复归档 — DRAFT-PR-13
+
+本 PR 仅归档已上线修复，不申请或执行新部署。原提交 1f6cd9bfb36291b14c04d493b2687905c6c76f36 的两文件三行变更，已在 main 03ccd06cfa516dbd9ade3665ce38b29ae220dbb3 上重放为 e0efbd0ab0a7f6f2445573cac5e33bc898d281a8：prepare_g1_release.py 为 /events/ 显式设置无变化 sub_filter，避免继承 FS 导航注入；test_prepare_g1_release.py 保留断言。打包测试18通过。
+
+实际发布 release nav-20261024T113650Z；manifest SHA256 50d4556d784705e97255f993a68bf5204f0dc28db169ab71ba1de0c3009386aa；业务源29ed99af85dc4aa7a302e63ae36c06e5da495369，基础合并d0495a1d26d5fbe8440cd62d2b8b703cf5fef7e3。
+
+2026-10-24T16:13:32.590951Z，经PC-20260909OJLI原Invoke-Server187.ps1通道，只读目标play187，exit0。当前events块SHA256 5d4f29fb96d30fd95c2c41e070b162127ee11efbf0e533c80bfe675634e4393f，与原发布归档一致，no-op存在；其他56目标全部匹配。脱敏读回见 NAV-ARCHIVE-13.json。
+
+共享 /etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf 当前全文件SHA a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad，与原候选9ca0f440不同，说明其他模块已更新。不得据此整体恢复旧Nginx文件；回退应先核当前CAS，只更改本项目events块并保留其他模块。原备份位于 /var/backups/fs-navigation-20261006/nav-20261024T113650Z，备份存在不构成全文件覆盖授权。
+
+补齐分支未来发布必须保留此修复。当前归档PR合并仍待单独授权，G1补齐与G2真实交易均不能由本档案宣称完成。
