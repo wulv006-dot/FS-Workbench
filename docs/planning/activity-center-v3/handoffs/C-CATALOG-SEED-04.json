@@ -1,0 +1,2320 @@
+{
+  "schema_version": 1,
+  "source_revision": "29ed99af85dc4aa7a302e63ae36c06e5da495369",
+  "source_artifacts": {
+    "app/catalog.json": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd",
+    "app/seasonal/campaign-data.js": "4e418b77a5bccf9f767a6b272a0baad586772f264619dd312fef35ed168f72e8"
+  },
+  "reference_count": 96,
+  "unique_goods_count": 86,
+  "game_count": 6,
+  "verification_status": "original_reference_only",
+  "authoritative": false,
+  "checkout_enabled": false,
+  "references": [
+    {
+      "reference_key": "fc-170014917-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170014917",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170014917"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170014917-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170014917",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170026873"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170014917-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170014917",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170014921"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017881-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017881",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170017881"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017881-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017881",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170025645"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017881-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017881",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170017885"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017889-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017889",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170017889"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017889-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017889",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170025649"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170017889-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170017889",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170017893"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170018993-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170018993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170018993"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170018993-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170018993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170024773"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-170018993-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "170018993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "170018997"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184101943-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184101943",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184101943"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184101943-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184101943",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184101979"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184101943-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184101943",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102015"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102051-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102051",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102051"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102051-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102051",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102087"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102051-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102051",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102123"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102267-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102267",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102267"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102267-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102267",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102303"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184102267-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184102267",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184102339"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184557601-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184557601",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184557601"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184557601-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184557601",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184557637"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-184557601-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "184557601",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "184557673"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070945-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070945",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185070945"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070945-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070945",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185070953"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070945-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070945",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185070949"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070993-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185070993"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070993-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185071001"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185070993-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185070993",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185070997"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185493031-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185493031",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185493031"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185493031-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185493031",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185493067"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185493031-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185493031",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185493103"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185681151-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185681151",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185681151"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185681151-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185681151",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185681187"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185681151-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185681151",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185681223"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185718875-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185718875",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185718875"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185718875-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185718875",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185718911"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185718875-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185718875",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185718947"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752835-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752835",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185752835"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752835-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752835",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185752871"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752835-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752835",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185752907"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752943-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752943",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185752943"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752943-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752943",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185752979"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185752943-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185752943",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753015"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753051-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753051",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753051"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753051-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753051",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753087"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753051-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753051",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753123"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753159-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753159",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753159"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753159-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753159",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753195"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185753159-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185753159",
+      "kind": "bundle",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185753231"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10255",
+      "public_path": "/Fc-27/Packs.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185833159-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185833159",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185833159"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185833159-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185833159",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185833195"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185833159-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185833159",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185833231"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916851-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916851",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916851"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916851-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916851",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916859"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916851-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916851",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916855"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916875-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916875",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916875"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916875-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916875",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916883"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916875-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916875",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916879"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916899-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916899",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916899"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916899-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916899",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916907"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-185916899-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "185916899",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "185916903"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186021743-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186021743",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186021743"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186021743-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186021743",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186021779"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186021743-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186021743",
+      "kind": "sbc",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186021815"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "10203",
+      "public_path": "/Fc-27/Sbc.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254267-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254267",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254267"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254267-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254267",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254275"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254267-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254267",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254271"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254279-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254279",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254279"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254279-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254279",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254287"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254279-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254279",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254283"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254291-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254291",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254291"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254291-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254291",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254299"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254291-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254291",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254295"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254399-ps",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254399",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254399"
+      },
+      "expected_platform": {
+        "code": "ps",
+        "attribute_id": "21587"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254399-xbox",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254399",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254407"
+      },
+      "expected_platform": {
+        "code": "xbox",
+        "attribute_id": "21585"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "fc-186254399-pc",
+      "family": "fc",
+      "game_key": "fc",
+      "original_key": "186254399",
+      "kind": "player",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "186254403"
+      },
+      "expected_platform": {
+        "code": "pc",
+        "attribute_id": "21589"
+      },
+      "expected_quantity": {
+        "value": "1",
+        "group": "1",
+        "source_unit": null
+      },
+      "category_id": "9627",
+      "public_path": "/Fc-27/Players.html",
+      "source_artifact": "app/catalog.json"
+    },
+    {
+      "reference_key": "seasonal-fc-1",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "K"
+      },
+      "display_bonus": "5",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-fc-2",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "500",
+        "source_unit": "K"
+      },
+      "display_bonus": "25",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-fc-3",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "1000",
+        "source_unit": "K"
+      },
+      "display_bonus": "50",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-1",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "50",
+        "source_unit": "K"
+      },
+      "display_bonus": "1",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-2",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "150",
+        "source_unit": "K"
+      },
+      "display_bonus": "8",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-3",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "300",
+        "source_unit": "K"
+      },
+      "display_bonus": "20",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-1",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-2",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "300",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-3",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "600",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-1",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "100000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-2",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "300000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-3",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "600000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-poe-1",
+      "family": "seasonal",
+      "game_key": "poe",
+      "kind": "new_items",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "552",
+        "goods_id": "169644111"
+      },
+      "expected_platform": {
+        "code": "area-20137",
+        "attribute_id": "20137"
+      },
+      "server_id": "6648",
+      "category_id": "1338",
+      "expected_quantity": {
+        "value": "1",
+        "source_unit": ""
+      },
+      "display_bonus": "0",
+      "public_path": "/Poe-2/Currency.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-poe-2",
+      "family": "seasonal",
+      "game_key": "poe",
+      "kind": "new_items",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "552",
+        "goods_id": "169682813"
+      },
+      "expected_platform": {
+        "code": "area-20137",
+        "attribute_id": "20137"
+      },
+      "server_id": "6648",
+      "category_id": "1338",
+      "expected_quantity": {
+        "value": "1",
+        "source_unit": ""
+      },
+      "display_bonus": "0",
+      "public_path": "/Poe-2/Currency.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-poe-3",
+      "family": "seasonal",
+      "game_key": "poe",
+      "kind": "new_items",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "552",
+        "goods_id": "117074411"
+      },
+      "expected_platform": {
+        "code": "area-20137",
+        "attribute_id": "20137"
+      },
+      "server_id": "6648",
+      "category_id": "1338",
+      "expected_quantity": {
+        "value": "1",
+        "source_unit": ""
+      },
+      "display_bonus": "0",
+      "public_path": "/Poe-2/Currency.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-1",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "10",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-2",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "30",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-3",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    }
+  ]
+}

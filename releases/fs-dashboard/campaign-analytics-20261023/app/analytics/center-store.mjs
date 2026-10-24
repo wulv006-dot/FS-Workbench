@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {atomic} from './store.mjs';
-import {canonical,digest,createSnapshot,fail} from '../runtime/snapshot.mjs';
+import {canonical,digest,createSnapshot,fail,presentationFields} from '../runtime/snapshot.mjs';
 
 const pages=[
  ['fc27-weekly','fc27-season2','Weekly-Scout.html','每周好卡'],
@@ -19,7 +19,7 @@ function validateDraft(input) {
   const starts_at=date(p.starts_at),ends_at=date(p.ends_at);
   if(starts_at&&ends_at&&starts_at>=ends_at)fail('INVALID_CAMPAIGN_DATES');
   return {page_id,activity_id,path:route,title:safeText(p.title||title,160),description:safeText(p.description||'',320),
-   preview_enabled:p.preview_enabled===true,starts_at,ends_at,
+   preview_enabled:p.preview_enabled===true,starts_at,ends_at,...presentationFields({...p,path:route}),
    // Native benefits are references for review. They cannot activate checkout or issue coupons.
    benefit_refs:Array.isArray(p.benefit_refs)?p.benefit_refs.map(b=>{
     if(!['coupon','discount'].includes(b.kind)||!/^\d{1,20}$/.test(b.native_id||''))fail('INVALID_BENEFIT_REFERENCE');
@@ -29,7 +29,7 @@ function validateDraft(input) {
  if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_CAMPAIGN_THEME');
  return {pages:result,seasonal_theme:input.seasonal_theme,integration_mode:'preview'};
 }
-export function initialCenterDraft(){return {pages:pages.map(([page_id,activity_id,route,title])=>({page_id,activity_id,path:route,title,description:'',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[]})),seasonal_theme:'halloween',integration_mode:'preview'};}
+export function initialCenterDraft(){return {pages:pages.map(([page_id,activity_id,route,title])=>({page_id,activity_id,path:route,title,description:'',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[],default_language:'original',social_image:'original'})),seasonal_theme:'halloween',integration_mode:'preview'};}
 
 export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},seedProvider,checkpoint=()=>{}}){
  const stateFile=path.join(dir,'state.json'),pendingFile=path.join(dir,'pending.json');
@@ -78,9 +78,9 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    const snapshot=createSnapshot({schema_version:1,publication_status:'published',release_id,source_revision:sourceRevision,
     config_hash:digest(canonical({draft,products:seed.seedProducts,pageProductKeys:seed.pageProductKeys})),rule_hash:digest(canonical(draft.pages.map(p=>p.benefit_refs))),products:seed.seedProducts,seasonal_theme:draft.seasonal_theme,
     pages:draft.pages.map(p=>({activity_id:p.activity_id,page_id:p.page_id,path:p.path,title:p.title,
-     description:p.description,rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:seed.pageProductKeys[p.page_id]||[],
+     description:p.description,default_language:p.default_language,social_image:p.social_image,rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:seed.pageProductKeys[p.page_id]||[],
      active:p.preview_enabled,...(p.starts_at?{starts_at:p.starts_at}:{}),...(p.ends_at?{ends_at:p.ends_at}:{})}))});
-   return {snapshot,result:{...current,revision,draft,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString()}}};
+   return {snapshot,result:{...current,revision,draft,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString(),source_revision:sourceRevision,seasonal_theme:draft.seasonal_theme,pages:draft.pages.map(p=>({...p}))}}};
   })}
  };
 }

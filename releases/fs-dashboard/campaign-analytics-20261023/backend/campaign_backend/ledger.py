@@ -2,6 +2,9 @@
 import hashlib
 import json
 import sqlite3
+import re
+import os
+import stat
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -12,20 +15,174 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+class ObjectOperationBusy(ContractError):
+    def __init__(self, operation_ids):
+        super().__init__('OBJECT_OPERATION_IN_PROGRESS')
+        self.operation_ids = operation_ids
+
+
+def private_metadata(metadata, directory, owner):
+    regular = stat.S_ISDIR(metadata.st_mode) if directory else stat.S_ISREG(metadata.st_mode)
+    if (not regular or metadata.st_uid != owner or metadata.st_mode & 0o077
+            or (not directory and metadata.st_nlink != 1)):
+        raise ContractError('PRIVATE_LEDGER_REQUIRED')
+
+
+def object_key(payload):
+    if not isinstance(payload, dict) or not isinstance(payload.get('kind'), str):
+        return None
+    if not payload['kind'].strip() or payload['kind'] != payload['kind'].strip() or any(ord(c) < 32 for c in payload['kind']):
+        return None
+    values = [payload.get('site_id'), payload.get('native_id')]
+    if any(type(value) not in (int, str) or not str(value).isascii() or not str(value).isdecimal()
+           or len(str(value)) > 19 or int(value) < 1 for value in values):
+        return None
+    return canonical([str(int(values[0])), identity(payload['kind']), str(int(values[1]))])
+
+
 class OperationLedger:
     def __init__(self, path):
         self.path = str(path)
         if not self.path or self.path == ':memory:':
             raise ContractError('DURABLE_LEDGER_REQUIRED')
+        if os.path.islink(self.path):
+            raise ContractError('PRIVATE_LEDGER_REQUIRED')
+        if os.name == 'posix':
+            private_metadata(os.lstat(os.path.dirname(os.path.abspath(self.path))), True, os.geteuid())
+        # The enclosing service directory is private; create the DB itself as 0600 as well.
+        try:
+            descriptor = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            os.close(descriptor)
+        self._private_storage()
         with self._connection() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS operations (
                 operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, payload_hash TEXT NOT NULL,
                 state TEXT NOT NULL CHECK(state IN ('pending','unknown','confirmed','rejected')),
                 dispatched INTEGER NOT NULL DEFAULT 0, result TEXT, created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS operation_objects (
+                operation_id TEXT PRIMARY KEY, object_key TEXT)''')
+            db.execute('CREATE INDEX IF NOT EXISTS operation_object_key ON operation_objects(object_key)')
+            db.execute('CREATE INDEX IF NOT EXISTS operation_active_state ON operations(state)')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_response_audit (
+                audit_id INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, object_key TEXT,
+                request_payload_hash TEXT NOT NULL, evidence TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            db.execute('CREATE INDEX IF NOT EXISTS native_response_operation ON native_response_audit(operation_id,audit_id)')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_operation_state (
+                operation_id TEXT PRIMARY KEY, request_payload_hash TEXT NOT NULL,
+                original_row TEXT NOT NULL, expected_row TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_restore_claims (
+                original_operation_id TEXT PRIMARY KEY, restore_operation_id TEXT NOT NULL UNIQUE)''')
+
+    def record_native_state(self, operation_id, original, expected):
+        """Private recovery material. Never include this table in lookup/public projections."""
+        values = (canonical(original), canonical(expected))
+        with self._connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT payload_hash,dispatched,state FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            if row is None or row['dispatched'] != 1 or row['state'] != 'unknown':
+                raise ContractError('AUDITED_DISPATCH_NOT_FOUND')
+            old = db.execute('SELECT * FROM native_operation_state WHERE operation_id=?', (operation_id,)).fetchone()
+            if old and (old['request_payload_hash'], old['original_row'], old['expected_row']) != (row['payload_hash'], *values):
+                raise ContractError('NATIVE_SNAPSHOT_CONFLICT')
+            if old is None:
+                db.execute('INSERT INTO native_operation_state VALUES (?,?,?,?,?)',
+                           (operation_id, row['payload_hash'], *values, now()))
+
+    def native_state(self, operation_id):
+        """Trusted adapter use only; contains native private coupon fields."""
+        with self._connection() as db:
+            row = db.execute('''SELECT n.*,o.state AS operation_state,o.payload AS request FROM native_operation_state n JOIN operations o
+                ON o.operation_id=n.operation_id AND o.payload_hash=n.request_payload_hash
+                WHERE n.operation_id=?''', (operation_id,)).fetchone()
+        return None if row is None else dict(original=json.loads(row['original_row']), expected=json.loads(row['expected_row']),
+                                            state=row['operation_state'], request=json.loads(row['request']))
+
+    def _bind_adapter(self, adapter):
+        if hasattr(adapter, 'bind_native_response_audit'):
+            adapter.bind_native_response_audit(self.record_native_response)
+        if hasattr(adapter, 'bind_native_operation_state'):
+            adapter.bind_native_operation_state(self.record_native_state, self.native_state, self.native_response_audit)
+
+    def record_native_response(self, operation_id, evidence):
+        """Append only sanitized transport evidence; it never changes an operation's state."""
+        identity(operation_id)
+        allowed = {'event', 'http_status', 'parse_status', 'business_code', 'business_code_type',
+            'business_code_sha256', 'business_code_length', 'msg_class', 'msg_type', 'msg_sha256',
+            'msg_length', 'msg_size_bytes', 'body_sha256', 'body_size', 'error_class',
+            'error_sha256', 'error_length', 'observed_at'}
+        if not isinstance(evidence, dict) or set(evidence) != allowed:
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        enums = {
+            'event': {'http_response', 'transport_exception'},
+            'parse_status': {'json_object', 'json_non_object', 'invalid_json', 'body_unavailable',
+                             'body_too_large', 'transport_exception'},
+            'business_code_type': {'missing', 'int', 'str', 'bool', 'float', 'null', 'non_scalar'},
+            'msg_class': {'missing', 'empty_text', 'nonempty_text_uninterpreted', 'non_text'},
+            'msg_type': {'missing', 'str', 'int', 'float', 'bool', 'null', 'list', 'dict'},
+            'error_class': {None, 'TimeoutError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
+                'ConnectionError', 'HTTPError', 'SSLError', 'RequestException', 'OSError', 'other_exception'},
+        }
+        if any(evidence[key] not in values for key, values in enums.items()):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        for key in ('business_code_sha256', 'msg_sha256', 'body_sha256', 'error_sha256'):
+            if evidence[key] is not None and (not isinstance(evidence[key], str) or not re.fullmatch('[a-f0-9]{64}', evidence[key])):
+                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        for key in ('business_code_length', 'msg_length', 'msg_size_bytes', 'body_size', 'error_length'):
+            if evidence[key] is not None and (type(evidence[key]) is not int or evidence[key] < 0):
+                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        status, code = evidence['http_status'], evidence['business_code']
+        if status is not None and (type(status) is not int or not 100 <= status <= 599):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        if code is not None and (type(code) not in (int, str) or not re.fullmatch(r'-?\d{1,10}', str(code))
+                                 or not -2147483648 <= int(code) <= 2147483647):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        try:
+            if datetime.fromisoformat(evidence['observed_at']).utcoffset() is None:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE') from None
+        with self._connection() as db:
+            row = db.execute('SELECT payload,payload_hash,dispatched FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            if row is None or row['dispatched'] != 1:
+                raise ContractError('AUDITED_DISPATCH_NOT_FOUND')
+            db.execute('INSERT INTO native_response_audit(operation_id,object_key,request_payload_hash,evidence,recorded_at) VALUES (?,?,?,?,?)',
+                (operation_id, object_key(json.loads(row['payload'])), row['payload_hash'], canonical(evidence), now()))
+
+    def native_response_audit(self, operation_id):
+        identity(operation_id)
+        with self._connection() as db:
+            rows = db.execute('SELECT * FROM native_response_audit WHERE operation_id=? ORDER BY audit_id', (operation_id,)).fetchall()
+        return [dict(audit_id=row['audit_id'], operation_id=row['operation_id'],
+            object_ref=json.loads(row['object_key']) if row['object_key'] else None,
+            request_payload_hash=row['request_payload_hash'], recorded_at=row['recorded_at'],
+            **json.loads(row['evidence'])) for row in rows]
+
+    @staticmethod
+    def _backfill_active_objects(db):
+        # Existing pending/unknown rows from the older schema must also block new IDs after upgrade.
+        rows = db.execute('''SELECT o.operation_id,o.payload FROM operations o
+            LEFT JOIN operation_objects k ON k.operation_id=o.operation_id
+            WHERE o.state IN ('pending','unknown') AND k.operation_id IS NULL''').fetchall()
+        for row in rows:
+            db.execute('INSERT INTO operation_objects VALUES (?,?)',
+                       (row['operation_id'], object_key(json.loads(row['payload']))))
+
+    @staticmethod
+    def _object_owners(db, key, excluding=None):
+        if key is None:
+            return []
+        return [row['operation_id'] for row in db.execute('''SELECT o.operation_id FROM operations o
+            JOIN operation_objects k ON k.operation_id=o.operation_id
+            WHERE k.object_key=? AND o.state IN ('pending','unknown') AND o.operation_id!=?
+            ORDER BY o.created_at,o.operation_id''', (key, excluding or ''))]
 
     @contextmanager
     def _connection(self):
+        self._private_storage()
         db = sqlite3.connect(self.path, timeout=15)
         try:
             db.row_factory = sqlite3.Row
@@ -35,15 +192,24 @@ class OperationLedger:
         finally:
             db.close()
 
+    def _private_storage(self):
+        if os.path.islink(self.path):
+            raise ContractError('PRIVATE_LEDGER_REQUIRED')
+        if os.name == 'posix':
+            private_metadata(os.lstat(os.path.dirname(os.path.abspath(self.path))), True, os.geteuid())
+            private_metadata(os.lstat(self.path), False, os.geteuid())
+
     def lookup(self, operation_id):
         identity(operation_id)
         with self._connection() as db:
             row = db.execute('SELECT * FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
         if row is None:
             return None
+        result = json.loads(row['result']) if row['result'] else None
         return dict(operation_id=row['operation_id'], state=row['state'],
                     dispatched=bool(row['dispatched']), payload_hash=row['payload_hash'],
-                    result=json.loads(row['result']) if row['result'] else None,
+                    dispatch_state=(result or {}).get('dispatch_state', 'unknown' if row['dispatched'] else 'not_started'),
+                    result=result,
                     created_at=row['created_at'], updated_at=row['updated_at'])
 
     def prepare(self, operation_id, payload):
@@ -52,12 +218,42 @@ class OperationLedger:
         digest = hashlib.sha256(encoded.encode('utf-8')).hexdigest()
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            self._backfill_active_objects(db)
             row = db.execute('SELECT payload FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
             if row is not None and row['payload'] != encoded:
                 raise ContractError('REQUEST_CONFLICT')
             if row is None:
+                if payload.get('action') == 'benefit_restore':
+                    source = identity(payload.get('restore_of'))
+                    claim = db.execute('SELECT restore_operation_id FROM native_restore_claims WHERE original_operation_id=?', (source,)).fetchone()
+                    if claim and claim['restore_operation_id'] != operation_id:
+                        raise ObjectOperationBusy([claim['restore_operation_id']])
+                key = object_key(payload)
+                owners = self._object_owners(db, key)
+                if owners:
+                    raise ObjectOperationBusy(owners)
                 db.execute('INSERT INTO operations VALUES (?,?,?,\'pending\',0,NULL,?,?)',
                            (operation_id, encoded, digest, now(), now()))
+                db.execute('INSERT INTO operation_objects VALUES (?,?)', (operation_id, key))
+        return self.lookup(operation_id)
+
+    def request_payload(self, operation_id):
+        """Trusted service use only; never return the stored request through a public bridge."""
+        identity(operation_id)
+        with self._connection() as db:
+            row = db.execute('SELECT payload FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+        if row is None:
+            raise ContractError('OPERATION_NOT_FOUND')
+        return json.loads(row['payload'])
+
+    def reject_unstarted(self, operation_id, payload, reason_code):
+        """A durable preflight rejection cannot overtake a worker that already claimed dispatch."""
+        self.prepare(operation_id, payload)
+        result = dict(state='rejected', reason_code=reason_code, dispatch_state='not_started')
+        with self._connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute("UPDATE operations SET state='rejected',result=?,updated_at=? WHERE operation_id=? AND state='pending' AND dispatched=0",
+                       (canonical(result), now(), operation_id))
         return self.lookup(operation_id)
 
     def execute(self, operation_id, payload, adapter):
@@ -65,11 +261,34 @@ class OperationLedger:
         if not adapter.enabled:
             raise ContractError('MAIN_INTEGRATION_REQUIRED')
         payload = json.loads(canonical(payload))
+        self._bind_adapter(adapter)
         self.prepare(operation_id, payload)
+        restore_owner = None
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            changed = db.execute('''UPDATE operations SET state='unknown',dispatched=1,updated_at=?
-                WHERE operation_id=? AND state='pending' AND dispatched=0''', (now(), operation_id)).rowcount
+            self._backfill_active_objects(db)
+            current = db.execute('SELECT state FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            owners = self._object_owners(db, object_key(payload), operation_id)
+            if current['state'] == 'pending' and owners:
+                raise ObjectOperationBusy(owners)
+            if current['state'] == 'pending' and payload.get('action') == 'benefit_restore':
+                claim = db.execute('SELECT restore_operation_id FROM native_restore_claims WHERE original_operation_id=?',
+                                   (payload['restore_of'],)).fetchone()
+                if claim and claim['restore_operation_id'] != operation_id:
+                    restore_owner = claim['restore_operation_id']
+            if restore_owner:
+                result = dict(state='rejected', reason_code='RESTORE_ALREADY_OWNED', dispatch_state='not_started')
+                db.execute("UPDATE operations SET state='rejected',result=?,updated_at=? WHERE operation_id=? AND state='pending' AND dispatched=0",
+                           (canonical(result), now(), operation_id))
+                changed = 0
+            else:
+                changed = db.execute('''UPDATE operations SET state='unknown',dispatched=1,updated_at=?
+                    WHERE operation_id=? AND state='pending' AND dispatched=0''', (now(), operation_id)).rowcount
+                if changed and payload.get('action') == 'benefit_restore':
+                    # Reserve compensation only after service preflight and atomically with dispatch admission.
+                    db.execute('INSERT INTO native_restore_claims VALUES (?,?)', (payload['restore_of'], operation_id))
+        if restore_owner:
+            raise ObjectOperationBusy([restore_owner])
         if not changed:
             return self.lookup(operation_id)
         try:
@@ -81,18 +300,22 @@ class OperationLedger:
         return self.lookup(operation_id)
 
     def _record(self, operation_id, result):
-        if (not isinstance(result, dict) or set(result) - {'state', 'upstream_ref', 'reason_code'}
+        if (not isinstance(result, dict) or set(result) - {'state', 'upstream_ref', 'reason_code', 'dispatch_state'}
                 or result.get('state') not in ('confirmed', 'rejected', 'unknown')
                 or any(not isinstance(v, str) for v in result.values())):
             raise ContractError('INVALID_MUTATION_READBACK')
         if result['state'] == 'confirmed' and not result.get('upstream_ref'):
             raise ContractError('UPSTREAM_REFERENCE_REQUIRED')
         with self._connection() as db:
-            db.execute('''UPDATE operations SET state=?,result=?,updated_at=?
+            changed = db.execute('''UPDATE operations SET state=?,result=?,updated_at=?
                 WHERE operation_id=? AND state='unknown' ''',
-                       (result['state'], canonical(result), now(), operation_id))
+                       (result['state'], canonical(result), now(), operation_id)).rowcount
+            if changed and result['state'] == 'rejected' and result.get('dispatch_state') == 'not_started':
+                # A trusted adapter's explicit no-dispatch fence may release only its own restoration claim.
+                db.execute('DELETE FROM native_restore_claims WHERE restore_operation_id=?', (operation_id,))
 
     def reconcile(self, operation_id, adapter):
+        self._bind_adapter(adapter)
         operation = self.lookup(operation_id)
         if operation is None:
             raise ContractError('OPERATION_NOT_FOUND')

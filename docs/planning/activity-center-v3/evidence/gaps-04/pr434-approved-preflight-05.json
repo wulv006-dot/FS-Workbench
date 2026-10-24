@@ -1,0 +1,32 @@
+{
+  "utc": "2026-10-24T11:01:36.104988+00:00",
+  "source_revision": "29ed99af85dc4aa7a302e63ae36c06e5da495369",
+  "release_ready": false,
+  "candidate_count": 57,
+  "drift": [
+    {
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "kind": "before_cas_changed"
+    }
+  ],
+  "status": "blocked",
+  "services": {
+    "fs-campaign-dashboard": {
+      "state": "active",
+      "exit": 0
+    },
+    "auth-portal": {
+      "state": "active",
+      "exit": 0
+    },
+    "nginx": {
+      "state": "active",
+      "exit": 0
+    },
+    "fs-campaign-runtime": {
+      "state": "unknown",
+      "exit": 3
+    }
+  },
+  "port_8949_accepts": false
+}

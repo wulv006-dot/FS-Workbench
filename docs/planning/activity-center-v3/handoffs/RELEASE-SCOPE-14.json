@@ -1,0 +1,179 @@
+{
+  "request_id": "FS-V3-G1-BRIDGE-CONTRACT-14",
+  "kind": "source_delta_and_generated_target_inventory_not_release_manifest",
+  "code_revision": "762955d5c80f24aea637639771c5b23868e5ebc9",
+  "deployed_business_reference": "29ed99af85dc4aa7a302e63ae36c06e5da495369",
+  "required_navigation_merge": "7747ea2403283c8373ae1af52a7a441595bff66d",
+  "releaseReady": false,
+  "production_action_performed": false,
+  "changed_runtime_count": 20,
+  "changed_runtime_targets": [
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/activity.js",
+      "target": "/opt/fs-campaign-dashboard/activity.js",
+      "git_blob_bytes_sha256": "272d6228c032aa2eae7c6a23546398826c5010def9ebf1bb8b0d543c2438b393"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/backend-client.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/backend-client.mjs",
+      "git_blob_bytes_sha256": "3ad94e1bee5b44e2030d7985855173fefa90c28128f0ace4b0ac5216d1da7f3f"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center-store.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+      "git_blob_bytes_sha256": "06f353b7c174167026389afead1ce7662bbffa92c572100ae5037e7f4788e33a"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/center.html",
+      "git_blob_bytes_sha256": "c1be36a76c92e1fca9071e29d4f2aa4052d7edf64adad0175535fae56afa968f"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center.js",
+      "target": "/opt/fs-campaign-dashboard/analytics/center.js",
+      "git_blob_bytes_sha256": "cfff99db96483aaebeb962bfeac4bd1dc880ca4cf7900d8b545f024dd5a0d85b"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/operations.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/operations.html",
+      "git_blob_bytes_sha256": "7741ad4735880ae3a7effd551253f65cf3a7c643146ee60cfc648bb36c913999"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/operations.js",
+      "target": "/opt/fs-campaign-dashboard/analytics/operations.js",
+      "git_blob_bytes_sha256": "01dbd8a33e7b6a9195cc35814aeb891e0c92607eb7ee26de95e0d969f6b18aa2"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "git_blob_bytes_sha256": "53d302f171a1dc27bd9a9f7a27c419dc52ff0731a52f34a4618a91b866f9285a"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/presentation.mjs",
+      "target": "/opt/fs-campaign-dashboard/runtime/presentation.mjs",
+      "git_blob_bytes_sha256": "921553f515eb2049d1e514b92a475baf7f56c2ee5004b8d5f4e40ba133cff614"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/server.mjs",
+      "target": "/opt/fs-campaign-dashboard/runtime/server.mjs",
+      "git_blob_bytes_sha256": "440cb0190b45895e3956fd88afd1d4e63e187f30fc13d9f3e3a2774b409d3246"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/snapshot.mjs",
+      "target": "/opt/fs-campaign-dashboard/runtime/snapshot.mjs",
+      "git_blob_bytes_sha256": "bdb1008980930c902afdc0618b0e80b0e9391b118e09f883d1c16e48b156f4f5"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/bridge.py",
+      "target": "/opt/fs-campaign-dashboard/backend/bridge.py",
+      "git_blob_bytes_sha256": "2b50fc6da02d5e9237aab093d734842a0cde6f2c90bc0d005ea69a7ebf4665a3"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/adapters.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/adapters.py",
+      "git_blob_bytes_sha256": "8adceba11aeff3a91e7676096a052714932fa71168907f8d9becaa99246897bf"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/analysis.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/analysis.py",
+      "git_blob_bytes_sha256": "93ada3d3aa8e1d2e3f0d5857b3ab90a515bdb334fa8c1a8435a9a2f39361be16"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/benefits.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/benefits.py",
+      "git_blob_bytes_sha256": "c7c4354a90c3d2c6781c3c2ec181eec5706b2066a71d705e95fe22071c40d4aa"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/catalog.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/catalog.py",
+      "git_blob_bytes_sha256": "3675778c9f61a58a4fe805c648161e3c2f7b6352938148e8c9f783873dce4f24"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/coupon_draft.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_draft.py",
+      "git_blob_bytes_sha256": "2898bd227a2b117f704b9d503e0381317e2a6b2d9147fcb38eba731f3dd23045"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/ledger.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/ledger.py",
+      "git_blob_bytes_sha256": "365369ae5d4c7afe659416c96c6a3f19dbd8f12aac1f039ba4fe906928be3e15"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/services.py",
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/services.py",
+      "git_blob_bytes_sha256": "0664f3b3ec82bdf29014152b5d06962e75c046af345a76a3206001f6d9f072f3"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/backend/catalog-mapping.json",
+      "target": "/opt/fs-campaign-dashboard/backend/catalog-mapping.json",
+      "git_blob_bytes_sha256": "26fa7b1f55a640d1b2d76952772581f79b7a4b840643ac8eaced35d680725a01"
+    }
+  ],
+  "generated_or_integrated_targets": [
+    {
+      "candidate": "navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf"
+    },
+    {
+      "candidate": "navigation.json",
+      "target": "/var/www/dashboard/fs-home/navigation.json"
+    },
+    {
+      "candidate": "module-registry.json",
+      "target": "/var/www/dashboard/fs-home/module-registry.json"
+    },
+    {
+      "candidate": "fs-campaign-dashboard.service",
+      "target": "/etc/systemd/system/fs-campaign-dashboard.service"
+    },
+    {
+      "candidate": "fs-campaign-runtime.service",
+      "target": "/etc/systemd/system/fs-campaign-runtime.service"
+    },
+    {
+      "candidate": "runtime.env",
+      "target": "/etc/fs-campaign-runtime.env"
+    },
+    {
+      "candidate": "app/runtime/static-manifest.json",
+      "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+    }
+  ],
+  "generated_target_condition": "Fresh baseline/CAS, exact candidate bytes, service revision and generated manifest required before approval/apply. Preserve concurrent shared config. Entries may be unchanged; this is not an instruction to rewrite all targets.",
+  "excluded_non_runtime_source_changes": [
+    "app/tests/backend-boundary.test.mjs",
+    "app/tests/backend-integration.test.mjs",
+    "app/tests/catalog-seed.test.mjs",
+    "app/tests/operations-browser.cjs",
+    "app/tests/ops-presentation-browser.mjs",
+    "app/tests/ops-presentation.test.mjs",
+    "app/tests/production.test.mjs",
+    "backend/probe_money_shape.py",
+    "backend/probe_schema.py",
+    "backend/tests/test_analysis_reconciliation.py",
+    "backend/tests/test_benefit_operations.py",
+    "backend/tests/test_catalog_mapping.py",
+    "backend/tests/test_catalog_probe.py",
+    "backend/tests/test_coupon_draft.py",
+    "backend/tests/test_full_preserve_contract.py",
+    "backend/tests/test_gap_bridge_and_probes.py",
+    "backend/tests/test_native_object_lock.py",
+    "backend/tests/test_native_response_audit.py",
+    "prepare_g1_release.py",
+    "publish.py",
+    "test_prepare_g1_release.py"
+  ],
+  "protected_unchanged": [
+    "/opt/auth-portal/auth_portal.py",
+    "/opt/fs-access-policy/rbac.py",
+    "existing shared sessions",
+    "price and scheduled jobs",
+    "unrelated dashboard modules"
+  ],
+  "excluded_private_state": [
+    "/var/lib/fs-campaign-dashboard/backend/policy.json",
+    "operations.sqlite3 and native snapshots",
+    "credentials and raw upstream responses"
+  ],
+  "note": "Git blob hashes identify reviewed sources, not Windows CRLF bytes or generated deployment payloads. Current server before hashes and actual package hashes are not claimed."
+}

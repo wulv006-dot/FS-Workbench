@@ -1,0 +1,14 @@
+{
+  "status": "prepared_local_only_not_approved_not_uploaded",
+  "git_integration_candidate": "b62f04a261595ee38c9f85b929da989a082be8c4",
+  "payload_source_revision": "29ed99af85dc4aa7a302e63ae36c06e5da495369",
+  "manifest_sha256": "0f37a2d319fa7d09edbf134f0700988da86a8f634872c47b602ffb07cee4efef",
+  "candidate_count": 57,
+  "identical_candidates": 56,
+  "only_changed_candidate": "navigation.conf",
+  "old_nginx_candidate_sha256": "ef6310cb34c857b8442de4ffb52bd217998594945922439076ecfde6499ce069",
+  "new_nginx_candidate_sha256": "dad72a61450cdbe87b0343fe09d423d8c2e4e355ffac95ea9f62a494dfcc10b6",
+  "before_cas_sha256": "d62021f865fd06f023424269b2d1f3eb459e20565d0e8599726a388d0f6e1bae",
+  "protection_guards_unchanged": true,
+  "release_ready": false
+}

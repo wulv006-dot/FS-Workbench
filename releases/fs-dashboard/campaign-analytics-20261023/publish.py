@@ -13,7 +13,7 @@ SPECIAL={'navigation.conf':'/etc/nginx/fs-navigation-formal-analytics-20261006.l
 REQUIRED_SPECIAL=set(SPECIAL)
 RUNTIME_SPECIAL={'fs-campaign-runtime.service':'/etc/systemd/system/fs-campaign-runtime.service','runtime.env':'/etc/fs-campaign-runtime.env'}
 SPECIAL.update(RUNTIME_SPECIAL)
-BACKEND_FILES={'bridge.py','campaign_backend/__init__.py','campaign_backend/adapters.py','campaign_backend/attribution.py','campaign_backend/catalog.py','campaign_backend/core.py','campaign_backend/ledger.py','campaign_backend/coupon_draft.py'}
+BACKEND_FILES={'bridge.py','catalog-mapping.json','campaign_backend/__init__.py','campaign_backend/adapters.py','campaign_backend/attribution.py','campaign_backend/catalog.py','campaign_backend/core.py','campaign_backend/ledger.py','campaign_backend/coupon_draft.py','campaign_backend/benefits.py','campaign_backend/analysis.py','campaign_backend/services.py'}
 
 def target(rel):
  if rel in SPECIAL:return SPECIAL[rel]

@@ -1,0 +1,52 @@
+{
+  "status": "ok",
+  "utc": "2026-10-24T11:11:27.237345+00:00",
+  "execution": "candidate_in_memory_read_only_no_disk_state",
+  "readback_consistent": true,
+  "data": {
+    "status": "blocked",
+    "coverage": {
+      "source_orders": 1128,
+      "paid_observations": 1100,
+      "refunded_observations": null,
+      "coupon_log_rows": 99,
+      "associated_paid_observations": 94,
+      "bound_paid_orders": 0,
+      "unbound_paid_orders": 1100,
+      "unresolved_orders": 1128,
+      "successful_runs": 1,
+      "window_from": "2026-10-23 00:00:00",
+      "window_to": "2026-10-23 23:59:59",
+      "latest_window_end": "2026-10-23 23:59:59",
+      "history_complete": false
+    },
+    "totals": [],
+    "activities": [],
+    "warnings": [
+      "ACTIVITY_BINDINGS_REQUIRED",
+      "PAID_MONEY_MAPPING_REQUIRED",
+      "PAYMENT_STATE_UNKNOWN",
+      "SOURCE_TIME_MAPPING_REQUIRED"
+    ],
+    "verified_at": "2026-10-24T11:11:27.181265+00:00",
+    "scope": {
+      "site_id": "266",
+      "activity_id": null,
+      "basis": "actual_applied_native_benefit_and_paid_status"
+    },
+    "historical_refund_coverage": "explicit_rescans_required_no_update_cursor_verified",
+    "scanned_windows": [
+      {
+        "window_from": "2026-10-23 00:00:00",
+        "window_to": "2026-10-23 23:59:59"
+      }
+    ],
+    "rescan_policy": {
+      "basis": "explicit_paytime_windows",
+      "late_payment_requires_rescan": true,
+      "historical_refunds_require_rescan": true,
+      "automatic_update_cursor_verified": false
+    },
+    "capture_sha256": "c91d7cad7094b9703417e719b09332ddbd1f650d81c307435757c6b2794191d7"
+  }
+}
