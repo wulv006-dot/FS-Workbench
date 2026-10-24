@@ -6,6 +6,7 @@ import json
 import contextlib
 import io
 import sys
+import os
 from pathlib import Path
 
 # Repository development layout; deployment may instead provide the shared module on PYTHONPATH.
@@ -26,10 +27,12 @@ def capabilities():
             coupon_create=False, coupon_edit=False, coupon_toggle=False, coupon_grant=False,
             order_discount_readback=False, authoritative_quote=False, cart_handoff=False),
         configured_read_routes=True, verification_status='not_verified_by_this_backend',
+        implemented_management_actions=['benefit_detail', 'benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_lookup',
+            'operation_reconcile', 'analysis_reconcile', 'analysis_summary', 'catalog_mapping_read'],
         mutation_reason='EXACT_WRITE_AND_READBACK_MAPPING_REQUIRED')
 
 
-def benefit_projection(row, kind):
+def benefit_projection(row, kind, site_id=None):
     # Field existence verified by controller's 2026-10-24 read-only probe; enum meanings unverified.
     allowed = (('title', 'site_id', 'game_id', 'goods_id', 'start_time', 'end_time', 'days')
                if kind == 'coupons' else ('site_id', 'gid', 'aid', 'cid', 'timestart', 'timeend'))
@@ -39,16 +42,29 @@ def benefit_projection(row, kind):
     if type(status) not in (str, int):
         raise ContractError('BENEFIT_STATUS_MISSING')
     result['raw_status'] = status
+    if site_id is not None:
+        result['scope_status'] = 'global' if str(row.get('site_id')) == '0' else 'exact_site'
+        result['bindability'] = 'explicit_native_binding_and_rule_verification_required'
     for key in allowed:
         if key in row and type(row[key]) in (str, int, bool):
             result[key] = row[key]
     return result
 
 
-def handle(request, reader_factory=AdminRead.from_shared_session):
+def handle(request, reader_factory=AdminRead.from_shared_session, services=None):
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
+    if action == 'catalog_mapping_read':
+        if positive_id(request.get('site_id')) != '266' or set(request) - {'action', 'site_id', 'reference_key'}:
+            raise ContractError('CATALOG_MAPPING_SCOPE_REQUIRED')
+        from campaign_backend.catalog import read_reference_mapping
+        path = Path(os.environ.get('CAMPAIGN_CATALOG_MAPPING_PATH', str(Path(__file__).parent / 'catalog-mapping.json')))
+        return read_reference_mapping(json.loads(path.read_text('utf-8')), request.get('reference_key'))
+    if action in ('benefit_detail', 'benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_lookup', 'operation_reconcile',
+                  'analysis_reconcile', 'analysis_summary'):
+        from campaign_backend.services import BackendServices
+        return (services or BackendServices.from_environment()).handle(request, reader_factory)
     if action not in ('benefits_read', 'catalog_read', 'catalog_discover', 'product_read'):
         raise ContractError('ACTION_NOT_ALLOWED')
     # Require concrete target scope before acquiring a session.
@@ -81,12 +97,15 @@ def handle(request, reader_factory=AdminRead.from_shared_session):
             return dict(product=read_product_metadata(model, goods, site_id, game_id),
                         management_only=True, authoritative=False, checkout_enabled=False)
         if action == 'benefits_read':
-            # Scope expressions in these sources vary (scalar/list/ALL); preserve scope and let
-            # management inspect it. Never claim filtered eligibility from title or status.
+            site_id = positive_id(site_id)
+            if site_id != '266':
+                raise ContractError('PROJECT_SITE_REQUIRED')
             rows = {}
             for kind in ('coupons', 'discounts'):
-                rows[kind] = [benefit_projection(row, kind) for row in reader.pages(kind)]
-            return dict(requested_site_id=site_id, scope_status='raw_scope_requires_verification',
+                scoped = reader.pages(kind, [('site_id', 'IN', '0,' + site_id)],
+                    validate=lambda row: type(row.get('site_id')) in (str, int) and str(row['site_id']) in ('0', site_id))
+                rows[kind] = [benefit_projection(row, kind, site_id) for row in scoped]
+            return dict(requested_site_id=site_id, scope_status='exact_or_global_scope_verified',
                         management_only=True, **rows)
         goods = reader.pages('goods', [('site_id', '=', site_id), ('gid', '=', game_id)],
             validate=lambda r: source_identity(field(r, mapping.goods_fields['site_id'])) == site_id

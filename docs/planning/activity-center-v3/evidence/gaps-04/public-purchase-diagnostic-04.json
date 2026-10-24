@@ -1,0 +1,61 @@
+{
+  "utc": "2026-10-24T11:09:48.244548+00:00",
+  "read_only": true,
+  "redirects_followed": false,
+  "results": [
+    {
+      "path": "/Fc-27/Players.html",
+      "http_status": 403,
+      "bytes": 262673,
+      "sha256": "523dc6266ba92f9c7cdae1f85e8d3933f63134da2ba05533f7df7f9b88c2e55a"
+    },
+    {
+      "path": "/Fc-27/Sbc.html",
+      "http_status": 403,
+      "bytes": 262661,
+      "sha256": "c4f42b79d0889400a7a8dd321bf7c20e778fb8176cf57de0a1ff0e06915bab06"
+    },
+    {
+      "path": "/Fc-27/Packs.html",
+      "http_status": 403,
+      "bytes": 262667,
+      "sha256": "1047bb96afa04601fbd421621e0d57ce20161b45f6962adcac45db91ba910f77"
+    },
+    {
+      "path": "/Fc-27/Coins.html",
+      "http_status": 403,
+      "bytes": 262667,
+      "sha256": "c6b967185e7a4006a694253b8b95cb48200b28bcf12ffdf83f57dc93306fd083"
+    },
+    {
+      "path": "/Nba-2k27/Vc.html",
+      "http_status": 403,
+      "bytes": 262667,
+      "sha256": "59dbced4cc90f61a9e698b53b9e2eb5dc9aa73dda8e77efdf350941e16171704"
+    },
+    {
+      "path": "/Nfl-27/Coins.html",
+      "http_status": 403,
+      "bytes": 262670,
+      "sha256": "0b3388f897f68fa0f8b1f46de8eae30e1cdef901ccb9665efcd8d6d76ee8b3ed"
+    },
+    {
+      "path": "/Diablo-4/Gold.html",
+      "http_status": 403,
+      "bytes": 262673,
+      "sha256": "940591089b06677ee47dc0623026416a601127fe7a9acfc0154447f6fcd7ac5c"
+    },
+    {
+      "path": "/Poe-2/Currency.html",
+      "http_status": 403,
+      "bytes": 262676,
+      "sha256": "b650411ea57f2833aed6b2ee7aa0349877a72a647e791c6198d116d8e3b80c64"
+    },
+    {
+      "path": "/Aion-2/Kinah.html",
+      "http_status": 403,
+      "bytes": 262670,
+      "sha256": "c3b9fedc4b2a2c8964182389cc190007e4df089434752e8effc4cbfdab09de20"
+    }
+  ]
+}

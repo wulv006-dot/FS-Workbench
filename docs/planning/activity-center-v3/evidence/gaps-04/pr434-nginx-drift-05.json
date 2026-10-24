@@ -1,0 +1,111 @@
+{
+  "utc": "2026-10-24T11:04:29.901078+00:00",
+  "before_sha256": "ef18dc02dcdb016ae105d7051d22223b24e24a6b4b3fdda885fc5942d52eea4a",
+  "actual_sha256": "d62021f865fd06f023424269b2d1f3eb459e20565d0e8599726a388d0f6e1bae",
+  "baseline_recovered": true,
+  "candidate_sha256": "ef6310cb34c857b8442de4ffb52bd217998594945922439076ecfde6499ce069",
+  "events_present": false,
+  "changes": [
+    {
+      "kind": "replace",
+      "before_lines": [
+        83,
+        83
+      ],
+      "current_lines": [
+        83,
+        83
+      ],
+      "before": [
+        {
+          "length": 100,
+          "sha256": "30bfab8d8a84ba043e91b552170db85574fedea1aa2e0784192e1b50e116a119",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/legacy-business.js;"
+        }
+      ],
+      "current": [
+        {
+          "length": 107,
+          "sha256": "51e9b5e021821f9d95153c0807c105874eb4adce825f25924345e1376c13c4b8",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/legacy-business.js;"
+        }
+      ]
+    },
+    {
+      "kind": "replace",
+      "before_lines": [
+        17464,
+        17464
+      ],
+      "current_lines": [
+        17464,
+        17464
+      ],
+      "before": [
+        {
+          "length": 98,
+          "sha256": "768af34c5e3662cb1592fe13479d414134f8a5a5bbc8eae561a414f1bcb5bbd9",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/home-business.js;"
+        }
+      ],
+      "current": [
+        {
+          "length": 105,
+          "sha256": "344b71490eb90bfe0e408489dbf4339c0eed5351704ca6c82acaebf20a888104",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/home-business.js;"
+        }
+      ]
+    },
+    {
+      "kind": "replace",
+      "before_lines": [
+        18068,
+        18068
+      ],
+      "current_lines": [
+        18068,
+        18068
+      ],
+      "before": [
+        {
+          "length": 93,
+          "sha256": "5b36ceeeea7df8deaeb95acc745baec6d29e04c713d31be806273a96ba04fe68",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/business.js;"
+        }
+      ],
+      "current": [
+        {
+          "length": 100,
+          "sha256": "b98985bf0977eab45c755faf30ed98e6c03a194d6e3f01d69a71106872b504cd",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/business.js;"
+        }
+      ]
+    },
+    {
+      "kind": "replace",
+      "before_lines": [
+        19875,
+        19875
+      ],
+      "current_lines": [
+        19875,
+        19875
+      ],
+      "before": [
+        {
+          "length": 88,
+          "sha256": "c5ea9f46b68a525ea71a8d0a19617c521c35129bd4be02f7c577c2dfce74ae82",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/rs-status-20261024-96a1c925325c/shell.js;"
+        }
+      ],
+      "current": [
+        {
+          "length": 94,
+          "sha256": "fde734e8a5504a7848393d9401ba7f1093f51e1ef266d9640ccbb57dff6394bc",
+          "prefix": "    alias /var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/shell.js;"
+        }
+      ]
+    }
+  ],
+  "change_count": 4
+}

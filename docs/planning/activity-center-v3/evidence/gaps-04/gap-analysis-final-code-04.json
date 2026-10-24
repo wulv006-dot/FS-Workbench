@@ -1,0 +1,11 @@
+{
+  "probe_sha256": "45499139b4c48669c6c1c0f15f446224dd9bdbbee6dcbb7a34845b6abf92594e",
+  "source_candidate": "55bfba0",
+  "in_memory_sources_sha256": {
+    "core": "ffee8a900fcf132d4f391287c630ed00b75c5bed031f445d9faaa62b3f0b1d77",
+    "catalog": "3675778c9f61a58a4fe805c648161e3c2f7b6352938148e8c9f783873dce4f24",
+    "adapters": "8adceba11aeff3a91e7676096a052714932fa71168907f8d9becaa99246897bf",
+    "attribution": "ecb117d70d2905636e564f19ccc72582ecf806b853f26039c9a097ebdb63096d",
+    "analysis": "93ada3d3aa8e1d2e3f0d5857b3ab90a515bdb334fa8c1a8435a9a2f39361be16"
+  }
+}

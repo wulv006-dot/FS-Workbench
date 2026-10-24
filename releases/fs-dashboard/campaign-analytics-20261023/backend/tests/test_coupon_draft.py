@@ -21,23 +21,23 @@ class Reader:
         return SimpleNamespace(status_code=200)
 
 class DraftTests(unittest.TestCase):
-    def test_disabled_native_readback_and_single_dispatch(self):
+    def test_creation_is_hard_gated_without_native_call(self):
         reader=Reader();adapter=DisabledCouponDraft(reader);payload=draft_payload(OP)
         with tempfile.TemporaryDirectory() as d:
             ledger=OperationLedger(Path(d)/'ledger.sqlite')
             adapter.validate(OP,payload)
-            self.assertEqual(ledger.execute(OP,payload,adapter)['state'],'confirmed')
-            self.assertEqual(ledger.execute(OP,payload,adapter)['result']['upstream_ref'],'123')
-            self.assertEqual(len(reader.calls),1)
-            self.assertFalse(reader.calls[0][1]['allow_redirects'])
-            self.assertEqual(reader.calls[0][1]['json']['status'],0)
-    def test_timeout_resolves_original_without_post_retry(self):
+            with self.assertRaisesRegex(ContractError,'MAIN_INTEGRATION_REQUIRED'):
+                ledger.execute(OP,payload,adapter)
+            self.assertEqual(reader.calls,[])
+            self.assertIsNone(ledger.lookup(OP))
+    def test_direct_creation_cannot_bypass_gate_and_readback_is_still_read_only(self):
         reader=Reader(timeout=True);adapter=DisabledCouponDraft(reader);payload=draft_payload(OP)
         with tempfile.TemporaryDirectory() as d:
             ledger=OperationLedger(Path(d)/'ledger.sqlite')
-            self.assertEqual(ledger.execute(OP,payload,adapter)['state'],'unknown')
-            self.assertEqual(ledger.reconcile(OP,adapter)['state'],'confirmed')
-            self.assertEqual(len(reader.calls),1)
+            with self.assertRaisesRegex(ContractError,'COUPON_CREATION_NOT_AUTHORIZED'):
+                adapter.dispatch_once(OP,payload)
+            self.assertEqual(adapter.readback(OP,payload)['state'],'unknown')
+            self.assertEqual(reader.calls,[])
     def test_never_activate_or_change_scope(self):
         payload=draft_payload(OP);payload['status']=1
         with self.assertRaises(ContractError):DisabledCouponDraft.validate(OP,payload)

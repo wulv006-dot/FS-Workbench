@@ -8,7 +8,7 @@ import {report} from './server.mjs';
 import {atomic,makeStore,previewCatalog} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
 import {centerSeed} from './center-seed.mjs';
-import {backendRead} from './backend-client.mjs';
+import {backendRead,backendMutate} from './backend-client.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
@@ -24,6 +24,7 @@ const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
 const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
 publicNames.add('analytics/center.html');publicNames.add('analytics/center.js');
+publicNames.add('analytics/operations.html');publicNames.add('analytics/operations.js');
 export async function authorize(req){
  const r=await fetch('http://127.0.0.1:8895/verify?group=dashboard',{headers:{Cookie:req.headers.cookie||'','X-Original-Method':req.method,'X-Original-URI':req.url},signal:AbortSignal.timeout(5000),redirect:'manual'});
  return {status:r.status,user:r.headers.get('x-auth-user'),admin:r.headers.get('x-auth-role')==='admin'};
@@ -41,6 +42,7 @@ export const server=http.createServer(async(req,res)=>{
    if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/backend-read')return json(res,200,{status:'ok',data:await backendRead(body)});
+   if(relative==='analytics/api/center/backend-mutate')return json(res,200,{status:'ok',data:await backendMutate(body)});
    if(relative==='analytics/api/config'){let saved;try{saved=store.save(body,auth.user);}catch(error){if(!error.code&&!error.status)error.status=400;throw error;}return json(res,200,{status:'saved',...publicState(saved)});}
    if(relative==='analytics/api/connection'){
     if(!/^phx_[A-Za-z0-9_-]{20,200}$/.test(body.key||''))return json(res,400,{message:'密钥格式无效'});

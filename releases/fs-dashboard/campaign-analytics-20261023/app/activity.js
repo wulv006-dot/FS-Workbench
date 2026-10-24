@@ -5,7 +5,7 @@
   const $=id=>document.getElementById(id),escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const t=(zh,en)=>state.lang==='zh'?zh:en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:root.dataset.defaultLanguage||config.defaultLanguage||'zh',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
-  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false;const currentDisplays=new Map();
+  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer,manualLanguage=false,publishedLanguageApplied=false;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false;const currentDisplays=new Map();
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
     if(!standalone)return 'active';if(!publishedReady)return 'loading';
@@ -45,7 +45,9 @@
   async function publishedConfig(view=state.view){
     let client;
     try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();published=client.config;}catch(error){published=error.code==='PAGE_UNAVAILABLE'?client?.config:null;}
-    publishedReady=true;scheduleBoundary();
+    publishedReady=true;const language=published?.pages?.find(p=>p.activity_id==='fc27-season2'&&p.page_id==='fc27-'+state.view)?.default_language;
+    if(!publishedLanguageApplied&&['en','zh'].includes(language)){if(!manualLanguage)state.lang=language;publishedLanguageApplied=true;}
+    scheduleBoundary();
   }
   function selected(){if(standalone&&pageState(state.view)!=='active')return [];try{let items=core.selection(config,state);if(standalone){const keys=new Set(scoped(items.map(item=>item.key)));items=items.filter(item=>keys.has(item.key));}unavailableSelection=false;return items;}catch(error){unavailableSelection=true;return [];}}
   function money(amount,currency='USD'){return new Intl.NumberFormat(state.lang==='zh'?'zh-CN':'en-US',{style:'currency',currency}).format(amount/100);}
@@ -82,7 +84,7 @@
     document.querySelectorAll('.fc-activity [data-i18n],.fca-demo-header [data-i18n],.fca-demo-footer [data-i18n],.fca-skip[data-i18n]').forEach(el=>{const pair=words[el.dataset.i18n];if(pair)el.textContent=pair[state.lang==='zh'?0:1].replaceAll('Star Performer',config.trio.series);if(el.dataset.i18n==='navTrio')el.innerHTML=escape(config.trio.series)+'<span class="fca-trio-label">'+escape(t(' 三人组',' Trio'))+'</span>';});
     document.querySelectorAll('.fc-activity [data-i18n-aria],.fca-demo-header [data-i18n-aria]').forEach(el=>{const pair=words[el.dataset.i18nAria];if(pair)el.setAttribute('aria-label',pair[state.lang==='zh'?0:1]);});
     $('lang-zh')?.setAttribute('aria-pressed',String(state.lang==='zh'));$('lang-en')?.setAttribute('aria-pressed',String(state.lang==='en'));
-    if(config.manageDocumentLanguage!==false)document.documentElement.lang=state.lang==='zh'?'zh-CN':'en';
+    if(standalone||config.manageDocumentLanguage!==false)document.documentElement.lang=state.lang==='zh'?'zh-CN':'en';
     root.querySelectorAll('button[data-view]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.view===state.view)));
     root.querySelectorAll('a[data-view]').forEach(el=>{if(el.dataset.view===state.view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
   }
@@ -200,7 +202,7 @@
     warmPrices();
     signal('selection',{ids:selected().map(item=>item.offer.id),action:el.name||el.id||'companion',coreId:product(state.core)?.platforms?.[state.platform]?.id,includeSbc:state.coreMode==='service'});
   });
-  $('lang-zh')?.addEventListener('click',()=>{if(!state.busy){state.lang='zh';render();if($('review-dialog').open)renderReview();}});$('lang-en')?.addEventListener('click',()=>{if(!state.busy){state.lang='en';render();if($('review-dialog').open)renderReview();}});
+  $('lang-zh')?.addEventListener('click',()=>{if(!state.busy){manualLanguage=true;state.lang='zh';render();if($('review-dialog').open)renderReview();}});$('lang-en')?.addEventListener('click',()=>{if(!state.busy){manualLanguage=true;state.lang='en';render();if($('review-dialog').open)renderReview();}});
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
   if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Standalone preview: main-site integration pending. Prices and benefits are snapshots.');}

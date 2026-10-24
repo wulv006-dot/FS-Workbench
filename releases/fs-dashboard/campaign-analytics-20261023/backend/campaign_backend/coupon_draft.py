@@ -21,7 +21,7 @@ def draft_payload(operation_id, goods_id='170014917'):
 
 
 class DisabledCouponDraft:
-    enabled = True
+    enabled = False
     route = '/admin/market.Coupon/add'
 
     def __init__(self, reader):
@@ -57,17 +57,4 @@ class DisabledCouponDraft:
         return dict(state='unknown',reason_code='DRAFT_NOT_UNIQUELY_CONFIRMED')
 
     def dispatch_once(self, operation_id, payload):
-        self.validate(operation_id,payload)
-        # Pre-existing exact operation title is reconciled, never duplicated.
-        existing=self.reader.pages('coupons',[('title','=',payload['title'])],limit=20,
-                                   validate=lambda row:row.get('title')==payload['title'])
-        if existing:
-            return self.readback(operation_id,payload)
-        session=self.reader.session
-        # Do NOT use Session.post_admin: it can retry non-idempotent requests.
-        response=session.admin.post('https://admin-api.p2pah.cn'+self.route,
-            json=payload,headers={'batoken':session.token},timeout=30,allow_redirects=False)
-        # HTTP success is not business readback. Only the exact operation's native row confirms it.
-        if response.status_code != 200:
-            return dict(state='unknown',reason_code='UPSTREAM_RESULT_UNCONFIRMED')
-        return self.readback(operation_id,payload)
+        raise ContractError('COUPON_CREATION_NOT_AUTHORIZED')

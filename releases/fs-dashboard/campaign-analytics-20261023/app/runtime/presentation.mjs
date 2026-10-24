@@ -1,3 +1,4 @@
+import {presentationFields,fail} from './snapshot.mjs';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const routes=new Set(['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html']);
 const aliases={'':'Weekly-Scout.html','index.html':'Weekly-Scout.html','seasonal/':'seasonal/index.html'};
@@ -9,12 +10,24 @@ const time=value=>`<time datetime="${escape(new Date(value).toISOString())}">${e
 const windowText=p=>`Starts: ${p.starts_at?utc(p.starts_at):'not specified'} · Ends: ${p.ends_at?utc(p.ends_at):'not specified'}`;
 const windowHtml=p=>`Starts: ${p.starts_at?time(p.starts_at):'not specified'} · Ends: ${p.ends_at?time(p.ends_at):'not specified'}`;
 const sectionClass=source=>/href=["'][^"']*event\.css(?:[?"'])/i.test(source)?'seo-content page-width':'fc-activity fca-container fca-guide';
-function metadata(html,p) {
+function metadata(html,p,publicBase) {
+  const fieldsConfig=presentationFields(p);
+  if(fieldsConfig.default_language!=='original'){
+    const language=fieldsConfig.default_language==='zh'?'zh-CN':'en';
+    html=html.replace(/<html\b[^>]*>/i,tag=>tag.replace(/\s+lang=["'][^"']*["']/i,'').replace(/>$/,' lang="'+language+'">'));
+    if(p.path!=='seasonal/index.html')html=html.replace(/\bdata-default-language=["'][^"']*["']/,'data-default-language="'+fieldsConfig.default_language+'"');
+  }
+  let shareImage;
+  if(fieldsConfig.social_image!=='original'){
+    let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}
+    if(base.username||base.password||base.search||base.hash||!base.pathname.endsWith('/')||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base.pathname)||(base.protocol!=='https:'&&!(base.protocol==='http:'&&['127.0.0.1','localhost'].includes(base.hostname))))fail('INVALID_PUBLIC_BASE',503);
+    shareImage=new URL(fieldsConfig.social_image,base).href;
+  }
   const title=escape(p.title),description=typeof p.description==='string'&&p.description.trim()?p.description:null;
   let found=false;
   html=html.replace(/<title\b[^>]*>[\s\S]*?<\/title\s*>/gi,()=>{if(found)return '';found=true;return `<title>${title}</title>`;});
   if(!found)html=html.replace(/<\/head\s*>/i,()=>`<title>${title}</title></head>`);
-  const fields=[['property','og:title',p.title],['name','twitter:title',p.title],...(description?[['name','description',description],['property','og:description',description],['name','twitter:description',description]]:[])];
+  const fields=[['property','og:title',p.title],['name','twitter:title',p.title],...(fieldsConfig.default_language!=='original'?[['property','og:locale',fieldsConfig.default_language==='zh'?'zh_CN':'en_US']]:[]),...(shareImage?[['property','og:image',shareImage],['name','twitter:image',shareImage]]:[]),...(description?[['name','description',description],['property','og:description',description],['name','twitter:description',description]]:[])];
   for(const [kind,key,value] of fields){
     html=html.replace(/<meta\b[^>]*>/gi,tag=>attr(tag,kind)?.toLowerCase()===key?'':tag);
     html=html.replace(/<\/head\s*>/i,()=>`<meta ${kind}="${key}" content="${escape(value)}"></head>`);
@@ -22,7 +35,7 @@ function metadata(html,p) {
   // Keep collection metadata consistent without rebuilding product identity, URLs or canonical origin.
   return html.replace(/(<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>)([\s\S]*?)(<\/script\s*>)/gi,(all,open,raw,close)=>{
     try{
-      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;}for(const value of Object.values(node))if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);};
+      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;if(fieldsConfig.default_language!=='original')node.inLanguage=fieldsConfig.default_language==='zh'?'zh-CN':'en';}for(const value of Object.values(node))if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);};
       update(data);return open+JSON.stringify(data).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+close;
     }catch{return all;}
   });
@@ -34,7 +47,7 @@ function neutral(source,p,status,label) {
 }
 
 // Call with the current validated published projection; immutable source HTML stays unchanged.
-export function presentPage({name,body,snapshot,now=Date.now()}={}) {
+export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   const target=route(name);
   if(!routes.has(target))return {status:200,body};
   const source=Buffer.isBuffer(body)?body.toString('utf8'):String(body??'');
@@ -45,7 +58,7 @@ export function presentPage({name,body,snapshot,now=Date.now()}={}) {
   if(end!==null&&end<=clock)return neutral(source,p,410,'This activity has ended.');
   if(start!==null&&start>clock)return neutral(source,p,200,'Upcoming activity — the published start time has not arrived.');
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
-  html=metadata(html,p);
+  html=metadata(html,p,publicBase);
   const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
   html=html.replace(/<body\b[^>]*>/i,tag=>tag+banner);
   // Replace the Seasonal source's illustrative caption; its client must retain this published value too.
