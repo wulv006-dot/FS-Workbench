@@ -5,8 +5,17 @@ import fs from 'node:fs';
 import {fail} from '../runtime/snapshot.mjs';
 
 const deployedBridge=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../backend/bridge.py');
-export function backendRead(request,{python=process.env.CAMPAIGN_PYTHON||'/opt/python39/bin/python3',bridge=process.env.CAMPAIGN_BACKEND_BRIDGE||(fs.existsSync(deployedBridge)?deployedBridge:path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../backend/bridge.py')),timeout=120000}={}){
- if(!['capabilities','benefits_read','catalog_read','catalog_discover','product_read'].includes(request?.action))fail('ACTION_NOT_ALLOWED');
+export const readActions=new Set(['capabilities','benefits_read','catalog_read','catalog_discover','product_read','benefit_detail','operation_lookup','analysis_summary']);
+export const mutateActions=new Set(['benefit_edit','benefit_toggle','operation_reconcile','analysis_reconcile']);
+export function backendRead(request,options={}){
+ if(!readActions.has(request?.action))fail('ACTION_NOT_ALLOWED');
+ return backendCall(request,options);
+}
+export function backendMutate(request,options={}){
+ if(!mutateActions.has(request?.action))fail('ACTION_NOT_ALLOWED');
+ return backendCall(request,options);
+}
+function backendCall(request,{python=process.env.CAMPAIGN_PYTHON||'/opt/python39/bin/python3',bridge=process.env.CAMPAIGN_BACKEND_BRIDGE||(fs.existsSync(deployedBridge)?deployedBridge:path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../backend/bridge.py')),timeout=120000}={}){
  if(request.action!=='capabilities'&&String(request.site_id)!=='266')fail('SITE_SCOPE_REQUIRED');
  if(['catalog_read','catalog_discover','product_read'].includes(request.action)&&!['1327','1329','1309','456','552','891'].includes(String(request.game_id)))fail('GAME_SCOPE_REQUIRED');
  const raw=JSON.stringify(request);if(Buffer.byteLength(raw)>250000)fail('REQUEST_TOO_LARGE',413);
