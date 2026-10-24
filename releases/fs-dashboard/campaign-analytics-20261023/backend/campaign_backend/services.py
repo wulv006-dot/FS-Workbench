@@ -31,7 +31,7 @@ class BackendServices:
 
     def handle(self, request, reader_factory):
         allowed = {'action', 'site_id', 'kind', 'native_id', 'operation_id', 'before_hash', 'changes', 'enabled',
-                   'from', 'to', 'activity_id'}
+                   'from', 'to', 'activity_id', 'restore_of'}
         if set(request) - allowed:
             raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
         site_id = positive_id(request.get('site_id'))
@@ -54,7 +54,7 @@ class BackendServices:
         try:
             if action == 'benefit_detail':
                 return benefits.detail(reader, self.policy, request.get('kind'), request.get('native_id'), site_id)
-            if action in ('benefit_edit', 'benefit_toggle', 'operation_reconcile'):
+            if action in ('benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_reconcile'):
                 self._directory()
                 ledger = OperationLedger(self.state_dir / 'operations.sqlite3')
                 if action == 'operation_reconcile':

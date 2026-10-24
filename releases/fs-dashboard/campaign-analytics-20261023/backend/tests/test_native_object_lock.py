@@ -45,18 +45,18 @@ class ObjectLockTests(unittest.TestCase):
             self.assertIsNone(OperationLedger(self.path).lookup(requested))
         self.assertEqual(len(self.reader.calls), 1)
 
-    def test_original_unknown_readback_does_not_release_until_trusted_terminal(self):
+    def test_original_timeout_readback_never_releases_even_if_current_text_matches(self):
         self.mutate('object-operation-A')
         ledger = OperationLedger(self.path)
         self.assertEqual(benefits.operation(ledger, self.reader, '266', 'object-operation-A', True)['state'], 'unknown')
         self.assertTrue(self.mutate('object-operation-B')['object_busy'])
         self.assertEqual(len(self.reader.calls), 1)
         self.reader.row['title'] = self.request['changes']['title']
-        self.assertEqual(benefits.operation(ledger, self.reader, '266', 'object-operation-A', True)['state'], 'confirmed')
+        self.assertEqual(benefits.operation(ledger, self.reader, '266', 'object-operation-A', True)['state'], 'unknown')
         request = dict(self.request, operation_id='object-operation-B', before_hash=benefits.row_hash(self.reader.row),
                        changes={'brief': 'A new authorized change after original terminal'})
-        self.assertEqual(benefits.mutate(self.reader, OperationLedger(self.path), policy(), request)['state'], 'unknown')
-        self.assertEqual(len(self.reader.calls), 2)
+        self.assertTrue(benefits.mutate(self.reader, OperationLedger(self.path), policy(), request)['object_busy'])
+        self.assertEqual(len(self.reader.calls), 1)
 
     def test_pending_preflight_owns_object_before_native_dispatch(self):
         entered, resume = threading.Event(), threading.Event()

@@ -3,6 +3,8 @@ import hashlib
 import json
 import sqlite3
 import re
+import os
+import stat
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -17,6 +19,13 @@ class ObjectOperationBusy(ContractError):
     def __init__(self, operation_ids):
         super().__init__('OBJECT_OPERATION_IN_PROGRESS')
         self.operation_ids = operation_ids
+
+
+def private_metadata(metadata, directory, owner):
+    regular = stat.S_ISDIR(metadata.st_mode) if directory else stat.S_ISREG(metadata.st_mode)
+    if (not regular or metadata.st_uid != owner or metadata.st_mode & 0o077
+            or (not directory and metadata.st_nlink != 1)):
+        raise ContractError('PRIVATE_LEDGER_REQUIRED')
 
 
 def object_key(payload):
@@ -36,6 +45,18 @@ class OperationLedger:
         self.path = str(path)
         if not self.path or self.path == ':memory:':
             raise ContractError('DURABLE_LEDGER_REQUIRED')
+        if os.path.islink(self.path):
+            raise ContractError('PRIVATE_LEDGER_REQUIRED')
+        if os.name == 'posix':
+            private_metadata(os.lstat(os.path.dirname(os.path.abspath(self.path))), True, os.geteuid())
+        # The enclosing service directory is private; create the DB itself as 0600 as well.
+        try:
+            descriptor = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            os.close(descriptor)
+        self._private_storage()
         with self._connection() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS operations (
                 operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, payload_hash TEXT NOT NULL,
@@ -50,6 +71,41 @@ class OperationLedger:
                 audit_id INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, object_key TEXT,
                 request_payload_hash TEXT NOT NULL, evidence TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS native_response_operation ON native_response_audit(operation_id,audit_id)')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_operation_state (
+                operation_id TEXT PRIMARY KEY, request_payload_hash TEXT NOT NULL,
+                original_row TEXT NOT NULL, expected_row TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_restore_claims (
+                original_operation_id TEXT PRIMARY KEY, restore_operation_id TEXT NOT NULL UNIQUE)''')
+
+    def record_native_state(self, operation_id, original, expected):
+        """Private recovery material. Never include this table in lookup/public projections."""
+        values = (canonical(original), canonical(expected))
+        with self._connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT payload_hash,dispatched,state FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            if row is None or row['dispatched'] != 1 or row['state'] != 'unknown':
+                raise ContractError('AUDITED_DISPATCH_NOT_FOUND')
+            old = db.execute('SELECT * FROM native_operation_state WHERE operation_id=?', (operation_id,)).fetchone()
+            if old and (old['request_payload_hash'], old['original_row'], old['expected_row']) != (row['payload_hash'], *values):
+                raise ContractError('NATIVE_SNAPSHOT_CONFLICT')
+            if old is None:
+                db.execute('INSERT INTO native_operation_state VALUES (?,?,?,?,?)',
+                           (operation_id, row['payload_hash'], *values, now()))
+
+    def native_state(self, operation_id):
+        """Trusted adapter use only; contains native private coupon fields."""
+        with self._connection() as db:
+            row = db.execute('''SELECT n.*,o.state AS operation_state,o.payload AS request FROM native_operation_state n JOIN operations o
+                ON o.operation_id=n.operation_id AND o.payload_hash=n.request_payload_hash
+                WHERE n.operation_id=?''', (operation_id,)).fetchone()
+        return None if row is None else dict(original=json.loads(row['original_row']), expected=json.loads(row['expected_row']),
+                                            state=row['operation_state'], request=json.loads(row['request']))
+
+    def _bind_adapter(self, adapter):
+        if hasattr(adapter, 'bind_native_response_audit'):
+            adapter.bind_native_response_audit(self.record_native_response)
+        if hasattr(adapter, 'bind_native_operation_state'):
+            adapter.bind_native_operation_state(self.record_native_state, self.native_state, self.native_response_audit)
 
     def record_native_response(self, operation_id, evidence):
         """Append only sanitized transport evidence; it never changes an operation's state."""
@@ -126,6 +182,7 @@ class OperationLedger:
 
     @contextmanager
     def _connection(self):
+        self._private_storage()
         db = sqlite3.connect(self.path, timeout=15)
         try:
             db.row_factory = sqlite3.Row
@@ -134,6 +191,13 @@ class OperationLedger:
                 yield db
         finally:
             db.close()
+
+    def _private_storage(self):
+        if os.path.islink(self.path):
+            raise ContractError('PRIVATE_LEDGER_REQUIRED')
+        if os.name == 'posix':
+            private_metadata(os.lstat(os.path.dirname(os.path.abspath(self.path))), True, os.geteuid())
+            private_metadata(os.lstat(self.path), False, os.geteuid())
 
     def lookup(self, operation_id):
         identity(operation_id)
@@ -159,6 +223,11 @@ class OperationLedger:
             if row is not None and row['payload'] != encoded:
                 raise ContractError('REQUEST_CONFLICT')
             if row is None:
+                if payload.get('action') == 'benefit_restore':
+                    source = identity(payload.get('restore_of'))
+                    claim = db.execute('SELECT restore_operation_id FROM native_restore_claims WHERE original_operation_id=?', (source,)).fetchone()
+                    if claim and claim['restore_operation_id'] != operation_id:
+                        raise ObjectOperationBusy([claim['restore_operation_id']])
                 key = object_key(payload)
                 owners = self._object_owners(db, key)
                 if owners:
@@ -192,9 +261,9 @@ class OperationLedger:
         if not adapter.enabled:
             raise ContractError('MAIN_INTEGRATION_REQUIRED')
         payload = json.loads(canonical(payload))
-        if hasattr(adapter, 'bind_native_response_audit'):
-            adapter.bind_native_response_audit(self.record_native_response)
+        self._bind_adapter(adapter)
         self.prepare(operation_id, payload)
+        restore_owner = None
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')
             self._backfill_active_objects(db)
@@ -202,8 +271,24 @@ class OperationLedger:
             owners = self._object_owners(db, object_key(payload), operation_id)
             if current['state'] == 'pending' and owners:
                 raise ObjectOperationBusy(owners)
-            changed = db.execute('''UPDATE operations SET state='unknown',dispatched=1,updated_at=?
-                WHERE operation_id=? AND state='pending' AND dispatched=0''', (now(), operation_id)).rowcount
+            if current['state'] == 'pending' and payload.get('action') == 'benefit_restore':
+                claim = db.execute('SELECT restore_operation_id FROM native_restore_claims WHERE original_operation_id=?',
+                                   (payload['restore_of'],)).fetchone()
+                if claim and claim['restore_operation_id'] != operation_id:
+                    restore_owner = claim['restore_operation_id']
+            if restore_owner:
+                result = dict(state='rejected', reason_code='RESTORE_ALREADY_OWNED', dispatch_state='not_started')
+                db.execute("UPDATE operations SET state='rejected',result=?,updated_at=? WHERE operation_id=? AND state='pending' AND dispatched=0",
+                           (canonical(result), now(), operation_id))
+                changed = 0
+            else:
+                changed = db.execute('''UPDATE operations SET state='unknown',dispatched=1,updated_at=?
+                    WHERE operation_id=? AND state='pending' AND dispatched=0''', (now(), operation_id)).rowcount
+                if changed and payload.get('action') == 'benefit_restore':
+                    # Reserve compensation only after service preflight and atomically with dispatch admission.
+                    db.execute('INSERT INTO native_restore_claims VALUES (?,?)', (payload['restore_of'], operation_id))
+        if restore_owner:
+            raise ObjectOperationBusy([restore_owner])
         if not changed:
             return self.lookup(operation_id)
         try:
@@ -222,11 +307,15 @@ class OperationLedger:
         if result['state'] == 'confirmed' and not result.get('upstream_ref'):
             raise ContractError('UPSTREAM_REFERENCE_REQUIRED')
         with self._connection() as db:
-            db.execute('''UPDATE operations SET state=?,result=?,updated_at=?
+            changed = db.execute('''UPDATE operations SET state=?,result=?,updated_at=?
                 WHERE operation_id=? AND state='unknown' ''',
-                       (result['state'], canonical(result), now(), operation_id))
+                       (result['state'], canonical(result), now(), operation_id)).rowcount
+            if changed and result['state'] == 'rejected' and result.get('dispatch_state') == 'not_started':
+                # A trusted adapter's explicit no-dispatch fence may release only its own restoration claim.
+                db.execute('DELETE FROM native_restore_claims WHERE restore_operation_id=?', (operation_id,))
 
     def reconcile(self, operation_id, adapter):
+        self._bind_adapter(adapter)
         operation = self.lookup(operation_id)
         if operation is None:
             raise ContractError('OPERATION_NOT_FOUND')

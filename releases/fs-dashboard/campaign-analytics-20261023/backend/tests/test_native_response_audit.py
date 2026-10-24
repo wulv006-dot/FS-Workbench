@@ -17,7 +17,7 @@ class Reader:
         self.response, self.ledger, self.operation_id = response, ledger, operation_id
         self.fail_get, self.error = fail_get, error
         self.posts, self.gets = 0, 0
-        self.session = SimpleNamespace(token='fixture-only', admin=SimpleNamespace(post=self.post))
+        self.session = SimpleNamespace(token='fixture-only', admin=SimpleNamespace(post=self.post, get_adapter=lambda url: SimpleNamespace(max_retries=SimpleNamespace(total=0))))
 
     def post(self, *args, **kwargs):
         self.posts += 1
@@ -110,7 +110,7 @@ class NativeResponseAuditTests(unittest.TestCase):
 
     def test_transport_timeout_is_recorded_safely_without_following_get(self):
         reader, result, audit = self.execute(b'', error=TimeoutError('PRIVATE_TOKEN customer=PRIVATE_EMAIL'))
-        self.assertEqual((reader.posts, reader.gets), (1, 1))
+        self.assertEqual((reader.posts, reader.gets), (1, 2))
         self.assertEqual(result['state'], 'unknown')
         self.assertEqual(audit[0]['event'], 'transport_exception')
         self.assertEqual(audit[0]['error_class'], 'TimeoutError')
@@ -128,7 +128,7 @@ class NativeResponseAuditTests(unittest.TestCase):
 
     def test_non_200_is_audited_without_get_or_rejection_inference(self):
         reader, result, audit = self.execute(b'{"code":403,"msg":"PRIVATE_DETAILS"}', status=403)
-        self.assertEqual((reader.posts, reader.gets), (1, 1))
+        self.assertEqual((reader.posts, reader.gets), (1, 2))
         self.assertEqual(result['state'], 'unknown')
         self.assertEqual(audit[0]['http_status'], 403)
         self.assertEqual(audit[0]['business_code'], 403)
@@ -146,7 +146,7 @@ class NativeResponseAuditTests(unittest.TestCase):
             raise ContractError('AUDIT_STORAGE_UNAVAILABLE')
         self.ledger.record_native_response = fail_audit
         reader, result, audit = self.execute(b'{"code":1,"msg":"ok"}')
-        self.assertEqual((reader.posts, reader.gets), (1, 1))
+        self.assertEqual((reader.posts, reader.gets), (1, 2))
         self.assertEqual(result['state'], 'unknown')
         self.assertEqual(audit, [])
 

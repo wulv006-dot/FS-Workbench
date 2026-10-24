@@ -13,14 +13,18 @@ from campaign_backend.services import BackendServices
 
 
 def native_row():
-    return dict(id=123, site_id=266, game_id=1327, goods_id=170014917, title='Project coupon',
-                brief='Description', status=0, code='SECRET_CODE', param_code='SECRET_PARAM')
+    return dict(id=123, create_time=10, update_time=20, type=1, title='Project coupon',
+        fetch_scene=4, status=0, mode_type=2, attain='1.25', reduce='85.00', max_reduce='23.40',
+        limit_qty=0, fetch_qty=0, used_qty=0, repeat_qty=1, time_effect=1, start_time='', end_time=0,
+        days=0, site_id=266, game_id=1327, product_type=0, goods_id=170014917,
+        remark='Synthetic fixture', brief='Description', is_open=0, jump_url='', param_code='SECRET_PARAM')
 
 
 def policy():
     return dict(coupon_objects={'123': dict(site_id='266', game_id='1327', goods_id='170014917',
         ownership_verified=True, exact_id_readback_verified=True, compensation_verified=True,
-        status_zero_verified=True, disable_verified=True, partial_edit_verified=True)})
+        status_zero_verified=True, disable_verified=True, partial_edit_verified=True,
+        full_preserve_edit_verified=True, full_preserve_toggle_verified=True, fs_bridge_acceptance_verified=True)})
 
 
 class Reader:
@@ -28,7 +32,7 @@ class Reader:
         self.row = row or native_row()
         self.calls = []
         self.timeout = timeout
-        self.session = SimpleNamespace(token='fixture-only', admin=SimpleNamespace(post=self.post))
+        self.session = SimpleNamespace(token='fixture-only', admin=SimpleNamespace(post=self.post, get_adapter=lambda url: SimpleNamespace(max_retries=SimpleNamespace(total=0))))
 
     def detail(self, kind, native_id):
         return copy.deepcopy(self.row)
@@ -38,7 +42,7 @@ class Reader:
         self.row.update(kwargs['json'])
         if self.timeout:
             raise TimeoutError('SECRET_TRANSPORT_ERROR')
-        return SimpleNamespace(status_code=200)
+        return SimpleNamespace(status_code=200, content=b'{"code":1,"msg":"ok"}')
 
     def close(self):
         pass
@@ -73,15 +77,15 @@ class BenefitTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first['state'], 'confirmed')
         self.assertEqual(len(self.reader.calls), 1)
-        self.assertEqual(self.reader.calls[0][1]['json'], {'id': 123, 'title': 'Updated project title'})
+        self.assertEqual(self.reader.calls[0][1]['json'], dict(native_row(), title='Updated project title'))
         self.assertFalse(self.reader.calls[0][1]['allow_redirects'])
 
-    def test_timeout_never_retries_and_original_reconcile_confirms(self):
+    def test_timeout_never_retries_and_original_reconcile_stays_unknown(self):
         self.reader.timeout = True
         result = benefits.mutate(self.reader, self.ledger, policy(), self.request)
         self.assertEqual(result['state'], 'unknown')
         self.assertNotIn('SECRET_TRANSPORT', str(result))
-        self.assertEqual(benefits.operation(self.ledger, self.reader, '266', self.request['operation_id'], True)['state'], 'confirmed')
+        self.assertEqual(benefits.operation(self.ledger, self.reader, '266', self.request['operation_id'], True)['state'], 'unknown')
         self.assertEqual(len(self.reader.calls), 1)
 
     def test_bad_before_hash_and_bad_fields_are_durable_unstarted_rejections(self):
@@ -113,7 +117,7 @@ class BenefitTests(unittest.TestCase):
                        before_hash=benefits.row_hash(self.reader.row))
         request.pop('changes')
         self.assertEqual(benefits.mutate(self.reader, self.ledger, policy(), request)['state'], 'confirmed')
-        self.assertEqual(self.reader.calls[0][1]['json'], {'id': 123, 'status': 0})
+        self.assertEqual(self.reader.calls[0][1]['json'], dict(native_row(), status=0))
 
     def test_pending_reconcile_fences_original_preflight_worker_before_it_can_send(self):
         entered, resume = threading.Event(), threading.Event()
