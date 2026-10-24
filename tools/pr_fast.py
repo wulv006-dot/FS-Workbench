@@ -801,7 +801,7 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
         elif group=="rs-business-adapter":
-            units("releases/fs-dashboard/rs-adapter-20261024/tests",["test_rs","test_shipping","test_existing_archive","test_existing_refresh","test_release"])
+            units("releases/fs-dashboard/rs-adapter-20261024/tests",["test_rs","test_shipping","test_shipping_readiness","test_existing_archive","test_existing_refresh","test_release"])
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_rs_projection.cjs")
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_procurement.cjs")
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_views.cjs")
