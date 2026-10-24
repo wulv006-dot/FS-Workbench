@@ -103,6 +103,8 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(nginx, original + package.NGINX_APPEND)
         self.assertIn(b'proxy_pass http://127.0.0.1:8949;', nginx)
         self.assertIn(b'proxy_set_header Cookie "";', nginx)
+        # A location-level no-op overrides the server's management-shell filters.
+        self.assertIn(b'sub_filter "</body>" "</body>";', package.NGINX_APPEND)
         self.assertEqual(nginx.count(b'location ^~ /events/'), 1)
 
     def test_service_revision_inserted_in_service_preserves_original_bytes(self):
