@@ -1,0 +1,11 @@
+{
+  "scope": "transaction-admin-sharing-20261025",
+  "state": "candidate_not_deployed",
+  "target": "/opt/fs-transaction-snapshot/supplement_reader.py",
+  "before_sha256": "7f5d150842d049bdeff535fa32202309464638371fc32bb6006584430f448d38",
+  "candidate_sha256": "83ddbddbc4a901037ef8cfe86ee6ba7fbecc59eb6add40b5175829f30fef2ee2",
+  "source": "cache_archive_retention_20261025/auth-recovery/source/supplement_reader.py",
+  "local_tests": "3 passed; parent retention14 passed",
+  "production_writes": 0,
+  "new_logins": 0
+}
