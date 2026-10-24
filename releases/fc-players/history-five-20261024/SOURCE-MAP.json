@@ -1,0 +1,27 @@
+{
+  "version": "2026.10.24-cloud.14",
+  "scope": "frontend task history only",
+  "runtime_delta": [
+    {
+      "source": "releases/fc-players/history-five-20261024/source/VERSION",
+      "target": "/opt/fc27-player-tool/current/VERSION",
+      "container": "fc27-player-tool:/app/VERSION",
+      "before_sha256": "0bcb4f373e6b1f7f7ae6ee0394a645cf4ab8aa3293b16b53344ff980dcde3462",
+      "sha256": "c3da2a45a6fe13e1586e91b4e38052f4b847f3893c4493e4e9c91d35613dc5f1"
+    },
+    {
+      "source": "releases/fc-players/history-five-20261024/source/player_web/static/app.js",
+      "target": "/opt/fc27-player-tool/current/player_web/static/app.js",
+      "container": "fc27-player-tool:/app/player_web/static/app.js",
+      "before_sha256": "b4d244cfd542f8f68bab97677de01854d03db3388a038ff043390de58073db79",
+      "sha256": "f9a8a1a38d8d52e2e9ed41721cefc92b1f2c35dae476fc9d2b07111fcb80f4dc"
+    }
+  ],
+  "base_version": "2026.10.22-cloud.13.1",
+  "unchanged_runtime_source_files": 47,
+  "publisher": "existing fc27_players_cloud/deploy/upgrade_cloud9.py with on-demand drop-in support",
+  "publisher_sha256": "4ff82daba7f11b080e018fa4372d4d2c6247d325bdf374162f642115ea14b529",
+  "approved_manifest_sha256": "1e7b2fa14da83ca55293e8c65e79fb520ae99df71d702ddd3a3e15cddd90ac3d",
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}
