@@ -1,0 +1,102 @@
+{
+  "scope": "business-shipping-profit-20261024",
+  "version": "shipping-profit-20261024-fcb3bc94b445",
+  "files": [
+    {
+      "candidate": "source/business_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/business_shipping.py",
+      "beforeSha256": null,
+      "sha256": "19c747d92bbcf93a8cd746d1275672ae0097b54d5cbe4dc3a54bba3eab870661",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "b8dfd72601b06ce79805a5d4c91c30704c628dda1536e47585ad899d9ef1bb0a",
+      "sha256": "df4805a6c20d244197270246455c4b8a5bcaec70af676bea93037dbc48ac9ec4",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "beforeSha256": "80a9c466810e8559ebe5da697b85225f4346ebae4b29a17a547aafdb37ee7a21",
+      "sha256": "ad0961467f4f2e6508d769bc9533b49b9ed35c0ee9f67e41eb561f3c05201c8e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "beforeSha256": "baeb84700be6a52d6949661dadf3ce6dc0b38e3fa8fb7796919c1ef89151a28e",
+      "sha256": "a5dffe3037479bbe4b01c8dc801a130aea8517b6f16afa62378e6ec36201e550",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_daily.py",
+      "target": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "beforeSha256": "a26ba2061120d14205e11890f8b514424dbc23bf55ec06797c5a4fc049605f8d",
+      "sha256": "f6d0392c91232ef6ae09e4cd26a4a26ccff85b0451a10eeb062189c2499e25ec",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_queries.py",
+      "target": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "beforeSha256": "1e1a5fd60f20004042bf3947d41fe9f14d5a495c3360c910599675f515c93efa",
+      "sha256": "9b043ed25d165d859bbc1728bc5ceb24cb6432b37387d1de3f6771e1c6dfe805",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "519934f1f1a6c3ab5a4d6f2db011047987437e1cd730864bf211d9f4cffd0f50",
+      "sha256": "9c7320376e90fc91bfdd37d0f75dc4934732eb17819ac5c70e5040ca7e48d5d5",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/business.js",
+      "beforeSha256": null,
+      "sha256": "e7e081ee1453c00cf4e07e7370cfde8457a168cf663a9efe893ddc5817c1f147",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/home-business.js",
+      "beforeSha256": null,
+      "sha256": "9942fc91fed94e07065092ff9909f490d680a7036694e54d80cf9c32c781f3d7",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/legacy-business.js",
+      "beforeSha256": null,
+      "sha256": "3a1a5d616173c07412a5d6a0957b0ba8331d24868fc70f7d0c393ea759702925",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/shell.js",
+      "beforeSha256": null,
+      "sha256": "6149527f595d221b367f09f6b6991462c4c15cf9694f03cb8a369a4eb36e7eb6",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "ef18dc02dcdb016ae105d7051d22223b24e24a6b4b3fdda885fc5942d52eea4a",
+      "sha256": "fd1288fc6cc95fa16de80c8f39bb1945472813d8d3fd3007901ce3271a591dd5",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}
