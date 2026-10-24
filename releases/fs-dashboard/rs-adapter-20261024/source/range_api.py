@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 import sys,json,hashlib,os,fcntl,subprocess,re,time
 sys.path.insert(0,'/opt/fs-transaction-snapshot')
+# Bind the range archive before Hermes adds its compatibility module directory.
+import daily_archive
 from collector import call as existing_call,profile_record,dimensions,PROFILES
 from atomic_snapshot import SHANGHAI,encoded
 from fc_category_contract import analysis,TYPES

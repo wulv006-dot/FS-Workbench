@@ -77,5 +77,8 @@ class RSContracts(unittest.TestCase):
         new=copy.deepcopy(old);new['RS']['aid']='12368'
         with self.assertRaises(ValueError):profit.check_scope('RS',scope,new)
         profit.check_scope('RS',dict(scope,orderAreaId='12368'),new)
+    def test_archive_is_bound_before_hermes_path_shadowing(self):
+        source=(SOURCE/'range_api.py').read_text('utf-8')
+        self.assertLess(source.index('import daily_archive'),source.index("sys.path.insert(0,'/opt/fs-hermes-fc')"))
 
 if __name__=='__main__':unittest.main(verbosity=2)
