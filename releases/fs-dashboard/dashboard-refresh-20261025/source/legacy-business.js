@@ -106,6 +106,7 @@ function rsBacklogDraw(){
  fcSetText(box.querySelector('p'),'跟随网站、类目和区服；不按所选支付日期截断。问题单为后台“问题订单”；待支付只统计经明细核实的未付款订单，已付款未完成单不计入。'+(data?'读取 '+new Date(data.asOf).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+' 北京时间。':'')+(state?.loading?'刷新中。':state?.phase==='denied'?'当前账号无权读取。':state?.phase==='failed'?'本次读取失败，可点更新视图重试。':data?.metrics.unpaid.status==='unavailable'?'待支付来源的筛选与返回状态不符，暂不展示未经核实的数量。':''));
 }
 function rsBacklogSync(force=false){
+ if(exactPermissionDenied()){clearTimeout(rsBacklogTimer);rsBacklogState?.abort.abort();if(rsBacklogState){rsBacklogState.data=null;rsBacklogState.loading=false;rsBacklogState.phase='denied';}rsBacklogDraw();return;}
  if(KEY!=='RS'){clearTimeout(rsBacklogTimer);rsBacklogState?.abort.abort();if(rsBacklogState)rsBacklogState.loading=false;const box=document.getElementById('rs-current-backlog');if(box)box.hidden=true;return;}
  const selected={...rsFilters},id=JSON.stringify(selected),old=rsBacklogState;
  if(!force&&old?.id===id&&(old.loading||Date.now()<old.expiresAt)){rsBacklogDraw();return;}

@@ -91,7 +91,7 @@ if(require.main===module)(async()=>{
   assert.ok(queries.some(q=>q.mode==='actual-profit'&&q.profile==='RS'&&q.rs_category==='items'));assert.ok(queries.filter(q=>q.mode==='summary').every(q=>q.profit_basis==='actual'));assert.ok(!queries.some(q=>q.mode==='profit-history'));assert.ok(queries.filter(q=>q.mode==='fc-detail').every(q=>!('profit_site'in q)));
   for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.ownerDocument.documentElement.dataset.theme=t;},theme);assert.equal(await gross.isVisible(),true);}
   await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  deny=true;await page.evaluate(()=>window.api.update());await page.waitForFunction(()=>!document.querySelector('#app').shadowRoot.querySelector('[data-metric="profitCny"] strong')?.textContent.includes('¥0.00'));assert.deepEqual(errors,[]);
+  deny=true;await page.evaluate(()=>window.api.update());await page.waitForFunction(()=>!document.querySelector('#app').shadowRoot.querySelector('[data-metric="profitCny"] strong')?.textContent.includes('¥0.00'));assert.doesNotMatch(await page.locator('#rs-current-backlog summary').innerText(),/问题单 3|待支付 7/);assert.deepEqual(errors,[]);
   console.log('Actual profit UI: cards/coverage/daily, global/games/All/RS filters, zero/loss, denial, themes and mobile passed');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

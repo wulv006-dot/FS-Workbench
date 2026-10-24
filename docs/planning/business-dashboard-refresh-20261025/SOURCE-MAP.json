@@ -1,34 +1,34 @@
 {
   "scope": "business-dashboard-refresh-20261025",
-  "version": "dashboard-refresh-20261025-76f4717f45a8",
+  "version": "dashboard-refresh-20261025-069937dae25c",
   "files": [
     {
       "candidate": "source/business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-76f4717f45a8/business.js",
-      "sha256": "407bf0c162d0669a0670d4f3c670bfd35964fdd4281e3f1002993698cf43b1bc",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/business.js",
+      "sha256": "66aea34498ebefbad432286cd15f9463c649eb2f703f277e67f833de85de7d4d",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/home-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-76f4717f45a8/home-business.js",
-      "sha256": "656b4528293e3cc988ae8d2ddf55e617a039b427280938c57b14fc48c81862ab",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/home-business.js",
+      "sha256": "370f60f3ba432e0653cb39b3cbf1895270cf9fff34a7670cf957f7b15ce65bf4",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/legacy-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-76f4717f45a8/legacy-business.js",
-      "sha256": "1f7e092b90f854f100d1e1b2b5dc855515d1219653f98f98fa0c8a5561d7bb08",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/legacy-business.js",
+      "sha256": "3b7dbde942df42631bf3a3a118d566ddd38cab9ceace53bedf399ba93701b3a2",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/shell.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-76f4717f45a8/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/shell.js",
       "sha256": "5c6b5c86fbd5a1a7d8e4a08920a4e55839dc0da9e263b19f68021eb07e68dc8f",
       "beforeSha256": null,
       "owner": "0:0",
@@ -85,7 +85,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "ecd04f4fc52c6842d201e90b88c0f83854e0c6be523e72090c493eced6aea456",
+      "sha256": "15d2a53be21c7bba0317236cd281c9e2c0b7955ce43bdcfe0b6a4881f70d6398",
       "beforeSha256": "a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad",
       "owner": "0:0",
       "mode": "0o644"
@@ -96,7 +96,7 @@
   "publisher": {
     "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
     "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
-    "actual_release.py": "d748a0f3f5038e4a56e7281bf6bee66a9c2915e9c9f866b0636c484bb061736d",
+    "actual_release.py": "f118dbbc403775f2afa0faef7c08f30f4810050b0d257d3946b6b52b733589c3",
     "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
   }
 }
