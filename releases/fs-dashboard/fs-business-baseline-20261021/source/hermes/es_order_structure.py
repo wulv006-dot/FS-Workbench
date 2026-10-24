@@ -51,19 +51,27 @@ def xlsx_rows(raw):
     if len(raw)>MAX_FILE:raise ValueError('es_file_size')
     with zipfile.ZipFile(io.BytesIO(raw)) as book:
         if len(book.infolist())>1000 or sum(v.file_size for v in book.infolist())>128*1024*1024:raise ValueError('es_expanded_size')
-        def xml(name):
+        def elements(name, tag):
             data=book.read(name)
             if b'<!DOCTYPE' in data or b'<!ENTITY' in data:raise ValueError('es_xml_entities')
-            return ET.fromstring(data)
+            # Release each parsed row; full worksheet trees can exhaust the shared bridge.
+            stack=[]
+            for event,node in ET.iterparse(io.BytesIO(data),events=('start','end')):
+                if event=='start':stack.append(node);continue
+                if node.tag=='{'+NS['m']+'}'+tag:
+                    yield node
+                    if len(stack)>1:stack[-2].remove(node)
+                    node.clear()
+                stack.pop()
         shared=[]
         if 'xl/sharedStrings.xml' in book.namelist():
-            shared=[''.join(node.itertext()) for node in xml('xl/sharedStrings.xml').findall('m:si',NS)]
+            shared=[''.join(node.itertext()) for node in elements('xl/sharedStrings.xml','si')]
         sheets=sorted(n for n in book.namelist() if re.fullmatch(r'xl/worksheets/sheet\d+\.xml',n))
         if not sheets:raise ValueError('es_no_sheet')
         output=[]
         for sheet in sheets:
             header=None
-            for row in xml(sheet).findall('m:sheetData/m:row',NS):
+            for row in elements(sheet,'row'):
                 values={}
                 for cell in row.findall('m:c',NS):
                     ident=re.match(r'[A-Z]+',cell.get('r',''))
@@ -333,6 +341,12 @@ def make_dataset(rows,hashes,parse_failures,declared_files,failed_files):
 
 
 def archived_dataset(args,root=Path('/var/lib/fc27-es-exports')):
+    # Reuse the export lock so simultaneous archive readers cannot multiply the peak.
+    with SERVER_LOCK:
+        return _archived_dataset(args,root)
+
+
+def _archived_dataset(args,root):
     """Reuse an existing private set; older manifests keep unknown completeness."""
     if not root.exists():return None
     import os,stat
