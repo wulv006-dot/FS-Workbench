@@ -1,0 +1,19 @@
+{
+  "version": "actual-profit-deferral-20261024-6ff6f4935ee2",
+  "scope": "business-actual-profit-deferral-20261024",
+  "files": [
+    {
+      "candidate": "source/actual_profit.py",
+      "target": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "6ff6f4935ee289ce8d53441a2bcbe167b32b3a757868b7c3691a33a4abb7c282",
+      "beforeSha256": "5db3e7309534a614dbb4df07590167f18bd99ef6c518e427ebce379b3e0ac72d",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "protectedFiles": 98,
+  "manifestSha": "dfd67397e4f0913561d5f465dd97b5b951341fdd072fc2ddf2cc852880236004",
+  "zipSha": "8772e1d17d9cb45b377c350ca44a4888aac925ae6d032a4b735a3c5d404e2470",
+  "status": "candidate_not_deployed",
+  "reason": "A complete revenue snapshot must not suppress retry after cost lock deferral; original 60s cooldown and two-worker cap remain."
+}

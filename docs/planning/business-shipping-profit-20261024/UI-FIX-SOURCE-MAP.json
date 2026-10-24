@@ -1,0 +1,38 @@
+{
+  "scope": "business-shipping-profit-ui-20261024",
+  "version": "shipping-profit-ui-20261024-33653b6cce69",
+  "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/business.js",
+      "sha256": "fe8f295bddb7bf84cd52b9311d16cd2c5ea0bc61e614901a5ddfd04e2fd77517",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/home-business.js",
+      "sha256": "432f7f1d700c22a3fe4b214b4a41f2306b72d84c1ae9d853e0b688c5b7ffb7ce",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/legacy-business.js",
+      "sha256": "ca87dab34a77ecad375cf2ed7a9382c3aef83cff5a65e6a644b9b53cf3d8dc7e",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "d62021f865fd06f023424269b2d1f3eb459e20565d0e8599726a388d0f6e1bae",
+      "beforeSha256": "1de1448c195c66ba417c82a0c69c5186faa9a8e0df4bd0fd6099aeb4a189b180",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}
