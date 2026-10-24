@@ -313,7 +313,7 @@ async function load(d,key,s,signal,onWait,onResult,followOrder=true){
  do {
   const data=await requestRange(query,signal,Math.max(1,100000-(Date.now()-started)),onWait);if(signal.aborted)throw new DOMException('Aborted','AbortError');
   query.delete('refresh');
-  if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==key||!same(data.query,s))throw Error('汇总数据合同错误');
+  if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==key||!same(data.query,s)||key==='RS'&&!Object.keys(rsOptions).every(k=>data.query?.[k]===s[k]))throw Error('汇总数据合同错误');
   const pending=data.sources?.Admin?.status==='pending'||followOrder&&data.sources?.Order?.status==='pending';
   // A deferred Order read is temporary contention, not a completed source omission.
   // Follow it only inside this explicit read's existing 100-second budget. Closed
