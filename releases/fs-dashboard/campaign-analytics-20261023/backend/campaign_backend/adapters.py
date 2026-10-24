@@ -12,7 +12,8 @@ LIST_ROUTES = {
     'coupon_logs': '/admin/user.MemberCouponLog/index',
     'orders': '/admin/order.Order/index',
 }
-DETAIL_ROUTES = {'model': '/admin/goods.GoodsMould/edit', 'goods': '/admin/goods.Goods/edit'}
+DETAIL_ROUTES = {'model': '/admin/goods.GoodsMould/edit', 'goods': '/admin/goods.Goods/edit',
+                 'coupon': '/admin/market.Coupon/edit', 'discount': '/admin/market.Discount/edit'}
 
 
 def payment_observation(row, site_id):

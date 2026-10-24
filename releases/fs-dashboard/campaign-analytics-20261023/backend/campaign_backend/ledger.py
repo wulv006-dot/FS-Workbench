@@ -41,9 +41,11 @@ class OperationLedger:
             row = db.execute('SELECT * FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
         if row is None:
             return None
+        result = json.loads(row['result']) if row['result'] else None
         return dict(operation_id=row['operation_id'], state=row['state'],
                     dispatched=bool(row['dispatched']), payload_hash=row['payload_hash'],
-                    result=json.loads(row['result']) if row['result'] else None,
+                    dispatch_state=(result or {}).get('dispatch_state', 'unknown' if row['dispatched'] else 'not_started'),
+                    result=result,
                     created_at=row['created_at'], updated_at=row['updated_at'])
 
     def prepare(self, operation_id, payload):
@@ -58,6 +60,25 @@ class OperationLedger:
             if row is None:
                 db.execute('INSERT INTO operations VALUES (?,?,?,\'pending\',0,NULL,?,?)',
                            (operation_id, encoded, digest, now(), now()))
+        return self.lookup(operation_id)
+
+    def request_payload(self, operation_id):
+        """Trusted service use only; never return the stored request through a public bridge."""
+        identity(operation_id)
+        with self._connection() as db:
+            row = db.execute('SELECT payload FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+        if row is None:
+            raise ContractError('OPERATION_NOT_FOUND')
+        return json.loads(row['payload'])
+
+    def reject_unstarted(self, operation_id, payload, reason_code):
+        """A durable preflight rejection cannot overtake a worker that already claimed dispatch."""
+        self.prepare(operation_id, payload)
+        result = dict(state='rejected', reason_code=reason_code, dispatch_state='not_started')
+        with self._connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute("UPDATE operations SET state='rejected',result=?,updated_at=? WHERE operation_id=? AND state='pending' AND dispatched=0",
+                       (canonical(result), now(), operation_id))
         return self.lookup(operation_id)
 
     def execute(self, operation_id, payload, adapter):
@@ -81,7 +102,7 @@ class OperationLedger:
         return self.lookup(operation_id)
 
     def _record(self, operation_id, result):
-        if (not isinstance(result, dict) or set(result) - {'state', 'upstream_ref', 'reason_code'}
+        if (not isinstance(result, dict) or set(result) - {'state', 'upstream_ref', 'reason_code', 'dispatch_state'}
                 or result.get('state') not in ('confirmed', 'rejected', 'unknown')
                 or any(not isinstance(v, str) for v in result.values())):
             raise ContractError('INVALID_MUTATION_READBACK')
