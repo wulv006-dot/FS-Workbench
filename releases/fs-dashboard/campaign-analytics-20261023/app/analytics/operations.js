@@ -31,8 +31,12 @@
   tell('benefit-state','券 '+id+' · 原始状态 '+String(value.fields?.status??'未知')+' · '+((value.editability?.blocked_reasons||[]).join('；')||'仅可修改服务器核准字段'));
  }
  function operationResult(result){
+  if(result?.object_busy===true){
+   if(!pending||result.requested_operation_id!==pending.operation_id||result.recovery_operation_id!==result.operation_id||!/^[0-9a-f-]{36}$/i.test(result.operation_id)||!['pending','unknown'].includes(result.state))throw Error('对象占用回执无法核对，保留当前操作并联系维护人员。');
+   persist({...pending,operation_id:result.recovery_operation_id});
+  }
   if(!pending||result?.operation_id!==pending.operation_id)throw Error('回执操作ID不匹配，原操作保留。');
-  const labels={confirmed:'已回读确认',rejected:'已拒绝',blocked:'安全条件未满足，未执行',unknown:'结果未知，请继续查询原操作'};
+  const labels={pending:'该对象已有操作待核对，请恢复原操作',confirmed:'已回读确认',rejected:'已拒绝',blocked:'安全条件未满足，未执行',unknown:'结果未知，请继续查询原操作'};
   tell('ops-status',(labels[result.state]||'原操作尚未确认')+(result.result?.reason_code?' · '+result.result.reason_code:''));
   if(['confirmed','rejected','blocked'].includes(result.state))persist(null);
  }
@@ -46,6 +50,10 @@
  function summary(value){
   tell('analysis-status',({ready:'已按核准口径对账',partial:'部分证据待补',blocked:'尚未具备真实对账条件'})[value?.status]||'待核验');
   const coverage=value?.coverage||{};
+  const windows=[...new Set((value?.scanned_windows||[]).map(row=>String(row.window_from)+' 至 '+String(row.window_to)))];
+  tell('analysis-scope','全部已保存扫描窗口汇总（订单去重），不是上方日期的筛选结果。最近成功核对：'+String(value?.verified_at||'尚未核对')+'。');
+  $('analysis-windows').replaceChildren();for(const range of windows){const li=document.createElement('li');li.textContent=range;$('analysis-windows').append(li);}
+  if(!windows.length){const li=document.createElement('li');li.textContent='尚无已保存扫描窗口。';$('analysis-windows').append(li);}
   const labels={source_orders:'来源订单',paid_observations:'有效付款观察',refunded_observations:'退款观察',coupon_log_rows:'用券记录',associated_paid_observations:'已付用券关联',bound_paid_orders:'已绑定活动付款',unbound_paid_orders:'未绑定活动付款',unresolved_orders:'待核订单',successful_runs:'成功对账次数'};
   tell('analysis-coverage',Object.entries(coverage).filter(([name,n])=>labels[name]&&Number.isSafeInteger(n)).map(([name,n])=>labels[name]+'：'+n).join(' · '));
   const warningLabels={ORDER_READ_NOT_PERFORMED:'尚未读取真实订单',ACTIVITY_BINDINGS_REQUIRED:'尚未核准本活动专属优惠绑定',PAID_MONEY_MAPPING_REQUIRED:'实收金额口径尚未核准',PAID_CURRENCY_CONFLICT:'实付币种字段存在冲突',SOURCE_TIME_MAPPING_REQUIRED:'来源时间与时区尚未核准',PAYMENT_STATE_UNKNOWN:'部分订单付款状态尚未核验',COUPON_LOG_STATUS_UNKNOWN:'部分用券状态尚未核验',DISCOUNT_APPLICATION_TIME_REQUIRED:'折扣码实际应用时间尚未核验',AMBIGUOUS_DISCOUNT_NATIVE_ID:'折扣码对应多个原生ID，不能确定归属',LINE_ALLOCATION_NOT_VERIFIED:'活动商品行分摊尚未核验',REFUND_EVENTS_NOT_VERIFIED:'退款事实与金额尚未核验'};
