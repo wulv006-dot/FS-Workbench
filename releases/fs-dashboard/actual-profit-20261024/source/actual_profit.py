@@ -180,7 +180,7 @@ class ActualProfitService:
             denied=key in self.denied
             if denied and self.clock()-self.denied[key]<30:return 403,{'status':'denied','error':'actual_source_permission_denied'}
             if denied:fresh=False
-            if (not fresh or q.get('refresh')) and state not in ('pending','cost_pending') and self.clock()-self.starts.get(key,-1000)>=60:
+            if (not fresh or q.get('refresh') or state in ('deferred','orders_failed','cost_failed')) and state not in ('pending','cost_pending') and self.clock()-self.starts.get(key,-1000)>=60:
                 active=sum(v in ('pending','cost_pending') for v in self.jobs.values())+sum(v in ('pending','cost_pending') for v in self.channels.jobs.values())
                 if active>=2:return 429,{'status':'busy','retryAfter':10}
                 if len(self.jobs)>=256:
