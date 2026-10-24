@@ -5,8 +5,8 @@ function shippingFields(key,s){return key==='RS'?{}:{profit_site:s.profit_site||
 function shippingSame(key,a,b){return key==='RS'?rsSame(a,b):a?.profit_site===b?.profit_site&&a?.profit_category===b?.profit_category;}
 function shippingSelection(key,s){return key==='RS'?s:{...s,profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',profit_category:shippingCategory};}
 function shippingRenderFilters(){
- let box=document.getElementById('shipping-filters');if(!box){box=document.createElement('div');box.id='shipping-filters';box.className='toolbar';document.getElementById('rangeBar').after(box);}box.hidden=KEY==='RS';if(box.hidden)return;box.replaceChildren();
- const label=document.createElement('label');label.htmlFor='shipping-category';label.textContent='发货利润类目 ';const select=document.createElement('select');select.id='shipping-category';
+ let box=document.getElementById('shipping-filters');if(!box){box=document.createElement('div');box.id='shipping-filters';box.className='toolbar';box.style.flexBasis='100%';document.getElementById('rangeBar').after(box);}box.hidden=KEY==='RS';if(box.hidden)return;box.replaceChildren();
+ const label=document.createElement('label');label.className='scope-select';label.htmlFor='shipping-category';label.textContent='发货利润类目 ';const select=document.createElement('select');select.id='shipping-category';
  for(const [value,title] of shippingCategories){const o=document.createElement('option');o.value=value;o.textContent=title;select.append(o);}select.value=shippingCategory;label.append(select);box.append(label);
  const note=document.createElement('span');note.className='hint';note.textContent='仅筛选发货利润及每日曲线；订单、美元销售和逐单成本毛利保持各自原范围。';box.append(note);
  select.onchange=()=>{shippingCategory=select.value;window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();document.getElementById('shipping-category')?.focus();};
