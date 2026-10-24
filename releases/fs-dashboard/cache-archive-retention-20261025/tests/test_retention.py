@@ -119,6 +119,15 @@ def excel_module(name):
 
 
 class Excel(unittest.TestCase):
+    def test_session_unit_changes_only_verified_image_reference(self):
+        sys.path.insert(0,str(SOURCE.parent))
+        from prepare_session_unit import candidate,OLD_TAG
+        raw=('ExecStart=docker run --memory=2g --mount existing '+OLD_TAG+'\n').encode()
+        new='sha256:'+'a'*64
+        self.assertEqual(candidate(raw,new).replace(new.encode(),OLD_TAG.encode()),raw)
+        with self.assertRaises(ValueError):candidate(raw+OLD_TAG.encode(),new)
+        with self.assertRaises(ValueError):candidate(raw,'latest')
+
     def test_both_readers_archive_restore_and_recent_redline_data_remain_hot(self):
         for name in ('es_order_structure.py','session_es_order_structure.py'):
             with self.subTest(reader=name),tempfile.TemporaryDirectory() as d:
