@@ -105,13 +105,13 @@ class Bidirectional(unittest.TestCase):
             self.assertIn(required,text)
         self.assertEqual(len(calls),2)
 
-    def test_missing_model_fallback_preserves_original_direction_without_capping_valid_choice(self):
+    def test_missing_model_uses_current_program_without_capping_valid_choice(self):
         evidence,rows,_=fixture()
         for own in evidence['storefront']['rows'].values():own['package_usd']='19.99'
         for offers in evidence['offers'].values():offers['Lootbar']['usd_price']='21'
         receipt=pricing.apply_decision(rows,evidence,{},now=NOW)
         self.assertGreater(pricing.number(rows[0]['target_page_usd']),pricing.number('19.99'))
-        self.assertEqual(pricing.number(receipt['decisions'][0]['model_unavailable_fallback_usd']),pricing.number('19.99'))
+        self.assertEqual(pricing.number(receipt['decisions'][0]['model_unavailable_fallback_usd']),pricing.number('20.99'))
         for cost in evidence['costs'].values():cost['cny_per_1k']='2'
         receipt=pricing.apply_decision(rows,evidence,{},now=NOW)
         self.assertGreater(pricing.number(receipt['decisions'][0]['model_unavailable_fallback_usd']),pricing.number('19.99'))

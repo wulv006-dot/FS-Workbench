@@ -394,8 +394,18 @@ def apply_decision(rows, evidence, edits, *, now=None):
         if all(parity_tail/100>=catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
             parity=parity_tail
         candidates['parity']=str(parity)
-        fallback_main=max(floor,min(hold,anchor))
-        fallback,_=ending(fallback_main,checks)
+        fallback_main=max(floor,weighted)
+        fallback_reason='current_weighted_program'
+        prior=evidence.get('previous_confirmed_decision') or {}
+        old_receipt=prior.get('receipt') or {}
+        old_decisions=old_receipt.get('decisions') or []
+        old=next((d for d in old_decisions if d.get('platforms')==list(group)),None)
+        if (old_receipt.get('reference_version')==REFERENCE_VERSION and old
+                and number(old['raw_weighted_usd'])==raw_weighted and len(set(current))==1
+                and hold>=floor):
+            fallback_main=hold
+            fallback_reason='unchanged_market_confirmed_price'
+        fallback=fallback_main if fallback_reason=='unchanged_market_confirmed_price' else ending(fallback_main,checks)[0]
         if any(fallback/100<catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio) for p in group):
             fallback=fallback_main
         decisions.append(dict(platforms=list(group),reason=reason,current_public_usd=[str(v) for v in current],
@@ -406,6 +416,8 @@ def apply_decision(rows, evidence, edits, *, now=None):
                               explicit_candidate=group[0] in quotes,
                               direction='up' if target>hold else 'down' if target<hold else 'hold',
                               model_unavailable_fallback_usd=str(fallback),
+                              model_unavailable_fallback_reason=fallback_reason,
+                              previous_confirmed_execution_id=prior.get('execution_id'),
                               candidates=candidates))
     receipt=dict(strategy_version=VERSION, reference_version=REFERENCE_VERSION,
         reference_weights={'Lootbar':'0.80','ItemD2R':'0.15','U7Buy':'0.05'},

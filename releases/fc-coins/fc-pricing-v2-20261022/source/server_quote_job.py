@@ -18,6 +18,30 @@ from automation_policy import load_policy
 ENGINE_FILE = Path(__file__).with_name("fc27_quote_engine.py")
 
 
+def previous_confirmed_decision(run_id, storefront):
+    """Reuse a decision only when its original public confirmation matches this run."""
+    confirmed=[]
+    for path in (ROOT/'executions').glob('*.json'):
+        audit=json.loads(path.read_text('utf-8'))
+        if audit.get('run_id')!=run_id and audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed'):
+            confirmed.append(audit)
+    if not confirmed:return None
+    audit=max(confirmed,key=lambda row:row['created_at'])
+    job_path=ROOT/'jobs'/(audit['execution_id']+'.json')
+    if not job_path.is_file():return None
+    job=json.loads(job_path.read_text('utf-8'))
+    if (job.get('public_page_readback') or {}).get('status')!='verified':return None
+    prior_path=ROOT/'quotes'/(audit['run_id']+'.json')
+    if not prior_path.is_file():return None
+    prior=json.loads(prior_path.read_text('utf-8'))
+    rows={row['platform']:row for row in prior['result']['rows']}
+    if set(rows)!=set(PLATFORMS):return None
+    if any(positive(rows[p]['target_page_usd'],'previous_price')!=positive(storefront['rows'][p]['package_usd'],'public_price')
+           or positive(prior['evidence']['storefront']['rows'][p]['base_k'],'previous_quantity')!=positive(storefront['rows'][p]['base_k'],'public_quantity')
+           or nonnegative(prior['evidence']['storefront']['rows'][p]['bonus_k'],'previous_bonus')!=nonnegative(storefront['rows'][p]['bonus_k'],'public_bonus') for p in PLATFORMS):return None
+    return dict(execution_id=audit['execution_id'],receipt=prior['result']['decision_receipt'])
+
+
 def age_ok(value: str, now: datetime) -> bool:
     captured = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return captured.tzinfo is not None and 0 <= (now - captured).total_seconds() <= 3600
@@ -188,6 +212,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     from pricing_sources import collect as collect_pricing_constraints, historical_mix
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist)
     evidence['historical_discount_mix']=historical_mix()
+    evidence['previous_confirmed_decision']=previous_confirmed_decision(run_id,storefront)
     result = calculate(evidence, edits)
     if [row.get("platform") for row in result["rows"]] != list(PLATFORMS):
         raise ValueError("quote_platform_invalid")
