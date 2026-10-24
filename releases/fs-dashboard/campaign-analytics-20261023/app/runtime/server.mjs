@@ -12,11 +12,11 @@ async function body(req) {
   let raw='';for await (const chunk of req) {raw+=chunk;if (Buffer.byteLength(raw)>64000) fail('REQUEST_TOO_LARGE',413);}
   try {return JSON.parse(raw);} catch {fail('INVALID_REQUEST');}
 }
-export function createPublicServer({assetRoot,staticManifest,snapshot,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
+export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
   const parsed=new URL(origin);
   if (parsed.origin!==origin || (parsed.protocol!=='https:' && !(parsed.protocol==='http:'&&['127.0.0.1','localhost'].includes(parsed.hostname)))) fail('INVALID_ORIGIN');
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
-  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshot,dir,mode,testAdapter,now});
+  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshot,snapshotProvider,dir,mode,testAdapter,now});
   const server=http.createServer(async(req,res)=>{
     try {
       if (!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)) return json(req,res,403,{code:'LOOPBACK_REQUIRED'});
@@ -48,7 +48,7 @@ if (process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.u
   const readJSON=file=>JSON.parse(fs.readFileSync(file,'utf8'));
   const mode=process.env.CAMPAIGN_PUBLIC_MODE||'preview';
   const server=createPublicServer({assetRoot:process.env.CAMPAIGN_PUBLIC_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),
-    staticManifest:readJSON(process.env.CAMPAIGN_PUBLIC_MANIFEST),snapshot:readJSON(process.env.CAMPAIGN_PUBLIC_RELEASE),
+    staticManifest:readJSON(process.env.CAMPAIGN_PUBLIC_MANIFEST),snapshotProvider:()=>readJSON(process.env.CAMPAIGN_PUBLIC_RELEASE),
     dir:process.env.CAMPAIGN_RUNTIME_DATA||'/var/lib/fs-campaign-runtime',mode,origin:process.env.CAMPAIGN_PUBLIC_ORIGIN,
     prefix:process.env.CAMPAIGN_PUBLIC_PREFIX||'/events/',
     ...(mode==='integration_test'&&process.env.CAMPAIGN_TEST_PRICES?{testAdapter:createIntegrationTestAdapter(readJSON(process.env.CAMPAIGN_TEST_PRICES))}:{})});

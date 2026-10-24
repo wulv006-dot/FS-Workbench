@@ -29,6 +29,7 @@ test('preview and unverified live cannot quote or handoff, regardless of browser
   for(const mode of ['preview','live']) {
     const c=commerce(t,{mode}),intent=c.intent(request());
     assert.equal(c.capabilities().capabilities.cart_handoff,false);
+    assert.equal(c.capabilities().catalog_source,'published_snapshot');assert.equal(c.capabilities().catalog_authoritative,false);assert.equal(c.capabilities().capabilities.live_catalog_read,false);
     assert.throws(()=>c.quote({intent_id:intent.intent_id}),{code:'MAIN_INTEGRATION_REQUIRED'});
     assert.throws(()=>c.quote({intent_id:intent.intent_id,mode:'integration_test'}),{code:'INVALID_REQUEST'});
     await assert.rejects(c.prepare({operation_id:intent.operation_id,intent_id:intent.intent_id,quote_id:randomUUID(),return_route_id:'activity'}),{code:'MAIN_INTEGRATION_REQUIRED'});
@@ -78,6 +79,22 @@ test('durable unknown lookup never reposts after restart and projects partial re
   const value=await c.lookup(body.operation_id);assert.equal(value.lines[0].status,'rejected');assert.ok(!JSON.stringify(value).includes('secret'));assert.ok(!('checkout_url' in value));assert.equal(calls,1);
   const preview=createCommerce({snapshot:snapshot(),dir,mode:'preview'});assert.equal((await preview.lookup(body.operation_id)).status,'unknown');
 });
+test('published config reload rejects old intents and preserves original unknown operation lookup',async t=>{
+  const dir=temp(t),file=path.join(dir,'current.json');let calls=0,known=false;
+  const publish=value=>fs.writeFileSync(file,JSON.stringify(value));publish(snapshot());
+  const adapter={prices:{'sku-1':10000},async prepare_checkout(){calls++;throw Error('uncertain');},async lookup_checkout_operation(){return known?{lines:[{line_key:'line-1',status:'confirmed'}]}:null;}};
+  const c=createCommerce({snapshotProvider:()=>JSON.parse(fs.readFileSync(file,'utf8')),dir,mode:'integration_test',testAdapter:adapter});
+  const original=checkout(c),unsubmitted=checkout(c);assert.equal((await c.prepare(original)).code,'OPERATION_UNKNOWN');
+  const next=snapshot();next.release_id='release-2';next.config_hash='c'.repeat(64);next.pages.forEach(p=>p.rule_version='rules-2');publish(next);
+  assert.equal(c.config().release_id,'release-2');assert.throws(()=>c.intent(request()),{code:'RULE_VERSION_CONFLICT'});
+  assert.throws(()=>c.quote({intent_id:unsubmitted.intent_id}),{code:'RULE_VERSION_CONFLICT'});
+  await assert.rejects(c.prepare(unsubmitted),{code:'RULE_VERSION_CONFLICT'});
+  await assert.rejects(c.prepare(original),{code:'RULE_VERSION_CONFLICT'});
+  const updated=request();updated.rule_version='rules-2';assert.equal(c.intent(updated).release_id,'release-2');
+  assert.equal((await c.lookup(original.operation_id)).code,'OPERATION_UNKNOWN');assert.equal(calls,1);
+  publish({...next,publication_status:'draft'});assert.throws(()=>c.config(),{code:'UNPUBLISHED_RELEASE'});assert.throws(()=>c.quote({intent_id:unsubmitted.intent_id}),{code:'UNPUBLISHED_RELEASE'});
+  known=true;assert.equal((await c.lookup(original.operation_id)).lines[0].status,'confirmed');assert.equal(calls,1);
+});
 test('static whitelist rejects management/docs/traversal, hashes and symlinks',t=>{
   const root=temp(t);fs.writeFileSync(path.join(root,'index.html'),'public');const manifest={'index.html':digest('public')};
   assert.equal(loadStatic(root,manifest).get('index.html').toString(),'public');
@@ -100,4 +117,15 @@ test('HTTP boundary requires exact Origin, never exposes internal files and free
   const post=async origin=>fetch(base+'/events/api/campaign/intents',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(request())});
   assert.equal((await post('https://evil.invalid')).status,403);assert.equal((await post('http://127.0.0.1')).status,200);
   assert.equal((await fetch(base+'/events/api/campaign/config',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://127.0.0.1'},body:'{}'})).status,404);
+});
+test('public HTTP provider refreshes published configuration while deployment assets stay pinned',async t=>{
+  const root=temp(t);fs.writeFileSync(path.join(root,'index.html'),'deployed bytes');let current=snapshot();
+  const server=createPublicServer({assetRoot:root,staticManifest:{'index.html':digest('deployed bytes')},snapshotProvider:()=>current,dir:temp(t),origin:'http://127.0.0.1'});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base='http://127.0.0.1:'+server.address().port+'/events/';
+  assert.equal((await (await fetch(base+'api/campaign/config')).json()).release_id,'release-1');
+  current=snapshot();current.release_id='release-2';current.secret='never';fs.writeFileSync(path.join(root,'index.html'),'edited after startup');
+  const next=await (await fetch(base+'api/campaign/config')).json();assert.equal(next.release_id,'release-2');assert.ok(!('secret' in next));
+  assert.equal(await (await fetch(base)).text(),'deployed bytes');
+  current.publication_status='draft';assert.equal((await fetch(base+'api/campaign/config')).status,503);assert.equal(await (await fetch(base)).text(),'deployed bytes');
 });
