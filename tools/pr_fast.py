@@ -808,6 +808,7 @@ def main():
         elif group=="rs-business-adapter":
             units("releases/fs-dashboard/rs-adapter-20261024/tests",["test_rs","test_shipping","test_shipping_readiness","test_existing_archive","test_existing_refresh","test_release"])
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_rs_projection.cjs")
+            node("releases/fs-dashboard/rs-adapter-20261024/tests/test_shell.cjs")
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_procurement.cjs")
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_views.cjs")
             node("releases/fs-dashboard/rs-adapter-20261024/tests/test_browser.cjs")
