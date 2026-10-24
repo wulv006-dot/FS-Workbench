@@ -1,0 +1,2 @@
+FROM sha256:205893bef1ed82ffba1c5161972a55172394a7f1b020172a81dd26602a493f81
+COPY session_es_order_structure.py /usr/local/bin/es_order_structure.py
