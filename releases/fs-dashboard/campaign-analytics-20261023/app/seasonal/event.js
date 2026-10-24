@@ -48,7 +48,11 @@
     document.documentElement.dataset.theme=theme;document.documentElement.style.setProperty('--accent',t.accent);document.documentElement.style.setProperty('--base',t.base);
     document.querySelector('meta[name=theme-color]').content=t.base;document.querySelector('#theme-select').value=theme;
     document.querySelector('#hero-image').src=`assets/hero-${theme}.webp`;document.querySelector('#hero-image').alt=t.alt;document.querySelector('#hero-mobile-source').srcset=`assets/hero-${theme}.webp`;
-    for(const [id,text] of Object.entries({'edition':t.edition,'hero-kicker':t.kicker,'hero-caption':`THE ${t.label.toUpperCase()} COLLECTION`,'hero-number':`${t.number} / 04`,'campaign-date':t.date}))document.getElementById(id).textContent=text;
+    for(const [id,text] of Object.entries({'edition':t.edition,'hero-kicker':t.kicker,'hero-caption':`THE ${t.label.toUpperCase()} COLLECTION`,'hero-number':`${t.number} / 04`,'campaign-date':t.date})){
+      const element=document.getElementById(id);
+      if(id==='campaign-date'&&element.dataset.publishedSchedule==='true')continue;
+      element.textContent=text;
+    }
     document.querySelector('#hero-title').innerHTML=`${t.title}<br><em>${t.word}</em>`;document.querySelector('#hero-copy').innerHTML=t.copy;
     document.querySelector('#collection-title').innerHTML='Your mystery selection<span>.</span>';
     document.title=`${t.label} Seasonal Vault | MMOEXP`;

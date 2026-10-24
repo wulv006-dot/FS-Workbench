@@ -41,14 +41,17 @@
       if (!this.available()) { report(messages.MAIN_INTEGRATION_REQUIRED); return; }
       try {
         client ||= sdk.create({element:document.documentElement, pageId:'seasonal-vault', activityId:'mmoexp-seasonal'});
+        if (action === 'lookup') {
+          report('Checking the original request status…');
+          const result = await client.lookup();
+          if (client.pending?.unknown) report(messages.OPERATION_UNKNOWN);
+          else if (client.pending?.resolved) report(`Original operation resolved: ${result?.status || 'resolved'}. Integration test only; no live cart change is confirmed.`);
+          else report(`Original selection recovered: ${result?.quote?.status || result?.status || 'verified'}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
+          return;
+        }
         report('Checking the published store configuration…');
         const loaded = await client.load();
         publishTheme(loaded.config);
-        if (action === 'lookup') {
-          const result = await client.lookup();
-          report(result?.status === 'unknown' ? messages.OPERATION_UNKNOWN : `Original operation status: ${result?.status || 'unknown'}. No live cart change is confirmed.`);
-          return;
-        }
         if (action === 'prepare') {
           const result = await client.prepare();
           report(`Integration test result: ${result?.status || 'unknown'}. No live cart, payment, discount or reward is confirmed.`);
@@ -60,7 +63,7 @@
         const result = await client.select(lines(bag));
         // Test quotes never turn a DEMO draw into an approved discount or reward.
         report(`Server response: ${result?.quote?.status || 'quote received'}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
-      } catch (error) { report(describe(error)); }
+      } catch (error) { report(client?.pending?.unknown ? messages.OPERATION_UNKNOWN : describe(error)); }
     }
   };
   if (window.SeasonalCommerce.available()) {
