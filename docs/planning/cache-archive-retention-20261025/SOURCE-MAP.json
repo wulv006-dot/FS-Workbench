@@ -1,6 +1,6 @@
 {
   "scope": "cache-archive-retention-20261025",
-  "state": "candidate_verified_pending_current_manifest_approval",
+  "state": "deployed_first_cleanup_and_live_restore_verified_hourly_natural_pending",
   "pr": 448,
   "runtime_candidate_commit": "6fa2c1ed47f987d17b0df1d1ee51a1e63f768721",
   "maintenance_source": "cache_archive_retention_20261025/source",
@@ -132,7 +132,109 @@
     "preview_rss_kib": 65064,
     "protected_targets": 73
   },
-  "production_cleanup_executed": false,
-  "timer_enabled": false,
-  "business_writes": 0
+  "production_cleanup_executed": true,
+  "timer_enabled": true,
+  "business_writes": 0,
+  "git": {
+    "pr": 448,
+    "approved_head": "d23e1d31bbb1b05b2e0e1265a79116d538af0d28",
+    "latest_base_integrated_head": "d9c13de9d2ada666d1210e309db56db2311611b3",
+    "merge": "2ac696a39881a65e54628a5045be2e11369661fd",
+    "ci_run": 40113948278,
+    "conclusion": "success",
+    "approved_runtime_payload_unchanged": true
+  },
+  "release_intent_id": "nav-20261024T171428Z",
+  "release_stage": "/opt/fs-release-stage/cache-archive-retention-20261025/release-2ac696a39881",
+  "release": {
+    "operation": "cache-archive-retention-20261025",
+    "original_attempt": {
+      "release_id": "nav-20261024T171428Z",
+      "status": "verified_rolled_back_after_mount_array_order_false_positive",
+      "business_writes": 0
+    },
+    "applied": {
+      "operation": "cache-archive-retention-20261025",
+      "release_id": "nav-20261024T172824Z",
+      "manifest_sha256": "f9d2a3a5e451bacd7c74a5617b6641c4e750771e3ec4eca1739426f9bd57deaa",
+      "source": "d9c13de9d2ada666d1210e309db56db2311611b3",
+      "merge": "2ac696a39881a65e54628a5045be2e11369661fd",
+      "wrapper_sha256": "99673c0abd92eca11a8a5a3a63197a943125b97918ab33e3c20876e34ddcea05",
+      "authorization": "user_approved_PR448_merge_release_six_targets_Admin_image_first_cleanup_and_hourly_maintenance",
+      "business_writes": 0,
+      "cleanup_during_code_release": false,
+      "original_release_id": "nav-20261024T171428Z",
+      "original_attempt": "verified_rolled_back_no_business_writes",
+      "correction": "compare_full_mount_records_by_destination_not_array_order"
+    },
+    "publisher": {
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261024T172824Z",
+      "status": "applied-awaiting-actual-http-role-acceptance",
+      "staticFiles": 6,
+      "businessWorkerTimerActions": 0
+    },
+    "targets_verified": 6,
+    "protected_verified": 73,
+    "session_identity_unchanged": true,
+    "session_login_attempts_before_after": [
+      2,
+      2
+    ],
+    "mounts_resources_unchanged": true
+  },
+  "first_cleanup": {
+    "operation_id": "nav-20261024T172824Z-first-cleanup",
+    "cache_files": 15,
+    "uncompressed_bytes": 46837213,
+    "compressed_bytes": 4559547,
+    "excel_files": 17,
+    "excel_bytes": 34476307,
+    "all_original_excel_hashes_verified": true,
+    "all_original_manifests_unchanged": true,
+    "protected_cache_unchanged": true
+  },
+  "live_acceptance": {
+    "at": 1792863201.368177,
+    "cache_restore_original_hash_and_time": true,
+    "history": [
+      {
+        "kind": "yoy",
+        "rows": 41373,
+        "host_equal": true,
+        "session_equal": true,
+        "period": {
+          "profile": "ALL",
+          "start": "2025-10-01",
+          "end": "2025-10-31"
+        }
+      },
+      {
+        "kind": "history",
+        "rows": 61669,
+        "host_equal": true,
+        "session_equal": true,
+        "period": {
+          "profile": "ALL",
+          "start": "2026-05-01",
+          "end": "2026-05-31"
+        }
+      }
+    ],
+    "recent_original_data_unchanged": true,
+    "admin_ready": true,
+    "admin_login_attempts": 2,
+    "order_ready": true,
+    "range_healthy": true,
+    "timer": "Unit=fs-cache-retention.service\nNextElapseUSecMonotonic=3w 6d 2h 43min 7.295956s\nLastTriggerUSec=0\nActiveState=active\n",
+    "service": "Result=success\nExecMainStatus=0\nMemoryLimit=536870912\nNice=10\nProtectSystem=full\n",
+    "first_cleanup": "nav-20261024T172824Z-first-cleanup",
+    "cache_net_freed_bytes": 38961152,
+    "excel_net_added_bytes": 7933952,
+    "cache_restore_kept_hot_until_original_hourly_maintenance": true,
+    "source_file_writes": 0,
+    "exports": 0,
+    "models": 0,
+    "price_writes": 0,
+    "natural_hourly_trigger_verified": false
+  }
 }
