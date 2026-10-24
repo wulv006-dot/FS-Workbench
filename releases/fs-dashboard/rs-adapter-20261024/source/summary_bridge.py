@@ -31,10 +31,12 @@ def build(profiles, order_call, dimension_map, web):
         row = profiles[q['profile']]
         with (web/'collector.lock').open('a+b') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if q['profile']=='RS':
+                from rs_shipping import collect
+                return collect(q)
             result = order_call('fc27-cloud-browser', 'primary_reader.py',
                                 [{'key': 'range', 'gid': row[2], 'status': '3' if row[4] == 'rpg' else '', **rs_order_filters(q), **q['period']}], 210)['range']
         result['dimensions'] = dimension_map(result)
-        if q['profile']=='RS': result['scopeLabel']='Order 全部网站参考 · '+result.get('rsScopeLabel','全部区服 · 全部类目')
         return result
 
     return SummaryCache(admin, order, profiles)

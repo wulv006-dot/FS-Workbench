@@ -19,6 +19,9 @@ def check_scope(key,scope,expected):
  if 'aid' in want:target['orderAreaId']=want['aid']
  if scope!=target:raise ValueError('profile/site/game/status contract differs')
 def normalise(record,expected):
+ if expected.get(record['profileKey'],{}).get('delivery'):
+  from rs_shipping import daily
+  return daily(record,expected)
  day=date.fromisoformat(record['date']);period={'start':day.isoformat()+' 00:00','end':(day+timedelta(days=1)).isoformat()+' 00:00'}
  if record.get('system')!='order.p2pah.cn' or record.get('endpoint')!='/stats/admin_order/index.html' or record.get('timezone')!='Asia/Shanghai' or record.get('currency')!='USD':raise ValueError('source/unit differs')
  if record.get('period')!=period:raise ValueError('complete daily period differs')
@@ -37,6 +40,9 @@ def normalise(record,expected):
 def identity(row):
  s=row['scope'];return row['profileKey'],row['date'],s['sites'],s['orderGameId'],s['orderProductType'],s['orderStatus'],s.get('orderAreaId')
 def validate_row(row,expected):
+ if expected.get(row['profileKey'],{}).get('delivery'):
+  from rs_shipping import validate_day
+  return validate_day(row,expected)
  check_scope(row['profileKey'],row['scope'],expected);day=date.fromisoformat(row['date'])
  if row['period']!={'start':str(day)+' 00:00','end':str(day+timedelta(days=1))+' 00:00'} or row['source']!='order.p2pah.cn' or row['marginUnit']!='percent' or row['timezone']!='Asia/Shanghai' or row['currency']!='USD':raise ValueError('history provenance differs')
  stamp(row['capturedAt']);stamp(row.get('latestAttemptAt',row['capturedAt']))

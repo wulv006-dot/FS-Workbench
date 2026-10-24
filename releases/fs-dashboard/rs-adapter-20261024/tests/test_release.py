@@ -5,6 +5,12 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('rs_release',ROOT/'deploy/rs_release.py')
 release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
 class Release(unittest.TestCase):
+    def test_shipping_followup_exact_scope(self):
+        spec=importlib.util.spec_from_file_location('shipping_release',ROOT/'deploy/shipping_release.py')
+        shipping=importlib.util.module_from_spec(spec);spec.loader.exec_module(shipping)
+        self.assertEqual(len(shipping.TARGETS),11);self.assertEqual(len(shipping.NEW),4)
+        self.assertEqual(shipping.TARGETS['source/rs_shipping.py'],'/opt/fs-exact-range-20261001/rs_shipping.py')
+        self.assertFalse(any('auth' in p or 'timer' in p or 'hermes' in p for p in shipping.TARGETS.values()))
     def test_exact_scope(self):
         self.assertEqual(len(release.TARGETS),13);self.assertEqual(len(release.NEW),5)
         self.assertEqual(len(release.ALIASES),4)

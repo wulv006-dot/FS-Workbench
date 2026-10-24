@@ -1,0 +1,94 @@
+{
+  "scope": "rs-shipping-profit-20261024",
+  "version": "rs-shipping-20261024-3318ca1016cf",
+  "files": [
+    {
+      "candidate": "source/rs_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/rs_shipping.py",
+      "sha256": "30f37f5c6c0d272e499e21fb92f423e752845a9ce6c072945362f747fcb04dcf",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "b8dfd72601b06ce79805a5d4c91c30704c628dda1536e47585ad899d9ef1bb0a",
+      "beforeSha256": "246f5e434ab31afae5afc3c77c4d8851f54ccfec25a56c152683fb917ca24c63",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "80a9c466810e8559ebe5da697b85225f4346ebae4b29a17a547aafdb37ee7a21",
+      "beforeSha256": "c0c49994339cdfe3a69c39180ff6272463d4de3a27cca85052d79ff0a02434ad",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "baeb84700be6a52d6949661dadf3ce6dc0b38e3fa8fb7796919c1ef89151a28e",
+      "beforeSha256": "f2b4d141fe44a876c1095e5cb2bd50371ee82f5a1abbb28f8373576aeb7eda0f",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_daily.py",
+      "target": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "sha256": "a26ba2061120d14205e11890f8b514424dbc23bf55ec06797c5a4fc049605f8d",
+      "beforeSha256": "dcc3bc6b0438a7321b8c987c7988e10a22145396a35c191243f04328ef463458",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_queries.py",
+      "target": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "sha256": "1e1a5fd60f20004042bf3947d41fe9f14d5a495c3360c910599675f515c93efa",
+      "beforeSha256": "859db8f4a387bb8f1a30d9571462a84d5b755d3a7814f839899bf20061468a0d",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "519934f1f1a6c3ab5a4d6f2db011047987437e1cd730864bf211d9f4cffd0f50",
+      "beforeSha256": "1d40671db4821701b960788eb1107a673809363dc273a78c8f6943b31cc6225b",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/business.js",
+      "sha256": "3db843e303b4ba99e758b2ab0cb2a44e5df55c8212103a8155243c4f13577897",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/home-business.js",
+      "sha256": "c166d52ecf276888a2e927b248a0b4e73f07abc61d965f27413df6ea54e267b1",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/legacy-business.js",
+      "sha256": "b1691a985ca440bb462a7208db3e5450ec47ce457343fbf489f727943ff5be8f",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "ff7e9321f6626910904f80fe6753d42d7ff5d9697783885bd4c641b46d5ad387",
+      "beforeSha256": "2fd006b50dddd59bd3acfdc1797d9b04ee8028f00dbf5cf6082f6a2797a7eb72",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}

@@ -44,7 +44,7 @@ def query(params, profiles, now=None):
     from rs_admin import selection, FIELDS, SITES
     rs = selection(p) if p['profile']=='RS' else {}
     if p['profile']!='RS' and any(k in p for k in FIELDS): raise ValueError('rs_filters_require_rs')
-    return {**rs, 'profile': p['profile'], 'start': start, 'end': end, 'grain': grain,
+    return {**rs, **({'rs_profit_source':'order-shipping-rs-v1'} if rs else {}), 'profile': p['profile'], 'start': start, 'end': end, 'grain': grain,
             'site': SITES[rs['rs_site']][1] if rs else SITE, 'contractId': CONTRACT, 'timezone': 'Asia/Shanghai',
             **({'refresh': True} if p.get('refresh') == 'true' else {}),
             'cacheSeconds': TTL if hi == now.date() else HISTORY_TTL,
