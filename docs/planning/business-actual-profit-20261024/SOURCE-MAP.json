@@ -1,0 +1,102 @@
+{
+  "scope": "business-actual-profit-20261024",
+  "version": "actual-profit-20261024-8cd52c2f279d",
+  "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8cd52c2f279d/business.js",
+      "sha256": "f506b2f1de0420ebfb8260a6e9e3b0811f3396718865d6b211ef837d67cc532d",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8cd52c2f279d/home-business.js",
+      "sha256": "3f546362f81c00b71dc63d1685190d5e220a066ef644c54b6df5b21aefbf9cd9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8cd52c2f279d/legacy-business.js",
+      "sha256": "28502227909e887a1611461acac350e4d6a686db36e03e722032b86cd673742e",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8cd52c2f279d/shell.js",
+      "sha256": "dcd9c9cf901304cfb3bec8466aa7f508490cbd864e0f7bd26ef28182540fe6bd",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/actual_profit.py",
+      "target": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "8c674d459651a5d2c2bc05633a55d7ede41a554dc7582e6d536af64e5fdc8be9",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/channel_effects.py",
+      "target": "/opt/fs-hermes-fc/channel_effects.py",
+      "sha256": "c640edb540bd62f00b5d2688eb716b9706b0d2268307b9f23f2e0db88dc66446",
+      "beforeSha256": "ec43c9adf72504ce88e31bda645d6f2d361443448f2b26a24dd7412cd013c1ff",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/channel_cost_source.py",
+      "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+      "sha256": "3832480422d421b0bd6dc9ad08e287780036cabf313724574aad27a80524e566",
+      "beforeSha256": "91403f8295ddc32762fded53bea551a1660d4b258bf6c2bfc3b2429f2d45b0ec",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "3e5d647a65986e58ebf85acf6f6bdf63b1e62fd27dcbbaec799c566052a0e47f",
+      "beforeSha256": "9c7320376e90fc91bfdd37d0f75dc4934732eb17819ac5c70e5040ca7e48d5d5",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "ebe48ce53fd5466d78f7b48b7b796aee100572d378088adaffa92852e12de2e3",
+      "beforeSha256": "df4805a6c20d244197270246455c4b8a5bcaec70af676bea93037dbc48ac9ec4",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "5b664e3c788282f0f40517c71bdae6bdec0d2b834ca51d6f8af462939a3d2862",
+      "beforeSha256": "a5dffe3037479bbe4b01c8dc801a130aea8517b6f16afa62378e6ec36201e550",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "32ac8de236e2db1e1f51721eb5d073787606107ac3e6b99b7639e2fc883fc89e",
+      "beforeSha256": "cdd73894143362ea195988ff3609bef48f9823f22c068b4a10a3976acbe199a8",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "status": "candidate_not_deployed",
+  "protectedFiles": 86,
+  "publisher": {
+    "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
+    "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
+    "actual_release.py": "8fb06f8e5e56e7762e5ebdf760b94bfc556279facf3778148cb7a6011b6513d3",
+    "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
+  }
+}
