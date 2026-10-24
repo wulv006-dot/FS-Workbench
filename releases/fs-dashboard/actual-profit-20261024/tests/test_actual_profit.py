@@ -141,6 +141,13 @@ class Service(unittest.TestCase):
     def test_original_channel_request_obeys_actual_worker_admission(self):
         self.service.jobs={'one':'pending','two':'cost_pending'};self.channels.actual_jobs=self.service.jobs
         self.assertEqual(self.channels.get({'start':['2026-10-20'],'end':['2026-10-21']},'admin')[0],429)
+    def test_cost_lock_deferral_retries_after_original_cooldown_even_with_revenue_snapshot(self):
+        self.service.cost_reader=Mock(side_effect=BlockingIOError('shared cost reader busy'))
+        self.service.get(BASE,'admin');self.pool.drain();self.assertEqual(set(self.service.jobs.values()),{'deferred'})
+        self.service.get(BASE,'admin');self.assertFalse(self.pool.jobs)
+        self.now=61;self.service.cost_reader=lambda d,*args:d
+        self.service.get(BASE,'admin');self.assertEqual(len(self.pool.jobs),1)
+        self.pool.drain();code,v=self.service.get(BASE,'admin');self.assertEqual(code,200);self.assertFalse(v['refreshing'])
     def test_cost_failure_preserves_known_values_and_error(self):
         self.service.get(BASE,'admin');self.pool.drain();self.now=61
         self.service.cost_reader=Mock(side_effect=OSError('failed'));self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain()
