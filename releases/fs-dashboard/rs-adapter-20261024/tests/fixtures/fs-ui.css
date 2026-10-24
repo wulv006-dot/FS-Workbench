@@ -1,0 +1,21 @@
+/* Low-specificity primitives. Module layouts retain their business DOM contracts. */
+:where(.fs-ui-page){background:var(--fs-bg);color:var(--fs-text);font-family:var(--fs-font);font-size:14.5px;line-height:1.55}
+:where(.fs-ui-page) *{box-sizing:border-box}
+:where(.fs-ui-page) :where(button,input,select,textarea){font:inherit}
+:where(.fs-ui-page) :where(button,input,select,textarea){border-radius:var(--fs-input-radius)}
+:where(.fs-ui-page) :where(button,a,input,select,textarea,summary):focus-visible{outline:3px solid var(--fs-focus);outline-offset:3px}
+:where(.fs-ui-page) :where(button:disabled,input:disabled,select:disabled){cursor:not-allowed;opacity:.6}
+:where(.fs-ui-page) :where(h1,h2,h3){font-weight:700;letter-spacing:-.02em}
+:where(.fs-ui-page) :where(th){font-weight:600}
+:where(.fs-ui-page) :where(table){font-size:13px;font-variant-numeric:tabular-nums}
+:where(.fs-ui-page) :where(.card,.panel,.workspace-card,.module-card,.tool-card){border-radius:var(--fs-radius);box-shadow:var(--fs-shadow)}
+:where(.fs-ui-page) :where(dialog){border-radius:var(--fs-modal-radius);background:var(--fs-surface);color:var(--fs-text);border:1px solid var(--fs-line)}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 14px;border:1px solid var(--fs-line);background:var(--fs-surface);color:var(--fs-text);border-radius:var(--fs-input-radius);font-weight:600;text-decoration:none}
+.fs-btn--primary{background:var(--fs-brand);color:var(--fs-brand-on);border-color:var(--fs-brand)}
+.fs-btn--ok{background:var(--fs-ok);color:var(--fs-ok-on)}.fs-btn--danger{background:var(--fs-danger);color:var(--fs-danger-on)}.fs-btn--amber{background:var(--fs-warn);color:var(--fs-warn-on)}
+.fs-note{padding:12px 16px;border:1px solid var(--fs-line);border-radius:12px;color:var(--fs-muted);background:var(--fs-surface-2);font-size:12px}
+.fs-table-scroll{max-width:100%;overflow:auto}.fs-number{font-variant-numeric:tabular-nums}.fs-muted{color:var(--fs-muted)}
+.fs-switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer}.fs-switch input{appearance:none;width:38px;height:22px;border:1px solid var(--fs-line);border-radius:99px;background:var(--fs-surface-3);position:relative;flex:none;margin:0}
+.fs-switch input:before{content:'';position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--fs-muted);transition:transform .16s}
+.fs-switch input:checked{background:var(--fs-brand);border-color:var(--fs-brand)}.fs-switch input:checked:before{transform:translateX(16px);background:var(--fs-brand-on)}
+@media(prefers-reduced-motion:reduce){.fs-ui-page *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
