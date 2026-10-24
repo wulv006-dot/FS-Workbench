@@ -20,13 +20,19 @@ function rsRenderFilters(){
 function rsProjection(profile){
  const admin=profile?.supplement,order=profile?.primary,selection=admin?.rsSelection||rsFilters,scopeLabel=admin?.scopeLabel||rsScope(selection),metrics={};
  const same=admin?.period?.start===order?.period?.start&&admin?.period?.end===order?.period?.end;
- for(const key of ['orders','revenueUsd','profitMarginPct','newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageOrderUsd','averageCustomerUsd','minOrderAmountUsd','maxOrderAmountUsd']){
+ for(const key of ['orders','revenueUsd','newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageOrderUsd','averageCustomerUsd','minOrderAmountUsd','maxOrderAmountUsd']){
   const a=admin?.status==='available'?admin.metrics?.[key]:null,o=same&&order?.status==='available'?order.metrics?.[key]:null;
   const valid=v=>v?.status==='available'&&typeof v.value==='number'&&Number.isFinite(v.value);
   metrics[key]=valid(a)?{...a,source:a.source==='Admin订单明细'?a.source:'Admin',scope:a.scope||scopeLabel}:valid(o)?{...o,source:'Order',scope:order.scopeLabel||'Order 全部网站参考'}:{value:null,status:'not_provided',source:'Admin / Order',scope:scopeLabel,pendingPhase:order?.readPhase||'not_provided'};
  }
- const revenue=metrics.revenueUsd,rate=metrics.profitMarginPct;
- metrics.estimatedProfitUsd={value:revenue.value!=null&&rate.value!=null?Math.round(Math.round(revenue.value*100)*Math.round(rate.value*100)/10000)/100:null,source:'Admin × Order',scope:'经营估算：'+scopeLabel+'销售额 × '+rate.scope+'利润率；非实结利润'};
- for(const m of Object.values(metrics))if(m.source==='Order'&&order?.stale){m.stale=true;m.pendingPhase=order.readPhase;}
+ const shipping=same&&order?.status==='available'&&order.sourceContract==='order-shipping-rs-v1'&&rsSame(order.rsSelection,selection);
+ for(const key of ['profitMarginPct','profitCny','shippingSalesCny','shippingCostCny']){const value=shipping?order.metrics?.[key]:null;metrics[key]=value?.status==='available'&&Number.isFinite(value.value)||value?.status==='not_applicable'?{...value,source:'Order发货统计',scope:scopeLabel+' · 交易时间；人民币采购毛利，非净利润'}:{value:null,status:'not_provided',source:'Order发货统计',scope:scopeLabel+' · 等待同范围发货统计'};}
+ metrics.estimatedProfitUsd={value:null,status:'not_provided',source:'Order发货统计',scope:'利润使用人民币原值'};
+ for(const m of Object.values(metrics))if(['Order','Order发货统计'].includes(m.source)&&order?.stale){m.stale=true;m.pendingPhase=order.readPhase;}
  return {metrics,period:admin?.period||profile?.period,adminCapturedAt:admin?.capturedAt,orderCapturedAt:order?.capturedAt,onlyMain:true,site:scopeLabel,policy:'rs-three-dimensions-v1'};
+}
+function rsShippingDays(history,start,end){
+ const rows=new Map((history.daily||[]).filter(r=>r.profileKey==='RS'&&r.sourceContract==='order-shipping-rs-v1'&&r.currency==='CNY'&&r.scope?.sites===(rsFilters.rs_site==='all'?'all-websites':'www.'+rsFilters.rs_site+'.com')&&r.scope.orderProductType===({all:'-1',currency:'1',package:'4',items:'2'})[rsFilters.rs_category]&&r.scope.orderGameId==='506'&&r.scope.orderStatus==='-1'&&r.scope.orderAreaId===({all:'0',rs3:'12370',oldschool:'12368'})[rsFilters.rs_server]).map(r=>[r.date,r]));
+ const out=[],a=Date.parse(start+'T00:00:00Z'),b=Date.parse(end+'T00:00:00Z');if(!Number.isFinite(a)||!Number.isFinite(b)||b<a||b-a>366*86400000)return [];
+ for(let ts=a;ts<=b;ts+=86400000){const day=new Date(ts).toISOString().slice(0,10),r=rows.get(day);out.push({day,rate:r?.profitMarginPct??null,orders:r?.orders??null,sales:r?.salesCny??null,profit:r?.profitCny??null,capturedAt:r?.capturedAt,stale:!!r?.stale,latestAttemptAt:r?.latestAttemptAt});}return out;
 }

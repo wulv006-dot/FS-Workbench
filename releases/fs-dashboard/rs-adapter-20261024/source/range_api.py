@@ -18,6 +18,9 @@ POOL=ThreadPoolExecutor(max_workers=1);LOCK=RLock();JOBS={};STARTS=[]
 PROFILE_MAP={r[0]:r for r in PROFILES}
 
 def call(container,script,requests,timeout):
+ if script=='rs_shipping':
+  from rs_shipping import collect
+  return {r['key']:collect({**r,'period':{'start':r['start'],'end':r['end']}}) for r in requests}
  if script!='primary_reader.py':return existing_call(container,script,requests,timeout)
  # A native range may use weekly/monthly labels. Read exact h2 aggregates, retain
  # undated chart buckets verbatim, and never reinterpret them as daily counts.
@@ -177,13 +180,14 @@ def get_range_live(params,force=False):
   if q['grain']!='day':raise ValueError('complete_daily_history_required')
   profit=PROFIT
   if q['profile']=='RS':
-   from rs_admin import SERVERS, ORDER_TYPES
-   key=(q['rs_server'],q['rs_category'])
+   from rs_shipping import filters
+   key=(q['rs_site'],q['rs_server'],q['rs_category'])
    with LOCK:
     if key not in RS_PROFITS:
      worker=ProfitQueries(PROFILE_MAP,call,SUMMARY.pools['Order'],WEB,CACHE/'profit-days')
-     worker.rs_filters={'aid':str(SERVERS[key[0]][0] or '0'),'tid':ORDER_TYPES[key[1]]}
-     worker.expected['RS'].update(worker.rs_filters)
+     worker.rs_filters={k:q[k] for k in ('rs_site','rs_server','rs_category')}
+     f=filters(q)
+     worker.expected['RS']=dict(sites=f['source[]'] or 'all-websites',gid='506',tid=f['cid'],status=f['status'],aid=f['aid'],delivery=True)
      RS_PROFITS[key]=worker
     profit=RS_PROFITS[key]
   return profit.get(q,snapshot()['catalogId'],datetime.now(SHANGHAI).date())

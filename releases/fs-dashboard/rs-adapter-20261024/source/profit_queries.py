@@ -62,7 +62,7 @@ class ProfitQueries:
                        **self.rs_filters, 'start':day+' 00:00','end':(date.fromisoformat(day)+timedelta(days=1)).isoformat()+' 00:00'} for day in days]
             with (self.web/'collector.lock').open('a+b') as source_lock:
                 fcntl.flock(source_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-                values=self.call('fc27-cloud-browser','primary_reader.py',requests,210)
+                values=self.call('fc27-cloud-browser','rs_shipping' if self.expected[key].get('delivery') else 'primary_reader.py',requests,210)
             for day in days:
                 source=values[day]
                 raw={**source,'profileKey':key,'date':day,'profitMarginPct':source.get('metrics',{}).get('profitMarginPct',{}),

@@ -12,11 +12,16 @@ function reply(q){
  const amount=({all:1000,rsorders:200,rsmalls:300,rsfast:400,mmoexp:0}[rs.rs_site])/ (rs.rs_category==='all'?1:10),count=amount?4:0;
  const key=q.get('profile'),query=Object.fromEntries(q);delete query.mode;
  const period={start:q.get('start')+' 00:00',end:'2026-10-24 00:00'},when='2026-10-24T07:00:00+00:00';
- if(q.get('mode')==='profit-history')return {schemaVersion:1,status:'available',catalogId,query,history:{schemaVersion:2,contractId:'order-native-daily-margin-v2',snapshotId:catalogId,daily:[{profileKey:key,date:q.get('start'),scope:{sites:'all-websites',orderGameId:key==='RS'?'506':'1322',orderProductType:({all:'',currency:'1',package:'4',items:'2'})[rs.rs_category],orderStatus:'',...(key==='RS'?{orderAreaId:rs.rs_server==='oldschool'?'12368':rs.rs_server==='rs3'?'12370':'0'}:{})},profitMarginPct:20,orders:4,revenueUsd:amount,status:'available',capturedAt:when}]}};
+ if(q.get('mode')==='profit-history'){
+  const row={profileKey:key,date:q.get('start'),scope:{sites:'all-websites',orderGameId:key==='RS'?'506':'1322',orderProductType:'',orderStatus:''},profitMarginPct:20,orders:4,revenueUsd:amount,status:'available',capturedAt:when};
+  if(key==='RS')Object.assign(row,{sourceContract:'order-shipping-rs-v1',currency:'CNY',scope:{sites:rs.rs_site==='all'?'all-websites':'www.'+rs.rs_site+'.com',orderGameId:'506',orderProductType:({all:'-1',currency:'1',package:'4',items:'2'})[rs.rs_category],orderStatus:'-1',orderAreaId:({all:'0',rs3:'12370',oldschool:'12368'})[rs.rs_server]},profitMarginPct:amount?23.23:null,salesCny:amount*7,profitCny:amount*2,costCny:amount*5,revenueUsd:null});
+  return {schemaVersion:1,status:'available',catalogId,query,history:{schemaVersion:2,contractId:'order-native-daily-margin-v2',snapshotId:catalogId,daily:[row]}};
+ }
  const dims={countries:[{code:'US',name:'United States',orders:count,revenueUsd:amount}],payments:[{name:'paypal',orders:count,revenueUsd:amount}],devices:[{name:'PC',orders:count,revenueUsd:amount}],channels:[{name:rs.rs_site==='all'?'www.rsorders.com':'www.'+rs.rs_site+'.com',orders:count,revenueUsd:amount}]};
  const common={status:'available',period,capturedAt:when,currency:'USD',sourceDataAsOf:null,rows:count?[{date:q.get('start')+' 01:00',orders:count,amount}]:[],seriesGranularity:'day-or-hour',labelsVerified:true};
  const supplement={...common,rsSelection:rs,scopeLabel:Object.values(rs).join(' · '),normalisedScope:'rs-selected',filters:{game:'506'},metrics:Object.fromEntries(['orders','revenueUsd','newCustomers','payingCustomers','repeatRatePct'].map(k=>[k,{...metric(k==='revenueUsd'?amount:k==='repeatRatePct'?20:count),scope:'所选范围'}])),dimensions:dims};
  const primary={...common,normalisedScope:'all-websites',filters:{gid:key==='RS'?'506':'1322',tid:'',status:''},metrics:{profitMarginPct:metric(20)},dimensions:{},scopeLabel:'Order 全部网站参考'};
+ if(key==='RS')Object.assign(primary,{currency:'CNY',sourceContract:'order-shipping-rs-v1',rsSelection:rs,metrics:{profitMarginPct:metric(amount?23.23:null),profitCny:metric(amount*2),shippingSalesCny:metric(amount*7),shippingCostCny:metric(amount*5)}});
  return {schemaVersion:1,status:'available',scopeContractId:'admin-main-order-labelled-supplement-v1',query,profile:{key,name:key,period,primary,supplement,metrics:primary.metrics,dimensions:{}},rangeId:'a'.repeat(64),baseSnapshotId:catalogId,generatedAt:when,expiresInSeconds:7200,refreshSeconds:7200,stale:false,cachePolicy:'historical',sources:{Admin:{status:'available',capturedAt:when},Order:{status:'available',capturedAt:when}}};
 }
 const boot=`import {lifecycle} from '/runtime.js'; import {mount} from '/business.js'; const host=document.getElementById('app'); let restored=false; const seed=${JSON.stringify(seed)}; const scope=lifecycle(host,q=>{if(!restored&&window.api){restored=window.api.apply(seed);}window.lastState=q;},()=>{}); scope.seed=seed;for(const name of ['fs-ui.css','native-alias.css','business.css']){const style=document.createElement('style');style.textContent=await(await fetch('/'+name)).text();scope.root.append(style);}const template=document.createElement('template');template.innerHTML=await(await fetch('/business.html')).text();scope.root.append(template.content);window.api=mount(scope);window.scope=scope;`;
@@ -40,18 +45,23 @@ module.exports={start,server};
 if(require.main===module)(async()=>{
  const url=await start(),browser=await chromium.launch({headless:true});
  try{
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(url);
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack);});await page.goto(url);
   const site=page.locator('#rs_site'),category=page.locator('#rs_category'),area=page.locator('#rs_server'),core=page.locator('#supplement-insights .fsi-metric');
   await site.waitFor({state:'visible'});await page.waitForFunction(()=>window.lastState?.phase==='available');
   assert.equal(await category.isVisible(),true);assert.equal(await area.isVisible(),false);assert.equal(await site.inputValue(),'all');
   await site.selectOption('rsorders');await page.waitForFunction(()=>window.lastState?.phase==='available'&&window.lastState?.b_rs_site==='rsorders');
   await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(2) strong')?.textContent==='$200.00');
   assert.match(await core.nth(1).innerText(),/200\.00/);assert.match(await page.locator('#geoRank').innerText(),/200/);
+  await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(3) strong')?.textContent==='¥400.00');
+  assert.match(await core.nth(2).innerText(),/Order发货统计/);assert.match(await core.nth(3).innerText(),/23\.2/);
+  assert.match(await page.locator('#kpisProfit').innerText(),/¥400\.00/);
+  await page.locator('[data-profit-day]').waitFor();assert.match(await page.locator('#lblProfit').innerText(),/Order发货统计/);
   await category.selectOption('items');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(2) strong')?.textContent==='$20.00');
   assert.ok(queries.some(q=>q.mode==='summary'&&q.rs_site==='rsorders'&&q.rs_category==='items'));
   await site.selectOption('rsmalls');await site.selectOption('rsfast');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(2) strong')?.textContent==='$40.00');
   await page.waitForTimeout(650);assert.match(await core.nth(1).innerText(),/40\.00/);assert.doesNotMatch(await core.nth(1).innerText(),/30\.00/);
   await site.selectOption('mmoexp');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(2) strong')?.textContent==='$0.00');
+  assert.match(await core.nth(2).innerText(),/¥0\.00/);assert.doesNotMatch(await core.nth(3).innerText(),/23\.2/);
   await site.selectOption('rsorders');await category.selectOption('all');await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metric:nth-child(2) strong')?.textContent==='$200.00');
   for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.ownerDocument.documentElement.dataset.theme=t;},theme);assert.equal(await site.isVisible(),true);assert.notEqual(await core.nth(0).evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');}
   await page.locator('#app').evaluate(e=>{e.dataset.theme='light';e.ownerDocument.documentElement.dataset.theme='light';});
