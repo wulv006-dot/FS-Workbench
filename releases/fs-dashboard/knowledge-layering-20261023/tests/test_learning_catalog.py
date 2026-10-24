@@ -27,7 +27,7 @@ HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
 CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
-               'fs.learning.methods', 'fs.project.execution'}
+               'fs.learning.methods', 'fs.project.execution', 'fc.pricing.reference-weighting'}
 
 
 def lf(path):
@@ -244,11 +244,21 @@ class LearningCatalog(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source_version'):
             kc.validate(value)
 
-    def test_twelve_current_entries_cover_rules_and_twenty_total_preserve_history(self):
+    def test_thirteen_current_entries_cover_rules_and_twenty_one_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 20)
+        self.assertEqual(len(entries), 21)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 20)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 21)
+
+    def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
+        entries = catalog()['entries']
+        row = next(r for r in entries if r['id']=='fc.pricing.reference-weighting')
+        self.assertEqual(row['revision'], 'fc-reference-weighting-20261024-v2')
+        text = lf(ROOT/row['source']['path']).decode('utf-8')
+        for required in ('80%', '15%', '5%', '缺项贡献为0', 'model_unavailable_fallback_usd', 'v15'):
+            self.assertIn(required, text)
+        margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
+        self.assertEqual(margin['revision'], 'v15')
 
     def test_every_source_hash_and_selector_resolves_against_real_files(self):
         for row in catalog()['entries']:
@@ -296,7 +306,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertLess(len(knowledge['text'].encode()), bc.MAX_TOTAL)
             loaded = bc.loaded_learning(root, knowledge['version'])
             receipt = bc.effective_learning(loaded, [dict(role='system', content=loaded['text'])])
-            self.assertEqual(len(receipt['knowledge_entries']), 12)
+            self.assertEqual(len(receipt['knowledge_entries']), 13)
             sections = read_all_sections(root, loaded)
             for row in selection['entries']:
                 path = 'knowledge/'+row['id']+'@'+row['revision']
@@ -326,3 +336,4 @@ class LearningCatalog(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
