@@ -1,0 +1,2 @@
+# The publisher pins these original bytes; Windows checkout must not change EOLs.
+native/release_navigation_base.py -text

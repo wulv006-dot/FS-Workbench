@@ -1,0 +1,25 @@
+[Unit]
+Description=FS campaign published customer runtime
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/fs-campaign-dashboard
+ExecStart=/usr/bin/node /opt/fs-campaign-dashboard/runtime/server.mjs
+Environment=CAMPAIGN_PUBLIC_MODE=preview
+Environment=CAMPAIGN_PUBLIC_PORT=8949
+Environment=CAMPAIGN_RUNTIME_DATA=/var/lib/fs-campaign-runtime
+EnvironmentFile=/etc/fs-campaign-runtime.env
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=fs-campaign-runtime
+ReadWritePaths=/var/lib/fs-campaign-runtime
+
+[Install]
+WantedBy=multi-user.target
