@@ -6,7 +6,7 @@
   "entries": [
     {
       "id": "fs.data.sources",
-      "revision": "baseline-v15",
+      "revision": "baseline-v15-dashboard-shipping-20261024",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -16,21 +16,27 @@
       "effective_at": "2026-10-21",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
           "end": "## 2. 订单详情与问题原因"
         }
       },
-      "supersedes": [],
+      "supersedes": [
+        "fs.data.sources@baseline-v15"
+      ],
       "provenance": [
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "dashboard_scope_rule_sync",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -51,10 +57,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -66,6 +72,10 @@
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "dashboard_scope_rule_sync",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -86,10 +96,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -101,6 +111,10 @@
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "dashboard_scope_rule_sync",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -177,10 +191,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
@@ -192,6 +206,10 @@
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "dashboard_scope_rule_sync",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -373,10 +391,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "9263e02eb4702eda25a77521e85dc1afac79c0803023d54668d0d9dc6e0bf969",
+        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -388,6 +406,10 @@
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "dashboard_scope_rule_sync",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -758,6 +780,42 @@
           "implementation_status": "not_deployed_at_candidate_preparation"
         }
       ]
+    },
+    {
+      "id": "fs.dashboard.shipping-profit",
+      "revision": "shipping-profit-20261024-v1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-10-24",
+      "owner": "吴律；原经营看板维护者",
+      "authority": "git",
+      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source": {
+        "path": "docs/planning/business-shipping-profit-20261024/CONTRACT.md",
+        "sha256": "29686e979fb14a9e592f4b70016396356725eaecdbfe0df3279605b2a4a1fcf5",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 来源与范围",
+          "end": "## 真实只读核对"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmed_dashboard_scope",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/business-shipping-profit-20261024/CONTRACT.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
     }
   ],
   "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
