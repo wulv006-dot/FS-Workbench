@@ -1,3 +1,8 @@
+<!-- fc27-report-method-current-20261024 -->
+## FC27经营报告字段与呈现
+
+FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量提高分析权重并置于发货履约之前，本次日报默认04获客、05利润目标、06履约。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、v15及原调度/权限保持。
+
 <!-- fc-reference-weighting-deployed-20261024 -->
 FC Coins 80/15/5 has been deployed through PR425/426. Exact current sources and runtime hashes, baseline compatibility correction, CI and actual model/readback evidence: docs/planning/fc-competitor-weighting-20261024/DELIVERY.md and SOURCE-MAP.json. Preserve original fallback/v15/pool/120min/UNKNOWN and incident writer fixes. The published 12-entry learning route remains; do not claim the new Git entry was separately deployed as a 13-entry catalog. Natural-cycle and profit acceptance remain separate.
 
