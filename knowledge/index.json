@@ -6,7 +6,7 @@
   "entries": [
     {
       "id": "fs.data.sources",
-      "revision": "baseline-v15-dashboard-shipping-20261024",
+      "revision": "baseline-v15-dashboard-actual-20261024",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -16,10 +16,10 @@
       "effective_at": "2026-10-21",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
+        "sha256": "7b722dcf11ca7423d95ac61161768872ef17a92221864428a3321ba069a68240",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -37,6 +37,10 @@
         {
           "kind": "dashboard_scope_rule_sync",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_dashboard_actual_profit",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -57,10 +61,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
+        "sha256": "7b722dcf11ca7423d95ac61161768872ef17a92221864428a3321ba069a68240",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -76,6 +80,10 @@
         {
           "kind": "dashboard_scope_rule_sync",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_dashboard_actual_profit",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -96,10 +104,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
+        "sha256": "7b722dcf11ca7423d95ac61161768872ef17a92221864428a3321ba069a68240",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -115,6 +123,10 @@
         {
           "kind": "dashboard_scope_rule_sync",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_dashboard_actual_profit",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -191,10 +203,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
+        "sha256": "7b722dcf11ca7423d95ac61161768872ef17a92221864428a3321ba069a68240",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
@@ -210,6 +222,10 @@
         {
           "kind": "dashboard_scope_rule_sync",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_dashboard_actual_profit",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -391,10 +407,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "456a9111f60a7d32ed97c135c5ecc81081530b31ec16db3eab40b1a62a81f27e",
+        "sha256": "7b722dcf11ca7423d95ac61161768872ef17a92221864428a3321ba069a68240",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -410,6 +426,10 @@
         {
           "kind": "dashboard_scope_rule_sync",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_dashboard_actual_profit",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
         }
       ],
       "consumers": [
@@ -784,8 +804,8 @@
     {
       "id": "fs.dashboard.shipping-profit",
       "revision": "shipping-profit-20261024-v1",
-      "layer": "current",
-      "status": "effective",
+      "layer": "archive",
+      "status": "retired",
       "modules": [
         "FS",
         "FC27",
@@ -809,6 +829,47 @@
         {
           "kind": "direct_user_confirmed_dashboard_scope",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/business-shipping-profit-20261024/CONTRACT.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fs.dashboard.shipping-profit",
+      "revision": "same-order-actual-profit-20261024-v2",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FS",
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-10-24",
+      "owner": "吴律；原经营看板维护者",
+      "authority": "git",
+      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
+      "source": {
+        "path": "docs/planning/business-actual-profit-20261024/CONTRACT.md",
+        "sha256": "6369db82e17ad3022ca146747d854ee0f9aa401a31df556b145f74e28f899a4a",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "# 经营看板逐单实际成本毛利"
+        }
+      },
+      "supersedes": [
+        "fs.dashboard.shipping-profit@shipping-profit-20261024-v1"
+      ],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmed_dashboard_scope",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/business-shipping-profit-20261024/CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_confirmed_actual_profit_primary",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/business-actual-profit-20261024/CONTRACT.md"
         }
       ],
       "consumers": [

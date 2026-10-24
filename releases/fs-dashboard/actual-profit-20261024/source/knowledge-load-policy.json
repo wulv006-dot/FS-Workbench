@@ -1,0 +1,276 @@
+{
+  "contract": "fs-knowledge-load-policy-v1",
+  "requests": {},
+  "native": {
+    "enabled": true,
+    "routes": [
+      {
+        "platform": "desktop",
+        "profile_name": "default",
+        "session_ids": [
+          "20261023_033049_63d62f"
+        ],
+        "catalog": "knowledge-releases/knowledge-layering-20261023-1/index.json",
+        "sha256": "ba2a0ad4b38028cf08a0b73e6d1529a2ba255a29bd5cbc483b5f8f8c9ee095ba",
+        "modules": [
+          "FS",
+          "FC27",
+          "marketing"
+        ]
+      }
+    ],
+    "readonly_sessions": {
+      "20261023_033049_63d62f": {
+        "task_ids": [
+          "20261023_033049_63d62f"
+        ]
+      }
+    }
+  },
+  "task_routes": {
+    "enabled": true,
+    "routes": [
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "wulv",
+        "project": "FS",
+        "channel": "fs",
+        "task_types": [
+          "report",
+          "data",
+          "conversation"
+        ],
+        "baseline_compatibility": {
+          "mode": "retain_full_baseline",
+          "sha256": "68ea4baaf53a95ff049594ee468ed59cc1f4315b3fa6d9250ab272101b34ecdf"
+        }
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_e5eee5f76fbd22877187d655f0a68b94",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": null
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_851140c62fd564e2fef467669814b2e8",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": null
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_851140c62fd564e2fef467669814b2e8",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": "omt_19be85c6c6cf1a46"
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_851140c62fd564e2fef467669814b2e8",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": "omt_19bf743fcdd6da4a"
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_5f5939104105ace0fa2b08491105e773",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": "omt_19bda2b59b0e5a44"
+      },
+      {
+        "catalog": "knowledge-releases/hermes-learning-closure-20261023-1/index.json",
+        "sha256": "470124727893737af93be33c5a7fc516fcf5e3227e59ec1045ef78c625515678",
+        "modules": [
+          "FS",
+          "FC27"
+        ],
+        "entry_ids": [
+          "fs.data.sources",
+          "fs.data.currency",
+          "fs.customer.identity",
+          "fs.finance.procurement",
+          "fc.pricing.constraints",
+          "fc.marketing.attribution",
+          "fs.procurement.inputs",
+          "fs.pricing.parameter-identity",
+          "fs.product.identity",
+          "fs.customer.lifecycle",
+          "fs.learning.methods",
+          "fs.project.execution"
+        ],
+        "reviewed_skills": {
+          "source": "approved_current"
+        },
+        "owner": "ou_5f5939104105ace0fa2b08491105e773",
+        "project": "FS",
+        "channel": "feishu",
+        "task_types": [
+          "conversation"
+        ],
+        "profile_name": "default",
+        "chat_id": "oc_b1964fbd9c2fad92825a30f601313d66",
+        "thread_id": "omt_19b2b2cdf4ce1ce7"
+      }
+    ]
+  }
+}
