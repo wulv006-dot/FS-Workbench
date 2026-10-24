@@ -1,0 +1,118 @@
+{
+  "scope": "business-actual-profit-20261024",
+  "version": "actual-profit-20261024-229e0a570df3",
+  "files": [
+    {
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "sha256": "68ea4baaf53a95ff049594ee468ed59cc1f4315b3fa6d9250ab272101b34ecdf",
+      "beforeSha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "sha256": "56b9219e9178da8111350b0dcf30d55c1d0325a43f8b40817d0348c54482ead9",
+      "beforeSha256": "1a446e554f4ae1677fbfbc8460fd64ece314fc97ca05eb393a4211d02f9da02b",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/business.js",
+      "sha256": "66870ed1ee5f7971f4cb32f6bab70e1b2973d658f793f3a48a5977d55dafa1f4",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/home-business.js",
+      "sha256": "87b10da8b0e2ebd9e01cb1eae84c35d66e93a43bf6da1a102f2435c8b02a3478",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/legacy-business.js",
+      "sha256": "213a76a08be17de4514af864573ef5b95ef1cb1192e29187197e7f12f3d2ecdf",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/shell.js",
+      "sha256": "dcd9c9cf901304cfb3bec8466aa7f508490cbd864e0f7bd26ef28182540fe6bd",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/actual_profit.py",
+      "target": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "5db3e7309534a614dbb4df07590167f18bd99ef6c518e427ebce379b3e0ac72d",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/channel_effects.py",
+      "target": "/opt/fs-hermes-fc/channel_effects.py",
+      "sha256": "c640edb540bd62f00b5d2688eb716b9706b0d2268307b9f23f2e0db88dc66446",
+      "beforeSha256": "ec43c9adf72504ce88e31bda645d6f2d361443448f2b26a24dd7412cd013c1ff",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/channel_cost_source.py",
+      "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+      "sha256": "8adb96256362c5fe988a33c8f3b241398fd9e23b688c258477effbc0873d6ce6",
+      "beforeSha256": "91403f8295ddc32762fded53bea551a1660d4b258bf6c2bfc3b2429f2d45b0ec",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "3e5d647a65986e58ebf85acf6f6bdf63b1e62fd27dcbbaec799c566052a0e47f",
+      "beforeSha256": "9c7320376e90fc91bfdd37d0f75dc4934732eb17819ac5c70e5040ca7e48d5d5",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "ebe48ce53fd5466d78f7b48b7b796aee100572d378088adaffa92852e12de2e3",
+      "beforeSha256": "df4805a6c20d244197270246455c4b8a5bcaec70af676bea93037dbc48ac9ec4",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "5b664e3c788282f0f40517c71bdae6bdec0d2b834ca51d6f8af462939a3d2862",
+      "beforeSha256": "a5dffe3037479bbe4b01c8dc801a130aea8517b6f16afa62378e6ec36201e550",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad",
+      "beforeSha256": "cdd73894143362ea195988ff3609bef48f9823f22c068b4a10a3976acbe199a8",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "status": "candidate_not_deployed",
+  "protectedFiles": 86,
+  "publisher": {
+    "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
+    "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
+    "actual_release.py": "65bbb3b530b1b7f9ed02b626e4553d57e82eb36fb5aed329a0f0566821fda086",
+    "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
+  }
+}
