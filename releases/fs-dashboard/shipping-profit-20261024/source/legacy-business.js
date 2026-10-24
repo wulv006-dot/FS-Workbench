@@ -244,7 +244,7 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  const projected=fsMainSite(p,combined),m=projected.metrics,period=projected.period,shown={...m},procurement=fsEnsureProcurement(p,combined);
  const head=text('div',null,'fsi-heading');head.append(text('h3',key==='RS'?'RS · '+projected.site:combined?'全部网站':'MMOEXP 主站经营'),text('p',(key==='MMOEXP'?'MMOEXP':p.name||key)+' · '+(period?.start||'—')+' 至 '+(period?.end||'—')+' · 北京时间','fsi-note'));host.append(head);
  const cards=text('div',null,'fsi-metrics');
- const fields=[[key==='RS'?'所选范围订单数':combined?'全部网站订单数':'主站订单数','orders',count],[key==='RS'?'所选范围销售额':combined?'全部网站销售额':'主站销售额','revenueUsd',money],['利润金额（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['利润率（发货统计）','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['后台复购率','repeatRatePct',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageCustomerUsd',money]];
+ const fields=[[key==='RS'?'所选范围订单数':combined?'全部网站订单数':'主站订单数','orders',count],[key==='RS'?'所选范围销售额':combined?'全部网站销售额':'主站销售额','revenueUsd',money],['发货利润（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['发货利润率','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['后台复购率','repeatRatePct',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageCustomerUsd',money]];
  for(const [label,k,format] of fields){const item=shown[k];cards.append(metricCard(label,phase?placeholder:fsMetricText(item,format),'来源：'+item.source+' · '+item.scope));}
  host.append(cards);
  if(procurement){
@@ -276,7 +276,7 @@ function peek(d,key,s){const v=!deniedStatus&&s?cache.get(keyOf(d,key,s)):null;c
 function selected(d,key,s,result){const v=FSBusinessRange.select(d,s),profiles={...v.profiles};
  for(const pkey of Object.keys(profiles)){const exact=pkey===key?result:peek(d,pkey,s);if(exact)profiles[pkey]={...exact.profile,rangeSelected:true,rangeExact:true,rangeCovered:true,exactRangeGeneration:exact.rangeId};}
  if(result)profiles[key]={...result.profile,rangeSelected:true,rangeExact:true,rangeCovered:true};return {...v,profiles,exactRange:result};}
-function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='所选区间指标采用Order/Admin后台区间原值；人数、复购率和利润率不按日相加。主站订单和销售额以Admin为准；Order利润率补充，预估利润按主站销售额×利润率。';}
+function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='订单与美元销售取Admin付款统计；发货利润和发货利润率取同范围Order发货统计，利润为人民币销售减采购，采用交易时间。人数与复购率不按日相加，区间率按同区间总额，逐单实际成本毛利独立核对。';}
 function note(host,state,result){const p=document.createElement('p');p.className=state==='loading'?'fsi-note':'fsi-empty';p.dataset.exactRangeStatus=state;
  p.textContent=state==='loading'?(result?.message||'正在读取后台准确区间聚合…'):state==='available'?'准确区间聚合 · Admin 主站 / Order 补充参考 · 支付时间截至 '+result.profile.period.end+'（结束边界不含） · 数据生成 '+new Date(result.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+' 北京时间 · 目录版本 '+result.baseSnapshotId:
  '准确区间读取失败，可重试；不会按日估算人数或利润率。'+(result?.message||'可切换区间或检查新版本后重试。');if(state==='available'&&result.sources){p.textContent=(result.stale&&result.cachePolicy!=='historical'?'⚠ 已过期故障兜底 · ':'')+'Admin主站/Order补充 · 查询截至 '+result.profile.period.end+' 北京时间 · Admin读取 '+result.sources.Admin.capturedAt+' · 上游统计水位 '+(result.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel({...result.sources.Order,stale:result.cachePolicy!=='historical'&&result.sources.Order.stale})+' · 共享缓存 '+(result.refreshSeconds||fsPeriodPolicy().ttl(result.query))+'秒';}if(state==='available'&&result.profile.primary.seriesGranularity==='upstream-undated')p.textContent+=' · 按日图表仍采用已发布日数据，区间指标采用后台准确汇总。';host.prepend(p);}
@@ -643,7 +643,7 @@ function renderPublishedProfitHistory(rateIn){
  const noSales=pts.filter(p=>p.notApplicable).length;
  const known=pts.filter(p=>p.rate!==null),fresh=known.filter(p=>!p.stale),stale=known.length-fresh.length;
  hint.textContent=`所选 ${pts.length} 日 · 已提供 ${known.length} 日 · ${dailyQuery?.pending?'其余日期按需读取中':'缺失 '+(pts.length-known.length-noSales)+' 日'+(noSales?' · '+noSales+' 日无销售额，利润率不适用':'')}${dailyQuery?.error?' · '+dailyQuery.error:''}${stale?' · '+stale+' 日保留旧值（过期）':''} · 完整北京自然日；今日未结束不计入完整日利润`;
- label.innerHTML=IC.chart+'利润率<span class="sl-hint">'+'Order发货统计 · 交易时间 · 人民币'+' · '+esc(KEY==='RS'?rsScope():KEY)+' · 按所选日期查询'+'</span>';
+ label.innerHTML=IC.chart+'发货利润率<span class="sl-hint">'+'Order发货统计 · 交易时间 · 人民币'+' · '+esc(KEY==='RS'?rsScope():KEY)+' · 按所选日期查询'+'</span>';
  if(!pts.length){legend.innerHTML='';el.innerHTML='<div class="empty">该日期区间无完整日数据</div>';return true;}
  /* 轴取整到 10 的倍数（刻度才是整数），并留出顶部余量放柱顶数值 */
  const rawMax=Math.max(0,...known.map(p=>p.rate)),rawMin=Math.min(0,...known.map(p=>p.rate));
@@ -668,7 +668,7 @@ function renderPublishedProfitHistory(rateIn){
  pts.forEach((p,i)=>{g+=`<rect x="${PL+step*i}" y="${PT}" width="${step}" height="${ih}" fill="transparent" class="pzh" data-i="${i}"/>`;});
  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" height="310" preserveAspectRatio="none">${g}</svg>`;
  const gone=pts.length-known.length-noSales;
- legend.innerHTML='<span><i style="background:#1a9e57"></i>当日利润率</span>'
+ legend.innerHTML='<span><i style="background:#1a9e57"></i>当日发货利润率</span>'
   +'<span><i style="background:#ff9500"></i>所选区间原值</span>'
   +(stale?'<span><i style="background:#1a9e57;opacity:.45"></i>'+stale+' 日保留旧值（过期）</span>':'')
   +(gone?'<span><i style="background:#d5d9df"></i>'+gone+' 日缺失</span>':'')
@@ -708,7 +708,7 @@ function renderProfit(){
   const pfSrc = (PROFIT.source||'order.p2pah.cn').replace(/^https?:\/\//,'').split('/')[0];
   const pfWhen = PROFIT.generatedAt || '-';
   const nm = (pfNode()||{}).name || '';
-  lbl.innerHTML = IC.chart + '利润率'
+  lbl.innerHTML = IC.chart + '发货利润率'
     + '<span class="sl-hint">后台 ' + esc(pfSrc) + ' · 支付时间（北京自然日）口径 · '
     + (nm ? esc(nm) + ' · ' : '') + '采集 ' + esc(pfWhen) + '</span>';
 
@@ -719,7 +719,6 @@ function renderProfit(){
   const marginMetric=projection.metrics.profitMarginPct;
   const rate=marginMetric?.value==null?null:marginMetric.value/100;
   const amtBase = projection.metrics.revenueUsd.value;
-  const profitUsd = fsMainSite(native).metrics.estimatedProfitUsd.value;
   const actualProcurement=procurementRead?.id===JSON.stringify([native?.key,fsProcurementQuery(native,false,currentSelection())])?procurementRead.data:null;
   /* 后台订单金额 ÷ 本页（主后台）销售额 —— 直接把这个口径差摊开给使用者看 */
   const prov = null;
@@ -729,17 +728,15 @@ function renderProfit(){
   const up = dp!=null ? (dp>=0?'pfup':'pfdown') : '';
 
   const cards = [
-    {c:'c2', k:'区间利润率', v: exactPermissionDenied()?'读取失败':rate==null?'-':fmtP(rate*100),
+    {c:'c2', k:'区间发货利润率', v: exactPermissionDenied()?'读取失败':rate==null?'-':fmtP(rate*100),
      s: exactPermissionDenied()?'准确区间访问失效；历史曲线保留原来源与时间':rate==null ? '后台口径不可用' : basis},
-    {c:'c3', k:'预估利润金额', v: profitUsd==null?'-':fmtM(profitUsd),
-     s: 'Admin主站销售额 × Order利润率；跨来源预估'},
+    {c:'c3',k:'发货利润（¥）',v:fsMetricText(projection.metrics.profitCny,v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})),s:esc(projection.metrics.profitCny.scope)},
     {c:'c5', k:'Admin主站销售额', v: amtBase==null?'-':fmtM(amtBase),
      s: '来源：Admin · MMOEXP主站'},
     {c:'c7', k:'环比上一区间', v: dp==null?'-':(dp>=0?'+':'') + dp.toFixed(2) + ' pp',
      s: prevRate==null?'上一等长区间无数据':('上一区间 ' + fmtP(prevRate*100) + ' · ' + ctx.span + ' 天（估算）')}
   ];
   cards[0].s=esc(projection.metrics.profitMarginPct.scope);cards[0].v=fsMetricText(projection.metrics.profitMarginPct,fmtP);
-  cards[1]={c:'c3',k:'利润金额（¥）',v:fsMetricText(projection.metrics.profitCny,v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})),s:esc(projection.metrics.profitCny.scope)};
   cards[2].k='Admin付款销售额（USD）';cards[2].s='与发货统计交易群体分列';
   cards[3]={c:'c7',k:'发货统计销售 / 采购（¥）',v:[projection.metrics.shippingSalesCny,projection.metrics.shippingCostCny].map(m=>fsMetricText(m,v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}))).join(' / '),s:'来源：Order发货统计 · 交易时间；非净利润'};
   box.innerHTML = cards.map(i=>
@@ -2243,7 +2240,7 @@ function fcDetailShow(){
  for(const id of ['sideNav','secStruct','gameCard','geoCard','payRow','secDetail','tblCard','secCross','crossCard','profitWrap','calCard','fc-types']){const node=document.getElementById(id);if(node){if(on&&node.dataset.fcPreviousHidden===undefined)node.dataset.fcPreviousHidden=String(node.hidden);node.hidden=on?true:node.dataset.fcPreviousHidden==='true';if(!on)delete node.dataset.fcPreviousHidden;}}
  for(const id of ['secTrend','trendCard']){const node=document.getElementById(id);if(node)node.hidden=on&&fcDetailState.tab!=='overview';}
  const metrics=document.getElementById('supplement-insights');if(metrics){metrics.hidden=false;if(on){if(metrics.parentNode!==fcHost)fcHost.insertBefore(metrics,fcHost.querySelector('.fc-tabs'));[...metrics.querySelectorAll(':scope > .fsi-metrics > .fsi-metric')].forEach((card,index)=>{card.hidden=!scope.metrics&&index>3;});}else if(metrics.parentNode===fcHost)fcHost.before(metrics);}
- if(on&&fcDetailState.data?.coverage.paid_complete){const label={main:'MMOEXP主站',satellite:'卫星子站合计',all:'主站 + 卫星子站'}[fcFilters.site_group],cards=metrics.querySelectorAll('.fsi-metric');fcSetText(cards[0]?.querySelector('span'),label+'订单数');fcSetText(cards[1]?.querySelector('span'),label+'销售额');fcSetText(metrics.querySelector('.fsi-reference-total'),'FC订单与销售额使用同一筛选；利润率为Order全站参考，预估利润不是实结。');}
+ if(on&&fcDetailState.data?.coverage.paid_complete){const label={main:'MMOEXP主站',satellite:'卫星子站合计',all:'主站 + 卫星子站'}[fcFilters.site_group],cards=metrics.querySelectorAll('.fsi-metric');fcSetText(cards[0]?.querySelector('span'),label+'订单数');fcSetText(cards[1]?.querySelector('span'),label+'销售额');fcSetText(metrics.querySelector('.fsi-reference-total'),'FC订单与美元销售使用同一筛选；发货利润按独立的网站及发货类目取Order人民币交易统计，非净利润。');}
  for(const note of document.querySelectorAll('#trendCard .order-reference-label')){if(on&&fcDetailState.data?.coverage.paid_complete){note.dataset.fcPreviousText??=note.textContent;fcSetText(note,'订单量与销售额来自FC订单明细及当前筛选。');}else if(note.dataset.fcPreviousText){fcSetText(note,note.dataset.fcPreviousText);delete note.dataset.fcPreviousText;}}
  for(const id of ['pfPane','pfDiv']){const node=document.getElementById(id);if(node)node.hidden=false;}
  const reference=document.querySelector('[aria-label="参考展示范围"]');if(reference){const holder=reference.closest('label')||reference;holder.hidden=false;}
