@@ -1,0 +1,138 @@
+{
+  "scope": "cache-archive-retention-20261025",
+  "state": "candidate_verified_pending_current_manifest_approval",
+  "pr": 448,
+  "runtime_candidate_commit": "6fa2c1ed47f987d17b0df1d1ee51a1e63f768721",
+  "maintenance_source": "cache_archive_retention_20261025/source",
+  "prepared_manifest_sha256": "9e662d33be85f7683ba3b38b14cec3604a535bfe006251b151f348246bde0227",
+  "runtime_files": [
+    {
+      "candidate": "source/cache_retention.py",
+      "target": "/opt/fs-hermes-fc/cache_retention.py",
+      "beforeSha256": null,
+      "sha256": "1691b630f1a89d49ea65e842c6ce5c8954cd157ce53f6ba59fc8f9778548a678",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/source_snapshots.py",
+      "target": "/opt/fs-hermes-fc/source_snapshots.py",
+      "beforeSha256": "4b5b6063e360a6dd60bf5faca1b7f05d8277879b97bbe9314fab896ac5fb8852",
+      "sha256": "4ede763c52d0963e4dc757fd8d7bc17225b12516fc8a33db4635eeb50ccc246d",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/es_order_structure.py",
+      "target": "/opt/fs-hermes-fc/es_order_structure.py",
+      "beforeSha256": "3894e86cb3dd4fc001f2b2c7727460689dc103637a85d9c8cfddc0b05ef98d30",
+      "sha256": "2c0587d221060bf923b29b5cbac775e3251e70421c2afbdde67827f65fd8d4a1",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/fc27-p2pah-session.service",
+      "target": "/etc/systemd/system/fc27-p2pah-session.service",
+      "beforeSha256": "f75a5e92dfdc06a8974ffd36799107ddbace073b6a6a2578ebcd8b9d2638b981",
+      "sha256": "86766f2d59384afc6216abf9bb203596959859a4441473b12585daebc1eb58f3",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/fs-cache-retention.service",
+      "target": "/etc/systemd/system/fs-cache-retention.service",
+      "beforeSha256": null,
+      "sha256": "cb0721b1db70b9852238089890a8e3126e58e72176b3eef9123789cbc7e23610",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/fs-cache-retention.timer",
+      "target": "/etc/systemd/system/fs-cache-retention.timer",
+      "beforeSha256": null,
+      "sha256": "13a1a697787e4835640ae68b546a25d754bd7013cb9440d6a432a4b408ba9835",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "session_image": {
+    "before": "sha256:205893bef1ed82ffba1c5161972a55172394a7f1b020172a81dd26602a493f81",
+    "after": "sha256:8655e98d1ee659777c246d2048da57017397e113eeb4f695bb47de0b34bf4798",
+    "module_sha256": "1fa413068885ba63fbc99fbdbee598b68051c1c839a31d175d41073b000c9f4d"
+  },
+  "qualification": {
+    "head": "6fa2c1ed47f987d17b0df1d1ee51a1e63f768721",
+    "history": [
+      {
+        "kind": "yoy",
+        "period": {
+          "profile": "ALL",
+          "start": "2025-10-01",
+          "end": "2025-10-31"
+        },
+        "files": 1,
+        "rows": 41373,
+        "dataset_sha256": "3900e125ff8ed0d43a07695634151331ba70f820a877e429e9b71950adc499aa",
+        "session_dataset_sha256": "19092d564e1ecd10f8c0697b82d713178aef4492004a60bdbf7a9248daccc60c",
+        "archived": 1,
+        "host_equal": true,
+        "session_equal": true,
+        "original_files_unchanged": true
+      },
+      {
+        "kind": "history",
+        "period": {
+          "profile": "ALL",
+          "start": "2026-05-01",
+          "end": "2026-05-31"
+        },
+        "files": 1,
+        "rows": 61669,
+        "dataset_sha256": "0cd392d9d962c38aeedb4abbbe2a6563a09280150fdc8fdafaf9947a444bce64",
+        "session_dataset_sha256": "61f40f8a191e953e8f53ce8aa75a0cd4ae1e8d80114de9c67f0064b0f0d6c0e8",
+        "archived": 1,
+        "host_equal": true,
+        "session_equal": true,
+        "original_files_unchanged": true
+      },
+      {
+        "kind": "redline",
+        "period": {
+          "profile": "ALL",
+          "start": "2026-09-19",
+          "end": "2026-10-18"
+        },
+        "files": 1,
+        "rows": 45405,
+        "dataset_sha256": "9a57e897b2a1a84cb4b6eb8bf7872b9ba7fdfbe158d1f5d2f40bf65cddb49d51",
+        "session_dataset_sha256": "9284152efa4535d6e45148d123b4284bbb8afbc83b2516574231b832589ea41c",
+        "archived": 0,
+        "host_equal": true,
+        "session_equal": true,
+        "original_files_unchanged": true
+      }
+    ],
+    "linux_tests": "13 passed",
+    "image": "sha256:8655e98d1ee659777c246d2048da57017397e113eeb4f695bb47de0b34bf4798",
+    "image_module_sha256": "1fa413068885ba63fbc99fbdbee598b68051c1c839a31d175d41073b000c9f4d",
+    "production_data_mutations": 0,
+    "network_exports": 0,
+    "new_logins": 0,
+    "seconds": 56.99535065423697,
+    "max_rss_kib": 1032444
+  },
+  "preview": {
+    "cache_candidates": 15,
+    "cache_bytes": 46837213,
+    "protected_cache": 272,
+    "excel_candidates": 17,
+    "excel_bytes": 34476307,
+    "excel_kept_hot": 61,
+    "preview_seconds": 7.613651230931282,
+    "preview_rss_kib": 65064,
+    "protected_targets": 73
+  },
+  "production_cleanup_executed": false,
+  "timer_enabled": false,
+  "business_writes": 0
+}

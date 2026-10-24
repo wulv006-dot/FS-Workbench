@@ -204,6 +204,8 @@ def selfcheck():
         raise RuntimeError('hermes_learning_fs_producer_checks_missing')
     if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
         raise RuntimeError("coins_workflow_checks_missing")
+    if select(["releases/fs-dashboard/cache-archive-retention-20261025/source/cache_retention.py"]) != ["cache-archive-retention"]:
+        raise RuntimeError("cache_retention_checks_missing")
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
         raise RuntimeError("coins_evidence_checks_missing")
     if select(["releases/fs-dashboard/business-procurement-20261022/source/business.js"]) != ["business-procurement"]:
@@ -420,6 +422,8 @@ def select(paths):
             continue
         if name.startswith("releases/fs-dashboard/fc-coins-workflow-20261022/"):
             groups.add("fc-coins-workflow");continue
+        if name.startswith("releases/fs-dashboard/cache-archive-retention-20261025/"):
+            groups.add("cache-archive-retention");continue
         if name.startswith("releases/fs-dashboard/fc-coins-evidence-20261021/"):
             groups.add("fc-coins-evidence");continue
         if name.startswith("releases/fs-dashboard/daily-archive-20261021/"):
@@ -810,6 +814,8 @@ def main():
         elif group=="fc-coins-workflow":
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
+        elif group=="cache-archive-retention":
+            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":

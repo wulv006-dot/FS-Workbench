@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly cache housekeeping without business collection
+
+[Timer]
+OnActiveSec=1h
+OnUnitActiveSec=1h
+Unit=fs-cache-retention.service
+
+[Install]
+WantedBy=timers.target

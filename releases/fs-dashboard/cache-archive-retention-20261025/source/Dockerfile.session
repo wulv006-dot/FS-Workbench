@@ -1,0 +1,2 @@
+FROM fc27-cloud-session:monthly-paid-20261021-v1
+COPY session_es_order_structure.py /usr/local/bin/es_order_structure.py
