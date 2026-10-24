@@ -7,5 +7,7 @@ def load_base():
     release.SCOPE,release.TARGETS,release.NEW=SCOPE,TARGETS,NEW
     base=release.load_base()
     base.TARGETS_CHANGED_NAV=set(TARGETS.values())
+    from shipping_readiness import extend
+    extend(base,SCOPE)
     return base
 if __name__=='__main__':load_base().main()
