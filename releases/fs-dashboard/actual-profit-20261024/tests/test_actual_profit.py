@@ -157,7 +157,7 @@ class Service(unittest.TestCase):
         self.service.reader=collect_orders;self.service.cost_reader=Mock(side_effect=OSError('Order unavailable'))
         with patch.dict(sys.modules,{'p2pah_auth':auth}),patch('channel_source.apply_cost_overrides',side_effect=rules):self.service.capture('fixed',target,q,previous)
         stored=json.loads(target.read_text('utf-8'));v=profit_view(stored['data'],{})['denominator']
-        self.assertEqual(self.service.jobs['fixed'],'cost_failed');self.assertEqual(set(stored['data']['testOrders']),{'A'})
         self.assertEqual((v['orders'],v['testOrders'],v['coveredOrders'],v['zeroCostOrders'],v['profitCny']),(2,1,2,1,105))
+        self.assertEqual(self.service.jobs['fixed'],'cost_failed');self.assertEqual(set(stored['data']['testOrders']),{'A'})
 
 if __name__=='__main__':unittest.main()
