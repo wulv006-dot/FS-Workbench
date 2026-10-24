@@ -810,7 +810,7 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
         elif group=="business-actual-profit":
-            units("releases/fs-dashboard/actual-profit-20261024/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_release","test_shipping_readiness"])
+            units("releases/fs-dashboard/actual-profit-20261024/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_release","test_shipping_readiness","test_rules_sync"])
             node("releases/fs-dashboard/actual-profit-20261024/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/actual-profit-20261024/tests/test_browsers.cjs")
         elif group=="business-shipping-profit":

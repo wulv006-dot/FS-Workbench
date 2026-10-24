@@ -119,7 +119,7 @@ def fill_costs(data,q,profile,root):
         try:costs=collect(session,start,cutoff.date().isoformat(),until=cutoff.strftime('%Y-%m-%d %H:%M'),source=source,gid=str(profile[2]))
         finally:session.close()
     data['orders']=normalized(data.pop('rawMembership'),costs)
-    stamp=datetime.now(timezone.utc).isoformat();data['sources']['cost']=dict(status='complete',source='Order订单发货记录，同网站及订单号实际成本',generatedAt=stamp,until=cutoff.isoformat())
+    stamp=datetime.now(timezone.utc).isoformat();data['sources']['cost']=dict(status='complete',source='Order订单发货记录，同网站及订单号实际成本',generatedAt=stamp,until=cutoff.isoformat(),unassignedSourceRows=sum(not r['source'] for r in costs))
     data=apply_cost_overrides(data)
     main={r['orderNo'] for r in data['orders'] if r.get('site')=='www.mmoexp.com'}
     for field in ('costOverrides','testOrders'):data[field]={sn:r for sn,r in data[field].items() if sn in main}

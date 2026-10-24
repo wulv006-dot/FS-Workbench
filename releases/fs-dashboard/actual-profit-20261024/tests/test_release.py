@@ -5,7 +5,7 @@ R=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('actual_release',R/'deploy/actual_release.py');release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
 class Release(unittest.TestCase):
  def test_exact_scope_and_targets(self):
-  self.assertEqual(release.SCOPE,'business-actual-profit-20261024');self.assertEqual(len(release.TARGETS),11)
+  self.assertEqual(release.SCOPE,'business-actual-profit-20261024');self.assertEqual(len(release.TARGETS),13)
   self.assertEqual(release.NEW,frozenset('source/'+n for n in ('business.js','home-business.js','legacy-business.js','shell.js','actual_profit.py')))
   self.assertEqual(release.TARGETS['source/channel_effects.py'],'/opt/fs-hermes-fc/channel_effects.py')
   self.assertFalse(any('units/' in n or 'auth' in n for n in release.TARGETS))

@@ -61,7 +61,8 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
             record['trade_at'] = delivery_timestamp(record['trade_at'])
             did = record['delivery_id']
             if not did.isdigit() or did in seen: raise ValueError('delivery_duplicate_page')
-            if not record['source'] or source and record['source'] != source or not begin <= record['trade_at'] <= stop:
+            # All-site native lists contain unassigned records; they cannot join an Admin site/order pair.
+            if source and record['source'] != source or not begin <= record['trade_at'] <= stop:
                 raise ValueError('delivery_filter_not_honored')
             seen.add(did)
             result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift', 'cost_unit', 'cost_total', 'sale_total')} | {'genre': 1})

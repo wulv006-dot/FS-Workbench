@@ -56,7 +56,7 @@ function fsEnsureProcurement(profile,all=false){
  (async()=>{
   let timer;
   try{
-   timer=setTimeout(()=>abort.abort(),100000);
+   timer=setTimeout(()=>abort.abort(),600000);
    const params=new URLSearchParams(query);if(force)params.set('refresh','1');
    while(!abort.signal.aborted){
     const response=await fetch('/dashboard/channel-effects/data.json?'+params,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:abort.signal});

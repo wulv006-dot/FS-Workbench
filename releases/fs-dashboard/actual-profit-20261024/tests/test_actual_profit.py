@@ -38,6 +38,10 @@ class ActualProfit(unittest.TestCase):
         self.assertEqual(session.get_order.call_args.kwargs['source[]'],'www.rsorders.com');self.assertEqual(session.get_order.call_args.kwargs['gid'],'506')
         with self.assertRaises(ValueError):collect(session,'2026-10-20','2026-10-20',source='www.mmoexp.com')
         self.assertEqual(len(collect(session,'2026-10-20','2026-10-20',source='',gid='0')),1)
+        session.get_order.return_value=(200,html.replace('<td>www.rsorders.com</td>','<td></td>'))
+        unassigned=collect(session,'2026-10-20','2026-10-20',source='',gid='0')
+        self.assertEqual(profit_view(data(costs=unassigned),{})['denominator']['coveredOrders'],0)
+        with self.assertRaises(ValueError):collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')
         session.get_order.return_value=(403,'denied')
         with self.assertRaises(PermissionError):collect(session,'2026-10-20','2026-10-20')
     def test_same_order_income_once_multiple_deliveries_and_daily_sum(self):
