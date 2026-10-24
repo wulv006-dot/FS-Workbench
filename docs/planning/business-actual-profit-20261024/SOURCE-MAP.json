@@ -1,6 +1,6 @@
 {
   "scope": "business-actual-profit-20261024",
-  "version": "actual-profit-20261024-8b55ccbf89c7",
+  "version": "actual-profit-20261024-229e0a570df3",
   "files": [
     {
       "candidate": "source/business-baseline.md",
@@ -20,7 +20,7 @@
     },
     {
       "candidate": "source/business.js",
-      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8b55ccbf89c7/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/business.js",
       "sha256": "66870ed1ee5f7971f4cb32f6bab70e1b2973d658f793f3a48a5977d55dafa1f4",
       "beforeSha256": null,
       "owner": "0:0",
@@ -28,7 +28,7 @@
     },
     {
       "candidate": "source/home-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8b55ccbf89c7/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/home-business.js",
       "sha256": "87b10da8b0e2ebd9e01cb1eae84c35d66e93a43bf6da1a102f2435c8b02a3478",
       "beforeSha256": null,
       "owner": "0:0",
@@ -36,7 +36,7 @@
     },
     {
       "candidate": "source/legacy-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8b55ccbf89c7/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/legacy-business.js",
       "sha256": "213a76a08be17de4514af864573ef5b95ef1cb1192e29187197e7f12f3d2ecdf",
       "beforeSha256": null,
       "owner": "0:0",
@@ -44,7 +44,7 @@
     },
     {
       "candidate": "source/shell.js",
-      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-8b55ccbf89c7/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/shell.js",
       "sha256": "dcd9c9cf901304cfb3bec8466aa7f508490cbd864e0f7bd26ef28182540fe6bd",
       "beforeSha256": null,
       "owner": "0:0",
@@ -53,7 +53,7 @@
     {
       "candidate": "source/actual_profit.py",
       "target": "/opt/fs-exact-range-20261001/actual_profit.py",
-      "sha256": "963adc7e6a66e4676da6f34886245b2ca2a7dc26ee0aae275afa7d462c7b198d",
+      "sha256": "5db3e7309534a614dbb4df07590167f18bd99ef6c518e427ebce379b3e0ac72d",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -101,7 +101,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "cfb6c901fb9f73a9a98a0c824a6c39b438e6cd134ddb564c0775027ef821a2d5",
+      "sha256": "a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad",
       "beforeSha256": "cdd73894143362ea195988ff3609bef48f9823f22c068b4a10a3976acbe199a8",
       "owner": "0:0",
       "mode": "0o644"
@@ -112,7 +112,7 @@
   "publisher": {
     "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
     "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
-    "actual_release.py": "48eed47c3d32bf8b1fa570f746a16204c757fcf250ef7f30223f03c5f9c5574a",
+    "actual_release.py": "65bbb3b530b1b7f9ed02b626e4553d57e82eb36fb5aed329a0f0566821fda086",
     "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
   }
 }
