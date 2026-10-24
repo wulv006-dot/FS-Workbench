@@ -1,14 +1,14 @@
 import json
-import subprocess
-import sys
+import contextlib
+import io
 import unittest
 from dataclasses import replace
-from pathlib import Path
+from unittest.mock import patch
 
 from campaign_backend.adapters import AdminRead
 from campaign_backend.catalog import CatalogMapping, project_product
 from campaign_backend.core import ContractError
-from bridge import benefit_projection, handle
+from bridge import benefit_projection, handle, main
 
 
 class Session:
@@ -136,13 +136,14 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn('private', json.dumps(projected))
 
     def test_cli_json_only_and_no_raw_request_echo(self):
-        script = Path(__file__).resolve().parents[1] / 'bridge.py'
-        response = subprocess.run([sys.executable, str(script)], input='{"action":"capabilities"}',
-                                  text=True, capture_output=True, check=True)
-        self.assertEqual(json.loads(response.stdout)['status'], 'ok')
-        response = subprocess.run([sys.executable, str(script)], input='{"action":"write","token":"secret"}',
-                                  text=True, capture_output=True, check=True)
-        self.assertEqual(json.loads(response.stdout), {'status': 'error', 'error': 'ACTION_NOT_ALLOWED'})
+        def invoke(request):
+            output = io.StringIO()
+            with patch('sys.stdin', io.TextIOWrapper(io.BytesIO(request.encode('utf-8')))), contextlib.redirect_stdout(output):
+                main()
+            return json.loads(output.getvalue())
+        self.assertEqual(invoke('{"action":"capabilities"}')['status'], 'ok')
+        self.assertEqual(invoke('{"action":"write","token":"secret"}'),
+                         {'status': 'error', 'error': 'ACTION_NOT_ALLOWED'})
 
 
 if __name__ == '__main__':

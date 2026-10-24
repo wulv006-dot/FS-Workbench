@@ -1,7 +1,8 @@
 """Allowlisted GET access using the existing shared owner session; no new login."""
 import sys
 from pathlib import Path
-from .core import ContractError, identity
+from .core import ContractError, identity, source_identity
+from .catalog import positive_id
 
 LIST_ROUTES = {
     'models': '/admin/goods.GoodsMould/index',
@@ -12,6 +13,24 @@ LIST_ROUTES = {
     'orders': '/admin/order.Order/index',
 }
 DETAIL_ROUTES = {'model': '/admin/goods.GoodsMould/edit', 'goods': '/admin/goods.Goods/edit'}
+
+
+def payment_observation(row, site_id):
+    """Current orderStatus-9f89c2eb.js proves pay_status==1 paid, not refund settlement."""
+    site_id = positive_id(site_id)
+    if not isinstance(row, dict) or positive_id(row.get('site_id')) != site_id:
+        raise ContractError('ORDER_SCOPE_MISMATCH')
+    raw = row.get('pay_status')
+    if type(raw) not in (int, str):
+        raise ContractError('PAYMENT_STATE_UNKNOWN')
+    paid = type(raw) in (int, str) and raw in (1, '1')
+    paid_at = row.get('paytime')
+    if not isinstance(paid_at, str) or not paid_at.strip():
+        raise ContractError('PAYMENT_TIME_MISSING')
+    return dict(site_id=site_id, order_no=identity(row.get('order_no')),
+        raw_pay_status=raw, payment_state='paid' if paid else 'unknown', raw_paid_at=paid_at,
+        timestamp_semantics='source_timezone_mapping_required', refund_state='unknown',
+        attribution_ready=False, verification_ref='admin-ui/orderStatus-9f89c2eb.js/pay_status==1')
 
 
 def search(filters):
@@ -124,6 +143,25 @@ class AdminRead:
         return self.pages('orders', [('site_id', '=', site_id), ('paytime', 'RANGE', start + ',' + end)],
                           validate=lambda r: str(r.get('site_id')) == str(site_id)
                           and start <= str(r.get('paytime')) <= end)
+
+    def order_payment_observations(self, site_id, start, end):
+        return [payment_observation(row, site_id) for row in self.orders(site_id, start, end)]
+
+    def discover_goods(self, site_id, game_id):
+        site_id, game_id = positive_id(site_id), positive_id(game_id)
+        return self.pages('goods', [('site_id', '=', site_id), ('gid', '=', game_id)],
+            validate=lambda row: positive_id(row.get('site_id')) == site_id
+            and positive_id(row.get('gid')) == game_id)
+
+    def scoped_product(self, site_id, game_id, goods_id):
+        site_id, game_id, goods_id = positive_id(site_id), positive_id(game_id), positive_id(goods_id)
+        goods = self.detail('goods', goods_id)
+        if source_identity(goods.get('site_id')) != site_id or source_identity(goods.get('gid')) != game_id:
+            raise ContractError('PRODUCT_SCOPE_MISMATCH')
+        model = self.detail('model', positive_id(goods.get('mid')))
+        if 'gid' in model and positive_id(model['gid']) != game_id:
+            raise ContractError('MODEL_SCOPE_MISMATCH')
+        return model, goods
 
     def coupon_logs(self, site_id, order_numbers):
         selected = {identity(str(n)) for n in order_numbers}

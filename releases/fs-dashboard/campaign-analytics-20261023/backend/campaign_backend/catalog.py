@@ -5,6 +5,101 @@ from urllib.parse import urlsplit
 from .core import ContractError, Money, identity, source_identity, timestamp
 
 
+def positive_id(value):
+    if (type(value) not in (int, str) or not str(value).isascii()
+            or not str(value).isdecimal() or len(str(value)) > 19 or int(value) < 1):
+        raise ContractError('POSITIVE_ID_REQUIRED')
+    return str(int(value))
+
+
+def _switch(value):
+    if type(value) not in (str, int) or value not in (0, 1, '0', '1'):
+        raise ContractError('PRODUCT_SWITCH_UNKNOWN')
+    return int(value)
+
+
+def _reference_id(value):
+    if type(value) in (int, str) and str(value) == '0':
+        return '0'
+    return positive_id(value)
+
+
+def discover_product(row, site_id, game_id):
+    """Observed Admin metadata only: no currency, availability or checkout inference."""
+    if not isinstance(row, dict):
+        raise ContractError('INVALID_PRODUCT_ROW')
+    site_id, game_id = positive_id(site_id), positive_id(game_id)
+    try:
+        if (positive_id(row['site_id']) != site_id or positive_id(row['gid']) != game_id):
+            raise ContractError('PRODUCT_SCOPE_MISMATCH')
+        ref = dict(site_id=site_id, game_id=game_id, model_id=positive_id(row['mid']),
+                   goods_id=positive_id(row['id']))
+        title = identity(row['title'])
+        minimum = positive_id(row['min_qty'])
+        unit = row['unit']
+        if not isinstance(unit, str) or len(unit) > 64 or any(ord(c) < 32 for c in unit):
+            raise ContractError('PRODUCT_UNIT_UNKNOWN')
+        status, buy_status = row['status'], row['buy_status']
+        if any(type(value) not in (str, int) for value in (status, buy_status)):
+            raise ContractError('PRODUCT_STATUS_UNKNOWN')
+        return dict(product_ref=ref, title=title, platform_attribute_id=_reference_id(row['aid']),
+            server_id=_reference_id(row['sid']), category_id=_reference_id(row['cid']),
+            minimum_quantity=int(minimum), unit=unit, sku_switch=_switch(row['sku_switch']),
+            attr_switch=_switch(row['attr_switch']), raw_status=status, raw_buy_status=buy_status,
+            status_semantics='unknown', purchase_mapping_required=True,
+            purchase_mapping_reasons=['PRODUCT_DETAIL_REQUIRED'], authoritative=False, checkout_enabled=False)
+    except KeyError:
+        raise ContractError('PRODUCT_METADATA_MISSING') from None
+
+
+def read_product_metadata(model, goods, site_id, game_id):
+    product = discover_product(goods, site_id, game_id)
+    if (not isinstance(model, dict)
+            or positive_id(model.get('id')) != product['product_ref']['model_id']):
+        raise ContractError('MODEL_SCOPE_MISMATCH')
+    if 'gid' in model and positive_id(model['gid']) != product['product_ref']['game_id']:
+        raise ContractError('MODEL_SCOPE_MISMATCH')
+    product['model_title'] = identity(model.get('title'))
+    reasons = []
+    sale_properties_observed = False
+    specifications = {}
+    for source, row in (('goods', goods), ('model', model)):
+        more = row.get('more')
+        if not isinstance(more, dict):
+            reasons.append(source.upper() + '_SPEC_SCHEMA_UNKNOWN')
+            continue
+        specifications[source] = {}
+        for key in ('saleprop', 'skuTableSet'):
+            if key not in more:
+                specifications[source][key] = dict(present=False)
+                continue
+            value = more[key]
+            if not isinstance(value, (list, dict)):
+                specifications[source][key] = dict(present=True, schema_status='unknown')
+                reasons.append(source.upper() + '_SPEC_SCHEMA_UNKNOWN')
+                continue
+            if key == 'saleprop':
+                sale_properties_observed = True
+            # Empty observed containers have no IDs to invent. Nonempty shapes await exact mapping.
+            specifications[source][key] = dict(present=True, schema_status='empty' if not value else 'mapping_required',
+                                                entry_count=len(value))
+            if value:
+                reasons.append(source.upper() + '_SPEC_MAPPING_REQUIRED')
+    if product['sku_switch']:
+        reasons.append('SKU_SELECTION_MAPPING_REQUIRED')
+    if not sale_properties_observed:
+        reasons.append('SALE_PROPERTY_PRESENCE_UNKNOWN')
+    if product['platform_attribute_id'] == '0':
+        reasons.append('PLATFORM_ATTRIBUTE_MAPPING_REQUIRED')
+    # attr_switch=1 alone does not imply selectable attributes; actual saleprop decides.
+    if not product['sku_switch'] and not reasons:
+        product['purchase_mapping_required'] = False
+    product['purchase_mapping_reasons'] = sorted(set(reasons))
+    product['specification_sources'] = specifications
+    product['verification_scope'] = 'observed_admin_metadata_not_checkout_mapping'
+    return product
+
+
 def field(row, path):
     try:
         for part in path.split('.'):

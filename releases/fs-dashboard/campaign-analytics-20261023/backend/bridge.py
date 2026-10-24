@@ -15,7 +15,8 @@ for parent in Path(__file__).resolve().parents:
         break
 
 from campaign_backend.adapters import AdminRead
-from campaign_backend.catalog import CatalogMapping, field, project_product
+from campaign_backend.catalog import (CatalogMapping, field, project_product, positive_id,
+                                      discover_product, read_product_metadata)
 from campaign_backend.core import ContractError, source_identity
 
 
@@ -48,12 +49,16 @@ def handle(request, reader_factory=AdminRead.from_shared_session):
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
-    if action not in ('benefits_read', 'catalog_read'):
+    if action not in ('benefits_read', 'catalog_read', 'catalog_discover', 'product_read'):
         raise ContractError('ACTION_NOT_ALLOWED')
     # Require concrete target scope before acquiring a session.
     site_id = source_identity(request.get('site_id'))
     if site_id == '0':
         raise ContractError('CONCRETE_SITE_REQUIRED')
+    if action in ('catalog_discover', 'product_read'):
+        site_id, game_id = positive_id(site_id), positive_id(request.get('game_id'))
+        if action == 'product_read':
+            goods_id = positive_id(request.get('goods_id'))
     if action == 'catalog_read':
         game_id = source_identity(request.get('game_id'))
         try:
@@ -65,6 +70,16 @@ def handle(request, reader_factory=AdminRead.from_shared_session):
             raise ContractError('CATALOG_MAPPING_REQUIRED') from None
     reader = reader_factory()
     try:
+        if action == 'catalog_discover':
+            products = [discover_product(row, site_id, game_id)
+                        for row in reader.discover_goods(site_id, game_id)]
+            return dict(site_id=site_id, game_id=game_id, products=products, total=len(products),
+                        completeness='complete', management_only=True, authoritative=False,
+                        checkout_enabled=False, verification_scope='observed_admin_metadata')
+        if action == 'product_read':
+            model, goods = reader.scoped_product(site_id, game_id, goods_id)
+            return dict(product=read_product_metadata(model, goods, site_id, game_id),
+                        management_only=True, authoritative=False, checkout_enabled=False)
         if action == 'benefits_read':
             # Scope expressions in these sources vary (scalar/list/ALL); preserve scope and let
             # management inspect it. Never claim filtered eligibility from title or status.

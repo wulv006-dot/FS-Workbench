@@ -193,3 +193,60 @@ concurrent claim, crash/restart unknown, durable retention and reconciliation wi
 B executed local tests on PC-20260909OJLI only. No production Admin/Order access, mutation, deployment or
 real financial acceptance was performed by B. Production Python3.9 imports/runtime, actual field mappings,
 service wiring, trusted publication snapshots and G2 transactions remain controller/integration checks.
+
+## P2 verified metadata discovery (2026-10-24)
+
+The management bridge also accepts these actions without an arbitrary/manual field map:
+
+```json
+{"action":"catalog_discover","site_id":"266","game_id":"1327"}
+```
+
+This reads **all bounded pages for the concrete site/game**, verifies every returned row's scope, and
+returns `products`, `total`, `completeness=complete`, `management_only=true`, `authoritative=false`,
+`checkout_enabled=false`. No client page parameter is accepted or used: a first-page sample is not
+presented as a complete pool. The existing pagination caps (100000 rows/500 pages) fail explicitly.
+
+The fixed observed source fields are `site_id/gid/mid/id/aid/sid/cid/title/min_qty/unit/sku_switch/
+attr_switch/status/buy_status`. The projection retains separate product identities, actual platform
+attribute/server/category references, title, minimum quantity, unit and switch values. It exposes raw
+listing/buy status with `status_semantics=unknown`. It contains **no price, cost, credentials, nested raw
+Admin object, guessed platform name or checkout authorization**. Site/game/goods/model targets require
+positive numeric IDs; optional zero aid/sid/cid values are preserved, not replaced with invented IDs.
+Unknown switch/type or wrong scope fails closed. Discovery entries require exact detail inspection
+(`purchase_mapping_required=true`, reason `PRODUCT_DETAIL_REQUIRED`). New products are not restricted
+to the historical 26-item snapshot.
+
+```json
+{"action":"product_read","site_id":"266","game_id":"1327","goods_id":"170014917"}
+```
+
+This first reads the exact goods detail and checks site/game/ID before reading its actual related
+model. Model ID and any supplied game scope must match. The result includes safe metadata, model title
+and whitelisted specification-container information for `more.saleprop` and `more.skuTableSet`, separately
+for goods and model: presence, empty/mapping-required/unknown schema status and entry count only.
+Nonempty member schemas have not yet been verified; their values, prices and potential internal fields
+are deliberately omitted and reported as `GOODS_SPEC_MAPPING_REQUIRED`/`MODEL_SPEC_MAPPING_REQUIRED`.
+No property/SKU ID is manufactured. Unexpected/missing `more` or spec types require mapping.
+
+`purchase_mapping_required=false` means only that the inspected known Admin specification containers
+need no additional selectable property mapping: sku_switch is zero, an actual empty saleprop container
+was observed, no unknown/nonempty relevant container exists and a nonzero platform attribute is present.
+It does **not** mean quote/currency, quantity serialization, availability, cart or transaction acceptance
+is verified. `attr_switch=1` by itself does not reject a product whose inspected selectable properties
+are empty. Nonempty SKU/property data and missing schema remain true with explicit reason codes.
+Checkout and authoritative quote remain false for every result.
+
+`payment_observation(row,site_id)` and `AdminRead.order_payment_observations(site_id,start,end)` provide
+management-only payment observations using current frontend evidence `orderStatus-9f89c2eb.js`:
+exact raw integer `1` or string `"1"` is paid. Other status values remain unknown (not reused as historical
+`2=paid`); unsupported types fail closed. Returned payment time remains explicitly a raw source time
+requiring timezone mapping. Refund state is always unknown and `attribution_ready=false`.
+The projection contains no customer or monetary fields, and is not exposed as an automatic attribution
+bridge action. Verified currency/received amount, exact actual benefits, refund facts and binding versions
+remain mandatory before financial attribution. Existing pure-core behavior is unchanged.
+
+Controller owns management endpoint/UI integration and current coupon_draft.py. This P2 commit changes
+only bridge/adapters/catalog, tests and this contract. It makes no production calls or mutations.
+The bridge protocol test invokes main in process with mocked stdin, so the suite also runs under the
+repository's pr-fast subprocess prohibition.
