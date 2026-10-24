@@ -1,4 +1,5 @@
-import importlib.util,unittest
+import importlib.util,unittest,types,sys
+from unittest.mock import patch
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('rs_release',ROOT/'deploy/rs_release.py')
@@ -18,4 +19,9 @@ class Release(unittest.TestCase):
         with self.assertRaises(ValueError):release.candidate(b'')
         before=b'\n'.join(('alias '+p+';').encode() for p in release.ALIASES)
         with self.assertRaises(ValueError):release.candidate(before+before)
+    def test_changed_dependencies_keep_exact_target_cas(self):
+        original=types.SimpleNamespace(load_base=lambda:types.SimpleNamespace())
+        with patch.dict(sys.modules,{'release':original}):base=release.load_base()
+        self.assertEqual(base.TARGETS_CHANGED_NAV,set(release.TARGETS.values()))
+        self.assertEqual(original.TARGETS,release.TARGETS)
 if __name__=='__main__':unittest.main()

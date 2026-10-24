@@ -13,5 +13,8 @@ def candidate(before):
 def load_base():
     import release
     release.SCOPE,release.TARGETS,release.NEW=SCOPE,TARGETS,NEW
-    return release.load_base()
+    base=release.load_base()
+    # Changed dependencies are protected by their exact target CAS, not an unchanged SHA.
+    base.TARGETS_CHANGED_NAV=set(TARGETS.values())
+    return base
 if __name__=='__main__':load_base().main()
