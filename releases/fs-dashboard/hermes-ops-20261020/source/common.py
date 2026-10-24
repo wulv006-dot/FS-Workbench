@@ -81,8 +81,10 @@ def assess(snapshot, now=None):
     job = coin.get('job', {})
     enabled = coin.get('config', {}).get('system_enabled') is True and coin.get('config', {}).get('mode') == 'auto'
     if enabled:
-        if schedule.get('status') in {'failed', 'blocked', 'needs_reconcile', 'unknown'}:
+        if schedule.get('status') in {'failed', 'blocked', 'needs_reconcile', 'unknown', 'paused_after_failure'}:
             issues.add('coin_schedule_' + schedule['status'])
+        if schedule.get('collection_status') == 'paused_after_failure':
+            issues.add('coin_schedule_paused_after_failure')
         if job.get('result') in {'deferred_player_sync', 'unknown', 'partial', 'failed'}:
             issues.add('coin_result_' + job['result'])
         next_at = schedule.get('next_at')

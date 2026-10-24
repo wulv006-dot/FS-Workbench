@@ -1122,7 +1122,7 @@ def main():
         elif group=="hermes-server-unify":
             units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry","test_knowledge_audit","test_native_task_learning"])
         elif group=="hermes-ops":
-            units("releases/fs-dashboard/hermes-ops-20261020",["test_ops"])
+            units("releases/fs-dashboard/hermes-ops-20261020",["test_ops","test_schedule_alert"])
         elif group=="fs-business-baseline":
             units("releases/fs-dashboard/fs-business-baseline-20261021",["test_baseline"])
         elif group=="hermes-v2-simulation-learning":
