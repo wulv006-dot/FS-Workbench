@@ -42,9 +42,13 @@ export function projectRelease(input) {
   const result={schema_version:1, release_id:id(input.release_id), source_revision:id(input.source_revision), config_hash:hash(input.config_hash), rule_hash:hash(input.rule_hash),
     pages:input.pages.map(p => ({activity_id:id(p.activity_id), page_id:id(p.page_id), rule_version:id(p.rule_version), benefit_binding_version:id(p.benefit_binding_version),
       path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),
+      ...(p.description ? {description:text(p.description,320)} : {}),
+      ...(p.starts_at ? {starts_at:new Date(p.starts_at).toISOString()} : {}),
       ...(p.ends_at ? {ends_at:new Date(p.ends_at).toISOString()} : {}), active:p.active === true})),
     products:input.products.map(product)};
   if (new Set(result.products.map(p=>p.key)).size !== result.products.length || new Set(result.pages.map(p=>p.page_id)).size !== result.pages.length || result.pages.some(p=>p.product_keys.some(k=>!result.products.some(r=>r.key===k)))) fail('INVALID_RELEASE');
+  if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
+  if(result.pages.some(p=>p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at))fail('INVALID_RELEASE');
   return JSON.parse(JSON.stringify(result));
 }
 
@@ -54,7 +58,7 @@ export function createSnapshot(publishedRelease) {
 }
 
 const allowedNames = new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
-  'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js']);
+  'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/runtime-bridge.js']);
 export function loadStatic(root, manifest) {
   const realRoot=fs.realpathSync(root), files=new Map();
   if (fs.lstatSync(root).isSymbolicLink()) fail('INVALID_PUBLIC_PATH');

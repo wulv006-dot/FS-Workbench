@@ -6,15 +6,24 @@ import {fileURLToPath} from 'node:url';
 import {randomBytes} from 'node:crypto';
 import {report} from './server.mjs';
 import {atomic,makeStore,previewCatalog} from './store.mjs';
+import {makeCenterStore} from './center-store.mjs';
+import {centerSeed} from './center-seed.mjs';
+import {backendRead} from './backend-client.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
+const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
+const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',seedProvider:()=>centerSeed(previewCatalog(catalog,store.read().layout),seasonalBox.SeasonalData)});
+const centerState=s=>({revision:s.revision,draft:s.draft,published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+ capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
+ csrf:undefined});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
 const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
+publicNames.add('analytics/center.html');publicNames.add('analytics/center.js');
 export async function authorize(req){
  const r=await fetch('http://127.0.0.1:8895/verify?group=dashboard',{headers:{Cookie:req.headers.cookie||'','X-Original-Method':req.method,'X-Original-URI':req.url},signal:AbortSignal.timeout(5000),redirect:'manual'});
  return {status:r.status,user:r.headers.get('x-auth-user'),admin:r.headers.get('x-auth-role')==='admin'};
@@ -29,6 +38,9 @@ export const server=http.createServer(async(req,res)=>{
    if(req.method!=='POST'||!auth.admin)return json(res,403,{message:'仅现有管理员可保存配置'});
    if(req.headers.origin!==origin||req.headers['content-type']!=='application/json'||req.headers['x-csrf-token']!==csrf)return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
+   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center/backend-read')return json(res,200,{status:'ok',data:await backendRead(body)});
    if(relative==='analytics/api/config'){let saved;try{saved=store.save(body,auth.user);}catch(error){if(!error.code&&!error.status)error.status=400;throw error;}return json(res,200,{status:'saved',...publicState(saved)});}
    if(relative==='analytics/api/connection'){
     if(!/^phx_[A-Za-z0-9_-]{20,200}$/.test(body.key||''))return json(res,400,{message:'密钥格式无效'});
@@ -39,6 +51,7 @@ export const server=http.createServer(async(req,res)=>{
    return json(res,404,{message:'Not found'});
   }
   if(relative==='analytics/api/connection')return json(res,200,{configured:!!secret(),csrf:auth.admin?csrf:null,canEdit:auth.admin,storage:'server-persistent',projectId:cfg.projectId});
+  if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/config')return json(res,200,{...publicState(store.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision});return json(res,result.status,result.body);}
   if(relative==='analytics/api/catalog')return json(res,200,{catalog, ...publicState(store.read())});

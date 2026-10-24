@@ -23,6 +23,7 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
   const active=(intent,release)=>{
     const page=release.pages.find(p=>p.page_id===intent.page_id&&p.activity_id===intent.activity_id);
     if (!page || page.rule_version!==intent.rule_version || page.benefit_binding_version!==intent.benefit_binding_version) fail('RULE_VERSION_CONFLICT',409);
+    if (page.starts_at && Date.parse(page.starts_at)>now()) fail('PROMOTION_NOT_STARTED',409);
     if (!page.active || page.ends_at && Date.parse(page.ends_at)<=now()) fail('PROMOTION_EXPIRED',409);
     return page;
   };

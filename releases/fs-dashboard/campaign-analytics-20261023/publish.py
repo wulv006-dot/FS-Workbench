@@ -13,9 +13,11 @@ SPECIAL={'navigation.conf':'/etc/nginx/fs-navigation-formal-analytics-20261006.l
 REQUIRED_SPECIAL=set(SPECIAL)
 RUNTIME_SPECIAL={'fs-campaign-runtime.service':'/etc/systemd/system/fs-campaign-runtime.service','runtime.env':'/etc/fs-campaign-runtime.env'}
 SPECIAL.update(RUNTIME_SPECIAL)
+BACKEND_FILES={'bridge.py','campaign_backend/__init__.py','campaign_backend/adapters.py','campaign_backend/attribution.py','campaign_backend/catalog.py','campaign_backend/core.py','campaign_backend/ledger.py','campaign_backend/coupon_draft.py'}
 
 def target(rel):
  if rel in SPECIAL:return SPECIAL[rel]
+ if rel.startswith('backend/') and rel[8:] in BACKEND_FILES:return '/opt/fs-campaign-dashboard/'+rel
  if '\\' not in rel and PurePosixPath(rel).as_posix()==rel and rel.startswith('app/') and '..' not in PurePosixPath(rel).parts and PurePosixPath(rel).suffix in ('.js','.mjs','.cjs','.html','.css','.json','.webp','.png','.svg','.jpg','.jpeg','.gif','.woff2','.xml','.txt','.md'):
   return '/opt/fs-campaign-dashboard/'+rel[4:]
  raise ValueError('outside campaign scope')
