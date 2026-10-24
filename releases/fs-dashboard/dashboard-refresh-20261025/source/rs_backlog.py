@@ -29,7 +29,8 @@ def collect(q):
 
 def project(read,q):
     filters=[('gid',506,'=')]
-    for key,field,table in [('rs_site','site_id',SITES),('rs_server','aid',SERVERS),('rs_category','cid',CATEGORIES)]:
+    # The current-list API ignores site_id with progress; filter verified websites after enumeration.
+    for key,field,table in [('rs_server','aid',SERVERS),('rs_category','cid',CATEGORIES)]:
         if q[key]!='all':filters.append((field,table[q[key]][0],'='))
     metrics={}
     for name,rules in [('issues',[('pay_status',1,'='),('progress',9,'=')]),('unpaid',[('pay_status',0,'=')])]:
@@ -45,17 +46,18 @@ def project(read,q):
                 for row in rows:
                     identity=row.get('id')
                     if type(identity) is not int or identity<=0 or str(row.get('gid'))!='506':raise ValueError('rs_backlog_scope')
-                    if q['rs_site']!='all' and str(row.get('site_id'))!=str(SITES[q['rs_site']][0]):raise ValueError('rs_backlog_site')
+                    if type(row.get('site_id')) is not int or row['site_id']<=0:raise ValueError('rs_backlog_site')
                     valid=(str(row.get('pay_status'))=='1' and row.get('status')==91) if name=='issues' else (str(row.get('pay_status'))=='0' and any(t in str(row.get('status_format','')) for t in ('未支付','待支付','未付款','待付款')))
                     if not valid:raise ValueError('rs_backlog_status_mismatch')
                     signature=json.dumps(row,sort_keys=True)
-                    if identity in seen and seen[identity]!=signature:raise ValueError('rs_backlog_conflicting_order')
-                    seen[identity]=signature
+                    if identity in seen and seen[identity][0]!=signature:raise ValueError('rs_backlog_conflicting_order')
+                    seen[identity]=(signature,row['site_id'])
                 received+=len(rows)
                 if received==total:break
                 if not rows or received>total:raise ValueError('rs_backlog_incomplete')
             else:raise ValueError('rs_backlog_page_budget')
-            metrics[name]={'value':len(seen),'status':'available','sourceTotal':expected,'duplicates':received-len(seen)}
+            count=sum(q['rs_site']=='all' or site==SITES[q['rs_site']][0] for _,site in seen.values())
+            metrics[name]={'value':count,'status':'available','sourceTotal':expected,'duplicates':received-len(seen)}
         except PermissionError:raise
         except (ValueError,OSError,TimeoutError):
             # Do not publish ES candidate totals when the returned current states disagree.

@@ -123,7 +123,7 @@ async function nativeLoad(retried=false){
  const scope=lifecycle(host,capture,halt);scope.seed={...state};active={host,scope,api:null};$('status').textContent='正在读取'+(state.mode==='business'?'经营分析':'Google 运营')+'…';
  try{
   const moduleURL=new URL(state.mode+'.js',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):base);
-  if(state.mode==='business')moduleURL.searchParams.set('v','dashboard-refresh-20261025');
+  if(state.mode==='business')moduleURL.searchParams.set('v','dashboard-rs-ui-20261025');
   if(retried)moduleURL.searchParams.set('retry','1');
   const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin)),'text/css','GET',scopeSignal()),import(moduleURL.href)]);
   if(id!==epoch)return;for(const name of ['fs-ui.css','native-alias.css']){const shared=document.createElement('link');shared.rel='stylesheet';shared.href=new URL('ui/'+name,new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin));scope.root.append(shared);}const style=document.createElement('style');style.textContent=await stylesheet.text();scope.root.append(style);const template=document.createElement('template');template.innerHTML=await markup.text();scope.root.append(template.content);

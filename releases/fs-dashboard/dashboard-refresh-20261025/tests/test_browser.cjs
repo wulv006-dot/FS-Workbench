@@ -7,7 +7,7 @@ const seed={b_profile:'MMOEXP',b_group:'mmoexp',b_grain:'day',b_range:'yesterday
 const catalogId='catalog-0123456789abcdef',profiles={RS:{key:'RS',name:'RS',primary:{filters:{gid:'506',tid:'',status:''},normalisedScope:'all-websites'},supplement:{},period:{start:'2025-10-24 00:00',end:'2026-10-24 16:00'}},FC27:{key:'FC27',name:'FC27',primary:{filters:{gid:'1322',tid:'',status:''},normalisedScope:'all-websites'},supplement:{},period:{start:'2025-10-24 00:00',end:'2026-10-24 16:00'}}};
 for(const [key,gid] of [["MMOEXP", "0"], ["POE2", "552"], ["D4", "456"], ["AION2", "826"], ["FC27", "1322"], ["NBA2K27", "1306"], ["NFL27", "1258"], ["MLB26", "922"], ["CFB27", "1256"], ["FC26", "824"], ["RS", "506"], ["MAPLESTORY_CLASSIC", "1300"], ["ARC_RAIDERS", "864"], ["DARK_AND_DARKER", "588"], ["WOW_FOREVER", "1364"], ["ARENA_BREAKOUT_INFINITE", "836"], ["COD_BO7", "838"]])profiles[key]={key,name:key,primary:{filters:{gid,tid:'',status:''},normalisedScope:'all-websites'},supplement:{},period:{start:'2025-10-24 00:00',end:'2026-10-24 16:00'}};
 const catalog={schemaVersion:2,catalogId,snapshotId:catalogId,scopeContractId:'all-websites-order-primary-admin-supplement-v1',timezone:'Asia/Shanghai',profiles,dashboard:{profiles:Object.fromEntries(Object.keys(profiles).map(k=>[k,{name:k,series:[],hourly:[],coverage:{from:'2025-10-24',to:'2026-10-24'}}])),groups:[{key:'mmoexp',label:'全局',profiles:['MMOEXP']},{key:'rpg',label:'RPG',profiles:['D4','AION2']},{key:'general',label:'综合游戏',profiles:['RS']},{key:'sports',label:'球类',profiles:['FC27']} ]}};
-const queries=[];let deny=false,refreshRevision=0;
+const queries=[];let deny=false,refreshRevision=0,summaryUnavailable=false;
 function reply(q){
  const rs={rs_site:q.get('rs_site')||'all',rs_server:q.get('rs_server')||'all',rs_category:q.get('rs_category')||'all'};
  const amount=({all:1000,rsorders:200,rsmalls:300,rsfast:400,mmoexp:0}[rs.rs_site])/ (rs.rs_category==='all'?1:10),count=amount?4:0;
@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{
   queries.push(Object.fromEntries(u.searchParams));res.setHeader('Content-Type','application/json');
   if(u.searchParams.get('mode')==='fc-daily'){res.writeHead(503);res.end('{}');return;}
   if(deny){res.writeHead(403);res.end('{}');return;}
-  const value=u.searchParams.get('mode')==='catalog'?catalog:reply(u.searchParams);
+  const value=u.searchParams.get('mode')==='catalog'?catalog:reply(u.searchParams);if(summaryUnavailable&&u.searchParams.get('mode')==='summary'){value.status='stale';value.stale=true;value.sources.Admin.status='unavailable';value.expiresInSeconds=0;}
   const delay=u.searchParams.get('refresh')==='true'?800:u.searchParams.get('mode')==='summary'&&u.searchParams.get('rs_site')==='rsmalls'?450:0;
   setTimeout(()=>res.end(JSON.stringify(value)),delay);return;
  }
@@ -67,12 +67,13 @@ if(require.main===module)(async()=>{
   assert.equal(await page.locator('[data-procurement-independent]').count(),0);assert.equal(await page.locator('#shipping-category').count(),0);assert.match(await coverage.textContent(),/2\/3.*待补 1.*未完成 1/);assert.equal(await coverage.isVisible(),false);
   for(const k of ['coveredOrders','missingCostOrders','pendingOrders'])assert.equal(await page.locator('[data-metric="'+k+'"]').isVisible(),false);
   const primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageCustomerUsd'];
-  assert.deepEqual(await core.evaluateAll(cards=>cards.filter(c=>!c.hidden).sort((a,b)=>+a.style.order-+b.style.order).map(c=>c.dataset.metric)),primary);
+  assert.deepEqual(await core.evaluateAll(cards=>cards.filter(c=>!c.hidden).map(c=>c.dataset.metric)),primary);
   assert.doesNotMatch(await gross.innerText(),/已过期/);
   const revenue=page.locator('[data-metric="revenueUsd"] strong');await revenue.getByText('$1,000.00',{exact:true}).waitFor();
   refreshRevision=1;await page.evaluate(()=>window.api.update());
   await page.locator('#business-refresh-status').getByText('刷新中…',{exact:true}).waitFor();assert.equal(await revenue.innerText(),'$1,000.00');assert.match(await gross.innerText(),/¥30.00/);
   await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric="revenueUsd"] strong').textContent==='$1,100.00');
+  summaryUnavailable=true;await page.evaluate(()=>window.api.update());await page.locator('#business-refresh-status').getByText('本次刷新未完成，保留上次读取值；可点更新视图重试。',{exact:true}).waitFor();assert.equal(await revenue.innerText(),'$1,100.00');summaryUnavailable=false;
   refreshRevision=0;
   await page.locator('[data-profit-day]').waitFor();assert.match(await page.locator('#lblProfit').innerText(),/^逐单实际成本毛利率走势/);assert.match(await page.locator('#pfPane .pane-ttl').innerText(),/逐单实际成本毛利率走势/);
   assert.doesNotMatch(await page.locator('#supplement-insights').innerText(),/发货利润|预估利润|独立核对/);
@@ -84,13 +85,13 @@ if(require.main===module)(async()=>{
   await page.evaluate(()=>window.api.apply({b_profile:'RS',b_group:'general',b_grain:'day',b_range:'yesterday',b_rs_site:'rsorders',b_rs_category:'all'}));await waitGross('¥60.00');
   assert.match(await coverage.textContent(),/2\/3/);
   await page.getByText('当前积压 · 问题单 3 · 待支付 7',{exact:true}).waitFor();
-  const more=page.locator('#rs-filters details');assert.equal(await more.getAttribute('open'),null);await more.locator('summary').press('Enter');assert.equal(await page.locator('#rs_server').isVisible(),true);await more.locator('summary').press('Escape');assert.equal(await page.locator('#rs_server').isVisible(),false);
+  const more=page.locator('#rs-filters details');assert.equal(await more.getAttribute('open'),null);await more.locator('summary').press('Enter');assert.equal(await page.locator('#rs_server').isVisible(),true);assert.equal(await page.locator('#rs_server').evaluate(e=>{const range=document.createRange();range.selectNode(e.parentElement.firstChild);return range.getClientRects().length;}),1);await more.locator('summary').press('Escape');assert.equal(await page.locator('#rs_server').isVisible(),false);
   await page.getByRole('combobox',{name:'2 · 商品类目'}).selectOption('items');await waitGross('¥6.00');
   await page.getByRole('combobox',{name:'1 · 网站来源'}).selectOption('rsmalls');await waitGross('¥9.00');
   await page.getByRole('combobox',{name:'1 · 网站来源'}).selectOption('mmoexp');await waitGross('¥0.00');assert.match(await margin.innerText(),/不适用/);
   assert.ok(queries.some(q=>q.mode==='actual-profit'&&q.profile==='RS'&&q.rs_category==='items'));assert.ok(queries.filter(q=>q.mode==='summary').every(q=>q.profit_basis==='actual'));assert.ok(!queries.some(q=>q.mode==='profit-history'));assert.ok(queries.filter(q=>q.mode==='fc-detail').every(q=>!('profit_site'in q)));
   for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.ownerDocument.documentElement.dataset.theme=t;},theme);assert.equal(await gross.isVisible(),true);}
-  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await page.setViewportSize({width:390,height:844});await page.locator('#rs-filters summary').click();assert.ok(await page.locator('#rs-filters .fc-more').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=11&&r.right<=innerWidth-11;}));await page.locator('#rs-filters summary').press('Escape');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   deny=true;await page.evaluate(()=>window.api.update());await page.waitForFunction(()=>!document.querySelector('#app').shadowRoot.querySelector('[data-metric="profitCny"] strong')?.textContent.includes('¥0.00'));assert.doesNotMatch(await page.locator('#rs-current-backlog summary').innerText(),/问题单 3|待支付 7/);assert.deepEqual(errors,[]);
   console.log('Actual profit UI: cards/coverage/daily, global/games/All/RS filters, zero/loss, denial, themes and mobile passed');
  }finally{await browser.close();server.close();}

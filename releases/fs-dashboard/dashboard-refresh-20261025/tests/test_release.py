@@ -4,6 +4,11 @@ from unittest.mock import patch
 R=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('actual_release',R/'deploy/actual_release.py');release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
 class Release(unittest.TestCase):
+ def test_rs_followup_is_exact_existing_backend_and_versioned_ui(self):
+  spec=importlib.util.spec_from_file_location('backlog_release',R/'deploy/backlog_release.py');wrapper=importlib.util.module_from_spec(spec);spec.loader.exec_module(wrapper)
+  actual=types.SimpleNamespace(load_base=lambda:'original-publisher')
+  with patch.dict(sys.modules,{'actual_release':actual}):self.assertEqual(wrapper.load_base(),'original-publisher')
+  self.assertEqual(actual.TARGETS['source/rs_backlog.py'],'/opt/fs-exact-range-20261001/rs_backlog.py');self.assertEqual(len(actual.TARGETS),6);self.assertEqual(actual.NEW,frozenset('source/'+n for n in ('business.js','home-business.js','legacy-business.js','shell.js')));self.assertEqual(actual.SCOPE,'business-dashboard-backlog-20261025')
  def test_exact_scope_and_targets(self):
   self.assertEqual(release.SCOPE,'business-dashboard-refresh-20261025');self.assertEqual(len(release.TARGETS),11)
   self.assertEqual(release.NEW,frozenset('source/'+n for n in ('business.js','home-business.js','legacy-business.js','shell.js','rs_backlog.py')))

@@ -130,14 +130,19 @@ function rsBacklogSync(force=false){
  })();
 }
 
+function rsPositionMore(more){
+ if(!more?.open)return;const panel=more.querySelector('.fc-more');panel.style.left='0';panel.style.right='auto';
+ const rect=panel.getBoundingClientRect();panel.style.left=Math.max(12-rect.left,Math.min(0,window.innerWidth-12-rect.right))+'px';
+}
+addEventListener('resize',()=>rsPositionMore(document.querySelector('#rs-filters details[open]')),{signal:scope.signal});
 function rsRenderFilters(){
  let box=document.getElementById('rs-filters');if(!box){box=document.createElement('div');box.id='rs-filters';box.className='toolbar';box.style.flexBasis='100%';box.setAttribute('role','group');box.setAttribute('aria-label','RS 分析范围');document.getElementById('rangeBar').after(box);}
  box.hidden=KEY!=='RS';if(box.hidden)return;
  box.replaceChildren();
- const more=document.createElement('details'),summary=document.createElement('summary'),panel=document.createElement('div');more.className='fc-more-filters';panel.className='fc-more';summary.textContent='更多筛选'+(rsFilters.rs_server!=='all'?' · '+rsOptions.rs_server.find(([v])=>v===rsFilters.rs_server)[1]:'');more.append(summary,panel);more.open=rsMoreOpen;more.ontoggle=()=>{rsMoreOpen=more.open;};more.addEventListener('keydown',e=>{if(e.key==='Escape'){more.open=false;summary.focus();}});
+ const more=document.createElement('details'),summary=document.createElement('summary'),panel=document.createElement('div');more.className='fc-more-filters';panel.className='fc-more';panel.style.width='min(260px, calc(100vw - 24px))';summary.textContent='更多筛选'+(rsFilters.rs_server!=='all'?' · '+rsOptions.rs_server.find(([v])=>v===rsFilters.rs_server)[1]:'');more.append(summary,panel);more.open=rsMoreOpen;more.ontoggle=()=>{rsMoreOpen=more.open;rsPositionMore(more);};more.addEventListener('keydown',e=>{if(e.key==='Escape'){more.open=false;summary.focus();}});
  for(const [key,title] of [['rs_site','1 · 网站来源'],['rs_category','2 · 商品类目'],['rs_server','游戏区服']]){
   const options=rsOptions[key],label=document.createElement('label');label.className='scope-select';label.textContent=title+' ';
-  const select=document.createElement('select');select.name=key;select.id=key;
+  const select=document.createElement('select');select.name=key;select.id=key;if(key==='rs_server'){label.style.display='grid';label.style.gap='6px';select.style.width='100%';select.style.minWidth='0';select.style.maxWidth='100%';}
   for(const [value,title] of options){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}select.value=rsFilters[key];label.htmlFor=key;label.append(select);(key==='rs_server'?panel:box).append(label);
   select.onchange=()=>{rsFilters={...rsFilters,[key]:select.value};window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();document.getElementById(key)?.focus();};
  }box.append(more);
@@ -2300,9 +2305,9 @@ function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestA
   if(insights&&grid){
    let status=root.getElementById('business-refresh-status');if(!status){status=document.createElement('p');status.id='business-refresh-status';status.className='fsi-note';status.setAttribute('role','status');status.setAttribute('aria-live','polite');insights.before(status);}
    if(status.nextSibling!==insights)insights.before(status);
-   const failed=scope.summaryError||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
+   const failed=scope.summaryError||scope.summary?.sources?.Admin?.status==='unavailable'||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
    const refreshing=scope.summaryRefreshing||procurementRead?.loading||procurementRead?.data?.refreshing;
-   fcSetText(status,failed?'本次刷新未完成，保留上次读取值；可点更新视图重试。':refreshing?'刷新中…':'');
+   fcSetText(status,refreshing?'刷新中…':failed?(scope.summary||procurementRead?.data?'本次刷新未完成，保留上次读取值；可点更新视图重试。':'本次读取未完成，可点更新视图重试。'):'');
   }
  if(insights&&grid&&!insights.querySelector('.metric-audit')){const audit=document.createElement('details');audit.className='source-details metric-audit';audit.append(document.createElement('summary'));audit.firstChild.textContent='所选区间、指标来源与口径';
   for(const note of insights.querySelectorAll(':scope > p.fsi-note,:scope > [data-exact-range-status]'))audit.append(note);insights.append(audit);
@@ -2312,6 +2317,7 @@ function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestA
   const button=root.getElementById('all-metrics');fcSetText(button,scope.metrics?'收起补充指标':'展开补充指标');button.setAttribute('aria-expanded',String(!!scope.metrics));
   const cards=[...grid.children],primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageCustomerUsd'];
   for(const [i,c] of cards.entries()){const n=primary.indexOf(c.dataset.metric);if(n>=0)fcSetText(c.querySelector('span'),['销售额','订单数','毛利（¥）','毛利率','新客人数','复购率','新客占比','客单价'][n]);c.style.order=n<0?primary.length+i:n;c.hidden=!scope.metrics&&n<0;}
+  for(let i=0;i<primary.length;i++){const card=cards.find(c=>c.dataset.metric===primary[i]);if(card&&grid.children[i]!==card)grid.insertBefore(card,grid.children[i]||null);}
 
  }
  for(const h of root.querySelectorAll('.fold-h')){if(!h.hasAttribute('role')){h.setAttribute('role','button');h.tabIndex=0;h.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.click();}});}}
