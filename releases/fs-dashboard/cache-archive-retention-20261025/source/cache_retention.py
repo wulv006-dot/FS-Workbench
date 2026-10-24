@@ -31,6 +31,13 @@ def private(path, directory=False):
     return s
 
 
+def reference_file(path):
+    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('retention_reference_symlink')
+    s=path.stat()
+    if not stat.S_ISREG(s.st_mode) or (os.name=='posix' and s.st_mode&0o002):raise ValueError('retention_reference_permissions')
+    return s
+
+
 def atomic(path,value):
     fd,temp=tempfile.mkstemp(prefix='.retention-',dir=str(path.parent))
     try:
@@ -94,12 +101,11 @@ def reference_versions(root,paths=None,databases=None):
         for p in base.rglob('*'):
             if p.is_symlink():raise ValueError('retention_reference_symlink')
             if not p.is_file() or p.suffix not in ('.json','.jsonl','.md','.html','.txt'):continue
-            s=p.stat()
+            s=reference_file(p)
             if s.st_size>MAX_FILE:raise ValueError('retention_reference_size')
             read_bytes+=s.st_size
             if read_bytes>1024*1024*1024 or time.monotonic()>deadline:raise ValueError('retention_reference_budget')
             # Existing unprivileged workers own some receipts; these reads only pin data.
-            if not stat.S_ISREG(s.st_mode):raise ValueError('retention_reference_type')
             with p.open('rb') as f:
                 tail=b''
                 while True:
@@ -114,7 +120,7 @@ def reference_versions(root,paths=None,databases=None):
         if p.name.startswith('.'):continue
         private(p);refs.update(HASH.findall(p.read_text('utf-8')))
     for p in databases:
-        private(p)
+        reference_file(p)
         with closing(sqlite3.connect(p.as_uri()+'?mode=ro',uri=True,timeout=5)) as db:
             db.set_progress_handler(lambda:1 if time.monotonic()>deadline else 0,10000)
             db.execute('BEGIN')
@@ -239,7 +245,7 @@ def busy(root):
     for path,query in (
         (fs/'tasks.sqlite3',"SELECT count(*) FROM tasks WHERE state IN ('QUEUED','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED','NEEDS_RECONCILE')"),
         (fs/'conversations/conversations.db',"SELECT count(*) FROM turns WHERE state NOT IN ('completed','failed','cancelled','interrupted')")):
-        private(path)
+        reference_file(path)
         with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=5)) as db:
             if db.execute(query).fetchone()[0]:return True
     for p in Path('/var/lib/fc27-cloud/jobs').glob('*.json'):

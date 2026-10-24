@@ -55,7 +55,7 @@ class Cache(unittest.TestCase):
     def test_database_reference_is_protected(self):
         version,p,_=self.snapshot();db=self.root/'tasks.sqlite3'
         with closing(sqlite3.connect(db)) as c,c:c.execute('create table evidence(content TEXT)');c.execute('insert into evidence values(?)',(json.dumps({'version':version}),))
-        os.chmod(db,0o600)
+        os.chmod(db,0o644)
         self.assertFalse(self.collect(databases=[db])['candidates']);self.assertTrue(p.exists())
 
     def test_existing_worker_owned_receipts_still_protect_versions(self):
