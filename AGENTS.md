@@ -1,3 +1,8 @@
+<!-- dashboard-refresh-current-20261025 -->
+## 经营看板八主卡与刷新（2026-10-25）
+
+用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、v15或80/15/5；Git候选知识不冒充生产目录或真实模型应用。
+
 <!-- dashboard-actual-profit-current-20261024 -->
 ## 经营看板利润主展示（2026-10-24）
 
