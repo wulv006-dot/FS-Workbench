@@ -1,0 +1,22 @@
+{
+  "scope": "rs-status-copy-20261024",
+  "version": "rs-status-20261024-96a1c925325c",
+  "files": [
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-status-20261024-96a1c925325c/shell.js",
+      "sha256": "96a1c925325c2594c7b0dc360dc1d62e5005b6093bcf80f9ffc2a1530d262794",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "ef18dc02dcdb016ae105d7051d22223b24e24a6b4b3fdda885fc5942d52eea4a",
+      "beforeSha256": "ff7e9321f6626910904f80fe6753d42d7ff5d9697783885bd4c641b46d5ad387",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}
