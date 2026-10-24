@@ -196,6 +196,87 @@ class PackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'events location'):
             self.prepare()
 
+    def line_evidence(self, relative='app/activity.js', accepted=b'original\r\nline\r\n', deployed=b'original\nline\n'):
+        accepted_export = self.root / 'accepted-export'
+        deployed_source = self.root / 'deployed-source'
+        accepted_path = accepted_export / relative
+        deployed_path = deployed_source / relative.removeprefix('app/')
+        accepted_path.parent.mkdir(parents=True, exist_ok=True)
+        deployed_path.parent.mkdir(parents=True, exist_ok=True)
+        accepted_path.write_bytes(accepted)
+        deployed_path.write_bytes(deployed)
+        self.base[relative] = package.sha(accepted)
+        target = '/opt/fs-campaign-dashboard/' + relative.removeprefix('app/')
+        self.baseline['files'][target] = package.sha(deployed)
+        return accepted_export, deployed_source
+
+    def prepare_reconciled(self, accepted_export, deployed_source):
+        return package.prepare(self.export, self.baseline, self.commit, self.output, self.base,
+                               accepted_export=accepted_export, deployed_source=deployed_source)
+
+    def test_unchanged_public_keeps_readback_bytes_and_static_hash_with_exact_proof(self):
+        accepted, deployed = self.line_evidence()
+        self.write('app/activity.js', b'original\r\nline\r\n')
+        self.prepare_reconciled(accepted, deployed)
+        self.assertFalse((self.output / 'candidate/app/activity.js').exists())
+        static = json.loads((self.output / 'candidate/app/runtime/static-manifest.json').read_text())
+        self.assertEqual(static['activity.js'], package.sha(b'original\nline\n'))
+        manifest = self.manifest()
+        proof = manifest['lineEndingReconciliations'][0]
+        self.assertEqual(proof['acceptedSha256'], package.sha(b'original\r\nline\r\n'))
+        self.assertEqual(proof['deployedSha256'], package.sha(b'original\nline\n'))
+        self.assertEqual(proof['normalizedSha256'], proof['deployedSha256'])
+        self.assertEqual(proof['normalization'], 'replace_CRLF_with_LF_only')
+        self.assertEqual(manifest['lineEndingReconciliationSha256'], package.sha(package.encoded([proof])))
+        self.assertEqual((accepted / 'app/activity.js').read_bytes(), b'original\r\nline\r\n')
+        self.assertEqual((deployed / 'activity.js').read_bytes(), b'original\nline\n')
+
+    def test_changed_candidate_uses_exact_reconciled_deployed_raw_cas(self):
+        accepted, deployed = self.line_evidence()
+        self.write('app/activity.js', b'changed candidate\n')
+        self.prepare_reconciled(accepted, deployed)
+        row = next(row for row in self.manifest()['files'] if row['candidate'] == 'app/activity.js')
+        self.assertEqual(row['beforeSha256'], package.sha(b'original\nline\n'))
+        self.assertEqual(row['sha256'], package.sha(b'changed candidate\n'))
+        self.assertEqual((self.output / 'candidate/app/activity.js').read_bytes(), b'changed candidate\n')
+
+    def test_unchanged_management_line_ending_evidence_is_recorded_but_not_rewritten(self):
+        relative = 'app/analytics/private.js'
+        accepted, deployed = self.line_evidence(relative)
+        self.write(relative, b'original\r\nline\r\n')
+        self.prepare_reconciled(accepted, deployed)
+        self.assertFalse((self.output / 'candidate' / relative).exists())
+        self.assertEqual(self.manifest()['lineEndingReconciliations'][0]['candidate'], relative)
+
+    def test_readback_content_bom_whitespace_lone_cr_or_missing_newline_not_accepted(self):
+        for deployed in (b'original\nchanged\n', b'\xef\xbb\xbforiginal\nline\n',
+                         b'original \nline\n', b'original\rline\r', b'original\nline'):
+            accepted, readback = self.line_evidence(deployed=deployed)
+            self.write('app/activity.js', b'new candidate\n')
+            with self.assertRaisesRegex(ValueError, 'content differs beyond CRLF/LF'):
+                self.prepare_reconciled(accepted, readback)
+            self.assertFalse(self.output.exists())
+
+    def test_wrong_accepted_export_or_readback_raw_hash_rejected(self):
+        accepted, deployed = self.line_evidence()
+        (accepted / 'app/activity.js').write_bytes(b'wrong accepted\r\n')
+        with self.assertRaisesRegex(ValueError, 'accepted export raw SHA'):
+            self.prepare_reconciled(accepted, deployed)
+        (accepted / 'app/activity.js').write_bytes(b'original\r\nline\r\n')
+        (deployed / 'activity.js').write_bytes(b'original\r\nline\r\n')
+        with self.assertRaisesRegex(ValueError, 'deployed readback raw SHA'):
+            self.prepare_reconciled(accepted, deployed)
+        self.assertFalse(self.output.exists())
+
+    def test_line_ending_optional_inputs_require_both_and_do_not_cover_binary_assets(self):
+        accepted, deployed = self.line_evidence()
+        for first, second in ((accepted, None), (None, deployed)):
+            with self.assertRaisesRegex(ValueError, 'supplied together'):
+                package.prepare(self.export, self.baseline, self.commit, self.output, self.base, first, second)
+        accepted, deployed = self.line_evidence('app/assets/example.png')
+        with self.assertRaisesRegex(ValueError, 'requires text source'):
+            self.prepare_reconciled(accepted, deployed)
+
 
 if __name__ == '__main__':
     unittest.main()

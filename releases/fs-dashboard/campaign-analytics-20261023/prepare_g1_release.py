@@ -2,6 +2,8 @@
 
 Inputs must be an exact Git module export, a controller-captured remote baseline and
 an accepted-base mapping {candidate-relative path: exact accepted Git blob SHA256}.
+Optional accepted-export and deployed-source evidence must be supplied together;
+only exact raw-hash-verified CRLF/LF divergence can reconcile a deployed base.
 """
 import argparse
 import base64
@@ -22,6 +24,7 @@ PUBLIC_REQUIRED = {'index.html', 'Weekly-Scout.html', 'Sbc-Companions.html', 'Pl
 PUBLIC_ASSET = re.compile(r'^(?:seasonal/)?assets/[A-Za-z0-9_.-]+\.(?:webp|png|svg|jpg|jpeg|gif|woff2)$')
 HASH = re.compile(r'^[a-f0-9]{64}$')
 COMMIT = re.compile(r'^[a-f0-9]{40}$')
+TEXT_SUFFIXES = {'.js', '.mjs', '.cjs', '.html', '.css', '.json', '.xml', '.svg', '.txt', '.md', '.py'}
 GUARDS = {'/opt/auth-portal/auth_portal.py', '/opt/fs-access-policy/rbac.py'}
 NGINX_APPEND = b'''\n# FS campaign G1 customer runtime: management locations above are unchanged.
 location ^~ /events/ {
@@ -105,8 +108,32 @@ def public_name(relative):
     return relative in PUBLIC_NAMES or bool(PUBLIC_ASSET.fullmatch(relative))
 
 
-def prepare(export, baseline, commit, output, accepted_base):
+def line_ending_proof(relative, target, accepted_hash, remote_hash, accepted_export, deployed_source):
+    if PurePosixPath(relative).suffix not in TEXT_SUFFIXES:
+        raise ValueError('line-ending reconciliation requires text source: ' + relative)
+    accepted = read_source(accepted_export, relative)
+    deployed_relative = PurePosixPath(target).relative_to('/opt/fs-campaign-dashboard').as_posix()
+    deployed = read_source(deployed_source, deployed_relative)
+    if sha(accepted) != accepted_hash:
+        raise ValueError('accepted export raw SHA differs from accepted-base map: ' + relative)
+    if sha(deployed) != remote_hash:
+        raise ValueError('deployed readback raw SHA differs from baseline: ' + relative)
+    normalized = accepted.replace(b'\r\n', b'\n')
+    if normalized != deployed.replace(b'\r\n', b'\n'):
+        raise ValueError('content differs beyond CRLF/LF: ' + relative)
+    return dict(candidate=relative, target=target, acceptedSha256=accepted_hash,
+                deployedSha256=remote_hash, normalizedSha256=sha(normalized),
+                normalization='replace_CRLF_with_LF_only')
+
+
+def prepare(export, baseline, commit, output, accepted_base, accepted_export=None, deployed_source=None):
     export, output = Path(export).resolve(), Path(output).resolve()
+    if (accepted_export is None) != (deployed_source is None):
+        raise ValueError('accepted-export and deployed-source evidence must be supplied together')
+    if accepted_export is not None:
+        accepted_export, deployed_source = Path(accepted_export).resolve(), Path(deployed_source).resolve()
+        if any(output == root or root in output.parents for root in (accepted_export, deployed_source)):
+            raise ValueError('output must be outside reconciliation evidence directories')
     if not COMMIT.fullmatch(commit):
         raise ValueError('full source Git commit required')
     if output.exists() or output == export or export in output.parents:
@@ -192,28 +219,36 @@ def prepare(export, baseline, commit, output, accepted_base):
         publisher.target(relative)
         source_paths.append(relative)
     source_paths += ['backend/' + name for name in sorted(publisher.BACKEND_FILES)]
-    public = {}
+    public, reconciliations = {}, []
     for relative in source_paths:
         raw = read_source(export, relative)
         digest, target = sha(raw), publisher.target(relative)
         source_hashes[relative] = digest
         remote, accepted = baseline['files'].get(target), accepted_base.get(relative)
         is_public = relative.startswith('app/') and public_name(relative[4:])
+        public_digest = digest
+        proof = None
+        if (accepted_export is not None and remote is not None and accepted is not None
+                and remote != accepted and remote != digest):
+            proof = line_ending_proof(relative, target, accepted, remote, accepted_export, deployed_source)
+            reconciliations.append(proof)
         if remote == digest:
             skipped.append(relative)
         elif accepted is not None and digest == accepted:
             if is_public:
-                raise ValueError('public customization requires reviewed bytes: ' + target + ' remote=' + str(remote) + ' export=' + digest)
+                if proof is None:
+                    raise ValueError('public customization requires reviewed bytes: ' + target + ' remote=' + str(remote) + ' export=' + digest)
+                public_digest = remote  # Keep exact deployed bytes, verified by the raw readback hash.
             skipped.append(relative)  # Unchanged Git management bytes must not overwrite deployed customization.
         elif remote is None and accepted is None:
             stage(relative, raw, None)
-        elif remote == accepted:
+        elif remote == accepted or proof is not None:
             stage(relative, raw, remote)
         else:
             raise ValueError('deployed customization or missing accepted base: ' + target + ' remote=' + str(remote)
                              + ' accepted=' + str(accepted) + ' export=' + digest)
         if is_public:
-            public[relative[4:]] = digest
+            public[relative[4:]] = public_digest
     if not PUBLIC_REQUIRED.issubset(public):
         raise ValueError('required FC/seasonal public pages missing')
     static_relative = 'app/runtime/static-manifest.json'
@@ -230,6 +265,8 @@ def prepare(export, baseline, commit, output, accepted_base):
         packagingToolsSha256={name: sha(raw) for name, raw in tools.items()},
         acceptedBaseRevision='2c976e7f849b3b7916e006dd6907e633051cb3fb',
         acceptedBaseMapSha256=sha(encoded(accepted_base)),
+        lineEndingReconciliations=reconciliations,
+        lineEndingReconciliationSha256=sha(encoded(reconciliations)),
         skippedUnchangedFiles=sorted(skipped), publicStaticFiles=sorted(public))
     output.mkdir(parents=True)
     for name, raw in candidates.items():
@@ -254,10 +291,15 @@ def main():
     parser.add_argument('--baseline', required=True, type=Path)
     parser.add_argument('--source-commit', required=True)
     parser.add_argument('--accepted-base', required=True, type=Path)
+    parser.add_argument('--accepted-export', type=Path,
+                        help='exact accepted module export; requires --deployed-source')
+    parser.add_argument('--deployed-source', type=Path,
+                        help='exact readback root under /opt/fs-campaign-dashboard, without app/ prefix')
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args()
     result = prepare(args.export, json.loads(args.baseline.read_text('utf-8')), args.source_commit,
-                     args.output, json.loads(args.accepted_base.read_text('utf-8')))
+                     args.output, json.loads(args.accepted_base.read_text('utf-8')),
+                     accepted_export=args.accepted_export, deployed_source=args.deployed_source)
     print(json.dumps(result, sort_keys=True))
 
 
