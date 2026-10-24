@@ -13,7 +13,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  }
  if(file==='/analytics/api/center'&&req.method()==='POST'){const body=req.postDataJSON();saveIds.push(body.operation_id);if(saveIds.length===1){state={...state,revision:2,draft:body.draft};if(dropSave){dropSave=false;return route.abort();}}return route.fulfill({json:{revision:2}});}
  if(file==='/analytics/api/center/publish'){state={...state,revision:3,published:{release_id:'preview-1'}};return route.fulfill({json:{revision:3}});}
- if(file==='/events/api/campaign/config')return route.fulfill({json:{pages:[{page_id:'fc27-sbc',activity_id:'fc27-season2',product_keys:[]}],products:[]}});
+ if(file==='/events/api/campaign/config')return route.fulfill({json:{pages:[{page_id:'fc27-sbc',activity_id:'fc27-season2',active:true,product_keys:Object.keys(require('./fixtures/catalog-baseline.json').products).flatMap(key=>['ps','xbox','pc'].map(platform=>'fc-'+key+'-'+platform))}],products:[]}});
  if(file==='/events/api/campaign/capabilities')return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
  const rel=file.replace(/^\/events\//,'/');const filename=path.join(app,rel);if(!filename.startsWith(app)||!fs.existsSync(filename))return route.fulfill({status:404,body:''});const ext=path.extname(filename);return route.fulfill({body:fs.readFileSync(filename),contentType:({'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp','.png':'image/png'})[ext]||'application/octet-stream'});
  });
