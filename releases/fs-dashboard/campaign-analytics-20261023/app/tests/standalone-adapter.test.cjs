@@ -19,7 +19,7 @@ function setup({mode='preview',intentLoss=null,quoteLoss=false,prepareLoss=false
    if(intentLoss==='after'){intentLoss=null;throw Error('lost after persisted receipt');}return Response.json(intent);
   }
   if(url.endsWith('/quote')){if(quoteLoss){quoteLoss=false;throw Error('quote response lost');}return mode==='preview'?Response.json({code:'MAIN_INTEGRATION_REQUIRED'},{status:503}):Response.json({quote_id:'quote-'+body.intent_id});}
-  if(url.endsWith('/prepare_checkout')){if(prepareLoss){prepareLoss=false;throw Error('prepare response lost');}return Response.json(confirmed());}
+  if(url.endsWith('/prepare_checkout')){if(controls.prepareError)return Response.json(controls.prepareError,{status:409});if(prepareLoss){prepareLoss=false;throw Error('prepare response lost');}return Response.json(confirmed());}
   if(url.includes('/operations/'))return Response.json(controls.lookupResult);
   throw Error(url);
  };
@@ -34,3 +34,14 @@ test('incomplete intent receipt remains unknown and cannot trigger a replay',asy
 test('quote response loss retries only same known intent and never checkout operation lookup',async()=>{const {client,options,calls}=setup({mode:'integration_test',quoteLoss:true});await assert.rejects(client.select(lines),{code:'NETWORK_UNKNOWN'});assert.equal(client.pending.stage,'quote');const reloaded=sdk.create(options);await reloaded.lookup();assert.deepEqual(calls.filter(x=>x.url.endsWith('/quote')).map(x=>x.body),[{intent_id:'intent-1'},{intent_id:'intent-1'}]);assert(!calls.some(x=>x.url.includes('/operations/')||x.url.endsWith('/prepare_checkout')));assert.equal(reloaded.pending.unknown,false);assert.equal(reloaded.pending.stage,'quoted');});
 test('unknown prepare resolves by original lookup, preserves receipt and never repeats prepare',async()=>{const {client,calls,options,controls}=setup({mode:'integration_test',prepareLoss:true});await client.select(lines);await assert.rejects(client.prepare(),{code:'NETWORK_UNKNOWN'});const reloaded=sdk.create(options);await reloaded.lookup();assert.equal(reloaded.pending.unknown,true);await assert.rejects(reloaded.select(lines),{code:'OPERATION_UNKNOWN'});controls.lookupResult=confirmed();await reloaded.lookup();assert(calls.at(-1).url.endsWith('/operations/operation-1'));assert.equal(reloaded.pending.unknown,false);assert.equal(reloaded.pending.resolved,true);assert.equal(reloaded.pending.stage,'resolved');await assert.rejects(reloaded.prepare(),{code:'OPERATION_RESOLVED'});await reloaded.select(lines);assert.equal(reloaded.pending.operation_id,'operation-2');assert.deepEqual(reloaded.pending.receipts,[{operation_id:'operation-1',result:confirmed()}]);assert.equal(calls.filter(x=>x.url.endsWith('/prepare_checkout')).length,1);});
 test('unavailable products fail before intent, completed fixture cannot be prepared twice',async()=>{const unavailable=setup();await unavailable.client.load();unavailable.client.config.products[0].available=false;await assert.rejects(unavailable.client.select(lines),{code:'PRODUCT_UNAVAILABLE'});assert(!unavailable.calls.some(x=>x.url.endsWith('/intents')));const {client,calls}=setup({mode:'integration_test'});await client.select(lines);const result=await client.prepare();assert.equal(result.live_checkout,false);assert.equal(result.cart_mutated,false);assert.equal(client.pending.resolved,true);await assert.rejects(client.prepare(),{code:'OPERATION_RESOLVED'});assert.equal(calls.filter(x=>x.url.endsWith('/prepare_checkout')).length,1);});
+
+test('only explicit pre-dispatch receipt unlocks rejected prepare and requires a fresh quote',async()=>{
+ for(const code of ['QUOTE_EXPIRED','PRICE_CHANGED','RULE_VERSION_CONFLICT']){
+ const {client,calls,controls}=setup({mode:'integration_test'});await client.select(lines);
+ controls.prepareError={code,dispatch_state:'not_started'};await assert.rejects(client.prepare(),{code});
+ assert.equal(client.pending.unknown,false);assert.equal(client.pending.quote_id,null);await assert.rejects(client.prepare(),{code:'QUOTE_REQUIRED'});
+ controls.prepareError=null;await client.lookup();assert.equal(client.pending.stage,'quoted');await client.prepare();assert.equal(client.pending.resolved,true);
+ assert.equal(calls.filter(x=>x.url.endsWith('/prepare_checkout')).length,2);
+ }
+ const {client,controls}=setup({mode:'integration_test'});await client.select(lines);controls.prepareError={code:'RULE_VERSION_CONFLICT'};await assert.rejects(client.prepare());assert.equal(client.pending.unknown,true);await assert.rejects(client.prepare(),{code:'OPERATION_UNKNOWN'});
+});

@@ -745,6 +745,7 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue
         print("affected group:",group,flush=True)

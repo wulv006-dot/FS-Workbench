@@ -15,7 +15,7 @@
     async function api(route,body){
       let response;try{response=await request(base+'api/campaign/'+route,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});}catch{throw failure('NETWORK_UNKNOWN');}
       let value;try{value=await response.json();}catch{throw failure('NETWORK_UNKNOWN');}
-      if(!response.ok)throw Object.assign(failure(value.code||'RUNTIME_UNAVAILABLE'),{status:response.status});return value;
+      if(!response.ok)throw Object.assign(failure(value.code||'RUNTIME_UNAVAILABLE'),{status:response.status,dispatch_state:value.dispatch_state});return value;
     }
     function page(){const p=snapshot?.pages?.find(p=>p.page_id===pageId&&p.activity_id===activityId);if(!p)throw failure('PAGE_UNAVAILABLE');return p;}
     const uncertain=error=>error.code==='NETWORK_UNKNOWN'||error.status>=500;
@@ -62,7 +62,10 @@
         const body={operation_id:pending.operation_id,intent_id:pending.intent_id,quote_id:pending.quote_id,return_route_id:'activity'};
         retain({...pending,stage:'prepare',unknown:true,prepare_dispatched:true});
         try{return rememberResult(await api('prepare_checkout',body));}
-        catch(error){retain({...pending,prepare_error:error.code});throw error;}
+        catch(error){
+          const notStarted=error.status===409&&error.dispatch_state==='not_started'&&['QUOTE_EXPIRED','PRICE_CHANGED','QUOTE_INVALID','RULE_VERSION_CONFLICT','PROMOTION_EXPIRED','PROMOTION_NOT_STARTED'].includes(error.code);
+          retain({...pending,prepare_error:error.code,...(notStarted?{stage:'prepare_rejected',unknown:false,prepare_dispatched:false,quote_id:null,quote:null}:{})});throw error;
+        }
       },
       async recover(){
         if(!pending)throw failure('OPERATION_ID_UNAVAILABLE');

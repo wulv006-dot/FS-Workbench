@@ -47,7 +47,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
       }
       res.writeHead(status,{...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'});res.end(req.method==='HEAD'?undefined:content);
     } catch(error) {
-      json(req,res,error.status||500,{code:error.status?error.code:'RUNTIME_UNAVAILABLE',integration_mode:mode,live_checkout:false});
+      json(req,res,error.status||500,{code:error.status?error.code:'RUNTIME_UNAVAILABLE',...(error.dispatch_state==='not_started'?{dispatch_state:'not_started'}:{}),integration_mode:mode,live_checkout:false});
     }
   });
   server.requestTimeout=15000;server.headersTimeout=10000;

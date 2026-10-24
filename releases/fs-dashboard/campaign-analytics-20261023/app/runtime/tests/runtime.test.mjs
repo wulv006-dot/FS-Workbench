@@ -75,8 +75,8 @@ test('mixed test outcomes retain every original line and never claim whole cart 
 });
 test('expiry and current fixture price changes require another quote',async t=>{
   let time=100000;const prices={'sku-1':10000},c=commerce(t,{mode:'integration_test',testAdapter:createIntegrationTestAdapter(prices),now:()=>time});
-  const body=checkout(c);prices['sku-1']=9000;await assert.rejects(c.prepare(body),{code:'PRICE_CHANGED'});
-  prices['sku-1']=10000;time+=60001;await assert.rejects(c.prepare(body),{code:'QUOTE_EXPIRED'});
+  const body=checkout(c);prices['sku-1']=9000;await assert.rejects(c.prepare(body),{code:'PRICE_CHANGED',dispatch_state:'not_started'});
+  prices['sku-1']=10000;time+=60001;await assert.rejects(c.prepare(body),{code:'QUOTE_EXPIRED',dispatch_state:'not_started'});
 });
 test('durable unknown lookup never reposts after restart and projects partial results safely',async t=>{
   const dir=temp(t);let calls=0,lookups=0,known=false;
@@ -99,7 +99,7 @@ test('published config reload rejects old intents and preserves original unknown
   assert.equal(c.config().release_id,'release-2');assert.throws(()=>c.intent(request()),{code:'RULE_VERSION_CONFLICT'});
   assert.throws(()=>c.quote({intent_id:unsubmitted.intent_id}),{code:'RULE_VERSION_CONFLICT'});
   await assert.rejects(c.prepare(unsubmitted),{code:'RULE_VERSION_CONFLICT'});
-  await assert.rejects(c.prepare(original),{code:'RULE_VERSION_CONFLICT'});
+  await assert.rejects(c.prepare(original),error=>error.code==='RULE_VERSION_CONFLICT'&&error.dispatch_state===undefined);
   const updated=request();updated.rule_version='rules-2';assert.equal(c.intent(updated).release_id,'release-2');
   assert.equal((await c.lookup(original.operation_id)).code,'OPERATION_UNKNOWN');assert.equal(calls,1);
   publish({...next,publication_status:'draft'});assert.throws(()=>c.config(),{code:'UNPUBLISHED_RELEASE'});assert.throws(()=>c.quote({intent_id:unsubmitted.intent_id}),{code:'UNPUBLISHED_RELEASE'});

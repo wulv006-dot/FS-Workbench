@@ -106,6 +106,7 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
       atomic(location('quotes',value.quote_id),value);return value;
     },
     async prepare(body) {
+     try {
       exact(body,['operation_id','intent_id','quote_id','return_route_id']);
       const opId=uuid(body.operation_id),file=location('operations',opId);
       const request={operation_id:opId,intent_id:uuid(body.intent_id),quote_id:uuid(body.quote_id),return_route_id:id(body.return_route_id)};
@@ -130,6 +131,13 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
       try {op.result=projectOutcome(await testAdapter.prepare_checkout(structuredClone(op.payload)),op);}
       catch {op.result=unknown(op);}
       atomic(file,op);return op.result;
+     }catch(error){
+      if(['QUOTE_EXPIRED','PRICE_CHANGED','QUOTE_INVALID','RULE_VERSION_CONFLICT','PROMOTION_EXPIRED','PROMOTION_NOT_STARTED'].includes(error.code)&&error.status===409){
+       const file=location('operations',body.operation_id);
+       if(!fs.existsSync(file))error.dispatch_state='not_started';
+      }
+      throw error;
+     }
     },
     async lookup(operationId) {
       const file=location('operations',operationId),op=read(file);

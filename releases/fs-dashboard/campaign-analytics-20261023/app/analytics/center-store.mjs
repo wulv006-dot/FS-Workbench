@@ -40,6 +40,9 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   if(current.revision!==plan.previous.revision&&current.last_operation?.operation_id!==plan.operation_id)fail('PENDING_OPERATION_CONFLICT',409);
   if(plan.snapshot){
    fs.mkdirSync(publicDir,{recursive:true,mode:0o755});
+   if(fs.lstatSync(publicDir).isSymbolicLink())fail('INVALID_PUBLIC_DIRECTORY',503);
+   // The management unit uses UMask=0077; only this sanitized projection is public.
+   fs.chmodSync(publicDir,0o755);
    const immutable=path.join(publicDir,plan.snapshot.release_id+'.json');
    if(fs.existsSync(immutable)&&canonical(readJSON(immutable))!==canonical(plan.snapshot))fail('IMMUTABLE_RELEASE_CONFLICT',409);
    if(!fs.existsSync(immutable))atomic(immutable,plan.snapshot);

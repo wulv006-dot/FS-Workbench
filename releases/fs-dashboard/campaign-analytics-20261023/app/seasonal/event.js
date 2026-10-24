@@ -55,7 +55,7 @@
     }
     document.querySelector('#hero-title').innerHTML=`${t.title}<br><em>${t.word}</em>`;document.querySelector('#hero-copy').innerHTML=t.copy;
     document.querySelector('#collection-title').innerHTML='Your mystery selection<span>.</span>';
-    document.title=`${t.label} Seasonal Vault | MMOEXP`;
+    if(document.querySelector('#campaign-date').dataset.publishedSchedule!=='true')document.title=`${t.label} Seasonal Vault | MMOEXP`;
     const url=new URL(location.href);url.searchParams.set('theme',theme);history.replaceState(null,'',url);renderProducts();renderStore();window.SeasonalTracking?.render(theme);
   }
   function showDialog(title,content){document.querySelector('#dialog-title').textContent=title;document.querySelector('#dialog-content').innerHTML=content;if(!dialog.open)dialog.showModal();}
