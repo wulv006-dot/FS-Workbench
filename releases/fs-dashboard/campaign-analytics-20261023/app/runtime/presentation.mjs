@@ -49,7 +49,7 @@ export function presentPage({name,body,snapshot,now=Date.now()}={}) {
   const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
   html=html.replace(/<body\b[^>]*>/i,tag=>tag+banner);
   // Replace the Seasonal source's illustrative caption; its client must retain this published value too.
-  html=html.replace(/(<([a-z][a-z0-9]*)\b[^>]*\bid=["']campaign-date["'][^>]*>)[\s\S]*?(<\/\2\s*>)/gi,(all,open,tag,close)=>open+escape(windowText(p))+close);
+  html=html.replace(/(<([a-z][a-z0-9]*)\b[^>]*\bid=["']campaign-date["'][^>]*>)[\s\S]*?(<\/\2\s*>)/gi,(all,open,tag,close)=>open.replace(/>$/,' data-published-schedule="true">')+escape(windowText(p))+close);
   return {status:200,body:html};
 }
 

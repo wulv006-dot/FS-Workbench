@@ -741,7 +741,9 @@ def main():
             if not tests:raise RuntimeError("campaign tests missing")
             subprocess.run(["node","--test"]+tests,cwd=folder,check=True,timeout=90)
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish"])
-            units("releases/fs-dashboard/campaign-analytics-20261023/backend/tests",["test_adapters_catalog","test_attribution","test_ledger","test_coupon_draft"])
+            units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue
         print("affected group:",group,flush=True)
         if group == 'hermes-review-archive':

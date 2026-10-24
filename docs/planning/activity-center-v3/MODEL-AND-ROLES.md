@@ -28,3 +28,7 @@
 现有list_agents只返回名称和状态，不含模型；两角色实际解析model/effort未独立核实，不能称已按Sol/Astra分工。已要求它们完成当前只读原子步骤、保存结果后结束，不盲取消或重复派工。
 
 后续本项目已明确指定：主控gpt-6-astra/high；B/C为gpt-6.1-sol/high；D/E为gpt-6.1-sol/medium；关键Q为gpt-6-astra/high。用户明确6.1 Sol可用；若精确标识被工具拒绝，报告原错误，不默默降级。需显式设置、记录精确目录标识、实际环境和工作树。全局不变。
+
+## 本轮实际角色配置
+
+FS-V3-G1-CONTINUE-02主控由父端显式gpt-6-astra/high续派；接受调度配置不等于独立验证底层模型。B/C显式gpt-6.1-sol/high，D/E显式gpt-6.1-sol/medium，Q显式gpt-6-astra/high；followup沿用已创建角色。实现并发最多两名，Q独立只读。全部工作树PC-20260909OJLI本地，187仅原Invoke-Server187.ps1。未替换主控、未静默降级。

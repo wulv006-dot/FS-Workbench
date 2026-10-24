@@ -13,7 +13,9 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
   if (!['preview','integration_test','live'].includes(mode)) fail('INVALID_MODE');
   if (testAdapter && mode!=='integration_test') fail('INVALID_MODE');
   if (snapshotProvider && typeof snapshotProvider!=='function') fail('INVALID_RELEASE');
-  const initial=projectRelease(snapshot??snapshotProvider?.()),base=path.join(dir,mode), test=mode==='integration_test';
+  // A fresh service can start before its first authenticated publication. Every
+  // business read still validates the provider and fails closed until it exists.
+  const initial=snapshotProvider?null:projectRelease(snapshot),base=path.join(dir,mode), test=mode==='integration_test';
   const current=()=>snapshotProvider?projectRelease(snapshotProvider()):initial;
   fs.mkdirSync(base,{recursive:true,mode:0o700});
   const location=(kind,key)=>path.join(base,kind,uuid(key)+'.json');
@@ -49,13 +51,22 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
       ...(known?{}:{code:'OPERATION_UNKNOWN'}),lines:rows,cart_mutated:false});
   }
   const unknown=op=>projectOutcome(null,op);
+  const intentRecord=requestId=>{
+    let value;try{value=read(location('intents',requestId));}catch{fail('INTENT_RECORD_UNCONFIRMED',503);}
+    if(value&&(!value.request_hash||value.intent_id!==requestId||!value.operation_id))fail('INTENT_RECORD_UNCONFIRMED',503);
+    return value;
+  };
+  const intentResult=value=>{const {request_hash,...publicValue}=value;return result({status:'intent_saved',...publicValue});};
   return {
     config:()=>structuredClone(current()),
     capabilities:()=>{current();return result({adapter_version:'fs-standalone-v1',verified_at:null,catalog_source:'published_snapshot',catalog_authoritative:false,
       capabilities:{catalog_read:true,live_catalog_read:false,authoritative_quote:false,campaign_discount:false,stacked_discounts:false,cart_handoff:false,member_identity:false,coupon_management:false,order_discount_readback:false},
       test_capabilities:{quote:test&&!!testAdapter,prepare_checkout:test&&!!testAdapter},code:'MAIN_INTEGRATION_REQUIRED'});},
     intent(body) {
-      exact(body,['activity_id','page_id','rule_version','benefit_binding_version','lines','currency']);
+      exact(body,['request_id','activity_id','page_id','rule_version','benefit_binding_version','lines','currency']);
+      const request_id=body.request_id==null?randomUUID():uuid(body.request_id),request_hash=digest(canonical(body));
+      const prior=intentRecord(request_id);
+      if(prior){if(prior.request_hash!==request_hash)fail('REQUEST_CONFLICT',409);return intentResult(prior);}
       const release=current();
       const context={activity_id:id(body.activity_id),page_id:id(body.page_id),rule_version:id(body.rule_version),benefit_binding_version:id(body.benefit_binding_version)};
       const page=active(context,release);
@@ -75,10 +86,15 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
         return {line_key:id(line.line_key),product_key:p.key,product_ref:p.product_ref,platform:p.platform,quantity:{value:line.quantity.value,unit:p.quantity.unit,...(p.quantity.group?{group:p.quantity.group}:{})},attributes};
       });
       if (new Set(lines.map(l=>l.line_key)).size!==lines.length) fail('INVALID_REQUEST');
-      const value={intent_id:randomUUID(),operation_id:randomUUID(),release_id:release.release_id,config_hash:release.config_hash,rule_hash:release.rule_hash,...context,currency:body.currency,lines,created_at:new Date(now()).toISOString()};
-      atomic(location('intents',value.intent_id),value);
-      return result({status:'intent_saved',...value});
+      const value={request_id,request_hash,intent_id:request_id,operation_id:randomUUID(),release_id:release.release_id,config_hash:release.config_hash,rule_hash:release.rule_hash,...context,currency:body.currency,lines,created_at:new Date(now()).toISOString()};
+      const file=location('intents',request_id);fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});
+      let fd;try{fd=fs.openSync(file,'wx',0o600);fs.writeFileSync(fd,JSON.stringify(value));fs.fsyncSync(fd);}
+      catch(error){if(error.code==='EEXIST'){const stored=intentRecord(request_id);if(stored.request_hash!==request_hash)fail('REQUEST_CONFLICT',409);return intentResult(stored);}throw error;}
+      finally{if(fd!==undefined)fs.closeSync(fd);}
+      if(process.platform!=='win32'){const parent=fs.openSync(path.dirname(file),'r');try{fs.fsyncSync(parent);}finally{fs.closeSync(parent);}}
+      return intentResult(value);
     },
+    lookupIntent(requestId){const value=intentRecord(uuid(requestId));if(!value)fail('INTENT_NOT_FOUND',404);return intentResult(value);},
     quote(body) {
       exact(body,['intent_id']); const release=current(),intent=loadIntent(body.intent_id,release);active(intent,release);
       if (!test || !testAdapter) return missing();

@@ -4,6 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createCommerce,createIntegrationTestAdapter} from './commerce.mjs';
 import {fail,loadStatic} from './snapshot.mjs';
+import {presentPage,projectFcCatalog} from './presentation.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -32,10 +33,19 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
       }
       if (relative==='api/campaign/config') return json(req,res,200,{...commerce.config(),integration_mode:mode,live_checkout:false});
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
+      if (relative.startsWith('api/campaign/intents/request/')) return json(req,res,200,commerce.lookupIntent(relative.slice('api/campaign/intents/request/'.length)));
       if (relative.startsWith('api/campaign/operations/')) return json(req,res,200,await commerce.lookup(relative.slice('api/campaign/operations/'.length)));
-      const name=relative||'index.html',content=files.get(name);
+      const name=relative==='seasonal/'?'seasonal/index.html':relative||'index.html';let content=files.get(name),status=200;
       if (!content) return json(req,res,404,{code:'NOT_FOUND'});
-      res.writeHead(200,{...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'});res.end(req.method==='HEAD'?undefined:content);
+      if(name==='catalog.js'){
+        const match=/^\s*window\.FC_ACTIVITY_CONFIG\s*=\s*([\s\S]*?);?\s*$/.exec(content.toString('utf8'));
+        if(!match)fail('INVALID_CATALOG',503);
+        const catalog=projectFcCatalog(JSON.parse(match[1].replace(/;\s*$/,'')),commerce.config());
+        content='window.FC_ACTIVITY_CONFIG='+JSON.stringify(catalog).replace(/</g,'\\u003c')+';';
+      }else if(name.endsWith('.html')){
+        const rendered=presentPage({name,body:content,snapshot:commerce.config(),now:now||Date.now});content=rendered.body;status=rendered.status;
+      }
+      res.writeHead(status,{...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'});res.end(req.method==='HEAD'?undefined:content);
     } catch(error) {
       json(req,res,error.status||500,{code:error.status?error.code:'RUNTIME_UNAVAILABLE',integration_mode:mode,live_checkout:false});
     }

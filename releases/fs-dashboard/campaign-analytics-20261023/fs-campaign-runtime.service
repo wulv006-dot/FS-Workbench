@@ -7,7 +7,7 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/opt/fs-campaign-dashboard
-ExecStart=/usr/bin/node /opt/fs-campaign-dashboard/runtime/server.mjs
+ExecStart=/usr/local/bin/node /opt/fs-campaign-dashboard/runtime/server.mjs
 Environment=CAMPAIGN_PUBLIC_MODE=preview
 Environment=CAMPAIGN_PUBLIC_PORT=8949
 Environment=CAMPAIGN_RUNTIME_DATA=/var/lib/fs-campaign-runtime

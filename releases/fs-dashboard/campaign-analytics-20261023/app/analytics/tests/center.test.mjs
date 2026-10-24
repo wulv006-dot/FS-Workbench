@@ -39,6 +39,26 @@ test('invalid scope, dates, theme and unsafe text cannot become a draft',()=>{
   const draft=initialCenterDraft();mutate(draft);assert.throws(()=>validateDraft(draft));
  }
 });
+test('publication recovers the frozen plan at every durable boundary even if source seeds change',()=>{
+ for(const boundary of ['prepared','public-pointer','state','receipt']){
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'campaign-publish-crash-'));
+  try{
+   let currentSeed=seed();const options={dir:path.join(tmp,'private'),publicDir:path.join(tmp,'public'),sourceRevision:'candidate-1',seedProvider:()=>currentSeed};
+   makeCenterStore(options).save({revision:0,operation_id:randomUUID(),draft:initialCenterDraft()},'admin');
+   const request={revision:1,operation_id:randomUUID()},broken=makeCenterStore({...options,checkpoint:stage=>{if(stage===boundary)throw Error('simulated crash');}});
+   assert.throws(()=>broken.publish(request,'admin'),/simulated crash/);
+   const prepared=JSON.parse(fs.readFileSync(path.join(tmp,'private/pending.json'),'utf8'));
+   currentSeed=structuredClone(currentSeed);currentSeed.seedProducts[0].title='Changed after crash';
+   const recovered=makeCenterStore(options).publish(request,'admin');
+   const publicSnapshot=JSON.parse(fs.readFileSync(path.join(tmp,'public/current.json'),'utf8'));
+   assert.equal(publicSnapshot.config_hash,prepared.snapshot.config_hash);
+   assert.equal(publicSnapshot.products[0].title,prepared.snapshot.products[0].title);
+   assert.equal(recovered.published.config_hash,publicSnapshot.config_hash);
+   assert.equal(recovered.revision,2);assert.equal(fs.existsSync(path.join(tmp,'private/pending.json')),false);
+   assert.equal(makeCenterStore(options).publish(request,'admin').revision,2);
+  }finally{fs.rmSync(tmp,{recursive:true,force:true});}
+ }
+});
 test('management center preserves original session role, origin and CSRF gates',async()=>{
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'campaign-management-')),originalFetch=globalThis.fetch;
  process.env.CAMPAIGN_DATA=path.join(tmp,'private');process.env.CAMPAIGN_PUBLIC_RELEASE_DIR=path.join(tmp,'public');

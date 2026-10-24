@@ -25,6 +25,16 @@ test('published field projection excludes admin, cost and capability inputs',()=
   assert.throws(()=>projectRelease({...snapshot(),publication_status:'draft'}),{code:'UNPUBLISHED_RELEASE'});
   assert.throws(()=>projectRelease({...snapshot(),products:[...snapshot().products,...snapshot().products]}),{code:'INVALID_RELEASE'});
 });
+test('intent request receipt survives lost response, deduplicates exact retry and refuses corrupt records',t=>{
+ const dir=temp(t),options={snapshot:snapshot(),dir},c=createCommerce(options),body={...request(),request_id:randomUUID()};
+ assert.throws(()=>c.lookupIntent(body.request_id),{code:'INTENT_NOT_FOUND'});
+ const first=c.intent(body),restarted=createCommerce(options);
+ assert.deepEqual(restarted.lookupIntent(body.request_id),first);assert.deepEqual(restarted.intent(body),first);
+ assert.throws(()=>restarted.intent({...body,currency:'EUR'}),{code:'REQUEST_CONFLICT'});
+ const broken=randomUUID();fs.writeFileSync(path.join(dir,'preview/intents',broken+'.json'),'{');
+ assert.throws(()=>restarted.lookupIntent(broken),{code:'INTENT_RECORD_UNCONFIRMED'});
+ assert.throws(()=>restarted.intent({...body,request_id:broken}),{code:'INTENT_RECORD_UNCONFIRMED'});
+});
 test('preview and unverified live cannot quote or handoff, regardless of browser flags',async t=>{
   for(const mode of ['preview','live']) {
     const c=commerce(t,{mode}),intent=c.intent(request());
@@ -105,7 +115,7 @@ test('static whitelist rejects management/docs/traversal, hashes and symlinks',t
 });
 test('HTTP boundary requires exact Origin, never exposes internal files and freezes release/static bytes',async t=>{
   const root=temp(t);fs.writeFileSync(path.join(root,'index.html'),'public');
-  const input=snapshot(),server=createPublicServer({assetRoot:root,staticManifest:{'index.html':digest('public')},snapshot:input,dir:temp(t),origin:'http://127.0.0.1',prefix:'/events/'});
+  const input=snapshot();input.pages[0].path='Weekly-Scout.html';const server=createPublicServer({assetRoot:root,staticManifest:{'index.html':digest('public')},snapshot:input,dir:temp(t),origin:'http://127.0.0.1',prefix:'/events/'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base='http://127.0.0.1:'+server.address().port;
   const get=async route=>{const r=await fetch(base+route);return {status:r.status,body:await r.text(),headers:r.headers};};
@@ -119,13 +129,34 @@ test('HTTP boundary requires exact Origin, never exposes internal files and free
   assert.equal((await fetch(base+'/events/api/campaign/config',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://127.0.0.1'},body:'{}'})).status,404);
 });
 test('public HTTP provider refreshes published configuration while deployment assets stay pinned',async t=>{
-  const root=temp(t);fs.writeFileSync(path.join(root,'index.html'),'deployed bytes');let current=snapshot();
+  const root=temp(t);fs.writeFileSync(path.join(root,'index.html'),'deployed bytes');let current=snapshot();current.pages[0].path='Weekly-Scout.html';
   const server=createPublicServer({assetRoot:root,staticManifest:{'index.html':digest('deployed bytes')},snapshotProvider:()=>current,dir:temp(t),origin:'http://127.0.0.1'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base='http://127.0.0.1:'+server.address().port+'/events/';
   assert.equal((await (await fetch(base+'api/campaign/config')).json()).release_id,'release-1');
-  current=snapshot();current.release_id='release-2';current.secret='never';fs.writeFileSync(path.join(root,'index.html'),'edited after startup');
+  current=snapshot();current.pages[0].path='Weekly-Scout.html';current.release_id='release-2';current.secret='never';fs.writeFileSync(path.join(root,'index.html'),'edited after startup');
   const next=await (await fetch(base+'api/campaign/config')).json();assert.equal(next.release_id,'release-2');assert.ok(!('secret' in next));
   assert.equal(await (await fetch(base)).text(),'deployed bytes');
-  current.publication_status='draft';assert.equal((await fetch(base+'api/campaign/config')).status,503);assert.equal(await (await fetch(base)).text(),'deployed bytes');
+  current.publication_status='draft';assert.equal((await fetch(base+'api/campaign/config')).status,503);assert.equal((await fetch(base)).status,503);
 });
+
+
+test('published configuration controls actual HTML and pinned catalog response after republish',async t=>{
+ const root=temp(t),html='<html><head><title>Old</title></head><body><main>Original offers</main><script src="activity.js"></script></body></html>';
+ fs.writeFileSync(path.join(root,'Weekly-Scout.html'),html);
+ const catalog=fs.readFileSync(new URL('../../catalog.js',import.meta.url));fs.writeFileSync(path.join(root,'catalog.js'),catalog);
+ let current=snapshot();Object.assign(current.pages[0],{path:'Weekly-Scout.html',title:'Published first',description:'Verified published copy',product_keys:[]});
+ const server=createPublicServer({assetRoot:root,staticManifest:{'Weekly-Scout.html':digest(html),'catalog.js':digest(catalog)},snapshotProvider:()=>current,dir:temp(t),origin:'http://127.0.0.1'});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base='http://127.0.0.1:'+server.address().port+'/events/';
+ assert.match(await(await fetch(base+'Weekly-Scout.html')).text(),/<title>Published first<\/title>/);
+ const projected=JSON.parse((await(await fetch(base+'catalog.js')).text()).replace(/^window.FC_ACTIVITY_CONFIG=/,'').replace(/;$/,''));assert.deepEqual(projected.weekly.ids,[]);assert.equal(projected.manageDocumentLanguage,false);
+ current.pages[0].active=false;let response=await fetch(base+'Weekly-Scout.html');assert.equal(response.status,404);assert.ok(!(await response.text()).includes('Original offers'));
+ current.pages[0].active=true;current.pages[0].ends_at='2000-01-01T00:00:00Z';response=await fetch(base+'Weekly-Scout.html');assert.equal(response.status,410);
+ delete current.pages[0].ends_at;current.pages[0].title='Republished exact';assert.match(await(await fetch(base+'Weekly-Scout.html')).text(),/<title>Republished exact<\/title>/);
+});
+
+ test('fresh service waits fail-closed for first publication without inventing a snapshot',t=>{
+ let published=null;const c=createCommerce({snapshotProvider:()=>{if(!published)throw Error('not published');return published;},dir:temp(t)});
+ assert.throws(()=>c.config());published=snapshot();assert.equal(c.config().release_id,'release-1');published=null;assert.throws(()=>c.config());
+ });

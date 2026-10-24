@@ -31,22 +31,44 @@ function validateDraft(input) {
 }
 export function initialCenterDraft(){return {pages:pages.map(([page_id,activity_id,route,title])=>({page_id,activity_id,path:route,title,description:'',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[]})),seasonal_theme:'halloween',integration_mode:'preview'};}
 
-export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},seedProvider}){
- const stateFile=path.join(dir,'state.json');
- const read=()=>fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{revision:0,draft:initialCenterDraft(),updated_at:null,updated_by:null,published:null};
+export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},seedProvider,checkpoint=()=>{}}){
+ const stateFile=path.join(dir,'state.json'),pendingFile=path.join(dir,'pending.json');
+ const rawRead=()=>fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{revision:0,draft:initialCenterDraft(),updated_at:null,updated_by:null,published:null};
+ const readJSON=file=>JSON.parse(fs.readFileSync(file,'utf8'));
+ function finish(plan){
+  const current=rawRead();
+  if(current.revision!==plan.previous.revision&&current.last_operation?.operation_id!==plan.operation_id)fail('PENDING_OPERATION_CONFLICT',409);
+  if(plan.snapshot){
+   fs.mkdirSync(publicDir,{recursive:true,mode:0o755});
+   const immutable=path.join(publicDir,plan.snapshot.release_id+'.json');
+   if(fs.existsSync(immutable)&&canonical(readJSON(immutable))!==canonical(plan.snapshot))fail('IMMUTABLE_RELEASE_CONFLICT',409);
+   if(!fs.existsSync(immutable))atomic(immutable,plan.snapshot);
+   fs.chmodSync(immutable,0o644);
+   atomic(path.join(publicDir,'current.json'),plan.snapshot);fs.chmodSync(path.join(publicDir,'current.json'),0o644);
+   checkpoint('public-pointer');
+  }
+  if(plan.previous.revision)atomic(path.join(dir,'history',plan.previous.revision+'.json'),plan.previous);
+  atomic(stateFile,plan.result);checkpoint('state');
+  atomic(path.join(dir,'operations',plan.operation_id+'.json'),{hash:plan.hash,result:plan.result});checkpoint('receipt');
+  fs.unlinkSync(pendingFile);
+  if(process.platform!=='win32'){const fd=fs.openSync(dir,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
+  return plan.result;
+ }
+ // The management writer is a single synchronous service. Every read/mutation reconciles
+ // its persisted transaction first; failures cannot return an old, apparently successful state.
+ function read(){if(fs.existsSync(pendingFile))finish(readJSON(pendingFile));return rawRead();}
  function operation(request,kind,user,action){
   const operation_id=uuid(request.operation_id),opFile=path.join(dir,'operations',operation_id+'.json'),hash=digest(canonical({kind,revision:request.revision,draft:request.draft??null}));
-  if(fs.existsSync(opFile)){const previous=JSON.parse(fs.readFileSync(opFile,'utf8'));if(previous.hash!==hash)fail('REQUEST_CONFLICT',409);return previous.result;}
   const current=read();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);
-  const result=action(current);
-  // State carries the operation receipt, so a crash between state and receipt never replays a publish.
+  const {result,snapshot}=action(current);
   result.last_operation={operation_id,hash};result.updated_by=user;result.updated_at=new Date().toISOString();
-  if(current.revision)atomic(path.join(dir,'history',current.revision+'.json'),current);
-  atomic(stateFile,result);atomic(opFile,{hash,result});return result;
+  const plan={operation_id,hash,previous:current,result,...(snapshot?{snapshot}:{})};
+  // Freeze the exact payload and release before any externally visible publication step.
+  atomic(pendingFile,plan);checkpoint('prepared');return finish(plan);
  }
- function recover(request,kind){const s=read(),hash=digest(canonical({kind,revision:request.revision,draft:request.draft??null}));if(s.last_operation?.operation_id===request.operation_id){if(s.last_operation.hash!==hash)fail('REQUEST_CONFLICT',409);return s;}return null;}
+ function recover(request,kind){uuid(request.operation_id);read();const file=path.join(dir,'operations',request.operation_id+'.json'),hash=digest(canonical({kind,revision:request.revision,draft:request.draft??null}));if(fs.existsSync(file)){const prior=readJSON(file);if(prior.hash!==hash)fail('REQUEST_CONFLICT',409);return prior.result;}return null;}
  return {read,
-  save(request,user){return recover(request,'save')||operation(request,'save',user,current=>({...current,revision:current.revision+1,draft:validateDraft(request.draft)}));},
+  save(request,user){return recover(request,'save')||operation(request,'save',user,current=>({result:{...current,revision:current.revision+1,draft:validateDraft(request.draft)}}));},
   publish(request,user){return recover(request,'publish')||operation(request,'publish',user,current=>{
    const draft=validateDraft(current.draft),revision=current.revision+1,release_id='campaign-preview-'+revision;
    const seed=seedProvider?seedProvider():{seedProducts,pageProductKeys};
@@ -55,11 +77,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
     pages:draft.pages.map(p=>({activity_id:p.activity_id,page_id:p.page_id,path:p.path,title:p.title,
      description:p.description,rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:seed.pageProductKeys[p.page_id]||[],
      active:p.preview_enabled,...(p.starts_at?{starts_at:p.starts_at}:{}),...(p.ends_at?{ends_at:p.ends_at}:{})}))});
-   fs.mkdirSync(publicDir,{recursive:true,mode:0o755});
-   const file=path.join(publicDir,release_id+'.json');
-   // The directory contains only the strict public projection, never management state or secrets.
-   atomic(file,snapshot);fs.chmodSync(file,0o644);atomic(path.join(publicDir,'current.json'),snapshot);fs.chmodSync(path.join(publicDir,'current.json'),0o644);
-   return {...current,revision,draft,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString()}};
+   return {snapshot,result:{...current,revision,draft,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString()}}};
   })}
  };
 }
