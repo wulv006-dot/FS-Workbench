@@ -353,7 +353,8 @@ def proven_prewrite_rejection(job, revision):
         jid = job.get('job_id')
         if (job.get('kind') != 'auto_cycle' or job.get('status') != 'failed'
                 or job.get('error') != 'writer_not_confirmed' or job.get('error_detail') != 'hook_scope_paused'
-                or job.get('writer_result') != {'status':'FAILED','reason':'hook_scope_paused'}
+                or job.get('writer_result') not in ({'status':'FAILED','reason':'hook_scope_paused'},
+                    {'status':'FAILED','reason':'hook_scope_paused','missing_module':None})
                 or (job.get('request') or {}).get('policy_revision') != revision
                 or not valid_job_id(jid) or job.get('run_id', jid) != jid
                 or not utc(job['created_at']) <= utc(job['completed_at']) <= datetime.now(timezone.utc)):
