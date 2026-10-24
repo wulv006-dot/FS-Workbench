@@ -270,7 +270,7 @@ class LearningCatalog(unittest.TestCase):
         rule = rows['fs.dashboard.shipping-profit']
         self.assertEqual(rule['revision'], 'same-order-actual-profit-20261024-v2')
         self.assertEqual(rule['source_commit'], 'abc492146f15525cd4f5124637f114f9afaad363')
-        for required in ('逐单实际成本毛利', '北京时间付款区间', '不平均订单/游戏/每日比例', '缺成本',
+        for required in ('逐单实际成本毛利', '北京时间付款区间', '不平均订单/游戏/每日比例', '未知成本不当0',
                          'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留'):
             self.assertIn(required, rule['content'])
         self.assertIn('逐单实际成本毛利', rows['fs.data.sources']['content'])
