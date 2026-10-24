@@ -1,0 +1,377 @@
+{
+  "schema_version": 1,
+  "source_revision": "29ed99af85dc4aa7a302e63ae36c06e5da495369",
+  "source_artifacts": {
+    "app/catalog.json": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd",
+    "app/seasonal/campaign-data.js": "4e418b77a5bccf9f767a6b272a0baad586772f264619dd312fef35ed168f72e8"
+  },
+  "reference_count": 15,
+  "unique_goods_count": 5,
+  "game_count": 6,
+  "verification_status": "original_reference_only",
+  "authoritative": false,
+  "checkout_enabled": false,
+  "references": [
+    {
+      "reference_key": "seasonal-fc-1",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "K"
+      },
+      "display_bonus": "5",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-fc-2",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "500",
+        "source_unit": "K"
+      },
+      "display_bonus": "25",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-fc-3",
+      "family": "seasonal",
+      "game_key": "fc",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1327",
+        "goods_id": "163329311"
+      },
+      "expected_platform": {
+        "code": "area-21587",
+        "attribute_id": "21587"
+      },
+      "server_id": "7645",
+      "category_id": "9623",
+      "expected_quantity": {
+        "value": "1000",
+        "source_unit": "K"
+      },
+      "display_bonus": "50",
+      "public_path": "/Fc-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-1",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "50",
+        "source_unit": "K"
+      },
+      "display_bonus": "1",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-2",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "150",
+        "source_unit": "K"
+      },
+      "display_bonus": "8",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-nba-3",
+      "family": "seasonal",
+      "game_key": "nba",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1329",
+        "goods_id": "165466529"
+      },
+      "expected_platform": {
+        "code": "area-21595",
+        "attribute_id": "21595"
+      },
+      "server_id": "7647",
+      "category_id": "9633",
+      "expected_quantity": {
+        "value": "300",
+        "source_unit": "K"
+      },
+      "display_bonus": "20",
+      "public_path": "/Nba-2k27/Vc.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-1",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-2",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "300",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-madden-3",
+      "family": "seasonal",
+      "game_key": "madden",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "1309",
+        "goods_id": "159812737"
+      },
+      "expected_platform": {
+        "code": "area-21531",
+        "attribute_id": "21531"
+      },
+      "server_id": "7629",
+      "category_id": "9523",
+      "expected_quantity": {
+        "value": "600",
+        "source_unit": "K"
+      },
+      "display_bonus": "0",
+      "public_path": "/Nfl-27/Coins.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-1",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "100000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-2",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "300000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-diablo-3",
+      "family": "seasonal",
+      "game_key": "diablo",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "456",
+        "goods_id": "1365865"
+      },
+      "expected_platform": {
+        "code": "area-15943",
+        "attribute_id": "15943"
+      },
+      "server_id": "6484",
+      "category_id": "442",
+      "expected_quantity": {
+        "value": "600000",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Diablo-4/Gold.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-1",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "10",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-2",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "30",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    },
+    {
+      "reference_key": "seasonal-aion-3",
+      "family": "seasonal",
+      "game_key": "aion",
+      "kind": "new_gold",
+      "product_ref": {
+        "site_id": "266",
+        "game_id": "891",
+        "goods_id": "178594601"
+      },
+      "expected_platform": {
+        "code": "area-22043",
+        "attribute_id": "22043"
+      },
+      "server_id": "7741",
+      "category_id": "6527",
+      "expected_quantity": {
+        "value": "100",
+        "source_unit": "M"
+      },
+      "display_bonus": "0",
+      "public_path": "/Aion-2/Kinah.html",
+      "source_artifact": "app/seasonal/campaign-data.js"
+    }
+  ],
+  "probe_scope": "targeted_currency_schema_only"
+}
