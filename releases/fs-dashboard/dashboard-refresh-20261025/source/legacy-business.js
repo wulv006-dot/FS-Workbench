@@ -2308,9 +2308,9 @@ function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestA
   if(insights&&grid){
    let status=root.getElementById('business-refresh-status');if(!status){status=document.createElement('p');status.id='business-refresh-status';status.className='fsi-note';status.setAttribute('role','status');status.setAttribute('aria-live','polite');insights.before(status);}
    if(status.nextSibling!==insights)insights.before(status);
-   const failed=scope.summaryError||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
+   const failed=scope.summaryError||scope.summary?.sources?.Admin?.status==='unavailable'||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
    const refreshing=scope.summaryRefreshing||procurementRead?.loading||procurementRead?.data?.refreshing;
-   fcSetText(status,failed?'本次刷新未完成，保留上次读取值；可点更新视图重试。':refreshing?'刷新中…':'');
+   fcSetText(status,refreshing?'刷新中…':failed?(scope.summary||procurementRead?.data?'本次刷新未完成，保留上次读取值；可点更新视图重试。':'本次读取未完成，可点更新视图重试。'):'');
   }
  if(insights&&grid&&!insights.querySelector('.metric-audit')){const audit=document.createElement('details');audit.className='source-details metric-audit';audit.append(document.createElement('summary'));audit.firstChild.textContent='所选区间、指标来源与口径';
   for(const note of insights.querySelectorAll(':scope > p.fsi-note,:scope > [data-exact-range-status]'))audit.append(note);insights.append(audit);
