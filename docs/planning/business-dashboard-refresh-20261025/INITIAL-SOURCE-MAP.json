@@ -1,0 +1,104 @@
+{
+  "scope": "business-dashboard-refresh-20261025",
+  "version": "dashboard-refresh-20261025-4b28008012cf",
+  "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/business.js",
+      "sha256": "66aea34498ebefbad432286cd15f9463c649eb2f703f277e67f833de85de7d4d",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/home-business.js",
+      "sha256": "370f60f3ba432e0653cb39b3cbf1895270cf9fff34a7670cf957f7b15ce65bf4",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/legacy-business.js",
+      "sha256": "3b7dbde942df42631bf3a3a118d566ddd38cab9ceace53bedf399ba93701b3a2",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/shell.js",
+      "sha256": "5c6b5c86fbd5a1a7d8e4a08920a4e55839dc0da9e263b19f68021eb07e68dc8f",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "d1272749ca5a53a1c370c5d34ebeae4eef6a24855b0c6f0da78ccddf3d42f044",
+      "beforeSha256": "3e5d647a65986e58ebf85acf6f6bdf63b1e62fd27dcbbaec799c566052a0e47f",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "6920f3c53a73e4799e3b187fd4b1207203b84b992e8009296316a8b50d736973",
+      "beforeSha256": "ebe48ce53fd5466d78f7b48b7b796aee100572d378088adaffa92852e12de2e3",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/channel_effects.py",
+      "target": "/opt/fs-hermes-fc/channel_effects.py",
+      "sha256": "97b19ceab0a1de141c8b2424abdc58868652dd1dee129622bb482c29548b9d37",
+      "beforeSha256": "c640edb540bd62f00b5d2688eb716b9706b0d2268307b9f23f2e0db88dc66446",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/rs_backlog.py",
+      "target": "/opt/fs-exact-range-20261001/rs_backlog.py",
+      "sha256": "2fea28df26641203fbf808fc2b4e26eb8a3589b09955579540896db4ab9e252f",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "sha256": "e9c02b31f27a7c7b22d3341eda519aff70af05d3fc139bd374b4175c7a0184f1",
+      "beforeSha256": "68ea4baaf53a95ff049594ee468ed59cc1f4315b3fa6d9250ab272101b34ecdf",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "sha256": "1fcd5e449972a8a6796e9b691596f902516085b246f06053ef079c1a7a83ca7e",
+      "beforeSha256": "56b9219e9178da8111350b0dcf30d55c1d0325a43f8b40817d0348c54482ead9",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "19612b83e0df358034bab7dbe4aab9e24b7d15e5ed7a54f62403d3ba72fd6612",
+      "beforeSha256": "a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "status": "historical_initial_deployment_verified",
+  "protectedFiles": 93,
+  "publisher": {
+    "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
+    "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
+    "actual_release.py": "bbc0059179bfb2678e514050b910d3d518769ec2276de25ff37abf7cc7a000ea",
+    "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
+  },
+  "releaseId": "nav-20261024T164547Z",
+  "sourceCommit": "5d7524c29151966fb257075e3cef9a68917f2a47"
+}

@@ -52,7 +52,11 @@
     }
   ],
   "protectedFiles": 102,
-  "status": "candidate_not_deployed",
+  "status": "deployed_actual_role_verified",
   "manifestSha": "c27da8660c75ca3794e1dddf2389b1c93a4940025e01810d0985095789a2ebf7",
-  "zipSha": "4083dfd92211e07eccfae3fe3c97c451860407525014ef5be3a076f2b94b4c0d"
+  "zipSha": "4083dfd92211e07eccfae3fe3c97c451860407525014ef5be3a076f2b94b4c0d",
+  "releaseId": "nav-20261024T171006Z",
+  "sourceCommit": "055794587bebd998d09c000548a98c9fb848be0b",
+  "ciHead": "2fe587f2f236c60475325e51e93564142f85ad5c",
+  "ciCheck": 120933561989
 }
