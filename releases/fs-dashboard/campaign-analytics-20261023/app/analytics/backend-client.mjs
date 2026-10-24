@@ -22,7 +22,7 @@ function backendCall(request,{python=process.env.CAMPAIGN_PYTHON||'/opt/python39
  return new Promise((resolve,reject)=>{
   const child=execFile(python,[bridge],{timeout,maxBuffer:2000000,windowsHide:true},(error,stdout)=>{
    if(error)return reject(Object.assign(new Error('BACKEND_UNAVAILABLE'),{code:'BACKEND_UNAVAILABLE',status:502}));
-   try{const result=JSON.parse(stdout);if(result.status!=='ok')return reject(Object.assign(new Error(result.error&&/^[A-Z_]+$/.test(result.error)?result.error:'BACKEND_UNAVAILABLE'),{status:502}));resolve(result.data);}catch{reject(Object.assign(new Error('BACKEND_UNAVAILABLE'),{status:502}));}
+   try{const result=JSON.parse(stdout);if(result.status!=='ok')return reject(Object.assign(new Error(result.error&&/^[A-Z][A-Z0-9_]{0,99}$/.test(result.error)?result.error:'BACKEND_UNAVAILABLE'),{status:502}));resolve(result.data);}catch{reject(Object.assign(new Error('BACKEND_UNAVAILABLE'),{status:502}));}
   });
   child.stdin.on('error',()=>{});child.stdin.end(raw);
  });

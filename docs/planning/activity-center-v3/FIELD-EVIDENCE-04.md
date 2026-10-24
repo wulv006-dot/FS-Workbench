@@ -8,8 +8,11 @@
 |全部商品/模型|10:30:00.424–10:30:56.285|0|96引用/86商品全读取、34模型；9个公开购买页未成功取得，脚本0。公页结果unknown，不能将此写成主站无购买接口|
 |100条订单金额形状样本|10:32:38.546–10:32:41.750|0|currency_code共8币种；pay_money和pay_money_format纯decimal解析0/100；pay_money_format2[1]100可解析且[0]100匹配currency_code；只证格式，不自动证明金额口径|
 |五项SKU开关商品补充结构|10:34:00.212–10:34:07.464|0|首次证据中5货币商品不含选定saleprop容器，针对5商品/模型补读more嵌套结构，不重复86商品及公开页|
+|候选订单管线真实内存验收|10:50:10.663–10:50:18.069|0|使用候选AdminRead→reconcile→SQLite :memory:→summary，真实行仅远端内存；readback_consistent=true，无远端DB或安装|
 
 初次订单pay_status枚举：1共1101、2共27；券日志status1共99。支付状态1含义有既有orderStatus前端支持；本次现役MemberCouponLog前端 `index-56cf6d42.js` 明确 status 0未支付、1已支付，SHA256 `3331e54d6542c4a1cc182b1693006d9563ce20ec0634a1b16ab6e79ba51139c7`。不能仅凭use_time或券记录存在计成交。
+
+候选真实管线实际结果：1128订单/1101有效付款观察/99券日志，按有效付款交集仅94笔用券关联。无本活动专属binding时bound_paid_orders=0、unbound_paid_orders=1101，totals/activities为空而不是冒领通用券成交；refunded_observations=null、history_complete=false。缺口提示保留ACTIVITY_BINDINGS_REQUIRED、PAID_MONEY_MAPPING_REQUIRED、PAYMENT_STATE_UNKNOWN、SOURCE_TIME_MAPPING_REQUIRED。capture_sha256为`50a3c95ad418f1fc047a4511f2f74816da888010105d053f14793191147bfe96`。代码当时以stdin内存执行，最终提交与该执行源的关系另核；不是生产持久化已部署证明。
 
 金额字段关系：amount与pay_money_format2[1]仅43/100样本相等，跨币种不能直接互减。既有业务基准明确订单金额USD、实际支付保留原币。现役退款显示与输入来源语义仍有冲突，refund/活动行分摊保持unknown；不能推断没有退款或主站缺少字段。
 

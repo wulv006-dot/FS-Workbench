@@ -399,7 +399,8 @@ def select(paths):
             groups.add("fc-reference-observer-ui");continue
         if name.startswith("releases/ops/fc-itemd2r-shadow-20261023/"):
             groups.add("fc-price-shadow");continue
-        if name.startswith("releases/fs-dashboard/campaign-analytics-20261023/"):
+        if name.startswith("releases/fs-dashboard/campaign-analytics-20261023/") or name in (
+                "tools/campaign_catalog_mapping.py", "tools/campaign_catalog_probe.py", "tools/campaign_catalog_seed.py"):
             groups.add("campaign-analytics");continue
         if name.startswith('releases/ops/pricing-followup-20261023/'):
             groups.add('pricing-followup');continue
@@ -745,6 +746,7 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release"])
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue

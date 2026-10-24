@@ -48,7 +48,9 @@
   const coverage=value?.coverage||{};
   const labels={source_orders:'来源订单',paid_observations:'有效付款观察',refunded_observations:'退款观察',coupon_log_rows:'用券记录',associated_paid_observations:'已付用券关联',bound_paid_orders:'已绑定活动付款',unbound_paid_orders:'未绑定活动付款',unresolved_orders:'待核订单',successful_runs:'成功对账次数'};
   tell('analysis-coverage',Object.entries(coverage).filter(([name,n])=>labels[name]&&Number.isSafeInteger(n)).map(([name,n])=>labels[name]+'：'+n).join(' · '));
-  $('analysis-warnings').replaceChildren();for(const warning of value?.warnings||[]){const li=document.createElement('li');li.textContent=String(warning);$('analysis-warnings').append(li);}
+  const warningLabels={ORDER_READ_NOT_PERFORMED:'尚未读取真实订单',ACTIVITY_BINDINGS_REQUIRED:'尚未核准本活动专属优惠绑定',PAID_MONEY_MAPPING_REQUIRED:'实收金额口径尚未核准',PAID_CURRENCY_CONFLICT:'实付币种字段存在冲突',SOURCE_TIME_MAPPING_REQUIRED:'来源时间与时区尚未核准',PAYMENT_STATE_UNKNOWN:'部分订单付款状态尚未核验',COUPON_LOG_STATUS_UNKNOWN:'部分用券状态尚未核验',DISCOUNT_APPLICATION_TIME_REQUIRED:'折扣码实际应用时间尚未核验',AMBIGUOUS_DISCOUNT_NATIVE_ID:'折扣码对应多个原生ID，不能确定归属',LINE_ALLOCATION_NOT_VERIFIED:'活动商品行分摊尚未核验',REFUND_EVENTS_NOT_VERIFIED:'退款事实与金额尚未核验'};
+  $('analysis-warnings').replaceChildren();for(const warning of value?.warnings||[]){const li=document.createElement('li');li.textContent=warningLabels[warning]||String(warning);$('analysis-warnings').append(li);}
+  if(value?.historical_refund_coverage){const li=document.createElement('li');li.textContent='历史退款与晚到付款需要明确区间重查；当前结果不代表全部历史已自动覆盖。';$('analysis-warnings').append(li);}
   $('analysis-totals').replaceChildren();for(const row of value?.totals||[]){
    const tr=document.createElement('tr');for(const cell of [row.currency,Number.isSafeInteger(row.paid_orders)?row.paid_orders:'未知',money(row.associated_paid_minor,row.scale),money(row.activity_paid_minor,row.scale),money(row.refund_minor,row.scale),money(row.net_minor,row.scale)]){const td=document.createElement('td');td.textContent=String(cell??'未知');tr.append(td);}$('analysis-totals').append(tr);
   }
@@ -64,7 +66,7 @@
  }));
  $('mapping-reference').addEventListener('change',()=>{
   const row=mappings[$('mapping-reference').value];$('mapping-detail').hidden=!row;if(!row)return;
-  const q=row.quantity||{},ref=row.product_ref||{};const fields=[['商品/模型',String(ref.goods_id||'待核')+' / '+String(ref.model_id||'待核')],['平台',String(row.platform?.code||'待核')+' · '+String(row.platform?.attribute_id||'待核')],['原页面数量',q.reference_value],['后台最小数量',q.observed_minimum],['后台单位',q.observed_unit||'空值，含义待核'],['数量组',q.reference_group||'未提供'],['规格结构',({empty_selectable_properties:'已观察为空',quantity_tiers:'数量档位，优先级仍须核验'})[row.selection_schema]||'待核验'],['购买状态','未开放']];
+  const q=row.quantity||{},ref=row.product_ref||{};const fields=[['商品/模型',String(ref.goods_id||'待核')+' / '+String(ref.model_id||'待核')],['平台',String(row.platform?.code||'待核')+' · '+String(row.platform?.attribute_id||'待核')],['原页面数量',q.reference_value],['后台最小数量',q.observed_minimum],['后台单位',q.observed_unit||'空值，含义待核'],['数量组',q.reference_group||'未提供'],['规格结构',({empty_selectable_properties:'已观察为空',admin_gold_quantity_tiers_v1:'已观察到后台数量档位，购买序列化仍待核验'})[row.selection_schema]||'待核验'],['购买状态','未开放']];
   $('mapping-fields').replaceChildren();for(const [name,value] of fields){const div=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=String(value??'待核');div.append(dt,dd);$('mapping-fields').append(div);}
   const reasons={PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED:'主站购买参数尚未核验',QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED:'数量步长及上限尚未核验',SALE_STATE_SEMANTICS_UNVERIFIED:'商品状态语义尚未核验',QUANTITY_TIER_PRECEDENCE_UNVERIFIED:'商品与模型的数量档位优先级尚未核验'};
   $('mapping-reasons').replaceChildren();for(const reason of row.missing_reasons||[]){const li=document.createElement('li');li.textContent=reasons[reason]||'该引用还有待核条件（'+reason+'）';$('mapping-reasons').append(li);}
