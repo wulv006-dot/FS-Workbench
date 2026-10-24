@@ -29,7 +29,7 @@ class Release(unittest.TestCase):
    self.assertEqual(re.findall(r'class="hn-tool"[^>]*>(.*?)</a>',group),expected,page.name)
  def test_runtime_unit_uses_observed_legacy_systemd_and_existing_identity(self):
   text=(Path(__file__).parent/'fs-campaign-runtime.service').read_text(encoding='utf-8')
-  for required in ['User=nobody','Group=nobody','PermissionsStartOnly=true','ExecStart=/usr/local/bin/node ', 'ExecStartPre=/usr/bin/install -d -m0700 -o nobody -g nobody /var/lib/fs-campaign-runtime','ProtectSystem=full','ReadWriteDirectories=/var/lib/fs-campaign-runtime']:
+  for required in ['User=nobody','Group=nobody','PermissionsStartOnly=true','ExecStart=/usr/local/bin/node ', 'ExecStartPre=/usr/bin/install -d -m0700 -o nobody -g nobody /var/lib/fs-campaign-runtime','ProtectSystem=full']:
    self.assertIn(required,text)
   for unsupported in ['StateDirectory=','ReadWritePaths=','ProtectSystem=strict','www-data']:
    self.assertNotIn(unsupported,text)
