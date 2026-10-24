@@ -53,8 +53,8 @@
     {
       "candidate": "source/actual_profit.py",
       "target": "/opt/fs-exact-range-20261001/actual_profit.py",
-      "sha256": "5db3e7309534a614dbb4df07590167f18bd99ef6c518e427ebce379b3e0ac72d",
-      "beforeSha256": null,
+      "sha256": "6ff6f4935ee289ce8d53441a2bcbe167b32b3a757868b7c3691a33a4abb7c282",
+      "beforeSha256": "5db3e7309534a614dbb4df07590167f18bd99ef6c518e427ebce379b3e0ac72d",
       "owner": "0:0",
       "mode": "0o644"
     },
@@ -107,12 +107,28 @@
       "mode": "0o644"
     }
   ],
-  "status": "candidate_not_deployed",
-  "protectedFiles": 86,
+  "status": "deployed_and_actual_role_verified",
+  "protectedFiles": 98,
   "publisher": {
     "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
     "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
     "actual_release.py": "65bbb3b530b1b7f9ed02b626e4553d57e82eb36fb5aed329a0f0566821fda086",
     "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
-  }
+  },
+  "backendPatchVersion": "actual-profit-deferral-20261024-6ff6f4935ee2",
+  "initialMap": "INITIAL-SOURCE-MAP.json",
+  "patchMap": "DEFERRAL-SOURCE-MAP.json",
+  "acceptance": "ACCEPTANCE.md",
+  "releases": [
+    {
+      "id": "nav-20261024T141549Z",
+      "sourceCommit": "e432a482d4211bb130ddd3d58925c93199db8c06",
+      "manifestSha": "f21b46928f7109a2fcb7eb0f63dd51f3f6ff4e769e299278f782724b285902b6"
+    },
+    {
+      "id": "nav-20261024T142655Z",
+      "sourceCommit": "62aa9ef2a8871c9a4295704735ac5be0126ea496",
+      "manifestSha": "dfd67397e4f0913561d5f465dd97b5b951341fdd072fc2ddf2cc852880236004"
+    }
+  ]
 }
