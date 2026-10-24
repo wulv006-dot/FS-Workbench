@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),core=require('../dist/vault-core.js');
+const test=require('node:test'),assert=require('node:assert/strict'),core=require('../../app/seasonal/vault-core.js');
 const pool=Array.from({length:18},(_,i)=>({id:'fc-'+i}));
 const base=()=>({version:2,cards:core.draw(pool,8),credits:0,round:1,receipts:[],selectedGames:['fc'],mode:'product'});
 test('draw is bounded, unique and uses only eligible products and disclosed discounts',()=>{for(let i=0;i<100;i++){const cards=core.draw(pool,8);assert.equal(cards.length,8);assert.equal(new Set(cards.map(c=>c.id)).size,8);assert(cards.every(c=>pool.some(p=>p.id===c.id)&&core.discounts.includes(c.discount)));}assert.equal(core.draw(pool.slice(0,3),8).length,3);assert.throws(()=>core.draw([],8));});
