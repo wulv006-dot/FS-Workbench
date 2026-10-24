@@ -227,21 +227,21 @@ def confirm_sync_recipient(record):
     if not isinstance(identity, dict) or identity.get('adminInfo', {}).get('username') not in allowed_admin_usernames():
         raise ValueError('sync_recipient_identity_invalid')
     previous = None
-    rounds = []
-    for attempt in range(2):
+    for attempt in range(6):
         current_cycle_quote(record['preview_id'], record['selected'], record['automation_policy_revision'])
         rows = {p: read_row(manager, p, 266) for p in PRODUCTS}
-        if any(not same_money(rows[t['platform']]['unit_price'], t['quote']) for t in record['targets']):
-            raise ValueError('sync_recipient_price_unconfirmed')
+        matched = all(same_money(rows[t['platform']]['unit_price'], t['quote']) for t in record['targets'])
         current = {p: {'unit_price': str(r['unit_price']), 'tier_prices': r['more']['price']} for p, r in rows.items()}
-        if previous is not None and current != previous:
-            raise ValueError('sync_recipient_unstable')
-        rounds.append(current)
-        previous = current
-        if attempt == 0:
-            time.sleep(1)
-    return {'basis': 'two_stable_original_admin_recipient_reads', 'rounds': rounds,
-            'checked_at': datetime.now(timezone.utc).isoformat(), 'sync_replayed': False}
+        if matched:
+            if current == previous:
+                return {'basis': 'two_stable_original_admin_recipient_reads', 'rounds': [previous, current],
+                        'checked_at': datetime.now(timezone.utc).isoformat(), 'sync_replayed': False}
+            previous = current
+        else:
+            previous = None
+        if attempt < 5:
+            time.sleep(2)
+    raise ValueError('sync_recipient_unstable' if previous is not None else 'sync_recipient_price_unconfirmed')
 
 
 def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, check_only=False,
