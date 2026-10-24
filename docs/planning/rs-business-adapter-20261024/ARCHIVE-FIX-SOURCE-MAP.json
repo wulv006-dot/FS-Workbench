@@ -1,0 +1,46 @@
+{
+  "scope": "rs-archive-fix-20261024",
+  "version": "rs-archive-fix-20261024-62812003d735",
+  "files": [
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "1d40671db4821701b960788eb1107a673809363dc273a78c8f6943b31cc6225b",
+      "beforeSha256": "70389196b934074df45c3edafd821bb79a3937c7ca3480c60b731d0f597c3cdb",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/business.js",
+      "sha256": "67b46d3ba43556ac6658a8b9960ac25e464f4460569366bbd07cdfea81d7ce07",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/home-business.js",
+      "sha256": "1566b86d3dc70ac96c0d766a3081b8428c1ce8a866a1b51725ef8a220b0731b4",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/legacy-business.js",
+      "sha256": "d02cba0ebc4457cc45e5fcb6b8331f06ba416e42b1a2337fa0636d31de101e31",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "2fd006b50dddd59bd3acfdc1797d9b04ee8028f00dbf5cf6082f6a2797a7eb72",
+      "beforeSha256": "5e89c281a7de7067bfe6f879476eb7e5b2eb673c7c98c9bc58159244a9e40875",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}

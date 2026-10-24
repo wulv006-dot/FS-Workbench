@@ -1,0 +1,126 @@
+{
+  "scope": "rs-business-adapter-20261024",
+  "version": "rs-business-20261024-6fec65d27be0",
+  "status": "candidate_not_deployed",
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "candidate": "source/rs_admin.py",
+      "target": "/opt/fs-exact-range-20261001/rs_admin.py",
+      "beforeSha256": null,
+      "sha256": "f2c6587ac1f8c7a3a0a3e82747378b7ff314a408e53d168d5f3139c0d01ab303",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "ef4797f17123dbfc58b32aaab6ee910d8454f64a64e05be624acf8d2b9155330",
+      "sha256": "246f5e434ab31afae5afc3c77c4d8851f54ccfec25a56c152683fb917ca24c63",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "beforeSha256": "66ff09deef5cd54f9e789bd875b76f26f7c811323645a93396db25d1699cc24c",
+      "sha256": "c0c49994339cdfe3a69c39180ff6272463d4de3a27cca85052d79ff0a02434ad",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "beforeSha256": "aa33c6fbfe43ef0b1816f83ac8edcc8a993857e0458e5ff0993a05d62e49e935",
+      "sha256": "f2b4d141fe44a876c1095e5cb2bd50371ee82f5a1abbb28f8373576aeb7eda0f",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_primary_reader.py",
+      "target": "/opt/fs-exact-range-20261001/range_primary_reader.py",
+      "beforeSha256": "eb28bfae2483b62aa960612ed51a7d38acd2346418cc49dc292991740d47ff3b",
+      "sha256": "4b599c319bd67fc0fef2076b6e1543cf53ee8f26267094d37b7ac464208e4028",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_queries.py",
+      "target": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "beforeSha256": "91aa0568175e1f3df87fb6b7073a52b8d0540d1899d02d07a9ea7cdfac83787f",
+      "sha256": "859db8f4a387bb8f1a30d9571462a84d5b755d3a7814f839899bf20061468a0d",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "b6cf6ecebc5abd98fbe077aab1c7c3b43154ca28f8463c48dd55e7773a4ed058",
+      "sha256": "70389196b934074df45c3edafd821bb79a3937c7ca3480c60b731d0f597c3cdb",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/profit_daily.py",
+      "target": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "beforeSha256": "8be3a3db5490120e49582ac4042fb0bd7bc37325b74ac572cafbe1b1eddc717e",
+      "sha256": "dcc3bc6b0438a7321b8c987c7988e10a22145396a35c191243f04328ef463458",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/business.js",
+      "beforeSha256": null,
+      "sha256": "e59f8c21429bc655a3f9d03f883e4e30085e31022f66d14525932b21c5828cb3",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/home-business.js",
+      "beforeSha256": null,
+      "sha256": "aa13501d3c03fa43980e770ff89fae539703cd72b875122a9fc1019e12664adb",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/legacy-business.js",
+      "beforeSha256": null,
+      "sha256": "3a125501d111481ee1c5d603a7adb20778c676177eb057ce2ebab73f066cc20c",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/shell.js",
+      "beforeSha256": null,
+      "sha256": "fa2a3aab339b81e62ec2adab4d68c5e98c5f58dd03b750bb06641b4ae955f13c",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "beforeSha256": "7b19c9717326dc24ade093e1e8166d9e95537a9f79f2fe8cc21ed26d10235d2c",
+      "sha256": "5e89c281a7de7067bfe6f879476eb7e5b2eb673c7c98c9bc58159244a9e40875",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "retargetedAliases": {
+    "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/business.js": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/business.js",
+    "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/home-business.js": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/home-business.js",
+    "/var/lib/fs-navigation-formal-static/business-procurement-20261022-fb8814af4a60/legacy-business.js": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/legacy-business.js",
+    "/var/lib/fs-navigation-formal-static/workspace-native-20261006-8b7908ecad30/shell.js": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/shell.js"
+  },
+  "restartServices": [
+    "fs-business-range.service"
+  ],
+  "reloadServices": [
+    "nginx"
+  ],
+  "preserved": "existing auth, sessions, timers, queues, locks, ledger, prices, FC behavior; old immutable assets retained"
+}

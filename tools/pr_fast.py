@@ -423,6 +423,8 @@ def select(paths):
             groups.add("fc-coins-evidence");continue
         if name.startswith("releases/fs-dashboard/daily-archive-20261021/"):
             groups.add("daily-archive");continue
+        if name.startswith("releases/fs-dashboard/rs-adapter-20261024/"):
+            groups.add("rs-business-adapter");continue
         if name.startswith("releases/fs-dashboard/business-procurement-20261022/"):
             groups.add("business-procurement");continue
         if name.startswith("releases/fs-dashboard/user-analytics-20261022/"):
@@ -802,6 +804,12 @@ def main():
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
+        elif group=="rs-business-adapter":
+            units("releases/fs-dashboard/rs-adapter-20261024/tests",["test_rs","test_shipping","test_shipping_readiness","test_existing_archive","test_existing_refresh","test_release"])
+            node("releases/fs-dashboard/rs-adapter-20261024/tests/test_rs_projection.cjs")
+            node("releases/fs-dashboard/rs-adapter-20261024/tests/test_procurement.cjs")
+            node("releases/fs-dashboard/rs-adapter-20261024/tests/test_views.cjs")
+            node("releases/fs-dashboard/rs-adapter-20261024/tests/test_browser.cjs")
         elif group=="business-procurement":
             units("releases/fs-dashboard/business-procurement-20261022/tests",["test_release"])
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
