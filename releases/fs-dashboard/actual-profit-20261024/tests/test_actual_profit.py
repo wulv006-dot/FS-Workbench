@@ -145,5 +145,19 @@ class Service(unittest.TestCase):
         self.service.get(BASE,'admin');self.pool.drain();self.now=61
         self.service.cost_reader=Mock(side_effect=OSError('failed'));self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain()
         code,v=self.service.get(BASE,'admin');self.assertEqual(code,200);self.assertTrue(v['costError']);self.assertEqual(v['denominator']['profitCny'],35)
+    def test_default_reader_applies_site_scoped_test_and_zero_rules_before_cost_failure(self):
+        from actual_profit import collect_orders
+        rows=[raw('A',id=3,site_id=266,site={'full_title':'www.mmoexp.com'}),raw('B',id=2),raw('C',id=1,site_id=266,site={'full_title':'www.mmoexp.com'})]
+        session=Mock();session.get_admin.return_value=(200,{'code':1,'data':{'total':3,'list':rows}})
+        auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fictional',''))
+        def rules(d):
+            d.update(testOrders={sn:dict(gid='506',salesUsd=10) for sn in ('A','B')},costOverrides={'C':dict(gid='506',salesUsd=10,saleCny=70,productTitle='confirmed')});return d
+        q=selection({**BASE,'rs_site':['all']},PROFILES);target=Path(self.tmp.name)/'actual-profit/fixed.json'
+        previous=dict(data=data(rows,[delivery('A',source='www.mmoexp.com'),delivery('B',delivery_id='two')]))
+        self.service.reader=collect_orders;self.service.cost_reader=Mock(side_effect=OSError('Order unavailable'))
+        with patch.dict(sys.modules,{'p2pah_auth':auth}),patch('channel_source.apply_cost_overrides',side_effect=rules):self.service.capture('fixed',target,q,previous)
+        stored=json.loads(target.read_text('utf-8'));v=profit_view(stored['data'],{})['denominator']
+        self.assertEqual(self.service.jobs['fixed'],'cost_failed');self.assertEqual(set(stored['data']['testOrders']),{'A'})
+        self.assertEqual((v['orders'],v['testOrders'],v['coveredOrders'],v['zeroCostOrders'],v['profitCny']),(2,1,2,1,105))
 
 if __name__=='__main__':unittest.main()

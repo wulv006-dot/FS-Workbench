@@ -92,6 +92,13 @@ def normalized(rows,costs):
             **{**EMPTY_COST,'costCny':cost,'deliveryRows':len(deliveries)}))
     return result
 
+def scoped_accounting(data):
+    from channel_source import apply_cost_overrides
+    data=apply_cost_overrides(data)
+    main={r['orderNo'] for r in data['orders'] if r.get('site')=='www.mmoexp.com'}
+    for field in ('costOverrides','testOrders'):data[field]={sn:r for sn,r in data[field].items() if sn in main}
+    return data
+
 def collect_orders(q,profile,root):
     from channel_source import COLLECTOR
     sys.path.insert(0,COLLECTOR);import p2pah_auth as auth
@@ -101,12 +108,12 @@ def collect_orders(q,profile,root):
     try:rows,proof=order_rows(session,q,'' if q['profile']=='MMOEXP' else profile[3])
     finally:session.close()
     stamp=datetime.now(timezone.utc).isoformat()
-    return dict(period={k:q[k] for k in ('start','end')},actualPeriod=q['period'],generatedAt=stamp,
+    return scoped_accounting(dict(period={k:q[k] for k in ('start','end')},actualPeriod=q['period'],generatedAt=stamp,
         sources=dict(orders=dict(status='complete',source='Admin原生订单列表',generatedAt=stamp,coverage=proof),cost=dict(status='unavailable',generatedAt=None)),
-        orders=normalized(rows,[]),rawMembership=rows)
+        orders=normalized(rows,[]),rawMembership=rows))
 
 def fill_costs(data,q,profile,root):
-    from channel_source import COLLECTOR,apply_cost_overrides
+    from channel_source import COLLECTOR
     from channel_cost_source import collect
     sys.path.insert(0,COLLECTOR);import p2pah_auth as auth
     start=q['period']['start'][:10]
@@ -120,10 +127,7 @@ def fill_costs(data,q,profile,root):
         finally:session.close()
     data['orders']=normalized(data.pop('rawMembership'),costs)
     stamp=datetime.now(timezone.utc).isoformat();data['sources']['cost']=dict(status='complete',source='Order订单发货记录，同网站及订单号实际成本',generatedAt=stamp,until=cutoff.isoformat(),unassignedSourceRows=sum(not r['source'] for r in costs))
-    data=apply_cost_overrides(data)
-    main={r['orderNo'] for r in data['orders'] if r.get('site')=='www.mmoexp.com'}
-    for field in ('costOverrides','testOrders'):data[field]={sn:r for sn,r in data[field].items() if sn in main}
-    return data
+    return scoped_accounting(data)
 
 class ActualProfitService:
     def __init__(self,channels,profiles,reader=collect_orders,cost_reader=fill_costs,clock=time.monotonic):
