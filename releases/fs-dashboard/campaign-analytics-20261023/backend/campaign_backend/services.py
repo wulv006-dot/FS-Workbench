@@ -1,13 +1,15 @@
 """Trusted management service composition. No HTTP-supplied configuration or filesystem paths."""
 import json
 import os
+import re
+import stat
 from pathlib import Path
 
 from . import benefits
 from .analysis import AnalysisStore, reconcile
 from .catalog import positive_id
 from .core import ContractError
-from .ledger import OperationLedger
+from .ledger import OperationLedger, private_metadata
 
 
 class BackendServices:
@@ -28,6 +30,47 @@ class BackendServices:
         self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.state_dir.is_symlink():
             raise ContractError('PRIVATE_STATE_DIRECTORY_REQUIRED')
+
+    def record_manual_compensation(self, reference, reader_factory):
+        """Trusted local operator API only; deliberately absent from handle()/bridge actions.
+
+        Policy approval is per exact private artifact digest and must follow human verification
+        of its provenance. This method grants no native write or policy activation permission.
+        """
+        if not isinstance(reference, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{7,79}', reference):
+            raise ContractError('COMPENSATION_REFERENCE_INVALID')
+        approved = self.policy.get('compensation_proofs', {}).get(reference)
+        if not isinstance(approved, str) or not re.fullmatch('[a-f0-9]{64}', approved):
+            raise ContractError('COMPENSATION_PROOF_NOT_APPROVED')
+        root = self.state_dir / 'compensation-proofs'
+        path = root / (reference + '.json')
+        for candidate, directory in ((self.state_dir, True), (root, True), (path, False)):
+            info = candidate.lstat()
+            if candidate.is_symlink() or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)):
+                raise ContractError('PRIVATE_COMPENSATION_PROOF_REQUIRED')
+            if os.name == 'posix':
+                private_metadata(info, directory, os.geteuid())
+        descriptor = os.open(str(path), os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        with os.fdopen(descriptor, 'rb') as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise ContractError('PRIVATE_COMPENSATION_PROOF_REQUIRED')
+            if os.name == 'posix':
+                private_metadata(info, False, os.geteuid())
+            raw = source.read(300001)
+        if len(raw) > 300000:
+            raise ContractError('COMPENSATION_PROOF_TOO_LARGE')
+        path = self.state_dir / 'operations.sqlite3'
+        if not path.is_file():
+            raise ContractError('OPERATION_NOT_FOUND')
+        ledger = OperationLedger(path)
+        def validate(db, proof):
+            reader = reader_factory()
+            try:
+                return benefits.validate_compensation(db, proof, reader)
+            finally:
+                reader.close()
+        return ledger.record_compensation(reference, raw, approved, validate)
 
     def handle(self, request, reader_factory):
         allowed = {'action', 'site_id', 'kind', 'native_id', 'operation_id', 'before_hash', 'changes', 'enabled',

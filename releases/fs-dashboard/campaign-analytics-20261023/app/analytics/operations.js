@@ -1,9 +1,11 @@
 (function(){
  'use strict';
- const $=id=>document.getElementById(id),key='fs-campaign-native-operation:'+location.pathname;
- let csrf=null,canEdit=false,busy=false,detail=null,pending=null,storageOK=true,mappings={};
- try{pending=JSON.parse(sessionStorage.getItem(key)||'null');if(pending&&(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(pending.operation_id)||typeof pending.native_id!=='string'))throw Error();}
- catch{storageOK=false;$('ops-error').textContent='原操作记录无法读取。请由维护人员核对服务器账本后恢复此会话，当前禁止新写入。';}
+ const $=id=>document.getElementById(id),key='fs-campaign-native-operation:'+location.pathname,historyKey=key+':compensated';
+ let csrf=null,canEdit=false,busy=false,detail=null,pending=null,storageOK=true,mappings={},compensatedHistory=[];
+ const validID=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(value);
+ function isCompensated(result){const r=result?.resolution;return result?.state==='unknown'&&result.object_lock_active===false&&r?.status==='compensated'&&r.original_state==='unknown'&&r.native_write_authorization===false&&validID(r.reference)&&typeof r.proof_hash==='string'&&/^[a-f0-9]{64}$/.test(r.proof_hash)&&typeof r.recorded_at==='string'&&r.recorded_at.length>0;}
+ try{pending=JSON.parse(sessionStorage.getItem(key)||'null');if(pending&&(!validID(pending.operation_id)||typeof pending.native_id!=='string'))throw Error();compensatedHistory=JSON.parse(sessionStorage.getItem(historyKey)||'[]');if(!Array.isArray(compensatedHistory)||compensatedHistory.some(row=>!validID(row.operation_id)||!isCompensated(row)))throw Error();}
+ catch{storageOK=false;compensatedHistory=[];$('ops-error').textContent='原操作记录无法读取。请由维护人员核对服务器账本后恢复此会话，当前禁止新写入。';}
  const tell=(id,value)=>{$(id).textContent=value;};
  function locks(){
   $('query-fields').disabled=busy||!canEdit;
@@ -16,6 +18,7 @@
   $('disable-benefit').disabled=detail?.editability?.can_disable!==true;
   $('reconcile-operation').disabled=busy||!canEdit||!pending||!storageOK;
   tell('pending-state',pending?'原操作 '+pending.operation_id+' 尚待核对；新修改已锁定。':'没有待核对操作。');
+  tell('compensated-history',compensatedHistory.map(row=>'历史操作 '+row.operation_id+'：UNKNOWN（原状态保留），已登记补偿 '+row.resolution.reference+'；原结果 '+String(row.result?.reason_code||'未知')+'；原更新时间 '+String(row.updated_at||'未知')+'；补偿登记时间 '+row.resolution.recorded_at+'。此ID不再引导对账；补偿不授权原生写入。').join('\n'));
  }
  function persist(value){sessionStorage.setItem(key,JSON.stringify(value));pending=value;}
  async function api(action,body={},mutate=false){
@@ -36,6 +39,12 @@
    persist({...pending,operation_id:result.recovery_operation_id});
   }
   if(!pending||result?.operation_id!==pending.operation_id)throw Error('回执操作ID不匹配，原操作保留。');
+  if(result.resolution){
+   if(!isCompensated(result))throw Error('补偿回执无法核对，保留原操作并联系维护人员。');
+   const row={operation_id:result.operation_id,state:result.state,updated_at:result.updated_at,result:{reason_code:result.result?.reason_code},resolution:result.resolution,object_lock_active:false};
+   const history=[...compensatedHistory.filter(item=>item.operation_id!==row.operation_id),row];sessionStorage.setItem(historyKey,JSON.stringify(history));compensatedHistory=history;
+   tell('ops-status','历史 UNKNOWN 已补偿，原状态和结果保留；不再对账此ID，补偿不授权原生写入。');persist(null);return;
+  }
   const labels={pending:'该对象已有操作待核对，请恢复原操作',confirmed:'已回读确认',rejected:'已拒绝',blocked:'安全条件未满足，未执行',unknown:'结果未知，请继续查询原操作'};
   tell('ops-status',(result.object_busy===true?'本次修改未提交，以下为原操作结果：':'')+(labels[result.state]||'原操作尚未确认')+(result.result?.reason_code?' · '+result.result.reason_code:''));
   if(['confirmed','rejected','blocked'].includes(result.state))persist(null);
@@ -84,6 +93,6 @@
  $('reconcile-operation').addEventListener('click',()=>run(async()=>{if(!pending)return;const id=pending.native_id;operationResult(await api('operation_reconcile',{operation_id:pending.operation_id},true));if(!pending)await readDetail(id);}));
  $('read-summary').addEventListener('click',()=>run(async()=>summary(await api('analysis_summary'))));
  $('analysis-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const from=$('analysis-from').value,to=$('analysis-to').value;if(to<from)throw Error('结束时间必须晚于开始时间。');const raw=value=>value.replace('T',' ')+(value.length===16?':00':'');await api('analysis_reconcile',{from:raw(from),to:raw(to)},true);summary(await api('analysis_summary'));});});
- async function init(){try{const response=await fetch('api/center',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('请使用FS原有管理员会话。');const value=await response.json();csrf=value.csrf;canEdit=value.canEdit===true&&typeof csrf==='string';tell('ops-status',canEdit?'管理会话已读取；具体写入权限仍以服务端对象核验为准。':'当前会话无后台操作权限。');}catch(error){tell('ops-error',error.message);}locks();}
+ async function init(){try{const response=await fetch('api/center',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('请使用FS原有管理员会话。');const value=await response.json();csrf=value.csrf;canEdit=value.canEdit===true&&typeof csrf==='string';tell('ops-status',canEdit?'管理会话已读取；具体写入权限仍以服务端对象核验为准。':'当前会话无后台操作权限。');if(canEdit&&pending&&storageOK)operationResult(await api('operation_lookup',{operation_id:pending.operation_id}));}catch(error){tell('ops-error',error.message);}locks();}
  init();
 })();
