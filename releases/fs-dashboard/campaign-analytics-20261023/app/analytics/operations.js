@@ -2,7 +2,7 @@
  'use strict';
  const $=id=>document.getElementById(id),key='fs-campaign-native-operation:'+location.pathname;
  let csrf=null,canEdit=false,busy=false,detail=null,pending=null,storageOK=true,mappings={};
- try{pending=JSON.parse(sessionStorage.getItem(key)||'null');if(pending&&(!/^[0-9a-f-]{36}$/i.test(pending.operation_id)||typeof pending.native_id!=='string'))throw Error();}
+ try{pending=JSON.parse(sessionStorage.getItem(key)||'null');if(pending&&(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(pending.operation_id)||typeof pending.native_id!=='string'))throw Error();}
  catch{storageOK=false;$('ops-error').textContent='原操作记录无法读取。请由维护人员核对服务器账本后恢复此会话，当前禁止新写入。';}
  const tell=(id,value)=>{$(id).textContent=value;};
  function locks(){
@@ -32,12 +32,12 @@
  }
  function operationResult(result){
   if(result?.object_busy===true){
-   if(!pending||result.requested_operation_id!==pending.operation_id||result.recovery_operation_id!==result.operation_id||!/^[0-9a-f-]{36}$/i.test(result.operation_id)||!['pending','unknown'].includes(result.state))throw Error('对象占用回执无法核对，保留当前操作并联系维护人员。');
+   if(!pending||result.requested_operation_id!==pending.operation_id||result.recovery_operation_id!==result.operation_id||!/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(result.operation_id)||!['pending','unknown','confirmed','rejected','blocked'].includes(result.state))throw Error('对象占用回执无法核对，保留当前操作并联系维护人员。');
    persist({...pending,operation_id:result.recovery_operation_id});
   }
   if(!pending||result?.operation_id!==pending.operation_id)throw Error('回执操作ID不匹配，原操作保留。');
   const labels={pending:'该对象已有操作待核对，请恢复原操作',confirmed:'已回读确认',rejected:'已拒绝',blocked:'安全条件未满足，未执行',unknown:'结果未知，请继续查询原操作'};
-  tell('ops-status',(labels[result.state]||'原操作尚未确认')+(result.result?.reason_code?' · '+result.result.reason_code:''));
+  tell('ops-status',(result.object_busy===true?'本次修改未提交，以下为原操作结果：':'')+(labels[result.state]||'原操作尚未确认')+(result.result?.reason_code?' · '+result.result.reason_code:''));
   if(['confirmed','rejected','blocked'].includes(result.state))persist(null);
  }
  async function mutate(action,changes){
