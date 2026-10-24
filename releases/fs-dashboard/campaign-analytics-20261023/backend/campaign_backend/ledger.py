@@ -2,6 +2,7 @@
 import hashlib
 import json
 import sqlite3
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -45,6 +46,64 @@ class OperationLedger:
                 operation_id TEXT PRIMARY KEY, object_key TEXT)''')
             db.execute('CREATE INDEX IF NOT EXISTS operation_object_key ON operation_objects(object_key)')
             db.execute('CREATE INDEX IF NOT EXISTS operation_active_state ON operations(state)')
+            db.execute('''CREATE TABLE IF NOT EXISTS native_response_audit (
+                audit_id INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, object_key TEXT,
+                request_payload_hash TEXT NOT NULL, evidence TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            db.execute('CREATE INDEX IF NOT EXISTS native_response_operation ON native_response_audit(operation_id,audit_id)')
+
+    def record_native_response(self, operation_id, evidence):
+        """Append only sanitized transport evidence; it never changes an operation's state."""
+        identity(operation_id)
+        allowed = {'event', 'http_status', 'parse_status', 'business_code', 'business_code_type',
+            'business_code_sha256', 'business_code_length', 'msg_class', 'msg_type', 'msg_sha256',
+            'msg_length', 'msg_size_bytes', 'body_sha256', 'body_size', 'error_class',
+            'error_sha256', 'error_length', 'observed_at'}
+        if not isinstance(evidence, dict) or set(evidence) != allowed:
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        enums = {
+            'event': {'http_response', 'transport_exception'},
+            'parse_status': {'json_object', 'json_non_object', 'invalid_json', 'body_unavailable',
+                             'body_too_large', 'transport_exception'},
+            'business_code_type': {'missing', 'int', 'str', 'bool', 'float', 'null', 'non_scalar'},
+            'msg_class': {'missing', 'empty_text', 'nonempty_text_uninterpreted', 'non_text'},
+            'msg_type': {'missing', 'str', 'int', 'float', 'bool', 'null', 'list', 'dict'},
+            'error_class': {None, 'TimeoutError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
+                'ConnectionError', 'HTTPError', 'SSLError', 'RequestException', 'OSError', 'other_exception'},
+        }
+        if any(evidence[key] not in values for key, values in enums.items()):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        for key in ('business_code_sha256', 'msg_sha256', 'body_sha256', 'error_sha256'):
+            if evidence[key] is not None and (not isinstance(evidence[key], str) or not re.fullmatch('[a-f0-9]{64}', evidence[key])):
+                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        for key in ('business_code_length', 'msg_length', 'msg_size_bytes', 'body_size', 'error_length'):
+            if evidence[key] is not None and (type(evidence[key]) is not int or evidence[key] < 0):
+                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        status, code = evidence['http_status'], evidence['business_code']
+        if status is not None and (type(status) is not int or not 100 <= status <= 599):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        if code is not None and (type(code) not in (int, str) or not re.fullmatch(r'-?\d{1,10}', str(code))
+                                 or not -2147483648 <= int(code) <= 2147483647):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+        try:
+            if datetime.fromisoformat(evidence['observed_at']).utcoffset() is None:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE') from None
+        with self._connection() as db:
+            row = db.execute('SELECT payload,payload_hash,dispatched FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            if row is None or row['dispatched'] != 1:
+                raise ContractError('AUDITED_DISPATCH_NOT_FOUND')
+            db.execute('INSERT INTO native_response_audit(operation_id,object_key,request_payload_hash,evidence,recorded_at) VALUES (?,?,?,?,?)',
+                (operation_id, object_key(json.loads(row['payload'])), row['payload_hash'], canonical(evidence), now()))
+
+    def native_response_audit(self, operation_id):
+        identity(operation_id)
+        with self._connection() as db:
+            rows = db.execute('SELECT * FROM native_response_audit WHERE operation_id=? ORDER BY audit_id', (operation_id,)).fetchall()
+        return [dict(audit_id=row['audit_id'], operation_id=row['operation_id'],
+            object_ref=json.loads(row['object_key']) if row['object_key'] else None,
+            request_payload_hash=row['request_payload_hash'], recorded_at=row['recorded_at'],
+            **json.loads(row['evidence'])) for row in rows]
 
     @staticmethod
     def _backfill_active_objects(db):
@@ -133,6 +192,8 @@ class OperationLedger:
         if not adapter.enabled:
             raise ContractError('MAIN_INTEGRATION_REQUIRED')
         payload = json.loads(canonical(payload))
+        if hasattr(adapter, 'bind_native_response_audit'):
+            adapter.bind_native_response_audit(self.record_native_response)
         self.prepare(operation_id, payload)
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')

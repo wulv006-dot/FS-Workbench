@@ -1,10 +1,11 @@
 """Native coupon lifecycle, exact-ID scope and server-private verification gates."""
 import hashlib
 import re
+import json
 
 from .catalog import positive_id
 from .core import ContractError, canonical, identity
-from .ledger import ObjectOperationBusy
+from .ledger import ObjectOperationBusy, now
 
 COUPON_FIELDS = ('title', 'brief', 'status', 'type', 'fetch_scene', 'mode_type', 'attain', 'reduce',
     'max_reduce', 'limit_qty', 'fetch_qty', 'used_qty', 'repeat_qty', 'time_effect', 'start_time',
@@ -13,6 +14,66 @@ DISCOUNT_FIELDS = ('status', 'type', 'attain', 'discount', 'site_id', 'gid', 'ai
                    'exclude_gids', 'repeat_qty', 'timestart', 'timeend')
 REQUIRED_PROOFS = ('ownership_verified', 'exact_id_readback_verified', 'compensation_verified',
                    'status_zero_verified')
+
+
+def safe_response_evidence(response=None, error=None):
+    """Only numeric business codes and hash/length metadata cross the audit boundary."""
+    result = dict(event='transport_exception' if error is not None else 'http_response',
+        http_status=None, parse_status='transport_exception' if error is not None else 'body_unavailable',
+        business_code=None, business_code_type='missing', business_code_sha256=None, business_code_length=None,
+        msg_class='missing', msg_type='missing', msg_sha256=None, msg_length=None, msg_size_bytes=None,
+        body_sha256=None, body_size=None, error_class=None, error_sha256=None, error_length=None, observed_at=now())
+    def hashed(value):
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=True, sort_keys=True, allow_nan=False)
+        raw = text.encode('utf-8', errors='surrogatepass')
+        return hashlib.sha256(raw).hexdigest(), len(text), len(raw)
+    if error is not None:
+        name = type(error).__name__
+        result['error_class'] = name if name in {'TimeoutError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
+            'ConnectionError', 'HTTPError', 'SSLError', 'RequestException', 'OSError'} else 'other_exception'
+        try:
+            result['error_sha256'], result['error_length'], _ = hashed(str(error))
+        except Exception:
+            pass
+        return result
+    status = getattr(response, 'status_code', None)
+    if type(status) is int and 100 <= status <= 599:
+        result['http_status'] = status
+    raw = getattr(response, 'content', None)
+    if not isinstance(raw, bytes):
+        return result
+    result.update(body_sha256=hashlib.sha256(raw).hexdigest(), body_size=len(raw))
+    if len(raw) > 65536:
+        result['parse_status'] = 'body_too_large'
+        return result
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        result['parse_status'] = 'invalid_json'
+        return result
+    if not isinstance(payload, dict):
+        result['parse_status'] = 'json_non_object'
+        return result
+    result['parse_status'] = 'json_object'
+    if 'code' in payload:
+        code = payload['code']
+        result['business_code_type'] = ('null' if code is None else type(code).__name__
+                                        if type(code) in (str, int, bool, float) else 'non_scalar')
+        try:
+            result['business_code_sha256'], result['business_code_length'], _ = hashed(code)
+        except (TypeError, ValueError):
+            pass
+        if type(code) in (str, int) and re.fullmatch(r'-?\d{1,10}', str(code)) and -2147483648 <= int(code) <= 2147483647:
+            result['business_code'] = code
+    if 'msg' in payload:
+        message = payload['msg']
+        result['msg_type'] = 'null' if message is None else type(message).__name__
+        result['msg_class'] = ('empty_text' if message == '' else 'nonempty_text_uninterpreted') if isinstance(message, str) else 'non_text'
+        try:
+            result['msg_sha256'], result['msg_length'], result['msg_size_bytes'] = hashed(message)
+        except (TypeError, ValueError):
+            pass
+    return result
 
 
 def row_hash(row):
@@ -68,8 +129,12 @@ def detail(reader, policy, kind, native_id, site_id):
 class CouponEdit:
     route = '/admin/market.Coupon/edit'
 
-    def __init__(self, reader, payload):
+    def __init__(self, reader, payload, audit=None):
         self.reader, self.payload, self.enabled = reader, payload, True
+        self.audit = audit
+
+    def bind_native_response_audit(self, callback):
+        self.audit = callback
 
     def readback(self, operation_id, payload):
         row = scoped_row(self.reader, 'coupon', payload['native_id'], payload['site_id'])
@@ -85,10 +150,17 @@ class CouponEdit:
         if all(str(row.get(key)) == str(value) for key, value in payload['changes'].items()):
             return self.readback(operation_id, payload)
         session = self.reader.session
+        if self.audit is None:
+            raise ContractError('NATIVE_RESPONSE_AUDIT_REQUIRED')
         # The existing Session.post_admin can retry; this direct exact edit is dispatched once.
-        response = session.admin.post('https://admin-api.p2pah.cn' + self.route,
-            json=dict(id=int(payload['native_id']), **payload['changes']),
-            headers={'batoken': session.token}, timeout=30, allow_redirects=False)
+        try:
+            response = session.admin.post('https://admin-api.p2pah.cn' + self.route,
+                json=dict(id=int(payload['native_id']), **payload['changes']),
+                headers={'batoken': session.token}, timeout=30, allow_redirects=False)
+        except Exception as error:
+            self.audit(operation_id, safe_response_evidence(error=error))
+            raise
+        self.audit(operation_id, safe_response_evidence(response=response))
         if response.status_code != 200:
             return dict(state='unknown', reason_code='NATIVE_RESPONSE_UNCONFIRMED')
         return self.readback(operation_id, payload)
