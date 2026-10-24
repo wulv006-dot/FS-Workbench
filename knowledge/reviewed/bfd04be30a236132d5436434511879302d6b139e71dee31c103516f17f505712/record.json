@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:48811a76",
+  "candidate_sha256": "cb705b40b993c9a3eb210582bba7bc6c359b8e7ac1031c1389c793e63aad1aea",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "用户2026-10-24明确授权；完整单文件包及原应用manifest一致；原watch隔离10项检查通过，已有飞书消息GET目标一致、3份既有成品与清单SHA一致。保存和读取不代表模型掌握或经营效果。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "a9eec06954f91ff7e864a346a87cc313c3441aa1891878bb73013f7fcca1ac95"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "6d8e850d67d6b7f6cdd0e31e1efc65f53d81d4c6abc52448c16a5c7358c79435"
+    }
+  ],
+  "receipt_sha256": "cb3a9921ce69638d954ee46d78c82c7ed3e2d53213d9bba56d5ba6b12ccc2bf3",
+  "request_id": "bfd04be30a236132d5436434511879302d6b139e71dee31c103516f17f505712",
+  "runtime_activation": false,
+  "summary": "15份重复技能候选经逐项核验，提炼为1份FS只读取证技能；原草稿分别替代或拒绝。包含事件/租约对账、业务采样时效、执行回执范围、日报交付及飞书消息读回。"
+}
