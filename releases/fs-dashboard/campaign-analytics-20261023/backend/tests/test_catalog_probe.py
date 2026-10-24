@@ -8,15 +8,23 @@ def load(name):
     spec = importlib.util.spec_from_file_location(name, ROOT / ('tools/' + name + '.py'))
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
 probe = load('campaign_catalog_probe')
-seed_tool = load('campaign_catalog_seed')
 
 
 class CatalogProbeTests(unittest.TestCase):
     def test_original_seed_exact_coverage_no_money_fields(self):
-        seed = seed_tool.build_seed(ROOT / seed_tool.MODULE)
+        # Pure fixture assertions here; real Python -> Node extraction runs in catalog-seed.test.mjs.
+        seed = json.loads((ROOT / 'docs/planning/activity-center-v3/handoffs/C-CATALOG-SEED-04.json').read_text(encoding='utf8'))
         self.assertEqual((seed['reference_count'], seed['unique_goods_count'], seed['game_count']), (96, 86, 6))
-        checked = json.loads((ROOT / 'docs/planning/activity-center-v3/handoffs/C-CATALOG-SEED-04.json').read_text(encoding='utf8'))
-        self.assertEqual(seed, checked)
+        self.assertEqual(len(seed['references']),96)
+        self.assertEqual(len({r['reference_key'] for r in seed['references']}),96)
+        self.assertEqual(len({tuple(r['product_ref'][k] for k in ('site_id','game_id','goods_id'))
+                              for r in seed['references']}),86)
+        self.assertEqual(len({r['game_key'] for r in seed['references']}),6)
+        self.assertEqual(set(seed['source_artifacts']),{'app/catalog.json','app/seasonal/campaign-data.js'})
+        for value in seed['source_artifacts'].values():
+            self.assertRegex(value,r'^[a-f0-9]{64}$')
+        self.assertFalse(seed['authoritative'])
+        self.assertFalse(seed['checkout_enabled'])
         raw = json.dumps(seed).lower()
         for key in ('price', 'cost', 'token', 'order', 'email'):
             self.assertNotIn(key, raw)
