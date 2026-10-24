@@ -1,0 +1,52 @@
+{
+  "scope": "fc-review-u4gm-recovery-20261025",
+  "state": "candidate_local_checks_passed_not_deployed",
+  "runtime_files": [
+    {
+      "candidate": "source/business_context.py",
+      "target": "/opt/fs-hermes-fc/business_context.py",
+      "beforeSha256": "a89d3ef44234541bbdac51318bd4d20b0829661503f47925f555ca9506e7aa36",
+      "sha256": "a07ba7517cbf334afdf29ebcac51a9530c2d88d54716577cda23cae3f60ad107",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_review_u4gm_recovery_20261025/source/business_context.py"
+    },
+    {
+      "candidate": "source/conversation_service.py",
+      "target": "/opt/fs-hermes-fc/conversation_service.py",
+      "beforeSha256": "54b221388241d61b50c8165be22294521eb9a57bb15f1cee4539b53959ab22b5",
+      "sha256": "8b661b0dde74d2bcc0c2c94a6dc1edb8beaf6a3c3ed606a654cc1206a520e29c",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_review_u4gm_recovery_20261025/source/conversation_service.py"
+    },
+    {
+      "candidate": "source/hermes_pricing_bridge.py",
+      "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
+      "beforeSha256": "b50fce95b3a7b19540ec172b261500b90ae387ed1d3b27fd30db9ab30698552d",
+      "sha256": "501de3cb9def4aad15941239ee5a0238b755f66851a7168f746d6a44c4ae51c3",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_review_u4gm_recovery_20261025/source/hermes_pricing_bridge.py"
+    },
+    {
+      "candidate": "source/collect_fc_u4gm.py",
+      "target": "/opt/fs-sports-outbound/collect_fc_u4gm.py",
+      "beforeSha256": "f965db770fa397b582f1943db26ab434ecb42a85778b205657f1ab4dbc7fb34b",
+      "sha256": "29529f9c022dfd04130d382da0328963db62954ab6e3faea269a4e7d29b346c4",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_review_u4gm_recovery_20261025/source/collect_fc_u4gm.py"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "manual_collection": false,
+  "manual_model": false,
+  "manual_pricing": false,
+  "original_failed_runs": [
+    "fb7c39ac-316a-4f72-924d-a804b14ef4ba",
+    "d2fb070d-96af-4b93-bf53-d7c112be8693"
+  ],
+  "natural_acceptance": "pending_original_post_deploy_cycle"
+}
