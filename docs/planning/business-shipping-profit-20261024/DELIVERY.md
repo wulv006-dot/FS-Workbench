@@ -1,5 +1,7 @@
 # 全局与分游戏发货利润交付（2026-10-24）
 
+2026-10-24字段显示接续已完成：[LABELS-FIX](LABELS-FIX.md)记录PR438/正式CI及原静态发布，主卡改为发货利润（¥）/发货利润率，展开来源退役旧估算公式；三入口及真实全局/FC/RS验收通过。仅静态5目标/87保护，业务不重启，最新静态精确清单为[LABELS-CAS2-SOURCE-MAP](LABELS-CAS2-SOURCE-MAP.json)，ACTIVE-SOURCE-MAP已接续；原两次CAS拒绝及初始清单保留。下文全局取数和FC可见性修复是此前阶段。
+
 本次按用户明确授权，将原经营看板全局/分游戏主利润金额、利润率及完整日曲线接入Order发货统计；同订单实际成本毛利独立保留。方案及边界见[CONTRACT](CONTRACT.md)，逐文件维护源与实际SHA见[ACTIVE-SOURCE-MAP](ACTIVE-SOURCE-MAP.json)。
 
 入口：[经营看板](https://47.85.224.112/dashboard/analytics/?mode=business&b_profile=MMOEXP&b_grain=day&b_range=yesterday&b_profit_site=main&b_profit_category=-1)。默认MMOEXP主站；原参考范围控件可切All。发货利润类目支持原生全部/混合/货币/物品/账号/代练及其他原生类别，只筛主利润和每日曲线，不把它冒充Admin付款销售或FC客户/平台/金额分档。RS保留原四网站/类目/低频区服。
