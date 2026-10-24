@@ -5,7 +5,7 @@
   const $=id=>document.getElementById(id),escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const t=(zh,en)=>state.lang==='zh'?zh:en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:root.dataset.defaultLanguage||config.defaultLanguage||'zh',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set([config.weekly.ids[0]]),bundles:new Set(),busy:false,submitted:false};
-  const live=config.mode==='live';let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false;const currentDisplays=new Map();
+  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false;const currentDisplays=new Map();
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function selected(){try{const items=core.selection(config,state);unavailableSelection=false;return items;}catch(error){unavailableSelection=true;return [];}}
   function money(amount,currency='USD'){return new Intl.NumberFormat(state.lang==='zh'?'zh-CN':'en-US',{style:'currency',currency}).format(amount/100);}
@@ -102,6 +102,19 @@
   }
   async function submit(){
     if(state.busy||state.submitted)return;
+    if(standalone){
+      state.busy=true;render();
+      try{
+        const pageId='fc27-'+state.view;
+        if(!runtimeClient||runtimeClient.pageId!==pageId){runtimeClient=window.CampaignStandalone.create({element:document.documentElement,pageId,activityId:'fc27-season2'});runtimeClient.pageId=pageId;}
+        if(runtimeClient.pending?.unknown){await runtimeClient.lookup();status(t('原操作结果待核对；已查询原操作，未重复提交。','Original operation remains unresolved; checked its status without resubmitting.'));return;}
+        await runtimeClient.load();
+        await runtimeClient.select(review.map(item=>({product_key:'fc-'+item.key+'-'+state.platform,quantity:{value:String(item.offer.quantity),unit:'item'},attributes:[]})));
+        status(runtimeClient.describe());
+      }catch(error){status((['MAIN_INTEGRATION_REQUIRED','PRODUCT_UNAVAILABLE'].includes(error.code)?t('商品参数仍待核对，正式购买未开放；预览选择已保留，未加购、下单或付款。','Product mapping needs verification; purchasing is not open. Preview selection retained; no cart, order or payment created.'):t('运行时暂不可用或操作结果待核对：','Runtime unavailable or operation requires checking: '))+(['MAIN_INTEGRATION_REQUIRED','PRODUCT_UNAVAILABLE'].includes(error.code)?'':error.code||'RUNTIME_UNAVAILABLE'));}
+      finally{state.busy=false;render();}
+      return;
+    }
     if(!live){status(t('这份搭配已确认，仅保存在当前体验中；没有写入网站购物车。','Lineup confirmed for this preview only. Nothing was added to the website cart.'));$('submit-selection').textContent=t('已确认 · 可继续调整','Confirmed · Keep exploring');return;}
     state.busy=true;$('submit-selection').disabled=true;render();
     try{
@@ -137,5 +150,6 @@
   $('lang-zh')?.addEventListener('click',()=>{if(!state.busy){state.lang='zh';render();if($('review-dialog').open)renderReview();}});$('lang-en')?.addEventListener('click',()=>{if(!state.busy){state.lang='en';render();if($('review-dialog').open)renderReview();}});
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
+  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Standalone preview: main-site integration pending. Prices and benefits are snapshots.');}
   render();warmPrices();signal('view');
 })();

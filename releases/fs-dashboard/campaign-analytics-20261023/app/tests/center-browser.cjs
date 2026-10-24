@@ -1,0 +1,26 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+(async()=>{
+ const browser=await chromium.launch({headless:true});const page=await browser.newPage();page.setDefaultTimeout(5000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const app=path.resolve(__dirname,'..'),base='http://127.0.0.1:8598/';let readonly=false,dropSave=true,saveIds=[];
+ let state={revision:1,draft:{pages:[{page_id:'fc27-weekly',activity_id:'fc27-season2',path:'Weekly-Scout.html',title:'Weekly Scout',description:'Original description',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[]}],seasonal_theme:'halloween',integration_mode:'preview'},published:null,canEdit:true,csrf:'fixture'};
+ await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(url.origin!==base.slice(0,-1))return route.abort();const file=url.pathname;
+ if(file==='/analytics/api/center'&&req.method()==='GET')return route.fulfill({json:{...state,canEdit:!readonly}});
+ if(file==='/analytics/api/center/backend-read')return route.fulfill({json:{status:'ok',data:{coupons:[{kind:'coupon',native_id:'native-123',title:'Verified ID fixture',raw_status:'1'}],discounts:[]}}});
+ if(file==='/analytics/api/center'&&req.method()==='POST'){const body=req.postDataJSON();saveIds.push(body.operation_id);if(saveIds.length===1){state={...state,revision:2,draft:body.draft};if(dropSave){dropSave=false;return route.abort();}}return route.fulfill({json:{revision:2}});}
+ if(file==='/analytics/api/center/publish'){state={...state,revision:3,published:{release_id:'preview-1'}};return route.fulfill({json:{revision:3}});}
+ if(file==='/events/api/campaign/config')return route.fulfill({json:{pages:[{page_id:'fc27-sbc',activity_id:'fc27-season2',product_keys:[]}],products:[]}});
+ if(file==='/events/api/campaign/capabilities')return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
+ const rel=file.replace(/^\/events\//,'/');const filename=path.join(app,rel);if(!filename.startsWith(app)||!fs.existsSync(filename))return route.fulfill({status:404,body:''});const ext=path.extname(filename);return route.fulfill({body:fs.readFileSync(filename),contentType:({'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp','.png':'image/png'})[ext]||'application/octet-stream'});
+ });
+ try{
+ await page.goto(base+'analytics/center.html');await page.waitForFunction(()=>document.querySelector('#draft-state').textContent==='修订 1');assert.equal(await page.locator('[aria-invalid=true]').count(),0);
+ await page.locator('#title-0').fill('Updated title');await page.locator('#start-0').fill('2026-11-02T00:00');await page.locator('#end-0').fill('2026-11-01T00:00');await page.locator('#save-center').click();assert.equal(saveIds.length,0);assert.equal(await page.locator('#end-0').evaluate(e=>e.validity.valid),false);
+ await page.locator('#end-0').fill('2026-11-03T00:00');await page.locator('#read-benefits').click();await page.waitForFunction(()=>document.querySelector('#backend-state').textContent==='已读 1 项');await page.locator('#benefit-0').selectOption('0');await page.locator('[data-add="0"]').click();assert.match(await page.locator('.bindings').innerText(),/native|Verified/);
+ await page.locator('#save-center').click();await page.waitForFunction(()=>document.querySelector('#center-error').textContent.includes('原操作'));assert.equal(await page.locator('#title-0').isDisabled(),true);assert.equal(saveIds.length,1);
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('原操作已确认'));assert.equal(saveIds.length,2);assert.equal(saveIds[0],saveIds[1]);assert.equal(state.draft.pages[0].title,'Updated title');assert.deepEqual(state.draft.pages[0].benefit_refs,[{kind:'coupon',native_id:'native-123'}]);assert.equal(state.draft.integration_mode,'preview');
+ await page.locator('#publish-center').click();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('预览配置已发布'));assert.match(await page.locator('#publish-state').innerText(),/已有预览/);
+ readonly=true;await page.reload();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('只读'));assert.equal(await page.locator('#title-0').isDisabled(),true);
+ await page.goto(base+'events/Sbc-Companions.html');await page.waitForSelector('#companion-0');const count=await page.locator('#summary-count').innerText();assert.equal(count,'2');await page.locator('input[name=core-mode][value=service]').check();assert.equal(await page.locator('#summary-count').innerText(),'3');await page.locator('input[name=core-mode][value=owned]').check();await page.locator('#review-selection').click();await page.locator('#submit-selection').click();await page.waitForFunction(()=>document.querySelector('#review-status').textContent.includes('purchasing is not open'));assert.equal(await page.locator('#continue-cart').isVisible(),false);
+ assert.deepEqual(errors,[]);console.log('PASS center forms/date validation/native binding/unknown reload same ID/publish/readonly; FC owned-service flow and standalone fail-closed preview');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exit(1)});
