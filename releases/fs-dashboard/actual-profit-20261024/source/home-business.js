@@ -2252,8 +2252,9 @@ function requestDailyProfit(){}
 
 function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{
  workspaceQueued=false;if(workspaceRestoring)return;
- const root=scope.root,grid=root.querySelector('.fsi-metrics');
+ const root=scope.root;
  requestDailyProfit();workspaceFCTypes();fcDetailSync();
+ const grid=root.querySelector('.fsi-metrics');
  const insights=root.getElementById('supplement-insights');
  if(insights&&grid&&!insights.querySelector('.metric-audit')){const audit=document.createElement('details');audit.className='source-details metric-audit';audit.append(document.createElement('summary'));audit.firstChild.textContent='所选区间、指标来源与口径';
   for(const note of insights.querySelectorAll(':scope > p.fsi-note:not([data-profit-coverage]),:scope > [data-exact-range-status="available"]'))audit.append(note);insights.append(audit);
