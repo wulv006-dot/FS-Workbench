@@ -218,6 +218,22 @@ class ReferenceInputs(unittest.TestCase):
 
 
 class ReferenceWeights(unittest.TestCase):
+    def test_baseline_compatibility_update_preserves_exact_policy_bindings_and_other_bytes(self):
+        spec=importlib.util.spec_from_file_location('weighting_compatibility',SOURCE.parent/'deploy/weighting_compatibility.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        old,new='a'*64,'b'*64
+        policy=dict(contract='fs-knowledge-load-policy-v1',unknown={'keep':[1,2]},native={'enabled':True},
+                    task_routes=dict(enabled=True,routes=[dict(owner='wulv',project='FS',channel='fs',task_types=['report','data','conversation'],
+                        baseline_compatibility=dict(mode='retain_full_baseline',sha256=old)),dict(owner='other',project='FS',channel='feishu')]))
+        raw=json.dumps(policy,indent=3).encode()
+        self.assertEqual(module.candidate(raw,old,new),raw.replace(old.encode(),new.encode(),1))
+        for fault in ('owner','duplicate','unknown_digest'):
+            changed=copy.deepcopy(policy)
+            if fault=='owner':changed['task_routes']['routes'][0]['owner']='other'
+            elif fault=='duplicate':changed['task_routes']['routes'].append(copy.deepcopy(changed['task_routes']['routes'][0]))
+            else:changed['extra']=old
+            with self.subTest(fault=fault),self.assertRaises(ValueError):module.candidate(json.dumps(changed).encode(),old,new)
+
     def prepared(self):
         evidence,rows,_=fixture();evidence['run_id']='original'
         offers=snapshot()['reference_competitors']['offers']
