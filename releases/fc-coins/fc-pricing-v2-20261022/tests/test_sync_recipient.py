@@ -14,11 +14,12 @@ class RecipientTests(unittest.TestCase):
             return {'unit_price':prices[('PS','XBOX','PC').index(platform)],'more':{'price':[str(count[0]) if unstable else '10.34']}}
         session=types.SimpleNamespace(SessionManager=lambda config:types.SimpleNamespace(ensure=lambda:authenticated),read_private_config=lambda:{},allowed_admin_usernames=lambda:['chenchao'])
         coin=types.SimpleNamespace(api=lambda *args:{'adminInfo':{'username':identity}},read_row=read,PRODUCTS={'PS':1,'XBOX':2,'PC':3})
-        env={'datetime':datetime,'timezone':timezone,'same_money':lambda a,b:Decimal(a)==Decimal(b),'current_cycle_quote':lambda *args:calls.append(args)}
+        env={'sys':sys,'datetime':datetime,'timezone':timezone,'same_money':lambda a,b:Decimal(a)==Decimal(b),'current_cycle_quote':lambda *args:calls.append(args)}
         exec(compile(ast.Module(body=[node],type_ignores=[]),'recipient','exec'),env)
         record={'preview_id':'original','selected':['PS','XBOX'],'automation_policy_revision':40,'targets':[{'platform':p,'quote':q} for p,q in zip(('PS','XBOX','PC'),('0.1034','0.1034','0.0868'))]}
-        with patch.dict(sys.modules,{'p2pah_session_service':session,'coin_all_sync_job':coin}),patch('time.sleep'):
+        with patch.object(sys,'path',list(sys.path)),patch.dict(sys.modules,{'p2pah_session_service':session,'coin_all_sync_job':coin}),patch('time.sleep'):
             result=env['confirm_sync_recipient'](record)
+            self.assertEqual(sys.path[0],'/usr/local/bin')
         self.assertEqual(len(calls),2);self.assertEqual(count[0],6);self.assertIs(result['sync_replayed'],False)
         return result
     def test_two_stable_get_rounds_confirm_without_sync(self):self.check()

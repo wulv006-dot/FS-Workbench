@@ -217,6 +217,7 @@ def mirror_after_order_confirmation(record):
 def confirm_sync_recipient(record):
     """A lost DOM receipt may be reconciled by two stable recipient GETs, never replayed."""
     import time
+    sys.path.insert(0, '/usr/local/bin')
     from p2pah_session_service import SessionManager, read_private_config, allowed_admin_usernames
     from coin_all_sync_job import api, read_row, PRODUCTS
     manager = SessionManager(read_private_config())
@@ -373,7 +374,8 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
                 except Exception:
                     uncertain = True
                 status = "UNCERTAIN" if uncertain else "PARTIAL" if record["changed"] else "FAILED_BEFORE_WRITE"
-                stage(record, "stopped", status=status, error=reason[:100])
+                stage(record, "stopped", status=status, error=reason[:100],
+                      missing_module=exc.name if isinstance(exc, ModuleNotFoundError) else None)
             raise
         finally:
             close_backend(page)
@@ -390,5 +392,6 @@ if __name__ == "__main__":
         print(json.dumps(result))
     except Exception as exc:
         reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
-        print(json.dumps({"status": "FAILED", "reason": reason[:100]}))
+        print(json.dumps({"status": "FAILED", "reason": reason[:100],
+                          "missing_module": exc.name if isinstance(exc, ModuleNotFoundError) else None}))
         raise SystemExit(1)
