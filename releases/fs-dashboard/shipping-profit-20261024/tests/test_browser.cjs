@@ -66,6 +66,7 @@ if(require.main===module)(async()=>{
   for(const key of ['D4','AION2','FC27']){
    await page.evaluate(k=>window.api.apply({b_profile:k,b_group:k==='FC27'?'sports':'rpg',b_grain:'day',b_range:'yesterday',b_profit_category:'-1',b_profit_site:'main'}),key);
    await page.waitForFunction(k=>window.lastState?.b_profile===k&&window.lastState?.phase==='available',key);await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥250.00');
+   if(key==='FC27'){await page.locator('[data-profit-day]').waitFor({state:'visible'});assert.equal(await separate.locator('.fsi-metric').first().isVisible(),true);}
   }
   assert.ok(queries.some(q=>q.mode==='profit-history'&&q.profile==='FC27'&&q.profit_site==='main'));assert.ok(queries.filter(q=>q.mode==='fc-detail').every(q=>!('profit_site'in q)));
   await page.evaluate(()=>window.api.apply({b_profile:'RS',b_group:'general',b_grain:'day',b_range:'yesterday',b_rs_site:'rsorders',b_rs_category:'all'}));await page.waitForFunction(()=>window.lastState?.b_profile==='RS'&&window.lastState?.phase==='available');

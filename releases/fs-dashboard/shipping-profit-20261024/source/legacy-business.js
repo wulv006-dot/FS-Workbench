@@ -118,8 +118,8 @@ function shippingFields(key,s){return key==='RS'?{}:{profit_site:s.profit_site||
 function shippingSame(key,a,b){return key==='RS'?rsSame(a,b):a?.profit_site===b?.profit_site&&a?.profit_category===b?.profit_category;}
 function shippingSelection(key,s){return key==='RS'?s:{...s,profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',profit_category:shippingCategory};}
 function shippingRenderFilters(){
- let box=document.getElementById('shipping-filters');if(!box){box=document.createElement('div');box.id='shipping-filters';box.className='toolbar';document.getElementById('rangeBar').after(box);}box.hidden=KEY==='RS';if(box.hidden)return;box.replaceChildren();
- const label=document.createElement('label');label.htmlFor='shipping-category';label.textContent='发货利润类目 ';const select=document.createElement('select');select.id='shipping-category';
+ let box=document.getElementById('shipping-filters');if(!box){box=document.createElement('div');box.id='shipping-filters';box.className='toolbar';box.style.flexBasis='100%';document.getElementById('rangeBar').after(box);}box.hidden=KEY==='RS';if(box.hidden)return;box.replaceChildren();
+ const label=document.createElement('label');label.className='scope-select';label.htmlFor='shipping-category';label.textContent='发货利润类目 ';const select=document.createElement('select');select.id='shipping-category';
  for(const [value,title] of shippingCategories){const o=document.createElement('option');o.value=value;o.textContent=title;select.append(o);}select.value=shippingCategory;label.append(select);box.append(label);
  const note=document.createElement('span');note.className='hint';note.textContent='仅筛选发货利润及每日曲线；订单、美元销售和逐单成本毛利保持各自原范围。';box.append(note);
  select.onchange=()=>{shippingCategory=select.value;window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();document.getElementById('shipping-category')?.focus();};
@@ -2242,11 +2242,11 @@ function fcDetailShow(){
  if(!on){clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();fcDetailPending=false;fcDetailState.key='';}
  for(const id of ['sideNav','secStruct','gameCard','geoCard','payRow','secDetail','tblCard','secCross','crossCard','profitWrap','calCard','fc-types']){const node=document.getElementById(id);if(node){if(on&&node.dataset.fcPreviousHidden===undefined)node.dataset.fcPreviousHidden=String(node.hidden);node.hidden=on?true:node.dataset.fcPreviousHidden==='true';if(!on)delete node.dataset.fcPreviousHidden;}}
  for(const id of ['secTrend','trendCard']){const node=document.getElementById(id);if(node)node.hidden=on&&fcDetailState.tab!=='overview';}
- const metrics=document.getElementById('supplement-insights');if(metrics){metrics.hidden=false;if(on){if(metrics.parentNode!==fcHost)fcHost.insertBefore(metrics,fcHost.querySelector('.fc-tabs'));[...metrics.querySelectorAll('.fsi-metric')].forEach((card,index)=>{card.hidden=!scope.metrics&&index>3;});}else if(metrics.parentNode===fcHost)fcHost.before(metrics);}
+ const metrics=document.getElementById('supplement-insights');if(metrics){metrics.hidden=false;if(on){if(metrics.parentNode!==fcHost)fcHost.insertBefore(metrics,fcHost.querySelector('.fc-tabs'));[...metrics.querySelectorAll(':scope > .fsi-metrics > .fsi-metric')].forEach((card,index)=>{card.hidden=!scope.metrics&&index>3;});}else if(metrics.parentNode===fcHost)fcHost.before(metrics);}
  if(on&&fcDetailState.data?.coverage.paid_complete){const label={main:'MMOEXP主站',satellite:'卫星子站合计',all:'主站 + 卫星子站'}[fcFilters.site_group],cards=metrics.querySelectorAll('.fsi-metric');fcSetText(cards[0]?.querySelector('span'),label+'订单数');fcSetText(cards[1]?.querySelector('span'),label+'销售额');fcSetText(metrics.querySelector('.fsi-reference-total'),'FC订单与销售额使用同一筛选；利润率为Order全站参考，预估利润不是实结。');}
  for(const note of document.querySelectorAll('#trendCard .order-reference-label')){if(on&&fcDetailState.data?.coverage.paid_complete){note.dataset.fcPreviousText??=note.textContent;fcSetText(note,'订单量与销售额来自FC订单明细及当前筛选。');}else if(note.dataset.fcPreviousText){fcSetText(note,note.dataset.fcPreviousText);delete note.dataset.fcPreviousText;}}
- for(const id of ['pfPane','pfDiv']){const node=document.getElementById(id);if(node)node.hidden=on;}
- const reference=document.querySelector('[aria-label="参考展示范围"]');if(reference){const holder=reference.closest('label')||reference;holder.hidden=on;}
+ for(const id of ['pfPane','pfDiv']){const node=document.getElementById(id);if(node)node.hidden=false;}
+ const reference=document.querySelector('[aria-label="参考展示范围"]');if(reference){const holder=reference.closest('label')||reference;holder.hidden=false;}
  if(!on)return;
  for(const b of fcHost.querySelectorAll('[role=tab]')){const active=b.dataset.fcTab===fcDetailState.tab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;}
  for(const [key] of fcTabs)fcHost.querySelector('#fc-panel-'+key).hidden=key!==fcDetailState.tab;
