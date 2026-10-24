@@ -61,6 +61,10 @@ class History(unittest.TestCase):
     def test_denial_does_not_retain_archive(self):
         with patch('daily_archive.summary_key',return_value={}),patch('daily_archive.read',return_value=self.old),patch('daily_archive.derive_summary',return_value=None),patch.object(self.c,'get_live',return_value=(403,{'status':'denied'})):
             self.assertEqual(self.c.get(self.q)[0],403)
+    def test_derived_history_announces_pending_native_range(self):
+        self.old['archive']={}
+        with patch('daily_archive.summary_key',return_value={}),patch('daily_archive.read',return_value=None),patch('daily_archive.derive_summary',return_value=self.old),patch.object(self.c,'get_live',return_value=(202,{'status':'pending'})):
+            code,value=self.c.get(self.q);self.assertEqual(code,200);self.assertTrue(value['refreshing']);self.assertEqual(value['sources']['Admin']['status'],'pending');self.assertEqual(value['expiresInSeconds'],0)
     def test_current_facts_within_history_bound_reused(self):
         self.old['generatedAt']=__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
         with patch('daily_archive.summary_key',return_value={}),patch('daily_archive.read',return_value=self.old),patch.object(self.c,'get_live') as native:

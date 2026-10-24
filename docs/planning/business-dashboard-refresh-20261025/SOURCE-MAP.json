@@ -1,10 +1,10 @@
 {
   "scope": "business-dashboard-refresh-20261025",
-  "version": "dashboard-refresh-20261025-069937dae25c",
+  "version": "dashboard-refresh-20261025-4b28008012cf",
   "files": [
     {
       "candidate": "source/business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/business.js",
       "sha256": "66aea34498ebefbad432286cd15f9463c649eb2f703f277e67f833de85de7d4d",
       "beforeSha256": null,
       "owner": "0:0",
@@ -12,7 +12,7 @@
     },
     {
       "candidate": "source/home-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/home-business.js",
       "sha256": "370f60f3ba432e0653cb39b3cbf1895270cf9fff34a7670cf957f7b15ce65bf4",
       "beforeSha256": null,
       "owner": "0:0",
@@ -20,7 +20,7 @@
     },
     {
       "candidate": "source/legacy-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/legacy-business.js",
       "sha256": "3b7dbde942df42631bf3a3a118d566ddd38cab9ceace53bedf399ba93701b3a2",
       "beforeSha256": null,
       "owner": "0:0",
@@ -28,7 +28,7 @@
     },
     {
       "candidate": "source/shell.js",
-      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-069937dae25c/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/dashboard-refresh-20261025-4b28008012cf/shell.js",
       "sha256": "5c6b5c86fbd5a1a7d8e4a08920a4e55839dc0da9e263b19f68021eb07e68dc8f",
       "beforeSha256": null,
       "owner": "0:0",
@@ -45,7 +45,7 @@
     {
       "candidate": "source/live_summary.py",
       "target": "/opt/fs-exact-range-20261001/live_summary.py",
-      "sha256": "f07adaef9e21f4265c6e5f36e59a81471fe71b18eebfddd54a9072b7fbb683ac",
+      "sha256": "6920f3c53a73e4799e3b187fd4b1207203b84b992e8009296316a8b50d736973",
       "beforeSha256": "ebe48ce53fd5466d78f7b48b7b796aee100572d378088adaffa92852e12de2e3",
       "owner": "0:0",
       "mode": "0o644"
@@ -85,7 +85,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "15d2a53be21c7bba0317236cd281c9e2c0b7955ce43bdcfe0b6a4881f70d6398",
+      "sha256": "19612b83e0df358034bab7dbe4aab9e24b7d15e5ed7a54f62403d3ba72fd6612",
       "beforeSha256": "a982854b321ab8491696dd45b50646ef16105566698d5dae4476c526b4de83ad",
       "owner": "0:0",
       "mode": "0o644"
@@ -96,7 +96,7 @@
   "publisher": {
     "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
     "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
-    "actual_release.py": "f118dbbc403775f2afa0faef7c08f30f4810050b0d257d3946b6b52b733589c3",
+    "actual_release.py": "bbc0059179bfb2678e514050b910d3d518769ec2276de25ff37abf7cc7a000ea",
     "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
   }
 }

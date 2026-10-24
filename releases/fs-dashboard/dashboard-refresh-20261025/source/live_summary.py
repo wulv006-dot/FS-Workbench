@@ -146,6 +146,9 @@ class SummaryCache:
             return 200, archived
         elif derived is not None and code != 403:
             derived['archive']['nativeStatus'] = value.get('status')
+            derived.update(stale=True,refreshing=code in (202,429),expiresInSeconds=0,
+                refreshSeconds=q.get('cacheSeconds',TTL))
+            derived['sources']['Admin'].update(status='pending' if code in (202,429) else 'unavailable')
             return 200, derived
         return code, value
 
