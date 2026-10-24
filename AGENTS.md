@@ -1,3 +1,8 @@
+<!-- business-shipping-profit-current-20261024 -->
+## 经营看板利润计算规则（2026-10-24）
+
+全局/分游戏主利润与每日曲线按Order“统计管理→发货统计”同网站、游戏、原生类目、交易时间取人民币销售减采购；分游戏原生率、全局总利润÷总销售，不再用Admin付款USD乘参考率。零分母率不适用，未知不补零，负利润保留，非净利润；同订单Admin整单人民币收入减Order实际成本及覆盖证明独立展示。规则见[业务基准专项补充](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md#看板发货利润2026-10-24用户确认并上线)及[计算合同](docs/planning/business-shipping-profit-20261024/CONTRACT.md)。PR435/436已上线，活动源见[交付与版本](docs/planning/business-shipping-profit-20261024/DELIVERY.md)。仅看板Shipping字段迁移；旧primary兼容、Hermes其他报告、定价v15、权限/会话/调度和原UNKNOWN保持。Git文档/候选知识与生产装入、模型实际使用分别验收。
+
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现
 

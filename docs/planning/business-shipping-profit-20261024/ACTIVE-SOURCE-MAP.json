@@ -1,0 +1,138 @@
+{
+  "version": "shipping-profit-20261024-344f40933ff8",
+  "sourceCommit": "8fecdc2d0a953b808198d61f063989798c213c24",
+  "status": "published_runtime_and_real_entry_verified",
+  "files": [
+    {
+      "candidate": "source/business_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/business_shipping.py",
+      "beforeSha256": null,
+      "sha256": "19c747d92bbcf93a8cd746d1275672ae0097b54d5cbe4dc3a54bba3eab870661",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/business_shipping.py"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "b8dfd72601b06ce79805a5d4c91c30704c628dda1536e47585ad899d9ef1bb0a",
+      "sha256": "df4805a6c20d244197270246455c4b8a5bcaec70af676bea93037dbc48ac9ec4",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/live_summary.py"
+    },
+    {
+      "candidate": "source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "beforeSha256": "80a9c466810e8559ebe5da697b85225f4346ebae4b29a17a547aafdb37ee7a21",
+      "sha256": "ad0961467f4f2e6508d769bc9533b49b9ed35c0ee9f67e41eb561f3c05201c8e",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/summary_bridge.py"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "beforeSha256": "baeb84700be6a52d6949661dadf3ce6dc0b38e3fa8fb7796919c1ef89151a28e",
+      "sha256": "a5dffe3037479bbe4b01c8dc801a130aea8517b6f16afa62378e6ec36201e550",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/daily_archive.py"
+    },
+    {
+      "candidate": "source/profit_daily.py",
+      "target": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "beforeSha256": "a26ba2061120d14205e11890f8b514424dbc23bf55ec06797c5a4fc049605f8d",
+      "sha256": "f6d0392c91232ef6ae09e4cd26a4a26ccff85b0451a10eeb062189c2499e25ec",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/profit_daily.py"
+    },
+    {
+      "candidate": "source/profit_queries.py",
+      "target": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "beforeSha256": "1e1a5fd60f20004042bf3947d41fe9f14d5a495c3360c910599675f515c93efa",
+      "sha256": "9b043ed25d165d859bbc1728bc5ceb24cb6432b37387d1de3f6771e1c6dfe805",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/profit_queries.py"
+    },
+    {
+      "candidate": "source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "519934f1f1a6c3ab5a4d6f2db011047987437e1cd730864bf211d9f4cffd0f50",
+      "sha256": "9c7320376e90fc91bfdd37d0f75dc4934732eb17819ac5c70e5040ca7e48d5d5",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/range_api.py"
+    },
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/business.js",
+      "sha256": "fe8f295bddb7bf84cd52b9311d16cd2c5ea0bc61e614901a5ddfd04e2fd77517",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/business.js"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/home-business.js",
+      "sha256": "432f7f1d700c22a3fe4b214b4a41f2306b72d84c1ae9d853e0b688c5b7ffb7ce",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/home-business.js"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/legacy-business.js",
+      "sha256": "ca87dab34a77ecad375cf2ed7a9382c3aef83cff5a65e6a644b9b53cf3d8dc7e",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/legacy-business.js"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/shell.js",
+      "beforeSha256": null,
+      "sha256": "6149527f595d221b367f09f6b6991462c4c15cf9694f03cb8a369a4eb36e7eb6",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/source/shell.js"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "d62021f865fd06f023424269b2d1f3eb459e20565d0e8599726a388d0f6e1bae",
+      "beforeSha256": "1de1448c195c66ba417c82a0c69c5186faa9a8e0df4bd0fd6099aeb4a189b180",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenanceSource": "business_shipping_profit_20261024/stage/ui-fix/candidate/generated/navigation.conf"
+    },
+    {
+      "candidate": "source/rs_admin.py",
+      "target": "/opt/fs-exact-range-20261001/rs_admin.py",
+      "sha256": "f2c6587ac1f8c7a3a0a3e82747378b7ff314a408e53d168d5f3139c0d01ab303",
+      "status": "unchanged_dependency",
+      "maintenanceSource": "business_shipping_profit_20261024/source/rs_admin.py"
+    },
+    {
+      "candidate": "source/rs_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/rs_shipping.py",
+      "sha256": "30f37f5c6c0d272e499e21fb92f423e752845a9ce6c072945362f747fcb04dcf",
+      "status": "unchanged_dependency",
+      "maintenanceSource": "business_shipping_profit_20261024/source/rs_shipping.py"
+    },
+    {
+      "candidate": "source/range_primary_reader.py",
+      "target": "/opt/fs-exact-range-20261001/range_primary_reader.py",
+      "sha256": "4b599c319bd67fc0fef2076b6e1543cf53ee8f26267094d37b7ac464208e4028",
+      "status": "unchanged_dependency",
+      "maintenanceSource": "business_shipping_profit_20261024/source/range_primary_reader.py"
+    }
+  ],
+  "uiVersion": "shipping-profit-ui-20261024-33653b6cce69",
+  "uiCommit": "dea149f09c9813360a4ac439f62331e466735b0e"
+}
