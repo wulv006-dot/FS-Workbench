@@ -1,5 +1,11 @@
 # 模型与角色证据
 
+## FS-V3-G1-CONTINUE-02 调度记录
+
+父任务本轮显式指定主控 `gpt-6-astra/high`。这是派工配置证据；当前工具未提供可独立证明底层执行模型的读回接口。
+
+本轮 collaboration.spawn_agent 已接受 B `/root/b_backend`、C `/root/c_runtime` 的 `fork_turns=none, model=gpt-6.1-sol, reasoning_effort=high`，未拒绝或报告降级。两角色在同一Windows电脑独立工作树 campaign-b/campaign-c 实现，文件归属分别 backend/ 与 app/runtime/、publisher。旧只读结论直接复用。后续 D/E `gpt-6.1-sol/medium`、Q `gpt-6-astra/high` 尚待派工。接受配置不等于独立验证底层模型。
+
 核查时间：2026-10-24 08:48 UTC。未读会话原文件，未输出全配置或密钥，未修改全局设置。
 
 | 项目 | 可证事实 |
