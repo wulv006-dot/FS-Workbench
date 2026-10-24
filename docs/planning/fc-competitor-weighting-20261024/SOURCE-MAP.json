@@ -1,0 +1,122 @@
+{
+  "scope": "fc-reference-weighting-20261024-v2",
+  "state": "deployed_actual_collect_ui_and_readonly_model_verified_natural_pending",
+  "code_head": "5e17eedb4f2b45265075eef74e7910d44103a532",
+  "code_merge": "7b5446766783fdaa3a34b23ab0c0ff5f5df8f6fa",
+  "compat_head": "879d667a2bbefe3ee31de1008751c2d510721206",
+  "compat_merge": "d299c16a0036720125e116215aa7cad463b004cb",
+  "releases": [
+    {
+      "release_id": "nav-20261024T034617Z",
+      "manifest_sha256": "8d2efe478652f38cc401fc7d2beb3bb8ff70eada0aeb3247f8e54b4cc564a5a8",
+      "targets_verified": 8,
+      "protected_verified": 65,
+      "publisher_backup": "/var/backups/fs-navigation-20261006/nav-20261024T034617Z"
+    },
+    {
+      "release_id": "nav-20261024T035633Z",
+      "manifest_sha256": "dfb907e99d2af559a06fa5840bf47215894901f3fd1445b02708f2ff9e8bfd91",
+      "targets_verified": 1,
+      "protected_verified": 73,
+      "publisher_backup": "/var/backups/fs-navigation-20261006/nav-20261024T035633Z"
+    }
+  ],
+  "files": [
+    {
+      "candidate": "source/pricing_v2.py",
+      "target": "/opt/fc27-cloud-browser/pricing_v2.py",
+      "beforeSha256": "cc3a92526c66f05479d5691d314280147a0dbf3e539b85b66767b64f75e2fcbb",
+      "sha256": "ac1229d6538d4ae94a3a4cd79cb6f964aeb71f76da9647cad59d7ce42a56dbc7",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/pricing_v2.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"
+    },
+    {
+      "candidate": "source/server_quote_job.py",
+      "target": "/opt/fc27-cloud-browser/server_quote_job.py",
+      "beforeSha256": "d98dffc9561fc33a29780b1b91890f5c9b4b97075384279b1fa9710bc3080257",
+      "sha256": "f15d8d0cf6e9ad1821a5bc353a6a4e23e721beb6844445951f24462dd1d82c86",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/server_quote_job.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/server_quote_job.py"
+    },
+    {
+      "candidate": "source/hermes_pricing_bridge.py",
+      "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
+      "beforeSha256": "e8b4f4b5c5833c6367f79c3b1bae3bed8e071380e04e7049f54b66c6ddcaeced",
+      "sha256": "aedcfff53bd0f8bf9947db157e926948b759d4b5720564692fd8ae07ed6db5b5",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/hermes_pricing_bridge.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/hermes_pricing_bridge.py"
+    },
+    {
+      "candidate": "source/pricing_simulation.py",
+      "target": "/opt/fs-hermes-fc/pricing_simulation.py",
+      "beforeSha256": "bfb1f09a71c32f7ad56ef4a4e78e038d2eefaa50b0e6241b3d43b5847eadb0cd",
+      "sha256": "65076e12852d0a9d3b18bd8e8ea140472e14daf73797bf53bfd8eb83b5630018",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/pricing_simulation.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/pricing_simulation.py"
+    },
+    {
+      "candidate": "source/fc27-quote-cloud.js",
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "beforeSha256": "7c4b9972b2c671e68dce766ff84678317a822bd6b5ff02f34e506d91a38ac80f",
+      "sha256": "78aa62c6b3711f6283d0282e010e977bce677e327fdd2e2efbf62fe99d8f58a8",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/fc27-quote-cloud.js",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc27-quote-cloud.js"
+    },
+    {
+      "candidate": "source/fc27-coins.html",
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "beforeSha256": "e6e7728f1d431a8d5688a8139287205b6dd9109486348a610eb9ae9e72e33d71",
+      "sha256": "3c35f60cb09bb567941133f48f1d37c4aace5676bb6368bbdffe4774c78c6bc1",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/fc27-coins.html",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc27-coins.html"
+    },
+    {
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "beforeSha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+      "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/business-baseline.md",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md"
+    },
+    {
+      "candidate": "source/fc_observer.py",
+      "target": "/opt/fc27-cloud-browser/fc_observer.py",
+      "beforeSha256": "5ca45abd949915df9a9a7990aaeaa3c865c42dd70a8188797c63f05098b5e2bc",
+      "sha256": "f53ec6e199dd6e1592d3e50151d859ffb9a1d7a3a97ec51e83eebd89a696de84",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_reference_weighting_20261024/source/fc_observer.py",
+      "github": "releases/fc-coins/fc-pricing-v2-20261022/source/fc_observer.py"
+    }
+  ],
+  "generated_runtime_files": [
+    {
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "beforeSha256": "2354d61adc9efc20554bc287eda8309b8b564ca4f741137f928863a7f28f3dbc",
+      "sha256": "1a446e554f4ae1677fbfbc8460fd64ece314fc97ca05eb393a4211d02f9da02b",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "original_failure_history_preserved": true,
+  "natural_cycle": "user_manual_acceptance_no_new_tracking",
+  "policy_revision": 40,
+  "interval_minutes": 120,
+  "compatibility_generator": "releases/fc-coins/fc-pricing-v2-20261022/deploy/weighting_compatibility.py",
+  "compatibility_delta": "one existing wulv/FS/fs retain_full_baseline digest, all other bytes preserved; no route/permission change"
+}

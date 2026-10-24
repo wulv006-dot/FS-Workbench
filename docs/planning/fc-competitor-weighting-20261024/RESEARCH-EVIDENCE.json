@@ -1,0 +1,381 @@
+{
+  "read_at": "2026-10-24T02:43:39.704503+00:00",
+  "raw_history_sha256": "9384924d6864cbbade0740b4f873bd6773fc986c6ad1cb30668f76e4696cb881",
+  "runs": 116,
+  "start": "2026-10-17T00:36:49.697660+00:00",
+  "end": "2026-10-24T02:10:58.718918+00:00",
+  "statuses": {
+    "ready_for_quote": 110,
+    "incomplete": 6
+  },
+  "ps_sample_stats": {
+    "Lootbar": {
+      "recorded_rows": 116,
+      "valid_rows": 111,
+      "missing_rows": 5,
+      "days": {
+        "2026-10-17": {
+          "rows": 20,
+          "valid": 19
+        },
+        "2026-10-18": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-19": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-20": {
+          "rows": 11,
+          "valid": 11
+        },
+        "2026-10-21": {
+          "rows": 15,
+          "valid": 15
+        },
+        "2026-10-22": {
+          "rows": 22,
+          "valid": 19
+        },
+        "2026-10-23": {
+          "rows": 15,
+          "valid": 14
+        },
+        "2026-10-24": {
+          "rows": 9,
+          "valid": 9
+        }
+      },
+      "unique_valid_captures": 111,
+      "price_states": 13
+    },
+    "ItemD2R": {
+      "recorded_rows": 6,
+      "valid_rows": 6,
+      "missing_rows": 0,
+      "days": {
+        "2026-10-24": {
+          "rows": 6,
+          "valid": 6
+        }
+      },
+      "unique_valid_captures": 6,
+      "price_states": 1
+    },
+    "U7Buy": {
+      "recorded_rows": 116,
+      "valid_rows": 112,
+      "missing_rows": 4,
+      "days": {
+        "2026-10-17": {
+          "rows": 20,
+          "valid": 19
+        },
+        "2026-10-18": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-19": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-20": {
+          "rows": 11,
+          "valid": 11
+        },
+        "2026-10-21": {
+          "rows": 15,
+          "valid": 15
+        },
+        "2026-10-22": {
+          "rows": 22,
+          "valid": 20
+        },
+        "2026-10-23": {
+          "rows": 15,
+          "valid": 14
+        },
+        "2026-10-24": {
+          "rows": 9,
+          "valid": 9
+        }
+      },
+      "unique_valid_captures": 112,
+      "price_states": 6
+    },
+    "IGGM": {
+      "recorded_rows": 116,
+      "valid_rows": 48,
+      "missing_rows": 68,
+      "days": {
+        "2026-10-17": {
+          "rows": 20,
+          "valid": 19
+        },
+        "2026-10-18": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-19": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-20": {
+          "rows": 11,
+          "valid": 5
+        },
+        "2026-10-21": {
+          "rows": 15,
+          "valid": 0
+        },
+        "2026-10-22": {
+          "rows": 22,
+          "valid": 0
+        },
+        "2026-10-23": {
+          "rows": 15,
+          "valid": 0
+        },
+        "2026-10-24": {
+          "rows": 9,
+          "valid": 0
+        }
+      },
+      "unique_valid_captures": 48,
+      "price_states": 8
+    },
+    "U4GM": {
+      "recorded_rows": 116,
+      "valid_rows": 111,
+      "missing_rows": 5,
+      "days": {
+        "2026-10-17": {
+          "rows": 20,
+          "valid": 19
+        },
+        "2026-10-18": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-19": {
+          "rows": 12,
+          "valid": 12
+        },
+        "2026-10-20": {
+          "rows": 11,
+          "valid": 11
+        },
+        "2026-10-21": {
+          "rows": 15,
+          "valid": 15
+        },
+        "2026-10-22": {
+          "rows": 22,
+          "valid": 19
+        },
+        "2026-10-23": {
+          "rows": 15,
+          "valid": 14
+        },
+        "2026-10-24": {
+          "rows": 9,
+          "valid": 9
+        }
+      },
+      "unique_valid_captures": 111,
+      "price_states": 10
+    }
+  },
+  "ps_u4gm_below_lootbar": {
+    "count": 85,
+    "comparable": 110
+  },
+  "ps_iggm_equal_own_within_cent": {
+    "count": 25,
+    "comparable": 39,
+    "interpretation": "same-run association only, not follower identification"
+  },
+  "same_run_second_tier": [
+    {
+      "run_id": "c49d262c-6e01-589e-bd8b-5409cb6d85e8",
+      "created_at": "2026-10-23T17:26:43.151645+00:00",
+      "capture_span_seconds": 85.205933,
+      "source_complete_within_300s": true,
+      "source_sha256": "ba01189b180925a7030f7870e868920dac1b1ab0cdfe9564b88a59398c90549b",
+      "normalized_105k": {
+        "Lootbar": "10.54000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-12.43358633776091081593927894",
+        "U7Buy": "8.785578747628083491461100600",
+        "ItemD2R": "-1.873814041745730550284629980"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.1563092979127134724857685010",
+        "80/10/10": "0.3126185958254269449715370020",
+        "70/15/15": "0.4689278937381404174573055030"
+      }
+    },
+    {
+      "run_id": "65425ef1-492e-5b46-af56-5ade1fd37a4e",
+      "created_at": "2026-10-23T17:48:08.833827+00:00",
+      "capture_span_seconds": 86.2899,
+      "source_complete_within_300s": true,
+      "source_sha256": "e3b83a06598f10ca014cc6bf2ee33840d30cbcb3878797c11ca10b95ef8d4831",
+      "normalized_105k": {
+        "Lootbar": "10.54000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-12.43358633776091081593927894",
+        "U7Buy": "8.785578747628083491461100600",
+        "ItemD2R": "-1.873814041745730550284629980"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.1563092979127134724857685010",
+        "80/10/10": "0.3126185958254269449715370020",
+        "70/15/15": "0.4689278937381404174573055030"
+      }
+    },
+    {
+      "run_id": "d92967d8-98e4-4eb7-8755-94ea8d9a69aa",
+      "created_at": "2026-10-23T18:22:34.478688+00:00",
+      "capture_span_seconds": 86.46976,
+      "source_complete_within_300s": true,
+      "source_sha256": "706bf62d28dd0e4143ddd17cbd27fb3eaf625b20bd8b9a573022ccb2dd500d8f",
+      "normalized_105k": {
+        "Lootbar": "10.54000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-12.43358633776091081593927894",
+        "U7Buy": "8.785578747628083491461100600",
+        "ItemD2R": "-1.873814041745730550284629980"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.1563092979127134724857685010",
+        "80/10/10": "0.3126185958254269449715370020",
+        "70/15/15": "0.4689278937381404174573055030"
+      }
+    },
+    {
+      "run_id": "28ff30fa-91e9-5627-a4e1-5e56ec5d10f6",
+      "created_at": "2026-10-24T01:35:12.100831+00:00",
+      "capture_span_seconds": 109.521193,
+      "source_complete_within_300s": true,
+      "source_sha256": "a57a7ab51cd5d876e62ab4b9afae9a17096f07ed8cc45b47701609f575c5a930",
+      "normalized_105k": {
+        "Lootbar": "10.42000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-11.42514395393474088291746641",
+        "U7Buy": "10.03838771593090211132437620",
+        "ItemD2R": "-0.7437619961612284069097888700"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.2128119001919385796545105565",
+        "80/10/10": "0.4256238003838771593090211130",
+        "70/15/15": "0.6384357005758157389635316695"
+      }
+    },
+    {
+      "run_id": "9fa30603-c239-55d4-b62d-c91361c63400",
+      "created_at": "2026-10-24T01:46:17.297477+00:00",
+      "capture_span_seconds": 88.206511,
+      "source_complete_within_300s": true,
+      "source_sha256": "1506e8dbf3ff39feaf1c54c4d9c8f5b3aa43cfcaeb0af1c8e7e68a9bb6670829",
+      "normalized_105k": {
+        "Lootbar": "10.42000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-11.42514395393474088291746641",
+        "U7Buy": "10.03838771593090211132437620",
+        "ItemD2R": "-0.7437619961612284069097888700"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.2128119001919385796545105565",
+        "80/10/10": "0.4256238003838771593090211130",
+        "70/15/15": "0.6384357005758157389635316695"
+      }
+    },
+    {
+      "run_id": "85656393-5b7b-5852-94dd-d804ffc03ff0",
+      "created_at": "2026-10-24T02:10:58.718918+00:00",
+      "capture_span_seconds": 113.305328,
+      "source_complete_within_300s": true,
+      "source_sha256": "bab357e07fef1cf2b6c7b6a9d243418e2e692b60fceaab7a742fe0ebdf11ebb9",
+      "normalized_105k": {
+        "Lootbar": "10.42000000000000000000000000",
+        "U4GM": "9.2295",
+        "U7Buy": "11.4660",
+        "ItemD2R": "10.3425"
+      },
+      "deviation_from_lootbar_pct": {
+        "Lootbar": "0",
+        "U4GM": "-11.42514395393474088291746641",
+        "U7Buy": "10.03838771593090211132437620",
+        "ItemD2R": "-0.7437619961612284069097888700"
+      },
+      "candidate_offset_pct": {
+        "90/5/5": "0.2128119001919385796545105565",
+        "80/10/10": "0.4256238003838771593090211130",
+        "70/15/15": "0.6384357005758157389635316695"
+      }
+    }
+  ],
+  "formula_self_checks": 5,
+  "limitations": [
+    "stored snapshots mix manual and automatic runs; not random or independent demand observations",
+    "ItemD2R absent from earlier run main tables is not a collector failure",
+    "historical reference prices are not current purchasable quotes",
+    "no demand, cost or profit backtest; no new price recommendation",
+    "legacy Lootbar null comparability flags interpreted through existing valid source contract, not new validation bypass"
+  ],
+  "status": "research_plan_only_not_production_policy",
+  "source_hashes": {
+    "pricing_v2.py": "cc3a92526c66f05479d5691d314280147a0dbf3e539b85b66767b64f75e2fcbb",
+    "server_quote_job.py": "d98dffc9561fc33a29780b1b91890f5c9b4b97075384279b1fa9710bc3080257",
+    "hermes_pricing_bridge.py": "e8b4f4b5c5833c6367f79c3b1bae3bed8e071380e04e7049f54b66c6ddcaeced"
+  },
+  "observer": {
+    "records": 9,
+    "auto_cycle_records": 4,
+    "comparable_auto_cycle_records": 3,
+    "collect_records": 5,
+    "raw_sha256": "a989942e031433039ac7cdf9720d54e52c81476cdb1fc1b4df82182ca411115f"
+  },
+  "recommended_design_initial_parameters": {
+    "anchor_share": "0.80",
+    "itemd2r_influence": "0.10",
+    "u7buy_influence": "0.10",
+    "individual_gap_clip": "0.05",
+    "max_combined_anchor_offset": "0.01",
+    "iggm_direct_weight": "0",
+    "u4gm_direct_weight": "0",
+    "calibrated_optimum": false,
+    "production_applied": false
+  },
+  "research_sources": [
+    "https://benny.aeaweb.org/articles?id=10.1257/mic.20210158",
+    "https://arxiv.org/abs/2410.14904"
+  ]
+}

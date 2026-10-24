@@ -1,5 +1,7 @@
 # Sol 实施交接：FC27 三梯队定价最终版
 
+当前实现已按用户授权上线，实际结果见[DELIVERY.md](DELIVERY.md)，本交接保留原实施范围。
+
 方案版本 `fc-reference-weighting-20261024-v2`。主方案 [PLAN.md](PLAN.md)，唯一当前参数 [FINAL-PARAMETERS.json](FINAL-PARAMETERS.json)。本文件是给用户安排 Sol 的可执行范围说明，不证明已派发、授权上线、合并或部署；执行方沿用户实际派发指令和已有适用授权推进，不重复索取已给授权。
 
 ## 一、确定的业务结果

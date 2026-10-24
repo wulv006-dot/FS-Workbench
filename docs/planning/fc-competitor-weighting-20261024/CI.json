@@ -1,0 +1,62 @@
+{
+  "local": {
+    "python_tests": 108,
+    "failures": 0,
+    "errors": 0,
+    "node_ui": "passed existing amounts/controls/unknown recovery and new weighting text checks"
+  },
+  "formal": [
+    {
+      "pr": 425,
+      "head": "5e17eedb4f2b45265075eef74e7910d44103a532",
+      "run": 40059426215,
+      "job": 120769497168,
+      "conclusion": "success",
+      "groups": [
+        94,
+        23,
+        26,
+        86
+      ],
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "head_tree": "d192849b6efb1653fd3482ee1d30fceb264f6bf6",
+      "merge_tree": "d192849b6efb1653fd3482ee1d30fceb264f6bf6"
+    },
+    {
+      "pr": 426,
+      "head": "879d667a2bbefe3ee31de1008751c2d510721206",
+      "run": 40060136126,
+      "job": 120771637659,
+      "conclusion": "success",
+      "groups": [
+        95,
+        23,
+        26
+      ],
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "head_tree": "d059e27cfc7dafd1ccd384ce5fd4356f38b200cc",
+      "merge_tree": "d059e27cfc7dafd1ccd384ce5fd4356f38b200cc"
+    }
+  ],
+  "preserved_first_failure": {
+    "pr": 425,
+    "head": "22a4c17af639afb3d7cdfeb25cf235d65fa26f91",
+    "run": 40059094633,
+    "job": 120768498967,
+    "reason": "new approved knowledge entry required exact CURRENT_IDS and counts 21/13; prior fixed 20/12 assertions failed",
+    "resolution": "updated exact set/counts, kept source hashes/selectors/budget/pagination checks and added rule contract test"
+  },
+  "windows_closeout_cli": {
+    "status": "not_passed_environment_fixture_differences",
+    "reasons": [
+      "Windows test fixture write_text CRLF differs from exact Linux plugin registration bytes",
+      "system Python3.14 has no tzdata for Asia/Shanghai"
+    ],
+    "equivalent_formal_knowledge_suite": "86 Linux tests passed at exact approved source tree; no assertion weakened",
+    "original_plan_and_catalog_API": "prepared, available_preview, no blocking conflicts"
+  }
+}

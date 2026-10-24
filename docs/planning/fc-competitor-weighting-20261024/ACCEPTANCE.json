@@ -1,0 +1,286 @@
+{
+  "checked_at": "2026-10-24T04:00:36.982166+00:00",
+  "real_collect": {
+    "job_id": "fc034d20-cc68-522e-a8ae-f65225704859",
+    "status": "ready",
+    "started_at": "2026-10-24T03:46:57.262300+00:00",
+    "completed_at": "2026-10-24T03:48:45.697717+00:00",
+    "result": {
+      "run_id": "fc034d20-cc68-522e-a8ae-f65225704859",
+      "quote_status": "ready_for_preview"
+    },
+    "error": null,
+    "error_detail": null
+  },
+  "current_quote_verify": "passed",
+  "quote_file_sha256": "115359ce84d942265abeed36b446a1e565ace707cad23ff06c37b0afd611138c",
+  "receipt_sha256": "e6aa20407f48f2e848d6fae9192df928cb064bb9833401d2b3d6f0ca208fd4b1",
+  "reference_version": "fc-reference-weighting-20261024-v2",
+  "reference_weights": {
+    "Lootbar": "0.80",
+    "ItemD2R": "0.15",
+    "U7Buy": "0.05"
+  },
+  "platforms": [
+    {
+      "platform": "PS",
+      "target_page_usd": "10.44",
+      "anchor_page_usd": "10.42",
+      "change_pct": "0.191938579654510556621881000",
+      "reference_adjustment": {
+        "version": "fc-reference-weighting-20261024-v2",
+        "platform": "PS",
+        "anchor_usd": "10.42000000000000000000000000",
+        "sources": {
+          "ItemD2R": {
+            "weight": "0.15",
+            "status": "available",
+            "contribution": "-0.001115642994241842610364683305",
+            "reason": null,
+            "page_usd": "9.85",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:48:32.287563+00:00",
+            "normalized_usd": "10.3425",
+            "relative_gap": "-0.0074376199616122840690978887",
+            "clipped_gap": "-0.0074376199616122840690978887",
+            "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins"
+          },
+          "U7Buy": {
+            "weight": "0.05",
+            "status": "available",
+            "contribution": "0.0025",
+            "reason": null,
+            "page_usd": "10.92",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:47:21.346499+00:00",
+            "normalized_usd": "11.4660",
+            "relative_gap": "0.100383877159309021113243762",
+            "clipped_gap": "0.05",
+            "url": "https://www.u7buy.com/fc27/coins"
+          }
+        },
+        "raw_offset": "0.001384357005758157389635316695",
+        "raw_weighted_usd": "10.43442500000000000000000000",
+        "missing_weight_reallocated": false,
+        "third_tier_direct_weight": "0"
+      },
+      "decision_reason": "weighted_market_reference",
+      "ending_reason": "ending_budget"
+    },
+    {
+      "platform": "XBOX",
+      "target_page_usd": "10.44",
+      "anchor_page_usd": "10.42",
+      "change_pct": "0.191938579654510556621881000",
+      "reference_adjustment": {
+        "version": "fc-reference-weighting-20261024-v2",
+        "platform": "XBOX",
+        "anchor_usd": "10.42000000000000000000000000",
+        "sources": {
+          "ItemD2R": {
+            "weight": "0.15",
+            "status": "available",
+            "contribution": "-0.001115642994241842610364683305",
+            "reason": null,
+            "page_usd": "9.85",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:48:32.834717+00:00",
+            "normalized_usd": "10.3425",
+            "relative_gap": "-0.0074376199616122840690978887",
+            "clipped_gap": "-0.0074376199616122840690978887",
+            "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins"
+          },
+          "U7Buy": {
+            "weight": "0.05",
+            "status": "available",
+            "contribution": "0.0025",
+            "reason": null,
+            "page_usd": "10.92",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:47:22.487902+00:00",
+            "normalized_usd": "11.4660",
+            "relative_gap": "0.100383877159309021113243762",
+            "clipped_gap": "0.05",
+            "url": "https://www.u7buy.com/fc27/coins"
+          }
+        },
+        "raw_offset": "0.001384357005758157389635316695",
+        "raw_weighted_usd": "10.43442500000000000000000000",
+        "missing_weight_reallocated": false,
+        "third_tier_direct_weight": "0"
+      },
+      "decision_reason": "weighted_market_reference",
+      "ending_reason": "ending_budget"
+    },
+    {
+      "platform": "PC",
+      "target_page_usd": "8.77",
+      "anchor_page_usd": "8.68",
+      "change_pct": "1.036866359447004608294930900",
+      "reference_adjustment": {
+        "version": "fc-reference-weighting-20261024-v2",
+        "platform": "PC",
+        "anchor_usd": "8.680000000000000000000000000",
+        "sources": {
+          "ItemD2R": {
+            "weight": "0.15",
+            "status": "available",
+            "contribution": "0.00731854838709677419354838715",
+            "reason": null,
+            "page_usd": "8.67",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:48:33.498709+00:00",
+            "normalized_usd": "9.1035",
+            "relative_gap": "0.048790322580645161290322581",
+            "clipped_gap": "0.048790322580645161290322581",
+            "url": "https://www.itemd2r.com/ea-sports-fc/fc-27-coins"
+          },
+          "U7Buy": {
+            "weight": "0.05",
+            "status": "available",
+            "contribution": "0.0025",
+            "reason": null,
+            "page_usd": "9.92",
+            "base_k": "100",
+            "bonus_k": "0",
+            "checked_at": "2026-10-24T03:47:23.588951+00:00",
+            "normalized_usd": "10.4160",
+            "relative_gap": "0.2",
+            "clipped_gap": "0.05",
+            "url": "https://www.u7buy.com/fc27/coins"
+          }
+        },
+        "raw_offset": "0.00981854838709677419354838715",
+        "raw_weighted_usd": "8.765224999999999999999999999",
+        "missing_weight_reallocated": false,
+        "third_tier_direct_weight": "0"
+      },
+      "decision_reason": "weighted_market_reference",
+      "ending_reason": "ending_budget"
+    }
+  ],
+  "model": {
+    "job_id": "291b83ef-0bb1-5e71-8551-6e4a924fd7ed",
+    "run_id": "fc034d20-cc68-522e-a8ae-f65225704859",
+    "phase": "completed",
+    "request_id": "fc_pricing_291b83ef0bb15e7185516e4a924fd7ed",
+    "conversation_id": "fe1458438af242c7918bdf599189eb5f",
+    "turn_id": "9cd3f98ce5024e89ba45f381e5fe6fee",
+    "task_id": "362b1039e8488aa12985c9399f1f4579",
+    "applied": false,
+    "price_write_performed": false,
+    "input_sha256": "0c341fe088b8fdc44acfeaec15cdb2c4b773ffa1fdfaffe8053955817c414e43",
+    "recommendation": {
+      "operation_id": "5779717ffe25de82dc162d5eb7a1f2f060652d6aa97041b0c7d6980bcd2cfd8b",
+      "run_id": "fc034d20-cc68-522e-a8ae-f65225704859",
+      "quote_sha256": "92e7490ceee2db7bd039b89fc6cc061f5d98b2be4a8a3234f299937d573f051d",
+      "console_usd": "10.44",
+      "pc_usd": "8.77",
+      "reason": "程序baseline双红线均过：PS/Xbox 10.44未优惠40.1%、七日折扣结构估算34.6%；PC 8.77为35.8%/29.9%。加权锚10.4344/8.7652，ItemD2R略低、U7Buy偏高被截断，成本未升，故选baseline而非hold，幅度0.2%/1.0%。",
+      "counterexample": "若共同池最新已核成本升破约0.55CNY/K（PC约0.46），或七日实付留存R由0.915跌至约0.67以下，10.44/8.77的估算平均毛利将破10%；若Lootbar、ItemD2R同口径回到10.55+/8.80+说明锚已回升，应重比而非机械上调；公开读回后同窗口完成单量、采购毛利额明显低于调价前，或深折券结构显著扩大，则下一轮回退。单笔合法优惠亏损、缺广告归因不构成反证。",
+      "evidence_refs": [
+        "pricing:92e7490ceee2db7bd039b89fc6cc061f5d98b2be4a8a3234f299937d573f051d",
+        "ev_752b478cb3d3aaae6902edc4",
+        "ev_4f77d5cc17452ea22be83be8",
+        "ev_523b280cd301b4cea1f05c18",
+        "ev_dbb9905a70bf6566f8240a8c"
+      ],
+      "source": "program_generated_choices",
+      "write_performed": false
+    }
+  },
+  "effective_input": {
+    "knowledge_version": "learning-10dc32032e40320d42a0b0dea0f3af03b5536470a840d5152c08f29e9378f1a7",
+    "knowledge_sha256": "50cc79f1f867964e89b7eb54bd197eacdc1273fe422acd165a3762361ef8808f",
+    "model": "deepseek-flash",
+    "requested_model": "deepseek-flash",
+    "reasoning_effort": "high",
+    "request_sha256": "de60764a9387324bd2fc52759dfacd71977aac50d178b49d334271ba396d34a0",
+    "provider_request_id": "87ced66c-7e22-4c0f-8373-917186a741dd",
+    "model_validation": {
+      "actual_backend_version": "unknown",
+      "endpoint_type": "chat_completions",
+      "forwarded_verified": true,
+      "payload_sha256": "c7d5ee1aed1324d339bce040894690044fa98a5ee332e35c1227d1debd90e171",
+      "provider_effort_echo": null,
+      "provider_response_id": "87ced66c-7e22-4c0f-8373-917186a741dd",
+      "requested_effort": "high",
+      "requested_model": "deepseek-flash",
+      "response_model": "deepseek-flash",
+      "status": "accepted_no_effort_echo",
+      "thinking_enabled": true
+    },
+    "status": "provider_response_success"
+  },
+  "actual_ui": {
+    "url": "https://47.85.224.112/dashboard/fc27-coins.html",
+    "authenticated_user": "wulv",
+    "same_run": "fc034d20-cc68-522e-a8ae-f65225704859",
+    "weights_visible": true,
+    "contributions_visible": true,
+    "document_width": 1905,
+    "viewport_width": 1920,
+    "screenshot": "evidence/live-desktop.png",
+    "screenshot_local_only": true
+  },
+  "health": {
+    "api": "ok",
+    "worker": "ok",
+    "browser": "ok",
+    "p2pah_session": "ok",
+    "last_run": {
+      "run_id": "fc034d20-cc68-522e-a8ae-f65225704859",
+      "status": "ready_for_quote",
+      "created_at": "2026-10-24T03:46:57.306472+00:00"
+    },
+    "price_writer": "ready",
+    "https_certificate": {
+      "status": "ok",
+      "expires_at": "2026-10-28T19:14:17+00:00"
+    },
+    "queue_depth": 0,
+    "tab_count": 1,
+    "disk_free_gb": 130.12,
+    "sources": {
+      "lootbar": "ok",
+      "iggm": "missing",
+      "u4gm": "ok",
+      "u7buy": "ok",
+      "p2pah_cost": "ok",
+      "fx": "ok"
+    },
+    "last_successful_run": "2026-10-24T03:46:57.306472+00:00",
+    "incomplete_executions": 0,
+    "queue_protocol": "existing-tick-inode-v4",
+    "api_pid": 8546,
+    "order_session": "ok"
+  },
+  "schedule": {
+    "status": "waiting",
+    "collection_status": "waiting",
+    "last_job_id": "9fa30603-c239-55d4-b62d-c91361c63400",
+    "last_status": "ready",
+    "last_result": "confirmed",
+    "last_error": null,
+    "next_at": "2026-10-24T04:16:04.735443+00:00",
+    "collection_retry": null
+  },
+  "price_writes_by_this_acceptance": 0,
+  "public_observation_at_1148": {
+    "PS": "10.42",
+    "XBOX": "10.42",
+    "PC": "8.68",
+    "delivered_k": "105"
+  },
+  "natural_cycle": "not_accepted; original next_at 12:16:04 Asia/Shanghai, user manual",
+  "notion": "summary_candidate_only_not_requested_or_sent",
+  "model_limits": [
+    "recommendation and target selection verified; full operating narrative/elasticity/counterexample thresholds not independently accepted",
+    "no profit improvement or stable model mastery claimed"
+  ]
+}

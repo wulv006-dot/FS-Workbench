@@ -1,6 +1,6 @@
 {
   "scheme_version": "fc-reference-weighting-20261024-v2",
-  "status": "final_design_for_user_assigned_implementation_not_deployed",
+  "status": "approved_implemented_deployed_actual_entry_and_readonly_model_verified_natural_pending",
   "supersedes_design": "80/10/10 initial proposal in RESEARCH-EVIDENCE.json; original research retained",
   "business_positioning_source": "direct_user_statement_2026-10-24_not_independent_market_audit",
   "anchor_share": "0.80",
@@ -20,5 +20,6 @@
   "console_pool": "shared_PS_XBOX",
   "pc_pool": "independent",
   "calibrated_optimum": false,
-  "production_applied": false
+  "production_applied": true,
+  "deployment_evidence": "SOURCE-MAP.json"
 }
