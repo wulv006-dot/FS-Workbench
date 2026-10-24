@@ -2,10 +2,11 @@
 import hashlib
 import re
 import json
+from datetime import datetime, timezone
 
 from .catalog import positive_id
 from .core import ContractError, canonical, identity
-from .ledger import ObjectOperationBusy, now
+from .ledger import ObjectOperationBusy, now, object_key, validate_native_response_evidence
 
 COUPON_FIELDS = ('title', 'brief', 'status', 'type', 'fetch_scene', 'mode_type', 'attain', 'reduce',
     'max_reduce', 'limit_qty', 'fetch_qty', 'used_qty', 'repeat_qty', 'time_effect', 'start_time',
@@ -156,6 +157,89 @@ def same_native(left, right, excluding=()):
     return canonical({k: v for k, v in left.items() if k not in excluding}) == canonical({k: v for k, v in right.items() if k not in excluding})
 
 
+def validate_brief_input(changes):
+    # Only leading ASCII space loss is observed. Reject before POST; never broaden readback equality.
+    if isinstance(changes.get('brief'), str) and changes['brief'].startswith(' '):
+        raise ContractError('BRIEF_LEADING_ASCII_SPACE_NOT_ALLOWED')
+
+
+def validate_compensation(db, proof, reader):
+    """Private approved artifact + original DB chain + a new read. Never dispatches native writes.
+
+    This narrow v1 handles exactly one leading ASCII brief space lost upstream. Approval of the
+    artifact's provenance is the trusted operator's responsibility, not inferred from its hashes.
+    """
+    def require(condition):
+        if not condition:
+            raise ContractError('COMPENSATION_PROOF_INVALID')
+    require(isinstance(proof, dict) and set(proof) == {'schema_version', 'contract', 'reference',
+        'original_operation_id', 'object_ref', 'original_payload_hash', 'original_snapshot_hash',
+        'original_audit_hash', 'compensation'})
+    require(type(proof['schema_version']) is int and proof['schema_version'] == 1
+        and proof['contract'] == 'coupon-single-leading-ascii-brief-compensation-v1')
+    operation_id = identity(proof['original_operation_id'])
+    operation = db.execute('SELECT * FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+    snapshot = db.execute('SELECT * FROM native_operation_state WHERE operation_id=?', (operation_id,)).fetchone()
+    audits = db.execute('SELECT * FROM native_response_audit WHERE operation_id=? ORDER BY audit_id', (operation_id,)).fetchall()
+    require(operation is not None and snapshot is not None and len(audits) == 1
+        and operation['state'] == 'unknown' and operation['dispatched'] == 1)
+    payload = json.loads(operation['payload'])
+    key = object_key(payload)
+    require(key is not None and payload.get('action') == 'benefit_edit' and payload.get('kind') == 'coupon'
+        and payload.get('site_id') == '266' and proof['object_ref'] == json.loads(key)
+        and proof['original_payload_hash'] == operation['payload_hash'] == row_hash(payload)
+        and snapshot['request_payload_hash'] == operation['payload_hash'])
+    original, expected = json.loads(snapshot['original_row']), json.loads(snapshot['expected_row'])
+    changes = payload.get('changes')
+    require(native_valid(original, payload) and native_valid(expected, payload)
+        and original['status'] in (0, 1) and original['fetch_qty'] == 0 and original['used_qty'] == 0
+        and row_hash(original) == payload.get('before_hash')
+        and proof['original_snapshot_hash'] == row_hash(dict(original=original, expected=expected))
+        and isinstance(changes, dict) and bool(changes) and not set(changes) - {'title', 'brief'}
+        and all(type(value) is str for value in changes.values())
+        and same_native(expected, dict(original, **changes)))
+    audit = audits[0]
+    evidence = json.loads(audit['evidence'])
+    validate_native_response_evidence(evidence)
+    require(audit['object_key'] == key and audit['request_payload_hash'] == operation['payload_hash']
+        and proof['original_audit_hash'] == row_hash(dict(audit))
+        and successful_audit([evidence]) and evidence['business_code_type'] == 'int')
+    compensation = proof['compensation']
+    require(isinstance(compensation, dict) and set(compensation) == {'reference', 'linked_original_operation_id',
+        'before_row', 'native_payload', 'response_evidence', 'independent_readback', 'independent_readback_at'})
+    identity(compensation['reference'])
+    require(compensation['linked_original_operation_id'] == operation_id)
+    before, native, readback = (compensation[name] for name in ('before_row', 'native_payload', 'independent_readback'))
+    require(expected['brief'].startswith(' ') and not expected['brief'].startswith('  ')
+        and same_native(before, dict(expected, brief=expected['brief'][1:]))
+        and same_native(native, dict(before, title=original['title'], brief=original['brief']))
+        and same_native(native, original) and same_native(readback, original))
+    response = compensation['response_evidence']
+    validate_native_response_evidence(response)
+    require(successful_audit([response]) and response['business_code_type'] == 'int')
+    def timestamp(text):
+        try:
+            value = datetime.fromisoformat(text)
+            if value.utcoffset() is None:
+                raise ValueError()
+            return value
+        except (ValueError, TypeError):
+            raise ContractError('COMPENSATION_PROOF_INVALID') from None
+    require(timestamp(evidence['observed_at']) <= timestamp(response['observed_at'])
+        <= timestamp(compensation['independent_readback_at']) <= datetime.now(timezone.utc))
+    # The local DB write lock fences competing local claims; Admin has no atomic read/CAS API.
+    current = scoped_row(reader, 'coupon', payload['native_id'], payload['site_id'])
+    require(native_valid(current, payload) and same_native(current, original))
+    return dict(original_operation_id=operation_id, object_ref=proof['object_ref'],
+        original_payload_hash=operation['payload_hash'], original_snapshot_hash=proof['original_snapshot_hash'],
+        original_audit_hash=proof['original_audit_hash'], original_audit_id=audit['audit_id'],
+        compensation_reference=compensation['reference'], compensation_before_hash=row_hash(before),
+        compensation_payload_hash=row_hash(native), compensation_response_hash=row_hash(response),
+        independent_readback_hash=row_hash(readback), independent_readback_at=compensation['independent_readback_at'],
+        fresh_readback_hash=row_hash(current), fresh_readback_at=now(),
+        contract=proof['contract'])
+
+
 class CouponEdit:
     route = '/admin/market.Coupon/edit'
 
@@ -218,6 +302,10 @@ class CouponEdit:
         elif (not changes or set(changes) - {'title', 'brief'} or any(type(v) is not str for v in changes.values())):
             raise ContractError('CHANGE_FIELDS_NOT_ALLOWED')
         native = dict(row, **changes)
+        try:
+            validate_brief_input(changes)
+        except ContractError as error:
+            return dict(state='rejected', reason_code=str(error), dispatch_state='not_started')
         if not native_valid(native, payload):
             raise ContractError('FULL_NATIVE_SCHEMA_REQUIRED')
         session = self.reader.session
@@ -313,6 +401,7 @@ def mutate(reader, ledger, policy, request):
         if request.get('before_hash') != view['before_hash']:
             raise ContractError('BEFORE_HASH_CONFLICT')
         allowed = view['editability']
+        validate_brief_input(changes)
         if request.get('action') == 'benefit_restore':
             if restore_error:
                 raise ContractError(restore_error)

@@ -15,6 +15,44 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def validate_native_response_evidence(evidence):
+    allowed = {'event', 'http_status', 'parse_status', 'business_code', 'business_code_type',
+        'business_code_sha256', 'business_code_length', 'msg_class', 'msg_type', 'msg_sha256',
+        'msg_length', 'msg_size_bytes', 'body_sha256', 'body_size', 'error_class',
+        'error_sha256', 'error_length', 'observed_at'}
+    if not isinstance(evidence, dict) or set(evidence) != allowed:
+        raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    enums = {
+        'event': {'http_response', 'transport_exception'},
+        'parse_status': {'json_object', 'json_non_object', 'invalid_json', 'body_unavailable',
+                         'body_too_large', 'transport_exception'},
+        'business_code_type': {'missing', 'int', 'str', 'bool', 'float', 'null', 'non_scalar'},
+        'msg_class': {'missing', 'empty_text', 'nonempty_text_uninterpreted', 'non_text'},
+        'msg_type': {'missing', 'str', 'int', 'float', 'bool', 'null', 'list', 'dict'},
+        'error_class': {None, 'TimeoutError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
+            'ConnectionError', 'HTTPError', 'SSLError', 'RequestException', 'OSError', 'other_exception'},
+    }
+    if any(evidence[key] not in values for key, values in enums.items()):
+        raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    for key in ('business_code_sha256', 'msg_sha256', 'body_sha256', 'error_sha256'):
+        if evidence[key] is not None and (not isinstance(evidence[key], str) or not re.fullmatch('[a-f0-9]{64}', evidence[key])):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    for key in ('business_code_length', 'msg_length', 'msg_size_bytes', 'body_size', 'error_length'):
+        if evidence[key] is not None and (type(evidence[key]) is not int or evidence[key] < 0):
+            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    status, code = evidence['http_status'], evidence['business_code']
+    if status is not None and (type(status) is not int or not 100 <= status <= 599):
+        raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    if code is not None and (type(code) not in (int, str) or not re.fullmatch(r'-?\d{1,10}', str(code))
+                             or not -2147483648 <= int(code) <= 2147483647):
+        raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
+    try:
+        if datetime.fromisoformat(evidence['observed_at']).utcoffset() is None:
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE') from None
+
+
 class ObjectOperationBusy(ContractError):
     def __init__(self, operation_ids):
         super().__init__('OBJECT_OPERATION_IN_PROGRESS')
@@ -76,6 +114,67 @@ class OperationLedger:
                 original_row TEXT NOT NULL, expected_row TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
             db.execute('''CREATE TABLE IF NOT EXISTS native_restore_claims (
                 original_operation_id TEXT PRIMARY KEY, restore_operation_id TEXT NOT NULL UNIQUE)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS operation_compensations (
+                reference TEXT PRIMARY KEY, operation_id TEXT NOT NULL UNIQUE, object_key TEXT NOT NULL,
+                payload_hash TEXT NOT NULL, proof_hash TEXT NOT NULL UNIQUE,
+                compensation_reference TEXT NOT NULL UNIQUE, evidence TEXT NOT NULL, recorded_at TEXT NOT NULL)''')
+            for event in ('UPDATE', 'DELETE'):
+                db.execute('''CREATE TRIGGER IF NOT EXISTS compensation_no_''' + event.lower() + '''
+                    BEFORE ''' + event + ''' ON operation_compensations BEGIN
+                    SELECT RAISE(ABORT,'COMPENSATION_APPEND_ONLY'); END''')
+
+    @staticmethod
+    def _resolution(db, operation_id):
+        row = db.execute('''SELECT c.* FROM operation_compensations c JOIN operations o
+            ON o.operation_id=c.operation_id AND o.payload_hash=c.payload_hash
+            JOIN operation_objects k ON k.operation_id=o.operation_id AND k.object_key=c.object_key
+            WHERE c.operation_id=?''', (operation_id,)).fetchone()
+        return None if row is None else dict(status='compensated', reference=row['reference'],
+            proof_hash=row['proof_hash'], recorded_at=row['recorded_at'], original_state='unknown',
+            native_write_authorization=False)
+
+    def record_compensation(self, reference, raw_proof, trusted_sha256, validate):
+        """Trusted importer only. Approval digest must come from server policy, never HTTP input."""
+        identity(reference)
+        digest = hashlib.sha256(raw_proof).hexdigest()
+        if (not isinstance(trusted_sha256, str) or not re.fullmatch('[a-f0-9]{64}', trusted_sha256)
+                or digest != trusted_sha256):
+            raise ContractError('COMPENSATION_PROOF_NOT_APPROVED')
+        try:
+            proof = json.loads(raw_proof)
+        except (ValueError, TypeError):
+            raise ContractError('COMPENSATION_PROOF_SCHEMA_INVALID') from None
+        if not isinstance(proof, dict) or proof.get('reference') != reference:
+            raise ContractError('COMPENSATION_REFERENCE_CONFLICT')
+        with self._connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self._backfill_active_objects(db)
+            old = db.execute('SELECT * FROM operation_compensations WHERE reference=?', (reference,)).fetchone()
+            if old:
+                if old['proof_hash'] != digest:
+                    raise ContractError('COMPENSATION_REFERENCE_CONFLICT')
+                return self._resolution(db, old['operation_id'])
+            try:
+                # Source bindings and fresh readback are checked under the claim transaction.
+                evidence = validate(db, proof)
+            except ContractError:
+                raise
+            except (KeyError, TypeError, ValueError, AttributeError):
+                raise ContractError('COMPENSATION_PROOF_INVALID') from None
+            operation_id = evidence['original_operation_id']
+            row = db.execute('SELECT state,dispatched,payload_hash FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            if (row is None or row['state'] != 'unknown' or row['dispatched'] != 1
+                    or row['payload_hash'] != evidence['original_payload_hash']):
+                raise ContractError('COMPENSATION_SOURCE_CHANGED')
+            if self._resolution(db, operation_id):
+                raise ContractError('COMPENSATION_ALREADY_RECORDED')
+            try:
+                db.execute('INSERT INTO operation_compensations VALUES (?,?,?,?,?,?,?,?)',
+                    (reference, operation_id, canonical(evidence['object_ref']), row['payload_hash'], digest,
+                     evidence['compensation_reference'], canonical(evidence), now()))
+            except sqlite3.IntegrityError:
+                raise ContractError('COMPENSATION_REFERENCE_CONFLICT') from None
+            return self._resolution(db, operation_id)
 
     def record_native_state(self, operation_id, original, expected):
         """Private recovery material. Never include this table in lookup/public projections."""
@@ -110,41 +209,7 @@ class OperationLedger:
     def record_native_response(self, operation_id, evidence):
         """Append only sanitized transport evidence; it never changes an operation's state."""
         identity(operation_id)
-        allowed = {'event', 'http_status', 'parse_status', 'business_code', 'business_code_type',
-            'business_code_sha256', 'business_code_length', 'msg_class', 'msg_type', 'msg_sha256',
-            'msg_length', 'msg_size_bytes', 'body_sha256', 'body_size', 'error_class',
-            'error_sha256', 'error_length', 'observed_at'}
-        if not isinstance(evidence, dict) or set(evidence) != allowed:
-            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        enums = {
-            'event': {'http_response', 'transport_exception'},
-            'parse_status': {'json_object', 'json_non_object', 'invalid_json', 'body_unavailable',
-                             'body_too_large', 'transport_exception'},
-            'business_code_type': {'missing', 'int', 'str', 'bool', 'float', 'null', 'non_scalar'},
-            'msg_class': {'missing', 'empty_text', 'nonempty_text_uninterpreted', 'non_text'},
-            'msg_type': {'missing', 'str', 'int', 'float', 'bool', 'null', 'list', 'dict'},
-            'error_class': {None, 'TimeoutError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
-                'ConnectionError', 'HTTPError', 'SSLError', 'RequestException', 'OSError', 'other_exception'},
-        }
-        if any(evidence[key] not in values for key, values in enums.items()):
-            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        for key in ('business_code_sha256', 'msg_sha256', 'body_sha256', 'error_sha256'):
-            if evidence[key] is not None and (not isinstance(evidence[key], str) or not re.fullmatch('[a-f0-9]{64}', evidence[key])):
-                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        for key in ('business_code_length', 'msg_length', 'msg_size_bytes', 'body_size', 'error_length'):
-            if evidence[key] is not None and (type(evidence[key]) is not int or evidence[key] < 0):
-                raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        status, code = evidence['http_status'], evidence['business_code']
-        if status is not None and (type(status) is not int or not 100 <= status <= 599):
-            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        if code is not None and (type(code) not in (int, str) or not re.fullmatch(r'-?\d{1,10}', str(code))
-                                 or not -2147483648 <= int(code) <= 2147483647):
-            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE')
-        try:
-            if datetime.fromisoformat(evidence['observed_at']).utcoffset() is None:
-                raise ValueError()
-        except (ValueError, TypeError):
-            raise ContractError('UNSAFE_NATIVE_RESPONSE_EVIDENCE') from None
+        validate_native_response_evidence(evidence)
         with self._connection() as db:
             row = db.execute('SELECT payload,payload_hash,dispatched FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
             if row is None or row['dispatched'] != 1:
@@ -178,6 +243,8 @@ class OperationLedger:
         return [row['operation_id'] for row in db.execute('''SELECT o.operation_id FROM operations o
             JOIN operation_objects k ON k.operation_id=o.operation_id
             WHERE k.object_key=? AND o.state IN ('pending','unknown') AND o.operation_id!=?
+            AND NOT EXISTS (SELECT 1 FROM operation_compensations c WHERE c.operation_id=o.operation_id
+                AND c.payload_hash=o.payload_hash AND c.object_key=k.object_key)
             ORDER BY o.created_at,o.operation_id''', (key, excluding or ''))]
 
     @contextmanager
@@ -203,14 +270,18 @@ class OperationLedger:
         identity(operation_id)
         with self._connection() as db:
             row = db.execute('SELECT * FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            resolution = self._resolution(db, operation_id) if row else None
         if row is None:
             return None
         result = json.loads(row['result']) if row['result'] else None
-        return dict(operation_id=row['operation_id'], state=row['state'],
+        result_view = dict(operation_id=row['operation_id'], state=row['state'],
                     dispatched=bool(row['dispatched']), payload_hash=row['payload_hash'],
                     dispatch_state=(result or {}).get('dispatch_state', 'unknown' if row['dispatched'] else 'not_started'),
                     result=result,
                     created_at=row['created_at'], updated_at=row['updated_at'])
+        if resolution:
+            result_view.update(resolution=resolution, object_lock_active=False)
+        return result_view
 
     def prepare(self, operation_id, payload):
         identity(operation_id)
@@ -308,7 +379,9 @@ class OperationLedger:
             raise ContractError('UPSTREAM_REFERENCE_REQUIRED')
         with self._connection() as db:
             changed = db.execute('''UPDATE operations SET state=?,result=?,updated_at=?
-                WHERE operation_id=? AND state='unknown' ''',
+                WHERE operation_id=? AND state='unknown' AND NOT EXISTS
+                (SELECT 1 FROM operation_compensations c WHERE c.operation_id=operations.operation_id
+                 AND c.payload_hash=operations.payload_hash) ''',
                        (result['state'], canonical(result), now(), operation_id)).rowcount
             if changed and result['state'] == 'rejected' and result.get('dispatch_state') == 'not_started':
                 # A trusted adapter's explicit no-dispatch fence may release only its own restoration claim.
@@ -319,7 +392,7 @@ class OperationLedger:
         operation = self.lookup(operation_id)
         if operation is None:
             raise ContractError('OPERATION_NOT_FOUND')
-        if operation['state'] != 'unknown':
+        if operation['state'] != 'unknown' or operation.get('resolution'):
             return operation
         try:
             # Query the original request, never infer "not executed" from a timeout or missing page.
