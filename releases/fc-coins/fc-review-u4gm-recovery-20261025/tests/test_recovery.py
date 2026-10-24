@@ -1,4 +1,4 @@
-import ast,asyncio,hashlib,importlib.util,json,os,re,sqlite3,sys,tempfile,threading,time,types,unittest
+import ast,asyncio,hashlib,importlib.util,json,os,re,sqlite3,stat,sys,tempfile,threading,time,types,unittest
 from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -19,6 +19,17 @@ def functions(path,names,scope):
 
 
 class Knowledge(unittest.TestCase):
+    def test_publisher_only_accepts_the_existing_exact_readonly_group_boundary(self):
+        m=functions(SOURCE.parent/'release_adapter.py',{'approved_boundary'},dict(stat=stat))
+        original=lambda *args:False;scope={'scope':'fc-review-u4gm-recovery-20261025'}
+        path=Path('/opt/fs-sports-outbound');info=types.SimpleNamespace(st_uid=0,st_gid=11028,st_mode=0o40750)
+        self.assertTrue(m.approved_boundary(original,scope,Path('/'),path,info))
+        for changed in ({'st_uid':1},{'st_gid':1},{'st_mode':0o40770}):
+            bad=types.SimpleNamespace(**(vars(info)|changed))
+            self.assertFalse(m.approved_boundary(original,scope,Path('/'),path,bad))
+        self.assertFalse(m.approved_boundary(original,{},Path('/'),path,info))
+        self.assertFalse(m.approved_boundary(original,scope,Path('/'),Path('/opt/other'),info))
+
     def test_full_sources_and_hashes_retained_near_original_limit(self):
         b=load(SOURCE/'business_context.py','context_candidate')
         with tempfile.TemporaryDirectory() as d:
