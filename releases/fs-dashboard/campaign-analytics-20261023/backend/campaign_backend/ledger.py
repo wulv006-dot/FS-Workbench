@@ -12,6 +12,24 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+class ObjectOperationBusy(ContractError):
+    def __init__(self, operation_ids):
+        super().__init__('OBJECT_OPERATION_IN_PROGRESS')
+        self.operation_ids = operation_ids
+
+
+def object_key(payload):
+    if not isinstance(payload, dict) or not isinstance(payload.get('kind'), str):
+        return None
+    if not payload['kind'].strip() or payload['kind'] != payload['kind'].strip() or any(ord(c) < 32 for c in payload['kind']):
+        return None
+    values = [payload.get('site_id'), payload.get('native_id')]
+    if any(type(value) not in (int, str) or not str(value).isascii() or not str(value).isdecimal()
+           or len(str(value)) > 19 or int(value) < 1 for value in values):
+        return None
+    return canonical([str(int(values[0])), identity(payload['kind']), str(int(values[1]))])
+
+
 class OperationLedger:
     def __init__(self, path):
         self.path = str(path)
@@ -23,6 +41,29 @@ class OperationLedger:
                 state TEXT NOT NULL CHECK(state IN ('pending','unknown','confirmed','rejected')),
                 dispatched INTEGER NOT NULL DEFAULT 0, result TEXT, created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS operation_objects (
+                operation_id TEXT PRIMARY KEY, object_key TEXT)''')
+            db.execute('CREATE INDEX IF NOT EXISTS operation_object_key ON operation_objects(object_key)')
+            db.execute('CREATE INDEX IF NOT EXISTS operation_active_state ON operations(state)')
+
+    @staticmethod
+    def _backfill_active_objects(db):
+        # Existing pending/unknown rows from the older schema must also block new IDs after upgrade.
+        rows = db.execute('''SELECT o.operation_id,o.payload FROM operations o
+            LEFT JOIN operation_objects k ON k.operation_id=o.operation_id
+            WHERE o.state IN ('pending','unknown') AND k.operation_id IS NULL''').fetchall()
+        for row in rows:
+            db.execute('INSERT INTO operation_objects VALUES (?,?)',
+                       (row['operation_id'], object_key(json.loads(row['payload']))))
+
+    @staticmethod
+    def _object_owners(db, key, excluding=None):
+        if key is None:
+            return []
+        return [row['operation_id'] for row in db.execute('''SELECT o.operation_id FROM operations o
+            JOIN operation_objects k ON k.operation_id=o.operation_id
+            WHERE k.object_key=? AND o.state IN ('pending','unknown') AND o.operation_id!=?
+            ORDER BY o.created_at,o.operation_id''', (key, excluding or ''))]
 
     @contextmanager
     def _connection(self):
@@ -54,12 +95,18 @@ class OperationLedger:
         digest = hashlib.sha256(encoded.encode('utf-8')).hexdigest()
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            self._backfill_active_objects(db)
             row = db.execute('SELECT payload FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
             if row is not None and row['payload'] != encoded:
                 raise ContractError('REQUEST_CONFLICT')
             if row is None:
+                key = object_key(payload)
+                owners = self._object_owners(db, key)
+                if owners:
+                    raise ObjectOperationBusy(owners)
                 db.execute('INSERT INTO operations VALUES (?,?,?,\'pending\',0,NULL,?,?)',
                            (operation_id, encoded, digest, now(), now()))
+                db.execute('INSERT INTO operation_objects VALUES (?,?)', (operation_id, key))
         return self.lookup(operation_id)
 
     def request_payload(self, operation_id):
@@ -89,6 +136,11 @@ class OperationLedger:
         self.prepare(operation_id, payload)
         with self._connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            self._backfill_active_objects(db)
+            current = db.execute('SELECT state FROM operations WHERE operation_id=?', (operation_id,)).fetchone()
+            owners = self._object_owners(db, object_key(payload), operation_id)
+            if current['state'] == 'pending' and owners:
+                raise ObjectOperationBusy(owners)
             changed = db.execute('''UPDATE operations SET state='unknown',dispatched=1,updated_at=?
                 WHERE operation_id=? AND state='pending' AND dispatched=0''', (now(), operation_id)).rowcount
         if not changed:

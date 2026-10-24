@@ -4,6 +4,7 @@ import re
 
 from .catalog import positive_id
 from .core import ContractError, canonical, identity
+from .ledger import ObjectOperationBusy
 
 COUPON_FIELDS = ('title', 'brief', 'status', 'type', 'fetch_scene', 'mode_type', 'attain', 'reduce',
     'max_reduce', 'limit_qty', 'fetch_qty', 'used_qty', 'repeat_qty', 'time_effect', 'start_time',
@@ -93,6 +94,16 @@ class CouponEdit:
         return self.readback(operation_id, payload)
 
 
+def object_busy_result(ledger, requested_operation_id, error):
+    original = [ledger.lookup(operation_id) for operation_id in error.operation_ids]
+    active = [operation for operation in original if operation and operation['state'] in ('pending', 'unknown')]
+    owner = (active or [operation for operation in original if operation])[0]
+    return dict(owner, requested_operation_id=requested_operation_id, object_busy=True,
+                recovery_operation_id=owner['operation_id'],
+                recovery_operation_ids=[operation['operation_id'] for operation in active] or [owner['operation_id']],
+                result=dict(reason_code='OBJECT_OPERATION_IN_PROGRESS'))
+
+
 def mutate(reader, ledger, policy, request):
     operation_id = identity(request.get('operation_id'))
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}', operation_id):
@@ -111,6 +122,8 @@ def mutate(reader, ledger, policy, request):
     try:
         existing = ledger.lookup(operation_id)
         ledger.prepare(operation_id, payload)
+    except ObjectOperationBusy as error:
+        return object_busy_result(ledger, operation_id, error)
     except ContractError:
         original = ledger.lookup(operation_id)
         # A conflicting request cannot certify that another worker's original operation was not sent.
@@ -147,7 +160,10 @@ def mutate(reader, ledger, policy, request):
             return dict(operation_id=operation_id, state='unknown', dispatch_state='unknown',
                         result=dict(reason_code='UPSTREAM_UNAVAILABLE'))
         return ledger.reject_unstarted(operation_id, payload, str(error))
-    return ledger.execute(operation_id, payload, CouponEdit(reader, payload))
+    try:
+        return ledger.execute(operation_id, payload, CouponEdit(reader, payload))
+    except ObjectOperationBusy as error:
+        return object_busy_result(ledger, operation_id, error)
 
 
 def operation(ledger, reader, site_id, operation_id, reconcile=False):

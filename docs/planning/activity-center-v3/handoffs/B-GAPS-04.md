@@ -100,3 +100,13 @@ catalog 产物默认 `backend/catalog-mapping.json`，只可用服务器 `CAMPAI
 无外部子进程或网络。新测试覆盖原生写门禁、single dispatch/unknown、preflight fence、请求冲突、准确范围、
 真实关联语义、无绑定不归因、币种/缺失、重复重跑、失败保留快照、并发旧扫描、晚付款/历史重扫、版本冲突、
 多活动去重、码大小写冲突、探针脱敏及服务器固定路径。最终运行数及 commit 见B回执。
+
+## Q P1：对象级 pending/unknown 互斥修复
+
+操作 ID 去重之外，账本现将 `(site_id,kind,native_id)` 与操作在同一 `BEGIN IMMEDIATE` 事务中关联并占用。
+该对象存在 pending/unknown 时，新 ID 不入队、不派发，返回 object_busy=true、原 operation_id、
+requested_operation_id、recovery_operation_id（及历史多占用时 recovery_operation_ids），供 UI 恢复原操作。
+原状态可能 pending/not_started，但 object_busy 回执不是新 ID 的未派发终态证书，不能自动换 ID 重发。
+占用由持久操作状态判定，只有可信 confirmed/rejected 或原子未派发 fence 提交后释放；unknown 无超时解锁。
+旧 schema 的在途对象会在事务内补关联；若历史已有多个 unknown，全部原 ID 保留，未全部终结前拒绝新派发。
+新增跨连接、重启、不同 ID 并发、Q 超时但原对象未变化复现及 fence/升级测试；未修改分析或生产对象。
