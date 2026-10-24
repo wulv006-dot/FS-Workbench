@@ -709,8 +709,7 @@ function renderProfit(){
   const pfWhen = PROFIT.generatedAt || '-';
   const nm = (pfNode()||{}).name || '';
   lbl.innerHTML = IC.chart + '发货利润率'
-    + '<span class="sl-hint">后台 ' + esc(pfSrc) + ' · 支付时间（北京自然日）口径 · '
-    + (nm ? esc(nm) + ' · ' : '') + '采集 ' + esc(pfWhen) + '</span>';
+    + '<span class="sl-hint">Order发货统计 · 交易时间 · 人民币 · ' + esc(KEY==='RS'?rsScope():KEY) + '</span>';
 
   /* ---- KPI 四卡 ---- */
   const ex = ctx ? profitExact(ctx.a, ctx.b) : null;      /* 预设区间 → 后台原值 */

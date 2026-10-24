@@ -273,7 +273,7 @@ function peek(d,key,s){const v=!deniedStatus&&s?cache.get(keyOf(d,key,s)):null;c
 function selected(d,key,s,result){const v=FSBusinessRange.select(d,s),profiles={...v.profiles};
  for(const pkey of Object.keys(profiles)){const exact=pkey===key?result:peek(d,pkey,s);if(exact)profiles[pkey]={...exact.profile,rangeSelected:true,rangeExact:true,rangeCovered:true,exactRangeGeneration:exact.rangeId};}
  if(result)profiles[key]={...result.profile,rangeSelected:true,rangeExact:true,rangeCovered:true};return {...v,profiles,exactRange:result};}
-function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='所选区间指标采用Order/订单与美元销售取Admin付款统计；发货利润和发货利润率取同范围Order发货统计，利润为人民币销售减采购，采用交易时间。人数与复购率不按日相加，区间率按同区间总额，逐单实际成本毛利独立核对。';}
+function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='订单与美元销售取Admin付款统计；发货利润和发货利润率取同范围Order发货统计，利润为人民币销售减采购，采用交易时间。人数与复购率不按日相加，区间率按同区间总额，逐单实际成本毛利独立核对。';}
 function note(host,state,result){const p=document.createElement('p');p.className=state==='loading'?'fsi-note':'fsi-empty';p.dataset.exactRangeStatus=state;
  p.textContent=state==='loading'?(result?.message||'正在读取后台准确区间聚合…'):state==='available'?'准确区间聚合 · Admin 主站 / Order 补充参考 · 支付时间截至 '+result.profile.period.end+'（结束边界不含） · 数据生成 '+new Date(result.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+' 北京时间 · 目录版本 '+result.baseSnapshotId:
  '准确区间读取失败，可重试；不会按日估算人数或利润率。'+(result?.message||'可切换区间或检查新版本后重试。');if(state==='available'&&result.sources){p.textContent=(result.stale&&result.cachePolicy!=='historical'?'⚠ 已过期故障兜底 · ':'')+'Admin主站/Order补充 · 查询截至 '+result.profile.period.end+' 北京时间 · Admin读取 '+result.sources.Admin.capturedAt+' · 上游统计水位 '+(result.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel({...result.sources.Order,stale:result.cachePolicy!=='historical'&&result.sources.Order.stale})+' · 共享缓存 '+(result.refreshSeconds||fsPeriodPolicy().ttl(result.query))+'秒';}if(state==='available'&&result.profile.primary.seriesGranularity==='upstream-undated')p.textContent+=' · 按日图表仍采用已发布日数据，区间指标采用后台准确汇总。';host.prepend(p);}
@@ -709,8 +709,7 @@ function renderProfit(){
   const pfWhen = PROFIT.generatedAt || '-';
   const nm = (pfNode()||{}).name || '';
   lbl.innerHTML = IC.chart + '发货利润率'
-    + '<span class="sl-hint">后台 ' + esc(pfSrc) + ' · 支付时间（北京自然日）口径 · '
-    + (nm ? esc(nm) + ' · ' : '') + '采集 ' + esc(pfWhen) + '</span>';
+    + '<span class="sl-hint">Order发货统计 · 交易时间 · 人民币 · ' + esc(KEY==='RS'?rsScope():KEY) + '</span>';
 
   /* ---- KPI 四卡 ---- */
   const ex = ctx ? profitExact(ctx.a, ctx.b) : null;      /* 预设区间 → 后台原值 */
