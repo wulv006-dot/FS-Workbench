@@ -718,7 +718,7 @@ function renderProfit(){
   const projection=KEY==='RS'?rsProjection(native):fsMainSite(native,['all','combined'].includes(scope.referenceScope));
   const marginMetric=projection.metrics.profitMarginPct;
   const rate=marginMetric?.value==null?null:marginMetric.value/100;
-  const amtBase = fsMainSite(native).metrics.revenueUsd.value;
+  const amtBase = projection.metrics.revenueUsd.value;
   const profitUsd = fsMainSite(native).metrics.estimatedProfitUsd.value;
   const actualProcurement=procurementRead?.id===JSON.stringify([native?.key,fsProcurementQuery(native,false,currentSelection())])?procurementRead.data:null;
   /* 后台订单金额 ÷ 本页（主后台）销售额 —— 直接把这个口径差摊开给使用者看 */

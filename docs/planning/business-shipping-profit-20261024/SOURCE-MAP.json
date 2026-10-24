@@ -1,6 +1,6 @@
 {
   "scope": "business-shipping-profit-20261024",
-  "version": "shipping-profit-20261024-fcb3bc94b445",
+  "version": "shipping-profit-20261024-344f40933ff8",
   "files": [
     {
       "candidate": "source/business_shipping.py",
@@ -60,31 +60,31 @@
     },
     {
       "candidate": "source/business.js",
-      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/business.js",
       "beforeSha256": null,
-      "sha256": "e7e081ee1453c00cf4e07e7370cfde8457a168cf663a9efe893ddc5817c1f147",
+      "sha256": "31ec36458da36c03e8cc95cd089af9a9f60fc67fd7193c235ca94d224ffb02d1",
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/home-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/home-business.js",
       "beforeSha256": null,
-      "sha256": "9942fc91fed94e07065092ff9909f490d680a7036694e54d80cf9c32c781f3d7",
+      "sha256": "48b6689ae3945d401b2a0db0b82da39489a377da2e38c2d953dea68a98a81100",
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/legacy-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/legacy-business.js",
       "beforeSha256": null,
-      "sha256": "3a1a5d616173c07412a5d6a0957b0ba8331d24868fc70f7d0c393ea759702925",
+      "sha256": "4e8060a928992813e1918180b0b37f41fff68f1bcf42a2eb947bfe892a94510d",
       "owner": "0:0",
       "mode": "0o644"
     },
     {
       "candidate": "source/shell.js",
-      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-fcb3bc94b445/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/shell.js",
       "beforeSha256": null,
       "sha256": "6149527f595d221b367f09f6b6991462c4c15cf9694f03cb8a369a4eb36e7eb6",
       "owner": "0:0",
@@ -94,7 +94,7 @@
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
       "beforeSha256": "ef18dc02dcdb016ae105d7051d22223b24e24a6b4b3fdda885fc5942d52eea4a",
-      "sha256": "fd1288fc6cc95fa16de80c8f39bb1945472813d8d3fd3007901ce3271a591dd5",
+      "sha256": "1de1448c195c66ba417c82a0c69c5186faa9a8e0df4bd0fd6099aeb4a189b180",
       "owner": "0:0",
       "mode": "0o644"
     }
