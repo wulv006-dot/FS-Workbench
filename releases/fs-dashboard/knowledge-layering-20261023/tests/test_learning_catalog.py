@@ -27,7 +27,8 @@ HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
 CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
-               'fs.learning.methods', 'fs.project.execution', 'fc.pricing.reference-weighting'}
+               'fs.learning.methods', 'fs.project.execution', 'fc.pricing.reference-weighting',
+               'fs.dashboard.shipping-profit'}
 
 
 def lf(path):
@@ -244,11 +245,11 @@ class LearningCatalog(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source_version'):
             kc.validate(value)
 
-    def test_thirteen_current_entries_cover_rules_and_twenty_one_preserve_history(self):
+    def test_fourteen_current_entries_cover_rules_and_twenty_two_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 21)
+        self.assertEqual(len(entries), 22)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 21)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 22)
 
     def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
         entries = catalog()['entries']
@@ -259,6 +260,23 @@ class LearningCatalog(unittest.TestCase):
             self.assertIn(required, text)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
         self.assertEqual(margin['revision'], 'v15')
+
+    def test_dashboard_shipping_rule_retires_only_the_dashboard_estimate_and_keeps_separate_margin(self):
+        path = ROOT / 'knowledge/index.json'
+        result = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
+                           ['FS'], ['fs.data.sources', 'fs.dashboard.shipping-profit'], preview=True)
+        self.assertEqual(result['status'], 'available_preview')
+        rows = {r['id']: r for r in result['entries']}
+        rule = rows['fs.dashboard.shipping-profit']
+        self.assertEqual(rule['revision'], 'shipping-profit-20261024-v1')
+        self.assertEqual(rule['source_commit'], 'cf9f29e1077f1485b4ec03b393975e75d37f4abe')
+        for required in ('/stats/admin_index/delivery.html', '人民币利润=同范围销售−采购',
+                         '不能平均游戏率/日率', '完整北京自然日', '覆盖证明', '原价格、订单、权限'):
+            self.assertIn(required, rule['content'])
+        self.assertNotIn('## 真实只读核对', rule['content'])
+        self.assertIn('不再用于全局/分游戏主利润及每日曲线', rows['fs.data.sources']['content'])
+        self.assertIn('其他未迁移报告如继续使用该式', rows['fs.data.sources']['content'])
+        self.assertEqual(catalog()['release_state'], 'candidate')
 
     def test_every_source_hash_and_selector_resolves_against_real_files(self):
         for row in catalog()['entries']:
@@ -306,7 +324,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertLess(len(knowledge['text'].encode()), bc.MAX_TOTAL)
             loaded = bc.loaded_learning(root, knowledge['version'])
             receipt = bc.effective_learning(loaded, [dict(role='system', content=loaded['text'])])
-            self.assertEqual(len(receipt['knowledge_entries']), 13)
+            self.assertEqual(len(receipt['knowledge_entries']), 14)
             sections = read_all_sections(root, loaded)
             for row in selection['entries']:
                 path = 'knowledge/'+row['id']+'@'+row['revision']
