@@ -18,6 +18,21 @@
       if(!response.ok)throw Object.assign(failure(value.code||'RUNTIME_UNAVAILABLE'),{status:response.status});return value;
     }
     function page(){const p=snapshot?.pages?.find(p=>p.page_id===pageId&&p.activity_id===activityId);if(!p)throw failure('PAGE_UNAVAILABLE');return p;}
+    const uncertain=error=>error.code==='NETWORK_UNKNOWN'||error.status>=500;
+    function rememberIntent(intent){
+      if(!intent?.intent_id||!intent?.operation_id)throw failure('INTENT_RESPONSE_INVALID');
+      retain({...pending,stage:'intent_confirmed',unknown:false,intent_id:intent.intent_id,operation_id:intent.operation_id,intent});
+    }
+    async function quoteIntent(){
+      if(!pending?.intent_id)throw failure('INTENT_RECOVERY_REQUIRED');
+      retain({...pending,stage:'quote',unknown:true});
+      try{const quote=await api('quote',{intent_id:pending.intent_id});retain({...pending,stage:'quoted',unknown:false,quote_id:quote.quote_id,quote});return {intent:pending.intent,quote};}
+      catch(error){if(!uncertain(error)||error.code==='MAIN_INTEGRATION_REQUIRED')retain({...pending,unknown:false,quote_error:error.code});throw error;}
+    }
+    function rememberResult(result){
+      const resolved=result?.operation_id===pending.operation_id&&result?.status==='integration_test_result'&&Array.isArray(result.lines)&&result.lines.length>0&&result.lines.every(line=>['confirmed','rejected'].includes(line.status));
+      retain({...pending,stage:resolved?'resolved':'prepare',prepare_dispatched:true,unknown:!resolved,resolved,result});return result;
+    }
     const client={
       get config(){return snapshot;},get capabilities(){return capabilities;},get pending(){return pending&&structuredClone(pending);},
       describe(){return capabilities?.integration_mode==='integration_test'?'Integration test only — no live cart or payment.':'Preview — main-site integration pending. Prices and benefits are snapshots; no live cart or payment.';},
@@ -32,28 +47,44 @@
           return {line_key:'line-'+(i+1),product_key:product.key,quantity:{value:String(line.quantity?.value??product.quantity.min),unit:line.quantity?.unit??product.quantity.unit,...(product.quantity.group?{group:product.quantity.group}:{})},attributes:line.attributes||[]};
         });
         if(!selected.length)throw failure('EMPTY_SELECTION');
-        const body={activity_id:activityId,page_id:pageId,rule_version:p.rule_version,benefit_binding_version:p.benefit_binding_version,currency:'USD',lines:selected};
-        retain({stage:'intent',unknown:true});
+        const body={request_id:root.crypto.randomUUID(),activity_id:activityId,page_id:pageId,rule_version:p.rule_version,benefit_binding_version:p.benefit_binding_version,currency:'USD',lines:selected};
+        const receipts=[...(pending?.receipts||[]),...(pending?.resolved?[{operation_id:pending.operation_id,result:pending.result}]:[])];
+        retain({stage:'intent',unknown:true,request_id:body.request_id,request_body:body,receipts});
         let intent;
-        try{intent=await api('intents',body);}catch(error){if(error.code!=='NETWORK_UNKNOWN')retain(null);throw error;}
-        retain({stage:'intent',unknown:false,intent_id:intent.intent_id,operation_id:intent.operation_id});
-        try{const quote=await api('quote',{intent_id:intent.intent_id});retain({...pending,stage:'quoted',quote_id:quote.quote_id});return {intent,quote};}
-        catch(error){if(error.code==='NETWORK_UNKNOWN')retain({...pending,unknown:true});throw error;}
+        try{intent=await api('intents',body);}catch(error){if(!uncertain(error))retain({...pending,unknown:false,stage:'intent_rejected',error:error.code});throw error;}
+        rememberIntent(intent);return quoteIntent();
       },
       async prepare(){
-        if(pending?.unknown||pending?.stage==='prepare')throw failure('OPERATION_UNKNOWN');
+        if(pending?.prepare_dispatched)throw failure(pending.resolved?'OPERATION_RESOLVED':'OPERATION_UNKNOWN');
+        if(pending?.unknown)throw failure('OPERATION_UNKNOWN');
         if(capabilities?.integration_mode!=='integration_test'||!capabilities.test_capabilities?.prepare_checkout)throw failure('MAIN_INTEGRATION_REQUIRED');
         if(!pending?.quote_id)throw failure('QUOTE_REQUIRED');
         const body={operation_id:pending.operation_id,intent_id:pending.intent_id,quote_id:pending.quote_id,return_route_id:'activity'};
-        retain({...pending,stage:'prepare',unknown:true});
-        try{const result=await api('prepare_checkout',body);retain({...pending,unknown:result.status==='unknown',result});return result;}
-        catch(error){if(error.code!=='NETWORK_UNKNOWN'&&error.code!=='OPERATION_UNKNOWN')retain({...pending,unknown:false});throw error;}
+        retain({...pending,stage:'prepare',unknown:true,prepare_dispatched:true});
+        try{return rememberResult(await api('prepare_checkout',body));}
+        catch(error){retain({...pending,prepare_error:error.code});throw error;}
       },
-      async lookup(){
-        if(!pending?.operation_id)throw failure('OPERATION_ID_UNAVAILABLE');
-        const result=await api('operations/'+encodeURIComponent(pending.operation_id));
-        // A lookup never grants permission to repeat a prepare request.
-        retain({...pending,result});return result;
+      async recover(){
+        if(!pending)throw failure('OPERATION_ID_UNAVAILABLE');
+        if(pending.prepare_dispatched||pending.stage==='prepare'||pending.stage==='resolved'){
+          if(!pending.operation_id)throw failure('OPERATION_ID_UNAVAILABLE');
+          return rememberResult(await api('operations/'+encodeURIComponent(pending.operation_id)));
+        }
+        if(pending.stage==='intent'){
+          if(!pending.request_id||!pending.request_body)throw failure('INTENT_RECOVERY_REQUIRED');
+          let intent;
+          try{intent=await api('intents/request/'+encodeURIComponent(pending.request_id));}
+          catch(error){
+            if(error.status!==404||error.code!=='INTENT_NOT_FOUND')throw error;
+            // This exact original request is safe to replay only under the durable request_id contract.
+            intent=await api('intents',pending.request_body);
+          }
+          rememberIntent(intent);
+        }
+        if(pending.intent_id)return quoteIntent();
+        throw failure('INTENT_RECOVERY_REQUIRED');
+      },
+      async lookup(){return client.recover();
       }
     };return client;
   }

@@ -107,7 +107,7 @@
       try{
         const pageId='fc27-'+state.view;
         if(!runtimeClient||runtimeClient.pageId!==pageId){runtimeClient=window.CampaignStandalone.create({element:document.documentElement,pageId,activityId:'fc27-season2'});runtimeClient.pageId=pageId;}
-        if(runtimeClient.pending?.unknown){await runtimeClient.lookup();status(t('原操作结果待核对；已查询原操作，未重复提交。','Original operation remains unresolved; checked its status without resubmitting.'));return;}
+        if(runtimeClient.pending?.unknown){await runtimeClient.lookup();status(runtimeClient.pending?.unknown?t('原操作结果待核对；已查询原操作，未重复提交。','Original operation remains unresolved; checked its status without resubmitting.'):runtimeClient.pending?.resolved?t('原操作结果已查明；未重复提交，可继续调整预览选择。','Original operation resolved without resubmitting. You may continue editing the preview selection.'):runtimeClient.describe());return;}
         await runtimeClient.load();
         await runtimeClient.select(review.map(item=>({product_key:'fc-'+item.key+'-'+state.platform,quantity:{value:String(item.offer.quantity),unit:'item'},attributes:[]})));
         status(runtimeClient.describe());
