@@ -234,6 +234,8 @@ def prepare(export, baseline, commit, output, accepted_base, accepted_export=Non
             reconciliations.append(proof)
         if remote == digest:
             skipped.append(relative)
+        elif remote is None and is_public:
+            stage(relative, raw, None)  # An allowlisted public file never installed is an absent-CAS addition.
         elif accepted is not None and digest == accepted:
             if is_public:
                 if proof is None:

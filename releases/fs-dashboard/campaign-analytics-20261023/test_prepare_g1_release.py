@@ -168,6 +168,28 @@ class PackagingTests(unittest.TestCase):
         row = next(r for r in self.manifest()['files'] if r['candidate'] == 'backend/bridge.py')
         self.assertIsNone(row['beforeSha256'])
 
+    def test_accepted_allowlisted_public_file_never_installed_stages_absent_cas(self):
+        relative = 'app/sitemap.xml'
+        raw = b'<urlset>accepted public sitemap</urlset>\n'
+        self.write(relative, raw)
+        self.base[relative] = package.sha(raw)
+        self.assertNotIn('/opt/fs-campaign-dashboard/sitemap.xml', self.baseline['files'])
+        self.prepare()
+        row = next(row for row in self.manifest()['files'] if row['candidate'] == relative)
+        self.assertIsNone(row['beforeSha256'])
+        self.assertEqual(row['sha256'], package.sha(raw))
+        self.assertEqual((self.output / 'candidate' / relative).read_bytes(), raw)
+        static = json.loads((self.output / 'candidate/app/runtime/static-manifest.json').read_text())
+        self.assertEqual(static['sitemap.xml'], package.sha(raw))
+
+    def test_absent_accepted_management_file_still_skips_without_new_authorization(self):
+        relative = 'app/analytics/never-installed.js'
+        self.write(relative, b'accepted management')
+        self.base[relative] = package.sha(b'accepted management')
+        self.prepare()
+        self.assertFalse((self.output / 'candidate' / relative).exists())
+        self.assertIn(relative, self.manifest()['skippedUnchangedFiles'])
+
     def test_drifted_special_guard_node_or_existing_output_rejected(self):
         original = copy.deepcopy(self.baseline)
         for change in ('special', 'guard', 'node'):
