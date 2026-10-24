@@ -2,6 +2,7 @@
 from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN
+from urllib.parse import urlsplit
 import hashlib
 import json
 
@@ -12,6 +13,9 @@ CENT = Decimal('.01')
 STEP = Decimal('.0001')
 CONSOLE = ('PS', 'XBOX')
 ROUNDING_RESERVE = Decimal('.02')
+REFERENCE_VERSION = 'fc-reference-weighting-20261024-v2'
+REFERENCE_WEIGHTS = {'ItemD2R': Decimal('.15'), 'U7Buy': Decimal('.05')}
+REFERENCE_GAP_LIMIT = Decimal('.05')
 
 
 def number(value, *, zero=False):
@@ -210,6 +214,66 @@ def ending(main, checks):
     return target, 'accepted'
 
 
+def reference_adjustment(evidence, platform, anchor, delivered, now):
+    """Bound optional same-cycle references without reallocating missing-source influence."""
+    references = evidence.get('reference_market') or {}
+    source_times = [instant(r['checked_at']) for offers in evidence['offers'].values()
+                    for r in offers.values() if r.get('checked_at')]
+    item_rows = references.get('offers') or []
+    item_reason = references.get('reason') or 'itemd2r_reference_unavailable'
+    item = None
+    if references.get('status') == 'available':
+        try:
+            if (not evidence.get('run_id') or references.get('run_id') != evidence['run_id']
+                    or [r.get('platform') for r in item_rows] != ['PS', 'XBOX', 'PC']):
+                raise ValueError('itemd2r_reference_run_or_coverage')
+            for r in item_rows:
+                if (r.get('source') != 'ItemD2R' or r.get('run_id') != evidence['run_id']
+                        or r.get('url') != 'https://www.itemd2r.com/ea-sports-fc/fc-27-coins'
+                        or r.get('status') != 'valid' or r.get('currency') != 'USD'
+                        or r.get('conditional') is not False or r.get('comparable') is not True
+                        or number(r.get('purchase_k')) != 100 or number(r.get('bonus_k'), zero=True) > 100):
+                    raise ValueError('itemd2r_reference_contract')
+                number(r.get('gross_usd'));fresh(r['captured_at'], now, 900)
+            stamps = source_times + [instant(r['captured_at']) for r in item_rows]
+            if (max(stamps)-min(stamps)).total_seconds() > 300:
+                raise ValueError('itemd2r_reference_capture_span_over_300_seconds')
+            item = next(r for r in item_rows if r['platform'] == platform)
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            item_reason = str(exc) if isinstance(exc, ValueError) else 'itemd2r_reference_invalid'
+    total = Decimal(0);sources = {}
+    for site, weight in REFERENCE_WEIGHTS.items():
+        row = item if site == 'ItemD2R' else evidence['offers'][platform].get(site)
+        observation = {'weight': str(weight), 'status': 'unavailable', 'contribution': '0',
+                       'reason': item_reason if site == 'ItemD2R' else 'u7buy_reference_unavailable'}
+        if row is not None:
+            try:
+                price, base, bonus, stamp = ((row['gross_usd'], row['purchase_k'], row['bonus_k'], row['captured_at'])
+                                            if site == 'ItemD2R' else (row['usd_price'], row['base_k'], row['bonus_k'], row['checked_at']))
+                if (row.get('conditional') is not False or row.get('comparable') is not True
+                        or number(base) != 100 or number(bonus, zero=True) > 100
+                        or urlsplit(row.get('url') or '').hostname != {'ItemD2R':'www.itemd2r.com','U7Buy':'www.u7buy.com'}[site]):
+                    raise ValueError('reference_contract_invalid')
+                fresh(stamp, now, 900)
+                stamps = source_times + [instant(stamp)]
+                if (max(stamps)-min(stamps)).total_seconds() > 300:
+                    raise ValueError('reference_capture_span_over_300_seconds')
+                normalized = number(price)/(number(base)+number(bonus, zero=True))*delivered
+                gap = normalized/anchor-1
+                clipped = max(-REFERENCE_GAP_LIMIT, min(REFERENCE_GAP_LIMIT, gap))
+                contribution = weight*clipped;total += contribution
+                observation.update(status='available', reason=None, page_usd=str(number(price)),
+                    base_k=str(number(base)), bonus_k=str(number(bonus, zero=True)), checked_at=stamp,
+                    normalized_usd=str(normalized), relative_gap=str(gap), clipped_gap=str(clipped),
+                    contribution=str(contribution), url=row['url'])
+            except (KeyError, TypeError, ValueError, AttributeError) as exc:
+                observation['reason'] = str(exc) if isinstance(exc, ValueError) else 'reference_contract_invalid'
+        sources[site] = observation
+    return dict(version=REFERENCE_VERSION, platform=platform, anchor_usd=str(anchor),
+                sources=sources, raw_offset=str(total), raw_weighted_usd=str(anchor*(1+total)),
+                missing_weight_reallocated=False, third_tier_direct_weight='0')
+
+
 def apply_decision(rows, evidence, edits, *, now=None):
     now = now or datetime.now(timezone.utc)
     fresh(evidence['checked_at'], now)
@@ -239,7 +303,7 @@ def apply_decision(rows, evidence, edits, *, now=None):
     decisions = []
     for group in (CONSOLE, ('PC',)):
         cost = pooled if len(group)==2 else number(evidence['costs']['PC']['cny_per_1k'])
-        checks, current, anchors = [], [], []
+        checks, current, anchors, references = [], [], [], []
         for p in group:
             own = evidence['storefront']['rows'][p]
             base = number(own['base_k']); delivered = base + number(own['bonus_k'], zero=True)
@@ -251,14 +315,19 @@ def apply_decision(rows, evidence, edits, *, now=None):
             if loot.get('conditional') or loot.get('comparable') is not True or number(loot['base_k']) != 100:
                 raise ValueError('pricing_comparable_anchor_required')
             anchors.append(number(loot['usd_price']) / (number(loot['base_k'])+number(loot.get('bonus_k',0),zero=True))*delivered)
+            references.append(reference_adjustment(evidence, p, anchors[-1], delivered, now))
             checks.append((base,delivered,cost,fx,ratio,margin))
         floor = max(hard_floor(c,rate,d/base,r,m)*base for base,d,c,rate,r,m in checks).quantize(CENT,rounding=ROUND_CEILING)
         floor=max(floor,max(catalog_floor(cost,fx,ratio,margin,package_rules[p],average_ratio=average_ratio)*100 for p in group)).quantize(CENT,rounding=ROUND_CEILING)
         anchor = min(anchors).quantize(CENT,rounding=ROUND_CEILING)
+        raw_weighted = min(number(r['raw_weighted_usd']) for r in references)
+        weighted = raw_weighted.quantize(CENT, rounding=ROUND_CEILING)
         # Current price is a choice, not an upper bound on a fresh market candidate.
         hold = max(current)
-        main = max(floor, anchor)
-        reason = 'cost_or_promotion_floor' if floor > anchor else 'public_anchor_parity' if main != hold else 'already_competitive_hold'
+        main = max(floor, weighted)
+        floor_applied = floor > weighted
+        after_floor = max(floor, raw_weighted)
+        reason = 'cost_or_promotion_floor' if floor_applied else 'weighted_market_reference' if weighted != anchor else 'public_anchor_parity' if main != hold else 'already_competitive_hold'
         if reason=='already_competitive_hold' and len(set(current))>1:reason='unify_common_console_base'
         if group[0] in quotes:
             main = number(quotes[group[0]])*100
@@ -305,11 +374,12 @@ def apply_decision(rows, evidence, edits, *, now=None):
                 pricing_basis='page_total_100k', strategy_version=VERSION, quote_manual=p in quotes,
                 own_bonus_k=str(delivered-base), decision_reason=reason, ending_reason=tail,
                 pricing_quantity_basis='both_sides_actual_delivered_quantity',
-                reference_fallback='reference_prices_do_not_force_extra_discount',
+                reference_fallback='bounded_optional_reference_weights_no_reallocation',
                 lootbar_page_usd=f"{number(public_anchor['usd_price']):.2f}",
                 lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k',0),zero=True))),
                 pre_change_margin_pct=str(old_gp/old_net*100) if old_net else None,
                 main_page_usd=f'{main:.2f}', anchor_page_usd=f'{anchor:.2f}',
+                reference_adjustment=references[group.index(p)],
                 change_pct=str((target/old-1)*100), break_even_order_multiplier=str(multiplier) if multiplier is not None else None,
                 proof=proof, cost_basis=basis if p in CONSOLE else {'basis':'latest_verified_pc_delivery'},
                 break_even_order_basis='same historical discount mix and fixed delivered cost; conditional, not demand forecast',
@@ -330,10 +400,16 @@ def apply_decision(rows, evidence, edits, *, now=None):
             fallback=fallback_main
         decisions.append(dict(platforms=list(group),reason=reason,current_public_usd=[str(v) for v in current],
                               main_usd=str(main),selected_usd=str(target),floor_usd=str(floor),ending=tail,
+                              reference_version=REFERENCE_VERSION,reference_adjustments=references,
+                              raw_weighted_usd=str(raw_weighted),after_floor_usd=str(after_floor),
+                              rounded_market_usd=str(weighted),after_cent_usd=str(max(floor, weighted)),
+                              explicit_candidate=group[0] in quotes,
                               direction='up' if target>hold else 'down' if target<hold else 'hold',
                               model_unavailable_fallback_usd=str(fallback),
                               candidates=candidates))
-    receipt=dict(strategy_version=VERSION, hard_minimum_margin_pct=str(HARD_MARGIN),margin_basis=MARGIN_BASIS,
+    receipt=dict(strategy_version=VERSION, reference_version=REFERENCE_VERSION,
+        reference_weights={'Lootbar':'0.80','ItemD2R':'0.15','U7Buy':'0.05'},
+        hard_minimum_margin_pct=str(HARD_MARGIN),margin_basis=MARGIN_BASIS,
         promotions_exempt_from_margin_floor=True,
         historical_average_minimum_margin_pct=str(margin),
         historical_discount_mix_sha256=(evidence.get('historical_discount_mix') or {}).get('sha256'),
@@ -368,7 +444,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False):
     actual={r['platform']:r for r in quote['result']['rows']}
     for row in expected:
         if row['platform'] not in selected:continue
-        for key in ('proposal','cost_cny','target_page_usd','proof','strategy_version','decision_reason','estimated_average_margin','margin_basis'):
+        for key in ('proposal','cost_cny','target_page_usd','proof','strategy_version','decision_reason','estimated_average_margin','margin_basis','reference_adjustment'):
             if row[key]!=actual[row['platform']].get(key):
                 raise ValueError('pricing_quote_tampered')
     return receipt

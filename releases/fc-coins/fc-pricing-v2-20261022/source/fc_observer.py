@@ -85,7 +85,7 @@ def quote(value):
             'estimated_net_usd','estimated_procurement_gross_usd','procurement_margin_pct','scope','historical_mix_sha256'))
         target['estimated_average_margin']['period']=pick(avg.get('period'),('start','end'))
     result['decision_receipt'] = pick(computed.get('decision_receipt'),
-           ('strategy_version', 'hard_minimum_margin_pct', 'historical_average_minimum_margin_pct', 'minimum_retained_ratio', 'margin_basis',
+           ('strategy_version', 'reference_version', 'reference_weights', 'hard_minimum_margin_pct', 'historical_average_minimum_margin_pct', 'minimum_retained_ratio', 'margin_basis',
             'promotions_exempt_from_margin_floor', 'historical_discount_mix_sha256',
             'promotion_envelope_sha256', 'code_sha256', 'sha256'))
     return result

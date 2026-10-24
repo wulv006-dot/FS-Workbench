@@ -440,7 +440,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -464,6 +464,11 @@
           "kind": "direct_user_correction_released_mapping",
           "url": "https://github.com/wulv006-dot/FS-Workbench/pull/402",
           "commit": "742232b996fdaa186ee1bd7143a696df01cf12d2"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "consumers": [
@@ -491,7 +496,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -504,6 +509,11 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -525,7 +535,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -538,6 +548,11 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -559,7 +574,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -572,6 +587,11 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -593,7 +613,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 9. 客户追踪与按需查证",
@@ -606,6 +626,11 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -627,7 +652,7 @@
       "source_commit": null,
       "source": {
         "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-        "sha256": "231856b7b9524348a33b13afe74e6aee5e3fbc0aaad584df1a9ad2a6725edb8a",
+        "sha256": "d97bc447297f3cb898f0ba211d2b51893d555e3a5f8459e093f05bd3b7346687",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -640,6 +665,11 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        },
+        {
+          "kind": "source_append_preserves_existing_selected_content",
+          "change": "fc-reference-weighting-20261024-v2",
+          "prior_source_commit": null
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -700,6 +730,32 @@
           "kind": "existing_confirmed_contract_indexed_without_policy_change",
           "path": "knowledge/decisions/aion2-distribution-20261023.md",
           "base_commit": "6a0f424ac020694e67f8ae5d825ce871d1a7faf1"
+        }
+      ]
+    },
+    {
+      "id": "fc.pricing.reference-weighting",
+      "revision": "fc-reference-weighting-20261024-v2",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-10-24",
+      "owner": "吴律；FC模块维护者",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "docs/planning/fc-competitor-weighting-20261024/CONTRACT.md",
+        "sha256": "74bd96d5a85ecb2dcbe9fbe8efaf231e1b7be1a667be592fcdaf6d853fa47e13",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_approved_business_rule",
+          "message_reference": "好，就按80/15/5最终版。我已切换到6.1Sol 模型 去执行施工吧",
+          "implementation_status": "not_deployed_at_candidate_preparation"
         }
       ]
     }
