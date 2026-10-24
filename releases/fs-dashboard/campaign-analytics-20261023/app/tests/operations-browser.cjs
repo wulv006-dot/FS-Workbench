@@ -6,6 +6,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(url.origin!=='http://127.0.0.1:8597')return route.abort();
   if(url.pathname==='/analytics/api/center')return route.fulfill({json:{csrf:'fixture',canEdit:!readonly}});
   if(url.pathname.includes('/api/center/backend-')){const body=req.postDataJSON();assert.equal(req.headers()['x-csrf-token'],'fixture');assert.equal(body.site_id,'266');
+   if(body.action==='catalog_mapping_read')return route.fulfill({json:{status:'ok',data:{summary:{reference_count:1,unique_goods_count:1},mappings:{'fc-fixture-ps':{family:'fc',product_ref:{goods_id:'1',model_id:'2'},platform:{code:'ps',attribute_id:'3'},quantity:{reference_value:'1',observed_minimum:'1',observed_unit:''},selection_schema:'empty_selectable_properties',missing_reasons:['PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED']}}}}});
    if(body.action==='benefit_detail')return route.fulfill({json:{status:'ok',data:{kind:'coupon',native_id:body.native_id,before_hash:'abc',fields:{title,brief:'No customer data',status:0},editability:{allowed_changes:allowed?['title','brief']:[],can_disable:allowed,blocked_reasons:allowed?[]:['EXCLUSIVE_OBJECT_REQUIRED']}}}});
    if(body.action==='benefit_edit'){writeIDs.push(body.operation_id);title=body.changes.title;if(drop){drop=false;return route.abort();}return route.fulfill({json:{status:'ok',data:{operation_id:body.operation_id,state:'confirmed'}}});}
    if(body.action==='operation_reconcile'){reconcileIDs.push(body.operation_id);return route.fulfill({json:{status:'ok',data:{operation_id:body.operation_id,state:'confirmed'}}});}
@@ -17,6 +18,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  });
  try{
   await page.goto('http://127.0.0.1:8597/analytics/operations.html');await page.waitForFunction(()=>!document.querySelector('#query-fields').disabled);
+  await page.locator('#read-mappings').click();await page.waitForFunction(()=>document.querySelector('#mapping-status').textContent.includes('1 个引用'));await page.locator('#mapping-reference').selectOption('fc-fixture-ps');assert.match(await page.locator('#mapping-fields').innerText(),/空值，含义待核/);assert.match(await page.locator('#mapping-reasons').innerText(),/主站购买参数尚未核验/);
   await page.locator('#benefit-id').fill('123');await page.locator('#benefit-query button').click();await page.waitForFunction(()=>document.querySelector('#benefit-state').textContent.includes('123'));assert.equal(await page.locator('#save-benefit').isDisabled(),true);
   allowed=true;await page.locator('#benefit-query button').click();await page.waitForFunction(()=>!document.querySelector('#save-benefit').disabled);
   await page.locator('#benefit-title').fill('New title');await page.locator('#save-benefit').click();await page.waitForFunction(()=>document.querySelector('#ops-error').textContent.length>0);assert.equal(writeIDs.length,1);assert.equal(await page.locator('#benefit-title').isDisabled(),true);

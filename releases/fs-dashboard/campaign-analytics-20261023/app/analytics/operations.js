@@ -1,13 +1,14 @@
 (function(){
  'use strict';
  const $=id=>document.getElementById(id),key='fs-campaign-native-operation:'+location.pathname;
- let csrf=null,canEdit=false,busy=false,detail=null,pending=null,storageOK=true;
+ let csrf=null,canEdit=false,busy=false,detail=null,pending=null,storageOK=true,mappings={};
  try{pending=JSON.parse(sessionStorage.getItem(key)||'null');if(pending&&(!/^[0-9a-f-]{36}$/i.test(pending.operation_id)||typeof pending.native_id!=='string'))throw Error();}
  catch{storageOK=false;$('ops-error').textContent='原操作记录无法读取。请由维护人员核对服务器账本后恢复此会话，当前禁止新写入。';}
  const tell=(id,value)=>{$(id).textContent=value;};
  function locks(){
   $('query-fields').disabled=busy||!canEdit;
   $('analysis-fields').disabled=busy||!canEdit;
+  $('read-mappings').disabled=busy||!canEdit;$('mapping-reference').disabled=busy||!canEdit||!Object.keys(mappings).length;
   $('edit-fields').disabled=busy||!canEdit||!detail||Boolean(pending)||!storageOK;
   const allowed=detail?.editability?.allowed_changes||[];
   $('benefit-title').disabled=!allowed.includes('title');$('benefit-brief').disabled=!allowed.includes('brief');
@@ -55,11 +56,24 @@
   $('analysis-activities').replaceChildren();for(const row of value?.activities||[]){const tr=document.createElement('tr');for(const cell of [row.activity_id||row.group_id||'归因范围待核',row.currency||'待核',Number.isSafeInteger(row.paid_orders)?row.paid_orders:'未知',money(row.associated_paid_minor,row.scale),money(row.activity_paid_minor,row.scale)]){const td=document.createElement('td');td.textContent=String(cell);tr.append(td);}$('analysis-activities').append(tr);}
  }
  $('benefit-query').addEventListener('submit',event=>{event.preventDefault();run(()=>readDetail($('benefit-id').value));});
+ $('read-mappings').addEventListener('click',()=>run(async()=>{
+  const value=await api('catalog_mapping_read');if(!value?.mappings||typeof value.mappings!=='object'||Array.isArray(value.mappings))throw Error('商品映射版本无法确认。');
+  mappings=value.mappings;const select=$('mapping-reference');select.replaceChildren(new Option('请选择页面引用',''));
+  for(const [key,row] of Object.entries(mappings))select.append(new Option((row.family||'')+' · '+key,key));
+  const s=value.summary||{};tell('mapping-status','已读取 '+String(s.reference_count??Object.keys(mappings).length)+' 个引用，'+String(s.unique_goods_count??'待核')+' 个商品；购买仍关闭。');$('mapping-detail').hidden=true;
+ }));
+ $('mapping-reference').addEventListener('change',()=>{
+  const row=mappings[$('mapping-reference').value];$('mapping-detail').hidden=!row;if(!row)return;
+  const q=row.quantity||{},ref=row.product_ref||{};const fields=[['商品/模型',String(ref.goods_id||'待核')+' / '+String(ref.model_id||'待核')],['平台',String(row.platform?.code||'待核')+' · '+String(row.platform?.attribute_id||'待核')],['原页面数量',q.reference_value],['后台最小数量',q.observed_minimum],['后台单位',q.observed_unit||'空值，含义待核'],['数量组',q.reference_group||'未提供'],['规格结构',({empty_selectable_properties:'已观察为空',quantity_tiers:'数量档位，优先级仍须核验'})[row.selection_schema]||'待核验'],['购买状态','未开放']];
+  $('mapping-fields').replaceChildren();for(const [name,value] of fields){const div=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=String(value??'待核');div.append(dt,dd);$('mapping-fields').append(div);}
+  const reasons={PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED:'主站购买参数尚未核验',QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED:'数量步长及上限尚未核验',SALE_STATE_SEMANTICS_UNVERIFIED:'商品状态语义尚未核验',QUANTITY_TIER_PRECEDENCE_UNVERIFIED:'商品与模型的数量档位优先级尚未核验'};
+  $('mapping-reasons').replaceChildren();for(const reason of row.missing_reasons||[]){const li=document.createElement('li');li.textContent=reasons[reason]||'该引用还有待核条件（'+reason+'）';$('mapping-reasons').append(li);}
+ });
  $('benefit-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const changes={};for(const field of detail?.editability?.allowed_changes||[])if(['title','brief'].includes(field)&&$('benefit-'+field).value!==String(detail.fields?.[field]??''))changes[field]=$('benefit-'+field).value;if(!Object.keys(changes).length){tell('ops-status','字段没有变化。');return;}await mutate('benefit_edit',{changes});});});
  $('disable-benefit').addEventListener('click',()=>run(()=>detail?.editability?.can_disable===true?mutate('benefit_toggle',{enabled:false}):Promise.resolve()));
  $('reconcile-operation').addEventListener('click',()=>run(async()=>{if(!pending)return;const id=pending.native_id;operationResult(await api('operation_reconcile',{operation_id:pending.operation_id},true));if(!pending)await readDetail(id);}));
  $('read-summary').addEventListener('click',()=>run(async()=>summary(await api('analysis_summary'))));
- $('analysis-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const from=$('analysis-from').value,to=$('analysis-to').value;if(to<from)throw Error('结束时间必须晚于开始时间。');await api('analysis_reconcile',{from:from.replace('T',' '),to:to.replace('T',' ')},true);summary(await api('analysis_summary'));});});
+ $('analysis-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const from=$('analysis-from').value,to=$('analysis-to').value;if(to<from)throw Error('结束时间必须晚于开始时间。');const raw=value=>value.replace('T',' ')+(value.length===16?':00':'');await api('analysis_reconcile',{from:raw(from),to:raw(to)},true);summary(await api('analysis_summary'));});});
  async function init(){try{const response=await fetch('api/center',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('请使用FS原有管理员会话。');const value=await response.json();csrf=value.csrf;canEdit=value.canEdit===true&&typeof csrf==='string';tell('ops-status',canEdit?'管理会话已读取；具体写入权限仍以服务端对象核验为准。':'当前会话无后台操作权限。');}catch(error){tell('ops-error',error.message);}locks();}
  init();
 })();
