@@ -18,7 +18,7 @@ class RSCurrent(unittest.TestCase):
             calls.append(params);fields=[v for k,v in params.items() if k.endswith('[field]')]
             unpaid=any(v=='pay_status' and params[k.replace('[field]','[val]')]==0 for k,v in params.items() if k.endswith('[field]'))
             row=self.raw();row.update(pay_status=0,status=1,status_format='待支付') if unpaid else None
-            self.assertFalse('paytime' in fields);self.assertTrue(set(['gid','site_id','aid','cid','pay_status']).issubset(fields))
+            self.assertFalse('paytime' in fields);self.assertFalse('site_id' in fields);self.assertTrue(set(['gid','aid','cid','pay_status']).issubset(fields))
             return {'total':2,'list':[row,row]}
         result=project(read,Q)
         self.assertEqual([result['metrics'][k]['value'] for k in ('issues','unpaid')],[1,1])
@@ -33,11 +33,17 @@ class RSCurrent(unittest.TestCase):
         self.assertIsNone(value['metrics']['issues']['value'])
         with self.assertRaises(PermissionError):project(lambda _:(_ for _ in ()).throw(PermissionError()),Q)
     def test_wrong_game_site_and_conflicts_rejected(self):
-        for row in [dict(self.raw(),gid=1322),dict(self.raw(),site_id=266)]:
+        for row in [dict(self.raw(),gid=1322),dict(self.raw(),site_id=None)]:
             value=project(lambda _:dict(total=1,list=[row]),Q)
             self.assertIsNone(value['metrics']['issues']['value'])
         value=project(lambda _:dict(total=2,list=[self.raw(),dict(self.raw(),status_format='changed')]),Q)
         self.assertIsNone(value['metrics']['issues']['value'])
+    def test_ignored_upstream_site_filter_cannot_mix_websites(self):
+        rows=[dict(self.raw(),id=1),dict(self.raw(),id=2,site_id=254)]
+        read=lambda _:dict(total=2,list=rows)
+        self.assertEqual(project(read,Q)['metrics']['issues']['value'],1)
+        self.assertEqual(project(read,dict(Q,rs_site='rsfast'))['metrics']['issues']['value'],1)
+        self.assertEqual(project(read,dict(Q,rs_site='all'))['metrics']['issues']['value'],2)
     def test_cache_retains_exact_scope_and_deduplicates_jobs(self):
         pool=Pool();now=[100.];c=RSBacklog(pool,clock=lambda:now[0]);params={k:[v] for k,v in dict(mode='rs-backlog',profile='RS',**Q).items()}
         self.assertEqual(c.get(params)[0],202);self.assertEqual(c.get(params)[0],202);self.assertEqual(len(pool.calls),1)

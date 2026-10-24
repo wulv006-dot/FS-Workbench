@@ -1,0 +1,18 @@
+{
+  "scope": "business-dashboard-backlog-20261025",
+  "version": "dashboard-backlog-20261025-7cd9e6ab6c33",
+  "files": [
+    {
+      "candidate": "source/rs_backlog.py",
+      "target": "/opt/fs-exact-range-20261001/rs_backlog.py",
+      "sha256": "7cd9e6ab6c331dd4a9c043b97379da1a11d6109d57cffd85bbb9236d354bd4e8",
+      "beforeSha256": "2fea28df26641203fbf808fc2b4e26eb8a3589b09955579540896db4ab9e252f",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "protectedFiles": 103,
+  "status": "candidate_not_deployed",
+  "manifestSha": "2517ca35a9dbc9e1137a7b116fba50484cb2c38aa2d4aeee1e2a36a38df8a0fa",
+  "zipSha": "d0b0d4b31fb11630c3ffa4be0d10b59c2e783a7eda00bef568edbb727a9273c8"
+}
