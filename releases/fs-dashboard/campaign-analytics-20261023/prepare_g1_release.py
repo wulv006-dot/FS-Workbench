@@ -29,6 +29,7 @@ GUARDS = {'/opt/auth-portal/auth_portal.py', '/opt/fs-access-policy/rbac.py'}
 NGINX_APPEND = b'''\n# FS campaign G1 customer runtime: management locations above are unchanged.
 location ^~ /events/ {
     auth_request off;
+    sub_filter "</body>" "</body>";
     proxy_pass http://127.0.0.1:8949;
     proxy_set_header Host $host;
     proxy_set_header Cookie "";

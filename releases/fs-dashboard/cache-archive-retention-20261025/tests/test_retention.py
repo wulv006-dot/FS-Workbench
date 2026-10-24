@@ -58,6 +58,12 @@ class Cache(unittest.TestCase):
         os.chmod(db,0o600)
         self.assertFalse(self.collect(databases=[db])['candidates']);self.assertTrue(p.exists())
 
+    def test_existing_worker_owned_receipts_still_protect_versions(self):
+        version,_,_=self.snapshot();write(self.refs/'worker.json',{'version':version})
+        with patch.object(r.os,'geteuid',return_value=11027,create=True):
+            refs,_=r.reference_versions(self.root,[self.refs],[])
+        self.assertIn(version,refs)
+
     def test_unexpired_data_and_unknown_reference_source_are_not_removed(self):
         _,p,_=self.snapshot(age=0);self.assertFalse(self.collect()['candidates'])
         with self.assertRaisesRegex(ValueError,'root_missing'):r.collect(self.root,NOW,paths=[self.root/'missing'],databases=[],apply=True)
@@ -90,10 +96,19 @@ class Cache(unittest.TestCase):
         store=source_snapshots.SnapshotStore(self.root)
         value=store.read(p);self.assertEqual(value,json.loads(raw));self.assertEqual(p.read_bytes(),raw)
 
+    def test_active_tasks_defer_and_bad_ledger_fails_closed(self):
+        _,p,_=self.snapshot()
+        with patch.object(r,'busy',return_value=True),patch.object(r,'collect',side_effect=AssertionError('must defer')):
+            self.assertEqual(r.run(self.root,apply=True)['status'],'deferred_active_task')
+        self.collect();recycle=self.root/'.recycle'
+        write(recycle/'index.json',{'../../outside':{'moved_at':NOW.isoformat()}})
+        with self.assertRaisesRegex(ValueError,'retention_ledger'):self.collect(NOW+timedelta(days=9))
+        self.assertTrue(next(recycle.glob('*.gz')).exists())
+
 
 def excel_module(name):
     source=(SOURCE/name).read_text(encoding='utf-8');tree=ast.parse(source)
-    names={'_excel_private','archive_access','_excel_atomic','_excel_sync','_excel_digest','excel_path','maintain_archive','archive_files'}
+    names={'_excel_private','archive_access','_excel_atomic','_excel_sync','_excel_digest','_excel_metadata','excel_path','maintain_archive','archive_files'}
     scope=dict(Path=Path,threading=threading,json=json,hashlib=hashlib,re=re,datetime=datetime,date=NOW.date().__class__,timedelta=timedelta,
                timezone=timezone,SHANGHAI=timezone(timedelta(hours=8)),ARCHIVE_LOCK=threading.RLock(),_EXCEL_DEPTH=threading.local(),
                contextmanager=contextmanager,MAX_FILE=32*1024*1024,MAX_ARCHIVE_BYTES=512*1024*1024,MAX_ARCHIVE_FILES=512,

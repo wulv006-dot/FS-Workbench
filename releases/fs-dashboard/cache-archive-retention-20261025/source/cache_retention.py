@@ -82,14 +82,15 @@ def reference_versions(root,paths=None,databases=None):
     root=Path(root);fs=root.parent
     if paths is None:
         paths=[fs/p for p in ('reports','desktop-reports','nightly-data','reconciliation','contexts','customer-tracking')]
-        paths.append(Path('/var/lib/fc27-cloud'))
+        paths.extend(Path('/var/lib/fc27-cloud')/p for p in
+                     ('jobs','quotes','executions','previews','runs','evidence','all-coin-sync','player-sync','monitor'))
     if databases is None:databases=[fs/'tasks.sqlite3',fs/'conversations/conversations.db']
     refs=set();scanned=0;read_bytes=0;deadline=time.monotonic()+30
     for base in paths:
         if not base.exists():raise ValueError('retention_reference_root_missing')
         if any(p.is_symlink() for p in (base,*base.parents)):raise ValueError('retention_reference_symlink')
         s=base.stat()
-        if not stat.S_ISDIR(s.st_mode) or (os.name=='posix' and (s.st_uid!=os.geteuid() or s.st_mode&0o002)):raise ValueError('retention_reference_root_permissions')
+        if not stat.S_ISDIR(s.st_mode) or (os.name=='posix' and s.st_mode&0o002):raise ValueError('retention_reference_root_permissions')
         for p in base.rglob('*'):
             if p.is_symlink():raise ValueError('retention_reference_symlink')
             if not p.is_file() or p.suffix not in ('.json','.jsonl','.md','.html','.txt'):continue
@@ -97,8 +98,8 @@ def reference_versions(root,paths=None,databases=None):
             if s.st_size>MAX_FILE:raise ValueError('retention_reference_size')
             read_bytes+=s.st_size
             if read_bytes>1024*1024*1024 or time.monotonic()>deadline:raise ValueError('retention_reference_budget')
-            # Referenced receipts may be shared-group readable; do not change their ACL.
-            if (os.name=='posix' and s.st_uid!=os.geteuid()) or s.st_nlink!=1:raise ValueError('retention_reference_owner')
+            # Existing unprivileged workers own some receipts; these reads only pin data.
+            if not stat.S_ISREG(s.st_mode):raise ValueError('retention_reference_type')
             with p.open('rb') as f:
                 tail=b''
                 while True:
@@ -198,7 +199,13 @@ def collect(root,now=None,paths=None,databases=None,apply=False):
         recycle=root/'.recycle';recycle.mkdir(mode=0o700,exist_ok=True);private(recycle,True)
         sync_directory(root)
         ledger_path=recycle/'index.json'
+        if ledger_path.exists():private(ledger_path)
         ledger=json.loads(ledger_path.read_text()) if ledger_path.exists() else {}
+        if not isinstance(ledger,dict):raise ValueError('retention_ledger')
+        for version,item in ledger.items():
+            if re.fullmatch('[a-f0-9]{64}',version) is None or not isinstance(item,dict):raise ValueError('retention_ledger')
+            at=datetime.fromisoformat(item['moved_at'])
+            if at.tzinfo is None:raise ValueError('retention_ledger_time')
         for item in result['candidates']:
             version=item['version'];p,raw,_,_=_data(root,version);target=recycle/(version+'.data.json.gz')
             fd,temp=tempfile.mkstemp(prefix='.compress-',dir=str(recycle))

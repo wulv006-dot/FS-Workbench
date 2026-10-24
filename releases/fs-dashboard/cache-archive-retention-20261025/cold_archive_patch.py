@@ -67,6 +67,14 @@ def _excel_digest(path):
     return h.hexdigest()
 
 
+def _excel_metadata(path):
+    if not path.exists():return {}
+    if _excel_private(path).st_size>1024*1024:raise ValueError('es_cold_metadata')
+    value=json.loads(path.read_text())
+    if not isinstance(value,dict) or any(re.fullmatch('[a-f0-9]{64}',k) is None for k in value):raise ValueError('es_cold_metadata')
+    return value
+
+
 def excel_path(root,digest):
     import os,shutil,tempfile
     if re.fullmatch('[a-f0-9]{64}',digest) is None:raise ValueError('es_archive_integrity')
@@ -82,7 +90,7 @@ def excel_path(root,digest):
         os.replace(temp,path)
         _excel_sync(root)
         access=root/'.cold/access.json'
-        saved=json.loads(access.read_text()) if access.exists() else {}
+        saved=_excel_metadata(access)
         saved[digest]=datetime.now(timezone.utc).isoformat();_excel_atomic(access,saved)
     finally:
         if os.path.exists(temp):os.unlink(temp)
@@ -95,7 +103,7 @@ def maintain_archive(root=Path('/var/lib/fc27-es-exports'),now=None,apply=True):
     with archive_access(root):
         cold=root/'.cold'
         if cold.exists():_excel_private(cold,True)
-        access=json.loads((cold/'access.json').read_text()) if (cold/'access.json').exists() else {}
+        access=_excel_metadata(cold/'access.json')
         refs=set();hot=set()
         for p in root.glob('*.json'):
             if p.name.startswith('.'):continue
@@ -119,7 +127,7 @@ def maintain_archive(root=Path('/var/lib/fc27-es-exports'),now=None,apply=True):
                     protected_recent_files=len(hot),originals_deleted=0)
         if not apply:return result
         cold.mkdir(mode=0o700,exist_ok=True);_excel_private(cold,True);_excel_sync(root)
-        ledger=cold/'index.json';saved=json.loads(ledger.read_text()) if ledger.exists() else {}
+        ledger=cold/'index.json';saved=_excel_metadata(ledger)
         for item in candidates:
             digest=item['digest'];p=root/(digest+'.xlsx');target=cold/p.name
             if target.exists():
