@@ -27,6 +27,12 @@ class Release(unittest.TestCase):
    self.assertLess(nav.index('主站活动区'),nav.index('球类工作区'))
    group=re.search(r'<section class="hn-group"><a class="hn-heading" href="/dashboard/modules/analytics/".*?</section>',nav,re.S)[0]
    self.assertEqual(re.findall(r'class="hn-tool"[^>]*>(.*?)</a>',group),expected,page.name)
+ def test_runtime_unit_uses_observed_legacy_systemd_and_existing_identity(self):
+  text=(Path(__file__).parent/'fs-campaign-runtime.service').read_text(encoding='utf-8')
+  for required in ['User=nobody','Group=nobody','PermissionsStartOnly=true','ExecStart=/usr/local/bin/node ', 'ExecStartPre=/usr/bin/install -d -m0700 -o nobody -g nobody /var/lib/fs-campaign-runtime','ProtectSystem=full','ReadWriteDirectories=/var/lib/fs-campaign-runtime']:
+   self.assertIn(required,text)
+  for unsupported in ['StateDirectory=','ReadWritePaths=','ProtectSystem=strict','www-data']:
+   self.assertNotIn(unsupported,text)
  def test_target_boundary(self):
   self.assertEqual(p.target('app/analytics/production-server.mjs'),'/opt/fs-campaign-dashboard/analytics/production-server.mjs')
   self.assertEqual(p.target('fs-campaign-runtime.service'),'/etc/systemd/system/fs-campaign-runtime.service')

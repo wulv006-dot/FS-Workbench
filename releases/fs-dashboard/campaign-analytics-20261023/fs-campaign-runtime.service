@@ -4,8 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=nobody
+Group=nobody
+PermissionsStartOnly=true
+ExecStartPre=/usr/bin/install -d -m0700 -o nobody -g nobody /var/lib/fs-campaign-runtime
 WorkingDirectory=/opt/fs-campaign-dashboard
 ExecStart=/usr/local/bin/node /opt/fs-campaign-dashboard/runtime/server.mjs
 Environment=CAMPAIGN_PUBLIC_MODE=preview
@@ -15,11 +17,10 @@ EnvironmentFile=/etc/fs-campaign-runtime.env
 Restart=on-failure
 UMask=0077
 NoNewPrivileges=true
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=true
 PrivateTmp=true
-StateDirectory=fs-campaign-runtime
-ReadWritePaths=/var/lib/fs-campaign-runtime
+ReadWriteDirectories=/var/lib/fs-campaign-runtime
 
 [Install]
 WantedBy=multi-user.target
