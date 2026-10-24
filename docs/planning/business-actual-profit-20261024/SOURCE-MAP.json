@@ -112,7 +112,7 @@
   "publisher": {
     "release.py": "ee8f378b633f361c34232c9e51f75005fce335392ff598bf82d852a4450af8cb",
     "release_navigation_base.py": "1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de",
-    "actual_release.py": "43bb457eb9d72e1bfc6a55b61554ed2be80f849797b8fd636734e129a034e672",
+    "actual_release.py": "48eed47c3d32bf8b1fa570f746a16204c757fcf250ef7f30223f03c5f9c5574a",
     "shipping_readiness.py": "e6632991a8f422ef0fed609e9abf29531ac2bd495ea7fe8190ce9167683653d1"
   }
 }

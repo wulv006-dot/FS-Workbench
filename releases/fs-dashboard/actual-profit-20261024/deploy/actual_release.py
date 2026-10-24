@@ -6,6 +6,11 @@ def load_base():
     import release
     release.SCOPE,release.TARGETS,release.NEW=SCOPE,TARGETS,NEW
     base=release.load_base();base.TARGETS_CHANGED_NAV=set(TARGETS.values())
+    original_group=base.approved_daily_group
+    def existing_knowledge_group(manifest,root,item,info):
+        scoped=dict(manifest,scope=base.HERMES_NIGHT_SCOPE) if manifest.get('scope')==SCOPE and item==base.rooted(root,'/var/lib/fs-hermes-fc') else manifest
+        return original_group(scoped,root,item,info)
+    base.approved_daily_group=existing_knowledge_group
     from shipping_readiness import extend
     extend(base,SCOPE)
     return base

@@ -270,7 +270,7 @@ class LearningCatalog(unittest.TestCase):
         rule = rows['fs.dashboard.shipping-profit']
         self.assertEqual(rule['revision'], 'same-order-actual-profit-20261024-v2')
         self.assertEqual(rule['source_commit'], 'abc492146f15525cd4f5124637f114f9afaad363')
-        for required in ('逐单实际成本毛利', '付款时间', '不平均订单/游戏/每日比例', '缺成本',
+        for required in ('逐单实际成本毛利', '北京时间付款区间', '不平均订单/游戏/每日比例', '缺成本',
                          'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留'):
             self.assertIn(required, rule['content'])
         self.assertIn('逐单实际成本毛利', rows['fs.data.sources']['content'])
@@ -290,7 +290,7 @@ class LearningCatalog(unittest.TestCase):
     def test_historical_copy_tracks_original_location_without_claiming_old_commit_contains_new_path(self):
         row = next(r for r in catalog()['entries'] if r['source']['path']==HISTORY)
         self.assertIsNone(row['source_commit'])
-        self.assertEqual(row['original_source']['source']['path'], BASELINE)
+        self.assertEqual(row['original_source']['source']['path'], 'releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md')
         self.assertEqual(row['original_source']['source']['sha256'], row['source']['sha256'])
         self.assertEqual(row['original_source']['source_commit'], '4722f20e231ffe306095a211009d25770c478d24')
         self.assertEqual(hashlib.sha256(lf(ROOT/HISTORY)).hexdigest(), '1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb')
