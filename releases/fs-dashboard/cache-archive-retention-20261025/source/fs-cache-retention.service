@@ -1,0 +1,17 @@
+[Unit]
+Description=Reference-aware source cache cleanup and recoverable Excel archive
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-hermes-fc/cache_retention.py --apply
+User=root
+Group=root
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+MemoryLimit=512M
+TimeoutStartSec=180
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
