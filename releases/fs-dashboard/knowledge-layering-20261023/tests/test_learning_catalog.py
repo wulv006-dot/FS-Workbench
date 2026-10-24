@@ -271,7 +271,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(rule['revision'], 'shipping-profit-20261024-v1')
         self.assertEqual(rule['source_commit'], 'cf9f29e1077f1485b4ec03b393975e75d37f4abe')
         for required in ('/stats/admin_index/delivery.html', '人民币利润=同范围销售−采购',
-                         '不能平均游戏率/日率', '完整北京自然日', '覆盖证明', '其他消费者'):
+                         '不能平均游戏率/日率', '完整北京自然日', '覆盖证明', '原价格、订单、权限'):
             self.assertIn(required, rule['content'])
         self.assertNotIn('## 真实只读核对', rule['content'])
         self.assertIn('不再用于全局/分游戏主利润及每日曲线', rows['fs.data.sources']['content'])
