@@ -1,5 +1,5 @@
 {
-  "status": "native_skill_write_and_readback_completed",
+  "status": "rules_native_understanding_and_guided_report_FS_reading_verified_natural_pending",
   "files": [
     {
       "skill": "data-storytelling",
@@ -30,8 +30,51 @@
   ],
   "native_pending_id": "18598b7b",
   "other_skill_markdown_protected": 15,
-  "understanding": "pending",
-  "actual_new_report": "pending",
-  "notion": "pending",
-  "natural_transfer": "not_yet_observed"
+  "understanding": "native_read_core_explanation_and_same_session_feedback_completed",
+  "actual_new_report": {
+    "id": "f9e6ecd5572d1cabb975308bbf867e56",
+    "status": "completed",
+    "final_id": "bf134376fd948a172fdc3a9c9409ab9a",
+    "final_status": "completed_FS_reading_verified",
+    "editorial_id": "eca94779aad934b26535b0b457a11eed",
+    "editorial_task": "56220489e94e526778e0c5e01ed134b6",
+    "editorial_run": "run_f217bed1f0df49499c1d3203d891e43f",
+    "editorial_sha256": "6282afbcd26fab72dcc7b7c047bb4448defcb4db94c50c6198e0c574265d528b",
+    "editorial_status": "completed",
+    "browser_editorial": "FS desktop, trend/comparison/ads metric/theme, 390px reading checked; duplicate customer chart id found, native repair submitted",
+    "final_task": "56c7fe4307d59c31438dd046f55e6132",
+    "final_run": "run_74712985afea4582ad13288975828e1d",
+    "final_sha256": "090cd3a6c83b8594b11aa309b3f9c67a9daf21d5c59cf6af2de3d609c253ad2a",
+    "final_bytes": 67567,
+    "final_url": "https://47.85.224.112/dashboard/fs-home/brain/index.html?report=bf134376fd948a172fdc3a9c9409ab9a&view=html",
+    "final_actual_input": "learning-065f079181156835cd7144300409bf699d5c8f66f5eb1974a1f5bfb3f733f3b9",
+    "final_knowledge_present": true,
+    "final_native_completed": true,
+    "final_task_state": "PARTIAL_existing_source_gaps",
+    "layout_check": "exact two intended id substitutions; all ids unique; original editorial bytes retained",
+    "browser": "FS final render, customer heading and chart separate, navigation and folded appendix; identical body/styles retain prior trend/comparison/ads/theme/390px evidence",
+    "private_screenshot": ".agent_runtime/report-review-reset-20261025/evidence/FS-final-24-desktop.jpg"
+  },
+  "notion": {
+    "page_id": "3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a",
+    "readback": "single_block_verified"
+  },
+  "natural_transfer": {
+    "automation_id": "automation",
+    "status": "ACTIVE",
+    "types": [
+      "daily",
+      "weekly",
+      "monthly"
+    ],
+    "checked": 0,
+    "local_time": "08:10 Asia/Shanghai",
+    "until": "2026-11-08",
+    "end_after_first_coverage": true
+  },
+  "native_stored_session": "20261025_091843_4c1f59",
+  "git_pr": 472,
+  "source_commit": "f988e24936172b3b86d03dad58ef813e60d09188",
+  "merge_commit": "8220cf7b1ca5a55c453e94edd7ae1286e3b3385d",
+  "formal_ci": 40180263962
 }
