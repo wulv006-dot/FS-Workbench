@@ -55,6 +55,48 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
+    if action == 'catalog_search':
+        allowed = {'action','site_id','game_id','keyword','goods_id','model_id','category_id','platform_attribute_id','page','page_size'}
+        if set(request)-allowed:
+            raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
+        site_id, game_id = positive_id(request.get('site_id')), positive_id(request.get('game_id'))
+        if site_id != '266':
+            raise ContractError('PROJECT_SITE_REQUIRED')
+        queries = [key for key in ('keyword','goods_id','model_id') if key in request]
+        if len(queries) != 1:
+            raise ContractError('CATALOG_QUERY_REQUIRED')
+        query = queries[0]
+        page, size = request.get('page',1), request.get('page_size',20)
+        if type(page) is not int or not 1<=page<=500 or type(size) is not int or not 1<=size<=50:
+            raise ContractError('INVALID_CATALOG_PAGE')
+        values = {key:positive_id(request[key]) for key in ('goods_id','model_id','category_id','platform_attribute_id') if key in request}
+        if query == 'keyword':
+            keyword = request['keyword']
+            if not isinstance(keyword,str) or not 2<=len(keyword.strip())<=80 or any(ord(c)<32 for c in keyword):
+                raise ContractError('INVALID_CATALOG_KEYWORD')
+        if query == 'goods_id' and page != 1:
+            raise ContractError('EXACT_GOODS_PAGE_REQUIRED')
+        reader = reader_factory()
+        try:
+            if query == 'goods_id':
+                row = reader.detail('goods',values['goods_id'])
+                product = discover_product(row,site_id,game_id,allow_unknown=True)
+                matches = all(product[field] == values[key] for key,field in
+                    (('category_id','category_id'),('platform_attribute_id','platform_attribute_id')) if key in values)
+                rows = [row] if matches else []
+                result = dict(rows=rows,total=len(rows),page=1,page_size=size,has_more=False)
+            else:
+                result = reader.search_goods_page(site_id,game_id,keyword=request['keyword'] if query=='keyword' else None,
+                    model_id=values.get('model_id'),category_id=values.get('category_id'),
+                    platform_attribute_id=values.get('platform_attribute_id'),page=page,limit=size)
+            return dict(items=[discover_product(row,site_id,game_id,allow_unknown=True) for row in result['rows']],
+                site_id=site_id,game_id=game_id,total=result['total'],page=result['page'],page_size=result['page_size'],
+                has_more=result['has_more'],completeness='single_page',management_only=True,
+                authoritative=False,available=False,checkout_enabled=False,
+                search_verification=dict(query='exact_goods_detail' if query=='goods_id' else 'source_protocol_not_live_verified',
+                    filters='raw_admin_fields_not_business_labels',pagination='single_response_only'))
+        finally:
+            reader.close()
     if action == 'catalog_mapping_read':
         if positive_id(request.get('site_id')) != '266' or set(request) - {'action', 'site_id', 'reference_key'}:
             raise ContractError('CATALOG_MAPPING_SCOPE_REQUIRED')
@@ -74,6 +116,10 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
     if action in ('catalog_discover', 'product_read'):
         site_id, game_id = positive_id(site_id), positive_id(request.get('game_id'))
         if action == 'product_read':
+            if set(request)-{'action','site_id','game_id','goods_id'}:
+                raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
+            if site_id != '266':
+                raise ContractError('PROJECT_SITE_REQUIRED')
             goods_id = positive_id(request.get('goods_id'))
     if action == 'catalog_read':
         game_id = source_identity(request.get('game_id'))
@@ -94,8 +140,8 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
                         checkout_enabled=False, verification_scope='observed_admin_metadata')
         if action == 'product_read':
             model, goods = reader.scoped_product(site_id, game_id, goods_id)
-            return dict(product=read_product_metadata(model, goods, site_id, game_id),
-                        management_only=True, authoritative=False, checkout_enabled=False)
+            return dict(product=read_product_metadata(model, goods, site_id, game_id,allow_unknown=True),
+                        management_only=True, authoritative=False,available=False,checkout_enabled=False)
         if action == 'benefits_read':
             site_id = positive_id(site_id)
             if site_id != '266':

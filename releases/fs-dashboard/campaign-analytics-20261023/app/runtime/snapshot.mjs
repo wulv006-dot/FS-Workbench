@@ -34,7 +34,66 @@ const localPath = value => {
   return value;
 };
 const hash = value => { if (!/^[a-f0-9]{64}$/.test(value || '')) fail('INVALID_RELEASE'); return value; };
+export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player'],'fc27-trio':['preview','player','bundle'],
+  'fc27-sbc':['preview','core','companion'],'seasonal-vault':['preview','pool','fixed','both']});
+const rolePageByPath={'Weekly-Scout.html':'fc27-weekly','Player-Trio.html':'fc27-trio','Sbc-Companions.html':'fc27-sbc','seasonal/index.html':'seasonal-vault'};
+export function pageDisplayFields(page){
+  const own=(key)=>Object.hasOwn(page,key),result={},selected=new Set(page.product_keys||[]),pageId=rolePageByPath[page.path]||page.page_id;
+  const record=value=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length<=500;
+  if(own('product_roles')){
+    if(!record(page.product_roles)||Object.entries(page.product_roles).some(([key,role])=>!selected.has(key)||!pageRoleOptions[pageId]?.includes(role)))fail('INVALID_PRODUCT_ROLES');
+    result.product_roles=Object.fromEntries(Object.entries(page.product_roles).map(([key,role])=>[id(key),role]));
+  }
+  if(own('sbc_companions')){
+    if(pageId!=='fc27-sbc'||!record(page.sbc_companions))fail('INVALID_SBC_COMPANIONS');
+    result.sbc_companions={};
+    for(const [key,companions] of Object.entries(page.sbc_companions)){
+      if(!selected.has(key)||page.product_roles?.[key]!=='core'||!Array.isArray(companions)||companions.length>20
+        ||new Set(companions).size!==companions.length||companions.some(k=>!selected.has(k)||page.product_roles?.[k]!=='companion'))fail('INVALID_SBC_COMPANIONS');
+      result.sbc_companions[id(key)]=companions.map(id);
+    }
+  }
+  return result;
+}
+export function projectFcLayout(layout,products){
+  if(!layout||typeof layout!=='object'||Array.isArray(layout)||Object.keys(layout).some(k=>!['weekly','trio','bundles','sbc','defaultCore','routes'].includes(k)))fail('INVALID_FC_LAYOUT');
+  const known=new Set(products.flatMap(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return match&&p.product_ref.game_id==='1327'?[match[1]]:[];}));
+  const ids=values=>{if(!Array.isArray(values)||values.length>500||new Set(values).size!==values.length||values.some(k=>typeof k!=='string'||!known.has(k)))fail('INVALID_FC_LAYOUT');return values.map(id);};
+  const result=Object.fromEntries(['weekly','trio','bundles','sbc'].map(k=>[k,ids(layout[k])]));
+  if(layout.defaultCore!==null&&!result.sbc.includes(layout.defaultCore))fail('INVALID_FC_LAYOUT');result.defaultCore=layout.defaultCore;
+  if(!layout.routes||typeof layout.routes!=='object'||Array.isArray(layout.routes)||Object.keys(layout.routes).some(k=>!result.sbc.includes(k)))fail('INVALID_FC_LAYOUT');
+  result.routes=Object.fromEntries(Object.entries(layout.routes).map(([key,row])=>{
+    if(!row||typeof row!=='object'||Object.keys(row).some(k=>!['picks','alternatives','label'].includes(k)))fail('INVALID_FC_LAYOUT');
+    const route={picks:ids(row.picks),alternatives:ids(row.alternatives)};
+    if(row.label!=null){if(typeof row.label!=='object'||Array.isArray(row.label)||Object.keys(row.label).some(k=>!['zh','en'].includes(k)))fail('INVALID_FC_LAYOUT');route.label=Object.fromEntries(Object.entries(row.label).map(([k,v])=>[k,text(v,160)]));}
+    return [id(key),route];
+  }));return result;
+}
+// Imported Admin metadata is display-only. Unknown purchase quantities stay null.
+export function projectPreviewProduct(p) {
+  const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(k=>keys.includes(k));
+  const number=value=>{if(typeof value!=='string'||!/^[1-9]\d{0,19}$/.test(value))fail('INVALID_IMPORTED_PRODUCT');return value;};
+  if(!exact(p,['key','title','title_source','product_ref','platform','preview_only','available','quantity','attributes','observed_quantity','preview_reason'])||p.preview_only!==true||p.available!==false||p.quantity!==null||!Array.isArray(p.attributes)||p.attributes.length)fail('INVALID_IMPORTED_PRODUCT');
+  if(!exact(p.product_ref,['site_id','game_id','goods_id','model_id','sku_id']))fail('INVALID_IMPORTED_PRODUCT');
+  const product_ref=Object.fromEntries(['site_id','game_id','goods_id','model_id'].map(k=>[k,number(p.product_ref[k])]));
+  if(product_ref.site_id!=='266')fail('INVALID_IMPORTED_PRODUCT');
+  if(p.product_ref.sku_id!=null)product_ref.sku_id=number(p.product_ref.sku_id);
+  if(!exact(p.platform,['code','attribute_id']))fail('INVALID_IMPORTED_PRODUCT');
+  const aid=p.platform.attribute_id==null?'unknown':number(p.platform.attribute_id),known={'21587':'ps','21585':'xbox','21589':'pc'};
+  const code=aid==='unknown'?'unknown':product_ref.game_id==='1327'&&known[aid]||'area-'+aid;
+  const key='admin-'+[product_ref.site_id,product_ref.game_id,product_ref.goods_id,aid].join('-')+(product_ref.sku_id?'-sku-'+product_ref.sku_id:'');
+  if(p.key!==key||p.platform.code!==code||typeof p.title!=='string'||/[<>\u0000-\u001f]/.test(p.title))fail('INVALID_IMPORTED_PRODUCT');
+  const observation=p.observed_quantity;
+  if(!exact(observation,['minimum','unit','group']))fail('INVALID_IMPORTED_PRODUCT');
+  const observed=value=>{if(value==null)return null;if(typeof value!=='string'||!/^\d{1,20}(?:\.\d{1,6})?$/.test(value))fail('INVALID_IMPORTED_PRODUCT');return value;};
+  if(observation.unit!=null&&(typeof observation.unit!=='string'||observation.unit.length>64||/[<>\u0000-\u001f]/.test(observation.unit)))fail('INVALID_IMPORTED_PRODUCT');
+  const title_source=p.title_source??'admin';if(!['admin','identity_fallback'].includes(title_source))fail('INVALID_IMPORTED_PRODUCT');
+  if(title_source==='identity_fallback'&&p.title!=='商品ID '+product_ref.goods_id)fail('INVALID_IMPORTED_PRODUCT');
+  return {key:id(key),title:text(p.title,200),title_source,product_ref,platform:{code,...(aid==='unknown'?{}:{attribute_id:aid})},
+    preview_only:true,available:false,quantity:null,attributes:[],observed_quantity:{minimum:observed(observation.minimum),unit:observation.unit??null,group:observed(observation.group)},preview_reason:'PURCHASE_MAPPING_UNVERIFIED'};
+}
 function product(p) {
+  if(p?.preview_only===true)return projectPreviewProduct(p);
   const product_ref = ref(p.product_ref);
   if (!product_ref.site_id || !product_ref.game_id || !product_ref.goods_id) fail('INVALID_RELEASE');
   const quantity = {unit:id(p.quantity?.unit), min:text(p.quantity?.min,32), max:text(p.quantity?.max,32), step:text(p.quantity?.step,32)};
@@ -52,7 +111,7 @@ export function projectRelease(input) {
   if (input?.schema_version !== 1 || input.publication_status !== 'published' || !Array.isArray(input.pages) || !Array.isArray(input.products)) fail('UNPUBLISHED_RELEASE',503);
   const result={schema_version:1, release_id:id(input.release_id), source_revision:id(input.source_revision), config_hash:hash(input.config_hash), rule_hash:hash(input.rule_hash),
     pages:input.pages.map(p => ({activity_id:id(p.activity_id), page_id:id(p.page_id), rule_version:id(p.rule_version), benefit_binding_version:id(p.benefit_binding_version),
-      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),
+      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),...pageDisplayFields(p),
       ...(p.description ? {description:text(p.description,320)} : {}),
       ...((p.default_language!=null||p.social_image!=null)?presentationFields(p):{}),
       ...(p.starts_at ? {starts_at:new Date(p.starts_at).toISOString()} : {}),
@@ -60,6 +119,7 @@ export function projectRelease(input) {
     products:input.products.map(product)};
   if (new Set(result.products.map(p=>p.key)).size !== result.products.length || new Set(result.pages.map(p=>p.page_id)).size !== result.pages.length || result.pages.some(p=>p.product_keys.some(k=>!result.products.some(r=>r.key===k)))) fail('INVALID_RELEASE');
   if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
+  if(input.fc_layout!=null)result.fc_layout=projectFcLayout(input.fc_layout,result.products);
   if(result.pages.some(p=>p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at))fail('INVALID_RELEASE');
   return JSON.parse(JSON.stringify(result));
 }

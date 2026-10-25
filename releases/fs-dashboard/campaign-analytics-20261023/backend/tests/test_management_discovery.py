@@ -9,7 +9,7 @@ from campaign_backend.core import ContractError
 
 def goods(**changes):
     row = dict(id=170014917, site_id=266, gid=1327, mid=43167385, aid=21587,
-        sid=7645, cid=9627, title='Example Player', min_qty=1, unit='', sku_switch=0,
+        sid=7645, cid=9627, title='Example Player', min_qty=1, num=1, unit='', sku_switch=0,
         attr_switch=1, status=1, buy_status=0, price='SECRET_PRICE', cost='SECRET_COST',
         more={'saleprop': [], 'skuTableSet': [], 'internal_cost': 'SECRET_NESTED'})
     row.update(changes)

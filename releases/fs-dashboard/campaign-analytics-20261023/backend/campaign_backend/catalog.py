@@ -88,11 +88,49 @@ def _reference_id(value):
     return positive_id(value)
 
 
-def discover_product(row, site_id, game_id):
+def discover_product(row, site_id, game_id, allow_unknown=False):
     """Observed Admin metadata only: no currency, availability or checkout inference."""
     if not isinstance(row, dict):
         raise ContractError('INVALID_PRODUCT_ROW')
     site_id, game_id = positive_id(site_id), positive_id(game_id)
+    if allow_unknown:
+        if positive_id(row.get('site_id')) != site_id or positive_id(row.get('gid')) != game_id:
+            raise ContractError('PRODUCT_SCOPE_MISMATCH')
+        reasons = []
+        def optional_id(key):
+            try:return _reference_id(row.get(key))
+            except ContractError:
+                reasons.append(key.upper()+'_UNKNOWN');return None
+        def optional_switch(key):
+            try:return _switch(row.get(key))
+            except ContractError:
+                reasons.append(key.upper()+'_UNKNOWN');return None
+        try:
+            minimum = int(positive_id(row.get('min_qty')))
+            if minimum > 9007199254740991:raise ContractError('QUANTITY_FIELD_UNKNOWN')
+        except ContractError:
+            minimum = None;reasons.append('MINIMUM_QUANTITY_UNKNOWN')
+        try:positive_id(row.get('num'))
+        except ContractError:reasons.append('QUANTITY_GROUP_UNKNOWN')
+        def label(value, maximum, empty=False):
+            if (not isinstance(value,str) or len(value)>maximum or (not empty and not value.strip())
+                    or re.search(r'[\x00-\x1f]|https?://|@|phx_',value) or _PRIVATE.search(value)):
+                return None
+            return value
+        title, unit = label(row.get('title'),240), label(row.get('unit'),64,True)
+        if title is None:reasons.append('PRODUCT_TITLE_UNKNOWN')
+        if unit is None:reasons.append('PRODUCT_UNIT_UNKNOWN')
+        result = dict(product_ref=dict(site_id=site_id,game_id=game_id,goods_id=positive_id(row.get('id')),
+            model_id=positive_id(row.get('mid'))),title=title,platform_attribute_id=optional_id('aid'),
+            server_id=optional_id('sid'),category_id=optional_id('cid'),minimum_quantity=minimum,unit=unit,
+            sku_switch=optional_switch('sku_switch'),attr_switch=optional_switch('attr_switch'),
+            raw_status=row.get('status') if type(row.get('status')) in (int,str) and re.fullmatch(r'[0-9]{1,10}',str(row['status'])) else None,
+            raw_buy_status=row.get('buy_status') if type(row.get('buy_status')) in (int,str) and re.fullmatch(r'[0-9]{1,10}',str(row['buy_status'])) else None,
+            status_semantics='unknown',purchase_mapping_required=True,purchase_mapping_reasons=['PRODUCT_DETAIL_REQUIRED'],
+            metadata_missing_reasons=reasons,available=False,authoritative=False,checkout_enabled=False)
+        if result['raw_status'] is None:reasons.append('PRODUCT_STATUS_UNKNOWN')
+        if result['raw_buy_status'] is None:reasons.append('PRODUCT_BUY_STATUS_UNKNOWN')
+        return result
     try:
         if (positive_id(row['site_id']) != site_id or positive_id(row['gid']) != game_id):
             raise ContractError('PRODUCT_SCOPE_MISMATCH')
@@ -116,15 +154,19 @@ def discover_product(row, site_id, game_id):
         raise ContractError('PRODUCT_METADATA_MISSING') from None
 
 
-def read_product_metadata(model, goods, site_id, game_id):
-    product = discover_product(goods, site_id, game_id)
+def read_product_metadata(model, goods, site_id, game_id, allow_unknown=False):
+    product = discover_product(goods, site_id, game_id, allow_unknown=allow_unknown)
     if (not isinstance(model, dict)
             or positive_id(model.get('id')) != product['product_ref']['model_id']):
         raise ContractError('MODEL_SCOPE_MISMATCH')
     if 'gid' in model and positive_id(model['gid']) != product['product_ref']['game_id']:
         raise ContractError('MODEL_SCOPE_MISMATCH')
-    product['model_title'] = identity(model.get('title'))
-    reasons = []
+    reasons = list(product.get('metadata_missing_reasons',[]))
+    title = model.get('title')
+    if allow_unknown and (not isinstance(title,str) or not title.strip() or len(title)>240
+            or re.search(r'[\x00-\x1f]|https?://|@|phx_',title) or _PRIVATE.search(title)):
+        product['model_title'] = None;reasons.append('MODEL_TITLE_UNKNOWN')
+    else:product['model_title'] = identity(title)
     sale_properties_observed = False
     specifications = {}
     for source, row in (('goods', goods), ('model', model)):
@@ -154,14 +196,14 @@ def read_product_metadata(model, goods, site_id, game_id):
         reasons.append('SKU_SELECTION_MAPPING_REQUIRED')
     if not sale_properties_observed:
         reasons.append('SALE_PROPERTY_PRESENCE_UNKNOWN')
-    if product['platform_attribute_id'] == '0':
+    if product['platform_attribute_id'] in ('0', None):
         reasons.append('PLATFORM_ATTRIBUTE_MAPPING_REQUIRED')
     # attr_switch=1 alone does not imply selectable attributes; actual saleprop decides.
     if not product['sku_switch'] and not reasons:
         product['purchase_mapping_required'] = False
     product['purchase_mapping_reasons'] = sorted(set(reasons))
     product['specification_sources'] = specifications
-    product['quantity_observation'] = dict(minimum=str(product['minimum_quantity']), raw_unit=product['unit'],
+    product['quantity_observation'] = dict(minimum=str(product['minimum_quantity']) if product['minimum_quantity'] is not None else None, raw_unit=product['unit'],
         raw_num=str(goods['num']) if type(goods.get('num')) in (str, int) and str(goods['num']).isdigit() else None,
         step=None, maximum=None, semantics='observed_fields_not_cart_serialization')
     product['nested_purchase_fields'] = {source: specification_projection(row.get('more'))
