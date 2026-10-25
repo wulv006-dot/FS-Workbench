@@ -177,7 +177,7 @@
     },
     {
       "path": "/opt/fs-hermes-fc/controller.py",
-      "sha256": "ee564873cb47077b3faa5f15c5f24c80bfc0f9e2e44d213938d3c16136883275"
+      "sha256": "1c3b3906d579c5f276263696ccd03077724aa75dc392a63da4b7a64e29d098b0"
     },
     {
       "path": "/opt/fs-hermes-fc/fs_evidence.py",
