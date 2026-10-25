@@ -66,6 +66,17 @@ class SiteFilters(unittest.TestCase):
         self.assertNotIn('admin_site',omitted)
         self.assertEqual(summary_key(omitted),summary_key(legacy))
 
+    def test_actual_profit_keeps_its_original_site_cache_identity(self):
+        from actual_profit import selection
+        profiles={'FC27':PROFILE}
+        for site in ('main','all'):
+            args=dict(mode=['actual-profit'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'],profit_site=[site])
+            actual=selection(args,profiles)
+            old=query({**args,'mode':['summary']},profiles)
+            old.pop('admin_site',None);old['site']='www.mmoexp.com'
+            self.assertNotIn('admin_site',actual);self.assertEqual(key_of(actual),key_of(old))
+            self.assertEqual(actual['profit_site'],site)
+
     def test_bridge_reuses_old_all_endpoint_and_new_filtered_main(self):
         import summary_bridge
         q=self.make();factory=Mock()

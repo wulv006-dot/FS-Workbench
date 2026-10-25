@@ -14,6 +14,9 @@ def selection(params,profiles):
     values={**params,'mode':['summary']}
     if values.get('refresh')==['1']:values['refresh']=['true']
     q=summary_query(values,profiles)
+    # Admin summary metadata must not invalidate the independent profit archive.
+    q.pop('admin_site',None)
+    if q['profile']!='RS':q['site']='www.mmoexp.com'
     if q['profile']!='RS' and q['profit_category']!='-1':raise ValueError('shipping_category_is_not_actual_cost_scope')
     return q
 
