@@ -37,7 +37,18 @@
     "api_reloaded": true,
     "worker_restarted": false
   },
-  "formal_ci": "pending",
+  "formal_ci": {
+    "pr": 471,
+    "initial_head": "fe2a9021bf689b3557d853c8d5eff21eabb3a479",
+    "initial_run": 40180248995,
+    "initial_conclusion": "success",
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "final_head_authority": "https://github.com/wulv006-dot/FS-Workbench/pull/471/checks",
+    "final_combination": "Requires fresh CI after latest main docs-only integration; never reuse initial green"
+  },
   "new_business_jobs": 0,
   "production_publish": 0,
   "ordinary_natural_cycle": {

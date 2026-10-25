@@ -1,0 +1,37 @@
+{
+  "status": "native_skill_write_and_readback_completed",
+  "files": [
+    {
+      "skill": "data-storytelling",
+      "file": "SKILL.md",
+      "before_sha256": "6c35fd419c0eaba091385510a4d09571103d4006b9659886bfbd3f43319c9691",
+      "after_sha256": "f8301734306994c1deb69b4cda48fc689a566da6be1d63b031887800a02754e4",
+      "version": "1.0.17"
+    },
+    {
+      "skill": "report-html-authoring",
+      "file": "SKILL.md",
+      "before_sha256": "24b9488cb976909aea3e4937d85dc4b4f497f9bd545678257ad63996f6ee69e8",
+      "after_sha256": "ebf054faff57faa31852403ef241efac7d1d4c3672f3723572ee979af91bdbad",
+      "version": "1.5.11"
+    },
+    {
+      "skill": "data-storytelling",
+      "file": "references/operator-report-core-20261025.md",
+      "before_sha256": null,
+      "after_sha256": "ad908982f5a45b79870e208244ad16c9c499f8ab6f65a5ecf70ece07dc6341e4"
+    },
+    {
+      "skill": "report-html-authoring",
+      "file": "references/operator-report-core-20261025.md",
+      "before_sha256": null,
+      "after_sha256": "ad908982f5a45b79870e208244ad16c9c499f8ab6f65a5ecf70ece07dc6341e4"
+    }
+  ],
+  "native_pending_id": "18598b7b",
+  "other_skill_markdown_protected": 15,
+  "understanding": "pending",
+  "actual_new_report": "pending",
+  "notion": "pending",
+  "natural_transfer": "not_yet_observed"
+}
