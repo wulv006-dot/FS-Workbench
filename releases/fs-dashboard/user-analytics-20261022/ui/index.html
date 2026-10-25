@@ -13,8 +13,8 @@
   <script type="module" src="./users.js"></script>
 </head>
 <body class="fs-ui-page" data-fs-module="users">
-  <a href="#main">跳到主内容</a>
-  <header><div><a href="/dashboard/">FS / MMOEXP</a><h1>用户分析</h1><p>从购买客户的进入、复购和流失，查看经营变化。</p></div><label>显示主题<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label></header>
+  <a class="skip-link" href="#main">跳到主内容</a>
+  <header><div><h1>用户分析</h1><p>从购买客户的进入、复购和流失，查看经营变化。</p></div><label>显示主题<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label></header>
   <main id="main" tabindex="-1">
     <form id="filters" class="panel">
       <label for="state-basis">分析方式<select id="state-basis" name="state_basis" aria-describedby="period-hint"><option value="period_cohort">所选期间购买客户（截至昨日）</option><option value="current">辅助：全部已覆盖客户今天的状态</option><option value="period_end">辅助：全部已覆盖客户截至昨日状态</option></select></label>
@@ -22,7 +22,7 @@
       <label>站点或项目<select name="scope_id" disabled><option value="">全部已接入</option></select></label>
       <label for="period-start">期间开始<input id="period-start" type="date" name="start" required aria-describedby="period-hint"></label>
       <label for="period-end">统计至（每日自动）<output id="period-end" aria-describedby="period-hint">昨日</output></label>
-      <label>阶段规则<select name="policy_version"><option value="common-v1">统一 30 / 60 / 90 天</option><option value="fc-v1">FC 14 / 30 / 90 天</option></select></label>
+      <label class="policy-field">阶段规则<select name="policy_version"><option value="short-term-v1">短期效果：7 / 14 / 30 天</option><option value="long-term-v1">长期追踪：14 / 30 / 60 天</option></select></label>
       <label>项目对比<select name="policy_mode"><option value="per_project">各项目规则</option><option value="uniform">统一规则横比</option></select></label>
       <label>二购观察<select name="H"><option value="7">7 天</option><option value="30">30 天</option></select></label>
       <button type="submit">查询</button>

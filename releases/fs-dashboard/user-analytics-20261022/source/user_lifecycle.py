@@ -5,7 +5,7 @@ from bisect import bisect_left, bisect_right
 from decimal import Decimal
 import json
 
-from user_contract import TZ, STATES, stamp, state
+from user_contract import TZ, STATES, stamp, state, OBSERVATION_POLICIES
 
 
 def covered(jobs, sites, start, end):
@@ -337,7 +337,7 @@ def project_analysis(orders, jobs, query, config, global_result, global_members)
     gids = sorted({r['gid'] for r in orders if r['valid'] and stamp(r['paid_at']) < end and in_scope(r, query, config)})
     for gid in gids:
         q = dict(query, scope='project', scope_id=gid)
-        if query['policy_mode'] == 'per_project':
+        if query['policy_mode'] == 'per_project' and query['policy_version'] not in OBSERVATION_POLICIES:
             q['policy_version'] = config['projects'].get(gid, {}).get('policy', 'fc-v1' if config['projects'].get(gid, {}).get('series') == 'FC' else 'common-v1')
         subset = by_project[gid]
         result, private = analyze(subset, jobs, q, config, details=False)

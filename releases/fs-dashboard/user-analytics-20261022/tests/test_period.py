@@ -53,6 +53,48 @@ class Period(unittest.TestCase):
         facts=self.store.read(analytics=True,start='2026-10-01',end='2026-10-23')[1]
         self.assertEqual(len(facts),1)
 
+    def test_observation_policy_boundaries_and_frozen_consumers(self):
+        from user_contract import OBSERVATION_POLICIES, POLICIES, state
+        old = self.query('2026-07-01', policy_version='fc-v1')
+        for version, points in OBSERVATION_POLICIES.items():
+            with self.subTest(version=version):
+                self.assertEqual(tuple(self.config['policies'][version]), points)
+                self.assertEqual(POLICIES[version], points)
+                a, b, c = points
+                ages = (0, a-1, a, b-1, b, c-1, c)
+                expected = ('recent', 'recent', 'silent', 'silent', 'lost', 'lost', 'long_lost')
+                rows = []
+                for n, (days, stage) in enumerate(zip(ages, expected), 1):
+                    paid = NOW.replace(hour=0) - timedelta(days=days+1)
+                    self.assertEqual(state(paid, (NOW-timedelta(days=1)).date(), points), stage)
+                    rows.append(order(n, paid.isoformat(), email=f'boundary-{n}@example.test'))
+                self.load(rows)
+                result = self.query(policy_version=version)
+                self.assertEqual(result['lifecycle_policy']['thresholds_days'], list(points))
+                for stage, count in [('waiting',2), ('silent',2), ('lost',2), ('long_lost',1)]:
+                    self.assertEqual(result['metrics'][stage]['value'], count)
+                    args = dict(snapshot_id=result['snapshot_id'], group=stage)
+                    self.assertEqual(self.service.members(args,'admin')['total'], count)
+                    exported = self.service.export(args,'admin')
+                    self.assertEqual(len(exported['rows']), count)
+                self.assertEqual(result['trend'][-1]['stock']['long_lost'], 1)
+                self.assertTrue(result['projects'])
+                self.assertTrue(all(p['policy_version']==version for p in result['projects']))
+                tool = invoke(self.service,'reader',dict(snapshot_id=result['snapshot_id']))
+                self.assertEqual(tool['lifecycle_policy'], result['lifecycle_policy'])
+                self.assertEqual(tool['metrics'], result['metrics'])
+                self.assertEqual(self.service.query(dict(snapshot_id=old['snapshot_id']),'reader'), old)
+
+    def test_observation_policy_keeps_selected_thresholds_for_project_matrix(self):
+        self.load([order(1,'2026-10-02'),order(2,'2026-10-03',gid='2000')])
+        for version in ('short-term-v1','long-term-v1'):
+            for mode in ('per_project','uniform'):
+                with self.subTest(version=version,mode=mode):
+                    value = self.query(policy_version=version, policy_mode=mode, scope='project', scope_id='1327')
+                    self.assertTrue(all(p['policy_version']==version for p in value['projects']))
+                    self.assertEqual(value['metrics']['lost']['value'], int(version=='short-term-v1'))
+                    self.assertEqual(value['metrics']['silent']['value'], int(version=='long-term-v1'))
+
     def test_email_search_is_exact_private_and_frozen(self):
         from user_http import search
         email='Case+tag@example.test'

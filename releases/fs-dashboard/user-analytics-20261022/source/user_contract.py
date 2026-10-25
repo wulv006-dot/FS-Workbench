@@ -8,7 +8,8 @@ from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo('Asia/Shanghai')
 STATES = ('recent', 'silent', 'lost', 'long_lost')
-POLICIES = {'common-v1': (30, 60, 90), 'fc-v1': (14, 30, 90)}
+OBSERVATION_POLICIES = {'short-term-v1': (7, 14, 30), 'long-term-v1': (14, 30, 60)}
+POLICIES = {'common-v1': (30, 60, 90), 'fc-v1': (14, 30, 90), **OBSERVATION_POLICIES}
 VIEWS = ('summary', 'trend', 'projects', 'transitions', 'cohort', 'migration', 'trajectories')
 METRIC_DEFINITIONS = {key: dict(label=label, unit='customers', definition=definition) for key, label, definition in (
     ('purchasers', '区间购买客户', '有效区间内至少一次有效购买，按已核主邮箱去重'),

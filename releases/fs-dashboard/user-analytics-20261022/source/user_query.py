@@ -6,7 +6,7 @@ from threading import RLock
 import json
 import re
 
-from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS
+from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS, OBSERVATION_POLICIES
 from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
@@ -54,7 +54,8 @@ class Service:
                 flags, flag_source = self.customer_type_reader(query)
             except (OSError,ValueError,KeyError,TypeError,ImportError) as error:
                 flag_source = dict(status='unavailable',source='Admin ES order-time new-customer flag',reason='source_contract_unavailable',error_type=type(error).__name__)
-        global_query = dict(query, scope='global', scope_id='', policy_version=config.get('global_policy_version', 'common-v1'))
+        global_policy = query['policy_version'] if query['policy_version'] in OBSERVATION_POLICIES else config.get('global_policy_version', 'common-v1')
+        global_query = dict(query, scope='global', scope_id='', policy_version=global_policy)
         global_allowed = self.authorizer(user, global_query, False) is True
         proof_path = self.store.root/'history-origin.json'
         bounded_path = self.store.root/'history-coverage.json'
