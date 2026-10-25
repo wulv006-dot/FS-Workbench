@@ -6,7 +6,7 @@
 
 依据：docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md“逐笔订单查询一个月上限”；rea_admin_contract_20261021/patch_paid.py；releases/fs-dashboard/user-analytics-20261022/source/user_config.json的refund_policy。相关合成测试涵盖1/2类型、未知/bool/float、重复拉取、历史保留、金额/分摊保持未知。没有访问真实订单或执行退款。
 
-## Seasonal准确原型规则与两个用户问题
+## Seasonal原型参数与原任务决策复核
 
 出处：app/seasonal/campaign-data.js、vault-core.js、event.js，均来自原限定页交付。
 
@@ -15,10 +15,15 @@
 - 主题日期均为CONCEPT：Halloween OCT24–NOV02、Thanksgiving NOV20–NOV30、Christmas DEC15–DEC28、BlackFriday NOV27–NOV30。不是批准的年份/时区/生产生效窗。
 - FC原ACTIVITY-PRICING-CONTRACT明确当前实售价额外10%、按既有互斥叠券码积分、对应品类利润规则；promotion-policy/catalog无正式start/end。无需活动券ID，服务端活动价格层引用即可。
 
-可由老D合并提交用户的两项问题：
+### 更正此前两个问题
 
-1. Seasonal当前先保留原演示并交接正式权益依赖（推荐，不激活），还是要把固定5%及随机四档方案转为正式经营规则？选择后者还需确认概率/适用商品/资格/成本边界与真实邀请要求，不能把一个“继续”解释为这些值全部批准。
-2. FC九折活动的正式开始、结束时间和时区是什么？未确定前保持未激活，代码与G1交接仍可继续。
+撤回“是否需要正式随机/邀请玩法”的提问。原任务用户消息 01a169b4-6dc4-76f1-bd8b-a467e99ac6e3 已要求邀请好友有效注册刷新；01a169b6-e49b-7011-87ca-981189aa93d9 要求随机商品池；01a169b9-c32c-7b11-b04c-a26fab32cd90 要求热门游戏及默认较低固定优惠区。这些是已定功能，必须保留，不能降为可选增强或误归 Matchday 排除项。
+
+原规划目录 docs/planning/mmoexp-seasonal-events-20261024/V2-DELIVERY.md 第7/12/15行明确5%纯演示、有效注册换刷新钥匙、3次为演示上限，金额/概率/次数/日期均设计参数；第37行明确FS四主题草稿起止日期留空；第51–58行已有 get_vault/create_invitation/confirm_referral 后端合同，有效注册条件和归因窗仍待确认。V3-DELIVERY.md“商品映射”明确固定5%与随机10/15/20/25%未获正式活动授权。README的V1固定玩法已被V2替代，不再用旧段落否定随机功能。
+
+G1须保留完整原页面与上述后端接口交接，客户端演示不能代表真实身份/注册/奖励/权威抽取已接通。尚未发现正式数值或窗口的批准记录；先由监工对照既有原始决策，不要求用户重复解释已定功能。最早源任务单轮超出支持的历史读取大小，未绕过限制读取原始会话文件。
+
+FC ACTIVITY-PRICING-CONTRACT.md 第5/8/9/84行已确定额外10%、对应品类利润规则及按行币种精度，撤回任何关于折扣幅度的疑问。已查该合同、catalog/promotion-policy、MMOEXP-FS-AUTO-PUBLISH-HANDOFF.md，未见正式起止时间/时区；后者第159–166行明确优惠叠加与权威活动报价回执。仅能说明已查材料缺窗口，不能说用户从未决定。未激活配置不阻止G1安全工程与交接；生产激活前需将已有批准窗口落入配置，确无记录才由监工统一询问。
 
 ## 技术外部依赖（不是用户猜字段）
 
