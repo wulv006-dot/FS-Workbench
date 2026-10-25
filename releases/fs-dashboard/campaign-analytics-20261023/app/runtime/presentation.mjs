@@ -106,7 +106,8 @@ export function projectFcCatalog(originalCatalog,snapshot) {
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
     return [...new Set((page?.product_keys||[]).flatMap(key=>{
       const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(key),product=match&&products[match[1]];
-      return product?.platforms?.[match[2]]?[match[1]]:[];
+      const role=page.product_roles?.[key];
+      return product?.platforms?.[match[2]]&&(!role||({player:'player',bundle:'bundle',core:'sbc',companion:'player'})[role]===product.kind)?[match[1]]:[];
     }))];
   };
   const weekly=keys('Weekly-Scout.html').filter(key=>products[key].kind==='player');

@@ -19,7 +19,7 @@
     const valid=(keys||[]).filter(key=>product(key));if(!standalone)return valid;
     if(pageState(view)!=='active')return [];
     const page=published.pages.find(p=>p.page_id==='fc27-'+view&&p.activity_id==='fc27-season2');
-    return valid.filter(key=>page.product_keys?.includes('fc-'+key+'-'+state.platform));
+    return valid.filter(key=>{const ref='fc-'+key+'-'+state.platform,role=page.product_roles?.[ref],kind=product(key).kind;return page.product_keys?.includes(ref)&&(!role||({player:'player',bundle:'bundle',core:'sbc',companion:'player'})[role]===kind);});
   }
   function pageMessage(){return ({loading:t('正在读取已发布活动配置。','Loading published activity configuration.'),disabled:t('当前活动未开放。','This activity is not available.'),upcoming:t('活动尚未开始。','This activity has not started yet.'),expired:t('活动已结束。','This activity has ended.')})[pageState(state.view)];}
   function guards(){
