@@ -29,3 +29,29 @@ test('lookup reports recovered quote and definitive result without permanent unk
 test('known preview integration refusal is not presented as uncertain',async()=>{
   const x=setup({code:'MAIN_INTEGRATION_REQUIRED'});await x.bridge.run('quote',[{id:'fc-1'}],x.report);assert.match(x.messages.at(-1),/Main-site cart integration is still required/);assert.doesNotMatch(x.messages.at(-1),/pending or unknown/);
 });
+test('known campaign schedule refusals explain quote and prepare failure without suggesting a retry',async()=>{
+  for(const [code,message] of [['PROMOTION_NOT_STARTED',/has not started yet/],['PROMOTION_EXPIRED',/is paused or has ended/]]){
+    const quote=setup({code});await quote.bridge.run('quote',[{id:'fc-1'}],quote.report);
+    assert.match(quote.messages.at(-1),message);assert.equal(quote.calls.length,1);
+    const prepare=setup();let prepares=0;prepare.client.prepare=async()=>{prepares++;throw {code};};
+    await prepare.bridge.run('prepare',[],prepare.report);assert.match(prepare.messages.at(-1),message);
+    assert.equal(prepares,1);assert.equal(prepare.calls.length,0);
+    for(const text of [quote.messages.at(-1),prepare.messages.at(-1)]){
+      assert.doesNotMatch(text,/could not verify|pending or unknown|Review a new quote|Integration test result/);
+      assert.match(text,/Checkout is (?:unavailable|no longer available)/);
+    }
+  }
+});
+test('PROMOTION_EXPIRED also represents an inactive page and does not assert that its end time elapsed',async()=>{
+  const x=setup({code:'PROMOTION_EXPIRED'});await x.bridge.run('quote',[{id:'fc-1'}],x.report);
+  assert.equal(x.messages.at(-1),'This published activity is paused or has ended. Checkout is unavailable for this offer.');
+});
+test('an unresolved original operation keeps priority over campaign schedule error messages',async()=>{
+  for(const code of ['PROMOTION_NOT_STARTED','PROMOTION_EXPIRED']){
+    const x=setup({code});x.client.select=async lines=>{x.calls.push(lines);x.client.pending={unknown:true,operation_id:'original-id'};throw {code};};
+    await x.bridge.run('quote',[{id:'fc-1'}],x.report);assert.match(x.messages.at(-1),/original operation is pending or unknown/i);
+    const y=setup({unknown:true});y.client.prepare=async()=>{throw {code};};await y.bridge.run('prepare',[],y.report);
+    assert.match(y.messages.at(-1),/original operation is pending or unknown/i);
+    for(const text of [x.messages.at(-1),y.messages.at(-1)]){assert.match(text,/do not submit it again/);assert.doesNotMatch(text,/has not started yet|has ended/);}
+  }
+});
