@@ -6,7 +6,7 @@
   "entries": [
     {
       "id": "fs.data.sources",
-      "revision": "baseline-v15-dashboard-refresh-20261025",
+      "revision": "baseline-v15-management-all-sites-20261025",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -16,10 +16,10 @@
       "effective_at": "2026-10-21",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
+        "sha256": "82a82cbdd1fe4deaab3d63e3eac6660c1c7aca1a6033936a7e5e366c3c5753d8",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -27,7 +27,8 @@
         }
       },
       "supersedes": [
-        "fs.data.sources@baseline-v15"
+        "fs.data.sources@baseline-v15",
+        "fs.data.sources@baseline-v15-dashboard-refresh-20261025"
       ],
       "provenance": [
         {
@@ -45,6 +46,10 @@
         {
           "kind": "direct_user_dashboard_refresh",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_management_all_sites",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/461"
         }
       ],
       "consumers": [
@@ -55,7 +60,7 @@
     },
     {
       "id": "fs.data.currency",
-      "revision": "baseline-v15",
+      "revision": "baseline-v15-management-all-sites-20261025",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -65,17 +70,19 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
+        "sha256": "82a82cbdd1fe4deaab3d63e3eac6660c1c7aca1a6033936a7e5e366c3c5753d8",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
           "end": "- 无码不等于"
         }
       },
-      "supersedes": [],
+      "supersedes": [
+        "fs.data.currency@baseline-v15"
+      ],
       "provenance": [
         {
           "kind": "existing_confirmed_document",
@@ -92,6 +99,10 @@
         {
           "kind": "direct_user_dashboard_refresh",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_management_all_sites",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/461"
         }
       ],
       "consumers": [
@@ -102,7 +113,7 @@
     },
     {
       "id": "fs.customer.identity",
-      "revision": "baseline-v15",
+      "revision": "baseline-v15-management-all-sites-20261025",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -112,17 +123,19 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
+        "sha256": "82a82cbdd1fe4deaab3d63e3eac6660c1c7aca1a6033936a7e5e366c3c5753d8",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
           "end": "- 新客订单数不等于"
         }
       },
-      "supersedes": [],
+      "supersedes": [
+        "fs.customer.identity@baseline-v15"
+      ],
       "provenance": [
         {
           "kind": "existing_confirmed_document",
@@ -139,6 +152,10 @@
         {
           "kind": "direct_user_dashboard_refresh",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_management_all_sites",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/461"
         }
       ],
       "consumers": [
@@ -205,7 +222,7 @@
     },
     {
       "id": "fs.finance.procurement",
-      "revision": "baseline-v15",
+      "revision": "baseline-v15-management-all-sites-20261025",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -215,17 +232,19 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
+        "sha256": "82a82cbdd1fe4deaab3d63e3eac6660c1c7aca1a6033936a7e5e366c3c5753d8",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
           "end": "## FC Coins受控自动决策与执行"
         }
       },
-      "supersedes": [],
+      "supersedes": [
+        "fs.finance.procurement@baseline-v15"
+      ],
       "provenance": [
         {
           "kind": "existing_confirmed_document",
@@ -242,6 +261,10 @@
         {
           "kind": "direct_user_dashboard_refresh",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_management_all_sites",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/461"
         }
       ],
       "consumers": [
