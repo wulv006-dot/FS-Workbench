@@ -1,5 +1,5 @@
 {
-  "status": "candidate_not_deployed",
+  "status": "deployed_readback_passed",
   "base": "c527d14688cd7fd6a22a53e8d86ad8f7d55833b2",
   "version": "business-filter-layout-20261025-cad1dca27f17",
   "files": [
@@ -9,7 +9,11 @@
       "sha256": "a5233aa1bc7a67915a5b85a0a522582d658764bf6ece1f6e9a13529c951d7ee0",
       "beforeSha256": null,
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/business.js"
     },
     {
       "candidate": "source/home-business.js",
@@ -17,7 +21,11 @@
       "sha256": "cdf33989aaca298fc777b1238fed0c3e83b50c22e9740c4665972a6615a360b6",
       "beforeSha256": null,
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/home-business.js"
     },
     {
       "candidate": "source/legacy-business.js",
@@ -25,7 +33,11 @@
       "sha256": "798ebc005da42a6e0caca7430ee4db5e8094e5585d0079ccaee450e5c2da6d0a",
       "beforeSha256": null,
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/legacy-business.js"
     },
     {
       "candidate": "source/shell.js",
@@ -33,7 +45,11 @@
       "sha256": "eea4125f12dfe079cb847a36ed51af515e3f8a4dc3cfb55ba2a91f7ae3e8e006",
       "beforeSha256": null,
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/shell.js"
     },
     {
       "candidate": "source/live_summary.py",
@@ -41,7 +57,11 @@
       "sha256": "b442b926d34e2d5ae9c0b451b900448708432523eca06fb1e984d714d0123a32",
       "beforeSha256": "6920f3c53a73e4799e3b187fd4b1207203b84b992e8009296316a8b50d736973",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/live_summary.py"
     },
     {
       "candidate": "source/daily_archive.py",
@@ -49,7 +69,11 @@
       "sha256": "0652062c39e3bede009d24c31811ab5e1a937f1a572d7193b9d0b12ede87452e",
       "beforeSha256": "5b664e3c788282f0f40517c71bdae6bdec0d2b834ca51d6f8af462939a3d2862",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/daily_archive.py"
     },
     {
       "candidate": "source/summary_bridge.py",
@@ -57,7 +81,11 @@
       "sha256": "fdcb3614c80ac4c10de269420c5ee46cdf47f5d18d304705cf53eab51b5e670f",
       "beforeSha256": "ad0961467f4f2e6508d769bc9533b49b9ed35c0ee9f67e41eb561f3c05201c8e",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/summary_bridge.py"
     },
     {
       "candidate": "source/site_summary.py",
@@ -65,7 +93,11 @@
       "sha256": "f9ef7f1fcf55d150c2fe48c3664cd8eeb72e233afa548a40b8872d1afbd25cd5",
       "beforeSha256": null,
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/site_summary.py"
     },
     {
       "candidate": "source/business-baseline.md",
@@ -73,7 +105,11 @@
       "sha256": "c0b867d19e5316e77d3042d1437724c30742723a85f8355e11ac7e143f423a56",
       "beforeSha256": "4c1a2911deba3565b5eeee98701ce70059168c33a6927bc30e77115c090a1f62",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/business-baseline.md"
     },
     {
       "candidate": "source/knowledge-load-policy.json",
@@ -81,7 +117,11 @@
       "sha256": "f69639cd822d96719ad0c9178334b8e2cb45e9a7d49237e9b4c784adacb2b147",
       "beforeSha256": "b326d384a166903cc3908ba089ecc9db8c156c48a5be8b9416b3e857703e33ab",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/knowledge-load-policy.json"
     },
     {
       "candidate": "generated/navigation.conf",
@@ -89,7 +129,32 @@
       "sha256": "bcbdb9c358e241e9811b6dcf4e476a2c86e82376efa9bfa2e276e78ff9c160de",
       "beforeSha256": "b10c97652cd709a0ba3c6bd3116e8e8eb1d8649c712e72cace281defb4d38482",
       "owner": "0:0",
-      "mode": "0o644"
+      "mode": "0o644",
+      "sourceCommit": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+      "mergeCommit": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+      "releaseId": "nav-20261025T093047Z",
+      "maintenanceSource": "generated navigation from exact approved manifest"
+    },
+    {
+      "candidate": "source/actual_profit.py",
+      "target": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "b9c8c422e1c8cad9867c3ea50dd40245a382b4bb9836a7fad20828ba7a657d68",
+      "beforeSha256": "6ff6f4935ee289ce8d53441a2bcbe167b32b3a757868b7c3691a33a4abb7c282",
+      "owner": "0:0",
+      "mode": "0o644",
+      "sourceCommit": "7747e6fcd48d6bfe14226a17abf6df011b366f8b",
+      "mergeCommit": "bdab889e8cb813dd994e579a79228a112c87ecbe",
+      "releaseId": "nav-20261025T094712Z",
+      "maintenanceSource": "business_filter_layout_20261025/source/actual_profit.py"
     }
-  ]
+  ],
+  "formalCiRuns": [
+    40180681809,
+    40181837741
+  ],
+  "releaseIds": [
+    "nav-20261025T093047Z",
+    "nav-20261025T094712Z"
+  ],
+  "runtimeOperations": "range reader restart and nginx reload; businessWorkerTimerActions=0"
 }
