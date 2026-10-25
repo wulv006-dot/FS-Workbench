@@ -776,7 +776,7 @@ def main():
     selfcheck()
     for group in groups:
         if group=="fc-cost-timeout":
-            units("releases/fc-coins/cost-timeout-20261025/tests",["test_timeout"])
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/"releases/fc-coins/cost-timeout-20261025/tests/test_timeout.py")],check=True,timeout=30,cwd=ROOT)
             continue
         if group=="fc-cost-live-recovery":
             units("releases/fc-coins/fc-cost-live-recovery-20261025/tests",["test_recovery","test_cost_context"])
