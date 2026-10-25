@@ -1,0 +1,33 @@
+{
+  "scope": "fc-cost-session-recovery-20261025",
+  "state": "candidate_offline_reproduction_and_7_tests_passed_not_deployed",
+  "runtime_files": [
+    {
+      "candidate": "source/collect_p2pah_cost.py",
+      "target": "/opt/fc27-cloud-browser/collect_p2pah_cost.py",
+      "beforeSha256": "d3cb307efce484abaeb0c9cb2ee8f50e6b50e91e95f0a1988dc53cee1e123e57",
+      "sha256": "2056cd36c2e3a8abde4437b9561c1c937bb23e8dd2e644cf04353d4d3be9d364",
+      "owner": "0:0",
+      "mode": "0o644",
+      "maintenance_source": "fc_cost_session_recovery_20261025/source/collect_p2pah_cost.py"
+    },
+    {
+      "candidate": "source/collect_p2pah_cost.sh",
+      "target": "/opt/fc27-cloud-browser/collect_p2pah_cost.sh",
+      "beforeSha256": "ed3f64e750b194e90bb24eb15ff69e3255df32836ece7c26e440aaf98fb8f976",
+      "sha256": "27e4287f4887cf36b96a25a559098f8d3b7f38fbf81d6438cde21dc4e6b721f1",
+      "owner": "0:0",
+      "mode": "0o755",
+      "maintenance_source": "fc_cost_session_recovery_20261025/source/collect_p2pah_cost.sh"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "old_original_run": "5fc4c884-039a-4f60-aef3-4cb234f6c9d6",
+  "live_dependencies_unchanged": {
+    "/opt/fc27-cloud-browser/isolated_backend.py": "ee649da5c09cf74bb27fb10c074804e87d6818550de912e9416af1ea1083e4fb",
+    "/opt/fs-order-session/fs_order_client.py": "981439c5e07f4cf849c48b644d8f413d5705a75988dfaa441535fdaa76096dad"
+  },
+  "manual_collection_or_price_jobs": 0,
+  "natural_acceptance": "pending_original_next_cycle"
+}

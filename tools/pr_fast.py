@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fc-coins/fc-cost-session-recovery-20261025/source/collect_p2pah_cost.py"]) != ["fc-cost-session-recovery"]:
+        raise RuntimeError("cost_session_recovery_checks_missing")
     if select(["releases/fc-coins/fc-review-u4gm-recovery-20261025/source/business_context.py"]) != ["fc-review-u4gm-recovery"]:
         raise RuntimeError("fc_review_u4gm_recovery_mapping_missing")
     if select(['tools/hermes_review_archive.py', 'knowledge/reviewed/fixture/record.json']) != ['hermes-review-archive']:
@@ -387,6 +389,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-coins/fc-cost-session-recovery-20261025/"):
+            groups.add("fc-cost-session-recovery");continue
         if name.startswith("releases/fc-coins/fc-review-u4gm-recovery-20261025/"):
             groups.add("fc-review-u4gm-recovery");continue
         if name.startswith("releases/fc-players/history-five-20261024/"):
@@ -752,6 +756,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="fc-cost-session-recovery":
+            units("releases/fc-coins/fc-cost-session-recovery-20261025/tests",["test_cost_session"])
+            continue
         if group=="fc-review-u4gm-recovery":
             units("releases/fc-coins/fc-review-u4gm-recovery-20261025/tests",["test_recovery"])
             continue
