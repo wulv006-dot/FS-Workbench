@@ -4,7 +4,7 @@
 
 | 调用方 | 原入口与选择来源 | 处理与验证 |
 | --- | --- | --- |
-| 全局/工作区/旧版经营页面、链接状态与CSV | 三份business JS、shell；summary与actual-profit | 同一个b_site；显式网站传到原接口；旧链接、五站切换、锁定/解锁、八卡、逐日毛利、失败/权限、主题/手机均回归 |
+| 全局/工作区/旧版经营页面、链接状态与CSV | 三份business JS、shell；summary与actual-profit | 同一个b_site；显式网站传到原接口；实际毛利独立缓存元数据在PR474补齐兼容，旧链接、五站切换、锁定/解锁、八卡、逐日毛利、失败/权限、主题/手机均回归 |
 | FC27明细与导出/日报事实 | range?mode=fc-detail，site_group | 补齐顶部all/main联动，主站限制时禁用网站细分；旧范围结果在绘图前检查；后台接口及独立商品/订单参数保持 |
 | 经营管理台、负责人工作区 | management_facts.py、management_daily.py、boss_daily.py -> summary；不传网站 | 保留Admin全站、原Order参考及原归档身份；未把顶部选择传播到共享报告，避免全站降成MMOEXP |
 | AI解读与Hermes服务器证据 | ai_advisor.py、/opt/fs-hermes-fc/fs_evidence.py -> summary；仅原日期/游戏 | 同上保持旧语义；无模型调用、无报告重写 |
@@ -18,3 +18,5 @@
 活动文件读回：range_api d1272749；daily_archive 5b664e3c；summary_bridge ad096146；management_facts 5449d1c5；management_daily 3547bef9；boss_daily 9b102d43；fs_evidence bd44a2f4；ai_advisor 7846fac3；archive_jobs cd2ba7d6；native fs-readonly 1faa15a6。完整源哈希与发布目标见SOURCE-MAP，诊断日志在本机忽略的.agent_runtime目录。
 
 规则同步：正式业务基准新增本任务范围/兼容说明；服务器完整基准从活动4c1a2911版本追加，knowledge-load-policy只替换原wulv/FS/fs的retain_full_baseline兼容哈希。目录、角色、其他任务路由和已审技能不变；Git候选目录不冒称已发布目录，文件装配也不称模型掌握。
+
+最终现场：五站销售、RS三站实际毛利和锁定/解锁已读回；原summary全站合同、Hermes原生工具available及完整规则装配通过。发布矩阵共12文件分两批，精确SHA见SOURCE-MAP。
