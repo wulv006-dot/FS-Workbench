@@ -19,6 +19,17 @@
 管理台既有USD利润目标仍用全站Admin销售额×Order同期间全站参考率，标预估非实结；RS仅接受已核order-shipping-rs-v1全网站/区服/类目的原生百分比，不把CNY金额当USD。经营分析看板逐单实际成本毛利保持独立。闭合历史每日核验；同期间成功值更新时保留capturedAt及retained，拒绝/缺失不补零、不借主站旧值。实现、CI、上线、真实入口、自然日更和模型验收分别登记。
 
 
+<!-- business-filter-layout-current-20261025 -->
+### 经营看板范围与游戏筛选（2026-10-25用户确认）
+
+筛选顺序为网站范围、游戏、时间。范围是全部站点、MMOEXP、RSOrders、RSMalls、RSFast；后三站自动选中并锁定RS，切回全部站点或MMOEXP后解锁。游戏按球类五款、RPG五款、综合五款分组，全部表示原全游戏汇总；FC26仅兼容原历史入口。下方参考展示范围与RS重复网站控件撤下，RS类目/更多区服保留。FC明细在MMOEXP范围只读主站，全部站点下保留主站/卫星细分；范围改变清旧结果。
+
+新面板显式传网站：非RS用profit_site=all/main，RS用rs_site及原类目/区服。MMOEXP原生Admin统计按site=266取数，销售/订单/客户及时间序列使用同一网站条件，毛利仍是同网站同批付款订单逐单实际成本。全部站点仍遵循原Admin优先/Order补缺规则，并标明两源范围；不改变八卡、汇率、成本覆盖及未知处理。
+
+兼容边界：既有summary调用未传profit_site时，Admin仍是原全站统计，原Order/Shipping和归档身份保持；不能从旧query.site文字推断主站，应核来源normalisedScope和filters。新显式网站范围增加内部admin_site缓存身份，拒绝复用旧全站“主站参考”快照。后台管理台、负责人日报、AI解读、Hermes fs_evidence、夜间归档不继承浏览器b_site；Hermes原生统计工具仍走独立native范围接口，渠道效果、客户分析、商品/优惠/订单工具保留各自合同。不得把本次控件迁移解释为全FS默认网站或利润口径变更。
+
+仅沿现有8767/8768身份、原线程池/互斥/冷却与按需缓存；不新增登录、后台任务或定时写入。规则、Git、生产发布、实际工具与模型运用分别验收，见docs/planning/business-filter-layout-20261025/。
+
 <!-- dashboard-refresh-current-20261025 -->
 ### 经营看板主卡与历史刷新（2026-10-25用户确认）
 
