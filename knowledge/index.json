@@ -448,7 +448,7 @@
       "authority": "git",
       "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
       "source": {
-        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+        "path": "knowledge/history/business-baseline-before-management-all-sites-20261025.md",
         "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
         "hash_basis": "utf8_lf",
         "selector": {
