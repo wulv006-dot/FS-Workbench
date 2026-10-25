@@ -16,7 +16,7 @@ class CatalogSearchTests(unittest.TestCase):
 
     def invoke(self,request,responses):
         session=Session(responses)
-        result=handle(request,lambda:AdminRead(session))
+        result=handle(request,lambda:AdminRead(session,catalog_get_once=session.get_admin))
         self.assertTrue(session.closed)
         return result,session
 
@@ -72,7 +72,7 @@ class CatalogSearchTests(unittest.TestCase):
             response([goods()],False),response([],10),response([goods()],0)]
         for page in cases:
             session=Session([page])
-            with self.assertRaises(ContractError):handle(self.request(),lambda:AdminRead(session))
+            with self.assertRaises(ContractError):handle(self.request(),lambda:AdminRead(session,catalog_get_once=session.get_admin))
             self.assertEqual(len(session.calls),1);self.assertTrue(session.closed)
         for field,request_field in [('aid','platform_attribute_id'),('cid','category_id'),('mid','model_id')]:
             request=self.request(**{request_field:'999'})
@@ -108,7 +108,7 @@ class CatalogSearchTests(unittest.TestCase):
             with self.assertRaises(ContractError):handle(bad,lambda:self.fail('no read'))
         session=Session([detail(goods(site_id=999))])
         with self.assertRaisesRegex(ContractError,'PRODUCT_SCOPE_MISMATCH'):
-            handle(request,lambda:AdminRead(session))
+            handle(request,lambda:AdminRead(session,catalog_get_once=session.get_admin))
         self.assertEqual(len(session.calls),1)
 
     def test_details_retain_only_observed_spec_ids_and_labels_not_financial_leaves(self):
