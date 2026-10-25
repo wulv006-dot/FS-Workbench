@@ -309,6 +309,8 @@
     }
   },
   "policies": {
+    "short-term-v1": [7, 14, 30],
+    "long-term-v1": [14, 30, 60],
     "common-v1": [
       30,
       60,

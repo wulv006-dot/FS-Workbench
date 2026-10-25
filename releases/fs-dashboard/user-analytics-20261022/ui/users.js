@@ -79,7 +79,6 @@ function scopeOptions(){
   const f=el('filters'),kind=f.elements.scope.value,select=f.elements.scope_id;select.replaceChildren();select.disabled=kind==='global';
   let options=kind==='global'?[['','全部']]:kind==='site'?catalog.sites.map(s=>[s.id,s.label]):kind==='project'?Object.entries(catalog.projects).map(([id,p])=>[id,p.label]):[...new Set(Object.values(catalog.projects).map(p=>p.series).filter(Boolean))].map(s=>[s,s]);
   options.forEach(([id,label])=>select.add(new Option(label,id)));
-  f.elements.policy_version.value=kind==='project'&&catalog.projects[select.value]?.series==='FC'||kind==='series'&&select.value==='FC'?'fc-v1':'common-v1';
 }
 function render(){
   el('result').hidden=false;el('private').hidden=true;group='';cursor='';privateRequest++;
@@ -170,7 +169,6 @@ el('filters').elements.state_basis.addEventListener('change',event=>{
   const period=event.target.value==='period_cohort';el('period-start').min=period?(catalog.history_backfill_start||'').slice(0,10):'';
   text('period-hint',period?'只选开始日期，结束固定为北京时间昨天。只分析这段期间买过的邮箱；D0是期间第一笔有效购买，新老客取该单后台标记。':'辅助视图保留全体已覆盖历史客户；今天状态或截至昨日状态按所选方式计算，开始日只筛期间行为。');
 });
-el('filters').elements.scope_id.addEventListener('change',()=>{const f=el('filters');f.elements.policy_version.value=f.elements.scope.value==='project'&&catalog.projects[f.elements.scope_id.value]?.series==='FC'||f.elements.scope.value==='series'&&f.elements.scope_id.value==='FC'?'fc-v1':'common-v1';});
 el('path-filter').addEventListener('change',event=>members(event.target.value,false,memberFilters));
 el('repeat-filter').addEventListener('change',event=>members(group,false,{...memberFilters,repeat_status:event.target.value}));
 el('customer-type-filter').addEventListener('change',event=>members(group,false,{...memberFilters,customer_type:event.target.value}));
@@ -198,7 +196,7 @@ el('hermes').addEventListener('click',async()=>{const selected=el('hermes-conver
 });
 el('theme').addEventListener('change',event=>{if(window.FSTheme?.set)window.FSTheme.set(event.target.value);});
 function addFieldHelp(){
-  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天。结束固定为北京时间昨天，今天订单不计入。','period-end':'每天自动截止到昨天，避免把尚未结束的一天与完整日比较。',policy_version:'决定多少天未购买算沉默、流失和长期流失。FC为14/30/90天，统一规则为30/60/90天。',policy_mode:'各项目规则保留不同项目购买节奏；统一规则横比让项目使用同一组天数。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
+  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天。结束固定为北京时间昨天，今天订单不计入。','period-end':'每天自动截止到昨天，避免把尚未结束的一天与完整日比较。',policy_version:'按距末次有效购买的北京时间日数分阶段。短期效果：满7天沉默、14天流失、30天长期流失；长期追踪：满14天沉默、30天流失、60天长期流失。全部项目使用所选规则；短期效果不代表活动因果归因。',policy_mode:'短期效果与长期追踪均让各项目沿用所选天数，便于整体与项目比较。旧快照仍保留原各项目规则。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
   for(const [key,description] of Object.entries(fields)){const input=el(key)||el('filters').elements[key],label=input.closest('label'),name=label.firstChild.textContent.trim(),heading=document.createElement('span');heading.className='field-label';heading.textContent=name;label.firstChild.replaceWith(heading);if(!input.id)input.id='users-field-'+key;label.htmlFor=input.id;input.setAttribute('aria-label',name);heading.append(help(name,description));}
 
 }
