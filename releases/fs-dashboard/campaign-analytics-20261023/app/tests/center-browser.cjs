@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 (async()=>{
  const browser=await chromium.launch({headless:true});const page=await browser.newPage();page.setDefaultTimeout(5000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const app=path.resolve(__dirname,'..'),base='http://127.0.0.1:8598/';let readonly=false,dropSave=true,saveIds=[],backendReads=[],mappingRequired=true;
+ const app=path.resolve(__dirname,'..'),base='http://127.0.0.1:8598/';let readonly=false,dropSave=true,saveIds=[],backendReads=[],mappingRequired=true,searchFailure=null,searchTotal=1;
  let state={revision:1,draft:{pages:[{page_id:'fc27-weekly',activity_id:'fc27-season2',path:'Weekly-Scout.html',title:'Weekly Scout',description:'Original description',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[]}],seasonal_theme:'halloween',integration_mode:'preview'},published:null,canEdit:true,csrf:'fixture'};
  state.draft.pages.push(...[['fc27-sbc','Sbc-Companions.html'],['fc27-trio','Player-Trio.html'],['seasonal-vault','seasonal/index.html']].map(([page_id,path])=>({...structuredClone(state.draft.pages[0]),page_id,path,title:page_id})));
  state.page_product_keys=Object.fromEntries(state.draft.pages.map(p=>[p.page_id,[]]));state.catalog_products=[];
@@ -9,7 +9,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  if(file==='/analytics/api/center'&&req.method()==='GET')return route.fulfill({json:{...state,canEdit:!readonly}});
  if(file==='/analytics/api/center/backend-read'){
   const body=req.postDataJSON();backendReads.push(body);assert.equal(req.headers()['x-csrf-token'],'fixture');
-  if(body.action==='catalog_search')return route.fulfill({json:{status:'ok',data:{items:[{product_ref:{site_id:'266',game_id:body.game_id,model_id:'model-original',goods_id:'185916875'},title:'Native <img src=x onerror=alert(1)> player',platform_attribute_id:'21587',unit:'item'}],total:1,has_more:false,page:body.page}}});
+  if(body.action==='catalog_search'&&searchFailure)return route.fulfill(searchFailure);
+  if(body.action==='catalog_search')return route.fulfill({json:{status:'ok',data:{items:[{product_ref:{site_id:'266',game_id:body.game_id,model_id:'model-original',goods_id:'185916875'},title:'Native <img src=x onerror=alert(1)> player',platform_attribute_id:'21587',unit:'item'}],total:searchTotal,has_more:body.page===1&&searchTotal>20,page:body.page}}});
   if(body.action==='product_read')return route.fulfill({json:{status:'ok',data:{product:{product_ref:{site_id:'266',game_id:body.game_id,model_id:'model-original',goods_id:body.goods_id},title:'Native <img src=x onerror=alert(1)> player',model_title:'Original model',platform_attribute_id:'21587',server_id:'server-original',category_id:'category-original',minimum_quantity:'1',unit:'item',sku_switch:'1',attr_switch:'1',raw_status:'1',raw_buy_status:'1',status_semantics:'unknown',purchase_mapping_required:mappingRequired,purchase_mapping_reasons:mappingRequired?['销售规格待映射，未开放购买']:[],specification_sources:{goods:{saleprop:{present:true,schema_status:'mapping_required',entry_count:2},skuTableSet:{present:true,schema_status:'empty',entry_count:0}},model:{saleprop:{present:false,schema_status:'unknown',entry_count:0}}},authoritative:false,checkout_enabled:false,cost:'COST_SECRET_NOT_FOR_UI',price:'PRICE_SECRET_NOT_FOR_UI',sku_options:['INVENTED_OPTION_NOT_FOR_UI']}}}});
   return route.fulfill({json:{status:'ok',data:{coupons:[{kind:'coupon',native_id:'native-123',title:'Verified ID fixture',raw_status:'1'}],discounts:[]}}});
  }
@@ -21,7 +22,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  const rel=file.replace(/^\/events\//,'/');const filename=path.join(app,rel);if(!filename.startsWith(app)||!fs.existsSync(filename))return route.fulfill({status:404,body:''});const ext=path.extname(filename);return route.fulfill({body:fs.readFileSync(filename),contentType:({'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp','.png':'image/png'})[ext]||'application/octet-stream'});
  });
  try{
- await page.goto(base+'analytics/center.html');await page.waitForFunction(()=>document.querySelector('#draft-state').textContent==='修订 1');assert.equal(await page.locator('[aria-invalid=true]').count(),0);
+ await page.goto(base+'analytics/products.html');await page.waitForFunction(()=>document.querySelector('#draft-state').textContent==='修订 1');assert.equal(await page.locator('[aria-invalid=true]').count(),0);
  await page.locator('#title-0').fill('Updated title');await page.locator('#start-0').fill('2026-11-02T00:00');await page.locator('#end-0').fill('2026-11-01T00:00');await page.locator('#save-center').click();assert.equal(saveIds.length,0);assert.equal(await page.locator('#end-0').evaluate(e=>e.validity.valid),false);
  await page.locator('#end-0').fill('2026-11-03T00:00');await page.locator('#read-benefits').click();await page.waitForFunction(()=>document.querySelector('#backend-state').textContent==='已读 1 项');await page.locator('#benefit-0').selectOption('0');await page.locator('[data-add="0"]').click();assert.match(await page.locator('.bindings').first().innerText(),/native|Verified/);
  await page.locator('#save-center').click();await page.waitForFunction(()=>document.querySelector('#center-error').textContent.includes('原操作'));assert.equal(await page.locator('#title-0').isDisabled(),true);assert.equal(saveIds.length,1);
@@ -31,6 +32,18 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  assert.deepEqual(await page.locator('#discover-game option').evaluateAll(options=>options.map(o=>o.value)),['1327','1329','1309','456','552','891']);
  await page.locator('#discover-search').fill('Native');await page.locator('#discover-products').click();await page.waitForFunction(()=>document.querySelector('#discovery-status').textContent.includes('本页 1 项'));
  assert.equal(backendReads.at(-1).action,'catalog_search');assert.equal(backendReads.at(-1).page_size,20);
+ const beforeSearchWrites=saveIds.length;
+ for(const failure of [{status:504,body:'<html>Gateway Timeout</html>',contentType:'text/html'},{status:502,json:{message:'CATALOG_SEARCH_TIMEOUT'}},{status:403,body:'denied',contentType:'text/plain'}]){
+  searchFailure=failure;const before=backendReads.length;await page.locator('#discover-products').click();await page.waitForFunction(()=>!document.querySelector('#discovery-fields').disabled);
+  assert.match(await page.locator('#discovery-status').innerText(),failure.status===403?/拒绝/:/超时.*不代表没有商品/);
+  assert.equal(backendReads.length,before+1);assert.equal(await page.locator('#discovery-next').isDisabled(),true);assert.equal(await page.locator('#inspect-product').isDisabled(),true);
+  assert(!await page.evaluate(()=>Object.keys(sessionStorage).some(k=>k.startsWith('fs-center-pending:')&&JSON.parse(sessionStorage.getItem(k)))));
+ }
+ searchFailure=null;searchTotal=41;await page.locator('#discover-products').click();await page.waitForFunction(()=>!document.querySelector('#discovery-next').disabled);await page.locator('#discovery-next').click();await page.waitForFunction(()=>document.querySelector('#discovery-page').textContent==='第 2 页');assert.equal(backendReads.at(-1).page,2);
+ await page.locator('#discover-platform').fill('21587');assert.equal(await page.locator('#discovery-page').innerText(),'第 1 页');assert.equal(await page.locator('#discovery-next').isDisabled(),true);assert.equal(await page.locator('#discovery-prev').isDisabled(),true);
+ await page.locator('#discover-platform').fill('');await page.locator('#discover-search').fill('x');const beforeInvalid=backendReads.length;await page.locator('#discover-products').click();assert.equal(backendReads.length,beforeInvalid);assert.match(await page.locator('#discovery-status').innerText(),/2–80/);
+ await page.locator('#discover-search').fill('Native');searchTotal=1;await page.locator('#discover-products').click();await page.waitForFunction(()=>document.querySelector('#discovery-status').textContent.includes('本页 1 项'));assert.equal(saveIds.length,beforeSearchWrites);
+
  await page.locator('#discover-product').selectOption('185916875');await page.locator('#inspect-product').click();await page.waitForFunction(()=>!document.querySelector('#product-inspection').hidden);
  assert.deepEqual(backendReads.at(-1),{action:'product_read',site_id:'266',game_id:'1327',goods_id:'185916875'});
  const detail=await page.locator('#product-inspection').innerText();assert.match(detail,/model-original/);assert.match(detail,/21587/);assert.match(detail,/商品.*销售规格：待映射；条数 2/);assert.match(detail,/商品.*SKU 表：已观察为空；条数 0/);assert.match(detail,/模型.*销售规格：未观察到来源；未知/);assert.match(detail,/销售规格待映射/);assert.match(detail,/正式购买未开放/);assert(!detail.includes('SECRET_NOT_FOR_UI'));assert(!detail.includes('INVENTED_OPTION_NOT_FOR_UI'));assert.equal(await page.locator('#product-inspection img').count(),0);assert.equal(await page.locator('#product-inspection button').count(),1);

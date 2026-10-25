@@ -12,7 +12,7 @@ const pages=[
 ];
 const safeText=(v,max)=>{if(typeof v!=='string'||v.length>max||/[\u0000-\u001f<>]/.test(v))fail('INVALID_CAMPAIGN_CONFIG');return v;};
 const uuid=v=>{if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v||''))fail('INVALID_OPERATION_ID');return v;};
-function validateDraft(input) {
+function validateDraft(input,{validateFcLayout}={}) {
  if(!input||!Array.isArray(input.pages)||input.pages.length!==pages.length)fail('INVALID_CAMPAIGN_CONFIG');
  const result=pages.map(([page_id,activity_id,route,title])=>{
   const rows=input.pages.filter(p=>p.page_id===page_id);if(rows.length!==1)fail('INVALID_CAMPAIGN_CONFIG');const p=rows[0];
@@ -41,15 +41,21 @@ function validateDraft(input) {
   if(new Set(imported_products.map(p=>p.key)).size!==imported_products.length)fail('INVALID_IMPORTED_PRODUCT');
   imports={imported_products};
  }
- return {pages:result,...imports,seasonal_theme:input.seasonal_theme,integration_mode:'preview'};
+ let layout={};
+ if(Object.hasOwn(input,'fc_layout')){
+  if(typeof validateFcLayout!=='function')fail('FC_LAYOUT_VALIDATOR_REQUIRED');
+  try{layout={fc_layout:validateFcLayout(input.fc_layout)};}catch(error){if(error.status)throw error;fail('INVALID_FC_LAYOUT');}
+ }
+ return {pages:result,...imports,...layout,seasonal_theme:input.seasonal_theme,integration_mode:'preview'};
 }
 export function initialCenterDraft(){return {pages:pages.map(([page_id,activity_id,route,title])=>({page_id,activity_id,path:route,title,description:'',preview_enabled:true,starts_at:null,ends_at:null,benefit_refs:[],default_language:'original',social_image:'original'})),seasonal_theme:'halloween',integration_mode:'preview'};}
 
-export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},fc_layout,seedProvider,checkpoint=()=>{}}){
+export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},fc_layout,seedProvider,validateFcLayout,checkpoint=()=>{}}){
  const stateFile=path.join(dir,'state.json'),pendingFile=path.join(dir,'pending.json');
  const rawRead=()=>fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{revision:0,draft:initialCenterDraft(),updated_at:null,updated_by:null,published:null};
  const readJSON=file=>JSON.parse(fs.readFileSync(file,'utf8'));
- const seedNow=()=>seedProvider?seedProvider():{seedProducts,pageProductKeys,...(fc_layout?{fc_layout}:{})};
+ const seedNow=draft=>seedProvider?seedProvider(draft?.fc_layout):{seedProducts,pageProductKeys,...(draft?.fc_layout||fc_layout?{fc_layout:draft?.fc_layout||fc_layout}:{})};
+ const draftOf=input=>validateDraft(input,{validateFcLayout});
  const requestHash=(request,kind)=>digest(canonical({kind,revision:request.revision,draft:request.draft??null,
   ...(kind==='import'?{page_id:request.page_id,product_ref:request.product_ref}: {})}));
  function preserveImports(current,draft){
@@ -99,7 +105,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  function recover(request,kind){uuid(request.operation_id);read();const file=path.join(dir,'operations',request.operation_id+'.json'),hash=requestHash(request,kind);if(fs.existsSync(file)){const prior=readJSON(file);if(prior.hash!==hash)fail('REQUEST_CONFLICT',409);return prior.result;}return null;}
  return {read,recoverImport:request=>recover(request,'import'),
   save(request,user){return recover(request,'save')||operation(request,'save',user,current=>{
-   preserveImports(current,request.draft);const draft=validateDraft(request.draft);selectionScope(draft,seedNow());
+   preserveImports(current,request.draft);const draft=draftOf(request.draft);selectionScope(draft,seedNow(draft));
    return {result:{...current,revision:current.revision+1,draft}};
   });},
   importProduct(request,user,detail){return recover(request,'import')||operation(request,'import',user,current=>{
@@ -108,12 +114,12 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    if(!ref||typeof ref!=='object'||Array.isArray(ref)||Object.keys(ref).some(k=>!['site_id','game_id','goods_id','model_id','sku_id'].includes(k))
     ||['site_id','game_id','goods_id'].some(k=>ref[k]!==imported.product_ref[k])
     ||['model_id','sku_id'].some(k=>Object.hasOwn(ref,k)&&ref[k]!==imported.product_ref[k]))fail('IMPORTED_PRODUCT_IDENTITY_MISMATCH');
-   const seed=seedNow(),draft=validateDraft(addImportedProduct(validateDraft(request.draft),request.page_id,detail,seed));selectionScope(draft,seed);
+   const candidate=draftOf(request.draft),seed=seedNow(candidate),draft=draftOf(addImportedProduct(candidate,request.page_id,detail,seed));selectionScope(draft,seed);
    return {result:{...current,revision:current.revision+1,draft}};
   });},
   publish(request,user){return recover(request,'publish')||operation(request,'publish',user,current=>{
-   const draft=validateDraft(current.draft),revision=current.revision+1,release_id='campaign-preview-'+revision;
-   const seed=seedNow();selectionScope(draft,seed);
+   const draft=draftOf(current.draft),revision=current.revision+1,release_id='campaign-preview-'+revision;
+   const seed=seedNow(draft);selectionScope(draft,seed);
    const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
    const used=new Set(Object.values(selected).flat());
    const products=[...seed.seedProducts.map(p=>({...p,available:false})),...(draft.imported_products||[]).filter(p=>used.has(p.key))];

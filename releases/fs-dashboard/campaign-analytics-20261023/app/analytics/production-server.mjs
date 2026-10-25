@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {fileURLToPath} from 'node:url';
 import {randomBytes} from 'node:crypto';
 import {report} from './server.mjs';
-import {atomic,makeStore,previewCatalog} from './store.mjs';
+import {atomic,makeStore,previewCatalog,validateLayout} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
 import {centerSeed} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
@@ -15,16 +15,18 @@ const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
-const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',seedProvider:()=>centerSeed(previewCatalog(catalog,store.read().layout),seasonalBox.SeasonalData)});
-const centerState=s=>({revision:s.revision,draft:s.draft,published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
- ...(()=>{const seed=centerSeed(previewCatalog(catalog,store.read().layout),seasonalBox.SeasonalData);return {catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?catalog.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys};})(),
+const validateFcLayout=layout=>validateLayout(layout,catalog);
+const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
+ seedProvider:layout=>centerSeed(previewCatalog(catalog,layout??store.read().layout),seasonalBox.SeasonalData)});
+const centerState=s=>({revision:s.revision,draft:{...s.draft,fc_layout:validateFcLayout(s.draft.fc_layout??store.read().layout)},published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+ fc_catalog:{products:Object.fromEntries(Object.entries(catalog.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
+ ...(()=>{const seed=centerSeed(previewCatalog(catalog,s.draft.fc_layout??store.read().layout),seasonalBox.SeasonalData);return {catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?catalog.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys};})(),
  capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
  csrf:undefined});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
 const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
-publicNames.add('analytics/center.html');publicNames.add('analytics/center.js');
 publicNames.add('analytics/operations.html');publicNames.add('analytics/operations.js');
 export async function authorize(req){
  const r=await fetch('http://127.0.0.1:8895/verify?group=dashboard',{headers:{Cookie:req.headers.cookie||'','X-Original-Method':req.method,'X-Original-URI':req.url},signal:AbortSignal.timeout(5000),redirect:'manual'});
@@ -64,8 +66,10 @@ export const server=http.createServer(async(req,res)=>{
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision});return json(res,result.status,result.body);}
   if(relative==='analytics/api/catalog')return json(res,200,{catalog, ...publicState(store.read())});
   if(relative==='analytics/api/export')return json(res,200,{...publicState(store.read()),catalog:previewCatalog(catalog,store.read().layout),notice:'仅配置导出，原站仍需构建 SEO 和网站开发发布'});
+  // The historical URL is an authenticated alias, never a second editor source.
+  if(relative==='analytics/center.html'){res.writeHead(302,{Location:prefix+'analytics/products.html','Cache-Control':'no-store'});return res.end();}
   let body,type;
-  if(relative==='catalog.js'){body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(catalog,store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
+  if(relative==='catalog.js'){body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(catalog,center.read().draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else if(relative==='analytics-config.js'){body='window.FC_ANALYTICS_CONFIG='+JSON.stringify({...cfg,enabled:false,localPreviewJournal:false,serverManaged:true,registry:store.read().registry}).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else {
    const name=relative==='analytics/'?'analytics/index.html':relative||'index.html';if(!publicNames.has(name)&&!/^assets\/[A-Za-z0-9_.-]+\.(webp|png|svg)$/.test(name))return json(res,404,{message:'Not found'});

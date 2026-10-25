@@ -1,5 +1,7 @@
 """Allowlisted GET access using the existing shared owner session; no new login."""
 import sys
+import json
+import threading
 from pathlib import Path
 from .core import ContractError, identity, source_identity
 from .catalog import positive_id
@@ -47,8 +49,74 @@ def search(filters):
 
 
 class AdminRead:
-    def __init__(self, session):
+    def __init__(self, session, catalog_get_once=None, catalog_timeout=20.0):
         self.session = session
+        if type(catalog_timeout) not in (int,float) or not 0 < catalog_timeout <= 20:
+            raise ContractError('INVALID_CATALOG_DEADLINE')
+        self._catalog_transport = catalog_get_once or self._catalog_http_once
+        self._catalog_timeout = catalog_timeout
+
+    def _catalog_http_once(self, route, **params):
+        """Same authenticated requests session, bypassing shared get_admin retry/refresh loops."""
+        url = 'https://admin-api.p2pah.cn' + route
+        retries = self.session.admin.get_adapter(url).max_retries
+        if type(retries.total) is not int or retries.total != 0:
+            raise ContractError('CATALOG_SEARCH_TRANSPORT_NOT_SINGLE_ATTEMPT')
+        response = self.session.admin.get(url, params=params, headers={'batoken':self.session.token},
+            timeout=(5,15), allow_redirects=False, stream=True)
+        try:
+            if response.status_code == 504:
+                raise TimeoutError()
+            if response.status_code != 200:
+                raise ContractError('CATALOG_SEARCH_HTTP_REJECTED')
+            raw = bytearray()
+            for chunk in response.iter_content(chunk_size=65536):
+                raw.extend(chunk)
+                if len(raw) > 2000000:
+                    raise ContractError('CATALOG_SEARCH_RESPONSE_TOO_LARGE')
+            return response.status_code, json.loads(raw)
+        finally:
+            response.close()
+
+    def _get_catalog_once(self, route, **params):
+        # Each management bridge runs in its own process. The daemon deadline never waits for
+        # an upstream trickle/blocked socket to finish, and never starts a second HTTP attempt.
+        completed, result = threading.Event(), {}
+        def run():
+            try:
+                result['value'] = self._catalog_transport(route, **params)
+            except Exception as error:
+                name = type(error).__name__
+                safe = {'CATALOG_SEARCH_HTTP_REJECTED','CATALOG_SEARCH_TRANSPORT_NOT_SINGLE_ATTEMPT',
+                        'CATALOG_SEARCH_RESPONSE_TOO_LARGE'}
+                result['error'] = ('CATALOG_SEARCH_TIMEOUT' if isinstance(error,TimeoutError)
+                    or name in ('Timeout','ReadTimeout','ConnectTimeout') else str(error)
+                    if isinstance(error,ContractError) and str(error) in safe else 'UPSTREAM_UNAVAILABLE')
+            finally:
+                completed.set()
+        threading.Thread(target=run,daemon=True).start()
+        if not completed.wait(self._catalog_timeout):
+            raise ContractError('CATALOG_SEARCH_TIMEOUT')
+        if 'error' in result:
+            raise ContractError(result['error'])
+        try:
+            status, payload = result['value']
+            if status != 200:
+                raise ContractError('CATALOG_SEARCH_HTTP_REJECTED')
+            if not isinstance(payload,dict) or type(payload.get('code')) is not int or payload.get('code') != 1 or not isinstance(payload.get('data'),dict):
+                raise ValueError()
+            return payload['data']
+        except ContractError:
+            raise
+        except Exception:
+            raise ContractError('UPSTREAM_UNAVAILABLE') from None
+
+    def catalog_goods(self, goods_id):
+        goods_id = positive_id(goods_id)
+        row = self._get_catalog_once(DETAIL_ROUTES['goods'],id=goods_id).get('row')
+        if not isinstance(row,dict) or str(row.get('id')) != goods_id:
+            raise ContractError('DETAIL_ID_MISMATCH')
+        return row
 
     @classmethod
     def from_shared_session(cls, session_factory=None, token_reader=None):
@@ -174,7 +242,7 @@ class AdminRead:
         params = dict(page=page,limit=limit,order='id,desc',**search(filters))
         if keyword is not None:
             params['quick_search'] = keyword.strip()
-        data = self._get(LIST_ROUTES['goods'], **params)
+        data = self._get_catalog_once(LIST_ROUTES['goods'], **params)
         rows, total = data.get('list'), data.get('total')
         if isinstance(total, str) and total.isascii() and total.isdecimal():
             total = int(total)
