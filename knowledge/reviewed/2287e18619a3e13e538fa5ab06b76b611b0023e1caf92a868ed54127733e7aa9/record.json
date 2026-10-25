@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:bd71eee2",
+  "candidate_sha256": "931d191b0ca870266affe3c75273870d6ca196eea22e7ea767c2edaa508701ed",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "2026-10-25既有用户日审委托；当前watch完整源码哈希已核，原main在临时HOME实测4项通过；完整单文件技能包与原生应用manifest一致，固定索引和正文读回。未改真实lease、业务、定时或模型调用。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "f06a4a9d97b86a3bbaeeab237d3d820f525c3fda8543c220fca10115227a5a35"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "90fcfa0b6d7ddbb76cfecc8921e28f8c9852c0455cd1a6a438029bcdc8447d88"
+    }
+  ],
+  "receipt_sha256": "1d377d63b83d0f34a27f3297cc97ae8225ae826b2c4381eeed624b2a4ba3eb24",
+  "request_id": "2287e18619a3e13e538fa5ab06b76b611b0023e1caf92a868ed54127733e7aa9",
+  "runtime_activation": false,
+  "summary": "日审发现当前watch已按owner与incident分别保留租约，纠正已审技能旧单槽说明为1.0.1；不把正常实现演进当污染。"
+}
