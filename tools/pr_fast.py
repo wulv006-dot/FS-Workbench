@@ -510,6 +510,8 @@ def select(paths):
             groups.add("hermes-learning-loop");continue
         if name.startswith("releases/fs-dashboard/desktop-learning-20261016/"):
             groups.add("desktop-learning");continue
+        if name.startswith("releases/fs-dashboard/management-all-sites-20261025/"):
+            groups.add("management-all-sites");continue
         if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
             groups.add("fs-management-v2");continue
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
@@ -1226,6 +1228,9 @@ def main():
             units("releases/fs-dashboard/hermes-learning-loop-20261016/tests",["test_learning_loop","test_projection","test_release","test_titles_goals","test_acceptance_fixes","test_source_snapshots"])
         elif group=="desktop-learning":
             units("releases/fs-dashboard/desktop-learning-20261016/tests",["test_learning","test_publish"])
+        elif group=="management-all-sites":
+            units("releases/fs-dashboard/management-all-sites-20261025/tests",["test_all_sites"])
+            node("releases/fs-dashboard/management-all-sites-20261025/tests/check_frontend.cjs")
         elif group=="fs-management-v2":
             release="releases/fs-dashboard/management-v2-20261015"
             units(release+"/tests",["test_management_facts","test_management_context","test_management_runner","test_static_publisher","test_backend_publisher","test_skill_identity"])
