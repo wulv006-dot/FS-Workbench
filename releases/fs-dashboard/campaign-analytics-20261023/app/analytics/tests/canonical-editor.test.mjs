@@ -75,9 +75,9 @@ test('canonical management route projects legacy layout without writing it and p
   assert.equal((await originalFetch(base+'center.html',{redirect:'manual'})).status,401);
   const redirect=await originalFetch(base+'center.html',{headers,redirect:'manual'});assert.equal(redirect.status,302);assert.equal(redirect.headers.get('Location'),'/dashboard/analytics/campaigns/analytics/products.html');
   assert.equal((await originalFetch(base+'center.js',{headers})).status,404);
-  const state=await (await originalFetch(base+'api/center',{headers})).json();assert.deepEqual(state.draft.fc_layout,validateLayout(legacy.layout,catalog));assert.equal(fs.existsSync(path.join(dir,'center')),false);
+  const state=await (await originalFetch(base+'api/center',{headers})).json();assert.equal(Object.hasOwn(state.draft,'fc_layout'),false);assert.deepEqual(state.effective_fc_layout,validateLayout(legacy.layout,catalog));assert.equal(fs.existsSync(path.join(dir,'center')),false);
   assert.deepEqual(Object.keys(state.fc_catalog).sort(),['products','sbc','trio']);assert(Object.values(state.fc_catalog.products).every(p=>Object.keys(p).every(k=>['key','title','name','kind','version'].includes(k))));
-  const draft=structuredClone(state.draft);draft.fc_layout.weekly=['170014917'];const body={revision:state.revision,operation_id:randomUUID(),draft};
+  const draft=structuredClone(state.draft);draft.fc_layout=structuredClone(state.effective_fc_layout);draft.fc_layout.weekly=['170014917'];const body={revision:state.revision,operation_id:randomUUID(),draft};
   const postHeaders={Cookie:'admin',Origin:'http://localhost','Content-Type':'application/json','X-CSRF-Token':state.csrf};
   assert.equal((await originalFetch(base+'api/center',{method:'POST',headers:{...postHeaders,Cookie:'reader'},body:JSON.stringify(body)})).status,403);
   assert.equal((await originalFetch(base+'api/center',{method:'POST',headers:{...postHeaders,'X-CSRF-Token':'wrong'},body:JSON.stringify(body)})).status,403);
