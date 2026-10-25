@@ -1,0 +1,53 @@
+{
+  "scope": "fc-cost-live-ci-20261025",
+  "purpose": "Archive exact already-deployed sources; formal CI only, no redeployment",
+  "runtime_sources": [
+    {
+      "target": "/opt/fc27-cloud-browser/automation_tick.py",
+      "repository_path": "releases/fc-coins/fc-cost-live-recovery-20261025/source/automation_tick.py",
+      "maintenance_source": "fc_cost_live_ci_20261025/source/automation_tick.py",
+      "sha256": "878dd934be7e4ae67036eb59a3434cedf75cb2e2c5cb4fdbd50d3aed76466d2c",
+      "beforeSha256": "8771385cf5a6ef14fa3a42915108d7a699c511c09c089da76319993188ba3b4d"
+    },
+    {
+      "target": "/opt/fc27-cloud-browser/collect_p2pah_cost.py",
+      "repository_path": "releases/fc-coins/fc-cost-live-recovery-20261025/source/collect_p2pah_cost.py",
+      "maintenance_source": "fc_cost_live_ci_20261025/source/collect_p2pah_cost.py",
+      "sha256": "fc7265fd65fcbcad7402f18ad29de9f47f18ccee06d00f28bbf8d5d55f6f04d8",
+      "beforeSha256": "d3cb307efce484abaeb0c9cb2ee8f50e6b50e91e95f0a1988dc53cee1e123e57"
+    }
+  ],
+  "deployment": {
+    "status": "deployed",
+    "at": "2026-10-25T08:55:56.731753+00:00",
+    "backup": "/var/lib/fc27-cloud/rollback/fc-cost-recovery-20261025",
+    "files": {
+      "automation_tick.py": {
+        "after": "878dd934be7e4ae67036eb59a3434cedf75cb2e2c5cb4fdbd50d3aed76466d2c",
+        "before": "8771385cf5a6ef14fa3a42915108d7a699c511c09c089da76319993188ba3b4d"
+      },
+      "collect_p2pah_cost.py": {
+        "after": "fc7265fd65fcbcad7402f18ad29de9f47f18ccee06d00f28bbf8d5d55f6f04d8",
+        "before": "d3cb307efce484abaeb0c9cb2ee8f50e6b50e91e95f0a1988dc53cee1e123e57"
+      }
+    },
+    "timers_changed": false,
+    "policy_changed": false,
+    "business_writes": 0,
+    "api_reloaded": true,
+    "worker_restarted": false
+  },
+  "formal_ci": "pending",
+  "new_business_jobs": 0,
+  "production_publish": 0,
+  "ordinary_natural_cycle": {
+    "expected_not_before": "2026-10-25T19:10:12.007742+08:00",
+    "status": "pending",
+    "exclude": [
+      "78b1837d-3abb-4009-ade9-b4e326152b13",
+      "35aca601-2dab-4ab6-949c-110806aa9e05"
+    ]
+  },
+  "fault_memory_tracking": "paused",
+  "notion_sync": "not_needed_no_new_business_knowledge_rule"
+}
