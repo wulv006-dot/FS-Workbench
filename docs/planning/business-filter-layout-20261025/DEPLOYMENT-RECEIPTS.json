@@ -1,0 +1,34 @@
+{
+  "initial": {
+    "release_id": "nav-20261025T093047Z",
+    "remote_stage": "/opt/fs-release-stage/business-filter-layout-20261025-v1",
+    "manifest_sha": "69dc7a63e7a2727dd989e20e85e3bade0d0ad71c78a25133159743a78dec3a3f",
+    "package_sha": "a11c8007ce05558fcc936d2d251ea646f7907ed62cb04f8c2f800b3d186ea198",
+    "merge": "89d61ff776e079930e4e511e2bfaef3d100ff110",
+    "head": "d1429fd0fc6a5d528709dcab64fbb809b85d9d9f",
+    "formal_ci": 40180681809,
+    "targets": 11,
+    "guards": 165
+  },
+  "cacheCompatibility": {
+    "release_id": "nav-20261025T094712Z",
+    "remote_stage": "/opt/fs-release-stage/business-filter-cache-compat-20261025-v1",
+    "manifest_sha": "30442f52d2e693ce97d3a0fd0fd146d1f3c061fbea1bc036a03b2f58adf5e9cb",
+    "package_sha": "3d74e553ccb4120280b9b570f112dbc72473c903c9a62dc7501d34eee5ae8f30",
+    "merge": "bdab889e8cb813dd994e579a79228a112c87ecbe",
+    "formal_ci": 40181837741,
+    "targets": 1,
+    "guards": 175
+  },
+  "initialReadback": {
+    "targets": 11,
+    "guards": 165
+  },
+  "finalReadback": {
+    "targets": 1,
+    "guards": 175,
+    "includesInitialEleven": true
+  },
+  "nativeImagePreserved": "sha256:0a6b8e71c8b88db2d008024306c87a7feaeec105b8232598d91df5854374bc3c",
+  "businessWorkerTimerActions": 0
+}

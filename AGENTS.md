@@ -1,3 +1,8 @@
+<!-- business-filter-layout-current-20261025 -->
+## 经营面板范围与游戏筛选（2026-10-25）
+
+PR470/474已合并并沿原publisher分11+1目标发布；本次12个目标的源码与生成路由精确清单见SOURCE-MAP，源码沿releases/fs-dashboard/dashboard-refresh-20261025/source/维护，其他文件保持各自活动源。网站范围→分组游戏→时间，RS三站锁RS；旧summary未传网站仍取原全站，毛利独立缓存兼容，FC明细网站联动。当前合同、逐链路影响、活动SHA和实际验收见docs/planning/business-filter-layout-20261025/。原成本/权限/会话/调度及v15/80-15-5不变；不把Git候选目录或文件装配当新模型/自然周期验收。
+
 <!-- operator-report-core-current-20261025 -->
 ## 所有报告的生成与审核核心（2026-10-25用户明确纠正）
 
