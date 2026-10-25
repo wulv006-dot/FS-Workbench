@@ -144,7 +144,7 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
   while month<=0:month+=12;year-=1
   first=date(year,month,1);last=min(date(year,month,monthrange(year,month)[1]),day-timedelta(days=1))
   if last<first:continue
-  q=query('MMOEXP',first.isoformat(),last.isoformat(),pin=last.month!=day.month)
+  q=query('MMOEXP',first.isoformat(),last.isoformat(),pin=last.month!=day.month,required=('rev','ord'))
   history.append({'lab':str(month)+'月','start':first.isoformat(),'end':last.isoformat(),'rev':q['values']['rev'],'ord':q['values']['ord'],'prof':q['values']['prof'],'mtd':month==day.month,'status':q['status'],'sources':q.get('sources',{})})
  result={'contract':CONTRACT,'dataScope':DATA_SCOPE,'businessDate':day.isoformat(),'generatedAt':at.isoformat(),'validUntil':datetime.combine(day+timedelta(days=1),datetime.min.time(),SH).isoformat(),'timezone':'Asia/Shanghai','targetPeriod':targets['period'],'targetVersion':fingerprint(targets),'period':period,'projects':projects,'platformHistory':history,'forecastMethod':'累计实际÷已过完整日×目标月天数；线性情景，不是承诺','profitPolicy':'Admin 全站金额×Order 参考利润率；预估非实结','status':'available' if all(p['month']['status']=='available' and p['month'].get('freshness')=='fresh' for p in projects) else 'partial'}
  result['snapshotId']='management-'+fingerprint(result)[:24];return result
