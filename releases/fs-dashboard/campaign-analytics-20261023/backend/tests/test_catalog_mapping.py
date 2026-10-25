@@ -26,6 +26,50 @@ def fixture():
 
 
 class MappingTests(unittest.TestCase):
+    def fixed_fixture(self):
+        seed,evidence=fixture()
+        seed['references']=seed['references'][:1]
+        ref=seed['references'][0]
+        ref.update(reference_key='fc-fixed-ps',family='fc',source_artifact='app/catalog.json')
+        ref['expected_quantity']=dict(value='1',group='4',source_unit=None)
+        seed['source_artifacts']={'app/catalog.json':'a'*64}
+        goods=evidence['products'][0]['goods']
+        goods['purchase_fields'].update(unit='',num=4,sku_switch=0)
+        for source in ('goods','model'):
+            evidence['products'][0][source]['specifications']={'more':{name:dict(present=True,value=[]) for name in ('saleprop','skuTableSet')}}
+        return seed,evidence
+
+    def test_fixed_fc_original_serialization_does_not_require_free_quantity_bounds(self):
+        seed,evidence=self.fixed_fixture();artifact=build_reference_mappings(seed,evidence)
+        row=read_reference_mapping(artifact,'fc-fixed-ps')
+        self.assertEqual(row['original_cart_serialization']['fields'],dict(category='new_items',id='111',group='4',num='1',attr='',aid='21587'))
+        self.assertFalse(row['original_cart_serialization']['current_main_site_verified'])
+        self.assertEqual(row['quantity']['selection_mode'],'fixed_original_choice')
+        self.assertNotIn('QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED',row['missing_reasons'])
+        self.assertIn('PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED',row['missing_reasons'])
+        self.assertIsNone(row['quantity']['step']);self.assertIsNone(row['quantity']['maximum'])
+        selection=dict(product_ref=row['product_ref'],platform_attribute_id='21587',quantity='1')
+        self.assertFalse(validate_purchase_mapping(row,selection)['checkout_enabled'])
+        with self.assertRaisesRegex(ContractError,'ORIGINAL_QUANTITY_CONFLICT'):
+            validate_purchase_mapping(row,dict(selection,quantity='2'))
+
+    def test_fixed_fc_group_conflict_and_tampered_serialization_fail_closed(self):
+        seed,evidence=self.fixed_fixture();evidence['products'][0]['goods']['purchase_fields']['num']=5
+        artifact=build_reference_mappings(seed,evidence);row=artifact['mappings']['fc-fixed-ps']
+        self.assertIn('ORIGINAL_QUANTITY_GROUP_CONFLICT',row['missing_reasons'])
+        with self.assertRaisesRegex(ContractError,'PURCHASE_MAPPING_REQUIRED'):
+            validate_purchase_mapping(row,dict(product_ref=row['product_ref'],platform_attribute_id='21587',quantity='1'))
+        row['original_cart_serialization']['fields']['id']='999'
+        artifact['mappings_sha256']=hashlib.sha256(json.dumps(artifact['mappings'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+        with self.assertRaisesRegex(ContractError,'CATALOG_MAPPING_ARTIFACT_INVALID'):read_reference_mapping(artifact)
+        seed,evidence=self.fixed_fixture();seed['references'][0]['expected_quantity']['group']=None
+        with self.assertRaises(ContractError):build_reference_mappings(seed,evidence)
+
+    def test_non_fc_currency_quantity_keeps_unverified_bounds_and_no_fixed_cart_claim(self):
+        seed,evidence=fixture();row=build_reference_mappings(seed,evidence)['mappings']['seasonal-fc-0']
+        self.assertIn('QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED',row['missing_reasons'])
+        self.assertNotIn('original_cart_serialization',row)
+
     def test_real_committed_artifact_covers_every_original_reference_and_distinguishes_gaps(self):
         artifact=json.loads((Path(__file__).parents[1]/'catalog-mapping.json').read_text(encoding='utf8'))
         all_rows=read_reference_mapping(artifact);rows=all_rows['mappings']
