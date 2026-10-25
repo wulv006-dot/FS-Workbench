@@ -1,0 +1,68 @@
+"""Dated, private evidence for the existing preparation and report consumers."""
+from datetime import datetime, time, timedelta, timezone
+from pathlib import Path
+import hashlib
+import json
+
+TZ = timezone(timedelta(hours=8))
+ROOT = Path('/var/lib/fs-hermes-fc/fs/nightly-data')
+FALLBACK = time(2, 0)
+
+
+def save_book(day, kind, start, end, book, brief, root=ROOT):
+    from source_snapshots import SnapshotStore, atomic, encoded
+    store = SnapshotStore(root / day)
+    store.directory()
+    value = dict(contract='fs-nightly-evidence-v1', day=day, kind=kind,
+                 period={'start': start, 'end': end}, snapshot_id=book.capture_id,
+                 saved_at=datetime.now(TZ).isoformat(), brief=brief, evidence=book.evidence)
+    raw = encoded(value)
+    version = hashlib.sha256(raw).hexdigest()
+    artifact = store.root / (version + '.json')
+    if not artifact.exists():
+        atomic(artifact, value)
+    elif artifact.read_bytes() != raw:
+        raise ValueError('nightly_immutable_evidence_conflict')
+    entry = dict(kind=kind, period=value['period'], sha256=version,
+                 file=artifact.name, snapshot_id=book.capture_id,
+                 status=brief['collection_readiness']['status'],
+                 gaps=brief['collection_readiness']['gaps'])
+    atomic(store.root / (kind + '.json'), entry)
+    return entry
+
+
+def preparation_gaps(now, kind, source_root, root=ROOT):
+    from source_snapshots import SnapshotStore, preparation_complete
+    from nightly import closed_period
+    day = now.astimezone(TZ).date()
+    try:
+        wanted = kind
+        if kind not in ('management','management_weekly'):
+            path = source_root / ('preparation-' + day.isoformat() + '.json')
+            value = SnapshotStore(source_root).read(path)
+            if value.get('day') != day.isoformat() or value.get('status') not in ('ready', 'partial'):
+                return ['nightly_preparation_not_finished']
+            rows = [r for r in value.get('results', []) if r.get('kind') == wanted]
+            if len(rows) != 1 or not rows[0].get('native_statuses') or not preparation_complete(rows):
+                return ['nightly_' + wanted + '_source_gaps']
+        store = SnapshotStore(root / day.isoformat())
+        entry = store.read(store.root / (wanted + '.json'))
+        version = entry.get('sha256', '')
+        if len(version) != 64 or any(c not in '0123456789abcdef' for c in version):
+            raise ValueError('nightly_evidence_version')
+        artifact = store.root / (version + '.json')
+        evidence = store.read(artifact)
+        start, end = closed_period(day, wanted)
+        if hashlib.sha256(artifact.read_bytes()).hexdigest() != version or evidence.get('day') != day.isoformat() or evidence.get('kind') != wanted or evidence.get('period') != {'start': start, 'end': end} or entry.get('status') != 'ready':
+            raise ValueError('nightly_evidence_integrity')
+        return []
+    except (OSError, ValueError, KeyError, TypeError):
+        return ['nightly_evidence_missing_or_invalid']
+
+
+def report_note(now):
+    day = now.astimezone(TZ).date().isoformat()
+    return (' 服务器固定归档入口：/fs/nightly-data/' + day +
+            '/；按报告种类读取指针及其SHA对应的不可变证据。FS研究任务使用已注册的同区间证据与计算工具；'
+            '服务器原生聊天可直接读该目录。先复用，再自主调用现有只读工具补缺及计算；'
+            '不得将准备完成等同于所有指标最终稳定，不改原始事实、价格或业务状态。')
