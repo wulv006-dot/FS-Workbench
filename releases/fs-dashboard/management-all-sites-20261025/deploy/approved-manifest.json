@@ -1,0 +1,495 @@
+{
+  "schemaVersion": 1,
+  "scope": "management-all-sites-20261025",
+  "sourceCommit": "0b4387aa44dd217134498f024f605a8a1166dc01",
+  "version": "management-all-sites-20261025-f60608d79521",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "candidate": "source/management_facts.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_facts.py",
+      "sha256": "bccd2afe44645d5fdab354f134afdfa186627f91142545df6f807884cac80777",
+      "beforeSha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/management_v2_runner.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_v2_runner.py",
+      "sha256": "19de7214a5913d2f42b257aef2a015012bc12c6fa2cbc5a9b0f909c245c16c2e",
+      "beforeSha256": "ff737793dca1dcf61c98c38ae10cf2fccdf890f96ce72359ac368f68a06785c5",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/management_context.py",
+      "target": "/opt/fs-hermes-fc/management_context.py",
+      "sha256": "277a1fb84eb6bab96222274b3f626969aec7f59da3111607efc0d522617a94c0",
+      "beforeSha256": "c0dafc3e10847eb82c90d4fd9e37b96cffbe4d0b09bfe11bb55bb76c7d7a4d06",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/management-live.js",
+      "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/management-live.js",
+      "sha256": "7890b3fd5130337df085c28a43efc5dc595a9fde42ddce94e23fa9ae6c9bbc12",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/index.html",
+      "sha256": "6edad5834a49ef976409589eb08d6a53bac86968d257521af41161175ba5c8a1",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "sha256": "4c1a2911deba3565b5eeee98701ce70059168c33a6927bc30e77115c090a1f62",
+      "beforeSha256": "e9c02b31f27a7c7b22d3341eda519aff70af05d3fc139bd374b4175c7a0184f1",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "sha256": "b326d384a166903cc3908ba089ecc9db8c156c48a5be8b9416b3e857703e33ab",
+      "beforeSha256": "1fcd5e449972a8a6796e9b691596f902516085b246f06053ef079c1a7a83ca7e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "46d946b2930e790cfea79a99248346bec4cf735177f4a376147d295544d0746b",
+      "beforeSha256": "2812525dd1004bf60dc7ec95a8b8c2d20531e4ad729dd1c4d1c90598734865c3",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "runtimeRequired": {
+    "fs-business-range.service": {
+      "ActiveState": "active"
+    },
+    "fs-hermes-fc.service": {
+      "ActiveState": "active"
+    },
+    "fs-boss-management.service": {
+      "ActiveState": "inactive"
+    },
+    "fs-boss-management.timer": {
+      "ActiveState": "active"
+    }
+  },
+  "unchangedRequired": [
+    {
+      "path": "/etc/systemd/system/fs-boss-management.service",
+      "sha256": "972e22d043454b81540ddedd807e347851c80a2133fbcecd1740515cb947060e"
+    },
+    {
+      "path": "/etc/systemd/system/fs-boss-management.timer",
+      "sha256": "6e67aa8385edfbaba1c5384872dd412956c48d4d5d813b08850a95e95c957ec0"
+    },
+    {
+      "path": "/etc/systemd/system/fs-business-range.service.d/hermes.conf",
+      "sha256": "b86dbeb4776f03ce68f86a9baf9c40abec97e6db7382e0f4c9e6c1f45b053c0c"
+    },
+    {
+      "path": "/etc/systemd/system/fs-hermes-fc.service",
+      "sha256": "94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "84e7a2f50868eb5764412d7b56e3a4ef2fc81681d0a07a478ad62819add7a95d"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/boss_daily.py",
+      "sha256": "9b102d43b11792e72e374af46819b2904b84b061a4da712ed4c44bc86048a8d1"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/backend/management_daily.py",
+      "sha256": "3547bef9ddf3e9084f143971c8cad8629f8d4800f64f2abd48fe5dcaff50a121"
+    },
+    {
+      "path": "/opt/fs-boss-workspaces/source/management/targets.json",
+      "sha256": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "6ff6f4935ee289ce8d53441a2bcbe167b32b3a757868b7c3691a33a4abb7c282"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/ai_advisor_model.py",
+      "sha256": "a57a9b9962ff16d137357a69e3eafc01dd391cd1a115b37bfd6ac70b8bd1f9bc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/boss_insights.py",
+      "sha256": "ab8e249864fdee350d3d35cdf83995e473112b17f86281a331f14581a65d189c"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/business_shipping.py",
+      "sha256": "19c747d92bbcf93a8cd746d1275672ae0097b54d5cbe4dc3a54bba3eab870661"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/catalog.py",
+      "sha256": "8ad7720c7aee4fb2238651a4a652fbbd94072eba6e69ebb5ae7c382df74dc618"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "5b664e3c788282f0f40517c71bdae6bdec0d2b834ca51d6f8af462939a3d2862"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "056e1a16fcd48cda19903e17ecdeda4d3739d54f62525edbf5ec8dfc1ad3d6fa"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily_model.py",
+      "sha256": "23bc38f4114991a4f3d38cb805b897d77b974b501293d04b9fce319e739f36dc"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_model.py",
+      "sha256": "15965d1d331444635dd8ef677cacb2f05d2e21fa6c33ff6ae7bf53315b76b067"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_deep_sources.py",
+      "sha256": "f83e7605f08d26052a743ea7ad5cce78c421d9439c67ce29f32415c0dce18c5a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "dcb3830a53f73b4732be198b2201fa48dab18aaa0928af6d759732a6fcc378e1"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_config.json",
+      "sha256": "e6c43940d8f5f2da10180ed489d2a4654d5d7fe038f3183787dd47587075d31a"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "e59a195605d7c1298fe450b15249df797c851604fdeb043047d82aba2186af78"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "90159c3bd57663114fded85e90eb318505e53695b5548561aba32f4154c9464f"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/profit_queries.py",
+      "sha256": "9b043ed25d165d859bbc1728bc5ceb24cb6432b37387d1de3f6771e1c6dfe805"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_primary_reader.py",
+      "sha256": "4b599c319bd67fc0fef2076b6e1543cf53ee8f26267094d37b7ac464208e4028"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/rs_admin.py",
+      "sha256": "f2c6587ac1f8c7a3a0a3e82747378b7ff314a408e53d168d5f3139c0d01ab303"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/rs_shipping.py",
+      "sha256": "30f37f5c6c0d272e499e21fb92f423e752845a9ce6c072945362f747fcb04dcf"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "ad0961467f4f2e6508d769bc9533b49b9ed35c0ee9f67e41eb561f3c05201c8e"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.json",
+      "sha256": "f629d00fbbb8915e592053a5e62720c3f46b10e888122b0417a959d2bed82603"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/assets/knowledge-derived.md",
+      "sha256": "58fe32f4bc893a19ae7789a24b8fcc523e9f11975f8d1d1fcc5e24f34c677547"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/background.py",
+      "sha256": "7155ed5490358ccc1d714f49810d8ef3130de736b1fbbae7e1f0783fd1acbbee"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/channel_cost_source.py",
+      "sha256": "8adb96256362c5fe988a33c8f3b241398fd9e23b688c258477effbc0873d6ce6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/channel_mapping.json",
+      "sha256": "ae3062dcfd7547de526cf3fb9725194f04e326ba9bf9e40b057ffeaa30d394d6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/channel_source.py",
+      "sha256": "ed5e438ad5b1ea7125ae15bbd0d0e9d4426e6bf0d4484d658b8397fde857eb97"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "ee564873cb47077b3faa5f15c5f24c80bfc0f9e2e44d213938d3c16136883275"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_evidence.py",
+      "sha256": "bd44a2f4cb942991a8be52f30597b742170610036518e9f4de0f88a41190210f"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "sha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/hermes_worker.py",
+      "sha256": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/network_guard.py",
+      "sha256": "aa1bbe2d87e5dfb1e253ddd04a4ce3869ff2b9f391bfba3ebcd0e35f413ebe23"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/pilot.py",
+      "sha256": "80a52d0084903e9fbff1f4b413090ee0e3406b449a7609afdc0d4b27a1a3f999"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "d64690cf8428bd98abcdb007e0f40eb57d00207f26c7fb86af9d2b8643905ab4"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/report_validation.py",
+      "sha256": "e0fab83d5f6b095d28ea31ca0928397ba23d7441ae88261c42ba3c2c597f6a9a"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/research.py",
+      "sha256": "db872850d2aa183c120476277e6976821d285045404b6ee71abb379f973d8bdc"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runs_contract.py",
+      "sha256": "e02e94b83325f7aa1ec1b598cf25f11d26e77ec481d25bdd6fab9ffd9765c70c"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/runtime-config.yaml",
+      "sha256": "f9d0872391ddb12c9b62dbd73ea3e50ddfe57fbfbf18ed253546d563c7af61cd"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skill_bundle.py",
+      "sha256": "b60018ce6d94d28e3f6b709aded61846f72e04acd2eccbf1f9c0c76476610834"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/SKILL.md",
+      "sha256": "0a2e10478450210745769be14e49f614ca516d7a08fd4bf55a0f2debe8faab15"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/methods.md",
+      "sha256": "164483fb23c0f13dbf2ca27081d3033de99a1bf0f4aec3805df8d472ad64ef41"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/fs-fc-operations-analysis/references/metric-governance.md",
+      "sha256": "d3a930fa21e247c03048e185aa1f479b9278175cdea2dcea64155226e7aa8574"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/manifest.json",
+      "sha256": "fea3ecc7db3ea9efb12751fdfd5f2fe4ff8bab47fa3b0e6a287c67f9843a0fd4"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/LICENSE",
+      "sha256": "a6946284993aeec75c7d75906064b66210c46051e562077efb30eb6dcfe72e26"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/data-visualization/SKILL.md",
+      "sha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/explore-data/SKILL.md",
+      "sha256": "af7590fa616360259da712b5ede5f79b817beb854c47a465f95774354988e8a2"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/statistical-analysis/SKILL.md",
+      "sha256": "91a15cfc144efffcd622b09827362a73993a3ff30e3a78114801832477c9f8a0"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/anthropic/data/skills/validate-data/SKILL.md",
+      "sha256": "1e424822043480375b80aef9416227b1c8083af749ca536568716265f79ca54b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/skills/upstream/hermes/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/source_projection.py",
+      "sha256": "5dd7413441ef48b41db1978706be15e6064fbd8172a68835f67ae4fe01514f40"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/transport.py",
+      "sha256": "e677a186a893c346379ba572576afdfbd412612cc5c63146751182558743f843"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/collector.py",
+      "sha256": "891990d1dd6a21d15eea6bfae619192205e5f689651c6b37a1bca3eca57d9e8e"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/fc_category_contract.py",
+      "sha256": "ebd104faf45c434702f675c31d210ebed2412f30f0a80543bbb94a908e9e6a4a"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/primary_fields.py",
+      "sha256": "3831cd688f2308d58483a8453da9e0236b0d52e88b77e434866ac9ea0741b84b"
+    },
+    {
+      "path": "/opt/fs-transaction-snapshot/profit_daily.py",
+      "sha256": "f6d0392c91232ef6ae09e4cd26a4a26ccff85b0451a10eeb062189c2499e25ec"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/business.js",
+      "sha256": "66870ed1ee5f7971f4cb32f6bab70e1b2973d658f793f3a48a5977d55dafa1f4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/home-business.js",
+      "sha256": "87b10da8b0e2ebd9e01cb1eae84c35d66e93a43bf6da1a102f2435c8b02a3478"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/legacy-business.js",
+      "sha256": "213a76a08be17de4514af864573ef5b95ef1cb1192e29187197e7f12f3d2ecdf"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/actual-profit-20261024-229e0a570df3/shell.js",
+      "sha256": "dcd9c9cf901304cfb3bec8466aa7f508490cbd864e0f7bd26ef28182540fe6bd"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/channel.js",
+      "sha256": "3edbc6c4f2f6e0b7cc2f3f88096526688e65eed112a3f2b92a75a14296c2a197"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/channel-effects-8e091906c992/index.html",
+      "sha256": "3fabacbce806dee52153ee88dd9daa181cffb242a68d602e34f75d0fa5ae00a4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/business.js",
+      "sha256": "67b46d3ba43556ac6658a8b9960ac25e464f4460569366bbd07cdfea81d7ce07"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/home-business.js",
+      "sha256": "1566b86d3dc70ac96c0d766a3081b8428c1ce8a866a1b51725ef8a220b0731b4"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-archive-fix-20261024-62812003d735/legacy-business.js",
+      "sha256": "d02cba0ebc4457cc45e5fcb6b8331f06ba416e42b1a2337fa0636d31de101e31"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/business.js",
+      "sha256": "e59f8c21429bc655a3f9d03f883e4e30085e31022f66d14525932b21c5828cb3"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/home-business.js",
+      "sha256": "aa13501d3c03fa43980e770ff89fae539703cd72b875122a9fc1019e12664adb"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/legacy-business.js",
+      "sha256": "3a125501d111481ee1c5d603a7adb20778c676177eb057ce2ebab73f066cc20c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-business-20261024-6fec65d27be0/shell.js",
+      "sha256": "fa2a3aab339b81e62ec2adab4d68c5e98c5f58dd03b750bb06641b4ae955f13c"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/business.js",
+      "sha256": "3db843e303b4ba99e758b2ab0cb2a44e5df55c8212103a8155243c4f13577897"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/home-business.js",
+      "sha256": "c166d52ecf276888a2e927b248a0b4e73f07abc61d965f27413df6ea54e267b1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-shipping-20261024-3318ca1016cf/legacy-business.js",
+      "sha256": "b1691a985ca440bb462a7208db3e5450ec47ce457343fbf489f727943ff5be8f"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/rs-status-20261024-96a1c925325c/shell.js",
+      "sha256": "96a1c925325c2594c7b0dc360dc1d62e5005b6093bcf80f9ffc2a1530d262794"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/business.js",
+      "sha256": "31ec36458da36c03e8cc95cd089af9a9f60fc67fd7193c235ca94d224ffb02d1"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/home-business.js",
+      "sha256": "48b6689ae3945d401b2a0db0b82da39489a377da2e38c2d953dea68a98a81100"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/legacy-business.js",
+      "sha256": "4e8060a928992813e1918180b0b37f41fff68f1bcf42a2eb947bfe892a94510d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-20261024-344f40933ff8/shell.js",
+      "sha256": "6149527f595d221b367f09f6b6991462c4c15cf9694f03cb8a369a4eb36e7eb6"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-dd8540196de6/business.js",
+      "sha256": "da13a4818b1971f7477608baa6a0126bb14bf40746046c5a688addd5c8e9a05d"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-dd8540196de6/home-business.js",
+      "sha256": "5a2d406cb14c4fe0f1bd5432937819e60c2f1cefcf36ae7697ce033d5fbfdb03"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-dd8540196de6/legacy-business.js",
+      "sha256": "fae835023f7ffc91e028b31f4ecc904e91d94b78e12282fb3439d8af2c903827"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-labels-20261024-dd8540196de6/shell.js",
+      "sha256": "a4b1f5075ca5e84ebecd4b8e3591ee6f8d3ac34c1a546e4a44a0ea31ed06db92"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/business.js",
+      "sha256": "fe8f295bddb7bf84cd52b9311d16cd2c5ea0bc61e614901a5ddfd04e2fd77517"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/home-business.js",
+      "sha256": "432f7f1d700c22a3fe4b214b4a41f2306b72d84c1ae9d853e0b688c5b7ffb7ce"
+    },
+    {
+      "path": "/var/lib/fs-navigation-formal-static/shipping-profit-ui-20261024-33653b6cce69/legacy-business.js",
+      "sha256": "ca87dab34a77ecad375cf2ed7a9382c3aef83cff5a65e6a644b9b53cf3d8dc7e"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/hermes/index.html",
+      "sha256": "61513ada9e40b6ce071bd990012d87a75be4c367f61445f359332e21b6b3683b"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/index.html",
+      "sha256": "086ec128438f5dc80e82b21db5b84352862127c7cb8f8d984eadaa4a3fd78fe9"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.js",
+      "sha256": "c81f116fb8129567ccd8ec17b045a7abd2b5a466f0ace4dd0553b5001611ba96"
+    },
+    {
+      "path": "/var/www/dashboard/fs-home/navigation.json",
+      "sha256": "3db01473b1523f05b164a883e92cf983b2d0ad894217c03e695e669fa4f04738"
+    },
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"
+    },
+    {
+      "path": "/var/www/hub/hubnav.js",
+      "sha256": "fd8d45c699aa2a7e54f77e290f60e52ea51853498d6c2cf212678733cb06f314"
+    }
+  ],
+  "restartServices": [
+    "fs-business-range.service"
+  ],
+  "reloadServices": [
+    "nginx"
+  ],
+  "preserved": [
+    "target amounts/owners",
+    "all original timers",
+    "pricing v15 80/15/5",
+    "sessions permissions and unknown operation history"
+  ]
+}

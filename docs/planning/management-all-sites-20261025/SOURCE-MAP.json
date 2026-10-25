@@ -1,0 +1,80 @@
+{
+  "status": "candidate_not_deployed",
+  "sourceCommit": "0b4387aa44dd217134498f024f605a8a1166dc01",
+  "version": "management-all-sites-20261025-f60608d79521",
+  "files": [
+    {
+      "source": "management_rs_recovery_20261025/source/management_facts.py",
+      "candidate": "source/management_facts.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_facts.py",
+      "sha256": "bccd2afe44645d5fdab354f134afdfa186627f91142545df6f807884cac80777",
+      "beforeSha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/management_v2_runner.py",
+      "candidate": "source/management_v2_runner.py",
+      "target": "/opt/fs-boss-workspaces/backend/management_v2_runner.py",
+      "sha256": "19de7214a5913d2f42b257aef2a015012bc12c6fa2cbc5a9b0f909c245c16c2e",
+      "beforeSha256": "ff737793dca1dcf61c98c38ae10cf2fccdf890f96ce72359ac368f68a06785c5",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/management_context.py",
+      "candidate": "source/management_context.py",
+      "target": "/opt/fs-hermes-fc/management_context.py",
+      "sha256": "277a1fb84eb6bab96222274b3f626969aec7f59da3111607efc0d522617a94c0",
+      "beforeSha256": "c0dafc3e10847eb82c90d4fd9e37b96cffbe4d0b09bfe11bb55bb76c7d7a4d06",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/management-live.js",
+      "candidate": "source/management-live.js",
+      "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/management-live.js",
+      "sha256": "7890b3fd5130337df085c28a43efc5dc595a9fde42ddce94e23fa9ae6c9bbc12",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/index.html",
+      "candidate": "source/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/index.html",
+      "sha256": "6edad5834a49ef976409589eb08d6a53bac86968d257521af41161175ba5c8a1",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/business-baseline.md",
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "sha256": "4c1a2911deba3565b5eeee98701ce70059168c33a6927bc30e77115c090a1f62",
+      "beforeSha256": "e9c02b31f27a7c7b22d3341eda519aff70af05d3fc139bd374b4175c7a0184f1",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/source/knowledge-load-policy.json",
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "sha256": "b326d384a166903cc3908ba089ecc9db8c156c48a5be8b9416b3e857703e33ab",
+      "beforeSha256": "1fcd5e449972a8a6796e9b691596f902516085b246f06053ef079c1a7a83ca7e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "source": "management_rs_recovery_20261025/stage/release/candidate/generated/navigation.conf",
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "46d946b2930e790cfea79a99248346bec4cf735177f4a376147d295544d0746b",
+      "beforeSha256": "2812525dd1004bf60dc7ec95a8b8c2d20531e4ad729dd1c4d1c90598734865c3",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "preservedTargetsSha256": "2985f9a48902b577cfe6955b95c82f191a2f34d1bc10302aad8c5d4581ce8102"
+}
