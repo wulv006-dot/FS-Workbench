@@ -48,9 +48,12 @@ def query(params, profiles, now=None):
     from business_shipping import selection as shipping_selection
     if p['profile']=='RS' and any(k in p for k in ('profit_site','profit_category')):raise ValueError('rs_uses_rs_filters')
     shipping=shipping_selection(p) if not rs else None
+    admin_main = not rs and p.get('profit_site')=='main'
+    explicit_site = not rs and 'profit_site' in p
     profit={'profit_site':shipping['site'],'profit_category':shipping['cid'],'profit_source':'order-shipping-v1'} if shipping else {}
     return {**({'profit_basis':p['profit_basis']} if 'profit_basis' in p else {}), **profit, **rs, **({'rs_profit_source':'order-shipping-rs-v1'} if rs else {}), 'profile': p['profile'], 'start': start, 'end': end, 'grain': grain,
-            'site': SITES[rs['rs_site']][1] if rs else SITE, 'contractId': CONTRACT, 'timezone': 'Asia/Shanghai',
+            'site': SITES[rs['rs_site']][1] if rs else SITE if admin_main or not explicit_site else 'all-websites',
+            **({'admin_site':'266' if admin_main else 'all'} if explicit_site else {}), 'contractId': CONTRACT, 'timezone': 'Asia/Shanghai',
             **({'refresh': True} if p.get('refresh') == 'true' else {}),
             'cacheSeconds': TTL if hi == now.date() else HISTORY_TTL,
             'cachePolicy': 'today' if hi == now.date() else 'historical',

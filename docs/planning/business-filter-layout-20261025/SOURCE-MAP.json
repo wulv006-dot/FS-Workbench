@@ -1,0 +1,95 @@
+{
+  "status": "candidate_not_deployed",
+  "base": "c527d14688cd7fd6a22a53e8d86ad8f7d55833b2",
+  "version": "business-filter-layout-20261025-d1d0dca75114",
+  "files": [
+    {
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-d1d0dca75114/business.js",
+      "sha256": "0cfe32107ba78c220b4063d8ba853d97f6d3d572069372ce15e689de5fc0854a",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-d1d0dca75114/home-business.js",
+      "sha256": "29d88b7a2b36c4b864e72bfb2f18c4b6a6219655355b8b4377762e9019078e9a",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-d1d0dca75114/legacy-business.js",
+      "sha256": "48902ea2577719819f2d6cb143036b4247c35830e6b1018c6829bcf9b6551e9b",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-d1d0dca75114/shell.js",
+      "sha256": "eea4125f12dfe079cb847a36ed51af515e3f8a4dc3cfb55ba2a91f7ae3e8e006",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "b442b926d34e2d5ae9c0b451b900448708432523eca06fb1e984d714d0123a32",
+      "beforeSha256": "6920f3c53a73e4799e3b187fd4b1207203b84b992e8009296316a8b50d736973",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "0652062c39e3bede009d24c31811ab5e1a937f1a572d7193b9d0b12ede87452e",
+      "beforeSha256": "5b664e3c788282f0f40517c71bdae6bdec0d2b834ca51d6f8af462939a3d2862",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "fdcb3614c80ac4c10de269420c5ee46cdf47f5d18d304705cf53eab51b5e670f",
+      "beforeSha256": "ad0961467f4f2e6508d769bc9533b49b9ed35c0ee9f67e41eb561f3c05201c8e",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/site_summary.py",
+      "target": "/opt/fs-exact-range-20261001/site_summary.py",
+      "sha256": "f9ef7f1fcf55d150c2fe48c3664cd8eeb72e233afa548a40b8872d1afbd25cd5",
+      "beforeSha256": null,
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/business-baseline.md",
+      "target": "/opt/fs-hermes-fc/business-baseline.md",
+      "sha256": "c0b867d19e5316e77d3042d1437724c30742723a85f8355e11ac7e143f423a56",
+      "beforeSha256": "4c1a2911deba3565b5eeee98701ce70059168c33a6927bc30e77115c090a1f62",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/knowledge-load-policy.json",
+      "target": "/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json",
+      "sha256": "f69639cd822d96719ad0c9178334b8e2cb45e9a7d49237e9b4c784adacb2b147",
+      "beforeSha256": "b326d384a166903cc3908ba089ecc9db8c156c48a5be8b9416b3e857703e33ab",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "generated/navigation.conf",
+      "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+      "sha256": "8ef7aaf4b44c081f7a8099f0543dc3142c27618cbf0f04486e5b469691946286",
+      "beforeSha256": "b10c97652cd709a0ba3c6bd3116e8e8eb1d8649c712e72cace281defb4d38482",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ]
+}

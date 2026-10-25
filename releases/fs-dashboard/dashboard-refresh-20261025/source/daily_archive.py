@@ -190,7 +190,7 @@ class Archive:
 
 
 def summary_key(query):
-    return {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'contractId', 'rs_site', 'rs_server', 'rs_category', 'rs_profit_source', 'profit_site', 'profit_category', 'profit_source','profit_basis') if k in query}
+    return {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'contractId', 'rs_site', 'rs_server', 'rs_category', 'rs_profit_source', 'profit_site', 'profit_category', 'profit_source','profit_basis','admin_site') if k in query}
 
 
 def native_key(query, definition=None):

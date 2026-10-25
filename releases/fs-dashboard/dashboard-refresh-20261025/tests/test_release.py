@@ -4,6 +4,14 @@ from unittest.mock import patch
 R=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('actual_release',R/'deploy/actual_release.py');release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
 class Release(unittest.TestCase):
+ def test_filter_release_covers_shared_summary_and_exact_new_assets(self):
+  spec=importlib.util.spec_from_file_location('filter_release',R/'deploy/filter_release.py');wrapper=importlib.util.module_from_spec(spec);spec.loader.exec_module(wrapper)
+  actual=types.SimpleNamespace(load_base=lambda:'original-publisher')
+  with patch.dict(sys.modules,{'actual_release':actual}):self.assertEqual(wrapper.load_base(),'original-publisher')
+  self.assertEqual(actual.SCOPE,'business-filter-layout-20261025');self.assertEqual(len(actual.TARGETS),11)
+  self.assertEqual(actual.NEW,frozenset('source/'+n for n in ('business.js','home-business.js','legacy-business.js','shell.js','site_summary.py')))
+  for n in ('live_summary.py','daily_archive.py','summary_bridge.py','site_summary.py'):self.assertEqual(actual.TARGETS['source/'+n],'/opt/fs-exact-range-20261001/'+n)
+  self.assertFalse(any('units/' in n or 'auth' in n for n in actual.TARGETS))
  def test_rs_followup_is_exact_existing_backend_and_versioned_ui(self):
   spec=importlib.util.spec_from_file_location('backlog_release',R/'deploy/backlog_release.py');wrapper=importlib.util.module_from_spec(spec);spec.loader.exec_module(wrapper)
   actual=types.SimpleNamespace(load_base=lambda:'original-publisher')

@@ -96,7 +96,7 @@ function fsMetricText(item,format){
 
 const $=id=>document.getElementById(id),home=document.body.dataset.page==='home',base=new URL('/dashboard/workspace-assets/workspace-native-20261006-8b7908ecad30/',location.origin),logicBase=new URL('/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/',location.origin);
 const homeURL=document.body.dataset.workspaceHome||new URL('home.html',base).href,analyticsURL=document.body.dataset.workspaceAnalytics||new URL('index.html',base).href;
-const allowed=['fc_tab','b_group','b_profile','b_grain','b_align','b_range','b_start','b_end','b_section','b_metrics','b_profit_category','b_profit_site','b_rs_site','b_rs_server','b_rs_category','g_brand','g_period','g_source','g_project','g_business_profile'];
+const allowed=['b_site','fc_tab','b_group','b_profile','b_grain','b_align','b_range','b_start','b_end','b_section','b_metrics','b_profit_category','b_profit_site','b_rs_site','b_rs_server','b_rs_category','g_brand','g_period','g_source','g_project','g_business_profile'];
 let state={},active=null,epoch=0,identity=null,verified=[],theme='light',restored=false,last={},checkedAt={},watcher=null,homeController=null,dialogTrigger=null;
 const media=matchMedia('(prefers-color-scheme: dark)');
 function node(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}
@@ -123,7 +123,7 @@ async function nativeLoad(retried=false){
  const scope=lifecycle(host,capture,halt);scope.seed={...state};active={host,scope,api:null};$('status').textContent='正在读取'+(state.mode==='business'?'经营分析':'Google 运营')+'…';
  try{
   const moduleURL=new URL(state.mode+'.js',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):base);
-  if(state.mode==='business')moduleURL.searchParams.set('v','dashboard-rs-ui-20261025');
+  if(state.mode==='business')moduleURL.searchParams.set('v','business-filter-layout-20261025');
   if(retried)moduleURL.searchParams.set('retry','1');
   const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin)),'text/css','GET',scopeSignal()),import(moduleURL.href)]);
   if(id!==epoch)return;for(const name of ['fs-ui.css','native-alias.css']){const shared=document.createElement('link');shared.rel='stylesheet';shared.href=new URL('ui/'+name,new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin));scope.root.append(shared);}const style=document.createElement('style');style.textContent=await stylesheet.text();scope.root.append(style);const template=document.createElement('template');template.innerHTML=await markup.text();scope.root.append(template.content);
