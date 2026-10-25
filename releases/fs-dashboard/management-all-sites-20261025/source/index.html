@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>经营管理台</title>
+<style>
+:root{
+  --bg:#e9edf2;--card:#fff;--ink:#1b2632;--muted:#74819a;--faint:#9aa6b8;
+  --line:#e6ebf1;--line2:#eef2f6;
+  --teal:#1f6f73;--teal-d:#12434b;--teal-l:#e3f0ef;
+  --green:#2f9e7d;--green-l:#e2f3ec;--amber:#cf8a2e;--amber-l:#faf0dd;
+  --red:#c0563f;--red-l:#fbeae5;--blue:#3b6ea5;--blue-l:#e7eef7;
+  --shadow:0 1px 2px rgba(20,40,60,.05),0 14px 34px -22px rgba(20,40,60,.3);
+}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1480px;margin:0 auto;padding:28px 30px 48px}
+.topbar{display:flex;align-items:center;gap:15px;margin-bottom:22px}
+.logo{width:48px;height:48px;border-radius:13px;background:linear-gradient(150deg,#0d2a33,#1f6f73);display:grid;place-items:center;color:#cfe9e6}
+.topbar .t{font-weight:800;font-size:18px}.topbar .s{font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:700}
+.spacer{flex:1}
+.hero{border-radius:22px;padding:26px 34px;color:#eaf4f2;background:linear-gradient(118deg,#0b2632,#0f4048 48%,#166b6c);
+  box-shadow:var(--shadow);margin-bottom:18px}
+.hero .kick{font-size:11.5px;letter-spacing:3px;font-weight:700;color:#9fc8c3}
+.hero h1{font-size:28px;margin:7px 0 5px;font-weight:800}
+.hero p{margin:0;color:#c3dcd8;font-size:13.5px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:22px}
+.kp{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);border-radius:13px;padding:14px 16px}
+.kp .l{font-size:11.5px;color:#bfe0dc;font-weight:600}.kp .n{font-size:24px;font-weight:800;margin-top:3px}.kp .s{font-size:11px;color:#9fc8c3;margin-top:2px}
+
+.groupcards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.gc{background:#fff;border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line2);cursor:pointer;position:relative}
+.gc .gh{display:flex;align-items:baseline;gap:8px}
+.gc .gn{font-weight:800;font-size:15.5px}.gc .gl{font-size:12px;color:var(--muted);font-weight:600}
+.gc .pct{font-size:30px;font-weight:800;margin:6px 0 2px;line-height:1}
+.gc .vs{font-size:12px;font-weight:700}
+.gc .sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+.gc .ringwrap{display:flex;gap:3px;margin-top:10px;height:6px;border-radius:99px;overflow:hidden;background:#f1f4f7}
+.gc.on{outline:2px solid var(--teal);outline-offset:1px}
+.vs.ahead{color:var(--green)}.vs.behind{color:var(--red)}.vs.flat{color:var(--faint)}
+
+.panel{background:#fff;border-radius:18px;box-shadow:var(--shadow);border:1px solid var(--line2);padding:18px 20px;margin-bottom:18px}
+.panel h2{margin:0 0 4px;font-size:16px;font-weight:800}
+.panel .ph-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.hb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.hb{border-radius:13px;padding:14px 16px;border:1px solid}
+.hb.good{background:var(--green-l);border-color:#bfe4d6}
+.hb.bad{background:var(--red-l);border-color:#f2cdc2}
+.hb .hb-t{font-weight:800;font-size:13.5px;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.hb.good .hb-t{color:#1f7d61}.hb.bad .hb-t{color:#a8412c}
+.hb .item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:7px 0;border-top:1px dashed rgba(0,0,0,.08);font-size:13px}
+.hb .item:first-of-type{border-top:0}
+.hb .nm{font-weight:700}.hb .ow{font-size:11px;color:var(--muted);font-weight:600}
+.hb .vl{font-weight:800;white-space:nowrap}
+.hb .empty{font-size:12.5px;color:var(--muted);padding:6px 0}
+
+.toolbar{display:flex;align-items:center;gap:12px;margin:2px 0 12px;flex-wrap:wrap}
+.toolbar h2{font-size:17px;font-weight:800;margin:0}
+.toolbar .hint{font-size:12.5px;color:var(--muted)}
+.seg{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:11px;padding:3px;box-shadow:var(--shadow)}
+.seg button{border:0;background:transparent;font:inherit;font-size:13.5px;font-weight:700;color:var(--muted);padding:7px 16px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--teal);color:#fff}
+.tabseg{display:inline-flex;background:#eef2f6;border-radius:11px;padding:3px}
+.tabseg button{border:0;background:transparent;font:inherit;font-size:13.5px;font-weight:700;color:var(--muted);padding:7px 15px;border-radius:8px;cursor:pointer}
+.tabseg button.on{background:#fff;color:var(--teal);box-shadow:var(--shadow)}
+
+.board{background:#fff;border-radius:18px;box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:11.5px;letter-spacing:.5px;color:var(--muted);font-weight:800;text-align:left;padding:12px 14px;background:#f7f9fb;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th.num{text-align:right}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.clickable{cursor:pointer}tbody tr.clickable:hover{background:#f6faf9}
+.gname{font-weight:800;font-size:14.5px;white-space:nowrap}
+.gmeta{font-size:10.5px;font-weight:700;letter-spacing:.4px;color:var(--faint);margin-top:2px}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:1px}
+.tag.S{background:#fbeae5;color:#c0563f}.tag.A{background:#faf0dd;color:#cf8a2e}.tag.B{background:#e7eef7;color:#3b6ea5}.tag.long{background:#eef0f3;color:#74819a}
+.rank{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#eef2f6;color:var(--muted);font-weight:800;font-size:12px;margin-right:10px}
+.rank.top{background:var(--teal);color:#fff}
+.barcell{min-width:300px;width:44%}
+.barwrap{display:flex;align-items:center;gap:11px}
+.bar{position:relative;flex:1;height:22px;background:#f1f4f7;border-radius:7px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:7px;transition:width .3s}
+.bar .now{background:linear-gradient(90deg,#2f9e7d,#3bb38d);z-index:2}
+.bar .proj{background:repeating-linear-gradient(45deg,#dfe6ec,#dfe6ec 6px,#eef2f6 6px,#eef2f6 12px);z-index:1}
+.timeline-mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--teal-d);z-index:3;opacity:.55}
+.badge{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.badge.good{color:var(--green);background:var(--green-l)}.badge.warn{color:var(--amber);background:var(--amber-l)}.badge.risk{color:var(--red);background:var(--red-l)}
+.nums{text-align:right;white-space:nowrap}.nums .tgt{font-size:12.5px;color:var(--muted)}.nums .act{font-size:16px;font-weight:800}.nums .gap{font-size:11px;margin-top:1px}
+.gap.ahead{color:var(--green)}.gap.behind{color:var(--red)}.gap.flat{color:var(--faint)}
+tfoot td{padding:12px 14px;font-weight:800;background:#f7f9fb;border-top:2px solid var(--line);font-size:14px}
+.legend{display:flex;gap:18px;align-items:center;margin-top:12px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.legend i.sw{display:inline-block;width:14px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .tm{display:inline-block;width:2px;height:13px;background:var(--teal-d);margin-right:6px;vertical-align:-2px}
+.note{font-size:11.5px;color:var(--faint)}
+.chartbox{position:relative;height:230px;margin-top:6px}
+svg{display:block;width:100%;height:100%}
+.pending-slot{border:1px dashed #cfd8e1;border-radius:13px;padding:16px 18px;background:#fafcfe;color:var(--muted);font-size:12.5px}
+.pending-slot b{color:var(--ink)}
+footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--faint)}
+@media(max-width:1000px){.kpis,.groupcards,.hb-grid{grid-template-columns:1fr 1fr}.barcell{min-width:160px}}
+</style>
+
+<link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css"><script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script><link rel="stylesheet" href="management-live.css"><script defer src="management-live.js"></script></head>
+<body data-management-v2 data-view="overview">
+<div class="wrap">
+  <div class="topbar">
+    <span class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v9h-6v-6h-6v6H3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+    <div><div class="t">丰实游戏经营驾驶舱</div><div class="s">15 GAMES · DAILY OPERATIONS</div></div>
+    <div class="spacer"></div>
+    <a href="sandbox.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:var(--amber);color:#fff;font-weight:700;font-size:13px;padding:9px 16px;border-radius:10px;box-shadow:var(--shadow)">🎯 目标沙盘</a>
+  </div>
+
+  <section class="hero">
+    <div class="kick">FENGSHI NETWORK · OPERATIONS</div>
+    <h1>经营管理台</h1>
+    <p id="overviewPeriod">三组进度 · 健康度责任到人 · 目标沙盘与经营决策<br>正在读取本期目标与真实数据截止日。</p>
+    <div class="kpis" id="topKpis"></div>
+  </section>
+
+  <div class="groupcards" id="groupCards"></div>
+
+  <div class="toolbar">
+    <h2>各游戏进度</h2>
+    <div class="tabseg" id="grpTab">
+      <button data-g="ALL" class="on">全部</button>
+      <button data-g="球类运营组">球类</button>
+      <button data-g="RPG运营组">RPG</button>
+      <button data-g="综合运营组">综合</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="seg" id="seg">
+      <button data-k="rev" class="on">收入 $</button>
+      <button data-k="ord">订单 单</button>
+      <button data-k="prof">利润 $</button>
+    </div>
+  </div>
+
+  <div class="board">
+    <table>
+      <thead><tr>
+        <th style="width:215px">游戏 / 负责人</th>
+        <th class="barcell">时间线（实际 / 月末预测 / 目标）</th>
+        <th class="num" style="width:120px">完成率</th>
+        <th class="num" style="width:165px">MTD 实际 / 月目标</th>
+        <th class="num" style="width:120px">对时间进度</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+      <tfoot id="footrow"></tfoot>
+    </table>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:linear-gradient(90deg,#2f9e7d,#3bb38d)"></i>实际 MTD</span>
+    <span><i class="sw" style="background:repeating-linear-gradient(45deg,#dfe6ec,#dfe6ec 5px,#eef2f6 5px,#eef2f6 10px)"></i>按已过完整日线性推算的月末情景</span>
+    <span><span class="tm"></span><span id="timeLegend">时间进度待读取（应到位置）</span></span>
+    <span class="note" id="dataNote"></span>
+  </div>
+
+  <div class="panel">
+    <h2>健康度 · 责任到人</h2>
+    <div class="ph-sub">以收入完成率对当前时间进度的偏离判断：超前 ≥15p 记为表现好；落后 ≥15p 记为需关注；爬坡期游戏同时看月末预测能否过线</div>
+    <div class="hb-grid">
+      <div class="hb good"><div class="hb-t">▲ 表现好（超前时间进度 ≥15p）</div><div id="hbGood"></div></div>
+      <div class="hb bad"><div class="hb-t">▼ 需关注（落后时间进度 ≥15p）</div><div id="hbBad"></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>平台近半年营收曲线（MMOEXP 全站口径）</h2>
+    <div class="ph-sub">近半年全站数据 · 柱=营收，折线=参考利润率；本月截至昨日（非整月）</div>
+    <div class="chartbox" id="chartBox"></div>
+  </div>
+
+  <div class="panel pending-slot">
+    <b>单款营收构成（国家构成 + 服务构成）</b>：金币交易 / 道具交易 / 账号买卖 / 账号租赁 / 陪玩 / 代练，以及分国家收入。
+    当前管理台优先展示目标、进度与核心经营指标；国家、商品和服务细分交由 Hermes 按需深入分析。未接入本页不代表后台没有数据，不以汇总数臆拆。
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+</body>
+</html>

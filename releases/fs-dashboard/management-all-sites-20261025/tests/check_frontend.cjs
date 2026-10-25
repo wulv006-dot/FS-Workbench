@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'../source');
+const m=require(path.join(root,'management-live.js'));
+const d={contract:'fs-management-daily-v2',dataScope:'all-websites-v1',snapshotId:'management-'+'a'.repeat(24),businessDate:'2026-10-25',timezone:'Asia/Shanghai',projects:[{profile:'RS'}]};
+assert(m.validSnapshot(d));
+assert(!m.validSnapshot({...d,dataScope:undefined}));
+assert.equal(m.metricNote({month:{notes:{new:'Admin 全站原生统计'}}},'new'),'Admin 全站原生统计');
+assert.equal(m.sum([100,200]),300);assert.equal(m.sum([100,null]),null);
+for(const name of ['management-live.js','index.html']) assert(!fs.readFileSync(path.join(root,name),'utf8').includes('主站'));
+new Function(fs.readFileSync(path.join(root,'management-live.js'),'utf8'));
+assert(!m.adviceValid({status:'succeeded',snapshotId:'old-main'},d));
+console.log('all-sites management frontend contracts passed');
