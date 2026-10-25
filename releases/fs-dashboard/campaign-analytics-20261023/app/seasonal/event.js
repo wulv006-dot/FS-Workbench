@@ -144,7 +144,8 @@
     // Scope changed catalog state separately: the prior local draw and receipts remain recoverable.
     storageKey='mmoexp-seasonal-vault-real-catalog-v3:'+config.release_id;
     let saved;try{saved=JSON.parse(localStorage.getItem(storageKey));}catch{}
-    state=core.valid(saved,[...products.keys()])?saved:{version:2,cards:next.some(p=>!p.previewOnly&&!['fixed','preview'].includes(p.displayRole))?core.draw(next.filter(p=>!p.previewOnly&&!['fixed','preview'].includes(p.displayRole)),8,[],Math.random,featuredGames):[],credits:0,round:1,receipts:[],selectedGames:data.games.map(g=>g.id),mode:'product',featuredGames};
+    const eligible=next.filter(p=>!p.previewOnly&&!['fixed','preview'].includes(p.displayRole));
+    state=core.valid(saved,eligible.map(p=>p.id))?saved:{version:2,cards:eligible.length?core.draw(eligible,8,[],Math.random,featuredGames):[],credits:0,round:1,receipts:[],selectedGames:[...new Set(eligible.map(p=>p.game))],mode:'product',featuredGames};
     bag=[];filter='all';storeFilter='all';dialog.close();renderFilters();renderProducts();renderStore();
     status('Published product selection loaded. New unverified products are catalog previews only; no rewards or purchases were enabled.');
   };
