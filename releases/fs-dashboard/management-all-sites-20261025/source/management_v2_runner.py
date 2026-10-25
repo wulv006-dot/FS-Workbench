@@ -37,8 +37,8 @@ def run(*,manual=False,root=ROOT,public=PUBLIC,status=STATUS,targets=TARGETS,rea
   if journal.is_file():
    old=json.loads(journal.read_text('utf-8'))
    if old.get('phase')=='completed' and old.get('status')=='facts_ready':
-    if old.get('dataScope')==DATA_SCOPE:return {'status':'already_completed','snapshotId':old.get('snapshotId')}
-    # A manual scope migration preserves the successful original receipt verbatim.
+    if old.get('dataScope')==DATA_SCOPE and not (manual and old.get('fact_status')=='partial'):return {'status':'already_completed','snapshotId':old.get('snapshotId')}
+    # Manual migration/partial recheck preserves the successful original receipt verbatim.
     if not manual:return {'status':'scope_upgrade_requires_manual','mutations':False}
     history=root/'journal'/'history'/(day+'-'+hashlib.sha256(journal.read_bytes()).hexdigest()+'.json')
     if not history.exists():

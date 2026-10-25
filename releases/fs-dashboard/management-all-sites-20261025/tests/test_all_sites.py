@@ -116,4 +116,19 @@ class AllSites(unittest.TestCase):
                 self.assertEqual(runner.run(manual=True,**args)['status'],'original_operation_unreconciled')
             finally:runner.collect=original
 
+    def test_manual_partial_recheck_keeps_receipt_and_full_result_is_idempotent(self):
+        if sys.platform=='win32':self.skipTest('POSIX runner verified on Linux')
+        import management_v2_runner as runner
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);journal=root/'journal/2026-10-25.json';journal.parent.mkdir()
+            old=json.dumps(dict(phase='completed',status='facts_ready',dataScope=m.DATA_SCOPE,fact_status='partial',snapshotId='old-partial')).encode();journal.write_bytes(old)
+            targets=root/'targets.json';targets.write_text('{}');original=runner.collect
+            runner.collect=lambda *a,**k:dict(contract=m.CONTRACT,dataScope=m.DATA_SCOPE,snapshotId='management-'+'b'*24,status='available',validUntil='2026-10-26T00:00:00+08:00')
+            try:
+                args=dict(manual=True,root=root,public=root/'public.json',status=root/'status.json',targets=targets,clock=lambda:datetime(2026,10,25,16,tzinfo=m.SH),reader=lambda _:None)
+                self.assertEqual(runner.run(**args)['status'],'facts_ready')
+                self.assertEqual(next((root/'journal/history').iterdir()).read_bytes(),old)
+                self.assertEqual(runner.run(**args)['status'],'already_completed')
+            finally:runner.collect=original
+
 if __name__=='__main__':unittest.main()
