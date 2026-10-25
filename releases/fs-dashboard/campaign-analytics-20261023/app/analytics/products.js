@@ -1,6 +1,8 @@
 (async function(){
  const $=id=>document.getElementById(id),escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  if(!window.CampaignServer){$('product-status').textContent='商品编辑需从正式 FS 入口打开；本机开发包保留预览功能。';$('product-form').hidden=true;return;}
+ const selectedPage=location.hash.slice(1);
+ if(['fc27-weekly','fc27-sbc','fc27-trio'].includes(selectedPage))for(const fieldset of $('product-form').querySelectorAll('fieldset')){const title=fieldset.querySelector('legend')?.textContent||'';fieldset.hidden=selectedPage==='fc27-weekly'?!title.includes('每周'):selectedPage==='fc27-sbc'?!title.includes('SBC'):!(title.includes('Star')||title.includes('固定组合'));}
  try{
  const state=await CampaignServer.read(),response=await fetch('api/catalog'),data=await response.json();if(!response.ok)throw Error(data.message);const c=data.catalog,d=state.layout,products=Object.values(c.products),players=products.filter(p=>p.kind==='player');
  const label=p=>p.title||p.name,options=(list,id)=>list.map(p=>`<option value="${escape(p.key)}" ${p.key===id?'selected':''}>${escape(label(p))}</option>`).join('');
