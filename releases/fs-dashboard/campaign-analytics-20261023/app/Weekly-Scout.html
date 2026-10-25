@@ -122,21 +122,18 @@
   <header class="fca-demo-header">
     <div class="fca-demo-header-inner">
       <a class="fca-brand" href="https://www.mmoexp.com/" aria-label="MMOEXP"><img src="assets/mmoexp-logo.png" alt="MMOEXP" width="164" height="45"></a>
-      <nav class="fca-store-nav" aria-label="FC 27 商店" data-i18n-aria="storeNav">
+      <nav class="fca-store-nav" aria-label="FC 27 shop" data-i18n-aria="storeNav">
         <a href="https://www.mmoexp.com/Fc-27.html">FC 27</a>
         <a href="https://www.mmoexp.com/Fc-27/Players.html">Players</a>
         <a href="https://www.mmoexp.com/Fc-27/Sbc.html">SBC</a>
         <a href="https://www.mmoexp.com/Fc-27/Packs.html">Packs</a>
       </nav>
-      <div class="fca-language" role="group" aria-label="语言 / Language">
-        <button id="lang-zh" type="button" lang="zh-CN" aria-pressed="false">中文</button>
-        <button id="lang-en" type="button" lang="en" aria-pressed="true">EN</button>
-      </div>
+
     </div>
   </header>
 
   <main id="fc-activity" class="fc-activity" tabindex="-1" data-view="weekly" data-default-view="weekly" data-default-language="en">
-    <nav class="fca-view-nav" aria-label="活动" data-i18n-aria="campaignNav">
+    <nav class="fca-view-nav" aria-label="Campaigns" data-i18n-aria="campaignNav">
       <div class="fca-container fca-view-nav-inner"><a data-view="weekly" href="Weekly-Scout.html" aria-current="page">Weekly Player Picks</a><a data-view="sbc" href="Sbc-Companions.html">SBC Companions</a><a data-view="trio" href="Player-Trio.html">Star Performer Trio</a></div>
     </nav>
 
@@ -217,15 +214,15 @@
       </section>
     </div>
 
-    <div class="fca-mobile-summary" aria-label="补强方案 / Upgrade list"><strong id="mobile-summary-total">1 items · $30.20</strong><button id="mobile-review" class="fca-primary" type="button">Review lineup</button></div>
+    <div class="fca-mobile-summary" aria-label="Upgrade list"><strong id="mobile-summary-total">1 items · $30.20</strong><button id="mobile-review" class="fca-primary" type="button">Review lineup</button></div>
 
     <dialog id="review-dialog" class="fca-dialog" aria-labelledby="review-title">
-      <div class="fca-dialog-header"><p class="fca-eyebrow">MMOEXP · FC 27</p><button class="fca-dialog-close" type="button" data-close-dialog aria-label="关闭 / Close">×</button></div>
+      <div class="fca-dialog-header"><p class="fca-eyebrow">MMOEXP · FC 27</p><button class="fca-dialog-close" type="button" data-close-dialog aria-label="Close">×</button></div>
       <h2 id="review-title" data-i18n="reviewTitle">Review your upgrade list</h2>
       <div id="review-items" class="fca-review-items"></div>
       <div class="fca-review-total"><span data-i18n="selectionTotal">Activity subtotal (before coupons / points)</span><strong id="review-total">—</strong></div>
       <p id="review-savings" class="fca-inline-note"></p>
-      <p id="review-status" class="fca-inline-note">本地预览不会创建真实订单。</p>
+      <p id="review-status" class="fca-inline-note">This preview does not create a real order.</p>
       <button id="submit-selection" type="button" class="fca-primary" data-i18n="previewSelection">Confirm this lineup</button>
       <a id="continue-cart" class="fca-secondary" href="https://www.mmoexp.com/Cart.html" hidden data-i18n="continueCart">Review the existing cart</a>
     </dialog>

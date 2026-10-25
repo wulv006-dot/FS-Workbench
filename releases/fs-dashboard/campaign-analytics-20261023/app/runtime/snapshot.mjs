@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {publicModels,modelVariants,projectModels} from './model-cards.mjs';
+import {projectMedia,projectMediaManifest,mediaReferences} from './media-contract.mjs';
 
 export const digest = value => createHash('sha256').update(value).digest('hex');
 export const canonical = value => JSON.stringify(value, function(key, item) {
@@ -88,11 +90,17 @@ export function projectPreviewProduct(p) {
   const observed=value=>{if(value==null)return null;if(typeof value!=='string'||!/^\d{1,20}(?:\.\d{1,6})?$/.test(value))fail('INVALID_IMPORTED_PRODUCT');return value;};
   if(observation.unit!=null&&(typeof observation.unit!=='string'||observation.unit.length>64||/[<>\u0000-\u001f]/.test(observation.unit)))fail('INVALID_IMPORTED_PRODUCT');
   const title_source=p.title_source??'admin';if(!['admin','identity_fallback'].includes(title_source))fail('INVALID_IMPORTED_PRODUCT');
-  if(title_source==='identity_fallback'&&p.title!=='商品ID '+product_ref.goods_id)fail('INVALID_IMPORTED_PRODUCT');
+  if(title_source==='identity_fallback'&&!['商品ID '+product_ref.goods_id,'Product ID '+product_ref.goods_id].includes(p.title))fail('INVALID_IMPORTED_PRODUCT');
   return {key:id(key),title:text(p.title,200),title_source,product_ref,platform:{code,...(aid==='unknown'?{}:{attribute_id:aid})},
     preview_only:true,available:false,quantity:null,attributes:[],observed_quantity:{minimum:observed(observation.minimum),unit:observation.unit??null,group:observed(observation.group)},preview_reason:'PURCHASE_MAPPING_UNVERIFIED'};
 }
-function product(p) {
+function product(p,variants,publicVariants) {
+  if(p?.model_card_key){
+    const expected=variants.get(p.key);
+    if(!expected||p.model_card_key!==expected.model_card_key||p.binding_state!==expected.binding_state||p.available!==false||p.preview_only!==true||p.quantity!==null||!Array.isArray(p.attributes)||p.attributes.length
+      ||canonical(p.product_ref)!==canonical(expected.product_ref)||canonical(p.platform)!==canonical(expected.platform)||canonical(p.observed_quantity)!==canonical(expected.observed_quantity))fail('INVALID_MODEL_VARIANT');
+    return publicVariants.get(p.key);
+  }
   if(p?.preview_only===true)return projectPreviewProduct(p);
   const product_ref = ref(p.product_ref);
   if (!product_ref.site_id || !product_ref.game_id || !product_ref.goods_id) fail('INVALID_RELEASE');
@@ -109,14 +117,19 @@ function product(p) {
 // Only this field projection crosses into the customer service; never spread management state.
 export function projectRelease(input) {
   if (input?.schema_version !== 1 || input.publication_status !== 'published' || !Array.isArray(input.pages) || !Array.isArray(input.products)) fail('UNPUBLISHED_RELEASE',503);
+  const originalModels=projectModels(input.fc_models||{}),models=publicModels(originalModels),variants=new Map(modelVariants(originalModels).map(p=>[p.key,p])),publicVariants=new Map(modelVariants(models).map(p=>[p.key,p]));
   const result={schema_version:1, release_id:id(input.release_id), source_revision:id(input.source_revision), config_hash:hash(input.config_hash), rule_hash:hash(input.rule_hash),
     pages:input.pages.map(p => ({activity_id:id(p.activity_id), page_id:id(p.page_id), rule_version:id(p.rule_version), benefit_binding_version:id(p.benefit_binding_version),
-      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),...pageDisplayFields(p),
+      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),...pageDisplayFields(p),...(Object.hasOwn(p,'media')?{media:projectMedia(p.media)}:{}),
       ...(p.description ? {description:text(p.description,320)} : {}),
       ...((p.default_language!=null||p.social_image!=null)?presentationFields(p):{}),
       ...(p.starts_at ? {starts_at:new Date(p.starts_at).toISOString()} : {}),
       ...(p.ends_at ? {ends_at:new Date(p.ends_at).toISOString()} : {}), active:p.active === true})),
-    products:input.products.map(product)};
+    products:input.products.map(p=>product(p,variants,publicVariants))};
+  if(Object.keys(models).length)result.fc_models=models;
+  if(input.media_assets!=null)result.media_assets=projectMediaManifest(input.media_assets);
+  const media=mediaReferences(result),manifest=result.media_assets||{};
+  if(media.some(key=>!Object.hasOwn(manifest,key))||Object.keys(manifest).some(key=>!media.includes(key)))fail('INVALID_MEDIA_MANIFEST');
   if (new Set(result.products.map(p=>p.key)).size !== result.products.length || new Set(result.pages.map(p=>p.page_id)).size !== result.pages.length || result.pages.some(p=>p.product_keys.some(k=>!result.products.some(r=>r.key===k)))) fail('INVALID_RELEASE');
   if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
   if(input.fc_layout!=null)result.fc_layout=projectFcLayout(input.fc_layout,result.products);

@@ -2,6 +2,7 @@
 import sys
 import json
 import threading
+import time
 from pathlib import Path
 from .core import ContractError, identity, source_identity
 from .catalog import positive_id
@@ -55,6 +56,11 @@ class AdminRead:
             raise ContractError('INVALID_CATALOG_DEADLINE')
         self._catalog_transport = catalog_get_once or self._catalog_http_once
         self._catalog_timeout = catalog_timeout
+        self._catalog_deadline = None
+
+    def begin_catalog_read(self):
+        """One aggregate budget for a model detail + scoped child lookup."""
+        self._catalog_deadline = time.monotonic() + self._catalog_timeout
 
     def _catalog_http_once(self, route, **params):
         """Same authenticated requests session, bypassing shared get_admin retry/refresh loops."""
@@ -94,8 +100,11 @@ class AdminRead:
                     if isinstance(error,ContractError) and str(error) in safe else 'UPSTREAM_UNAVAILABLE')
             finally:
                 completed.set()
+        remaining = self._catalog_timeout if self._catalog_deadline is None else self._catalog_deadline-time.monotonic()
+        if remaining <= 0:
+            raise ContractError('CATALOG_SEARCH_TIMEOUT')
         threading.Thread(target=run,daemon=True).start()
-        if not completed.wait(self._catalog_timeout):
+        if not completed.wait(remaining):
             raise ContractError('CATALOG_SEARCH_TIMEOUT')
         if 'error' in result:
             raise ContractError(result['error'])
@@ -117,6 +126,34 @@ class AdminRead:
         if not isinstance(row,dict) or str(row.get('id')) != goods_id:
             raise ContractError('DETAIL_ID_MISMATCH')
         return row
+
+    def catalog_model(self, model_id):
+        model_id = positive_id(model_id)
+        row = self._get_catalog_once(DETAIL_ROUTES['model'],id=model_id).get('row')
+        if not isinstance(row,dict) or str(row.get('id')) != model_id:
+            raise ContractError('DETAIL_ID_MISMATCH')
+        return row
+
+    def search_models_page(self, game_id, category_id, keyword, page=1, limit=10):
+        game_id, category_id = positive_id(game_id), positive_id(category_id)
+        if type(page) is not int or not 1<=page<=500 or type(limit) is not int or not 1<=limit<=20:
+            raise ContractError('INVALID_CATALOG_PAGE')
+        filters = [('gid','=',game_id),('cid','=',category_id),('title','LIKE',keyword)]
+        data = self._get_catalog_once(LIST_ROUTES['models'],page=page,limit=limit,order='id,desc',**search(filters))
+        rows,total = data.get('list'),data.get('total')
+        if isinstance(total,str) and total.isascii() and total.isdecimal():total=int(total)
+        if (not isinstance(rows,list) or type(total) is not int or not 0<=total<=100000 or len(rows)>limit
+                or (rows and (page-1)*limit+len(rows)>total) or (not rows and (page-1)*limit<total)):
+            raise ContractError('INVALID_PAGE')
+        seen=set()
+        for row in rows:
+            if (not isinstance(row,dict) or positive_id(row.get('gid'))!=game_id or positive_id(row.get('cid'))!=category_id
+                    or not isinstance(row.get('title'),str) or keyword.casefold() not in row['title'].casefold()):
+                raise ContractError('MODEL_SEARCH_SCOPE_MISMATCH')
+            rid=positive_id(row.get('id'))
+            if rid in seen:raise ContractError('DUPLICATE_PAGE')
+            seen.add(rid)
+        return dict(rows=rows,total=total,page=page,page_size=limit,has_more=page*limit<total)
 
     @classmethod
     def from_shared_session(cls, session_factory=None, token_reader=None):

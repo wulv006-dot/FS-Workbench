@@ -12,9 +12,9 @@
     context(){return window.FCActivityAnalytics?.context()||null;}
   };
   document.querySelector('#analytics-diagnostics').addEventListener('click',()=>{
-    const dialog=document.querySelector('#event-dialog');document.querySelector('#dialog-title').textContent='FS 追踪自检';
+    const dialog=document.querySelector('#event-dialog');document.querySelector('#dialog-title').textContent='Tracking diagnostics';
     const state=window.FCActivityAnalytics.status(),counts={};for(const row of rows)counts[row.event]=(counts[row.event]||0)+1;
-    document.querySelector('#dialog-content').innerHTML='<p>沿用今天的 activity_* 协议；当前是预览，仅在本机保留调试记录。FS 已登记四主题草稿。预览不会生成真实注册、加购或支付事件。</p><p>外传：<strong>'+(state.transmitting?'已启用':'未启用')+'</strong> · 当前页面事件 '+rows.length+' 条</p><pre id="analytics-counts"></pre><p>最近行为</p><pre id="analytics-recent"></pre>';
+    document.querySelector('#dialog-content').innerHTML='<p>This preview uses the activity_* tracking protocol. Local debug records do not confirm real registration, cart or payment events.</p><p>Transmission: <strong>'+(state.transmitting?'enabled':'disabled')+'</strong> · Events on this page: '+rows.length+'</p><pre id="analytics-counts"></pre><p>Recent activity</p><pre id="analytics-recent"></pre>';
     document.querySelector('#analytics-counts').textContent=JSON.stringify(counts,null,2);
     document.querySelector('#analytics-recent').textContent=rows.slice(-12).map(r=>r.event+' | '+r.properties.activity_id+' | '+(r.properties.action||r.properties.product_id||'')).join('\n');
     if(!dialog.open)dialog.showModal();

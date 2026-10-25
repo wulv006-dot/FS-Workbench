@@ -1,4 +1,19 @@
 import {presentationFields,fail,projectPreviewProduct,pageDisplayFields} from './snapshot.mjs';
+import {effectiveFcCatalog} from './model-cards.mjs';
+// Public copy policy only: preserve the management draft and immutable release.
+// Unsupported demo text gets a neutral English identity, never an invented offer.
+const hasHan=value=>typeof value==='string'&&/\p{Script=Han}/u.test(value);
+const pageTitles={'Weekly-Scout.html':'Weekly Player Picks','Sbc-Companions.html':'SBC Companions','Player-Trio.html':'Star Performer Trio','seasonal/index.html':'MMOEXP Seasonal Vault'};
+export function publicEnglishRelease(snapshot){
+ if(!snapshot)return snapshot;
+ const result=structuredClone(snapshot);
+ result.pages=(result.pages||[]).map(page=>({...page,title:hasHan(page.title)?pageTitles[page.path]||'MMOEXP Activity':page.title,
+  ...(hasHan(page.description)?{description:''}:{}),default_language:'en'}));
+ result.products=(result.products||[]).map(product=>({...product,...(hasHan(product.title)?{title:'Product ID '+product.product_ref.goods_id,...(product.preview_only?{title_source:'identity_fallback'}:{})}:{}),
+  ...(product.observed_quantity&&hasHan(product.observed_quantity.unit)?{observed_quantity:{...product.observed_quantity,unit:null}}:{})}));
+ if(result.fc_layout?.routes)for(const row of Object.values(result.fc_layout.routes))if(row.label)row.label={en:hasHan(row.label.en)||!row.label.en?'Companion ideas':row.label.en};
+ return result;
+}
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const routes=new Set(['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html']);
 const aliases={'':'Weekly-Scout.html','index.html':'Weekly-Scout.html','seasonal/':'seasonal/index.html'};
@@ -10,13 +25,13 @@ const time=value=>`<time datetime="${escape(new Date(value).toISOString())}">${e
 const windowText=p=>`Starts: ${p.starts_at?utc(p.starts_at):'not specified'} · Ends: ${p.ends_at?utc(p.ends_at):'not specified'}`;
 const windowHtml=p=>`Starts: ${p.starts_at?time(p.starts_at):'not specified'} · Ends: ${p.ends_at?time(p.ends_at):'not specified'}`;
 const importedFor=(snapshot,page)=>{
-  const products=new Map((snapshot?.products||[]).filter(p=>p.preview_only===true).map(p=>[p.key,p]));
+  const products=new Map((snapshot?.products||[]).filter(p=>p.preview_only===true&&!p.model_card_key).map(p=>[p.key,p]));
   return (page?.product_keys||[]).filter(key=>products.has(key)).map(key=>projectPreviewProduct(products.get(key)));
 };
 function displayGroups(snapshot,page,source){
   const fields=pageDisplayFields(page),products=new Map((snapshot.products||[]).map(p=>[p.key,p])),groups={};
   for(const key of page.product_keys||[]){
-    const raw=products.get(key);if(!raw)continue;
+    const raw=products.get(key);if(!raw||raw.model_card_key)continue;
     const role=fields.product_roles?.[key]??(raw.preview_only?'preview':null);if(!role)continue;
     const product=raw.preview_only?projectPreviewProduct(raw):raw;
     (groups[role]||=[]).push(product);
@@ -28,7 +43,7 @@ function displayGroups(snapshot,page,source){
     const cards=rows.map(product=>{
       const related=(fields.sbc_companions?.[product.key]||[]).map(key=>products.get(key)).filter(Boolean);
       const pairing=role==='core'?(related.length?`<p>Configured companion previews:</p><ul>${related.map(p=>`<li>${escape(p.title)}</li>`).join('')}</ul>`:'<p>No companions configured. This is not a complete SBC lineup.</p>'):'';
-      return `<article class="fca-card"><h3>${escape(product.title)}</h3>${product.title_source==='identity_fallback'?'<p>Identity display label; original product title is unknown.</p>':''}<p>Product ${escape(product.product_ref.goods_id)} · Model ${escape(product.product_ref.model_id||'not verified')}</p><p>Platform reference: ${escape(product.platform.attribute_id||'not verified')}</p>${pairing}<p>Display role only; no SKU, price or purchase eligibility is implied.</p><p>Price unavailable · Purchase mapping unverified</p></article>`;
+      return `<article class="fca-card"><h3>${escape(product.title)}</h3>${product.title_source==='identity_fallback'?'<p>English product title is unavailable; identity label only.</p>':''}<p>Product ${escape(product.product_ref.goods_id)} · Model ${escape(product.product_ref.model_id||'not verified')}</p><p>Platform reference: ${escape(product.platform.attribute_id||'not verified')}</p>${pairing}<p>Display role only; no SKU, price or purchase eligibility is implied.</p><p>Price unavailable · Purchase mapping unverified</p></article>`;
     }).join('');
     const html=`<section id="${marker}" class="${sectionClass(source)}" data-display-role="${role}"><h2>${titles[role]}</h2><p>Product information only. Specifications, quantities and prices still require verification. Purchasing is not enabled.</p><div class="fca-grid">${cards}</div></section>`;
     const anchor=role==='bundle'?'bundle-grid':role==='core'?'sbc-lineup':role==='companion'?'sbc-options':'product-grid';
@@ -44,7 +59,8 @@ function metadata(html,p,publicBase) {
     if(p.path!=='seasonal/index.html')html=html.replace(/\bdata-default-language=["'][^"']*["']/,'data-default-language="'+fieldsConfig.default_language+'"');
   }
   let shareImage;
-  if(fieldsConfig.social_image!=='original'){
+  if(p.media?.share){let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))||base.username||base.password)fail('INVALID_PUBLIC_BASE',503);shareImage=new URL('media/'+p.media.share.asset_id,base).href;}
+  if(!shareImage&&fieldsConfig.social_image!=='original'){
     let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}
     if(base.username||base.password||base.search||base.hash||!base.pathname.endsWith('/')||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base.pathname)||(base.protocol!=='https:'&&!(base.protocol==='http:'&&['127.0.0.1','localhost'].includes(base.hostname))))fail('INVALID_PUBLIC_BASE',503);
     shareImage=new URL(fieldsConfig.social_image,base).href;
@@ -74,6 +90,7 @@ function neutral(source,p,status,label) {
 
 // Call with the current validated published projection; immutable source HTML stays unchanged.
 export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
+  snapshot=publicEnglishRelease(snapshot);
   const target=route(name);
   if(!routes.has(target))return {status:200,body};
   const source=Buffer.isBuffer(body)?body.toString('utf8'):String(body??'');
@@ -86,6 +103,11 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=metadata(html,p,publicBase);
+  if(p.media?.hero_desktop||p.media?.hero_mobile){
+    const url=ref=>{let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.username||base.password||base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))fail('INVALID_PUBLIC_BASE',503);return new URL('media/'+ref.asset_id,base).href;};
+    if(p.media.hero_desktop)html=html.replace(/<img\b[^>]*\bid=["']hero-image["'][^>]*>/i,tag=>tag.replace(/\s+(?:src|alt)=["'][^"']*["']/gi,'').replace(/>$/,` src="${escape(url(p.media.hero_desktop))}" alt="${escape(p.media.hero_desktop.alt)}" data-published-media="true">`));
+    if(p.media.hero_mobile)html=html.replace(/<source\b[^>]*\bid=["']hero-mobile-source["'][^>]*>/i,tag=>tag.replace(/\s+srcset=["'][^"']*["']/gi,'').replace(/>$/,` srcset="${escape(url(p.media.hero_mobile))}" data-published-media="true">`));
+  }
   const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
   let fallback='';
   if(!target.startsWith('seasonal/'))for(const group of displayGroups(snapshot,p,source)){
@@ -101,7 +123,8 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
 }
 
 export function projectFcCatalog(originalCatalog,snapshot) {
-  const catalog=structuredClone(originalCatalog),products=originalCatalog.products||{};
+  snapshot=publicEnglishRelease(snapshot);
+  const source=effectiveFcCatalog(originalCatalog,snapshot?.fc_models||{}),catalog=structuredClone(source),products=source.products||{};
   const keys=path=>{
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
     return [...new Set((page?.product_keys||[]).flatMap(key=>{

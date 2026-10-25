@@ -4,7 +4,9 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createCommerce,createIntegrationTestAdapter} from './commerce.mjs';
 import {fail,loadStatic} from './snapshot.mjs';
-import {presentPage,projectFcCatalog} from './presentation.mjs';
+import {presentPage,projectFcCatalog,publicEnglishRelease} from './presentation.mjs';
+import {readPublishedMedia} from './published-media.mjs';
+import {pageMedia} from './media-contract.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -13,7 +15,7 @@ async function body(req) {
   let raw='';for await (const chunk of req) {raw+=chunk;if (Buffer.byteLength(raw)>64000) fail('REQUEST_TOO_LARGE',413);}
   try {return JSON.parse(raw);} catch {fail('INVALID_REQUEST');}
 }
-export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
+export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
   const parsed=new URL(origin);
   if (parsed.origin!==origin || (parsed.protocol!=='https:' && !(parsed.protocol==='http:'&&['127.0.0.1','localhost'].includes(parsed.hostname)))) fail('INVALID_ORIGIN');
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
@@ -31,16 +33,20 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         if (!Object.hasOwn(routes,relative)) return json(req,res,404,{code:'NOT_FOUND'});
         return json(req,res,200,await routes[relative](await body(req)));
       }
-      if (relative==='api/campaign/config') return json(req,res,200,{...commerce.config(),integration_mode:mode,live_checkout:false});
+      if (relative==='api/campaign/config'){const config=publicEnglishRelease(commerce.config());return json(req,res,200,{...config,page_media:pageMedia(config.pages,prefix),integration_mode:mode,live_checkout:false});}
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
       if (relative.startsWith('api/campaign/intents/request/')) return json(req,res,200,commerce.lookupIntent(relative.slice('api/campaign/intents/request/'.length)));
       if (relative.startsWith('api/campaign/operations/')) return json(req,res,200,await commerce.lookup(relative.slice('api/campaign/operations/'.length)));
+      if(relative.startsWith('media/')){
+        if(!publishedDir)fail('MEDIA_NOT_FOUND',404);const {info,bytes}=readPublishedMedia(publishedDir,commerce.config(),relative.slice('media/'.length));
+        res.writeHead(200,{...headers,'Content-Type':info.mime});return res.end(req.method==='HEAD'?undefined:bytes);
+      }
       const name=relative==='seasonal/'?'seasonal/index.html':relative||'index.html';let content=files.get(name),status=200;
       if (!content) return json(req,res,404,{code:'NOT_FOUND'});
       if(name==='catalog.js'){
         const match=/^\s*window\.FC_ACTIVITY_CONFIG\s*=\s*([\s\S]*?);?\s*$/.exec(content.toString('utf8'));
         if(!match)fail('INVALID_CATALOG',503);
-        const catalog=projectFcCatalog(JSON.parse(match[1].replace(/;\s*$/,'')),commerce.config());
+        const config=commerce.config(),catalog=projectFcCatalog(JSON.parse(match[1].replace(/;\s*$/,'')),config);catalog.page_media=pageMedia(config.pages,prefix);
         content='window.FC_ACTIVITY_CONFIG='+JSON.stringify(catalog).replace(/</g,'\\u003c')+';';
       }else if(name.endsWith('.html')){
         const rendered=presentPage({name,body:content,snapshot:commerce.config(),now:now||Date.now,publicBase:new URL(prefix,origin).href});content=rendered.body;status=rendered.status;
@@ -59,6 +65,7 @@ if (process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.u
   const mode=process.env.CAMPAIGN_PUBLIC_MODE||'preview';
   const server=createPublicServer({assetRoot:process.env.CAMPAIGN_PUBLIC_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),
     staticManifest:readJSON(process.env.CAMPAIGN_PUBLIC_MANIFEST),snapshotProvider:()=>readJSON(process.env.CAMPAIGN_PUBLIC_RELEASE),
+    publishedDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||path.dirname(process.env.CAMPAIGN_PUBLIC_RELEASE),
     dir:process.env.CAMPAIGN_RUNTIME_DATA||'/var/lib/fs-campaign-runtime',mode,origin:process.env.CAMPAIGN_PUBLIC_ORIGIN,
     prefix:process.env.CAMPAIGN_PUBLIC_PREFIX||'/events/',
     ...(mode==='integration_test'&&process.env.CAMPAIGN_TEST_PRICES?{testAdapter:createIntegrationTestAdapter(readJSON(process.env.CAMPAIGN_TEST_PRICES))}:{})});

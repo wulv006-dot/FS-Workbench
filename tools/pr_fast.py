@@ -790,10 +790,13 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-model-media-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/page-catalog-seasonal-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-english-only-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/public-english-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue
         print("affected group:",group,flush=True)

@@ -1,0 +1,97 @@
+{
+  "host": "PC-20260909OJLI",
+  "channel": "original local SSH / existing Admin shared session",
+  "records": [
+    {
+      "phase": "A",
+      "observed_at": "2026-10-25T12:03:26.489039+00:00",
+      "status": "phase_A_complete",
+      "native_writes": 0,
+      "calls": [
+        {
+          "label": "known_model_detail",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        },
+        {
+          "label": "known_model_site266_goods",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        }
+      ],
+      "local_evidence_sha256": "a8cb086024a17452945a74d7121d4b7b51b5e13ae9a4f893d780ef0acfb49403",
+      "model_id": "43167385",
+      "complete": true,
+      "platform_counts": {
+        "ps": 1,
+        "xbox": 1,
+        "pc": 1
+      }
+    },
+    {
+      "phase": "B",
+      "observed_at": "2026-10-25T12:06:26.917375+00:00",
+      "status": "phase_B_complete",
+      "native_writes": 0,
+      "calls": [
+        {
+          "label": "known_model_detail",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        },
+        {
+          "label": "model_title_latin",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        },
+        {
+          "label": "model_title_han",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        }
+      ],
+      "local_evidence_sha256": "eba4e57d4ccb3e7c2e9fb72b514b3cbce30962d257ec1d2c8cf830cd3e7880f7",
+      "queries": [
+        {
+          "keyword": "Haal",
+          "total": 3,
+          "scope_correct": true,
+          "title_matches": true
+        },
+        {
+          "keyword": "哈兰德",
+          "total": 0,
+          "scope_correct": true,
+          "title_matches": true
+        }
+      ]
+    },
+    {
+      "phase": "D",
+      "observed_at": "2026-10-25T12:10:40.131194+00:00",
+      "status": "phase_D_complete",
+      "native_writes": 0,
+      "calls": [
+        {
+          "label": "known_model_detail",
+          "http_status": 200,
+          "business_code": 1,
+          "outcome": "success"
+        }
+      ],
+      "local_evidence_sha256": "62bc7b2e3cb0e9a6dc650b8e0221eb19a464e8e74a4929754a58e3b39c0c5809",
+      "version_contract": {
+        "property_id": "347",
+        "selected_value_id": "8361",
+        "selected_label": "Gold Non Rare"
+      }
+    }
+  ],
+  "phase_c_note": "exit0 complete with exact-index total1 observed; tool output truncated, no complete payload retained; no field absence inferred from truncation",
+  "candidate_not_deployed": true
+}
