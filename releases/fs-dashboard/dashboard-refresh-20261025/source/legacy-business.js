@@ -29,7 +29,7 @@ function fsProcurementProjection(data, selection) {
 let procurementRead=null,procurementForce=false;
 function fsProcurementQuery(profile,all,selection){
  if(!profile?.key||!selection.start||!selection.end)return null;
- if(profile.key==='FC27'&&Object.entries(fcFilters).some(([key,value])=>value!==(key==='site_group'?'main':'all')))return null;
+ if(profile.key==='FC27'&&Object.entries(fcFilters).some(([key,value])=>value!==(key==='site_group'?(all?'all':'main'):'all')))return null;
  return {mode:'actual-profit',profile:profile.key,start:selection.start,end:selection.end,grain:selection.grain||'day',...(profile.key==='RS'?rsChecked(selection):{profit_site:all?'all':'main',profit_category:'-1'})};
 }
 function fsActualMetrics(profile,all=false){
@@ -140,8 +140,8 @@ function rsRenderFilters(){
  box.hidden=KEY!=='RS';if(box.hidden)return;
  box.replaceChildren();
  const more=document.createElement('details'),summary=document.createElement('summary'),panel=document.createElement('div');more.className='fc-more-filters';panel.className='fc-more';panel.style.width='min(260px, calc(100vw - 24px))';summary.textContent='更多筛选'+(rsFilters.rs_server!=='all'?' · '+rsOptions.rs_server.find(([v])=>v===rsFilters.rs_server)[1]:'');more.append(summary,panel);more.open=rsMoreOpen;more.ontoggle=()=>{rsMoreOpen=more.open;rsPositionMore(more);};more.addEventListener('keydown',e=>{if(e.key==='Escape'){more.open=false;summary.focus();}});
- for(const [key,title] of [['rs_site','1 · 网站来源'],['rs_category','2 · 商品类目'],['rs_server','游戏区服']]){
-  const options=rsOptions[key],label=document.createElement('label');label.className='scope-select';label.textContent=title+' ';
+ for(const [key,title] of [['rs_category','商品类目'],['rs_server','游戏区服']]){
+  const options=rsOptions[key],label=document.createElement('label');label.className='scope-select';label.style.whiteSpace='nowrap';label.textContent=title+' ';
   const select=document.createElement('select');select.name=key;select.id=key;if(key==='rs_server'){label.style.display='grid';label.style.gap='6px';select.style.width='100%';select.style.minWidth='0';select.style.maxWidth='100%';}
   for(const [value,title] of options){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}select.value=rsFilters[key];label.htmlFor=key;label.append(select);(key==='rs_server'?panel:box).append(label);
   select.onchange=()=>{rsFilters={...rsFilters,[key]:select.value};window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();document.getElementById(key)?.focus();};
@@ -167,7 +167,18 @@ function rsShippingDays(history,start,end){
 
 const shippingCategories=[['-1','全部类目'],['0','混合'],['1','货币'],['2','物品'],['3','账号'],['4','代练'],['5','CD keys'],['6','Coaching'],['7','Top Up'],['8','Skins'],['9','Gift cards']];
 let shippingCategory='-1';
-if(scope.seed?.b_profit_site==='all')scope.referenceScope='all';
+const businessSites=[['all','全部站点'],['mmoexp','MMOEXP'],['rsorders','RSOrders'],['rsmalls','RSMalls'],['rsfast','RSFast']];
+function businessRestoreSite(s){
+ if(businessSites.some(([value])=>value===s.b_site))return s.b_site;
+ if(s.b_profile==='RS'&&rsOptions.rs_site.some(([value])=>value===s.b_rs_site))return s.b_rs_site;
+ return s.b_profit_site==='main'?'mmoexp':'all';
+}
+let businessSite=businessRestoreSite(scope.seed||{});
+scope.referenceScope=businessSite==='all'?'all':'main';
+function businessApplySite(){
+ scope.referenceScope=businessSite==='all'?'all':'main';rsFilters={...rsFilters,rs_site:businessSite};
+ if(!['all','mmoexp'].includes(businessSite)){KEY='RS';GROUP=GROUPS.find(g=>g.profiles.includes('RS'))?.key||'general';}
+}
 function shippingFields(key,s){return key==='RS'?{}:{profit_site:s.profit_site||'main',profit_category:s.profit_category||'-1'};}
 function shippingSame(key,a,b){return key==='RS'?rsSame(a,b):a?.profit_site===b?.profit_site&&a?.profit_category===b?.profit_category;}
 function shippingSelection(key,s){return key==='RS'?s:{...s,profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',profit_category:shippingCategory};}
@@ -195,7 +206,7 @@ function fsMainSite(profile,all=false){
  const available=admin?.status==='available'&&!!admin?.period?.start&&(!all||(admin.normalisedScope==='all-websites'&&['',0,'0'].includes(admin.filters?.site)));
  const main=!all&&available&&Array.isArray(rows)?rows.filter(r=>(r.code||r.name)==='www.mmoexp.com'):[];
  const mainRow=main.length===1?main[0]:null;
- const onlyMain=!!mainRow&&rows.length===1;
+ const onlyMain=admin?.normalisedScope==='main-website'&&String(admin?.filters?.site)==='266'||!!mainRow&&rows.length===1;
  const mainMetrics={};
  for(const key of ['orders','revenueUsd','newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageOrderUsd','averageCustomerUsd','minOrderAmountUsd','maxOrderAmountUsd']){
   mainMetrics[key]=available?take(admin.metrics?.[key],'Admin',all?'全部网站':onlyMain?'MMOEXP':'后台原统计范围（含其他站点），仅参考'):missing('Admin',all?'全部网站':'MMOEXP');
@@ -299,10 +310,7 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  if(!combined&&!projected.onlyMain)host.append(text('p','新客、复购率、客单价等采用 Admin 本区间原统计范围，可能含其他站点，仅参考；没有将其冒充主站独立指标。','fsi-note'));
  host.append(text('p','Admin 取数：'+(projected.adminCapturedAt||'未提供')+'；Order 取数：'+(projected.orderCapturedAt||'未提供'),'fsi-note'));
  if(key==='RS'){host.append(text('p','RS：'+projected.site+'。指定区服订单、销售及结构来自完整Admin订单列表；其他指标来源见各卡片。毛利按相同筛选下付款订单的Admin人民币收入减Order实际成本，区间和每日为同一批订单；仅已核完成单，非净利润。','fsi-note'));return;}
- const label=text('label','参考展示范围 '),select=text('select');select.setAttribute('aria-label','参考展示范围');
- for(const [v,t] of [['main','MMOEXP（默认）'],['all','All · 全部网站']]){const o=text('option',t);o.value=v;select.append(o);}select.value=combined?'all':'main';label.append(select);host.append(label);
- host.append(text('p',combined?'订单/美元销售采用Admin All；逐单毛利与每日曲线核对全部网站同批付款订单，仅已核完成单，不平均每日比例。':'默认MMOEXP主站；可切换All查看全部网站。逐单毛利按付款日期归组；FC细分筛选尚无覆盖时明确留空。','fsi-reference-total'));
- select.onchange=()=>{scope.referenceScope=select.value;window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();};
+
 }
 
 root.FSSupplementInsights={render};
@@ -528,7 +536,7 @@ function baseSelection(){
  return {start:shiftHour(end,-((HRANGE||24)-1)),end,grain:'hour'};
 }
 function queriedRows(hour){
- const r=scope.summary,q=currentSelection(),p=KEY==='RS'?r?.profile?.supplement:r?.profile?.primary;
+ const r=scope.summary,q=currentSelection(),p=KEY==='RS'||businessSite==='mmoexp'?r?.profile?.supplement:r?.profile?.primary;
  if(exactPermissionDenied()||KEY==='RS'&&!rsSame(r?.query,q)||r?.profile?.key!==KEY||!['start','end','grain'].every(k=>r.query?.[k]===q[k])||p?.status!=='available'||p.seriesGranularity!=='day-or-hour'||p.labelsVerified!==true)return [];
  const rows=new Map();
  for(const row of p.rows||[]){
@@ -553,7 +561,7 @@ function renderExactPermissionFailure(){
 }
 function currentExact(){return !exactPermissionDenied()&&INSIGHTS_SNAPSHOT?window.FSExactRange?.peek(INSIGHTS_SNAPSHOT,KEY,currentSelection()):null;}
 function rowsInRange(){
- if(KEY==='FC27'&&fcDetailState.data?.coverage.paid_complete&&GRAIN==='day'&&fcDetailState.data.query.start===currentSelection().start&&fcDetailState.data.query.end===currentSelection().end)return fcDetailState.data.trend.map(r=>({date:r.date,ts:r.date,orders:r.orders,amount:r.revenue_usd}));
+ if(KEY==='FC27'&&fcDetailState.data?.coverage.paid_complete&&GRAIN==='day'&&fcDetailState.data.query.start===currentSelection().start&&fcDetailState.data.query.end===currentSelection().end&&fcDetailState.data.query.site_group===fcQuery().site_group)return fcDetailState.data.trend.map(r=>({date:r.date,ts:r.date,orders:r.orders,amount:r.revenue_usd}));
   if(exactPermissionDenied())return [];
 
   const selection=currentSelection();return allRows().filter(r=>r.date>=selection.start&&r.date<=selection.end);
@@ -1723,12 +1731,20 @@ function renderToolbar(){
 
 /* ---------------- tabs ---------------- */
 function renderTabs(){
- const select=document.getElementById('business-scope');select.replaceChildren();
- for(const g of GROUPS){const group=document.createElement('optgroup');group.label=g.label;
-  for(const key of g.profiles){const option=document.createElement('option');option.value=key;
-   option.textContent=({'FC27_COINS':'金币','FC27_ITEMS':'物品','FC27_BOOSTING':'代练'}[key]||PROFILES[key]?.name||key)+(PROFILES[key]?.lifecycle==='stopped'?' · 停服':'');group.append(option);}select.append(group);}
- select.value=KEY;select.onchange=()=>{KEY=select.value;GROUP=GROUPS.find(g=>g.profiles.includes(KEY)).key;
-  clampCustom();renderTabs();renderAll();};
+ const select=document.getElementById('business-scope'),label=select.closest('label');
+ label.firstChild.textContent='游戏 ';label.htmlFor=select.id;label.style.whiteSpace='nowrap';select.setAttribute('aria-label','游戏');
+ let site=document.getElementById('business-site');
+ if(!site){const field=document.createElement('label');field.className='scope-select';field.style.whiteSpace='nowrap';field.htmlFor='business-site';field.append('范围 ');site=document.createElement('select');site.id='business-site';site.style.minWidth='155px';
+  for(const [value,name] of businessSites){const option=document.createElement('option');option.value=value;option.textContent=name;site.append(option);}field.append(site);label.before(field);
+  site.onchange=()=>{businessSite=site.value;fcFilters.site_group=businessSite==='mmoexp'?'main':'all';businessApplySite();window.FSExactRange.force();workspaceClearRanges();renderTabs();renderAll();workspaceSync();site.focus();};}
+ businessApplySite();site.value=businessSite;
+ select.replaceChildren();
+ if(PROFILES.MMOEXP){const all=document.createElement('option');all.value='MMOEXP';all.textContent='全部';select.append(all);}
+ for(const groupKey of ['sports','rpg','general']){const g=GROUPS.find(g=>g.key===groupKey);if(!g)continue;const group=document.createElement('optgroup');group.label=({sports:'球类',rpg:'RPG',general:'综合'})[groupKey];
+  for(const key of g.profiles){if(key==='FC26'&&KEY!==key)continue;const option=document.createElement('option');option.value=key;option.textContent=({'FC27_COINS':'金币','FC27_ITEMS':'物品','FC27_BOOSTING':'代练'}[key]||PROFILES[key]?.name||key)+(key==='FC26'?' · 历史':PROFILES[key]?.lifecycle==='stopped'?' · 停服':'');group.append(option);}if(group.children.length)select.append(group);}
+ const locked=!['all','mmoexp'].includes(businessSite);select.value=KEY;select.disabled=locked;select.title=locked?'所选网站仅展示 RS；切换范围后可选择其他游戏':'';
+ select.onchange=()=>{if(locked)return;KEY=select.value;GROUP=GROUPS.find(g=>g.profiles.includes(KEY)).key;
+  window.FSExactRange.force();workspaceClearRanges();clampCustom();renderTabs();renderAll();workspaceSync();select.focus();};
 }
 
 /* ---------------- compare modal ---------------- */
@@ -2125,7 +2141,7 @@ const fcLabels={main:'MMOEXP主站',satellite:'卫星子站',new:'新客',return
 let fcHost=null,fcAbort=null,fcDrawerAbort=null,fcDrawerQuery=null,fcDrawerData=null,fcUserView=false,fcDimension='platform',fcPool='paid',fcNote='',fcDetailTimer=null,fcDetailPending=false,fcDetailNextCheck=0;
 const fcSetText=(node,text)=>{if(node&&node.textContent!==text)node.textContent=text;};
 const fcWait=(ms,signal)=>new Promise((resolve,reject)=>{const cancel=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',cancel);resolve();},ms);if(signal.aborted)cancel();else signal.addEventListener('abort',cancel,{once:true});});
-const fcFilters={platform:'all',site_group:'main',customer:'all',product:'all',bucket:'all'};
+const fcFilters={platform:'all',site_group:businessSite==='mmoexp'?'main':'all',customer:'all',product:'all',bucket:'all'};
 const fcMoney=v=>v==null?'暂缺':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fcName=v=>fcLabels[v]||v;
 function fcRiskOverview(d){
@@ -2145,7 +2161,7 @@ function fcRiskOverview(d){
  return `<div class="fc-site-groups" data-fc-current-risks>${rows}</div>${aging}<p class="fc-subtle">${ready?'Admin 当前运营状态 · 读取 '+esc(captured):'当前池完整性或新汇总暂缺'}；不受所选支付日期限制。三组可重叠，不相加。</p><button type="button" data-fc-backlog>查看当前待跟进订单 →</button>`;
 }
 const fcTable=(heads,rows)=>`<div class="fc-table-wrap"><table><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')||`<tr><td colspan="${heads.length}">当前筛选暂无记录。</td></tr>`}</tbody></table></div>`;
-const fcQuery=(extra={})=>({mode:'fc-detail',profile:'FC27',...baseSelection(),...fcFilters,pool:fcDetailState.tab==='fulfillment'?fcPool:'paid',...extra});
+const fcQuery=(extra={})=>({mode:'fc-detail',profile:'FC27',...baseSelection(),...fcFilters,site_group:businessSite==='mmoexp'?'main':fcFilters.site_group,pool:fcDetailState.tab==='fulfillment'?fcPool:'paid',...extra});
 const fcDownload=(name,content,type)=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 function fcDetailInit(){
@@ -2189,7 +2205,6 @@ function fcDetailShow(){
  if(on&&fcDetailState.data?.coverage.paid_complete)fcSetText(metrics.querySelector('.fsi-reference-total'),'FC订单与美元销售使用同一筛选；逐单毛利核实同批完成订单，未核成本的细分范围明确留空。');
  for(const note of document.querySelectorAll('#trendCard .order-reference-label')){if(on&&fcDetailState.data?.coverage.paid_complete){note.dataset.fcPreviousText??=note.textContent;fcSetText(note,'订单量与销售额来自FC订单明细及当前筛选。');}else if(note.dataset.fcPreviousText){fcSetText(note,note.dataset.fcPreviousText);delete note.dataset.fcPreviousText;}}
  for(const id of ['pfPane','pfDiv']){const node=document.getElementById(id);if(node)node.hidden=false;}
- const reference=document.querySelector('[aria-label="参考展示范围"]');if(reference){const holder=reference.closest('label')||reference;holder.hidden=false;}
  if(!on)return;
  for(const b of fcHost.querySelectorAll('[role=tab]')){const active=b.dataset.fcTab===fcDetailState.tab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;}
  for(const [key] of fcTabs)fcHost.querySelector('#fc-panel-'+key).hidden=key!==fcDetailState.tab;
@@ -2212,6 +2227,7 @@ async function fcRead(query,signal,onSnapshot){
 function fcDetailSync(refresh=false){
  if(KEY!=='FC27'){fcDetailShow();return;}
  fcDetailInit();fcDetailShow();const q=fcQuery(),key=JSON.stringify(q);
+ const site=fcHost.querySelector('[data-fc-filter=site_group]');site.value=q.site_group;site.disabled=businessSite==='mmoexp';site.title=site.disabled?'范围已限定为 MMOEXP；切换到全部站点后可细分网站':'';
  if(fcDetailState.key===key&&!refresh&&(fcDetailPending||Date.now()<fcDetailNextCheck))return;
  if(refresh)q.refresh='true';
  clearTimeout(fcDetailTimer);fcAbort?.abort();fcAbort=new AbortController();fcDetailPending=true;fcDetailState.key=key;fcDetailState.error='';kpiCards();renderProfit();
@@ -2275,7 +2291,7 @@ async function fcReport(){
 function workspaceState(){
  const phase=document.getElementById('supplement-insights')?.dataset.rangeReadState;
  const snapshot=INSIGHTS_SNAPSHOT,selection=currentSelection();
- return {b_group:GROUP,b_profile:KEY,b_grain:GRAIN,b_align:String(HALIGN),b_range:curCustom()?'custom':String(curRange()),b_start:curCustom()?.start||'',b_end:curCustom()?.end||'',
+ return {b_site:businessSite,b_group:GROUP,b_profile:KEY,b_grain:GRAIN,b_align:String(HALIGN),b_range:curCustom()?'custom':String(curRange()),b_start:curCustom()?.start||'',b_end:curCustom()?.end||'',
   b_profit_category:shippingCategory,b_profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',...Object.fromEntries(Object.entries(rsFilters).map(([k,v])=>['b_'+k,v])),fc_tab:KEY==='FC27'?fcDetailState.tab:'',b_section:scope.section||'overview',b_metrics:scope.metrics?'all':'core',snapshotId:snapshot?.snapshotId,
   generatedAt:currentExact()?.generatedAt,businessUntil:currentExact()?.profile.period.end,checkedAt:scope.checkedAt,
   phase:phase==='error'?'error':currentExact()?(currentExact().stale?'stale':'available'):phase==='loading'?'loading':scope.snapshotState?.status==='stale'?'stale':scope.snapshotState?.status==='unavailable'?'unavailable':phase||'loading',
@@ -2283,10 +2299,11 @@ function workspaceState(){
 }
 function workspaceApply(s){
  if(!Object.keys(PROFILES).length)return false;
- shippingCategory='-1';scope.referenceScope=s.b_profit_site==='all'?'all':'main';rsFilters=rsChecked(s);workspaceRestoring=true;fcDetailState.tab=fcTabs.some(r=>r[0]===s.fc_tab)?s.fc_tab:'overview';
+ shippingCategory='-1';businessSite=businessRestoreSite(s);fcFilters.site_group=businessSite==='mmoexp'?'main':'all';rsFilters=rsChecked(s);workspaceRestoring=true;fcDetailState.tab=fcTabs.some(r=>r[0]===s.fc_tab)?s.fc_tab:'overview';
  const group=GROUPS.find(g=>g.key===s.b_group),p=PROFILES[s.b_profile];
  if(p){KEY=s.b_profile;GROUP=GROUPS.find(g=>g.profiles.includes(KEY))?.key||GROUP;}
  else if(group){GROUP=group.key;KEY=group.profiles[0];}
+ businessApplySite();
  if(['day','hour'].includes(s.b_grain))GRAIN=s.b_grain;
  if(['true','false'].includes(s.b_align))HALIGN=s.b_align==='true';
  const list=GRAIN==='hour'?HOUR_RANGES:RANGES,r=s.b_range;

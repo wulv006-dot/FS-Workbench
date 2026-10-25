@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-coins/fc-cost-live-recovery-20261025/source/collect_p2pah_cost.py']) != ['fc-cost-live-recovery']:
+        raise RuntimeError('fc_cost_live_recovery_mapping_missing')
     if select(["releases/fc-coins/fc-review-u4gm-recovery-20261025/source/business_context.py"]) != ["fc-review-u4gm-recovery"]:
         raise RuntimeError("fc_review_u4gm_recovery_mapping_missing")
     if select(['tools/hermes_review_archive.py', 'knowledge/reviewed/fixture/record.json']) != ['hermes-review-archive']:
@@ -387,6 +389,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-coins/fc-cost-live-recovery-20261025/"):
+            groups.add("fc-cost-live-recovery");continue
         if name.startswith("releases/fc-coins/fc-review-u4gm-recovery-20261025/"):
             groups.add("fc-review-u4gm-recovery");continue
         if name.startswith("releases/fc-players/history-five-20261024/"):
@@ -752,6 +756,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="fc-cost-live-recovery":
+            units("releases/fc-coins/fc-cost-live-recovery-20261025/tests",["test_recovery","test_cost_context"])
+            continue
         if group=="fc-review-u4gm-recovery":
             units("releases/fc-coins/fc-review-u4gm-recovery-20261025/tests",["test_recovery"])
             continue
@@ -833,7 +840,7 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness"])
         elif group=="business-dashboard-refresh":
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_browsers.cjs")
         elif group=="business-actual-profit":
