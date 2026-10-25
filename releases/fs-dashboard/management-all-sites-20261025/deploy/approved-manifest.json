@@ -10,7 +10,7 @@
     {
       "candidate": "source/management_facts.py",
       "target": "/opt/fs-boss-workspaces/backend/management_facts.py",
-      "sha256": "bccd2afe44645d5fdab354f134afdfa186627f91142545df6f807884cac80777",
+      "sha256": "19cae0c338f8a9691a4505c2139aaa2174cf31f1404d6acac454aa499edca0d0",
       "beforeSha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd",
       "owner": "0:0",
       "mode": "0o644"
@@ -26,7 +26,7 @@
     {
       "candidate": "source/management_context.py",
       "target": "/opt/fs-hermes-fc/management_context.py",
-      "sha256": "277a1fb84eb6bab96222274b3f626969aec7f59da3111607efc0d522617a94c0",
+      "sha256": "c9654a3a520ebf854410861c6daf9f2bc3a61db06e1449fb998b0f480bd95890",
       "beforeSha256": "c0dafc3e10847eb82c90d4fd9e37b96cffbe4d0b09bfe11bb55bb76c7d7a4d06",
       "owner": "0:0",
       "mode": "0o644"
@@ -34,7 +34,7 @@
     {
       "candidate": "source/management-live.js",
       "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/management-live.js",
-      "sha256": "7890b3fd5130337df085c28a43efc5dc595a9fde42ddce94e23fa9ae6c9bbc12",
+      "sha256": "1d2459d5f8ae87f075c13bc412114e3fa27ea251f2bf1c4bbce0a247c00818bf",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -42,7 +42,7 @@
     {
       "candidate": "source/index.html",
       "target": "/var/lib/fs-navigation-formal-static/management-all-sites-20261025-f60608d79521/index.html",
-      "sha256": "6edad5834a49ef976409589eb08d6a53bac86968d257521af41161175ba5c8a1",
+      "sha256": "946a97333efd31aeedea553b6658f53b819b362e8943f7da890b9298ddf72550",
       "beforeSha256": null,
       "owner": "0:0",
       "mode": "0o644"
@@ -178,6 +178,10 @@
     {
       "path": "/opt/fs-exact-range-20261001/profit_queries.py",
       "sha256": "9b043ed25d165d859bbc1728bc5ceb24cb6432b37387d1de3f6771e1c6dfe805"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "d1272749ca5a53a1c370c5d34ebeae4eef6a24855b0c6f0da78ccddf3d42f044"
     },
     {
       "path": "/opt/fs-exact-range-20261001/range_primary_reader.py",
@@ -491,5 +495,6 @@
     "all original timers",
     "pricing v15 80/15/5",
     "sessions permissions and unknown operation history"
-  ]
+  ],
+  "imageId": "sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544"
 }
