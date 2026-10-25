@@ -79,7 +79,7 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
         reader = reader_factory()
         try:
             if query == 'goods_id':
-                row = reader.detail('goods',values['goods_id'])
+                row = reader.catalog_goods(values['goods_id'])
                 product = discover_product(row,site_id,game_id,allow_unknown=True)
                 matches = all(product[field] == values[key] for key,field in
                     (('category_id','category_id'),('platform_attribute_id','platform_attribute_id')) if key in values)

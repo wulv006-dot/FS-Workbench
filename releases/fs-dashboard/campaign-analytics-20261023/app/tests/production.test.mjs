@@ -6,6 +6,11 @@ test('FS authenticated persistence and secret boundary',async()=>{
  try{
   const get=(route,cookie)=>original(url+route,{headers:{Cookie:cookie||''}});assert.equal((await get('api/config')).status,401);const state=await(await get('api/config','fixture-admin')).json();
   const page=await(await get('','fixture-admin')).text();assert.doesNotMatch(page,/<option value="(?:demo|local)">|src="demo-data.js"/);assert.match(page,/<option value="live">/);assert.match(page,/<option value="test">/);
+  const editor=await(await get('products.html','fixture-admin')).text();assert.match(editor,/id="page-select"/);assert.match(editor,/id="discover-search"/);assert.doesNotMatch(editor,/id="weekly-options"/);
+  const originalEditor=await(await get('products.html?view=original','fixture-admin')).text();assert.match(originalEditor,/id="page-select"/);assert.doesNotMatch(originalEditor,/id="weekly-options"/);
+  const alias=await original(url+'center.html',{headers:{Cookie:'fixture-admin'},redirect:'manual'});assert.equal(alias.status,302);assert.equal(alias.headers.get('location'),'/dashboard/analytics/campaigns/analytics/products.html');
+  assert.equal(await(await get('','fixture-admin')).text(),page); // data/report page rendering is unchanged by editor navigation
+
   const post=(route,body,cookie='fixture-admin',origin='http://127.0.0.1')=>original(url+route,{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)});
   assert.equal((await post('api/config',{},'fixture-viewer')).status,403);assert.equal((await post('api/config',{},'fixture-admin','https://evil.example')).status,403);
   assert.equal((await post('api/center/backend-mutate',{action:'benefit_edit',site_id:'266'},'fixture-viewer')).status,403);
