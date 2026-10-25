@@ -1,5 +1,13 @@
 {
   "scope": "fc-cost-live-ci-20261025",
+  "git_archive": {
+    "pr": 471,
+    "head": "95e3b6b3d3e5764f803a9b87d3f3f95d0b77a3d6",
+    "base": "8220cf7b1ca5a55c453e94edd7ae1286e3b3385d",
+    "merge": "f5c6208945d63cdf3d842b543cf0864f8663d6d1",
+    "merged": true,
+    "merged_source_readback": "both_exact"
+  },
   "purpose": "Archive exact already-deployed sources; formal CI only, no redeployment",
   "runtime_sources": [
     {
@@ -38,6 +46,10 @@
     "worker_restarted": false
   },
   "formal_ci": {
+    "final_head": "95e3b6b3d3e5764f803a9b87d3f3f95d0b77a3d6",
+    "final_run": 40180478248,
+    "final_job": 121130277553,
+    "final_conclusion": "success",
     "pr": 471,
     "initial_head": "fe2a9021bf689b3557d853c8d5eff21eabb3a479",
     "initial_run": 40180248995,
@@ -47,13 +59,26 @@
     "errors": 0,
     "skipped": 0,
     "final_head_authority": "https://github.com/wulv006-dot/FS-Workbench/pull/471/checks",
-    "final_combination": "Requires fresh CI after latest main docs-only integration; never reuse initial green"
+    "final_combination": "latest main 8220cf7b integrated; final 12/0/0/0 confirmed; merge f5c62089 sources exact"
   },
   "new_business_jobs": 0,
   "production_publish": 0,
   "ordinary_natural_cycle": {
     "expected_not_before": "2026-10-25T19:10:12.007742+08:00",
-    "status": "pending",
+    "status": "passed_first_regular_natural_cycle",
+    "run_id": "e0cbc41a-9edd-4a0f-8682-fd411b11f28a",
+    "created_at": "2026-10-25T19:10:39.119645+08:00",
+    "completed_at": "2026-10-25T19:14:01.280758+08:00",
+    "actor": "system-automation",
+    "retry_markers": false,
+    "costs_valid": 3,
+    "itemd2r_valid": 3,
+    "hermes_review": "completed_valid_recommendation_no_fallback",
+    "result": "no_price_change",
+    "incomplete_executions": 0,
+    "next_at": "2026-10-25T21:14:01.280758+08:00",
+    "new_collection_or_price_jobs_by_observer": 0,
+    "coverage_limit": "IGGM historical http_blocked remains; first regular natural cycle only, not long-term stability",
     "exclude": [
       "78b1837d-3abb-4009-ade9-b4e326152b13",
       "35aca601-2dab-4ab6-949c-110806aa9e05"
