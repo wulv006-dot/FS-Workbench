@@ -167,6 +167,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fc-coins/fc-review-u4gm-recovery-20261025/source/business_context.py"]) != ["fc-review-u4gm-recovery"]:
+        raise RuntimeError("fc_review_u4gm_recovery_mapping_missing")
     if select(['tools/hermes_review_archive.py', 'knowledge/reviewed/fixture/record.json']) != ['hermes-review-archive']:
         raise RuntimeError('review_archive_mapping_missing')
     if select(["releases/ops/madden-browser-isolation-20261023/source/browser_runtime.py"]) != ["madden-browser-isolation"]:
@@ -385,6 +387,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-coins/fc-review-u4gm-recovery-20261025/"):
+            groups.add("fc-review-u4gm-recovery");continue
         if name.startswith("releases/fc-players/history-five-20261024/"):
             groups.add("fc-players-history-five");continue
         if name == 'tools/hermes_review_archive.py' or name.startswith(('releases/fs-dashboard/hermes-review-archive-20261024/', 'knowledge/reviewed/')):
@@ -744,6 +748,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="fc-review-u4gm-recovery":
+            units("releases/fc-coins/fc-review-u4gm-recovery-20261025/tests",["test_recovery"])
+            continue
         if group=="madden-browser-isolation":
             units("releases/ops/madden-browser-isolation-20261023",["test_recovery","test_linux_runtime","test_publish","test_resource_boundaries","test_fc_isolation"])
             continue
