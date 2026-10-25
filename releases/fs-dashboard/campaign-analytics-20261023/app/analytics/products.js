@@ -3,11 +3,14 @@
   const $=id=>document.getElementById(id),escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const publicPrefix=document.documentElement.dataset.campaignPublicPrefix||'/events/',publicPrefixValid=/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix);
   const storageKey='fs-center-pending:'+location.pathname.replace(/products\.html$/, 'center.html');
-  let state=null,catalog=[],busy=false,dirty=false,pending=null,discovered=[],discoveredGame=null,selectedPage='fc27-weekly',searchPage=1,hasMore=false,inspected=null;
+  let savedDraft=null,state=null,catalog=[],busy=false,dirty=false,pending=null,discovered=[],discoveredGame=null,selectedPage='fc27-weekly',searchPage=1,hasMore=false,inspected=null;
   try{pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{$('center-error').textContent='无法读取原操作记录；请保留当前会话并联系维护人员核对。';return;}
+  const stable=v=>JSON.stringify(v,(_k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,x[k]])):x);
+  const same=(a,b)=>stable(a)===stable(b);
+  function acceptedState(value){state=value;savedDraft=structuredClone(value.draft);dirty=false;if($('restore-review'))$('restore-review').hidden=true;}
   function persist(value){sessionStorage.setItem(storageKey,JSON.stringify(value));pending=value;}
   async function request(path,body){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Object.assign(Error('响应无法确认，请核对原操作。'),{status:response.status});}if(!response.ok)throw Object.assign(Error(data.message||data.code||'请求失败'),{status:response.status});return data;}
-  function lock(){ $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=dirty;$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore; }
+  function lock(){ dirty=Boolean(state&&savedDraft&&!same(state.draft,savedDraft));renderChanges();$('restore-draft').disabled=busy||Boolean(pending)||!state?.canEdit||dirty||!state?.restore_candidate;$('confirm-restore').disabled=$('restore-draft').disabled; $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=dirty;$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore; }
   function local(value){return value?new Date(value).toISOString().slice(0,16):'';}
   function benefitLabel(ref){const item=catalog.find(x=>x.kind===ref.kind&&x.native_id===ref.native_id);return (ref.kind==='coupon'?'优惠券':'折扣')+' · '+(item?.title||ref.native_id)+(item?' · 原始状态 '+String(item.raw_status??'未知'):' · 尚未核验');}
   function bindings(page,i){return '<ul class="bindings">'+(page.benefit_refs||[]).map((ref,j)=>'<li><span>'+escape(benefitLabel(ref))+'</span><button class="fs-btn" type="button" data-remove="'+i+':'+j+'">移除绑定</button></li>').join('')+'</ul><label for="benefit-'+i+'">选择后台优惠<select id="benefit-'+i+'" data-benefit="'+i+'"><option value="">请选择原生优惠</option>'+catalog.map((ref,j)=>'<option value="'+j+'">'+escape(benefitLabel(ref))+'</option>').join('')+'</select></label><button class="fs-btn" type="button" data-add="'+i+'">添加绑定</button>';}
@@ -37,18 +40,51 @@
     if(typeof value==='string'){if(![...theme.options].some(o=>o.value===value))theme.add(new Option(value,value));theme.value=value;}else theme.disabled=true;
     renderPageProducts();renderFcLayout();publicationSummary();lock();
   }
-  function readForm(){const draft=structuredClone(state.draft);draft.integration_mode='preview';if(typeof draft.seasonal_theme==='string'||draft.seasonal_theme==null)draft.seasonal_theme=$('seasonal-theme').value;
-    for(const fieldset of document.querySelectorAll('[data-page]')){const p=draft.pages[Number(fieldset.dataset.page)],get=name=>fieldset.querySelector('[name="'+name+'"]');p.default_language=get('default_language').value;p.social_image=get('social_image').value;p.title=get('title').value.trim();p.description=get('description').value.trim();get('title').setCustomValidity(/[<>\u0000-\u001f]/.test(p.title)?'标题不能含尖括号或控制字符。':'');get('description').setCustomValidity(/[<>\u0000-\u001f]/.test(p.description)?'描述不能含尖括号或控制字符。':'');p.preview_enabled=get('preview_enabled').checked;p.starts_at=get('starts_at').value?new Date(get('starts_at').value+'Z').toISOString():null;p.ends_at=get('ends_at').value?new Date(get('ends_at').value+'Z').toISOString():null;get('ends_at').setCustomValidity(p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at?'结束时间必须晚于开始时间。':'');}
+  function readForm(){
+    const draft=structuredClone(state.draft);
+    if($('seasonal-theme').value!==(draft.seasonal_theme??'halloween'))draft.seasonal_theme=$('seasonal-theme').value;
+    for(const fieldset of document.querySelectorAll('[data-page]')){
+      const p=draft.pages[Number(fieldset.dataset.page)],get=name=>fieldset.querySelector('[name="'+name+'"]');
+      const assign=(key,value,shown)=>{if(value!==shown)p[key]=value;};
+      for(const key of ['title','description']){
+        const value=get(key).value;assign(key,value,p[key]??'');
+        get(key).setCustomValidity(/[<>\u0000-\u001f]/.test(value)?'不能含尖括号或控制字符。':'');
+      }
+      for(const key of ['default_language','social_image'])assign(key,get(key).value,p[key]??'original');
+      assign('preview_enabled',get('preview_enabled').checked,p.preview_enabled===true);
+      for(const key of ['starts_at','ends_at'])if(get(key).value!==local(p[key]))p[key]=get(key).value?new Date(get(key).value+'Z').toISOString():null;
+      get('ends_at').setCustomValidity(p.starts_at&&p.ends_at&&Date.parse(p.starts_at)>=Date.parse(p.ends_at)?'结束时间必须晚于开始时间。':'');
+    }
     return draft;
   }
-  async function load(){busy=true;lock();state=null;try{state=await request('api/center');dirty=false;render();if(pending){$('center-status').textContent='已重读服务器状态，正在用原操作 ID 核对结果。';await resolve();}else $('center-status').textContent=state.canEdit?'已读取服务器配置。':'当前账号为只读。';}catch(error){$('center-error').textContent=error.message;}finally{busy=false;lock();}}
-  async function resolve(){const receipt=await request(pending.path,pending.body);const refreshed=await request('api/center');persist(null);state=refreshed;dirty=false;render();$('center-status').textContent='原操作已确认，已重新读取服务器状态。';return receipt;}
-  async function mutate(path,draft){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{})}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);state=null;state=await request('api/center');dirty=false;render();}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
-  $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=readForm();if(!$('center-form').reportValidity())return;mutate('api/center',draft);});
+  const fieldNames={product_keys:'商品选择与顺序',product_roles:'商品展示位置',sbc_companions:'SBC搭档',fc_layout:'FC编排',title:'标题',description:'说明',preview_enabled:'预览开关',starts_at:'开始时间',ends_at:'结束时间',default_language:'默认语言',social_image:'分享图',benefit_refs:'优惠绑定',seasonal_theme:'限定活动主题'};
+  function renderChanges(){
+    if(!$('draft-changes')||!state||!savedDraft)return;
+    const rows=[],compare=(before,after,label)=>{
+      for(const key of new Set([...Object.keys(before),...Object.keys(after)])){
+        if(key==='pages'||same(before[key],after[key]))continue;
+        const inherited=['product_keys','fc_layout'].includes(key);
+        rows.push(label+(fieldNames[key]||key)+(inherited&&!Object.hasOwn(before,key)?'：从继承改为明确配置':inherited&&!Object.hasOwn(after,key)?'：恢复继承':'：已修改'));
+      }
+    };
+    compare(savedDraft,state.draft,'');
+    for(const page of state.draft.pages)compare(savedDraft.pages.find(p=>p.page_id===page.page_id)||{},page,(page.title||page.page_id)+' · ');
+    $('draft-changes').innerHTML=rows.length?'<strong>本次保存变化（尚未保存）</strong><ul>'+rows.map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><p>未修改字段保持原有缺省与继承；保存不会发布。</p>':'未修改配置；切换页面不会固定继承数据。';
+  }
+  async function load(){busy=true;lock();state=null;try{acceptedState(await request('api/center'));render();if(pending){$('center-status').textContent='已重读服务器状态，正在用原操作 ID 核对结果。';await resolve();}else $('center-status').textContent=state.canEdit?'已读取服务器配置。':'当前账号为只读。';}catch(error){$('center-error').textContent=error.message;}finally{busy=false;lock();}}
+  async function resolve(){const receipt=await request(pending.path,pending.body);const refreshed=await request('api/center');persist(null);acceptedState(refreshed);render();$('center-status').textContent='原操作已确认，已重新读取服务器状态。';return receipt;}
+  async function mutate(path,draft,extra={}){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{}),...extra}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':path.endsWith('/restore')?'已恢复上一份草稿的原始字段与继承；未改变公开预览。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);state=null;acceptedState(await request('api/center'));render();}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
+  $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=readForm();if(!$('center-form').reportValidity())return;if(same(draft,savedDraft)){$('center-status').textContent='没有配置变化，未提交保存。';return;}mutate('api/center',draft);});
+  $('restore-draft').addEventListener('click',()=>{
+    const candidate=state?.restore_candidate;if(!candidate||dirty||busy||pending)return;
+    $('restore-summary').textContent='恢复到修订 '+candidate.revision+' 的原始草稿字段（包含缺省继承）。涉及页面：'+(candidate.changed_pages||[]).join('、')+'；配置：'+(candidate.changed_fields||[]).map(k=>fieldNames[k]||k).join('、')+'。仅恢复草稿，保留全部历史，不回退公开发布。';
+    $('restore-review').hidden=false;
+  });
+  $('cancel-restore').addEventListener('click',()=>{$('restore-review').hidden=true;});
+  $('confirm-restore').addEventListener('click',()=>{if(!state?.restore_candidate||dirty)return;mutate('api/center/restore',null,{restore_revision:state.restore_candidate.revision});});
   $('publish-center').addEventListener('click',()=>mutate('api/center/publish'));
   $('reload-center').addEventListener('click',()=>{if(!busy)load();});
-  $('center-form').addEventListener('input',()=>{dirty=true;readForm();lock();});
-  $('center-form').addEventListener('change',()=>{dirty=true;readForm();lock();});
+  for(const type of ['input','change'])$('center-form').addEventListener(type,event=>{if(event.target.id==='page-select'||event.target.closest('#page-products')||event.target.closest('#fc-layout'))return;state.draft=readForm();lock();});
   $('center-pages').addEventListener('click',event=>{const add=event.target.closest('[data-add]'),remove=event.target.closest('[data-remove]');if(!add&&!remove)return;state.draft=readForm();if(add){const i=Number(add.dataset.add),select=$('benefit-'+i);if(!select.value){select.setCustomValidity('请选择后台目录中的原生优惠。');select.reportValidity();select.setCustomValidity('');return;}const ref=catalog[Number(select.value)],refs=state.draft.pages[i].benefit_refs||=[];if(!refs.some(x=>x.kind===ref.kind&&x.native_id===ref.native_id))refs.push({kind:ref.kind,native_id:ref.native_id});}else{const [i,j]=remove.dataset.remove.split(':').map(Number);state.draft.pages[i].benefit_refs.splice(j,1);}dirty=true;render();});
   $('read-benefits').addEventListener('click',async()=>{if(busy)return;busy=true;lock();try{state.draft=readForm();const result=await request('api/center/backend-read',{action:'benefits_read',site_id:'266'});catalog=[...(result.data?.coupons||[]),...(result.data?.discounts||[])];$('backend-state').textContent='已读 '+catalog.length+' 项';$('catalog-status').textContent='站点 266 原始目录已读；状态语义、适用范围及有效期仍须核验，不代表优惠可用。';render();}catch(error){$('catalog-status').textContent=error.message;}finally{busy=false;lock();}});
   $('read-published').addEventListener('click',async()=>{
@@ -83,7 +119,7 @@
 
 
   function renderFcLayout(){
-    const box=$('fc-layout'),c=state.fc_catalog,d=state.draft.fc_layout;
+    const box=$('fc-layout'),c=state.fc_catalog,d=state.draft.fc_layout??state.effective_fc_layout;
     box.hidden=!selectedPage.startsWith('fc27-')||!c||!d;if(box.hidden){box.innerHTML='';return;}
     const products=Object.values(c.products),players=products.filter(p=>p.kind==='player'),label=p=>p.title||p.name||p.key;
     const options=(list,id)=>list.map(p=>'<option value="'+escape(p.key)+'" '+(p.key===id?'selected':'')+'>'+escape(label(p))+'</option>').join('');
@@ -113,7 +149,7 @@
     prunePairs(page);
   }
   $('fc-layout').addEventListener('change',event=>{
-    if(busy||pending||!state?.canEdit)return;state.draft=readForm();const d=state.draft.fc_layout,el=event.target;if(!d)return;const previous=structuredClone(d);
+    if(busy||pending||!state?.canEdit)return;state.draft=readForm();const source=state.draft.fc_layout??state.effective_fc_layout,el=event.target;if(!source)return;const d=structuredClone(source),previous=structuredClone(source);
     if(['weekly','bundles','sbc'].includes(el.dataset.layoutList)){
       const field=el.dataset.layoutList;d[field]=[...$('fc-layout').querySelectorAll('[data-layout-list="'+field+'"]:checked')].map(x=>x.value);
       if(field==='sbc'){for(const key of d.sbc)d.routes[key]||={picks:[...state.fc_catalog.sbc.fallbackPicks],alternatives:[]};if(!d.sbc.includes(d.defaultCore))d.defaultCore=d.sbc[0]||null;}
@@ -123,6 +159,7 @@
       if(el.dataset.layoutPick!=null)d.routes[core].picks[Number(el.dataset.layoutPick)]=el.value;
       else if(el.dataset.layoutList==='alternatives')d.routes[core].alternatives=[...el.closest('[data-layout-core]').querySelectorAll('[data-layout-list="alternatives"]:checked')].map(x=>x.value);
     }
+    if(same(d,previous))return;state.draft.fc_layout=d;
     syncLayoutSelection(state.draft.pages.find(p=>p.page_id===selectedPage),d,previous);dirty=true;renderPageProducts();renderFcLayout();lock();
   });
 
@@ -177,7 +214,7 @@
     if(busy||pending||!inspected||!state?.canEdit)return;
     const draft=readForm();if(!$('center-form').reportValidity())return;
     busy=true;lock();try{persist({path:'api/center/import-product',body:{revision:state.revision,operation_id:crypto.randomUUID(),draft,page_id:selectedPage,product_ref:inspected.product_ref}});await resolve();$('center-status').textContent='商品已核验并选入本页草稿；未发布，未开放购买。';}
-    catch(error){if([400,403,409,422].includes(error.status)){persist(null);state=await request('api/center');dirty=false;render();}$('center-error').textContent=error.message+(pending?' 原操作已保留，请核对原操作；不要重复选入。':' 请求未接受，已重读配置，请核对后再编辑。');}finally{busy=false;lock();}
+    catch(error){if([400,403,409,422].includes(error.status)){persist(null);acceptedState(await request('api/center'));render();}$('center-error').textContent=error.message+(pending?' 原操作已保留，请核对原操作；不要重复选入。':' 请求未接受，已重读配置，请核对后再编辑。');}finally{busy=false;lock();}
   });
   $('inspect-product').addEventListener('click',async()=>{
     if(busy||pending||!state?.canEdit||!discoveredGame)return;

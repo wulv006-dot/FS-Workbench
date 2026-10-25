@@ -18,7 +18,7 @@ const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal
 const validateFcLayout=layout=>validateLayout(layout,catalog);
 const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
  seedProvider:layout=>centerSeed(previewCatalog(catalog,layout??store.read().layout),seasonalBox.SeasonalData)});
-const centerState=s=>({revision:s.revision,draft:{...s.draft,fc_layout:validateFcLayout(s.draft.fc_layout??store.read().layout)},published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+const centerState=s=>({revision:s.revision,draft:s.draft,effective_fc_layout:validateFcLayout(s.draft.fc_layout??store.read().layout),restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
  fc_catalog:{products:Object.fromEntries(Object.entries(catalog.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
  ...(()=>{const seed=centerSeed(previewCatalog(catalog,s.draft.fc_layout??store.read().layout),seasonalBox.SeasonalData);return {catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?catalog.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys};})(),
  capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
@@ -44,6 +44,7 @@ export const server=http.createServer(async(req,res)=>{
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
    if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center/restore')return json(res,200,{...centerState(center.restoreDraft(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/import-product'){
     const prior=center.recoverImport(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
     const ref=body.product_ref||{};const data=await backendRead({action:'product_read',site_id:ref.site_id,game_id:ref.game_id,goods_id:ref.goods_id});
