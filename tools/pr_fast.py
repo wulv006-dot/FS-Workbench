@@ -180,6 +180,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh']) != ['fc-cost-timeout']:
+        raise RuntimeError('fc_cost_timeout_mapping_missing')
     if select(['releases/fc-coins/fc-cost-live-recovery-20261025/source/collect_p2pah_cost.py']) != ['fc-cost-live-recovery']:
         raise RuntimeError('fc_cost_live_recovery_mapping_missing')
     if select(["releases/fc-coins/fc-review-u4gm-recovery-20261025/source/business_context.py"]) != ["fc-review-u4gm-recovery"]:
@@ -404,6 +406,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/fc-coins/cost-timeout-20261025/"):
+            groups.add("fc-cost-timeout");continue
         if name.startswith("releases/fc-coins/fc-cost-live-recovery-20261025/"):
             groups.add("fc-cost-live-recovery");continue
         if name.startswith("releases/fc-coins/fc-review-u4gm-recovery-20261025/"):
@@ -771,6 +775,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="fc-cost-timeout":
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/"releases/fc-coins/cost-timeout-20261025/tests/test_timeout.py")],check=True,timeout=30,cwd=ROOT)
+            continue
         if group=="fc-cost-live-recovery":
             units("releases/fc-coins/fc-cost-live-recovery-20261025/tests",["test_recovery","test_cost_context"])
             continue
