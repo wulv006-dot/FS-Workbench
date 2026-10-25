@@ -152,4 +152,30 @@ class Scheduling(unittest.TestCase):
             p.write_bytes(frozen+b'\n# unexpected content\n')
             with self.assertRaisesRegex(ValueError,'frozen_publisher_drift'):release.load_base()
 
+class KnowledgeEnvelope(unittest.TestCase):
+    def bundle(self,context,source_bytes=220000):
+        import business_context as b
+        def read(path,*args,**kw):
+            return b'x'*source_bytes if Path(path).name=='business-baseline.md' else None
+        with patch.object(b,'read_regular',side_effect=read),patch.dict(sys.modules,{'knowledge_catalog':types.SimpleNamespace(context=lambda _:context)}):
+            return b.learning_bundle('/case',selection={'entries':[]})
+    def test_complete_sources_and_catalog_survive_envelope_growth(self):
+        import business_context as b
+        text,sha,rows=self.bundle('CATALOG'+('c'*43000)+'END')
+        self.assertGreater(len(text.encode()),b.MAX_TOTAL)
+        self.assertLess(len(text.encode()),b.MAX_CONTEXT)
+        self.assertIn('x'*220000,text);self.assertTrue(text.endswith('END'))
+        self.assertEqual(rows[0]['bytes'],220000)
+        self.assertEqual(sha,hashlib.sha256(text.encode()).hexdigest())
+    def test_original_source_budget_still_rejects(self):
+        with self.assertRaisesRegex(ValueError,'desktop_learning_bundle_too_large'):self.bundle('',262145)
+    def test_context_budget_still_rejects(self):
+        with self.assertRaisesRegex(ValueError,'desktop_learning_bundle_too_large'):self.bundle('c'*110000)
+    def test_snapshot_limit_still_rejects_before_write(self):
+        import business_context as b
+        writes=[]
+        with tempfile.TemporaryDirectory() as d,patch.object(b,'learning_bundle',return_value=('x'*1048577,'a'*64,[])),patch.dict(sys.modules,{'report_artifacts':types.SimpleNamespace(write_file=lambda *a:writes.append(a))}):
+            with self.assertRaisesRegex(ValueError,'desktop_learning_snapshot_too_large'):b.freeze_learning(d,{'sha256':'b'*64},{},'daily')
+        self.assertEqual(writes,[])
+
 if __name__=='__main__':unittest.main()
