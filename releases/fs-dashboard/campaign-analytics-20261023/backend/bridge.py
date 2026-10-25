@@ -19,6 +19,22 @@ from campaign_backend.adapters import AdminRead
 from campaign_backend.catalog import (CatalogMapping, field, project_product, positive_id,
                                       discover_product, read_product_metadata)
 from campaign_backend.core import ContractError, source_identity
+from campaign_backend.models import request_scope, project_model, resolve_model, historical_image
+
+
+def model_image(model):
+    """Fixed server artifacts; no client paths, name matching, or fresh Admin image claim."""
+    try:
+        from campaign_backend.catalog import read_reference_mapping
+        backend=Path(__file__).parent
+        mapping=read_reference_mapping(json.loads((backend/'catalog-mapping.json').read_text('utf-8')))
+        catalog=backend.parent/'catalog.json'
+        if not catalog.is_file():catalog=backend.parent/'app'/'catalog.json'
+        image=historical_image(model['model_id'],mapping,json.loads(catalog.read_text('utf-8')))
+        if image:model.update(image_url=image,image_provenance='historical_accepted_model_asset')
+    except (OSError,ValueError,TypeError,KeyError):
+        pass
+    return model
 
 
 def capabilities():
@@ -55,6 +71,28 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
+    if action in ('model_search','model_resolve'):
+        args=request_scope(request,resolve=action=='model_resolve')
+        reader=reader_factory()
+        try:
+            reader.begin_catalog_read()
+            if action=='model_resolve':
+                row=reader.catalog_model(args['model_id'])
+                project_model(row,args['kind'])
+                page=reader.search_goods_page('266','1327',model_id=args['model_id'],category_id=args['category_id'],page=1,limit=10)
+                return dict(model=model_image(resolve_model(row,args['kind'],page)),resolution_complete=page['total']==len(page['rows']),
+                    management_only=True,authoritative=False,available=False,checkout_enabled=False)
+            if 'model_id' in args:
+                row=reader.catalog_model(args['model_id'])
+                rows=[row];total=1;has_more=False
+            else:
+                page=reader.search_models_page('1327',args['category_id'],args['keyword'],args['page'],args['page_size'])
+                rows,total,has_more=page['rows'],page['total'],page['has_more']
+            return dict(items=[model_image(project_model(row,args['kind'])) for row in rows],total=total,
+                page=args['page'],page_size=args['page_size'],has_more=has_more,
+                name_query=args.get('name_query'),management_only=True,available=False,authoritative=False,checkout_enabled=False,
+                verification_scope='model_candidates_site_association_pending')
+        finally:reader.close()
     if action == 'catalog_search':
         allowed = {'action','site_id','game_id','keyword','goods_id','model_id','category_id','platform_attribute_id','page','page_size'}
         if set(request)-allowed:

@@ -7,22 +7,25 @@ import {randomBytes} from 'node:crypto';
 import {report} from './server.mjs';
 import {atomic,makeStore,previewCatalog,validateLayout} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
-import {centerSeed} from './center-seed.mjs';
+import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
+import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
+import {mediaLimits} from '../runtime/media-contract.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
-const validateFcLayout=layout=>validateLayout(layout,catalog);
+const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
 const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
- seedProvider:layout=>centerSeed(previewCatalog(catalog,layout??store.read().layout),seasonalBox.SeasonalData)});
-const centerState=s=>({revision:s.revision,draft:s.draft,effective_fc_layout:validateFcLayout(s.draft.fc_layout??store.read().layout),restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
- fc_catalog:{products:Object.fromEntries(Object.entries(catalog.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
- ...(()=>{const seed=centerSeed(previewCatalog(catalog,s.draft.fc_layout??store.read().layout),seasonalBox.SeasonalData);return {catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?catalog.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys};})(),
+ seedProvider:(layout,models={})=>centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData)});
+const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=centerSeed(previewCatalog(effective,layout),seasonalBox.SeasonalData);return {revision:s.revision,draft:s.draft,effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+ fc_catalog:{products:Object.fromEntries(Object.entries(effective.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version,...(p.preview_only?{preview_only:true,model_id:p.model_id,image:p.image,platforms:p.platforms}:{})}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
+ catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?effective.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys,
+ page_bindings:Object.fromEntries(s.draft.pages.map(p=>[p.page_id,effectivePageBindings(s.draft,seed,p.page_id)])),media_limits:mediaLimits,
  capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
- csrf:undefined});
+ csrf:undefined};};
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
@@ -40,11 +43,22 @@ export const server=http.createServer(async(req,res)=>{
   const relative=decodeURIComponent(url.pathname.slice(prefix.length));
   if(req.method!=='GET'&&req.method!=='HEAD'){
    if(req.method!=='POST'||!auth.admin)return json(res,403,{message:'仅现有管理员可保存配置'});
-   if(req.headers.origin!==origin||req.headers['content-type']!=='application/json'||req.headers['x-csrf-token']!==csrf)return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
+   if(req.headers.origin!==origin||req.headers['x-csrf-token']!==csrf)return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
+   if(relative==='analytics/api/center/assets/upload'){
+    if(!['image/png','image/jpeg','image/webp'].includes(req.headers['content-type']))return json(res,415,{message:'IMAGE_TYPE_INVALID'});
+    const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>mediaLimits.fileBytes)return json(res,413,{message:'IMAGE_SIZE_INVALID'});chunks.push(chunk);}
+    return json(res,200,center.uploadAsset(url.searchParams.get('operation_id'),Buffer.concat(chunks),req.headers['content-type'],auth.user));
+   }
+   if(req.headers['content-type']!=='application/json')return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
    if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/restore')return json(res,200,{...centerState(center.restoreDraft(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center/import-model'){
+    const prior=center.recoverModel(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
+    const data=await backendRead({action:'model_resolve',site_id:'266',game_id:'1327',kind:body.kind,model_id:body.model_id});
+    return json(res,200,{...centerState(center.importModel(body,auth.user,data.model)),csrf,canEdit:true});
+   }
    if(relative==='analytics/api/center/import-product'){
     const prior=center.recoverImport(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
     const ref=body.product_ref||{};const data=await backendRead({action:'product_read',site_id:ref.site_id,game_id:ref.game_id,goods_id:ref.goods_id});
@@ -63,6 +77,7 @@ export const server=http.createServer(async(req,res)=>{
   }
   if(relative==='analytics/api/connection')return json(res,200,{configured:!!secret(),csrf:auth.admin?csrf:null,canEdit:auth.admin,storage:'server-persistent',projectId:cfg.projectId});
   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
+  if(relative.startsWith('analytics/api/center/assets/')){const {info,bytes}=center.readAsset(relative.slice('analytics/api/center/assets/'.length));res.writeHead(200,{'Content-Type':info.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(req.method==='HEAD'?undefined:bytes);}
   if(relative==='analytics/api/config')return json(res,200,{...publicState(store.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision});return json(res,result.status,result.body);}
   if(relative==='analytics/api/catalog')return json(res,200,{catalog, ...publicState(store.read())});
@@ -70,7 +85,7 @@ export const server=http.createServer(async(req,res)=>{
   // The historical URL is an authenticated alias, never a second editor source.
   if(relative==='analytics/center.html'){res.writeHead(302,{Location:prefix+'analytics/products.html','Cache-Control':'no-store'});return res.end();}
   let body,type;
-  if(relative==='catalog.js'){body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(catalog,center.read().draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
+  if(relative==='catalog.js'){const draft=center.read().draft;body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(effectiveFcCatalog(catalog,draft.fc_models||{}),draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else if(relative==='analytics-config.js'){body='window.FC_ANALYTICS_CONFIG='+JSON.stringify({...cfg,enabled:false,localPreviewJournal:false,serverManaged:true,registry:store.read().registry}).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else {
    const name=relative==='analytics/'?'analytics/index.html':relative||'index.html';if(!publicNames.has(name)&&!/^assets\/[A-Za-z0-9_.-]+\.(webp|png|svg)$/.test(name))return json(res,404,{message:'Not found'});

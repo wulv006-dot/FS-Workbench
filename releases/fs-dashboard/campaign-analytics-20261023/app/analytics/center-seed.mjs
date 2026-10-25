@@ -1,4 +1,5 @@
 import {projectPreviewProduct,fail} from '../runtime/snapshot.mjs';
+import {modelVariants,projectModels} from '../runtime/model-cards.mjs';
 
 // Call only with the product_read detail obtained by the trusted management route.
 // No raw response, price, URL or purchase capability is copied into the draft.
@@ -35,6 +36,7 @@ export function addImportedProduct(draft,pageId,detail,seed){
 export function centerSeed(fc,seasonal){
  const products=[],byOriginal={};
  for(const p of Object.values(fc.products)){
+  if(p.preview_only&&p.model_id)continue;
   byOriginal[p.key]=[];
   for(const [platform,row] of Object.entries(p.platforms||{})){
    const key='fc-'+p.key+'-'+platform;byOriginal[p.key].push(key);
@@ -43,16 +45,25 @@ export function centerSeed(fc,seasonal){
     platform:{code:platform,attribute_id:String(row.aid)},quantity:{min:quantity,max:quantity,step:'1',unit:'item',...(row.group?{group:String(row.group)}:{})},available:false,attributes:[],...(p.image?{image:p.image}:{})});
   }
  }
+ const fc_models=projectModels(fc.fc_models||{}),variants=modelVariants(fc_models);products.push(...variants);
+ for(const model of Object.values(fc_models))byOriginal[model.key]=variants.filter(p=>p.model_card_key===model.key).map(p=>p.key);
  for(const p of seasonal.products){const s=p.source,quantity=String(s.quantity);
   products.push({key:'seasonal-'+p.id,title:p.name,product_ref:{site_id:String(s.siteId),game_id:String(s.gid),goods_id:String(s.goodsId)},
    platform:{code:'area-'+s.aid,attribute_id:String(s.aid)},quantity:{min:quantity,max:quantity,step:'1',unit:s.unit||'item'},available:false,attributes:[]});
  }
  const keys=ids=>[...new Set(ids.flatMap(id=>byOriginal[id]||[]))];
- return {seedProducts:products,fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
+ return {seedProducts:products,...(Object.keys(fc_models).length?{fc_models}:{}),fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
   routes:Object.fromEntries(Object.entries(fc.sbc.routes).map(([key,r])=>[key,{picks:[...r.picks],alternatives:[...(r.alternatives||[])],...(r.label?{label:structuredClone(r.label)}:{})}]))},pageProductKeys:{
   'fc27-weekly':keys(fc.weekly.ids),
   'fc27-sbc':keys([...fc.sbc.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),
   'fc27-trio':keys([...fc.trio.ids,...fc.bundles.ids]),
   'seasonal-vault':seasonal.products.map(p=>'seasonal-'+p.id)
  }};
+}
+// One read-only interpretation of legacy per-platform masks and current logical cards.
+export function effectivePageBindings(draft,seed,pageId){
+ const page=draft.pages.find(p=>p.page_id===pageId);if(!page)fail('INVALID_CAMPAIGN_PAGE');
+ const explicit=Object.hasOwn(page,'product_keys'),product_keys=[...(explicit?page.product_keys:seed.pageProductKeys[pageId]||[])],cards={},legacy_refs=[];
+ for(const key of product_keys){const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(key);if(match)(cards[match[1]]||=[]).push(match[2]);else legacy_refs.push(key);}
+ return {source:explicit?'explicit':'inherited',product_keys,model_cards:Object.entries(cards).map(([key,platforms])=>({key,selected_platforms:[...new Set(platforms)],partial:platforms.length!==3})),legacy_refs};
 }

@@ -1,4 +1,5 @@
 import {presentationFields,fail,projectPreviewProduct,pageDisplayFields} from './snapshot.mjs';
+import {effectiveFcCatalog} from './model-cards.mjs';
 // Public copy policy only: preserve the management draft and immutable release.
 // Unsupported demo text gets a neutral English identity, never an invented offer.
 const hasHan=value=>typeof value==='string'&&/\p{Script=Han}/u.test(value);
@@ -24,13 +25,13 @@ const time=value=>`<time datetime="${escape(new Date(value).toISOString())}">${e
 const windowText=p=>`Starts: ${p.starts_at?utc(p.starts_at):'not specified'} · Ends: ${p.ends_at?utc(p.ends_at):'not specified'}`;
 const windowHtml=p=>`Starts: ${p.starts_at?time(p.starts_at):'not specified'} · Ends: ${p.ends_at?time(p.ends_at):'not specified'}`;
 const importedFor=(snapshot,page)=>{
-  const products=new Map((snapshot?.products||[]).filter(p=>p.preview_only===true).map(p=>[p.key,p]));
+  const products=new Map((snapshot?.products||[]).filter(p=>p.preview_only===true&&!p.model_card_key).map(p=>[p.key,p]));
   return (page?.product_keys||[]).filter(key=>products.has(key)).map(key=>projectPreviewProduct(products.get(key)));
 };
 function displayGroups(snapshot,page,source){
   const fields=pageDisplayFields(page),products=new Map((snapshot.products||[]).map(p=>[p.key,p])),groups={};
   for(const key of page.product_keys||[]){
-    const raw=products.get(key);if(!raw)continue;
+    const raw=products.get(key);if(!raw||raw.model_card_key)continue;
     const role=fields.product_roles?.[key]??(raw.preview_only?'preview':null);if(!role)continue;
     const product=raw.preview_only?projectPreviewProduct(raw):raw;
     (groups[role]||=[]).push(product);
@@ -58,7 +59,8 @@ function metadata(html,p,publicBase) {
     if(p.path!=='seasonal/index.html')html=html.replace(/\bdata-default-language=["'][^"']*["']/,'data-default-language="'+fieldsConfig.default_language+'"');
   }
   let shareImage;
-  if(fieldsConfig.social_image!=='original'){
+  if(p.media?.share){let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))||base.username||base.password)fail('INVALID_PUBLIC_BASE',503);shareImage=new URL('media/'+p.media.share.asset_id,base).href;}
+  if(!shareImage&&fieldsConfig.social_image!=='original'){
     let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}
     if(base.username||base.password||base.search||base.hash||!base.pathname.endsWith('/')||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base.pathname)||(base.protocol!=='https:'&&!(base.protocol==='http:'&&['127.0.0.1','localhost'].includes(base.hostname))))fail('INVALID_PUBLIC_BASE',503);
     shareImage=new URL(fieldsConfig.social_image,base).href;
@@ -101,6 +103,11 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=metadata(html,p,publicBase);
+  if(p.media?.hero_desktop||p.media?.hero_mobile){
+    const url=ref=>{let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.username||base.password||base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))fail('INVALID_PUBLIC_BASE',503);return new URL('media/'+ref.asset_id,base).href;};
+    if(p.media.hero_desktop)html=html.replace(/<img\b[^>]*\bid=["']hero-image["'][^>]*>/i,tag=>tag.replace(/\s+(?:src|alt)=["'][^"']*["']/gi,'').replace(/>$/,` src="${escape(url(p.media.hero_desktop))}" alt="${escape(p.media.hero_desktop.alt)}" data-published-media="true">`));
+    if(p.media.hero_mobile)html=html.replace(/<source\b[^>]*\bid=["']hero-mobile-source["'][^>]*>/i,tag=>tag.replace(/\s+srcset=["'][^"']*["']/gi,'').replace(/>$/,` srcset="${escape(url(p.media.hero_mobile))}" data-published-media="true">`));
+  }
   const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
   let fallback='';
   if(!target.startsWith('seasonal/'))for(const group of displayGroups(snapshot,p,source)){
@@ -117,7 +124,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
 
 export function projectFcCatalog(originalCatalog,snapshot) {
   snapshot=publicEnglishRelease(snapshot);
-  const catalog=structuredClone(originalCatalog),products=originalCatalog.products||{};
+  const source=effectiveFcCatalog(originalCatalog,snapshot?.fc_models||{}),catalog=structuredClone(source),products=source.products||{};
   const keys=path=>{
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
     return [...new Set((page?.product_keys||[]).flatMap(key=>{

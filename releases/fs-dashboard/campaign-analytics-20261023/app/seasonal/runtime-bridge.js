@@ -29,7 +29,7 @@
     });
   }
   function publishTheme(config) {
-    window.SeasonalPublishedConfig=config;
+    window.SeasonalPublishedConfig=config;window.dispatchEvent(new CustomEvent('seasonal-published-media',{detail:config?.page_media?.['seasonal-vault']||{}}));
     window.dispatchEvent(new CustomEvent('seasonal-published-catalog', {detail:config}));
     if (publishedThemeApplied) return;
     const publishedTheme = config?.seasonal_theme;

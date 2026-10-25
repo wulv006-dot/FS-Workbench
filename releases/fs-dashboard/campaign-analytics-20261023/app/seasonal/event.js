@@ -19,12 +19,14 @@
   const cardFor=id=>state.cards.find(c=>c.id===id);
   const amount=card=>core.price(products.get(card.id).priceCents,card.discount);
   function artMarkup(product) {
-    const game=games.get(product.game);
+    const game=games.get(product.game),media=publishedMedia.cards?.['seasonal-'+product.id]||publishedMedia.cards?.[product.id];
+    if(media?.url)return '<div class="product-art-wrap"><img class="product-art" src="'+escapeHTML(media.url)+'" alt="'+escapeHTML(publicTitle(media.alt,'Product artwork'))+'"></div>';
     return `<div class="product-art-wrap"><svg class="product-art" viewBox="${game.frames[product.artIndex].join(' ')}" role="img" aria-label="${escapeHTML(game.label)} ${escapeHTML(product.tier.toLowerCase())} treasure illustration"><svg x="${game.frames[product.artIndex][0]}" y="${game.frames[product.artIndex][1]}" width="${game.frames[product.artIndex][2]}" height="${game.frames[product.artIndex][3]}" viewBox="${game.frames[product.artIndex].join(' ')}" overflow="hidden"><image href="assets/art-${product.game}.webp" width="2172" height="724"/></svg></svg><span class="art-motif" aria-hidden="true">${data.themes[theme].motif}</span></div>`;
   }
   function cardMarkup(card,fixed=false){
     const p=products.get(card.id),g=games.get(p.game);
-    if(p.previewOnly||p.displayRole==='preview')return `<article class="product is-revealed" data-id="${escapeHTML(p.id)}"><div class="product-info"><p class="product-category">${escapeHTML(g.label)} · CATALOG PREVIEW</p><h3>${escapeHTML(p.name)}</h3><p>Product ID ${escapeHTML(publicTitle(String(p.source.goodsId),'unverified'))} · Model ${escapeHTML(publicTitle(p.source.modelId,'unverified'))}</p><p>Platform attribute ${escapeHTML(publicTitle(p.source.aid,'unverified'))}</p><p>Specifications, quantity and price require verification. Not eligible for a discount, preview bag or checkout.</p></div></article>`;
+    const cardMedia=publishedMedia.cards?.['seasonal-'+p.id]||publishedMedia.cards?.[p.id];
+    if(p.previewOnly||p.displayRole==='preview')return `<article class="product is-revealed" data-id="${escapeHTML(p.id)}">${cardMedia?.url?`<img class="product-art" src="${escapeHTML(cardMedia.url)}" alt="${escapeHTML(publicTitle(cardMedia.alt,'Product artwork'))}">`:''}<div class="product-info"><p class="product-category">${escapeHTML(g.label)} · CATALOG PREVIEW</p><h3>${escapeHTML(p.name)}</h3><p>Product ID ${escapeHTML(publicTitle(String(p.source.goodsId),'unverified'))} · Model ${escapeHTML(publicTitle(p.source.modelId,'unverified'))}</p><p>Platform attribute ${escapeHTML(publicTitle(p.source.aid,'unverified'))}</p><p>Specifications, quantity and price require verification. Not eligible for a discount, preview bag or checkout.</p></div></article>`;
     const sealed=!fixed&&!card.revealed;
     const hiddenProduct=sealed&&state.mode==='product',hiddenDiscount=sealed&&!hiddenProduct;
     return `<article class="product ${sealed?'is-sealed':'is-revealed'} ${card.locked?'is-kept':''}" data-id="${p.id}" ${hiddenProduct?'data-mystery="true"':''} ${fixed?'data-fixed="true"':''} style="--game-color:${g.accent}"><div class="card-face" ${hiddenProduct?'inert aria-hidden="true"':''}><div class="product-top"><span class="game-tag"><i class="game-dot"></i>${g.label}</span><span class="tier">${fixed?'EVERYDAY EVENT':'MYSTERY EXCLUSIVE'}</span></div>${artMarkup(p)}<div class="product-info"><p class="product-category">${g.category}</p><h3>${escapeHTML(p.name)}</h3><p class="product-quantity">${escapeHTML(p.amount)}</p><p class="product-source">${escapeHTML(p.source.platform)}<br>SKU ${p.source.goodsId} · ${p.source.quantity}${p.source.unit}</p><div class="offer-area">${hiddenDiscount?`<button class="seal-button" data-reveal="${p.id}" aria-label="Reveal ${g.label} ${escapeHTML(p.name)} discount">Reveal my discount ✦</button><p class="seal-hint">SPECIAL DISCOUNT WAITING</p>`:`<div class="discount-headline">${card.discount}% <small>DEMO OFF</small></div><div class="price-row"><strong><span class="demo-label">SIMULATED </span>${money(amount(card))}</strong><span class="source-price">MMOEXP ${money(p.priceCents)}</span></div><button class="details-button" data-product="${p.id}" aria-label="View ${g.label} ${escapeHTML(p.name)} ${fixed?'fixed':'mystery'} offer" ${fixed?'data-fixed="true"':''}>Choose options & view pack ↗</button>${!fixed?`<button class="keep-button" data-keep="${p.id}" aria-pressed="${card.locked}" aria-label="Keep ${g.label} ${escapeHTML(p.name)}">${card.locked?'◆ Kept for next round':'◇ Keep this offer'}</button>`:''}`}</div></div></div>${hiddenProduct?`<button class="card-back" data-reveal="${p.id}" aria-label="Reveal sealed ${g.label} card ${state.cards.indexOf(card)+1}"><span class="back-game">${g.label}</span><span class="seal-orbit"><span>⚿</span></span><span class="back-title">A LITTLE<br><em>MYSTERY</em></span><span class="back-prompt">TOUCH TO UNSEAL</span><span class="back-number">${String(state.cards.indexOf(card)+1).padStart(2,'0')} / ${String(state.cards.length).padStart(2,'0')}</span></button>`:''}<div class="reveal-rays" aria-hidden="true"></div></article>`;
@@ -60,7 +62,7 @@
     document.querySelector('#hero-title').innerHTML=`${t.title}<br><em>${t.word}</em>`;document.querySelector('#hero-copy').innerHTML=t.copy;
     document.querySelector('#collection-title').innerHTML='Your mystery selection<span>.</span>';
     if(document.querySelector('#campaign-date').dataset.publishedSchedule!=='true')document.title=`${t.label} Seasonal Vault | MMOEXP`;
-    const url=new URL(location.href);url.searchParams.set('theme',theme);history.replaceState(null,'',url);renderProducts();renderStore();window.SeasonalTracking?.render(theme);
+    const url=new URL(location.href);url.searchParams.set('theme',theme);history.replaceState(null,'',url);if(typeof applyMedia==='function')applyMedia();renderProducts();renderStore();window.SeasonalTracking?.render(theme);
   }
   function showDialog(title,content){document.querySelector('#dialog-title').textContent=title;document.querySelector('#dialog-content').innerHTML=content;if(!dialog.open)dialog.showModal();}
   function reveal(ids){
@@ -131,7 +133,9 @@
   });
   dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
   const acceptedProducts=[...data.products];
-  let appliedRelease=null;
+  let appliedRelease=null,publishedMedia={};
+  function applyMedia(){const desktop=publishedMedia.hero_desktop,mobile=publishedMedia.hero_mobile;if(desktop?.url){document.querySelector('#hero-image').src=desktop.url;document.querySelector('#hero-image').alt=publicTitle(desktop.alt,'Campaign artwork');}if(mobile?.url)document.querySelector('#hero-mobile-source').srcset=mobile.url;}
+  window.addEventListener('seasonal-published-media',event=>{publishedMedia=event.detail||{};applyMedia();renderProducts();renderStore();});
   const applyPublishedCatalog=event=>{
     const config=event.detail,page=config?.pages?.find(p=>p.page_id==='seasonal-vault');
     if(!page||!Array.isArray(page.product_keys)||!Array.isArray(config.products)||config.release_id===appliedRelease)return;
@@ -154,5 +158,6 @@
   window.addEventListener('seasonal-published-catalog',applyPublishedCatalog);
   window.addEventListener('seasonal-published-theme',event=>setTheme(event.detail));
   renderFilters();setTheme(theme);save();
+  if(window.SeasonalPublishedConfig?.page_media?.['seasonal-vault']){publishedMedia=window.SeasonalPublishedConfig.page_media['seasonal-vault'];applyMedia();}
   if(window.SeasonalPublishedConfig)applyPublishedCatalog({detail:window.SeasonalPublishedConfig});
 })();

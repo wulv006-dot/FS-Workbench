@@ -790,6 +790,7 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-model-media-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/page-catalog-seasonal-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")

@@ -48,9 +48,15 @@
     publishedReady=true;
     scheduleBoundary();
   }
-  function selected(){if(standalone&&pageState(state.view)!=='active')return [];try{let items=core.selection(config,state);if(standalone){const keys=new Set(scoped(items.map(item=>item.key)));items=items.filter(item=>keys.has(item.key));}unavailableSelection=false;return items;}catch(error){unavailableSelection=true;return [];}}
+  function selected(){
+    if(standalone&&pageState(state.view)!=='active')return [];
+    try{const keys=state.view==='sbc'?[...(state.coreMode==='service'?[state.core]:[]),...state.companions]:state.view==='trio'?config.trio.ids:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
+  }
+  function currentMedia(){return config.page_media?.['fc27-'+state.view]||published?.page_media?.['fc27-'+state.view]||{};}
+  function imageOptions(key){const ref=currentMedia().cards?.[key];return ref?.url?{image:ref.url,alt:ref.alt}:{};}
   function money(amount,currency='USD'){return new Intl.NumberFormat(state.lang==='zh'?'zh-CN':'en-US',{style:'currency',currency}).format(amount/100);}
   function display(item){
+    if(item?.preview_only)return {text:'Price unavailable',amount:null,currency:'USD'};
     if(!item)return {text:t('暂不可用','Unavailable'),amount:null,currency:'USD'};
     if(currentDisplays.has(item.offer.id))return currentDisplays.get(item.offer.id);
     if(live)return {text:t('现价确认中','Checking current price'),amount:null,currency:'USD'};
@@ -59,13 +65,13 @@
   }
   function savings(items){const values=items.map(display);if(!config.activityPricing?.enabled||!items.length||values.some(v=>v.baseAmount===undefined))return '';const base=values.reduce((sum,v)=>sum+v.baseAmount,0),saved=values.reduce((sum,v)=>sum+v.discountAmount,0);return t('现价合计 ','Listed subtotal ')+'<del>'+escape(money(base))+'</del> · '+t('活动立省 ','Activity savings ')+escape(money(saved));}
 
-  function total(items){const values=items.map(display),currency=values[0]?.currency||'USD';if(unavailableSelection||values.some(v=>v.amount===null||v.currency!==currency))return t('点击核对现价','Check current total');const amount=values.reduce((sum,v)=>sum+v.amount,0);return live&&adapter?adapter.total(amount):money(amount,currency);}
+  function total(items){if(items.some(item=>item.preview_only))return 'Price unavailable';const values=items.map(display),currency=values[0]?.currency||'USD';if(unavailableSelection||values.some(v=>v.amount===null||v.currency!==currency))return t('点击核对现价','Check current total');const amount=values.reduce((sum,v)=>sum+v.amount,0);return live&&adapter?adapter.total(amount):money(amount,currency);}
   function meta(p){return [p.rating,p.position,p.version].filter(Boolean).join(' · ');}
-  function offer(key){try{return core.line(product(key),state.platform);}catch(error){return null;}}
+  function offer(key){try{const p=product(key);if(p?.preview_only)return {...p,offer:{id:p.platforms?.[state.platform]?.id??null,group:null,quantity:null},amount:null};return core.line(p,state.platform);}catch(error){return null;}}
   function picked(key){return selected().some(p=>p.key===key);}
   function card(key,{label='',fixed=false,owned=false}={}){
     if(!product(key))return '';const item=offer(key);
-    return content.card(product(key),{lang:state.lang,label,fixed,owned,picked:picked(key),price:display(item).text,originalPrice:display(item).originalText,discountPercent:config.activityPricing?.discountPercent,unavailable:!item});
+    return content.card(product(key),{lang:state.lang,label,fixed,owned,picked:picked(key),price:display(item).text,originalPrice:display(item).originalText,discountPercent:config.activityPricing?.discountPercent,unavailable:!item,platform:state.platform,...imageOptions(key)});
   }
   function renderSeo(){
     const ids=standalone?scoped(state.view==='sbc'?[state.core,...state.companions]:state.view==='trio'?config.trio.ids:config.weekly.ids):state.view==='sbc'?[state.core,...state.companions]:undefined;
@@ -104,7 +110,7 @@
     if(standalone){const cores=scoped(config.sbc.ids,'sbc');if(!cores.includes(state.core)){state.core=cores[0]||null;state.companions=[...route(state.core).picks];}state.companions=scoped(state.companions,'sbc');}
     $('activity-offer').textContent=content.promotionText(state.lang);$('activity-offer').hidden=!config.activityPricing?.enabled;root.dataset.view=state.view;const h=heroes[state.view];
     $('hero-kicker').textContent=h.kicker;$('hero-title').innerHTML=`<span>${escape(h.title[state.lang==='zh'?0:2])}</span><strong>${escape(h.title[state.lang==='zh'?1:3])}</strong>`;$('hero-body').textContent=t(...h.body);$('hero-cta').textContent=t(...h.cta);$('view-heading').textContent=t(...h.heading);$('view-intro').textContent=t(...h.intro);
-    const image=$('hero-image');image.src=state.view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp';let source=image.parentElement.querySelector('source');if(!source){source=document.createElement('source');source.media='(max-width: 700px)';image.before(source);}source.srcset=state.view==='trio'?(config.trio.heroMobile||config.trio.hero):'assets/'+h.image+'-hero-mobile.webp';
+    const media=currentMedia(),image=$('hero-image');image.src=media.hero_desktop?.url||(state.view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp');if(media.hero_desktop?.alt)image.alt=window.FCActivityContent.englishText(media.hero_desktop.alt,'Campaign artwork');let source=image.parentElement.querySelector('source');if(!source){source=document.createElement('source');source.media='(max-width: 700px)';image.before(source);}source.srcset=media.hero_mobile?.url||(state.view==='trio'?(config.trio.heroMobile||config.trio.hero):'assets/'+h.image+'-hero-mobile.webp');
     const sbc=state.view==='sbc';$('sbc-controls').hidden=!sbc;$('sbc-lineup').hidden=!sbc;$('sbc-options').hidden=!sbc;$('product-grid').hidden=sbc;
     if(sbc){
       $('product-grid').innerHTML='';
@@ -115,7 +121,7 @@
       $('sbc-options').innerHTML=state.companions.map((key,i)=>`<div class="fca-companion-picker"><label for="companion-${i}">${escape(t('搭档 '+(i+1)+' · '+current.label.zh,'Companion '+(i+1)+' · '+current.label.en))}</label><select id="companion-${i}" data-companion-slot="${i}" name="companion${i+1}">${pool.map(option=>`<option value="${escape(option)}" ${option===key?'selected':''} ${option===state.companions[1-i]?'disabled':''}>${escape(product(option).title)}</option>`).join('')}</select></div>`).join('')+`<p class="fca-inline-note fca-pairing-note">${escape(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`;
     }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:state.view==='trio'})).join('');}
     $('bundle-heading').textContent=t('也可以选商店现有阵容包。','Or start with an existing player bundle.');
-    $('bundle-grid').innerHTML=scoped(config.bundles.ids).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key)})).join('');
+    $('bundle-grid').innerHTML=scoped(config.bundles.ids).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
     $('summary-savings').innerHTML=savings(items);
     if(config.activityPricing?.enabled)$('summary-note').textContent=t('活动价按 '+snapshotDate+' 现售价快照额外优惠 '+config.activityPricing.discountPercent+'% 预览；优惠券／码／会员积分可按原规则在结算时继续使用。','Activity price preview: '+config.activityPricing.discountPercent+'% off the '+snapshotDate+' listed-price snapshot. Eligible coupons, codes or member points apply later at checkout.');
@@ -129,7 +135,7 @@
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
   }
   function renderReview(){
-    $('review-items').innerHTML=review.map(item=>`<div class="fca-row"><img src="${escape(item.image)}" alt="" width="65" height="90"><div><h3>${escape(item.name)}</h3><p>${escape(meta(item))}<br>${escape(config.platforms[state.platform].label)} · ${escape(item.kind==='sbc'?t('SBC 代做服务','SBC completion service'):item.kind==='bundle'?t('固定球员组合','Fixed player bundle'):t('球员商品','Player item'))}</p>${item.included?`<p class="fca-review-includes">${escape(t('包含：','Includes: ')+item.included.map(x=>[x.name,x.rating,x.position,x.version].filter(Boolean).join(' · ')).join('; '))}</p>`:''}</div><strong class="fca-price">${display(item).originalText?'<del>'+escape(display(item).originalText)+'</del>':''}${escape(display(item).text)}</strong></div>`).join('');$('review-total').textContent=total(review);$('review-savings').innerHTML=savings(review);
+    $('review-items').innerHTML=review.map(item=>`<div class="fca-row">${(imageOptions(item.key).image||item.image)?`<img src="${escape(imageOptions(item.key).image||item.image)}" alt="" width="65" height="90">`:'<span>Image unavailable</span>'}<div><h3>${escape(item.name)}</h3><p>${escape(meta(item))}<br>${escape(config.platforms[state.platform].label)} · ${escape(item.kind==='sbc'?t('SBC 代做服务','SBC completion service'):item.kind==='bundle'?t('固定球员组合','Fixed player bundle'):t('球员商品','Player item'))}</p>${item.included?`<p class="fca-review-includes">${escape(t('包含：','Includes: ')+item.included.map(x=>[x.name,x.rating,x.position,x.version].filter(Boolean).join(' · ')).join('; '))}</p>`:''}</div><strong class="fca-price">${display(item).originalText?'<del>'+escape(display(item).originalText)+'</del>':''}${escape(display(item).text)}</strong></div>`).join('');$('review-total').textContent=total(review);$('review-savings').innerHTML=savings(review);
   }
   function fingerprint(items){return JSON.stringify(items.map(item=>[item.offer.id,item.offer.group,item.offer.quantity,item.amount,display(item)]));}
   async function freshReview(items){
@@ -145,7 +151,7 @@
     if(state.busy||state.submitted)return;
     if(standalone){state.busy=true;render();await publishedConfig();state.busy=false;if(pageState(state.view)!=='active'){render();return;}}
     priceGeneration++;state.busy=true;render();
-    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;$('submit-selection').disabled=false;status(live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','Activity price preview: the configured 10% discount is applied. No cart, order or payment is created. Coupons and points are calculated by the existing checkout.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
+    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;$('submit-selection').disabled=review.some(item=>item.preview_only);status(review.some(item=>item.preview_only)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','Activity price preview: the configured 10% discount is applied. No cart, order or payment is created. Coupons and points are calculated by the existing checkout.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
     catch(error){$('activity-message').hidden=false;$('activity-message').textContent=t('暂时无法确认当前商品，请到原商店核对后再试。','Unable to confirm the current items. Check the original shop before trying again.');}
     finally{state.busy=false;render();}
   }
@@ -162,6 +168,7 @@
   async function submit(){
     if(standalone&&(pageState(state.view)!=='active'||!selected().length)){render();return;}
     if(state.busy||state.submitted)return;
+    if(review.some(item=>item.preview_only)){status('Preview only. No quote or purchase is available.');return;}
     if(standalone){
       state.busy=true;render();
       try{
@@ -192,6 +199,7 @@
     finally{state.busy=false;render();if(!state.submitted)$('submit-selection').disabled=false;}
   }
   root.addEventListener('click',async event=>{
+    const previewPlatform=event.target.closest('[data-preview-platform]');if(previewPlatform&&!state.busy){state.platform=previewPlatform.dataset.previewPlatform;const radio=root.querySelector('input[name=platform][value='+state.platform+']');if(radio)radio.checked=true;render();return;}
     const view=event.target.closest(standalone?'button[data-view],a[data-view]':'button[data-view]'),pick=event.target.closest('[data-toggle-product]'),bundle=event.target.closest('[data-toggle-bundle]');
     if(state.busy||state.submitted)return;
     if(view&&standalone){event.preventDefault();if(pageState(view.dataset.view)!=='active'){render();return;}state.busy=true;render();await publishedConfig(view.dataset.view);state.busy=false;if(pageState(view.dataset.view)!=='active'){render();return;}if(view.tagName==='A'){window.location.href=view.href;return;}}
