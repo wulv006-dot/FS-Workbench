@@ -101,7 +101,20 @@ def frontend_structure(name,text):
     if any(tag not in tags.optional for tag in tags.stack):raise RuntimeError("html_unclosed_tag")
     for style in tags.styles:css_structure(style)
 
+# Exact retired UI paths only; the campaign group executes this consumer test.
+RETIRED_UI_CONSUMERS = {
+    "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center.html":
+        "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/tests/canonical-editor.test.mjs",
+    "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center.js":
+        "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/tests/canonical-editor.test.mjs",
+}
+
 def require_changed_file(name,exists):
+    if not exists and name in RETIRED_UI_CONSUMERS:
+        consumer = ROOT / RETIRED_UI_CONSUMERS[name]
+        if not consumer.is_file() or select([name]) != ["campaign-analytics"]:
+            raise RuntimeError("retired_ui_consumer_missing:"+name)
+        return
     if not exists and Path(name).suffix in (".html",".css"):
         raise RuntimeError("UNMAPPED_DELETION: register an affected consumer check before removing "+name)
 
@@ -276,6 +289,8 @@ def selfcheck():
             if "UNMAPPED_DELETION" not in str(error):raise
         else:raise RuntimeError("unchecked_frontend_deletion_allowed")
         require_changed_file(name,True)
+    for name in RETIRED_UI_CONSUMERS:
+        require_changed_file(name,False)
     require_changed_file("old-record.md",False)
     for name in ("fc27_ops_cloud/index.html","fc27_ops_cloud/data/fc-analytics.css"):
         frontend_structure(name,(ROOT/name).read_text(encoding="utf-8"))
