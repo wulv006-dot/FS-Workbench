@@ -1,37 +1,37 @@
 {
   "contract": "fs-user-analytics-source-runtime-v1",
-  "as_of": "2026-10-23T15:28:23.290076+08:00",
+  "as_of": "2026-10-25T16:14:22.573483+08:00",
   "repository": "wulv006-dot/FS-Workbench",
-  "source_commit": "71cf70b692050a0165322dfa20d94dbf354fd18e",
-  "source_tree": "2a507b9602d0cbbb2a6b57ebea20809ad7d162ec",
-  "merge_commit": "b83850b68aef97f9aa5cba947fb76e9463ff2e02",
-  "formal_ci_run": 39917167749,
+  "source_commit": "0005e16959b9d1d69e05f0a160f44807cce8ff94",
+  "source_tree": "2d3f7f956bb8c729b56b18fe2d18b7bbdd72c1bd",
+  "merge_commit": "900d2746a8703c9bfd767e031c66b533eecb651e",
+  "formal_ci_run": 40174868332,
   "deployment": {
-    "release_id": "nav-20261023T072552Z",
-    "stage": "/opt/fs-release-stage/fs-user-analytics-january-20261023-v1",
-    "manifest_sha256": "a8c42451cdbf08a9ea25a5eb4599bdfed771e5f0042421eb1f21ebf907d4553e",
-    "package_sha256": "f28948181dd246af51d06df72eab91ba392b0ef3fff006cb776ef913237051ad",
-    "targets": 5,
-    "guards": 108,
-    "latest_targets": 5,
-    "protected_paths": 108,
-    "backup": "/var/backups/fs-navigation-20261006/nav-20261023T072552Z",
-    "readback": "5 targets and 108 protected files matched; local Chrome all labels and January minimum verified; previous July query remained available; January job actual historical rows observed"
+    "release_id": "nav-20261025T080257Z",
+    "stage": "/opt/fs-release-stage/fs-user-observation-20261025-v1",
+    "manifest_sha256": "f7e3ff203b9c30ae8090e877f51a0836c275c652da0dfdbbb94262bcce3da434",
+    "package_sha256": "17657deae82255305e4a42a6f27afadf2e6357b4108c82565543ca5f9cbdeffa",
+    "targets": 8,
+    "guards": 158,
+    "latest_targets": 8,
+    "protected_paths": 158,
+    "backup": "/var/backups/fs-navigation-20261006/nav-20261025T080257Z",
+    "readback": "8 targets/158 guards matched; actual wulv Chrome short and long queries, independent frozen counts, private/export/tool, legacy snapshot and roles passed"
   },
   "active_files": [
     {
       "target": "/opt/fs-hermes-fc/user_config.json",
-      "sha256": "f16a3b58feb740bb4c5fc30d1bb22acb04cd8be363a7ee633024d7adfb5be813",
+      "sha256": "e028b5090bedacfbb16585bc053f225f3ac9126312f1c4cf69d365e327fad1e7",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_config.json",
       "kind": "exact_source",
-      "release_id": "nav-20261023T072552Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_contract.py",
-      "sha256": "9e6d41156366c8edf8bceb717df74e26bea06723f2ece9f23a9518c976ccbc55",
+      "sha256": "0c4db36b9dc34e73544979906c6cf1c39398e7ccced871351c6377768d5981e7",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_contract.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T024225Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_http.py",
@@ -49,17 +49,17 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_lifecycle.py",
-      "sha256": "589e51cd85a8183a1eed2c1faae982aa1016505dcc74785d3244c6c26fdc93b8",
+      "sha256": "86f15d01dfb12db517cde7ec469e14e5aca25229f43a2aa90e4b2f9abdc18446",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_lifecycle.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T024225Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_query.py",
-      "sha256": "ae5b0bda7d587ca581d785d3fcbd00689aea18119540461669c4ddff6291de5c",
+      "sha256": "d3d0529a790e79e333cd2bcd8766832d27a90e1a73abafdbb49e868cef86146e",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T072552Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_runtime.py",
@@ -84,10 +84,10 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_tools.py",
-      "sha256": "7fc8b4883e722535633f48107ff4a909f7046613df58b96b81a0f0fc43dcc1fe",
+      "sha256": "ef6efe5f598132ee58cc273a4e4d52109b85ef8788189695ed6cc1f1b6855440",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_tools.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T024225Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/opt/fs-exact-range-20261001/range_api.py",
@@ -148,24 +148,24 @@
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/index.html",
-      "sha256": "86f0e208f769f362fe8a6e8d99eba04f21ec96ca09817114ccdbc77335ff0e0c",
+      "sha256": "9f191a5035d957b2af4ccc367028b684a49619fc2885c7c90c269fec43173ea6",
       "source": "releases/fs-dashboard/user-analytics-20261022/ui/index.html",
       "kind": "exact_source",
-      "release_id": "nav-20261023T072552Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.js",
-      "sha256": "3ddb564c181c8df7a9be63b14f8434a8ff2af9ad2cb1b7752a87fa87bc04bfab",
+      "sha256": "d91a0aee1317141d773e00a9da6a3008d5b6e11e99c0432dd00ea9f51cfe146a",
       "source": "releases/fs-dashboard/user-analytics-20261022/ui/users.js",
       "kind": "exact_source",
-      "release_id": "nav-20261023T072552Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.css",
-      "sha256": "2ee33789c6470b850fb5ab0c209c8847056be2374bdc62265cbf7eb9b3abf44f",
+      "sha256": "210c4191b84e7745cb83661f77e3da5fdc992bdf60072d81a8139775c1b1c15e",
       "source": "releases/fs-dashboard/user-analytics-20261022/ui/users.css",
       "kind": "exact_source",
-      "release_id": "nav-20261023T065100Z"
+      "release_id": "nav-20261025T080257Z"
     },
     {
       "target": "/etc/systemd/system/fs-user-analytics.service",
@@ -463,5 +463,107 @@
     "protected_paths": 105,
     "guard_manifest": "/opt/fs-release-stage/fs-user-analytics-search-20261023-v3/approved-manifest.json",
     "readback": "8 targets and 105 guards matched; actual local Chrome email lookup, tooltip, themes, responsive layout and cold July query passed; only navigation timeout bytes differ from prior UI release"
+  },
+  "prior_observation_deployment": {
+    "source_commit": "71cf70b692050a0165322dfa20d94dbf354fd18e",
+    "merge_commit": "b83850b68aef97f9aa5cba947fb76e9463ff2e02",
+    "deployment": {
+      "release_id": "nav-20261023T072552Z",
+      "stage": "/opt/fs-release-stage/fs-user-analytics-january-20261023-v1",
+      "manifest_sha256": "a8c42451cdbf08a9ea25a5eb4599bdfed771e5f0042421eb1f21ebf907d4553e",
+      "package_sha256": "f28948181dd246af51d06df72eab91ba392b0ef3fff006cb776ef913237051ad",
+      "targets": 5,
+      "guards": 108,
+      "latest_targets": 5,
+      "protected_paths": 108,
+      "backup": "/var/backups/fs-navigation-20261006/nav-20261023T072552Z",
+      "readback": "5 targets and 108 protected files matched; local Chrome all labels and January minimum verified; previous July query remained available; January job actual historical rows observed"
+    }
+  },
+  "observation_rules_20261025": {
+    "acceptance": "OBSERVATION-ACCEPTANCE-20261025.json",
+    "pr": 459,
+    "default": "short-term-v1",
+    "policies": {
+      "short-term-v1": [
+        7,
+        14,
+        30
+      ],
+      "long-term-v1": [
+        14,
+        30,
+        60
+      ]
+    },
+    "legacy_snapshots": "preserved",
+    "targets": [
+      {
+        "candidate": "runtime/user_config.json",
+        "target": "/opt/fs-hermes-fc/user_config.json",
+        "sha256": "e028b5090bedacfbb16585bc053f225f3ac9126312f1c4cf69d365e327fad1e7",
+        "beforeSha256": "f16a3b58feb740bb4c5fc30d1bb22acb04cd8be363a7ee633024d7adfb5be813",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "runtime/user_contract.py",
+        "target": "/opt/fs-hermes-fc/user_contract.py",
+        "sha256": "0c4db36b9dc34e73544979906c6cf1c39398e7ccced871351c6377768d5981e7",
+        "beforeSha256": "9e6d41156366c8edf8bceb717df74e26bea06723f2ece9f23a9518c976ccbc55",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "runtime/user_lifecycle.py",
+        "target": "/opt/fs-hermes-fc/user_lifecycle.py",
+        "sha256": "86f15d01dfb12db517cde7ec469e14e5aca25229f43a2aa90e4b2f9abdc18446",
+        "beforeSha256": "589e51cd85a8183a1eed2c1faae982aa1016505dcc74785d3244c6c26fdc93b8",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "runtime/user_query.py",
+        "target": "/opt/fs-hermes-fc/user_query.py",
+        "sha256": "d3d0529a790e79e333cd2bcd8766832d27a90e1a73abafdbb49e868cef86146e",
+        "beforeSha256": "ae5b0bda7d587ca581d785d3fcbd00689aea18119540461669c4ddff6291de5c",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "runtime/user_tools.py",
+        "target": "/opt/fs-hermes-fc/user_tools.py",
+        "sha256": "ef6efe5f598132ee58cc273a4e4d52109b85ef8788189695ed6cc1f1b6855440",
+        "beforeSha256": "7fc8b4883e722535633f48107ff4a909f7046613df58b96b81a0f0fc43dcc1fe",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "ui/index.html",
+        "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/index.html",
+        "sha256": "9f191a5035d957b2af4ccc367028b684a49619fc2885c7c90c269fec43173ea6",
+        "beforeSha256": "86f0e208f769f362fe8a6e8d99eba04f21ec96ca09817114ccdbc77335ff0e0c",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "ui/users.css",
+        "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.css",
+        "sha256": "210c4191b84e7745cb83661f77e3da5fdc992bdf60072d81a8139775c1b1c15e",
+        "beforeSha256": "2ee33789c6470b850fb5ab0c209c8847056be2374bdc62265cbf7eb9b3abf44f",
+        "owner": "0:0",
+        "mode": "0o644"
+      },
+      {
+        "candidate": "ui/users.js",
+        "target": "/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.js",
+        "sha256": "d91a0aee1317141d773e00a9da6a3008d5b6e11e99c0432dd00ea9f51cfe146a",
+        "beforeSha256": "3ddb564c181c8df7a9be63b14f8434a8ff2af9ad2cb1b7752a87fa87bc04bfab",
+        "owner": "0:0",
+        "mode": "0o644"
+      }
+    ],
+    "scope": "Only these eight mappings are updated; untouched shared paths continue to follow their own latest module source maps.",
+    "natural_or_long_term_effect": "not_claimed"
   }
 }

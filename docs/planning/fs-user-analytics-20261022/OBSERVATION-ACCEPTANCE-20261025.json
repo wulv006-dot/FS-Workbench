@@ -1,0 +1,111 @@
+{
+  "as_of": "2026-10-25T16:14:22.573483+08:00",
+  "status": "deployed_and_verified",
+  "pr": 459,
+  "source_commit": "0005e16959b9d1d69e05f0a160f44807cce8ff94",
+  "merge_commit": "900d2746a8703c9bfd767e031c66b533eecb651e",
+  "formal_ci_run": 40174868332,
+  "formal_tests": {
+    "testsRun": 91,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "deployment": {
+    "release_id": "nav-20261025T080257Z",
+    "remote_stage": "/opt/fs-release-stage/fs-user-observation-20261025-v1",
+    "manifest_sha256": "f7e3ff203b9c30ae8090e877f51a0836c275c652da0dfdbbb94262bcce3da434",
+    "package_sha256": "17657deae82255305e4a42a6f27afadf2e6357b4108c82565543ca5f9cbdeffa",
+    "targets": 8,
+    "guards": 158,
+    "merge_commit": "900d2746a8703c9bfd767e031c66b533eecb651e"
+  },
+  "readback": {
+    "targets": 8,
+    "protected": 158,
+    "all_sha256": "matched",
+    "native_image": "sha256:0a6b8e71c8b88db2d008024306c87a7feaeec105b8232598d91df5854374bc3c",
+    "businessWorkerTimerActions": 0
+  },
+  "actual": {
+    "status": "passed",
+    "views": [
+      {
+        "snapshot_id": "us_c82f962a0dcd121ba68b295327f389bb",
+        "policy_version": "short-term-v1",
+        "thresholds_days": [
+          7,
+          14,
+          30
+        ],
+        "data_version": "999",
+        "customer_pool": 17197,
+        "independent_stage_counts": {
+          "silent": 4017,
+          "lost": 8351,
+          "recent": 2860,
+          "waiting": 1969
+        },
+        "project_rules": "matched",
+        "frozen_http_and_tool": "matched",
+        "members_and_export": "matched",
+        "private_detail": "matched_not_exported"
+      },
+      {
+        "snapshot_id": "us_0b75d5bcb9774079f03761cff4fe3440",
+        "policy_version": "long-term-v1",
+        "thresholds_days": [
+          14,
+          30,
+          60
+        ],
+        "data_version": "999",
+        "customer_pool": 17197,
+        "independent_stage_counts": {
+          "waiting": 4092,
+          "silent": 8351,
+          "recent": 4754
+        },
+        "project_rules": "matched",
+        "frozen_http_and_tool": "matched",
+        "members_and_export": "matched",
+        "private_detail": "matched_not_exported"
+      }
+    ],
+    "legacy_snapshot_preserved": "us_0651c6627d529b9582e3da3718e7ebc5",
+    "role_checks": {
+      "admin_summary": 200,
+      "admin_private": 200,
+      "existing_nonadmin_summary": 200,
+      "existing_nonadmin_private": 403,
+      "anonymous": 401
+    },
+    "role_scope": "current IAM over loopback; actual wulv Chrome verified separately",
+    "collection": false,
+    "model_calls": false,
+    "business_writes": false
+  },
+  "browser": {
+    "surface": "existing logged-in wulv Chrome",
+    "url": "https://47.85.224.112/dashboard/users/",
+    "short_and_long_queries": "passed",
+    "scope_preserves_policy": "passed",
+    "duplicate_header_link": "removed",
+    "skip_link": "visually hidden until focus",
+    "final_policy": "short-term-v1",
+    "final_pending": false,
+    "proof_images": [
+      "live-short.png",
+      "live-long.png"
+    ]
+  },
+  "publisher_receipt": "applied-awaiting-actual-http-role-acceptance",
+  "publisher_receipt_note": "Original apply receipt preserved; actual role/UI acceptance is recorded separately here.",
+  "initial_acceptance_error": "Existing SQLite has no json_extract; read-only legacy lookup changed to ordinary rows, then same checks passed.",
+  "not_performed": [
+    "paid model generation",
+    "new collection",
+    "business writes",
+    "natural-cycle or long-term effect acceptance"
+  ]
+}
