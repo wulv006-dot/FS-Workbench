@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "management-all-sites-20261025",
-  "sourceCommit": "0b4387aa44dd217134498f024f605a8a1166dc01",
+  "sourceCommit": "0a43c6ba9a9fd67446d132468f7bf48e3ccf9733",
   "version": "management-all-sites-20261025-f60608d79521",
   "releaseReady": true,
   "businessWrites": false,
@@ -10,7 +10,7 @@
     {
       "candidate": "source/management_facts.py",
       "target": "/opt/fs-boss-workspaces/backend/management_facts.py",
-      "sha256": "19cae0c338f8a9691a4505c2139aaa2174cf31f1404d6acac454aa499edca0d0",
+      "sha256": "a978c5959df731a567c3e58ddc65ea6d86e497c94e0c9c6835571c30f55f1234",
       "beforeSha256": "8b364d6b9512b157e90b80b975163968606080cd332678b3bf4873a466ed2fcd",
       "owner": "0:0",
       "mode": "0o644"
