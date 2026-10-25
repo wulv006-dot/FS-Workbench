@@ -137,5 +137,19 @@ class Scheduling(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'existing_sources'):release.load_base()
             rows[0]['beforeSha256']='a'*64;manifest['businessWrites']=True;p.write_text(json.dumps(manifest),encoding='utf-8')
             with self.assertRaisesRegex(ValueError,'no_business_writes'):release.load_base()
+    def test_publisher_restores_exact_line_endings_and_rejects_content_drift(self):
+        spec=importlib.util.spec_from_file_location('reschedule_publisher_line_endings',ROOT/'deploy/release.py')
+        release=importlib.util.module_from_spec(spec);spec.loader.exec_module(release)
+        original=release.LEGACY.read_bytes()
+        frozen=release.LEGACY.with_name('release_navigation_base.py').read_bytes().replace(b'\r\n',b'\n')
+        with tempfile.TemporaryDirectory() as d:
+            folder=Path(d);release.HERE=folder;release.LEGACY=folder/'legacy.py'
+            release.LEGACY.write_bytes(original)
+            p=folder/'release_navigation_base.py';p.write_bytes(frozen)
+            rows=[dict(candidate=k,target=v,beforeSha256='a'*64,sha256='b'*64,owner='0:0',mode='0o644') for k,v in release.TARGETS.items()]
+            (folder/'approved-manifest.json').write_text(json.dumps(dict(scope=release.SCOPE,files=rows,businessWrites=False,timersChanged=True)),encoding='utf-8')
+            self.assertEqual(release.load_base().HERMES_HISTORY_SCOPE,release.SCOPE)
+            p.write_bytes(frozen+b'\n# unexpected content\n')
+            with self.assertRaisesRegex(ValueError,'frozen_publisher_drift'):release.load_base()
 
 if __name__=='__main__':unittest.main()

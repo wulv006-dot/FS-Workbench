@@ -21,8 +21,13 @@ def load_base():
     anchor="HERE / 'release_navigation_base.py'"
     if source.count(anchor)!=2:raise ValueError('original_nightly_publisher_anchor_changed')
     source=source.replace(anchor,'FROZEN_BASE')
+    read_anchor='raw = (FROZEN_BASE).read_bytes()'
+    if source.count(read_anchor)!=1:raise ValueError('original_publisher_read_anchor_changed')
+    source=source.replace(read_anchor,'raw = FROZEN_BYTES')
     old=types.ModuleType('original_nightly_publisher');old.__file__=str(LEGACY)
     old.FROZEN_BASE=LEGACY.with_name('release_navigation_base.py')
+    # Restore the exact approved CRLF bytes after Git transport; the original SHA check stays intact.
+    old.FROZEN_BYTES=old.FROZEN_BASE.read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
     exec(compile(source,str(LEGACY),'exec'),old.__dict__)
     old.HERE=HERE;old.SCOPE=SCOPE;old.TARGETS=TARGETS;old.NEW=set()
     return old.load_base()
