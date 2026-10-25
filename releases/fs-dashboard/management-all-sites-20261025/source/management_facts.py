@@ -28,7 +28,7 @@ def project_summary(raw,profile,start,end):
  def valid(src,name):
   meta=sources[name]
   # Keep the exact period's last successful native result during revalidation.
-  return raw.get('status')=='available' and src.get('status')=='available' and src.get('period')==period and meta.get('status') in ('available','pending') and (not (raw.get('stale') or src.get('stale') or meta.get('stale') or meta.get('status')=='pending') or bool(meta.get('capturedAt')))
+  return raw.get('status') in ('available','stale') and src.get('status')=='available' and src.get('period')==period and meta.get('status') in ('available','pending') and (not (raw.get('status')=='stale' or raw.get('stale') or src.get('stale') or meta.get('stale') or meta.get('status')=='pending') or bool(meta.get('capturedAt')))
  def all_sites(src):
   if src.get('normalisedScope')=='all-websites':return True
   return profile=='RS' and src.get('normalisedScope')=='rs-selected' and src.get('rsSelection')==dict(rs_site='all',rs_server='all',rs_category='all')
@@ -49,7 +49,7 @@ def project_summary(raw,profile,start,end):
  if numeric(result['rev']) and numeric(result['ord']) and result['ord']>0:result['aov']=round2(result['rev']/result['ord'])
  if numeric(result['rev']) and numeric(result['mar']):result['prof']=round2(result['rev']*result['mar']/100)
  notes.update(rev='Admin 全站销售额（USD）',ord='Admin 全站订单',aov='Admin 全站销售额÷订单',mar='Order 全站发货统计参考率' if profile=='RS' else 'Order 全站订单统计参考率',prof='Admin 全站销售额×Order 参考利润率；USD预估非实结，不是逐单实际成本毛利')
- retained=any(src.get('capturedAt') and (raw.get('stale') or src.get('stale') or src.get('status')=='pending') for src in sources.values())
+ retained=any(src.get('capturedAt') and (raw.get('status')=='stale' or raw.get('stale') or src.get('stale') or src.get('status')=='pending') for src in sources.values())
  return {'dataScope':DATA_SCOPE,'freshness':'retained' if retained else 'fresh','values':result,'notes':notes,'sources':sources,'period':{'start':start,'end':end},'status':'available' if all(numeric(result[k]) for k in ('rev','ord','prof')) else 'partial' if any(numeric(v) for v in result.values()) else 'unavailable'}
 
 def periods(day,target):
@@ -72,7 +72,12 @@ def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof')
  path='/dashboard/fs-home/range.json?'+urlencode({'mode':'summary','profile':profile,'start':start,'end':end})
  local=min(deadline,monotonic()+100);best=None
  while monotonic()<local:
-  reply=reader(path);code=reply.get('http_status');raw=reply.get('body') or {}
+  try:reply=reader(path)
+  except OSError as error:
+   if best is not None and not isinstance(error,PermissionError):return best
+   raise
+  code=reply.get('http_status');raw=reply.get('body') or {}
+  if code in (401,403):raise ValueError('source_denied')
   if code==200:
    row=project_summary(raw,profile,start,end)
    if all(numeric(row['values'][k]) for k in required):return row

@@ -51,7 +51,7 @@ class AllSites(unittest.TestCase):
         self.assertIsNone(m.project_summary(d,'FC27','2026-10-01','2026-10-24')['values']['rev'])
 
     def test_retained_same_period_and_missing_not_zero(self):
-        d=sample('RS');d['stale']=True;d['sources']['Admin'].update(status='pending',capturedAt='2026-10-25T00:35:00+08:00')
+        d=sample('RS');d['status']='stale';d['stale']=True;d['sources']['Admin'].update(status='pending',capturedAt='2026-10-25T00:35:00+08:00')
         d['sources']['Order']['capturedAt']='2026-10-25T00:35:00+08:00'
         row=m.project_summary(d,'RS','2026-10-01','2026-10-24')
         self.assertEqual(row['values']['rev'],1200);self.assertEqual(row['freshness'],'retained')
@@ -80,6 +80,20 @@ class AllSites(unittest.TestCase):
         self.assertEqual(data['projects'][0]['yesterday']['values']['rev'],1200)
         self.assertEqual(data['projects'][0]['owner'],'原负责人');self.assertEqual(targets,original)
         self.assertEqual(data['dataScope'],m.DATA_SCOPE)
+
+    def test_transport_keeps_partial_but_permission_revocation_clears_it(self):
+        d=sample();d['profile']['primary']['status']='pending'
+        for failure in (OSError('read timeout'),403):
+            clock=[0];calls=[]
+            def reader(path):
+                calls.append(path)
+                if len(calls)==1:return {'http_status':200,'body':d}
+                if isinstance(failure,OSError):raise failure
+                return {'http_status':failure,'body':{}}
+            args=dict(sleep=lambda n:clock.__setitem__(0,clock[0]+n),monotonic=lambda:clock[0])
+            if failure==403:
+                with self.assertRaisesRegex(ValueError,'source_denied'):m.read_query(reader,'FC27','2026-10-01','2026-10-24',12,**args)
+            else:self.assertEqual(m.read_query(reader,'FC27','2026-10-01','2026-10-24',12,**args)['values']['rev'],1200)
 
     def test_manual_scope_migration_preserves_original_receipt(self):
         if sys.platform=='win32':
