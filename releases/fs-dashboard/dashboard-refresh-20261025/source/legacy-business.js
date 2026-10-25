@@ -141,7 +141,7 @@ function rsRenderFilters(){
  box.replaceChildren();
  const more=document.createElement('details'),summary=document.createElement('summary'),panel=document.createElement('div');more.className='fc-more-filters';panel.className='fc-more';panel.style.width='min(260px, calc(100vw - 24px))';summary.textContent='更多筛选'+(rsFilters.rs_server!=='all'?' · '+rsOptions.rs_server.find(([v])=>v===rsFilters.rs_server)[1]:'');more.append(summary,panel);more.open=rsMoreOpen;more.ontoggle=()=>{rsMoreOpen=more.open;rsPositionMore(more);};more.addEventListener('keydown',e=>{if(e.key==='Escape'){more.open=false;summary.focus();}});
  for(const [key,title] of [['rs_category','商品类目'],['rs_server','游戏区服']]){
-  const options=rsOptions[key],label=document.createElement('label');label.className='scope-select';label.textContent=title+' ';
+  const options=rsOptions[key],label=document.createElement('label');label.className='scope-select';label.style.whiteSpace='nowrap';label.textContent=title+' ';
   const select=document.createElement('select');select.name=key;select.id=key;if(key==='rs_server'){label.style.display='grid';label.style.gap='6px';select.style.width='100%';select.style.minWidth='0';select.style.maxWidth='100%';}
   for(const [value,title] of options){const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);}select.value=rsFilters[key];label.htmlFor=key;label.append(select);(key==='rs_server'?panel:box).append(label);
   select.onchange=()=>{rsFilters={...rsFilters,[key]:select.value};window.FSExactRange.force();workspaceClearRanges();renderAll();workspaceSync();document.getElementById(key)?.focus();};
@@ -1732,9 +1732,9 @@ function renderToolbar(){
 /* ---------------- tabs ---------------- */
 function renderTabs(){
  const select=document.getElementById('business-scope'),label=select.closest('label');
- label.firstChild.textContent='游戏 ';label.htmlFor=select.id;select.setAttribute('aria-label','游戏');
+ label.firstChild.textContent='游戏 ';label.htmlFor=select.id;label.style.whiteSpace='nowrap';select.setAttribute('aria-label','游戏');
  let site=document.getElementById('business-site');
- if(!site){const field=document.createElement('label');field.className='scope-select';field.htmlFor='business-site';field.append('范围 ');site=document.createElement('select');site.id='business-site';site.style.minWidth='155px';
+ if(!site){const field=document.createElement('label');field.className='scope-select';field.style.whiteSpace='nowrap';field.htmlFor='business-site';field.append('范围 ');site=document.createElement('select');site.id='business-site';site.style.minWidth='155px';
   for(const [value,name] of businessSites){const option=document.createElement('option');option.value=value;option.textContent=name;site.append(option);}field.append(site);label.before(field);
   site.onchange=()=>{businessSite=site.value;fcFilters.site_group=businessSite==='mmoexp'?'main':'all';businessApplySite();window.FSExactRange.force();workspaceClearRanges();renderTabs();renderAll();workspaceSync();site.focus();};}
  businessApplySite();site.value=businessSite;
