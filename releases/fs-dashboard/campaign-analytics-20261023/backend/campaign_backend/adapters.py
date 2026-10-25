@@ -154,6 +154,46 @@ class AdminRead:
             validate=lambda row: positive_id(row.get('site_id')) == site_id
             and positive_id(row.get('gid')) == game_id)
 
+    def search_goods_page(self, site_id, game_id, *, keyword=None, model_id=None,
+                          category_id=None, platform_attribute_id=None, page=1, limit=20):
+        """One scoped GET only. Field names/order are server-owned, never supplied by the client."""
+        site_id, game_id = positive_id(site_id), positive_id(game_id)
+        if site_id != '266' or type(page) is not int or not 1 <= page <= 500 or type(limit) is not int or not 1 <= limit <= 50:
+            raise ContractError('INVALID_CATALOG_PAGE')
+        if (keyword is None) == (model_id is None):
+            raise ContractError('CATALOG_QUERY_REQUIRED')
+        if keyword is not None and (not isinstance(keyword, str) or not 2 <= len(keyword.strip()) <= 80
+                or any(ord(c) < 32 for c in keyword)):
+            raise ContractError('INVALID_CATALOG_KEYWORD')
+        filters = [('site_id', '=', site_id), ('gid', '=', game_id)]
+        expected = {'site_id':site_id, 'gid':game_id}
+        for field, value in (('mid',model_id), ('cid',category_id), ('aid',platform_attribute_id)):
+            if value is not None:
+                expected[field] = positive_id(value)
+                filters.append((field, '=', expected[field]))
+        params = dict(page=page,limit=limit,order='id,desc',**search(filters))
+        if keyword is not None:
+            params['quick_search'] = keyword.strip()
+        data = self._get(LIST_ROUTES['goods'], **params)
+        rows, total = data.get('list'), data.get('total')
+        if isinstance(total, str) and total.isascii() and total.isdecimal():
+            total = int(total)
+        if (not isinstance(rows,list) or type(total) is not int or not 0 <= total <= 100000
+                or len(rows) > limit or (rows and (page-1)*limit+len(rows) > total)
+                or (not rows and (page-1)*limit < total)):
+            raise ContractError('INVALID_PAGE')
+        seen = set()
+        for row in rows:
+            if not isinstance(row,dict):
+                raise ContractError('INVALID_ROW')
+            rid = positive_id(row.get('id'))
+            if rid in seen:
+                raise ContractError('DUPLICATE_PAGE')
+            if any(positive_id(row.get(field)) != value for field,value in expected.items()):
+                raise ContractError('UPSTREAM_SCOPE_MISMATCH')
+            seen.add(rid)
+        return dict(rows=rows,total=total,page=page,page_size=limit,has_more=page*limit<total)
+
     def scoped_product(self, site_id, game_id, goods_id):
         site_id, game_id, goods_id = positive_id(site_id), positive_id(game_id), positive_id(goods_id)
         goods = self.detail('goods', goods_id)

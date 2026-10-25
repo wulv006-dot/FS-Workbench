@@ -17,6 +17,7 @@ const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'postho
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
 const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',seedProvider:()=>centerSeed(previewCatalog(catalog,store.read().layout),seasonalBox.SeasonalData)});
 const centerState=s=>({revision:s.revision,draft:s.draft,published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+ ...(()=>{const seed=centerSeed(previewCatalog(catalog,store.read().layout),seasonalBox.SeasonalData);return {catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?catalog.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys};})(),
  capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
  csrf:undefined});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
@@ -41,6 +42,11 @@ export const server=http.createServer(async(req,res)=>{
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
    if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center/import-product'){
+    const prior=center.recoverImport(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
+    const ref=body.product_ref||{};const data=await backendRead({action:'product_read',site_id:ref.site_id,game_id:ref.game_id,goods_id:ref.goods_id});
+    return json(res,200,{...centerState(center.importProduct(body,auth.user,data.product)),csrf,canEdit:true});
+   }
    if(relative==='analytics/api/center/backend-read')return json(res,200,{status:'ok',data:await backendRead(body)});
    if(relative==='analytics/api/center/backend-mutate')return json(res,200,{status:'ok',data:await backendMutate(body)});
    if(relative==='analytics/api/config'){let saved;try{saved=store.save(body,auth.user);}catch(error){if(!error.code&&!error.status)error.status=400;throw error;}return json(res,200,{status:'saved',...publicState(saved)});}

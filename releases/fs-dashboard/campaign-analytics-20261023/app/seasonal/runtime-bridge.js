@@ -28,6 +28,8 @@
     });
   }
   function publishTheme(config) {
+    window.SeasonalPublishedConfig=config;
+    window.dispatchEvent(new CustomEvent('seasonal-published-catalog', {detail:config}));
     if (publishedThemeApplied) return;
     const publishedTheme = config?.seasonal_theme;
     if (Object.hasOwn(window.SeasonalData.themes, publishedTheme)) {

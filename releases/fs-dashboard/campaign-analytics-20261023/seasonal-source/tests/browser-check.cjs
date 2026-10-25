@@ -1,7 +1,8 @@
 // Local browser evidence with explicit test fixtures, never a production transaction.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const root=path.resolve(__dirname,'../../app');
+const root=path.resolve(__dirname,'../../app'),catalogBox={};require('node:vm').runInNewContext(fs.readFileSync(path.join(root,'seasonal/campaign-data.js'),'utf8'),catalogBox);
+const publishedKeys=catalogBox.SeasonalData.products.map(p=>'seasonal-'+p.id);
 const server=http.createServer((req,res)=>{
   const file=path.resolve(root,req.url.split('?')[0].replace(/^\/events\//,''));
   if(!file.startsWith(root+path.sep)){res.writeHead(404).end();return;}
@@ -16,7 +17,7 @@ const server=http.createServer((req,res)=>{
     const quoteIntents=[];
     await page.route('**/api/campaign/**',async route=>{
       const url=route.request().url(),request=route.request();let body,status=200;
-      if(url.endsWith('/config'))body={seasonal_theme:'christmas',pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',rule_version:'r1',benefit_binding_version:'b1',product_keys:['seasonal-fc-1']}],products:[{key:'seasonal-fc-1',available:true,quantity:{unit:'K',min:'100'}}]};
+      if(url.endsWith('/config'))body={release_id:'synthetic-all-original-products',seasonal_theme:'christmas',pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',rule_version:'r1',benefit_binding_version:'b1',product_keys:publishedKeys}],products:[{key:'seasonal-fc-1',available:true,quantity:{unit:'K',min:'100'}}]};
       else if(url.endsWith('/capabilities'))body={integration_mode:mode,live_checkout:false,test_capabilities:{prepare_checkout:mode==='integration_test'}};
       else if(url.endsWith('/intents')){intents++;assert.equal(request.postDataJSON().lines[0].quantity.value,'100');if(failure==='SPEC_REQUIRED'){status=422;body={code:failure};}else body={intent_id:'intent-original',operation_id:'operation-original'};}
       else if(url.endsWith('/quote')){quotes++;quoteIntents.push(request.postDataJSON().intent_id);if(failure){status=503;body={code:failure};}else body={quote_id:'quote-original',status:'integration_test_quoted'};}

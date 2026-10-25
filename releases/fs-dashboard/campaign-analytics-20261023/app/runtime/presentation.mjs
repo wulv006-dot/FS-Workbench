@@ -1,4 +1,4 @@
-import {presentationFields,fail} from './snapshot.mjs';
+import {presentationFields,fail,projectPreviewProduct,pageDisplayFields} from './snapshot.mjs';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const routes=new Set(['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html']);
 const aliases={'':'Weekly-Scout.html','index.html':'Weekly-Scout.html','seasonal/':'seasonal/index.html'};
@@ -9,6 +9,32 @@ const utc=value=>new Date(value).toISOString().replace('T',' ').replace(/Z$/,' U
 const time=value=>`<time datetime="${escape(new Date(value).toISOString())}">${escape(utc(value))}</time>`;
 const windowText=p=>`Starts: ${p.starts_at?utc(p.starts_at):'not specified'} · Ends: ${p.ends_at?utc(p.ends_at):'not specified'}`;
 const windowHtml=p=>`Starts: ${p.starts_at?time(p.starts_at):'not specified'} · Ends: ${p.ends_at?time(p.ends_at):'not specified'}`;
+const importedFor=(snapshot,page)=>{
+  const products=new Map((snapshot?.products||[]).filter(p=>p.preview_only===true).map(p=>[p.key,p]));
+  return (page?.product_keys||[]).filter(key=>products.has(key)).map(key=>projectPreviewProduct(products.get(key)));
+};
+function displayGroups(snapshot,page,source){
+  const fields=pageDisplayFields(page),products=new Map((snapshot.products||[]).map(p=>[p.key,p])),groups={};
+  for(const key of page.product_keys||[]){
+    const raw=products.get(key);if(!raw)continue;
+    const role=fields.product_roles?.[key]??(raw.preview_only?'preview':null);if(!role)continue;
+    const product=raw.preview_only?projectPreviewProduct(raw):raw;
+    (groups[role]||=[]).push(product);
+  }
+  const titles={preview:'Unassigned product previews',player:'Published player previews',bundle:'Published bundle previews',core:'Published SBC core previews',companion:'Published SBC companion previews'};
+  let first=true;
+  return Object.entries(groups).map(([role,rows])=>{
+    const marker=first?'campaign-imported-products':'campaign-imported-products-'+role;first=false;
+    const cards=rows.map(product=>{
+      const related=(fields.sbc_companions?.[product.key]||[]).map(key=>products.get(key)).filter(Boolean);
+      const pairing=role==='core'?(related.length?`<p>Configured companion previews:</p><ul>${related.map(p=>`<li>${escape(p.title)}</li>`).join('')}</ul>`:'<p>No companions configured. This is not a complete SBC lineup.</p>'):'';
+      return `<article class="fca-card"><h3>${escape(product.title)}</h3>${product.title_source==='identity_fallback'?'<p>Identity display label; original product title is unknown.</p>':''}<p>Product ${escape(product.product_ref.goods_id)} · Model ${escape(product.product_ref.model_id||'not verified')}</p><p>Platform reference: ${escape(product.platform.attribute_id||'not verified')}</p>${pairing}<p>Display role only; no SKU, price or purchase eligibility is implied.</p><p>Price unavailable · Purchase mapping unverified</p></article>`;
+    }).join('');
+    const html=`<section id="${marker}" class="${sectionClass(source)}" data-display-role="${role}"><h2>${titles[role]}</h2><p>Product information only. Specifications, quantities and prices still require verification. Purchasing is not enabled.</p><div class="fca-grid">${cards}</div></section>`;
+    const anchor=role==='bundle'?'bundle-grid':role==='core'?'sbc-lineup':role==='companion'?'sbc-options':'product-grid';
+    return {html,anchor};
+  });
+}
 const sectionClass=source=>/href=["'][^"']*event\.css(?:[?"'])/i.test(source)?'seo-content page-width':'fc-activity fca-container fca-guide';
 function metadata(html,p,publicBase) {
   const fieldsConfig=presentationFields(p);
@@ -58,9 +84,17 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   if(end!==null&&end<=clock)return neutral(source,p,410,'This activity has ended.');
   if(start!==null&&start>clock)return neutral(source,p,200,'Upcoming activity — the published start time has not arrived.');
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
+  html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=metadata(html,p,publicBase);
   const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
-  html=html.replace(/<body\b[^>]*>/i,tag=>tag+banner);
+  let fallback='';
+  if(!target.startsWith('seasonal/'))for(const group of displayGroups(snapshot,p,source)){
+    // Use stable siblings of the actual original layout containers. The original
+    // activity client replaces container contents, so inserting inside would vanish.
+    const anchor=new RegExp('<div\\b[^>]*\\bid=["\']'+group.anchor+'["\'][^>]*>','i');
+    if(anchor.test(html))html=html.replace(anchor,tag=>group.html+tag);else fallback+=group.html;
+  }
+  html=html.replace(/<body\b[^>]*>/i,tag=>tag+banner+fallback);
   // Replace the Seasonal source's illustrative caption; its client must retain this published value too.
   html=html.replace(/(<([a-z][a-z0-9]*)\b[^>]*\bid=["']campaign-date["'][^>]*>)[\s\S]*?(<\/\2\s*>)/gi,(all,open,tag,close)=>open.replace(/>$/,' data-published-schedule="true">')+escape(windowText(p))+close);
   return {status:200,body:html};
@@ -72,7 +106,8 @@ export function projectFcCatalog(originalCatalog,snapshot) {
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
     return [...new Set((page?.product_keys||[]).flatMap(key=>{
       const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(key),product=match&&products[match[1]];
-      return product?.platforms?.[match[2]]?[match[1]]:[];
+      const role=page.product_roles?.[key];
+      return product?.platforms?.[match[2]]&&(!role||({player:'player',bundle:'bundle',core:'sbc',companion:'player'})[role]===product.kind)?[match[1]]:[];
     }))];
   };
   const weekly=keys('Weekly-Scout.html').filter(key=>products[key].kind==='player');
@@ -82,15 +117,20 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.trio.ids=trioKeys.filter(key=>products[key].kind==='player'&&products[key].version===catalog.trio.series);
   catalog.bundles.ids=trioKeys.filter(key=>products[key].kind==='bundle');
   catalog.sbc.ids=sbcKeys.filter(key=>products[key].kind==='sbc');
-  catalog.sbc.routes=Object.fromEntries(catalog.sbc.ids.filter(key=>originalCatalog.sbc.routes[key]).map(key=>{
-    const original=originalCatalog.sbc.routes[key],selected=ids=>(ids||[]).filter(id=>sbcSet.has(id)&&products[id]?.kind==='player');
+  const publishedRoutes=snapshot?.fc_layout?.routes??originalCatalog.sbc.routes;
+  catalog.sbc.routes=Object.fromEntries(catalog.sbc.ids.filter(key=>publishedRoutes[key]).map(key=>{
+    const original=publishedRoutes[key],selected=ids=>(ids||[]).filter(id=>sbcSet.has(id)&&products[id]?.kind==='player');
     return [key,{...structuredClone(original),picks:selected(original.picks),alternatives:selected(original.alternatives)}];
   }));
-  catalog.sbc.defaultId=catalog.sbc.ids.includes(originalCatalog.sbc.defaultId)?originalCatalog.sbc.defaultId:catalog.sbc.ids[0]??null;
+  const defaultCore=snapshot?.fc_layout?.defaultCore??originalCatalog.sbc.defaultId;
+  catalog.sbc.defaultId=catalog.sbc.ids.includes(defaultCore)?defaultCore:catalog.sbc.ids[0]??null;
   catalog.sbc.fallbackPicks=[...(catalog.sbc.routes[catalog.sbc.defaultId]?.picks||[])];
   catalog.sbc.allListedIds=[...catalog.sbc.ids];
   const selected=new Set([...weekly,...catalog.trio.ids,...catalog.bundles.ids,...catalog.sbc.ids,...Object.values(catalog.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]);
   catalog.products=Object.fromEntries(Object.entries(catalog.products).filter(([key])=>selected.has(key)));
+  // Imported items stay outside the original priced/SBC/trio algorithms until their
+  // page-specific structure is actually verified. They are visible metadata previews.
+  catalog.imported_products=Object.fromEntries((snapshot?.pages||[]).filter(p=>p.active===true&&routes.has(route(p.path))&&!route(p.path).startsWith('seasonal/')).map(p=>[p.page_id,importedFor(snapshot,p)]));
   catalog.mode='preview';catalog.manageDocumentLanguage=false;catalog.defaultView='weekly';
   return catalog;
 }
