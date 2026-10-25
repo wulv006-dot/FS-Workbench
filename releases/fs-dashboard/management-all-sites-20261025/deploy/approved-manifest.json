@@ -66,7 +66,7 @@
     {
       "candidate": "generated/navigation.conf",
       "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-      "sha256": "46d946b2930e790cfea79a99248346bec4cf735177f4a376147d295544d0746b",
+      "sha256": "b10c97652cd709a0ba3c6bd3116e8e8eb1d8649c712e72cace281defb4d38482",
       "beforeSha256": "2812525dd1004bf60dc7ec95a8b8c2d20531e4ad729dd1c4d1c90598734865c3",
       "owner": "0:0",
       "mode": "0o644"
