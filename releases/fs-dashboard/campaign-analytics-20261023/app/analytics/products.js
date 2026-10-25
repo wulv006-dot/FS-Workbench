@@ -104,6 +104,11 @@
     // Apply only this edit's selection delta; never repopulate previously removed items.
     const retained=pageKeys(page).filter(key=>!removed.has(/^fc-(.+)-(ps|xbox|pc)$/.exec(key)?.[1]));
     page.product_keys=[...new Set([...retained,...added.flatMap(id=>(state.catalog_products||[]).filter(p=>p.key.startsWith('fc-'+id+'-')).map(p=>p.key))])];
+    if(selectedPage==='fc27-trio'){
+      const rank=key=>d.trio.indexOf(/^fc-(.+)-(ps|xbox|pc)$/.exec(key)?.[1]);
+      // Slot changes reorder existing platform-specific references; never rebuild them.
+      page.product_keys=[...page.product_keys.filter(key=>rank(key)>=0).sort((a,b)=>rank(a)-rank(b)),...page.product_keys.filter(key=>rank(key)<0)];
+    }
     if(page.product_roles)page.product_roles=Object.fromEntries(Object.entries(page.product_roles).filter(([key])=>page.product_keys.includes(key)));
     prunePairs(page);
   }
@@ -112,7 +117,7 @@
     if(['weekly','bundles','sbc'].includes(el.dataset.layoutList)){
       const field=el.dataset.layoutList;d[field]=[...$('fc-layout').querySelectorAll('[data-layout-list="'+field+'"]:checked')].map(x=>x.value);
       if(field==='sbc'){for(const key of d.sbc)d.routes[key]||={picks:[...state.fc_catalog.sbc.fallbackPicks],alternatives:[]};if(!d.sbc.includes(d.defaultCore))d.defaultCore=d.sbc[0]||null;}
-    }else if(el.dataset.trio!=null)d.trio[Number(el.dataset.trio)]=el.value;
+    }else if(el.dataset.trio!=null){const index=Number(el.dataset.trio),other=d.trio.indexOf(el.value),previousId=d.trio[index];if(other>=0&&other!==index)d.trio[other]=previousId;d.trio[index]=el.value;}
     else if(el.id==='layout-default-core')d.defaultCore=el.value;
     else {const core=el.closest('[data-layout-core]')?.dataset.layoutCore;if(!core)return;
       if(el.dataset.layoutPick!=null)d.routes[core].picks[Number(el.dataset.layoutPick)]=el.value;
