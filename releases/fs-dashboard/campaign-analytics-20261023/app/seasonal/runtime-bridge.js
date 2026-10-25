@@ -9,6 +9,9 @@
     SPEC_INVALID: 'These specifications could not be verified. Open the original product; nothing has been ordered.',
     PRODUCT_UNAVAILABLE: 'This package is not enabled for server checkout. Product mapping or availability still needs verification; use the original store link.',
     RULE_VERSION_CONFLICT: 'The published offer changed. Review your selection again before continuing.',
+    PROMOTION_NOT_STARTED: 'This published activity has not started yet. Checkout is unavailable before its published start time.',
+    // commerce.active() uses this code for inactive pages as well as elapsed end times.
+    PROMOTION_EXPIRED: 'This published activity is paused or has ended. Checkout is unavailable for this offer.',
     OPERATION_UNKNOWN: 'The original operation is pending or unknown. Check its status; do not submit it again.',
     PRICE_CHANGED: 'The store price changed. Review a new quote before continuing.',
     QUOTE_EXPIRED: 'This quote expired. Review your selection again.'
