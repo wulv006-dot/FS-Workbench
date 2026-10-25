@@ -9,7 +9,7 @@ PROPERTIES = {
     'view': {'type': 'string', 'enum': list(VIEWS)},
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
-    'as_of': {'type': 'string'}, 'policy_version': {'type': 'string'},
+    'as_of': {'type': 'string'}, 'policy_version': {'type': 'string', 'description': 'short-term-v1 uses 7/14/30 days; long-term-v1 uses 14/30/60 days. Both apply the selected thresholds to all projects. Legacy versions and frozen snapshots keep their original rules.'},
     'state_basis': {'type': 'string', 'enum': ['period_cohort','current', 'period_end'], 'description': 'Default period_cohort: only emails purchasing from start through yesterday; end is fixed by server to today 00:00 Beijing, as_of forbidden. Period first-order ES flag supplies new/old; second order and stages use that period only. current and period_end retain legacy all-history views.'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
