@@ -161,9 +161,36 @@ class AnalysisTests(unittest.TestCase):
         self.assertFalse(result['rescan_policy']['automatic_update_cursor_verified'])
 
     def test_unknown_payment_state_is_not_implicitly_refunded(self):
-        result = self.sync(Reader([order(state=2)], [log()]))
-        self.assertIsNone(result['coverage']['refunded_observations'])
-        self.assertIn('PAYMENT_STATE_UNKNOWN', result['warnings'])
+        for state in (99, '99', True, None, 2.0):
+            with self.subTest(state=state):
+                result = self.sync(Reader([order(state=state)], [log()]))
+                self.assertIsNone(result['coverage']['refunded_observations'])
+                self.assertIn('PAYMENT_STATE_UNKNOWN', result['warnings'])
+
+    def test_verified_native_refund_status_excludes_sale_without_inventing_money(self):
+        for state in (2, '2'):
+            with self.subTest(state=state):
+                self.sync()
+                raw = order(state=state)
+                raw.update(status=86, return_money='99999')
+                result = self.sync(Reader([raw], [log()]))
+                self.assertEqual(result['coverage']['refunded_observations'], 1)
+                self.assertEqual(result['coverage']['paid_observations'], 0)
+                self.assertEqual(result['coverage']['bound_paid_orders'], 0)
+                self.assertEqual(result['totals'], [])
+                self.assertNotIn('PAYMENT_STATE_UNKNOWN', result['warnings'])
+                again = self.sync(Reader([raw], [log()]))
+                self.assertEqual(again['coverage']['refunded_observations'], 1)
+                self.assertEqual(self.store.db.execute('SELECT count(*) FROM facts').fetchone()[0], 1)
+                self.assertTrue(result['rescan_policy']['historical_refunds_require_rescan'])
+
+    def test_known_status_does_not_enable_refund_amount_or_line_allocation(self):
+        result = self.sync(Reader([order(), order('refund', state=2)], [log(), log('refund', log_id=2)]))
+        self.assertEqual(result['coverage']['refunded_observations'], 1)
+        self.assertEqual(result['totals'][0]['associated_paid_minor'], 1000)
+        self.assertIsNone(result['totals'][0]['refund_minor'])
+        self.assertIsNone(result['totals'][0]['net_minor'])
+        self.assertIsNone(result['totals'][0]['activity_paid_minor'])
 
     def test_foreign_or_unpaid_coupon_logs_and_unknown_status_never_attribute(self):
         for status in (0, 99):

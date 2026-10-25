@@ -262,10 +262,15 @@ def _reconcile(reader, store, site_id, start, end, config=None):
     facts = []
     for number, row in sorted(by_number.items()):
         raw_state = row.get('pay_status')
-        refund_verified = config.get('refund_state_verified') is True and bool(config.get('refund_state_verification_ref'))
+        # Same Admin order/index source: baseline v15 and the existing monthly-paid
+        # consumer verify 1=paid, 2=refunded (including partial refunds). This is
+        # status evidence only, never a refund amount or settlement event.
+        known_state = type(raw_state) in (int, str) and raw_state in (1, 2, '1', '2')
+        refund_verified = known_state or (config.get('refund_state_verified') is True and bool(config.get('refund_state_verification_ref')))
         refunded = refund_verified and any(type(value) is type(raw_state) and value == raw_state
                                            for value in config.get('refunded_payment_states', []))
-        state = 'paid' if type(raw_state) in (int, str) and raw_state in (1, '1') else ('refunded' if refunded else 'unknown')
+        state = ('paid' if known_state and raw_state in (1, '1') else
+                 'refunded' if (known_state and raw_state in (2, '2')) or refunded else 'unknown')
         issues, uses = set(), []
         if state == 'unknown':
             issues.add('PAYMENT_STATE_UNKNOWN')
